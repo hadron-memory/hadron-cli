@@ -116,12 +116,16 @@ schema and rejects a violation.`,
 				input.IsRunnable = &runnable
 			}
 
-			resp, err := gen.CreateNode(cmd.Context(), client, &input)
+			// Dispatch by KIND, not by command (#1201). `--runnable` produces a
+			// task-kind node, which the generic `createNode` REFUSES — so this
+			// command was broken against the server for exactly the flag it
+			// advertises (@codex on #614, reproduced before it was believed).
+			resp, err := api.CreateNodeByKind(cmd.Context(), client, &input)
 			if err != nil {
 				return api.MapError(err)
 			}
 
-			dto := createDTO(resp.CreateNode)
+			dto := createDTO(resp)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
 				t.Row("✓ created", dto.Loc, dto.Name)

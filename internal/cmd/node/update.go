@@ -196,11 +196,27 @@ schema-governed memory the server validates the result and rejects a violation.)
 				}
 				input.Reason = reasonPtr
 
-				resp, err := gen.UpdateNode(cmd.Context(), client, &input)
+				// The gate reads the RESULTING state, and an omitted field
+				// preserves the stored one — so a plain `--description` edit of
+				// a task or a review check still produces a governed node and
+				// the generic `updateNode` refuses it. Deciding from the input
+				// alone would route exactly those edits wrong, which is why the
+				// node's current kind is read first (@codex on #614).
+				//
+				// One extra read per update, on a command that is not a hot
+				// loop. The alternative — write optimistically and retry on the
+				// typed refusal — doubles latency on the governed path and turns
+				// a routing decision into error handling.
+				cur := api.NodeKindState{}
+				if existing, gerr := gen.GetNode(cmd.Context(), client, nodeID); gerr == nil && existing.Node != nil {
+					cur.Role = existing.Node.Role
+					cur.IsRunnable = existing.Node.IsRunnable != nil && *existing.Node.IsRunnable
+				}
+				resp, err := api.UpdateNodeByKind(cmd.Context(), client, &input, cur)
 				if err != nil {
 					return api.MapError(err)
 				}
-				dto = updateDTO(resp.UpdateNode)
+				dto = updateDTO(resp)
 			}
 
 			// A --data-merge runs last (a separate mutation), so its result is

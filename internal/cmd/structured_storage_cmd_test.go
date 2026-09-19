@@ -52,6 +52,7 @@ func TestNodeAddObjectTypeAndProperties(t *testing.T) {
 func TestNodeUpdateObjectTypeAndProperties(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -83,6 +84,7 @@ func TestNodeUpdateObjectTypeAndProperties(t *testing.T) {
 func TestNodeUpdateObjectTypeClear(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)

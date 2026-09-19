@@ -207,6 +207,7 @@ query GetNode($ref: ID!) {
     abstract
     abstractOriginHash
     nodeType
+    role
     objectType
     tags
     content
@@ -281,26 +282,40 @@ mutation CreateNode(
   }
 }
 
-# The protected-loc door (hadron-server #1180, cli #606). Identical in effect to
-# createNode; the ONLY difference is that it carries the bypass, so an authoring
-# tool can write where the generic node surface is refused once a memory
-# declares `protectedLocs`. Pure routing — it validates nothing createNode does
-# not, and knows nothing about specs, reviews or tasks. The authoring rules stay
-# in `hadron spec` / `hadron coding`, which are on the closed exception list
-# (cor:api:240:02) on the audience ground.
+# ---- The kind-specific authoring doors (hadron-server #1201, cli #606) ----
 #
-# It is a GUARDRAIL, not a security boundary: what it refuses is the ACCIDENTAL
-# generic write, told which tool to use. The Channel source of the same gate IS
-# a boundary (#1047). Same mechanism, same error code, different strengths — do
-# not read this as making the specs corpus tamper-evident.
+# #1203 REPLACED the single `authorProtectedNode` with one door per KIND, and
+# DELETED the generic one — so this is not a rename that could be deferred: the
+# old field no longer exists on the server and every call site broke at once.
 #
-# `upsert` overwrites a live node instead of rejecting with
-# NodeLocConflictError. Every CLI call site passes FALSE — see the api wrapper
-# for why that is a deliberate choice and not an oversight.
+# A door is named for what it writes and is exempt from its OWN kind only, so
+# holding one is no longer a skeleton key over every declared address. It stays
+# PURE ROUTING: it validates nothing `createNode` does not, and the authoring
+# rules stay in `hadron spec` / `hadron coding`, which are on the closed
+# exception list (cor:api:240:02) on the audience ground.
 #
-# The omitempty set is repeated verbatim from CreateNode above: both operations
-# bind the same generated CreateNodeInput, so the two lists must agree or the
-# omit-vs-null wire contract differs by which operation you happened to call.
+# THE GATE READS THE RESULTING STATE, not the request, so which door a write
+# needs is decided by what the node WILL BE:
+#
+#   role: "spec"        -> createSpecNode   / updateSpecNode     (DILIGENCE)
+#   role: "review"      -> createReviewNode / updateReviewNode   (SECURITY)
+#   isRunnable: true    -> createTaskNode   / updateTaskNode     (CAPABILITY)
+#
+# The three are NOT equally strong and the server's own SDL says so. Spec is
+# diligence — it attests the spec tool authored the node, not that nobody else
+# could. Review is security: a review may be a safety check, so removing one is
+# the attack. Task is the only capability gate, because `isRunnable` cannot be
+# dropped to evade it without the node ceasing to run.
+#
+# `Memory.protectedLocs` is GONE (#1203). Nothing is protected by ADDRESS any
+# more, which is why `coding preflight add` writes through the generic
+# `createNode` again: its route targets are non-runnable orientation nodes
+# carrying no role, so they are not of any governed kind.
+#
+# NO `upsert` ARGUMENT. The old door took one and every call site passed false;
+# the new doors do not offer it, so the re-run case is a NodeLocConflictError
+# (exit 5) rather than a silent overwrite of a permanent citation — which is
+# what those call sites were asking for anyway.
 # @genqlient(for: "CreateNodeInput.abstract", omitempty: true)
 # @genqlient(for: "CreateNodeInput.aiAgent", omitempty: true)
 # @genqlient(for: "CreateNodeInput.alias", omitempty: true)
@@ -317,14 +332,13 @@ mutation CreateNode(
 # @genqlient(for: "CreateNodeInput.ownerRepo", omitempty: true)
 # @genqlient(for: "CreateNodeInput.reason", omitempty: true)
 # @genqlient(for: "CreateNodeInput.properties", omitempty: true)
+# @genqlient(for: "CreateNodeInput.role", omitempty: true)
 # @genqlient(for: "CreateNodeInput.seq", omitempty: true)
 # @genqlient(for: "CreateNodeInput.tags", omitempty: true)
-mutation AuthorProtectedNode(
+mutation CreateSpecNode(
   $input: CreateNodeInput!
-  # @genqlient(omitempty: true)
-  $upsert: Boolean
 ) {
-  authorProtectedNode(input: $input, upsert: $upsert) {
+  createSpecNode(input: $input) {
     id
     memoryId
     loc
@@ -333,6 +347,157 @@ mutation AuthorProtectedNode(
     tags
     seq
     isRunnable
+    role
+    updatedAt
+  }
+}
+
+# @genqlient(for: "CreateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "CreateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "CreateNodeInput.alias", omitempty: true)
+# @genqlient(for: "CreateNodeInput.content", omitempty: true)
+# @genqlient(for: "CreateNodeInput.contentType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.data", omitempty: true)
+# @genqlient(for: "CreateNodeInput.description", omitempty: true)
+# @genqlient(for: "CreateNodeInput.edges", omitempty: true)
+# @genqlient(for: "CreateNodeInput.id", omitempty: true)
+# @genqlient(for: "CreateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "CreateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "CreateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.objectType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "CreateNodeInput.reason", omitempty: true)
+# @genqlient(for: "CreateNodeInput.properties", omitempty: true)
+# @genqlient(for: "CreateNodeInput.role", omitempty: true)
+# @genqlient(for: "CreateNodeInput.seq", omitempty: true)
+# @genqlient(for: "CreateNodeInput.tags", omitempty: true)
+# @genqlient(for: "CreateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "CreateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "CreateNodeInput.alias", omitempty: true)
+# @genqlient(for: "CreateNodeInput.content", omitempty: true)
+# @genqlient(for: "CreateNodeInput.contentType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.data", omitempty: true)
+# @genqlient(for: "CreateNodeInput.description", omitempty: true)
+# @genqlient(for: "CreateNodeInput.edges", omitempty: true)
+# @genqlient(for: "CreateNodeInput.id", omitempty: true)
+# @genqlient(for: "CreateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "CreateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "CreateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.objectType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "CreateNodeInput.reason", omitempty: true)
+# @genqlient(for: "CreateNodeInput.properties", omitempty: true)
+# @genqlient(for: "CreateNodeInput.role", omitempty: true)
+# @genqlient(for: "CreateNodeInput.seq", omitempty: true)
+# @genqlient(for: "CreateNodeInput.tags", omitempty: true)
+mutation CreateTaskNode(
+  $input: CreateNodeInput!
+) {
+  createTaskNode(input: $input) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    seq
+    isRunnable
+    role
+    updatedAt
+  }
+}
+
+# @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.name", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.alias", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.content", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.contentType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.data", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.description", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.edges", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.objectType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.reason", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.properties", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.role", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.seq", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.tags", omitempty: true)
+mutation UpdateReviewNode(
+  $input: UpdateNodeInput!
+) {
+  updateReviewNode(input: $input) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    seq
+    isRunnable
+    role
+    updatedAt
+  }
+}
+
+# @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.name", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.alias", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.content", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.contentType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.data", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.description", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.edges", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.objectType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.reason", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.properties", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.role", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.seq", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.tags", omitempty: true)
+mutation UpdateTaskNode(
+  $input: UpdateNodeInput!
+) {
+  updateTaskNode(input: $input) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    seq
+    isRunnable
+    role
+    updatedAt
+  }
+}
+
+mutation CreateReviewNode(
+  $input: CreateNodeInput!
+) {
+  createReviewNode(input: $input) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    seq
+    isRunnable
+    role
     updatedAt
   }
 }
@@ -375,7 +540,58 @@ mutation UpdateNode(
     name
     nodeType
     tags
+    seq
     isRunnable
+    updatedAt
+  }
+}
+
+# The UPDATE door for the spec kind (#1201) — createSpecNode's counterpart.
+#
+# It is needed because the gate reads the RESULTING state: editing a node that
+# already carries `role: "spec"` still produces one, so the generic `updateNode`
+# refuses it even when the edit touches neither signal. That is the point — a
+# spec node must not be rewritable through the generic surface.
+#
+# Identical to `updateNode` otherwise, SELECTORS INCLUDED (`id` XOR `memoryId` +
+# `loc`), and it never creates and never moves. So omit-to-preserve holds here
+# exactly as it does there, which is what `spec edit` depends on and what
+# routing an edit through a CREATE door could never have given it (#1192).
+# @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.name", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.alias", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.content", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.contentType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.data", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.description", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.edges", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.objectType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.reason", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.properties", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.role", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.seq", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.tags", omitempty: true)
+mutation UpdateSpecNode(
+  $input: UpdateNodeInput!
+) {
+  updateSpecNode(input: $input) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    seq
+    isRunnable
+    role
     updatedAt
   }
 }
@@ -454,6 +670,7 @@ mutation MoveNode(
     name
     nodeType
     tags
+    seq
     isRunnable
     updatedAt
   }
@@ -479,6 +696,7 @@ mutation CloneNode(
     name
     nodeType
     tags
+    seq
     isRunnable
     updatedAt
   }

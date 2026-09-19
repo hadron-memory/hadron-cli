@@ -686,6 +686,16 @@ func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 		LlmModel:    in.LlmModel,
 		OwnerRepo:   in.OwnerRepo,
 		Reason:      in.Reason,
+		// #1201. Caught by TestUpdateNodeInputFromMapsAllFields the moment the
+		// field appeared, which is what that guard is for: dropping it would
+		// mean re-importing a spec or review node silently STRIPS the role that
+		// makes it governed, leaving it rewritable through the generic surface.
+		//
+		// Mapping it does not let `node import` mint a governed node — the
+		// server refuses a governed write on the generic surface, which is the
+		// gate doing its job. It keeps the import honest about what the file
+		// says, and the refusal is then visible rather than silently obeyed.
+		Role: in.Role,
 	}
 }
 

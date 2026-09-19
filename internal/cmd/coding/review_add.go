@@ -23,6 +23,12 @@ import (
 // membership.go) — but it is the tag callers filter on.
 var defaultCheckTags = []string{"review", "review-criteria"}
 
+// reviewRole is the governed `Node.role` a check carries (#1201). Review is the
+// SECURITY entry in the register rather than the tidiness one: a review may be
+// a safety check, so an attacker able to modify an assignment must not also be
+// able to remove the check meant to catch it.
+var reviewRole = api.ReviewNodeRole
+
 // defaultLinkLabel is the relationship a --link edge gets when none is given.
 // The convention in the live trees is that a check points at the canonical
 // convention/finding node that explains the rule in full, rather than
@@ -88,7 +94,11 @@ reviewer skip the check without reading it, then TODO sections to fill in.
 
 A check created this way passes ` + "`coding review lint`" + ` as written.
 Creating a check that already exists fails rather than overwriting it — edit an
-existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + `.`,
+existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + `.
+
+A check carries role "review" (#1201), so the generic node surface will not
+rewrite it — ` + "`hadron node update`" + ` reads the node's kind and routes the
+edit through the review door for you.`,
 		Example: `  hadron coding review create thin-resolver-field -m hrn:mem:acme.com:kb \
     --trigger "adding or modifying a GraphQL resolver" \
     --description "Resolver fields stay thin — applies when adding or modifying a resolver."
@@ -185,12 +195,21 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 				Content:     &body,
 				Tags:        mergeTags(defaultCheckTags, tags),
 				Edges:       edges,
+				// The governed role (#1201) — what the server's gate READS. The
+				// door is only how the write gets through; without this the check
+				// is ungoverned and the generic `updateNode` can rewrite it.
+				//
+				// It also closes a gap @Ada named: `review_add` set NO nodeType
+				// and identified a check purely by TAGS, which is the weakest
+				// carrier of the three and the one @Dara rejected for specs. A
+				// review's kind now lives on a column.
+				Role: &reviewRole,
 			}
 			if cmd.Flags().Changed("seq") {
 				input.Seq = &seq
 			}
 
-			resp, err := api.AuthorProtectedNode(ctx, client, &input, false)
+			resp, err := api.CreateReviewNode(ctx, client, &input)
 			if err != nil {
 				return api.MapError(err)
 			}
