@@ -2791,75 +2791,6 @@ type AuthContextResponse struct {
 // GetAuthContext returns AuthContextResponse.AuthContext, and is useful for accessing the field via an interface.
 func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return v.AuthContext }
 
-// AuthorProtectedNodeAuthorProtectedNode includes the requested fields of the GraphQL type Node.
-type AuthorProtectedNodeAuthorProtectedNode struct {
-	Id         string   `json:"id"`
-	MemoryId   string   `json:"memoryId"`
-	Loc        string   `json:"loc"`
-	Name       string   `json:"name"`
-	NodeType   string   `json:"nodeType"`
-	Tags       []string `json:"tags"`
-	Seq        *int     `json:"seq"`
-	IsRunnable *bool    `json:"isRunnable"`
-	UpdatedAt  string   `json:"updatedAt"`
-}
-
-// GetId returns AuthorProtectedNodeAuthorProtectedNode.Id, and is useful for accessing the field via an interface.
-func (v *AuthorProtectedNodeAuthorProtectedNode) GetId() string { return v.Id }
-
-// GetMemoryId returns AuthorProtectedNodeAuthorProtectedNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *AuthorProtectedNodeAuthorProtectedNode) GetMemoryId() string { return v.MemoryId }
-
-// GetLoc returns AuthorProtectedNodeAuthorProtectedNode.Loc, and is useful for accessing the field via an interface.
-func (v *AuthorProtectedNodeAuthorProtectedNode) GetLoc() string { return v.Loc }
-
-// GetName returns AuthorProtectedNodeAuthorProtectedNode.Name, and is useful for accessing the field via an interface.
-func (v *AuthorProtectedNodeAuthorProtectedNode) GetName() string { return v.Name }
-
-// GetNodeType returns AuthorProtectedNodeAuthorProtectedNode.NodeType, and is useful for accessing the field via an interface.
-func (v *AuthorProtectedNodeAuthorProtectedNode) GetNodeType() string { return v.NodeType }
-
-// GetTags returns AuthorProtectedNodeAuthorProtectedNode.Tags, and is useful for accessing the field via an interface.
-func (v *AuthorProtectedNodeAuthorProtectedNode) GetTags() []string { return v.Tags }
-
-// GetSeq returns AuthorProtectedNodeAuthorProtectedNode.Seq, and is useful for accessing the field via an interface.
-func (v *AuthorProtectedNodeAuthorProtectedNode) GetSeq() *int { return v.Seq }
-
-// GetIsRunnable returns AuthorProtectedNodeAuthorProtectedNode.IsRunnable, and is useful for accessing the field via an interface.
-func (v *AuthorProtectedNodeAuthorProtectedNode) GetIsRunnable() *bool { return v.IsRunnable }
-
-// GetUpdatedAt returns AuthorProtectedNodeAuthorProtectedNode.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *AuthorProtectedNodeAuthorProtectedNode) GetUpdatedAt() string { return v.UpdatedAt }
-
-// AuthorProtectedNodeResponse is returned by AuthorProtectedNode on success.
-type AuthorProtectedNodeResponse struct {
-	// Create or update a node at a PROTECTED loc — the door a memory-specific
-	// authoring tool uses (#1180). Identical in effect to createNode/updateNode;
-	// the ONLY difference is that it carries the protected-loc bypass, so it can
-	// write where the generic node surface is refused.
-	//
-	// PURE ROUTING: it validates nothing beyond what createNode validates. It
-	// does not know what a spec, review or task node is, and it does not check
-	// one. The authoring RULES stay in the tool that owns them ('hadron spec',
-	// 'hadron coding'), which is a closed-list exception on the audience ground —
-	// both target a technical audience that can be required to install the CLI.
-	//
-	// This is therefore a GUARDRAIL, not a security boundary: the protection it
-	// provides is that the ACCIDENTAL generic write is refused and told which
-	// tool to use. It is deliberately NOT exposed as an MCP tool, which is what
-	// keeps an agent's normal surface away from it.
-	//
-	// 'upsert' (default false) writes over an existing live node instead of
-	// rejecting with NodeLocConflictError — an authoring tool re-running over its
-	// own corpus is the normal case, unlike a generic create.
-	AuthorProtectedNode *AuthorProtectedNodeAuthorProtectedNode `json:"authorProtectedNode"`
-}
-
-// GetAuthorProtectedNode returns AuthorProtectedNodeResponse.AuthorProtectedNode, and is useful for accessing the field via an interface.
-func (v *AuthorProtectedNodeResponse) GetAuthorProtectedNode() *AuthorProtectedNodeAuthorProtectedNode {
-	return v.AuthorProtectedNode
-}
-
 // BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult includes the requested fields of the GraphQL type BeginAssetUploadResult.
 type BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult struct {
 	UploadId        string                                                                              `json:"uploadId"`
@@ -4191,14 +4122,26 @@ func (v *CloneMemoryResponse) GetCloneMemory() *CloneMemoryCloneMemory { return 
 type CloneNodeCloneNode struct {
 	Id string `json:"id"`
 	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
-	Urn        string   `json:"urn"`
-	MemoryId   string   `json:"memoryId"`
-	Loc        string   `json:"loc"`
-	Name       string   `json:"name"`
-	NodeType   string   `json:"nodeType"`
-	Tags       []string `json:"tags"`
-	IsRunnable *bool    `json:"isRunnable"`
-	UpdatedAt  string   `json:"updatedAt"`
+	Urn      string `json:"urn"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool  `json:"isRunnable"`
+	UpdatedAt  string `json:"updatedAt"`
 }
 
 // GetId returns CloneNodeCloneNode.Id, and is useful for accessing the field via an interface.
@@ -5292,9 +5235,16 @@ func (v *CreateAppResponse) GetCreateApp() *CreateAppCreateApp { return v.Create
 type CreateAssetReferenceNodeCreateAssetReferenceNode struct {
 	Id string `json:"id"`
 	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
-	Urn      string `json:"urn"`
-	Loc      string `json:"loc"`
-	Name     string `json:"name"`
+	Urn  string `json:"urn"`
+	Loc  string `json:"loc"`
+	Name string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
 	NodeType string `json:"nodeType"`
 	MemoryId string `json:"memoryId"`
 }
@@ -6358,15 +6308,27 @@ func (v *CreateMemorySubscriptionResponse) GetCreateMemorySubscription() *Create
 
 // CreateNodeCreateNode includes the requested fields of the GraphQL type Node.
 type CreateNodeCreateNode struct {
-	Id         string   `json:"id"`
-	MemoryId   string   `json:"memoryId"`
-	Loc        string   `json:"loc"`
-	Name       string   `json:"name"`
-	NodeType   string   `json:"nodeType"`
-	Tags       []string `json:"tags"`
-	Seq        *int     `json:"seq"`
-	IsRunnable *bool    `json:"isRunnable"`
-	UpdatedAt  string   `json:"updatedAt"`
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Seq      *int     `json:"seq"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool  `json:"isRunnable"`
+	UpdatedAt  string `json:"updatedAt"`
 }
 
 // GetId returns CreateNodeCreateNode.Id, and is useful for accessing the field via an interface.
@@ -6429,9 +6391,14 @@ type CreateNodeInput struct {
 	OwnerRepo  *string          `json:"ownerRepo,omitempty"`
 	Properties *json.RawMessage `json:"properties,omitempty"`
 	// Recorded on revision history only when a soft-deleted node is resurrected (a pure create snapshots nothing).
-	Reason *string  `json:"reason,omitempty"`
-	Seq    *int     `json:"seq,omitempty"`
-	Tags   []string `json:"tags,omitempty"`
+	Reason *string `json:"reason,omitempty"`
+	// #1201 — what this node is FOR (open string). NOT 'nodeType' (the
+	// platform-kind axis) and NOT 'objectType' (the collection discriminator).
+	// A GOVERNED value ('review', 'spec') requires that kind's own door; the
+	// generic createNode refuses it.
+	Role *string  `json:"role"`
+	Seq  *int     `json:"seq,omitempty"`
+	Tags []string `json:"tags,omitempty"`
 }
 
 // GetAbstract returns CreateNodeInput.Abstract, and is useful for accessing the field via an interface.
@@ -6490,6 +6457,9 @@ func (v *CreateNodeInput) GetProperties() *json.RawMessage { return v.Properties
 
 // GetReason returns CreateNodeInput.Reason, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetReason() *string { return v.Reason }
+
+// GetRole returns CreateNodeInput.Role, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetRole() *string { return v.Role }
 
 // GetSeq returns CreateNodeInput.Seq, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetSeq() *int { return v.Seq }
@@ -6739,6 +6709,99 @@ type CreatePrincipalGrantResponse struct {
 // GetCreatePrincipalGrant returns CreatePrincipalGrantResponse.CreatePrincipalGrant, and is useful for accessing the field via an interface.
 func (v *CreatePrincipalGrantResponse) GetCreatePrincipalGrant() *CreatePrincipalGrantCreatePrincipalGrant {
 	return v.CreatePrincipalGrant
+}
+
+// CreateReviewNodeCreateReviewNode includes the requested fields of the GraphQL type Node.
+type CreateReviewNodeCreateReviewNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Seq      *int     `json:"seq"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// has NO retrieval impact.
+	//
+	// A GOVERNED value routes the write to that kind's own authoring door, and the
+	// generic node surface is refused: 'review' and 'spec' today, alongside the
+	// task kind, which is gated on 'isRunnable' rather than on any label because a
+	// label can be omitted and a capability cannot. 'role: "weather-widget"'
+	// does nothing at all.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
+}
+
+// GetId returns CreateReviewNodeCreateReviewNode.Id, and is useful for accessing the field via an interface.
+func (v *CreateReviewNodeCreateReviewNode) GetId() string { return v.Id }
+
+// GetMemoryId returns CreateReviewNodeCreateReviewNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *CreateReviewNodeCreateReviewNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns CreateReviewNodeCreateReviewNode.Loc, and is useful for accessing the field via an interface.
+func (v *CreateReviewNodeCreateReviewNode) GetLoc() string { return v.Loc }
+
+// GetName returns CreateReviewNodeCreateReviewNode.Name, and is useful for accessing the field via an interface.
+func (v *CreateReviewNodeCreateReviewNode) GetName() string { return v.Name }
+
+// GetNodeType returns CreateReviewNodeCreateReviewNode.NodeType, and is useful for accessing the field via an interface.
+func (v *CreateReviewNodeCreateReviewNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns CreateReviewNodeCreateReviewNode.Tags, and is useful for accessing the field via an interface.
+func (v *CreateReviewNodeCreateReviewNode) GetTags() []string { return v.Tags }
+
+// GetSeq returns CreateReviewNodeCreateReviewNode.Seq, and is useful for accessing the field via an interface.
+func (v *CreateReviewNodeCreateReviewNode) GetSeq() *int { return v.Seq }
+
+// GetIsRunnable returns CreateReviewNodeCreateReviewNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *CreateReviewNodeCreateReviewNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns CreateReviewNodeCreateReviewNode.Role, and is useful for accessing the field via an interface.
+func (v *CreateReviewNodeCreateReviewNode) GetRole() *string { return v.Role }
+
+// GetUpdatedAt returns CreateReviewNodeCreateReviewNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateReviewNodeCreateReviewNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateReviewNodeResponse is returned by CreateReviewNode on success.
+type CreateReviewNodeResponse struct {
+	// #1201 — the CREATE door for the review kind. A write that would produce a
+	// node with role: 'review' must come through here; the generic createNode
+	// refuses it.
+	//
+	// PURE ROUTING: it validates nothing and knows nothing beyond which kind it is
+	// the door for. The authoring RULES stay in the tool that owns them ('hadron
+	// spec', 'hadron coding'), which is a closed-list exception on the audience
+	// ground.
+	//
+	// STRENGTH: SECURITY. A review is not coding-specific — any work performed can be reviewed, and a review may be a SAFETY CHECK. So an attacker can modify a work assignment AND remove the reviews meant to catch that. Omitting the label is self-defeating in its own way: an unlabelled check is invisible to the review tooling, so it is not a check.
+	//
+	// Exempt from its OWN kind only — it is fully subject to every other kind and
+	// to Channel address protection, so it cannot forge a chat message.
+	// Deliberately NOT an MCP tool: an agent's node surface is hadron_create_node,
+	// which refuses, and that absence is the mechanism rather than an oversight.
+	CreateReviewNode *CreateReviewNodeCreateReviewNode `json:"createReviewNode"`
+}
+
+// GetCreateReviewNode returns CreateReviewNodeResponse.CreateReviewNode, and is useful for accessing the field via an interface.
+func (v *CreateReviewNodeResponse) GetCreateReviewNode() *CreateReviewNodeCreateReviewNode {
+	return v.CreateReviewNode
 }
 
 // CreateScopeCreateScope includes the requested fields of the GraphQL type Scope.
@@ -7033,6 +7096,99 @@ type CreateSecretResponse struct {
 
 // GetCreateSecret returns CreateSecretResponse.CreateSecret, and is useful for accessing the field via an interface.
 func (v *CreateSecretResponse) GetCreateSecret() *CreateSecretCreateSecret { return v.CreateSecret }
+
+// CreateSpecNodeCreateSpecNode includes the requested fields of the GraphQL type Node.
+type CreateSpecNodeCreateSpecNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Seq      *int     `json:"seq"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// has NO retrieval impact.
+	//
+	// A GOVERNED value routes the write to that kind's own authoring door, and the
+	// generic node surface is refused: 'review' and 'spec' today, alongside the
+	// task kind, which is gated on 'isRunnable' rather than on any label because a
+	// label can be omitted and a capability cannot. 'role: "weather-widget"'
+	// does nothing at all.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
+}
+
+// GetId returns CreateSpecNodeCreateSpecNode.Id, and is useful for accessing the field via an interface.
+func (v *CreateSpecNodeCreateSpecNode) GetId() string { return v.Id }
+
+// GetMemoryId returns CreateSpecNodeCreateSpecNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *CreateSpecNodeCreateSpecNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns CreateSpecNodeCreateSpecNode.Loc, and is useful for accessing the field via an interface.
+func (v *CreateSpecNodeCreateSpecNode) GetLoc() string { return v.Loc }
+
+// GetName returns CreateSpecNodeCreateSpecNode.Name, and is useful for accessing the field via an interface.
+func (v *CreateSpecNodeCreateSpecNode) GetName() string { return v.Name }
+
+// GetNodeType returns CreateSpecNodeCreateSpecNode.NodeType, and is useful for accessing the field via an interface.
+func (v *CreateSpecNodeCreateSpecNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns CreateSpecNodeCreateSpecNode.Tags, and is useful for accessing the field via an interface.
+func (v *CreateSpecNodeCreateSpecNode) GetTags() []string { return v.Tags }
+
+// GetSeq returns CreateSpecNodeCreateSpecNode.Seq, and is useful for accessing the field via an interface.
+func (v *CreateSpecNodeCreateSpecNode) GetSeq() *int { return v.Seq }
+
+// GetIsRunnable returns CreateSpecNodeCreateSpecNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *CreateSpecNodeCreateSpecNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns CreateSpecNodeCreateSpecNode.Role, and is useful for accessing the field via an interface.
+func (v *CreateSpecNodeCreateSpecNode) GetRole() *string { return v.Role }
+
+// GetUpdatedAt returns CreateSpecNodeCreateSpecNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateSpecNodeCreateSpecNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateSpecNodeResponse is returned by CreateSpecNode on success.
+type CreateSpecNodeResponse struct {
+	// #1201 — the CREATE door for the spec kind. A write that would produce a
+	// node with role: 'spec' must come through here; the generic createNode
+	// refuses it.
+	//
+	// PURE ROUTING: it validates nothing and knows nothing beyond which kind it is
+	// the door for. The authoring RULES stay in the tool that owns them ('hadron
+	// spec', 'hadron coding'), which is a closed-list exception on the audience
+	// ground.
+	//
+	// STRENGTH: DILIGENCE. It guarantees a spec node was authored by the spec tool (#1152, and the corpus discipline resting on it). It does NOT claim a determined caller could not author one another way: the label is free to omit and a citation resolves without it. Specs are deliberately not treated as a security concern; the destructive half is closed by #1182/#1184, which made createNode mint-or-refuse and race-safe.
+	//
+	// Exempt from its OWN kind only — it is fully subject to every other kind and
+	// to Channel address protection, so it cannot forge a chat message.
+	// Deliberately NOT an MCP tool: an agent's node surface is hadron_create_node,
+	// which refuses, and that absence is the mechanism rather than an oversight.
+	CreateSpecNode *CreateSpecNodeCreateSpecNode `json:"createSpecNode"`
+}
+
+// GetCreateSpecNode returns CreateSpecNodeResponse.CreateSpecNode, and is useful for accessing the field via an interface.
+func (v *CreateSpecNodeResponse) GetCreateSpecNode() *CreateSpecNodeCreateSpecNode {
+	return v.CreateSpecNode
+}
 
 // CreateTeamChatMessageCreateTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
 // The GraphQL type's documentation follows.
@@ -8454,13 +8610,25 @@ func (v *FindNodesFindNodesFindNodesResultHitsNodeHit) GetNode() *FindNodesFindN
 
 // FindNodesFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
 type FindNodesFindNodesFindNodesResultHitsNodeHitNode struct {
-	Id         string           `json:"id"`
-	MemoryId   string           `json:"memoryId"`
-	Loc        string           `json:"loc"`
-	Name       string           `json:"name"`
-	NodeType   string           `json:"nodeType"`
-	Tags       []string         `json:"tags"`
-	Seq        *int             `json:"seq"`
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Seq      *int     `json:"seq"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool            `json:"isRunnable"`
 	UpdatedAt  string           `json:"updatedAt"`
 	Properties *json.RawMessage `json:"properties"`
@@ -9243,14 +9411,31 @@ type GetNodeNode struct {
 	Abstract *string `json:"abstract"`
 	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
 	AbstractOriginHash *string `json:"abstractOriginHash"`
-	NodeType           string  `json:"nodeType"`
-	// #725 — collection discriminator (which domain object this node is, e.g. "competitor"). NULL for an ordinary node.
-	ObjectType    *string                         `json:"objectType"`
-	Tags          []string                        `json:"tags"`
-	Content       *string                         `json:"content"`
-	Data          *json.RawMessage                `json:"data"`
-	Properties    *json.RawMessage                `json:"properties"`
-	Seq           *int                            `json:"seq"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string `json:"nodeType"`
+	// #725 — the COLLECTION discriminator: which domain object this node is an
+	// instance of, e.g. "competitor" / "insight". Validated against the memory's
+	// property schema when it has one. NULL for an ordinary node.
+	//
+	// NOT 'nodeType' (the platform-kind axis, which drives retrieval) and NOT
+	// 'role' (what the node is for, which has no retrieval impact).
+	ObjectType *string          `json:"objectType"`
+	Tags       []string         `json:"tags"`
+	Content    *string          `json:"content"`
+	Data       *json.RawMessage `json:"data"`
+	Properties *json.RawMessage `json:"properties"`
+	Seq        *int             `json:"seq"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable    *bool                           `json:"isRunnable"`
 	CreatedAt     string                          `json:"createdAt"`
 	UpdatedAt     string                          `json:"updatedAt"`
@@ -10213,10 +10398,17 @@ func (v *ImportNodeImportNodeImportNodeResult) GetNode() *ImportNodeImportNodeIm
 
 // ImportNodeImportNodeImportNodeResultNode includes the requested fields of the GraphQL type Node.
 type ImportNodeImportNodeImportNodeResultNode struct {
-	Id        string `json:"id"`
-	MemoryId  string `json:"memoryId"`
-	Loc       string `json:"loc"`
-	Name      string `json:"name"`
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
 	NodeType  string `json:"nodeType"`
 	UpdatedAt string `json:"updatedAt"`
 }
@@ -12031,14 +12223,26 @@ func (v *MergeNodesInput) GetTarget() string { return v.Target }
 
 // MergeNodesMergeNodesNode includes the requested fields of the GraphQL type Node.
 type MergeNodesMergeNodesNode struct {
-	Id         string   `json:"id"`
-	MemoryId   string   `json:"memoryId"`
-	Loc        string   `json:"loc"`
-	Name       string   `json:"name"`
-	NodeType   string   `json:"nodeType"`
-	Tags       []string `json:"tags"`
-	IsRunnable *bool    `json:"isRunnable"`
-	UpdatedAt  string   `json:"updatedAt"`
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool  `json:"isRunnable"`
+	UpdatedAt  string `json:"updatedAt"`
 }
 
 // GetId returns MergeNodesMergeNodesNode.Id, and is useful for accessing the field via an interface.
@@ -12245,14 +12449,26 @@ func (v *MintActionTicketsResponse) GetMintActionTickets() int { return v.MintAc
 type MoveNodeMoveNode struct {
 	Id string `json:"id"`
 	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
-	Urn        string   `json:"urn"`
-	MemoryId   string   `json:"memoryId"`
-	Loc        string   `json:"loc"`
-	Name       string   `json:"name"`
-	NodeType   string   `json:"nodeType"`
-	Tags       []string `json:"tags"`
-	IsRunnable *bool    `json:"isRunnable"`
-	UpdatedAt  string   `json:"updatedAt"`
+	Urn      string `json:"urn"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool  `json:"isRunnable"`
+	UpdatedAt  string `json:"updatedAt"`
 }
 
 // GetId returns MoveNodeMoveNode.Id, and is useful for accessing the field via an interface.
@@ -12455,9 +12671,26 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	Loc       string  `json:"loc"`
 	Name      string  `json:"name"`
 	Alias     *string `json:"alias"`
-	NodeType  string  `json:"nodeType"`
-	// #725 — collection discriminator (which domain object this node is, e.g. "competitor"). NULL for an ordinary node.
-	ObjectType  *string `json:"objectType"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string `json:"nodeType"`
+	// #725 — the COLLECTION discriminator: which domain object this node is an
+	// instance of, e.g. "competitor" / "insight". Validated against the memory's
+	// property schema when it has one. NULL for an ordinary node.
+	//
+	// NOT 'nodeType' (the platform-kind axis, which drives retrieval) and NOT
+	// 'role' (what the node is for, which has no retrieval impact).
+	ObjectType *string `json:"objectType"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable  *bool   `json:"isRunnable"`
 	Description *string `json:"description"`
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
@@ -15114,10 +15347,17 @@ func (v *RestoreNodeRevisionResponse) GetRestoreNodeRevision() *RestoreNodeRevis
 
 // RestoreNodeRevisionRestoreNodeRevisionNode includes the requested fields of the GraphQL type Node.
 type RestoreNodeRevisionRestoreNodeRevisionNode struct {
-	Id        string `json:"id"`
-	MemoryId  string `json:"memoryId"`
-	Loc       string `json:"loc"`
-	Name      string `json:"name"`
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
 	NodeType  string `json:"nodeType"`
 	UpdatedAt string `json:"updatedAt"`
 }
@@ -16403,10 +16643,17 @@ func (v *SearchNodesFindNodesFindNodesResultHitsNodeHit) GetNode() *SearchNodesF
 
 // SearchNodesFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
 type SearchNodesFindNodesFindNodesResultHitsNodeHitNode struct {
-	Id          string   `json:"id"`
-	MemoryId    string   `json:"memoryId"`
-	Loc         string   `json:"loc"`
-	Name        string   `json:"name"`
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
 	NodeType    string   `json:"nodeType"`
 	Tags        []string `json:"tags"`
 	Description *string  `json:"description"`
@@ -20354,14 +20601,26 @@ func (v *UpdateNodeDataResponse) GetUpdateNodeData() *UpdateNodeDataUpdateNodeDa
 
 // UpdateNodeDataUpdateNodeDataNode includes the requested fields of the GraphQL type Node.
 type UpdateNodeDataUpdateNodeDataNode struct {
-	Id         string   `json:"id"`
-	MemoryId   string   `json:"memoryId"`
-	Loc        string   `json:"loc"`
-	Name       string   `json:"name"`
-	NodeType   string   `json:"nodeType"`
-	Tags       []string `json:"tags"`
-	IsRunnable *bool    `json:"isRunnable"`
-	UpdatedAt  string   `json:"updatedAt"`
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool  `json:"isRunnable"`
+	UpdatedAt  string `json:"updatedAt"`
 }
 
 // GetId returns UpdateNodeDataUpdateNodeDataNode.Id, and is useful for accessing the field via an interface.
@@ -20424,7 +20683,12 @@ type UpdateNodeInput struct {
 	// mirroring hadron_update_node's reason arg so CLI and MCP edits leave
 	// equally-traceable history.
 	Reason *string `json:"reason,omitempty"`
-	Seq    *int    `json:"seq,omitempty"`
+	// #1201 — what this node is FOR (open string). NOT 'nodeType' and NOT
+	// 'objectType' — see Node.role. Omit to preserve; null to clear. A GOVERNED
+	// value requires that kind's own door, and so does editing a node that
+	// ALREADY carries one: the gate reads the resulting state, not the change.
+	Role *string `json:"role"`
+	Seq  *int    `json:"seq,omitempty"`
 	// Omit to preserve existing tags (issue #235); supply to replace the set.
 	Tags []string `json:"tags,omitempty"`
 }
@@ -20485,6 +20749,9 @@ func (v *UpdateNodeInput) GetProperties() *json.RawMessage { return v.Properties
 
 // GetReason returns UpdateNodeInput.Reason, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetReason() *string { return v.Reason }
+
+// GetRole returns UpdateNodeInput.Role, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetRole() *string { return v.Role }
 
 // GetSeq returns UpdateNodeInput.Seq, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetSeq() *int { return v.Seq }
@@ -20649,14 +20916,26 @@ func (v *UpdateNodeRevisionUpdateNodeRevision) __premarshalJSON() (*__premarshal
 
 // UpdateNodeUpdateNode includes the requested fields of the GraphQL type Node.
 type UpdateNodeUpdateNode struct {
-	Id         string   `json:"id"`
-	MemoryId   string   `json:"memoryId"`
-	Loc        string   `json:"loc"`
-	Name       string   `json:"name"`
-	NodeType   string   `json:"nodeType"`
-	Tags       []string `json:"tags"`
-	IsRunnable *bool    `json:"isRunnable"`
-	UpdatedAt  string   `json:"updatedAt"`
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool  `json:"isRunnable"`
+	UpdatedAt  string `json:"updatedAt"`
 }
 
 // GetId returns UpdateNodeUpdateNode.Id, and is useful for accessing the field via an interface.
@@ -21093,6 +21372,91 @@ func (v *UpdateScopeUpdateScope) __premarshalJSON() (*__premarshalUpdateScopeUpd
 	retval.Memories = v.ScopeMemories.Memories
 	return &retval, nil
 }
+
+// UpdateSpecNodeResponse is returned by UpdateSpecNode on success.
+type UpdateSpecNodeResponse struct {
+	// #1201 — the UPDATE door for the spec kind, and the counterpart of
+	// createSpecNode. Same posture: pure routing, exempt from its own kind only,
+	// not an MCP tool.
+	//
+	// It is needed because the gate reads the RESULTING state: editing a node that
+	// already carries this kind still produces one, so the generic updateNode
+	// refuses it even when the edit touches neither signal. That is the point — a
+	// spec node must not be rewritable through the generic surface.
+	//
+	// Identical to updateNode otherwise, selectors included ('id' XOR 'memoryId' +
+	// 'loc'); it never creates and never moves.
+	UpdateSpecNode *UpdateSpecNodeUpdateSpecNode `json:"updateSpecNode"`
+}
+
+// GetUpdateSpecNode returns UpdateSpecNodeResponse.UpdateSpecNode, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeResponse) GetUpdateSpecNode() *UpdateSpecNodeUpdateSpecNode {
+	return v.UpdateSpecNode
+}
+
+// UpdateSpecNodeUpdateSpecNode includes the requested fields of the GraphQL type Node.
+type UpdateSpecNodeUpdateSpecNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// has NO retrieval impact.
+	//
+	// A GOVERNED value routes the write to that kind's own authoring door, and the
+	// generic node surface is refused: 'review' and 'spec' today, alongside the
+	// task kind, which is gated on 'isRunnable' rather than on any label because a
+	// label can be omitted and a capability cannot. 'role: "weather-widget"'
+	// does nothing at all.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
+}
+
+// GetId returns UpdateSpecNodeUpdateSpecNode.Id, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeUpdateSpecNode) GetId() string { return v.Id }
+
+// GetMemoryId returns UpdateSpecNodeUpdateSpecNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeUpdateSpecNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns UpdateSpecNodeUpdateSpecNode.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeUpdateSpecNode) GetLoc() string { return v.Loc }
+
+// GetName returns UpdateSpecNodeUpdateSpecNode.Name, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeUpdateSpecNode) GetName() string { return v.Name }
+
+// GetNodeType returns UpdateSpecNodeUpdateSpecNode.NodeType, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeUpdateSpecNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns UpdateSpecNodeUpdateSpecNode.Tags, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeUpdateSpecNode) GetTags() []string { return v.Tags }
+
+// GetIsRunnable returns UpdateSpecNodeUpdateSpecNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeUpdateSpecNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns UpdateSpecNodeUpdateSpecNode.Role, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeUpdateSpecNode) GetRole() *string { return v.Role }
+
+// GetUpdatedAt returns UpdateSpecNodeUpdateSpecNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeUpdateSpecNode) GetUpdatedAt() string { return v.UpdatedAt }
 
 // UpdateTeamCollectionsResponse is returned by UpdateTeamCollections on success.
 type UpdateTeamCollectionsResponse struct {
@@ -23074,18 +23438,6 @@ func (v *__AttachMemoryToAppInput) GetAppRef() string { return v.AppRef }
 // GetAgentRef returns __AttachMemoryToAppInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__AttachMemoryToAppInput) GetAgentRef() string { return v.AgentRef }
 
-// __AuthorProtectedNodeInput is used internally by genqlient
-type __AuthorProtectedNodeInput struct {
-	Input  *CreateNodeInput `json:"input,omitempty"`
-	Upsert *bool            `json:"upsert,omitempty"`
-}
-
-// GetInput returns __AuthorProtectedNodeInput.Input, and is useful for accessing the field via an interface.
-func (v *__AuthorProtectedNodeInput) GetInput() *CreateNodeInput { return v.Input }
-
-// GetUpsert returns __AuthorProtectedNodeInput.Upsert, and is useful for accessing the field via an interface.
-func (v *__AuthorProtectedNodeInput) GetUpsert() *bool { return v.Upsert }
-
 // __BeginAssetUploadInput is used internally by genqlient
 type __BeginAssetUploadInput struct {
 	MemoryId    string       `json:"memoryId"`
@@ -23742,6 +24094,14 @@ func (v *__CreatePrincipalGrantInput) GetActions() []string { return v.Actions }
 // GetExpiresAt returns __CreatePrincipalGrantInput.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *__CreatePrincipalGrantInput) GetExpiresAt() *string { return v.ExpiresAt }
 
+// __CreateReviewNodeInput is used internally by genqlient
+type __CreateReviewNodeInput struct {
+	Input *CreateNodeInput `json:"input,omitempty"`
+}
+
+// GetInput returns __CreateReviewNodeInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateReviewNodeInput) GetInput() *CreateNodeInput { return v.Input }
+
 // __CreateScopeInput is used internally by genqlient
 type __CreateScopeInput struct {
 	Input *CreateScopeInput `json:"input,omitempty"`
@@ -23777,6 +24137,14 @@ func (v *__CreateSecretInput) GetMetadata() *json.RawMessage { return v.Metadata
 
 // GetValue returns __CreateSecretInput.Value, and is useful for accessing the field via an interface.
 func (v *__CreateSecretInput) GetValue() json.RawMessage { return v.Value }
+
+// __CreateSpecNodeInput is used internally by genqlient
+type __CreateSpecNodeInput struct {
+	Input *CreateNodeInput `json:"input,omitempty"`
+}
+
+// GetInput returns __CreateSpecNodeInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateSpecNodeInput) GetInput() *CreateNodeInput { return v.Input }
 
 // __CreateTeamChatMessageInput is used internally by genqlient
 type __CreateTeamChatMessageInput struct {
@@ -25446,6 +25814,14 @@ func (v *__UpdateScopeInput) GetRef() string { return v.Ref }
 // GetInput returns __UpdateScopeInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateScopeInput) GetInput() *UpdateScopeInput { return v.Input }
 
+// __UpdateSpecNodeInput is used internally by genqlient
+type __UpdateSpecNodeInput struct {
+	Input *UpdateNodeInput `json:"input,omitempty"`
+}
+
+// GetInput returns __UpdateSpecNodeInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeInput) GetInput() *UpdateNodeInput { return v.Input }
+
 // __UpdateTeamCollectionsInput is used internally by genqlient
 type __UpdateTeamCollectionsInput struct {
 	AppRef string `json:"appRef"`
@@ -26366,70 +26742,6 @@ func AuthContext(
 	}
 
 	data_ = &AuthContextResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The mutation executed by AuthorProtectedNode.
-const AuthorProtectedNode_Operation = `
-mutation AuthorProtectedNode ($input: CreateNodeInput!, $upsert: Boolean) {
-	authorProtectedNode(input: $input, upsert: $upsert) {
-		id
-		memoryId
-		loc
-		name
-		nodeType
-		tags
-		seq
-		isRunnable
-		updatedAt
-	}
-}
-`
-
-// The protected-loc door (hadron-server #1180, cli #606). Identical in effect to
-// createNode; the ONLY difference is that it carries the bypass, so an authoring
-// tool can write where the generic node surface is refused once a memory
-// declares `protectedLocs`. Pure routing — it validates nothing createNode does
-// not, and knows nothing about specs, reviews or tasks. The authoring rules stay
-// in `hadron spec` / `hadron coding`, which are on the closed exception list
-// (cor:api:240:02) on the audience ground.
-//
-// It is a GUARDRAIL, not a security boundary: what it refuses is the ACCIDENTAL
-// generic write, told which tool to use. The Channel source of the same gate IS
-// a boundary (#1047). Same mechanism, same error code, different strengths — do
-// not read this as making the specs corpus tamper-evident.
-//
-// `upsert` overwrites a live node instead of rejecting with
-// NodeLocConflictError. Every CLI call site passes FALSE — see the api wrapper
-// for why that is a deliberate choice and not an oversight.
-//
-// The omitempty set is repeated verbatim from CreateNode above: both operations
-// bind the same generated CreateNodeInput, so the two lists must agree or the
-// omit-vs-null wire contract differs by which operation you happened to call.
-func AuthorProtectedNode(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	input *CreateNodeInput,
-	upsert *bool,
-) (data_ *AuthorProtectedNodeResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "AuthorProtectedNode",
-		Query:  AuthorProtectedNode_Operation,
-		Variables: &__AuthorProtectedNodeInput{
-			Input:  input,
-			Upsert: upsert,
-		},
-	}
-
-	data_ = &AuthorProtectedNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -28193,6 +28505,49 @@ func CreatePrincipalGrant(
 	return data_, err_
 }
 
+// The mutation executed by CreateReviewNode.
+const CreateReviewNode_Operation = `
+mutation CreateReviewNode ($input: CreateNodeInput!) {
+	createReviewNode(input: $input) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		seq
+		isRunnable
+		role
+		updatedAt
+	}
+}
+`
+
+func CreateReviewNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateNodeInput,
+) (data_ *CreateReviewNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateReviewNode",
+		Query:  CreateReviewNode_Operation,
+		Variables: &__CreateReviewNodeInput{
+			Input: input,
+		},
+	}
+
+	data_ = &CreateReviewNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateScope.
 const CreateScope_Operation = `
 mutation CreateScope ($input: CreateScopeInput!) {
@@ -28306,6 +28661,83 @@ func CreateSecret(
 	}
 
 	data_ = &CreateSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateSpecNode.
+const CreateSpecNode_Operation = `
+mutation CreateSpecNode ($input: CreateNodeInput!) {
+	createSpecNode(input: $input) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		seq
+		isRunnable
+		role
+		updatedAt
+	}
+}
+`
+
+// ---- The kind-specific authoring doors (hadron-server #1201, cli #606) ----
+//
+// #1203 REPLACED the single `authorProtectedNode` with one door per KIND, and
+// DELETED the generic one — so this is not a rename that could be deferred: the
+// old field no longer exists on the server and every call site broke at once.
+//
+// A door is named for what it writes and is exempt from its OWN kind only, so
+// holding one is no longer a skeleton key over every declared address. It stays
+// PURE ROUTING: it validates nothing `createNode` does not, and the authoring
+// rules stay in `hadron spec` / `hadron coding`, which are on the closed
+// exception list (cor:api:240:02) on the audience ground.
+//
+// THE GATE READS THE RESULTING STATE, not the request, so which door a write
+// needs is decided by what the node WILL BE:
+//
+// role: "spec"        -> createSpecNode   / updateSpecNode     (DILIGENCE)
+// role: "review"      -> createReviewNode / updateReviewNode   (SECURITY)
+// isRunnable: true    -> createTaskNode   / updateTaskNode     (CAPABILITY)
+//
+// The three are NOT equally strong and the server's own SDL says so. Spec is
+// diligence — it attests the spec tool authored the node, not that nobody else
+// could. Review is security: a review may be a safety check, so removing one is
+// the attack. Task is the only capability gate, because `isRunnable` cannot be
+// dropped to evade it without the node ceasing to run.
+//
+// `Memory.protectedLocs` is GONE (#1203). Nothing is protected by ADDRESS any
+// more, which is why `coding preflight add` writes through the generic
+// `createNode` again: its route targets are non-runnable orientation nodes
+// carrying no role, so they are not of any governed kind.
+//
+// NO `upsert` ARGUMENT. The old door took one and every call site passed false;
+// the new doors do not offer it, so the re-run case is a NodeLocConflictError
+// (exit 5) rather than a silent overwrite of a permanent citation — which is
+// what those call sites were asking for anyway.
+func CreateSpecNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateNodeInput,
+) (data_ *CreateSpecNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateSpecNode",
+		Query:  CreateSpecNode_Operation,
+		Variables: &__CreateSpecNodeInput{
+			Input: input,
+		},
+	}
+
+	data_ = &CreateSpecNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -34436,6 +34868,59 @@ func UpdateScope(
 	}
 
 	data_ = &UpdateScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateSpecNode.
+const UpdateSpecNode_Operation = `
+mutation UpdateSpecNode ($input: UpdateNodeInput!) {
+	updateSpecNode(input: $input) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		isRunnable
+		role
+		updatedAt
+	}
+}
+`
+
+// The UPDATE door for the spec kind (#1201) — createSpecNode's counterpart.
+//
+// It is needed because the gate reads the RESULTING state: editing a node that
+// already carries `role: "spec"` still produces one, so the generic `updateNode`
+// refuses it even when the edit touches neither signal. That is the point — a
+// spec node must not be rewritable through the generic surface.
+//
+// Identical to `updateNode` otherwise, SELECTORS INCLUDED (`id` XOR `memoryId` +
+// `loc`), and it never creates and never moves. So omit-to-preserve holds here
+// exactly as it does there, which is what `spec edit` depends on and what
+// routing an edit through a CREATE door could never have given it (#1192).
+func UpdateSpecNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *UpdateNodeInput,
+) (data_ *UpdateSpecNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateSpecNode",
+		Query:  UpdateSpecNode_Operation,
+		Variables: &__UpdateSpecNodeInput{
+			Input: input,
+		},
+	}
+
+	data_ = &UpdateSpecNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

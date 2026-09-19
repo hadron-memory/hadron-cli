@@ -285,8 +285,9 @@ is one call instead of four.`, abstractSoftMax),
 				Content:  &body,
 				Data:     specDataRaw(),
 				Seq:      specSeq(target),
+				Role:     specRole(),
 			}
-			up, err := api.AuthorProtectedNode(cmd.Context(), client, &input, false)
+			up, err := api.CreateSpecNode(cmd.Context(), client, &input)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -322,8 +323,9 @@ is one call instead of four.`, abstractSoftMax),
 					Content:  &coContract.body,
 					Data:     specDataRaw(),
 					Seq:      specSeq(coContract.cit),
+					Role:     specRole(),
 				}
-				cUp, cErr := api.AuthorProtectedNode(cmd.Context(), client, &cInput, false)
+				cUp, cErr := api.CreateSpecNode(cmd.Context(), client, &cInput)
 				if cErr != nil {
 					return fmt.Errorf("created %s but its contract %s failed: %w", target.Format(), coContract.cit.Format(), api.MapError(cErr))
 				}
@@ -776,9 +778,9 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 			MemoryId: memURN, Loc: pn.cit.Format(), Name: pn.name,
 			Tags: tagSet, NodeType: &nodeType,
 			Abstract: &ab, Content: &bd, Data: specDataRaw(),
-			Seq: specSeq(pn.cit),
+			Seq: specSeq(pn.cit), Role: specRole(),
 		}
-		up, uerr := api.AuthorProtectedNode(cmd.Context(), client, &input, false)
+		up, uerr := api.CreateSpecNode(cmd.Context(), client, &input)
 		if uerr != nil {
 			return fmt.Errorf("scaffolding %s: %w", pn.cit.Format(), api.MapError(uerr))
 		}

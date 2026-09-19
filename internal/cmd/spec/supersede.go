@@ -192,9 +192,9 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				MemoryId: memURN, Loc: newTarget.Format(), Name: name,
 				Tags: newTags, NodeType: &nodeType,
 				Abstract: &abs, Content: &body, Data: specDataRaw(),
-				Seq: specSeq(newTarget),
+				Seq: specSeq(newTarget), Role: specRole(),
 			}
-			up, err := api.AuthorProtectedNode(cmd.Context(), client, &in, false)
+			up, err := api.CreateSpecNode(cmd.Context(), client, &in)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -347,7 +347,7 @@ func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *ge
 		MemoryId: &oldNode.MemoryId, Loc: &oldNode.Loc,
 		Tags: retireTags, Content: &retired,
 	}
-	_, err := gen.UpdateNode(cmd.Context(), client, &retireIn)
+	_, err := api.UpdateSpecNode(cmd.Context(), client, &retireIn)
 	return err
 }
 

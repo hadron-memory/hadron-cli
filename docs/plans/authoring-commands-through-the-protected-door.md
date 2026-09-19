@@ -1,5 +1,13 @@
 # Design as built: the authoring commands write through the door (#606, create half)
 
+> **SUPERSEDED by [`per-kind-authoring-doors.md`](per-kind-authoring-doors.md).**
+> Everything below describes `Memory.protectedLocs` and the single
+> `authorProtectedNode` door. hadron-server **#1203 deleted both** — protection
+> moved from the node's ADDRESS to its KIND. Kept because the reasoning that
+> survived the move is here: why the authoring rules stay in the CLI, why the
+> door is a guardrail rather than a boundary, and why every call site passed
+> `upsert: false`. The mechanism is gone; those arguments are not.
+
 `Memory.protectedLocs` (hadron-server #1180, PR #1190) made the protected-loc
 write gate take a second predicate source, and gave memory-specific authoring
 tools a door to write through: **`authorProtectedNode`**. It ships **empty by

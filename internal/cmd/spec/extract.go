@@ -209,8 +209,9 @@ chunk leaves the source alone with a warning.`,
 				Content:  &body,
 				Data:     specDataRaw(),
 				Seq:      specSeq(target),
+				Role:     specRole(),
 			}
-			up, err := api.AuthorProtectedNode(cmd.Context(), client, &input, false)
+			up, err := api.CreateSpecNode(cmd.Context(), client, &input)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -241,7 +242,7 @@ chunk leaves the source alone with a warning.`,
 						Loc:      &srcNode.Loc,
 						Content:  &strippedBody, // content-only update; omitted fields preserved
 					}
-					if _, serr := gen.UpdateNode(cmd.Context(), client, &srcInput); serr != nil {
+					if _, serr := api.UpdateSpecNode(cmd.Context(), client, &srcInput); serr != nil {
 						result.StripMatched = false
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: --strip-source: trimming %s failed: %v\n", source.Format(), api.MapError(serr))
 					}

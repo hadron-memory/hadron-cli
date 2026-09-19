@@ -838,24 +838,45 @@ Conventions:
   tool-name drift; `spec supersede` retires a
   spec (never renumbers) and REQUIRES `--yes`; `spec import` is not yet
   implemented (exit 2).
-- **`spec` and `coding` write through the protected-loc DOOR, not the generic
-  node surface** (#606, hadron-server#1180). Once a memory declares
-  `Memory.protectedLocs` — `['*']` on a specs corpus, `['review','tasks']` on a
-  repo memory — a generic `createNode`/`hadron_create_node` at those locs is
-  REFUSED and told which tool to use. That is the point: the authoring rules
-  live in the command that owns the corpus, so an agent minting a spec or a
-  review check by hand is stopped and redirected. **Use `hadron spec new` /
-  `hadron coding review create` / `hadron coding preflight add`; do not
-  hand-roll the node.**
-  It is a **guardrail, not a security boundary** — what it stops is the
-  accidental generic write, and a determined caller can still author a
-  malformed node through the door. Do not read it as making a spec corpus
-  tamper-evident.
+- **A node's KIND decides which door writes it** (#606 → hadron-server#1201,
+  shipped in #1203). Protection used to be by ADDRESS — `Memory.protectedLocs`,
+  a per-memory list of loc patterns, with one generic `authorProtectedNode`
+  exempt from all of them. **That column and that door are both GONE.** A write
+  is now gated on what the node WILL BE, read off the resulting state:
+
+  | the node carries | door |
+  | --- | --- |
+  | `role: "spec"` | `createSpecNode` / `updateSpecNode` |
+  | `role: "review"` | `createReviewNode` / `updateReviewNode` |
+  | `isRunnable: true` | `createTaskNode` / `updateTaskNode` |
+
+  A generic `createNode` / `updateNode` / `hadron_create_node` that would
+  produce one is REFUSED and told which door to use — and the UPDATE half is
+  not cosmetic: editing a node that already carries a governed role still
+  produces one, so a governed node is not rewritable through the generic
+  surface at all. **Use `hadron spec new` / `hadron coding review create`; do
+  not hand-roll the node.**
+
+  **The three are NOT equally strong**, and treating them alike is the mistake
+  to avoid. **Spec is DILIGENCE** — it attests the spec tool authored the node,
+  not that nobody else could; the label is free to omit and a citation resolves
+  without it, so do not read it as making a corpus tamper-evident. **Review is
+  SECURITY**: any work can be reviewed and a review may be a safety check, so
+  removing one is the attack. **Task is CAPABILITY** and the only gate that
+  cannot be dodged by omission, because it keys on `isRunnable` rather than on a
+  label — drop the capability and the node does not run.
+
+  **`coding preflight create` writes through the GENERIC surface**, and that is
+  correct rather than an exemption: its route targets are non-runnable
+  orientation nodes carrying no role, so they are of no governed kind. Nothing
+  is protected by address any more.
+
   **These commands do not upsert.** A create against a loc that already holds a
-  live node is REFUSED, not overwritten, and that is deliberate: a citation is
-  permanent. Re-running is not a repair — edit with `spec edit` / `node update`,
-  or supersede.
-  Nothing is declared yet, so nothing is refused today.
+  live node is REFUSED, not overwritten — a citation is permanent. The per-kind
+  doors do not even offer an `upsert` argument, so this is now the server's
+  decision rather than a convention each call site keeps. Re-running is not a
+  repair: edit with `spec edit`, or supersede. The refusal is a
+  NodeLocConflictError, exit 5.
 - `ai-config list` lists the masked AI configs *resolvable* in an App's chat
   context (App→Agent→Org→HadronServer, innermost wins, enabled-only) — never
   key material, only a preview. `ai-config create|update|rm` manage the

@@ -180,6 +180,21 @@ type ledgerFeatureDTO struct {
 	NextRule string   `json:"nextRule"`
 }
 
+// specRole returns the governed `Node.role` every spec node carries (#1201).
+//
+// The role is what the server's gate READS; the door is only how the write gets
+// through. Both are needed: a spec node written through the spec door but
+// without the role is ungoverned, and the generic `updateNode` will happily
+// rewrite it afterwards.
+//
+// A fresh pointer per call, deliberately: `CreateNodeInput.Role` is a *string,
+// and handing every input literal the address of one shared variable makes a
+// later "just tweak this one" edit reach into all of them.
+func specRole() *string {
+	r := api.SpecNodeRole
+	return &r
+}
+
 // ---- citation grammar ----
 
 var (

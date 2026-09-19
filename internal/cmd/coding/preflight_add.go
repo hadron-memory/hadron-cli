@@ -2,6 +2,7 @@ package coding
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -216,14 +217,39 @@ usage error, not a half-finished write.`,
 				input.Seq = &seq
 			}
 
-			resp, err := api.AuthorProtectedNode(ctx, client, &input, false)
+			// THE GENERIC surface, and that is the re-route rather than an
+			// omission from it (#1201).
+			//
+			// This site used the protected-loc door because `preflight` was an
+			// ADDRESS a memory could declare in `Memory.protectedLocs`. That
+			// column is gone: protection is now by KIND, read off the resulting
+			// state, and a route target is of no governed kind — it is a
+			// non-runnable orientation node carrying no role, which
+			// defaultRouteNodeType above already says in its own words ("a
+			// runnable node is a task, which the router links to rather than
+			// owns"). Measured on the live corpus before deciding: every node
+			// under `preflight` is isRunnable=false with role=null.
+			//
+			// Routing it through `createTaskNode` would be a door it does not
+			// need, claiming a kind it does not have. If this command ever grows
+			// a way to mint a RUNNABLE route target, that write becomes
+			// task-kind and must move to the task door — the gate reads what the
+			// node will be, not which command wrote it.
+			resp, err := gen.CreateNode(ctx, client, &input)
 			if err != nil {
 				return api.MapError(err)
 			}
+			// `createNode` is `Node!`, so a nil is a malformed response rather
+			// than a legal "no node". The door wrapper checked this for us;
+			// coming off it, the check has to live here.
+			if resp == nil || resp.CreateNode == nil {
+				return errors.New("createNode returned no node")
+			}
+			created := resp.CreateNode
 
 			dto := newRouteDTO{
-				Loc: resp.Loc, ID: resp.Id, Name: resp.Name,
-				Route: label, Tags: resp.Tags, Seq: resp.Seq,
+				Loc: created.Loc, ID: created.Id, Name: created.Name,
+				Route: label, Tags: created.Tags, Seq: created.Seq,
 				Router: root, BackEdge: !noBackEdge, Links: outLinks,
 			}
 			if dto.Tags == nil {
@@ -235,7 +261,7 @@ usage error, not a half-finished write.`,
 			// re-reads for exactly this reason; without it the DTO would report
 			// `backEdge: true` and a full `links` list for edges that silently
 			// never materialised. The DTO is corrected to what actually landed.
-			landed, err := confirmEmbeddedEdges(ctx, client, resp.Id)
+			landed, err := confirmEmbeddedEdges(ctx, client, created.Id)
 			if err != nil {
 				return partialRoute(f, dto, true, err,
 					"created %s but could not read it back to confirm its edges — check it with `hadron node get %s -m %s`",
@@ -260,7 +286,7 @@ usage error, not a half-finished write.`,
 			}
 			dto.Links = kept
 
-			edgeResp, err := gen.CreateEdge(ctx, client, router.Node.Id, resp.Id, label,
+			edgeResp, err := gen.CreateEdge(ctx, client, router.Node.Id, created.Id, label,
 				nil, nil, nil, nil, nil, nil)
 			if err != nil {
 				// The node exists but nothing routes to it — a partial write,

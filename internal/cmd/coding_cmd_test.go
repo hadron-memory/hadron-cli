@@ -499,7 +499,7 @@ func TestCodingReviewCreateWiresParentEdge(t *testing.T) {
 			codingRootJSON("review", "", ""),                                 // the parent
 			codingNodeJSON("n_new", "review:thin-resolver", "", confirmEdge), // the confirm read
 		},
-		"AuthorProtectedNode": {`{"data":{"authorProtectedNode":` + newNode + `}}`},
+		"CreateReviewNode": {`{"data":{"createReviewNode":` + newNode + `}}`},
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -522,10 +522,10 @@ func TestCodingReviewCreateWiresParentEdge(t *testing.T) {
 			} `json:"edges"`
 		} `json:"input"`
 	}
-	if len(captured["AuthorProtectedNode"]) != 1 {
-		t.Fatalf("expected exactly one AuthorProtectedNode, got %d", len(captured["AuthorProtectedNode"]))
+	if len(captured["CreateReviewNode"]) != 1 {
+		t.Fatalf("expected exactly one CreateReviewNode, got %d", len(captured["CreateReviewNode"]))
 	}
-	if err := json.Unmarshal(captured["AuthorProtectedNode"][0], &got); err != nil {
+	if err := json.Unmarshal(captured["CreateReviewNode"][0], &got); err != nil {
 		t.Fatalf("decoding CreateNode vars: %v", err)
 	}
 	if got.Input.Loc != "review:thin-resolver" {
@@ -568,8 +568,8 @@ func TestCodingReviewCreateCrossMemoryLink(t *testing.T) {
 			codingRootJSON("review", "", ""),
 			codingNodeJSON("n_new", "review:linked", "", confirmEdge),
 		},
-		"ResolveUrn":          {`{"data":{"resolveUrn":{"id":"n_link","kind":"node","memoryId":"mem2"}}}`},
-		"AuthorProtectedNode": {`{"data":{"authorProtectedNode":` + newNode + `}}`},
+		"ResolveUrn":       {`{"data":{"resolveUrn":{"id":"n_link","kind":"node","memoryId":"mem2"}}}`},
+		"CreateReviewNode": {`{"data":{"createReviewNode":` + newNode + `}}`},
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -600,7 +600,7 @@ func TestCodingReviewCreateCrossMemoryLink(t *testing.T) {
 			} `json:"edges"`
 		} `json:"input"`
 	}
-	if err := json.Unmarshal(captured["AuthorProtectedNode"][0], &got); err != nil {
+	if err := json.Unmarshal(captured["CreateReviewNode"][0], &got); err != nil {
 		t.Fatalf("decoding CreateNode vars: %v", err)
 	}
 	if len(got.Input.Edges) != 2 || got.Input.Edges[1].TargetID != "n_link" {
@@ -618,7 +618,7 @@ func TestCodingReviewCreateUnwiredExits1(t *testing.T) {
 			codingRootJSON("review", "", ""),
 			codingNodeJSON("n_new", "review:orphan", "", ""), // no edge came back
 		},
-		"AuthorProtectedNode": {`{"data":{"authorProtectedNode":` + newNode + `}}`},
+		"CreateReviewNode": {`{"data":{"createReviewNode":` + newNode + `}}`},
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -642,7 +642,7 @@ func TestCodingReviewCreateMissingParent(t *testing.T) {
 	if got := exitCodeFor(root.Execute()); got != exitcode.NotFound {
 		t.Errorf("a missing review parent should exit 4, got %d", got)
 	}
-	if _, wrote := captured["AuthorProtectedNode"]; wrote {
+	if _, wrote := captured["CreateReviewNode"]; wrote {
 		t.Error("nothing may be written when the parent does not resolve")
 	}
 }
@@ -722,9 +722,9 @@ func TestCodingPreflightCreateWiresRouteAndBody(t *testing.T) {
 			newRouteNodeRead(backEdgeJSON),       // confirm the embedded back-edge
 			codingRouterWithBody(flatRouterBody), // re-read before the splice
 		},
-		"AuthorProtectedNode": {`{"data":{"authorProtectedNode":` + newRouteNodeJSON + `}}`},
-		"CreateEdge":          {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
-		"UpdateNode":          {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -746,10 +746,10 @@ func TestCodingPreflightCreateWiresRouteAndBody(t *testing.T) {
 			} `json:"edges"`
 		} `json:"input"`
 	}
-	if len(captured["AuthorProtectedNode"]) != 1 {
-		t.Fatalf("expected exactly one AuthorProtectedNode, got %d", len(captured["AuthorProtectedNode"]))
+	if len(captured["CreateNode"]) != 1 {
+		t.Fatalf("expected exactly one CreateNode, got %d", len(captured["CreateNode"]))
 	}
-	if err := json.Unmarshal(captured["AuthorProtectedNode"][0], &node); err != nil {
+	if err := json.Unmarshal(captured["CreateNode"][0], &node); err != nil {
 		t.Fatalf("decoding CreateNode vars: %v", err)
 	}
 	if node.Input.Loc != "findings:flaky-otp-timer" || node.Input.Name != "flaky-otp-timer" {
@@ -828,7 +828,7 @@ func TestCodingPreflightCreateAmbiguousBodyWritesNothing(t *testing.T) {
 	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Errorf("an ambiguous router body is a usage error (2), got %d", got)
 	}
-	if _, wrote := captured["AuthorProtectedNode"]; wrote {
+	if _, wrote := captured["CreateNode"]; wrote {
 		t.Error("nothing may be written before the body's insertion point is settled")
 	}
 
@@ -839,9 +839,9 @@ func TestCodingPreflightCreateAmbiguousBodyWritesNothing(t *testing.T) {
 			newRouteNodeRead(backEdgeJSON),
 			codingRouterWithBody(sectionedRouterBody),
 		},
-		"AuthorProtectedNode": {`{"data":{"authorProtectedNode":` + newRouteNodeJSON + `}}`},
-		"CreateEdge":          {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
-		"UpdateNode":          {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
 	})
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
@@ -871,8 +871,8 @@ func TestCodingPreflightCreateNoBodyLine(t *testing.T) {
 			codingRouterWithBody("# Preflight\n\nMatch your intent to an edge.\n"),
 			newRouteNodeRead(""), // no back-edge asked for, none expected
 		},
-		"AuthorProtectedNode": {`{"data":{"authorProtectedNode":` + newRouteNodeJSON + `}}`},
-		"CreateEdge":          {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -888,7 +888,7 @@ func TestCodingPreflightCreateNoBodyLine(t *testing.T) {
 			Edges []json.RawMessage `json:"edges"`
 		} `json:"input"`
 	}
-	if err := json.Unmarshal(captured["AuthorProtectedNode"][0], &node); err != nil {
+	if err := json.Unmarshal(captured["CreateNode"][0], &node); err != nil {
 		t.Fatalf("decoding CreateNode vars: %v", err)
 	}
 	if len(node.Input.Edges) != 0 {
@@ -904,8 +904,8 @@ func TestCodingPreflightCreateUnroutedExits1(t *testing.T) {
 			codingRouterWithBody(flatRouterBody),
 			newRouteNodeRead(backEdgeJSON),
 		},
-		"AuthorProtectedNode": {`{"data":{"authorProtectedNode":` + newRouteNodeJSON + `}}`},
-		"CreateEdge":          {`{"errors":[{"message":"edge refused"}]}`},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"errors":[{"message":"edge refused"}]}`},
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -928,9 +928,9 @@ func TestCodingPreflightCreateBodyUpdateFailureExits1(t *testing.T) {
 			newRouteNodeRead(backEdgeJSON),
 			codingRouterWithBody(flatRouterBody),
 		},
-		"AuthorProtectedNode": {`{"data":{"authorProtectedNode":` + newRouteNodeJSON + `}}`},
-		"CreateEdge":          {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
-		"UpdateNode":          {`{"errors":[{"message":"write refused"}]}`},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"UpdateNode": {`{"errors":[{"message":"write refused"}]}`},
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -957,7 +957,7 @@ func TestCodingPreflightCreateDryRun(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("--dry-run should succeed, got %v", err)
 	}
-	for _, op := range []string{"AuthorProtectedNode", "CreateEdge", "UpdateNode"} {
+	for _, op := range []string{"CreateReviewNode", "CreateEdge", "UpdateNode"} {
 		if _, wrote := captured[op]; wrote {
 			t.Errorf("--dry-run issued %s — it must write nothing", op)
 		}
@@ -991,9 +991,9 @@ func TestCodingPreflightCreateUnconfirmedBackEdge(t *testing.T) {
 			newRouteNodeRead(""), // the back-edge did not land
 			codingRouterWithBody(flatRouterBody),
 		},
-		"AuthorProtectedNode": {`{"data":{"authorProtectedNode":` + newRouteNodeJSON + `}}`},
-		"CreateEdge":          {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
-		"UpdateNode":          {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1027,7 +1027,7 @@ func TestCodingPreflightCreateMissingRouter(t *testing.T) {
 	if got := exitCodeFor(root.Execute()); got != exitcode.NotFound {
 		t.Errorf("a missing preflight router should exit 4, got %d", got)
 	}
-	if _, wrote := captured["AuthorProtectedNode"]; wrote {
+	if _, wrote := captured["CreateReviewNode"]; wrote {
 		t.Error("nothing may be written when the router does not resolve")
 	}
 }
@@ -1131,7 +1131,7 @@ func TestCodingPreflightRouteExistingNode(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("route should succeed, got %v", err)
 	}
-	if _, made := captured["AuthorProtectedNode"]; made {
+	if _, made := captured["CreateNode"]; made {
 		t.Error("route must never create a node — that is what `create` is for")
 	}
 	if n := len(captured["CreateEdge"]); n != 2 {

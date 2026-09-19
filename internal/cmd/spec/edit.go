@@ -189,7 +189,7 @@ nothing.`,
 			if result.AbstractChanged {
 				input.Abstract = &newAbstract
 			}
-			if _, err := gen.UpdateNode(cmd.Context(), client, &input); err != nil {
+			if _, err := api.UpdateSpecNode(cmd.Context(), client, &input); err != nil {
 				return api.MapError(err)
 			}
 			return render()
