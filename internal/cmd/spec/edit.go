@@ -92,7 +92,9 @@ body edit, or on its own to settle a marker a previous edit left behind.
 It is an assertion, not a formality: the marker is a prompt to check, and
 re-affirming an abstract you have not re-read is the one thing it must not be
 used for. It is refused alongside --abstract/--abstract-file (replacing the
-abstract re-fingerprints it anyway), and on a spec with no abstract at all.`,
+abstract re-fingerprints it anyway), on a spec with no abstract at all, and on
+a legacy abstract past the server cap — re-affirming replaces it, and a
+replacement over the cap is rejected.`,
 		Example: `  hadron spec edit cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --dry-run
   cat rewrite.md | hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content -
@@ -193,6 +195,21 @@ abstract re-fingerprints it anyway), and on a spec with no abstract at all.`,
 			// Re-affirming is only meaningful when the abstract is NOT also
 			// being replaced — a replacement is fingerprinted on its own.
 			result.AbstractReaffirmed = stillAccurate && !result.AbstractChanged
+			// A legacy abstract PAST the server's cap cannot be re-sent
+			// (@codex on #613). Omitting it preserves it — which is exactly why
+			// such a node still works today — but re-affirming REPLACES it, and
+			// the server rejects a replacement over the cap. So the assertion
+			// would fail at write time on precisely the nodes `abstract-length`
+			// already calls out as legacy data.
+			//
+			// Refused with the remedy rather than attempted and mapped: the fix
+			// is to shorten the abstract, which is an edit the author has to make
+			// anyway, and `--abstract-file` re-fingerprints it in the same call.
+			if result.AbstractReaffirmed && abstractLength(&curAbstract) > abstractHardMax {
+				return exitcode.Newf(exitcode.Usage,
+					"%s has a %d-char abstract, past the %d-char cap — re-affirming REPLACES it and the server rejects a replacement over the cap (omitting it, which is what preserves it today, is what armed the marker). Shorten it with --abstract/--abstract-file, which re-fingerprints it in the same write",
+					node.Loc, abstractLength(&curAbstract), abstractHardMax)
+			}
 			if result.AbstractReaffirmed && strings.TrimSpace(curAbstract) == "" {
 				// REFUSE rather than send "". The server normalizes an empty
 				// abstract to null, so the assertion would CLEAR the field it
@@ -260,7 +277,7 @@ abstract re-fingerprints it anyway), and on a spec with no abstract at all.`,
 	// text as the flag's placeholder name, so "clearing `abstract-stale`" would
 	// rename the flag's argument in --help (review:backticks-in-flag-usage-become-the-placeholder).
 	cmd.Flags().BoolVar(&stillAccurate, "abstract-still-accurate", false,
-		"assert you re-read the abstract and it still describes the spec: re-sends it unchanged so it is re-fingerprinted against the body, clearing the abstract-stale marker")
+		"assert you re-read the abstract and it still describes the spec: re-sends it unchanged so it is re-fingerprinted against the body, refreshing its verification")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would change without writing")
 	return cmd
 }
@@ -396,7 +413,7 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 		fmt.Fprintln(w, "  abstract: updated")
 	}
 	if r.AbstractReaffirmed {
-		fmt.Fprintln(w, "  abstract: unchanged, re-fingerprinted against this body (abstract-stale cleared)")
+		fmt.Fprintln(w, "  abstract: unchanged, re-fingerprinted against this body (verification refreshed)")
 	}
 	// Only nudge about the abstract when the body changed but the abstract
 	// didn't — now that the abstract is editable here, a meaning shift is easy

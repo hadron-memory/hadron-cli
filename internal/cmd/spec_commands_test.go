@@ -3317,3 +3317,55 @@ func TestSpecEditReminderNamesTheReaffirmFlag(t *testing.T) {
 		t.Errorf("the reminder must name the flag that settles it:\n%s", s)
 	}
 }
+
+// @codex on #613: a LEGACY abstract past the server's cap cannot be re-sent.
+// Omitting it preserves it — which is why such a node still works — but
+// re-affirming REPLACES it, and a replacement over the cap is rejected. So the
+// assertion would fail at write time on exactly the nodes `abstract-length`
+// already reports as legacy data. Refused with the remedy instead.
+func TestSpecEditAbstractStillAccurateRefusesAnOverCapAbstract(t *testing.T) {
+	over := strings.Repeat("x", 2001)
+	detail := `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":"` + over + `","abstractOriginHash":"deadbeef",` +
+		`"nodeType":"info","tags":["spec","messaging"],"content":"# body\n",` +
+		`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[],"incomingEdges":[]}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":     resolveSpecJSON,
+		"GetNode":        `{"data":{"node":` + detail + `}}`,
+		"NodeBatch":      specLintRawBodyStub(detail),
+		"UpdateSpecNode": editMocks()["UpdateSpecNode"],
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--abstract-still-accurate", "--server", gql.URL})
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("an over-cap abstract should refuse with Usage, got %d", got)
+	}
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
+		t.Error("must refuse BEFORE writing — the server would reject the replacement anyway")
+	}
+}
+
+// @copilot on #613: the success line must not claim it cleared `abstract-stale`.
+// `spec lint` distinguishes stale from `abstract-unverified` and from an
+// already-current abstract, and this same write serves all three — so the
+// honest statement is that verification was refreshed.
+func TestSpecEditReaffirmWordingIsStateNeutral(t *testing.T) {
+	gql, _ := captureGraphQL(t, editMocks())
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--abstract-still-accurate", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "verification refreshed") {
+		t.Errorf("expected state-neutral wording:\n%s", s)
+	}
+	if strings.Contains(s, "abstract-stale cleared") {
+		t.Errorf("must not claim a marker was cleared that may not have been set:\n%s", s)
+	}
+}

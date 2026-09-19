@@ -312,9 +312,11 @@ hadron spec edit cor:agt:020 -m $M --abstract-still-accurate
 
 It is an assertion, not a formality — the marker is a prompt to check, and the
 one use it must not be put to is re-affirming an abstract you have not re-read.
-It is refused alongside `--abstract`/`--abstract-file`, and on a spec with no
+It is refused alongside `--abstract`/`--abstract-file`; on a spec with no
 abstract at all (re-sending an empty value would clear the field rather than
-re-affirm it).
+re-affirm it); and on a legacy abstract past the 2000-char cap, where
+re-affirming turns a preservable value into a replacement the server rejects —
+shorten it with `--abstract-file`, which re-fingerprints in the same write.
 
 Use `edit` for ordinary body or abstract changes that do not change the durable
 meaning of the citation:

@@ -773,8 +773,10 @@ Conventions:
   **alone** to settle a marker an earlier edit left behind — alone it still
   writes, and `--json` reports `abstractReaffirmed: true` with `changed: true`.
   It is refused alongside `--abstract`/`--abstract-file` (a replacement is
-  re-fingerprinted anyway) and on a spec with no abstract, where re-sending an
-  empty value would CLEAR the field rather than re-affirm it. There is no
+  re-fingerprinted anyway); on a spec with no abstract, where re-sending an
+  empty value would CLEAR the field rather than re-affirm it; and on a LEGACY
+  abstract past the 2000-char cap, where re-affirming turns a preservable value
+  into a replacement the server rejects. There is no
   `abstractStillAccurate` argument on GraphQL — that exists only on the MCP
   `hadron_update_node` — so this is the CLI doing client-side what MCP does with
   a flag; `spec extract <source> --to-feature <fff> [--rule <rr>]`
