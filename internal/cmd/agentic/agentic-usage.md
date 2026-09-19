@@ -763,7 +763,23 @@ Conventions:
   together in $EDITOR pre-loaded (divided by sentinel lines) — or replaces either
   non-interactively from `--content -`/`--content-file` and/or
   `--abstract -`/`--abstract-file` — writing only the field(s) that actually
-  changed and preserving the rest (`--dry-run` previews); `spec extract <source> --to-feature <fff> [--rule <rr>]`
+  changed and preserving the rest (`--dry-run` previews). **A body-only edit
+  ARMS `abstract-stale`** (the abstract was fingerprinted against the old
+  content), and preserving an unchanged field by omission is also what makes the
+  marker unclearable — re-running with the same abstract writes nothing.
+  `--abstract-still-accurate` (#612) is the way out: it asserts you re-read the
+  abstract and it still describes the spec, and re-sends it UNCHANGED so the
+  server re-fingerprints it against the new body. Pass it with a body edit, or
+  **alone** to settle a marker an earlier edit left behind — alone it still
+  writes, and `--json` reports `abstractReaffirmed: true` with `changed: true`.
+  It is refused alongside `--abstract`/`--abstract-file` (a replacement is
+  re-fingerprinted anyway); on a spec with no abstract, where re-sending an
+  empty value would CLEAR the field rather than re-affirm it; and on a LEGACY
+  abstract past the 2000-char cap, where re-affirming turns a preservable value
+  into a replacement the server rejects. There is no
+  `abstractStillAccurate` argument on GraphQL — that exists only on the MCP
+  `hadron_update_node` — so this is the CLI doing client-side what MCP does with
+  a flag; `spec extract <source> --to-feature <fff> [--rule <rr>]`
   splits a sub-rule out of a fat parent into its own citation under another
   feature, piping the moved chunk in via `--content -`/`--content-file`,
   auto-wiring the cross-ref edge new→source (`--ref-label`), and reminding you

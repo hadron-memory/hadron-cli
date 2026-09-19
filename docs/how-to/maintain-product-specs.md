@@ -294,6 +294,30 @@ that leaves an abstract stale is surfaced immediately.
 
 ## Editing and splitting specs
 
+**A body-only edit arms `abstract-stale`.** The abstract was fingerprinted
+against the old content, so every later read flags it as a possibly-outdated
+preview — and because `edit` preserves an unchanged field by omitting it,
+re-running with the same abstract writes nothing and cannot settle the marker.
+`--abstract-still-accurate` is the way out: it asserts you re-read the abstract
+and it still describes the spec, and re-sends it unchanged so the server
+re-fingerprints it against the new body.
+
+```sh
+# a body edit where the abstract survives it
+hadron spec edit cor:agt:020 -m $M --content-file body.md --abstract-still-accurate
+
+# settle a marker an earlier edit left behind (nothing else changes)
+hadron spec edit cor:agt:020 -m $M --abstract-still-accurate
+```
+
+It is an assertion, not a formality — the marker is a prompt to check, and the
+one use it must not be put to is re-affirming an abstract you have not re-read.
+It is refused alongside `--abstract`/`--abstract-file`; on a spec with no
+abstract at all (re-sending an empty value would clear the field rather than
+re-affirm it); and on a legacy abstract past the 2000-char cap, where
+re-affirming turns a preservable value into a replacement the server rejects —
+shorten it with `--abstract-file`, which re-fingerprints in the same write.
+
 Use `edit` for ordinary body or abstract changes that do not change the durable
 meaning of the citation:
 
