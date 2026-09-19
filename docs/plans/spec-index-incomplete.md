@@ -94,13 +94,23 @@ are inherited by their siblings rather than indexing anything (the #609
 exclusion, extended here — zero contracts have children today, so it removes no
 findings; it is there so the first one that does is not told to route).
 
-**Drift classes.** The message says whether each uncited child was edited *after*
-the index (the list fell behind) or already existed when the index was last
-written (the list was touched and the child left out). Timestamps ride the
-existing `nodeBatch` projection, so this costs nothing on the wire, and they are
-compared as parsed instants rather than lexically — the live corpus writes UTC,
-where a string compare happens to agree, but it agrees by accident and an offset
-spelling would invert the classification silently.
+**Write order, and only what it supports.** The message says whether each uncited
+child was *last written after* the index or was *already there* when the index
+was last written. Timestamps ride the existing `nodeBatch` projection, so this
+costs nothing on the wire, and they are compared as parsed instants rather than
+lexically — the live corpus writes UTC, where a string compare happens to agree,
+but it agrees by accident and an offset spelling would invert the classification
+silently.
+
+The first version over-claimed, and @copilot was right to flag it: it said the
+index "was touched and they were left out". `updatedAt` is a **node-wide**
+mutation timestamp — an abstract rewrite, a tag, a data patch or an edge moves it
+without touching the body — so it cannot support a claim about the index list
+having been reviewed. The message now states the order and labels it a lead. An
+exact tie is reported as *write order unknown* rather than falling through to the
+sharper class, which is what it used to do. A body-specific timestamp would carry
+the stronger claim and is not on the wire: `NodeRevision` is a query per node,
+which a corpus-wide lint cannot spend.
 
 `Node.updatedAt` was **seen carrying a value through the path this rule uses**,
 not assumed from the schema (`review:a-recommended-field-must-be-seen-carrying-a-value`,
@@ -142,6 +152,21 @@ way. With only the first two forms the rule warned **three times on an index tha
 routes to all four of its children** — found by reading the single residual
 finding a run produced rather than trusting it.
 
+**A citation is never satisfied by being the TAIL of a longer one.** The relaxed
+lead guard that lets a URN link through also lets a *product atom* through, so a
+flat corpus's `msg:010` was satisfied by a product-rooted `cor:msg:010` — a
+different corpus's node certifying this one's index (@codex on #611). The guard
+asks `ParseCitation` whether prefixing the preceding atom yields a valid
+citation, rather than re-implementing the grammar: in
+`hrn:node:…:specs:cor:acl:010` the preceding atom is `specs`, which does not
+parse as a product, so the link still counts. Only a **flat** citation can be a
+citation's suffix — prefixing an atom to a product-rooted one always overruns the
+grammar — so this costs the product-rooted corpus nothing and closes the hole for
+the flat ones. One imprecision is named at the site: a memory slug of exactly
+three lowercase letters would parse as a product and reject a real citation,
+which is a false *warning* rather than a false clean, and no live specs memory is
+named that way.
+
 **The bare leaf** (`020`, `09`) is deliberately **not** accepted. Measured: it
 adds zero coverage over the three forms, because every node writing a bare number
 also links the full citation. At the rule tier it is two digits, which prose
@@ -181,6 +206,14 @@ links with, that backlog is **zero**.
 The rule therefore ships **green** against the live corpus. Like `scaffold-body`
 (#545), it earns its place by catching the next one.
 
+**And on a flat corpus it is not green, which is the better evidence.**
+`hrn:mem:micromentor.org:specs` returns **14 findings**, spread 1-of-1 to
+16-of-16 across both write-order classes — a varied distribution rather than the
+uniform 72/72 that told us the first attempt was measuring itself. Every one is
+warning-severity, so the exit code is unchanged: that corpus already exits 5 on
+`main` for `invalidates` and `abstract-length`, verified by running the
+pre-change binary against it rather than reasoning about severities.
+
 ## Verification
 
 Unit tests in `internal/cmd/spec/lintindex_test.go`, with fixtures copied from
@@ -201,6 +234,12 @@ test fail.
 | compare timestamps lexically | `TestIndexIncompleteComparesInstantsNotStrings` |
 | widen the scope to every tier | `TestIndexIncompleteScope` — both subtests |
 | drop the contract-parent exclusion | `TestIndexIncompleteSkipsContractParents` |
+
+The review-driven fixes are mutation-verified the same way, in both directions —
+trusting the colon again is caught by the two flat-corpus rows, and rejecting
+*every* colon is caught by the two URN-link rows. The over-correction mutation
+was initially **not caught**, which is what added the leading-colon row; a guard
+whose over-correction nothing pins is half-tested.
 
 Two of these needed a second pass, which is the check on the check
 (`review:a-mutation-check-can-itself-be-a-no-op`): the first attempts at the

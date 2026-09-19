@@ -141,6 +141,38 @@ func TestIndexIncompleteCitationForms(t *testing.T) {
 			body: "Compare `cor:api:060:09`, a different feature's ninth rule.\n",
 		},
 		{
+			// @codex on #611: the relaxed lead guard that lets a URN link
+			// through also lets a PRODUCT atom through, so a flat corpus's
+			// `msg:010` was satisfied by a product-rooted `cor:msg:010` — a
+			// different corpus's node certifying this one's index.
+			name: "flat child not satisfied by a product-rooted citation", cited: false,
+			parent: "msg", child: "msg:010",
+			body: "## Features\n\nSee `cor:msg:010` in the platform corpus for the adjacent rule.\n",
+		},
+		{
+			// The same guard must not cost the flat corpus its own URN links:
+			// there the atom before the citation is the MEMORY slug, which does
+			// not extend it into a valid citation.
+			name: "flat child still cited through a URN link target", cited: true,
+			parent: "msg", child: "msg:010",
+			body: "## Features\n\n- [**010 W-series**](hrn:node:micromentor.org:platform-specs:msg:010) — the W rules.\n",
+		},
+		{
+			// Same at rule depth, where the flat form has more atoms to be a
+			// suffix of.
+			name: "flat rule not satisfied by a product-rooted rule", cited: false,
+			parent: "msg:010", child: "msg:010:02",
+			body: "Compare `cor:msg:010:02`, which is a different corpus.\n",
+		},
+		{
+			// A colon with NOTHING before it cannot make the match a tail, so
+			// the tail check must not reject it. Pins the degenerate branch,
+			// which a mutation otherwise walks straight through.
+			name: "leading colon with no atom before it is not a tail", cited: true,
+			parent: "cor:acl", child: "cor:acl:010",
+			body: ":cor:acl:010 — written with a stray leading colon.\n",
+		},
+		{
 			name: "an index naming none of its children", cited: false,
 			parent: "cor:agt", child: "cor:agt:020",
 			body: "# cor:agt — Agents\n\nAgent domain contracts. Reserved root — no features yet.\n",
@@ -196,6 +228,52 @@ func TestIndexIncompleteScope(t *testing.T) {
 	}
 }
 
+// A contract is excluded as a PARENT and required as a CHILD, and the asymmetry
+// is deliberate rather than an oversight (@copilot on #611 read it as one and
+// asked for contracts to be dropped from `indexedChild` too).
+//
+// A contract indexes nothing — hence the parent exclusion. But it is indexed:
+// the corpus lists it as the first entry of its parent's list, `- [`cor:agt:020:00`]
+// (…) — **General provisions.**`, and `cor:acl` opens its Features list with
+// `- **[000 General provisions](…cor:acl:000)**`. Measured over
+// hrn:mem:hadronmemory.com:specs: **29 of 29** contract children are cited by
+// their parent. Dropping them would exempt the one entry every sibling inherits
+// from, on a rule about reachability.
+func TestIndexIncompleteRequiresContractChildren(t *testing.T) {
+	// A module whose Features list names the regular child but omits the
+	// contract — the shape the exclusion would have made invisible.
+	body := "# cor:acl — Access control\n\n## Features\n\n" +
+		"- **[010 Memory access](hrn:node:hadronmemory.com:specs:cor:acl:010)** — who may read a memory.\n"
+	fs := indexIncompleteFindings([]specNode{
+		indexNode("cor:acl", body, beforeTS),
+		childNode("cor:acl:000", afterTS), // the contract, uncited
+		childNode("cor:acl:010", afterTS), // cited
+	})
+	f := indexFindingFor(fs, "cor:acl")
+	if f == nil {
+		t.Fatal("a contract child omitted from the index is a finding")
+	}
+	if !strings.Contains(f.Message, "cor:acl:000") {
+		t.Errorf("the uncited contract must be named: %s", f.Message)
+	}
+	if strings.Contains(f.Message, "cor:acl:010") {
+		t.Errorf("the cited regular child must not be reported: %s", f.Message)
+	}
+	// And the same index with the contract listed is clean — the pairing
+	// @copilot asked for, so the rule is pinned in both directions.
+	withContract := "# cor:acl — Access control\n\n## Features\n\n" +
+		"- **[000 General provisions](hrn:node:hadronmemory.com:specs:cor:acl:000)** — the shared predicates.\n" +
+		"- **[010 Memory access](hrn:node:hadronmemory.com:specs:cor:acl:010)** — who may read a memory.\n"
+	clean := indexIncompleteFindings([]specNode{
+		indexNode("cor:acl", withContract, beforeTS),
+		childNode("cor:acl:000", afterTS),
+		childNode("cor:acl:010", afterTS),
+	})
+	if f := indexFindingFor(clean, "cor:acl"); f != nil {
+		t.Errorf("an index listing its contract is complete; got %s", f.Message)
+	}
+}
+
 // A general-provisions contract is inherited by its siblings rather than
 // indexing anything, so "your index omits a child" is not a claim about it —
 // the exclusion @codex and @copilot arrived at independently on #609.
@@ -228,11 +306,82 @@ func TestIndexIncompleteSplitsDriftClasses(t *testing.T) {
 	if f == nil {
 		t.Fatal("expected a finding")
 	}
-	if !strings.Contains(f.Message, "cor:api:060:05 (edited since this index was last written") {
+	if !strings.Contains(f.Message, "cor:api:060:05 (last written after this index)") {
 		t.Errorf("child-newer class not reported: %s", f.Message)
 	}
-	if !strings.Contains(f.Message, "cor:api:060:01 (already existed when this index was last written") {
+	if !strings.Contains(f.Message, "cor:api:060:01 (already there when this index was last written)") {
 		t.Errorf("parent-newer class not reported: %s", f.Message)
+	}
+	// The order is a NODE-wide timestamp, so it may not be stated as a claim
+	// about the index list having been edited (@copilot on #611).
+	if !strings.Contains(f.Message, "read the order as a lead") {
+		t.Errorf("the order must be labelled as a lead: %s", f.Message)
+	}
+	for _, overclaim := range []string{"the list was touched", "left out", "drifted behind"} {
+		if strings.Contains(f.Message, overclaim) {
+			t.Errorf("node-wide updatedAt cannot support %q: %s", overclaim, f.Message)
+		}
+	}
+}
+
+// An exact tie is not evidence of order. `updatedAt` has millisecond
+// resolution, so two writes can share one — and this used to fall through to
+// the sharper "already there when this index was last written" claim
+// (@copilot on #611).
+func TestIndexIncompleteEqualTimestampsClaimNoOrder(t *testing.T) {
+	const same = "2026-05-01T00:00:00Z"
+	fs := indexIncompleteFindings([]specNode{
+		indexNode("cor:api:060", "# cor:api:060\n\nNo list.\n", same),
+		childNode("cor:api:060:01", same),
+	})
+	f := indexFindingFor(fs, "cor:api:060")
+	if f == nil {
+		t.Fatal("expected a finding")
+	}
+	if !strings.Contains(f.Message, "cor:api:060:01 (write order unknown)") {
+		t.Errorf("a tie must claim no order: %s", f.Message)
+	}
+	if strings.Contains(f.Message, "read the order as a lead") {
+		t.Errorf("no order was reported, so there is no lead to caveat: %s", f.Message)
+	}
+}
+
+// "1 of its 1 children" (@copilot on #611). The `plural` helper cannot serve
+// this one — it appends an "s" and would say "childs".
+func TestIndexIncompleteSingularChildGrammar(t *testing.T) {
+	fs := indexIncompleteFindings([]specNode{
+		indexNode("cor:api:060", "# cor:api:060\n\nNo list.\n", beforeTS),
+		childNode("cor:api:060:01", afterTS),
+	})
+	f := indexFindingFor(fs, "cor:api:060")
+	if f == nil {
+		t.Fatal("expected a finding")
+	}
+	if !strings.Contains(f.Message, "does not cite 1 of its 1 child —") {
+		t.Errorf("singular grammar: %s", f.Message)
+	}
+	if strings.Contains(f.Message, "childs") {
+		t.Errorf("plural() must not be used for this noun: %s", f.Message)
+	}
+}
+
+// The remedy must name every spelling the matcher accepts, or an author reads
+// their existing colon-leaf entry as not counting (@copilot on #611, 3 votes).
+func TestIndexIncompleteRemedyNamesEveryAcceptedForm(t *testing.T) {
+	fs := indexIncompleteFindings([]specNode{
+		indexNode("cor:agt:020", "# cor:agt:020\n\nNo list.\n", beforeTS),
+		childNode("cor:agt:020:09", afterTS),
+	})
+	f := indexFindingFor(fs, "cor:agt:020")
+	if f == nil {
+		t.Fatal("expected a finding")
+	}
+	// One assertion per accepted form, so widening the matcher without
+	// widening the remedy fails here.
+	for _, form := range []string{"`cor:agt:020:09`", "`020:09`", "`:09`", "struck"} {
+		if !strings.Contains(f.Message, form) {
+			t.Errorf("remedy omits the %s form: %s", form, f.Message)
+		}
 	}
 }
 
@@ -270,7 +419,7 @@ func TestIndexIncompleteComparesInstantsNotStrings(t *testing.T) {
 	if f == nil {
 		t.Fatal("expected a finding")
 	}
-	if !strings.Contains(f.Message, "already existed when this index was last written") {
+	if !strings.Contains(f.Message, "already there when this index was last written") {
 		t.Errorf("an offset timestamp must be compared as an instant: %s", f.Message)
 	}
 }

@@ -265,7 +265,8 @@ const (
 )
 
 // containsToken reports whether tok occurs in s as a whole token: never running
-// on into a longer one, and preceded by a character the mode permits.
+// on into a longer one, never the TAIL of a longer one, and preceded by a
+// character the mode permits.
 //
 // The trailing test is `wholeToken`, shared with the source scanner, so the two
 // surfaces cannot drift on where a citation ends. It is what keeps a parent that
@@ -278,7 +279,7 @@ func containsToken(s, tok string, lead leadMode) bool {
 			return false
 		}
 		start := i + j
-		if wholeToken(s, start+len(tok)) && leadingOK(s, start, lead) {
+		if wholeToken(s, start+len(tok)) && leadingOK(s, start, tok, lead) {
 			return true
 		}
 		i = start + 1
@@ -286,36 +287,91 @@ func containsToken(s, tok string, lead leadMode) bool {
 	return false
 }
 
-func leadingOK(s string, start int, lead leadMode) bool {
+func leadingOK(s string, start int, tok string, lead leadMode) bool {
 	if start == 0 {
 		return true
 	}
 	switch c := s[start-1]; {
 	case c >= '0' && c <= '9', c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c == '_', c == '-':
 		return false
-	case c == ':' || c == '/' || c == '.':
+	case c == ':':
+		// A colon in front is how the corpus LINKS — the citation's only
+		// appearance is often inside an `hrn:node:…:specs:cor:acl:010` target —
+		// so leadIdentifier has to let it through. But the same colon is also how
+		// a longer CITATION is spelled, and there the match is somebody else's
+		// tail: `cor:msg:010` must not satisfy a flat corpus's `msg:010`
+		// (@codex on #611). Only the grammar can tell those apart.
+		return lead == leadIdentifier && !isTailOfLongerCitation(s, start, tok)
+	case c == '/' || c == '.':
 		return lead == leadIdentifier
 	}
 	return true
+}
+
+// isTailOfLongerCitation reports whether the match at start is the suffix of a
+// longer VALID citation — which is decided by `ParseCitation` rather than by
+// re-implementing the grammar here, so the two cannot drift.
+//
+// Only a FLAT citation can be one: the grammar is
+// `[<product>:]<module>[:<feature>[:<rule>[:<flow>]]]`, so prefixing an atom to
+// an already product-rooted citation always overruns it. That is why this costs
+// nothing on the live corpus, which is product-rooted throughout — it closes the
+// hole for the flat corpora (`msg:010:02`) that the same linter serves.
+//
+// ONE IMPRECISION, named rather than left to be discovered: the preceding atom
+// in a URN is the MEMORY slug, so a memory slug of exactly three lowercase
+// letters (`hrn:node:acme.com:abc:msg:010`) parses as a product and this rejects
+// a citation that was genuinely there. That direction is a false WARNING, not a
+// false clean. No live specs memory is named that way (`specs`,
+// `platform-specs`), and the alternative — trusting the colon — is the false
+// clean @codex found.
+func isTailOfLongerCitation(s string, start int, tok string) bool {
+	atomEnd := start - 1 // the ':' itself
+	atomStart := atomEnd
+	for atomStart > 0 && isCitationAtomByte(s[atomStart-1]) {
+		atomStart--
+	}
+	if atomStart == atomEnd {
+		return false // nothing but the colon in front
+	}
+	_, err := ParseCitation(s[atomStart:atomEnd] + ":" + tok)
+	return err == nil
+}
+
+func isCitationAtomByte(c byte) bool {
+	return c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
 }
 
 // editOrder is how a missing child's timestamp sits against its index's.
 type editOrder int
 
 const (
-	// editUnknown — one of the two timestamps is missing or unparseable, so the
-	// drift class is not claimed. Silence beats guessing which way it went.
+	// editUnknown — the order is not claimed. Either timestamp missing or
+	// unparseable, and ALSO an exact tie: `updatedAt` has one-millisecond
+	// resolution and two writes in the same millisecond say nothing about which
+	// came first. This used to fall through to editedBefore and make the sharper
+	// claim on no evidence (@copilot on #611).
 	editUnknown editOrder = iota
-	// editedAfter — the child changed after the index was last written: the list
-	// has simply drifted behind.
+	// editedAfter — the child was last written after the index.
 	editedAfter
-	// editedBefore — the index was written AFTER the child and still omits it:
-	// somebody touched the list and did not add it. The sharper class.
+	// editedBefore — the child already existed when the index was last written.
 	editedBefore
 )
 
-// childEditedAfter classifies the drift, which is @Vera's third convention
-// detail and the one that changes what an author does about it.
+// childEditedAfter orders a missing child against its index by last write.
+//
+// WHAT THIS CAN AND CANNOT SUPPORT, because the message is only allowed to claim
+// the first (@copilot on #611). `updatedAt` is a NODE-wide mutation timestamp: an
+// abstract rewrite, a tag, a data patch or an edge moves it without touching the
+// body. So the order is real evidence about when each NODE was last written, and
+// it is NOT evidence that the index list itself was reviewed and the child left
+// out of it. The earlier wording said exactly that, and it outran what a
+// node-wide timestamp can carry.
+//
+// A body-specific timestamp would support the stronger claim, and none is on the
+// wire — `NodeRevision` would have to be read per node, which is a query per
+// child on a corpus-wide lint. The order is worth printing as a hint; the
+// message now says which it is.
 //
 // Timestamps are compared as PARSED INSTANTS rather than lexically. Both sides
 // arrive as RFC3339 strings and the live corpus writes them in UTC, where a
@@ -327,34 +383,54 @@ func childEditedAfter(child, parent *specNode) editOrder {
 	if cerr != nil || perr != nil {
 		return editUnknown
 	}
-	if ct.After(pt) {
+	switch {
+	case ct.After(pt):
 		return editedAfter
+	case pt.After(ct):
+		return editedBefore
+	default:
+		return editUnknown
 	}
-	return editedBefore
+}
+
+// children renders a child count with its noun. Not `plural`, which appends an
+// "s" and would say "1 of its 1 childs" — the irregular plural is exactly the
+// case that helper cannot serve (@copilot on #611, on the "1 of its 1 children"
+// the first version printed).
+func children(n int) string {
+	if n == 1 {
+		return "1 child"
+	}
+	return fmt.Sprintf("%d children", n)
 }
 
 // indexIncompleteMessage renders the finding: the counts, the uncited locs
-// grouped by drift class, and one remedy.
+// grouped by write order, and one remedy.
 //
-// The two classes are named because they mean different things to the author —
-// "the list has drifted behind" versus "the list was rewritten and still omits
-// this" — but the locs come first in both, since the list is what gets acted on.
+// The locs come first in every group, since the list is what gets acted on. The
+// order is offered as a lead and labelled as one — see childEditedAfter for why
+// it cannot be stated as a claim about the index list itself.
 func indexIncompleteMessage(missing, total int, childNewer, parentNewer, undated []string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "body does not cite %d of its %d children — an index routes to its children by citing them, so an uncited child is unreachable from its own parent.",
-		missing, total)
+	fmt.Fprintf(&b, "body does not cite %d of its %s — an index routes to its children by citing them, so an uncited child is unreachable from its own parent.",
+		missing, children(total))
 	for _, g := range []struct {
 		locs []string
 		why  string
 	}{
-		{childNewer, "edited since this index was last written, so the list has drifted behind"},
-		{parentNewer, "already existed when this index was last written, so the list was touched and they were left out"},
-		{undated, "uncited"},
+		{childNewer, "last written after this index"},
+		{parentNewer, "already there when this index was last written"},
+		{undated, "write order unknown"},
 	} {
 		if len(g.locs) > 0 {
 			fmt.Fprintf(&b, " %s (%s).", strings.Join(g.locs, ", "), g.why)
 		}
 	}
-	b.WriteString(" Add one entry per child to the index list, citing the child's loc — the full citation, or the last two atoms; a struck entry for a superseded child counts as cited.")
+	if len(childNewer) > 0 || len(parentNewer) > 0 {
+		// Named as a lead rather than left to read as a finding: `updatedAt`
+		// moves on ANY field, so it cannot say the index list was rewritten.
+		b.WriteString(" Those are whole-node timestamps, so read the order as a lead, not as proof the index itself was edited.")
+	}
+	b.WriteString(" Add one entry per child to the index list citing the child's loc — the full citation (`cor:agt:020:09`), the last two atoms (`020:09`), or the colon-leaf (`:09`) all count, as does a struck entry for a superseded child.")
 	return b.String()
 }
