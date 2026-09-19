@@ -58,6 +58,30 @@ func cleanSpec(t *testing.T, loc, title string) specNode {
 	return sn
 }
 
+// specHeader builds a module/feature header node whose body INDEXES the
+// children it is given — which is what makes it clean under `index-incomplete`
+// (#605).
+//
+// The inline literals this replaced carried no body at all, so the suite's
+// "clean corpus" was one whose indexes routed to nothing. That is #545's lesson
+// one tier up: there, the fixture for a clean SPEC was a spec nobody had
+// written; here, the fixture for a clean CORPUS was a corpus whose parents
+// named none of their children. A fixture that cannot satisfy a rule is not
+// evidence the rule is wrong.
+func specHeader(t *testing.T, loc, title string, children ...string) specNode {
+	t.Helper()
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s — %s\n\n## Index\n\n", loc, title)
+	for _, child := range children {
+		fmt.Fprintf(&b, "- [`%s`](hrn:node:acme.com:specs:%s) — what %s governs.\n", child, child, child)
+	}
+	content := b.String()
+	return specNode{
+		Loc: loc, Name: loc + " — " + title, NodeType: "info",
+		Tags: []string{"spec", "topic"}, Content: &content, ContentIsRaw: true,
+	}
+}
+
 func hasRule(fs []lintFindingDTO, rule string) bool {
 	for _, f := range fs {
 		if f.Rule == rule {
@@ -430,8 +454,8 @@ func TestLintCorpusMixedArity(t *testing.T) {
 
 func TestLintCorpusCleanReturnsEmptySlice(t *testing.T) {
 	nodes := []specNode{
-		{Loc: "msg", Name: "msg — Messaging", NodeType: "info", Tags: []string{"spec", "p0"}},
-		{Loc: "msg:010", Name: "msg:010 — W-series", NodeType: "info", Tags: []string{"spec", "p1"}},
+		specHeader(t, "msg", "Messaging", "msg:010"),
+		specHeader(t, "msg:010", "W-series", "msg:010:02"),
 		cleanSpec(t, "msg:010:02", "W2"),
 	}
 	fs := lintCorpus(nodes, "", lintMem)
