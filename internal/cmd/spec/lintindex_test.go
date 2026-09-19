@@ -173,6 +173,22 @@ func TestIndexIncompleteCitationForms(t *testing.T) {
 			body: ":cor:acl:010 — written with a stray leading colon.\n",
 		},
 		{
+			// @codex on #611, second round: the preceding atom must be taken
+			// WHOLE. Scanning back over citation characters only stops at the
+			// hyphen and tests `msg:msg:010`, which parses — rejecting a
+			// citation that is plainly there, in a memory whose slug merely
+			// ends in three letters.
+			name: "hyphenated memory slug does not make a tail", cited: true,
+			parent: "msg", child: "msg:010",
+			body: "- [**010 W-series**](hrn:node:acme.com:platform-msg:msg:010) — the W rules.\n",
+		},
+		{
+			// The same for a dot, which a slug may also carry.
+			name: "dotted slug does not make a tail", cited: true,
+			parent: "msg", child: "msg:010",
+			body: "See hrn:node:acme.com:v1.msg:msg:010 for the rule.\n",
+		},
+		{
 			name: "an index naming none of its children", cited: false,
 			parent: "cor:agt", child: "cor:agt:020",
 			body: "# cor:agt — Agents\n\nAgent domain contracts. Reserved root — no features yet.\n",

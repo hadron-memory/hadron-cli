@@ -318,17 +318,25 @@ func leadingOK(s string, start int, tok string, lead leadMode) bool {
 // nothing on the live corpus, which is product-rooted throughout — it closes the
 // hole for the flat corpora (`msg:010:02`) that the same linter serves.
 //
-// ONE IMPRECISION, named rather than left to be discovered: the preceding atom
-// in a URN is the MEMORY slug, so a memory slug of exactly three lowercase
-// letters (`hrn:node:acme.com:abc:msg:010`) parses as a product and this rejects
-// a citation that was genuinely there. That direction is a false WARNING, not a
-// false clean. No live specs memory is named that way (`specs`,
-// `platform-specs`), and the alternative — trusting the colon — is the false
-// clean @codex found.
+// THE PRECEDING ATOM IS TAKEN WHOLE, hyphens and dots included, and that is the
+// correctness of this function rather than a detail. The atom before the colon
+// is usually a URN's MEMORY SLUG, and a slug may contain them: scanning back
+// over citation characters only stops at the hyphen in
+// `hrn:node:acme.com:platform-msg:msg:010` and tests `msg:msg:010`, which parses
+// — so a legitimate citation in a memory whose slug merely ENDS in three letters
+// is rejected and warned on (@codex on #611, second round, against exactly the
+// imprecision the first version had named too narrowly).
+//
+// ONE IMPRECISION SURVIVES, and it is now the whole of it: a memory slug that is
+// itself exactly three lowercase letters (`hrn:node:acme.com:abc:msg:010`)
+// parses as a product, and a flat citation under it is rejected. That direction
+// is a false WARNING, not a false clean, and it needs the corpus to be flat AND
+// the memory to be named in three letters. The alternative — trusting the colon
+// — is the false clean this function exists for.
 func isTailOfLongerCitation(s string, start int, tok string) bool {
 	atomEnd := start - 1 // the ':' itself
 	atomStart := atomEnd
-	for atomStart > 0 && isCitationAtomByte(s[atomStart-1]) {
+	for atomStart > 0 && isSlugAtomByte(s[atomStart-1]) {
 		atomStart--
 	}
 	if atomStart == atomEnd {
@@ -338,8 +346,13 @@ func isTailOfLongerCitation(s string, start int, tok string) bool {
 	return err == nil
 }
 
-func isCitationAtomByte(c byte) bool {
-	return c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+// isSlugAtomByte reports whether c can occur INSIDE the atom before a colon —
+// a citation atom, or a URN/URL label, which also admits `-` and `.`. Wider than
+// a citation atom on purpose: the point is to recover the preceding atom whole,
+// so that a slug is tested as a slug and fails to parse as a product.
+func isSlugAtomByte(c byte) bool {
+	return c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' ||
+		c == '-' || c == '.' || c == '_'
 }
 
 // editOrder is how a missing child's timestamp sits against its index's.

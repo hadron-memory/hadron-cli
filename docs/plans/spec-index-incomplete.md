@@ -162,10 +162,15 @@ citation, rather than re-implementing the grammar: in
 parse as a product, so the link still counts. Only a **flat** citation can be a
 citation's suffix — prefixing an atom to a product-rooted one always overruns the
 grammar — so this costs the product-rooted corpus nothing and closes the hole for
-the flat ones. One imprecision is named at the site: a memory slug of exactly
-three lowercase letters would parse as a product and reject a real citation,
-which is a false *warning* rather than a false clean, and no live specs memory is
-named that way.
+the flat ones. The preceding atom is taken **whole**, hyphens and dots
+included, and that is the correctness of the check rather than a detail: scanning
+back over citation characters alone stops at the hyphen in
+`hrn:node:acme.com:platform-msg:msg:010` and tests `msg:msg:010`, which parses —
+rejecting a real citation in any memory whose slug merely *ends* in three letters
+(@codex, second round, against exactly the imprecision the first version had
+named too narrowly). What survives is a memory slug that is *itself* three
+lowercase letters, which needs the corpus to be flat as well; that direction is a
+false *warning*, not a false clean, and it is named at the site.
 
 **The bare leaf** (`020`, `09`) is deliberately **not** accepted. Measured: it
 adds zero coverage over the three forms, because every node writing a bare number
