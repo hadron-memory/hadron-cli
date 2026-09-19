@@ -468,14 +468,20 @@ the six over the description limit. So:
 
 1. **`skill lint`** (§8 slices 1–3) — no disk, and it catches the overruns
    mechanically.
-2. **Fix the three session-ritual descriptions** (`start-worker-session-cli`
-   1983, `start-worker-session-desktop` 1592, `end-worker-session` 1186) until
-   lint passes.
+2. ~~**Fix the three session-ritual descriptions**~~ — **MOVED TO LAST**
+   (Holger, 2026-09-19): the overruns are the acceptance specimens for the
+   truncation behaviour, so they stay broken until `status`/`export` can be
+   demonstrated against them. See §9.2.
 3. **Write the missing task — cast a worker / stand up a team**, folding in the
    mint-vs-bind guard (the miscast on day one) and the traps in
    `hadron-cli:findings:team-rebuild-under-worker-model`.
-4. **`skill export` + `status`** (§8 slices 4–6).
-5. **The corpus survey** — after, not before.
+4. **`skill export` + `status`** (§8 slices 4–6) — **but see §11: the
+   2026-09-16 ruling moved the judgment server-side, so these are no longer
+   hadron-cli slices as §8 describes them.**
+5. **The corpus survey** — after, not before. *(Partly done 2026-09-19: the
+   50-node runnable survey and the orphan sweep are in §1.3 and §9.1.)*
+6. **Shorten the six descriptions** — the former step 2, now that the
+   commands it is test data for exist.
 
 One worktree per worker (hadron-cli#472): Eli works in a worktree of his own,
 never in Jonas's checkout; branches are name-prefixed (`eli/…`); pickup is
@@ -485,11 +491,24 @@ announced in the team chat before the first edit.
 
 Before the first `export --all` on Holger's machine can be clean:
 
-1. **Resolve the forks** that collide on a derived name — at minimum the two
-   `start-worker-session-desktop` nodes; the survey Ada scoped covers the rest.
-   Losing copies are superseded and annotated, never deleted.
-2. **Shorten six descriptions** to ≤ 1024 without losing the trigger phrases
-   (the ones past the cut are the ones the host is dropping today anyway).
+1. **Fix the one `orphaned` header, and resolve any real forks the survey
+   finds.** There is **no** `start-worker-session-desktop` fork — §1.3 has the
+   verification and this item used to contradict it. One node exists
+   (`core:tasks:start-worker-session-desktop`); the disk header points at
+   `hadron-cli:tasks:…`, which resolves to nothing. That is a header the next
+   export corrects mechanically, not a canonicality judgement.
+   Swept 2026-09-19: **19 of 20** on-disk provenance URNs resolve, **1**
+   orphan — this one. Real forks, if the survey finds any, are superseded and
+   annotated, never deleted.
+2. **Shorten six descriptions — ON HOLD (Holger, 2026-09-19).** They are the
+   acceptance specimens for the truncation behaviour: they are the only
+   `skill-description-too-long` population in the live corpus, so fixing them
+   first leaves `status`/`export` with no real input to prove the class
+   against. **Do not "fix the lint findings" — the six overruns are test
+   data until `status` and `export` can be demonstrated on them.** Shorten
+   them after, without losing trigger phrases (the ones past the cut are the
+   ones the host is dropping today anyway). This reorders §8a, which had the
+   shortening at step 2.
 3. **Set `isRunnable`** on every declared node that lacks it.
 4. **Drop `claudeSkill.name`** from every node once D8 is ruled, or set it to
    the derived value during transition.
@@ -513,3 +532,58 @@ Before the first `export --all` on Holger's machine can be clean:
    node is the source, literally)?
 5. ~~CI token~~ **Resolved:** `secrets.HADRON_TOKEN` already exists
    (`memory-hygiene.yml`); only its scope needs checking (§6).
+
+## 11. The domain logic moved to hadron-server — what this does to §8
+
+**Ruled by Holger, 2026-09-16** ([hadron-server#1177](https://github.com/hadron-memory/hadron-server/issues/1177)):
+`internal/skilldoc` moves to hadron-server and the CLI becomes a thin client.
+The stated reason is that skills are core rather than convenient — a CLI-only
+implementation is unreachable from MCP and the portal, and most users will
+never install a CLI, so the capability would exist for almost nobody.
+
+**The split: the client does I/O and rendering; the server does judgment.**
+For `lint`, the client reads the `SKILL.md` off disk and sends its content;
+the server returns the verdicts. The server never needs the caller's disk.
+
+**§8's slices 4–6 predate this and are written as hadron-cli work. They are
+now wrong about where the code goes, and so are the issues filed from them:**
+
+| | as filed | under the ruling |
+|---|---|---|
+| [cli#620](https://github.com/hadron-memory/hadron-cli/issues/620) | `Classify` — the nine drift classes — "lands here" | `Classify` is **judgment**; it goes server-side |
+| [cli#621](https://github.com/hadron-memory/hadron-cli/issues/621) | the writer, rename pass, `--prune` | writer/rename/prune are **I/O**; they stay |
+| [srv#1177](https://github.com/hadron-memory/hadron-server/issues/1177) | port `skilldoc`, Eli specifies | **unwritten — the bottleneck** |
+
+cli#620 and cli#621 were filed 2026-09-19, three days *after* the ruling, and
+neither references it. #620 in particular places the drift classification in
+the client, which is the one part #1177 most clearly moves — its own text says
+*"the same split covers `export` and `status`, which are corpus reads and sit
+even more naturally server-side."*
+
+**So the next step is not a slice of CLI code — it is the #1177
+specification, which is mine and is not written.** It is named in Dara's queue
+(seq 781, 787, 806) and #1177 has zero comments. Nothing server-side can start
+without it, and building #620 as filed means writing in Go the thing the
+ruling schedules for TypeScript.
+
+**The split line I propose, for the spec to state precisely** — derived from
+§4.2–§4.5 rather than re-decided:
+
+- **Server (judgment + derivation, from `skilldoc`):** `DeriveName` (§4.2),
+  `Hash` (§4.3), `Render` (§4.3), `Lint`/`LintPrefixes`/`LintCollisions`
+  (§5.3), `Classify` (§4.5), and the prefix resolution of D7. These are pure
+  functions over corpus inputs plus, for `lint`/`Classify`, one file's content
+  and header — all of which a client can send.
+- **Client (I/O + presentation):** the disk walk, reading a `SKILL.md`,
+  `ParseFile` *or* sending raw content for the server to parse, atomic writes,
+  the rename's directory move, `--prune` deletions, `--dry-run`, the report
+  table and `--json` DTOs, `--strict`'s exit code.
+- **The seam is the drift class:** the client sends `{sourceUrn, headerHash,
+  fileHash, dirName}` per file plus the target selection; the server returns a
+  class per node from §4.5 and the rendered body for anything to be written.
+  That keeps §4.4's *pair by URN, never by name* on the side that owns the
+  definition, and leaves the client unable to invent a class.
+
+**Open, and for Holger** (see §10): the split above still needs `locally-edited`
+ruled (§10.4), because it decides whether the server returns a class the client
+must refuse to act on, or a class the client overwrites and reports.
