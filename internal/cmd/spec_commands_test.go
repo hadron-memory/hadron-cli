@@ -3155,3 +3155,165 @@ func TestSpecGetPrefixReportsStalenessFromItsRawBodies(t *testing.T) {
 		t.Errorf("the prefix dump's lint summary must report staleness:\n%s", out.String())
 	}
 }
+
+// ---- spec edit --abstract-still-accurate (#612) ----
+//
+// The gap: `spec edit` skips an unchanged field by design, so a body-only edit
+// ARMS `abstract-stale` and the command had no way to clear it — re-running with
+// the same abstract is a no-op, which is exactly the case that armed it. @Vera
+// hit this repairing index lists and had to finish through `node update`.
+//
+// The assertion is implemented client-side by re-sending the STORED abstract, so
+// the server re-fingerprints it against the new body (spec 032). There is no
+// `abstractStillAccurate` on GraphQL — that argument exists only on the MCP
+// surface — so these tests pin the WIRE, which is the only place the difference
+// shows.
+
+// A body edit plus the assertion must send BOTH fields: the new body, and the
+// stored abstract verbatim. Sending only the body is the bug.
+func TestSpecEditAbstractStillAccurateResendsStoredAbstract(t *testing.T) {
+	gql, captured := captureGraphQL(t, editMocks())
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader("# rewritten body\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--content", "-", "--abstract-still-accurate", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var up editUpdateInput
+	if err := json.Unmarshal(captured["UpdateNode"], &up); err != nil {
+		t.Fatalf("UpdateNode vars: %v", err)
+	}
+	if up.Input.Content == nil || *up.Input.Content != "# rewritten body\n" {
+		t.Errorf("body not sent: %v", up.Input.Content)
+	}
+	// The stored abstract, byte for byte — a re-fingerprint must not rewrite it.
+	if up.Input.Abstract == nil {
+		t.Fatal("the assertion must SEND the abstract; omitting it preserves the stale hash")
+	}
+	if want := "Win back users who never engaged after signup."; *up.Input.Abstract != want {
+		t.Errorf("abstract must be re-sent verbatim:\n got %q\nwant %q", *up.Input.Abstract, want)
+	}
+	if !strings.Contains(out.String(), "re-fingerprinted") {
+		t.Errorf("output should report the re-fingerprint:\n%s", out.String())
+	}
+}
+
+// The assertion ALONE is a complete operation — the half of #612 the command
+// had no answer for: clearing a marker on a spec you have re-read and found
+// still accurate, with nothing to edit.
+func TestSpecEditAbstractStillAccurateAloneStillWrites(t *testing.T) {
+	gql, captured := captureGraphQL(t, editMocks())
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--abstract-still-accurate", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	raw, ok := captured["UpdateNode"]
+	if !ok {
+		t.Fatal("the assertion alone must still write — otherwise the marker cannot be cleared")
+	}
+	var up editUpdateInput
+	_ = json.Unmarshal(raw, &up)
+	if up.Input.Abstract == nil || *up.Input.Abstract != "Win back users who never engaged after signup." {
+		t.Errorf("stored abstract must be re-sent: %v", up.Input.Abstract)
+	}
+	if up.Input.Content != nil {
+		t.Errorf("nothing was edited, so the body must be preserved by omission, got %q", *up.Input.Content)
+	}
+	// The DTO must not claim `changed: false` beside a write.
+	var dto struct {
+		Changed            bool `json:"changed"`
+		BodyChanged        bool `json:"bodyChanged"`
+		AbstractChanged    bool `json:"abstractChanged"`
+		AbstractReaffirmed bool `json:"abstractReaffirmed"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("json: %v — %s", err, out.String())
+	}
+	if !dto.Changed || !dto.AbstractReaffirmed || dto.BodyChanged || dto.AbstractChanged {
+		t.Errorf("DTO misreports the write: %+v", dto)
+	}
+}
+
+// Contradiction: the flag vouches for the STORED abstract, so replacing that
+// abstract in the same call cannot also be asserting it survived.
+func TestSpecEditAbstractStillAccurateRejectsAbstractEdit(t *testing.T) {
+	for _, args := range [][]string{
+		{"--abstract", "replacement"},
+		{"--abstract-file", "/tmp/x.md"},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+			"--abstract-still-accurate", "--server", "http://127.0.0.1:1"}, args...))
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+			t.Errorf("%v with --abstract-still-accurate should be Usage, got %d", args, got)
+		}
+	}
+}
+
+// THE DESTRUCTIVE READING, refused. An empty abstract re-sent as "" is
+// normalized to null by the server — so on a spec with no abstract the
+// assertion would CLEAR the field it claims to be vouching for.
+func TestSpecEditAbstractStillAccurateRefusesWhenThereIsNoAbstract(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + badSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(badSpecDetail),
+		"UpdateNode": editMocks()["UpdateNode"],
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--abstract-still-accurate", "--server", gql.URL})
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("no abstract to re-affirm should be Usage, got %d", got)
+	}
+	if _, wrote := captured["UpdateNode"]; wrote {
+		t.Error("must refuse BEFORE writing — the write would clear the abstract")
+	}
+}
+
+// The reminder asks the author to decide whether the abstract survived the
+// edit. --abstract-still-accurate is them answering it, so printing the
+// question anyway would leave the command still looking like it has no way to
+// settle the marker.
+func TestSpecEditAbstractStillAccurateSuppressesTheReminder(t *testing.T) {
+	gql, _ := captureGraphQL(t, editMocks())
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader("# rewritten body\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--content", "-", "--abstract-still-accurate", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(out.String(), "reminder:") {
+		t.Errorf("the reminder was just answered; it must not still be asked:\n%s", out.String())
+	}
+}
+
+// And without the flag the reminder must still fire — and must now NAME the
+// way out, which is the whole point of #612.
+func TestSpecEditReminderNamesTheReaffirmFlag(t *testing.T) {
+	gql, _ := captureGraphQL(t, editMocks())
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader("# rewritten body\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--content", "-", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "reminder:") {
+		t.Fatalf("a body-only edit must still remind:\n%s", s)
+	}
+	if !strings.Contains(s, "--abstract-still-accurate") {
+		t.Errorf("the reminder must name the flag that settles it:\n%s", s)
+	}
+}
