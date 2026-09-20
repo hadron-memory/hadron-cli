@@ -79,13 +79,22 @@ func TestMemoryLsOwnedByMe(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &memories); err != nil {
 		t.Fatalf("not a JSON array: %v\n%s", err, out.String())
 	}
-	if len(memories) != 2 {
+	// BOTH rows named, in order — not a count, and not one row spot-checked.
+	// A length of 2 passes if the command kept one row twice, and naming only
+	// the knowledge row passes if it dropped the personal one and duplicated
+	// the survivor. The pair is the assertion: the personal row proves nothing
+	// was lost, the knowledge row proves nothing was filtered by class.
+	want := []struct{ urn, class string }{
+		{"hrn:mem:holger:jens", "personal"},
+		{"hrn:mem:holger:holgers-gear", "knowledge"},
+	}
+	if len(memories) != len(want) {
 		t.Fatalf("every row the server returned must survive, got %d: %s", len(memories), out.String())
 	}
-	// Named rather than counted: a count of 2 would also pass if the command
-	// kept the wrong row twice.
-	if memories[1].URN != "hrn:mem:holger:holgers-gear" || memories[1].Class != "knowledge" {
-		t.Errorf("the knowledge-class row is the one a class filter drops; it must be listed, got %+v", memories[1])
+	for i, w := range want {
+		if memories[i].URN != w.urn || memories[i].Class != w.class {
+			t.Errorf("row %d: got %+v, want {%s %s}", i, memories[i], w.urn, w.class)
+		}
 	}
 }
 
