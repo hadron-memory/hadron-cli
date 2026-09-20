@@ -132,7 +132,7 @@ Two corrections to the thread, measured on this machine:
   |---|---|---|
   | `name` | string | the skill name, **stored whole, prefix included** — no longer derived |
   | `description` | string | the host's retrieval text; same role and same 1024 cap as today |
-  | `enable` | boolean | per-host on/off — the per-task include/exclude this design lacked |
+  | `enable` | boolean | per-host on/off. **Must be `true` to publish; DEFAULTS TO OFF** (Holger, 2026-09-19) |
 
   *(`trigger` was considered for the text field and dropped: no new vocabulary
   for a thing already called a description.)*
@@ -154,12 +154,31 @@ Two corrections to the thread, measured on this machine:
   change, nothing to sequence. §11a's `id=` pairing still earns its place, but
   now only for **loc and memory moves** (the #490 re-home), never for renames.
 
-  **`enable: false` is the `disabled` class (§4.5) — RULED** (Holger,
-  2026-09-19). `export` **removes** the file, without `--prune`. The distinction
-  that keeps that consistent with never-delete-without-`--prune` is intent: an
-  orphan is a file whose node vanished for unknown reasons, so deleting it is a
-  guess, whereas `enable: false` is a deliberate switch and honouring it is
-  obedience.
+  **`enable` DEFAULTS TO OFF and must be `true` to publish** (Holger,
+  2026-09-19, reversing his earlier answer the same day). Publishing is the
+  side-effecting act, so it takes an explicit opt-in. The reason is the corpus:
+  it holds many runnable nodes that are **automation and were never meant to be
+  skills at all**.
+
+  Precisely: a runnable node with *no* declaration was never at risk — `isRunnable`
+  has never been the selector, deliberately (§4.1). What the default protects
+  against is a declaration arriving by a route nobody planned — a template, a
+  bulk write, a half-finished edit — and publishing on the strength of merely
+  existing.
+
+  **A not-enabled declaration is the `disabled` class (§4.5), and `export`
+  removes its file.** I proposed distinguishing an absent flag (leave the file)
+  from an explicit `false` (remove it), so that flipping the default could not
+  make a future export delete the 20 installed skills. **Holger ruled that out of
+  scope**: there is no `export` command yet, so there is no first export to
+  protect against, and the corpus is small enough to repair by hand. Recorded
+  because the reasoning is worth having if the question returns at a larger scale
+  — it was a guard designed for a command that does not exist.
+
+  **Lint still judges a not-enabled declaration**, and the discovery predicate
+  still does not filter on `enable`: a broken name is worth reporting BEFORE
+  somebody turns it on, and `status` must be able to name a file whose
+  declaration is switched off.
 
   `enable` lives in the **shared corpus**, so it disables for every reader of
   that memory. The per-machine *"not on my laptop"* case is still unaddressed.
@@ -520,7 +539,7 @@ never lists, moves or removes a file it did not generate.
 | `unhashed` | pre-#580 header (URN only) | ✓ | rewrite with hash |
 | `collision` | two declared nodes derive one name under one prefix | ✓ | **refuse the pair**, export the rest |
 | `unavailable` | listed but unreadable (`nodeBatch.unavailable`) | ✓ | skip, report |
-| `disabled` | declared with `enable: false`, file present (D12) | ✓ | **remove the file**, no `--prune` needed — see D12 |
+| `disabled` | declared but not enabled — `enable` absent or `false` (D12; it defaults to OFF) | ✓ | **remove the file**, no `--prune` needed — see D12 |
 
 `locally-edited` is the class Bo's list did not name and the hash makes free:
 without it, `export` would overwrite a person's hand-fix with a stale node and
