@@ -1152,13 +1152,22 @@ type whoamiDTO struct {
 	BindingPath string       `json:"bindingPath"`
 	Source      string       `json:"source"`
 	Candidates  []sessionDTO `json:"candidates"`
-	// Checked says whether --check ran, and Live is the answer. They are
+	// Checked says whether --check ran, and Active is the answer. They are
 	// SEPARATE because false and unknown are different facts and a single
-	// boolean cannot carry both: without Checked, `"live": false` on a default
-	// (local) read would assert the session is dead when nothing asked.
-	// Live is therefore a pointer and is null unless Checked is true.
+	// boolean cannot carry both: without Checked, `"active": false` on a
+	// default (local) read would assert the session is dead when nothing
+	// asked. Active is therefore a pointer and is null unless Checked is true.
+	//
+	// ACTIVE, not "live" (@codex P1 on PR #626). It is the same predicate
+	// sessionDTO.Active already carries — `endedAt IS NULL` and NOTHING MORE —
+	// and that field's own comment is the warning: an abandoned session stays
+	// active indefinitely while the server's DERIVED liveness
+	// (Worker.hasLiveSession) says otherwise. Naming it "live" here would have
+	// promised presence, which is precisely what this command documents itself
+	// as unable to report, and an agent branching on it would read an
+	// abandoned worker as currently driven.
 	Checked bool  `json:"checked"`
-	Live    *bool `json:"live"`
+	Active  *bool `json:"active"`
 	// EndedAt answers WHETHER the session ended; AutoExpiredAt answers HOW —
 	// non-null only when the SERVER reaped it rather than a person ending it
 	// (#484). Both null on a live session and on an unchecked read.
@@ -1172,7 +1181,7 @@ type whoamiDTO struct {
 // under a hard deadline promised at start. Collapsing them to "ended" would
 // hide which of those happened at the one moment a reader is asking.
 func livenessLine(d whoamiDTO) string {
-	if d.Live != nil && *d.Live {
+	if d.Active != nil && *d.Active {
 		return "still open"
 	}
 	ended := "(instant unknown)"
@@ -1180,14 +1189,14 @@ func livenessLine(d whoamiDTO) string {
 		ended = *d.EndedAt
 	}
 	if d.AutoExpiredAt != nil {
-		return fmt.Sprintf("ENDED %s — auto-expired by the server, not closed by anyone; rebind with `hadron team session start --as %s`", ended, d.WorkerName)
+		return fmt.Sprintf("ENDED %s — auto-expired by the server, not closed by anyone; rebind with `hadron team session start --force --as %s`", ended, d.WorkerName)
 	}
-	return fmt.Sprintf("ENDED %s — this binding is stale; rebind with `hadron team session start --as %s`", ended, d.WorkerName)
+	return fmt.Sprintf("ENDED %s — this binding is stale; rebind with `hadron team session start --force --as %s`", ended, d.WorkerName)
 }
 
 // livenessResult is what --check learned about the bound session.
 type livenessResult struct {
-	live          bool
+	active        bool
 	endedAt       *string
 	autoExpiredAt *string
 }
@@ -1233,7 +1242,7 @@ func checkSessionLiveness(cmd *cobra.Command, f *cmdutil.Factory, b *binding) (l
 			"the server does not report session %s — it may not exist, or may not be readable with this credential; the binding is unchanged", b.SessionID)
 	}
 	s := resp.Session.TeamSessionFields
-	return livenessResult{live: s.EndedAt == nil, endedAt: s.EndedAt, autoExpiredAt: s.AutoExpiredAt}, nil
+	return livenessResult{active: s.EndedAt == nil, endedAt: s.EndedAt, autoExpiredAt: s.AutoExpiredAt}, nil
 }
 
 // openWorkerSessionsForCaller returns the caller's own OPEN, WORKER-BOUND
@@ -1296,7 +1305,7 @@ func openWorkerSessionsForCaller(ctx context.Context, client graphql.Client) ([]
 // whoamiFromServer answers whoami when this worktree has no binding — the
 // #623 fallback that makes a lost binding a cache miss instead of an orphaned
 // session.
-func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree bool) error {
+func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check bool) error {
 	client, err := f.GraphQLClient()
 	if err != nil {
 		return err
@@ -1313,6 +1322,24 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree bool) e
 			noBindingReason(inWorktree))
 	}
 	dto := whoamiDTO{binding: &binding{PRNumbers: []int{}}, Source: "server", Candidates: mine}
+	if check {
+		// --check must not be SILENTLY downgraded here (@copilot on PR #626).
+		// Its answer would otherwise depend on whether the local cache happens
+		// to exist, which is the opposite of what the flag is for.
+		//
+		// Nothing extra is read: this branch already asked the server and
+		// already filtered on `endedAt IS NULL`, so the sessions it returns
+		// are open on the server's word — the same predicate --check applies,
+		// reached by a different query. Reporting checked:false here would
+		// understate what was measured.
+		dto.Checked = true
+		if len(mine) == 1 {
+			// Only with ONE candidate is there a subject to answer about;
+			// several leaves Active null exactly as it leaves sessionId empty.
+			open := true
+			dto.Active = &open
+		}
+	}
 	if len(mine) == 1 {
 		// Unambiguous, so the session fields answer as the worktree branch
 		// would. This REPORTS; it does not re-create the binding — whoami is a
@@ -1400,6 +1427,8 @@ have outlived what it describes — a session can be ended from ANOTHER worktree
 or machine with ` + "`session end --session <id>`" + `, which does not clear this
 worktree's file. It reports "ended" and, when the server reaped it rather than
 a person ending it, says so: endedAt answers WHETHER, autoExpiredAt answers HOW.
+The --json answer is "active" (the endedAt-IS-NULL predicate, as everywhere
+else here), never "live" — an active session is not necessarily a driven one.
 
 --check is not a health check for idleness. Since hadron-server#1114 a
 developer session has no inactivity deadline, so an open session that has not
@@ -1429,13 +1458,13 @@ binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
 			// have no worktree at all, so requiring one to ask "what am I
 			// driving?" excluded them by construction (#623).
 			if errors.Is(err, errNoWorktree) {
-				return whoamiFromServer(cmd, f, false)
+				return whoamiFromServer(cmd, f, false, check)
 			}
 			if err != nil {
 				return err
 			}
 			if b == nil {
-				return whoamiFromServer(cmd, f, true)
+				return whoamiFromServer(cmd, f, true, check)
 			}
 			result := whoamiDTO{binding: b, BindingPath: path, Source: "worktree", Candidates: []sessionDTO{}}
 			if check {
@@ -1444,7 +1473,7 @@ binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
 					return cerr
 				}
 				result.Checked = true
-				result.Live = &live.live
+				result.Active = &live.active
 				result.EndedAt = live.endedAt
 				result.AutoExpiredAt = live.autoExpiredAt
 			}

@@ -2344,26 +2344,41 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 	cases := []struct {
 		name        string
 		session     string
-		wantLive    bool
+		wantActive  string // the raw JSON value, so null stays distinguishable
+		wantEnded   string
+		wantExpired string
 		wantInLine  string
 		wantMissing string
+		// wantRemedy is the command the line tells the reader to run. Asserted
+		// because a remedy is a POINTER and an unfollowed one is a wrong
+		// answer with a command's authority: the binding is still on disk when
+		// the session has ended, so a plain `session start` hits the
+		// existing-binding guard and refuses (exit 5). @codex caught the
+		// missing --force; a first pass at this table asserted the prose and
+		// not the command, so dropping --force again changed nothing.
+		wantRemedy string
 	}{
 		{
 			name: "still open", session: whoamiCheckSession("", ""),
-			wantLive: true, wantInLine: "still open", wantMissing: "ENDED",
+			wantActive: "true", wantEnded: "null", wantExpired: "null",
+			wantInLine: "still open", wantMissing: "ENDED",
 		},
 		{
 			// A person ended it — from another worktree, or another machine.
 			name: "ended by someone", session: whoamiCheckSession("2026-09-19T11:00:00Z", ""),
-			wantLive: false, wantInLine: "ENDED", wantMissing: "auto-expired",
+			wantActive: "false", wantEnded: `"2026-09-19T11:00:00Z"`, wantExpired: "null",
+			wantInLine: "ENDED", wantMissing: "auto-expired",
+			wantRemedy: "session start --force --as Iris",
 		},
 		{
 			// The SERVER reaped it. Same endedAt, different cause, and the
 			// reader is asking at the one moment the difference matters — so
 			// collapsing both to "ended" would hide which happened.
-			name:     "auto-expired by the server",
-			session:  whoamiCheckSession("2026-09-19T11:00:00Z", "2026-09-19T11:00:00Z"),
-			wantLive: false, wantInLine: "auto-expired", wantMissing: "",
+			name:       "auto-expired by the server",
+			session:    whoamiCheckSession("2026-09-19T11:00:00Z", "2026-09-19T11:00:00Z"),
+			wantActive: "false", wantEnded: `"2026-09-19T11:00:00Z"`, wantExpired: `"2026-09-19T11:00:00Z"`,
+			wantInLine: "auto-expired", wantMissing: "",
+			wantRemedy: "session start --force --as Iris",
 		},
 	}
 	for _, c := range cases {
@@ -2380,7 +2395,93 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			if c.wantMissing != "" && strings.Contains(got, c.wantMissing) {
 				t.Errorf("output must not contain %q:\n%s", c.wantMissing, got)
 			}
+			if c.wantRemedy != "" && !strings.Contains(got, c.wantRemedy) {
+				t.Errorf("the remedy must be runnable — want %q in:\n%s", c.wantRemedy, got)
+			}
+
+			// The JSON contract, asserted rather than merely tabulated.
+			// The first version of this test declared a wantLive field and
+			// never read it — a column that LOOKS like a guard while the
+			// implementation could return anything (@copilot on PR #626). Go
+			// does not flag an unused struct field the way it flags a
+			// variable, so nothing caught it but a reviewer.
+			jroot, jout := bindWhoami(t, map[string]string{"GetTeamSession": c.session},
+				"team", "session", "whoami", "--check", "--json")
+			if err := jroot.Execute(); err != nil {
+				t.Fatalf("execute --json: %v", err)
+			}
+			var raw map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(jout.String()), &raw); err != nil {
+				t.Fatalf("decode: %v — %s", err, jout.String())
+			}
+			// Raw values throughout: a decode cannot tell null from false, and
+			// the null is the whole point of the checked/active split.
+			for _, f := range []struct{ key, want string }{
+				{"checked", "true"},
+				{"active", c.wantActive},
+				{"endedAt", c.wantEnded},
+				{"autoExpiredAt", c.wantExpired},
+			} {
+				if got := string(raw[f.key]); got != f.want {
+					t.Errorf("%s = %s, want %s", f.key, got, f.want)
+				}
+			}
 		})
+	}
+}
+
+// --check must not be silently downgraded when whoami answers from the server
+// (@copilot on PR #626): its result would otherwise depend on whether the local
+// cache happens to exist. Nothing extra is read — that branch already filtered
+// on `endedAt IS NULL`, so the openness is the server's word either way.
+func TestTeamSessionWhoamiCheckIsHonouredOnTheServerFallback(t *testing.T) {
+	teamGitDir(t) // no binding written
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AuthContext": whoamiAuthJSON,
+		"TeamSessions": `{"data":{"sessions":[` +
+			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "whoami", "--check", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+		t.Fatalf("decode: %v — %s", err, out.String())
+	}
+	if string(raw["checked"]) != "true" {
+		t.Errorf("checked = %s, want true — the flag must not be silently ignored", raw["checked"])
+	}
+	if string(raw["active"]) != "true" {
+		t.Errorf("active = %s, want true — one recovered session is an unambiguous subject", raw["active"])
+	}
+}
+
+// ...but with SEVERAL recovered sessions there is no single subject, so active
+// stays null exactly as sessionId stays empty.
+func TestTeamSessionWhoamiCheckDoesNotAnswerForSeveral(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AuthContext": whoamiAuthJSON,
+		"TeamSessions": `{"data":{"sessions":[` +
+			whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
+			whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "whoami", "--check", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var raw map[string]json.RawMessage
+	_ = json.Unmarshal([]byte(out.String()), &raw)
+	if string(raw["checked"]) != "true" {
+		t.Errorf("checked = %s, want true", raw["checked"])
+	}
+	if string(raw["active"]) != "null" {
+		t.Errorf("active = %s, want null — several sessions have no single answer", raw["active"])
 	}
 }
 
@@ -2411,8 +2512,8 @@ func TestTeamSessionWhoamiDefaultDoesNotCheck(t *testing.T) {
 		t.Errorf("checked = %s, want false", raw["checked"])
 	}
 	// The distinction the two fields exist for: unknown is not false.
-	if string(raw["live"]) != "null" {
-		t.Errorf("live = %s, want null — nothing asked, so nothing is known", raw["live"])
+	if string(raw["active"]) != "null" {
+		t.Errorf("active = %s, want null — nothing asked, so nothing is known", raw["active"])
 	}
 }
 

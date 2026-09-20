@@ -47,13 +47,28 @@ the answer immediately, and is not asking about liveness.
 `--json` therefore carries **two** fields, not one:
 
 ```json
-{ "checked": false, "live": null, "endedAt": null, "autoExpiredAt": null }
+{ "checked": false, "active": null, "endedAt": null, "autoExpiredAt": null }
 ```
 
-`checked` and `live` are separate because **false and unknown are different
-facts and one boolean cannot carry both**. With a single `live`, a default read
+`checked` and `active` are separate because **false and unknown are different
+facts and one boolean cannot carry both**. With a single field, a default read
 would have to emit `false` — asserting the session is dead when nothing asked.
-`live` is a pointer and is null unless `checked` is true.
+`active` is a pointer and is null unless `checked` is true.
+
+**It is `active`, not `live`** (@codex P1 in review). The predicate is `endedAt
+IS NULL` and nothing more, which is exactly what `sessionDTO.Active` already
+means and what its own comment warns about: an abandoned session stays active
+indefinitely while the server's derived liveness says otherwise. "Live" would
+have promised presence — the one thing §5 says this command cannot report — and
+an agent branching on it would read an abandoned worker as currently driven.
+Naming it after the predicate rather than the hope is the fix.
+
+`--check` is also honoured when whoami answers from the SERVER (no binding, or
+no worktree). It was silently ignored there at first, which made the flag's
+result depend on whether the local cache happened to exist. Nothing extra is
+read: that path already filters on `endedAt IS NULL`, so the openness is the
+server's word reached by another query. With several recovered sessions
+`active` stays null, exactly as `sessionId` does — there is no single subject.
 
 This is the same call `source` made in #623: when a command can answer from two
 places, say which one answered.
@@ -106,8 +121,26 @@ $ hadron team session whoami --check
 
 $ (binding temporarily pointed at a genuinely ended session)
   server: ENDED 2026-09-19T14:57:58.592Z — this binding is stale;
-          rebind with `hadron team session start --as Jonas`
+          rebind with `hadron team session start --force --as Jonas`
+
+$ (binding removed — the server fallback, with --check)
+  {"source":"server","checked":true,"active":null}   # 17 candidates, no single subject
 ```
 
 The ended session it caught was this session's own predecessor, ended when the
 work moved to a worktree — which is precisely the case in §2.
+
+**`--force` in that remedy is there because review caught it missing** (@codex
+P2). The binding is still on disk when the session has ended, so a plain
+`session start` hits the existing-binding guard and refuses with exit 5 — the
+guard's own message already says `--force replaces the abandoned binding`. A
+remedy is a pointer, and an unfollowed one is a wrong answer carrying a
+command's authority.
+
+Worth recording how nearly that stayed broken: the first pass at the test table
+asserted the prose of each line and not the command inside it, so **deleting
+`--force` again changed nothing and the suite stayed green**. It is now its own
+assertion, and re-running that mutation fails two subtests. That is the same
+defect @copilot found one comment away — a table column named `wantLive` that
+was declared and never read — and Go flags an unused variable but not an unused
+struct field, so nothing but a reviewer catches either.

@@ -1373,8 +1373,12 @@ Conventions:
   when the binding may have outlived what it describes: `session end --session
   <id>` ends a session from ANYWHERE and clears only the binding of the worktree
   it ran in, so every other worktree keeps describing a session that is gone.
-  `--json` gains `checked`, `live`, `endedAt` and `autoExpiredAt`; `live` is
-  **null** unless `checked` is true, because "not asked" is not "dead". `endedAt`
+  `--json` gains `checked`, `active`, `endedAt` and `autoExpiredAt`; `active` is
+  **null** unless `checked` is true, because "not asked" is not "dead". It is
+  `active`, not "live": the predicate is `endedAt IS NULL` and nothing more — the
+  same one `session list` calls active — so it never means the worker is present.
+  `--check` is honoured on the server-fallback path too, where the openness is
+  already the server's word. `endedAt`
   answers WHETHER it ended and `autoExpiredAt` answers HOW — non-null only when
   the server reaped it rather than a person ending it. **`--check` says nothing
   about idleness**: since hadron-server#1114 a developer session has no
