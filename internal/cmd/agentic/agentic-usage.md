@@ -168,7 +168,7 @@ hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZA
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
-hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
+hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--before <seq>] [--limit <n>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
@@ -1370,7 +1370,23 @@ Conventions:
   may merely SEE — and with several open it reports them all and leaves
   `sessionId` empty rather than guessing. **`git worktree remove` deletes the
   binding and does NOT end the session**; recover the id with `whoami` and end it
-  with `session end --session <id>`. **Most of the time, do not end a session at
+  with `session end --session <id>`. **`whoami --check` asks the server whether
+  the bound session is still open (#484)** — the default stays local and costs no
+  round trip, which matters because this is the compaction-recovery read. Use it
+  when the binding may have outlived what it describes: `session end --session
+  <id>` ends a session from ANYWHERE and clears only the binding of the worktree
+  it ran in, so every other worktree keeps describing a session that is gone.
+  `--json` gains `checked`, `active`, `endedAt` and `autoExpiredAt`; `active` is
+  **null** unless `checked` is true, because "not asked" is not "dead". It is
+  `active`, not "live": the predicate is `endedAt IS NULL` and nothing more — the
+  same one `session list` calls active — so it never means the worker is present.
+  `--check` is honoured on the server-fallback path too, where the openness is
+  already the server's word. `endedAt`
+  answers WHETHER it ended and `autoExpiredAt` answers HOW — non-null only when
+  the server reaped it rather than a person ending it. **`--check` says nothing
+  about idleness**: since hadron-server#1114 a developer session has no
+  inactivity deadline, so an open session undriven for months is correctly open,
+  and the platform's last-driven instant is not on a session read. **Most of the time, do not end a session at
   all**: they are meant to be long-lived (hadron-server#1114 removed the idle
   reaper), so ending is for when the WORK ends, not when a chat session, branch
   or worktree does. The session binds the

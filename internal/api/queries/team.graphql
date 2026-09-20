@@ -485,6 +485,14 @@ fragment TeamSessionFields on Session {
   prNumber
   startedAt
   endedAt
+  # #484: HOW the session ended, not whether. The reaper sets endedAt and
+  # autoExpiredAt to the same instant so that "active" stays the single
+  # predicate `endedAt IS NULL` — which means a session someone ENDED and one
+  # the server reaped are indistinguishable without this field. Selected but
+  # rarely non-null: since hadron-server#1114 a developer session has no
+  # inactivity deadline, so this marks historical reaps and any session that
+  # was given a hard expiresAt at start.
+  autoExpiredAt
   host
   tool
   transcriptPath
