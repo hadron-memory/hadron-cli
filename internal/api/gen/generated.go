@@ -6761,6 +6761,200 @@ func (v *CreatePrincipalGrantResponse) GetCreatePrincipalGrant() *CreatePrincipa
 	return v.CreatePrincipalGrant
 }
 
+// CreateRegisterEntryCreateRegisterEntry includes the requested fields of the GraphQL type RegisterEntry.
+// The GraphQL type's documentation follows.
+//
+// A REGISTER ENTRY (spec 049, D-2026-09-13-007): "this attendee takes part in
+// this Channel". The attendee is a Worker when cast, otherwise an Agent in an
+// App; both null = every attendee in the owner's context (org-wide for an
+// organization row, App-wide for an App row). Not a trigger list — a row never
+// starts a run. The register never grants: what the attendee may read or post
+// is the Channel's host memory's decision. Not exportable.
+type CreateRegisterEntryCreateRegisterEntry struct {
+	RegisterEntryFields `json:"-"`
+}
+
+// GetId returns CreateRegisterEntryCreateRegisterEntry.Id, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetId() string { return v.RegisterEntryFields.Id }
+
+// GetChannelId returns CreateRegisterEntryCreateRegisterEntry.ChannelId, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetChannelId() string {
+	return v.RegisterEntryFields.ChannelId
+}
+
+// GetAttendeeUrn returns CreateRegisterEntryCreateRegisterEntry.AttendeeUrn, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetAttendeeUrn() *string {
+	return v.RegisterEntryFields.AttendeeUrn
+}
+
+// GetRole returns CreateRegisterEntryCreateRegisterEntry.Role, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetRole() RegisterRole {
+	return v.RegisterEntryFields.Role
+}
+
+// GetMentionOnly returns CreateRegisterEntryCreateRegisterEntry.MentionOnly, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetMentionOnly() bool {
+	return v.RegisterEntryFields.MentionOnly
+}
+
+// GetInstallDefault returns CreateRegisterEntryCreateRegisterEntry.InstallDefault, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetInstallDefault() bool {
+	return v.RegisterEntryFields.InstallDefault
+}
+
+// GetDescription returns CreateRegisterEntryCreateRegisterEntry.Description, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetDescription() *string {
+	return v.RegisterEntryFields.Description
+}
+
+// GetOwnerType returns CreateRegisterEntryCreateRegisterEntry.OwnerType, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetOwnerType() RegisterOwnerType {
+	return v.RegisterEntryFields.OwnerType
+}
+
+// GetOwnerId returns CreateRegisterEntryCreateRegisterEntry.OwnerId, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetOwnerId() string {
+	return v.RegisterEntryFields.OwnerId
+}
+
+// GetOrganizationId returns CreateRegisterEntryCreateRegisterEntry.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetOrganizationId() *string {
+	return v.RegisterEntryFields.OrganizationId
+}
+
+// GetCreatedAt returns CreateRegisterEntryCreateRegisterEntry.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetCreatedAt() string {
+	return v.RegisterEntryFields.CreatedAt
+}
+
+// GetUpdatedAt returns CreateRegisterEntryCreateRegisterEntry.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryCreateRegisterEntry) GetUpdatedAt() *string {
+	return v.RegisterEntryFields.UpdatedAt
+}
+
+func (v *CreateRegisterEntryCreateRegisterEntry) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateRegisterEntryCreateRegisterEntry
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateRegisterEntryCreateRegisterEntry = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RegisterEntryFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateRegisterEntryCreateRegisterEntry struct {
+	Id string `json:"id"`
+
+	ChannelId string `json:"channelId"`
+
+	AttendeeUrn *string `json:"attendeeUrn"`
+
+	Role RegisterRole `json:"role"`
+
+	MentionOnly bool `json:"mentionOnly"`
+
+	InstallDefault bool `json:"installDefault"`
+
+	Description *string `json:"description"`
+
+	OwnerType RegisterOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *CreateRegisterEntryCreateRegisterEntry) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateRegisterEntryCreateRegisterEntry) __premarshalJSON() (*__premarshalCreateRegisterEntryCreateRegisterEntry, error) {
+	var retval __premarshalCreateRegisterEntryCreateRegisterEntry
+
+	retval.Id = v.RegisterEntryFields.Id
+	retval.ChannelId = v.RegisterEntryFields.ChannelId
+	retval.AttendeeUrn = v.RegisterEntryFields.AttendeeUrn
+	retval.Role = v.RegisterEntryFields.Role
+	retval.MentionOnly = v.RegisterEntryFields.MentionOnly
+	retval.InstallDefault = v.RegisterEntryFields.InstallDefault
+	retval.Description = v.RegisterEntryFields.Description
+	retval.OwnerType = v.RegisterEntryFields.OwnerType
+	retval.OwnerId = v.RegisterEntryFields.OwnerId
+	retval.OrganizationId = v.RegisterEntryFields.OrganizationId
+	retval.CreatedAt = v.RegisterEntryFields.CreatedAt
+	retval.UpdatedAt = v.RegisterEntryFields.UpdatedAt
+	return &retval, nil
+}
+
+type CreateRegisterEntryInput struct {
+	// A Worker or an Agent in the owner's context; omitted = every attendee there.
+	AttendeeRef *string `json:"attendeeRef,omitempty"`
+	// A Channel: its id or its address (Channel.chatRootUrn, #1171).
+	ChannelRef  string  `json:"channelRef"`
+	Description *string `json:"description,omitempty"`
+	MentionOnly *bool   `json:"mentionOnly,omitempty"`
+	// An App or an organization (URN or id).
+	OwnerRef string `json:"ownerRef"`
+	// Default BOTH.
+	Role *RegisterRole `json:"role,omitempty"`
+}
+
+// GetAttendeeRef returns CreateRegisterEntryInput.AttendeeRef, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryInput) GetAttendeeRef() *string { return v.AttendeeRef }
+
+// GetChannelRef returns CreateRegisterEntryInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetDescription returns CreateRegisterEntryInput.Description, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryInput) GetDescription() *string { return v.Description }
+
+// GetMentionOnly returns CreateRegisterEntryInput.MentionOnly, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryInput) GetMentionOnly() *bool { return v.MentionOnly }
+
+// GetOwnerRef returns CreateRegisterEntryInput.OwnerRef, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryInput) GetOwnerRef() string { return v.OwnerRef }
+
+// GetRole returns CreateRegisterEntryInput.Role, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryInput) GetRole() *RegisterRole { return v.Role }
+
+// CreateRegisterEntryResponse is returned by CreateRegisterEntry on success.
+type CreateRegisterEntryResponse struct {
+	// Spec 049 Phase 5 — declare that an attendee takes part in a Channel. Owner:
+	// an App (org ADMIN / owner of a user-owned App) or an organization
+	// (CONTRIBUTOR+). attendeeRef: a Worker or an Agent in the owner's context;
+	// omitted = every attendee there. REGISTER_ENTRY_EXISTS when a live row
+	// already holds that (owner, Channel, attendee). Intent, never permission.
+	CreateRegisterEntry *CreateRegisterEntryCreateRegisterEntry `json:"createRegisterEntry"`
+}
+
+// GetCreateRegisterEntry returns CreateRegisterEntryResponse.CreateRegisterEntry, and is useful for accessing the field via an interface.
+func (v *CreateRegisterEntryResponse) GetCreateRegisterEntry() *CreateRegisterEntryCreateRegisterEntry {
+	return v.CreateRegisterEntry
+}
+
 // CreateReviewNodeCreateReviewNode includes the requested fields of the GraphQL type Node.
 type CreateReviewNodeCreateReviewNode struct {
 	Id       string `json:"id"`
@@ -8118,6 +8312,15 @@ type DeleteOrganizationResponse struct {
 
 // GetDeleteOrganization returns DeleteOrganizationResponse.DeleteOrganization, and is useful for accessing the field via an interface.
 func (v *DeleteOrganizationResponse) GetDeleteOrganization() bool { return v.DeleteOrganization }
+
+// DeleteRegisterEntryResponse is returned by DeleteRegisterEntry on success.
+type DeleteRegisterEntryResponse struct {
+	// Spec 049 Phase 5 — soft-delete a row. Each owner removes its own rows; an App may remove its install-created default.
+	DeleteRegisterEntry bool `json:"deleteRegisterEntry"`
+}
+
+// GetDeleteRegisterEntry returns DeleteRegisterEntryResponse.DeleteRegisterEntry, and is useful for accessing the field via an interface.
+func (v *DeleteRegisterEntryResponse) GetDeleteRegisterEntry() bool { return v.DeleteRegisterEntry }
 
 // DeleteScopeResponse is returned by DeleteScope on success.
 type DeleteScopeResponse struct {
@@ -9898,6 +10101,158 @@ type GetOrganizationResponse struct {
 // GetOrganization returns GetOrganizationResponse.Organization, and is useful for accessing the field via an interface.
 func (v *GetOrganizationResponse) GetOrganization() *GetOrganizationOrganization {
 	return v.Organization
+}
+
+// GetRegisterEntryRegisterEntry includes the requested fields of the GraphQL type RegisterEntry.
+// The GraphQL type's documentation follows.
+//
+// A REGISTER ENTRY (spec 049, D-2026-09-13-007): "this attendee takes part in
+// this Channel". The attendee is a Worker when cast, otherwise an Agent in an
+// App; both null = every attendee in the owner's context (org-wide for an
+// organization row, App-wide for an App row). Not a trigger list — a row never
+// starts a run. The register never grants: what the attendee may read or post
+// is the Channel's host memory's decision. Not exportable.
+type GetRegisterEntryRegisterEntry struct {
+	RegisterEntryFields `json:"-"`
+}
+
+// GetId returns GetRegisterEntryRegisterEntry.Id, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetId() string { return v.RegisterEntryFields.Id }
+
+// GetChannelId returns GetRegisterEntryRegisterEntry.ChannelId, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetChannelId() string { return v.RegisterEntryFields.ChannelId }
+
+// GetAttendeeUrn returns GetRegisterEntryRegisterEntry.AttendeeUrn, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetAttendeeUrn() *string {
+	return v.RegisterEntryFields.AttendeeUrn
+}
+
+// GetRole returns GetRegisterEntryRegisterEntry.Role, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetRole() RegisterRole { return v.RegisterEntryFields.Role }
+
+// GetMentionOnly returns GetRegisterEntryRegisterEntry.MentionOnly, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetMentionOnly() bool {
+	return v.RegisterEntryFields.MentionOnly
+}
+
+// GetInstallDefault returns GetRegisterEntryRegisterEntry.InstallDefault, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetInstallDefault() bool {
+	return v.RegisterEntryFields.InstallDefault
+}
+
+// GetDescription returns GetRegisterEntryRegisterEntry.Description, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetDescription() *string {
+	return v.RegisterEntryFields.Description
+}
+
+// GetOwnerType returns GetRegisterEntryRegisterEntry.OwnerType, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetOwnerType() RegisterOwnerType {
+	return v.RegisterEntryFields.OwnerType
+}
+
+// GetOwnerId returns GetRegisterEntryRegisterEntry.OwnerId, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetOwnerId() string { return v.RegisterEntryFields.OwnerId }
+
+// GetOrganizationId returns GetRegisterEntryRegisterEntry.OrganizationId, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetOrganizationId() *string {
+	return v.RegisterEntryFields.OrganizationId
+}
+
+// GetCreatedAt returns GetRegisterEntryRegisterEntry.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetCreatedAt() string { return v.RegisterEntryFields.CreatedAt }
+
+// GetUpdatedAt returns GetRegisterEntryRegisterEntry.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryRegisterEntry) GetUpdatedAt() *string {
+	return v.RegisterEntryFields.UpdatedAt
+}
+
+func (v *GetRegisterEntryRegisterEntry) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetRegisterEntryRegisterEntry
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetRegisterEntryRegisterEntry = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RegisterEntryFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetRegisterEntryRegisterEntry struct {
+	Id string `json:"id"`
+
+	ChannelId string `json:"channelId"`
+
+	AttendeeUrn *string `json:"attendeeUrn"`
+
+	Role RegisterRole `json:"role"`
+
+	MentionOnly bool `json:"mentionOnly"`
+
+	InstallDefault bool `json:"installDefault"`
+
+	Description *string `json:"description"`
+
+	OwnerType RegisterOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *GetRegisterEntryRegisterEntry) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetRegisterEntryRegisterEntry) __premarshalJSON() (*__premarshalGetRegisterEntryRegisterEntry, error) {
+	var retval __premarshalGetRegisterEntryRegisterEntry
+
+	retval.Id = v.RegisterEntryFields.Id
+	retval.ChannelId = v.RegisterEntryFields.ChannelId
+	retval.AttendeeUrn = v.RegisterEntryFields.AttendeeUrn
+	retval.Role = v.RegisterEntryFields.Role
+	retval.MentionOnly = v.RegisterEntryFields.MentionOnly
+	retval.InstallDefault = v.RegisterEntryFields.InstallDefault
+	retval.Description = v.RegisterEntryFields.Description
+	retval.OwnerType = v.RegisterEntryFields.OwnerType
+	retval.OwnerId = v.RegisterEntryFields.OwnerId
+	retval.OrganizationId = v.RegisterEntryFields.OrganizationId
+	retval.CreatedAt = v.RegisterEntryFields.CreatedAt
+	retval.UpdatedAt = v.RegisterEntryFields.UpdatedAt
+	return &retval, nil
+}
+
+// GetRegisterEntryResponse is returned by GetRegisterEntry on success.
+type GetRegisterEntryResponse struct {
+	// Spec 049 Phase 5 — one register entry. Null when missing OR when you may
+	// neither read its Channel's host memory nor stand on the row's owner side.
+	RegisterEntry *GetRegisterEntryRegisterEntry `json:"registerEntry"`
+}
+
+// GetRegisterEntry returns GetRegisterEntryResponse.RegisterEntry, and is useful for accessing the field via an interface.
+func (v *GetRegisterEntryResponse) GetRegisterEntry() *GetRegisterEntryRegisterEntry {
+	return v.RegisterEntry
 }
 
 // GetScopeResponse is returned by GetScope on success.
@@ -14897,6 +15252,296 @@ type RecordTeamWorkResponse struct {
 // GetRecordTeamWork returns RecordTeamWorkResponse.RecordTeamWork, and is useful for accessing the field via an interface.
 func (v *RecordTeamWorkResponse) GetRecordTeamWork() *RecordTeamWorkRecordTeamWorkTeamWorkItem {
 	return v.RecordTeamWork
+}
+
+// RegisterEntriesRegisterEntriesRegisterEntriesPage includes the requested fields of the GraphQL type RegisterEntriesPage.
+type RegisterEntriesRegisterEntriesRegisterEntriesPage struct {
+	Total int                                                                    `json:"total"`
+	Items []*RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry `json:"items"`
+}
+
+// GetTotal returns RegisterEntriesRegisterEntriesRegisterEntriesPage.Total, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPage) GetTotal() int { return v.Total }
+
+// GetItems returns RegisterEntriesRegisterEntriesRegisterEntriesPage.Items, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPage) GetItems() []*RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry {
+	return v.Items
+}
+
+// RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry includes the requested fields of the GraphQL type RegisterEntry.
+// The GraphQL type's documentation follows.
+//
+// A REGISTER ENTRY (spec 049, D-2026-09-13-007): "this attendee takes part in
+// this Channel". The attendee is a Worker when cast, otherwise an Agent in an
+// App; both null = every attendee in the owner's context (org-wide for an
+// organization row, App-wide for an App row). Not a trigger list — a row never
+// starts a run. The register never grants: what the attendee may read or post
+// is the Channel's host memory's decision. Not exportable.
+type RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry struct {
+	RegisterEntryFields `json:"-"`
+}
+
+// GetId returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.Id, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetId() string {
+	return v.RegisterEntryFields.Id
+}
+
+// GetChannelId returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.ChannelId, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetChannelId() string {
+	return v.RegisterEntryFields.ChannelId
+}
+
+// GetAttendeeUrn returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.AttendeeUrn, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetAttendeeUrn() *string {
+	return v.RegisterEntryFields.AttendeeUrn
+}
+
+// GetRole returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.Role, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetRole() RegisterRole {
+	return v.RegisterEntryFields.Role
+}
+
+// GetMentionOnly returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.MentionOnly, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetMentionOnly() bool {
+	return v.RegisterEntryFields.MentionOnly
+}
+
+// GetInstallDefault returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.InstallDefault, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetInstallDefault() bool {
+	return v.RegisterEntryFields.InstallDefault
+}
+
+// GetDescription returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.Description, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetDescription() *string {
+	return v.RegisterEntryFields.Description
+}
+
+// GetOwnerType returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.OwnerType, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetOwnerType() RegisterOwnerType {
+	return v.RegisterEntryFields.OwnerType
+}
+
+// GetOwnerId returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.OwnerId, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetOwnerId() string {
+	return v.RegisterEntryFields.OwnerId
+}
+
+// GetOrganizationId returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.OrganizationId, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetOrganizationId() *string {
+	return v.RegisterEntryFields.OrganizationId
+}
+
+// GetCreatedAt returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetCreatedAt() string {
+	return v.RegisterEntryFields.CreatedAt
+}
+
+// GetUpdatedAt returns RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) GetUpdatedAt() *string {
+	return v.RegisterEntryFields.UpdatedAt
+}
+
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RegisterEntryFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry struct {
+	Id string `json:"id"`
+
+	ChannelId string `json:"channelId"`
+
+	AttendeeUrn *string `json:"attendeeUrn"`
+
+	Role RegisterRole `json:"role"`
+
+	MentionOnly bool `json:"mentionOnly"`
+
+	InstallDefault bool `json:"installDefault"`
+
+	Description *string `json:"description"`
+
+	OwnerType RegisterOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) __premarshalJSON() (*__premarshalRegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry, error) {
+	var retval __premarshalRegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry
+
+	retval.Id = v.RegisterEntryFields.Id
+	retval.ChannelId = v.RegisterEntryFields.ChannelId
+	retval.AttendeeUrn = v.RegisterEntryFields.AttendeeUrn
+	retval.Role = v.RegisterEntryFields.Role
+	retval.MentionOnly = v.RegisterEntryFields.MentionOnly
+	retval.InstallDefault = v.RegisterEntryFields.InstallDefault
+	retval.Description = v.RegisterEntryFields.Description
+	retval.OwnerType = v.RegisterEntryFields.OwnerType
+	retval.OwnerId = v.RegisterEntryFields.OwnerId
+	retval.OrganizationId = v.RegisterEntryFields.OrganizationId
+	retval.CreatedAt = v.RegisterEntryFields.CreatedAt
+	retval.UpdatedAt = v.RegisterEntryFields.UpdatedAt
+	return &retval, nil
+}
+
+// RegisterEntriesResponse is returned by RegisterEntries on success.
+type RegisterEntriesResponse struct {
+	// Spec 049 Phase 5 — register entries you may read (§8.6), narrowed by owner
+	// (an App or an organization), Channel, or attendee (a Worker or an Agent),
+	// and by the cor:api:100:01 orgId. A filter naming something foreign returns
+	// the same empty page as one naming nothing. Oldest first; limit default 50 / cap 200.
+	RegisterEntries *RegisterEntriesRegisterEntriesRegisterEntriesPage `json:"registerEntries"`
+}
+
+// GetRegisterEntries returns RegisterEntriesResponse.RegisterEntries, and is useful for accessing the field via an interface.
+func (v *RegisterEntriesResponse) GetRegisterEntries() *RegisterEntriesRegisterEntriesRegisterEntriesPage {
+	return v.RegisterEntries
+}
+
+// RegisterEntryFields includes the GraphQL fields of RegisterEntry requested by the fragment RegisterEntryFields.
+// The GraphQL type's documentation follows.
+//
+// A REGISTER ENTRY (spec 049, D-2026-09-13-007): "this attendee takes part in
+// this Channel". The attendee is a Worker when cast, otherwise an Agent in an
+// App; both null = every attendee in the owner's context (org-wide for an
+// organization row, App-wide for an App row). Not a trigger list — a row never
+// starts a run. The register never grants: what the attendee may read or post
+// is the Channel's host memory's decision. Not exportable.
+type RegisterEntryFields struct {
+	Id        string `json:"id"`
+	ChannelId string `json:"channelId"`
+	// The attendee's URN (hrn:worker:… or the Agent's); null for 'every attendee'.
+	AttendeeUrn *string      `json:"attendeeUrn"`
+	Role        RegisterRole `json:"role"`
+	// Only messages mentioning the attendee count as new for it.
+	MentionOnly bool `json:"mentionOnly"`
+	// The row install materialised for the App's default Channel (D2).
+	InstallDefault bool `json:"installDefault"`
+	// The human's intent, free text.
+	Description *string           `json:"description"`
+	OwnerType   RegisterOwnerType `json:"ownerType"`
+	// ID of the owning organization / App.
+	OwnerId        string  `json:"ownerId"`
+	OrganizationId *string `json:"organizationId"`
+	CreatedAt      string  `json:"createdAt"`
+	UpdatedAt      *string `json:"updatedAt"`
+}
+
+// GetId returns RegisterEntryFields.Id, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetId() string { return v.Id }
+
+// GetChannelId returns RegisterEntryFields.ChannelId, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetChannelId() string { return v.ChannelId }
+
+// GetAttendeeUrn returns RegisterEntryFields.AttendeeUrn, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetAttendeeUrn() *string { return v.AttendeeUrn }
+
+// GetRole returns RegisterEntryFields.Role, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetRole() RegisterRole { return v.Role }
+
+// GetMentionOnly returns RegisterEntryFields.MentionOnly, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetMentionOnly() bool { return v.MentionOnly }
+
+// GetInstallDefault returns RegisterEntryFields.InstallDefault, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetInstallDefault() bool { return v.InstallDefault }
+
+// GetDescription returns RegisterEntryFields.Description, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetDescription() *string { return v.Description }
+
+// GetOwnerType returns RegisterEntryFields.OwnerType, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetOwnerType() RegisterOwnerType { return v.OwnerType }
+
+// GetOwnerId returns RegisterEntryFields.OwnerId, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetOwnerId() string { return v.OwnerId }
+
+// GetOrganizationId returns RegisterEntryFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetCreatedAt returns RegisterEntryFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns RegisterEntryFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// Filter for registerEntries(). Refs: ID or URN.
+type RegisterEntryFilter struct {
+	// A Worker or an Agent.
+	AttendeeRef *string `json:"attendeeRef,omitempty"`
+	// A Channel: its id or its address (Channel.chatRootUrn). A ref naming nothing matches nothing.
+	ChannelRef *string `json:"channelRef,omitempty"`
+	// An App or an organization.
+	OwnerRef *string `json:"ownerRef,omitempty"`
+}
+
+// GetAttendeeRef returns RegisterEntryFilter.AttendeeRef, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFilter) GetAttendeeRef() *string { return v.AttendeeRef }
+
+// GetChannelRef returns RegisterEntryFilter.ChannelRef, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFilter) GetChannelRef() *string { return v.ChannelRef }
+
+// GetOwnerRef returns RegisterEntryFilter.OwnerRef, and is useful for accessing the field via an interface.
+func (v *RegisterEntryFilter) GetOwnerRef() *string { return v.OwnerRef }
+
+// A register row is owned by exactly one of the two; Agent-owned rows do not exist (plan §14).
+type RegisterOwnerType string
+
+const (
+	RegisterOwnerTypeApp          RegisterOwnerType = "APP"
+	RegisterOwnerTypeOrganization RegisterOwnerType = "ORGANIZATION"
+)
+
+var AllRegisterOwnerType = []RegisterOwnerType{
+	RegisterOwnerTypeApp,
+	RegisterOwnerTypeOrganization,
+}
+
+// What a register row declares: INTENT, never permission (D-2026-09-13-008).
+type RegisterRole string
+
+const (
+	RegisterRoleBoth  RegisterRole = "BOTH"
+	RegisterRolePost  RegisterRole = "POST"
+	RegisterRoleWatch RegisterRole = "WATCH"
+)
+
+var AllRegisterRole = []RegisterRole{
+	RegisterRoleBoth,
+	RegisterRolePost,
+	RegisterRoleWatch,
 }
 
 // ReleaseWorkerReleaseWorkerReleaseWorkerPayload includes the requested fields of the GraphQL type ReleaseWorkerPayload.
@@ -21494,6 +22139,180 @@ func (v *UpdateOrganizationUpdateOrganization) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+type UpdateRegisterEntryInput struct {
+	Description *string       `json:"description,omitempty"`
+	MentionOnly *bool         `json:"mentionOnly,omitempty"`
+	Role        *RegisterRole `json:"role,omitempty"`
+}
+
+// GetDescription returns UpdateRegisterEntryInput.Description, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryInput) GetDescription() *string { return v.Description }
+
+// GetMentionOnly returns UpdateRegisterEntryInput.MentionOnly, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryInput) GetMentionOnly() *bool { return v.MentionOnly }
+
+// GetRole returns UpdateRegisterEntryInput.Role, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryInput) GetRole() *RegisterRole { return v.Role }
+
+// UpdateRegisterEntryResponse is returned by UpdateRegisterEntry on success.
+type UpdateRegisterEntryResponse struct {
+	// Spec 049 Phase 5 — change a row's role / mentionOnly / description (the owner's gate).
+	UpdateRegisterEntry *UpdateRegisterEntryUpdateRegisterEntry `json:"updateRegisterEntry"`
+}
+
+// GetUpdateRegisterEntry returns UpdateRegisterEntryResponse.UpdateRegisterEntry, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryResponse) GetUpdateRegisterEntry() *UpdateRegisterEntryUpdateRegisterEntry {
+	return v.UpdateRegisterEntry
+}
+
+// UpdateRegisterEntryUpdateRegisterEntry includes the requested fields of the GraphQL type RegisterEntry.
+// The GraphQL type's documentation follows.
+//
+// A REGISTER ENTRY (spec 049, D-2026-09-13-007): "this attendee takes part in
+// this Channel". The attendee is a Worker when cast, otherwise an Agent in an
+// App; both null = every attendee in the owner's context (org-wide for an
+// organization row, App-wide for an App row). Not a trigger list — a row never
+// starts a run. The register never grants: what the attendee may read or post
+// is the Channel's host memory's decision. Not exportable.
+type UpdateRegisterEntryUpdateRegisterEntry struct {
+	RegisterEntryFields `json:"-"`
+}
+
+// GetId returns UpdateRegisterEntryUpdateRegisterEntry.Id, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetId() string { return v.RegisterEntryFields.Id }
+
+// GetChannelId returns UpdateRegisterEntryUpdateRegisterEntry.ChannelId, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetChannelId() string {
+	return v.RegisterEntryFields.ChannelId
+}
+
+// GetAttendeeUrn returns UpdateRegisterEntryUpdateRegisterEntry.AttendeeUrn, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetAttendeeUrn() *string {
+	return v.RegisterEntryFields.AttendeeUrn
+}
+
+// GetRole returns UpdateRegisterEntryUpdateRegisterEntry.Role, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetRole() RegisterRole {
+	return v.RegisterEntryFields.Role
+}
+
+// GetMentionOnly returns UpdateRegisterEntryUpdateRegisterEntry.MentionOnly, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetMentionOnly() bool {
+	return v.RegisterEntryFields.MentionOnly
+}
+
+// GetInstallDefault returns UpdateRegisterEntryUpdateRegisterEntry.InstallDefault, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetInstallDefault() bool {
+	return v.RegisterEntryFields.InstallDefault
+}
+
+// GetDescription returns UpdateRegisterEntryUpdateRegisterEntry.Description, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetDescription() *string {
+	return v.RegisterEntryFields.Description
+}
+
+// GetOwnerType returns UpdateRegisterEntryUpdateRegisterEntry.OwnerType, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetOwnerType() RegisterOwnerType {
+	return v.RegisterEntryFields.OwnerType
+}
+
+// GetOwnerId returns UpdateRegisterEntryUpdateRegisterEntry.OwnerId, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetOwnerId() string {
+	return v.RegisterEntryFields.OwnerId
+}
+
+// GetOrganizationId returns UpdateRegisterEntryUpdateRegisterEntry.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetOrganizationId() *string {
+	return v.RegisterEntryFields.OrganizationId
+}
+
+// GetCreatedAt returns UpdateRegisterEntryUpdateRegisterEntry.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetCreatedAt() string {
+	return v.RegisterEntryFields.CreatedAt
+}
+
+// GetUpdatedAt returns UpdateRegisterEntryUpdateRegisterEntry.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateRegisterEntryUpdateRegisterEntry) GetUpdatedAt() *string {
+	return v.RegisterEntryFields.UpdatedAt
+}
+
+func (v *UpdateRegisterEntryUpdateRegisterEntry) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateRegisterEntryUpdateRegisterEntry
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateRegisterEntryUpdateRegisterEntry = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RegisterEntryFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateRegisterEntryUpdateRegisterEntry struct {
+	Id string `json:"id"`
+
+	ChannelId string `json:"channelId"`
+
+	AttendeeUrn *string `json:"attendeeUrn"`
+
+	Role RegisterRole `json:"role"`
+
+	MentionOnly bool `json:"mentionOnly"`
+
+	InstallDefault bool `json:"installDefault"`
+
+	Description *string `json:"description"`
+
+	OwnerType RegisterOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *UpdateRegisterEntryUpdateRegisterEntry) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateRegisterEntryUpdateRegisterEntry) __premarshalJSON() (*__premarshalUpdateRegisterEntryUpdateRegisterEntry, error) {
+	var retval __premarshalUpdateRegisterEntryUpdateRegisterEntry
+
+	retval.Id = v.RegisterEntryFields.Id
+	retval.ChannelId = v.RegisterEntryFields.ChannelId
+	retval.AttendeeUrn = v.RegisterEntryFields.AttendeeUrn
+	retval.Role = v.RegisterEntryFields.Role
+	retval.MentionOnly = v.RegisterEntryFields.MentionOnly
+	retval.InstallDefault = v.RegisterEntryFields.InstallDefault
+	retval.Description = v.RegisterEntryFields.Description
+	retval.OwnerType = v.RegisterEntryFields.OwnerType
+	retval.OwnerId = v.RegisterEntryFields.OwnerId
+	retval.OrganizationId = v.RegisterEntryFields.OrganizationId
+	retval.CreatedAt = v.RegisterEntryFields.CreatedAt
+	retval.UpdatedAt = v.RegisterEntryFields.UpdatedAt
+	return &retval, nil
+}
+
 // UpdateReviewNodeResponse is returned by UpdateReviewNode on success.
 type UpdateReviewNodeResponse struct {
 	// #1201 — the UPDATE door for the review kind, and the counterpart of
@@ -24563,6 +25382,14 @@ func (v *__CreatePrincipalGrantInput) GetActions() []string { return v.Actions }
 // GetExpiresAt returns __CreatePrincipalGrantInput.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *__CreatePrincipalGrantInput) GetExpiresAt() *string { return v.ExpiresAt }
 
+// __CreateRegisterEntryInput is used internally by genqlient
+type __CreateRegisterEntryInput struct {
+	Input *CreateRegisterEntryInput `json:"input,omitempty"`
+}
+
+// GetInput returns __CreateRegisterEntryInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateRegisterEntryInput) GetInput() *CreateRegisterEntryInput { return v.Input }
+
 // __CreateReviewNodeInput is used internally by genqlient
 type __CreateReviewNodeInput struct {
 	Input *CreateNodeInput `json:"input,omitempty"`
@@ -24843,6 +25670,14 @@ type __DeleteOrganizationInput struct {
 // GetId returns __DeleteOrganizationInput.Id, and is useful for accessing the field via an interface.
 func (v *__DeleteOrganizationInput) GetId() string { return v.Id }
 
+// __DeleteRegisterEntryInput is used internally by genqlient
+type __DeleteRegisterEntryInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __DeleteRegisterEntryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteRegisterEntryInput) GetRef() string { return v.Ref }
+
 // __DeleteScopeInput is used internally by genqlient
 type __DeleteScopeInput struct {
 	Ref string `json:"ref"`
@@ -25074,6 +25909,14 @@ type __GetOrganizationInput struct {
 
 // GetRef returns __GetOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetOrganizationInput) GetRef() string { return v.Ref }
+
+// __GetRegisterEntryInput is used internally by genqlient
+type __GetRegisterEntryInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetRegisterEntryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetRegisterEntryInput) GetRef() string { return v.Ref }
 
 // __GetScopeInput is used internally by genqlient
 type __GetScopeInput struct {
@@ -25462,6 +26305,26 @@ func (v *__RecordTeamWorkInput) GetAction() string { return v.Action }
 
 // GetDetail returns __RecordTeamWorkInput.Detail, and is useful for accessing the field via an interface.
 func (v *__RecordTeamWorkInput) GetDetail() *json.RawMessage { return v.Detail }
+
+// __RegisterEntriesInput is used internally by genqlient
+type __RegisterEntriesInput struct {
+	Filter *RegisterEntryFilter `json:"filter,omitempty"`
+	Limit  *int                 `json:"limit,omitempty"`
+	Offset *int                 `json:"offset,omitempty"`
+	OrgId  *string              `json:"orgId,omitempty"`
+}
+
+// GetFilter returns __RegisterEntriesInput.Filter, and is useful for accessing the field via an interface.
+func (v *__RegisterEntriesInput) GetFilter() *RegisterEntryFilter { return v.Filter }
+
+// GetLimit returns __RegisterEntriesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__RegisterEntriesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __RegisterEntriesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__RegisterEntriesInput) GetOffset() *int { return v.Offset }
+
+// GetOrgId returns __RegisterEntriesInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__RegisterEntriesInput) GetOrgId() *string { return v.OrgId }
 
 // __ReleaseWorkerInput is used internally by genqlient
 type __ReleaseWorkerInput struct {
@@ -26278,6 +27141,18 @@ func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 
 // GetListedOnMarketplace returns __UpdateOrganizationInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
+
+// __UpdateRegisterEntryInput is used internally by genqlient
+type __UpdateRegisterEntryInput struct {
+	Ref   string                    `json:"ref"`
+	Input *UpdateRegisterEntryInput `json:"input,omitempty"`
+}
+
+// GetRef returns __UpdateRegisterEntryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateRegisterEntryInput) GetRef() string { return v.Ref }
+
+// GetInput returns __UpdateRegisterEntryInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateRegisterEntryInput) GetInput() *UpdateRegisterEntryInput { return v.Input }
 
 // __UpdateReviewNodeInput is used internally by genqlient
 type __UpdateReviewNodeInput struct {
@@ -29007,6 +29882,56 @@ func CreatePrincipalGrant(
 	return data_, err_
 }
 
+// The mutation executed by CreateRegisterEntry.
+const CreateRegisterEntry_Operation = `
+mutation CreateRegisterEntry ($input: CreateRegisterEntryInput!) {
+	createRegisterEntry(input: $input) {
+		... RegisterEntryFields
+	}
+}
+fragment RegisterEntryFields on RegisterEntry {
+	id
+	channelId
+	attendeeUrn
+	role
+	mentionOnly
+	installDefault
+	description
+	ownerType
+	ownerId
+	organizationId
+	createdAt
+	updatedAt
+}
+`
+
+// attendeeRef omitted is the WIDE row. Optional on the wire, never optional in
+// the command: `register add` requires --attendee or --all-attendees.
+func CreateRegisterEntry(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateRegisterEntryInput,
+) (data_ *CreateRegisterEntryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateRegisterEntry",
+		Query:  CreateRegisterEntry_Operation,
+		Variables: &__CreateRegisterEntryInput{
+			Input: input,
+		},
+	}
+
+	data_ = &CreateRegisterEntryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateReviewNode.
 const CreateReviewNode_Operation = `
 mutation CreateReviewNode ($input: CreateNodeInput!) {
@@ -30026,6 +30951,40 @@ func DeleteOrganization(
 	return data_, err_
 }
 
+// The mutation executed by DeleteRegisterEntry.
+const DeleteRegisterEntry_Operation = `
+mutation DeleteRegisterEntry ($ref: ID!) {
+	deleteRegisterEntry(ref: $ref)
+}
+`
+
+// Returns a BOOLEAN: false means nothing was deleted (unknown ref, or already
+// gone). Discarding it would report success on a failed delete.
+func DeleteRegisterEntry(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *DeleteRegisterEntryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteRegisterEntry",
+		Query:  DeleteRegisterEntry_Operation,
+		Variables: &__DeleteRegisterEntryInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &DeleteRegisterEntryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteScope.
 const DeleteScope_Operation = `
 mutation DeleteScope ($ref: ID!) {
@@ -30930,6 +31889,54 @@ func GetOrganization(
 	}
 
 	data_ = &GetOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetRegisterEntry.
+const GetRegisterEntry_Operation = `
+query GetRegisterEntry ($ref: ID!) {
+	registerEntry(ref: $ref) {
+		... RegisterEntryFields
+	}
+}
+fragment RegisterEntryFields on RegisterEntry {
+	id
+	channelId
+	attendeeUrn
+	role
+	mentionOnly
+	installDefault
+	description
+	ownerType
+	ownerId
+	organizationId
+	createdAt
+	updatedAt
+}
+`
+
+func GetRegisterEntry(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetRegisterEntryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetRegisterEntry",
+		Query:  GetRegisterEntry_Operation,
+		Variables: &__GetRegisterEntryInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetRegisterEntryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -32712,6 +33719,67 @@ func RecordTeamWork(
 	}
 
 	data_ = &RecordTeamWorkResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RegisterEntries.
+const RegisterEntries_Operation = `
+query RegisterEntries ($filter: RegisterEntryFilter, $limit: Int, $offset: Int, $orgId: ID) {
+	registerEntries(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+		total
+		items {
+			... RegisterEntryFields
+		}
+	}
+}
+fragment RegisterEntryFields on RegisterEntry {
+	id
+	channelId
+	attendeeUrn
+	role
+	mentionOnly
+	installDefault
+	description
+	ownerType
+	ownerId
+	organizationId
+	createdAt
+	updatedAt
+}
+`
+
+// A ref naming nothing MATCHES NOTHING rather than erroring (the server's own
+// wording), so an empty page is ambiguous: no rows, or a filter typo. The
+// command says so on stderr rather than printing an empty table that reads as
+// "nobody is registered".
+func RegisterEntries(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *RegisterEntryFilter,
+	limit *int,
+	offset *int,
+	orgId *string,
+) (data_ *RegisterEntriesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RegisterEntries",
+		Query:  RegisterEntries_Operation,
+		Variables: &__RegisterEntriesInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+			OrgId:  orgId,
+		},
+	}
+
+	data_ = &RegisterEntriesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -35344,6 +36412,60 @@ func UpdateOrganization(
 	}
 
 	data_ = &UpdateOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateRegisterEntry.
+const UpdateRegisterEntry_Operation = `
+mutation UpdateRegisterEntry ($ref: ID!, $input: UpdateRegisterEntryInput!) {
+	updateRegisterEntry(ref: $ref, input: $input) {
+		... RegisterEntryFields
+	}
+}
+fragment RegisterEntryFields on RegisterEntry {
+	id
+	channelId
+	attendeeUrn
+	role
+	mentionOnly
+	installDefault
+	description
+	ownerType
+	ownerId
+	organizationId
+	createdAt
+	updatedAt
+}
+`
+
+// Update carries ONLY role / mentionOnly / description — the attendee and the
+// Channel are immutable, so "move this registration" is delete + create and the
+// command must not pretend otherwise. Each field is omitempty so an unset flag
+// is OMITTED (preserve) rather than sent as null (clear).
+func UpdateRegisterEntry(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	input *UpdateRegisterEntryInput,
+) (data_ *UpdateRegisterEntryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateRegisterEntry",
+		Query:  UpdateRegisterEntry_Operation,
+		Variables: &__UpdateRegisterEntryInput{
+			Ref:   ref,
+			Input: input,
+		},
+	}
+
+	data_ = &UpdateRegisterEntryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

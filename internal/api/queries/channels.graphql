@@ -236,3 +236,100 @@ mutation AdvanceChannelReadState(
     updatedAt
   }
 }
+
+# ── The register (spec 049 Phase 5; hadron-cli#636) ────────────────────────────
+#
+# A RegisterEntry says WHO may do WHAT in a Channel: an attendee (a Worker or an
+# Agent), a role (BOTH / POST / WATCH), and whether only mentions count as new.
+# It is the participation model, and until #636 the CLI could not touch it while
+# MCP could.
+#
+# `attendeeUrn` is NULL for the wide row — "every attendee in the owner's
+# context" — which is a much broader grant than naming one, and the CLI makes
+# that an explicit opt-in rather than the result of a forgotten flag. The
+# SERVER is right to model it as optional; the CLIENT declines to let it happen
+# by omission.
+#
+# Refs are passed through unexamined, exactly as everywhere else in this file.
+
+fragment RegisterEntryFields on RegisterEntry {
+  id
+  channelId
+  attendeeUrn
+  role
+  mentionOnly
+  installDefault
+  description
+  ownerType
+  ownerId
+  organizationId
+  createdAt
+  updatedAt
+}
+
+# A ref naming nothing MATCHES NOTHING rather than erroring (the server's own
+# wording), so an empty page is ambiguous: no rows, or a filter typo. The
+# command says so on stderr rather than printing an empty table that reads as
+# "nobody is registered".
+# @genqlient(for: "RegisterEntryFilter.attendeeRef", omitempty: true)
+# @genqlient(for: "RegisterEntryFilter.channelRef", omitempty: true)
+# @genqlient(for: "RegisterEntryFilter.ownerRef", omitempty: true)
+query RegisterEntries(
+  # @genqlient(omitempty: true)
+  $filter: RegisterEntryFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $orgId: ID
+) {
+  registerEntries(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+    total
+    items {
+      ...RegisterEntryFields
+    }
+  }
+}
+
+query GetRegisterEntry($ref: ID!) {
+  registerEntry(ref: $ref) {
+    ...RegisterEntryFields
+  }
+}
+
+# attendeeRef omitted is the WIDE row. Optional on the wire, never optional in
+# the command: `register add` requires --attendee or --all-attendees.
+# @genqlient(for: "CreateRegisterEntryInput.attendeeRef", omitempty: true)
+# @genqlient(for: "CreateRegisterEntryInput.description", omitempty: true)
+# @genqlient(for: "CreateRegisterEntryInput.mentionOnly", omitempty: true)
+# @genqlient(for: "CreateRegisterEntryInput.role", omitempty: true)
+mutation CreateRegisterEntry(
+  $input: CreateRegisterEntryInput!
+) {
+  createRegisterEntry(input: $input) {
+    ...RegisterEntryFields
+  }
+}
+
+# Update carries ONLY role / mentionOnly / description — the attendee and the
+# Channel are immutable, so "move this registration" is delete + create and the
+# command must not pretend otherwise. Each field is omitempty so an unset flag
+# is OMITTED (preserve) rather than sent as null (clear).
+# @genqlient(for: "UpdateRegisterEntryInput.description", omitempty: true)
+# @genqlient(for: "UpdateRegisterEntryInput.mentionOnly", omitempty: true)
+# @genqlient(for: "UpdateRegisterEntryInput.role", omitempty: true)
+mutation UpdateRegisterEntry(
+  $ref: ID!
+  $input: UpdateRegisterEntryInput!
+) {
+  updateRegisterEntry(ref: $ref, input: $input) {
+    ...RegisterEntryFields
+  }
+}
+
+# Returns a BOOLEAN: false means nothing was deleted (unknown ref, or already
+# gone). Discarding it would report success on a failed delete.
+mutation DeleteRegisterEntry($ref: ID!) {
+  deleteRegisterEntry(ref: $ref)
+}

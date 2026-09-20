@@ -179,7 +179,7 @@ hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path>
 hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>] | upload <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>] | rm <asset-ref> [--yes] | restore <asset-ref> | link <asset-ref> --node <new-node-urn> [--name <n>] [--description <d>]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--session <id>] [--reply-to <seq|loc>]
-hadron channel list [--owner-app <ref>] [-m <memory>] | get <id|address> | create <name> -m <memory> --loc <loc> [--description <d>] | update <id|address> [--name <n>] [--description <d>] | rm <id|address> [--yes] | read <id|address> [--since <seq>] [--before <seq>] [--limit N] [--offset N] [--mentions <ref>] | post <id|address> <body|-> (--session <id> | --as-me) [--reply-to <seq>] | mark-read <id|address> --attendee <ref> --seq N [--owner-app <ref>] | read-state <id|address> --attendee <ref> [--owner-app <ref>]   # post REQUIRES --session or --as-me (the server records the human silently otherwise); read --since is strictly-greater and the output reports nextSince; a ref is the Channel id OR its address (chatRootUrn, printed by list); chatRootUrn is NULL for some Channels — the id always works.
+hadron channel list [--owner-app <ref>] [-m <memory>] | get <id|address> | create <name> -m <memory> --loc <loc> [--description <d>] | update <id|address> [--name <n>] [--description <d>] | rm <id|address> [--yes] | read <id|address> [--since <seq>] [--before <seq>] [--limit N] [--offset N] [--mentions <ref>] | post <id|address> <body|-> (--session <id> | --as-me) [--reply-to <seq>] | mark-read <id|address> --attendee <ref> --seq N [--owner-app <ref>] | read-state <id|address> --attendee <ref> [--owner-app <ref>] | register list [--channel <ref>] [--attendee <ref>] [--owner <ref>] [--org <id>] [--limit N] [--offset N] | register add --channel <ref> --owner <ref> (--attendee <ref> | --all-attendees) [--role both|post|watch] [--mention-only] [--description <d>] | register set <entry-id> (--role <r> | --mention-only[=false] | --description <d>)... | register rm <entry-id> [--yes]   # post REQUIRES --session or --as-me (the server records the human silently otherwise); read --since is strictly-greater and the output reports nextSince; a ref is the Channel id OR its address (chatRootUrn, printed by list); chatRootUrn is NULL for some Channels — the id always works.
 hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
@@ -783,6 +783,34 @@ Conventions:
   absence means "not a shared-with-me listing". Rejected (exit 2) together with
   `--include-agent-system`, which selects the other slice. An App-key caller
   gets an empty list — sharing is user-to-user.
+- `channel register` is the Channel PARTICIPATION surface (spec 049 Phase 5) —
+  which attendees take part in a Channel. **It NEVER grants access**: a row
+  declares intent, not permission (D-2026-09-13-008), and what an attendee may
+  read or post is the Channel's HOST MEMORY's decision. Adding a row confers
+  nothing and removing one revokes nothing — to change who can reach a Channel,
+  change access to the memory hosting it (`memory member` / `memory share`). A
+  register entry carries an attendee (a Worker or an Agent), a `role` (`BOTH`
+  takes part in reading and posting, `POST` posts, `WATCH` reads),
+  `mentionOnly`, and an OWNER (an App or an organization) that is the context
+  the attendee is named in. **Not the worker-name register**, which
+  was removed in hadron-server#1050 and is unrelated — every `register` hit in
+  this CLI's own GraphQL files is that retired one.
+  `register add` needs **exactly one** of `--attendee <ref>` or
+  `--all-attendees`; the latter is the WIDE entry covering every attendee in
+  the owner's context. On the wire the wide entry is the ABSENCE of
+  `attendeeRef`, and the server does read an omitted attendee as "everyone" —
+  but the CLI refuses (exit 2) rather than letting a forgotten flag widen a
+  declaration, so the wide form must be asked for by name. `register set` changes
+  only `--role`, `--mention-only` and `--description`; the attendee and the
+  Channel are immutable, so moving a registration is `rm` + `add`. An unset
+  flag is omitted (preserve), so `--mention-only=false` is how you turn it off
+  and a bare `set` with no field is rejected (exit 2) rather than reported as
+  a change. `register rm` is a SOFT delete and needs `--yes` non-interactively;
+  a `false` result is exit 4, not success; and an explicitly empty
+  `--role=` is exit 2 rather than silently omitted. `register list`'s filters AND
+  together and a ref that names nothing MATCHES NOTHING rather than failing, so
+  an empty page is ambiguous — the command says so on **stderr**, leaving
+  `--json` a clean `[]`.
 - `memory member` and `memory share` control who can access a memory.
   `member list|add|set-role|rm <memory> --user <id> --role <owner|writer|reader>`
   manages team membership (rows exist only on group-class memories);
