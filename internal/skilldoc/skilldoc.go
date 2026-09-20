@@ -40,12 +40,6 @@ const (
 	MaxDescriptionLen = 1024
 )
 
-// DefaultPrefix is the export namespace of a task in a USER-owned memory
-// (Holger, 2026-09-15): a personal task has no org to name, so it takes the
-// platform's. An org-owned task uses its org's `Organization.skillPrefix`
-// (hadron-server#1164) and never this.
-const DefaultPrefix = "hadron-"
-
 // Finding severities — the same strings `spec lint` renders, so a caller
 // scripting both sees one vocabulary.
 const (
@@ -53,19 +47,27 @@ const (
 	SevWarning = "warning"
 )
 
-// declarationKeys are the property keys a node may declare a skill under, in
-// precedence order: the provider-neutral key (D10) wins over the legacy one.
-// ONE list, read by one scan (classify), so a key added later cannot be
-// recognised by the declaration reader and missed by the malformed check.
-var declarationKeys = []string{"skill", "claudeSkill"}
+// ExportsKey is the property holding a node's per-host export declarations
+// (D12): an OBJECT keyed by host, so "one export per host" is structural and
+// discovery stays a key check rather than a containment match.
+const ExportsKey = "exports"
+
+// HostClaudeSkill is the only host with a specified renderer (D10/D12). Other
+// keys under `exports` are recognised as declarations but not validated here —
+// a second host's limits arrive with its renderer, not before it.
+const HostClaudeSkill = "claudeSkill"
+
+// legacyTopLevelKeys are the pre-D12 declaration properties, read as aliases
+// for `exports.claudeSkill` so nothing has to be migrated to keep working
+// (Holger, 2026-09-19: there is no data migration). ONE list, read by one scan
+// (classify), so a key added later cannot be recognised by the declaration
+// reader and missed by the malformed check.
+var legacyTopLevelKeys = []string{"skill", "claudeSkill"}
 
 var (
 	// nameRE is the skill-name grammar: kebab-case, lowercase letters and
 	// digits, single hyphens between segments.
 	nameRE = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-	// prefixRE mirrors the server's validation of Organization.skillPrefix: the
-	// stored value IS the literal prefix, trailing hyphen included.
-	prefixRE = regexp.MustCompile(`^[a-z][a-z0-9]*-$`)
 	// headerRE reads the machine line a generated file carries (§4.3 of the
 	// plan): `<!-- hadron-skill source=<urn> hash=<hex> -->`. Keys are
 	// order-independent so a later host can add its own without breaking
@@ -95,114 +97,148 @@ var (
 	templateRE = regexp.MustCompile(`\{\{[^}]*\}\}`)
 )
 
-// Prefix is a memory's resolved export prefix. Known is false when the memory
-// is org-owned and the org has chosen no `Organization.skillPrefix`: Value is
-// then empty, and the rules that need a prefix say so rather than deriving a
-// name from nothing. Carrying the pair keeps "unknown" distinct from "empty"
-// — a server that ever coerced a null prefix to "" would otherwise read as
-// resolved (this repo's recurring nil-guard class).
-type Prefix struct {
-	Value string
-	Known bool
-}
-
-// Declaration is a node's opt-in to export: `properties.skill` (D10, the
-// provider-neutral key) or the legacy `properties.claudeSkill`, whichever is
-// present. Key records which one, so lint can steer a legacy declaration to
-// the new key. Name is the pre-#580 hand-set skill name; it is retired in
-// favor of derivation (D8) and accepted during transition only when it equals
-// the derived value.
+// Declaration is a node's opt-in to export for ONE host: an object at `properties.
+// exports.<host>` (D12), or one of the retired top-level keys read as an alias
+// for the claudeSkill host. Key is the property PATH it was found at, so a
+// message can name what the author actually wrote.
+//
+// Name is now AUTHORITATIVE and stored: D12 retired derivation, so there is no
+// value to fall back to and a missing name is a finding rather than a default.
+//
+// Enable is the per-host on/off switch and it DEFAULTS TO OFF (Holger,
+// 2026-09-19). Publishing a skill is the side-effecting act, so it takes an
+// explicit `enable: true`; a declaration that merely exists does not publish.
+// The reason is the corpus: it holds many runnable nodes that are automation and
+// were never meant to be skills at all, so the safe default is the one where
+// nothing ships unless somebody said to ship it.
+//
+// EnableSet records whether the key was present, which lets a report distinguish
+// "switched off" from "never switched on". It is reporting detail, not a gate.
 type Declaration struct {
 	Key         string
+	Host        string
 	Description string
 	Name        string
 	// NameSet records that a `name` key was present, so an explicitly EMPTY
-	// stored name is judged against the derived one rather than read as
-	// absent (Copilot on #589, round 2).
-	NameSet bool
+	// stored name is judged rather than read as absent (Copilot on #589,
+	// round 2 — the rule it was found on is gone, the trap is not).
+	NameSet   bool
+	Enable    bool
+	EnableSet bool
 }
 
-// classify is the ONE scan of a node's declaration keys. It returns the
-// declaration under the highest-precedence key that holds an object, and
-// every key PATH that is present but of the wrong shape — a declaration
-// key that is not an object, or a `description`/`name` inside one that is
-// not a string. A malformed key is reported even when a valid declaration
-// sits beside it, because the node is mid-migration and the broken key is
-// the one that will survive the legacy key's retirement; a non-string
-// `name` is reported rather than ignored, or a stored name the contract
-// says must equal the derived one would escape the rule by being a number.
+// classify is the ONE scan of a node's declaration properties. It returns the
+// declaration for the claudeSkill host — the only host with a specified
+// renderer — and every property PATH that is present but of the wrong shape.
+//
+// Precedence: `exports.claudeSkill` wins over the retired top-level `skill`,
+// which wins over `claudeSkill`, so a node that has been given the new shape
+// behaves as migrated even with an alias left beside it.
+//
+// Malformed covers `exports` not being an object, a host entry not being an
+// object, a non-string `description`/`name`, and a non-boolean `enable`. A
+// malformed path is reported even when a valid declaration sits beside it: the
+// node is mid-migration and the broken key is the one that outlives the alias.
+// A wrongly-TYPED field is reported rather than ignored, or a value the
+// contract requires would escape its rule by being a number.
 func classify(props map[string]any) (decl *Declaration, malformed []string) {
-	for _, key := range declarationKeys {
+	read := func(path, host string, obj map[string]any) *Declaration {
+		for _, field := range []string{"description", "name"} {
+			if v, present := obj[field]; present {
+				if _, isStr := v.(string); !isStr {
+					malformed = append(malformed, path+"."+field)
+				}
+			}
+		}
+		if v, present := obj["enable"]; present {
+			if _, isBool := v.(bool); !isBool {
+				malformed = append(malformed, path+".enable")
+			}
+		}
+		// Enable defaults to FALSE: publishing takes an explicit opt-in.
+		d := &Declaration{Key: path, Host: host}
+		if s, ok := obj["description"].(string); ok {
+			d.Description = s
+		}
+		if s, ok := obj["name"].(string); ok {
+			d.Name, d.NameSet = s, true
+		}
+		if b, ok := obj["enable"].(bool); ok {
+			d.Enable, d.EnableSet = b, true
+		}
+		return d
+	}
+
+	// The new shape first: every host entry is shape-checked, and the
+	// claudeSkill one becomes the declaration.
+	if raw, ok := props[ExportsKey]; ok {
+		exports, isObj := raw.(map[string]any)
+		if !isObj {
+			malformed = append(malformed, ExportsKey)
+		} else {
+			hosts := make([]string, 0, len(exports))
+			for host := range exports {
+				hosts = append(hosts, host)
+			}
+			sort.Strings(hosts) // deterministic malformed order
+			for _, host := range hosts {
+				path := ExportsKey + "." + host
+				obj, isObj := exports[host].(map[string]any)
+				if !isObj {
+					malformed = append(malformed, path)
+					continue
+				}
+				d := read(path, host, obj)
+				if host == HostClaudeSkill {
+					decl = d
+				}
+			}
+		}
+	}
+
+	// Then the retired top-level keys, as aliases for the same host.
+	for _, key := range legacyTopLevelKeys {
 		raw, ok := props[key]
 		if !ok {
 			continue
 		}
-		obj, ok := raw.(map[string]any)
-		if !ok {
+		obj, isObj := raw.(map[string]any)
+		if !isObj {
 			malformed = append(malformed, key)
 			continue
 		}
-		for _, field := range []string{"description", "name"} {
-			if v, present := obj[field]; present {
-				if _, isStr := v.(string); !isStr {
-					malformed = append(malformed, key+"."+field)
-				}
-			}
-		}
-		if decl != nil {
-			continue
-		}
-		decl = &Declaration{Key: key}
-		if s, ok := obj["description"].(string); ok {
-			decl.Description = s
-		}
-		if s, ok := obj["name"].(string); ok {
-			decl.Name = s
-			decl.NameSet = true
+		d := read(key, HostClaudeSkill, obj)
+		if decl == nil {
+			decl = d
 		}
 	}
 	return decl, malformed
 }
 
-// Declared reads a node's skill declaration out of its decoded properties.
-// A declaration is an object under one of the declaration keys; anything
-// else — the key absent, or holding a non-object — is "not declared". The
-// new key wins when both are present, so a migrated node whose legacy key
-// was left behind behaves as migrated.
+// Declared reads a node's claudeSkill declaration out of its decoded
+// properties. A declaration is an object at `exports.claudeSkill` or under a
+// retired top-level alias; anything else — absent, or holding a non-object —
+// is "not declared".
+//
+// Declared is NOT the same question as "will it export": `enable` defaults to
+// off, so most declarations are declared and not enabled. Both states are
+// returned here on purpose — lint judges a declaration whether or not it is
+// enabled, because a broken name is worth reporting BEFORE somebody turns it on,
+// and `status` has to be able to name a file whose declaration is switched off.
 func Declared(props map[string]any) (*Declaration, bool) {
 	decl, _ := classify(props)
 	return decl, decl != nil
 }
 
-// Malformed reports the declaration keys a node carries whose value is not an
-// object — `"skill": "yes"`, `"claudeSkill": true`. Such a node is selected by
+// Malformed reports the declaration property paths a node carries whose value
+// is the wrong shape — `"exports": "yes"`, `"exports": {"claudeSkill": true}`,
+// a non-string description, a non-boolean enable. Such a node is selected by
 // the server-side discovery predicate (the key EXISTS), so without a finding
 // it would be silently skipped and counted in nobody's total — an all-clear
 // wider than the read that produced it.
 func Malformed(props map[string]any) []string {
 	_, bad := classify(props)
 	return bad
-}
-
-// ValidPrefix reports whether p is a legal export prefix — the server's own
-// rule for Organization.skillPrefix, applied to a `--prefix` override so an
-// override cannot mint a name the org field could never hold.
-func ValidPrefix(p string) bool { return prefixRE.MatchString(p) }
-
-// DeriveName composes a skill's name from its export prefix and its node loc
-// (D8): the leading `tasks` segment is structure rather than name and is
-// dropped when the loc has more than one segment; the remaining segments are
-// joined with hyphens. `tasks:create-release-tag` → `<prefix>create-release-tag`;
-// a root-level `export-task-as-claude-skill` → `<prefix>export-task-as-claude-skill`;
-// a nested `tasks:review:run` → `<prefix>review-run`. The result is not
-// validated here — see ValidName — so a caller can report the derived value
-// that failed rather than an empty string.
-func DeriveName(prefix, loc string) string {
-	segs := strings.Split(loc, ":")
-	if len(segs) > 1 && segs[0] == "tasks" {
-		segs = segs[1:]
-	}
-	return prefix + strings.Join(segs, "-")
 }
 
 // ValidName reports whether name satisfies the host's grammar and length.
@@ -262,10 +298,14 @@ type Node struct {
 	Properties map[string]any
 }
 
-// Finding is one lint result. URN names the node; for a memory-level finding
-// (a prefix the org has not chosen) URN is the memory URN and Memory equals
-// it. Memory is carried on every finding so a renderer never has to look it
-// back up from the node it came from.
+// Finding is one lint result. URN names the node and Memory the memory holding
+// it, carried on every finding so a renderer never has to look it back up from
+// the node it came from.
+//
+// Every finding is now node-level. The memory-level case this used to describe
+// was `skill-prefix-missing`, which D12 retired along with the org prefix — the
+// command layer still synthesises one node-level finding of its own for an
+// unreadable node (`skill-node-unavailable`), keyed on the ref it could not read.
 type Finding struct {
 	URN      string
 	Memory   string
@@ -274,13 +314,13 @@ type Finding struct {
 	Message  string
 }
 
-// Lint applies the per-node corpus rules to a node under the export prefix
-// its memory resolves to. When the prefix is not Known the name rules run on
-// the bare slug — a loc that derives to an invalid name is invalid under any
-// prefix, and the missing prefix is LintPrefixes' finding, not this one's. A
-// node with no declaration and no malformed key yields nothing: not declared
-// is not a defect, it is the opt-in working.
-func Lint(n Node, prefix Prefix) []Finding {
+// Lint applies the per-node corpus rules. A node with no declaration and no
+// malformed key yields nothing: not declared is not a defect, it is the opt-in
+// working. Since D12 the name is STORED rather than derived, so the rules judge
+// what the author wrote — and note what can no longer be checked: with no
+// prefix source, a name's PREFIX is unverifiable, so `hadon-foo` lints clean.
+// Shape is checkable, correctness is not.
+func Lint(n Node) []Finding {
 	var out []Finding
 	add := func(rule, sev, msg string) {
 		out = append(out, Finding{URN: n.URN, Memory: n.MemoryURN, Rule: rule, Severity: sev, Message: msg})
@@ -294,15 +334,26 @@ func Lint(n Node, prefix Prefix) []Finding {
 		return out
 	}
 
-	switch _, legacy := n.Properties["claudeSkill"].(map[string]any); {
-	case decl.Key == "claudeSkill":
+	// D12 moved the declaration to `exports.<host>`; the top-level keys are read
+	// as aliases so nothing needs migrating, and this steers them across.
+	migrated := decl.Key == ExportsKey+"."+HostClaudeSkill
+	var strays []string
+	for _, key := range legacyTopLevelKeys {
+		if _, ok := n.Properties[key].(map[string]any); ok {
+			strays = append(strays, "properties."+key)
+		}
+	}
+	switch {
+	case !migrated:
 		add("skill-legacy-key", SevWarning,
-			"declared under properties.claudeSkill — move it to properties.skill (the provider-neutral key); claudeSkill is read as an alias during transition only")
-	case legacy:
-		// Migrated, but the alias was left behind: the export reads the new
-		// key, so the old one is dead weight that the retirement will strand.
+			fmt.Sprintf("declared under %s — move it to properties.%s.%s (D12: an object keyed by host, carrying {name, description, enable}); the old key is read as an alias only",
+				"properties."+decl.Key, ExportsKey, HostClaudeSkill))
+	case len(strays) > 0:
+		// Migrated, but an alias was left behind: the export reads the new
+		// shape, so the old key is dead weight the retirement will strand.
 		add("skill-legacy-key", SevWarning,
-			"properties.claudeSkill is still present beside properties.skill — remove the legacy key; the export reads only the new one")
+			fmt.Sprintf("%s is still present beside properties.%s.%s — remove the retired key; the export reads only the new shape",
+				strings.Join(strays, " and "), ExportsKey, HostClaudeSkill))
 	}
 
 	desc := NormalizeDescription(decl.Description)
@@ -320,14 +371,14 @@ func Lint(n Node, prefix Prefix) []Finding {
 			"description never says when to use the skill (\"Use when …\") — the host matches descriptions against what the user says, and one with no trigger phrasing rarely fires")
 	}
 
-	name := DeriveName(prefix.Value, n.Loc)
-	if !ValidName(name) {
+	// D12: the name is stored, so a missing one has nothing to fall back to.
+	switch {
+	case strings.TrimSpace(decl.Name) == "":
+		add("skill-name-missing", SevError,
+			fmt.Sprintf("properties.%s.name is missing or empty — since D12 the name is stored rather than derived, so there is nothing to fall back to; it is the skill's directory name and the host's identifier", decl.Key))
+	case !ValidName(decl.Name):
 		add("skill-name-invalid", SevError,
-			fmt.Sprintf("derived skill name %q is not a valid skill name (kebab-case, ≤%d chars) — it is derived from the loc, so the loc is what to change", name, MaxNameLen))
-	}
-	if decl.NameSet && prefix.Known && decl.Name != name {
-		add("skill-name-hand-set", SevError,
-			fmt.Sprintf("properties.%s.name is %q but the name is derived from the loc as %q — remove the hand-set name (it is retired) or make the loc say what the name should", decl.Key, decl.Name, name))
+			fmt.Sprintf("skill name %q is not a valid skill name (kebab-case, ≤%d chars) — it is stored at properties.%s.name, so that is what to change", decl.Name, MaxNameLen, decl.Key))
 	}
 
 	if !n.IsRunnable {
@@ -355,58 +406,21 @@ func Lint(n Node, prefix Prefix) []Finding {
 	return out
 }
 
-// LintPrefixes applies the memory-level rule: a memory that holds at least
-// one declaring node must have a Known prefix, or no name can be derived for
-// its tasks. A memory with nothing to export is silent — reporting it anyway
-// made `--all` red on 46 memories in the first live run, the report nobody
-// reads. One finding per memory, keyed on the memory URN, in URN order.
-func LintPrefixes(nodes []Node, prefixes map[string]Prefix) []Finding {
-	declaring := map[string]bool{}
-	for _, n := range nodes {
-		if _, ok := Declared(n.Properties); ok {
-			declaring[n.MemoryURN] = true
-		}
-	}
-	mems := make([]string, 0, len(declaring))
-	for m := range declaring {
-		if !prefixes[m].Known {
-			mems = append(mems, m)
-		}
-	}
-	sort.Strings(mems)
-	out := make([]Finding, 0, len(mems))
-	for _, m := range mems {
-		out = append(out, Finding{
-			URN: m, Memory: m, Rule: "skill-prefix-missing", Severity: SevError,
-			Message: "the owning org has chosen no Organization.skillPrefix, so no skill name can be derived for this memory's tasks — set it as an org admin or pass --prefix; the name rules ran on the bare slug",
-		})
-	}
-	return out
-}
-
-// LintCollisions applies the corpus-level rule: two declaring nodes may not
-// derive the same skill name, because the second export would silently win.
-// Both members of a collision are reported, each naming the other, so
-// whichever the reader opens explains itself.
-//
-// A node whose memory has no Known prefix is skipped: its name cannot be
-// derived, so it cannot collide — and comparing bare slugs would report two
-// prefix-less ORGS as colliding on `create-release-tag` when the prefixes they
-// have yet to choose are exactly what keeps them apart (measured on the first
-// live `--all` run: marketrailz vs micromentor.org). Those nodes already
-// carry LintPrefixes' finding.
-func LintCollisions(nodes []Node, prefixes map[string]Prefix) []Finding {
+// LintCollisions reports two declaring nodes that store the SAME skill name.
+// Since D12 the name is stored rather than derived, so a collision is two
+// authors having typed one name — there is no prefix left to keep two orgs'
+// identically-named tasks apart, which is the cost D12 accepts. A node with no
+// stored name is skipped: skill-name-missing is its finding.
+func LintCollisions(nodes []Node) []Finding {
 	byName := map[string][]Node{}
 	for _, n := range nodes {
-		if _, ok := Declared(n.Properties); !ok {
+		decl, ok := Declared(n.Properties)
+		if !ok || strings.TrimSpace(decl.Name) == "" {
+			// A node with no stored name cannot collide with anything; its own
+			// finding is skill-name-missing, not this.
 			continue
 		}
-		p := prefixes[n.MemoryURN]
-		if !p.Known {
-			continue
-		}
-		name := DeriveName(p.Value, n.Loc)
-		byName[name] = append(byName[name], n)
+		byName[decl.Name] = append(byName[decl.Name], n)
 	}
 	names := make([]string, 0, len(byName))
 	for name, group := range byName {
@@ -427,7 +441,7 @@ func LintCollisions(nodes []Node, prefixes map[string]Prefix) []Finding {
 			}
 			out = append(out, Finding{
 				URN: n.URN, Memory: n.MemoryURN, Rule: "skill-name-collision", Severity: SevError,
-				Message: fmt.Sprintf("derives skill name %q, and so does %s — one name, one task; supersede the fork or rename a loc", name, strings.Join(others, ", ")),
+				Message: fmt.Sprintf("stores skill name %q, and so does %s — one name, one skill directory; rename one or supersede the fork", name, strings.Join(others, ", ")),
 			})
 		}
 	}

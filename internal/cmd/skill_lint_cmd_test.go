@@ -70,7 +70,7 @@ func findingRules(t *testing.T, out string) map[string]string {
 
 func TestSkillLintCleanCorpusExitsZero(t *testing.T) {
 	good := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:create-release-tag", "tasks:create-release-tag", true,
-		`{"skill":{"description":"Use when the user says 'cut a release'."}}`, `"# Cut\n\nSteps."`)
+		`{"exports":{"claudeSkill":{"name":"hadron-create-release-tag","description":"Use when the user says 'cut a release'."}}}`, `"# Cut\n\nSteps."`)
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(good),
 	}, "-m", "hrn:mem:hadronmemory.com:core")
@@ -84,11 +84,13 @@ func TestSkillLintCleanCorpusExitsZero(t *testing.T) {
 
 func TestSkillLintReportsFindingsAndExitsConflict(t *testing.T) {
 	long := strings.Repeat("x", 1100)
+	// Retired top-level key, not runnable, description over the cap, and a
+	// stored name that COLLIDES with the fork below.
 	bad := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:start-worker-session-desktop", "tasks:start-worker-session-desktop", false,
-		`{"claudeSkill":{"name":"start-worker-session-desktop","description":"Use when `+long+`"}}`, `"# Body"`)
-	// A fork in a second memory of the SAME org derives the same name.
-	fork := skillNode("n2", "mem1", "hrn:node:hadronmemory.com:core:tasks:start-worker-session-desktop:copy", "tasks:start-worker-session-desktop", true,
-		`{"skill":{"description":"Use when x"}}`, `"# Body"`)
+		`{"claudeSkill":{"name":"hadron-start-worker","description":"Use when `+long+`"}}`, `"# Body"`)
+	// D12: a collision is two nodes STORING one name — the locs need not match.
+	fork := skillNode("n2", "mem1", "hrn:node:hadronmemory.com:core:tasks:swd-copy", "tasks:swd-copy", true,
+		`{"exports":{"claudeSkill":{"name":"hadron-start-worker","description":"Use when x"}}}`, `"# Body"`)
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1", "n2"), "NodeBatch": batchOf(bad, fork),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
@@ -98,7 +100,6 @@ func TestSkillLintReportsFindingsAndExitsConflict(t *testing.T) {
 	rules := findingRules(t, out)
 	for rule, sev := range map[string]string{
 		"skill-description-too-long": "error",
-		"skill-name-hand-set":        "error",
 		"skill-not-runnable":         "error",
 		"skill-legacy-key":           "warning",
 		"skill-name-collision":       "error",
@@ -113,7 +114,7 @@ func TestSkillLintStrictPromotesWarnings(t *testing.T) {
 	// Only a warning: legacy key, everything else clean. Without --strict that
 	// is exit 0; with it, the warning becomes an error and exits 5.
 	n := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
-		`{"claudeSkill":{"description":"Use when a."}}`, `"# A"`)
+		`{"claudeSkill":{"name":"hadron-a","description":"Use when a."}}`, `"# A"`)
 	responses := map[string]string{"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n)}
 	if _, err := runSkillLint(t, responses, "-m", "hrn:mem:hadronmemory.com:core"); exitCodeFor(err) != exitcode.OK {
 		t.Fatalf("warning-only corpus should exit 0, got %v", err)
@@ -127,23 +128,38 @@ func TestSkillLintStrictPromotesWarnings(t *testing.T) {
 	}
 }
 
-func TestSkillLintOrgWithoutPrefixIsAFinding(t *testing.T) {
+func TestSkillLintNotEnabledDeclarationIsStillLinted(t *testing.T) {
+	// D12: `enable` defaults OFF and gates PUBLISHING, not declaration. Lint must
+	// still judge a not-enabled declaration — a broken name is worth reporting
+	// before somebody turns it on, and `status` has to be able to name a file
+	// whose declaration is switched off.
 	n := skillNode("n1", "mem2", "hrn:node:acme.com:ops:tasks:rotate", "tasks:rotate", true,
-		`{"skill":{"description":"Use when rotating."}}`, `"# Rotate"`)
+		`{"exports":{"claudeSkill":{"name":"Bad_Name","description":"Use when rotating.","enable":false}}}`, `"# Rotate"`)
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemNoPrefix, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
 	}, "-m", "hrn:mem:acme.com:ops", "--json")
 	if exitCodeFor(err) != exitcode.Conflict {
-		t.Fatalf("missing prefix should exit 5, got %v\n%s", err, out)
+		t.Fatalf("a not-enabled but broken declaration should still exit 5, got %v\n%s", err, out)
 	}
-	if findingRules(t, out)["skill-prefix-missing"] != "error" {
-		t.Errorf("no prefix-missing finding: %s", out)
+	if findingRules(t, out)["skill-name-invalid"] != "error" {
+		t.Errorf("not-enabled declaration was not linted: %s", out)
 	}
-	// --prefix supplies one and the corpus is clean.
-	if _, err := runSkillLint(t, map[string]string{
+}
+
+func TestSkillLintNoPrefixNeededFromAnyOrg(t *testing.T) {
+	// D12 retired Organization.skillPrefix: an org that never chose one is no
+	// longer a finding, because no name is derived from it. This is the rule
+	// whose retirement the change is most visible in — 6 live findings went.
+	n := skillNode("n1", "mem2", "hrn:node:acme.com:ops:tasks:rotate", "tasks:rotate", true,
+		`{"exports":{"claudeSkill":{"name":"acme-rotate","description":"Use when rotating."}}}`, `"# Rotate"`)
+	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemNoPrefix, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
-	}, "-m", "hrn:mem:acme.com:ops", "--prefix", "acme-"); exitCodeFor(err) != exitcode.OK {
-		t.Errorf("--prefix override should clear the finding, got %v", err)
+	}, "-m", "hrn:mem:acme.com:ops")
+	if err != nil {
+		t.Fatalf("prefix-less org should now be clean: %v\n%s", err, out)
+	}
+	if strings.Contains(out, "prefix") {
+		t.Errorf("output still mentions a prefix:\n%s", out)
 	}
 }
 
@@ -162,10 +178,10 @@ func TestSkillLintPrefixlessMemoryWithNoDeclaringNodesIsClean(t *testing.T) {
 	}
 }
 
-func TestSkillLintUserOwnedMemoryTakesPlatformPrefix(t *testing.T) {
-	// No org ⇒ hadron-; a hand-set name equal to the derived one is accepted.
+func TestSkillLintUserOwnedMemoryNeedsNoPrefix(t *testing.T) {
+	// No org and no prefix machinery: a stored name is simply accepted.
 	n := skillNode("n1", "mem3", "hrn:node:holger:assistant:tasks:mm-briefing", "tasks:mm-briefing", true,
-		`{"skill":{"name":"hadron-mm-briefing","description":"Use when Holger asks for his briefing."}}`, `"# Briefing"`)
+		`{"exports":{"claudeSkill":{"name":"hadron-mm-briefing","description":"Use when Holger asks for his briefing."}}}`, `"# Briefing"`)
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemUser, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
 	}, "-m", "hrn:mem:holger:assistant")
@@ -210,7 +226,7 @@ func TestSkillLintAllLintsAPublicOnlyMemory(t *testing.T) {
 	// declaring node, whose finding names that memory and its org's prefix.
 	pubMem := `{"id":"mempub","urn":"hrn:mem:acme.com:playbooks","name":"Playbooks","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org9","organization":{"skillPrefix":"acme-"},"isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-06-11T00:00:00Z"}`
 	node := skillNode("01a0a5ba59a377d2a01a8ea32ae98195", "mempub", "hrn:node:acme.com:playbooks:tasks:rotate", "tasks:rotate", true,
-		`{"skill":{"description":"Use when rotating.","name":"wrong-name"}}`, `"# Rotate"`)
+		`{"exports":{"claudeSkill":{"name":"Bad_Name","description":"Use when rotating."}}}`, `"# Rotate"`)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			OperationName string          `json:"operationName"`
@@ -250,14 +266,19 @@ func TestSkillLintAllLintsAPublicOnlyMemory(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
 		t.Fatal(err)
 	}
-	var sawHandSet bool
+	// The point is REACHABILITY: a PUBLIC memory in another org is covered by
+	// --all and its nodes are actually judged. D12 retired the rule this used to
+	// assert on (hand-set names), so it asserts on a rule that survives — and
+	// the finding must name the node and its memory, not merely exist.
+	var sawJudged bool
 	for _, r := range rows {
-		if r.Rule == "skill-name-hand-set" && r.Memory == "hrn:mem:acme.com:playbooks" && strings.Contains(r.Message, `"acme-rotate"`) {
-			sawHandSet = true
+		if r.Rule == "skill-name-invalid" && r.Memory == "hrn:mem:acme.com:playbooks" &&
+			r.Node == "hrn:node:acme.com:playbooks:tasks:rotate" && strings.Contains(r.Message, `"Bad_Name"`) {
+			sawJudged = true
 		}
 	}
-	if !sawHandSet {
-		t.Errorf("the public memory's node was not linted under its org's prefix: %s", out.String())
+	if !sawJudged {
+		t.Errorf("the public memory's node was not linted: %s", out.String())
 	}
 }
 
@@ -292,7 +313,7 @@ func TestSkillLintRefusesAmbiguousSelector(t *testing.T) {
 
 func TestSkillLintNodeRefShapes(t *testing.T) {
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
-		`{"skill":{"description":"Use when a."}}`, `"# A"`)
+		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."}}}`, `"# A"`)
 	responses := map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good)}
 	// A fully-qualified URN and a raw id both reach the batch read.
 	for _, ref := range []string{"hrn:node:hadronmemory.com:core:tasks:a", "urn:node:hadronmemory.com:core:tasks:a", "hadronmemory.com::core::tasks:a", nodeID} {
@@ -315,7 +336,7 @@ func TestSkillLintOneNodeInTwoSpellingsLintsOnce(t *testing.T) {
 	// twice and the result must be de-duplicated by node id, or it collides
 	// with itself.
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
-		`{"skill":{"description":"Use when a."}}`, `"# A"`)
+		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."}}}`, `"# A"`)
 	gql, _ := captureGraphQL(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good, good)})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -332,7 +353,7 @@ func TestSkillLintRepeatedNodeRefLintsOnce(t *testing.T) {
 	// Copilot on #589: a --node named twice must not be read twice, or
 	// LintCollisions reports a node colliding with itself.
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
-		`{"skill":{"description":"Use when a."}}`, `"# A"`)
+		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."}}}`, `"# A"`)
 	gql, captured := captureGraphQL(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good)})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -352,7 +373,7 @@ func TestSkillLintCleanCorpusJSONIsAnEmptyArray(t *testing.T) {
 	// Asserted on the raw text: a decode cannot tell `[]` from `null`
 	// (review:stable-json-dto).
 	good := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
-		`{"skill":{"description":"Use when a."}}`, `"# A"`)
+		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."}}}`, `"# A"`)
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(good),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
@@ -381,7 +402,7 @@ func TestSkillLintMalformedDeclarationIsReported(t *testing.T) {
 
 func TestSkillLintUnavailableNodeIsReportedNotDropped(t *testing.T) {
 	good := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
-		`{"skill":{"description":"Use when a."}}`, `"# A"`)
+		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."}}}`, `"# A"`)
 	batch := `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":["n2"],"nodes":[` + good + `]}}}`
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1", "n2"), "NodeBatch": batch,
