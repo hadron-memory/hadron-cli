@@ -37,6 +37,37 @@ func TestScanURNExamplesKeysOnShapeNotOnParsability(t *testing.T) {
 	}
 }
 
+// A user-rooted URN keeps its `@`, and the WHOLE literal reaches the library
+// (@codex, PR #632).
+//
+// The second case is why this is not merely a missed match. With `@` outside
+// the character class, the scheme-less alternative matched from `holger` and
+// reported `holger::gmail-app::inbox` — a TRUNCATED literal the document does
+// not contain, which the rule would then decompose and report confidently.
+// This rule producing a confident answer about a URN nobody wrote is the exact
+// failure it exists to prevent.
+func TestScanURNExamplesKeepsUserRootedURNsWhole(t *testing.T) {
+	cases := map[string]string{
+		"hrn:node:@holger:inbox:review":         "hrn:node:@holger:inbox:review",
+		"hrn:node:@holger::gmail-app::inbox":    "hrn:node:@holger::gmail-app::inbox",
+		"see hrn:node:@holger:inbox:review too": "hrn:node:@holger:inbox:review",
+		// The scheme-less form, mid-prose, must not absorb the preceding word.
+		"chain @holger::gmail-app::inbox here": "@holger::gmail-app::inbox",
+	}
+	for body, want := range cases {
+		t.Run(body, func(t *testing.T) {
+			got := scanURNExamples(body)
+			if len(got) != 1 {
+				t.Fatalf("want 1 finding, got %d: %+v", len(got), got)
+			}
+			if got[0].literal != want {
+				t.Errorf("literal = %q, want %q — a truncated literal is a URN the document does not contain",
+					got[0].literal, want)
+			}
+		})
+	}
+}
+
 // The heart of #527: a deep v1 chain is REPORTED AS UNDECIDABLE rather than
 // decomposed, because urn-lib and the server disagree about it.
 //
@@ -128,5 +159,56 @@ func TestScanURNExamplesDeduplicates(t *testing.T) {
 	body := lit + "\n\n```\n" + lit + "\n```\nand again " + lit + "\n"
 	if got := scanURNExamples(body); len(got) != 1 {
 		t.Errorf("want 1 deduplicated finding, got %d", len(got))
+	}
+}
+
+// A header-tier node and a placeholder contract must be scanned too
+// (@copilot, PR #632). The rule sat below lintNode's tier and placeholder
+// early-returns, so products and modules were silently skipped — and a header
+// is where a grammar gets EXPLAINED, which makes it MORE likely to carry
+// worked examples than a leaf rule. cor:urn, the module this whole issue came
+// from, is exactly such a node.
+func TestLintNodeScansURNExamplesAboveTheTierReturns(t *testing.T) {
+	body := "Addresses look like hrn:node:acme.com:mmdata:review:sort here."
+	cases := []struct{ name, loc string }{
+		{"product header", "cor"},
+		{"module header", "cor:urn"},
+		{"feature header", "cor:urn:010"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			n := specNode{Loc: c.loc, Name: c.loc + " — H", NodeType: "info",
+				Tags: []string{"spec"}, Content: &body}
+			var found bool
+			for _, f := range lintNode(n, "hadronmemory.com:specs") {
+				if f.Rule == "urn-example" {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("a %s must have its URN examples scanned", c.name)
+			}
+		})
+	}
+}
+
+// An ELIDED fragment is not a URN, and is declined rather than reported.
+//
+// cor:urn:010:04 writes `…::mmdata::services::db-helpers::query` — an author
+// deliberately showing a suffix. Before the `@` fix, the scanner matched from
+// `mmdata` and reported a four-segment chain as though it were whole; the
+// literal it named appears nowhere in the document and its root is unknown, so
+// any verdict about where its memory ends is invented.
+//
+// This is the same truncation class @codex flagged for `@`-rooted URNs, and the
+// fix closes both: a chain must start at the beginning of a token, and a `:`
+// before it means the token started earlier. The signal is not lost — the node
+// still reports the three COMPLETE deep chains it carries.
+func TestScanURNExamplesDeclinesAnElidedFragment(t *testing.T) {
+	body := "`…::mmdata::services::db-helpers::query` is memory `acme.com:mmdata:services:db-helpers`"
+	for _, f := range scanURNExamples(body) {
+		if strings.HasPrefix(f.literal, "mmdata::") {
+			t.Errorf("an elided fragment must not be reported as a whole URN, got %q", f.literal)
+		}
 	}
 }

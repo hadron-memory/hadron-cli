@@ -83,6 +83,38 @@ they cannot miss it. A literal addressing the memory being linted is a
 The undecidable ones are never filtered — their memory is precisely what the CLI
 cannot determine, so excluding them would need the guess this rule refuses.
 
+## 4a. A token must start where the token starts (review)
+
+Two review findings, one root: the scanner could report a literal the document
+does not contain.
+
+**`@` is part of a root.** A user-rooted URN (`hrn:node:@holger:inbox:review`)
+is legal and decomposes correctly in the library. Excluding `@` from the
+character class did not merely skip those — on
+`hrn:node:@holger::gmail-app::inbox` the scheme-less alternative matched from
+`holger` and reported `holger::gmail-app::inbox`, then decomposed *that*. A
+confident answer about a URN nobody wrote, produced by the rule built to
+prevent exactly that (@codex).
+
+The fix required restructuring: a leading `@` sits between two non-word
+characters where no `\b` exists, and Go's RE2 has no lookbehind, so the
+scheme-less alternative captures a group after an explicit separator instead.
+
+**Which also declined an ELIDED fragment, correctly.** `cor:urn:010:04` writes
+`…::mmdata::services::db-helpers::query` — an author showing a suffix. The old
+`\b` matched from `mmdata` and reported a four-segment chain as whole. Its root
+is unknown, so any verdict about its boundary is invented. Corpus deep-chain
+findings went 4 → 3, and the one that left was that fragment; the node still
+reports its three complete chains, so the signal is intact. Pinned by a test so
+it reads as a decision.
+
+**Scanned above the tier early-returns** (@copilot). The rule sat below
+`lintNode`'s `Level() < 3` and placeholder-contract returns, so products,
+modules and untouched contracts were silently skipped — and a header is where a
+grammar gets EXPLAINED, which makes it likelier to carry worked examples than a
+leaf rule. `cor:urn`, the module this issue came from, is exactly such a node.
+Corpus findings 15 → 25.
+
 ## 5. Not done
 
 - **The library defect itself.** `urn-lib-go` is not this repo, and the fix needs

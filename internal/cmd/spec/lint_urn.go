@@ -40,8 +40,21 @@ import (
 //
 // Two admitted shapes: a `hrn:`/`urn:` scheme prefix naming the node type, or
 // a scheme-less `::` chain, which no citation ever contains.
+//
+// `@` IS PART OF A ROOT. A user-rooted URN (`hrn:node:@holger:inbox:review`) is
+// legal, decomposes correctly in the library, and appears in the shared
+// conformance fixtures. Omitting it from the class did not merely skip those —
+// on `hrn:node:@holger::gmail-app::inbox` the scheme-less alternative matched
+// from `holger`, reporting the TRUNCATED literal `holger::gmail-app::inbox` and
+// then decomposing that. A confident answer about a URN the document does not
+// contain is the failure this rule exists to avoid, produced by the rule itself
+// (@codex, PR #632).
+//
+// The scheme-less alternative captures a GROUP rather than relying on `\b`,
+// because a leading `@` sits between two non-word characters where no word
+// boundary exists, and Go's RE2 has no lookbehind to express "not mid-token".
 var urnLiteralRE = regexp.MustCompile(
-	`\b(?:(?:hrn|urn):node:[A-Za-z0-9._:-]+)|(?:\b[A-Za-z0-9._-]+(?:::[A-Za-z0-9._:-]+){2,})`)
+	`(?:(?:hrn|urn):node:[@A-Za-z0-9._:-]+)|(?:^|[^@A-Za-z0-9._:-])(@?[A-Za-z0-9._-]+(?:::[@A-Za-z0-9._:-]+){2,})`)
 
 // urnExampleFinding is one literal's verdict.
 type urnExampleFinding struct {
@@ -62,8 +75,14 @@ type urnExampleFinding struct {
 func scanURNExamples(body string) []urnExampleFinding {
 	seen := map[string]bool{}
 	var out []urnExampleFinding
-	for _, m := range urnLiteralRE.FindAllString(body, -1) {
-		lit := strings.Trim(m, ".,;:)")
+	for _, m := range urnLiteralRE.FindAllStringSubmatch(body, -1) {
+		// Group 1 is the scheme-less alternative's capture, which excludes the
+		// separator matched before it; the scheme form has no group.
+		raw := m[0]
+		if m[1] != "" {
+			raw = m[1]
+		}
+		lit := strings.Trim(raw, ".,;:)")
 		if lit == "" || seen[lit] {
 			continue
 		}
