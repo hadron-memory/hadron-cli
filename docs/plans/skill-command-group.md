@@ -210,9 +210,13 @@ Two corrections to the thread, measured on this machine:
 
 - **D1. Prefix uses a hyphen** (Holger, 2026-09-15, on #580). `hadron_` stays
   the MCP tool namespace.
-- **D2. The corpus stores no prefix.** A task node keeps its descriptive loc;
-  the prefix is applied at export only. Nothing about this feature writes to a
-  node.
+- **D2. ~~The corpus stores no prefix~~ — RESTATED by D12.** There is no prefix
+  at all now, so nothing stores one. **What the corpus DOES store is the
+  declaration**, name included (`properties.exports.<host>`). The old sentence
+  *"nothing about this feature writes to a node"* meant the export COMMAND never
+  writes, and that still holds — authoring a declaration is a human act, not
+  something `export` does (@copilot on #627, who was right that the two readings
+  needed separating).
 - **D3. Three commands, no more** — `export`, `status`, `lint` (Bo). No `list`:
   `status` is the listing (§5.2), so the `list`/`ls` naming rule
   (`list_naming_test.go`) is not engaged.
@@ -306,12 +310,16 @@ Two corrections to the thread, measured on this machine:
   surfaces. The overrun's real cause is that these descriptions enumerate
   gotchas — body and abstract content — rather than triggering.
 
-  **The HOLD is the load-bearing half.** A rename here is a **loc** change, so
-  under §4.4's pair-by-URN it reads as `orphaned` + `never-exported` rather
-  than `renamed` (§11a). Orphans are never removed without `--prune`, so
-  renaming before `id=` pairing exists leaves two directories on disk with
-  near-identical trigger text, both firing. **Sequence: `id=` lands, then the
-  renames.**
+  **~~The HOLD is the load-bearing half~~ — DISSOLVED by D12** (@copilot on #627
+  caught that this was left standing). Under D12 the name is **stored**, so
+  renaming a skill is a property edit: no loc change, no URN change, nothing for
+  §11a's pairing to lose. **The renames are unblocked and need no sequencing.**
+
+  What §11a's `id=` pairing still earns its place for is a **loc or memory move** —
+  the [#490](https://github.com/hadron-memory/hadron-cli/issues/490) re-home — which
+  really does change the URN. That half of the hold stands; the rename half does
+  not. Kept as the record of why the hold existed, since the reasoning applies
+  again the moment anything moves a loc.
 
   This is not hypothetical — it already happened once. The single orphan in the
   2026-09-19 sweep is `start-worker-session-desktop`, whose node was moved from
@@ -355,12 +363,25 @@ Two corrections to the thread, measured on this machine:
 ## 3. Command surface
 
 ```
-hadron skill export  (-m <memory>... | --all | --node <ref>...) [--host claude|codex] [--to user|project|plugin|<dir>] [--prefix <p>] [--prune] [--dry-run] [--json]
-hadron skill status  (-m <memory>... | --all)                   [--host claude|codex] [--to user|project|plugin|<dir>] [--prefix <p>] [--strict] [--json]
-hadron skill lint    (-m <memory>... | --all | --node <ref>...)                       [--prefix <p>] [--strict] [--json]
+hadron skill export  (-m <memory>... | --all | --node <ref>...) [--host <host>] [--to user|project|plugin|<dir>] [--prune] [--dry-run] [--json]
+hadron skill status  (-m <memory>... | --all)                   [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json]
+hadron skill lint    (-m <memory>... | --all | --node <ref>...)                       [--strict] [--json]
 ```
 
-- `--host` selects the renderer and the host's root/limits (D10); `claude` is
+> **Updated by D12.** `--prefix` is gone with the prefix itself. **`--host` takes
+> the property key verbatim** — `claudeSkill`, not `claude` — because the host id
+> and the storage key must be one vocabulary or `--host claude` and
+> `exports.claudeSkill` need a mapping table nobody maintains (@copilot on #627).
+> `claudeSkill` is the default and the only host with a specified renderer.
+>
+> **`lint` takes no `--host` and checks EVERY host entry**, tagging each finding
+> with the host it came from. A node declaring only `exports.codex` is therefore
+> linted for shape — a malformed entry is reported — but the Claude-specific caps
+> (64/1024) apply only to the `claudeSkill` entry, since they are that host's
+> limits. As shipped in #589 lint validates the `claudeSkill` entry only; the
+> all-host walk lands with the second renderer (@codex on #627).
+
+- `--host` selects the renderer and the host's root/limits (D10); `claudeSkill` is
   the default and the only one specified in this plan. It lands with `export`
   and `status` (the verbs that render or read a host's files); `lint` as
   shipped in #589 has no host-specific behavior and takes no `--host` — the
@@ -539,7 +560,22 @@ never lists, moves or removes a file it did not generate.
 | `unhashed` | pre-#580 header (URN only) | ✓ | rewrite with hash |
 | `collision` | two declared nodes derive one name under one prefix | ✓ | **refuse the pair**, export the rest |
 | `unavailable` | listed but unreadable (`nodeBatch.unavailable`) | ✓ | skip, report |
-| `disabled` | declared but not enabled — `enable` absent or `false` (D12; it defaults to OFF) | ✓ | **remove the file**, no `--prune` needed — see D12 |
+| `disabled` | declared but not enabled — `enable` absent or `false` (D12; it defaults to OFF) | ✓ | **file present:** remove it, no `--prune` needed. **file absent:** nothing to do. **file `locally-edited`:** REFUSE unless `--force` — see below |
+
+**`locally-edited` OUTRANKS `disabled`** (@codex P1 and @copilot on #627, both
+right, and the two rules genuinely contradicted each other as written). A
+disabled declaration whose file has been hand-edited is **refused unless
+`--force`**, exactly as a `stale` one is. A1 exists to protect somebody's work,
+and `enable` lives on a SHARED node — so the person switching it off is often not
+the person who made the local edit. Destroying their work on the strength of
+someone else's toggle is precisely the outcome A1 was ruled to prevent.
+
+**`disabled` covers a declaration with NO file too** (@codex on #627). §5.2
+promises one status row per declared node, and a not-enabled declaration is still
+declared, so it gets a `disabled` row whether or not a file exists. **The CLASS is
+about the declaration; the ACTION is about the file.** `never-exported` would
+contradict the disablement, and leaving it unclassified would silently drop a row
+§5.2 promises.
 
 `locally-edited` is the class Bo's list did not name and the hash makes free:
 without it, `export` would overwrite a person's hand-fix with a stale node and
@@ -550,9 +586,8 @@ usually a node that *moved*; `--prune` is the deliberate act.
 
 ### 5.1 `skill export`
 
-1. Resolve the prefix per org root (D7): `--prefix` wins; else the org field
-   when the schema has it; else refuse naming the root.
-2. Discover + batch-read (§4.1). Lint the set first (§5.3) — a node that fails
+1. Discover + batch-read (§4.1). *(D12 removed a prior step here: there is no
+   prefix to resolve, because the name is stored.)* Lint the set first (§5.3) — a node that fails
    lint is **not exported** and is listed in the result; `export` never writes a
    file it would then report as broken.
 3. Walk the target root (§4.4), classify (§4.5), act per the table.
@@ -562,9 +597,15 @@ usually a node that *moved*; `--prune` is the deliberate act.
 5. Report: one row per node — `written | moved(from) | skipped(current) |
    refused(reason)` — plus `orphaned` files and the reminder that the host
    loads skills at session start. `--json` shape:
-   `{root, prefix: {<orgRoot>: <prefix>}, written: [...], moved: [{from,to,urn}],
-   skipped: [...], refused: [{urn, reason}], orphaned: [...], pruned: [...]}`
-   with every slice initialized to `[]`.
+   `{root, written: [...], moved: [{from,to,urn}], skipped: [...],
+   refused: [{urn, reason}], removed: [{urn, name, reason}], orphaned: [...],
+   pruned: [...]}` with every slice initialized to `[]`.
+
+   **D12 changed two things here.** `prefix` is gone from the shape — there is no
+   prefix. And `removed` is new: it reports a file deleted because its declaration
+   is not enabled (§4.5 `disabled`), with `reason` naming which of the two cases
+   it was. Without it a `disabled` removal would be an unreported side effect, and
+   `--dry-run` could not show it (@copilot on #627).
 
 ### 5.2 `skill status`
 
@@ -583,16 +624,17 @@ migration:
 
 | rule | level |
 |---|---|
-| `skill-declaration-malformed` — a declaration key that is not an object, or a `description`/`name` inside one that is not a string (reported even beside a valid key: the node is mid-migration) | error |
+| `skill-declaration-malformed` — `exports` not an object, a host entry under it not an object, a `description`/`name` that is not a string, or an **`enable` that is not a boolean** (D12). Reported even beside a valid key: the node is mid-migration, and the broken key is the one that outlives the alias | error |
 | `skill-description-missing` | error |
 | `skill-description-too-long` — > 1024 **characters** (code points, as the host's validator counts), measured on the normalized text, with the overrun stated | error |
-| `skill-name-invalid` — derived name (§4.2) not kebab-case or > 64 | error |
+| `skill-name-invalid` — the **stored** name (`exports.<host>.name`) not kebab-case or > 64 code points. D12: it is stored, so the DECLARATION is what to change, not the loc | error |
+| `skill-name-missing` — a declaration with no `name`, or an empty one. D12 retired derivation, so there is nothing to fall back to (an empty string is judged, not read as absent) | error |
 | ~~`skill-name-hand-set`~~ — **RETIRED by D12**: a stored name IS the contract. Nothing can verify its prefix; `skill-name-invalid` still checks shape | — |
 | `skill-not-runnable` | error |
 | `skill-content-empty` / `skill-content-has-frontmatter` (a COMPLETE `---…---` block; a leading horizontal rule is a body) | error |
 | ~~`skill-prefix-missing`~~ — **RETIRED by D12** (no org prefix exists to be missing) | — |
-| `skill-name-collision` — two selected nodes derive one name; nodes with no known prefix are excluded (their names cannot be derived, and two prefix-less orgs are not a collision) | error |
-| `skill-legacy-key` — declared under `claudeSkill`, or `claudeSkill` left beside `skill` | warning |
+| `skill-name-collision` — two selected nodes **store** one name. D12: this now fires ACROSS orgs, because no prefix keeps two orgs' identically-named tasks apart — the cost D12 accepts. A declaration with no stored name is excluded (`skill-name-missing` is its finding; pairing two nameless nodes as colliding on `""` would report one defect twice) | error |
+| `skill-legacy-key` — declared under a **retired top-level key** (`skill` OR `claudeSkill` — both are legacy relative to `exports.<host>` since D12), or a retired key left beside `exports`. @copilot on #627: a node using only `properties.skill` was previously treated as current, which it is not | warning |
 | `skill-description-no-trigger` — no "use when" phrasing | warning |
 | `skill-content-has-template` — a `{{…}}` placeholder; export is verbatim | warning |
 | `skill-node-unavailable` — listed but unreadable (not found, or not readable by you — the server's merged envelope, cor:api:040) | warning |
@@ -628,7 +670,10 @@ set changes (existing rule).
 
 ## 8. Implementation slices (Jonas)
 
-1. **`internal/skilldoc` (pure, no cobra) — SHIPPED in #589:** `DeriveName`,
+1. **`internal/skilldoc` (pure, no cobra) — SHIPPED in #589, and three of these
+   are since REMOVED by D12** (`DeriveName`, `LintPrefixes`, `Prefix`; see D12
+   and §11). The list below is the record of what #589 built, not a current
+   inventory: **`DeriveName`,
    `Hash`, `Render`, `ParseFile` (both header generations), `Lint`,
    `LintPrefixes`, `LintCollisions`, `Prefix{Value, Known}`. `Classify` (the
    drift classes, §4.5) lands with `status`. Table-driven unit tests:
@@ -797,11 +842,16 @@ ruling schedules for TypeScript.
 **The split line I propose, for the spec to state precisely** — derived from
 §4.2–§4.5 rather than re-decided:
 
-- **Server (judgment + derivation, from `skilldoc`):** `DeriveName` (§4.2),
-  `Hash` (§4.3), `Render` (§4.3), `Lint`/`LintPrefixes`/`LintCollisions`
-  (§5.3), `Classify` (§4.5), and the prefix resolution of D7. These are pure
-  functions over corpus inputs plus, for `lint`/`Classify`, one file's content
-  and header — all of which a client can send.
+- **Server (judgment, from `skilldoc`):** `ValidName` (§4.2), `Hash` (§4.3),
+  `Render` (§4.3), `Lint`/`LintCollisions` (§5.3), `Classify` (§4.5). These are
+  pure functions over corpus inputs plus, for `lint`/`Classify`, one file's
+  content and header — all of which a client can send.
+
+  **D12 removed three from this list** (@codex and @copilot on #627, who caught it
+  still assigning them): `DeriveName`, `LintPrefixes` and D7's prefix resolution
+  do not move server-side because they no longer exist. `ValidName` survives and
+  validates the STORED name. On the server side this landed as
+  `derive.ts` → `name.ts` in hadron-server#1225.
 - **Client (disk I/O + terminal presentation):** the disk walk, reading a
   `SKILL.md`, `ParseFile` *or* sending raw content for the server to parse,
   atomic writes, the rename's directory move, `--prune` deletions, `--dry-run`,
