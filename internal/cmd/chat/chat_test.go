@@ -81,23 +81,57 @@ func TestParseMessageAuthorPrecedence(t *testing.T) {
 // The envelope's identity fields reach --json, so a consumer can tell a WORKER
 // post from a human one — the distinction the Worker model exists to record,
 // and which this reader dropped entirely.
+//
+// BOTH author shapes are driven, because the envelope is authorUserId XOR
+// authorWorkerId+authorName and a worker-only fixture proves nothing about the
+// human key. A first version asserted authorUserId only by its ABSENCE on a
+// worker post, which would have passed against the field being wired to the
+// wrong source or to nothing at all (@copilot on PR #631) — an assertion that
+// can only observe empty cannot tell "correctly empty" from "never read".
 func TestParseMessageCarriesTheEnvelopeIdentity(t *testing.T) {
 	body := "hi"
-	d := json.RawMessage(`{"authorName":"Jonas","authorWorkerId":"wkr1",
-		"authorAppId":"app1","sessionId":"s1"}`)
-	m := parseMessage("chats:api:messages:002-279bba33-jonas", nil, &body, &d)
-	for _, f := range []struct{ name, got, want string }{
-		{"AuthorWorkerID", m.AuthorWorkerID, "wkr1"},
-		{"AuthorAppID", m.AuthorAppID, "app1"},
-		{"SessionID", m.SessionID, "s1"},
-	} {
-		if f.got != f.want {
-			t.Errorf("%s = %q, want %q", f.name, f.got, f.want)
-		}
+	cases := []struct {
+		name                               string
+		data                               string
+		worker, user, app, session, author string
+	}{
+		{
+			name:    "worker post",
+			data:    `{"authorName":"Jonas","authorWorkerId":"wkr1","authorAppId":"app1","sessionId":"s1"}`,
+			author:  "Jonas",
+			worker:  "wkr1",
+			user:    "", // correctly absent: a worker post carries no user id
+			app:     "app1",
+			session: "s1",
+		},
+		{
+			// The positive case for authorUserId, and the negative for the
+			// worker keys — each field proven in both directions across the
+			// pair rather than in one.
+			name:   "human post",
+			data:   `{"authorName":"holger","authorUserId":"u-holger"}`,
+			author: "holger",
+			worker: "",
+			user:   "u-holger",
+			app:    "",
+		},
 	}
-	// A human post carries authorUserId instead; neither is invented.
-	if m.AuthorUserID != "" {
-		t.Errorf("AuthorUserID = %q, want empty — the node carries none", m.AuthorUserID)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			d := json.RawMessage(c.data)
+			m := parseMessage("chats:api:messages:002-279bba33-x", nil, &body, &d)
+			for _, f := range []struct{ name, got, want string }{
+				{"Author", m.Author, c.author},
+				{"AuthorWorkerID", m.AuthorWorkerID, c.worker},
+				{"AuthorUserID", m.AuthorUserID, c.user},
+				{"AuthorAppID", m.AuthorAppID, c.app},
+				{"SessionID", m.SessionID, c.session},
+			} {
+				if f.got != f.want {
+					t.Errorf("%s = %q, want %q", f.name, f.got, f.want)
+				}
+			}
+		})
 	}
 }
 
