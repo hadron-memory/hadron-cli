@@ -213,14 +213,24 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # Built from source, so the manifest embedded here is the COMMITTED one —
-      # the same bytes `tools-manifest-check` guards. Checking the corpus against
-      # a manifest regenerated on the fly would answer a different question, and
-      # could pass while the committed manifest was stale.
+      # Built to a BINARY and executed, never `go run`: `go run` does NOT
+      # propagate the child's exit status (it prints "exit status 5" and exits
+      # 1 — `go help run` says so outright). The first draft of this job used
+      # `go run`, so its exit-5 condition could never have fired: the nightly
+      # would have found every stale citation and filed nothing, silently
+      # (@codex, #642). Built from source rather than downloaded so the embedded
+      # manifest is the COMMITTED one — the same bytes tools-manifest-check
+      # guards; checking the corpus against a manifest regenerated on the fly
+      # would answer a different question and could pass while the committed
+      # manifest was stale.
       #
-      # check-tools exits 5 on findings; any other non-zero is infra. Both land
-      # as outcome == 'failure', so the reporting step below re-reads the exit
-      # code rather than assuming findings.
+      # check-tools emits TWO kinds of finding and exits 5 for either:
+      #   unregistered-tool  a spec cites a hadron_* name that is not a tool
+      #   unavailable        a node listed but could not be read — NO token
+      # They are different problems (citation rot vs a read-coverage gap), so
+      # they are counted separately here and reported separately below. The
+      # repo's visibility-gap rule says an unreadable-but-listed node must be
+      # SURFACED rather than dropped, so neither is swallowed into the other.
       - name: Check spec tool citations
         id: citations
         if: steps.gate.outputs.enabled == 'true'
@@ -228,20 +238,30 @@ jobs:
         env:
           HADRON_TOKEN: ${{ secrets.HADRON_SPECS_RO_TOKEN }}
         run: |
+          go build -o "$RUNNER_TEMP/hadron" ./cmd/hadron
           set +e
-          go run ./cmd/hadron spec check-tools -m "$SPECS_MEMORY" --json > findings.json
+          "$RUNNER_TEMP/hadron" spec check-tools -m "$SPECS_MEMORY" --json > findings.json
           code=$?
           set -e
-          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           echo "check-tools exited $code"
+          # An infra failure may leave this empty or absent; normalise so the
+          # counts below are 0 rather than a jq error that hides the cause.
+          [ -s findings.json ] || echo '[]' > findings.json
+          jq '[.[] | select(.kind == "unregistered-tool")]' findings.json > unregistered.json
+          jq '[.[] | select(.kind == "unavailable")]'       findings.json > unavailable.json
+          {
+            echo "exit_code=$code"
+            echo "unregistered=$(jq 'length' unregistered.json)"
+            echo "unavailable=$(jq 'length' unavailable.json)"
+          } >> "$GITHUB_OUTPUT"
           exit $code
 
-      # Only on a genuine findings exit (5). An infra failure — no network, bad
-      # token, corpus unreadable — must not file an issue claiming the specs are
-      # wrong, which is the same "an instrument that reports the wrong thing"
-      # trap the drift steps avoid by testing outcome rather than any failure.
+      # Keyed on the COUNT of that kind, not on the exit code. Exit 5 covers
+      # both kinds, and an infra failure is also non-zero — so gating on the
+      # code would file a citation issue for a network error. Counting the
+      # thing itself cannot: a failure that produced no findings reports none.
       - name: File a spec-citation issue
-        if: steps.citations.outputs.exit_code == '5'
+        if: steps.citations.outputs.unregistered != '' && steps.citations.outputs.unregistered != '0'
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -249,12 +269,12 @@ jobs:
           title="Specs cite unregistered hadron_* tools"
           {
             jq -r '
-              "**\(length) finding(s)** across \(group_by(.citation)|length) citation(s).", "",
+              "**\(length) citation finding(s)** across \(group_by(.citation)|length) citation(s).", "",
               "| token | count |", "| --- | --- |",
               (group_by(.token) | sort_by(-length)[] | "| `\(.[0].token)` | \(length) |"),
               "", "| citation | count |", "| --- | --- |",
               (group_by(.citation) | sort_by(-length)[] | "| `\(.[0].citation)` | \(length) |")
-            ' findings.json
+            ' unregistered.json
             echo
             echo "Reproduce:"
             echo
@@ -263,7 +283,7 @@ jobs:
             echo '```'
             echo
             echo "A citation is permanent, so a node describing a REMOVED tool may want a"
-            echo "supersede rather than an edit — see docs/how-to/maintain-product-specs.md."
+            echo "supersede rather than an edit - see docs/how-to/maintain-product-specs.md."
             echo
             echo "Do NOT add these to \`internal/cmd/spec/mcp-tools-ignore.txt\`: that file"
             echo "carries non-tool \`hadron_*\` identifiers that legitimately appear in prose,"
@@ -282,5 +302,41 @@ jobs:
           fi
           gh issue create --title "$title" --body-file issue-body.md
 
-      # DELIBERATELY no "fail the job" step yet — see the block above and #641
+      # A node that LISTS but cannot be READ is a coverage gap, not citation
+      # rot: check-tools could not examine it, so its citations are unknown
+      # rather than wrong. Reported under its own title so it is never counted
+      # as tool rot, and never silently dropped either.
+      - name: File a spec-coverage issue
+        if: steps.citations.outputs.unavailable != '' && steps.citations.outputs.unavailable != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Spec nodes are listed but unreadable"
+          {
+            jq -r '
+              "**\(length) node(s)** listed by the corpus but unreadable, so their tool",
+              "citations were NOT checked. This is a coverage gap, not citation rot.", "",
+              "| citation |", "| --- |",
+              (sort_by(.citation)[] | "| `\(.citation)` |")
+            ' unavailable.json
+            echo
+            echo "A node can be listed and still refuse a read; the CLI surfaces that"
+            echo "rather than dropping it. Until these are readable, check-tools cannot"
+            echo "speak for them either way."
+            echo
+            echo "Run: $RUN_URL"
+          } > coverage-body.md
+          existing=$(gh issue list --state open --search "\"$title\" in:title" \
+            --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            echo "Coverage issue already open (#$existing); adding a note instead."
+            printf 'Still unreadable as of %s\n\n' "$RUN_URL" > cnote.md
+            cat coverage-body.md >> cnote.md
+            gh issue comment "$existing" --body-file cnote.md
+            exit 0
+          fi
+          gh issue create --title "$title" --body-file coverage-body.md
+
+      # DELIBERATELY no "fail the job" step yet - see the block above and #641
       # step 3. When the corpus is clean, add one mirroring `Fail on any drift`.
