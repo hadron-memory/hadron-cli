@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 63 unbound
+[Query] 61 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -58,8 +58,6 @@ nextNode
 nodeUsage  # deprecated by server #986 — never wrap it; usageEvents(loc:) is the migration target
 principalGrant
 quotaCounters
-registerEntries  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes
-registerEntry  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes
 renderRunNode
 resendSender
 resendSenders
@@ -70,7 +68,7 @@ slackConnections
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
-[Mutation] 88 unbound
+[Mutation] 85 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -85,7 +83,6 @@ createAppKey
 createAppUser
 createDashboardWidgetPreset
 createHomeAssistantInstance
-createRegisterEntry  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes
 createResendSender
 createRevision
 createSlackConnection
@@ -93,7 +90,6 @@ deleteChat
 deleteDashboardWidgetPreset
 deleteExchangeConnection
 deleteHomeAssistantInstance
-deleteRegisterEntry  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes
 deleteResendSender
 deleteSlackConnection
 deleteUser
@@ -156,6 +152,5 @@ updateHomeAssistantInstance
 updateMyPolicy
 updateNodeProperties
 updateOrgGithubApp
-updateRegisterEntry  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes
 updateResendSender
 updateSecret

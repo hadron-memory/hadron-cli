@@ -43,6 +43,7 @@ server can safely advertise; their id always works.`,
 	cmd.AddCommand(newCmdPost(f))
 	cmd.AddCommand(newCmdMarkRead(f))
 	cmd.AddCommand(newCmdReadState(f))
+	cmd.AddCommand(newCmdRegister(f))
 	return cmd
 }
 
