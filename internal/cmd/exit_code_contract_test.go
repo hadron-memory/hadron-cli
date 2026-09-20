@@ -1,63 +1,129 @@
 package cmd
 
 import (
-	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// The exit-code table in agentic-usage.md is the contract AGENTS read, and
-// nothing kept it honest against internal/exitcode until now.
+// exitCodeTableRE matches a row of the exit-code table: | 7    | text |
+var exitCodeTableRE = regexp.MustCompile(`(?m)^\|\s*(\d+)\s*\|`)
+
+// declaredExitCodes parses internal/exitcode for the constants it declares.
 //
-// This is a doc/code consistency guard rather than a style check: an exit code
-// that exists and is undocumented cannot be branched on by the audience it was
-// added for, and a documented row with no constant behind it is a promise the
-// binary does not keep. #619 added exit 8 and had to update the table by hand,
-// which is exactly the step that gets skipped — three prose claims went stale
-// in this repo on 2026-09-19 alone, each caught by a reviewer rather than a
-// test.
+// PARSED, NOT LISTED. The first version of this guard compared the doc table
+// against a hand-maintained slice in this file, which is the thing it was
+// written to prevent wearing a different hat: a constant added without also
+// editing that slice is never examined, so the check passes while the contract
+// drifts (@codex and @copilot, PR #633, independently). A guard whose own
+// inputs need hand-updating has the same failure mode as the doc it guards.
+func declaredExitCodes(t *testing.T) map[int]string {
+	t.Helper()
+	const src = "../exitcode/exitcode.go"
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, src, nil, 0)
+	if err != nil {
+		t.Fatalf("parse %s: %v", src, err)
+	}
+	out := map[int]string{}
+	for _, d := range f.Decls {
+		gd, ok := d.(*ast.GenDecl)
+		if !ok || gd.Tok != token.CONST {
+			continue
+		}
+		for _, spec := range gd.Specs {
+			vs, ok := spec.(*ast.ValueSpec)
+			if !ok || len(vs.Names) != 1 || len(vs.Values) != 1 {
+				continue
+			}
+			lit, ok := vs.Values[0].(*ast.BasicLit)
+			if !ok || lit.Kind != token.INT {
+				continue
+			}
+			n, err := strconv.Atoi(lit.Value)
+			if err != nil {
+				continue
+			}
+			out[n] = vs.Names[0].Name
+		}
+	}
+	return out
+}
+
+// exitCodeSection returns just the "Exit codes (stable contract)" section, so
+// numeric first columns in OTHER tables cannot be mistaken for documented exit
+// codes — which would let the reverse check pass on a coincidence.
+func exitCodeSection(t *testing.T, doc string) string {
+	t.Helper()
+	const heading = "## Exit codes (stable contract)"
+	i := strings.Index(doc, heading)
+	if i < 0 {
+		t.Fatalf("the %q heading is gone — this guard would otherwise pass vacuously", heading)
+	}
+	rest := doc[i+len(heading):]
+	if j := strings.Index(rest, "\n## "); j >= 0 {
+		rest = rest[:j]
+	}
+	return rest
+}
+
+// The exit-code table in agentic-usage.md is the contract AGENTS read, and
+// nothing kept it honest against internal/exitcode until #619 added one.
+//
+// BIDIRECTIONAL, and both directions are real failures:
+//   - a constant with no row is an exit code its audience cannot branch on;
+//   - a row with no constant is a promise the binary does not keep.
+//
+// The first version checked only the first direction, against a hand-written
+// list. Both bots caught that; the fix derives the constants by parsing the
+// source and compares the two SETS.
 func TestExitCodeTableMatchesTheConstants(t *testing.T) {
-	doc, err := os.ReadFile("agentic/agentic-usage.md")
+	raw, err := os.ReadFile("agentic/agentic-usage.md")
 	if err != nil {
 		t.Fatalf("read agentic-usage.md: %v", err)
 	}
-	// Rows of the "Exit codes (stable contract)" table: | 7    | text |
-	rowRE := regexp.MustCompile(`(?m)^\|\s*(\d+)\s*\|`)
+	section := exitCodeSection(t, string(raw))
+
 	documented := map[int]bool{}
-	for _, m := range rowRE.FindAllStringSubmatch(string(doc), -1) {
-		var n int
-		if _, err := fmt.Sscanf(m[1], "%d", &n); err == nil {
+	for _, m := range exitCodeTableRE.FindAllStringSubmatch(section, -1) {
+		n, err := strconv.Atoi(m[1])
+		if err == nil {
 			documented[n] = true
 		}
 	}
+	declared := declaredExitCodes(t)
+
+	// Refuse to pass vacuously: if either side comes back empty the shape
+	// changed, and an empty-vs-empty comparison would agree about nothing.
 	if len(documented) == 0 {
-		t.Fatal("found no exit-code rows — the table moved or its shape changed, " +
-			"which would make this guard silently vacuous")
+		t.Fatal("no exit-code rows parsed — the table's shape changed")
+	}
+	if len(declared) == 0 {
+		t.Fatal("no constants parsed from internal/exitcode — the declaration's shape changed")
+	}
+	// Anchor on a value that must always exist, so a parser that silently
+	// matched the wrong thing is caught rather than trusted.
+	if declared[exitcode.Forbidden] != "Forbidden" {
+		t.Fatalf("parsed constants do not contain Forbidden=%d; got %v", exitcode.Forbidden, declared)
 	}
 
-	// Every constant the package defines must appear in the table.
-	for _, c := range []struct {
-		name string
-		code int
-	}{
-		{"OK", exitcode.OK},
-		{"Error", exitcode.Error},
-		{"Usage", exitcode.Usage},
-		{"AuthRequired", exitcode.AuthRequired},
-		{"NotFound", exitcode.NotFound},
-		{"Conflict", exitcode.Conflict},
-		{"Cancelled", exitcode.Cancelled},
-		{"Unavailable", exitcode.Unavailable},
-		{"Forbidden", exitcode.Forbidden},
-	} {
-		if !documented[c.code] {
-			t.Errorf("exitcode.%s = %d is not in agentic-usage.md's table — "+
-				"an undocumented exit code cannot be branched on by the agents it exists for",
-				c.name, c.code)
+	for code, name := range declared {
+		if !documented[code] {
+			t.Errorf("exitcode.%s = %d is not in the documented table — "+
+				"an undocumented exit code cannot be branched on by the agents it exists for", name, code)
+		}
+	}
+	for code := range documented {
+		if _, ok := declared[code]; !ok {
+			t.Errorf("the table documents exit %d, which internal/exitcode does not declare — "+
+				"a row with no constant is a promise the binary does not keep", code)
 		}
 	}
 }
