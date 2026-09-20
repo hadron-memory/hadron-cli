@@ -36,7 +36,7 @@ func lintLoc(loc, title string) []lintFindingDTO {
 	return lintNode(specNode{
 		Loc: loc, Name: title, NodeType: "info",
 		Tags: []string{"spec"}, Abstract: longAbstract(),
-	})
+	}, "")
 }
 
 // #605: the abstract-length threshold is shared across tiers — the server's cap

@@ -202,7 +202,7 @@ example, leave an abstract out of sync with its content.`,
 			// result — a bulk body rewrite can, e.g., desync an abstract from its
 			// content (abstract-stale). Best-effort: a lint read error doesn't
 			// undo a successful replace, so it's surfaced as a note, not an error.
-			dto.Lint = relintChanged(cmd, client, dto.Results, f)
+			dto.Lint = relintChanged(cmd, client, dto.Results, f, memURN)
 			return writeSpecReplaceReport(f, dto)
 		},
 	}
@@ -303,7 +303,7 @@ func specReplaceDTO(r *gen.SearchReplaceInNodesSearchReplaceInNodesSearchReplace
 // nodeBatch read (not a per-spec fetch loop), returning their findings sorted by
 // citation. Best-effort: a read error or an unreadable spec is noted on stderr,
 // never fatal — the replace already succeeded.
-func relintChanged(cmd *cobra.Command, client graphql.Client, changed []specReplaceNodeDTO, f *cmdutil.Factory) []lintFindingDTO {
+func relintChanged(cmd *cobra.Command, client graphql.Client, changed []specReplaceNodeDTO, f *cmdutil.Factory, memURN string) []lintFindingDTO {
 	ids := make([]string, 0, len(changed))
 	for _, c := range changed {
 		if c.NodeID != "" {
@@ -335,7 +335,7 @@ func relintChanged(cmd *cobra.Command, client graphql.Client, changed []specRepl
 		if n == nil {
 			continue
 		}
-		findings = append(findings, lintNode(nodeFromBatch(n))...)
+		findings = append(findings, lintNode(nodeFromBatch(n), memURN)...)
 	}
 	sort.Slice(findings, func(i, j int) bool { return findings[i].Citation < findings[j].Citation })
 	return findings

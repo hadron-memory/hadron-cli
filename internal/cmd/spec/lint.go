@@ -235,7 +235,7 @@ superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTi
 				findings = lintCorpus(nodes, scopeRoot, memURN)
 			} else {
 				for _, n := range nodes {
-					findings = append(findings, lintNode(n)...)
+					findings = append(findings, lintNode(n, memURN)...)
 				}
 			}
 			// A spec corpus leans on the abstract being embedded for semantic
@@ -307,7 +307,7 @@ func lintScopeError(hasCitationArg bool, prefixFlag, product, module string, all
 // lintNode runs the per-node rules and returns findings tagged with the
 // node's citation. Header nodes (module/feature, level < 3) only get the
 // universal checks; the rubric proper applies to rules and flows.
-func lintNode(n specNode) []lintFindingDTO {
+func lintNode(n specNode, memURN string) []lintFindingDTO {
 	var fs []lintFindingDTO
 	add := func(rule, sev, msg string) {
 		fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: rule, Severity: sev, Message: msg})
@@ -438,6 +438,15 @@ func lintNode(n specNode) []lintFindingDTO {
 			"body is still the `spec new` scaffold — its filler prose is unreplaced, so this spec is unauthored even though its abstract reads otherwise")
 	}
 
+	// #527: put every URN example's decomposition on screen, beside the prose
+	// that claims a shape. Advisory only — see lint_urn.go for why this rule
+	// must never gate, and for what it deliberately refuses to answer.
+	if n.Content != nil {
+		for _, u := range lintURNExamples(*n.Content, memURN) {
+			add(u.Rule, u.Severity, u.Message)
+		}
+	}
+
 	// Rubric proper. Top-level specs (rules) are the compliance-loadable
 	// retrieval surface, so a missing abstract or invalidation is an error;
 	// flows are pulled on demand, so the same gaps are advisory there.
@@ -492,7 +501,7 @@ func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 	productCodes := map[string]bool{}
 	flatCodes := map[string]bool{}
 	for _, n := range nodes {
-		fs = append(fs, lintNode(n)...)
+		fs = append(fs, lintNode(n, memURN)...)
 		locCount[n.Loc]++
 		if n.Unavailable {
 			continue
