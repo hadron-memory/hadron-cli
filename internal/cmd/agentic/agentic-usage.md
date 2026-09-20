@@ -186,11 +186,11 @@ hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incomin
 hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> | import spec-kit|code
 hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
-hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref>
+hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref>
 hadron ai-config list [--app <ref>] [--agent <id>] | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
-hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>|--persona-prompt-file <path>] | update <id> [<field flags>] | rm <id> --yes
+hadron agent list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>|--persona-prompt-file <path>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
@@ -748,6 +748,18 @@ Conventions:
   silently. Existing files are overwritten but files for
   removed nodes are never deleted. `--format markdown` is the default and
   only target today.
+- `agent list --owned-by-me` and `app list --owned-by-me` are the same owner
+  slice on the other two entities — `cor:api:120:03` names all three, and the
+  contract a reader may rely on is *the entities this caller owns*. Do NOT
+  infer one predicate: `Agent` and `App` carry a single owner column, while
+  `Memory` carries two and splits per class. Org-less by definition, so
+  neither consults your active organization and both give an App-key caller an
+  empty list. `agent list --owned-by-me` still composes with `--type` and
+  `--visibility`; it is rejected (exit 2) with `--org`, and with `--public`,
+  whose `PublicAgentFilter` has no `ownedByMe` field at all because a PUBLIC
+  agent is never user-owned. **`app list` now requires exactly one of `--org`
+  or `--owned-by-me`** — the bare command still refuses (exit 2), as it did
+  when `--org` was simply required.
 - `memory list --owned-by-me` NARROWS the default listing to the memories you
   own outright — org-less (`organizationId` null) and yours. The server answers
   it (hadron-server#1215); do not reconstruct it from a listing, because
@@ -1000,12 +1012,14 @@ Conventions:
   <id>` manage them. `org invite create <email> --org <id> --role <r>` mints an
   invitation whose returned `slug` is the acceptance token — the invitee redeems
   it with `org invite accept <slug>`; `org invite show <slug>` inspects one.
-- `agent` manages agents (user- or org-owned; an App runs an agent). `agent list [--org
-  <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC]`
-  is the member-scoped view (agents in your orgs); `agent list --public [--type
-  <t>]` is the separate cross-org marketplace slice — every live PUBLIC agent,
-  readable without org membership, so you can grab a foreign agent's URN to
-  subscribe/install (`--org`/`--visibility` don't apply to it).
+- `agent` manages agents (user- or org-owned; an App runs an agent). `agent list
+  [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility
+  ORGANIZATION|PERSONAL|PUBLIC]` is the member-scoped view (agents in your
+  orgs); `--owned-by-me` narrows it to your own org-less agents (see the owner
+  slice above — rejected with `--org`, and with `--public`). `agent list
+  --public [--type <t>]` is the separate cross-org marketplace slice — every
+  live PUBLIC agent, readable without org membership, so you can grab a foreign
+  agent's URN to subscribe/install (`--org`/`--visibility` don't apply to it).
   `agent get <ref>` (ID or URN); `agent create --name <n>` creates a
   user-owned agent — pass `--owner-me` to say so explicitly, or `--org <id>`
   for an org-owned agent (the two are mutually exclusive). A user-owned agent is

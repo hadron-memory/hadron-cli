@@ -114,9 +114,9 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var org, typ, vis string
 	var limit, offset int
-	var public bool
+	var public, ownedByMe bool
 	cmd := &cobra.Command{
-		Use:     "list [--org <id>] [--type <t>] [--visibility <v>] | --public [--type <t>]",
+		Use:     "list [--org <id> | --owned-by-me] [--type <t>] [--visibility <v>] | --public [--type <t>]",
 		Aliases: []string{"ls"},
 		Short:   "List agents",
 		Long: `List agents. By default this is the member-scoped view — agents in orgs you
@@ -126,6 +126,15 @@ belong to.
 agent, readable without org membership (a foreign public agent you can grab the
 URN of to subscribe/install). It's a separate surface, so --org and
 --visibility don't apply to it; --type still filters.
+
+--owned-by-me narrows the member-scoped view to the agents you own outright:
+your org-less ones (no organizationId), owned by you. It is the "my agents"
+slice, answered by the server — the same predicate ` + "`app list --owned-by-me`" + `
+and ` + "`memory list --owned-by-me`" + ` forward. Org-less by definition, so it
+does not combine with --org and your active organization is not consulted; an
+App-key caller gets an empty list. It also does not combine with --public,
+since a PUBLIC agent is never user-owned. --type and --visibility still
+narrow it.
 
 --app does NOT narrow this listing: it is the persistent App-context flag,
 not a filter, so the same rows come back for any App. For the agents
@@ -139,6 +148,22 @@ the AppAgent join.`,
 			}
 			if public && (org != "" || vis != "") {
 				return exitcode.Newf(exitcode.Usage, "--public is the cross-org PUBLIC slice — --org and --visibility don't apply to it")
+			}
+			// PublicAgentFilter has no ownedByMe FIELD — the server rejects it at
+			// the schema rather than returning an empty page, because a PUBLIC
+			// agent is never user-owned. Refuse here so the reason names the
+			// slices rather than arriving as a GraphQL validation error.
+			if public && ownedByMe {
+				return exitcode.Newf(exitcode.Usage, "--public is the cross-org PUBLIC slice and --owned-by-me is your own org-less one; a PUBLIC agent is never user-owned, so the two never overlap")
+			}
+			// The owner slice is org-less by definition (organizationId IS NULL),
+			// so the server never consults orgId for it: combining them would be
+			// empty by construction rather than a narrowing.
+			// Changed(), not the value: `--org=` is "asked for nothing", a
+			// different mistake from not asking at all, and a value test would
+			// read it as the latter (review:an-empty-flag-is-not-an-absent-flag).
+			if ownedByMe && cmd.Flags().Changed("org") {
+				return exitcode.Newf(exitcode.Usage, "--owned-by-me lists the agents you own, which have no organization; drop --org (or drop --owned-by-me to list an organization's agents)")
 			}
 			at, err := parseAgentType(typ)
 			if err != nil {
@@ -182,8 +207,14 @@ the AppAgent join.`,
 				}
 			} else {
 				var filter *gen.AgentFilter
-				if at != nil || av != nil {
+				if at != nil || av != nil || ownedByMe {
 					filter = &gen.AgentFilter{Type: at, Visibility: av}
+					// Only ever set true: the clauses compose by AND, so a
+					// literal false is a no-op the server still has to read,
+					// and omitting it keeps an unfiltered request unchanged.
+					if ownedByMe {
+						filter.OwnedByMe = &ownedByMe
+					}
 				}
 				var orgPtr *string
 				if org != "" {
@@ -215,6 +246,7 @@ the AppAgent join.`,
 	cmd.Flags().StringVar(&typ, "type", "", "filter by type: ASSISTANT or CHATBOT")
 	cmd.Flags().StringVar(&vis, "visibility", "", "filter by visibility: ORGANIZATION, PERSONAL, or PUBLIC")
 	cmd.Flags().BoolVar(&public, "public", false, "list the cross-org PUBLIC marketplace slice instead of your member-scoped agents")
+	cmd.Flags().BoolVar(&ownedByMe, "owned-by-me", false, "list only the org-less agents you own")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max results (server default when unset)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "results to skip")
 	return cmd
