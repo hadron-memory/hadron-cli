@@ -566,12 +566,14 @@ Conventions:
   gate.
 - `skill` maintains the **skill surface** exported from runnable task nodes
   (#580). A node opts in by declaring `properties.exports.<host>` — an object
-  keyed by skill host, each entry `{name, description, enable}` (the retired
+  keyed by skill host, each entry `{name, description, enable}` where `enable` must be `true` to publish (the retired
   top-level `properties.skill` and `properties.claudeSkill` are
   read as aliases for the `claudeSkill` host, so nothing needs migrating). The
   skill NAME is **stored** at `properties.exports.<host>.name`, prefix
   included — it is not derived, and there is no `--prefix` and no org prefix
-  field. `enable: false` stands an export down without undeclaring it.
+  field. `enable` must be `true` to publish and DEFAULTS TO OFF — a declaration alone
+  does not ship a skill, because the corpus holds many runnable automation nodes
+  that were never meant to be skills.
   `skill lint` checks the corpus and touches no disk: name present, kebab-case
   and ≤64; description present and ≤1024 chars (the host TRUNCATES longer ones
   in its listing, so trigger phrases past the cut never fire); `isRunnable`

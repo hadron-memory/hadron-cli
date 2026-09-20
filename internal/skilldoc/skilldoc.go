@@ -109,10 +109,16 @@ var (
 //
 // Name is now AUTHORITATIVE and stored: D12 retired derivation, so there is no
 // value to fall back to and a missing name is a finding rather than a default.
-// Enable is the per-host on/off switch; ABSENT means ENABLED, because declaring
-// an export is itself the opt-in and `enable: false` is the explicit way to
-// stand one down. EnableSet keeps "absent" distinct from "explicitly true" for
-// a caller that wants to report which.
+//
+// Enable is the per-host on/off switch and it DEFAULTS TO OFF (Holger,
+// 2026-09-19). Publishing a skill is the side-effecting act, so it takes an
+// explicit `enable: true`; a declaration that merely exists does not publish.
+// The reason is the corpus: it holds many runnable nodes that are automation and
+// were never meant to be skills at all, so the safe default is the one where
+// nothing ships unless somebody said to ship it.
+//
+// EnableSet records whether the key was present, which lets a report distinguish
+// "switched off" from "never switched on". It is reporting detail, not a gate.
 type Declaration struct {
 	Key         string
 	Host        string
@@ -154,7 +160,8 @@ func classify(props map[string]any) (decl *Declaration, malformed []string) {
 				malformed = append(malformed, path+".enable")
 			}
 		}
-		d := &Declaration{Key: path, Host: host, Enable: true}
+		// Enable defaults to FALSE: publishing takes an explicit opt-in.
+		d := &Declaration{Key: path, Host: host}
 		if s, ok := obj["description"].(string); ok {
 			d.Description = s
 		}
@@ -216,8 +223,13 @@ func classify(props map[string]any) (decl *Declaration, malformed []string) {
 // Declared reads a node's claudeSkill declaration out of its decoded
 // properties. A declaration is an object at `exports.claudeSkill` or under a
 // retired top-level alias; anything else — absent, or holding a non-object —
-// is "not declared". Note a DISABLED declaration is still declared: `enable`
-// governs whether it is exported, not whether it exists.
+// is "not declared".
+//
+// Declared is NOT the same question as "will it export": `enable` defaults to
+// off, so most declarations are declared and not enabled. Both states are
+// returned here on purpose — lint judges a declaration whether or not it is
+// enabled, because a broken name is worth reporting BEFORE somebody turns it on,
+// and `status` has to be able to name a file whose declaration is switched off.
 func Declared(props map[string]any) (*Declaration, bool) {
 	decl, _ := classify(props)
 	return decl, decl != nil

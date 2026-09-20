@@ -128,21 +128,21 @@ func TestSkillLintStrictPromotesWarnings(t *testing.T) {
 	}
 }
 
-func TestSkillLintDisabledDeclarationIsStillLintedNotSkipped(t *testing.T) {
-	// D12: `enable: false` stands an export DOWN, it does not make the node
-	// undeclared. Lint must still judge it — a disabled declaration with a
-	// broken name is still broken, and `status`/`export` need it reported so the
-	// file on disk can be removed (the `disabled` class) rather than lingering.
+func TestSkillLintNotEnabledDeclarationIsStillLinted(t *testing.T) {
+	// D12: `enable` defaults OFF and gates PUBLISHING, not declaration. Lint must
+	// still judge a not-enabled declaration — a broken name is worth reporting
+	// before somebody turns it on, and `status` has to be able to name a file
+	// whose declaration is switched off.
 	n := skillNode("n1", "mem2", "hrn:node:acme.com:ops:tasks:rotate", "tasks:rotate", true,
 		`{"exports":{"claudeSkill":{"name":"Bad_Name","description":"Use when rotating.","enable":false}}}`, `"# Rotate"`)
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemNoPrefix, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
 	}, "-m", "hrn:mem:acme.com:ops", "--json")
 	if exitCodeFor(err) != exitcode.Conflict {
-		t.Fatalf("a disabled-but-broken declaration should still exit 5, got %v\n%s", err, out)
+		t.Fatalf("a not-enabled but broken declaration should still exit 5, got %v\n%s", err, out)
 	}
 	if findingRules(t, out)["skill-name-invalid"] != "error" {
-		t.Errorf("disabled declaration was not linted: %s", out)
+		t.Errorf("not-enabled declaration was not linted: %s", out)
 	}
 }
 

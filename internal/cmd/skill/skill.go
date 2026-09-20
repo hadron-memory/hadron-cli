@@ -48,7 +48,8 @@ by skill host, each entry carrying:
 
   name         the skill's name, STORED whole (prefix included)
   description  the trigger text the host matches against
-  enable       false stands this export down without removing the declaration
+  enable       true PUBLISHES this export; it defaults to OFF, so a
+               declaration alone does not ship a skill
 
 The node is the source and the skill file is a build artifact. The retired
 properties.skill and properties.claudeSkill are read as aliases for the
@@ -300,10 +301,11 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 // a future host is still listed and can be reported rather than silently
 // skipped — the selection stays wider than any one host's renderer.
 //
-// It deliberately does NOT filter on `enable`: a disabled declaration must be
-// LISTED so `status` can report it and `export` can remove its file (the
-// `disabled` class, D12). Filtering it out here would make a disabled skill
-// indistinguishable from an absent one, and its file would linger forever.
+// It deliberately does NOT filter on `enable`, which defaults to OFF: a
+// not-enabled declaration must still be LISTED so lint can judge it (a broken
+// name is worth reporting before somebody turns it on) and so `status` can name
+// a file whose declaration is switched off. Filtering here would make a
+// not-enabled skill indistinguishable from an absent one.
 func listDeclaredIDs(cmd *cobra.Command, client graphql.Client, memIDs []string) ([]string, error) {
 	col := gqltypes.NodeWhereColumnProperties
 	exists := true

@@ -763,15 +763,18 @@ func TestAnotherHostIsDeclaredButNotValidatedHere(t *testing.T) {
 	}
 }
 
-func TestEnableDefaultsToEnabledAndFalseIsRecorded(t *testing.T) {
-	// ABSENT means enabled: declaring an export IS the opt-in, and enable:false
-	// is the explicit way to stand one down. EnableSet keeps the two apart for a
-	// caller that needs to report which.
-	d, _ := Declared(map[string]any{ExportsKey: map[string]any{
+func TestEnableDefaultsToOff(t *testing.T) {
+	// Holger, 2026-09-19: publishing is the side-effecting act, so it takes an
+	// explicit opt-in. The corpus holds many runnable nodes that are automation
+	// and were never meant to be skills, so nothing ships unless somebody said to.
+	d, ok := Declared(map[string]any{ExportsKey: map[string]any{
 		HostClaudeSkill: map[string]any{"name": "hadron-a", "description": "Use when x"},
 	}})
-	if !d.Enable || d.EnableSet {
-		t.Errorf("absent enable should be enabled-but-unset, got Enable=%v Set=%v", d.Enable, d.EnableSet)
+	if !ok {
+		t.Fatal("a declaration without enable is still DECLARED")
+	}
+	if d.Enable {
+		t.Errorf("absent enable must be OFF, got %v", d.Enable)
 	}
 
 	for _, want := range []bool{true, false} {
@@ -782,16 +785,20 @@ func TestEnableDefaultsToEnabledAndFalseIsRecorded(t *testing.T) {
 			t.Errorf("enable=%v not recorded: Enable=%v Set=%v", want, d.Enable, d.EnableSet)
 		}
 	}
+}
 
-	// A DISABLED declaration is still DECLARED — enable governs whether it is
-	// exported, not whether it exists. If this ever returned false, a disabled
-	// skill would be indistinguishable from an absent one and its file on disk
-	// would linger forever with nothing able to name it.
-	d, ok := Declared(map[string]any{ExportsKey: map[string]any{
-		HostClaudeSkill: map[string]any{"name": "hadron-a", "description": "Use when x", "enable": false},
-	}})
-	if !ok || d.Enable {
-		t.Errorf("a disabled declaration must still be declared: ok=%v Enable=%v", ok, d.Enable)
+func TestRetiredKeysAlsoDefaultToOff(t *testing.T) {
+	// The default belongs to the switch, not to the key the declaration arrived
+	// under: the live corpus's 27 declarations use the retired top-level keys and
+	// none carries `enable`, so they read as not enabled like everything else.
+	for _, key := range legacyTopLevelKeys {
+		d, ok := Declared(map[string]any{key: map[string]any{"name": "hadron-a", "description": "Use when x"}})
+		if !ok {
+			t.Fatalf("%s should still be read as a declaration", key)
+		}
+		if d.Enable {
+			t.Errorf("%s: retired key defaulted to ENABLED", key)
+		}
 	}
 }
 
