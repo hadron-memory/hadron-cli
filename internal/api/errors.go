@@ -623,6 +623,26 @@ func codeForExtension(code string) int {
 	// would document an exit code no caller can ever observe.
 	case code == "TEAM_ROLE_EXISTS":
 		return exitcode.Conflict
+	// #619 — AUTHENTICATED BUT NOT PERMITTED. Both reached scripts as the
+	// generic 1 before exitcode.Forbidden existed, indistinguishable from a
+	// bug or an outage on the one class a caller can actually act on.
+	//
+	// FORBIDDEN is the platform's general refusal (23 SDL sites, and
+	// hadron-server#1220 migrates ~59 more onto it).
+	// CHANNEL_HOST_NOT_WRITABLE is createTeamChatMessage's successor to the
+	// retired SESSION_NOT_IN_APP / SESSION_WORKER_NOT_IN_APP: a worker may
+	// author only where the on-behalf-of user may write the host memory.
+	//
+	// LITERAL CASES, NOT A `_NOT_WRITABLE` SUFFIX FAMILY, and the reason is
+	// measured rather than cautious: the only other codes with that suffix are
+	// HOST_MEMORY_NOT_WRITABLE and HOST_MEMORY_NOT_READABLE, which are members
+	// of the RegisterDisclosure ENUM — rendered values explaining why an
+	// attendee cannot act on a row, never an extensions.code. A suffix rule
+	// would document an exit no caller can ever observe, which is the trap
+	// review:map-new-server-error-codes names and which #619's own first draft
+	// fell into with CHANNEL_DELETED (also an enum member, also never a code).
+	case code == "FORBIDDEN" || code == "CHANNEL_HOST_NOT_WRITABLE":
+		return exitcode.Forbidden
 	default:
 		return exitcode.Error
 	}
