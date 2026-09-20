@@ -5,6 +5,7 @@
 # @genqlient(for: "MemoryFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "MemoryFilter.visibility", omitempty: true)
 # @genqlient(for: "MemoryFilter.sharedWithMe", omitempty: true)
+# @genqlient(for: "MemoryFilter.ownedByMe", omitempty: true)
 query Memories(
   # @genqlient(omitempty: true)
   $filter: MemoryFilter

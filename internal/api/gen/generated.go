@@ -11921,7 +11921,7 @@ type MemoryFilter struct {
 	// combined with visibility PUBLIC it is empty by construction (#758
 	// excludes user-owned rows from the marketplace slice), and combined with
 	// sharedWithMe it narrows that slice rather than replacing it.
-	OwnedByMe *bool `json:"ownedByMe"`
+	OwnedByMe *bool `json:"ownedByMe,omitempty"`
 	// true selects the distinct set of memories shared WITH the caller
 	// via MemoryShare (the caller is a grantee) — the portal's
 	// Memories-shared-with-me tab. This is its own slice, NOT part of the
