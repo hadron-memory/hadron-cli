@@ -126,18 +126,49 @@ type Message struct {
 	// Mentions as stored by the poster; readers needing them should fall
 	// back to Mentions(Body) when empty (hand-created messages omit them).
 	Mentions []string `json:"mentions,omitempty"`
+	// The platform envelope's identity fields (#630). createChannelMessage
+	// writes these and this reader dropped all three, so `--json` could not
+	// tell a WORKER post from a human one — the distinction the Worker model
+	// exists to record. Absent on the retired academy rows, hence omitempty.
+	AuthorWorkerID string `json:"authorWorkerId,omitempty"`
+	AuthorUserID   string `json:"authorUserId,omitempty"`
+	AuthorAppID    string `json:"authorAppId,omitempty"`
 }
 
 // parseMessage lifts the chat fields out of a message node. The body reads
 // canonical-first (`content`, D-2026-08-07-004) with the retired academy
 // dialect (`data.body`) as fallback — accept everything, emit canonical.
-// Author falls back to the loc's "<timestamp>-<handle>" suffix when data has
-// none, so hand-created messages still attribute (matching the channel's
-// messageAuthor).
+//
+// AUTHOR PRECEDENCE, and the order is the whole of #630:
+//
+//	data.authorName  →  data.author  →  authorFromLoc(loc)
+//
+// `authorName` is what createChannelMessage actually writes. This reader used
+// to decode only `author` — the RETIRED academy key — so every server-minted
+// message missed the envelope entirely and fell through to the loc. The
+// consequences were not limited to the dashed-handle bug #367 chased:
+//
+//   - The loc suffix is the lowercase MENTION TOKEN, not the name. So the CLI
+//     rendered `jonas` where the server had recorded `Jonas` — wrong on every
+//     server-minted message, and quiet because a slug usually resembles a name.
+//   - A handle containing the delimiter attributed to the wrong person
+//     entirely (`002-279bba33-mary-jane` → `jane`), and hadron-portal is a
+//     PRODUCER of dashed handles.
+//
+// hadron-portal has read the envelope first all along; the CLI was the only
+// reader starting from the address. The loc fallback stays LAST rather than
+// being deleted — the retired academy rows in `hadronmemory.com:experiments`
+// genuinely carry no envelope author, and that is what it is for.
 func parseMessage(loc string, seq *int, content *string, data *json.RawMessage) Message {
 	m := Message{Seq: seq, Loc: loc}
 	if data != nil {
 		var d struct {
+			// The platform envelope (createChannelMessage).
+			AuthorName     string `json:"authorName"`
+			AuthorWorkerID string `json:"authorWorkerId"`
+			AuthorUserID   string `json:"authorUserId"`
+			AuthorAppID    string `json:"authorAppId"`
+			// The retired academy dialect, still read.
 			Author    string   `json:"author"`
 			Identity  string   `json:"identity"`
 			Role      string   `json:"role"`
@@ -147,8 +178,10 @@ func parseMessage(loc string, seq *int, content *string, data *json.RawMessage) 
 			Mentions  []string `json:"mentions"`
 		}
 		if json.Unmarshal(*data, &d) == nil {
-			m.Author, m.Identity, m.Role, m.Timestamp, m.Body = d.Author, d.Identity, d.Role, d.Timestamp, d.Body
+			m.Author = firstNonEmpty(d.AuthorName, d.Author)
+			m.Identity, m.Role, m.Timestamp, m.Body = d.Identity, d.Role, d.Timestamp, d.Body
 			m.SessionID, m.Mentions = d.SessionID, d.Mentions
+			m.AuthorWorkerID, m.AuthorUserID, m.AuthorAppID = d.AuthorWorkerID, d.AuthorUserID, d.AuthorAppID
 		}
 	}
 	if content != nil && *content != "" {
@@ -166,10 +199,19 @@ func parseMessage(loc string, seq *int, content *string, data *json.RawMessage) 
 // contain dashes.
 var serverMintedLocRE = regexp.MustCompile(`^[0-9]+-[0-9a-f]{8}-(.+)$`)
 
-// authorFromLoc recovers the handle from a message loc. It is the FALLBACK for
-// a message whose data envelope carries no author — which, since #367 moved the
-// write path onto Channels, is every newly posted message: the server records
-// the author on the message projection and writes no `data.author`.
+// authorFromLoc recovers the handle from a message loc. It is the LAST resort,
+// for a message whose data envelope carries no author at all.
+//
+// It briefly ran for every server-minted message, because this reader decoded
+// only `data.author` and the server writes `data.authorName` — the defect #630
+// fixed. That was never the intent: a loc suffix is a lowercase mention token,
+// not a name, so using it while the envelope held the real one produced a
+// wrong string on every message. Since the precedence fix it runs only for the
+// retired academy rows it was written for, which genuinely have no envelope
+// author.
+//
+// The dialect handling below therefore matters less than it did, and is kept
+// because those rows are exactly what reaches it.
 //
 // THREE loc dialects, and the order matters because each later branch is
 // strictly more permissive than the one before:

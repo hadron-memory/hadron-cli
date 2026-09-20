@@ -591,8 +591,16 @@ Conventions:
   and the message location (or the two-field `-m <memory> --messages-loc <prefix>`
   the push channel uses). It saves an agent the per-turn plumbing: `chat read
   [--since <seq>]` returns the new messages in ONE call as a compact transcript
-  (`--json`: `{messages:[{seq,loc,author,identity,role,timestamp,body}],
-  nextSince}`) — pass `nextSince` back as `--since` next turn. `chat post`
+  (`--json`: `{messages:[{seq,loc,author,identity,role,timestamp,body,
+  sessionId,mentions,authorWorkerId,authorUserId,authorAppId}], nextSince}`) —
+  pass `nextSince` back as `--since` next turn. **`author` is the name the
+  SERVER recorded** (`data.authorName`), not a handle parsed out of the loc
+  (#630): the loc suffix is a lowercase mention token, so reading it rendered
+  `jonas` where the server had written `Jonas`, and mis-attributed any handle
+  containing a `-`. Precedence is `authorName` → the retired academy `author` →
+  the loc, which now runs only for legacy rows that carry no envelope author.
+  `authorWorkerId` / `authorUserId` / `authorAppId` are the envelope's identity
+  fields, so a consumer can tell a WORKER post from a human one. `chat post`
   (`--body <text|->` inline or over stdin, or `--body-file <path>` for a composed
   multi-line message) writes through the **Channel** that chat is
   (`createChannelMessage`), creating it on first post: the server mints the loc,
