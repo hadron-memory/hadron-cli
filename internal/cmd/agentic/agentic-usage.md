@@ -1012,12 +1012,14 @@ Conventions:
   <id>` manage them. `org invite create <email> --org <id> --role <r>` mints an
   invitation whose returned `slug` is the acceptance token — the invitee redeems
   it with `org invite accept <slug>`; `org invite show <slug>` inspects one.
-- `agent` manages agents (user- or org-owned; an App runs an agent). `agent list [--org
-  <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC]`
-  is the member-scoped view (agents in your orgs); `agent list --public [--type
-  <t>]` is the separate cross-org marketplace slice — every live PUBLIC agent,
-  readable without org membership, so you can grab a foreign agent's URN to
-  subscribe/install (`--org`/`--visibility` don't apply to it).
+- `agent` manages agents (user- or org-owned; an App runs an agent). `agent list
+  [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility
+  ORGANIZATION|PERSONAL|PUBLIC]` is the member-scoped view (agents in your
+  orgs); `--owned-by-me` narrows it to your own org-less agents (see the owner
+  slice above — rejected with `--org`, and with `--public`). `agent list
+  --public [--type <t>]` is the separate cross-org marketplace slice — every
+  live PUBLIC agent, readable without org membership, so you can grab a foreign
+  agent's URN to subscribe/install (`--org`/`--visibility` don't apply to it).
   `agent get <ref>` (ID or URN); `agent create --name <n>` creates a
   user-owned agent — pass `--owner-me` to say so explicitly, or `--org <id>`
   for an org-owned agent (the two are mutually exclusive). A user-owned agent is
