@@ -23,11 +23,6 @@ query Memories(
       class
       visibility
       organizationId
-      # The org's skill-export prefix (hadron-server#1164), read here so
-      # `hadron skill --all` resolves a prefix per memory in the listing pass.
-      organization {
-        skillPrefix
-      }
       isEncrypted
       maxRevCount
       updatedAt
@@ -64,11 +59,6 @@ query MemoriesSharedWithMe(
       class
       visibility
       organizationId
-      # The org's skill-export prefix (hadron-server#1164), read here so
-      # `hadron skill --all` resolves a prefix per memory in the listing pass.
-      organization {
-        skillPrefix
-      }
       isEncrypted
       maxRevCount
       updatedAt
@@ -264,11 +254,6 @@ query GetMemory($ref: ID!) {
     visibility
     organizationId
     # The org's skill-export prefix (hadron-server#1164) — what `hadron skill`
-    # derives an exported skill's name from. Null when the org has not chosen
-    # one; absent (organization null) for a user-owned memory.
-    organization {
-      skillPrefix
-    }
     isEncrypted
     tags
     source

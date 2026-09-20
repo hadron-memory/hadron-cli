@@ -25,30 +25,32 @@ type lintFindingDTO struct {
 
 func newCmdLint(f *cmdutil.Factory) *cobra.Command {
 	var sel selectorFlags
-	var prefix string
 	var strict bool
 	cmd := &cobra.Command{
 		Use:   "lint (-m <memory>... | --all | --node <ref>...)",
 		Short: "Check skill-declaring task nodes against the corpus rules",
-		Long: `Check every node that declares a skill (properties.skill, or the legacy
-properties.claudeSkill) against the rules an export needs to hold — reading
-the corpus only; nothing on disk is touched.
+		Long: `Check every node that declares a skill against the rules an export
+needs to hold — reading the corpus only; nothing on disk is touched.
 
-Rules (errors unless noted): the description is present and at most 1024
-characters — the host does not refuse a longer one, it TRUNCATES it in the
-skill listing, so trigger phrases past the cut silently never fire; the
-derived name (<prefix> + the loc below "tasks:") is a valid skill name of at
-most 64 characters; a hand-set "name" in the declaration, if any, equals the
-derived one (the stored name is retired); isRunnable is true; the body is
-non-empty and carries no frontmatter of its own; no two selected nodes derive
-the same name. Warnings: the declaration still uses the legacy key; the
+A declaration is an object at properties.exports.<host>, carrying
+{name, description, enable}; the retired top-level properties.skill and
+properties.claudeSkill are read as aliases for the claudeSkill host, so nothing
+has to be migrated to keep working.
+
+Rules (errors unless noted): the name is present, kebab-case and at most 64
+characters — it is STORED at properties.exports.<host>.name, not derived, so
+that is what to change; the description is present and at most 1024 characters
+— the host does not refuse a longer one, it TRUNCATES it in the skill listing,
+so trigger phrases past the cut silently never fire; isRunnable is true; the
+body is non-empty and carries no frontmatter of its own; no two selected nodes
+store the same name. Warnings: the declaration still uses a retired key; the
 description never says when to use the skill; the body contains a {{…}}
 placeholder, which export ships verbatim.
 
-An org-owned memory whose org has chosen no Organization.skillPrefix is
-itself a finding — set it (org admin) or pass --prefix; a user-owned memory
-takes "hadron-". Errors exit 5; warnings alone exit 0 unless --strict promotes
-them to errors.
+Note what cannot be checked: with no prefix source, a name's PREFIX is
+unverifiable — "hadon-foo" lints clean. Shape is checkable, correctness is not.
+
+Errors exit 5; warnings alone exit 0 unless --strict promotes them to errors.
 
 --all covers what the server LISTS for you — your orgs' memories, memories
 shared with you, and other orgs' PUBLIC memories, every class. A per-user
@@ -60,9 +62,6 @@ listing by the server; lint it by naming it with -m.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := sel.validate(); err != nil {
-				return err
-			}
-			if err := validatePrefixFlag(cmd, prefix); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
@@ -78,11 +77,6 @@ listing by the server; lint it by naming it with -m.`,
 			toDTO := func(f skilldoc.Finding) lintFindingDTO {
 				return lintFindingDTO{Node: f.URN, Memory: f.Memory, Rule: f.Rule, Severity: f.Severity, Message: f.Message}
 			}
-			prefixes := map[string]skilldoc.Prefix{} // memory URN → resolved prefix
-			for _, m := range s.memories {
-				prefixes[m.URN] = resolvePrefix(m, prefix)
-			}
-
 			nodes := make([]skilldoc.Node, 0, len(s.nodes))
 			declared := 0
 			for _, n := range s.nodes {
@@ -95,14 +89,11 @@ listing by the server; lint it by naming it with -m.`,
 				if _, ok := skilldoc.Declared(sn.Properties); ok {
 					declared++
 				}
-				for _, fnd := range skilldoc.Lint(sn, prefixes[memURN]) {
+				for _, fnd := range skilldoc.Lint(sn) {
 					findings = append(findings, toDTO(fnd))
 				}
 			}
-			for _, fnd := range skilldoc.LintPrefixes(nodes, prefixes) {
-				findings = append(findings, toDTO(fnd))
-			}
-			for _, fnd := range skilldoc.LintCollisions(nodes, prefixes) {
+			for _, fnd := range skilldoc.LintCollisions(nodes) {
 				findings = append(findings, toDTO(fnd))
 			}
 			for _, ref := range s.unavailable {
@@ -147,7 +138,6 @@ listing by the server; lint it by naming it with -m.`,
 		},
 	}
 	sel.register(cmd)
-	cmd.Flags().StringVar(&prefix, "prefix", "", "export prefix to derive names with, overriding the org's (lowercase, trailing hyphen: hadron-, mm-)")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	return cmd
 }

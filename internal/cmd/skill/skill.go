@@ -43,13 +43,16 @@ func NewCmdSkill(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Maintain the skills exported from runnable task nodes",
 		Long: `Maintain the skill surface exported from Hadron task nodes.
 
-A task node opts in by declaring properties.skill — an object whose
-"description" is the trigger text a skill host matches against. The node is
-the source and the skill file is a build artifact: the skill's NAME is never
-stored, it is derived at export as <prefix> + the loc below "tasks:" with
-":" replaced by "-" (tasks:create-release-tag → hadron-create-release-tag).
-The prefix is the owning org's Organization.skillPrefix for an org-owned
-memory and "hadron-" for a user-owned one; --prefix overrides either.
+A task node opts in by declaring properties.exports.<host> — an object keyed
+by skill host, each entry carrying:
+
+  name         the skill's name, STORED whole (prefix included)
+  description  the trigger text the host matches against
+  enable       false stands this export down without removing the declaration
+
+The node is the source and the skill file is a build artifact. The retired
+properties.skill and properties.claudeSkill are read as aliases for the
+claudeSkill host, so nothing has to be migrated to keep working.
 
   lint    check declaring nodes against the corpus rules (no disk)`,
 	}
@@ -63,7 +66,6 @@ type memoryInfo struct {
 	ID             string
 	URN            string
 	OrganizationID *string
-	SkillPrefix    *string
 }
 
 // selectorFlags are the three mutually exclusive ways to name the nodes a
@@ -221,11 +223,7 @@ func lookupMemory(cmd *cobra.Command, client graphql.Client, ref string) (*memor
 		return nil, exitcode.Newf(exitcode.NotFound,
 			"no memory found for %q — expected a memory id or a URN: hrn:mem:<root>:<slug>, the <root>::<slug> short form, or the legacy hrn:memory: prefix", ref)
 	}
-	info := &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId}
-	if m.Organization != nil {
-		info.SkillPrefix = m.Organization.SkillPrefix
-	}
-	return info, nil
+	return &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId}, nil
 }
 
 // allMemories lists every memory the caller can read — own-org, shared with
@@ -255,16 +253,12 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 	}
 	seen := map[string]bool{}
 	var out []*memoryInfo
-	add := func(id, urn string, orgID *string, org interface{ GetSkillPrefix() *string }) {
+	add := func(id, urn string, orgID *string) {
 		if seen[id] {
 			return
 		}
 		seen[id] = true
-		m := &memoryInfo{ID: id, URN: urn, OrganizationID: orgID}
-		if org != nil {
-			m.SkillPrefix = org.GetSkillPrefix()
-		}
-		out = append(out, m)
+		out = append(out, &memoryInfo{ID: id, URN: urn, OrganizationID: orgID})
 	}
 	for _, filter := range []*gen.MemoryFilter{all, public} {
 		items, err := api.CollectAll(listing(filter))
@@ -272,11 +266,7 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 			return nil, err
 		}
 		for _, m := range items {
-			var org interface{ GetSkillPrefix() *string }
-			if m.Organization != nil {
-				org = m.Organization
-			}
-			add(m.Id, m.Urn, m.OrganizationId, org)
+			add(m.Id, m.Urn, m.OrganizationId)
 		}
 	}
 	shared, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory, int, error) {
@@ -293,25 +283,32 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 		return nil, err
 	}
 	for _, m := range shared {
-		var org interface{ GetSkillPrefix() *string }
-		if m.Organization != nil {
-			org = m.Organization
-		}
-		add(m.Id, m.Urn, m.OrganizationId, org)
+		add(m.Id, m.Urn, m.OrganizationId)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].URN < out[j].URN })
 	return out, nil
 }
 
-// listDeclaredIDs pages the shallow listing of the declaring nodes —
-// properties.skill or properties.claudeSkill present — across the given
-// memories, to exhaustion. The page size (500) is under the server's
+// listDeclaredIDs pages the shallow listing of the declaring nodes across the
+// given memories, to exhaustion. The page size (500) is under the server's
 // findNodes clamp (GRAPH_PAGE_MAX 2000), so a short page really is the end;
 // a request above the clamp would be silently cut and read as one.
+//
+// The predicate is the union of the D12 shape and the two retired top-level
+// keys, because nothing was migrated: it asks for `properties.exports`
+// EXISTING rather than a particular host inside it, so a node declaring only
+// a future host is still listed and can be reported rather than silently
+// skipped — the selection stays wider than any one host's renderer.
+//
+// It deliberately does NOT filter on `enable`: a disabled declaration must be
+// LISTED so `status` can report it and `export` can remove its file (the
+// `disabled` class, D12). Filtering it out here would make a disabled skill
+// indistinguishable from an absent one, and its file would linger forever.
 func listDeclaredIDs(cmd *cobra.Command, client graphql.Client, memIDs []string) ([]string, error) {
 	col := gqltypes.NodeWhereColumnProperties
 	exists := true
 	where := &gqltypes.NodeWhereInput{Or: []*gqltypes.NodeWhereInput{
+		{Field: &col, Path: []string{skilldoc.ExportsKey}, Exists: &exists},
 		{Field: &col, Path: []string{"skill"}, Exists: &exists},
 		{Field: &col, Path: []string{"claudeSkill"}, Exists: &exists},
 	}}
@@ -385,41 +382,6 @@ func canonicalNodeArg(ref string) (string, error) {
 			"--node %q is not a node URN — expected hrn:node:<root>:<slug>:<loc> or a node id", ref)
 	}
 	return canon, nil
-}
-
-// resolvePrefix decides a memory's export prefix (D7): an explicit override
-// wins; a user-owned memory (no org) takes the platform's; an org-owned
-// memory takes its org's chosen prefix. Known is false when the org has
-// chosen none — lint reports that per memory (skilldoc.LintPrefixes) and
-// export refuses; there is deliberately no client-side table to fall back on.
-func resolvePrefix(m *memoryInfo, override string) skilldoc.Prefix {
-	switch {
-	case override != "":
-		return skilldoc.Prefix{Value: override, Known: true}
-	case m.OrganizationID == nil:
-		return skilldoc.Prefix{Value: skilldoc.DefaultPrefix, Known: true}
-	case m.SkillPrefix != nil && *m.SkillPrefix != "":
-		return skilldoc.Prefix{Value: *m.SkillPrefix, Known: true}
-	}
-	return skilldoc.Prefix{}
-}
-
-// validatePrefixFlag applies the server's own prefix rule to an override, so
-// --prefix cannot mint a name the org field could never hold. A --prefix that
-// was GIVEN but is empty is refused rather than read as absent: an unset shell
-// variable expands to "", and the server cannot tell that from an intent —
-// the same reason `worker update` refuses an empty --prompt-override.
-func validatePrefixFlag(cmd *cobra.Command, p string) error {
-	if !cmd.Flags().Changed("prefix") {
-		return nil
-	}
-	if p == "" {
-		return exitcode.Newf(exitcode.Usage, "--prefix is empty — pass a prefix (e.g. hadron-, mm-) or omit the flag to use the org's")
-	}
-	if !skilldoc.ValidPrefix(p) {
-		return exitcode.Newf(exitcode.Usage, "--prefix %q must be lowercase letters/digits ending in a hyphen (e.g. hadron-, mm-)", p)
-	}
-	return nil
 }
 
 // toSkillNode projects a batch node onto the contract's view of it. The

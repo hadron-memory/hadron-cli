@@ -9429,19 +9429,18 @@ type GetMemoryMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn                string                       `json:"urn"`
-	Name               string                       `json:"name"`
-	ShortDescription   *string                      `json:"shortDescription"`
-	Description        *string                      `json:"description"`
-	Class              MemoryClass                  `json:"class"`
-	Visibility         *MemoryVisibility            `json:"visibility"`
-	OrganizationId     *string                      `json:"organizationId"`
-	Organization       *GetMemoryMemoryOrganization `json:"organization"`
-	IsEncrypted        bool                         `json:"isEncrypted"`
-	Tags               []string                     `json:"tags"`
-	Source             *string                      `json:"source"`
-	SyncStatus         SyncStatus                   `json:"syncStatus"`
-	VectorIndexEnabled bool                         `json:"vectorIndexEnabled"`
+	Urn                string            `json:"urn"`
+	Name               string            `json:"name"`
+	ShortDescription   *string           `json:"shortDescription"`
+	Description        *string           `json:"description"`
+	Class              MemoryClass       `json:"class"`
+	Visibility         *MemoryVisibility `json:"visibility"`
+	OrganizationId     *string           `json:"organizationId"`
+	IsEncrypted        bool              `json:"isEncrypted"`
+	Tags               []string          `json:"tags"`
+	Source             *string           `json:"source"`
+	SyncStatus         SyncStatus        `json:"syncStatus"`
+	VectorIndexEnabled bool              `json:"vectorIndexEnabled"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int `json:"maxRevCount"`
@@ -9478,9 +9477,6 @@ func (v *GetMemoryMemory) GetVisibility() *MemoryVisibility { return v.Visibilit
 // GetOrganizationId returns GetMemoryMemory.OrganizationId, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetOrganizationId() *string { return v.OrganizationId }
 
-// GetOrganization returns GetMemoryMemory.Organization, and is useful for accessing the field via an interface.
-func (v *GetMemoryMemory) GetOrganization() *GetMemoryMemoryOrganization { return v.Organization }
-
 // GetIsEncrypted returns GetMemoryMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetIsEncrypted() bool { return v.IsEncrypted }
 
@@ -9510,19 +9506,6 @@ func (v *GetMemoryMemory) GetCreatedAt() string { return v.CreatedAt }
 
 // GetUpdatedAt returns GetMemoryMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetUpdatedAt() string { return v.UpdatedAt }
-
-// GetMemoryMemoryOrganization includes the requested fields of the GraphQL type Organization.
-type GetMemoryMemoryOrganization struct {
-	// The literal prefix a task node in this org's memories is exported to disk
-	// with as a Claude skill (e.g. 'hadron-', 'mm-'): stored per org, never
-	// derived. Lowercase, trailing hyphen included, unique across orgs. Null =
-	// not chosen; a client refuses to export from the org rather than guess. A
-	// task in a user-owned memory has no org and takes the platform's 'hadron-'.
-	SkillPrefix *string `json:"skillPrefix"`
-}
-
-// GetSkillPrefix returns GetMemoryMemoryOrganization.SkillPrefix, and is useful for accessing the field via an interface.
-func (v *GetMemoryMemoryOrganization) GetSkillPrefix() *string { return v.SkillPrefix }
 
 // GetMemoryResponse is returned by GetMemory on success.
 type GetMemoryResponse struct {
@@ -11394,14 +11377,13 @@ type MemoriesMemoriesMemoriesPageItemsMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string                                               `json:"urn"`
-	Name             string                                               `json:"name"`
-	ShortDescription *string                                              `json:"shortDescription"`
-	Class            MemoryClass                                          `json:"class"`
-	Visibility       *MemoryVisibility                                    `json:"visibility"`
-	OrganizationId   *string                                              `json:"organizationId"`
-	Organization     *MemoriesMemoriesMemoriesPageItemsMemoryOrganization `json:"organization"`
-	IsEncrypted      bool                                                 `json:"isEncrypted"`
+	Urn              string            `json:"urn"`
+	Name             string            `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Class            MemoryClass       `json:"class"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+	OrganizationId   *string           `json:"organizationId"`
+	IsEncrypted      bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -11435,11 +11417,6 @@ func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetOrganizationId() *string {
 	return v.OrganizationId
 }
 
-// GetOrganization returns MemoriesMemoriesMemoriesPageItemsMemory.Organization, and is useful for accessing the field via an interface.
-func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetOrganization() *MemoriesMemoriesMemoriesPageItemsMemoryOrganization {
-	return v.Organization
-}
-
 // GetIsEncrypted returns MemoriesMemoriesMemoriesPageItemsMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetIsEncrypted() bool { return v.IsEncrypted }
 
@@ -11448,21 +11425,6 @@ func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetMaxRevCount() int { return 
 
 // GetUpdatedAt returns MemoriesMemoriesMemoriesPageItemsMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetUpdatedAt() string { return v.UpdatedAt }
-
-// MemoriesMemoriesMemoriesPageItemsMemoryOrganization includes the requested fields of the GraphQL type Organization.
-type MemoriesMemoriesMemoriesPageItemsMemoryOrganization struct {
-	// The literal prefix a task node in this org's memories is exported to disk
-	// with as a Claude skill (e.g. 'hadron-', 'mm-'): stored per org, never
-	// derived. Lowercase, trailing hyphen included, unique across orgs. Null =
-	// not chosen; a client refuses to export from the org rather than guess. A
-	// task in a user-owned memory has no org and takes the platform's 'hadron-'.
-	SkillPrefix *string `json:"skillPrefix"`
-}
-
-// GetSkillPrefix returns MemoriesMemoriesMemoriesPageItemsMemoryOrganization.SkillPrefix, and is useful for accessing the field via an interface.
-func (v *MemoriesMemoriesMemoriesPageItemsMemoryOrganization) GetSkillPrefix() *string {
-	return v.SkillPrefix
-}
 
 // MemoriesResponse is returned by Memories on success.
 type MemoriesResponse struct {
@@ -11521,14 +11483,13 @@ type MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string                                                           `json:"urn"`
-	Name             string                                                           `json:"name"`
-	ShortDescription *string                                                          `json:"shortDescription"`
-	Class            MemoryClass                                                      `json:"class"`
-	Visibility       *MemoryVisibility                                                `json:"visibility"`
-	OrganizationId   *string                                                          `json:"organizationId"`
-	Organization     *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization `json:"organization"`
-	IsEncrypted      bool                                                             `json:"isEncrypted"`
+	Urn              string            `json:"urn"`
+	Name             string            `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Class            MemoryClass       `json:"class"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+	OrganizationId   *string           `json:"organizationId"`
+	IsEncrypted      bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -11567,11 +11528,6 @@ func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetVisibility() *M
 // GetOrganizationId returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.OrganizationId, and is useful for accessing the field via an interface.
 func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetOrganizationId() *string {
 	return v.OrganizationId
-}
-
-// GetOrganization returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.Organization, and is useful for accessing the field via an interface.
-func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetOrganization() *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization {
-	return v.Organization
 }
 
 // GetIsEncrypted returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.IsEncrypted, and is useful for accessing the field via an interface.
@@ -11697,21 +11653,6 @@ func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGr
 	retval.Email = v.MemUserFields.Email
 	retval.Handle = v.MemUserFields.Handle
 	return &retval, nil
-}
-
-// MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization includes the requested fields of the GraphQL type Organization.
-type MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization struct {
-	// The literal prefix a task node in this org's memories is exported to disk
-	// with as a Claude skill (e.g. 'hadron-', 'mm-'): stored per org, never
-	// derived. Lowercase, trailing hyphen included, unique across orgs. Null =
-	// not chosen; a client refuses to export from the org rather than guess. A
-	// task in a user-owned memory has no org and takes the platform's 'hadron-'.
-	SkillPrefix *string `json:"skillPrefix"`
-}
-
-// GetSkillPrefix returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization.SkillPrefix, and is useful for accessing the field via an interface.
-func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization) GetSkillPrefix() *string {
-	return v.SkillPrefix
 }
 
 // MemoriesSharedWithMeResponse is returned by MemoriesSharedWithMe on success.
@@ -30699,9 +30640,6 @@ query GetMemory ($ref: ID!) {
 		class
 		visibility
 		organizationId
-		organization {
-			skillPrefix
-		}
 		isEncrypted
 		tags
 		source
@@ -31489,9 +31427,6 @@ query Memories ($filter: MemoryFilter, $limit: Int, $offset: Int) {
 			class
 			visibility
 			organizationId
-			organization {
-				skillPrefix
-			}
 			isEncrypted
 			maxRevCount
 			updatedAt
@@ -31546,9 +31481,6 @@ query MemoriesSharedWithMe ($limit: Int, $offset: Int, $memoryClasses: [MemoryCl
 			class
 			visibility
 			organizationId
-			organization {
-				skillPrefix
-			}
 			isEncrypted
 			maxRevCount
 			updatedAt

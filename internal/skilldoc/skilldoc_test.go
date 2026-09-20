@@ -6,26 +6,6 @@ import (
 	"unicode/utf8"
 )
 
-func TestDeriveName(t *testing.T) {
-	cases := []struct{ prefix, loc, want string }{
-		{"hadron-", "tasks:create-release-tag", "hadron-create-release-tag"},
-		{"hadron-", "export-task-as-claude-skill", "hadron-export-task-as-claude-skill"},
-		{"hadron-", "tasks:review:run", "hadron-review-run"},
-		{"mm-", "tasks:mm-briefing", "mm-mm-briefing"},
-		// A loc that IS "tasks" (no child) keeps its one segment: dropping it
-		// would derive a bare prefix.
-		{"hadron-", "tasks", "hadron-tasks"},
-		// Only a LEADING tasks segment is structure.
-		{"hadron-", "ops:tasks:rotate", "hadron-ops-tasks-rotate"},
-		{"", "tasks:foo", "foo"},
-	}
-	for _, c := range cases {
-		if got := DeriveName(c.prefix, c.loc); got != c.want {
-			t.Errorf("DeriveName(%q, %q) = %q, want %q", c.prefix, c.loc, got, c.want)
-		}
-	}
-}
-
 func TestValidName(t *testing.T) {
 	ok := []string{"hadron-create-release-tag", "a", "a1-b2", strings.Repeat("a", MaxNameLen)}
 	bad := []string{"", "Hadron-Foo", "hadron--foo", "-hadron", "hadron-", "hadron_foo", "hadron foo", strings.Repeat("a", MaxNameLen+1)}
@@ -37,19 +17,6 @@ func TestValidName(t *testing.T) {
 	for _, n := range bad {
 		if ValidName(n) {
 			t.Errorf("ValidName(%q) = true, want false", n)
-		}
-	}
-}
-
-func TestValidPrefix(t *testing.T) {
-	for _, p := range []string{"hadron-", "mm-", "a1-"} {
-		if !ValidPrefix(p) {
-			t.Errorf("ValidPrefix(%q) = false", p)
-		}
-	}
-	for _, p := range []string{"", "hadron", "Hadron-", "-", "1a-", "hadron_", "ha-dron-"} {
-		if ValidPrefix(p) {
-			t.Errorf("ValidPrefix(%q) = true", p)
 		}
 	}
 }
@@ -70,7 +37,7 @@ func TestDeclared(t *testing.T) {
 	if !ok || d.Key != "skill" || d.Description != "Use when new" {
 		t.Fatalf("both keys: ok=%v d=%+v", ok, d)
 	}
-	if got := rules(Lint(Node{URN: "u", Loc: "tasks:x", IsRunnable: true, Content: "b", Properties: both}, Prefix{Value: "hadron-", Known: true})); got["skill-legacy-key"] != SevWarning {
+	if got := rules(Lint(Node{URN: "u", Loc: "tasks:x", IsRunnable: true, Content: "b", Properties: both})); got["skill-legacy-key"] != SevWarning {
 		t.Errorf("leftover claudeSkill beside skill not warned: %v", got)
 	}
 	// Not an object ⇒ not declared: a stray string under the key is not an opt-in.
@@ -104,15 +71,19 @@ func TestHashIsInputSensitiveAndStable(t *testing.T) {
 	}
 }
 
+// declaring builds a node carrying the D12 declaration shape —
+// `exports.claudeSkill` with a stored name — so a node this helper calls clean
+// really is clean. `extra` overrides or adds fields inside the host entry; pass
+// {"name": ...} to exercise the name rules, or {"enable": false} for disabled.
 func declaring(loc, desc string, extra map[string]any) Node {
-	decl := map[string]any{"description": desc}
+	decl := map[string]any{"name": "hadron-" + strings.ReplaceAll(strings.TrimPrefix(loc, "tasks:"), ":", "-"), "description": desc}
 	for k, v := range extra {
 		decl[k] = v
 	}
 	return Node{
 		URN: "hrn:node:hadronmemory.com:core:" + loc, Loc: loc, MemoryURN: "hrn:mem:hadronmemory.com:core",
 		IsRunnable: true, Content: "# Body\n\nDo the thing.",
-		Properties: map[string]any{"skill": decl},
+		Properties: map[string]any{ExportsKey: map[string]any{HostClaudeSkill: decl}},
 	}
 }
 
@@ -126,7 +97,7 @@ func rules(fs []Finding) map[string]string {
 
 func TestLintCleanNodeHasNoFindings(t *testing.T) {
 	n := declaring("tasks:create-release-tag", "Use when the user says 'cut a release'.", nil)
-	if fs := Lint(n, Prefix{Value: "hadron-", Known: true}); len(fs) != 0 {
+	if fs := Lint(n); len(fs) != 0 {
 		t.Fatalf("clean node produced findings: %+v", fs)
 	}
 }
@@ -136,7 +107,7 @@ func TestLintMalformedDeclarationIsAnError(t *testing.T) {
 		{"skill": "yes"}, {"claudeSkill": true}, {"skill": []any{"x"}},
 	} {
 		n := Node{URN: "u", Loc: "tasks:x", IsRunnable: true, Content: "b", Properties: props}
-		got := rules(Lint(n, Prefix{Value: "hadron-", Known: true}))
+		got := rules(Lint(n))
 		if got["skill-declaration-malformed"] != SevError {
 			t.Errorf("props %v: want malformed error, got %v", props, got)
 		}
@@ -145,7 +116,7 @@ func TestLintMalformedDeclarationIsAnError(t *testing.T) {
 
 func TestLintUndeclaredNodeIsSilent(t *testing.T) {
 	n := Node{URN: "u", Loc: "tasks:x", IsRunnable: false, Properties: map[string]any{}}
-	if fs := Lint(n, Prefix{Value: "hadron-", Known: true}); len(fs) != 0 {
+	if fs := Lint(n); len(fs) != 0 {
 		t.Fatalf("undeclared node produced findings: %+v", fs)
 	}
 }
@@ -165,13 +136,9 @@ func TestLintRules(t *testing.T) {
 			map[string]string{"skill-description-too-long": SevError}, nil},
 		{"no trigger phrasing", declaring("tasks:a", "Exports things.", nil), "hadron-",
 			map[string]string{"skill-description-no-trigger": SevWarning}, nil},
-		{"hand-set name mismatch", declaring("tasks:mint-spec", "Use when x", map[string]any{"name": "add-spec"}), "hadron-",
-			map[string]string{"skill-name-hand-set": SevError}, nil},
-		{"hand-set name equal is accepted", declaring("tasks:mint-spec", "Use when x", map[string]any{"name": "hadron-mint-spec"}), "hadron-",
-			map[string]string{}, []string{"skill-name-hand-set"}},
-		{"invalid derived name", declaring("tasks:Bad_Loc", "Use when x", nil), "hadron-",
+		{"invalid stored name", declaring("tasks:a", "Use when x", map[string]any{"name": "Bad_Name"}), "hadron-",
 			map[string]string{"skill-name-invalid": SevError}, nil},
-		{"name too long", declaring("tasks:"+strings.Repeat("a", 70), "Use when x", nil), "hadron-",
+		{"stored name too long", declaring("tasks:a", "Use when x", map[string]any{"name": "hadron-" + strings.Repeat("a", 70)}), "hadron-",
 			map[string]string{"skill-name-invalid": SevError}, nil},
 		{"not runnable", func() Node { n := declaring("tasks:a", "Use when x", nil); n.IsRunnable = false; return n }(), "hadron-",
 			map[string]string{"skill-not-runnable": SevError}, nil},
@@ -185,14 +152,17 @@ func TestLintRules(t *testing.T) {
 			map[string]string{"skill-content-has-frontmatter": SevError}, nil},
 		{"template placeholder", func() Node { n := declaring("tasks:a", "Use when x", nil); n.Content = "You are {{name}}."; return n }(), "hadron-",
 			map[string]string{"skill-content-has-template": SevWarning}, nil},
-		{"legacy key", func() Node {
+		{"retired top-level key", func() Node {
+			// The pre-D12 shape, which still WORKS (read as an alias) and is
+			// steered to exports.<host> by a warning rather than refused.
 			n := declaring("tasks:a", "Use when x", nil)
-			n.Properties = map[string]any{"claudeSkill": n.Properties["skill"]}
+			host := n.Properties[ExportsKey].(map[string]any)[HostClaudeSkill]
+			n.Properties = map[string]any{"claudeSkill": host}
 			return n
-		}(), "hadron-", map[string]string{"skill-legacy-key": SevWarning}, nil},
+		}(), "hadron-", map[string]string{"skill-legacy-key": SevWarning}, []string{"skill-declaration-malformed", "skill-name-missing"}},
 	}
 	for _, c := range cases {
-		got := rules(Lint(c.node, Prefix{Value: c.prefix, Known: true}))
+		got := rules(Lint(c.node))
 		for rule, sev := range c.want {
 			if got[rule] != sev {
 				t.Errorf("%s: want %s=%s, got %v", c.name, rule, sev, got)
@@ -209,7 +179,7 @@ func TestLintRules(t *testing.T) {
 func TestLintTooLongMessageCarriesTheOverrun(t *testing.T) {
 	n := declaring("tasks:a", "Use when "+strings.Repeat("x", 1100), nil)
 	var msg string
-	for _, f := range Lint(n, Prefix{Value: "hadron-", Known: true}) {
+	for _, f := range Lint(n) {
 		if f.Rule == "skill-description-too-long" {
 			msg = f.Message
 		}
@@ -220,15 +190,27 @@ func TestLintTooLongMessageCarriesTheOverrun(t *testing.T) {
 }
 
 func TestLintCollisions(t *testing.T) {
-	a := declaring("tasks:start-worker-session-desktop", "Use when x", nil)
-	b := declaring("tasks:start-worker-session-desktop", "Use when x", nil)
-	b.URN = "hrn:node:hadronmemory.com:hadron-cli:tasks:start-worker-session-desktop"
-	b.MemoryURN = "hrn:mem:hadronmemory.com:hadron-cli"
-	c := declaring("tasks:other", "Use when x", nil)
-	undeclared := Node{URN: "u", Loc: "tasks:start-worker-session-desktop", MemoryURN: a.MemoryURN, Properties: map[string]any{}}
-	known := func(v string) Prefix { return Prefix{Value: v, Known: true} }
-	prefixes := map[string]Prefix{a.MemoryURN: known("hadron-"), b.MemoryURN: known("hadron-")}
-	fs := LintCollisions([]Node{a, b, c, undeclared}, prefixes)
+	// D12: the name is STORED, so a collision is two nodes storing one name —
+	// across memories and orgs alike, because there is no prefix left to keep
+	// two orgs' identically-named tasks apart. That is the cost D12 accepts and
+	// this test is where it is visible.
+	named := func(loc, memURN, urn, name string) Node {
+		return Node{
+			URN: urn, Loc: loc, MemoryURN: memURN, IsRunnable: true, Content: "body",
+			Properties: map[string]any{ExportsKey: map[string]any{
+				HostClaudeSkill: map[string]any{"name": name, "description": "Use when x"},
+			}},
+		}
+	}
+	a := named("tasks:start-worker", "hrn:mem:hadronmemory.com:core",
+		"hrn:node:hadronmemory.com:core:tasks:start-worker", "hadron-start-worker")
+	b := named("tasks:swd", "hrn:mem:hadronmemory.com:hadron-cli",
+		"hrn:node:hadronmemory.com:hadron-cli:tasks:swd", "hadron-start-worker")
+	c := named("tasks:other", a.MemoryURN,
+		"hrn:node:hadronmemory.com:core:tasks:other", "hadron-other")
+	undeclared := Node{URN: "u", Loc: "tasks:x", MemoryURN: a.MemoryURN, Properties: map[string]any{}}
+
+	fs := LintCollisions([]Node{a, b, c, undeclared})
 	if len(fs) != 2 {
 		t.Fatalf("want 2 collision findings (one per member), got %d: %+v", len(fs), fs)
 	}
@@ -240,16 +222,27 @@ func TestLintCollisions(t *testing.T) {
 			t.Errorf("a's finding does not name b: %q", f.Message)
 		}
 	}
-	// Different prefixes ⇒ different names ⇒ no collision.
-	prefixes[b.MemoryURN] = known("cli-")
-	if fs := LintCollisions([]Node{a, b}, prefixes); len(fs) != 0 {
-		t.Errorf("distinct prefixes still collide: %+v", fs)
+
+	// Distinct stored names do not collide, however similar the locs.
+	b2 := b
+	b2.Properties = map[string]any{ExportsKey: map[string]any{
+		HostClaudeSkill: map[string]any{"name": "cli-start-worker", "description": "Use when x"},
+	}}
+	if fs := LintCollisions([]Node{a, b2}); len(fs) != 0 {
+		t.Errorf("distinct stored names still collide: %+v", fs)
 	}
-	// Two orgs with NO prefix yet share a bare slug — not a collision: the
-	// prefixes they have yet to choose are what keeps them apart.
-	prefixes[a.MemoryURN], prefixes[b.MemoryURN] = Prefix{}, Prefix{}
-	if fs := LintCollisions([]Node{a, b}, prefixes); len(fs) != 0 {
-		t.Errorf("prefix-less nodes reported as colliding: %+v", fs)
+
+	// A declaration with NO name cannot collide — skill-name-missing is its
+	// finding, and pairing two nameless nodes as "colliding on \"\"" would be
+	// a second, misleading report of the same defect.
+	nameless := a
+	nameless.Properties = map[string]any{ExportsKey: map[string]any{
+		HostClaudeSkill: map[string]any{"description": "Use when x"},
+	}}
+	nameless2 := b
+	nameless2.Properties = nameless.Properties
+	if fs := LintCollisions([]Node{nameless, nameless2}); len(fs) != 0 {
+		t.Errorf("nameless declarations reported as colliding: %+v", fs)
 	}
 }
 
@@ -346,24 +339,24 @@ func TestFrontmatterRuleNeedsAClosingDelimiter(t *testing.T) {
 	// A horizontal rule at the top of a body is markdown, not frontmatter.
 	rule := declaring("tasks:a", "Use when x", nil)
 	rule.Content = "---\n\n# Starts with a rule\n"
-	if got := rules(Lint(rule, Prefix{Value: "hadron-", Known: true})); got["skill-content-has-frontmatter"] != "" {
+	if got := rules(Lint(rule)); got["skill-content-has-frontmatter"] != "" {
 		t.Errorf("leading horizontal rule flagged as frontmatter: %v", got)
 	}
 	fm := declaring("tasks:a", "Use when x", nil)
 	fm.Content = "---\nname: x\n---\n\n# Real frontmatter\n"
-	if got := rules(Lint(fm, Prefix{Value: "hadron-", Known: true})); got["skill-content-has-frontmatter"] != SevError {
+	if got := rules(Lint(fm)); got["skill-content-has-frontmatter"] != SevError {
 		t.Errorf("real frontmatter not flagged: %v", got)
 	}
 	// An EMPTY frontmatter block is still frontmatter (Copilot on #589).
 	empty := declaring("tasks:a", "Use when x", nil)
 	empty.Content = "---\n---\n# Body\n"
-	if got := rules(Lint(empty, Prefix{Value: "hadron-", Known: true})); got["skill-content-has-frontmatter"] != SevError {
+	if got := rules(Lint(empty)); got["skill-content-has-frontmatter"] != SevError {
 		t.Errorf("empty frontmatter block not flagged: %v", got)
 	}
 	// Windows line endings are the same frontmatter (Codex on #589, round 6).
 	crlf := declaring("tasks:a", "Use when x", nil)
 	crlf.Content = "---\r\nname: x\r\n---\r\n\r\n# Real frontmatter\r\n"
-	if got := rules(Lint(crlf, Prefix{Value: "hadron-", Known: true})); got["skill-content-has-frontmatter"] != SevError {
+	if got := rules(Lint(crlf)); got["skill-content-has-frontmatter"] != SevError {
 		t.Errorf("CRLF frontmatter not flagged: %v", got)
 	}
 }
@@ -480,7 +473,7 @@ func TestRenderNormalizesWhatLintMeasured(t *testing.T) {
 	// The length lint certifies is the exported length: at-limit plus a
 	// trailing space is still at limit.
 	atLimit := "Use when " + strings.Repeat("x", MaxDescriptionLen-9) + " "
-	if got := rules(Lint(declaring("tasks:a", atLimit, nil), Prefix{Value: "hadron-", Known: true})); got["skill-description-too-long"] != "" {
+	if got := rules(Lint(declaring("tasks:a", atLimit, nil))); got["skill-description-too-long"] != "" {
 		t.Errorf("trailing space counted against the limit: %v", got)
 	}
 	if utf8.RuneCountInString(NormalizeDescription(atLimit)) != MaxDescriptionLen {
@@ -496,16 +489,19 @@ func TestLimitsCountCharactersNotBytes(t *testing.T) {
 	if utf8.RuneCountInString(desc) != MaxDescriptionLen {
 		t.Fatalf("fixture is %d chars, want %d", utf8.RuneCountInString(desc), MaxDescriptionLen)
 	}
-	if got := rules(Lint(declaring("tasks:a", desc, nil), Prefix{Value: "hadron-", Known: true})); got["skill-description-too-long"] != "" {
+	if got := rules(Lint(declaring("tasks:a", desc, nil))); got["skill-description-too-long"] != "" {
 		t.Errorf("at-limit description flagged as too long: %v", got)
 	}
 }
 
 func TestLintEmptyStoredNameIsJudged(t *testing.T) {
-	// {"name": ""} is a stored name, and it does not equal the derived one.
+	// The trap survives D12 even though the rule that found it did not:
+	// {"name": ""} is a name that is PRESENT and empty, and it must be judged
+	// rather than read as absent. Under D12 the finding is skill-name-missing,
+	// which is the same defect the author needs told about.
 	n := declaring("tasks:a", "Use when x", map[string]any{"name": ""})
-	if got := rules(Lint(n, Prefix{Value: "hadron-", Known: true})); got["skill-name-hand-set"] != SevError {
-		t.Errorf("empty stored name read as absent: %v", got)
+	if got := rules(Lint(n)); got["skill-name-missing"] != SevError {
+		t.Errorf("empty stored name not judged: %v", got)
 	}
 }
 
@@ -537,7 +533,7 @@ func TestPreambleIsOneOfEachAndKeepsWhitespaceLines(t *testing.T) {
 	// An indented --- block is content on disk, so lint treats it as content.
 	n := declaring("tasks:a", "Use when x", nil)
 	n.Content = "  ---\nname: x\n---\nbody\n"
-	if got := rules(Lint(n, Prefix{Value: "hadron-", Known: true})); got["skill-content-has-frontmatter"] != "" {
+	if got := rules(Lint(n)); got["skill-content-has-frontmatter"] != "" {
 		t.Errorf("indented rule flagged as frontmatter: %v", got)
 	}
 }
@@ -699,7 +695,7 @@ func TestLintNonStringNameOrDescriptionIsMalformed(t *testing.T) {
 		{"skill": map[string]any{"description": 42}},
 	} {
 		n := Node{URN: "u", Loc: "tasks:x", IsRunnable: true, Content: "b", Properties: props}
-		if got := rules(Lint(n, Prefix{Value: "hadron-", Known: true})); got["skill-declaration-malformed"] != SevError {
+		if got := rules(Lint(n)); got["skill-declaration-malformed"] != SevError {
 			t.Errorf("props %v: want malformed error, got %v", props, got)
 		}
 	}
@@ -710,28 +706,141 @@ func TestLintMalformedKeyIsReportedEvenBesideAValidOne(t *testing.T) {
 	// The node is declared (via claudeSkill) AND carries a malformed key.
 	n := Node{URN: "u", Loc: "tasks:x", IsRunnable: true, Content: "b",
 		Properties: map[string]any{"skill": "oops", "claudeSkill": map[string]any{"description": "Use when x"}}}
-	got := rules(Lint(n, Prefix{Value: "hadron-", Known: true}))
+	got := rules(Lint(n))
 	if got["skill-declaration-malformed"] != SevError || got["skill-legacy-key"] != SevWarning {
 		t.Errorf("want malformed error AND legacy warning, got %v", got)
 	}
 }
 
-func TestLintPrefixes(t *testing.T) {
-	a := declaring("tasks:a", "Use when a", nil)
-	a.MemoryURN = "hrn:mem:acme.com:ops"
-	empty := Node{URN: "e", Loc: "tasks:e", MemoryURN: "hrn:mem:acme.com:empty", Properties: map[string]any{}}
-	prefixes := map[string]Prefix{} // neither memory has a prefix
-	fs := LintPrefixes([]Node{a, empty}, prefixes)
-	if len(fs) != 1 || fs[0].URN != a.MemoryURN || fs[0].Rule != "skill-prefix-missing" {
-		t.Fatalf("want one finding for the declaring memory only, got %+v", fs)
+// --- D12: the exports shape, per-host keying, and the enable switch ---
+
+func TestExportsIsKeyedByHostAndWinsOverRetiredKeys(t *testing.T) {
+	host := map[string]any{"name": "hadron-new", "description": "Use when new"}
+	props := map[string]any{
+		ExportsKey:      map[string]any{HostClaudeSkill: host},
+		"skill":         map[string]any{"name": "hadron-mid", "description": "Use when mid"},
+		"claudeSkill":   map[string]any{"name": "hadron-old", "description": "Use when old"},
+		"somethingElse": "ignored",
 	}
-	prefixes[a.MemoryURN] = Prefix{Value: "acme-", Known: true}
-	if fs := LintPrefixes([]Node{a, empty}, prefixes); len(fs) != 0 {
-		t.Errorf("known prefix still reported: %+v", fs)
+	d, ok := Declared(props)
+	if !ok {
+		t.Fatal("exports.claudeSkill not read as a declaration")
 	}
-	// A hand-set name is not judged against a prefix that is unknown.
-	h := declaring("tasks:mint-spec", "Use when x", map[string]any{"name": "add-spec"})
-	if got := rules(Lint(h, Prefix{})); got["skill-name-hand-set"] != "" {
-		t.Errorf("hand-set name judged with no prefix: %v", got)
+	if d.Key != ExportsKey+"."+HostClaudeSkill || d.Name != "hadron-new" {
+		t.Fatalf("exports did not win over the retired keys: %+v", d)
+	}
+	if d.Host != HostClaudeSkill {
+		t.Errorf("host not recorded: %q", d.Host)
+	}
+	// Both strays are named in ONE finding, so the author is told to remove both.
+	n := Node{URN: "u", Loc: "tasks:a", MemoryURN: "m", IsRunnable: true, Content: "b", Properties: props}
+	var msg string
+	for _, f := range Lint(n) {
+		if f.Rule == "skill-legacy-key" {
+			msg = f.Message
+		}
+	}
+	for _, want := range []string{"properties.skill", "properties.claudeSkill"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("stray %s not named in %q", want, msg)
+		}
+	}
+}
+
+func TestAnotherHostIsDeclaredButNotValidatedHere(t *testing.T) {
+	// A node declaring ONLY a future host is still a declaration as far as the
+	// discovery predicate is concerned, but this package validates the one host
+	// whose renderer is specified. It must not be read as claudeSkill, and it
+	// must not be reported as malformed.
+	props := map[string]any{ExportsKey: map[string]any{
+		"codex": map[string]any{"name": "hadron-x", "description": "Use when x"},
+	}}
+	if d, ok := Declared(props); ok {
+		t.Fatalf("a codex-only declaration was read as claudeSkill: %+v", d)
+	}
+	if bad := Malformed(props); len(bad) != 0 {
+		t.Errorf("a well-formed foreign host reported as malformed: %v", bad)
+	}
+}
+
+func TestEnableDefaultsToEnabledAndFalseIsRecorded(t *testing.T) {
+	// ABSENT means enabled: declaring an export IS the opt-in, and enable:false
+	// is the explicit way to stand one down. EnableSet keeps the two apart for a
+	// caller that needs to report which.
+	d, _ := Declared(map[string]any{ExportsKey: map[string]any{
+		HostClaudeSkill: map[string]any{"name": "hadron-a", "description": "Use when x"},
+	}})
+	if !d.Enable || d.EnableSet {
+		t.Errorf("absent enable should be enabled-but-unset, got Enable=%v Set=%v", d.Enable, d.EnableSet)
+	}
+
+	for _, want := range []bool{true, false} {
+		d, _ := Declared(map[string]any{ExportsKey: map[string]any{
+			HostClaudeSkill: map[string]any{"name": "hadron-a", "description": "Use when x", "enable": want},
+		}})
+		if d.Enable != want || !d.EnableSet {
+			t.Errorf("enable=%v not recorded: Enable=%v Set=%v", want, d.Enable, d.EnableSet)
+		}
+	}
+
+	// A DISABLED declaration is still DECLARED — enable governs whether it is
+	// exported, not whether it exists. If this ever returned false, a disabled
+	// skill would be indistinguishable from an absent one and its file on disk
+	// would linger forever with nothing able to name it.
+	d, ok := Declared(map[string]any{ExportsKey: map[string]any{
+		HostClaudeSkill: map[string]any{"name": "hadron-a", "description": "Use when x", "enable": false},
+	}})
+	if !ok || d.Enable {
+		t.Errorf("a disabled declaration must still be declared: ok=%v Enable=%v", ok, d.Enable)
+	}
+}
+
+func TestMalformedExportsPaths(t *testing.T) {
+	cases := []struct {
+		name  string
+		props map[string]any
+		want  string
+	}{
+		{"exports not an object", map[string]any{ExportsKey: "yes"}, ExportsKey},
+		{"host entry not an object", map[string]any{ExportsKey: map[string]any{HostClaudeSkill: true}}, ExportsKey + "." + HostClaudeSkill},
+		{"non-string name", map[string]any{ExportsKey: map[string]any{HostClaudeSkill: map[string]any{"name": 123}}}, ExportsKey + "." + HostClaudeSkill + ".name"},
+		{"non-string description", map[string]any{ExportsKey: map[string]any{HostClaudeSkill: map[string]any{"description": []any{"x"}}}}, ExportsKey + "." + HostClaudeSkill + ".description"},
+		{"non-boolean enable", map[string]any{ExportsKey: map[string]any{HostClaudeSkill: map[string]any{"enable": "true"}}}, ExportsKey + "." + HostClaudeSkill + ".enable"},
+		{"foreign host malformed too", map[string]any{ExportsKey: map[string]any{"codex": map[string]any{"enable": 1}}}, ExportsKey + ".codex.enable"},
+	}
+	for _, c := range cases {
+		bad := Malformed(c.props)
+		found := false
+		for _, b := range bad {
+			if b == c.want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("%s: want %q among malformed, got %v", c.name, c.want, bad)
+		}
+	}
+}
+
+func TestMalformedHostPathsAreDeterministic(t *testing.T) {
+	// Map iteration order is random in Go, so two hosts both malformed must
+	// still report in a stable order — otherwise the finding list flaps between
+	// runs and a --strict gate is nondeterministic.
+	props := map[string]any{ExportsKey: map[string]any{
+		"zulu":  true,
+		"alpha": true,
+		"mike":  true,
+	}}
+	want := []string{ExportsKey + ".alpha", ExportsKey + ".mike", ExportsKey + ".zulu"}
+	for i := 0; i < 20; i++ {
+		got := Malformed(props)
+		if len(got) != len(want) {
+			t.Fatalf("want %d malformed paths, got %v", len(want), got)
+		}
+		for j := range want {
+			if got[j] != want[j] {
+				t.Fatalf("unstable order: want %v, got %v", want, got)
+			}
+		}
 	}
 }
