@@ -144,8 +144,9 @@ Two corrections to the thread, measured on this machine:
   a hand-set name is now the contract rather than a defect.
 
   **The cost, stated not argued.** With no prefix source, nothing can verify a
-  stored name is *correct* — only that it is kebab-case and ≤ 64. `hadon-foo`
-  lints clean. The only evidence to hand is that this corpus already drifted
+  stored name is *correct* — only that it is kebab-case and ≤ 64, so **a typo in
+  the prefix lints clean**: `hadon-foo` passes every rule (and yes, that
+  misspelling is deliberate — it is the whole example). The only evidence to hand is that this corpus already drifted
   when names were hand-set: 15 of 20 were hand-set, 5 contradicted their loc.
   Lint checks shape; consistency becomes a human convention.
 
@@ -469,7 +470,7 @@ a lint error naming the loc, never silently munged.
 
 ```markdown
 ---
-name: hadron-create-release-tag
+name: <properties.exports.<host>.name (D12) — STORED, not derived from the loc>
 description: <properties.exports.<host>.description (D12) — after NormalizeDescription>
 ---
 
@@ -478,6 +479,13 @@ description: <properties.exports.<host>.description (D12) — after NormalizeDes
 
 <node content after NormalizeBody: CRLF folded, surrounding newlines trimmed, inner content untouched>
 ```
+
+> **Both frontmatter values come from the DECLARATION, not from the loc** (@copilot
+> on #627). A concrete example would read `name: hadron-create-release-tag` for the
+> node `core:tasks:create-release-tag` — and that *looks* derived, which is exactly
+> the misreading to avoid: since D12 the two coincide only because whoever authored
+> the declaration chose a name matching the loc. Nothing enforces it, and a skill
+> may legitimately be named something its loc does not suggest.
 
 - One **machine-parseable header line**, `<!-- hadron-skill k=v k=v -->`, parsed
   by a small regex; the second line is prose for humans and is not parsed.
