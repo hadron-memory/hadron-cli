@@ -91,6 +91,32 @@ self-hosted backend.
 | 5    | conflict (e.g. duplicate install, a loc already taken) |
 | 6    | cancelled / timed out waiting for the user |
 | 7    | unavailable — the request never got an answer (gateway 5xx, reset, timeout) |
+| 8    | forbidden — authenticated, but not permitted |
+
+**A permission refusal exits 8, not 1 (#619).** This CHANGED: `FORBIDDEN` — the
+platform's general refusal, named at 23 sites in the SDL and already arriving —
+fell through to the generic 1, where it was indistinguishable from a bug or an
+outage. `CHANNEL_HOST_NOT_WRITABLE` joins it: `createTeamChatMessage`'s
+successor to the retired `SESSION_NOT_IN_APP` / `SESSION_WORKER_NOT_IN_APP`,
+raised when a worker's on-behalf-of user may not write the Channel's host
+memory.
+
+**8 is not 3.** Exit 3 means "no credentials, or credentials rejected" and its
+remedy is `hadron auth login`; exit 8 means the server knows exactly who you
+are and will not let you do this. Branching on 3 vs 8 is branching on *sign in*
+versus *ask someone for access* — two different humans and two different next
+actions, and telling an authenticated caller to log in is a false remedy.
+
+Expect this class to grow: hadron-server#1220 migrates ~59 further call sites
+onto typed `FORBIDDEN`, 17 of them inside seven shared gates.
+
+Two codes that look like they belong here and do NOT, so a reader does not
+complete the family: `HOST_MEMORY_NOT_WRITABLE` and `HOST_MEMORY_NOT_READABLE`
+are members of the `RegisterDisclosure` **enum** — rendered explanations of why
+an attendee cannot act on a row, never an `extensions.code` — and `LOC_PROTECTED`
+is a WRONG-DOOR refusal rather than a permission one: the caller may hold full
+write access and simply used the wrong operation, so "ask for access" would be
+the wrong next action.
 
 **Writing a node at a loc that is already taken exits 5, not 1 (#608).** This
 CHANGED: it used to exit 1, because the server stamps that `extensions.code`
@@ -1733,7 +1759,7 @@ Conventions:
   `grants[]` is the first-class "no access" answer. Reading it requires audit
   rights on the resource (platform admin, the owning org's ADMIN/OWNER, or a
   strict-owner memory's principal) — otherwise the server's `FORBIDDEN` surfaces
-  as exit 1. An unresolvable resource is exit 4; an under-qualified resource ref
+  as exit 8 (#619; it was exit 1 before the permission-denied class existed). An unresolvable resource is exit 4; an under-qualified resource ref
   (e.g. `acme.com:kb` with no `hrn:` prefix) is a usage error (exit 2).
 - **Headless runs** (spec-040, `cor:agt:010`) drive an App off any interactive
   session — the open-source counterpart to the portal's run surface. A *run*

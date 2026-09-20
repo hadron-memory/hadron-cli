@@ -23,6 +23,25 @@ const (
 	// which a mutation's outcome is genuinely unknown. A script branching on
 	// 1 vs 7 is branching on "the server refused this" vs "ask again".
 	Unavailable = 7
+	// Forbidden (#619) is AUTHENTICATED BUT NOT PERMITTED — the server knows
+	// who you are and will not let you do this.
+	//
+	// It is NOT AuthRequired, and that distinction is the whole reason it
+	// exists. 3 means "no credentials, or credentials rejected", whose remedy
+	// is `hadron auth login`; printing that at someone already signed in is a
+	// false remedy, and the CLI has shipped one of those before (#626, where
+	// `whoami` told a rejected token it had no sessions and an App key to log
+	// in). Nor is it Error: 1 is "something failed", which leaves an agent
+	// unable to tell a permission boundary from a bug or an outage.
+	//
+	// The class is large and growing. FORBIDDEN is named at 23 sites in the
+	// SDL today and already arrives at the CLI; hadron-server#1220 migrates
+	// ~59 more call sites onto it, 17 of them inside seven shared gates. Every
+	// one of those reached a script as 1 before this.
+	//
+	// A script branching on 3 vs 8 is branching on "sign in" vs "ask someone
+	// for access" — two different humans and two different next actions.
+	Forbidden = 8
 )
 
 // CodedError carries an exit code alongside an error. The root

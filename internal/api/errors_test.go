@@ -30,6 +30,21 @@ func TestMapError(t *testing.T) {
 		{"urn not qualified", gqlErr("URN_NOT_QUALIFIED"), exitcode.Usage}, // spec 022, #540
 		{"validation", gqlErr("GRAPHQL_VALIDATION_FAILED"), exitcode.Usage},
 		{"duplicate", gqlErr("DUPLICATE_APP_AGENT"), exitcode.Conflict},
+		// #619 — the permission-denied class. Both reached scripts as the
+		// generic 1 before exitcode.Forbidden existed.
+		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
+		{"channel host not writable", gqlErr("CHANNEL_HOST_NOT_WRITABLE"), exitcode.Forbidden},
+		// NOT Forbidden, and each for its own reason, so a later reader does
+		// not "complete the family" by mapping them:
+		//   HOST_MEMORY_NOT_WRITABLE is a RegisterDisclosure ENUM member — a
+		//   rendered explanation, never an extensions.code — so a
+		//   `_NOT_WRITABLE` suffix rule would document an unobservable exit.
+		//   LOC_PROTECTED is a WRONG-DOOR refusal, not a permission one: the
+		//   caller may have full write access and used the wrong operation
+		//   ("only its own operations may delete"), so "ask someone for
+		//   access" would be the wrong next action.
+		{"host memory not writable is an enum member, not a code", gqlErr("HOST_MEMORY_NOT_WRITABLE"), exitcode.Error},
+		{"loc protected is a wrong door, not a permission boundary", gqlErr("LOC_PROTECTED"), exitcode.Error},
 		// TEAM_ROLE_EXISTS is spelled without the _ALREADY_ the suffix rule
 		// matches, so it needs the explicit case. Its register-invariant
 		// siblings (TEAM_ROLE_IN_USE, _NAME_MINTED, _NAME_DUPLICATE,
@@ -76,7 +91,6 @@ func TestMapError(t *testing.T) {
 		// its place as the general contract: exit codes are documented, and a
 		// future caller that does NOT intercept must still get 5 rather than 1.
 		{"hold stale", gqlErr("WORKER_HOLD_STALE"), exitcode.Conflict},
-		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Error},
 		{"no extension", gqlerror.List{{Message: "boom"}}, exitcode.Error},
 		{"plain", errors.New("network down"), exitcode.Error},
 	}

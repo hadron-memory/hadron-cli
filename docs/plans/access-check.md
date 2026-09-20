@@ -81,7 +81,8 @@ subcommand; `resolveUserID` / `normalizeResourceRef` helpers.
 ## Exit codes
 
 Routed through `api.MapError`: server `FORBIDDEN` (caller lacks audit rights)
-→ exit 1; unresolvable resource (`NOT_FOUND`) → exit 4; local under-qualified
+→ **exit 8** (#619 gave the permission-denied class its own code; this said
+exit 1 until then, which is what the generic default produced); unresolvable resource (`NOT_FOUND`) → exit 4; local under-qualified
 resource / ambiguous user → usage, exit 2. A *subject* with no access is a
 **success** (exit 0, empty grants), distinct from the caller being forbidden.
 
