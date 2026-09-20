@@ -97,11 +97,6 @@ var (
 	templateRE = regexp.MustCompile(`\{\{[^}]*\}\}`)
 )
 
-// Declaration is a node's opt-in to export: `properties.skill` (D10, the
-// provider-neutral key) or the legacy `properties.claudeSkill`, whichever is
-// present. Key records which one, so lint can steer a legacy declaration to
-// the new key. Name is the pre-#580 hand-set skill name; it is retired in
-// favor of derivation (D8) and accepted during transition only when it equals
 // Declaration is a node's opt-in to export for ONE host: an object at `properties.
 // exports.<host>` (D12), or one of the retired top-level keys read as an alias
 // for the claudeSkill host. Key is the property PATH it was found at, so a
@@ -303,10 +298,14 @@ type Node struct {
 	Properties map[string]any
 }
 
-// Finding is one lint result. URN names the node; for a memory-level finding
-// (a prefix the org has not chosen) URN is the memory URN and Memory equals
-// it. Memory is carried on every finding so a renderer never has to look it
-// back up from the node it came from.
+// Finding is one lint result. URN names the node and Memory the memory holding
+// it, carried on every finding so a renderer never has to look it back up from
+// the node it came from.
+//
+// Every finding is now node-level. The memory-level case this used to describe
+// was `skill-prefix-missing`, which D12 retired along with the org prefix — the
+// command layer still synthesises one node-level finding of its own for an
+// unreadable node (`skill-node-unavailable`), keyed on the ref it could not read.
 type Finding struct {
 	URN      string
 	Memory   string
