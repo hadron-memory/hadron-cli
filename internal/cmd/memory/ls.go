@@ -19,7 +19,7 @@ type (
 )
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
-	var includeAgentSystem, sharedWithMe bool
+	var includeAgentSystem, sharedWithMe, ownedByMe bool
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
@@ -29,12 +29,32 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 By default that is your own union: org-owned, org-subscribed, and your own
 personal/private memories.
 
+--owned-by-me NARROWS that union to the memories you own outright: the
+org-less ones (no organizationId) whose owner is you. It is the "my
+memories" slice, and it is answered by the server — the ownership columns
+are not something a client can reconstruct, which is why this is a flag and
+not a filter you apply to the default listing yourself.
+
+Ownership is per class, matching the read gates: a personal/private memory
+is yours when you are its strict owner, every other class when you are its
+user-tenant owner. So a knowledge-class memory under your own handle IS in
+this slice — filtering the default listing by class would miss exactly
+those rows. An org-owned memory is never in it, however personal, because
+it has an organization.
+
+Your active organization is not consulted: the slice is org-less by
+definition, so ` + "`org use`" + ` does not change it. An App-key caller or an
+impersonated session gets an empty list — this is a question about a user.
+(To CREATE a memory in this slice, see ` + "`memory set --owner-me`" + `.)
+
 --shared-with-me SWITCHES the listing to the memories other users have
 shared with you (via ` + "`memory share`" + `). That is a separate slice rather
 than a subset, so the two listings never overlap — your own memories are
 absent from it, and shared ones are absent from the default listing. It
 also reports the role you were granted and who shared it.`,
 		Example: `  hadron memory ls
+  hadron memory ls --owned-by-me
+  hadron memory ls --owned-by-me --json
   hadron memory ls --shared-with-me
   hadron memory ls --shared-with-me --json`,
 		Args: cobra.NoArgs,
@@ -47,7 +67,7 @@ also reports the role you were granted and who shared it.`,
 			if sharedWithMe {
 				memories, err = listSharedWithMe(cmd, client)
 			} else {
-				memories, err = listOwnUnion(cmd, client, includeAgentSystem)
+				memories, err = listOwnUnion(cmd, client, includeAgentSystem, ownedByMe)
 			}
 			if err != nil {
 				return err
@@ -71,10 +91,18 @@ also reports the role you were granted and who shared it.`,
 	}
 	cmd.Flags().BoolVar(&includeAgentSystem, "include-agent-system", false, "include agent system memories")
 	cmd.Flags().BoolVar(&sharedWithMe, "shared-with-me", false, "list memories shared with you instead of your own")
+	cmd.Flags().BoolVar(&ownedByMe, "owned-by-me", false, "list only the org-less memories you own")
 	// A slice selection can't be narrowed by the other slice's knob: shared
 	// memories are personal-class by definition, so combining the two would
 	// quietly mean nothing. Reject it rather than ignore it.
 	cmd.MarkFlagsMutuallyExclusive("shared-with-me", "include-agent-system")
+	// Same shape, and here the server says so itself: a grantee is never their
+	// own grantor, so the shared slice excludes owned memories and the
+	// intersection is empty BY CONSTRUCTION, not by what happens to be stored.
+	// An empty page is the one answer a caller can't tell from a real result,
+	// so refuse instead — the same call the server makes in rejecting
+	// ownedByMe on PublicAgentFilter rather than returning nothing.
+	cmd.MarkFlagsMutuallyExclusive("shared-with-me", "owned-by-me")
 	return cmd
 }
 
@@ -82,10 +110,26 @@ also reports the role you were granted and who shared it.`,
 // system class unless the filter names it explicitly (hadron-server#473) — the
 // flag maps to "every class, system included". Paged to exhaustion: the server
 // caps a page at 200 and this command's contract is "everything".
-func listOwnUnion(cmd *cobra.Command, client graphql.Client, includeAgentSystem bool) ([]memoryDTO, error) {
+//
+// ownedByMe forwards hadron-server#1215's predicate untouched. It is NOT
+// reproducible client-side and must not be approximated: "mine" is keyed on
+// two different owner columns depending on class, and the class pair that
+// reads like an ownership test is only a proxy — which was the original
+// defect (#1176). A list whose name is a relationship and whose query is a
+// category is correct only while the two coincide.
+func listOwnUnion(cmd *cobra.Command, client graphql.Client, includeAgentSystem, ownedByMe bool) ([]memoryDTO, error) {
 	var filter *gen.MemoryFilter
-	if includeAgentSystem {
-		filter = &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
+	if includeAgentSystem || ownedByMe {
+		filter = &gen.MemoryFilter{}
+		if includeAgentSystem {
+			filter.MemoryClasses = gen.AllMemoryClass
+		}
+		// Only ever set true: the clauses compose by AND, so a literal false
+		// would be a no-op the server still has to read, and omitting it keeps
+		// the unfiltered request byte-identical to what it has always been.
+		if ownedByMe {
+			filter.OwnedByMe = &ownedByMe
+		}
 	}
 	items, err := api.CollectAll(func(limit, offset int) ([]*listedMemory, int, error) {
 		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
