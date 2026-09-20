@@ -2,8 +2,138 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 )
+
+// TestParseMessageAuthorPrecedence pins #630: the author comes from the
+// envelope the PRODUCER writes, and the loc is the last resort.
+//
+// The defect this replaces was not the dashed-handle edge case — that was the
+// symptom loud enough to notice. `createChannelMessage` writes
+// `data.authorName`; this reader decoded only `data.author`, the retired
+// academy key, so EVERY server-minted message fell through to the loc and was
+// rendered as its lowercase mention token instead of the recorded name.
+// Measured on a production node: `authorName: "Jonas"`, rendered `jonas`.
+func TestParseMessageAuthorPrecedence(t *testing.T) {
+	raw := func(s string) *json.RawMessage { m := json.RawMessage(s); return &m }
+	body := "hi"
+	cases := []struct {
+		name string
+		loc  string
+		data *json.RawMessage
+		want string
+	}{
+		{
+			// The case that was wrong on every message: the envelope has the
+			// real name and the loc has a slug. Capital J is the whole point.
+			name: "envelope authorName wins over the loc slug",
+			loc:  "chats:api:messages:002-279bba33-jonas",
+			data: raw(`{"authorName":"Jonas","authorWorkerId":"w1","sessionId":"s1"}`),
+			want: "Jonas",
+		},
+		{
+			// And it wins even where the loc would have produced a DIFFERENT
+			// person, which is the dashed-handle bug rendered harmless.
+			name: "envelope authorName wins over a misparsable loc",
+			loc:  "chats:api:messages:002-279bba33-mary-jane",
+			data: raw(`{"authorName":"Mary Jane"}`),
+			want: "Mary Jane",
+		},
+		{
+			// The retired academy dialect still reads.
+			name: "legacy data.author when there is no authorName",
+			loc:  "chats:api:messages:2026-09-19T150000000Z-rufus",
+			data: raw(`{"author":"rufus","role":"Backend Engineer"}`),
+			want: "rufus",
+		},
+		{
+			// authorName outranks a stale academy `author` on the same node.
+			name: "authorName outranks data.author",
+			loc:  "chats:api:messages:001-abcdef12-x",
+			data: raw(`{"authorName":"Vera","author":"stale"}`),
+			want: "Vera",
+		},
+		{
+			// The last resort, doing the job it was written for.
+			name: "loc only when the envelope has no author at all",
+			loc:  "chats:api:messages:2026-09-19T150000000Z-mary-jane",
+			data: raw(`{"role":"Backend Engineer"}`),
+			want: "mary-jane",
+		},
+		{
+			name: "no data at all",
+			loc:  "chats:api:messages:001-abcdef12-iris",
+			data: nil,
+			want: "iris",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := parseMessage(c.loc, nil, &body, c.data)
+			if got.Author != c.want {
+				t.Errorf("Author = %q, want %q", got.Author, c.want)
+			}
+		})
+	}
+}
+
+// The envelope's identity fields reach --json, so a consumer can tell a WORKER
+// post from a human one — the distinction the Worker model exists to record,
+// and which this reader dropped entirely.
+//
+// BOTH author shapes are driven, because the envelope is authorUserId XOR
+// authorWorkerId+authorName and a worker-only fixture proves nothing about the
+// human key. A first version asserted authorUserId only by its ABSENCE on a
+// worker post, which would have passed against the field being wired to the
+// wrong source or to nothing at all (@copilot on PR #631) — an assertion that
+// can only observe empty cannot tell "correctly empty" from "never read".
+func TestParseMessageCarriesTheEnvelopeIdentity(t *testing.T) {
+	body := "hi"
+	cases := []struct {
+		name                               string
+		data                               string
+		worker, user, app, session, author string
+	}{
+		{
+			name:    "worker post",
+			data:    `{"authorName":"Jonas","authorWorkerId":"wkr1","authorAppId":"app1","sessionId":"s1"}`,
+			author:  "Jonas",
+			worker:  "wkr1",
+			user:    "", // correctly absent: a worker post carries no user id
+			app:     "app1",
+			session: "s1",
+		},
+		{
+			// The positive case for authorUserId, and the negative for the
+			// worker keys — each field proven in both directions across the
+			// pair rather than in one.
+			name:   "human post",
+			data:   `{"authorName":"holger","authorUserId":"u-holger"}`,
+			author: "holger",
+			worker: "",
+			user:   "u-holger",
+			app:    "",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			d := json.RawMessage(c.data)
+			m := parseMessage("chats:api:messages:002-279bba33-x", nil, &body, &d)
+			for _, f := range []struct{ name, got, want string }{
+				{"Author", m.Author, c.author},
+				{"AuthorWorkerID", m.AuthorWorkerID, c.worker},
+				{"AuthorUserID", m.AuthorUserID, c.user},
+				{"AuthorAppID", m.AuthorAppID, c.app},
+				{"SessionID", m.SessionID, c.session},
+			} {
+				if f.got != f.want {
+					t.Errorf("%s = %q, want %q", f.name, f.got, f.want)
+				}
+			}
+		})
+	}
+}
 
 // TestChatRootRefPreservesEveryComposableMemorySpelling — one case per memory
 // spelling `chat post` accepts, because a hand-rolled composer that handles
@@ -63,8 +193,16 @@ func TestChatRootRefRefusesAMessagesLocWithNoParent(t *testing.T) {
 // one of them reachable for the first time.
 //
 // Moving the write path onto Channels means the SERVER mints the loc, as
-// "<ordinal>-<8hex>-<handle>", and writes no `data.author` — so this fallback
-// now runs for every newly posted message rather than only for legacy rows.
+// "<ordinal>-<8hex>-<handle>".
+//
+// CORRECTED by #630: the sentence that stood here — "writes no `data.author`,
+// so this fallback now runs for every newly posted message" — was true about
+// `author` and false about what it implied. The server writes
+// `data.authorName`, and the reader simply did not decode it. So this fallback
+// runs for the legacy rows it was always for, and the cases below are
+// defence-in-depth rather than the live path. Left pinned because those rows
+// exist and still reach it.
+//
 // The pre-#367 last-dash fallback reads 002-279bba33-mary-jane as "jane":
 // a message attributed to a person who does not exist, with nothing to
 // indicate it. The client-minted dialect never had that failure because its

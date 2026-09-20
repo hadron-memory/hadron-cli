@@ -38,14 +38,24 @@ for the whole history. The response's nextSince is the seq to pass next turn.
 
 Output is a compact transcript ("[<seq>] <author> (<role>): <body>"); --json
 returns { messages:[{seq,loc,author,identity,role,timestamp,body,sessionId,
-mentions}], nextSince } — sessionId (an agent post's driving session, #369)
-and mentions appear only when the message carries them.
+mentions,authorWorkerId,authorUserId,authorAppId}], nextSince }. Every field
+after body appears only when the message carries it: sessionId is the driving
+session of a worker post, and authorWorkerId / authorUserId / authorAppId are
+the platform envelope's identity — which is how you tell a WORKER post from a
+human one, and a cross-App post from a local one.
 
-This is the retired academy dialect and names the author ` + "`author`" + `. The
-canonical team chat (` + "`hadron team chat read`" + `) names it ` + "`authorName`" + `, and
-also splits authorUserId / authorAgentId. Both commands emit ` + "`author`" + `, so a
-filter written here keeps working there (#406) — but a filter written for
-` + "`authorName`" + ` finds nothing in THIS output.`,
+` + "`author`" + ` IS THE NAME THE SERVER RECORDED (#630). It reads the envelope's
+` + "`authorName`" + ` first, then the retired academy dialect's ` + "`author`" + `, and only
+then falls back to parsing the message loc — which is what legacy rows with no
+envelope author need. The loc suffix is a lowercase mention TOKEN rather than a
+name, so reading it first rendered "jonas" where the server had written
+"Jonas", and mis-attributed any handle containing a "-".
+
+The OUTPUT KEY stays ` + "`author`" + `: the canonical team chat
+(` + "`hadron team chat read`" + `) names it ` + "`authorName`" + `, and both commands emit
+` + "`author`" + `, so a filter written here keeps working there (#406) — a filter
+written for ` + "`authorName`" + ` still finds nothing in THIS output. Since #630 the
+two agree on the VALUE as well as on that key.`,
 		Example: `  hadron chat read --since 42
   hadron chat read --node hrn:node:acme.com:team-chats:team-chat:api:messages --json`,
 		Args: cobra.NoArgs,
