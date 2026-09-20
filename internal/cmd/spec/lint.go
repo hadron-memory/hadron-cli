@@ -235,7 +235,7 @@ superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTi
 				findings = lintCorpus(nodes, scopeRoot, memURN)
 			} else {
 				for _, n := range nodes {
-					findings = append(findings, lintNode(n)...)
+					findings = append(findings, lintNode(n, memURN)...)
 				}
 			}
 			// A spec corpus leans on the abstract being embedded for semantic
@@ -307,7 +307,7 @@ func lintScopeError(hasCitationArg bool, prefixFlag, product, module string, all
 // lintNode runs the per-node rules and returns findings tagged with the
 // node's citation. Header nodes (module/feature, level < 3) only get the
 // universal checks; the rubric proper applies to rules and flows.
-func lintNode(n specNode) []lintFindingDTO {
+func lintNode(n specNode, memURN string) []lintFindingDTO {
 	var fs []lintFindingDTO
 	add := func(rule, sev, msg string) {
 		fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: rule, Severity: sev, Message: msg})
@@ -320,6 +320,22 @@ func lintNode(n specNode) []lintFindingDTO {
 	c, err := ParseCitation(n.Loc)
 	if err != nil {
 		add("loc-shape", sevError, "loc is not a valid citation: "+err.Error())
+	}
+
+	// #527: put every URN example's decomposition on screen, beside the prose
+	// that claims a shape. Advisory only — see lint_urn.go for why this rule
+	// must never gate, and for what it deliberately refuses to answer.
+	//
+	// ABOVE the tier and placeholder early-returns, deliberately (@copilot, PR
+	// #632). A product or module header is where a grammar gets EXPLAINED, so
+	// it is more likely to carry worked URN examples than a leaf rule is — and
+	// cor:urn, the module this whole issue came from, is exactly such a node.
+	// Only the unavailable-node return stays above this: a body nobody could
+	// read has no examples to scan.
+	if n.Content != nil {
+		for _, u := range lintURNExamples(*n.Content, memURN) {
+			add(u.Rule, u.Severity, u.Message)
+		}
 	}
 	if !strings.HasPrefix(n.Name, n.Loc+" — ") {
 		add("name-prefix", sevError, fmt.Sprintf("name must start with %q", n.Loc+" — "))
@@ -492,7 +508,7 @@ func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 	productCodes := map[string]bool{}
 	flatCodes := map[string]bool{}
 	for _, n := range nodes {
-		fs = append(fs, lintNode(n)...)
+		fs = append(fs, lintNode(n, memURN)...)
 		locCount[n.Loc]++
 		if n.Unavailable {
 			continue

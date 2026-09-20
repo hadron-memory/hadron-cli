@@ -101,7 +101,7 @@ func hasRuleFor(fs []lintFindingDTO, citation, rule string) bool {
 }
 
 func TestLintNodeClean(t *testing.T) {
-	if fs := lintNode(cleanSpec(t, "msg:010:02", "W2")); len(fs) != 0 {
+	if fs := lintNode(cleanSpec(t, "msg:010:02", "W2"), ""); len(fs) != 0 {
 		t.Errorf("clean spec should have no findings, got %v", fs)
 	}
 }
@@ -113,7 +113,7 @@ func TestLintNodeProblems(t *testing.T) {
 	empty := ""
 	bad.Content = &empty
 	bad.NodeType = "finding"
-	fs := lintNode(bad)
+	fs := lintNode(bad, "")
 	for _, want := range []string{"name-prefix", "nodetype-info", "abstract", "invalidates"} {
 		if !hasRule(fs, want) {
 			t.Errorf("expected %q finding; got %v", want, fs)
@@ -125,7 +125,7 @@ func TestLintNodePlaceholderAbstract(t *testing.T) {
 	n := cleanSpec(t, "msg:010:02", "W2")
 	ph := placeholderAbstract(mustCit(t, "msg:010:02"), "W2")
 	n.Abstract = &ph
-	if !hasRule(lintNode(n), "abstract") {
+	if !hasRule(lintNode(n, ""), "abstract") {
 		t.Error("placeholder abstract should trip the abstract rule")
 	}
 }
@@ -150,7 +150,7 @@ func TestLintNodePlaceholderContractExempt(t *testing.T) {
 		Content:     &body,
 		DataVersion: "0.0.1",
 	}
-	fs := lintNode(n)
+	fs := lintNode(n, "")
 	if hasRule(fs, "abstract") || hasRule(fs, "invalidates") {
 		t.Errorf("untouched placeholder contract must not trip rubric errors; got %v", fs)
 	}
@@ -179,7 +179,7 @@ func TestLintNodeEngagedContractFullRubric(t *testing.T) {
 		Abstract: &abs,
 		Content:  &body,
 	}
-	fs := lintNode(n)
+	fs := lintNode(n, "")
 	if hasRule(fs, "placeholder-contract") {
 		t.Errorf("an engaged contract must not be treated as a placeholder; got %v", fs)
 	}
@@ -201,7 +201,7 @@ func TestLintNodeReportsAllRubricGapsAtOnce(t *testing.T) {
 		Abstract: nil, // missing abstract
 		Content:  &body,
 	}
-	fs := lintNode(n)
+	fs := lintNode(n, "")
 	if !hasRule(fs, "abstract") || !hasRule(fs, "invalidates") {
 		t.Errorf("both abstract and invalidates gaps must be reported together; got %v", fs)
 	}
@@ -222,14 +222,14 @@ func TestLintNodeAbstractLengthWithinBound(t *testing.T) {
 	// is silent, so the rule can't nudge authors toward needlessly short
 	// abstracts (#347 — retrieval is flat across ~700-1700 chars).
 	for _, n := range []int{1, 800, abstractSoftMax} {
-		if fs := lintNode(abstractOf(t, "msg:010:02", n)); hasRule(fs, "abstract-length") {
+		if fs := lintNode(abstractOf(t, "msg:010:02", n), ""); hasRule(fs, "abstract-length") {
 			t.Errorf("a %d-char abstract must not be flagged; got %v", n, fs)
 		}
 	}
 }
 
 func TestLintNodeAbstractLengthOverBound(t *testing.T) {
-	fs := lintNode(abstractOf(t, "msg:010:02", abstractSoftMax+1))
+	fs := lintNode(abstractOf(t, "msg:010:02", abstractSoftMax+1), "")
 	var found *lintFindingDTO
 	for i := range fs {
 		if fs[i].Rule == "abstract-length" {
@@ -256,7 +256,7 @@ func TestLintNodeAbstractLengthFlowIsAdvisory(t *testing.T) {
 	// asserting "flows tier down" with a value that is simultaneously "one edit
 	// from unwritable". Those are different findings (#539), and the test now
 	// picks a length that can only be the first.
-	fs := lintNode(abstractOf(t, "msg:010:02:01", abstractSoftMax+100))
+	fs := lintNode(abstractOf(t, "msg:010:02:01", abstractSoftMax+100), "")
 	for _, f := range fs {
 		if f.Rule == "abstract-length" {
 			if f.Severity != sevInfo {
@@ -275,7 +275,7 @@ func TestLintNodeAbstractLengthCountsCharsNotBytes(t *testing.T) {
 	sn := cleanSpec(t, "msg:010:02", "W2")
 	abs := strings.Repeat("—", abstractSoftMax) // 3 bytes each, 1 char each
 	sn.Abstract = &abs
-	if fs := lintNode(sn); hasRule(fs, "abstract-length") {
+	if fs := lintNode(sn, ""); hasRule(fs, "abstract-length") {
 		t.Errorf("multi-byte characters must count as one each; got %v", fs)
 	}
 }
@@ -285,7 +285,7 @@ func TestLintNodeAbstractLengthNotReportedWhenMissing(t *testing.T) {
 	// would be noise pointing at a field that doesn't exist yet.
 	n := cleanSpec(t, "msg:010:02", "W2")
 	n.Abstract = nil
-	fs := lintNode(n)
+	fs := lintNode(n, "")
 	if !hasRule(fs, "abstract") {
 		t.Fatalf("missing abstract should still be flagged; got %v", fs)
 	}
@@ -298,14 +298,14 @@ func TestLintNodeHeaderLight(t *testing.T) {
 	// A module/feature header (level < 3) only gets the universal checks,
 	// not the spec rubric (no abstract/invalidates requirement).
 	header := specNode{Loc: "msg:010", Name: "msg:010 — W-series", NodeType: "info", Tags: []string{"spec", "p1"}}
-	if fs := lintNode(header); len(fs) != 0 {
+	if fs := lintNode(header, ""); len(fs) != 0 {
 		t.Errorf("header node should pass the light checks, got %v", fs)
 	}
 }
 
 func TestLintNodeHeaderMissingSpecTag(t *testing.T) {
 	header := specNode{Loc: "msg:010", Name: "msg:010 — W-series", NodeType: "info", Tags: []string{"p1"}}
-	fs := lintNode(header)
+	fs := lintNode(header, "")
 	if !hasRule(fs, "tag-spec") {
 		t.Errorf("header node missing the spec tag should be flagged; got %v", fs)
 	}
@@ -315,7 +315,7 @@ func TestLintNodeHeaderMissingSpecTag(t *testing.T) {
 }
 
 func TestLintNodeUnavailable(t *testing.T) {
-	fs := lintNode(specNode{Loc: "msg:010:02", Unavailable: true})
+	fs := lintNode(specNode{Loc: "msg:010:02", Unavailable: true}, "")
 	if len(fs) != 1 || fs[0].Rule != "unavailable" || fs[0].Severity != sevError {
 		t.Fatalf("unavailable listed node should produce one explicit error, got %v", fs)
 	}
@@ -597,7 +597,7 @@ func TestLintSerializationLeak(t *testing.T) {
 		{"body", leakInBody, "body"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			fs := lintNode(tc.node)
+			fs := lintNode(tc.node, "")
 			if !hasRule(fs, "serialization-leak") {
 				t.Fatalf("a leaked marker in the %s must be reported, got %v", tc.field, fs)
 			}
@@ -683,7 +683,7 @@ func TestLintSerializationLeakQuotingAndHiding(t *testing.T) {
 			n := cleanSpec(t, "msg:010:02", "W2")
 			abs := tc.text
 			n.Abstract = &abs
-			if got := hasRule(lintNode(n), "serialization-leak"); got != tc.leak {
+			if got := hasRule(lintNode(n, ""), "serialization-leak"); got != tc.leak {
 				t.Errorf("serialization-leak = %v, want %v, for %q", got, tc.leak, tc.text)
 			}
 		})
@@ -699,7 +699,7 @@ func TestLintScaffoldBody(t *testing.T) {
 	scaffold := rubricBody(mustCit(t, "msg:010:02"), "W2")
 	n.Content = &scaffold
 
-	fs := lintNode(n)
+	fs := lintNode(n, "")
 	if !hasRule(fs, "scaffold-body") {
 		t.Fatalf("an unreplaced scaffold body must be reported, got %v", fs)
 	}
@@ -721,7 +721,7 @@ func TestLintUntouchedContractIsNotAlsoScaffoldBody(t *testing.T) {
 	scaffold := rubricBody(c, "General provisions")
 	n.Abstract, n.Content = &placeholder, &scaffold
 
-	fs := lintNode(n)
+	fs := lintNode(n, "")
 	if !hasRule(fs, "placeholder-contract") {
 		t.Fatalf("an untouched contract must be reported as such, got %v", fs)
 	}
@@ -739,14 +739,14 @@ func TestLintScaffoldBodyIgnoresQuotedFiller(t *testing.T) {
 	n := cleanSpec(t, "msg:010:02", "W2")
 	quoted := "# msg:010:02 — W2\n\n## Rule\n\n`spec new` emits:\n\n```\nState the shared rules and defaults.\n```\n\nAuthored prose.\n\n## What invalidates this spec\n\nx\n"
 	n.Content = &quoted
-	if hasRule(lintNode(n), "scaffold-body") {
+	if hasRule(lintNode(n, ""), "scaffold-body") {
 		t.Error("filler quoted in an example is documentation, not an unauthored body")
 	}
 
 	// …and the genuine article still fires, so the guard has not disarmed it.
 	real := "# msg:010:02 — W2\n\n## Provisions\n\nState the shared rules and defaults.\n\n## What invalidates this spec\n\nx\n"
 	n.Content = &real
-	if !hasRule(lintNode(n), "scaffold-body") {
+	if !hasRule(lintNode(n, ""), "scaffold-body") {
 		t.Error("an unreplaced scaffold body must still be reported")
 	}
 }
@@ -756,7 +756,7 @@ func TestLintScaffoldBodyIgnoresQuotedFiller(t *testing.T) {
 // about how much a LONG abstract matters; the cap is about whether the node can
 // be edited at all.
 func TestLintNodeAbstractLengthEscalatesAtTheHardCapEvenForAFlow(t *testing.T) {
-	fs := lintNode(abstractOf(t, "msg:010:02:01", abstractHardMax-10))
+	fs := lintNode(abstractOf(t, "msg:010:02:01", abstractHardMax-10), "")
 	for _, f := range fs {
 		if f.Rule == "abstract-length" {
 			if f.Severity != sevError {
@@ -778,7 +778,7 @@ func TestLintNodeAbstractLengthEscalatesAtTheHardCapEvenForAFlow(t *testing.T) {
 // cap three times in a row amending one node, because the information that
 // would have let her write it once existed at lint time and stayed there.
 func TestLintNodeAbstractLengthReportsHeadroomNotJustOverage(t *testing.T) {
-	fs := lintNode(abstractOf(t, "msg:010:02", 1922))
+	fs := lintNode(abstractOf(t, "msg:010:02", 1922), "")
 	for _, f := range fs {
 		if f.Rule != "abstract-length" {
 			continue
@@ -797,8 +797,8 @@ func TestLintNodeAbstractLengthReportsHeadroomNotJustOverage(t *testing.T) {
 // giving it: on a spec whose sentences are all on-subject, cutting one drops a
 // contract. The remedy is a split.
 func TestNearTheCapTheAdviceChangesFromDistillToSplit(t *testing.T) {
-	soft := lintNode(abstractOf(t, "msg:010:02", abstractSoftMax+50))
-	tight := lintNode(abstractOf(t, "msg:010:02", abstractHardMax-20))
+	soft := lintNode(abstractOf(t, "msg:010:02", abstractSoftMax+50), "")
+	tight := lintNode(abstractOf(t, "msg:010:02", abstractHardMax-20), "")
 	msgOf := func(fs []lintFindingDTO) string {
 		for _, f := range fs {
 			if f.Rule == "abstract-length" {
@@ -855,7 +855,7 @@ func TestTitleConjunction(t *testing.T) {
 // authors will actually see, had no assertion at all.
 func TestTheSoftRangeMessageAlsoReportsHeadroom(t *testing.T) {
 	const l = abstractSoftMax + 100 // 1700: past the soft bound, far from the cap
-	fs := lintNode(abstractOf(t, "msg:010:02", l))
+	fs := lintNode(abstractOf(t, "msg:010:02", l), "")
 	for _, f := range fs {
 		if f.Rule != "abstract-length" {
 			continue
@@ -887,7 +887,7 @@ func TestTheSplitHintOnlyAppearsWhenTheTitleNamesTwoSubjects(t *testing.T) {
 		sn := cleanSpec(t, "msg:010:02", title)
 		abs := strings.Repeat("a", abstractHardMax-20)
 		sn.Abstract = &abs
-		for _, f := range lintNode(sn) {
+		for _, f := range lintNode(sn, "") {
 			if f.Rule == "abstract-length" {
 				return f.Message
 			}
@@ -913,7 +913,7 @@ func TestTheSplitHintOnlyAppearsWhenTheTitleNamesTwoSubjects(t *testing.T) {
 // did not need one yet: a claim outrunning its evidence, in the one sentence
 // meant to make the reader act.
 func TestTheNearCapFindingDoesNotOverclaimWhatFails(t *testing.T) {
-	fs := lintNode(abstractOf(t, "msg:010:02", 1922))
+	fs := lintNode(abstractOf(t, "msg:010:02", 1922), "")
 	for _, f := range fs {
 		if f.Rule != "abstract-length" {
 			continue
@@ -939,7 +939,7 @@ func TestTheNearCapFindingDoesNotOverclaimWhatFails(t *testing.T) {
 // update which does not shorten the abstract is refused.
 func TestAtOrPastTheCapTheFindingDoesNotPrintNegativeHeadroom(t *testing.T) {
 	for _, l := range []int{abstractHardMax, abstractHardMax + 48} {
-		fs := lintNode(abstractOf(t, "msg:010:02", l))
+		fs := lintNode(abstractOf(t, "msg:010:02", l), "")
 		var msg string
 		for _, f := range fs {
 			if f.Rule == "abstract-length" {
@@ -973,7 +973,7 @@ func TestAtOrPastTheCapTheFindingDoesNotPrintNegativeHeadroom(t *testing.T) {
 // exceeds the limit.
 func TestTheCapBoundaryIsItsOwnStateNotLumpedWithOverCap(t *testing.T) {
 	msgAt := func(l int) string {
-		for _, f := range lintNode(abstractOf(t, "msg:010:02", l)) {
+		for _, f := range lintNode(abstractOf(t, "msg:010:02", l), "") {
 			if f.Rule == "abstract-length" {
 				return f.Message
 			}
@@ -1019,7 +1019,7 @@ func TestTheCapBoundaryIsItsOwnStateNotLumpedWithOverCap(t *testing.T) {
 // behaviour are each defensible alone and only wrong together.
 func TestTheEscalationBoundaryIsExclusiveAndSaysSo(t *testing.T) {
 	sevAt := func(l int) string {
-		for _, f := range lintNode(abstractOf(t, "msg:010:02", l)) {
+		for _, f := range lintNode(abstractOf(t, "msg:010:02", l), "") {
 			if f.Rule == "abstract-length" {
 				return f.Severity
 			}
@@ -1040,7 +1040,7 @@ func TestTheEscalationBoundaryIsExclusiveAndSaysSo(t *testing.T) {
 // The message uses "chars" throughout, which also matches its own opening
 // clause ("abstract is 1999 chars"), so there is one vocabulary rather than two.
 func TestTheNearCapMessageReadsCorrectlyAtOneCharOfHeadroom(t *testing.T) {
-	for _, f := range lintNode(abstractOf(t, "msg:010:02", abstractHardMax-1)) {
+	for _, f := range lintNode(abstractOf(t, "msg:010:02", abstractHardMax-1), "") {
 		if f.Rule != "abstract-length" {
 			continue
 		}
@@ -1090,7 +1090,7 @@ func TestTheHardCapIsReportedForHeaderTiersToo(t *testing.T) {
 		abs := strings.Repeat("a", abstractHardMax-10)
 		sn.Abstract = &abs
 		var found bool
-		for _, f := range lintNode(sn) {
+		for _, f := range lintNode(sn, "") {
 			if f.Rule == "abstract-length" {
 				found = true
 				if f.Severity != sevError {
@@ -1112,7 +1112,7 @@ func TestTheHardCapIsReportedForHeaderTiersToo(t *testing.T) {
 	sn := cleanSpec(t, "cor:agt", "Headers")
 	abs := strings.Repeat("a", abstractSoftMax+100)
 	sn.Abstract = &abs
-	for _, f := range lintNode(sn) {
+	for _, f := range lintNode(sn, "") {
 		if f.Rule == "abstract-length" {
 			t.Errorf("the soft bound must still skip headers: %q", f.Message)
 		}
@@ -1124,7 +1124,7 @@ func TestTheHardCapIsReportedForHeaderTiersToo(t *testing.T) {
 // collect both.
 func TestANodeAtTheWallGetsExactlyOneAbstractLengthFinding(t *testing.T) {
 	n := 0
-	for _, f := range lintNode(abstractOf(t, "msg:010:02", abstractHardMax-10)) {
+	for _, f := range lintNode(abstractOf(t, "msg:010:02", abstractHardMax-10), "") {
 		if f.Rule == "abstract-length" {
 			n++
 		}
@@ -1174,7 +1174,7 @@ func TestAbstractLengthCountsWhatTheServerCounts(t *testing.T) {
 	sn := cleanSpec(t, "msg:010:02", "Delivery")
 	sn.Abstract = &atCap
 	var msg string
-	for _, f := range lintNode(sn) {
+	for _, f := range lintNode(sn, "") {
 		if f.Rule == "abstract-length" {
 			msg = f.Message
 		}
@@ -1190,7 +1190,7 @@ func TestAbstractLengthCountsWhatTheServerCounts(t *testing.T) {
 func TestLintAbstractVerification(t *testing.T) {
 	t.Run("matching hash is clean", func(t *testing.T) {
 		n := cleanSpec(t, "msg:010:02", "W2")
-		if fs := lintNode(n); hasRule(fs, "abstract-stale") || hasRule(fs, "abstract-unverified") {
+		if fs := lintNode(n, ""); hasRule(fs, "abstract-stale") || hasRule(fs, "abstract-unverified") {
 			t.Errorf("a fingerprinted, matching abstract is clean: %v", fs)
 		}
 	})
@@ -1199,7 +1199,7 @@ func TestLintAbstractVerification(t *testing.T) {
 		n := cleanSpec(t, "msg:010:02", "W2")
 		moved := *n.Content + "\n\nA paragraph added after the abstract was written.\n"
 		n.Content = &moved
-		fs := lintNode(n)
+		fs := lintNode(n, "")
 		if !hasRule(fs, "abstract-stale") {
 			t.Fatalf("expected abstract-stale: %v", fs)
 		}
@@ -1233,7 +1233,7 @@ func TestLintAbstractVerification(t *testing.T) {
 	t.Run("never fingerprinted is unverified, not clean", func(t *testing.T) {
 		n := cleanSpec(t, "msg:010:02", "W2")
 		n.AbstractOriginHash = nil
-		fs := lintNode(n)
+		fs := lintNode(n, "")
 		if !hasRule(fs, "abstract-unverified") {
 			t.Fatalf("a null hash with both an abstract and a body is UNVERIFIED: %v", fs)
 		}
@@ -1255,7 +1255,7 @@ func TestLintAbstractVerification(t *testing.T) {
 				n := cleanSpec(t, "msg:010:02", "W2")
 				n.AbstractOriginHash = nil
 				tc.mutate(&n)
-				if fs := lintNode(n); hasRule(fs, "abstract-unverified") || hasRule(fs, "abstract-stale") {
+				if fs := lintNode(n, ""); hasRule(fs, "abstract-unverified") || hasRule(fs, "abstract-stale") {
 					t.Errorf("nothing to verify here: %v", fs)
 				}
 			})
@@ -1291,13 +1291,13 @@ func TestAbstractChecksAreSilentOnACompiledBody(t *testing.T) {
 	if got := abstractVerification(n); got != abstractUncheckable {
 		t.Fatalf("a compiled body is UNCHECKABLE, got %v", got)
 	}
-	if fs := lintNode(n); hasRule(fs, "abstract-stale") || hasRule(fs, "abstract-unverified") {
+	if fs := lintNode(n, ""); hasRule(fs, "abstract-stale") || hasRule(fs, "abstract-unverified") {
 		t.Errorf("must not report staleness from a body it cannot compare: %v", fs)
 	}
 	// …and the same node with a raw body does report it, so the gate is not
 	// silently swallowing the whole feature.
 	n.ContentIsRaw = true
-	if fs := lintNode(n); !hasRule(fs, "abstract-stale") {
+	if fs := lintNode(n, ""); !hasRule(fs, "abstract-stale") {
 		t.Errorf("a RAW body must still be compared: %v", fs)
 	}
 }

@@ -98,7 +98,7 @@ func TestScaffoldPassesStructuralLint(t *testing.T) {
 		{Module: "msg", Feature: "010", Rule: "02"},
 	} {
 		t.Run(c.Format(), func(t *testing.T) {
-			for _, f := range lintNode(scaffoldNode(c, "Title")) {
+			for _, f := range lintNode(scaffoldNode(c, "Title"), "") {
 				if structural[f.Rule] {
 					t.Errorf("scaffold tripped structural lint %q: %s", f.Rule, f.Message)
 				}

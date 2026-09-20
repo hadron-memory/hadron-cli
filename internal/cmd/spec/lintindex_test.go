@@ -495,7 +495,7 @@ func TestIndexIncompleteIsOrdered(t *testing.T) {
 // cannot see a node's children).
 func TestIndexIncompleteRunsInCorpusLintOnly(t *testing.T) {
 	parent := indexNode("cor:acl", "# cor:acl — Access control\n\nNo features listed.\n", beforeTS)
-	if fs := lintNode(parent); hasRule(fs, ruleIndexIncomplete) {
+	if fs := lintNode(parent, ""); hasRule(fs, ruleIndexIncomplete) {
 		t.Errorf("a single-node lint cannot see children: %v", fs)
 	}
 	fs := lintCorpus([]specNode{parent, childNode("cor:acl:010", afterTS)}, "", lintMem)

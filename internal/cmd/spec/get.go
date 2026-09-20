@@ -85,7 +85,7 @@ one object for a single citation, an array for --prefix.`,
 				// is nil and the comparison stays silent rather than reporting
 				// a template expansion as a changed body.
 				rawBody, _ := rawSpecBody(cmd, client, n.Id)
-				dto := specDetailFromNode(n, !abstractOnly, rawBody)
+				dto := specDetailFromNode(n, !abstractOnly, rawBody, memURN)
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					renderSpecDetail(w, memURN, dto)
 					return nil
@@ -154,7 +154,7 @@ one object for a single citation, an array for --prefix.`,
 				// templates. nodeByIDFromBatch reshapes them into the
 				// single-read type and drops that provenance, so it is
 				// restated here — rawness belongs to the QUERY, not the shape.
-				details = append(details, specDetailFromNode(nodeByIDFromBatch(bn), !abstractOnly, bn.Content))
+				details = append(details, specDetailFromNode(nodeByIDFromBatch(bn), !abstractOnly, bn.Content, memURN))
 			}
 			// Bulk reads don't preserve order across chunks — sort for a
 			// deterministic dump.
@@ -208,13 +208,13 @@ func edgeNameStr(s *string) string {
 //
 // Only the LINT projection sees the raw body. The rendered detail keeps the
 // compiled one, because that is what a reader of `spec get` asked for.
-func specDetailFromNode(n *gen.GetNodeNode, includeContent bool, rawBody *string) specDetailDTO {
+func specDetailFromNode(n *gen.GetNodeNode, includeContent bool, rawBody *string, memURN string) specDetailDTO {
 	sn := nodeFromGQL(n)
 	if rawBody != nil {
 		sn.Content = rawBody
 		sn.ContentIsRaw = true
 	}
-	findings := lintNode(sn)
+	findings := lintNode(sn, memURN)
 	if findings == nil {
 		findings = []lintFindingDTO{}
 	}

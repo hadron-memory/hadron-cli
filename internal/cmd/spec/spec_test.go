@@ -430,7 +430,7 @@ func TestTagsOrEmpty(t *testing.T) {
 // specDetailFromNode's paths pin the spec tag today, so this guards the
 // normalization for any future caller that doesn't (#312).
 func TestSpecDetailFromNodeEmptyTags(t *testing.T) {
-	dto := specDetailFromNode(&gen.GetNodeNode{Loc: "msg:010:02", Name: "W2", NodeType: "info"}, false, nil)
+	dto := specDetailFromNode(&gen.GetNodeNode{Loc: "msg:010:02", Name: "W2", NodeType: "info"}, false, nil, "")
 	if dto.Tags == nil {
 		t.Error("detail DTO tags must never be nil (renders as null)")
 	}

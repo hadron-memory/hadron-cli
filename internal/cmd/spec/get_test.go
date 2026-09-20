@@ -22,13 +22,13 @@ func TestSpecGetLintAgreesWithSpecLintOnStaleness(t *testing.T) {
 	compiled := raw
 	compiled.ContentIsRaw = false
 
-	if !hasRule(lintNode(raw), "abstract-stale") {
+	if !hasRule(lintNode(raw, ""), "abstract-stale") {
 		t.Fatal("precondition: the raw projection reports stale")
 	}
 	// The COMPILED projection must not claim clean — it must claim nothing,
 	// which is what the uncheckable state is for. The bug was that it looked
 	// identical to a clean node.
-	if hasRule(lintNode(compiled), "abstract-stale") {
+	if hasRule(lintNode(compiled, ""), "abstract-stale") {
 		t.Error("a compiled body must not be compared")
 	}
 	if abstractVerification(compiled) != abstractUncheckable {
