@@ -31,6 +31,9 @@ query GetAgent($ref: ID!) {
   }
 }
 
+# @genqlient(for: "AgentFilter.ownedByMe", omitempty: true)
+# @genqlient(for: "AgentFilter.type", omitempty: true)
+# @genqlient(for: "AgentFilter.visibility", omitempty: true)
 query Agents(
   # @genqlient(omitempty: true)
   $orgId: ID

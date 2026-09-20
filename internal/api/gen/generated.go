@@ -669,9 +669,9 @@ type AgentFilter struct {
 	// admin-bypass surface), mirroring the owner-only personal/private memories
 	// slice. Org-less by definition, so orgId is not consulted. App-key callers
 	// (no user context) get an empty page. Powers the portal's "My agents".
-	OwnedByMe  *bool            `json:"ownedByMe"`
-	Type       *AgentType       `json:"type"`
-	Visibility *AgentVisibility `json:"visibility"`
+	OwnedByMe  *bool            `json:"ownedByMe,omitempty"`
+	Type       *AgentType       `json:"type,omitempty"`
+	Visibility *AgentVisibility `json:"visibility,omitempty"`
 }
 
 // GetOwnedByMe returns AgentFilter.OwnedByMe, and is useful for accessing the field via an interface.
@@ -1778,6 +1778,20 @@ type AppAgentRosterResponse struct {
 
 // GetApp returns AppAgentRosterResponse.App, and is useful for accessing the field via an interface.
 func (v *AppAgentRosterResponse) GetApp() *AppAgentRosterApp { return v.App }
+
+// Filter for the uniform apps() list (#473). Clauses AND-combine.
+type AppFilter struct {
+	// #782 — true restricts the list to the caller's OWN user-owned (org-less)
+	// apps: organizationId IS NULL AND ownerUserId = the caller. For ALL callers
+	// INCLUDING platform ADMIN/OWNER (owner scope is never an admin-bypass
+	// surface), mirroring the owner-only personal/private memories slice.
+	// Org-less by definition, so orgId is not consulted. App-key callers (no
+	// user context) get an empty page. Powers the portal's "My apps".
+	OwnedByMe *bool `json:"ownedByMe,omitempty"`
+}
+
+// GetOwnedByMe returns AppFilter.OwnedByMe, and is useful for accessing the field via an interface.
+func (v *AppFilter) GetOwnedByMe() *bool { return v.OwnedByMe }
 
 // AppRunAppRun includes the requested fields of the GraphQL type AppRun.
 type AppRunAppRun struct {
@@ -23847,13 +23861,17 @@ func (v *__AppRunsInput) GetOffset() *int { return v.Offset }
 
 // __AppsInput is used internally by genqlient
 type __AppsInput struct {
-	OrgId  string `json:"orgId"`
-	Limit  *int   `json:"limit,omitempty"`
-	Offset *int   `json:"offset,omitempty"`
+	OrgId  *string    `json:"orgId,omitempty"`
+	Filter *AppFilter `json:"filter,omitempty"`
+	Limit  *int       `json:"limit,omitempty"`
+	Offset *int       `json:"offset,omitempty"`
 }
 
 // GetOrgId returns __AppsInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__AppsInput) GetOrgId() string { return v.OrgId }
+func (v *__AppsInput) GetOrgId() *string { return v.OrgId }
+
+// GetFilter returns __AppsInput.Filter, and is useful for accessing the field via an interface.
+func (v *__AppsInput) GetFilter() *AppFilter { return v.Filter }
 
 // GetLimit returns __AppsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AppsInput) GetLimit() *int { return v.Limit }
@@ -27022,8 +27040,8 @@ func AppRuns(
 
 // The query executed by Apps.
 const Apps_Operation = `
-query Apps ($orgId: ID!, $limit: Int, $offset: Int) {
-	apps(orgId: $orgId, limit: $limit, offset: $offset) {
+query Apps ($orgId: ID, $filter: AppFilter, $limit: Int, $offset: Int) {
+	apps(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
 		total
 		items {
 			id
@@ -27040,10 +27058,15 @@ query Apps ($orgId: ID!, $limit: Int, $offset: Int) {
 
 // Uniform paginated app list (hadron-server#473) — { items, total } envelope,
 // limit capped at 200 server-side; `app ls` pages to exhaustion.
+// orgId is NULLABLE on the server (#473's uniform list) and the owner slice is
+// org-less by definition, so it must be omittable here — `app list` still
+// requires one of --org / --owned-by-me, but that is the command's rule, not
+// the operation's.
 func Apps(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
+	orgId *string,
+	filter *AppFilter,
 	limit *int,
 	offset *int,
 ) (data_ *AppsResponse, err_ error) {
@@ -27052,6 +27075,7 @@ func Apps(
 		Query:  Apps_Operation,
 		Variables: &__AppsInput{
 			OrgId:  orgId,
+			Filter: filter,
 			Limit:  limit,
 			Offset: offset,
 		},

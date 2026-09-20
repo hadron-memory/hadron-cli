@@ -1,13 +1,21 @@
 # Uniform paginated app list (hadron-server#473) — { items, total } envelope,
 # limit capped at 200 server-side; `app ls` pages to exhaustion.
+# orgId is NULLABLE on the server (#473's uniform list) and the owner slice is
+# org-less by definition, so it must be omittable here — `app list` still
+# requires one of --org / --owned-by-me, but that is the command's rule, not
+# the operation's.
+# @genqlient(for: "AppFilter.ownedByMe", omitempty: true)
 query Apps(
-  $orgId: ID!
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  # @genqlient(omitempty: true)
+  $filter: AppFilter
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  apps(orgId: $orgId, limit: $limit, offset: $offset) {
+  apps(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
     total
     items {
       id
