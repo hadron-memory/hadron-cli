@@ -998,3 +998,67 @@ func TestParityVectorIsPinned(t *testing.T) {
 		t.Errorf("header line must be exactly:\n  %s\ngot:\n%s", want, file)
 	}
 }
+
+// ParseProvenance answers "whose file is this" for a file whose frontmatter
+// does NOT parse — the state three real skills in the live corpus are in,
+// where an export wrote an unquoted description containing ": ". The pairing
+// key lives inside the broken file, so without this the failure cannot be
+// attributed and the file is reported as an orphan.
+func TestParseProvenanceRecoversTheHeaderWhenFrontmatterFails(t *testing.T) {
+	const broken = "---\n" +
+		"name: hadron-example\n" +
+		"description: Covers BOTH tracks: the one that breaks the parser.\n" +
+		"---\n\n" +
+		"<!-- hadron-skill id=01a0099f949d76a9baf3a16527485475 source=hrn:node:hadronmemory.com:core:tasks:example hash=0123456789abcdef -->\n\n" +
+		"# Example\n"
+
+	// The premise: it really does fail to parse.
+	if _, err := ParseFile([]byte(broken)); err == nil {
+		t.Fatal("fixture parses cleanly — it no longer exercises the recovery path")
+	}
+	id, source, hash, ok := ParseProvenance([]byte(broken))
+	if !ok {
+		t.Fatal("provenance not recovered from a file with unparseable frontmatter")
+	}
+	if id != "01a0099f949d76a9baf3a16527485475" {
+		t.Errorf("id = %q", id)
+	}
+	if source != "hrn:node:hadronmemory.com:core:tasks:example" {
+		t.Errorf("source = %q", source)
+	}
+	if hash != "0123456789abcdef" {
+		t.Errorf("hash = %q", hash)
+	}
+}
+
+// The legacy `Generated from` header is what the three real specimens carry,
+// so the recovery has to read that generation too — it yields a source and no
+// id, which is still enough to pair by URN.
+func TestParseProvenanceReadsTheLegacyHeaderToo(t *testing.T) {
+	const broken = "---\n" +
+		"description: Covers BOTH tracks: the one that breaks the parser.\n" +
+		"---\n\n" +
+		"<!-- Generated from hrn:node:hadronmemory.com:core:tasks:example -->\n\n" +
+		"# Example\n"
+	id, source, hash, ok := ParseProvenance([]byte(broken))
+	if !ok || source != "hrn:node:hadronmemory.com:core:tasks:example" {
+		t.Fatalf("legacy header not recovered: ok=%v source=%q", ok, source)
+	}
+	if id != "" || hash != "" {
+		t.Errorf("a legacy header carries neither id nor hash, got id=%q hash=%q", id, hash)
+	}
+}
+
+// A file that is not ours yields nothing, so a caller cannot claim it.
+func TestParseProvenanceFindsNothingInAForeignFile(t *testing.T) {
+	for name, data := range map[string]string{
+		"no frontmatter":  "# Just a document\n",
+		"no header":       "---\nname: x\n---\n\n# Body\n",
+		"lookalike":       "---\nname: x\n---\n\n<!-- hadron-skill example=yes -->\n\n# Body\n",
+		"unterminated fm": "---\nname: broken\n",
+	} {
+		if _, _, _, ok := ParseProvenance([]byte(data)); ok {
+			t.Errorf("%s: claimed provenance it does not have", name)
+		}
+	}
+}
