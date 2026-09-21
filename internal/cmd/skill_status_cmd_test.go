@@ -88,6 +88,12 @@ func writeUnparseableSkill(t *testing.T, root, dir string) {
 
 func runSkillStatus(t *testing.T, responses map[string]string, args ...string) (string, map[string]json.RawMessage, error) {
 	t.Helper()
+	// `-m` resolves each ref through GetMemory now (the plugin target filters
+	// on VISIBILITY, which only a lookup carries), so every -m test needs one.
+	// Defaulted here rather than repeated, and still overridable per test.
+	if _, ok := responses["GetMemory"]; !ok {
+		responses["GetMemory"] = skillMemOrg
+	}
 	gql, captured := captureGraphQL(t, responses)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -642,5 +648,136 @@ func TestSkillPlanQueryNeverSelectsRenderedBody(t *testing.T) {
 	}
 	if !sawClass {
 		t.Fatal("control failed: the operation does not select `class` either, so this test proves nothing")
+	}
+}
+
+// @codex on #652: `SkillPlanInput.Memories` carries `omitempty`, so an EMPTY
+// slice is omitted from the wire — and the schema defines an omitted
+// `memories` as EVERY memory the caller can read. So the one case where this
+// client has decided the scope is empty is exactly the case where the request
+// would silently widen to the opposite, re-including the memories --all
+// deliberately excludes. The fix is to not send the request at all.
+func TestSkillStatusEmptyAllScopeIsNotSentAsEveryMemory(t *testing.T) {
+	empty := `{"data":{"memories":{"total":0,"items":[]}}}`
+	out, captured, err := runSkillStatus(t, map[string]string{
+		"Memories": empty, "MemoriesSharedWithMe": empty,
+	}, "--all", "--to", t.TempDir())
+	if err != nil {
+		t.Fatalf("status errored: %v\n%s", err, out)
+	}
+	if raw, called := captured["SkillPlan"]; called {
+		t.Errorf("an empty --all scope was sent, and `memories` omitempty widens it "+
+			"back to every readable memory: %s", raw)
+	}
+	// And it must not read as an all-clear.
+	if !strings.Contains(out, "not an all-clear") {
+		t.Errorf("an empty scope reports as a clean corpus:\n%s", out)
+	}
+}
+
+// Proof the guard above is not vacuous: a NON-empty --all really does send.
+func TestSkillStatusNonEmptyAllScopeIsSent(t *testing.T) {
+	memories := `{"data":{"memories":{"total":1,"items":[{"id":"mem1","urn":"hrn:mem:hadronmemory.com:core","name":"Core","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","organization":{"skillPrefix":"hadron-"},"isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-06-11T00:00:00Z"}]}}}`
+	_, captured, err := runSkillStatus(t, map[string]string{
+		"Memories": memories, "MemoriesSharedWithMe": `{"data":{"memories":{"total":0,"items":[]}}}`,
+		"SkillPlan": `{"data":{"skillPlan":{"scanned":0,"judged":0,"entries":[],"orphans":[]}}}`,
+	}, "--all", "--to", t.TempDir())
+	if err != nil {
+		t.Fatalf("status errored: %v", err)
+	}
+	if _, called := captured["SkillPlan"]; !called {
+		t.Fatal("control failed: a non-empty scope did not send either, so the guard proves nothing")
+	}
+}
+
+// @codex on #652: the committed plugin bundle lives in a PUBLIC repo and may
+// carry PUBLIC memories only (D9/§6). Without the filter, `--all --to plugin
+// --strict` — the documented CI gate — compares a private memory's
+// declarations against the public directory and fails on a current bundle.
+func TestSkillStatusPluginTargetKeepsOnlyPublicMemories(t *testing.T) {
+	mem := func(id, urn, vis string) string {
+		return `{"id":"` + id + `","urn":"` + urn + `","name":"M","shortDescription":null,"class":"knowledge","visibility":"` + vis +
+			`","organizationId":"org1","organization":{"skillPrefix":null},"isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-06-11T00:00:00Z"}`
+	}
+	memories := `{"data":{"memories":{"total":2,"items":[` +
+		mem("mem1", "hrn:mem:hadronmemory.com:core", "PUBLIC") + `,` +
+		mem("mem2", "hrn:mem:micromentor.org:mmdata", "ORGANIZATION") + `]}}}`
+	// A git worktree is required for --to plugin; this repo is one.
+	out, captured, err := runSkillStatus(t, map[string]string{
+		"Memories": memories, "MemoriesSharedWithMe": `{"data":{"memories":{"total":0,"items":[]}}}`,
+		"SkillPlan": `{"data":{"skillPlan":{"scanned":0,"judged":0,"entries":[],"orphans":[]}}}`,
+	}, "--all", "--to", "plugin", "--json")
+	if err != nil {
+		t.Fatalf("status errored: %v\n%s", err, out)
+	}
+	mems, _ := sentInput(t, captured)["memories"].([]any)
+	if len(mems) != 1 || mems[0] != "hrn:mem:hadronmemory.com:core" {
+		t.Errorf("the plugin target scanned a non-PUBLIC memory: %v", mems)
+	}
+	// Excluded, not silently dropped: a short result must not read as a clean
+	// corpus.
+	var dto struct {
+		Excluded []struct{ Memory, Reason string } `json:"excluded"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out)
+	}
+	if len(dto.Excluded) != 1 || dto.Excluded[0].Memory != "hrn:mem:micromentor.org:mmdata" {
+		t.Errorf("the excluded memory is not reported: %+v", dto.Excluded)
+	}
+}
+
+// The same two memories under a NON-plugin target are both in scope — so the
+// filter above is the plugin rule, not a blanket one.
+func TestSkillStatusUserTargetKeepsPrivateMemories(t *testing.T) {
+	mem := func(id, urn, vis string) string {
+		return `{"id":"` + id + `","urn":"` + urn + `","name":"M","shortDescription":null,"class":"knowledge","visibility":"` + vis +
+			`","organizationId":"org1","organization":{"skillPrefix":null},"isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-06-11T00:00:00Z"}`
+	}
+	memories := `{"data":{"memories":{"total":2,"items":[` +
+		mem("mem1", "hrn:mem:hadronmemory.com:core", "PUBLIC") + `,` +
+		mem("mem2", "hrn:mem:micromentor.org:mmdata", "ORGANIZATION") + `]}}}`
+	_, captured, err := runSkillStatus(t, map[string]string{
+		"Memories": memories, "MemoriesSharedWithMe": `{"data":{"memories":{"total":0,"items":[]}}}`,
+		"SkillPlan": `{"data":{"skillPlan":{"scanned":0,"judged":0,"entries":[],"orphans":[]}}}`,
+	}, "--all", "--to", t.TempDir())
+	if err != nil {
+		t.Fatalf("status errored: %v", err)
+	}
+	if mems, _ := sentInput(t, captured)["memories"].([]any); len(mems) != 2 {
+		t.Errorf("--to <dir> must not apply the plugin visibility rule, got %v", mems)
+	}
+}
+
+// @codex on #652: `--host` is accepted verbatim, but the symbolic roots are
+// Claude's. `--host codex --to user` would compare one host's declarations
+// against ~/.claude/skills, making every orphan and drift row an artifact of
+// the mismatch. A loud refusal beats a permissive resolve; an explicit
+// directory stays the override, so a second host is testable before it has a
+// root of its own.
+func TestSkillStatusRefusesASymbolicRootForAHostWithoutOne(t *testing.T) {
+	for _, to := range []string{"user", "project", "plugin"} {
+		t.Run(to, func(t *testing.T) {
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"skill", "status", "--all", "--host", "codex", "--to", to})
+			if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+				t.Fatalf("exit = %d, want %d (Usage); out=%s", got, exitcode.Usage, out.String())
+			}
+		})
+	}
+}
+
+// ...and an explicit directory is accepted for that same host, or the refusal
+// above would just be "no second host at all".
+func TestSkillStatusAllowsAnExplicitDirForAnyHost(t *testing.T) {
+	_, captured, err := runSkillStatus(t, map[string]string{
+		"SkillPlan": `{"data":{"skillPlan":{"scanned":0,"judged":0,"entries":[],"orphans":[]}}}`,
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--host", "codex", "--to", t.TempDir())
+	if err != nil {
+		t.Fatalf("an explicit --to <dir> must work for any host: %v", err)
+	}
+	if got := sentInput(t, captured)["host"]; got != "codex" {
+		t.Errorf("host = %v, want codex passed through verbatim", got)
 	}
 }

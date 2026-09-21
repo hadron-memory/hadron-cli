@@ -74,6 +74,17 @@ type statusDTO struct {
 	// attribute it by — so it is reported here rather than sent up, where it
 	// would be classed an orphan on no evidence.
 	Unparseable []statusUnreadableDTO `json:"unparseable"`
+	// Excluded: memories left out of the selection by the TARGET rather than by
+	// the selector — today only --to plugin, which may carry PUBLIC memories
+	// only (D9). Reported rather than silently dropped, so a short result is
+	// never mistaken for a clean corpus.
+	Excluded []statusExcludedDTO `json:"excluded"`
+}
+
+// statusExcludedDTO is a memory the target's own rule removed from scope.
+type statusExcludedDTO struct {
+	Memory string `json:"memory"`
+	Reason string `json:"reason"`
 }
 
 func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
@@ -105,6 +116,11 @@ status over one node cannot answer "is my skill set fresh?" — the orphan and
 collision classes are properties of a SET. Use skill lint --node to judge a
 single node.
 
+--to plugin keeps only PUBLIC memories (D9): the committed bundle lives in a
+public repo, so a private memory's tasks cannot ship in it. What it left out is
+REPORTED, never silently dropped. The symbolic roots (user/project/plugin) are
+host-specific, so a --host other than claudeSkill must name a directory.
+
 Exit codes: an ERROR finding exits 5, as in skill lint. Drift alone exits 0 —
 so a CI gate is an explicit --strict, which exits 5 on any drift, any parse
 failure, or any orphan.`,
@@ -116,7 +132,7 @@ failure, or any orphan.`,
 			if err := sel.validateNoNode(); err != nil {
 				return err
 			}
-			root, err := resolveSkillsRoot(cmd, to)
+			root, err := resolveSkillsRoot(cmd, to, host)
 			if err != nil {
 				return err
 			}
@@ -125,27 +141,49 @@ failure, or any orphan.`,
 				return err
 			}
 
-			// Resolve the selector to explicit memory refs even for --all.
+			// Resolve the selector to explicit memories even for --all.
 			// SkillPlanInput treats an OMITTED `memories` as "every memory the
 			// caller can read", which is the SERVER's definition of all; this
 			// CLI already has one (the three listings --all documents, shared
 			// with skill lint). Sending the explicit list keeps --all meaning
 			// exactly one thing across both verbs rather than two definitions
 			// that agree until they quietly do not.
-			memRefs, err := resolveMemoryRefs(cmd, client, &sel)
+			mems, err := resolveMemories(cmd, client, &sel)
 			if err != nil {
 				return err
 			}
+			// D9/§6: the plugin bundle is committed to a PUBLIC repo, so it can
+			// only carry tasks from PUBLIC memories — a customer's private task
+			// cannot ship in a public artifact. Without this filter the
+			// documented CI gate (`status --all --to plugin --strict`) compares
+			// private declarations against the public directory and fails on a
+			// bundle that is perfectly current.
+			mems, excluded := filterForTarget(mems, to)
 
 			files, unreadable, unparseable, err := walkSkillFiles(root)
 			if err != nil {
 				return err
 			}
 
+			// An EMPTY selection must not be sent. `memories` carries
+			// `omitempty`, so an empty slice is omitted from the wire — and the
+			// server reads an omitted `memories` as EVERY memory the caller can
+			// read. The one case where this client has decided the scope is
+			// empty is exactly the case where it would silently widen to the
+			// opposite, including the memories --all deliberately excludes.
+			if len(mems) == 0 {
+				dto := emptyStatusDTO(root, host, unreadable, unparseable, excluded)
+				return finishStatus(f, dto, strict)
+			}
+
+			refs := make([]string, 0, len(mems))
+			for _, m := range mems {
+				refs = append(refs, m.URN)
+			}
 			input := &gen.SkillPlanInput{
 				Intent:   gen.SkillPlanIntentStatus,
 				Host:     &host,
-				Memories: memRefs,
+				Memories: refs,
 				Files:    files,
 			}
 			resp, err := gen.SkillPlan(cmd.Context(), client, input)
@@ -156,31 +194,9 @@ failure, or any orphan.`,
 				return exitcode.Newf(exitcode.Error, "skillPlan returned no result")
 			}
 			dto := toStatusDTO(root, host, resp.SkillPlan, unreadable, unparseable)
+			dto.Excluded = excluded
 
-			hasError, drift := false, false
-			for _, e := range dto.Entries {
-				if e.ParseFailure || (e.Class != nil && *e.Class != classCurrent) {
-					drift = true
-				}
-				for _, fnd := range e.Findings {
-					if fnd.Severity == skilldoc.SevError {
-						hasError = true
-					}
-				}
-			}
-			if len(dto.Orphans) > 0 || len(dto.Unreadable) > 0 || len(dto.Unparseable) > 0 {
-				drift = true
-			}
-
-			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				return renderStatus(w, dto)
-			}); err != nil {
-				return err
-			}
-			if hasError || (strict && drift) {
-				return exitcode.Silent(exitcode.Conflict)
-			}
-			return nil
+			return finishStatus(f, dto, strict)
 		},
 	}
 	sel.registerNoNode(cmd)
@@ -195,41 +211,135 @@ failure, or any orphan.`,
 // client can assign: every class rendered comes from the server verbatim.
 const classCurrent = "current"
 
-// resolveMemoryRefs turns the selector into the explicit memory refs the plan
-// input takes. `-m` passes the user's refs through canonicalized (the server
-// resolves every accepted grammar); `--all` expands to the same three listings
-// skill lint means by it.
-func resolveMemoryRefs(cmd *cobra.Command, client graphql.Client, sel *selectorFlags) ([]string, error) {
+// resolveMemories turns the selector into the memories the plan will scan.
+// Both branches return a full memoryInfo — including VISIBILITY, which the
+// plugin target filters on — so `-m` costs one lookup per ref and gains an
+// early, local refusal of a ref the server would otherwise reject mid-request.
+func resolveMemories(cmd *cobra.Command, client graphql.Client, sel *selectorFlags) ([]*memoryInfo, error) {
 	if sel.all {
-		mems, err := allMemories(cmd, client)
+		return allMemories(cmd, client)
+	}
+	out := make([]*memoryInfo, 0, len(sel.memories))
+	seen := map[string]bool{}
+	for _, ref := range sel.memories {
+		m, err := lookupMemory(cmd, client, ref)
 		if err != nil {
 			return nil, err
 		}
-		refs := make([]string, 0, len(mems))
-		for _, m := range mems {
-			refs = append(refs, m.URN)
+		if seen[m.ID] { // one memory named twice must not be scanned twice
+			continue
 		}
-		return refs, nil
+		seen[m.ID] = true
+		out = append(out, m)
 	}
-	refs := make([]string, 0, len(sel.memories))
-	for _, m := range sel.memories {
-		refs = append(refs, cmdutil.CanonicalMemoryRef(m))
-	}
-	return dedupe(refs), nil
+	return out, nil
 }
+
+// filterForTarget applies the TARGET's own scope rule, returning what survived
+// and what it removed. Only `plugin` has one: the bundle is committed to a
+// public repo, so it may carry PUBLIC memories only (D9 — a visibility rule,
+// not a memory allowlist, so a PUBLIC memory in any org qualifies).
+func filterForTarget(mems []*memoryInfo, to string) ([]*memoryInfo, []statusExcludedDTO) {
+	excluded := []statusExcludedDTO{}
+	if to != "plugin" {
+		return mems, excluded
+	}
+	kept := make([]*memoryInfo, 0, len(mems))
+	for _, m := range mems {
+		if m.Visibility == memoryVisibilityPublic {
+			kept = append(kept, m)
+			continue
+		}
+		excluded = append(excluded, statusExcludedDTO{
+			Memory: m.URN,
+			Reason: "not PUBLIC — the committed plugin bundle cannot carry a private memory's tasks",
+		})
+	}
+	return kept, excluded
+}
+
+// emptyStatusDTO is the report for a selection that resolved to NO memory. It
+// is built locally rather than by asking the server, because an empty
+// `memories` list is omitted on the wire and an omitted one means the opposite
+// of empty (every memory the caller can read).
+func emptyStatusDTO(root, host string, unreadable, unparseable []statusUnreadableDTO, excluded []statusExcludedDTO) statusDTO {
+	return statusDTO{
+		Root: root, Host: host,
+		Entries: []statusEntryDTO{}, Orphans: []statusOrphanDTO{},
+		Unreadable: unreadable, Unparseable: unparseable, Excluded: excluded,
+	}
+}
+
+// finishStatus renders the report and returns the user-visible exit code.
+func finishStatus(f *cmdutil.Factory, dto statusDTO, strict bool) error {
+	hasError, drift := false, false
+	for _, e := range dto.Entries {
+		if e.ParseFailure || (e.Class != nil && *e.Class != classCurrent) {
+			drift = true
+		}
+		for _, fnd := range e.Findings {
+			if fnd.Severity == skilldoc.SevError {
+				hasError = true
+			}
+		}
+	}
+	if len(dto.Orphans) > 0 || len(dto.Unreadable) > 0 || len(dto.Unparseable) > 0 {
+		drift = true
+	}
+	if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		return renderStatus(w, dto)
+	}); err != nil {
+		return err
+	}
+	if hasError || (strict && drift) {
+		return exitcode.Silent(exitcode.Conflict)
+	}
+	return nil
+}
+
+// cmp returns s, or fallback when s is empty — so an omitted --to is named by
+// its default in an error rather than as a blank.
+func cmp(s, fallback string) string {
+	if s == "" {
+		return fallback
+	}
+	return s
+}
+
+// hostDirs maps a host to the directory name its skills live under. ONLY
+// claudeSkill has one, because only claudeSkill has a renderer (D10) — and a
+// host with no renderer has no root this command could be right about.
+var hostDirs = map[string]string{skilldoc.HostClaudeSkill: ".claude"}
 
 // resolveSkillsRoot maps --to onto a directory. `project` and `plugin` are
 // anchored at the git toplevel and are a usage error outside a worktree —
 // resolving them against the process's cwd would write a customer's skills
 // into whatever directory the shell happened to be in.
-func resolveSkillsRoot(cmd *cobra.Command, to string) (string, error) {
+//
+// The symbolic roots are HOST-SPECIFIC: `--host` selects the renderer and the
+// host's root (§3/D10). A host with no mapping is REFUSED for a symbolic
+// destination rather than silently resolved to Claude's directory — which
+// would compare one host's declarations against another host's files and
+// report the difference as drift, with every orphan and every never-exported
+// row an artifact of the mismatch. An explicit directory stays the override,
+// so a second host is testable before it has a root of its own.
+func resolveSkillsRoot(cmd *cobra.Command, to, host string) (string, error) {
+	hostDir, known := hostDirs[host]
+	if !known {
+		switch to {
+		case "", "user", "project", "plugin":
+			return "", exitcode.Newf(exitcode.Usage,
+				"--host %s has no skills root of its own (only %s does), so --to %s cannot be resolved for it — name a directory instead: --to <dir>",
+				host, skilldoc.HostClaudeSkill, cmp(to, "user"))
+		}
+	}
 	switch to {
 	case "", "user":
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", exitcode.Newf(exitcode.Error, "cannot locate your home directory for --to user: %v", err)
 		}
-		return filepath.Join(home, ".claude", "skills"), nil
+		return filepath.Join(home, hostDir, "skills"), nil
 	case "project", "plugin":
 		out, err := exec.CommandContext(cmd.Context(), "git", "rev-parse", "--show-toplevel").Output()
 		if err != nil {
@@ -238,7 +348,7 @@ func resolveSkillsRoot(cmd *cobra.Command, to string) (string, error) {
 		}
 		top := strings.TrimSpace(string(out))
 		if to == "project" {
-			return filepath.Join(top, ".claude", "skills"), nil
+			return filepath.Join(top, hostDir, "skills"), nil
 		}
 		return filepath.Join(top, "plugins", "hadron-cli", "skills"), nil
 	default:
@@ -415,11 +525,21 @@ func toStatusDTO(root, host string, plan *gen.SkillPlanSkillPlan, unreadable, un
 // files that paired with nothing, then the counts.
 func renderStatus(w io.Writer, dto statusDTO) error {
 	fmt.Fprintf(w, "%s (host %s)\n\n", dto.Root, dto.Host)
+	if len(dto.Excluded) > 0 {
+		fmt.Fprintf(w, "Excluded from scope by the target:\n")
+		for _, e := range dto.Excluded {
+			fmt.Fprintf(w, "  %s — %s\n", e.Memory, e.Reason)
+		}
+		fmt.Fprintln(w)
+	}
 	if len(dto.Entries) == 0 && len(dto.Orphans) == 0 && len(dto.Unreadable) == 0 && len(dto.Unparseable) == 0 {
 		// scanned distinguishes an empty corpus from one the caller cannot
 		// see; without it both render as "nothing to do" and a permission
 		// problem reads as a clean bill of health.
 		fmt.Fprintf(w, "no skill declarations judged for this host (%d node(s) carrying a declaration were in scope)\n", dto.Scanned)
+		if dto.Judged == 0 && dto.Scanned == 0 {
+			fmt.Fprintf(w, "no memory was in scope — nothing was asked of the server, so this is not an all-clear\n")
+		}
 		return nil
 	}
 	t := output.NewTable(w, "NAME", "CLASS", "NODE", "DETAIL")

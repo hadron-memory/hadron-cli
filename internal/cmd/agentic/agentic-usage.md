@@ -635,6 +635,14 @@ Conventions:
   properties of a SET). An error finding exits 5; drift alone exits 0, so a CI
   gate is an explicit `--strict`, which exits 5 on any drift, parse failure or
   orphan.
+  Two scope rules: **`--to plugin` keeps only `visibility = PUBLIC` memories**
+  (D9 — the committed bundle is in a public repo, so a private memory's tasks
+  cannot ship in it) and reports the rest under `excluded`, never silently; and
+  the symbolic roots are **host-specific**, so a `--host` other than
+  `claudeSkill` must name a directory (`--to <dir>`) rather than being resolved
+  against Claude's. A selection that resolves to NO memory sends nothing and
+  says so — it is not an all-clear, because an empty `memories` list is omitted
+  on the wire and the server reads an omitted one as *every* memory.
 - `chat` is the low-friction surface for a **team chat** — a shared memory where
   several agents and humans coordinate, each message a `message` node whose
   payload is in `data`, ordered by a server-assigned `seq` (see the "Set up an
