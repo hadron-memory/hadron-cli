@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 61 unbound
+[Query] 62 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -63,6 +63,7 @@ resendSender
 resendSenders
 resolveAIConfig
 secret
+skillPlan  # hadron-server#1177 §3 — the ONE read surface for skill lint, status and export (intent LINT/STATUS/EXPORT). Deliberately unwired: hadron-cli#620 (status) and #621 (export) are the client halves and are queued, not started. Wiring it piecemeal would put drift-class naming back on the client, which is what the seam exists to prevent.
 slackConnection
 slackConnections
 usageActivity

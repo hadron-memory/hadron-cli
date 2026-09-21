@@ -79,6 +79,11 @@ type AddMemoryMemberPayload {
   memoryMember: MemoryMember!
 }
 
+"""
+The definition (one per Agent) — what a Builder creates and what the
+marketplace sells. Per 008-agent-installation. An App is the deployment
+of an Agent in some org.
+"""
 type Agent {
   aiApiKeyPreview: String
   aiModel: String
@@ -151,6 +156,20 @@ type Agent {
   visibility: AgentVisibility!
 }
 
+"""
+Decrypted AI config for an agent — the portal backend uses it to make LLM
+calls on behalf of the logged-in user.
+
+Gated by requireOwnerOrOrgRole, which branches on the Agent's OWNERSHIP
+CLASS: an org-owned Agent admits an ADMIN of that org (and a platform
+admin), while a USER-owned one (ownerUserId set, organizationId null)
+admits only its owner — strictly, with no org path and no admin bypass.
+Published as "only returned to org admins" until #1232, which is the
+org-owned half of the rule.
+
+036-ai-service-config: registry-backed (the Agent's config named
+'default'); prefer resolveAIConfig for new callers.
+"""
 type AgentAIConfig {
   apiKey: String!
   model: String!
@@ -172,6 +191,10 @@ input AgentFilter {
   visibility: AgentVisibility
 }
 
+"""
+008-agent-installation: Agent dependency edge ("Suite imports Calendar").
+v1 enforces 1-level imports only.
+"""
 type AgentImport {
   createdAt: DateTime!
   importedAgent: Agent!
@@ -189,6 +212,11 @@ type AgentMemoryItem {
   role: String!
 }
 
+"""
+008-agent-installation: Org↔Agent license. Authorizes (a) creating an App
+in this Org that uses this Agent, and (b) bundling this Agent in an
+AgentImport edge of an Agent the Org owns. Sibling to AgentSubscription.
+"""
 type AgentOrgGrant {
   activatedAt: DateTime
   agent: Agent!
@@ -321,16 +349,27 @@ enum AiConfigOwnerType {
   ORGANIZATION
 }
 
+"""
+046-usage-metering: effective-dated provider rate row. Prices are
+micro-cents (1e-8 USD) per MILLION tokens, as base-10 integer strings.
+"""
 type AiModelPrice {
   createdAt: DateTime!
   createdBy: String
   effectiveAt: DateTime!
   id: ID!
   inputMicroCentsPerMTok: String!
+
+  """
+  Per-tier debit markup in basis points (2500 = 25%). Null falls back
+  to the CREDIT_MARKUP_PERCENT env default.
+  """
   markupBasisPoints: Int
   model: String!
   outputMicroCentsPerMTok: String!
   provider: String!
+
+  """Pricing tier 1-3; tier 1 is the default everything resolves today."""
   tier: Int!
 }
 
@@ -395,8 +434,21 @@ type AiServiceConfigsPage {
   total: Int!
 }
 
+"""
+The runtime deployment of an Agent in an Organization. Owns long-lived
+App Keys and references its Agent via App.agent_id (a direct FK; the
+legacy AppAgent join was dropped in 008-agent-installation).
+"""
 type App {
   agent: Agent
+
+  """
+  SOFT-DEPRECATED convenience read: the FIRST installed Agent. An App
+  installs MANY Agents through the `AppAgent` join (023-app-shape Phase 2b,
+  which DROPPED the direct FK that 008-agent-installation had introduced) —
+  see `appAgents` below for the real cardinality. Kept so single-Agent
+  clients keep working; do not build new multi-Agent logic on it.
+  """
   agentId: ID
   agentTools: [String!]!
 
@@ -481,6 +533,7 @@ type App {
   urn: String!
 }
 
+"""Decrypted AI config for an App (owner / org admin only)."""
 type AppAIConfig {
   apiKey: String!
   model: String!
@@ -502,6 +555,9 @@ type AppAgent {
   updatedBy: String
 }
 
+"""
+Returned once at App creation / regenerateAppKey — the raw key is never stored
+"""
 type AppCreated {
   app: App!
   rawKey: String!
@@ -530,6 +586,7 @@ type AppKey {
   revokedAt: DateTime
 }
 
+"""Returned once at creation — the raw key is never stored"""
 type AppKeyCreated {
   key: AppKey!
   rawKey: String!
@@ -568,6 +625,11 @@ enum AppMemoryKind {
   user
 }
 
+"""
+One headless run — the audit record AND (v1) the activation: policy
+snapshot, live budgets (zeroing halts the run), lifecycle, trigger
+provenance. Spec cor:agt:010:02.
+"""
 type AppRun {
   """
   Total budgeted actions consumed (#832) — only actions actually admitted by
@@ -875,12 +937,49 @@ type AssetsPage {
   total: Int!
 }
 
+"""
+The resolved principal for the credential presented on THIS request
+(issue #562). Exposes the AuthContext the server already resolves per
+request (cor:aut:020:02) read-only, so any surface (CLI, portal) can
+validate a token and name the exact credential without per-client hacks.
+
+Security posture (held deliberately):
+  - Current-request only. There is intentionally no query that takes an
+    arbitrary token as an argument — that would be a token oracle. The
+    caller must possess the credential, exactly as today.
+  - No reason-leak. A credential that does not resolve yields a null
+    authContext (Query field), identically for revoked / never-existed /
+    malformed. Once a credential HAS resolved (you authenticated as it),
+    surfacing active-vs-revoked via apiKey.revokedAt is fine.
+"""
 type AuthContext {
+  """Reserved for a future agent-credential principal; always null today."""
   agentId: ID
+
+  """
+  The specific UserApiKey presented — populated only when the request
+  authenticated via an hdr_user_ key (its id, label, keyPreview,
+  createdAt, lastUsedAt, revokedAt). Null for JWT sessions and App keys.
+  """
   apiKey: UserApiKey
+
+  """App.id — populated for APP principals (hdr_app_ key)."""
   appId: ID
+
+  """
+  Set when the credential is an impersonation token: this request runs
+  READ-ONLY as the target user, scoped to one org. Null for every other
+  credential. Portal and CLI read this to render the acting-as state.
+  """
   impersonation: ImpersonationInfo
+
+  """Which kind of credential authenticated this request."""
   principalType: PrincipalType!
+
+  """
+  The authenticated User — populated for USER principals (JWT or
+  hdr_user_ key), null for App keys.
+  """
   user: User
 }
 
@@ -905,6 +1004,11 @@ type BeginAssetUploadResult {
   uploadId: ID!
 }
 
+"""
+v2 (spec 006-asset-upload-redesign): memory-addressed input.
+memoryId is required for the attached upload path. The staging
+path (memoryId omitted) is added in US4.
+"""
 input BeginAssetUploadV2Input {
   description: String
   filename: String!
@@ -1125,19 +1229,37 @@ type ChannelsPage {
   total: Int!
 }
 
+"""
+A saved chat in one of the chat-scope tiers.
+
+Per spec 017, scope is set at chat creation and immutable
+thereafter. private chats live in the author's personal-class
+memory; shared chats live in the App's app-class memory and are
+readable by every AppMember of that App.
+"""
 type Chat {
   conversationName: String
   createdAt: DateTime!
+
+  """
+  The chat's author (chat-root node's createdBy). Null for legacy
+  chats predating createdBy persistence. Surfaces who started a
+  shared chat so the portal can distinguish own vs other-member
+  shared chats in the list.
+  """
   createdBy: ID
   id: ID!
   lastMessageAt: DateTime
   loc: String!
   messageCount: Int!
+
+  """017-chat-visibility-and-personal-memory."""
   scope: ChatScope!
   stageName: String
   title: String!
 }
 
+"""One chat message in history, as returned by chatHistory."""
 type ChatMessage {
   content: String!
   createdAt: DateTime!
@@ -1147,6 +1269,15 @@ type ChatMessage {
 
 type ChatPromptResult {
   messageHistory: JSON!
+
+  """
+  #1115 — ALWAYS NULL since 2026-09-04. It used to fire every 20 messages
+  and ask the caller to produce a summary, but the summary it asked for is
+  replayed to the model as an ordinary user turn beside the messages it
+  summarises, so the loop made the transcript longer. Disarmed rather than
+  removed: the field is nullable, was absent 19 turns in 20, and every
+  caller already handles that. Re-arming needs the design in #1115.
+  """
   summarizationNeeded: SummarizationRequest
   systemMessage: String!
   tools: JSON
@@ -1162,6 +1293,15 @@ type ChatResponseResult {
   stageTransitioned: Boolean!
 }
 
+"""
+017-chat-visibility-and-personal-memory: a chat is created in one
+of two tiers, chosen by the user at chat creation and immutable
+thereafter. shared chats live in the App's app-class memory.
+private chats live in the user's personal-class memory, OR in a
+knowledge-class one when the caller's org has no matching App
+install — validateChatScopeInvariants accepts both, so a client
+must not assume the memory class from the scope.
+"""
 enum ChatScope {
   private
   shared
@@ -1448,6 +1588,10 @@ type CreditBalance {
   organizationId: ID!
 }
 
+"""
+046-usage-metering: append-only org credit ledger row. Signed
+micro-cents as a base-10 integer string (grants +, debits -).
+"""
 type CreditLedgerEntry {
   amountMicroCents: String!
   createdAt: DateTime!
@@ -1541,8 +1685,24 @@ type DashboardWidgetPreset {
 
 """#772 — the kinds of widget placeable on a user's /app/dashboard grid."""
 enum DashboardWidgetType {
+  """
+  { agentCount } — how many agents the caller OWNS: the
+  agents(filter: { ownedByMe: true }) slice (#1231). Owner-scoped for every
+  caller, platform admins included.
+  """
   AGENT_STATS
+
+  """
+  { memoryCount } — how many memories the caller OWNS: the
+  memories(filter: { ownedByMe: true }) slice, not everything they can read
+  (#1231). Stated here because the population is the contract: a client that
+  has to guess it writes its own count, and then the two disagree.
+  """
   MEMORY_STATS
+
+  """
+  { windowDays, buckets } — the caller's usage activity over a rolling window.
+  """
   USAGE_ACTIVITY
 }
 
@@ -1641,13 +1801,39 @@ type DriveFilePage {
 }
 
 type Edge {
+  """
+  JSONLogic gating expression. Null = always fires. Validated against
+  the v1 operator subset and the five variable scopes (memory.*,
+  chat.*, agent.*, message.data.*, now()/today()).
+  See hadron-docs/docs/reference/edge-conditions.md.
+  """
   condition: JSON
   data: JSON
   description: String
   id: ID!
+
+  """
+  If true, this edge can be executed/run (task automation, conversation
+  transitions). Mirrors Node.isRunnable.
+  """
   isRunnable: Boolean
+
+  """
+  Colon-delimited path within the (source node's) memory — the edge's
+  identity and the suffix of its URN hrn:edge:<root>:<memory>:<loc>.
+  """
   loc: String!
+
+  """
+  Free-form relationship name (e.g. imports, depends_on). Optional since
+  spec 037 — loc is the identity. (Was the required 'label'.)
+  """
   name: String
+
+  """
+  Resolution-order hook (lower = earlier; default 0). When two edges
+  share a priority, fall back to insertion order.
+  """
   priority: Int!
 
   """
@@ -1752,23 +1938,44 @@ type EffectiveActionPolicy {
   layers: [PolicyLayerVerdict!]!
 }
 
+"""
+Result of emailSaveDraft: the provider-side draft (it lives in the
+mailbox's Drafts folder, not in any platform table — spec 002 US5).
+"""
 type EmailDraftInfo {
   conversationId: ID
   draftId: ID!
 }
 
+"""
+Provider-neutral flag state (spec 002) — Graph's tri-state mapped to a
+neutral vocabulary so a future Gmail tool can map its own subset.
+"""
 enum EmailFlag {
   COMPLETE
   FLAGGED
   NONE
 }
 
+"""033-rag-vector-retrieval: what a memory's vector index is built from."""
 enum EmbeddingSource {
   abstract
   both
   contentChunks
 }
 
+"""
+A connected PROVIDER ACCOUNT (identity record) — despite the name, this
+one type carries mailboxes, calendars and Drive accounts alike; the
+provider field below says which, and each routes to its own capability
+tool. Provider state lives in that tool, never here.
+
+Operations are identity-scoped: the connection's OWNER may perform them,
+and an App/headless caller may perform those covered by a live
+ConnectionGrant whose scopes include the operation's (requireEmailConnection
+enforces both branches, fail-closed for an unmapped operation). list and
+delete stay org-ADMIN management operations.
+"""
 type ExchangeConnection {
   createdAt: DateTime!
   displayName: String
@@ -1777,6 +1984,14 @@ type ExchangeConnection {
   lastSyncAt: DateTime
   mailboxEmail: String!
   organizationId: String!
+
+  """
+  Provider backing this connection. Dispatched per-connection through
+  the tool registry: `ms-exchange`, `gmail`, `google-cal`,
+  `google-drive`. (This said "'ms-exchange' today" until #1232 — true
+  when written, and three providers out of date by the time it was
+  published.)
+  """
   provider: String!
   syncEnabled: Boolean!
   syncStatus: SyncStatus!
@@ -1884,11 +2099,21 @@ type GlobalSearchResult {
 }
 
 input GrantCreditsInput {
+  """Positive micro-cents, base-10 integer string."""
   amountMicroCents: String!
+
+  """Grant expiry policy field (no enforcement in Phase 0)."""
   expiresAt: String
   note: String
   orgRef: String!
   sourceId: String
+
+  """
+  Idempotency + provenance pair (both or neither), e.g.
+  ('stripe-checkout', <session id>). (sourceType, sourceId) is unique
+  across the ledger - re-granting the same pair returns the EXISTING
+  entry instead of double-crediting (at-least-once webhook safety).
+  """
   sourceType: String
 }
 
@@ -1948,6 +2173,13 @@ type GraphNodesPage {
   total: Int!
 }
 
+"""
+One registered Home Assistant instance (hadrontool-home-assistant
+registry, hadron-server#640). Org-owned. The long-lived access token
+is encrypted at rest and WRITE-ONLY: no field here ever returns it.
+The row grants nothing by itself; every run-time call walks the policy
+chain as 'tool.ha__<slug>__<op>' plus the run's action budget.
+"""
 type HomeAssistantInstance {
   createdAt: DateTime!
   createdBy: String
@@ -1978,11 +2210,17 @@ type HomeAssistantInstance {
   url: String!
 }
 
+"""Uniform paginated list shape (cor:api:120)."""
 type HomeAssistantInstancesPage {
   items: [HomeAssistantInstance!]!
   total: Int!
 }
 
+"""
+One op of the CLOSED Home Assistant op catalog, as admitted by a
+registry row's allowlist — what this query returns IS what a run can
+declare in data.tools. The catalog is static (no upstream round-trip).
+"""
 type HomeAssistantOp {
   description: String!
 
@@ -2001,21 +2239,49 @@ enum IdentifyUserMethod {
   USER_ID
 }
 
+"""
+Admin impersonation (read-only support sessions): the acting-as facts of
+THIS request's credential, surfaced on AuthContext so whoami-style
+consumers can name the real actor, the scope org, and the expiry.
+"""
 type ImpersonationInfo {
+  """
+  The admin behind the curtain (visibility per the normal User field
+  rules — the actor is a co-member of the scope org).
+  """
   actorUser: User
   expiresAt: DateTime!
   organizationId: ID!
+
+  """Always true in v1 — impersonated sessions cannot mutate."""
   readOnly: Boolean!
   sessionId: ID!
 }
 
+"""
+One admin-impersonation session: the durable audit record (who
+impersonated whom, in which org, when) AND the revocation source of
+truth (stopImpersonation writes endedAt; rows are never deleted).
+"""
 type ImpersonationSession {
   adminUser: User!
   createdAt: DateTime!
+
+  """
+  Explicit-stop timestamp; null while live or when the session merely
+  lapsed by TTL.
+  """
   endedAt: DateTime
+
+  """
+  User.id of whoever stopped it early (the admin actor for a self-stop
+  from the impersonated context). Null while live / TTL-lapse.
+  """
   endedBy: ID
   expiresAt: DateTime!
   id: ID!
+
+  """Derived: endedAt is null AND expiresAt is in the future."""
   isActive: Boolean!
   organization: Organization!
   reason: String
@@ -2023,6 +2289,7 @@ type ImpersonationSession {
 }
 
 input ImpersonationSessionFilter {
+  """Only sessions that are live right now (endedAt null, unexpired)."""
   activeOnly: Boolean
 }
 
@@ -2151,6 +2418,13 @@ type LeaveAppPayload {
   userId: ID!
 }
 
+"""
+One registered EXTERNAL MCP server (hadrontool-mcp conduit registry).
+Org-owned. Static auth headers are encrypted at rest and WRITE-ONLY:
+no field here ever returns them — hasHeaders is all a reader gets.
+The row grants nothing by itself; every run-time call walks the policy
+chain as 'tool.mcp__<slug>__<tool>' plus the run's action budget.
+"""
 type McpServer {
   createdAt: DateTime!
   createdBy: String
@@ -2182,6 +2456,11 @@ type McpServer {
   url: String!
 }
 
+"""
+One tool an external MCP server advertises, as admitted by the
+registry row (allowlist + name grammar + length cap applied) — what
+this query returns IS what a run can declare in data.tools.
+"""
 type McpServerTool {
   description: String
 
@@ -2195,6 +2474,7 @@ type McpServerTool {
   runToolName: String!
 }
 
+"""Uniform paginated list shape (cor:api:120)."""
 type McpServersPage {
   items: [McpServer!]!
   total: Int!
@@ -2205,11 +2485,34 @@ type MemoriesPage {
   total: Int!
 }
 
+"""A Hadron memory (git repo + branch settings)."""
 type Memory {
+  """
+  006-asset-upload-redesign: per-memory upload-acceptance gate.
+  Default true for app/knowledge/personal-class memories; false for
+  system-class. Org admins or memory owners can flip via the
+  setMemoryAcceptsUploads mutation (added in v2 story phases).
+  """
   acceptsUploads: Boolean!
+
+  """
+  Populated only for class = system — the agent this memory is
+  the system memory of. Null for regular knowledge memories.
+  """
   agent: Agent
   anonymousExpiresAt: DateTime
   app: App
+
+  """
+  The App this memory is scoped to. REQUIRED for `class='app'`,
+  FORBIDDEN for `class='system'` (an agent's own definition is never
+  App-scoped), and OPTIONAL for `knowledge` / `group` / `personal` /
+  `private` — set when provisioned inside an App, NULL when the memory
+  is free-standing. Enforced by `chk_memory_class_app_id`. (034 relaxed
+  the personal case and #653 moved knowledge + group from forbidden to
+  optional; this said "required for app/personal, NULL otherwise" until
+  #1232.)
+  """
   appId: ID
   category0: String
   category1: String
@@ -2226,6 +2529,13 @@ type Memory {
   Applies when embeddingSource includes content chunks.
   """
   chunkTokens: Int
+
+  """
+  Which memory typology this row belongs to. See MemoryClass for the
+  members — deliberately not restated here, because the count is what
+  went stale: this said "four-way" from 005-agent-subscription until
+  #1232, long after `group` (023) and `private` made it six.
+  """
   class: MemoryClass!
   createdAt: DateTime!
 
@@ -2326,6 +2636,14 @@ type Memory {
   served raw and logged, so a bare, unprefixed value is a possible read.
   """
   urn: String!
+
+  """
+  The strict user owner, for BOTH `personal` and `private` classes —
+  the DB invariant is `class IN ('personal','private') ⇔ user_id IS NOT
+  NULL`, so a private memory has one too. Resolves to null for every
+  other class, and also when the caller is not the memory owner / not
+  ADMIN/OWNER of the memory's org.
+  """
   userId: ID
   userMemoryOfAgentId: String
   vectorIndexEnabled: Boolean!
@@ -2343,6 +2661,8 @@ type Memory {
   was never enabled.
   """
   vectorIndexEncryptedAckAt: DateTime
+
+  """035-visibility-enum-cleanup: nullable — set only for knowledge/group."""
   visibility: MemoryVisibility
   writeBranch: String
 }
@@ -2527,6 +2847,7 @@ enum MemoryShareRole {
   writer
 }
 
+"""An organization's subscription to a memory it does not own."""
 type MemorySubscription {
   activated: Boolean!
   createdAt: DateTime!
@@ -2781,6 +3102,13 @@ type Mutation {
   """
   attachMemoryToApp(agentRef: ID!, appRef: ID!, memoryRef: ID!): Memory!
   beginAssetUpload(input: BeginAssetUploadInput!): BeginAssetUploadResult!
+
+  """
+  Asset upload — v2 (spec 006-asset-upload-redesign)
+  Memory-addressed begin: the caller specifies the destination
+  memory directly, no agent traversal. Replaces agent-addressed
+  beginAssetUpload during the deprecation window.
+  """
   beginAssetUploadV2(input: BeginAssetUploadV2Input!): BeginAssetUploadResult!
 
   """
@@ -2868,7 +3196,22 @@ type Mutation {
   
   Accepts the entity's ID or URN for appRef and agentRef.
   """
-  castWorker(agentRef: ID, appRef: ID!, name: String, promptOverride: String, role: String): Worker!
+  castWorker(
+    agentRef: ID
+    appRef: ID!
+
+    """
+    #1050: a name is now mandatory in EFFECT but stays nullable in the
+    schema, refused at the resolver with the typed WORKER_NAME_REQUIRED.
+    A non-null String would report the same mistake as a bare validation error,
+    losing the reason a name cannot be derived — and it would split this
+    surface from the MCP tool, which calls the resolver directly and would
+    keep the typed refusal. One rule, one message, both paths.
+    """
+    name: String
+    promptOverride: String
+    role: String
+  ): Worker!
 
   """
   Clear an Agent's AI provider config.
@@ -2879,6 +3222,13 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   clearAgentAIConfig(agentId: ID!): Agent!
+
+  """
+  Delete ALL NodeRevision rows for a node, returning the count deleted (#617).
+  'nodeRef' is the node's PK or fully-qualified URN. Auth: the node's memory
+  write access. An unknown ref throws NODE_NOT_FOUND. Reachable on a
+  soft-deleted node (purging residual history is a cleanup op).
+  """
   clearNodeHistory(nodeRef: ID!): Int!
 
   """
@@ -2906,6 +3256,16 @@ type Mutation {
   target org. system/app-class sources and encrypted memories are rejected.
   """
   cloneMemory(ref: ID!, targetUrn: String!): Memory!
+
+  """
+  Clone a node to a new location, returning the NEW node with a fresh id
+  (#564). Same selector shape as moveNode ('sourceRef' + exactly one of
+  'targetUrn' / 'targetMemoryRef'). Copies the source's own fields; outgoing
+  edges are copied only where they naturally resolve — a live node exists at
+  the target's loc in the destination memory. Incoming edges are not copied.
+  Fails loudly if the destination loc is already occupied. Requires read
+  access to the source memory and write access to the destination.
+  """
   cloneNode(sourceRef: ID!, targetMemoryRef: ID, targetUrn: String): Node!
   completeAssetUpload(input: CompleteAssetUploadInput!): Asset!
 
@@ -3023,6 +3383,12 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   createAppKey(appRef: ID!, label: String): AppKeyCreated!
+
+  """
+  App Key callers only: vouch for a user, creating (or returning) the User
+  this App knows by `externalId`. Managing that user's SESSIONS is the
+  startAgentSession / endAgentSession pair below, not this call.
+  """
   createAppUser(email: String, externalId: String!, handle: String, name: String): User!
   createAssetReferenceNode(input: CreateAssetReferenceNodeInput!): Node!
 
@@ -3242,6 +3608,22 @@ type Mutation {
   'name' is required here and only here (D4).
   """
   createNode(input: CreateNodeInput!): Node!
+
+  """
+  #745 — Object store: the legible sugar surface over structured storage.
+  An object IS a node; these ops are thin projections onto createNode /
+  updateNodeProperties / deleteNode, inheriting all their invariants
+  (auth, encryption, schema conformance, revisions, atomic merge).
+  
+  Create an object in a collection. 'memoryRef' is a memory ID or
+  fully-qualified URN (relative refs are rejected, spec 022). 'type' is the
+  collection (node objectType); 'fields' are the flat, typed properties
+  (validated against the memory schema when the collection is declared). The
+  node's loc is auto-derived (<type>:<key ?? generated-id>) and hidden; pass
+  'key' for a human-meaningful id (a single segment, no ':'), 'name' to
+  override the derived node name. 'id' and 'type' are reserved and cannot be
+  field names. Returns the flat object.
+  """
   createObject(fields: JSON!, key: String, memoryRef: String!, name: String, type: String!): JSON!
   createOrganization(name: String!, urn: String!): Organization!
 
@@ -3471,6 +3853,8 @@ type Mutation {
   (`Channel.chatRootUrn`, #1171).
   """
   deleteChannel(ref: ID!): Boolean!
+
+  """Soft-delete a saved chat and all its messages"""
   deleteChat(chatId: String!): Boolean!
 
   """
@@ -3560,8 +3944,41 @@ type Mutation {
     """
     orgRef: String
   ): Boolean!
+
+  """
+  Delete a node identified by 'nodeRef' (a node ID or fully-qualified URN;
+  #542). Soft-delete by default (sets deletedAt; the node disappears from
+  reads, matching the hadron_delete_node MCP tool). Pass hard: true to
+  remove the row entirely (cascades edges + NodeRevision via FK) —
+  irreversible. #391. A re-delete of an already soft-deleted node is
+  idempotent (the ref resolves through the tombstone).
+  
+  If the node has descendants (nodes under its loc prefix), a plain delete
+  REFUSES with NODE_HAS_DESCENDANTS (carrying the count) rather than silently
+  orphaning the subtree — parity with the hadron_delete_node MCP tool. Pass
+  recursive: true to delete the node's whole loc-subtree — the node at its loc
+  PLUS every descendant, matched on ':' path boundaries (so deleting 'auth'
+  does not touch 'authoring'). The subtree lives in one memory, so the single
+  write-access check covers it; 'hard' applies to the whole subtree.
+  
+  A hard delete cascades edges on both endpoints via FK. If any affected node
+  is on an edge that bridges this memory to another, the hard delete REFUSES
+  with CROSS_MEMORY_EDGES (the caller may not own the other memory) unless
+  cascadeCrossMemoryEdges: true. A non-recursive soft re-delete of an already
+  soft-deleted node is an idempotent no-op that preserves its audit stamp.
+  """
   deleteNode(cascadeCrossMemoryEdges: Boolean, hard: Boolean, nodeRef: ID!, recursive: Boolean): Boolean!
+
+  """
+  Delete a single node-revision snapshot by id (#617). Auth: the node's memory
+  write access (as restoreNodeRevision). Throws NOT_FOUND for an unknown id.
+  """
   deleteNodeRevision(revisionId: ID!): Boolean!
+
+  """
+  Delete an object (soft by default; 'hard: true' removes the row). 'ref' is
+  the object id (or node URN). Returns true on success.
+  """
   deleteObject(hard: Boolean, ref: ID!): Boolean!
 
   """
@@ -3863,6 +4280,8 @@ type Mutation {
   per spec 023 FR-001).
   """
   installAgentIntoApp(agentRef: ID!, appRef: ID!, trainingMode: Boolean): InstallAgentIntoAppPayload!
+
+  """Platform invite — no org association, just onboards a new user"""
   inviteUser(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, name: String): UserInvitation!
 
   """
@@ -3921,15 +4340,59 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   linkMemoryToUser(dataKey: String, externalUserId: String!, memoryId: ID!): Memory!
+
+  """
+  Merge one memory (source) into another (target), returning the updated
+  target. Source nodes whose loc already exists in the target are folded
+  into their counterpart via the mergeNodes field strategy ('include'
+  selects which fields); source nodes with no counterpart move over with
+  their loc unchanged. Edges follow. The source memory ends up empty;
+  'deleteSourceMem: true' then deletes it. v1 rejects encrypted source or
+  target memories and system/app classes.
+  """
   mergeMemories(input: MergeMemoriesInput!): Memory!
+
+  """
+  Fold one node (source) into another (target), returning the updated
+  target. Per-field strategy: text fields (CONTENT/ABSTRACT/DESCRIPTION)
+  concatenate target-first; TAGS unions; DATA/PROPERTIES shallow-merge
+  with the target winning on key collisions; EDGES re-points the source's
+  relationships onto the target. 'include' selects which fields fold in
+  (omitted = all). 'deleteSource: true' hard-deletes the source afterward.
+  Honors per-memory write auth, encryption, revision history, abstract
+  staleness, and re-embedding (same invariants as createNode/updateNode).
+  """
   mergeNodes(input: MergeNodesInput!): Node!
+
+  """
+  Consolidate a duplicate account into a surviving user. Source-only
+  identities and relationships move; duplicate role-bearing relationships
+  preserve the strongest live entitlement. The source is soft-deleted.
+  Platform admin, or an org admin/owner when both users are live members
+  of an organization they administer. The resulting merge is global.
+  """
   mergeUsers(input: MergeUsersInput!): User!
 
   """
   Mint comm.outbound tickets into the org ledger (org-ADMIN; cor:acl:050:04).
   """
   mintActionTickets(input: MintActionTicketsInput!): Int!
+
+  """
+  Relocate a node (#564). 'sourceRef' is the node's PK or fully-qualified
+  URN. The destination is EITHER 'targetUrn' (the node's new full URN — new
+  memory and/or loc) OR 'targetMemoryRef' (a memory ID/URN; the node keeps
+  its current loc, only its memory changes) — supply exactly one. The node
+  keeps its id, so all incoming/outgoing edge references stay valid. Fails
+  loudly with NODE_ALREADY_EXISTS if a live node already occupies the
+  destination. Requires write access to both the source and destination
+  memories.
+  """
   moveNode(sourceRef: ID!, targetMemoryRef: ID, targetUrn: String): Node!
+
+  """
+  Process the LLM's tool response (extract data, transition stage, save assistant message)
+  """
   processChatResponse(chatId: String!, toolResponse: JSON!): ChatResponseResult!
 
   """
@@ -3994,6 +4457,8 @@ type Mutation {
   appRef accepts the entity's ID or URN; sessionRef is the session id.
   """
   recordTeamWork(action: String!, appRef: ID!, detail: JSON, kind: String!, ref: String!, sessionRef: ID!, tool: String!): TeamWorkItem!
+
+  """Record a usage event"""
   recordUsage(event: UsageEventInput!): Boolean!
 
   """
@@ -4171,8 +4636,25 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   repairAgentSystemMemory(agentRef: ID!): Agent!
+
+  """Replace all nodes owned by a repo within a memory (collection tool)"""
   replaceSubtree(edges: [EdgeInput!]!, memoryId: String!, nodes: [NodeInput!]!, ownerRepo: String!): Int!
   restoreAsset(assetId: ID!): Asset!
+
+  """
+  Restore a node to a previous revision (#617).
+  
+  Default (truncate: false): snapshots the CURRENT node state into history
+  first, then restores the node's fields to the revision — non-destructive,
+  the restore itself becomes undoable.
+  
+  truncate: true: restores the node's fields to the revision AND deletes
+  every NodeRevision NEWER than the selected one (createdAt strictly greater),
+  WITHOUT creating a pre-restore snapshot. Boundary is EXCLUSIVE of the
+  selected row: the selected revision is KEPT and becomes the new baseline
+  (the most-recent snapshot afterward); its era and older survive. Restore +
+  truncate run in one transaction (atomic).
+  """
   restoreNodeRevision(revisionId: ID!, truncate: Boolean = false): Node!
 
   """
@@ -4232,6 +4714,8 @@ type Mutation {
     """
     userRef: String
   ): AgentSubscription!
+
+  """AppKey is keyed by raw ID — no urn column. Stays ID-only."""
   revokeAppKey(id: ID!): Boolean!
 
   """Revoke a connection grant you created (soft delete). Owner-only."""
@@ -4253,9 +4737,50 @@ type Mutation {
 
   """New secret + token; the old URL dies immediately."""
   rotateAgentWebhook(id: ID!): AgentWebhookCredentials!
+
+  """
+  Run a task — a runnable node (isRunnable=true) — identified by a single
+  nodeRef (a node PK or a fully-qualified node URN, hrn:node:<root>:<memory>:<loc>),
+  resolved by the shared resolveNodeRef (#542). A bare loc without a memory
+  is rejected — pass a full URN or an ID. For loose-name matching and
+  interactive task selection use the MCP hadron_run_task tool, which
+  resolves to a concrete nodeRef before calling this.
+  By default RENDERS the task: returns the assembled instructions (node content
+  with {{arg}} substitution and referenced nodes) for an LLM agent to execute.
+  Pass appRef (App PK or URN) to EXECUTE instead (#529): the server mints a
+  MANUAL app run for the resolved task under that App and returns the run id
+  (poll appRun(ref:) for status + output). runAsSelf attributes the run to
+  the caller. Without appRef, behavior is unchanged.
+  Spec cor:api:060.
+  """
   runTask(appRef: ID, args: JSON, nodeRef: String!, runAsSelf: Boolean): String!
+
+  """
+  Persist a caller-produced chat summary.
+  
+  #1115 — READ THIS BEFORE CALLING. The summary is STORED and nothing reads
+  it back as a summary: no query excludes the messages it covers, and the
+  model-history builder has no summary branch, so the node is replayed as an
+  ordinary user turn ALONGSIDE the messages it summarises. Calling this
+  makes the transcript longer, never shorter.
+  
+  The compression this was built for does not exist yet, and the trigger
+  that used to request it (ChatPromptResult.summarizationNeeded) now always
+  returns null. Kept working so existing callers do not break; re-arming it
+  needs the design in #1115, not a flag.
+  """
   saveChatSummary(chatId: String!, summary: String!): Boolean!
+
+  """
+  Bulk search-and-replace text across selected nodes (literal or regex).
+  Honors per-memory write auth, encryption, revision history, abstract
+  staleness, and re-embedding. Supports dryRun preview.
+  """
   searchReplaceInNodes(input: SearchReplaceInNodesInput!): SearchReplaceResult!
+
+  """
+  Process a user message (saves message, builds context, returns next prompt)
+  """
   sendChatMessage(chatId: String!, userMessage: String!): ChatPromptResult!
   sendContactMessage(email: String!, message: String!, name: String!): Boolean!
   setAgentAssetUploadEnabled(input: SetAgentAssetUploadEnabledInput!): App!
@@ -4285,6 +4810,14 @@ type Mutation {
   """
   setQuotaLimit(input: SetQuotaLimitInput!): QuotaCounter!
   softDeleteAsset(assetId: ID!): Asset!
+
+  """
+  Multi-user-agent session lifecycle (renamed to avoid collision with
+  the developer/guided startSession and endSession mutations).
+  dataKey is base64-encoded, 32 bytes, required when the app is
+  configured with identifyUserMethod: SECRET and the target memory is
+  (or will become) encrypted.
+  """
   startAgentSession(agentId: ID!, dataKey: String, externalUserId: String, sessionTimeoutSeconds: Int): Session!
 
   """
@@ -4425,6 +4958,8 @@ type Mutation {
   Spec 049 Phase 4 — rename / re-describe a Channel whose host memory you may write. ref: its id or its address (Channel.chatRootUrn, #1171).
   """
   updateChannel(input: UpdateChannelInput!, ref: ID!): Channel!
+
+  """Rename a saved chat (user must own it)"""
   updateChatTitle(chatId: String!, title: String!): Boolean!
 
   """
@@ -4553,9 +5088,51 @@ type Mutation {
   contract; omitted 'tags' are preserved, issue #235).
   """
   updateNode(input: UpdateNodeInput!): Node!
+
+  """
+  Shallow-merge a JSON patch into a node's 'data' bag. The supplied JSON's
+  top-level keys are written over the node's existing 'data' (the patch
+  wins on key collision); keys the patch doesn't mention are preserved.
+  If the node has no 'data' yet, the supplied JSON becomes its 'data'
+  verbatim. 'data' must be a JSON object (not an array or scalar). 'nodeRef'
+  is a node ID or fully-qualified URN. Honors the same single-write
+  invariants as updateNode (per-memory write auth, encryption, revision
+  history, git mirror). Returns the updated node.
+  """
   updateNodeData(data: JSON!, nodeRef: ID!, reason: String): Node!
+
+  """
+  #742 - Shallow-merge a JSON patch into a node's structured 'properties'
+  (the schema-governed JSONB column, DISTINCT from 'data'). The patch's
+  top-level keys are written over the node's existing 'properties' (patch
+  wins on collision); unmentioned keys are preserved; a node with no
+  'properties' takes the patch verbatim. 'properties' must be a JSON object
+  (not an array or scalar). 'nodeRef' is a node ID or fully-qualified URN.
+  On a schema-governed memory the MERGED result is validated against the
+  memory's schema (BAD_USER_INPUT on a violation). 'properties' is plaintext
+  at rest (never encrypted), so the merge + conformance check need no key —
+  but the write still honors the same single-write invariants as updateNode
+  (per-memory write auth, an active session on an encrypted memory, revision
+  history, git mirror). Returns the updated node.
+  """
   updateNodeProperties(nodeRef: ID!, properties: JSON!, reason: String): Node!
+
+  """
+  Set or clear the user-facing label on a revision snapshot (#620,
+  NodeRevision.revLabel, 500-char cap). Omit revLabel to preserve; pass
+  null to clear. Auth: the node's memory write access (as
+  deleteNodeRevision) PLUS the nodeRevision query's read gates — it returns
+  the full snapshot, so a soft-deleted node or a snapshot captured in an
+  unreadable memory answers the same NOT_FOUND as an unknown id.
+  """
   updateNodeRevision(revLabel: String, revisionId: ID!): NodeRevision!
+
+  """
+  Merge fields into an existing object (server-side atomic shallow merge +
+  schema conformance on the result). 'ref' is the object id (or node URN);
+  'fields' wins on key collision, unmentioned keys preserved. Returns the
+  updated flat object.
+  """
   updateObject(fields: JSON!, reason: String, ref: ID!): JSON!
 
   """
@@ -4920,6 +5497,7 @@ type NodeBatchResult {
   unavailable: [ID!]!
 }
 
+"""Outgoing edge on a node, used in NodeInput.edges"""
 input NodeEdgeInput {
   description: String
   isRunnable: Boolean
@@ -4945,6 +5523,11 @@ enum NodeExportEncoding {
   TEXT
 }
 
+"""
+Single-node export (#386). MD/JSON are the canonical, round-trippable files;
+PDF is a presentation render (content only) produced by the internal
+hadrontool-pdf service and delivered BASE64. HTML remains reserved.
+"""
 enum NodeExportFormat {
   JSON
   MD
@@ -5052,6 +5635,10 @@ input NodeInput {
   content: String
   data: JSON
   description: String
+
+  """
+  Replace all outgoing edges when provided (omit to leave edges unchanged)
+  """
   edges: [NodeEdgeInput!]
 
   """
@@ -5207,6 +5794,12 @@ type NodeRevision {
   loc: String!
   name: String!
   nodeId: String!
+
+  """
+  #620: full curated-subset snapshot fields. Null on LEGACY rows
+  captured before the columns existed (nodeType doubles as the legacy
+  sentinel — it is non-null on every post-#620 snapshot).
+  """
   nodeType: String
   properties: JSON
 
@@ -5344,6 +5937,7 @@ type ObjectList {
   total: Int
 }
 
+"""Per-organization membership record for a user."""
 type OrgMember {
   canInvite: Boolean!
   createdAt: DateTime!
@@ -5356,7 +5950,12 @@ type OrgMember {
   user: User!
 }
 
+"""A company or team that owns one or more Hadron memories."""
 type Organization {
+  """
+  008-agent-installation: this org's grants for using/bundling Agents.
+  Resolvable to ADMIN/OWNER of the org only.
+  """
   agentOrgGrants: [AgentOrgGrant!]!
   agents: [Agent!]!
   apps: [App!]!
@@ -5453,6 +6052,12 @@ type PrincipalGrantsPage {
   total: Int!
 }
 
+"""
+The kind of principal a credential resolved to (issue #562). USER covers
+both JWT sessions and hdr_user_ personal API keys; APP is an hdr_app_ key.
+AGENT is reserved for a future agent-credential principal — no auth path
+produces it today.
+"""
 enum PrincipalType {
   AGENT
   APP
@@ -5534,6 +6139,8 @@ type Query {
   Accepts the entity's ID or URN.
   """
   agentAIConfig(agentRef: ID!): AgentAIConfig
+
+  """v1 — agent-addressed listing. Deprecated; use memoryAssets."""
   agentAssets(agentUrn: String!, count: Int = 20, includeDeleted: Boolean = false, mimeType: String, skip: Int = 0): AssetListResult!
   agentSchedules(appRef: String!, limit: Int, offset: Int): AgentSchedulesPage!
 
@@ -5667,6 +6274,12 @@ type Query {
   user-owned (org-less) Apps for every caller including platform admins.
   """
   apps(filter: AppFilter, limit: Int, offset: Int, orgId: ID): AppsPage!
+
+  """
+  Mint a short-TTL presigned GET URL for an asset. Default TTL
+  5 minutes; ceiling 1 hour. Gated on the holding memory's read
+  access and on scan_status = CLEAN.
+  """
   assetDownloadUrl(assetId: ID!, ttlSeconds: Int = 300): AssetDownloadUrl!
 
   """
@@ -5777,6 +6390,33 @@ type Query {
   orgId. Loc-ascending (id tiebreak); limit default 50 / cap 200.
   """
   channels(filter: ChannelFilter, limit: Int, offset: Int, orgId: ID): ChannelsPage!
+
+  """
+  Message history for a saved chat. Returns plain role/content pairs
+  suitable for feeding back into an LLM.
+  
+  limit bounds the transcript to its MOST RECENT messages (default 100),
+  and they are returned oldest-first. Stated because it was not: the window
+  used to be taken from the other end, so a chat longer than the limit
+  returned its opening forever (#1111), and a client author had no written
+  contract to check that against. Contract: cor:cht:050:01.
+  
+  beforeSeq (#1116) pages BACKWARD: only messages with seq strictly LESS
+  than it are considered, and the window then returns the newest "limit"
+  of those -- the page immediately preceding the cursor, still oldest-first.
+  It is the mirror of teamChatMessages' sinceSeq: pass the OLDEST seq you
+  hold, as you would pass the newest to page forward. Omit it for the tail.
+  
+  Two boundaries worth knowing before you build on it:
+    - A message with NO seq is older than every numbered one
+      (cor:cht:050:02), so every cursor includes such messages. They are
+      reachable, but they cannot themselves BE a cursor -- a legacy chat
+      holding more counterless messages than one page cannot be paged
+      through them. Only pre-#919 transcripts are affected.
+    - seq is unique going forward but NOT on pre-#919 rows. Where two
+      legacy messages share a seq, a cursor at that value excludes both,
+      so paging can skip the sibling. See #992 for the underlying gap.
+  """
   chatHistory(beforeSeq: Int, chatId: String!, limit: Int): [ChatMessage!]!
 
   """
@@ -6090,6 +6730,10 @@ type Query {
   currently-live sessions. limit default 50 / cap 200.
   """
   impersonationSessions(filter: ImpersonationSessionFilter, limit: Int, offset: Int, orgId: String): ImpersonationSessionList!
+
+  """
+  Invitation lookup (public — no auth required, used by invite acceptance page)
+  """
   invitation(slug: String!): UserInvitation
 
   """
@@ -6138,6 +6782,8 @@ type Query {
   limit: 0 -> count only.
   """
   mcpServers(limit: Int, offset: Int, orgId: ID): McpServersPage!
+
+  """Current authenticated user"""
   me: User
 
   """
@@ -6219,7 +6865,16 @@ type Query {
   Accepts the entity's ID or URN.
   """
   memoryUsageSummary(memoryRef: ID!): [UsageSummaryEntry!]!
+
+  """
+  005-agent-subscription FR-005: AgentSubscriptions held by the
+  authenticated user. Read-only in v1.
+  """
   myAgentSubscriptions: [AgentSubscription!]!
+
+  """
+  The App authenticated by the current AppKey (null for JWT users without an App)
+  """
   myApp: App
 
   """
@@ -6304,6 +6959,17 @@ type Query {
   would re-introduce the N+1 it eliminates.
   """
   nodeBatch(locPrefix: String, memory: ID, refs: [ID!]): NodeBatchResult!
+
+  """
+  Render one node to a portable, self-contained file (spec cor:api).
+  full: true (default) returns the CANONICAL form — byte-identical to
+    "hadron node export <urn>", all sections, round-trippable via
+    "hadron node import". Requires MD or JSON; sections is ignored.
+  full: false returns a PRESENTATION render of the selected sections
+    (default: all); not guaranteed round-trippable.
+  Auth: same node-read gate as node(ref:). (HTML/PDF + asUrl delivery land
+  later; the result shape is forward-compatible.)
+  """
   nodeExport(format: NodeExportFormat = MD, full: Boolean = true, id: ID!, sections: [NodeExportSection!]): NodeExportResult!
 
   """
@@ -6629,6 +7295,25 @@ type Query {
   sessions(customerId: String, limit: Int, offset: Int, repo: String, type: String, workerRef: String): [Session!]!
 
   """
+  #1177 section 3 — the SKILL SEAM: the server judges, the client does I/O.
+  
+  One surface serving skill lint, skill status and skill export. The client
+  sends what it can see of each file on disk; the server returns a drift
+  CLASS and the lint findings per declared node, plus the rendered body for
+  anything the client is to write.
+  
+  A QUERY, not a mutation, and that is the contract. Nothing here writes to a
+  node — publishing is one-way, and the only writer in the feature is the
+  client's own filesystem. So status and lint cannot write by construction
+  rather than by promise.
+  
+  The client cannot name a drift class: the vocabulary is the server's, so it
+  cannot drift between clients. A node failing lint is never given a rendered
+  body, so a client cannot write a file the server judged broken.
+  """
+  skillPlan(input: SkillPlanInput!): SkillPlan!
+
+  """
   Fetch one Slack connection by id (spec 043). Returns null when the row
   does not exist OR the caller is not a member of its org — no existence
   disclosure.
@@ -6766,6 +7451,41 @@ type Query {
     """Window end, exclusive. Default: now."""
     to: String
   ): [UsageActivityBucket!]!
+
+  """
+  Usage events (most recent first), optionally filtered by type, memoryId,
+  or nodeId.
+  
+  Access control (#250): results are always scoped to memories the caller
+  may read (org membership / subscriptions / public / owned personal+private
+  per spec 034; ADMIN/OWNER see all EXCEPT another user's personal/private
+  memories and, per spec 047, another user's user-owned memories). A
+  memoryId the caller can't read returns [] (no existence leak); the global
+  form (no memoryId) is bounded to the readable set, never cross-tenant.
+  
+  memoryId is a memory identifier — accepts the memory's ID or URN. Results
+  are scoped on the denormalized UsageEvent.memoryId column (#796), so an
+  event stays attributed to its memory after its node is deleted.
+  
+  nodeId is a node token accepting a PK, a fully-qualified URN, or a bare
+  loc (no memoryId needed):
+    - PK / URN  → resolved to a single node; scoped via its exact nodeId FK
+                  (memory-precise).
+    - bare loc  → exact nodeLoc match, bounded to readable memories; not
+                  existence-checked. Shape-classified: a loc with 3+
+                  colon-separated segments qualifies as node-URN shape and
+                  takes the PK/URN branch instead — use loc for those.
+                  (This used to read "like nodeUsage but access-scoped" —
+                  a comment that named an ungated sibling without anyone
+                  following the pointer back. nodeUsage was gated in #802
+                  and deprecated as redundant in the same issue.)
+  
+  loc — the VERBATIM exact nodeLoc filter (never shape-sniffed, so every
+  loc works, hierarchical spec citations included), bounded to readable
+  memories; not existence-checked. The migration target for the deprecated
+  nodeUsage(loc:) above — same match, same gate (PR-986 review, Codex P2).
+  Mutually exclusive with nodeId (BAD_USER_INPUT when both are passed).
+  """
   usageEvents(limit: Int, loc: String, memoryId: ID, nodeId: ID, offset: Int, type: String): [UsageEvent!]!
 
   """
@@ -7430,6 +8150,15 @@ type SearchScopeInfo {
   source: String!
 }
 
+"""
+One named, owner-scoped secret — the general secret store (#677).
+Polymorphic owner (user | org | app | memory). The value is encrypted
+at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
+are the inspectable half (you can see THAT a secret exists and, for
+webfetch-auth, WHERE it applies, without decrypting). A bare name
+resolves at run time via the CSS cascade, most-specific-first:
+memory -> app -> user -> org.
+"""
 type Secret {
   createdAt: DateTime!
   createdBy: String
@@ -7451,6 +8180,7 @@ type Secret {
   updatedBy: String
 }
 
+"""Uniform paginated list shape (cor:api:120)."""
 type SecretsPage {
   items: [Secret!]!
   total: Int!
@@ -7458,7 +8188,12 @@ type SecretsPage {
 
 """Identity of the running hadron-server (see Query.serverInfo)."""
 type ServerInfo {
+  """
+  The deployment's canonical base URL (BASE_URL, else the local default).
+  """
   baseUrl: String!
+
+  """HADRON_SERVER_VERSION — the MCP/API-surface contract version."""
   version: String!
 }
 
@@ -7599,6 +8334,8 @@ input SessionInput {
   prevSessionId: String
   repo: String
   tool: String
+
+  """#928 coding-session provenance."""
   transcriptPath: String
   type: String
 
@@ -7652,12 +8389,20 @@ input SetAgentAssetUploadEnabledInput {
 }
 
 input SetAiModelPriceInput {
+  """Defaults to now. Appends a new effective-dated row - never mutates."""
   effectiveAt: String
   inputMicroCentsPerMTok: String!
+
+  """
+  Per-tier debit markup in basis points (2500 = 25%); omit to fall
+  back to the CREDIT_MARKUP_PERCENT env default.
+  """
   markupBasisPoints: Int
   model: String!
   outputMicroCentsPerMTok: String!
   provider: String!
+
+  """Pricing tier 1-3; defaults to 1."""
   tier: Int
 }
 
@@ -7679,6 +8424,147 @@ input SetQuotaLimitInput {
   orgRef: String!
 }
 
+"""
+What the client saw of ONE file on disk. The server never reads the caller's disk.
+"""
+input SkillFileFactsInput {
+  """
+  The directory the skill occupies — compared against the node's stored name.
+  """
+  dirName: String!
+
+  """The hash the client computed over the file itself."""
+  fileHash: String
+
+  """True when the file carries frontmatter keys the renderer never writes."""
+  hasExtraFrontmatter: Boolean
+
+  """
+  The hash value from the header; omit for a legacy header that carries none.
+  """
+  headerHash: String
+
+  """
+  The id value from the provenance header; omit on a header generation that predates it.
+  """
+  nodeId: String
+
+  """True when the file exists and could not be parsed."""
+  parseFailed: Boolean
+
+  """The source URN from the provenance header."""
+  sourceUrn: String
+}
+
+"""
+One lint result, carrying the node and memory so a renderer never looks them back up.
+"""
+type SkillFinding {
+  memory: String!
+  message: String!
+  rule: String!
+
+  """Either error or warning — the same vocabulary spec lint renders."""
+  severity: String!
+  urn: String!
+}
+
+"""
+A file that paired with no declared node. Never removed without an explicit prune.
+"""
+type SkillOrphan {
+  dirName: String!
+  nodeId: String
+  sourceUrn: String
+}
+
+type SkillPlan {
+  entries: [SkillPlanEntry!]!
+
+  """
+  How many of those were judged for THIS host — the number of entries. A node
+  declaring only another host is scanned and not judged, so the two differ by
+  design; the gap is a fact about the corpus, not a discrepancy.
+  """
+  judged: Int!
+  orphans: [SkillOrphan!]!
+
+  """
+  How many nodes carrying ANY declaration key were in scope. A plan over an
+  empty corpus and a plan the caller cannot see are otherwise the same empty
+  list, and a client that cannot tell them apart reports nothing-to-do for a
+  corpus it was denied.
+  """
+  scanned: Int!
+}
+
+type SkillPlanEntry {
+  """
+  One of: current, stale, locally-edited, renamed, never-exported, orphaned,
+  unhashed, collision, unavailable, disabled. Null when the file could not be
+  parsed — a parse failure is reported as a FAILURE, not as a class.
+  """
+  class: String
+  findings: [SkillFinding!]!
+
+  """For the renamed class: the directory the file currently occupies."""
+  movedFrom: String
+
+  """The stored skill name (D12 retired derivation)."""
+  name: String!
+  nodeId: String!
+
+  """
+  True when the file exists and does not parse. Reported identically by status and export.
+  """
+  parseFailure: Boolean!
+
+  """
+  Present only for EXPORT, only for a class whose action writes, and only
+  when the node has no error findings — so a client cannot write a file the
+  server already judged broken.
+  """
+  renderedBody: String
+  urn: String!
+}
+
+input SkillPlanInput {
+  """What the client found on disk. Empty for lint, which touches no disk."""
+  files: [SkillFileFactsInput!]
+
+  """Target host. Only claudeSkill has a renderer today (D10)."""
+  host: String
+  intent: SkillPlanIntent!
+
+  """Memory refs to scan. Omitted means every memory the caller can read."""
+  memories: [String!]
+}
+
+"""
+What the caller intends to do with the plan. It decides the ACTION, never the class.
+"""
+enum SkillPlanIntent {
+  """
+  Classes, findings, and the rendered body for anything the client should write.
+  """
+  EXPORT
+
+  """
+  Corpus judgment only: findings, no files consulted, no bodies returned.
+  """
+  LINT
+
+  """Classes and findings for files the client found. Never returns a body."""
+  STATUS
+}
+
+"""
+One Slack workspace install of the Hadron Slack app (spec 043).
+Org-owned, workspace granularity: defaultAppId names the Hadron App that
+serves /hadron commands from this workspace. The bot + app tokens live
+ENCRYPTED IN THE TOOL (hadrontool-slack) — they are write-only inputs on
+createSlackConnection and no field here ever returns them.
+"""
 type SlackConnection {
   """
   The bot's BOT id (B…) — what bot message events carry. Distinct from botUserId; the bridge loop filter needs both.
@@ -7705,6 +8591,7 @@ type SlackConnection {
   updatedAt: DateTime!
 }
 
+"""Uniform paginated list shape (cor:api:120)."""
 type SlackConnectionsPage {
   items: [SlackConnection!]!
   total: Int!
@@ -7716,6 +8603,10 @@ enum SortDirection {
   desc
 }
 
+"""
+Returned exactly once by startImpersonation — the token is never stored
+or shown again (UserApiKey rawKey precedent).
+"""
 type StartImpersonationResult {
   session: ImpersonationSession!
   token: String!
@@ -7726,6 +8617,11 @@ enum SubscriptionType {
   READ_WRITE
 }
 
+"""
+Retained for ChatPromptResult.summarizationNeeded, which is currently always
+null (#1115). Kept so the schema does not break clients that still select
+the field.
+"""
 type SummarizationRequest {
   messageCount: Int!
   prompt: String!
@@ -7987,6 +8883,10 @@ input UpdateNodeInput {
   contentType: String
   data: JSON
   description: String
+
+  """
+  Replace all outgoing edges when provided (omit to leave edges unchanged)
+  """
   edges: [NodeEdgeInput!]
 
   """
@@ -8109,10 +9009,22 @@ enum UsageActivityBucketSize {
 
 type UsageEvent {
   actionArgs: JSON
+
+  """Caller identity — the App that authored this event."""
   appId: String
+
+  """
+  Provider cost snapshot in micro-cents (1e-8 USD), as a base-10
+  integer string. Null when the (provider, model) pair is unpriced.
+  """
   costMicroCents: String
   createdAt: DateTime!
   id: ID!
+
+  """
+  Owner level of the API key that served the call
+  (HADRON_SERVER means platform-paid; anything else is BYOK).
+  """
   keyOwnerType: String
 
   """
@@ -8149,6 +9061,11 @@ type UsageSummaryEntry {
 }
 
 type User {
+  """
+  008-agent-installation: User-App memberships. Resolves to a non-empty
+  list only when the queried User is the authenticated user (mirrors
+  the User.agentSubscriptions resolver-side gate from 005).
+  """
   appMemberships: [AppMember!]!
 
   """Apple account subject id (#837). Same gate and rationale as googleId."""
@@ -8184,12 +9101,30 @@ type User {
   """
   policy: JSON
   roles: [Role!]!
+
+  """
+  Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
+  handle; null for a handle-less user (who has no URN).
+  """
   urn: String
 }
 
+"""
+025-oauth-for-mcp: user-scoped bearer-token credential. Mirrors the
+AppKey shape but resolves to a User instead of an App. Surfaced to
+the portal revocation UI (Phase 3) so users can audit + revoke
+their own keys. userId is intentionally absent — for self-service
+v1 the caller is always the owner; admin-tooling auditability is
+out of scope (see contracts/graphql-mutations.md, PR-137 delta D1).
+"""
 type UserApiKey {
   createdAt: DateTime!
   id: ID!
+
+  """
+  Issuance path: portal (createUserApiKey) or oauth:<client_id>
+  (POST /oauth/token). Powers source labels in the revocation UI.
+  """
   issuedVia: String
   keyPreview: String!
   label: String
@@ -8197,6 +9132,11 @@ type UserApiKey {
   revokedAt: DateTime
 }
 
+"""
+Returned once at creation — the raw key is never stored.
+Renamed from PR 137's UserApiKeyCreated for Result-suffix
+consistency; nested field is userApiKey, not key (PR-137 delta D2).
+"""
 type UserApiKeyCreateResult {
   rawKey: String!
   userApiKey: UserApiKey!
@@ -8214,6 +9154,7 @@ input UserFilter {
   query: String
 }
 
+"""Invitation to join the platform (and optionally an organization)"""
 type UserInvitation {
   acceptedAt: DateTime
   activationCount: Int!

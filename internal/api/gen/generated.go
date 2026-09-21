@@ -402,6 +402,9 @@ func (v *AddMemoryMemberResponse) GetAddMemoryMember() *AddMemoryMemberAddMemory
 }
 
 // AddOrgMemberAddOrgMember includes the requested fields of the GraphQL type OrgMember.
+// The GraphQL type's documentation follows.
+//
+// Per-organization membership record for a user.
 type AddOrgMemberAddOrgMember struct {
 	Id string `json:"id"`
 	// Target member's role in this org. Null when the viewer isn't an ADMIN/OWNER of the org (#384 field-level visibility); always visible for one's own membership.
@@ -592,6 +595,11 @@ func (v *AdvanceChannelReadStateResponse) GetAdvanceChannelReadState() *AdvanceC
 }
 
 // AgentFields includes the GraphQL fields of Agent requested by the fragment AgentFields.
+// The GraphQL type's documentation follows.
+//
+// The definition (one per Agent) — what a Builder creates and what the
+// marketplace sells. Per 008-agent-installation. An App is the deployment
+// of an Agent in some org.
 type AgentFields struct {
 	Id             string          `json:"id"`
 	Urn            string          `json:"urn"`
@@ -1462,6 +1470,11 @@ func (v *AgentsAgentsAgentsPage) GetTotal() int { return v.Total }
 func (v *AgentsAgentsAgentsPage) GetItems() []*AgentsAgentsAgentsPageItemsAgent { return v.Items }
 
 // AgentsAgentsAgentsPageItemsAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The definition (one per Agent) — what a Builder creates and what the
+// marketplace sells. Per 008-agent-installation. An App is the deployment
+// of an Agent in some org.
 type AgentsAgentsAgentsPageItemsAgent struct {
 	AgentFields `json:"-"`
 }
@@ -1706,6 +1719,11 @@ func (v *AiServiceConfigFields) GetCreatedAt() string { return v.CreatedAt }
 func (v *AiServiceConfigFields) GetUpdatedAt() *string { return v.UpdatedAt }
 
 // AppAgentRosterApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// The runtime deployment of an Agent in an Organization. Owns long-lived
+// App Keys and references its Agent via App.agent_id (a direct FK; the
+// legacy AppAgent join was dropped in 008-agent-installation).
 type AppAgentRosterApp struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -1730,6 +1748,11 @@ func (v *AppAgentRosterApp) GetName() string { return v.Name }
 func (v *AppAgentRosterApp) GetAgents() []*AppAgentRosterAppAgentsAgent { return v.Agents }
 
 // AppAgentRosterAppAgentsAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The definition (one per Agent) — what a Builder creates and what the
+// marketplace sells. Per 008-agent-installation. An App is the deployment
+// of an Agent in some org.
 type AppAgentRosterAppAgentsAgent struct {
 	Id             string          `json:"id"`
 	Urn            string          `json:"urn"`
@@ -1794,6 +1817,11 @@ type AppFilter struct {
 func (v *AppFilter) GetOwnedByMe() *bool { return v.OwnedByMe }
 
 // AppRunAppRun includes the requested fields of the GraphQL type AppRun.
+// The GraphQL type's documentation follows.
+//
+// One headless run — the audit record AND (v1) the activation: policy
+// snapshot, live budgets (zeroing halts the run), lifecycle, trigger
+// provenance. Spec cor:agt:010:02.
 type AppRunAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -1978,6 +2006,11 @@ func (v *AppRunAppRun) __premarshalJSON() (*__premarshalAppRunAppRun, error) {
 }
 
 // AppRunFields includes the GraphQL fields of AppRun requested by the fragment AppRunFields.
+// The GraphQL type's documentation follows.
+//
+// One headless run — the audit record AND (v1) the activation: policy
+// snapshot, live budgets (zeroing halts the run), lifecycle, trigger
+// provenance. Spec cor:agt:010:02.
 type AppRunFields struct {
 	Id             string            `json:"id"`
 	OrganizationId string            `json:"organizationId"`
@@ -2139,6 +2172,11 @@ func (v *AppRunsAppRunsAppRunsPage) GetItems() []*AppRunsAppRunsAppRunsPageItems
 }
 
 // AppRunsAppRunsAppRunsPageItemsAppRun includes the requested fields of the GraphQL type AppRun.
+// The GraphQL type's documentation follows.
+//
+// One headless run — the audit record AND (v1) the activation: policy
+// snapshot, live budgets (zeroing halts the run), lifecycle, trigger
+// provenance. Spec cor:agt:010:02.
 type AppRunsAppRunsAppRunsPageItemsAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -2406,11 +2444,21 @@ func (v *AppsAppsAppsPage) GetTotal() int { return v.Total }
 func (v *AppsAppsAppsPage) GetItems() []*AppsAppsAppsPageItemsApp { return v.Items }
 
 // AppsAppsAppsPageItemsApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// The runtime deployment of an Agent in an Organization. Owns long-lived
+// App Keys and references its Agent via App.agent_id (a direct FK; the
+// legacy AppAgent join was dropped in 008-agent-installation).
 type AppsAppsAppsPageItemsApp struct {
-	Id          string  `json:"id"`
-	Urn         string  `json:"urn"`
-	Name        string  `json:"name"`
-	AppType     AppType `json:"appType"`
+	Id      string  `json:"id"`
+	Urn     string  `json:"urn"`
+	Name    string  `json:"name"`
+	AppType AppType `json:"appType"`
+	// SOFT-DEPRECATED convenience read: the FIRST installed Agent. An App
+	// installs MANY Agents through the `AppAgent` join (023-app-shape Phase 2b,
+	// which DROPPED the direct FK that 008-agent-installation had introduced) —
+	// see `appAgents` below for the real cardinality. Kept so single-Agent
+	// clients keep working; do not build new multi-Agent logic on it.
 	AgentId     *string `json:"agentId"`
 	MemberCount int     `json:"memberCount"`
 	CreatedAt   string  `json:"createdAt"`
@@ -2479,6 +2527,9 @@ func (v *AssetDownloadUrlAssetDownloadUrl) GetExpiresAt() string { return v.Expi
 
 // AssetDownloadUrlResponse is returned by AssetDownloadUrl on success.
 type AssetDownloadUrlResponse struct {
+	// Mint a short-TTL presigned GET URL for an asset. Default TTL
+	// 5 minutes; ceiling 1 hour. Gated on the holding memory's read
+	// access and on scan_status = CLEAN.
 	AssetDownloadUrl *AssetDownloadUrlAssetDownloadUrl `json:"assetDownloadUrl"`
 }
 
@@ -2502,6 +2553,9 @@ var AllAssetScanStatus = []AssetScanStatus{
 }
 
 // AttachMemoryToAppAttachMemoryToAppMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type AttachMemoryToAppAttachMemoryToAppMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -2514,13 +2568,18 @@ type AttachMemoryToAppAttachMemoryToAppMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   *string           `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -2584,12 +2643,38 @@ func (v *AttachMemoryToAppResponse) GetAttachMemoryToApp() *AttachMemoryToAppAtt
 }
 
 // AuthContextAuthContext includes the requested fields of the GraphQL type AuthContext.
+// The GraphQL type's documentation follows.
+//
+// The resolved principal for the credential presented on THIS request
+// (issue #562). Exposes the AuthContext the server already resolves per
+// request (cor:aut:020:02) read-only, so any surface (CLI, portal) can
+// validate a token and name the exact credential without per-client hacks.
+//
+// Security posture (held deliberately):
+// - Current-request only. There is intentionally no query that takes an
+// arbitrary token as an argument — that would be a token oracle. The
+// caller must possess the credential, exactly as today.
+// - No reason-leak. A credential that does not resolve yields a null
+// authContext (Query field), identically for revoked / never-existed /
+// malformed. Once a credential HAS resolved (you authenticated as it),
+// surfacing active-vs-revoked via apiKey.revokedAt is fine.
 type AuthContextAuthContext struct {
-	PrincipalType PrincipalType                                         `json:"principalType"`
-	AppId         *string                                               `json:"appId"`
-	AgentId       *string                                               `json:"agentId"`
-	User          *AuthContextAuthContextUser                           `json:"user"`
-	ApiKey        *AuthContextAuthContextApiKeyUserApiKey               `json:"apiKey"`
+	// Which kind of credential authenticated this request.
+	PrincipalType PrincipalType `json:"principalType"`
+	// App.id — populated for APP principals (hdr_app_ key).
+	AppId *string `json:"appId"`
+	// Reserved for a future agent-credential principal; always null today.
+	AgentId *string `json:"agentId"`
+	// The authenticated User — populated for USER principals (JWT or
+	// hdr_user_ key), null for App keys.
+	User *AuthContextAuthContextUser `json:"user"`
+	// The specific UserApiKey presented — populated only when the request
+	// authenticated via an hdr_user_ key (its id, label, keyPreview,
+	// createdAt, lastUsedAt, revokedAt). Null for JWT sessions and App keys.
+	ApiKey *AuthContextAuthContextApiKeyUserApiKey `json:"apiKey"`
+	// Set when the credential is an impersonation token: this request runs
+	// READ-ONLY as the target user, scoped to one org. Null for every other
+	// credential. Portal and CLI read this to render the acting-as state.
 	Impersonation *AuthContextAuthContextImpersonationImpersonationInfo `json:"impersonation"`
 }
 
@@ -2614,6 +2699,14 @@ func (v *AuthContextAuthContext) GetImpersonation() *AuthContextAuthContextImper
 }
 
 // AuthContextAuthContextApiKeyUserApiKey includes the requested fields of the GraphQL type UserApiKey.
+// The GraphQL type's documentation follows.
+//
+// 025-oauth-for-mcp: user-scoped bearer-token credential. Mirrors the
+// AppKey shape but resolves to a User instead of an App. Surfaced to
+// the portal revocation UI (Phase 3) so users can audit + revoke
+// their own keys. userId is intentionally absent — for self-service
+// v1 the caller is always the owner; admin-tooling auditability is
+// out of scope (see contracts/graphql-mutations.md, PR-137 delta D1).
 type AuthContextAuthContextApiKeyUserApiKey struct {
 	UserApiKeyFields `json:"-"`
 }
@@ -2712,12 +2805,20 @@ func (v *AuthContextAuthContextApiKeyUserApiKey) __premarshalJSON() (*__premarsh
 }
 
 // AuthContextAuthContextImpersonationImpersonationInfo includes the requested fields of the GraphQL type ImpersonationInfo.
+// The GraphQL type's documentation follows.
+//
+// Admin impersonation (read-only support sessions): the acting-as facts of
+// THIS request's credential, surfaced on AuthContext so whoami-style
+// consumers can name the real actor, the scope org, and the expiry.
 type AuthContextAuthContextImpersonationImpersonationInfo struct {
-	SessionId      string                                                         `json:"sessionId"`
-	OrganizationId string                                                         `json:"organizationId"`
-	ExpiresAt      string                                                         `json:"expiresAt"`
-	ReadOnly       bool                                                           `json:"readOnly"`
-	ActorUser      *AuthContextAuthContextImpersonationImpersonationInfoActorUser `json:"actorUser"`
+	SessionId      string `json:"sessionId"`
+	OrganizationId string `json:"organizationId"`
+	ExpiresAt      string `json:"expiresAt"`
+	// Always true in v1 — impersonated sessions cannot mutate.
+	ReadOnly bool `json:"readOnly"`
+	// The admin behind the curtain (visibility per the normal User field
+	// rules — the actor is a co-member of the scope org).
+	ActorUser *AuthContextAuthContextImpersonationImpersonationInfoActorUser `json:"actorUser"`
 }
 
 // GetSessionId returns AuthContextAuthContextImpersonationImpersonationInfo.SessionId, and is useful for accessing the field via an interface.
@@ -2869,6 +2970,10 @@ func (v *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResultPutHeadersAsset
 
 // BeginAssetUploadResponse is returned by BeginAssetUpload on success.
 type BeginAssetUploadResponse struct {
+	// Asset upload — v2 (spec 006-asset-upload-redesign)
+	// Memory-addressed begin: the caller specifies the destination
+	// memory directly, no agent traversal. Replaces agent-addressed
+	// beginAssetUpload during the deprecation window.
 	BeginAssetUploadV2 *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult `json:"beginAssetUploadV2"`
 }
 
@@ -2878,6 +2983,11 @@ func (v *BeginAssetUploadResponse) GetBeginAssetUploadV2() *BeginAssetUploadBegi
 }
 
 // CancelAppRunCancelAppRun includes the requested fields of the GraphQL type AppRun.
+// The GraphQL type's documentation follows.
+//
+// One headless run — the audit record AND (v1) the activation: policy
+// snapshot, live budgets (zeroing halts the run), lifecycle, trigger
+// provenance. Spec cor:agt:010:02.
 type CancelAppRunCancelAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -3479,6 +3589,9 @@ type ChannelMemory struct {
 func (v *ChannelMemory) GetMemory() *ChannelMemoryMemory { return v.Memory }
 
 // ChannelMemoryMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type ChannelMemoryMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -4040,6 +4153,10 @@ func (v *ChatMessagesResponse) GetFindNodes() *ChatMessagesFindNodesFindNodesRes
 
 // ClearNodeHistoryResponse is returned by ClearNodeHistory on success.
 type ClearNodeHistoryResponse struct {
+	// Delete ALL NodeRevision rows for a node, returning the count deleted (#617).
+	// 'nodeRef' is the node's PK or fully-qualified URN. Auth: the node's memory
+	// write access. An unknown ref throws NODE_NOT_FOUND. Reachable on a
+	// soft-deleted node (purging residual history is a cleanup op).
 	ClearNodeHistory int `json:"clearNodeHistory"`
 }
 
@@ -4047,6 +4164,9 @@ type ClearNodeHistoryResponse struct {
 func (v *ClearNodeHistoryResponse) GetClearNodeHistory() int { return v.ClearNodeHistory }
 
 // CloneMemoryCloneMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type CloneMemoryCloneMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -4059,13 +4179,18 @@ type CloneMemoryCloneMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   *string           `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -4207,6 +4332,13 @@ func (v *CloneNodeCloneNode) GetUpdatedAt() string { return v.UpdatedAt }
 
 // CloneNodeResponse is returned by CloneNode on success.
 type CloneNodeResponse struct {
+	// Clone a node to a new location, returning the NEW node with a fresh id
+	// (#564). Same selector shape as moveNode ('sourceRef' + exactly one of
+	// 'targetUrn' / 'targetMemoryRef'). Copies the source's own fields; outgoing
+	// edges are copied only where they naturally resolve — a live node exists at
+	// the target's loc in the destination memory. Incoming edges are not copied.
+	// Fails loudly if the destination loc is already occupied. Requires read
+	// access to the source memory and write access to the destination.
 	CloneNode *CloneNodeCloneNode `json:"cloneNode"`
 }
 
@@ -4490,6 +4622,11 @@ func (v *ConnectionGrantsResponse) GetConnectionGrants() *ConnectionGrantsConnec
 }
 
 // CreateAgentCreateAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The definition (one per Agent) — what a Builder creates and what the
+// marketplace sells. Per 008-agent-installation. An App is the deployment
+// of an Agent in some org.
 type CreateAgentCreateAgent struct {
 	AgentFields `json:"-"`
 }
@@ -5212,11 +5349,21 @@ func (v *CreateAiServiceConfigResponse) GetCreateAiServiceConfig() *CreateAiServ
 }
 
 // CreateAppCreateApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// The runtime deployment of an Agent in an Organization. Owns long-lived
+// App Keys and references its Agent via App.agent_id (a direct FK; the
+// legacy AppAgent join was dropped in 008-agent-installation).
 type CreateAppCreateApp struct {
-	Id          string  `json:"id"`
-	Urn         string  `json:"urn"`
-	Name        string  `json:"name"`
-	AppType     AppType `json:"appType"`
+	Id      string  `json:"id"`
+	Urn     string  `json:"urn"`
+	Name    string  `json:"name"`
+	AppType AppType `json:"appType"`
+	// SOFT-DEPRECATED convenience read: the FIRST installed Agent. An App
+	// installs MANY Agents through the `AppAgent` join (023-app-shape Phase 2b,
+	// which DROPPED the direct FK that 008-agent-installation had introduced) —
+	// see `appAgents` below for the real cardinality. Kept so single-Agent
+	// clients keep working; do not build new multi-Agent logic on it.
 	AgentId     *string `json:"agentId"`
 	MemberCount int     `json:"memberCount"`
 	CreatedAt   string  `json:"createdAt"`
@@ -5779,11 +5926,19 @@ func (v *CreateConnectionGrantResponse) GetCreateConnectionGrant() *CreateConnec
 
 // CreateEdgeCreateEdge includes the requested fields of the GraphQL type Edge.
 type CreateEdgeCreateEdge struct {
-	Id         string  `json:"id"`
-	Name       *string `json:"name"`
-	Loc        string  `json:"loc"`
-	IsRunnable *bool   `json:"isRunnable"`
-	Priority   int     `json:"priority"`
+	Id string `json:"id"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// Colon-delimited path within the (source node's) memory — the edge's
+	// identity and the suffix of its URN hrn:edge:<root>:<memory>:<loc>.
+	Loc string `json:"loc"`
+	// If true, this edge can be executed/run (task automation, conversation
+	// transitions). Mirrors Node.isRunnable.
+	IsRunnable *bool `json:"isRunnable"`
+	// Resolution-order hook (lower = earlier; default 0). When two edges
+	// share a priority, fall back to insertion order.
+	Priority int `json:"priority"`
 	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
 	Source *CreateEdgeCreateEdgeSourceNode `json:"source"`
 	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
@@ -5844,6 +5999,13 @@ type CreateEdgeResponse struct {
 func (v *CreateEdgeResponse) GetCreateEdge() *CreateEdgeCreateEdge { return v.CreateEdge }
 
 // CreateMcpServerCreateMcpServer includes the requested fields of the GraphQL type McpServer.
+// The GraphQL type's documentation follows.
+//
+// One registered EXTERNAL MCP server (hadrontool-mcp conduit registry).
+// Org-owned. Static auth headers are encrypted at rest and WRITE-ONLY:
+// no field here ever returns them — hasHeaders is all a reader gets.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.mcp__<slug>__<tool>' plus the run's action budget.
 type CreateMcpServerCreateMcpServer struct {
 	McpServerFields `json:"-"`
 }
@@ -5969,6 +6131,9 @@ func (v *CreateMcpServerResponse) GetCreateMcpServer() *CreateMcpServerCreateMcp
 }
 
 // CreateMemoryCreateMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type CreateMemoryCreateMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -5981,13 +6146,18 @@ type CreateMemoryCreateMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   *string           `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -6025,6 +6195,9 @@ func (v *CreateMemoryCreateMemory) GetMaxRevCount() int { return v.MaxRevCount }
 func (v *CreateMemoryCreateMemory) GetUpdatedAt() string { return v.UpdatedAt }
 
 // CreateMemoryInAppCreateMemoryInAppMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type CreateMemoryInAppCreateMemoryInAppMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -6037,13 +6210,18 @@ type CreateMemoryInAppCreateMemoryInAppMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   *string           `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -6292,6 +6470,9 @@ func (v *CreateMemoryShareResponse) GetCreateMemoryShare() *CreateMemoryShareCre
 }
 
 // CreateMemorySubscriptionCreateMemorySubscription includes the requested fields of the GraphQL type MemorySubscription.
+// The GraphQL type's documentation follows.
+//
+// An organization's subscription to a memory it does not own.
 type CreateMemorySubscriptionCreateMemorySubscription struct {
 	Role         Role                                                          `json:"role"`
 	Activated    bool                                                          `json:"activated"`
@@ -6310,6 +6491,9 @@ func (v *CreateMemorySubscriptionCreateMemorySubscription) GetOrganization() *Cr
 }
 
 // CreateMemorySubscriptionCreateMemorySubscriptionOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
 type CreateMemorySubscriptionCreateMemorySubscriptionOrganization struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
@@ -6531,6 +6715,19 @@ func (v *CreateNodeResponse) GetCreateNode() *CreateNodeCreateNode { return v.Cr
 
 // CreateObjectResponse is returned by CreateObject on success.
 type CreateObjectResponse struct {
+	// #745 — Object store: the legible sugar surface over structured storage.
+	// An object IS a node; these ops are thin projections onto createNode /
+	// updateNodeProperties / deleteNode, inheriting all their invariants
+	// (auth, encryption, schema conformance, revisions, atomic merge).
+	//
+	// Create an object in a collection. 'memoryRef' is a memory ID or
+	// fully-qualified URN (relative refs are rejected, spec 022). 'type' is the
+	// collection (node objectType); 'fields' are the flat, typed properties
+	// (validated against the memory schema when the collection is declared). The
+	// node's loc is auto-derived (<type>:<key ?? generated-id>) and hidden; pass
+	// 'key' for a human-meaningful id (a single segment, no ':'), 'name' to
+	// override the derived node name. 'id' and 'type' are reserved and cannot be
+	// field names. Returns the flat object.
 	CreateObject json.RawMessage `json:"createObject"`
 }
 
@@ -6538,6 +6735,9 @@ type CreateObjectResponse struct {
 func (v *CreateObjectResponse) GetCreateObject() json.RawMessage { return v.CreateObject }
 
 // CreateOrganizationCreateOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
 type CreateOrganizationCreateOrganization struct {
 	OrgFields `json:"-"`
 }
@@ -7220,6 +7420,15 @@ type CreateScopeResponse struct {
 func (v *CreateScopeResponse) GetCreateScope() *CreateScopeCreateScope { return v.CreateScope }
 
 // CreateSecretCreateSecret includes the requested fields of the GraphQL type Secret.
+// The GraphQL type's documentation follows.
+//
+// One named, owner-scoped secret — the general secret store (#677).
+// Polymorphic owner (user | org | app | memory). The value is encrypted
+// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
+// are the inspectable half (you can see THAT a secret exists and, for
+// webfetch-auth, WHERE it applies, without decrypting). A bare name
+// resolves at run time via the CSS cascade, most-specific-first:
+// memory -> app -> user -> org.
 type CreateSecretCreateSecret struct {
 	SecretFields `json:"-"`
 }
@@ -7832,6 +8041,11 @@ func (v *CreateTeamRoleResponse) GetCreateTeamRole() *CreateTeamRoleCreateTeamRo
 }
 
 // CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult includes the requested fields of the GraphQL type UserApiKeyCreateResult.
+// The GraphQL type's documentation follows.
+//
+// Returned once at creation — the raw key is never stored.
+// Renamed from PR 137's UserApiKeyCreated for Result-suffix
+// consistency; nested field is userApiKey, not key (PR-137 delta D2).
 type CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult struct {
 	RawKey     string                                                            `json:"rawKey"`
 	UserApiKey *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey `json:"userApiKey"`
@@ -7846,6 +8060,14 @@ func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult) GetUserApiKey()
 }
 
 // CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey includes the requested fields of the GraphQL type UserApiKey.
+// The GraphQL type's documentation follows.
+//
+// 025-oauth-for-mcp: user-scoped bearer-token credential. Mirrors the
+// AppKey shape but resolves to a User instead of an App. Surfaced to
+// the portal revocation UI (Phase 3) so users can audit + revoke
+// their own keys. userId is intentionally absent — for self-service
+// v1 the caller is always the owner; admin-tooling auditability is
+// out of scope (see contracts/graphql-mutations.md, PR-137 delta D1).
 type CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey struct {
 	UserApiKeyFields `json:"-"`
 }
@@ -7963,6 +8185,9 @@ func (v *CreateUserApiKeyResponse) GetCreateUserApiKey() *CreateUserApiKeyCreate
 }
 
 // CreateUserInvitationCreateUserInvitation includes the requested fields of the GraphQL type UserInvitation.
+// The GraphQL type's documentation follows.
+//
+// Invitation to join the platform (and optionally an organization)
 type CreateUserInvitationCreateUserInvitation struct {
 	InvitationFields `json:"-"`
 }
@@ -8280,6 +8505,26 @@ func (v *DeleteMemorySubscriptionResponse) GetDeleteMemorySubscription() bool {
 
 // DeleteNodeResponse is returned by DeleteNode on success.
 type DeleteNodeResponse struct {
+	// Delete a node identified by 'nodeRef' (a node ID or fully-qualified URN;
+	// #542). Soft-delete by default (sets deletedAt; the node disappears from
+	// reads, matching the hadron_delete_node MCP tool). Pass hard: true to
+	// remove the row entirely (cascades edges + NodeRevision via FK) —
+	// irreversible. #391. A re-delete of an already soft-deleted node is
+	// idempotent (the ref resolves through the tombstone).
+	//
+	// If the node has descendants (nodes under its loc prefix), a plain delete
+	// REFUSES with NODE_HAS_DESCENDANTS (carrying the count) rather than silently
+	// orphaning the subtree — parity with the hadron_delete_node MCP tool. Pass
+	// recursive: true to delete the node's whole loc-subtree — the node at its loc
+	// PLUS every descendant, matched on ':' path boundaries (so deleting 'auth'
+	// does not touch 'authoring'). The subtree lives in one memory, so the single
+	// write-access check covers it; 'hard' applies to the whole subtree.
+	//
+	// A hard delete cascades edges on both endpoints via FK. If any affected node
+	// is on an edge that bridges this memory to another, the hard delete REFUSES
+	// with CROSS_MEMORY_EDGES (the caller may not own the other memory) unless
+	// cascadeCrossMemoryEdges: true. A non-recursive soft re-delete of an already
+	// soft-deleted node is an idempotent no-op that preserves its audit stamp.
 	DeleteNode bool `json:"deleteNode"`
 }
 
@@ -8288,6 +8533,8 @@ func (v *DeleteNodeResponse) GetDeleteNode() bool { return v.DeleteNode }
 
 // DeleteNodeRevisionResponse is returned by DeleteNodeRevision on success.
 type DeleteNodeRevisionResponse struct {
+	// Delete a single node-revision snapshot by id (#617). Auth: the node's memory
+	// write access (as restoreNodeRevision). Throws NOT_FOUND for an unknown id.
 	DeleteNodeRevision bool `json:"deleteNodeRevision"`
 }
 
@@ -8296,6 +8543,8 @@ func (v *DeleteNodeRevisionResponse) GetDeleteNodeRevision() bool { return v.Del
 
 // DeleteObjectResponse is returned by DeleteObject on success.
 type DeleteObjectResponse struct {
+	// Delete an object (soft by default; 'hard: true' removes the row). 'ref' is
+	// the object id (or node URN). Returns true on success.
 	DeleteObject bool `json:"deleteObject"`
 }
 
@@ -8527,6 +8776,9 @@ func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffective
 }
 
 // EncryptMemoryEncryptMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type EncryptMemoryEncryptMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -8798,6 +9050,9 @@ type EndTeamSessionResponse struct {
 func (v *EndTeamSessionResponse) GetEndSession() *EndTeamSessionEndSession { return v.EndSession }
 
 // ExtractParentNodeToMemoryExtractParentNodeToMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type ExtractParentNodeToMemoryExtractParentNodeToMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -8810,13 +9065,18 @@ type ExtractParentNodeToMemoryExtractParentNodeToMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   *string           `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -9118,6 +9378,11 @@ func (v *FindObjectsResponse) GetFindObjects() *FindObjectsFindObjectsObjectList
 }
 
 // GetAgentAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The definition (one per Agent) — what a Builder creates and what the
+// marketplace sells. Per 008-agent-installation. An App is the deployment
+// of an Agent in some org.
 type GetAgentAgent struct {
 	AgentFields `json:"-"`
 }
@@ -9275,6 +9540,11 @@ type GetAgentResponse struct {
 func (v *GetAgentResponse) GetAgent() *GetAgentAgent { return v.Agent }
 
 // GetAppSharedMemoryApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// The runtime deployment of an Agent in an Organization. Owns long-lived
+// App Keys and references its Agent via App.agent_id (a direct FK; the
+// legacy AppAgent join was dropped in 008-agent-installation).
 type GetAppSharedMemoryApp struct {
 	Id string `json:"id"`
 	// The App's SHARED app-class memory (#965) — the team space the shared/team
@@ -9301,6 +9571,9 @@ func (v *GetAppSharedMemoryApp) GetSharedMemory() *GetAppSharedMemoryAppSharedMe
 }
 
 // GetAppSharedMemoryAppSharedMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type GetAppSharedMemoryAppSharedMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -9313,7 +9586,11 @@ type GetAppSharedMemoryAppSharedMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn   string      `json:"urn"`
+	Urn string `json:"urn"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
 	Class MemoryClass `json:"class"`
 	// #725 — opt-in per-memory property schema (declared collections + typed fields). NULL = unstructured. Authored via updateMemory; well-formedness validated server-side.
 	Schema *json.RawMessage `json:"schema"`
@@ -9498,6 +9775,9 @@ type GetChannelResponse struct {
 func (v *GetChannelResponse) GetChannel() *GetChannelChannel { return v.Channel }
 
 // GetInvitationInvitationUserInvitation includes the requested fields of the GraphQL type UserInvitation.
+// The GraphQL type's documentation follows.
+//
+// Invitation to join the platform (and optionally an organization)
 type GetInvitationInvitationUserInvitation struct {
 	InvitationFields `json:"-"`
 }
@@ -9633,6 +9913,7 @@ func (v *GetInvitationInvitationUserInvitation) __premarshalJSON() (*__premarsha
 
 // GetInvitationResponse is returned by GetInvitation on success.
 type GetInvitationResponse struct {
+	// Invitation lookup (public — no auth required, used by invite acceptance page)
 	Invitation *GetInvitationInvitationUserInvitation `json:"invitation"`
 }
 
@@ -9642,6 +9923,9 @@ func (v *GetInvitationResponse) GetInvitation() *GetInvitationInvitationUserInvi
 }
 
 // GetMemoryMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type GetMemoryMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -9654,11 +9938,16 @@ type GetMemoryMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn                string            `json:"urn"`
-	Name               string            `json:"name"`
-	ShortDescription   *string           `json:"shortDescription"`
-	Description        *string           `json:"description"`
-	Class              MemoryClass       `json:"class"`
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	Description      *string `json:"description"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
 	Visibility         *MemoryVisibility `json:"visibility"`
 	OrganizationId     *string           `json:"organizationId"`
 	IsEncrypted        bool              `json:"isEncrypted"`
@@ -9877,11 +10166,19 @@ func (v *GetNodeNode) GetIncomingEdges() []*GetNodeNodeIncomingEdgesEdge { retur
 
 // GetNodeNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type GetNodeNodeIncomingEdgesEdge struct {
-	Id         string  `json:"id"`
-	Name       *string `json:"name"`
-	Loc        string  `json:"loc"`
-	IsRunnable *bool   `json:"isRunnable"`
-	Priority   int     `json:"priority"`
+	Id string `json:"id"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// Colon-delimited path within the (source node's) memory — the edge's
+	// identity and the suffix of its URN hrn:edge:<root>:<memory>:<loc>.
+	Loc string `json:"loc"`
+	// If true, this edge can be executed/run (task automation, conversation
+	// transitions). Mirrors Node.isRunnable.
+	IsRunnable *bool `json:"isRunnable"`
+	// Resolution-order hook (lower = earlier; default 0). When two edges
+	// share a priority, fall back to insertion order.
+	Priority int `json:"priority"`
 	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
 	Source *GetNodeNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
@@ -9924,11 +10221,19 @@ func (v *GetNodeNodeIncomingEdgesEdgeSourceNode) GetMemoryId() string { return v
 
 // GetNodeNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type GetNodeNodeOutgoingEdgesEdge struct {
-	Id         string  `json:"id"`
-	Name       *string `json:"name"`
-	Loc        string  `json:"loc"`
-	IsRunnable *bool   `json:"isRunnable"`
-	Priority   int     `json:"priority"`
+	Id string `json:"id"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// Colon-delimited path within the (source node's) memory — the edge's
+	// identity and the suffix of its URN hrn:edge:<root>:<memory>:<loc>.
+	Loc string `json:"loc"`
+	// If true, this edge can be executed/run (task automation, conversation
+	// transitions). Mirrors Node.isRunnable.
+	IsRunnable *bool `json:"isRunnable"`
+	// Resolution-order hook (lower = earlier; default 0). When two edges
+	// share a priority, fall back to insertion order.
+	Priority int `json:"priority"`
 	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
 	Target *GetNodeNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
@@ -10007,6 +10312,9 @@ type GetObjectResponse struct {
 func (v *GetObjectResponse) GetObject() *json.RawMessage { return v.Object }
 
 // GetOrganizationOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
 type GetOrganizationOrganization struct {
 	OrgFields `json:"-"`
 }
@@ -11100,6 +11408,11 @@ func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgen
 }
 
 // InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The definition (one per Agent) — what a Builder creates and what the
+// marketplace sells. Per 008-agent-installation. An App is the deployment
+// of an Agent in some org.
 type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -11129,6 +11442,11 @@ func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgen
 }
 
 // InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// The runtime deployment of an Agent in an Organization. Owns long-lived
+// App Keys and references its Agent via App.agent_id (a direct FK; the
+// legacy AppAgent join was dropped in 008-agent-installation).
 type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -11189,6 +11507,9 @@ func (v *InstallAgentIntoAppResponse) GetInstallAgentIntoApp() *InstallAgentInto
 }
 
 // InvitationFields includes the GraphQL fields of UserInvitation requested by the fragment InvitationFields.
+// The GraphQL type's documentation follows.
+//
+// Invitation to join the platform (and optionally an organization)
 type InvitationFields struct {
 	Id              string  `json:"id"`
 	Slug            string  `json:"slug"`
@@ -11241,6 +11562,9 @@ func (v *InvitationFields) GetAcceptedAt() *string { return v.AcceptedAt }
 func (v *InvitationFields) GetCreatedAt() string { return v.CreatedAt }
 
 // LinkMemoryToUserLinkMemoryToUserMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type LinkMemoryToUserLinkMemoryToUserMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -11253,13 +11577,18 @@ type LinkMemoryToUserLinkMemoryToUserMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   *string           `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -11316,6 +11645,13 @@ func (v *LinkMemoryToUserResponse) GetLinkMemoryToUser() *LinkMemoryToUserLinkMe
 }
 
 // McpServerFields includes the GraphQL fields of McpServer requested by the fragment McpServerFields.
+// The GraphQL type's documentation follows.
+//
+// One registered EXTERNAL MCP server (hadrontool-mcp conduit registry).
+// Org-owned. Static auth headers are encrypted at rest and WRITE-ONLY:
+// no field here ever returns them — hasHeaders is all a reader gets.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.mcp__<slug>__<tool>' plus the run's action budget.
 type McpServerFields struct {
 	Id             string `json:"id"`
 	OrganizationId string `json:"organizationId"`
@@ -11365,6 +11701,13 @@ func (v *McpServerFields) GetCreatedAt() string { return v.CreatedAt }
 func (v *McpServerFields) GetUpdatedAt() string { return v.UpdatedAt }
 
 // McpServerMcpServer includes the requested fields of the GraphQL type McpServer.
+// The GraphQL type's documentation follows.
+//
+// One registered EXTERNAL MCP server (hadrontool-mcp conduit registry).
+// Org-owned. Static auth headers are encrypted at rest and WRITE-ONLY:
+// no field here ever returns them — hasHeaders is all a reader gets.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.mcp__<slug>__<tool>' plus the run's action budget.
 type McpServerMcpServer struct {
 	McpServerFields `json:"-"`
 }
@@ -11482,6 +11825,11 @@ type McpServerResponse struct {
 func (v *McpServerResponse) GetMcpServer() *McpServerMcpServer { return v.McpServer }
 
 // McpServerToolsMcpServerToolsMcpServerTool includes the requested fields of the GraphQL type McpServerTool.
+// The GraphQL type's documentation follows.
+//
+// One tool an external MCP server advertises, as admitted by the
+// registry row (allowlist + name grammar + length cap applied) — what
+// this query returns IS what a run can declare in data.tools.
 type McpServerToolsMcpServerToolsMcpServerTool struct {
 	// The tool's name on the external server.
 	Name        string  `json:"name"`
@@ -11525,6 +11873,9 @@ func (v *McpServerToolsResponse) GetMcpServerTools() []*McpServerToolsMcpServerT
 }
 
 // McpServersMcpServersMcpServersPage includes the requested fields of the GraphQL type McpServersPage.
+// The GraphQL type's documentation follows.
+//
+// Uniform paginated list shape (cor:api:120).
 type McpServersMcpServersMcpServersPage struct {
 	Items []*McpServersMcpServersMcpServersPageItemsMcpServer `json:"items"`
 	Total int                                                 `json:"total"`
@@ -11539,6 +11890,13 @@ func (v *McpServersMcpServersMcpServersPage) GetItems() []*McpServersMcpServersM
 func (v *McpServersMcpServersMcpServersPage) GetTotal() int { return v.Total }
 
 // McpServersMcpServersMcpServersPageItemsMcpServer includes the requested fields of the GraphQL type McpServer.
+// The GraphQL type's documentation follows.
+//
+// One registered EXTERNAL MCP server (hadrontool-mcp conduit registry).
+// Org-owned. Static auth headers are encrypted at rest and WRITE-ONLY:
+// no field here ever returns them — hasHeaders is all a reader gets.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.mcp__<slug>__<tool>' plus the run's action budget.
 type McpServersMcpServersMcpServersPageItemsMcpServer struct {
 	McpServerFields `json:"-"`
 }
@@ -11707,6 +12065,7 @@ func (v *MeMeUser) GetRoles() []Role { return v.Roles }
 
 // MeResponse is returned by Me on success.
 type MeResponse struct {
+	// Current authenticated user
 	Me *MeMeUser `json:"me"`
 }
 
@@ -11748,6 +12107,9 @@ func (v *MemoriesMemoriesMemoriesPage) GetItems() []*MemoriesMemoriesMemoriesPag
 }
 
 // MemoriesMemoriesMemoriesPageItemsMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type MemoriesMemoriesMemoriesPageItemsMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -11760,13 +12122,18 @@ type MemoriesMemoriesMemoriesPageItemsMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   *string           `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -11854,6 +12221,9 @@ func (v *MemoriesSharedWithMeMemoriesMemoriesPage) GetItems() []*MemoriesSharedW
 }
 
 // MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -11866,13 +12236,18 @@ type MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   *string           `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -12340,6 +12715,9 @@ var AllMemoryMemberRole = []MemoryMemberRole{
 }
 
 // MemoryMembersMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type MemoryMembersMemory struct {
 	Id string `json:"id"`
 	// 023-app-shape US4: team membership rows on this memory. Non-empty
@@ -12481,6 +12859,9 @@ var AllMemoryShareRole = []MemoryShareRole{
 }
 
 // MemorySharesMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type MemorySharesMemory struct {
 	Id string `json:"id"`
 	// 023-app-shape US3: cross-user grants on this memory. Non-empty
@@ -12610,6 +12991,9 @@ type MemorySharesResponse struct {
 func (v *MemorySharesResponse) GetMemory() *MemorySharesMemory { return v.Memory }
 
 // MemorySubscriptionsMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type MemorySubscriptionsMemory struct {
 	Id            string                                                      `json:"id"`
 	Subscriptions []*MemorySubscriptionsMemorySubscriptionsMemorySubscription `json:"subscriptions"`
@@ -12624,6 +13008,9 @@ func (v *MemorySubscriptionsMemory) GetSubscriptions() []*MemorySubscriptionsMem
 }
 
 // MemorySubscriptionsMemorySubscriptionsMemorySubscription includes the requested fields of the GraphQL type MemorySubscription.
+// The GraphQL type's documentation follows.
+//
+// An organization's subscription to a memory it does not own.
 type MemorySubscriptionsMemorySubscriptionsMemorySubscription struct {
 	Role         Role                                                                  `json:"role"`
 	Activated    bool                                                                  `json:"activated"`
@@ -12644,6 +13031,9 @@ func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscription) GetOrganizati
 }
 
 // MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
 type MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
@@ -12809,6 +13199,14 @@ func (v *MergeNodesMergeNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
 
 // MergeNodesResponse is returned by MergeNodes on success.
 type MergeNodesResponse struct {
+	// Fold one node (source) into another (target), returning the updated
+	// target. Per-field strategy: text fields (CONTENT/ABSTRACT/DESCRIPTION)
+	// concatenate target-first; TAGS unions; DATA/PROPERTIES shallow-merge
+	// with the target winning on key collisions; EDGES re-points the source's
+	// relationships onto the target. 'include' selects which fields fold in
+	// (omitted = all). 'deleteSource: true' hard-deletes the source afterward.
+	// Honors per-memory write auth, encryption, revision history, abstract
+	// staleness, and re-embedding (same invariants as createNode/updateNode).
 	MergeNodes *MergeNodesMergeNodesNode `json:"mergeNodes"`
 }
 
@@ -12937,6 +13335,11 @@ func (v *MergeUsersMergeUsersUser) __premarshalJSON() (*__premarshalMergeUsersMe
 
 // MergeUsersResponse is returned by MergeUsers on success.
 type MergeUsersResponse struct {
+	// Consolidate a duplicate account into a surviving user. Source-only
+	// identities and relationships move; duplicate role-bearing relationships
+	// preserve the strongest live entitlement. The source is soft-deleted.
+	// Platform admin, or an org admin/owner when both users are live members
+	// of an organization they administer. The resulting merge is global.
 	MergeUsers *MergeUsersMergeUsersUser `json:"mergeUsers"`
 }
 
@@ -13058,6 +13461,14 @@ func (v *MoveNodeMoveNode) GetUpdatedAt() string { return v.UpdatedAt }
 
 // MoveNodeResponse is returned by MoveNode on success.
 type MoveNodeResponse struct {
+	// Relocate a node (#564). 'sourceRef' is the node's PK or fully-qualified
+	// URN. The destination is EITHER 'targetUrn' (the node's new full URN — new
+	// memory and/or loc) OR 'targetMemoryRef' (a memory ID/URN; the node keeps
+	// its current loc, only its memory changes) — supply exactly one. The node
+	// keeps its id, so all incoming/outgoing edge references stay valid. Fails
+	// loudly with NODE_ALREADY_EXISTS if a live node already occupies the
+	// destination. Requires write access to both the source and destination
+	// memories.
 	MoveNode *MoveNodeMoveNode `json:"moveNode"`
 }
 
@@ -13065,6 +13476,14 @@ type MoveNodeResponse struct {
 func (v *MoveNodeResponse) GetMoveNode() *MoveNodeMoveNode { return v.MoveNode }
 
 // MyUserApiKeysMyUserApiKeysUserApiKey includes the requested fields of the GraphQL type UserApiKey.
+// The GraphQL type's documentation follows.
+//
+// 025-oauth-for-mcp: user-scoped bearer-token credential. Mirrors the
+// AppKey shape but resolves to a User instead of an App. Surfaced to
+// the portal revocation UI (Phase 3) so users can audit + revoke
+// their own keys. userId is intentionally absent — for self-service
+// v1 the caller is always the owner; admin-tooling auditability is
+// out of scope (see contracts/graphql-mutations.md, PR-137 delta D1).
 type MyUserApiKeysMyUserApiKeysUserApiKey struct {
 	UserApiKeyFields `json:"-"`
 }
@@ -13358,11 +13777,19 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetIncomingEdges() []*NodeB
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge struct {
-	Id         string  `json:"id"`
-	Name       *string `json:"name"`
-	Loc        string  `json:"loc"`
-	Priority   int     `json:"priority"`
-	IsRunnable *bool   `json:"isRunnable"`
+	Id string `json:"id"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// Colon-delimited path within the (source node's) memory — the edge's
+	// identity and the suffix of its URN hrn:edge:<root>:<memory>:<loc>.
+	Loc string `json:"loc"`
+	// Resolution-order hook (lower = earlier; default 0). When two edges
+	// share a priority, fall back to insertion order.
+	Priority int `json:"priority"`
+	// If true, this edge can be executed/run (task automation, conversation
+	// transitions). Mirrors Node.isRunnable.
+	IsRunnable *bool `json:"isRunnable"`
 	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
 	Source *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
@@ -13417,13 +13844,25 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode) 
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge struct {
-	Id          string           `json:"id"`
-	Name        *string          `json:"name"`
-	Loc         string           `json:"loc"`
-	Description *string          `json:"description"`
-	IsRunnable  *bool            `json:"isRunnable"`
-	Priority    int              `json:"priority"`
-	Condition   *json.RawMessage `json:"condition"`
+	Id string `json:"id"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// Colon-delimited path within the (source node's) memory — the edge's
+	// identity and the suffix of its URN hrn:edge:<root>:<memory>:<loc>.
+	Loc         string  `json:"loc"`
+	Description *string `json:"description"`
+	// If true, this edge can be executed/run (task automation, conversation
+	// transitions). Mirrors Node.isRunnable.
+	IsRunnable *bool `json:"isRunnable"`
+	// Resolution-order hook (lower = earlier; default 0). When two edges
+	// share a priority, fall back to insertion order.
+	Priority int `json:"priority"`
+	// JSONLogic gating expression. Null = always fires. Validated against
+	// the v1 operator subset and the five variable scopes (memory.*,
+	// chat.*, agent.*, message.data.*, now()/today()).
+	// See hadron-docs/docs/reference/edge-conditions.md.
+	Condition *json.RawMessage `json:"condition"`
 	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
 	Target *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
@@ -13514,6 +13953,7 @@ type NodeBatchResponse struct {
 // GetNodeBatch returns NodeBatchResponse.NodeBatch, and is useful for accessing the field via an interface.
 func (v *NodeBatchResponse) GetNodeBatch() *NodeBatchNodeBatchNodeBatchResult { return v.NodeBatch }
 
+// Outgoing edge on a node, used in NodeInput.edges
 type NodeEdgeInput struct {
 	Description *string `json:"description"`
 	IsRunnable  *bool   `json:"isRunnable"`
@@ -13543,6 +13983,9 @@ func (v *NodeEdgeInput) GetName() *string { return v.Name }
 // GetTargetId returns NodeEdgeInput.TargetId, and is useful for accessing the field via an interface.
 func (v *NodeEdgeInput) GetTargetId() string { return v.TargetId }
 
+// Single-node export (#386). MD/JSON are the canonical, round-trippable files;
+// PDF is a presentation render (content only) produced by the internal
+// hadrontool-pdf service and delivered BASE64. HTML remains reserved.
 type NodeExportFormat string
 
 const (
@@ -13578,6 +14021,9 @@ func (v *NodeExportMetaNode) GetMemoryId() string { return v.MemoryId }
 func (v *NodeExportMetaNode) GetMemory() *NodeExportMetaNodeMemory { return v.Memory }
 
 // NodeExportMetaNodeMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type NodeExportMetaNodeMemory struct {
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
 	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
@@ -13650,6 +14096,14 @@ func (v *NodeExportNodeExportNodeExportResult) GetBytes() int { return v.Bytes }
 
 // NodeExportResponse is returned by NodeExport on success.
 type NodeExportResponse struct {
+	// Render one node to a portable, self-contained file (spec cor:api).
+	// full: true (default) returns the CANONICAL form — byte-identical to
+	// "hadron node export <urn>", all sections, round-trippable via
+	// "hadron node import". Requires MD or JSON; sections is ignored.
+	// full: false returns a PRESENTATION render of the selected sections
+	// (default: all); not guaranteed round-trippable.
+	// Auth: same node-read gate as node(ref:). (HTML/PDF + asUrl delivery land
+	// later; the result shape is forward-compatible.)
 	NodeExport *NodeExportNodeExportNodeExportResult `json:"nodeExport"`
 }
 
@@ -14076,6 +14530,9 @@ var AllNodeTextField = []NodeTextField{
 }
 
 // OrgFields includes the GraphQL fields of Organization requested by the fragment OrgFields.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
 type OrgFields struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -14105,6 +14562,9 @@ func (v *OrgFields) GetCreatedAt() string { return v.CreatedAt }
 func (v *OrgFields) GetUpdatedAt() string { return v.UpdatedAt }
 
 // OrgMembersOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
 type OrgMembersOrganization struct {
 	Id      string                                    `json:"id"`
 	Members []*OrgMembersOrganizationMembersOrgMember `json:"members"`
@@ -14119,6 +14579,9 @@ func (v *OrgMembersOrganization) GetMembers() []*OrgMembersOrganizationMembersOr
 }
 
 // OrgMembersOrganizationMembersOrgMember includes the requested fields of the GraphQL type OrgMember.
+// The GraphQL type's documentation follows.
+//
+// Per-organization membership record for a user.
 type OrgMembersOrganizationMembersOrgMember struct {
 	Id string `json:"id"`
 	// Target member's role in this org. Null when the viewer isn't an ADMIN/OWNER of the org (#384 field-level visibility); always visible for one's own membership.
@@ -14306,6 +14769,9 @@ func (v *OrganizationsOrganizationsOrganizationsPage) GetItems() []*Organization
 }
 
 // OrganizationsOrganizationsOrganizationsPageItemsOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
 type OrganizationsOrganizationsOrganizationsPageItemsOrganization struct {
 	OrgFields `json:"-"`
 }
@@ -14607,6 +15073,10 @@ func (v *PrincipalGrantsResponse) GetPrincipalGrants() *PrincipalGrantsPrincipal
 	return v.PrincipalGrants
 }
 
+// The kind of principal a credential resolved to (issue #562). USER covers
+// both JWT sessions and hdr_user_ personal API keys; APP is an hdr_app_ key.
+// AGENT is reserved for a future agent-credential principal — no auth path
+// produces it today.
 type PrincipalType string
 
 const (
@@ -14650,6 +15120,11 @@ func (v *PublicAgentsPublicAgentsAgentsPage) GetItems() []*PublicAgentsPublicAge
 }
 
 // PublicAgentsPublicAgentsAgentsPageItemsAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The definition (one per Agent) — what a Builder creates and what the
+// marketplace sells. Per 008-agent-installation. An App is the deployment
+// of an Agent in some org.
 type PublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 	AgentFields `json:"-"`
 }
@@ -16201,6 +16676,18 @@ func (v *RestoreAssetRestoreAsset) GetDeletedAt() *string { return v.DeletedAt }
 
 // RestoreNodeRevisionResponse is returned by RestoreNodeRevision on success.
 type RestoreNodeRevisionResponse struct {
+	// Restore a node to a previous revision (#617).
+	//
+	// Default (truncate: false): snapshots the CURRENT node state into history
+	// first, then restores the node's fields to the revision — non-destructive,
+	// the restore itself becomes undoable.
+	//
+	// truncate: true: restores the node's fields to the revision AND deletes
+	// every NodeRevision NEWER than the selected one (createdAt strictly greater),
+	// WITHOUT creating a pre-restore snapshot. Boundary is EXCLUSIVE of the
+	// selected row: the selected revision is KEPT and becomes the new baseline
+	// (the most-recent snapshot afterward); its era and older survive. Restore +
+	// truncate run in one transaction (atomic).
 	RestoreNodeRevision *RestoreNodeRevisionRestoreNodeRevisionNode `json:"restoreNodeRevision"`
 }
 
@@ -16559,6 +17046,14 @@ func (v *RevokeUserApiKeyResponse) GetRevokeUserApiKey() *RevokeUserApiKeyRevoke
 }
 
 // RevokeUserApiKeyRevokeUserApiKey includes the requested fields of the GraphQL type UserApiKey.
+// The GraphQL type's documentation follows.
+//
+// 025-oauth-for-mcp: user-scoped bearer-token credential. Mirrors the
+// AppKey shape but resolves to a User instead of an App. Surfaced to
+// the portal revocation UI (Phase 3) so users can audit + revoke
+// their own keys. userId is intentionally absent — for self-service
+// v1 the caller is always the owner; admin-tooling auditability is
+// out of scope (see contracts/graphql-mutations.md, PR-137 delta D1).
 type RevokeUserApiKeyRevokeUserApiKey struct {
 	UserApiKeyFields `json:"-"`
 }
@@ -16756,6 +17251,19 @@ func (v *RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials) __premarsh
 
 // RunTaskResponse is returned by RunTask on success.
 type RunTaskResponse struct {
+	// Run a task — a runnable node (isRunnable=true) — identified by a single
+	// nodeRef (a node PK or a fully-qualified node URN, hrn:node:<root>:<memory>:<loc>),
+	// resolved by the shared resolveNodeRef (#542). A bare loc without a memory
+	// is rejected — pass a full URN or an ID. For loose-name matching and
+	// interactive task selection use the MCP hadron_run_task tool, which
+	// resolves to a concrete nodeRef before calling this.
+	// By default RENDERS the task: returns the assembled instructions (node content
+	// with {{arg}} substitution and referenced nodes) for an LLM agent to execute.
+	// Pass appRef (App PK or URN) to EXECUTE instead (#529): the server mints a
+	// MANUAL app run for the resolved task under that App and returns the run id
+	// (poll appRun(ref:) for status + output). runAsSelf attributes the run to
+	// the caller. Without appRef, behavior is unchanged.
+	// Spec cor:api:060.
 	RunTask string `json:"runTask"`
 }
 
@@ -16824,6 +17332,9 @@ func (v *ScopeExplainScopeExplainScopeExplanation) GetShadowed() []*ScopeExplain
 }
 
 // ScopeExplainScopeExplainScopeExplanationMemoriesMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type ScopeExplainScopeExplainScopeExplanationMemoriesMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -17116,6 +17627,9 @@ func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) __premarshalJSON
 }
 
 // ScopeExplainScopeExplainScopeExplanationWinnerMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type ScopeExplainScopeExplainScopeExplanationWinnerMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -17249,6 +17763,9 @@ func (v *ScopeMemoriesMemoriesScopeMemoryEntry) GetMemory() *ScopeMemoriesMemori
 }
 
 // ScopeMemoriesMemoriesScopeMemoryEntryMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type ScopeMemoriesMemoriesScopeMemoryEntryMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -17723,6 +18240,9 @@ func (v *SearchReplaceInNodesInput) GetRegex() *bool { return v.Regex }
 
 // SearchReplaceInNodesResponse is returned by SearchReplaceInNodes on success.
 type SearchReplaceInNodesResponse struct {
+	// Bulk search-and-replace text across selected nodes (literal or regex).
+	// Honors per-memory write auth, encryption, revision history, abstract
+	// staleness, and re-embedding. Supports dryRun preview.
 	SearchReplaceInNodes *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult `json:"searchReplaceInNodes"`
 }
 
@@ -17972,6 +18492,15 @@ func (v *SearchUsersUsersUsersPageItemsUser) __premarshalJSON() (*__premarshalSe
 }
 
 // SecretFields includes the GraphQL fields of Secret requested by the fragment SecretFields.
+// The GraphQL type's documentation follows.
+//
+// One named, owner-scoped secret — the general secret store (#677).
+// Polymorphic owner (user | org | app | memory). The value is encrypted
+// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
+// are the inspectable half (you can see THAT a secret exists and, for
+// webfetch-auth, WHERE it applies, without decrypting). A bare name
+// resolves at run time via the CSS cascade, most-specific-first:
+// memory -> app -> user -> org.
 type SecretFields struct {
 	Id string `json:"id"`
 	// Owner scope: user | org | app | memory.
@@ -18033,6 +18562,9 @@ type SecretsResponse struct {
 func (v *SecretsResponse) GetSecrets() *SecretsSecretsSecretsPage { return v.Secrets }
 
 // SecretsSecretsSecretsPage includes the requested fields of the GraphQL type SecretsPage.
+// The GraphQL type's documentation follows.
+//
+// Uniform paginated list shape (cor:api:120).
 type SecretsSecretsSecretsPage struct {
 	Items []*SecretsSecretsSecretsPageItemsSecret `json:"items"`
 	Total int                                     `json:"total"`
@@ -18047,6 +18579,15 @@ func (v *SecretsSecretsSecretsPage) GetItems() []*SecretsSecretsSecretsPageItems
 func (v *SecretsSecretsSecretsPage) GetTotal() int { return v.Total }
 
 // SecretsSecretsSecretsPageItemsSecret includes the requested fields of the GraphQL type Secret.
+// The GraphQL type's documentation follows.
+//
+// One named, owner-scoped secret — the general secret store (#677).
+// Polymorphic owner (user | org | app | memory). The value is encrypted
+// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
+// are the inspectable half (you can see THAT a secret exists and, for
+// webfetch-auth, WHERE it applies, without decrypting). A bare name
+// resolves at run time via the CSS cascade, most-specific-first:
+// memory -> app -> user -> org.
 type SecretsSecretsSecretsPageItemsSecret struct {
 	SecretFields `json:"-"`
 }
@@ -18183,7 +18724,9 @@ func (v *ServerInfoResponse) GetServerInfo() *ServerInfoServerInfo { return v.Se
 //
 // Identity of the running hadron-server (see Query.serverInfo).
 type ServerInfoServerInfo struct {
+	// HADRON_SERVER_VERSION — the MCP/API-surface contract version.
 	Version string `json:"version"`
+	// The deployment's canonical base URL (BASE_URL, else the local default).
 	BaseUrl string `json:"baseUrl"`
 }
 
@@ -18231,11 +18774,12 @@ type SessionInput struct {
 	LlmModel        *string `json:"llmModel,omitempty"`
 	ParentSessionId *string `json:"parentSessionId,omitempty"`
 	// The session's stated intent (Session.plan) - what this session is about. MCP's hadron_start_session description lands here.
-	Plan           *string `json:"plan,omitempty"`
-	PrNumber       *int    `json:"prNumber,omitempty"`
-	PrevSessionId  *string `json:"prevSessionId,omitempty"`
-	Repo           *string `json:"repo,omitempty"`
-	Tool           *string `json:"tool,omitempty"`
+	Plan          *string `json:"plan,omitempty"`
+	PrNumber      *int    `json:"prNumber,omitempty"`
+	PrevSessionId *string `json:"prevSessionId,omitempty"`
+	Repo          *string `json:"repo,omitempty"`
+	Tool          *string `json:"tool,omitempty"`
+	// #928 coding-session provenance.
 	TranscriptPath *string `json:"transcriptPath,omitempty"`
 	Type           *string `json:"type,omitempty"`
 	// #974 / cor:agt:020:03: the Worker (named casting) this session works as.
@@ -18403,6 +18947,10 @@ func (v *StartImpersonationResponse) GetStartImpersonation() *StartImpersonation
 }
 
 // StartImpersonationStartImpersonationStartImpersonationResult includes the requested fields of the GraphQL type StartImpersonationResult.
+// The GraphQL type's documentation follows.
+//
+// Returned exactly once by startImpersonation — the token is never stored
+// or shown again (UserApiKey rawKey precedent).
 type StartImpersonationStartImpersonationStartImpersonationResult struct {
 	Token   string                                                                                   `json:"token"`
 	Session *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession `json:"session"`
@@ -18419,6 +18967,11 @@ func (v *StartImpersonationStartImpersonationStartImpersonationResult) GetSessio
 }
 
 // StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession includes the requested fields of the GraphQL type ImpersonationSession.
+// The GraphQL type's documentation follows.
+//
+// One admin-impersonation session: the durable audit record (who
+// impersonated whom, in which org, when) AND the revocation source of
+// truth (stopImpersonation writes endedAt; rows are never deleted).
 type StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession struct {
 	Id           string                                                                                               `json:"id"`
 	ExpiresAt    string                                                                                               `json:"expiresAt"`
@@ -18447,6 +19000,9 @@ func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpe
 }
 
 // StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
 type StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionOrganization struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
@@ -18694,8 +19250,15 @@ func (v *StopImpersonationResponse) GetStopImpersonation() *StopImpersonationSto
 }
 
 // StopImpersonationStopImpersonationImpersonationSession includes the requested fields of the GraphQL type ImpersonationSession.
+// The GraphQL type's documentation follows.
+//
+// One admin-impersonation session: the durable audit record (who
+// impersonated whom, in which org, when) AND the revocation source of
+// truth (stopImpersonation writes endedAt; rows are never deleted).
 type StopImpersonationStopImpersonationImpersonationSession struct {
-	Id      string  `json:"id"`
+	Id string `json:"id"`
+	// Explicit-stop timestamp; null while live or when the session merely
+	// lapsed by TTL.
 	EndedAt *string `json:"endedAt"`
 }
 
@@ -18724,6 +19287,11 @@ var AllSyncStatus = []SyncStatus{
 }
 
 // TeamAppIdentityApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// The runtime deployment of an Agent in an Organization. Owns long-lived
+// App Keys and references its Agent via App.agent_id (a direct FK; the
+// legacy AppAgent join was dropped in 008-agent-installation).
 type TeamAppIdentityApp struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -18991,8 +19559,19 @@ func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 }
 
 // TeamMemoryAppMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type TeamMemoryAppMemory struct {
-	Id    string  `json:"id"`
+	Id string `json:"id"`
+	// The App this memory is scoped to. REQUIRED for `class='app'`,
+	// FORBIDDEN for `class='system'` (an agent's own definition is never
+	// App-scoped), and OPTIONAL for `knowledge` / `group` / `personal` /
+	// `private` — set when provisioned inside an App, NULL when the memory
+	// is free-standing. Enforced by `chk_memory_class_app_id`. (034 relaxed
+	// the personal case and #653 moved knowledge + group from forbidden to
+	// optional; this said "required for app/personal, NULL otherwise" until
+	// #1232.)
 	AppId *string `json:"appId"`
 }
 
@@ -19059,6 +19638,11 @@ func (v *TeamRoleFields) GetRoleAgent() *TeamRoleFieldsRoleAgent { return v.Role
 func (v *TeamRoleFields) GetHasNamePlaceholder() *bool { return v.HasNamePlaceholder }
 
 // TeamRoleFieldsRoleAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The definition (one per Agent) — what a Builder creates and what the
+// marketplace sells. Per 008-agent-installation. An App is the deployment
+// of an Agent in some org.
 type TeamRoleFieldsRoleAgent struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -19799,6 +20383,11 @@ func (v *TriggerAppRunResponse) GetTriggerAppRun() *TriggerAppRunTriggerAppRun {
 }
 
 // TriggerAppRunTriggerAppRun includes the requested fields of the GraphQL type AppRun.
+// The GraphQL type's documentation follows.
+//
+// One headless run — the audit record AND (v1) the activation: policy
+// snapshot, live budgets (zeroing halts the run), lifecycle, trigger
+// provenance. Spec cor:agt:010:02.
 type TriggerAppRunTriggerAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -20284,6 +20873,11 @@ func (v *UpdateAgentScheduleUpdateAgentSchedule) __premarshalJSON() (*__premarsh
 }
 
 // UpdateAgentUpdateAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The definition (one per Agent) — what a Builder creates and what the
+// marketplace sells. Per 008-agent-installation. An App is the deployment
+// of an Agent in some org.
 type UpdateAgentUpdateAgent struct {
 	AgentFields `json:"-"`
 }
@@ -20766,11 +21360,19 @@ func (v *UpdateEdgeResponse) GetUpdateEdge() *UpdateEdgeUpdateEdge { return v.Up
 
 // UpdateEdgeUpdateEdge includes the requested fields of the GraphQL type Edge.
 type UpdateEdgeUpdateEdge struct {
-	Id         string  `json:"id"`
-	Name       *string `json:"name"`
-	Loc        string  `json:"loc"`
-	IsRunnable *bool   `json:"isRunnable"`
-	Priority   int     `json:"priority"`
+	Id string `json:"id"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// Colon-delimited path within the (source node's) memory — the edge's
+	// identity and the suffix of its URN hrn:edge:<root>:<memory>:<loc>.
+	Loc string `json:"loc"`
+	// If true, this edge can be executed/run (task automation, conversation
+	// transitions). Mirrors Node.isRunnable.
+	IsRunnable *bool `json:"isRunnable"`
+	// Resolution-order hook (lower = earlier; default 0). When two edges
+	// share a priority, fall back to insertion order.
+	Priority int `json:"priority"`
 	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
 	Source *UpdateEdgeUpdateEdgeSourceNode `json:"source"`
 	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
@@ -20837,6 +21439,13 @@ func (v *UpdateMcpServerResponse) GetUpdateMcpServer() *UpdateMcpServerUpdateMcp
 }
 
 // UpdateMcpServerUpdateMcpServer includes the requested fields of the GraphQL type McpServer.
+// The GraphQL type's documentation follows.
+//
+// One registered EXTERNAL MCP server (hadrontool-mcp conduit registry).
+// Org-owned. Static auth headers are encrypted at rest and WRITE-ONLY:
+// no field here ever returns them — hasHeaders is all a reader gets.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.mcp__<slug>__<tool>' plus the run's action budget.
 type UpdateMcpServerUpdateMcpServer struct {
 	McpServerFields `json:"-"`
 }
@@ -21242,6 +21851,9 @@ func (v *UpdateMemorySubscriptionResponse) GetUpdateMemorySubscription() *Update
 }
 
 // UpdateMemorySubscriptionUpdateMemorySubscription includes the requested fields of the GraphQL type MemorySubscription.
+// The GraphQL type's documentation follows.
+//
+// An organization's subscription to a memory it does not own.
 type UpdateMemorySubscriptionUpdateMemorySubscription struct {
 	Role         Role                                                          `json:"role"`
 	Activated    bool                                                          `json:"activated"`
@@ -21260,6 +21872,9 @@ func (v *UpdateMemorySubscriptionUpdateMemorySubscription) GetOrganization() *Up
 }
 
 // UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
 type UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
@@ -21278,6 +21893,9 @@ func (v *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization) GetName()
 func (v *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization) GetUrn() string { return v.Urn }
 
 // UpdateMemoryUpdateMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
 type UpdateMemoryUpdateMemory struct {
 	Id string `json:"id"`
 	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
@@ -21290,13 +21908,18 @@ type UpdateMemoryUpdateMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   *string           `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int `json:"maxRevCount"`
@@ -21475,6 +22098,14 @@ func (v *UpdateMyProfileUpdateMyProfileUser) __premarshalJSON() (*__premarshalUp
 
 // UpdateNodeDataResponse is returned by UpdateNodeData on success.
 type UpdateNodeDataResponse struct {
+	// Shallow-merge a JSON patch into a node's 'data' bag. The supplied JSON's
+	// top-level keys are written over the node's existing 'data' (the patch
+	// wins on key collision); keys the patch doesn't mention are preserved.
+	// If the node has no 'data' yet, the supplied JSON becomes its 'data'
+	// verbatim. 'data' must be a JSON object (not an array or scalar). 'nodeRef'
+	// is a node ID or fully-qualified URN. Honors the same single-write
+	// invariants as updateNode (per-memory write auth, encryption, revision
+	// history, git mirror). Returns the updated node.
 	UpdateNodeData *UpdateNodeDataUpdateNodeDataNode `json:"updateNodeData"`
 }
 
@@ -21561,7 +22192,8 @@ type UpdateNodeInput struct {
 	ContentType *string          `json:"contentType,omitempty"`
 	Data        *json.RawMessage `json:"data,omitempty"`
 	Description *string          `json:"description,omitempty"`
-	Edges       []*NodeEdgeInput `json:"edges,omitempty"`
+	// Replace all outgoing edges when provided (omit to leave edges unchanged)
+	Edges []*NodeEdgeInput `json:"edges,omitempty"`
 	// The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryId+loc.
 	Id *string `json:"id,omitempty"`
 	// Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve.
@@ -21676,6 +22308,12 @@ func (v *UpdateNodeResponse) GetUpdateNode() *UpdateNodeUpdateNode { return v.Up
 
 // UpdateNodeRevisionResponse is returned by UpdateNodeRevision on success.
 type UpdateNodeRevisionResponse struct {
+	// Set or clear the user-facing label on a revision snapshot (#620,
+	// NodeRevision.revLabel, 500-char cap). Omit revLabel to preserve; pass
+	// null to clear. Auth: the node's memory write access (as
+	// deleteNodeRevision) PLUS the nodeRevision query's read gates — it returns
+	// the full snapshot, so a soft-deleted node or a snapshot captured in an
+	// unreadable memory answers the same NOT_FOUND as an unknown id.
 	UpdateNodeRevision *UpdateNodeRevisionUpdateNodeRevision `json:"updateNodeRevision"`
 }
 
@@ -21884,6 +22522,10 @@ func (v *UpdateNodeUpdateNode) GetUpdatedAt() string { return v.UpdatedAt }
 
 // UpdateObjectResponse is returned by UpdateObject on success.
 type UpdateObjectResponse struct {
+	// Merge fields into an existing object (server-side atomic shallow merge +
+	// schema conformance on the result). 'ref' is the object id (or node URN);
+	// 'fields' wins on key collision, unmentioned keys preserved. Returns the
+	// updated flat object.
 	UpdateObject json.RawMessage `json:"updateObject"`
 }
 
@@ -21902,6 +22544,9 @@ func (v *UpdateOrgMemberResponse) GetUpdateOrgMember() *UpdateOrgMemberUpdateOrg
 }
 
 // UpdateOrgMemberUpdateOrgMember includes the requested fields of the GraphQL type OrgMember.
+// The GraphQL type's documentation follows.
+//
+// Per-organization membership record for a user.
 type UpdateOrgMemberUpdateOrgMember struct {
 	Id string `json:"id"`
 	// Target member's role in this org. Null when the viewer isn't an ADMIN/OWNER of the org (#384 field-level visibility); always visible for one's own membership.
@@ -22056,6 +22701,9 @@ func (v *UpdateOrganizationResponse) GetUpdateOrganization() *UpdateOrganization
 }
 
 // UpdateOrganizationUpdateOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
 type UpdateOrganizationUpdateOrganization struct {
 	OrgFields `json:"-"`
 }
@@ -23462,10 +24110,20 @@ var AllUploadIntent = []UploadIntent{
 }
 
 // UserApiKeyFields includes the GraphQL fields of UserApiKey requested by the fragment UserApiKeyFields.
+// The GraphQL type's documentation follows.
+//
+// 025-oauth-for-mcp: user-scoped bearer-token credential. Mirrors the
+// AppKey shape but resolves to a User instead of an App. Surfaced to
+// the portal revocation UI (Phase 3) so users can audit + revoke
+// their own keys. userId is intentionally absent — for self-service
+// v1 the caller is always the owner; admin-tooling auditability is
+// out of scope (see contracts/graphql-mutations.md, PR-137 delta D1).
 type UserApiKeyFields struct {
 	Id         string  `json:"id"`
 	Label      *string `json:"label"`
 	KeyPreview string  `json:"keyPreview"`
+	// Issuance path: portal (createUserApiKey) or oauth:<client_id>
+	// (POST /oauth/token). Powers source labels in the revocation UI.
 	IssuedVia  *string `json:"issuedVia"`
 	CreatedAt  string  `json:"createdAt"`
 	LastUsedAt *string `json:"lastUsedAt"`
@@ -23500,7 +24158,9 @@ func (v *UserApiKeyFields) GetRevokedAt() *string { return v.RevokedAt }
 // both sides' providers is what tells a merge apart from a lockout
 // (cor:api:010:02).
 type UserFields struct {
-	Id               string  `json:"id"`
+	Id string `json:"id"`
+	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
+	// handle; null for a handle-less user (who has no URN).
 	Urn              *string `json:"urn"`
 	Name             *string `json:"name"`
 	Email            *string `json:"email"`
