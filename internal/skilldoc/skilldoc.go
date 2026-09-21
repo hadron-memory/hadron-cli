@@ -521,8 +521,15 @@ func Render(id, name, source, description, content string) (string, error) {
 
 // File is what ParseFile reads back from a skill file on disk: the frontmatter
 // keys a host reads, the provenance the header carries, and the body — enough
-// to recompute the hash (Hash(Source, Name, Description, Body)) and pair the
-// file to its source node without the server.
+// to recompute the hash (Hash(ID, Source, Name, Description, Body)) and pair
+// the file to its source node without the server.
+//
+// ID comes FIRST, matching Hash's argument order. Stating the formula wrongly
+// here would be worse than not stating it: this comment is the one place a
+// reader is told how to verify a file, and ID was added (§4a, server#1235)
+// precisely so that file-only recomputation remains possible. A reader
+// following a stale formula computes a hash that never matches and concludes
+// every generated file was locally edited.
 type File struct {
 	Name        string
 	Description string
