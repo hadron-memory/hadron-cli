@@ -22,8 +22,18 @@ name: Schema drift
 # with Contents: Read on hadron-memory/hadron-server, or equivalent) so this job
 # can check out the private server repo. Without it the job no-ops with a notice
 # so forks and unconfigured clones stay green. The spec-check-tools job needs
-# HADRON_SPECS_RO_TOKEN — a Hadron token with read access to the specs corpus —
+# HADRON_SPECS_TOKEN — a Hadron token with read access to the specs corpus —
 # and gates on it the same way.
+#
+# That secret is deliberately NOT named *_RO_TOKEN, unlike its neighbour. A
+# Hadron personal access token cannot be scoped: `auth token create` takes a
+# label and nothing else, so the token carries everything its OWNER can do.
+# Read-only-ness here is a property of the IDENTITY the token was minted as,
+# never of the token — and a name promising otherwise would be a guarantee the
+# platform cannot keep. Least privilege is therefore an operational choice:
+# mint it as an identity that can only READ the specs corpus (a separate
+# GitHub/Google login granted `memory share … --role reader` on it), not as an
+# org admin. Until that is done the secret carries its minter's full access.
 #
 # Third-party actions are pinned to a full commit SHA (tag in a trailing
 # comment), matching ci.yml (#119). Bump SHA + comment together when upgrading.
@@ -204,10 +214,10 @@ jobs:
       - name: Gate on specs-corpus token
         id: gate
         env:
-          TOKEN: ${{ secrets.HADRON_SPECS_RO_TOKEN }}
+          TOKEN: ${{ secrets.HADRON_SPECS_TOKEN }}
         run: |
           if [ -z "$TOKEN" ]; then
-            echo "::notice::HADRON_SPECS_RO_TOKEN not set — skipping spec check-tools."
+            echo "::notice::HADRON_SPECS_TOKEN not set — skipping spec check-tools."
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=true" >> "$GITHUB_OUTPUT"
@@ -236,7 +246,7 @@ jobs:
         if: steps.gate.outputs.enabled == 'true'
         continue-on-error: true
         env:
-          HADRON_TOKEN: ${{ secrets.HADRON_SPECS_RO_TOKEN }}
+          HADRON_TOKEN: ${{ secrets.HADRON_SPECS_TOKEN }}
         run: |
           go build -o "$RUNNER_TEMP/hadron" ./cmd/hadron
           set +e
