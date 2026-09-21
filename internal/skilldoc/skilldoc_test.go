@@ -957,3 +957,44 @@ func TestUnknownHeaderKeysAreStillIgnored(t *testing.T) {
 		t.Errorf("an unknown key must not cost the header: ID=%q Source=%q", f.ID, f.Source)
 	}
 }
+
+// The PARITY VECTOR, pinned. srv#1235's hadron-server half regenerates its
+// fixtures from this Go, so these digests are a cross-implementation CONTRACT,
+// not an implementation detail.
+//
+// Every other test here is self-referential — it compares hashes this package
+// produced, so it would pass unchanged if the id moved later in the input, the
+// separator changed, or normalization differed. A2 depends on byte-for-byte
+// parity, so a refactor that silently altered the digest would leave this
+// package green and the server's fixtures wrong (@copilot, #650).
+//
+// These constants are published in PR #650 for @Dara to assert against. If a
+// change here turns this test red, the question is not "update the constant" —
+// it is whether the server must change with it.
+func TestParityVectorIsPinned(t *testing.T) {
+	const (
+		id      = "01a0099f949d76a9baf3a16527485475"
+		src     = "hrn:node:hadronmemory.com:hadron-cli:tasks:example"
+		name    = "hadron-example"
+		desc    = "Use when example."
+		body    = "# Example\n\nBody text.\n"
+		withID  = "3fc4ef3150dc27d5"
+		emptyID = "283c6ac5b51c3cd7"
+	)
+	if got := Hash(id, src, name, desc, body); got != withID {
+		t.Errorf("hash(with id) = %s, want %s — the published cross-repo constant changed", got, withID)
+	}
+	if got := Hash("", src, name, desc, body); got != emptyID {
+		t.Errorf("hash(empty id) = %s, want %s — the published cross-repo constant changed", got, emptyID)
+	}
+	// The rendered header, byte for byte: key ORDER and spacing are part of
+	// what the server must reproduce, and a formula test alone cannot see them.
+	file, err := Render(id, name, src, desc, body)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	want := "<!-- hadron-skill id=" + id + " source=" + src + " hash=" + withID + " -->"
+	if !strings.Contains(file, want) {
+		t.Errorf("header line must be exactly:\n  %s\ngot:\n%s", want, file)
+	}
+}
