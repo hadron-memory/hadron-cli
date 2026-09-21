@@ -563,7 +563,7 @@ func TestSkillStatusSendsTheDirectoryNotTheStoredName(t *testing.T) {
 // A file that is present and unreadable is an I/O failure, not a parse
 // failure, and must not silently become "never exported" — a false statement
 // about a disk the server cannot see.
-func TestSkillStatusUnreadableFileIsSentAndReported(t *testing.T) {
+func TestSkillStatusUnreadableFileIsReportedButNotSent(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("chmod-based unreadability is a POSIX behaviour")
 	}

@@ -629,8 +629,13 @@ Conventions:
   eleventh class; read the two together and never `class` alone. In the table
   that row's CLASS cell is `—` (no class returned) with the reason in DETAIL;
   in `--json` the `class` key is present and **null**, never omitted, so
-  "the server returned no class" stays distinguishable from "not asked for". A file with no
-  Hadron header is somebody else's skill: never listed, moved or removed.
+  "the server returned no class" stays distinguishable from "not asked for". A file that PARSES and carries no
+  Hadron header is somebody else's skill: never listed, moved or removed. A
+  file that does NOT parse is reported either way — attributed to its node when
+  the provenance header below the broken frontmatter is still readable, and
+  otherwise listed locally under `unparseable` (never sent, since an
+  unidentifiable file must not be claimed as an orphan). An unreadable file is
+  listed under `unreadable` with its errno, likewise never sent.
   There is deliberately no `--node` (the orphan and collision classes are
   properties of a SET). An error finding exits 5; drift alone exits 0, so a CI
   gate is an explicit `--strict`, which exits 5 on any drift, parse failure or

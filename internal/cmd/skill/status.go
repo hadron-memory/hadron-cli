@@ -360,19 +360,27 @@ func resolveSkillsRoot(cmd *cobra.Command, to, host string) (string, error) {
 // the seam takes. It never sends a path or any content: the server does not
 // read the caller's disk and is not told where it is.
 //
-// Three outcomes per directory, and they are different facts:
+// FIVE outcomes per directory, and they are different facts. Only the two
+// that can be ATTRIBUTED are sent: a claim about a file we cannot identify
+// would be a claim the server has no way to check.
 //
-//   - no SKILL.md, or a file with no Hadron provenance header — INVISIBLE.
-//     Not sent, not reported. `hadron skill` never touches a file it did not
-//     generate, and reporting one would invite somebody to "fix" it.
-//   - parsed — the facts, including a fileHash recomputed from the file alone
-//     (that recomputation is what makes `locally-edited` detectable).
-//   - present but UNREADABLE — sent as parseFailed, and also returned
-//     separately with the OS error. Omitting it would make the server say
-//     `never-exported`, a false statement about a disk it cannot see; calling
-//     it a parse failure is true about the only thing we know (it is there and
-//     we could not turn it into facts), and the errno is preserved for the
-//     human rather than dissolved into a class.
+//   - no SKILL.md, or a file that PARSES and carries no Hadron provenance
+//     header — INVISIBLE. Not sent, not reported. `hadron skill` never touches
+//     a file it did not generate, and reporting one would invite somebody to
+//     "fix" it.
+//   - parsed, with provenance — SENT: the facts, including a fileHash
+//     recomputed from the file alone (that recomputation is what makes
+//     `locally-edited` detectable).
+//   - does not parse, provenance RECOVERED — SENT as parseFailed with its
+//     nodeId, so the failure is attributed to its node instead of arriving as
+//     an orphan.
+//   - does not parse and carries NO recoverable provenance — reported locally
+//     under `unparseable`, NOT sent. We cannot tell it is ours, and an orphan
+//     claim on no evidence is worse than silence; but it is still shown,
+//     because silently skipping a broken file is the outcome to avoid.
+//   - present but UNREADABLE (an I/O error) — reported locally under
+//     `unreadable` with the errno, NOT sent. With no bytes there is no
+//     provenance, so there is nothing to attribute it by.
 //
 // A missing root is zero files, not an error: "nothing exported yet" is a
 // legitimate answer to "what does my disk look like", and the report names the
