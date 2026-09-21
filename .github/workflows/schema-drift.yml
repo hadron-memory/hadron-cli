@@ -12,10 +12,28 @@ name: Schema drift
 # deliberately NOT a PR gate — it depends on a cross-repo checkout and is a
 # heads-up ("go run `make schema`"), not a blocker.
 #
+# A THIRD question is asked by the `spec-check-tools` job below. The two checks
+# above ask whether our COPIES of the server's contract are current; that one
+# asks whether the SPECS CITE TOOLS THAT EXIST. Separate jobs because they need
+# different credentials: the drift checks want a server checkout and no corpus
+# access, check-tools wants corpus access and no server checkout.
+#
 # Setup: add a repo secret HADRON_SERVER_RO_TOKEN — a token (fine-grained PAT
 # with Contents: Read on hadron-memory/hadron-server, or equivalent) so this job
 # can check out the private server repo. Without it the job no-ops with a notice
-# so forks and unconfigured clones stay green.
+# so forks and unconfigured clones stay green. The spec-check-tools job needs
+# HADRON_SPECS_TOKEN — a Hadron token with read access to the specs corpus —
+# and gates on it the same way.
+#
+# That secret is deliberately NOT named *_RO_TOKEN, unlike its neighbour. A
+# Hadron personal access token cannot be scoped: `auth token create` takes a
+# label and nothing else, so the token carries everything its OWNER can do.
+# Read-only-ness here is a property of the IDENTITY the token was minted as,
+# never of the token — and a name promising otherwise would be a guarantee the
+# platform cannot keep. Least privilege is therefore an operational choice:
+# mint it as an identity that can only READ the specs corpus (a separate
+# GitHub/Google login granted `memory share … --role reader` on it), not as an
+# org admin. Until that is done the secret carries its minter's full access.
 #
 # Third-party actions are pinned to a full commit SHA (tag in a trailing
 # comment), matching ci.yml (#119). Bump SHA + comment together when upgrading.
@@ -162,3 +180,199 @@ jobs:
         run: |
           echo "Drift detected — see the steps above and any filed issue(s)."
           exit 1
+
+  # The third question, and the one that had never been asked (#641): the checks
+  # above keep our COPIES of the server's contract current; this one asks whether
+  # the SPECS CITE TOOLS THAT EXIST. `hadron spec check-tools` reads the manifest
+  # embedded at build time plus the specs corpus, so unlike its neighbours it
+  # needs a Hadron credential and NO server checkout — which is why it is a
+  # separate job rather than another step.
+  #
+  # It REPORTS; it does not fail the run. That is deliberate and TEMPORARY:
+  #
+  #   step 1 (this)  file a tracking issue on findings, like the drift steps do
+  #   step 2         the corpus is cleaned up (the citations server#1141 orphaned)
+  #   step 3         PROMOTE to a hard failure — #641, tracked as a checkbox
+  #
+  # Failing on day one would make the nightly red for a known backlog, which
+  # teaches everyone to ignore it — and drags the two drift checks beside it down
+  # with it. A gate that can never fail teaches nothing. Ordering avoids both, so
+  # do not leave it here: an un-promoted gate is the shape this issue is about.
+  spec-check-tools:
+    runs-on: ubuntu-latest
+    # Job-scoped: BOTH the check and the reporting step need it — the reporter
+    # prints the reproduce command. A step-level env left it empty there, so the
+    # issue would have told the reader to run `-m ""`.
+    env:
+      SPECS_MEMORY: ${{ vars.SPECS_MEMORY || 'hrn:mem:hadronmemory.com:specs' }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+
+      - name: Gate on specs-corpus token
+        id: gate
+        env:
+          TOKEN: ${{ secrets.HADRON_SPECS_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::HADRON_SPECS_TOKEN not set — skipping spec check-tools."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Built to a BINARY and executed, never `go run`: `go run` does NOT
+      # propagate the child's exit status (it prints "exit status 5" and exits
+      # 1 — `go help run` says so outright). The first draft of this job used
+      # `go run`, so its exit-5 condition could never have fired: the nightly
+      # would have found every stale citation and filed nothing, silently
+      # (@codex, #642). Built from source rather than downloaded so the embedded
+      # manifest is the COMMITTED one — the same bytes tools-manifest-check
+      # guards; checking the corpus against a manifest regenerated on the fly
+      # would answer a different question and could pass while the committed
+      # manifest was stale.
+      #
+      # check-tools emits TWO kinds of finding and exits 5 for either:
+      #   unregistered-tool  a spec cites a hadron_* name that is not a tool
+      #   unavailable        a node listed but could not be read — NO token
+      # They are different problems (citation rot vs a read-coverage gap), so
+      # they are counted separately here and reported separately below. The
+      # repo's visibility-gap rule says an unreadable-but-listed node must be
+      # SURFACED rather than dropped, so neither is swallowed into the other.
+      - name: Check spec tool citations
+        id: citations
+        if: steps.gate.outputs.enabled == 'true'
+        continue-on-error: true
+        env:
+          HADRON_TOKEN: ${{ secrets.HADRON_SPECS_TOKEN }}
+        run: |
+          go build -o "$RUNNER_TEMP/hadron" ./cmd/hadron
+          set +e
+          "$RUNNER_TEMP/hadron" spec check-tools -m "$SPECS_MEMORY" --json > findings.json
+          code=$?
+          set -e
+          echo "check-tools exited $code"
+          # An infra failure may leave this empty or absent; normalise so the
+          # counts below are 0 rather than a jq error that hides the cause.
+          [ -s findings.json ] || echo '[]' > findings.json
+          jq '[.[] | select(.kind == "unregistered-tool")]' findings.json > unregistered.json
+          jq '[.[] | select(.kind == "unavailable")]'       findings.json > unavailable.json
+          {
+            echo "exit_code=$code"
+            echo "unregistered=$(jq 'length' unregistered.json)"
+            echo "unavailable=$(jq 'length' unavailable.json)"
+          } >> "$GITHUB_OUTPUT"
+          exit $code
+
+      # Keyed on the COUNT of that kind, not on the exit code. Exit 5 covers
+      # both kinds, and an infra failure is also non-zero — so gating on the
+      # code would file a citation issue for a network error. Counting the
+      # thing itself cannot: a failure that produced no findings reports none.
+      - name: File a spec-citation issue
+        if: steps.citations.outputs.unregistered != '' && steps.citations.outputs.unregistered != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Specs cite unregistered hadron_* tools"
+          {
+            jq -r '
+              "**\(length) citation finding(s)** across \(group_by(.citation)|length) citation(s).", "",
+              "| token | count |", "| --- | --- |",
+              (group_by(.token) | sort_by(-length)[] | "| `\(.[0].token)` | \(length) |"),
+              "", "| citation | count |", "| --- | --- |",
+              (group_by(.citation) | sort_by(-length)[] | "| `\(.[0].citation)` | \(length) |")
+            ' unregistered.json
+            echo
+            echo "Reproduce:"
+            echo
+            echo '```sh'
+            echo "hadron spec check-tools -m \"$SPECS_MEMORY\" --json"
+            echo '```'
+            echo
+            echo "A citation is permanent, so a node describing a REMOVED tool may want a"
+            echo "supersede rather than an edit - see docs/how-to/maintain-product-specs.md."
+            echo
+            echo "Do NOT add these to \`internal/cmd/spec/mcp-tools-ignore.txt\`: that file"
+            echo "carries non-tool \`hadron_*\` identifiers that legitimately appear in prose,"
+            echo "and using it to silence real rot hides exactly what this check surfaces."
+            echo
+            echo "Failing run: $RUN_URL"
+          } > issue-body.md
+          existing=$(gh issue list --state open --search "\"$title\" in:title" \
+            --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            echo "Citation issue already open (#$existing); adding a note instead."
+            printf 'Still failing as of %s\n\n' "$RUN_URL" > note.md
+            cat issue-body.md >> note.md
+            gh issue comment "$existing" --body-file note.md
+            exit 0
+          fi
+          gh issue create --title "$title" --body-file issue-body.md
+
+      # A node that LISTS but cannot be READ is a coverage gap, not citation
+      # rot: check-tools could not examine it, so its citations are unknown
+      # rather than wrong. Reported under its own title so it is never counted
+      # as tool rot, and never silently dropped either.
+      - name: File a spec-coverage issue
+        if: steps.citations.outputs.unavailable != '' && steps.citations.outputs.unavailable != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Spec nodes are listed but unreadable"
+          {
+            jq -r '
+              "**\(length) node(s)** listed by the corpus but unreadable, so their tool",
+              "citations were NOT checked. This is a coverage gap, not citation rot.", "",
+              "| citation |", "| --- |",
+              (sort_by(.citation)[] | "| `\(.citation)` |")
+            ' unavailable.json
+            echo
+            echo "A node can be listed and still refuse a read; the CLI surfaces that"
+            echo "rather than dropping it. Until these are readable, check-tools cannot"
+            echo "speak for them either way."
+            echo
+            echo "Run: $RUN_URL"
+          } > coverage-body.md
+          existing=$(gh issue list --state open --search "\"$title\" in:title" \
+            --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            echo "Coverage issue already open (#$existing); adding a note instead."
+            printf 'Still unreadable as of %s\n\n' "$RUN_URL" > cnote.md
+            cat coverage-body.md >> cnote.md
+            gh issue comment "$existing" --body-file cnote.md
+            exit 0
+          fi
+          gh issue create --title "$title" --body-file coverage-body.md
+
+      # An INFRA failure must not be green. check-tools exits 0 (clean) or 5
+      # (findings); anything else — an expired token, an unreachable API, a
+      # failed build, jq unable to parse the output — means THE CORPUS WAS NOT
+      # CHECKED. Under continue-on-error that left the counts absent, both
+      # reporters skipping, and the job finishing green (@codex, #642): a gate
+      # reporting clean while it is broken, which is the exact failure #641
+      # exists to stop, reproduced inside the fix for it.
+      #
+      # An empty exit_code is included deliberately: a step that died before
+      # writing its output (a failed `go build`) never set one, and "no answer"
+      # is not "no findings".
+      #
+      # This is NOT #641 step 3. Findings (exit 5) still do not fail the run —
+      # that promotion waits for a clean corpus. This fails only when the check
+      # could not be performed at all.
+      - name: Fail if the check could not run
+        if: >-
+          steps.gate.outputs.enabled == 'true' &&
+          steps.citations.outputs.exit_code != '0' &&
+          steps.citations.outputs.exit_code != '5'
+        run: |
+          echo "check-tools exited '${{ steps.citations.outputs.exit_code }}' — neither 0 (clean) nor 5 (findings)."
+          echo "The specs corpus was NOT checked. This is the gate being down, not a pass."
+          exit 1
+
+      # DELIBERATELY no "fail on findings" step yet - see the block above and
+      # #641 step 3. When the corpus is clean, add one mirroring `Fail on any
+      # drift`.
