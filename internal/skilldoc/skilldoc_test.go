@@ -53,20 +53,20 @@ func TestDeclared(t *testing.T) {
 }
 
 func TestHashIsInputSensitiveAndStable(t *testing.T) {
-	h := Hash("s", "n", "d", "c")
+	h := Hash("", "s", "n", "d", "c")
 	if len(h) != 16 {
 		t.Fatalf("hash length %d, want 16", len(h))
 	}
-	if h != Hash("s", "n", "d", "c") {
+	if h != Hash("", "s", "n", "d", "c") {
 		t.Error("hash not stable")
 	}
 	for _, alt := range [][4]string{{"s2", "n", "d", "c"}, {"s", "n2", "d", "c"}, {"s", "n", "d2", "c"}, {"s", "n", "d", "c2"}} {
-		if Hash(alt[0], alt[1], alt[2], alt[3]) == h {
+		if Hash("", alt[0], alt[1], alt[2], alt[3]) == h {
 			t.Errorf("hash insensitive to %v", alt)
 		}
 	}
 	// NUL separation: shifting a boundary must not collide.
-	if Hash("s", "ab", "c", "") == Hash("s", "a", "bc", "") {
+	if Hash("", "s", "ab", "c", "") == Hash("", "s", "a", "bc", "") {
 		t.Error("boundary shift collides")
 	}
 }
@@ -250,7 +250,7 @@ func TestRenderParseRoundTrip(t *testing.T) {
 	desc := "Use when the user says: 'cut a release' — handles #tags and \"quotes\"."
 	body := "# Cut a release\n\nStep one.\n\n```sh\ngit tag\n```\n"
 	src := "hrn:node:hadronmemory.com:core:tasks:create-release-tag"
-	file, err := Render("hadron-create-release-tag", src, desc, body)
+	file, err := Render("", "hadron-create-release-tag", src, desc, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,19 +270,19 @@ func TestRenderParseRoundTrip(t *testing.T) {
 	}
 	// The contract that makes local-edit detection server-free: the hash in
 	// the header equals the hash recomputed from the file's own three inputs.
-	if want := Hash(f.Source, f.Name, f.Description, f.Body); f.Hash != want {
+	if want := Hash(f.ID, f.Source, f.Name, f.Description, f.Body); f.Hash != want {
 		t.Errorf("header hash %q != recomputed %q", f.Hash, want)
 	}
 	// And a hand edit to the body is visible.
 	edited := strings.Replace(file, "Step one.", "Step one, edited.", 1)
 	g, _ := ParseFile([]byte(edited))
-	if Hash(g.Source, g.Name, g.Description, g.Body) == g.Hash {
+	if Hash("", g.Source, g.Name, g.Description, g.Body) == g.Hash {
 		t.Error("hand edit not detected by recomputation")
 	}
 	// So is a hand edit to the provenance line naming another node.
 	resourced := strings.Replace(file, "source="+src, "source=hrn:node:hadronmemory.com:core:tasks:other", 1)
 	r, _ := ParseFile([]byte(resourced))
-	if r.Source != "hrn:node:hadronmemory.com:core:tasks:other" || Hash(r.Source, r.Name, r.Description, r.Body) == r.Hash {
+	if r.Source != "hrn:node:hadronmemory.com:core:tasks:other" || Hash("", r.Source, r.Name, r.Description, r.Body) == r.Hash {
 		t.Error("re-sourced header not detected as a local edit")
 	}
 }
@@ -292,7 +292,7 @@ func TestBodyKeepsItsOwnLeadingComment(t *testing.T) {
 	// whose content opens with an HTML comment of its own must round-trip
 	// with that comment in the body, hash-equal to its header.
 	body := "<!-- reviewers: read the Scope first -->\n\n# Body\n"
-	file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", "Use when x", body)
+	file, err := Render("", "hadron-x", "hrn:node:a:b:tasks:x", "Use when x", body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +303,7 @@ func TestBodyKeepsItsOwnLeadingComment(t *testing.T) {
 	if !strings.HasPrefix(f.Body, "<!-- reviewers:") {
 		t.Errorf("the body's own leading comment was swallowed: %q", f.Body)
 	}
-	if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) {
+	if f.Hash != Hash(f.ID, f.Source, f.Name, f.Description, f.Body) {
 		t.Error("fresh export with a leading body comment does not hash equal to its header")
 	}
 }
@@ -318,7 +318,7 @@ func TestLookalikeProvenanceCommentsStayInTheBody(t *testing.T) {
 		"<!-- hadron-skill is the command that made this -->",
 	} {
 		body := first + "\n\n# Body\n"
-		file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", "Use when x", body)
+		file, err := Render("", "hadron-x", "hrn:node:a:b:tasks:x", "Use when x", body)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -329,7 +329,7 @@ func TestLookalikeProvenanceCommentsStayInTheBody(t *testing.T) {
 		if !strings.HasPrefix(f.Body, first) {
 			t.Errorf("%q swallowed as preamble: body=%q", first, f.Body)
 		}
-		if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) {
+		if f.Hash != Hash(f.ID, f.Source, f.Name, f.Description, f.Body) {
 			t.Errorf("%q: fresh export does not hash equal to its header", first)
 		}
 	}
@@ -363,7 +363,7 @@ func TestFrontmatterRuleNeedsAClosingDelimiter(t *testing.T) {
 
 func TestCRLFBodiesRoundTrip(t *testing.T) {
 	body := "# Body\r\n\r\nline one\r\nline two\r\n"
-	file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", "Use when x", body)
+	file, err := Render("", "hadron-x", "hrn:node:a:b:tasks:x", "Use when x", body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +374,7 @@ func TestCRLFBodiesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) || f.Hash != Hash("hrn:node:a:b:tasks:x", "hadron-x", "Use when x", body) {
+	if f.Hash != Hash(f.ID, f.Source, f.Name, f.Description, f.Body) || f.Hash != Hash("", "hrn:node:a:b:tasks:x", "hadron-x", "Use when x", body) {
 		t.Error("CRLF input does not hash equal to its LF export")
 	}
 }
@@ -428,7 +428,7 @@ func TestRenderSurvivesTheRealParserOnAwkwardDescriptions(t *testing.T) {
 		"Use when key: value looks like a mapping",
 		"Use when — em dashes, curly ‘quotes’ and ümlauts",
 	} {
-		file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", desc, "# body")
+		file, err := Render("", "hadron-x", "hrn:node:a:b:tasks:x", desc, "# body")
 		if err != nil {
 			t.Fatalf("%q: render: %v", desc, err)
 		}
@@ -441,7 +441,7 @@ func TestRenderSurvivesTheRealParserOnAwkwardDescriptions(t *testing.T) {
 		if want := NormalizeDescription(desc); f.Description != want {
 			t.Errorf("description round trip: got %q, want %q\n%s", f.Description, want, file)
 		}
-		if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) {
+		if f.Hash != Hash(f.ID, f.Source, f.Name, f.Description, f.Body) {
 			t.Errorf("%q: header hash does not match recomputation", desc)
 		}
 	}
@@ -453,7 +453,7 @@ func TestRenderNormalizesWhatLintMeasured(t *testing.T) {
 	// write exactly that, and a fresh export must hash equal to its header.
 	desc := "  Use when the user says 'go'.  "
 	body := "\n\n# Body\n\nline\n\n"
-	file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", desc, body)
+	file, err := Render("", "hadron-x", "hrn:node:a:b:tasks:x", desc, body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,7 +467,7 @@ func TestRenderNormalizesWhatLintMeasured(t *testing.T) {
 	if f.Body != "# Body\n\nline" {
 		t.Errorf("body not normalized on export: %q", f.Body)
 	}
-	if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) || f.Hash != Hash("hrn:node:a:b:tasks:x", "hadron-x", desc, body) {
+	if f.Hash != Hash(f.ID, f.Source, f.Name, f.Description, f.Body) || f.Hash != Hash("", "hrn:node:a:b:tasks:x", "hadron-x", desc, body) {
 		t.Error("a fresh export does not hash equal to its own header from either the raw or the parsed inputs")
 	}
 	// The length lint certifies is the exported length: at-limit plus a
@@ -515,7 +515,7 @@ func TestPreambleIsOneOfEachAndKeepsWhitespaceLines(t *testing.T) {
 		"  \n# Body after a whitespace-only line\n",
 		"  ---\nname: x\n---\nindented rule, not frontmatter\n",
 	} {
-		file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", "Use when x", body)
+		file, err := Render("", "hadron-x", "hrn:node:a:b:tasks:x", "Use when x", body)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -526,7 +526,7 @@ func TestPreambleIsOneOfEachAndKeepsWhitespaceLines(t *testing.T) {
 		if f.Body != NormalizeBody(body) {
 			t.Errorf("body round trip:\n got %q\nwant %q", f.Body, NormalizeBody(body))
 		}
-		if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) {
+		if f.Hash != Hash(f.ID, f.Source, f.Name, f.Description, f.Body) {
 			t.Errorf("%q: fresh export does not hash equal to its header", body)
 		}
 	}
@@ -625,7 +625,7 @@ func TestSourceIsFlatV2Only(t *testing.T) {
 func TestExtraFrontmatterKeysAreKeptAsALocalEdit(t *testing.T) {
 	// Codex on #589, round 11: a key a user adds must not vanish from the
 	// parse, or a stale export could overwrite it without --force.
-	file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", "Use when x", "# Body")
+	file, err := Render("", "hadron-x", "hrn:node:a:b:tasks:x", "Use when x", "# Body")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -667,7 +667,7 @@ func TestParsedDescriptionIsNormalized(t *testing.T) {
 func TestIncompleteMachineHeaderIsBody(t *testing.T) {
 	// A hadron-skill comment without BOTH source= and hash= is not provenance.
 	for _, first := range []string{"<!-- hadron-skill example=yes -->", "<!-- hadron-skill source=hrn:node:a:b:c -->"} {
-		file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", "Use when x", first+"\n\n# Body\n")
+		file, err := Render("", "hadron-x", "hrn:node:a:b:tasks:x", "Use when x", first+"\n\n# Body\n")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -675,7 +675,7 @@ func TestIncompleteMachineHeaderIsBody(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.HasPrefix(f.Body, first) || f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) {
+		if !strings.HasPrefix(f.Body, first) || f.Hash != Hash(f.ID, f.Source, f.Name, f.Description, f.Body) {
 			t.Errorf("%q: swallowed or mis-hashed: body=%q", first, f.Body)
 		}
 		// And standing alone in the preamble it does not make the file generated.
@@ -849,5 +849,111 @@ func TestMalformedHostPathsAreDeterministic(t *testing.T) {
 				t.Fatalf("unstable order: want %v, got %v", want, got)
 			}
 		}
+	}
+}
+
+// §4a (hadron-server#1235) — THE property the whole change exists for.
+//
+// The spec's own reasoning: left out of the hash, editing ONLY the header id
+// keeps hash(file) == headerHash, so the file reads as untouched while pairing
+// to a DIFFERENT node — `stale` rather than `locally-edited`, and therefore
+// overwritten despite A1. So changing the id alone MUST change the hash.
+func TestHashCoversTheNodeID(t *testing.T) {
+	a := Hash("01a0099f949d76a9baf3a16527485475", "hrn:node:a:b:tasks:x", "n", "d", "c")
+	b := Hash("01a0099f949d76a9baf3a16527485476", "hrn:node:a:b:tasks:x", "n", "d", "c")
+	if a == b {
+		t.Fatal("two different node ids must not fingerprint identically — that is the hazard §4a exists to close")
+	}
+	// And an absent id is its own value, not a skipped input: a pre-§4a file
+	// and an id-bearing one that agree on everything else must still differ.
+	if Hash("", "hrn:node:a:b:tasks:x", "n", "d", "c") == a {
+		t.Error("an empty id must hash differently from a present one")
+	}
+}
+
+// Render writes the key, and a reader gets it back. Without this the file
+// cannot be re-fingerprinted from itself, which is the property the design
+// rests on.
+func TestRenderWritesTheIDAndParseReadsItBack(t *testing.T) {
+	const id = "01a0099f949d76a9baf3a16527485475"
+	file, err := Render(id, "hadron-x", "hrn:node:a:b:tasks:x", "Use when x", "# Body\n")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if !strings.Contains(file, "id="+id) {
+		t.Errorf("the header must carry id=:\n%s", file)
+	}
+	f, err := ParseFile([]byte(file))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if f.ID != id {
+		t.Errorf("ID = %q, want %q", f.ID, id)
+	}
+	// Recomputable from the FILE ALONE — the stated property, and it now needs
+	// the id, so this is the assertion that would fail if ParseFile stopped
+	// surfacing it.
+	if got := Hash(f.ID, f.Source, f.Name, f.Description, f.Body); got != f.Hash {
+		t.Errorf("recomputed %s, header says %s", got, f.Hash)
+	}
+}
+
+// Tampering with ONLY the id must show up as a local edit. This is the
+// end-to-end form of TestHashCoversTheNodeID, driven through the real file.
+func TestEditingOnlyTheHeaderIDBreaksTheHash(t *testing.T) {
+	file, err := Render("01a0099f949d76a9baf3a16527485475", "hadron-x", "hrn:node:a:b:tasks:x", "Use when x", "# Body\n")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	tampered := strings.Replace(file, "id=01a0099f949d76a9baf3a16527485475", "id=01a0099f949d76a9baf3a16527485476", 1)
+	if tampered == file {
+		t.Fatal("precondition: the id must actually have been replaced")
+	}
+	f, err := ParseFile([]byte(tampered))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got := Hash(f.ID, f.Source, f.Name, f.Description, f.Body); got == f.Hash {
+		t.Fatal("a file repointed at another node must NOT still verify — it would be overwritten as stale")
+	}
+}
+
+// A file written before §4a has no id= key, and must keep parsing. Rejecting
+// it would orphan every skill exported to date.
+func TestHeaderWithoutAnIDStillParses(t *testing.T) {
+	file, err := Render("", "hadron-x", "hrn:node:a:b:tasks:x", "Use when x", "# Body\n")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if strings.Contains(file, "id=") {
+		t.Errorf("an empty id must be OMITTED, not written blank — `id= ` breaks the header grammar:\n%s", file)
+	}
+	f, err := ParseFile([]byte(file))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if f.ID != "" || f.Source != "hrn:node:a:b:tasks:x" {
+		t.Errorf("ID=%q Source=%q", f.ID, f.Source)
+	}
+	if got := Hash(f.ID, f.Source, f.Name, f.Description, f.Body); got != f.Hash {
+		t.Errorf("a no-id file must still be self-consistent: recomputed %s, header %s", got, f.Hash)
+	}
+}
+
+// The header grammar tolerates keys it does not know (that is how `id=` could
+// ship to the server's reader first), so an unknown key must not demote a
+// generated file to "somebody else's skill".
+func TestUnknownHeaderKeysAreStillIgnored(t *testing.T) {
+	file, err := Render("01a0099f949d76a9baf3a16527485475", "hadron-x", "hrn:node:a:b:tasks:x", "Use when x", "# Body\n")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	withExtra := strings.Replace(file, "<!-- hadron-skill id=", "<!-- hadron-skill future=yes id=", 1)
+	f, err := ParseFile([]byte(withExtra))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if f.Source == "" || f.ID != "01a0099f949d76a9baf3a16527485475" {
+		t.Errorf("an unknown key must not cost the header: ID=%q Source=%q", f.ID, f.Source)
 	}
 }

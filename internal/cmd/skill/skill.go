@@ -389,7 +389,7 @@ func canonicalNodeArg(ref string) (string, error) {
 // toSkillNode projects a batch node onto the contract's view of it. The
 // properties JSON is decoded here, once, so the rules read a map.
 func toSkillNode(n *batchNode, memURN string) skilldoc.Node {
-	sn := skilldoc.Node{URN: n.Urn, Loc: n.Loc, MemoryURN: memURN}
+	sn := skilldoc.Node{ID: n.Id, URN: n.Urn, Loc: n.Loc, MemoryURN: memURN}
 	if n.IsRunnable != nil {
 		sn.IsRunnable = *n.IsRunnable
 	}

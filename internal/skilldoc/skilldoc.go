@@ -278,10 +278,23 @@ func NormalizeBody(s string) string {
 // whose content is wrapped in blank lines and the file built from it
 // fingerprint identically. Without that, every export would classify as
 // stale against its own header.
-func Hash(source, name, description, content string) string {
+// The node ID is hashed FIRST, and including it is the point of §4a
+// (hadron-server#1235). Left out, editing ONLY the header id keeps
+// hash(file) == headerHash, so the file reads as untouched while pairing to a
+// DIFFERENT node — `stale` rather than `locally-edited`, and therefore
+// overwritten despite A1. Pairing by id is what survives a `loc` rename:
+// moveNode keeps the id while the URN is computed from the loc, so URN-only
+// pairing turns a rename into orphaned + never-exported — two directories with
+// near-identical trigger text, both firing.
+//
+// An EMPTY id hashes as the empty string rather than being skipped, so a file
+// with no `id=` key is still self-consistent: Render omits the key, a reader
+// parses id == "", and recomputing agrees. The server must do the same — the
+// two implementations are gated against each other by the A2 parity fixtures.
+func Hash(id, source, name, description, content string) string {
 	description = NormalizeDescription(description)
 	content = NormalizeBody(content)
-	sum := sha256.Sum256([]byte(source + "\x00" + name + "\x00" + description + "\x00" + content))
+	sum := sha256.Sum256([]byte(id + "\x00" + source + "\x00" + name + "\x00" + description + "\x00" + content))
 	return hex.EncodeToString(sum[:])[:16]
 }
 
@@ -290,6 +303,9 @@ func Hash(source, name, description, content string) string {
 // single-ref read compiles Mustache and would blank `{{name}}`-style
 // placeholders out of a verbatim export (D6).
 type Node struct {
+	// ID is the node's stable id — the §4a pairing key, which survives the
+	// `loc` rename that changes URN.
+	ID         string
 	URN        string
 	Loc        string
 	MemoryURN  string
@@ -476,19 +492,27 @@ type frontmatter struct {
 // hand-quoting: a description ending in a colon, or in a space, is a plain
 // scalar a hand check would pass and a real parser would reject or trim, and
 // the host reading this file IS a real parser.
-func Render(name, source, description, content string) (string, error) {
+func Render(id, name, source, description, content string) (string, error) {
 	description = NormalizeDescription(description)
 	content = NormalizeBody(content)
 	fm, err := nodedoc.MarshalYAML(frontmatter{Name: name, Description: description})
 	if err != nil {
 		return "", fmt.Errorf("rendering frontmatter: %w", err)
 	}
-	hash := Hash(source, name, description, content)
+	hash := Hash(id, source, name, description, content)
 	var b strings.Builder
 	b.WriteString("---\n")
 	b.WriteString(fm)
 	b.WriteString("\n---\n\n")
-	fmt.Fprintf(&b, "<!-- hadron-skill source=%s hash=%s -->\n", source, hash)
+	// `id=` is OMITTED when empty rather than written blank: the header
+	// grammar requires a non-space value (`\w+=\S+`), so `id= ` would make the
+	// line unparseable and demote a generated file to "somebody else's skill".
+	// A reader then sees id == "", which is exactly what Hash fingerprinted.
+	if id != "" {
+		fmt.Fprintf(&b, "<!-- hadron-skill id=%s source=%s hash=%s -->\n", id, source, hash)
+	} else {
+		fmt.Fprintf(&b, "<!-- hadron-skill source=%s hash=%s -->\n", source, hash)
+	}
 	b.WriteString(humanLine + "\n\n")
 	b.WriteString(content)
 	b.WriteString("\n")
@@ -502,9 +526,14 @@ func Render(name, source, description, content string) (string, error) {
 type File struct {
 	Name        string
 	Description string
-	Source      string // the flat v2 source node URN as written, or "" when the file is not Hadron-generated
-	Hash        string // "" for a legacy (pre-#580) header
-	Body        string
+	// ID is the node's stable id from the header's `id=` key, or "" on a file
+	// written before §4a. It is what pairs a file to its node across a `loc`
+	// rename, and it is a Hash input — so a reader needs it to recompute the
+	// fingerprint from the file alone.
+	ID     string
+	Source string // the flat v2 source node URN as written, or "" when the file is not Hadron-generated
+	Hash   string // "" for a legacy (pre-#580) header
+	Body   string
 	// Extra holds every frontmatter key other than name/description. Render
 	// writes none, so on a generated file a non-empty Extra IS a local edit
 	// — one the header hash cannot see, since the hash covers the three
@@ -555,8 +584,8 @@ func ParseFile(data []byte) (*File, error) {
 	}
 	preamble, body := splitPreamble(string(m[2]))
 	for _, line := range strings.Split(preamble, "\n") { // raw, like splitPreamble
-		if src, hash, ok := machineHeader(line); ok {
-			f.Source, f.Hash = src, hash
+		if id, src, hash, ok := machineHeader(line); ok {
+			f.ID, f.Source, f.Hash = id, src, hash
 			break
 		}
 		if src, ok := legacyHeader(line); ok {
@@ -614,13 +643,20 @@ func isNodeURN(tok string) bool {
 // (extra keys allowed). A comment that merely looks like one —
 // `<!-- hadron-skill example=yes -->`, `source=not-a-node`, a truncated
 // hash — is body, not provenance (Copilot on #589, rounds 2 and 3).
-func machineHeader(t string) (source, hash string, ok bool) {
+// `id` is OPTIONAL and unvalidated beyond being present: a file written before
+// §4a has none, and rejecting a header for a missing id would orphan every
+// skill exported to date. It is returned so a reader can recompute the hash
+// from the FILE ALONE — the property the whole design rests on — which is no
+// longer possible without it.
+func machineHeader(t string) (id, source, hash string, ok bool) {
 	h := headerRE.FindStringSubmatch(t)
 	if h == nil {
-		return "", "", false
+		return "", "", "", false
 	}
 	for _, kv := range headerKV.FindAllStringSubmatch(h[1], -1) {
 		switch kv[1] {
+		case "id":
+			id = kv[2]
 		case "source":
 			source = kv[2]
 		case "hash":
@@ -628,9 +664,9 @@ func machineHeader(t string) (source, hash string, ok bool) {
 		}
 	}
 	if !isNodeURN(source) || !hashRE.MatchString(hash) {
-		return "", "", false
+		return "", "", "", false
 	}
-	return source, hash, true
+	return id, source, hash, true
 }
 
 // legacyHeader parses the pre-#580 `<!-- Generated from <urn> -->` line;
@@ -644,5 +680,5 @@ func legacyHeader(t string) (source string, ok bool) {
 	return h[1], true
 }
 
-func isMachineHeader(t string) bool { _, _, ok := machineHeader(t); return ok }
+func isMachineHeader(t string) bool { _, _, _, ok := machineHeader(t); return ok }
 func isLegacyHeader(t string) bool  { _, ok := legacyHeader(t); return ok }
