@@ -44,6 +44,11 @@ loc (use ` + "`hadron node update`" + ` to modify an existing node).
 --content takes the content inline, or "-" to read it from standard
 input; --content-file reads it from a file.
 
+"-" is for a PIPE (cat file | hadron node add ...). It is REFUSED when
+stdin is an interactive terminal: a terminal can truncate large input
+before the CLI ever sees it, so the write would succeed and store a
+corrupted node. Use --content-file for anything you did not pipe.
+
 --object-type tags the node with its structured-storage collection (#725,
 e.g. competitor), orthogonal to --type (nodeType). --properties /
 --properties-file set the node's typed properties (the JSONB column the schema
@@ -62,7 +67,7 @@ schema and rejects a violation.`,
 				return err
 			}
 
-			body, err := resolveContent(content, contentFile, f.IOStreams.In)
+			body, err := resolveContent(content, contentFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
 			if err != nil {
 				return err
 			}
@@ -179,7 +184,11 @@ schema and rejects a violation.`,
 	return cmd
 }
 
-func resolveContent(content, contentFile string, stdin io.Reader) (string, error) {
+// resolveContent reads the node body from --content, --content-file, or stdin.
+// The stdin path goes through cmdutil.ReadDocumentStdin, which refuses an
+// interactive terminal — see there for why a node body is a document read and
+// `--data-key -` is not (#643).
+func resolveContent(content, contentFile string, stdin io.Reader, stdinIsTerminal bool) (string, error) {
 	if content != "" && contentFile != "" {
 		return "", exitcode.Newf(exitcode.Usage, "--content and --content-file are mutually exclusive")
 	}
@@ -191,11 +200,7 @@ func resolveContent(content, contentFile string, stdin io.Reader) (string, error
 		return string(data), nil
 	}
 	if content == "-" {
-		data, err := io.ReadAll(stdin)
-		if err != nil {
-			return "", err
-		}
-		return string(data), nil
+		return cmdutil.ReadDocumentStdin(stdin, stdinIsTerminal, "--content -", "--content-file")
 	}
 	return content, nil
 }

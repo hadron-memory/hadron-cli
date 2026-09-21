@@ -398,7 +398,15 @@ Conventions:
   errors report already-scoped, cross-org, membership, and install failures.
 - `node add` fails if the loc already exists; `node update` modifies
   an existing node and preserves unset fields. Content comes from
-  `--content "<text>"`, `--content -` (stdin), or `--content-file`;
+  `--content "<text>"`, `--content -` (stdin), or `--content-file`.
+  **`--content -` is for a PIPE and is REFUSED (exit 2) when stdin is an
+  interactive terminal** (#643): a terminal's line discipline can truncate or
+  reorder large input BEFORE the CLI reads it, so the write would succeed and
+  store a corrupted node — observed on a ~10 KB document with sections missing
+  and others joined. If you drive this CLI through a PTY, use `--content-file
+  <path>`; `cat file | hadron ...` is a pipe, not a terminal, and still works.
+  The refusal is on DOCUMENT reads only — `--data-key -` and other secret
+  reads from a terminal are deliberate and unaffected;
   the abstract likewise from `--abstract`, `--abstract -`, or
   `--abstract-file` (paragraph abstracts dodge shell quoting this way).
   Machine-readable JSON `data` comes from `--data '<json>'` or

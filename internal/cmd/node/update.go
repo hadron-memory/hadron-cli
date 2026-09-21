@@ -113,6 +113,17 @@ schema-governed memory the server validates the result and rejects a violation.)
 			if stdinReaders > 1 {
 				return exitcode.Newf(exitcode.Usage, "only one of --content -, --abstract -, --data-merge - may read stdin")
 			}
+			// Refuse a terminal HERE rather than at the read (#643): this
+			// command resolves the ref and fetches the node before building
+			// its input, and an argument this invalid should not cost two
+			// round trips first. Same refusal as resolveContent's, from the
+			// one definition in cmdutil.
+			if changed("content") && content == "-" {
+				if err := cmdutil.RefuseDocumentStdinFromTerminal(
+					f.IOStreams.IsInputTerminal(), "--content -", "--content-file"); err != nil {
+					return err
+				}
+			}
 			// --abstract and --abstract-file are mutually exclusive. Guard on
 			// Changed() (not the resolved value): an explicit --abstract "" to
 			// clear would otherwise slip past ResolveTextInput's value check and
@@ -173,7 +184,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 					input.Name = &name
 				}
 				if changed("content") || changed("content-file") {
-					body, err := resolveContent(content, contentFile, f.IOStreams.In)
+					body, err := resolveContent(content, contentFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
 					if err != nil {
 						return err
 					}
