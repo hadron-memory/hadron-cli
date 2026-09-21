@@ -348,5 +348,31 @@ jobs:
           fi
           gh issue create --title "$title" --body-file coverage-body.md
 
-      # DELIBERATELY no "fail the job" step yet - see the block above and #641
-      # step 3. When the corpus is clean, add one mirroring `Fail on any drift`.
+      # An INFRA failure must not be green. check-tools exits 0 (clean) or 5
+      # (findings); anything else — an expired token, an unreachable API, a
+      # failed build, jq unable to parse the output — means THE CORPUS WAS NOT
+      # CHECKED. Under continue-on-error that left the counts absent, both
+      # reporters skipping, and the job finishing green (@codex, #642): a gate
+      # reporting clean while it is broken, which is the exact failure #641
+      # exists to stop, reproduced inside the fix for it.
+      #
+      # An empty exit_code is included deliberately: a step that died before
+      # writing its output (a failed `go build`) never set one, and "no answer"
+      # is not "no findings".
+      #
+      # This is NOT #641 step 3. Findings (exit 5) still do not fail the run —
+      # that promotion waits for a clean corpus. This fails only when the check
+      # could not be performed at all.
+      - name: Fail if the check could not run
+        if: >-
+          steps.gate.outputs.enabled == 'true' &&
+          steps.citations.outputs.exit_code != '0' &&
+          steps.citations.outputs.exit_code != '5'
+        run: |
+          echo "check-tools exited '${{ steps.citations.outputs.exit_code }}' — neither 0 (clean) nor 5 (findings)."
+          echo "The specs corpus was NOT checked. This is the gate being down, not a pass."
+          exit 1
+
+      # DELIBERATELY no "fail on findings" step yet - see the block above and
+      # #641 step 3. When the corpus is clean, add one mirroring `Fail on any
+      # drift`.
