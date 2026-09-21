@@ -263,9 +263,9 @@ func NormalizeBody(s string) string {
 }
 
 // Hash is the provenance fingerprint a generated file records: the first 16
-// hex characters of SHA-256 over the four inputs the file is made from — the
-// source node URN, name, description and body — NUL-separated so a boundary
-// shift cannot collide. It is deliberately not nodedoc.ContentHash (content
+// hex characters of SHA-256 over the five inputs the file is made from — the
+// node ID, source node URN, name, description and body, in that order —
+// NUL-separated so a boundary shift cannot collide. It is deliberately not nodedoc.ContentHash (content
 // only): the description is the trigger, so an edit to it must read as
 // stale; and the source is included so a hand-edited provenance line that
 // names a different node reads as a local edit rather than pairing the file
@@ -521,8 +521,15 @@ func Render(id, name, source, description, content string) (string, error) {
 
 // File is what ParseFile reads back from a skill file on disk: the frontmatter
 // keys a host reads, the provenance the header carries, and the body — enough
-// to recompute the hash (Hash(Source, Name, Description, Body)) and pair the
-// file to its source node without the server.
+// to recompute the hash (Hash(ID, Source, Name, Description, Body)) and pair
+// the file to its source node without the server.
+//
+// ID comes FIRST, matching Hash's argument order. The canonical description
+// is Hash's own doc comment; this one restates the formula for a reader
+// holding a File, so the two must agree — a stale copy here yields a hash that
+// never matches, and every generated file then reads as locally edited, which
+// is the opposite of what A1 is for. ID was added (§4a, server#1235) precisely
+// so file-only recomputation remains possible.
 type File struct {
 	Name        string
 	Description string
