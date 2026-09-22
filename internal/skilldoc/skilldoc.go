@@ -590,18 +590,49 @@ func ParseFile(data []byte) (*File, error) {
 		}
 	}
 	preamble, body := splitPreamble(string(m[2]))
-	for _, line := range strings.Split(preamble, "\n") { // raw, like splitPreamble
-		if id, src, hash, ok := machineHeader(line); ok {
-			f.ID, f.Source, f.Hash = id, src, hash
-			break
-		}
-		if src, ok := legacyHeader(line); ok {
-			f.Source = src
-			break
-		}
-	}
+	f.ID, f.Source, f.Hash, _ = scanProvenance(preamble)
 	f.Body = body
 	return f, nil
+}
+
+// scanProvenance finds the provenance line in a preamble. ONE recognizer,
+// shared by ParseFile and ParseProvenance, so a header spelling cannot be
+// accepted by one reader and missed by the other.
+func scanProvenance(preamble string) (id, source, hash string, ok bool) {
+	for _, line := range strings.Split(preamble, "\n") { // raw, like splitPreamble
+		if id, src, h, ok := machineHeader(line); ok {
+			return id, src, h, true
+		}
+		if src, ok := legacyHeader(line); ok {
+			return "", src, "", true
+		}
+	}
+	return "", "", "", false
+}
+
+// ParseProvenance recovers a file's provenance WITHOUT requiring its
+// frontmatter to be valid YAML — the one thing still knowable about a file
+// that does not parse.
+//
+// It exists because the pairing key lives INSIDE the file that will not parse,
+// and a parse failure the client cannot attribute is reported as an ORPHAN:
+// a claim that a file belongs to no declared node, which is false and which is
+// what `export --prune` deletes. Measured against the live corpus, three real
+// skills (an export wrote an unquoted description containing ": ") took
+// exactly that path. The frontmatter DELIMITERS still match when the YAML
+// inside them does not, so the header below them is still readable.
+//
+// It answers only "whose file is this", never "is it current": no hash can be
+// recomputed from a file whose frontmatter is unreadable, so a caller sends
+// this alongside parseFailed and lets the server decline to classify it.
+func ParseProvenance(data []byte) (id, source, hash string, ok bool) {
+	data = []byte(strings.ReplaceAll(string(data), "\r\n", "\n"))
+	m := frontmatterRE.FindSubmatch(data)
+	if m == nil {
+		return "", "", "", false
+	}
+	preamble, _ := splitPreamble(string(m[2]))
+	return scanProvenance(preamble)
 }
 
 // splitPreamble divides what follows the frontmatter into the PREAMBLE —

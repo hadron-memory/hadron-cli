@@ -55,9 +55,11 @@ The node is the source and the skill file is a build artifact. The retired
 properties.skill and properties.claudeSkill are read as aliases for the
 claudeSkill host, so nothing has to be migrated to keep working.
 
-  lint    check declaring nodes against the corpus rules (no disk)`,
+  lint    check declaring nodes against the corpus rules (no disk)
+  status  compare the files on disk against the corpus (reads both, writes nothing)`,
 	}
 	cmd.AddCommand(newCmdLint(f))
+	cmd.AddCommand(newCmdStatus(f))
 	return cmd
 }
 
@@ -67,6 +69,10 @@ type memoryInfo struct {
 	ID             string
 	URN            string
 	OrganizationID *string
+	// Visibility is carried because the PLUGIN target filters on it (D9): the
+	// committed bundle lives in a public repo and may hold PUBLIC memories
+	// only. Empty when the server reported none.
+	Visibility string
 }
 
 // selectorFlags are the three mutually exclusive ways to name the nodes a
@@ -80,9 +86,19 @@ type selectorFlags struct {
 }
 
 func (s *selectorFlags) register(cmd *cobra.Command) {
+	s.registerNoNode(cmd)
+	cmd.Flags().StringArrayVar(&s.nodes, "node", nil, "a specific node (repeatable): hrn:node:<root>:<slug>:<loc> or an id")
+}
+
+// registerNoNode registers the two MEMORY-WIDE selectors only. `status` takes
+// no --node by design (§3): the orphan and collision classes are properties of
+// a SET, so a status scoped to one node could not answer the question status
+// exists to answer. The two verbs share one registration so the flags cannot
+// drift apart in wording or shorthand — an inconsistent selector across a
+// command group is a contract bug, not a cosmetic one.
+func (s *selectorFlags) registerNoNode(cmd *cobra.Command) {
 	cmd.Flags().StringArrayVarP(&s.memories, "memory", "m", nil, "memory to scan (repeatable): hrn:mem:<root>:<slug>, <root>::<slug>, or an id")
 	cmd.Flags().BoolVar(&s.all, "all", false, "every memory the server lists for you: your orgs' memories, memories shared with you, and other orgs' PUBLIC memories (every class); a per-user agent memory is never listed — name it with -m")
-	cmd.Flags().StringArrayVar(&s.nodes, "node", nil, "a specific node (repeatable): hrn:node:<root>:<slug>:<loc> or an id")
 }
 
 func (s *selectorFlags) validate() error {
@@ -111,6 +127,21 @@ func (s *selectorFlags) validate() error {
 	}
 	if n != 1 {
 		return exitcode.Newf(exitcode.Usage, "specify exactly one of -m/--memory <memory>..., --all, or --node <ref>...")
+	}
+	return nil
+}
+
+// validateNoNode is validate for a verb that registered no --node: exactly one
+// of the two memory-wide selectors, and still no active-memory fallback.
+func (s *selectorFlags) validateNoNode() error {
+	for _, m := range s.memories {
+		if strings.TrimSpace(m) == "" {
+			return exitcode.Newf(exitcode.Usage, "-m/--memory is empty — pass a memory URN or id")
+		}
+	}
+	named := len(s.memories) > 0
+	if named == s.all { // neither given, or both
+		return exitcode.Newf(exitcode.Usage, "specify exactly one of -m/--memory <memory>... or --all")
 	}
 	return nil
 }
@@ -212,6 +243,19 @@ func selectNodes(cmd *cobra.Command, client graphql.Client, sel *selectorFlags) 
 	return out, nil
 }
 
+// memoryVisibilityPublic is the one visibility the plugin target accepts.
+const memoryVisibilityPublic = "PUBLIC"
+
+// visibilityOf renders a nullable visibility enum as a plain string, "" when
+// the server reported none — which is NOT public, and must not be treated as
+// such by the plugin filter.
+func visibilityOf[T ~string](v *T) string {
+	if v == nil {
+		return ""
+	}
+	return string(*v)
+}
+
 // lookupMemory resolves a memory ref (URN in any accepted grammar, or a PK)
 // through memory(ref:), which dispatches server-side.
 func lookupMemory(cmd *cobra.Command, client graphql.Client, ref string) (*memoryInfo, error) {
@@ -224,7 +268,7 @@ func lookupMemory(cmd *cobra.Command, client graphql.Client, ref string) (*memor
 		return nil, exitcode.Newf(exitcode.NotFound,
 			"no memory found for %q — expected a memory id or a URN: hrn:mem:<root>:<slug>, the <root>::<slug> short form, or the legacy hrn:memory: prefix", ref)
 	}
-	return &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId}, nil
+	return &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId, Visibility: visibilityOf(m.Visibility)}, nil
 }
 
 // allMemories lists every memory the caller can read — own-org, shared with
@@ -254,12 +298,12 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 	}
 	seen := map[string]bool{}
 	var out []*memoryInfo
-	add := func(id, urn string, orgID *string) {
+	add := func(id, urn string, orgID *string, vis string) {
 		if seen[id] {
 			return
 		}
 		seen[id] = true
-		out = append(out, &memoryInfo{ID: id, URN: urn, OrganizationID: orgID})
+		out = append(out, &memoryInfo{ID: id, URN: urn, OrganizationID: orgID, Visibility: vis})
 	}
 	for _, filter := range []*gen.MemoryFilter{all, public} {
 		items, err := api.CollectAll(listing(filter))
@@ -267,7 +311,7 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 			return nil, err
 		}
 		for _, m := range items {
-			add(m.Id, m.Urn, m.OrganizationId)
+			add(m.Id, m.Urn, m.OrganizationId, visibilityOf(m.Visibility))
 		}
 	}
 	shared, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory, int, error) {
@@ -284,7 +328,7 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 		return nil, err
 	}
 	for _, m := range shared {
-		add(m.Id, m.Urn, m.OrganizationId)
+		add(m.Id, m.Urn, m.OrganizationId, visibilityOf(m.Visibility))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].URN < out[j].URN })
 	return out, nil

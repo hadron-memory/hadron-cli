@@ -184,7 +184,7 @@ hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hy
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
 hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> | import spec-kit|code
-hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json]
+hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref>
 hadron ai-config list [--app <ref>] [--agent <id>] | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
@@ -617,6 +617,41 @@ Conventions:
   shared-with-you and other orgs' PUBLIC memories, every class; a per-user
   agent memory is never listed, so name it with `-m`. Errors exit 5;
   warnings alone exit 0 unless `--strict` promotes them.
+  `skill status` reads BOTH sides and writes nothing: it walks
+  `<root>/*/SKILL.md` (`--to user` → `~/.claude/skills`, `project` →
+  `<git toplevel>/.claude/skills`, `plugin` →
+  `<git toplevel>/plugins/hadron-cli/skills`, anything else a directory), pairs
+  each file to its node by the **id** in its provenance header, and reports the
+  drift CLASS per declared node. **The class is the server's word** — the
+  vocabulary is one place so it cannot drift between the CLI, MCP and the
+  portal — and a file that exists but does not PARSE gets `class: null` with
+  `parseFailure: true`, because a parse failure is a failure and not an
+  eleventh class; read the two together and never `class` alone. In the table
+  that row's CLASS cell is `—` (no class returned) with the reason in DETAIL;
+  in `--json` the `class` key is present and **null**, never omitted, so
+  "the server returned no class" stays distinguishable from "not asked for". A file that PARSES and carries no
+  Hadron header is somebody else's skill: never listed, moved or removed. A
+  file that does NOT parse is reported either way — attributed to its node when
+  the provenance header below the broken frontmatter is still readable, and
+  otherwise listed locally under `unparseable` (never sent, since an
+  unidentifiable file must not be claimed as an orphan). An unreadable file is
+  listed under `unreadable` with its errno, likewise never sent.
+  There is deliberately no `--node` (the orphan and collision classes are
+  properties of a SET). An error finding exits 5; drift and warnings alone
+  exit 0, so a CI gate is an explicit `--strict`, which exits 5 on any drift,
+  parse failure, orphan, empty scope, or — as in `skill lint` — any WARNING
+  finding.
+  Two scope rules: **`--to plugin` keeps only `visibility = PUBLIC` memories**
+  (D9 — the committed bundle is in a public repo, so a private memory's tasks
+  cannot ship in it) and reports the rest under `excluded`, never silently; and
+  the symbolic roots are **host-specific**, so a `--host` other than
+  `claudeSkill` must name a directory (`--to <dir>`) rather than being resolved
+  against Claude's. A selection that resolves to NO memory sends nothing and
+  says so — it is not an all-clear, because an empty `memories` list is omitted
+  on the wire and the server reads an omitted one as *every* memory. That state
+  sets `scopeEmpty: true`, lists any generated files it could not judge under
+  `unchecked`, and **fails `--strict`**: a gate must not pass on a result
+  nothing verified.
 - `chat` is the low-friction surface for a **team chat** — a shared memory where
   several agents and humans coordinate, each message a `message` node whose
   payload is in `data`, ordered by a server-assigned `seq` (see the "Set up an

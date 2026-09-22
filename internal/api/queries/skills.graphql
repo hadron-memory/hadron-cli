@@ -1,0 +1,69 @@
+# The SKILL SEAM (hadron-server#1177 §3, docs/plans/skill-command-group.md §11):
+# the server judges, this client does I/O. One surface serves `skill lint`,
+# `skill status` and `skill export` — the client sends what it can see of each
+# file on disk, the server returns a drift CLASS and the lint findings per
+# declared node, plus (for EXPORT only) the rendered body to write.
+#
+# It is a QUERY and that is the contract: nothing here writes to a node, so
+# `status` and `lint` cannot write BY CONSTRUCTION rather than by promise.
+#
+# THE CLIENT MAY NOT NAME A DRIFT CLASS. The vocabulary is the server's, so it
+# cannot drift between the CLI, MCP and the portal. `class` is rendered as it
+# arrives and is never synthesised, defaulted or rewritten here — which is also
+# why there is no Go `Classify`: the ruling moved it (§11), and #589's
+# `internal/skilldoc` stays only as the parity oracle for the TS port (A2).
+#
+# `renderedBody` is deliberately NOT selected. STATUS never returns one, and
+# asking for a field the intent cannot produce invites a reader to believe this
+# surface could write a file. `export` (slice 5) adds its own operation.
+
+# @genqlient(for: "SkillPlanInput.files", omitempty: true)
+# @genqlient(for: "SkillPlanInput.memories", omitempty: true)
+# @genqlient(for: "SkillPlanInput.host", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.fileHash", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.headerHash", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.nodeId", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.sourceUrn", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.parseFailed", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.hasExtraFrontmatter", omitempty: true)
+query SkillPlan(
+  $input: SkillPlanInput!
+) {
+  skillPlan(input: $input) {
+    # How many nodes carrying ANY declaration key were in scope, and how many
+    # were judged for THIS host. Both are load-bearing for the report: a plan
+    # over an empty corpus and a plan the caller cannot SEE are otherwise the
+    # same empty list, and a client that cannot tell them apart reports
+    # "nothing to do" for a corpus it was denied.
+    scanned
+    judged
+    entries {
+      urn
+      nodeId
+      # The STORED name (D12 retired derivation).
+      name
+      # One of the ten classes, or NULL when the file could not be parsed — a
+      # parse failure is reported as a FAILURE, not as a class. A renderer that
+      # prints the zero value here shows a parse failure as a clean row, so
+      # `class` and `parseFailure` must be read together, never `class` alone.
+      class
+      parseFailure
+      # For the `renamed` class: the directory the file currently occupies.
+      movedFrom
+      findings {
+        rule
+        severity
+        message
+        urn
+        memory
+      }
+    }
+    # Files that paired with no declared node. Never removed without an
+    # explicit prune, so `status` only ever reports them.
+    orphans {
+      dirName
+      nodeId
+      sourceUrn
+    }
+  }
+}
