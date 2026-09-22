@@ -637,9 +637,10 @@ Conventions:
   unidentifiable file must not be claimed as an orphan). An unreadable file is
   listed under `unreadable` with its errno, likewise never sent.
   There is deliberately no `--node` (the orphan and collision classes are
-  properties of a SET). An error finding exits 5; drift alone exits 0, so a CI
-  gate is an explicit `--strict`, which exits 5 on any drift, parse failure or
-  orphan.
+  properties of a SET). An error finding exits 5; drift and warnings alone
+  exit 0, so a CI gate is an explicit `--strict`, which exits 5 on any drift,
+  parse failure, orphan, empty scope, or — as in `skill lint` — any WARNING
+  finding.
   Two scope rules: **`--to plugin` keeps only `visibility = PUBLIC` memories**
   (D9 — the committed bundle is in a public repo, so a private memory's tasks
   cannot ship in it) and reports the rest under `excluded`, never silently; and
