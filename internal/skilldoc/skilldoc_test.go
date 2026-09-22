@@ -1,6 +1,8 @@
 package skilldoc
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -864,10 +866,13 @@ func TestHashCoversTheNodeID(t *testing.T) {
 	if a == b {
 		t.Fatal("two different node ids must not fingerprint identically — that is the hazard §4a exists to close")
 	}
-	// And an absent id is its own value, not a skipped input: a pre-§4a file
-	// and an id-bearing one that agree on everything else must still differ.
+	// An absent id IS skipped (ruled 2026-09-22), and that is precisely why
+	// this assertion still matters: skipping must not collapse into "the id
+	// never mattered". A pre-§4a file and an id-bearing one agreeing on
+	// everything else must still differ, or §4a's pairing is not in the
+	// fingerprint at all and editing the header id alone becomes undetectable.
 	if Hash("", "hrn:node:a:b:tasks:x", "n", "d", "c") == a {
-		t.Error("an empty id must hash differently from a present one")
+		t.Error("an id-bearing hash must differ from the skipped-id one — otherwise the id is not covered")
 	}
 }
 
@@ -971,6 +976,42 @@ func TestUnknownHeaderKeysAreStillIgnored(t *testing.T) {
 // These constants are published in PR #650 for @Dara to assert against. If a
 // change here turns this test red, the question is not "update the constant" —
 // it is whether the server must change with it.
+// THE test the old convention lacked, and the reason it lacked it: every
+// fixture was built by Render, so it only ever asserted that this package's
+// writer and reader agree — which they do under EITHER rule. The generation
+// that discriminates is the pre-§4a one, whose header hash was computed by a
+// formula with no id slot at all, and which no current code path can produce.
+//
+// So the legacy formula is spelled out here independently. If the two ever
+// disagree, a pre-§4a file stops recomputing to its own stored header hash,
+// becomes `locally-edited` — which outranks every other class — and `export`
+// refuses to touch precisely the files §4b's rollout must rewrite.
+func TestAnEmptyIdReproducesThePreSection4aDigest(t *testing.T) {
+	const (
+		src  = "hrn:node:hadronmemory.com:hadron-cli:tasks:example"
+		name = "hadron-example"
+		desc = "Use when example."
+		body = "# Example\n\nBody text.\n"
+	)
+	// The pre-§4a formula, written out rather than called: no id field, no
+	// leading separator. This is the digest already sitting in every legacy
+	// header on disk, so it is not ours to change.
+	legacy := func() string {
+		sum := sha256.Sum256([]byte(src + "\x00" + name + "\x00" +
+			NormalizeDescription(desc) + "\x00" + NormalizeBody(body)))
+		return hex.EncodeToString(sum[:])[:16]
+	}()
+	if got := Hash("", src, name, desc, body); got != legacy {
+		t.Errorf("an empty id must SKIP, not hash as \"\": Hash(\"\",…) = %s, pre-§4a = %s\n"+
+			"a legacy file no longer recomputes to its own header, so export refuses it as locally-edited", got, legacy)
+	}
+	// And a REAL id must still change the digest, or "skip when empty" would
+	// be satisfied by ignoring the id altogether — which is the §4a defect.
+	if Hash("01a0099f949d76a9baf3a16527485475", src, name, desc, body) == legacy {
+		t.Error("a non-empty id did not change the digest — §4a pairing is not in the hash at all")
+	}
+}
+
 func TestParityVectorIsPinned(t *testing.T) {
 	const (
 		id      = "01a0099f949d76a9baf3a16527485475"
@@ -979,7 +1020,7 @@ func TestParityVectorIsPinned(t *testing.T) {
 		desc    = "Use when example."
 		body    = "# Example\n\nBody text.\n"
 		withID  = "3fc4ef3150dc27d5"
-		emptyID = "283c6ac5b51c3cd7"
+		emptyID = "4b02a08bb1efbaad"
 	)
 	if got := Hash(id, src, name, desc, body); got != withID {
 		t.Errorf("hash(with id) = %s, want %s — the published cross-repo constant changed", got, withID)

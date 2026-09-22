@@ -504,12 +504,18 @@ func TestSkillStatusHasNoNodeSelector(t *testing.T) {
 	}
 }
 
-// A pre-§4a file carries no `id=` at all. Two things must hold, and both are
-// cross-implementation conventions rather than local choices: `nodeId` is
-// OMITTED (never sent blank), and the fileHash is computed with the id as the
-// EMPTY STRING rather than skipped — which is what keeps such a file
-// self-consistent against its own header instead of reading as edited.
-func TestSkillStatusLegacyHeaderOmitsNodeIdAndStaysSelfConsistent(t *testing.T) {
+// A pre-§4a file carries no `id=` at all: `nodeId` must be OMITTED from the
+// facts (never sent blank), and the URN must travel as the pairing fallback.
+//
+// It also checks that the file recomputes to its own header — but note what
+// that can and cannot prove HERE. The fixture is written by Render, so this
+// asserts only that this package's writer and reader agree, which they do
+// under either hashing convention. It therefore CANNOT discriminate
+// skip-when-empty from hash-the-empty-string; believing it could is how the
+// wrong convention survived a green suite. The test that actually
+// discriminates spells the pre-§4a formula out independently:
+// skilldoc.TestAnEmptyIdReproducesThePreSection4aDigest.
+func TestSkillStatusLegacyHeaderOmitsNodeIdAndPairsByUrn(t *testing.T) {
 	root := t.TempDir()
 	writeSkillFile(t, root, "hadron-example", "")
 
@@ -528,7 +534,7 @@ func TestSkillStatusLegacyHeaderOmitsNodeIdAndStaysSelfConsistent(t *testing.T) 
 	}
 	if f["fileHash"] != f["headerHash"] {
 		t.Errorf("an untouched pre-§4a file must still hash to its own header "+
-			"(empty id hashes as the empty string, it is not skipped): file=%v header=%v",
+			"(an empty id is SKIPPED, not hashed as \"\"): file=%v header=%v",
 			f["fileHash"], f["headerHash"])
 	}
 }

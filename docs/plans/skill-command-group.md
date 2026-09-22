@@ -496,7 +496,12 @@ description: <properties.exports.<host>.description (D12) — after NormalizeDes
 - **`id`** is the node's stable primary key and is **the pairing key** (§4.4,
   amended per §11a). It survives a `loc` change, which the URN does not.
 - **`hash`** = first 16 hex of SHA-256 over `id + "\x00" + source + "\x00" +
-  name + "\x00" + description + "\x00" + content` — the pairing key and the
+  name + "\x00" + description + "\x00" + content` — **and when `id` is empty it
+  is SKIPPED, contributing neither a field nor a separator**, so the digest is
+  byte-identical to the pre-§4a formula `source + "\x00" + name + …` (ruled
+  2026-09-22; see §11a for the measurement and why the earlier
+  hash-the-empty-string rule was retired). This is the ONE statement of the
+  formula — the pairing key and the
   source node URN plus the three rendered inputs (description and body in their
   normalized form). Both addressing fields are included so a hand-edited header
   naming another node reads as a local edit rather than pairing the file with a
@@ -947,6 +952,48 @@ know it can rely on. Reported, not filed.)*
 - Existing files carry no `id`. `unhashed` already means *"an older header
   generation, rewrite it"* — **widen that class** rather than invent. A1 is
   unaffected: a header-generation upgrade is not a local edit.
+- **An EMPTY id is SKIPPED, not hashed as the empty string** — it contributes
+  neither a field nor a separator, so the digest is byte-identical to the
+  pre-§4a formula.
+
+  **Corrected 2026-09-22 (Holger's ruling), after @Dara measured that the rule
+  we had both published did the OPPOSITE of the rationale we gave for it.** The
+  rationale — *"a pre-§4a file stays self-consistent"* — was right. Hashing `""`
+  defeats it, because prefixing `"" + \0` is not a no-op:
+
+  ```
+  legacy (pre-§4a, id absent)      4b02a08bb1efbaad
+  hash-the-empty-string (retired)  283c6ac5b51c3cd7   ← not equal
+  ```
+
+  The consequence was not a wrong label. `locally-edited` **outranks** every
+  other class, so every hash-bearing legacy file would have become one that
+  `export` REFUSES without `--force` — and §4b's rollout is *"run export once so
+  headers gain `id=`"*. The rollout could not have happened, and A1 would have
+  been protecting work nobody did.
+
+  Skipping delivers the stated rationale: a legacy file recomputes to exactly
+  the digest already in its header, so it is **not `locally-edited`** and an
+  ordinary export rewrites it. That IS the quiet rollout.
+
+  **Which class it does get is unsettled, and deliberately not asserted by the
+  client** (@copilot on [#654](https://github.com/hadron-memory/hadron-cli/pull/654)).
+  §4.3 and §4.4 above both say **`unhashed`**; @Dara, reading `classifySkill`,
+  described it falling through to **`stale`**. Both carry the action *rewrite*,
+  so the rollout is safe either way — which is likely why the disagreement went
+  unnoticed. It is the server's vocabulary (A4), so it is raised for the server
+  side rather than decided here.
+
+  **Caught before it cost anything** because [#621](https://github.com/hadron-memory/hadron-cli/issues/621)
+  had not shipped, so nothing had ever WRITTEN a `hash=` header — measured at
+  zero affected files on two machines. The fix was free exactly once.
+
+  **Why no test caught it:** every fixture was built by `Render`, so the suite
+  only ever asserted that this package's writer and reader agree — which they do
+  under either rule. The discriminating case is the generation no current code
+  path can produce, so `TestAnEmptyIdReproducesThePreSection4aDigest` spells the
+  pre-§4a formula out independently.
+
 - **The hash INCLUDES `id`.** The formula is stated once, in §4.3 — not restated
   here, because two spellings of one formula is how the separators go missing.
 
