@@ -496,7 +496,12 @@ description: <properties.exports.<host>.description (D12) — after NormalizeDes
 - **`id`** is the node's stable primary key and is **the pairing key** (§4.4,
   amended per §11a). It survives a `loc` change, which the URN does not.
 - **`hash`** = first 16 hex of SHA-256 over `id + "\x00" + source + "\x00" +
-  name + "\x00" + description + "\x00" + content` — the pairing key and the
+  name + "\x00" + description + "\x00" + content` — **and when `id` is empty it
+  is SKIPPED, contributing neither a field nor a separator**, so the digest is
+  byte-identical to the pre-§4a formula `source + "\x00" + name + …` (ruled
+  2026-09-22; see §11a for the measurement and why the earlier
+  hash-the-empty-string rule was retired). This is the ONE statement of the
+  formula — the pairing key and the
   source node URN plus the three rendered inputs (description and body in their
   normalized form). Both addressing fields are included so a hand-edited header
   naming another node reads as a local edit rather than pairing the file with a
@@ -967,9 +972,17 @@ know it can rely on. Reported, not filed.)*
   headers gain `id=`"*. The rollout could not have happened, and A1 would have
   been protecting work nobody did.
 
-  Skipping delivers the stated rationale: a legacy file recomputes to its own
-  header, classifies **`stale`**, and is rewritten by an ordinary export. That
-  IS the quiet rollout.
+  Skipping delivers the stated rationale: a legacy file recomputes to exactly
+  the digest already in its header, so it is **not `locally-edited`** and an
+  ordinary export rewrites it. That IS the quiet rollout.
+
+  **Which class it does get is unsettled, and deliberately not asserted by the
+  client** (@copilot on [#654](https://github.com/hadron-memory/hadron-cli/pull/654)).
+  §4.3 and §4.4 above both say **`unhashed`**; @Dara, reading `classifySkill`,
+  described it falling through to **`stale`**. Both carry the action *rewrite*,
+  so the rollout is safe either way — which is likely why the disagreement went
+  unnoticed. It is the server's vocabulary (A4), so it is raised for the server
+  side rather than decided here.
 
   **Caught before it cost anything** because [#621](https://github.com/hadron-memory/hadron-cli/issues/621)
   had not shipped, so nothing had ever WRITTEN a `hash=` header — measured at

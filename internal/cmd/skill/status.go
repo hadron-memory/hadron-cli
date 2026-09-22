@@ -524,8 +524,9 @@ func walkSkillFiles(root string) ([]*gen.SkillFileFactsInput, []statusUnreadable
 		facts := &gen.SkillFileFactsInput{DirName: dirName}
 		// The hash recomputed from the file's own bytes. An empty id is
 		// SKIPPED — it contributes no field and no separator — so a pre-§4a
-		// file recomputes to exactly the digest already in its header and
-		// classifies `stale` rather than `locally-edited`.
+		// file recomputes to exactly the digest already in its header and is
+		// therefore NOT `locally-edited`. Which class it DOES get is the
+		// server's word, not this client's, so it is not named here.
 		fileHash := skilldoc.Hash(parsed.ID, parsed.Source, parsed.Name, parsed.Description, parsed.Body)
 		facts.FileHash = &fileHash
 		facts.SourceUrn = &parsed.Source

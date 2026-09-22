@@ -300,10 +300,17 @@ func NormalizeBody(s string) string {
 // protecting work nobody did.
 //
 // Skipping delivers what the rationale promised: a legacy file recomputes to
-// its own header, falls through to `nodeHash != headerHash`, classifies
-// `stale`, and is rewritten by an ordinary export — gaining `id=` with no
-// --force and no human in the loop. The server must do the same; the two
-// implementations are gated against each other by the A2 parity fixtures.
+// exactly the digest already in its header, so it is NOT `locally-edited` and
+// an ordinary export rewrites it — gaining `id=` with no --force and no human
+// in the loop. The server must do the same; the two implementations are gated
+// against each other by the A2 parity fixtures.
+//
+// WHICH class such a file gets is the server's to say and is deliberately not
+// asserted here (A4). Note there is an open disagreement about it: the plan
+// says `unhashed` (§4.3, §4.4) while @Dara, reading `classifySkill`, described
+// it falling through to `stale`. Both carry the action "rewrite", so the §4b
+// rollout is safe either way — which is likely why it went unnoticed. Raised
+// for the server side rather than guessed at here.
 func Hash(id, source, name, description, content string) string {
 	description = NormalizeDescription(description)
 	content = NormalizeBody(content)
