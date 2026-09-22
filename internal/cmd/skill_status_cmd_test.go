@@ -873,3 +873,30 @@ func TestSkillStatusHelpQualifiesTheForeignFilePromise(t *testing.T) {
 		t.Error("help never tells the reader an unparseable foreign file IS reported")
 	}
 }
+
+// @codex on #652: --strict PROMOTES warnings — the group's contract (§3), and
+// what `skill lint --strict` already does. A `current` entry carrying only a
+// warning left both flags false, so the CI gate passed a warned corpus and the
+// SAME finding produced a different exit code depending on which verb reported
+// it. An inconsistent contract across one command group is a real defect, not
+// a cosmetic one.
+func TestSkillStatusStrictPromotesWarningFindings(t *testing.T) {
+	root := t.TempDir()
+	writeSkillFile(t, root, "hadron-example", statusNodeID)
+	warning := `[{"rule":"skill-description-no-trigger","severity":"warning","message":"no use-when phrasing","urn":"` +
+		statusSourceURN + `","memory":"hrn:mem:hadronmemory.com:core"}]`
+	// `current` class, so the ONLY thing that can fail the gate is the warning.
+	responses := func() map[string]string {
+		return map[string]string{"SkillPlan": skillPlanResp(`"current"`, "false", warning)}
+	}
+
+	// Without --strict a warning alone is exit 0, exactly as in skill lint.
+	if _, _, err := runSkillStatus(t, responses(), "-m", "hrn:mem:hadronmemory.com:core", "--to", root); exitCodeFor(err) != exitcode.OK {
+		t.Fatalf("a warning alone must exit 0 without --strict, got %v", err)
+	}
+	// With --strict it is promoted.
+	_, _, err := runSkillStatus(t, responses(), "-m", "hrn:mem:hadronmemory.com:core", "--to", root, "--strict")
+	if got := exitCodeFor(err); got != exitcode.Conflict {
+		t.Fatalf("--strict did not promote a warning finding: exit = %d, want %d", got, exitcode.Conflict)
+	}
+}

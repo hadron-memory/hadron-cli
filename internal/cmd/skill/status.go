@@ -141,9 +141,10 @@ public repo, so a private memory's tasks cannot ship in it. What it left out is
 REPORTED, never silently dropped. The symbolic roots (user/project/plugin) are
 host-specific, so a --host other than claudeSkill must name a directory.
 
-Exit codes: an ERROR finding exits 5, as in skill lint. Drift alone exits 0 —
-so a CI gate is an explicit --strict, which exits 5 on any drift, any parse
-failure, or any orphan.`,
+Exit codes: an ERROR finding exits 5, as in skill lint. Drift and warnings
+alone exit 0 — so a CI gate is an explicit --strict, which exits 5 on any
+drift, any parse failure, any orphan, a scope that resolved to no memory, and
+(as skill lint does) any WARNING finding.`,
 		Example: `  hadron skill status -m hrn:mem:hadronmemory.com:core
   hadron skill status --all --json
   hadron skill status --all --to plugin --strict`,
@@ -305,16 +306,27 @@ func emptyStatusDTO(root, host string, files []*gen.SkillFileFactsInput, unreada
 
 // finishStatus renders the report and returns the user-visible exit code.
 func finishStatus(f *cmdutil.Factory, dto statusDTO, strict bool) error {
-	hasError, drift := false, false
+	hasError, hasWarning, drift := false, false, false
 	for _, e := range dto.Entries {
 		if e.ParseFailure || (e.Class != nil && *e.Class != classCurrent) {
 			drift = true
 		}
 		for _, fnd := range e.Findings {
-			if fnd.Severity == skilldoc.SevError {
+			switch fnd.Severity {
+			case skilldoc.SevError:
 				hasError = true
+			case skilldoc.SevWarning:
+				hasWarning = true
 			}
 		}
+	}
+	// @codex on #652: --strict PROMOTES warnings, which is the group's contract
+	// (§3) and what `skill lint --strict` already does. Without this a `current`
+	// entry carrying only a warning — skill-description-no-trigger, say — left
+	// both flags false and the CI gate passed a warned corpus, so the same
+	// finding changed exit code depending on which verb reported it.
+	if strict && hasWarning {
+		drift = true
 	}
 	if len(dto.Orphans) > 0 || len(dto.Unreadable) > 0 || len(dto.Unparseable) > 0 {
 		drift = true
