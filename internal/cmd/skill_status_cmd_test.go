@@ -900,3 +900,112 @@ func TestSkillStatusStrictPromotesWarningFindings(t *testing.T) {
 		t.Fatalf("--strict did not promote a warning finding: exit = %d, want %d", got, exitcode.Conflict)
 	}
 }
+
+// @codex on #652: os.ReadDir does not follow symlinks, so a SYMLINKED skill
+// directory reports IsDir() == false while its SKILL.md reads fine through the
+// link. Gating the walk on IsDir() made an installed skill invisible — and an
+// invisible file comes back `never-exported`, which on the export path means
+// overwriting somebody's linked file instead of leaving it alone.
+func TestSkillStatusFollowsASymlinkedSkillDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation needs privilege on Windows")
+	}
+	root := t.TempDir()
+	elsewhere := t.TempDir()
+	writeSkillFile(t, elsewhere, "hadron-example", statusNodeID)
+	if err := os.Symlink(filepath.Join(elsewhere, "hadron-example"), filepath.Join(root, "linked-skill")); err != nil {
+		t.Skipf("cannot create symlink: %v", err)
+	}
+
+	_, captured, err := runSkillStatus(t, map[string]string{
+		"SkillPlan": skillPlanResp(`"current"`, "false", ""),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--to", root, "--json")
+	if err != nil {
+		t.Fatalf("status errored: %v", err)
+	}
+	files := sentFiles(t, captured)
+	if len(files) != 1 {
+		t.Fatalf("a symlinked skill directory was skipped: %v", files)
+	}
+	if files[0]["dirName"] != "linked-skill" {
+		t.Errorf("dirName = %v, want the LINK's name (that is where the host loads it from)", files[0]["dirName"])
+	}
+	if files[0]["nodeId"] != statusNodeID {
+		t.Errorf("the linked file's provenance did not travel: %v", files[0])
+	}
+}
+
+// Dropping the IsDir() gate means a plain FILE sitting in the root is now
+// opened as if it were a directory. It must still be a silent non-skill, not
+// an "unreadable" row — otherwise every stray README in a skills root becomes
+// drift.
+func TestSkillStatusIgnoresAPlainFileInTheSkillsRoot(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte("not a skill"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, captured, err := runSkillStatus(t, map[string]string{
+		"SkillPlan": `{"data":{"skillPlan":{"scanned":0,"judged":0,"entries":[],"orphans":[]}}}`,
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--to", root, "--json")
+	if err != nil {
+		t.Fatalf("status errored: %v\n%s", err, out)
+	}
+	if files := sentFiles(t, captured); len(files) != 0 {
+		t.Errorf("a plain file in the root was treated as a skill: %v", files)
+	}
+	var dto struct {
+		Unreadable []struct{ Dir string } `json:"unreadable"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if len(dto.Unreadable) != 0 {
+		t.Errorf("a stray file became an unreadable row: %+v", dto.Unreadable)
+	}
+}
+
+// @copilot on #652: --strict must promote the RENDERED severity too, not only
+// the exit code. `skill lint --strict` rewrites the finding to "error", so
+// leaving it "warning" in status's --json has the two verbs disagree about the
+// same finding — the exit code saying promoted and the row saying not.
+func TestSkillStatusStrictPromotesTheRenderedSeverityToo(t *testing.T) {
+	root := t.TempDir()
+	warning := `[{"rule":"skill-description-no-trigger","severity":"warning","message":"no use-when phrasing","urn":"` +
+		statusSourceURN + `","memory":"hrn:mem:hadronmemory.com:core"}]`
+	severities := func(t *testing.T, out string) []string {
+		t.Helper()
+		var dto struct {
+			Entries []struct {
+				Findings []struct{ Severity string } `json:"findings"`
+			} `json:"entries"`
+		}
+		if err := json.Unmarshal([]byte(out), &dto); err != nil {
+			t.Fatalf("output not JSON: %v\n%s", err, out)
+		}
+		var got []string
+		for _, e := range dto.Entries {
+			for _, f := range e.Findings {
+				got = append(got, f.Severity)
+			}
+		}
+		return got
+	}
+
+	out, _, _ := runSkillStatus(t, map[string]string{
+		"SkillPlan": skillPlanResp(`"current"`, "false", warning),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--to", root, "--json", "--strict")
+	if got := severities(t, out); len(got) != 1 || got[0] != "error" {
+		t.Errorf("--strict did not promote the rendered severity: %v", got)
+	}
+	// Control: without --strict it stays a warning, or "promotion" is just a
+	// constant.
+	out2, _, err := runSkillStatus(t, map[string]string{
+		"SkillPlan": skillPlanResp(`"current"`, "false", warning),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--to", root, "--json")
+	if err != nil {
+		t.Fatalf("status errored: %v", err)
+	}
+	if got := severities(t, out2); len(got) != 1 || got[0] != "warning" {
+		t.Errorf("without --strict the severity must stay warning: %v", got)
+	}
+}

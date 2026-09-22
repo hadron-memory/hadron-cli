@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -327,6 +329,18 @@ func finishStatus(f *cmdutil.Factory, dto statusDTO, strict bool) error {
 	// finding changed exit code depending on which verb reported it.
 	if strict && hasWarning {
 		drift = true
+		// Promote the rendered SEVERITY as well, not just the exit code
+		// (@copilot on #652). `skill lint --strict` rewrites the finding to
+		// "error", so leaving it "warning" here would have the two verbs
+		// disagree about the same finding in --json — the exit code says
+		// promoted and the row says not. One contract or the other, not both.
+		for i := range dto.Entries {
+			for j := range dto.Entries[i].Findings {
+				if dto.Entries[i].Findings[j].Severity == skilldoc.SevWarning {
+					dto.Entries[i].Findings[j].Severity = skilldoc.SevError
+				}
+			}
+		}
 	}
 	if len(dto.Orphans) > 0 || len(dto.Unreadable) > 0 || len(dto.Unparseable) > 0 {
 		drift = true
@@ -450,14 +464,21 @@ func walkSkillFiles(root string) ([]*gen.SkillFileFactsInput, []statusUnreadable
 		return nil, nil, nil, exitcode.Newf(exitcode.Error, "reading skills root %s: %v", root, err)
 	}
 	for _, d := range dirs {
-		if !d.IsDir() {
-			continue
-		}
+		// NOT gated on d.IsDir(): os.ReadDir does not follow symlinks, so a
+		// SYMLINKED skill directory reports IsDir() == false (measured: type
+		// L---------) while its SKILL.md reads perfectly well through the link.
+		// Skipping it made an installed skill invisible, and an invisible file
+		// is reported by the server as `never-exported` — which on the export
+		// path means overwriting somebody's linked file rather than leaving it
+		// (@codex on #652). Reading unconditionally handles the link and costs
+		// one failed open on an entry that is not a directory at all.
 		dirName := d.Name()
 		data, err := os.ReadFile(filepath.Join(root, dirName, skillFileName)) // #nosec G304 — the root is the user's own skills directory
 		if err != nil {
-			if os.IsNotExist(err) {
-				continue // a directory without a SKILL.md is not a skill
+			if os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR) {
+				// No SKILL.md, or the entry is a plain file and not a skill
+				// directory at all. Neither is a skill; neither is an error.
+				continue
 			}
 			unreadable = append(unreadable, statusUnreadableDTO{Dir: dirName, Error: err.Error()})
 			continue
