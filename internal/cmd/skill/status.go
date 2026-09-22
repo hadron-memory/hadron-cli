@@ -527,6 +527,14 @@ func toStatusDTO(root, host string, plan *gen.SkillPlanSkillPlan, unreadable, un
 		Orphans:     []statusOrphanDTO{},
 		Unreadable:  unreadable,
 		Unparseable: unparseable,
+		// EMPTY here, not absent: this path did ask the server, so nothing
+		// went unjudged and no target rule excluded anything yet (the caller
+		// overwrites Excluded when one did). They must still be arrays — a
+		// field that is [] on one code path and null on another is a shape an
+		// agent cannot iterate unconditionally, and both review bots caught
+		// exactly that. TestStatusDTOHasNoNilSlices pins the whole class.
+		Unchecked: []statusUncheckedDTO{},
+		Excluded:  []statusExcludedDTO{},
 	}
 	for _, e := range plan.Entries {
 		if e == nil {
