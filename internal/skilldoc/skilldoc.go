@@ -287,14 +287,35 @@ func NormalizeBody(s string) string {
 // pairing turns a rename into orphaned + never-exported — two directories with
 // near-identical trigger text, both firing.
 //
-// An EMPTY id hashes as the empty string rather than being skipped, so a file
-// with no `id=` key is still self-consistent: Render omits the key, a reader
-// parses id == "", and recomputing agrees. The server must do the same — the
-// two implementations are gated against each other by the A2 parity fixtures.
+// An EMPTY id is SKIPPED — it contributes no field and no separator, so the
+// digest is byte-identical to the pre-§4a formula (Holger, 2026-09-22).
+//
+// This replaces "an empty id hashes as the empty string", which @Dara measured
+// as doing the OPPOSITE of the rationale we both wrote for it. The rationale
+// was right: a pre-§4a file must stay self-consistent, so that reading one back
+// recomputes to its own stored header hash. Hashing "" defeats it, because
+// prefixing `"" + \0` is not a no-op — a legacy file then mismatched, and
+// `locally-edited` OUTRANKS every other class, so `export` would have REFUSED
+// to touch exactly the files §4b's rollout has to rewrite. A1 would have been
+// protecting work nobody did.
+//
+// Skipping delivers what the rationale promised: a legacy file recomputes to
+// its own header, falls through to `nodeHash != headerHash`, classifies
+// `stale`, and is rewritten by an ordinary export — gaining `id=` with no
+// --force and no human in the loop. The server must do the same; the two
+// implementations are gated against each other by the A2 parity fixtures.
 func Hash(id, source, name, description, content string) string {
 	description = NormalizeDescription(description)
 	content = NormalizeBody(content)
-	sum := sha256.Sum256([]byte(id + "\x00" + source + "\x00" + name + "\x00" + description + "\x00" + content))
+	// An empty id is SKIPPED — it contributes neither a field nor a separator,
+	// so the digest is byte-identical to the pre-§4a formula. That equality is
+	// the whole point and it is asserted directly in
+	// TestAnEmptyIdReproducesThePreSection4aDigest.
+	payload := source + "\x00" + name + "\x00" + description + "\x00" + content
+	if id != "" {
+		payload = id + "\x00" + payload
+	}
+	sum := sha256.Sum256([]byte(payload))
 	return hex.EncodeToString(sum[:])[:16]
 }
 
