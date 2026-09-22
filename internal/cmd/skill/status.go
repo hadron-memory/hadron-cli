@@ -74,11 +74,25 @@ type statusDTO struct {
 	// attribute it by — so it is reported here rather than sent up, where it
 	// would be classed an orphan on no evidence.
 	Unparseable []statusUnreadableDTO `json:"unparseable"`
+	// ScopeEmpty is true when the selection resolved to NO memory. Nothing was
+	// then asked of the server, so this report verified nothing — it is the one
+	// state that must never read as an all-clear, and --strict treats it as
+	// drift for exactly that reason.
+	ScopeEmpty bool `json:"scopeEmpty"`
+	// Unchecked: provenance-bearing files found on disk that were never
+	// submitted, because there was no memory to compare them against.
+	Unchecked []statusUncheckedDTO `json:"unchecked"`
 	// Excluded: memories left out of the selection by the TARGET rather than by
 	// the selector — today only --to plugin, which may carry PUBLIC memories
 	// only (D9). Reported rather than silently dropped, so a short result is
 	// never mistaken for a clean corpus.
 	Excluded []statusExcludedDTO `json:"excluded"`
+}
+
+// statusUncheckedDTO is a generated file nothing was able to judge.
+type statusUncheckedDTO struct {
+	Dir    string `json:"dir"`
+	Source string `json:"source,omitempty"`
 }
 
 // statusExcludedDTO is a memory the target's own rule removed from scope.
@@ -99,8 +113,14 @@ them — reading both and writing nothing.
 
 The skills root is walked for <root>/*/SKILL.md, each file is paired to its
 node by the id in its provenance header, and the server returns a drift CLASS
-per declared node. A file with no Hadron header is somebody else's skill: it is
-never listed, moved or removed by any hadron skill command.
+per declared node. A file that PARSES and carries no Hadron header is somebody
+else's skill: it is never listed, moved or removed by any hadron skill command.
+
+A file that does NOT parse is reported either way, because "not ours" is a
+claim its own header would have to support and a broken file cannot: when the
+provenance below the frontmatter is still readable the failure is attributed to
+its node, and otherwise the file is listed as unparseable — which --strict
+counts as drift even though such a file may be third-party.
 
 THE CLASS IS THE SERVER'S WORD, NOT THIS CLIENT'S. The vocabulary lives in one
 place so it cannot drift between the CLI, MCP and the portal, and nothing here
@@ -172,7 +192,7 @@ failure, or any orphan.`,
 			// empty is exactly the case where it would silently widen to the
 			// opposite, including the memories --all deliberately excludes.
 			if len(mems) == 0 {
-				dto := emptyStatusDTO(root, host, unreadable, unparseable, excluded)
+				dto := emptyStatusDTO(root, host, files, unreadable, unparseable, excluded)
 				return finishStatus(f, dto, strict)
 			}
 
@@ -262,10 +282,23 @@ func filterForTarget(mems []*memoryInfo, to string) ([]*memoryInfo, []statusExcl
 // is built locally rather than by asking the server, because an empty
 // `memories` list is omitted on the wire and an omitted one means the opposite
 // of empty (every memory the caller can read).
-func emptyStatusDTO(root, host string, unreadable, unparseable []statusUnreadableDTO, excluded []statusExcludedDTO) statusDTO {
+// @codex on #652: the files already found on disk must travel into this
+// report. Discarding them let `--all --to plugin --strict` — the documented CI
+// gate — exit 0 while generated skills sat in the target unpaired and
+// unexamined, which is a gate passing on a result nothing checked.
+func emptyStatusDTO(root, host string, files []*gen.SkillFileFactsInput, unreadable, unparseable []statusUnreadableDTO, excluded []statusExcludedDTO) statusDTO {
+	unchecked := []statusUncheckedDTO{}
+	for _, f := range files {
+		row := statusUncheckedDTO{Dir: f.DirName}
+		if f.SourceUrn != nil {
+			row.Source = *f.SourceUrn
+		}
+		unchecked = append(unchecked, row)
+	}
 	return statusDTO{
-		Root: root, Host: host,
+		Root: root, Host: host, ScopeEmpty: true,
 		Entries: []statusEntryDTO{}, Orphans: []statusOrphanDTO{},
+		Unchecked:  unchecked,
 		Unreadable: unreadable, Unparseable: unparseable, Excluded: excluded,
 	}
 }
@@ -284,6 +317,13 @@ func finishStatus(f *cmdutil.Factory, dto statusDTO, strict bool) error {
 		}
 	}
 	if len(dto.Orphans) > 0 || len(dto.Unreadable) > 0 || len(dto.Unparseable) > 0 {
+		drift = true
+	}
+	// An empty scope verified NOTHING. A gate must not pass on a result no
+	// query produced, so --strict fails here whether or not files were found:
+	// "nothing to compare against" and "everything matches" are the same empty
+	// report, and only one of them is good news.
+	if dto.ScopeEmpty {
 		drift = true
 	}
 	if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -540,12 +580,13 @@ func renderStatus(w io.Writer, dto statusDTO) error {
 		}
 		fmt.Fprintln(w)
 	}
-	if len(dto.Entries) == 0 && len(dto.Orphans) == 0 && len(dto.Unreadable) == 0 && len(dto.Unparseable) == 0 {
+	if len(dto.Entries) == 0 && len(dto.Orphans) == 0 && len(dto.Unreadable) == 0 &&
+		len(dto.Unparseable) == 0 && len(dto.Unchecked) == 0 {
 		// scanned distinguishes an empty corpus from one the caller cannot
 		// see; without it both render as "nothing to do" and a permission
 		// problem reads as a clean bill of health.
 		fmt.Fprintf(w, "no skill declarations judged for this host (%d node(s) carrying a declaration were in scope)\n", dto.Scanned)
-		if dto.Judged == 0 && dto.Scanned == 0 {
+		if dto.ScopeEmpty {
 			fmt.Fprintf(w, "no memory was in scope — nothing was asked of the server, so this is not an all-clear\n")
 		}
 		return nil
@@ -571,6 +612,16 @@ func renderStatus(w io.Writer, dto statusDTO) error {
 		fmt.Fprintf(w, "\nUnreadable — the file is there and this client could not read it:\n")
 		for _, u := range dto.Unreadable {
 			fmt.Fprintf(w, "  %s: %s\n", u.Dir, u.Error)
+		}
+	}
+	if len(dto.Unchecked) > 0 {
+		fmt.Fprintf(w, "\nUnchecked — generated files in this root that nothing judged, because no\nmemory was in scope to compare them against:\n")
+		for _, u := range dto.Unchecked {
+			ref := u.Source
+			if ref == "" {
+				ref = "no source in header"
+			}
+			fmt.Fprintf(w, "  %s (%s)\n", u.Dir, ref)
 		}
 	}
 	if len(dto.Unparseable) > 0 {

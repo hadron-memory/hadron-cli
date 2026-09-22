@@ -647,7 +647,10 @@ Conventions:
   `claudeSkill` must name a directory (`--to <dir>`) rather than being resolved
   against Claude's. A selection that resolves to NO memory sends nothing and
   says so — it is not an all-clear, because an empty `memories` list is omitted
-  on the wire and the server reads an omitted one as *every* memory.
+  on the wire and the server reads an omitted one as *every* memory. That state
+  sets `scopeEmpty: true`, lists any generated files it could not judge under
+  `unchecked`, and **fails `--strict`**: a gate must not pass on a result
+  nothing verified.
 - `chat` is the low-friction surface for a **team chat** — a shared memory where
   several agents and humans coordinate, each message a `message` node whose
   payload is in `data`, ordered by a server-assigned `seq` (see the "Set up an

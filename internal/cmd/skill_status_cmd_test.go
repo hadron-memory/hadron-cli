@@ -781,3 +781,95 @@ func TestSkillStatusAllowsAnExplicitDirForAnyHost(t *testing.T) {
 		t.Errorf("host = %v, want codex passed through verbatim", got)
 	}
 }
+
+// @codex on #652, round 2 — a regression introduced by the FIX for the
+// empty-scope widening. Short-circuiting the request discarded the
+// provenance-bearing files already found on disk, so `--all --to plugin
+// --strict` (the documented CI gate) exited 0 while generated skills sat in
+// the target unpaired and unexamined. A gate must not pass on a result
+// nothing checked.
+func TestSkillStatusEmptyScopeFailsStrictAndNamesWhatWentUnchecked(t *testing.T) {
+	root := t.TempDir()
+	writeSkillFile(t, root, "hadron-example", statusNodeID)
+	empty := `{"data":{"memories":{"total":0,"items":[]}}}`
+	responses := func() map[string]string {
+		return map[string]string{"Memories": empty, "MemoriesSharedWithMe": empty}
+	}
+
+	// Under --strict it must FAIL: nothing was verified.
+	out, captured, err := runSkillStatus(t, responses(), "--all", "--to", root, "--strict")
+	if got := exitCodeFor(err); got != exitcode.Conflict {
+		t.Fatalf("an empty scope passed --strict: exit = %d, want %d\n%s", got, exitcode.Conflict, out)
+	}
+	if _, called := captured["SkillPlan"]; called {
+		t.Error("the empty scope was still sent, which is the widening this guard replaced")
+	}
+	// And the file on disk must be NAMED, not silently dropped.
+	if !strings.Contains(out, "hadron-example") {
+		t.Errorf("a generated file went unchecked and unnamed:\n%s", out)
+	}
+
+	// The --json contract carries both facts.
+	out2, _, err := runSkillStatus(t, responses(), "--all", "--to", root, "--json")
+	if err != nil {
+		t.Fatalf("without --strict an empty scope still reports: %v", err)
+	}
+	var dto struct {
+		ScopeEmpty bool                           `json:"scopeEmpty"`
+		Unchecked  []struct{ Dir, Source string } `json:"unchecked"`
+	}
+	if err := json.Unmarshal([]byte(out2), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out2)
+	}
+	if !dto.ScopeEmpty {
+		t.Error("scopeEmpty is false for a report that asked the server nothing")
+	}
+	if len(dto.Unchecked) != 1 || dto.Unchecked[0].Dir != "hadron-example" {
+		t.Errorf("the unchecked file is missing from --json: %+v", dto.Unchecked)
+	}
+	if dto.Unchecked[0].Source != statusSourceURN {
+		t.Errorf("unchecked entry lost its provenance: %+v", dto.Unchecked[0])
+	}
+}
+
+// The plugin path that motivated it: every listed memory is private, so the
+// scope empties AFTER filtering and the gate would otherwise go green.
+func TestSkillStatusPluginGateFailsWhenFilteringEmptiesTheScope(t *testing.T) {
+	memories := `{"data":{"memories":{"total":1,"items":[{"id":"mem2","urn":"hrn:mem:micromentor.org:mmdata","name":"M","shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"org1","organization":{"skillPrefix":null},"isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-06-11T00:00:00Z"}]}}}`
+	out, captured, err := runSkillStatus(t, map[string]string{
+		"Memories": memories, "MemoriesSharedWithMe": `{"data":{"memories":{"total":0,"items":[]}}}`,
+	}, "--all", "--to", "plugin", "--strict")
+	if got := exitCodeFor(err); got != exitcode.Conflict {
+		t.Fatalf("the plugin gate went green on an empty post-filter scope: exit = %d, want %d\n%s",
+			got, exitcode.Conflict, out)
+	}
+	if _, called := captured["SkillPlan"]; called {
+		t.Error("an all-private selection should not reach the server")
+	}
+	if !strings.Contains(out, "mmdata") {
+		t.Errorf("the excluded memory is not named, so the empty result looks unexplained:\n%s", out)
+	}
+}
+
+// @codex on #652, round 2: --help promised a file with no Hadron header is
+// "never listed". False for one that does not PARSE — it is reported as
+// unparseable and counts as drift. The claim had been corrected in
+// agentic-usage.md and not in the command's own help, which is the surface a
+// user actually reads.
+func TestSkillStatusHelpQualifiesTheForeignFilePromise(t *testing.T) {
+	f, _ := testFactory(t)
+	cmd, _, err := NewRootCmd(f).Find([]string{"skill", "status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	long := cmd.Long
+	if strings.Contains(long, "A file with no Hadron header is somebody else's skill") {
+		t.Error("help still makes the unqualified promise")
+	}
+	if !strings.Contains(long, "PARSES") {
+		t.Error("help does not qualify the promise to files that parse")
+	}
+	if !strings.Contains(long, "unparseable") {
+		t.Error("help never tells the reader an unparseable foreign file IS reported")
+	}
+}
