@@ -690,9 +690,30 @@ Drift gate: a `skill-drift` workflow (nightly, like `schema-drift`) runs
 `hadron skill status --all --to plugin --strict` against the committed plugin.
 The repo already holds a Hadron read token — `secrets.HADRON_TOKEN`, used by
 `memory-hygiene.yml` to read `hadronmemory.com::hadron-cli` — so no new secret
-is needed, only a check that its scope covers every PUBLIC memory with
-exportable tasks (a PUBLIC memory should need no scope at all). **Not** a
-local re-export in CI, because the
+is needed.
+
+**But D9's reversal changes what that token DECIDES, and the gate must say so
+(@copilot on [#655](https://github.com/hadron-memory/hadron-cli/pull/655)).**
+Under the retired PUBLIC-only rule the selection was a property of the CORPUS,
+so any adequately-scoped token saw the same set. With no filter, `--all` is
+"every memory the CI IDENTITY can read" — so the token's scope IS the
+selection. Two consequences the gate has to state rather than inherit:
+
+- **A maintainer running the same command locally sees a different set**, because
+  they can read memories CI cannot. The gate would go green on a bundle a human
+  had just been told was stale, or red on tasks nobody can see. Neither failure
+  announces itself.
+- **Widening the token silently widens the gate** — including over customer
+  memories, which is the exposure D9's reversal already accepts elsewhere.
+
+So the workflow must **pin its selection explicitly** rather than rely on
+`--all`: name the memories with `-m`, or (once curation lands) name the scope.
+`--all` is right for a human asking "what does my disk look like"; it is wrong
+for a gate, which has to compare the same two things every night. Whoever
+builds the workflow states the CI identity and what it can read, in the
+workflow file, next to the command.
+
+**Not** a local re-export in CI, because the
 plugin changing under a maintainer's hands is Bo's "nothing not to build"
 arriving through a side door. `plugin.json` version bumps when the generated
 set changes (existing rule).
