@@ -136,7 +136,7 @@ drift, any parse failure, any orphan, a scope that resolved to no memory, and
 (as skill lint does) any WARNING finding.`,
 		Example: `  hadron skill status -m hrn:mem:hadronmemory.com:core
   hadron skill status --all --json
-  hadron skill status --all --to plugin --strict`,
+  hadron skill status -m hrn:mem:hadronmemory.com:core --to plugin --strict   # a CI gate names its memories; --all makes the token's reach the selection`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := sel.validateNoNode(); err != nil {
@@ -241,9 +241,11 @@ func resolveMemories(cmd *cobra.Command, client graphql.Client, sel *selectorFla
 // `memories` list is omitted on the wire and an omitted one means the opposite
 // of empty (every memory the caller can read).
 // @codex on #652: the files already found on disk must travel into this
-// report. Discarding them let `--all --to plugin --strict` — the documented CI
-// gate — exit 0 while generated skills sat in the target unpaired and
-// unexamined, which is a gate passing on a result nothing checked.
+// report. Discarding them let a `--strict` run exit 0 while generated skills
+// sat in the target unpaired and unexamined — a gate passing on a result
+// nothing checked. (The example then read `--all --to plugin --strict`; the
+// documented gate names its memories with -m now, for a separate reason given
+// in the plan's §6 — but an empty scope can still arise, so this still bites.)
 func emptyStatusDTO(root, host string, files []*gen.SkillFileFactsInput, unreadable, unparseable []statusUnreadableDTO) statusDTO {
 	unchecked := []statusUncheckedDTO{}
 	for _, f := range files {

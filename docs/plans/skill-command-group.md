@@ -687,7 +687,9 @@ drift; the task exports are procedures, a different kind of skill, and drift is
 exactly what `status` exists to catch).
 
 Drift gate: a `skill-drift` workflow (nightly, like `schema-drift`) runs
-`hadron skill status --all --to plugin --strict` against the committed plugin.
+`hadron skill status -m <memory>... --to plugin --strict` against the committed
+plugin — **`-m`, not `--all`**, for the reason below; the memories are named in
+the workflow file.
 The repo already holds a Hadron read token — `secrets.HADRON_TOKEN`, used by
 `memory-hygiene.yml` to read `hadronmemory.com::hadron-cli` — so no new secret
 is needed.
