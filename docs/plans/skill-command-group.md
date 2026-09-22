@@ -347,19 +347,43 @@ Two corrections to the thread, measured on this machine:
   Tracked on [#438](https://github.com/hadron-memory/hadron-cli/issues/438) and
   **explicitly out of scope here**: it does not block D11.
 
+- **D9. Selection is every exportable task the caller can read — for EVERY
+  target, the plugin bundle included. RULED 2026-09-22 (Holger), and it
+  REVERSES the proposal.** The proposal kept one narrower rule: the bundle
+  committed to this public repo could carry only `visibility = PUBLIC`
+  memories, because a customer's private tasks cannot ship in a public
+  artifact. Holger: *"this is all accessible task nodes, including those in
+  PUBLIC … I didn't think this through properly. Let's get it through with this
+  for now, and then we can follow up with a way to curate the exported list."*
+
+  **What the proposal conflated.** `--to plugin` names two different artifacts:
+  a USER's own bundle in their own checkout, and OUR bundle committed here. A
+  visibility filter is plainly wrong for the first — it would silently drop a
+  user's own private tasks from their own plugin — and the proposal attached it
+  to the COMMAND, so it applied to both.
+
+  **Measured before the ruling**, so the cost of each side was a number:
+  `--all --to plugin` resolved to 28 declaring tasks unfiltered and **12**
+  filtered; the filter dropped 16, of which 13 were customer or personal
+  (`micromentor.org:*`, `marketrailz:*`, `holger:holgers-assistant`) and
+  **three were first-party Hadron tasks** whose memories are merely
+  ORGANIZATION rather than PUBLIC (`add-hadron-platform-spec`,
+  `update-hadron-docs`, `distill-imported-page`).
+
+  **Consequence accepted, deliberately and on the record:** with no filter,
+  running `--all --to plugin` in THIS checkout stages customer and personal
+  tasks into a public repo, caught only by whoever reads the diff. Holger
+  ruled to ship without a guard for now.
+
+  **The follow-up is a SCOPE**, not a restored filter (Holger): curation keys
+  on a named scope — the platform already has scopes as named sets of memories
+  — so a bundle declares what it carries rather than inferring it from
+  visibility. That also answers the three first-party drops, which a visibility
+  rule could only fix by making those memories public.
+
 ### Proposed — for Holger
 
-- **D9. Selection is every exportable task the caller can read; the committed
-  plugin bundle is the PUBLIC subset.** The first draft said the CLI plugin
-  ships `core` only; Holger corrected that — the surface is *all tasks marked
-  exportable*, wherever they live. That is what `export`/`status`/`lint` do for
-  the `user`/`project` targets (§4.1: any readable memory, `-m`/`--all`). The
-  one place a narrower rule survives is the **plugin bundle committed to this
-  public repo**: it can only carry tasks from memories with
-  `visibility = PUBLIC`, because a customer's private tasks (`mmdata`) cannot
-  ship in a public artifact. That is a **visibility rule, not a memory
-  allowlist** — a PUBLIC memory in any org qualifies. `--to plugin` filters on
-  it and reports what it left out. **Confirm.**
+*(none outstanding; D9 was the last and is now resolved above.)*
 
 ## 3. Command surface
 
@@ -655,8 +679,9 @@ migration:
 ## 6. The plugin target (Bo's point 4)
 
 `--to plugin` writes to `plugins/hadron-cli/skills/` in the current checkout,
-includes only nodes from `visibility = PUBLIC` memories (D9 — reporting what it
-excluded and why), and leaves `use-hadron-cli` alone — that skill is hand-written on purpose (`hadron-cli:claude-plugin`'s
+carries **every accessible task node** with no visibility filter (D9, ruled
+2026-09-22 — curation is a later feature and will key on a named scope), and
+leaves `use-hadron-cli` alone — that skill is hand-written on purpose (`hadron-cli:claude-plugin`'s
 keep-the-skill-thin rule: it defers to `hadron agentic-usage` so it cannot
 drift; the task exports are procedures, a different kind of skill, and drift is
 exactly what `status` exists to catch).
@@ -792,8 +817,9 @@ Before the first `export --all` on Holger's machine can be clean:
 2. ~~D8 — derived name~~ **Ruled:** prefix + task slug; `claudeSkill.name`
    retired (§2). D10 (provider-neutral marker, `--host`) follows from his
    Codex requirement and is stated, not yet confirmed.
-3. D9 — reframed from "`core` only" to "the plugin bundle carries the PUBLIC
-   subset of everything exportable"; **confirm** (§2).
+3. ~~D9~~ — **RESOLVED 2026-09-22**: no visibility filter on any target; the
+   plugin bundle carries every accessible task node, and curation becomes a
+   named scope later (§2).
 4. `locally-edited` (§4.5): when a generated `SKILL.md` has been edited by
    hand since export, should the next `export` **refuse** to overwrite it
    (recommended — the edit is someone's work and the refusal tells them to

@@ -34,5 +34,5 @@ func TestStatusDTOHasNoNilSlices(t *testing.T) {
 		&gen.SkillPlanSkillPlan{}, []statusUnreadableDTO{}, []statusUnreadableDTO{}))
 	// The empty-scope path.
 	check(t, "emptyStatusDTO", emptyStatusDTO("/root", "claudeSkill", nil,
-		[]statusUnreadableDTO{}, []statusUnreadableDTO{}, []statusExcludedDTO{}))
+		[]statusUnreadableDTO{}, []statusUnreadableDTO{}))
 }

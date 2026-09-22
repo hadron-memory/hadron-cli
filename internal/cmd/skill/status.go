@@ -84,23 +84,12 @@ type statusDTO struct {
 	// Unchecked: provenance-bearing files found on disk that were never
 	// submitted, because there was no memory to compare them against.
 	Unchecked []statusUncheckedDTO `json:"unchecked"`
-	// Excluded: memories left out of the selection by the TARGET rather than by
-	// the selector — today only --to plugin, which may carry PUBLIC memories
-	// only (D9). Reported rather than silently dropped, so a short result is
-	// never mistaken for a clean corpus.
-	Excluded []statusExcludedDTO `json:"excluded"`
 }
 
 // statusUncheckedDTO is a generated file nothing was able to judge.
 type statusUncheckedDTO struct {
 	Dir    string `json:"dir"`
 	Source string `json:"source,omitempty"`
-}
-
-// statusExcludedDTO is a memory the target's own rule removed from scope.
-type statusExcludedDTO struct {
-	Memory string `json:"memory"`
-	Reason string `json:"reason"`
 }
 
 func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
@@ -138,10 +127,8 @@ status over one node cannot answer "is my skill set fresh?" — the orphan and
 collision classes are properties of a SET. Use skill lint --node to judge a
 single node.
 
---to plugin keeps only PUBLIC memories (D9): the committed bundle lives in a
-public repo, so a private memory's tasks cannot ship in it. What it left out is
-REPORTED, never silently dropped. The symbolic roots (user/project/plugin) are
-host-specific, so a --host other than claudeSkill must name a directory.
+The symbolic roots (user/project/plugin) are host-specific, so a --host other
+than claudeSkill must name a directory.
 
 Exit codes: an ERROR finding exits 5, as in skill lint. Drift and warnings
 alone exit 0 — so a CI gate is an explicit --strict, which exits 5 on any
@@ -175,14 +162,6 @@ drift, any parse failure, any orphan, a scope that resolved to no memory, and
 			if err != nil {
 				return err
 			}
-			// D9/§6: the plugin bundle is committed to a PUBLIC repo, so it can
-			// only carry tasks from PUBLIC memories — a customer's private task
-			// cannot ship in a public artifact. Without this filter the
-			// documented CI gate (`status --all --to plugin --strict`) compares
-			// private declarations against the public directory and fails on a
-			// bundle that is perfectly current.
-			mems, excluded := filterForTarget(mems, to)
-
 			files, unreadable, unparseable, err := walkSkillFiles(root)
 			if err != nil {
 				return err
@@ -195,7 +174,7 @@ drift, any parse failure, any orphan, a scope that resolved to no memory, and
 			// empty is exactly the case where it would silently widen to the
 			// opposite, including the memories --all deliberately excludes.
 			if len(mems) == 0 {
-				dto := emptyStatusDTO(root, host, files, unreadable, unparseable, excluded)
+				dto := emptyStatusDTO(root, host, files, unreadable, unparseable)
 				return finishStatus(f, dto, strict)
 			}
 
@@ -217,13 +196,12 @@ drift, any parse failure, any orphan, a scope that resolved to no memory, and
 				return exitcode.Newf(exitcode.Error, "skillPlan returned no result")
 			}
 			dto := toStatusDTO(root, host, resp.SkillPlan, unreadable, unparseable)
-			dto.Excluded = excluded
 
 			return finishStatus(f, dto, strict)
 		},
 	}
 	sel.registerNoNode(cmd)
-	cmd.Flags().BoolVar(&strict, "strict", false, "exit 5 on any drift, parse failure or orphan")
+	cmd.Flags().BoolVar(&strict, "strict", false, "exit 5 on any drift, parse failure, orphan, warning finding, or an empty scope")
 	cmd.Flags().StringVar(&to, "to", "user", "skills root: user, project, plugin, or a directory")
 	cmd.Flags().StringVar(&host, "host", skilldoc.HostClaudeSkill, "skill host, named by its property key (claudeSkill)")
 	return cmd
@@ -258,29 +236,6 @@ func resolveMemories(cmd *cobra.Command, client graphql.Client, sel *selectorFla
 	return out, nil
 }
 
-// filterForTarget applies the TARGET's own scope rule, returning what survived
-// and what it removed. Only `plugin` has one: the bundle is committed to a
-// public repo, so it may carry PUBLIC memories only (D9 — a visibility rule,
-// not a memory allowlist, so a PUBLIC memory in any org qualifies).
-func filterForTarget(mems []*memoryInfo, to string) ([]*memoryInfo, []statusExcludedDTO) {
-	excluded := []statusExcludedDTO{}
-	if to != "plugin" {
-		return mems, excluded
-	}
-	kept := make([]*memoryInfo, 0, len(mems))
-	for _, m := range mems {
-		if m.Visibility == memoryVisibilityPublic {
-			kept = append(kept, m)
-			continue
-		}
-		excluded = append(excluded, statusExcludedDTO{
-			Memory: m.URN,
-			Reason: "not PUBLIC — the committed plugin bundle cannot carry a private memory's tasks",
-		})
-	}
-	return kept, excluded
-}
-
 // emptyStatusDTO is the report for a selection that resolved to NO memory. It
 // is built locally rather than by asking the server, because an empty
 // `memories` list is omitted on the wire and an omitted one means the opposite
@@ -289,7 +244,7 @@ func filterForTarget(mems []*memoryInfo, to string) ([]*memoryInfo, []statusExcl
 // report. Discarding them let `--all --to plugin --strict` — the documented CI
 // gate — exit 0 while generated skills sat in the target unpaired and
 // unexamined, which is a gate passing on a result nothing checked.
-func emptyStatusDTO(root, host string, files []*gen.SkillFileFactsInput, unreadable, unparseable []statusUnreadableDTO, excluded []statusExcludedDTO) statusDTO {
+func emptyStatusDTO(root, host string, files []*gen.SkillFileFactsInput, unreadable, unparseable []statusUnreadableDTO) statusDTO {
 	unchecked := []statusUncheckedDTO{}
 	for _, f := range files {
 		row := statusUncheckedDTO{Dir: f.DirName}
@@ -302,7 +257,7 @@ func emptyStatusDTO(root, host string, files []*gen.SkillFileFactsInput, unreada
 		Root: root, Host: host, ScopeEmpty: true,
 		Entries: []statusEntryDTO{}, Orphans: []statusOrphanDTO{},
 		Unchecked:  unchecked,
-		Unreadable: unreadable, Unparseable: unparseable, Excluded: excluded,
+		Unreadable: unreadable, Unparseable: unparseable,
 	}
 }
 
@@ -569,7 +524,6 @@ func toStatusDTO(root, host string, plan *gen.SkillPlanSkillPlan, unreadable, un
 		// agent cannot iterate unconditionally, and both review bots caught
 		// exactly that. TestStatusDTOHasNoNilSlices pins the whole class.
 		Unchecked: []statusUncheckedDTO{},
-		Excluded:  []statusExcludedDTO{},
 	}
 	for _, e := range plan.Entries {
 		if e == nil {
@@ -616,13 +570,6 @@ func toStatusDTO(root, host string, plan *gen.SkillPlanSkillPlan, unreadable, un
 // files that paired with nothing, then the counts.
 func renderStatus(w io.Writer, dto statusDTO) error {
 	fmt.Fprintf(w, "%s (host %s)\n\n", dto.Root, dto.Host)
-	if len(dto.Excluded) > 0 {
-		fmt.Fprintf(w, "Excluded from scope by the target:\n")
-		for _, e := range dto.Excluded {
-			fmt.Fprintf(w, "  %s — %s\n", e.Memory, e.Reason)
-		}
-		fmt.Fprintln(w)
-	}
 	if len(dto.Entries) == 0 && len(dto.Orphans) == 0 && len(dto.Unreadable) == 0 &&
 		len(dto.Unparseable) == 0 && len(dto.Unchecked) == 0 {
 		// scanned distinguishes an empty corpus from one the caller cannot

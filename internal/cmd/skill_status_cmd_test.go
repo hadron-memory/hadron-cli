@@ -696,65 +696,6 @@ func TestSkillStatusNonEmptyAllScopeIsSent(t *testing.T) {
 	}
 }
 
-// @codex on #652: the committed plugin bundle lives in a PUBLIC repo and may
-// carry PUBLIC memories only (D9/§6). Without the filter, `--all --to plugin
-// --strict` — the documented CI gate — compares a private memory's
-// declarations against the public directory and fails on a current bundle.
-func TestSkillStatusPluginTargetKeepsOnlyPublicMemories(t *testing.T) {
-	mem := func(id, urn, vis string) string {
-		return `{"id":"` + id + `","urn":"` + urn + `","name":"M","shortDescription":null,"class":"knowledge","visibility":"` + vis +
-			`","organizationId":"org1","organization":{"skillPrefix":null},"isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-06-11T00:00:00Z"}`
-	}
-	memories := `{"data":{"memories":{"total":2,"items":[` +
-		mem("mem1", "hrn:mem:hadronmemory.com:core", "PUBLIC") + `,` +
-		mem("mem2", "hrn:mem:micromentor.org:mmdata", "ORGANIZATION") + `]}}}`
-	// A git worktree is required for --to plugin; this repo is one.
-	out, captured, err := runSkillStatus(t, map[string]string{
-		"Memories": memories, "MemoriesSharedWithMe": `{"data":{"memories":{"total":0,"items":[]}}}`,
-		"SkillPlan": `{"data":{"skillPlan":{"scanned":0,"judged":0,"entries":[],"orphans":[]}}}`,
-	}, "--all", "--to", "plugin", "--json")
-	if err != nil {
-		t.Fatalf("status errored: %v\n%s", err, out)
-	}
-	mems, _ := sentInput(t, captured)["memories"].([]any)
-	if len(mems) != 1 || mems[0] != "hrn:mem:hadronmemory.com:core" {
-		t.Errorf("the plugin target scanned a non-PUBLIC memory: %v", mems)
-	}
-	// Excluded, not silently dropped: a short result must not read as a clean
-	// corpus.
-	var dto struct {
-		Excluded []struct{ Memory, Reason string } `json:"excluded"`
-	}
-	if err := json.Unmarshal([]byte(out), &dto); err != nil {
-		t.Fatalf("output not JSON: %v\n%s", err, out)
-	}
-	if len(dto.Excluded) != 1 || dto.Excluded[0].Memory != "hrn:mem:micromentor.org:mmdata" {
-		t.Errorf("the excluded memory is not reported: %+v", dto.Excluded)
-	}
-}
-
-// The same two memories under a NON-plugin target are both in scope — so the
-// filter above is the plugin rule, not a blanket one.
-func TestSkillStatusUserTargetKeepsPrivateMemories(t *testing.T) {
-	mem := func(id, urn, vis string) string {
-		return `{"id":"` + id + `","urn":"` + urn + `","name":"M","shortDescription":null,"class":"knowledge","visibility":"` + vis +
-			`","organizationId":"org1","organization":{"skillPrefix":null},"isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-06-11T00:00:00Z"}`
-	}
-	memories := `{"data":{"memories":{"total":2,"items":[` +
-		mem("mem1", "hrn:mem:hadronmemory.com:core", "PUBLIC") + `,` +
-		mem("mem2", "hrn:mem:micromentor.org:mmdata", "ORGANIZATION") + `]}}}`
-	_, captured, err := runSkillStatus(t, map[string]string{
-		"Memories": memories, "MemoriesSharedWithMe": `{"data":{"memories":{"total":0,"items":[]}}}`,
-		"SkillPlan": `{"data":{"skillPlan":{"scanned":0,"judged":0,"entries":[],"orphans":[]}}}`,
-	}, "--all", "--to", t.TempDir())
-	if err != nil {
-		t.Fatalf("status errored: %v", err)
-	}
-	if mems, _ := sentInput(t, captured)["memories"].([]any); len(mems) != 2 {
-		t.Errorf("--to <dir> must not apply the plugin visibility rule, got %v", mems)
-	}
-}
-
 // @codex on #652: `--host` is accepted verbatim, but the symbolic roots are
 // Claude's. `--host codex --to user` would compare one host's declarations
 // against ~/.claude/skills, making every orphan and drift row an artifact of
@@ -835,25 +776,6 @@ func TestSkillStatusEmptyScopeFailsStrictAndNamesWhatWentUnchecked(t *testing.T)
 	}
 	if dto.Unchecked[0].Source != statusSourceURN {
 		t.Errorf("unchecked entry lost its provenance: %+v", dto.Unchecked[0])
-	}
-}
-
-// The plugin path that motivated it: every listed memory is private, so the
-// scope empties AFTER filtering and the gate would otherwise go green.
-func TestSkillStatusPluginGateFailsWhenFilteringEmptiesTheScope(t *testing.T) {
-	memories := `{"data":{"memories":{"total":1,"items":[{"id":"mem2","urn":"hrn:mem:micromentor.org:mmdata","name":"M","shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"org1","organization":{"skillPrefix":null},"isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-06-11T00:00:00Z"}]}}}`
-	out, captured, err := runSkillStatus(t, map[string]string{
-		"Memories": memories, "MemoriesSharedWithMe": `{"data":{"memories":{"total":0,"items":[]}}}`,
-	}, "--all", "--to", "plugin", "--strict")
-	if got := exitCodeFor(err); got != exitcode.Conflict {
-		t.Fatalf("the plugin gate went green on an empty post-filter scope: exit = %d, want %d\n%s",
-			got, exitcode.Conflict, out)
-	}
-	if _, called := captured["SkillPlan"]; called {
-		t.Error("an all-private selection should not reach the server")
-	}
-	if !strings.Contains(out, "mmdata") {
-		t.Errorf("the excluded memory is not named, so the empty result looks unexplained:\n%s", out)
 	}
 }
 
@@ -1013,5 +935,61 @@ func TestSkillStatusStrictPromotesTheRenderedSeverityToo(t *testing.T) {
 	}
 	if got := severities(t, out2); len(got) != 1 || got[0] != "warning" {
 		t.Errorf("without --strict the severity must stay warning: %v", got)
+	}
+}
+
+// D9, RULED 2026-09-22: no visibility filter on any target, the plugin bundle
+// included. The proposal had `--to plugin` keep PUBLIC memories only; that was
+// reversed because `--to plugin` names two different artifacts — a USER's own
+// bundle in their own checkout, and the one committed to this public repo —
+// and a filter on the COMMAND applied to both, silently dropping a user's own
+// private tasks from their own plugin.
+//
+// Pinned by COMPARING the two targets rather than by asserting a count: a test
+// that just checked "2 memories sent" would pass again if a filter came back
+// keyed on something other than visibility.
+func TestSkillStatusPluginTargetFiltersNothing(t *testing.T) {
+	mem := func(id, urn, vis string) string {
+		return `{"id":"` + id + `","urn":"` + urn + `","name":"M","shortDescription":null,"class":"knowledge","visibility":"` + vis +
+			`","organizationId":"org1","organization":{"skillPrefix":null},"isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-06-11T00:00:00Z"}`
+	}
+	listing := `{"data":{"memories":{"total":2,"items":[` +
+		mem("mem1", "hrn:mem:hadronmemory.com:core", "PUBLIC") + `,` +
+		mem("mem2", "hrn:mem:micromentor.org:mmdata", "ORGANIZATION") + `]}}}`
+	responses := func() map[string]string {
+		return map[string]string{
+			"Memories": listing, "MemoriesSharedWithMe": `{"data":{"memories":{"total":0,"items":[]}}}`,
+			"SkillPlan": `{"data":{"skillPlan":{"scanned":0,"judged":0,"entries":[],"orphans":[]}}}`,
+		}
+	}
+	sent := func(t *testing.T, to string) []any {
+		t.Helper()
+		_, captured, err := runSkillStatus(t, responses(), "--all", "--to", to, "--json")
+		if err != nil {
+			t.Fatalf("status --to %s errored: %v", to, err)
+		}
+		mems, _ := sentInput(t, captured)["memories"].([]any)
+		return mems
+	}
+
+	plugin, dir := sent(t, "plugin"), sent(t, t.TempDir())
+	if len(plugin) != len(dir) {
+		t.Fatalf("--to plugin filtered the selection: plugin=%v, plain dir=%v", plugin, dir)
+	}
+	for i := range dir {
+		if plugin[i] != dir[i] {
+			t.Errorf("selection differs by target at %d: plugin=%v dir=%v", i, plugin[i], dir[i])
+		}
+	}
+	// And the non-PUBLIC memory really is in there — otherwise both targets
+	// could be filtering identically and this test would not notice.
+	var sawPrivate bool
+	for _, m := range plugin {
+		if m == "hrn:mem:micromentor.org:mmdata" {
+			sawPrivate = true
+		}
+	}
+	if !sawPrivate {
+		t.Error("the ORGANIZATION-visibility memory was dropped — the D9 filter is back")
 	}
 }

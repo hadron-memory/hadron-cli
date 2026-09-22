@@ -641,12 +641,12 @@ Conventions:
   exit 0, so a CI gate is an explicit `--strict`, which exits 5 on any drift,
   parse failure, orphan, empty scope, or — as in `skill lint` — any WARNING
   finding.
-  Two scope rules: **`--to plugin` keeps only `visibility = PUBLIC` memories**
-  (D9 — the committed bundle is in a public repo, so a private memory's tasks
-  cannot ship in it) and reports the rest under `excluded`, never silently; and
-  the symbolic roots are **host-specific**, so a `--host` other than
+  The symbolic roots are **host-specific**, so a `--host` other than
   `claudeSkill` must name a directory (`--to <dir>`) rather than being resolved
-  against Claude's. A selection that resolves to NO memory sends nothing and
+  against Claude's. **`--to plugin` applies no visibility filter** — it covers
+  every accessible task node, as the other targets do (D9, ruled 2026-09-22);
+  curating which tasks a bundle carries is a later feature, expected to key on
+  a named scope. A selection that resolves to NO memory sends nothing and
   says so — it is not an all-clear, because an empty `memories` list is omitted
   on the wire and the server reads an omitted one as *every* memory. That state
   sets `scopeEmpty: true`, lists any generated files it could not judge under

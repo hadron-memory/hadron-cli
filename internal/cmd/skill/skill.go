@@ -69,10 +69,6 @@ type memoryInfo struct {
 	ID             string
 	URN            string
 	OrganizationID *string
-	// Visibility is carried because the PLUGIN target filters on it (D9): the
-	// committed bundle lives in a public repo and may hold PUBLIC memories
-	// only. Empty when the server reported none.
-	Visibility string
 }
 
 // selectorFlags are the three mutually exclusive ways to name the nodes a
@@ -243,19 +239,6 @@ func selectNodes(cmd *cobra.Command, client graphql.Client, sel *selectorFlags) 
 	return out, nil
 }
 
-// memoryVisibilityPublic is the one visibility the plugin target accepts.
-const memoryVisibilityPublic = "PUBLIC"
-
-// visibilityOf renders a nullable visibility enum as a plain string, "" when
-// the server reported none — which is NOT public, and must not be treated as
-// such by the plugin filter.
-func visibilityOf[T ~string](v *T) string {
-	if v == nil {
-		return ""
-	}
-	return string(*v)
-}
-
 // lookupMemory resolves a memory ref (URN in any accepted grammar, or a PK)
 // through memory(ref:), which dispatches server-side.
 func lookupMemory(cmd *cobra.Command, client graphql.Client, ref string) (*memoryInfo, error) {
@@ -268,7 +251,7 @@ func lookupMemory(cmd *cobra.Command, client graphql.Client, ref string) (*memor
 		return nil, exitcode.Newf(exitcode.NotFound,
 			"no memory found for %q — expected a memory id or a URN: hrn:mem:<root>:<slug>, the <root>::<slug> short form, or the legacy hrn:memory: prefix", ref)
 	}
-	return &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId, Visibility: visibilityOf(m.Visibility)}, nil
+	return &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId}, nil
 }
 
 // allMemories lists every memory the caller can read — own-org, shared with
@@ -298,12 +281,12 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 	}
 	seen := map[string]bool{}
 	var out []*memoryInfo
-	add := func(id, urn string, orgID *string, vis string) {
+	add := func(id, urn string, orgID *string) {
 		if seen[id] {
 			return
 		}
 		seen[id] = true
-		out = append(out, &memoryInfo{ID: id, URN: urn, OrganizationID: orgID, Visibility: vis})
+		out = append(out, &memoryInfo{ID: id, URN: urn, OrganizationID: orgID})
 	}
 	for _, filter := range []*gen.MemoryFilter{all, public} {
 		items, err := api.CollectAll(listing(filter))
@@ -311,7 +294,7 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 			return nil, err
 		}
 		for _, m := range items {
-			add(m.Id, m.Urn, m.OrganizationId, visibilityOf(m.Visibility))
+			add(m.Id, m.Urn, m.OrganizationId)
 		}
 	}
 	shared, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory, int, error) {
@@ -328,7 +311,7 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 		return nil, err
 	}
 	for _, m := range shared {
-		add(m.Id, m.Urn, m.OrganizationId, visibilityOf(m.Visibility))
+		add(m.Id, m.Urn, m.OrganizationId)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].URN < out[j].URN })
 	return out, nil
