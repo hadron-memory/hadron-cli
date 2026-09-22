@@ -212,10 +212,15 @@ drift, any parse failure, any orphan, a scope that resolved to no memory, and
 // client can assign: every class rendered comes from the server verbatim.
 const classCurrent = "current"
 
-// resolveMemories turns the selector into the memories the plan will scan.
-// Both branches return a full memoryInfo — including VISIBILITY, which the
-// plugin target filters on — so `-m` costs one lookup per ref and gains an
-// early, local refusal of a ref the server would otherwise reject mid-request.
+// resolveMemories turns the selector into the memories the plan will scan. No
+// target filters them — D9 was ruled the other way, so every target sees every
+// accessible memory; do not reintroduce a filter here (TestSkillStatusPlugin-
+// TargetFiltersNothing pins that).
+//
+// `-m` resolves each ref through a lookup rather than passing the string
+// through: it costs one round trip per ref and buys an early, LOCAL refusal of
+// a bad ref, instead of one that fails mid-request with a message naming a
+// GraphQL field rather than the flag.
 func resolveMemories(cmd *cobra.Command, client graphql.Client, sel *selectorFlags) ([]*memoryInfo, error) {
 	if sel.all {
 		return allMemories(cmd, client)
