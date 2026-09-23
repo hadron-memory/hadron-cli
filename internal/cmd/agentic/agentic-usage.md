@@ -25,9 +25,9 @@ short-TTL token that every later command prefers until `--stop` or expiry.
 `hadron auth whoami` / `status` announce the acting-as state loudly.
 
 Browser `auth login` requests the `account` OAuth scope (the data API
-refuses an `mcp`-only key). A server that does not offer `account` fails the
-login with exit 1 and stores nothing: never a silently narrower key. Use
-`--with-token` there.
+refuses an `mcp`-only key). If the server refuses `account` or grants a
+narrower scope, login fails with exit 1 and stores nothing: never a silently
+narrower key. Use `--with-token` there.
 
 Tokens are long-lived `hdr_user_*` personal access tokens, minted with
 `hadron auth token create` (after an interactive `auth login`) or in the

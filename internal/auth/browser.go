@@ -176,7 +176,7 @@ func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, c
 	// it is not handed back to be stored.
 	if out.Scope != "" && !slices.Contains(strings.Fields(out.Scope), accountScope) {
 		return nil, exitcode.Newf(exitcode.Error,
-			"the server granted OAuth scope %q, not %q — refusing to store a key the CLI cannot use (the issued key is unused; revoke it in the portal); %s",
+			"the server granted OAuth scope %q, not %q — refusing to store a key the CLI cannot use (the issued key was not stored; revoke it on the portal's API keys page); %s",
 			out.Scope, accountScope, withTokenHint)
 	}
 	return &Token{AccessToken: out.AccessToken}, nil

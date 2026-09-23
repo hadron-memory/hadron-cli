@@ -28,6 +28,11 @@ your OS keychain). Same shape as `gh auth login`; the portal is never involved.
 The provider flag only selects the server's login route — Google credentials
 remain on the server and are never stored by the CLI.
 
+The CLI requests the `account` OAuth scope (`cor:aut:010:02`): it uses the
+server's data API, which refuses a key limited to `mcp`. If the server refuses
+`account` or grants a narrower scope, login fails with exit 1 and stores
+nothing. Use a portal token with `--with-token` (below) instead.
+
 ## 2. Host bootstrap (no browser / air-gapped)
 
 When there's no browser — CI images, air-gapped boxes, first-run setup — mint the
