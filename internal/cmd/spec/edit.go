@@ -128,6 +128,9 @@ replacement over the cap is rejected.`,
 			if content == "-" && abstract == "-" {
 				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
 			}
+			if err := refuseDocumentStdin(f.IOStreams.IsInputTerminal(), content, abstract); err != nil {
+				return err
+			}
 			contentProvided := changed("content") || changed("content-file")
 			abstractProvided := changed("abstract") || changed("abstract-file")
 			// The assertion on its own is a complete, non-interactive operation:
@@ -269,9 +272,9 @@ replacement over the cap is rejected.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
-	cmd.Flags().StringVarP(&content, "content", "c", "", `replace the body with this value ("-" reads stdin) instead of opening $EDITOR`)
+	cmd.Flags().StringVarP(&content, "content", "c", "", `replace the body with this value ("-" reads piped stdin, refused from a terminal) instead of opening $EDITOR`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "replace the body with a file's contents instead of opening $EDITOR")
-	cmd.Flags().StringVar(&abstract, "abstract", "", `replace the abstract with this value ("-" reads stdin) instead of opening $EDITOR`)
+	cmd.Flags().StringVar(&abstract, "abstract", "", `replace the abstract with this value ("-" reads piped stdin, refused from a terminal) instead of opening $EDITOR`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "replace the abstract with a file's contents instead of opening $EDITOR")
 	// No backticks in this usage string: cobra's UnquoteUsage reads backquoted
 	// text as the flag's placeholder name, so "clearing `abstract-stale`" would

@@ -83,6 +83,9 @@ chunk leaves the source alone with a warning.`,
 			if content == "-" && abstract == "-" {
 				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
 			}
+			if err := refuseDocumentStdin(f.IOStreams.IsInputTerminal(), content, abstract); err != nil {
+				return err
+			}
 			// --abstract and --abstract-file are mutually exclusive — guard on
 			// Changed() so an explicit empty --abstract is caught too (mirrors new).
 			if cmd.Flags().Changed("abstract") && cmd.Flags().Changed("abstract-file") {
@@ -273,9 +276,9 @@ chunk leaves the source alone with a warning.`,
 	cmd.Flags().StringVar(&toFeature, "to-feature", "", "existing feature the extracted rule lands under (3 digits, required)")
 	cmd.Flags().StringVar(&rule, "rule", "", "create this exact rule number (2 digits; default: allocate the next)")
 	cmd.Flags().StringVar(&title, "title", "", "human title for the extracted spec (required)")
-	cmd.Flags().StringVarP(&content, "content", "c", "", `the moved chunk = the new spec body ("-" reads stdin; default: the rubric)`)
+	cmd.Flags().StringVarP(&content, "content", "c", "", `the moved chunk = the new spec body ("-" reads piped stdin, refused from a terminal; default: the rubric)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read the moved chunk from a file")
-	cmd.Flags().StringVar(&abstract, "abstract", "", `the new spec's abstract ("-" reads stdin; default: a placeholder lint flags)`)
+	cmd.Flags().StringVar(&abstract, "abstract", "", `the new spec's abstract ("-" reads piped stdin, refused from a terminal; default: a placeholder lint flags)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the abstract from a file")
 	cmd.Flags().StringVar(&refLabel, "ref-label", "", "label for the cross-ref edge new→source (default: synthesized from titles)")
 	cmd.Flags().BoolVar(&stripSource, "strip-source", false, "also trim the moved chunk out of the source body (verbatim match only)")
