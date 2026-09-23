@@ -466,10 +466,15 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   required (`exit 2` otherwise) — no active-memory fallback, because an export
   that silently targets "whatever memory was active" is how a customer's tasks
   end up on the wrong disk.
-- `--to` names the skills root: `user` (default) → `~/.claude/skills`;
-  `project` → `<git toplevel>/.claude/skills`; `plugin` →
-  `<git toplevel>/plugins/hadron-cli/skills` (§6); anything else is a directory.
-  `project`/`plugin` outside a git worktree is `exit 2`.
+- **`--to` is `status`-only** (amended 2026-09-23, B8) and names the root to
+  COMPARE against: `user` (default) → `~/.claude/skills`; `project` →
+  `<git toplevel>/.claude/skills`; `plugin` →
+  `<git toplevel>/plugins/hadron-cli/skills` (§6); anything else is a
+  directory. `project`/`plugin` outside a git worktree is `exit 2`.
+  **`export` does not take it** — `cor:agt:030:02` gives export one destination
+  per host and forbids a repo-level one, so the flag that selects among roots
+  is the flag the spec rules out. Leaving this bullet describing export's roots
+  is how the removed flags would come back (@copilot on #661).
 - `lint` runs on the corpus and touches no disk; `status` reads both and writes
   nothing; `export` is the only writer. Bo's line: *lint on the corpus, status on
   the disk, export bridges them.*
@@ -675,7 +680,13 @@ usually a node that *moved*; `--prune` is the deliberate act.
    `--dry-run` prints the same report with nothing written.
 4. Write atomically (temp file + rename in the skill dir) so a crash mid-set
    leaves no half-file.
-5. Report: one row per node — `written | moved(from) | skipped(current) |
+5. Report: one row per node **PER HOST** — amended 2026-09-23 (@codex on
+   #661). One invocation writes every known host, so a node skipped for Codex
+   and written for Claude produces two different outcomes and a row naming only
+   the node cannot say which is which. The human view carries the host exactly
+   as `hosts[]` does in the JSON below; a single-host run may collapse it, but
+   the contract is per host. Row states —
+   `written | moved(from) | skipped(current) |
    refused(reason)` — plus `orphaned` files and the reminder that the host
    loads skills at session start. `--json` shape:
    `{hosts: [{host, root, written: [...], moved: [{from,to,urn}],
@@ -803,8 +814,14 @@ set changes (existing rule).
 ## 7. Out of scope
 
 - Any write to a node. The corpus stays the source; this is one-way publishing.
-- Other skill hosts (Cursor rules, etc.) — the header format carries no
-  host-specific key so a second target can be added without breaking `status`.
+- ~~Other skill hosts~~ — **no longer out of scope for CODEX** (amended
+  2026-09-23, @codex on #661). @Eli measured Codex reading the Claude
+  `SKILL.md` unchanged (cli#622), so it is a real second host, and
+  `cor:agt:030:02`'s "every known host, every time" turns that from a
+  possibility into an obligation this plan must carry. What remains out of
+  scope is a host needing a DIFFERENT renderer (Cursor rules, etc.); the header
+  format carries no host-specific key, so such a target can still be added
+  without breaking `status`.
 - Deduplicating the forks — Eli's corpus work (§9). The command refuses the
   collision; it does not resolve it.
 - The `h-*` slash commands — local files, not this repo's.
