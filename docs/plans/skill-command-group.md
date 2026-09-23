@@ -562,14 +562,21 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 
   | # | requirement | contract | measured today | case |
   |---|---|---|---|---|
-  | 1 | several READ roots (`~/.codex/skills` deprecated, still read by Codex 0.153) | `:02` one destination per host → export writes only `~/.agents/skills`, never the deprecated root | reference machine: `~/.codex/skills` holds 13 entries, **0** Hadron-generated (third-party + `.system`) | P20 — OPEN whether the report names a copy the host reads but export never updates |
-  | 2 | duplicates across those roots | `:02` as above | not measured (no Hadron file in the old root to duplicate) | P21 — OPEN; never resolved by deleting the deprecated copy |
-  | 3 | the project root is a SEARCH PATH | `:02` **no repo-level destination** → out of scope for export | `status --to project` compares one root (`<toplevel>/.claude/skills`) | **no case**: ruled out by contract |
-  | 4 | the ROOT, or an ANCESTOR, can be the symlink | `:00` item failure, `:01` protection of an existing file | `walkSkillFiles` reads straight through a symlinked root AND a symlinked ancestor and attributes the other host's file to this host (throwaway probe, not committed); a live per-directory link exists on the reference machine (`~/.agents/skills/start-worker-session-desktop` → Claude's, i.e. P06/P10) | P17 (root) / P18 (ancestor): Codex items fail and are reported, Claude written unchanged, roots compared RESOLVED; P19 (status) — OPEN, proposed: name the resolved root instead of attributing its files |
+  | 1 | several READ roots (`~/.codex/skills` deprecated, still read by Codex 0.153) | EXPORT: `:02` one destination per host → writes only `~/.agents/skills`. STATUS: no contract; plan requirement 1 | reference machine: `~/.codex/skills` holds 13 entries, **0** Hadron-generated (third-party + `.system`) | P20 (export; OPEN whether the report names the copy) · **P23** (status: every read root compared, or the unread one named — never clean over `~/.agents/skills` alone) |
+  | 2 | duplicates across those roots | EXPORT: `:02` as above. STATUS: no contract; plan requirement 2 | not measured (no Hadron file in the old root to duplicate) | P21 (export; never resolved by deleting the old copy) · **P24** (status: both files reported, neither dropped) |
+  | 3 | the project root is a SEARCH PATH | EXPORT: `:02` **no repo-level destination**, out of scope. STATUS: `--to project` is a status-only comparison, which `:02` does not govern | `status --to project` compares one root (`<toplevel>/.claude/skills`) | **P25** (status: every root in the search path, or the unread ones named) |
+  | 4 | the ROOT, or an ANCESTOR, can be the symlink | `:00` item failure, `:01` protection of an existing file | `walkSkillFiles` reads straight through a symlinked root AND a symlinked ancestor and attributes the other host's file to this host (throwaway probe, not committed); a live per-directory link exists on the reference machine (`~/.agents/skills/start-worker-session-desktop` → Claude's, i.e. P06/P10) | P17 (root → another host's) / P18 (ancestor) / **P22** (root → an arbitrary directory): the root itself is lstat'ed and resolved before any per-directory check; P19 (status) — OPEN, proposed: name the resolved root instead of attributing its files |
 
-  The writer's guard for #4 is therefore **resolve the root first, then compare
-  resolved roots across hosts, then lstat each skill directory** — per-directory
-  lstat alone passes both P17 and P18.
+  **A correction from review (#680, Copilot + @codex):** the first draft of this
+  table declared #3 out of scope and gave #1/#2 export cases only. That read
+  `:02` — a rule about where EXPORT writes — as if it governed `status`, which
+  it does not; a status that scans one root while the host reads several is
+  the false all-clear these requirements were written to prevent.
+
+  The writer's guard for #4 is therefore **lstat the root itself, resolve it,
+  compare resolved roots across hosts, then lstat each skill directory**:
+  per-directory lstat alone passes P17 and P18, and a cross-host comparison
+  alone passes P22.
 
   **`codexSkill` is NOT in the shipped map yet** — `hostDirs` holds
   `claudeSkill` only, so `--host codexSkill --to user` is REFUSED today with

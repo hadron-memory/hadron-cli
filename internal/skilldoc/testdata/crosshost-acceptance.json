@@ -1519,7 +1519,7 @@
         "cor:agt:030:02"
       ],
       "given": "~/.agents/skills is ITSELF a symlink to ~/.claude/skills (the root, not one skill directory); export over D01",
-      "expect": "every Codex item FAILS and is named in the report (writing through the link would replace Claude's files with Codex's declaration); every Claude item is written unchanged. The root is resolved (realpath) BEFORE any per-directory check, because a per-directory lstat sees only ordinary directories here and passes. Measured 2026-09-23: `skill status`'s walk reads straight through such a root."
+      "expect": "every Codex item FAILS and is named in the report (writing through the link would replace Claude's files with Codex's declaration); every Claude item is written unchanged. The ROOT ITSELF is lstat'ed and resolved BEFORE any per-directory check (plan §8, slice 5), because a per-directory lstat sees only ordinary directories here and passes. Measured 2026-09-23: `skill status`'s walk reads straight through such a root."
     },
     {
       "id": "P18",
@@ -1562,6 +1562,47 @@
       ],
       "given": "the same skill name exists in BOTH ~/.agents/skills (current export) and ~/.codex/skills (an older copy)",
       "expect": "the export updates only ~/.agents/skills. OPEN: which copy Codex loads when both exist is Codex's behaviour, not measured here, and no contract decides whether the export reports the duplicate. Never resolved by deleting the deprecated copy."
+    },
+    {
+      "id": "P22",
+      "layer": "writer",
+      "pendingOn": "hadron-cli#621",
+      "contracts": [
+        "cor:agt:030:00",
+        "cor:agt:030:02"
+      ],
+      "given": "~/.agents/skills is a symlink to an ARBITRARY directory that is not another host's root (e.g. ~/dotfiles/agent-skills); export over D01",
+      "expect": "the root-level lstat (plan §8, slice 5) sees the link whatever it points to, so the check does not depend on the target being another host's root: comparing resolved roots across hosts alone would pass this case. Per §8 the Codex items fail and are reported, Claude is written. OPEN: whether a DELIBERATE user symlink (a dotfiles setup) should be honoured instead — no contract decides it."
+    },
+    {
+      "id": "P23",
+      "layer": "status",
+      "pendingOn": "hadron-cli#621 (the host table's Codex row)",
+      "contracts": [
+        "cor:agt:030:01"
+      ],
+      "given": "`skill status --host codexSkill` (user root) where a Hadron-generated file for D01's node exists ONLY in the deprecated ~/.codex/skills, which Codex 0.153 still reads",
+      "expect": "the comparison covers EVERY root the host reads, or names each root it did not read; it never reports a clean set over ~/.agents/skills alone while a generated file Codex loads sits unexamined (plan §3, requirement 1: an all-clear wider than the read). OPEN: how the deprecated copy is represented in the report."
+    },
+    {
+      "id": "P24",
+      "layer": "status",
+      "pendingOn": "hadron-cli#621 (the host table's Codex row)",
+      "contracts": [
+        "cor:agt:030:01"
+      ],
+      "given": "the same skill (one node id) has a generated file in BOTH ~/.agents/skills and ~/.codex/skills",
+      "expect": "BOTH files are reported against their node, each with its own root; neither is dropped by picking one (plan §3, requirement 2). OPEN: the report's representation of a duplicate."
+    },
+    {
+      "id": "P25",
+      "layer": "status",
+      "pendingOn": "hadron-cli#621 (the host table's Codex row)",
+      "contracts": [
+        "cor:agt:030:01"
+      ],
+      "given": "`skill status --host codexSkill --to project` run from a nested directory, with generated files in <toplevel>/.agents/skills, in a nested <dir>/.agents/skills between the toplevel and the cwd, and in <toplevel>/.codex/skills",
+      "expect": "every root in Codex's project search path is compared (each .agents/skills from the toplevel down to the cwd, plus <project>/.codex/skills), or the report names the ones it did not read; never clean over the single <toplevel>/.agents/skills (plan §3, requirement 3). cor:agt:030:02's 'no repo-level destination' constrains EXPORT only, not this status-only comparison."
     }
   ]
 }
