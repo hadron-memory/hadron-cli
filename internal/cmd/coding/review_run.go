@@ -83,6 +83,8 @@ func newCmdReviewRun(f *cmdutil.Factory) *cobra.Command {
 
 The memory is resolved from the repository (see ` + "`hadron coding --help`" + `),
 the diff from git — or from --diff, which takes a file or ` + "`-`" + ` for stdin.
+` + "`-`" + ` is for a pipe (git diff | ...): it is refused when stdin is an
+interactive terminal, since a truncated diff would silently drop changed files.
 
 Applicability is decided STRUCTURALLY, never by interpreting the trigger's
 prose, and checks fall into three buckets:
@@ -114,6 +116,10 @@ reports the total, so a truncated read is never silent.`,
 			if diffSpec != "" && (base != "" || head != "") {
 				return exitcode.Newf(exitcode.Usage,
 					"--diff supplies the change set, so --base/--head have nothing to compare — pass one or the other")
+			}
+
+			if err := refuseDiffStdin(f.IOStreams.IsInputTerminal(), diffSpec); err != nil {
+				return err
 			}
 
 			// Pure flag validation first, above the client build: a caller who
@@ -166,7 +172,7 @@ reports the total, so a truncated read is never silent.`,
 	cmd.Flags().StringVar(&root, "root", reviewRootLoc, "loc of the review parent node")
 	cmd.Flags().StringVar(&base, "base", "", "git ref to diff from (default: the merge base with the default branch)")
 	cmd.Flags().StringVar(&head, "head", "", "git ref to diff to (default: the working tree)")
-	cmd.Flags().StringVar(&diffSpec, "diff", "", "read a unified diff from this `path` (- for stdin) instead of from git")
+	cmd.Flags().StringVar(&diffSpec, "diff", "", "read a unified diff from this `path` (- for piped stdin, refused from a terminal) instead of from git")
 	cmd.Flags().BoolVar(&all, "all", false, "include excluded checks in the returned set too")
 	cmd.Flags().IntVar(&limit, "limit", 0, "return at most this many checks (0 = all)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "skip this many checks")
