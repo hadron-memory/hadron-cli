@@ -33,10 +33,13 @@ type xhDecl struct {
 	Key         string `json:"key"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	Enable      bool   `json:"enable"`
+	// Enable and EnableSet are pointers so an OMITTED field is an error rather
+	// than a silent false (@codex on #664): false is the value these cases
+	// exist to pin, so it must be written, not defaulted.
+	Enable *bool `json:"enable"`
 	// EnableSet separates "switched off" from "never switched on" (D05): the
 	// two publish identically, and only this field shows the default at work.
-	EnableSet bool `json:"enableSet"`
+	EnableSet *bool `json:"enableSet"`
 }
 
 type xhMatrix struct {
@@ -79,7 +82,7 @@ type xhMatrix struct {
 		Title     string   `json:"title"`
 		Contracts []string `json:"contracts"`
 		Case      string   `json:"case"`
-		SameFile  bool     `json:"sameFile"`
+		SameFile  *bool    `json:"sameFile"`
 	} `json:"rendering"`
 	Pending []struct {
 		ID        string   `json:"id"`
@@ -110,6 +113,18 @@ func decodeMatrix(raw []byte) (*xhMatrix, error) {
 	}
 	if m.Version != 1 {
 		return nil, fmt.Errorf("matrix version %d; this loader reads version 1", m.Version)
+	}
+	for _, c := range m.Declarations {
+		for host, d := range c.Expect {
+			if d != nil && (d.Enable == nil || d.EnableSet == nil) {
+				return nil, fmt.Errorf("%s/%s: enable and enableSet must both be written; an omitted bool would read as false", c.ID, host)
+			}
+		}
+	}
+	for _, r := range m.Rendering {
+		if r.SameFile == nil {
+			return nil, fmt.Errorf("%s: sameFile must be written; an omitted bool would read as false", r.ID)
+		}
 	}
 	for _, s := range []struct {
 		name string
@@ -172,6 +187,13 @@ func TestCrossHostLoaderRefuses(t *testing.T) {
 		"empty collisions":      edit(func(d map[string]any) { d["collisions"] = []any{} }),
 		"empty rendering":       edit(func(d map[string]any) { d["rendering"] = []any{} }),
 		"unknown field in case": edit(func(d map[string]any) { d["lint"].([]any)[0].(map[string]any)["surprise"] = 1 }),
+		"omitted sameFile":      edit(func(d map[string]any) { delete(d["rendering"].([]any)[1].(map[string]any), "sameFile") }),
+		"omitted enable": edit(func(d map[string]any) {
+			delete(d["declarations"].([]any)[4].(map[string]any)["expect"].(map[string]any)["codexSkill"].(map[string]any), "enable")
+		}),
+		"omitted enableSet": edit(func(d map[string]any) {
+			delete(d["declarations"].([]any)[4].(map[string]any)["expect"].(map[string]any)["codexSkill"].(map[string]any), "enableSet")
+		}),
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := decodeMatrix(in); err == nil {
@@ -223,9 +245,11 @@ func TestCrossHostDeclarationsClaudeColumn(t *testing.T) {
 			case want != nil && !declared:
 				t.Fatalf("%s: want a Claude declaration at %s, got none", c.Title, want.Key)
 			case want != nil:
-				got := xhDecl{Key: d.Key, Name: d.Name, Description: d.Description, Enable: d.Enable, EnableSet: d.EnableSet}
-				if got != *want {
-					t.Fatalf("%s:\n got %+v\nwant %+v", c.Title, got, *want)
+				if d.Key != want.Key || d.Name != want.Name || d.Description != want.Description ||
+					d.Enable != *want.Enable || d.EnableSet != *want.EnableSet {
+					t.Fatalf("%s:\n got {%s %q %q enable=%v enableSet=%v}\nwant {%s %q %q enable=%v enableSet=%v}", c.Title,
+						d.Key, d.Name, d.Description, d.Enable, d.EnableSet,
+						want.Key, want.Name, want.Description, *want.Enable, *want.EnableSet)
 				}
 			}
 			gotBad := Malformed(c.Properties)
@@ -345,12 +369,12 @@ func TestCrossHostRendering(t *testing.T) {
 					t.Fatalf("%s frontmatter = {name %q, description %q}, want {%q, %q}", side.host, pf.Name, pf.Description, side.name, NormalizeDescription(side.description))
 				}
 			}
-			if (fc == fx) != r.SameFile {
-				t.Fatalf("files identical = %v, want %v", fc == fx, r.SameFile)
+			if (fc == fx) != *r.SameFile {
+				t.Fatalf("files identical = %v, want %v", fc == fx, *r.SameFile)
 			}
 			hc, hx := Hash(id, source, cl.Name, cl.Description, body), Hash(id, source, cx.Name, cx.Description, body)
-			if (hc == hx) != r.SameFile {
-				t.Fatalf("hashes identical = %v, want %v", hc == hx, r.SameFile)
+			if (hc == hx) != *r.SameFile {
+				t.Fatalf("hashes identical = %v, want %v", hc == hx, *r.SameFile)
 			}
 		})
 	}
