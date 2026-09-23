@@ -388,10 +388,39 @@ Two corrections to the thread, measured on this machine:
 ## 3. Command surface
 
 ```
-hadron skill export  (-m <memory>... | --all | --node <ref>...) [--host <host>] [--to user|project|plugin|<dir>] [--prune] [--dry-run] [--json]
+hadron skill export  (-m <memory>... | --all | --node <ref>...) [--scope <name>] [--prune] [--dry-run] [--json]
 hadron skill status  (-m <memory>... | --all)                   [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json]
 hadron skill lint    (-m <memory>... | --all | --node <ref>...)                       [--strict] [--json]
 ```
+
+> **SUPERSEDED FOR `export` 2026-09-23 — this surface is now LAW, not plan.**
+> `export` lost `--to` and `--host` to [`cor:agt:030:02`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:02),
+> ruled by Holger (B8). The earlier line read
+> `export … [--host <host>] [--to user|project|plugin|<dir>]` and **each of those
+> flags is now something the spec's "what invalidates this" section names**:
+>
+> - **`--to` at all** — *"one destination per host … the export does not offer a
+>   choice among several."*
+> - **`--to project` / `--to plugin`** — *"adding a repo-level or project-level
+>   destination as a supported path"*, and *"making the export's destination depend
+>   on … being inside a checkout"*. Both resolve against `git rev-parse
+>   --show-toplevel` and exit 2 outside a worktree.
+> - **`--host` as a write selector** — *"every known host, every time. The export
+>   does not detect which hosts are installed, does not ask, and does not skip."*
+>   With Codex measured as a real second host (@Eli, cli#622), selecting one host
+>   would silently leave the other's location empty.
+>
+> So **export writes user-level, every known host, unconditionally.** `--scope`
+> replaces `--to` as the only narrowing knob, per the amended
+> [`cor:agt:030:03`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:03):
+> a scope narrows and never widens.
+>
+> **`status` keeps `--to`** — it writes nothing, so `:02` (a rule about where an
+> export *writes*) does not reach it, and the CI drift gate needs the directory
+> form. **Open, not decided here:** @Eli would retire `status --to project` so it
+> stops advertising a destination export no longer supports, and `--to plugin`
+> should follow whatever #653's producer settles on. Both are shipped behaviour;
+> changing them is a PR, not a doc edit.
 
 > **Updated by D12.** `--prefix` is gone with the prefix itself. **`--host` takes
 > the property key verbatim** — `claudeSkill`, not `claude` — because the host id
@@ -681,6 +710,25 @@ migration:
 
 ## 6. The plugin target (Bo's point 4)
 
+> **SUPERSEDED 2026-09-23 (B8).** The paragraph below describes `export --to
+> plugin` writing into the current checkout. [`cor:agt:030:02`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:02)
+> forbids exactly that — a repo-level destination, and a destination that depends
+> on being inside a checkout. **The plugin is now its OWN producer (cli#653),
+> writing to an explicit output directory with no git anchor**, and building
+> hadron-cli's committed bundle is one invocation of it (`--out plugins/hadron-cli`).
+> That also removes the toplevel dependency that made the producer unusable for
+> the audience it exists for — a Cowork user with no checkout.
+>
+> Two different artifacts were both called "the plugin" and that is what went
+> wrong: **hadron-cli's committed bundle** (a maintainer build, in this repo) and
+> **the end-user bundle** `cor:agt:030:03` governs. One command served both, so a
+> rule fitting either fitted the other badly — the same wrong-noun error D9 made
+> with the visibility filter.
+>
+> What survives below: the `use-hadron-cli` carve-out, the `plugin.json` version
+> rule, the no-local-re-export-in-CI argument, and the drift gate's selection
+> requirement. What does not: the destination.
+
 `--to plugin` writes to `plugins/hadron-cli/skills/` in the current checkout,
 carries **every accessible task node** with no visibility filter (D9, ruled
 2026-09-22 — curation is a later feature and will key on a named scope), and
@@ -759,6 +807,28 @@ set changes (existing rule).
 4. **`skill status`** — the walk, the pairing, the report, `--strict`.
 5. **`skill export`** — the writer, `--dry-run`, atomic writes, rename pass,
    `--prune`, `--force` for `locally-edited`.
+
+   **Build against the SPECS, not this list** (minted 2026-09-23, so they outrank
+   the plan): [`cor:agt:030:06`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:06)
+   is the one to hold in mind — a not-enabled declaration means export **removes
+   the file it previously wrote**, and that composes three ways:
+
+   | state of the file | action |
+   | --- | --- |
+   | ordinary generated file | **remove**, and report it |
+   | hand-edited (`:01`) | **refuse** to remove, report the refusal |
+   | over its host's limit (`:05`) | **leave in place** — skipping never deletes |
+
+   Every removal is reported. `enable` defaults to OFF, `isRunnable` is never a
+   declaration, and **an export never writes a declaration** — authoring is a
+   human act, so the writer is strictly one-way.
+
+   Two hazards @Eli measured for this slice (cli#622):
+   - **`lstat` every skill directory and refuse to write through a symlink.**
+     `~/.agents/skills/<name>` can be a link into `~/.claude/skills`, so writing
+     the Codex file through it overwrites the Claude one — reproduced.
+   - **Fail loud on a server host with no CLI row**, so "write every known host"
+     cannot silently skip one.
 6. **Plugin target + CI gate + docs:** `--to plugin`, the `skill-drift`
    workflow, `agentic-usage.md` surface line (`agentic_completeness_test.go`
    fails without it), README, the `doc-map` surfaces, this plan updated to
