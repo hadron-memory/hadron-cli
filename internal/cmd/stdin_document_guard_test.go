@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -185,5 +187,89 @@ func TestDataKeyStdinIsNotGuardedByTheDocumentRule(t *testing.T) {
 	}
 	if msg := errOut.String(); strings.Contains(msg, "interactive terminal") {
 		t.Errorf("a SECRET read from a terminal must not hit the document guard:\n%s", msg)
+	}
+}
+
+// #648 — `hadron api -` reads a GraphQL DOCUMENT, so it takes the same
+// terminal refusal as `--content -`: before any request, exit 2, naming the
+// --input remedy as a phrase.
+func TestAPIStdinRefusesATerminal(t *testing.T) {
+	requests := 0
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	t.Cleanup(gql.Close)
+	f, _, errOut := testFactoryTTY(t, "query { me { id } }\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"api", "-", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("hadron api - from a terminal must be refused")
+	}
+	if got := renderError(f, err); got != exitcode.Usage {
+		t.Errorf("want exit %d (usage), got %d", exitcode.Usage, got)
+	}
+	if requests != 0 {
+		t.Errorf("a refusal on argument grounds must make no requests, got %d", requests)
+	}
+	msg := errOut.String()
+	for _, want := range []string{"--input <path>", "interactive terminal"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("the refusal must mention %q:\n%s", want, msg)
+		}
+	}
+	if strings.Contains(msg, "%!") {
+		t.Errorf("the refusal has a formatting fault:\n%s", msg)
+	}
+}
+
+// The documented form (`cat op.graphql | hadron api -`) must keep working,
+// and the document must reach the wire verbatim.
+func TestAPIStdinStillWorksWhenPiped(t *testing.T) {
+	const doc = "query {\n  me { id }\n}\n"
+	var sent string
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Query string `json:"query"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		sent = body.Query
+		_, _ = w.Write([]byte(`{"data":{"me":{"id":"u1"}}}`))
+	}))
+	t.Cleanup(gql.Close)
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader(doc)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"api", "-", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a piped hadron api - must still work: %v", err)
+	}
+	if sent != doc {
+		t.Errorf("piped document must reach the wire verbatim, got %q", sent)
+	}
+}
+
+// The remedy must not be blocked: --input reads a path, so it works from a
+// terminal — as does a query passed inline, which never touches stdin.
+func TestAPIInputAndInlineWorkFromATerminal(t *testing.T) {
+	path := t.TempDir() + "/op.graphql"
+	if err := os.WriteFile(path, []byte("query { me { id } }"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"api", "--input", path},
+		{"api", "query { me { id } }"},
+	} {
+		gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"data":{"me":{"id":"u1"}}}`))
+		}))
+		t.Cleanup(gql.Close)
+		f, _, _ := testFactoryTTY(t, "")
+		root := NewRootCmd(f)
+		root.SetArgs(append(args, "--server", gql.URL))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v must work from a terminal: %v", args, err)
+		}
 	}
 }

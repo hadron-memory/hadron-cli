@@ -57,9 +57,9 @@ func RefuseDocumentStdinFromTerminal(stdinIsTerminal bool, flag, fileFlag string
 	if stdinIsTerminal {
 		return exitcode.Newf(exitcode.Usage,
 			"%s is reading from an interactive terminal, where the line discipline can "+
-				"truncate or reorder large input BEFORE the CLI sees it — the write would "+
-				"succeed and store corrupted content. Use %s <path>, or pipe it in "+
-				"(cat file | hadron ...), which is not a terminal", flag, fileFlag)
+				"truncate or reorder large input BEFORE the CLI sees it — the command would "+
+				"run on whatever survived, and a write would store corrupted content. Use %s "+
+				"<path>, or pipe it in (cat file | hadron ...), which is not a terminal", flag, fileFlag)
 	}
 	return nil
 }

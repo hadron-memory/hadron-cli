@@ -1926,6 +1926,10 @@ cat op.graphql | hadron api -
 `-F key=value` sets variables (values that parse as JSON are sent as
 JSON, otherwise as strings). The verbatim GraphQL response envelope
 is printed to stdout; GraphQL errors are reflected in the exit code.
+`hadron api -` is for a PIPE: like `--content -`, it is **refused (exit 2)
+when stdin is an interactive terminal** (#648), whose line discipline can
+truncate a large document before the CLI reads it. Through a PTY, use
+`--input <path>`.
 
 ## App context (optional)
 
