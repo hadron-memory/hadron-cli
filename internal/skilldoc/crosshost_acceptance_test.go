@@ -71,7 +71,7 @@ type xhMatrix struct {
 			URN        string         `json:"urn"`
 			Properties map[string]any `json:"properties"`
 		} `json:"nodes"`
-		Expect map[string][]string `json:"expect"`
+		Expect map[string][]xhCollision `json:"expect"`
 	} `json:"collisions"`
 	Rendering []struct {
 		ID        string   `json:"id"`
@@ -201,6 +201,14 @@ func TestCrossHostLintClaudeColumn(t *testing.T) {
 
 var collisionName = regexp.MustCompile(`stores skill name "([^"]*)"`)
 
+type xhCollision struct {
+	Name    string   `json:"name"`
+	Members []string `json:"members"`
+}
+
+// Every member of a colliding group must be told, at error severity, exactly
+// once. Reducing findings to the set of names would pass a host that flagged
+// only one member, or flagged it as a warning (@codex on #664).
 func TestCrossHostCollisionsClaudeColumn(t *testing.T) {
 	m := loadMatrix(t)
 	for _, c := range m.Collisions {
@@ -209,21 +217,22 @@ func TestCrossHostCollisionsClaudeColumn(t *testing.T) {
 			for _, n := range c.Nodes {
 				nodes = append(nodes, Node{URN: n.URN, Properties: n.Properties})
 			}
-			seen := map[string]bool{}
-			names := []string{}
+			byName := map[string][]string{}
 			for _, f := range LintCollisions(nodes) {
 				mm := collisionName.FindStringSubmatch(f.Message)
-				if f.Rule != "skill-name-collision" || mm == nil {
+				if f.Rule != "skill-name-collision" || f.Severity != SevError || mm == nil {
 					t.Fatalf("unexpected finding %+v", f)
 				}
-				if !seen[mm[1]] {
-					seen[mm[1]] = true
-					names = append(names, mm[1])
-				}
+				byName[mm[1]] = append(byName[mm[1]], f.URN)
 			}
-			sort.Strings(names)
-			if !reflect.DeepEqual(names, c.Expect[HostClaudeSkill]) {
-				t.Fatalf("colliding names = %v, want %v", names, c.Expect[HostClaudeSkill])
+			got := []xhCollision{}
+			for name, urns := range byName {
+				sort.Strings(urns)
+				got = append(got, xhCollision{Name: name, Members: urns})
+			}
+			sort.Slice(got, func(i, j int) bool { return got[i].Name < got[j].Name })
+			if !reflect.DeepEqual(got, c.Expect[HostClaudeSkill]) {
+				t.Fatalf("collisions = %+v, want %+v", got, c.Expect[HostClaudeSkill])
 			}
 		})
 	}

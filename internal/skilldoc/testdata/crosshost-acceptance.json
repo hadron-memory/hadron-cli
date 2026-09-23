@@ -529,6 +529,7 @@
       "contracts": [
         "cor:agt:030:05"
       ],
+      "note": "Codex's 1,024 is MEASURED, not assumed: codex-cli 0.153.0 cuts the catalog description at 1,024 (hrn:node:hadronmemory.com:hadron-cli:reference:codex-skill-host), and server PR #1280's host registry carries it. Re-verify on a Codex upgrade.",
       "properties": {
         "exports": {
           "claudeSkill": {
@@ -581,6 +582,7 @@
       "contracts": [
         "cor:agt:030:06"
       ],
+      "note": "Codex's 64-character name cap is measured on codex-cli 0.153.0 (hrn:node:hadronmemory.com:hadron-cli:reference:codex-skill-host).",
       "properties": {
         "exports": {
           "claudeSkill": {
@@ -726,7 +728,13 @@
       ],
       "expect": {
         "claudeSkill": [
-          "hadron-x"
+          {
+            "name": "hadron-x",
+            "members": [
+              "hrn:node:example.com:demo:tasks:a",
+              "hrn:node:example.com:demo:tasks:b"
+            ]
+          }
         ],
         "codexSkill": []
       }
@@ -776,7 +784,13 @@
       "expect": {
         "claudeSkill": [],
         "codexSkill": [
-          "hadron-x"
+          {
+            "name": "hadron-x",
+            "members": [
+              "hrn:node:example.com:demo:tasks:a",
+              "hrn:node:example.com:demo:tasks:b"
+            ]
+          }
         ]
       }
     },
@@ -850,7 +864,13 @@
       "expect": {
         "claudeSkill": [],
         "codexSkill": [
-          "hadron-x"
+          {
+            "name": "hadron-x",
+            "members": [
+              "hrn:node:example.com:demo:tasks:a",
+              "hrn:node:example.com:demo:tasks:b"
+            ]
+          }
         ]
       }
     }
