@@ -1381,7 +1381,7 @@
         "cor:agt:030:02"
       ],
       "given": "export over D01, on a machine with no Codex installed",
-      "expect": "writes ~/.claude/skills/hadron-demo/SKILL.md AND ~/.agents/skills/hadron-demo/SKILL.md (not the deprecated ~/.codex/skills); no detection, no prompt — INCLUDING when ~/.agents/skills, or ~/.agents itself, does not exist yet: the destination is created, and the symlink guard (P17/P18) resolves the nearest EXISTING ancestor and appends the missing suffix, since resolving a path that does not exist fails (cor:agt:030:02: a location whose host is absent is written anyway)"
+      "expect": "writes ~/.claude/skills/hadron-demo/SKILL.md AND ~/.agents/skills/hadron-demo/SKILL.md (not the deprecated ~/.codex/skills); no detection, no prompt — including when ~/.agents/skills, or ~/.agents itself, does not exist yet (cor:agt:030:02: a location whose host is absent is written anyway)"
     },
     {
       "id": "P04",
@@ -1509,7 +1509,7 @@
         "cor:agt:030:02"
       ],
       "given": "~/.agents/skills is ITSELF a symlink to ~/.claude/skills (the root, not one skill directory); export over D01",
-      "expect": "every Codex item FAILS and is named in the report: writing through the link would write Codex's declaration into CLAUDE's destination, so the two hosts would no longer have a destination each (cor:agt:030:02), and an item that cannot be written safely fails without stopping the rest (cor:agt:030:00). Every Claude item is written unchanged. Measured 2026-09-23: `skill status`'s walk reads straight through such a root."
+      "expect": "every Codex item FAILS and is named in the report; every Claude item is written unchanged. Writing through the link would put Codex's declaration in Claude's destination (cor:agt:030:02: a destination per host), and an item that cannot be written safely fails without stopping the rest (cor:agt:030:00)."
     },
     {
       "id": "P18",
@@ -1520,7 +1520,7 @@
         "cor:agt:030:02"
       ],
       "given": "an ANCESTOR of the Codex root is a symlink (~/.agents -> ~/.claude), so ~/.agents/skills resolves into Claude's root; export over D01",
-      "expect": "same as P17: Codex items fail and are reported, Claude items written unchanged; the two hosts' roots are compared RESOLVED, not as written"
+      "expect": "same outcome as P17: every Codex item fails and is named in the report; every Claude item is written unchanged"
     },
     {
       "id": "P20",
@@ -1530,7 +1530,7 @@
         "cor:agt:030:02"
       ],
       "given": "the codexSkill host only: a Hadron-generated SKILL.md for D01's node sits in the DEPRECATED ~/.codex/skills, which Codex 0.153 still reads",
-      "expect": "for codexSkill the export WRITES only ~/.agents/skills, never ~/.codex/skills (cor:agt:030:02: one destination per host). Measured 2026-09-23 on the reference machine: 0 Hadron-generated files in ~/.codex/skills. (Reporting that copy, and whether an export may remove or migrate it, are plan-only: Q4 and Q7 in the plan's audit.)"
+      "expect": "for codexSkill the export WRITES only ~/.agents/skills, never ~/.codex/skills (cor:agt:030:02: one destination per host). (Reporting that copy, and whether an export may remove or migrate it, are plan-only: Q4 and Q7.)"
     },
     {
       "id": "P21",
