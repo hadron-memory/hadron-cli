@@ -29,8 +29,8 @@ type fakeAS struct {
 	seenResource       string
 	// scopesSupported is advertised in discovery; nil omits the key.
 	scopesSupported []string
-	// tokenScope is the `scope` echoed by the token response; nil omits it.
-	tokenScope *string
+	// tokenScope is the raw JSON `scope` of the token response; nil omits it.
+	tokenScope json.RawMessage
 }
 
 func newFakeAS(t *testing.T) *fakeAS {
@@ -39,7 +39,7 @@ func newFakeAS(t *testing.T) *fakeAS {
 		clientID:        "client-123",
 		authCode:        "code-456",
 		scopesSupported: []string{"mcp", "account"},
-		tokenScope:      ptr("account"),
+		tokenScope:      json.RawMessage(`"account"`),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
@@ -86,12 +86,12 @@ func newFakeAS(t *testing.T) *fakeAS {
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_grant"})
 			return
 		}
-		resp := map[string]string{
+		resp := map[string]any{
 			"access_token": "hdr_user_" + strings.Repeat("a", 64),
 			"token_type":   "Bearer",
 		}
 		if as.tokenScope != nil {
-			resp["scope"] = *as.tokenScope
+			resp["scope"] = as.tokenScope
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	})
@@ -286,8 +286,6 @@ func consentingBrowser(as *fakeAS) func(string) error {
 	}
 }
 
-func ptr[T any](v T) *T { return &v }
-
 // #658: the CLI needs `account`; a server whose discovery lists its scopes
 // without it is refused before registration or any browser is opened. A
 // present empty list is a server offering nothing, not an absent one.
@@ -393,15 +391,17 @@ func TestBrowserLoginInvalidScope(t *testing.T) {
 func TestBrowserLoginGrantedScope(t *testing.T) {
 	tests := []struct {
 		name    string
-		granted *string // nil omits the field
+		granted json.RawMessage // raw JSON; nil omits the field
 		wantErr bool
 	}{
-		{name: "account", granted: ptr("account")},
-		{name: "account among several", granted: ptr("mcp account")},
+		{name: "account", granted: json.RawMessage(`"account"`)},
+		{name: "account among several", granted: json.RawMessage(`"mcp account"`)},
 		{name: "omitted means as requested (RFC 6749 5.1)", granted: nil},
-		{name: "explicitly empty is an empty grant", granted: ptr(""), wantErr: true},
-		{name: "mcp alone is refused", granted: ptr("mcp"), wantErr: true},
-		{name: "substring is not a match", granted: ptr("accounts"), wantErr: true},
+		{name: "explicitly empty is an empty grant", granted: json.RawMessage(`""`), wantErr: true},
+		{name: "null is present, not omitted", granted: json.RawMessage(`null`), wantErr: true},
+		{name: "a non-string is not a grant", granted: json.RawMessage(`["account"]`), wantErr: true},
+		{name: "mcp alone is refused", granted: json.RawMessage(`"mcp"`), wantErr: true},
+		{name: "substring is not a match", granted: json.RawMessage(`"accounts"`), wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

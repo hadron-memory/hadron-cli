@@ -166,22 +166,36 @@ func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, c
 	var out struct {
 		AccessToken string `json:"access_token"`
 		TokenType   string `json:"token_type"`
-		// A pointer, because an explicit "" is an empty grant while an
-		// omitted scope means "as requested" (RFC 6749 §5.1).
-		Scope *string `json:"scope"`
+		// Raw, because presence is the whole question: an omitted scope
+		// means "as requested" (RFC 6749 §5.1), while a present "" or null
+		// is not a grant of `account`. A *string would decode null as nil,
+		// indistinguishable from omitted.
+		Scope json.RawMessage `json:"scope"`
 	}
 	if err := json.Unmarshal(body, &out); err != nil || out.AccessToken == "" {
 		return nil, exitcode.Newf(exitcode.Error, "token response missing access_token")
 	}
 	// RFC 6749 §5.1: an omitted scope means the grant equals the request.
-	// A present one that lacks `account` — the empty string included — is a
-	// key the data API refuses, so it is not handed back to be stored.
-	if out.Scope != nil && !slices.Contains(strings.Fields(*out.Scope), accountScope) {
+	// A present one that is not a string naming `account` — "", null, or a
+	// non-string included — is not a key the data API accepts, so it is not
+	// handed back to be stored.
+	if out.Scope != nil && !grantsAccount(out.Scope) {
 		return nil, exitcode.Newf(exitcode.Error,
-			"the server granted OAuth scope %q, not %q — refusing to store a key the CLI cannot use (the issued key was not stored; revoke it on the portal's API keys page); %s",
-			*out.Scope, accountScope, withTokenHint)
+			"the server granted OAuth scope %s, not %q — refusing to store a key the CLI cannot use (the issued key was not stored; revoke it on the portal's API keys page); %s",
+			out.Scope, accountScope, withTokenHint)
 	}
 	return &Token{AccessToken: out.AccessToken}, nil
+}
+
+// grantsAccount reports whether a PRESENT token-response scope is a JSON
+// string whose space-delimited values include `account`. JSON null decodes
+// into a string without error, so it is rejected explicitly.
+func grantsAccount(raw json.RawMessage) bool {
+	var granted string
+	if string(raw) == "null" || json.Unmarshal(raw, &granted) != nil {
+		return false
+	}
+	return slices.Contains(strings.Fields(granted), accountScope)
 }
 
 // requireAccountScope refuses a server whose discovery metadata lists its
