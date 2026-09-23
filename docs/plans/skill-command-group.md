@@ -857,6 +857,7 @@ migration:
 | `skill-legacy-key` — declared under a **retired top-level key** (`skill` OR `claudeSkill` — both are legacy relative to `exports.<host>` since D12), or a retired key left beside `exports`. @copilot on #627: a node using only `properties.skill` was previously treated as current, which it is not | warning |
 | `skill-description-no-trigger` — no "use when" phrasing | warning |
 | `skill-content-has-template` — a `{{…}}` placeholder; export is verbatim | warning |
+| `skill-unknown-host-key` — a key under `exports` names no host (the portal#887 `codex` shape). Reported ONCE per key, attributed to the node and to **no host** (`hosts: []`): it belongs to none, so a per-host row would claim the opposite. Never shape-checked, so even a malformed unknown key never blocks a known host beside it; never read as an alias (`cor:agt:030:06`, D-2026-09-23-E, #676) | warning |
 | `skill-node-unavailable` — listed but unreadable (not found, or not readable by you — the server's merged envelope, cor:api:040) | warning |
 
 ## 6. The plugin target (Bo's point 4)

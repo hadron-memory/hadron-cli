@@ -568,3 +568,30 @@ func TestSkillLintCollisionsArePerHost(t *testing.T) {
 		t.Fatalf("skill-name-collision rows = %v, want %v\n%s", got, want, out)
 	}
 }
+
+// #676 (cor:agt:030:06, D-2026-09-23-E): an exports key no host owns is ONE
+// row with NO host — not a row per host, and not one row claiming both — and
+// a MALFORMED unknown key never blocks the valid Claude declaration beside it
+// (matrix L07 / D16, as the command renders it). Warnings alone exit 0.
+func TestSkillLintReportsAnUnknownHostKeyOnceWithNoHost(t *testing.T) {
+	n := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
+		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a.","enable":true},"codex":"yes"}}`, `"# A"`)
+	out, err := runSkillLint(t, map[string]string{
+		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
+	if err != nil {
+		t.Fatalf("a warning alone must not fail the run: %v\n%s", err, out)
+	}
+	rows := lintRows(t, out)
+	if got, want := rowsFor(rows, "skill-unknown-host-key"), []string{"hrn:node:hadronmemory.com:core:tasks:a "}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unknown-host-key rows = %q, want %q (one row, no host)\n%s", got, want, out)
+	}
+	for _, r := range rows {
+		if r.Rule == "skill-unknown-host-key" && (r.Severity != "warning" || r.Hosts == nil) {
+			t.Errorf("want a warning with hosts [] (never null), got %+v", r)
+		}
+		if r.Severity == "error" {
+			t.Errorf("a malformed UNKNOWN key must not error any host: %+v", r)
+		}
+	}
+}
