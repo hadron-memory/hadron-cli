@@ -188,11 +188,11 @@ func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, c
 }
 
 // grantsAccount reports whether a PRESENT token-response scope is a JSON
-// string whose space-delimited values include `account`. JSON null decodes
-// into a string without error, so it is rejected explicitly.
+// string whose space-delimited values include `account`. A non-string fails
+// to decode; null decodes as "", which names nothing — both are refused.
 func grantsAccount(raw json.RawMessage) bool {
 	var granted string
-	if string(raw) == "null" || json.Unmarshal(raw, &granted) != nil {
+	if json.Unmarshal(raw, &granted) != nil {
 		return false
 	}
 	return slices.Contains(strings.Fields(granted), accountScope)
