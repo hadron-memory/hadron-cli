@@ -30,13 +30,15 @@ what you need.
 Variables are passed with repeated -F key=value flags. Values are
 sent as JSON when they parse as JSON, otherwise as strings. Pass "-"
 as the query to read the document from standard input, or use
---input <file>.`,
+--input <file>. "-" is refused when stdin is an interactive terminal,
+whose line discipline can silently truncate a large document: pipe it
+in, or use --input.`,
 		Example: `  hadron api 'query { me { id email } }'
   hadron api 'query($ref: ID!) { memory(ref: $ref) { urn name } }' -F ref=mem_123
   cat op.graphql | hadron api -`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			query, err := readQuery(args, inputFile, f.IOStreams.In)
+			query, err := readQuery(args, inputFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
 			if err != nil {
 				return err
 			}
@@ -79,7 +81,12 @@ as the query to read the document from standard input, or use
 	return cmd
 }
 
-func readQuery(args []string, inputFile string, stdin io.Reader) (string, error) {
+// readQuery resolves the GraphQL document. A query is a DOCUMENT (#648):
+// multiline, and easily over a terminal's 4 KB line-discipline buffer. A
+// truncated one usually fails to parse, but "usually" is not a guard, so "-"
+// goes through cmdutil.ReadDocumentStdin, which refuses an interactive
+// terminal rather than send whatever survived the line discipline.
+func readQuery(args []string, inputFile string, stdin io.Reader, stdinIsTerminal bool) (string, error) {
 	if inputFile != "" {
 		data, err := os.ReadFile(inputFile)
 		if err != nil {
@@ -91,11 +98,7 @@ func readQuery(args []string, inputFile string, stdin io.Reader) (string, error)
 		return "", exitcode.Newf(exitcode.Usage, "provide a GraphQL document, \"-\" for stdin, or --input <file>")
 	}
 	if args[0] == "-" {
-		data, err := io.ReadAll(stdin)
-		if err != nil {
-			return "", err
-		}
-		return string(data), nil
+		return cmdutil.ReadDocumentStdin(stdin, stdinIsTerminal, `"hadron api -"`, "--input")
 	}
 	return args[0], nil
 }
