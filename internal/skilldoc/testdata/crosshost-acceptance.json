@@ -1075,8 +1075,8 @@
       "contracts": [
         "cor:agt:030:01"
       ],
-      "given": "a Codex-root file with a legacy `Generated from` header (no id=), paired to D01's node",
-      "expect": "skipped and reported, not rewritten (Holger, team chat #1130); --force rewrites it"
+      "given": "a file with a legacy `Generated from` header (no id=) in EITHER host's root, paired to D01's node. The rule is not host-specific",
+      "expect": "skipped and reported, not rewritten (Holger, team chat #1130, superseding the plan's older upgrade-on-export); --force rewrites it"
     },
     {
       "id": "P09",
