@@ -532,7 +532,10 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 > **SUPERSEDED BY D12 (2026-09-19).** The selector is now
 > **`properties.exports.<host>` with `enable: true`** — an object keyed by host,
 > carrying `{name, description, enable}`. The discovery predicate becomes
-> `path: ["exports","<host>"], exists`, and `enable: false` is a DECLARED but
+> `path: ["exports"], exists` — the CONTAINER, not a host inside it, so a node
+> declaring only a not-yet-rendered host is still selected and reportable
+> (corrected 2026-09-23, @codex on #661; §2 carries the same rule and the same
+> correction). `enable: false` is a DECLARED but
 > disabled node (§4.5 `disabled`), not an undeclared one. The paragraph below
 > describes the retired shape; the pagination, batch-read and `unavailable`
 > mechanics under it are unaffected.
