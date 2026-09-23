@@ -763,7 +763,7 @@ never lists, moves or removes a file it did not generate.
 | `never-exported` | declared in corpus, no file | ✓ | write |
 | `orphaned` | file's URN resolves to no declared node (deleted, un-declared, or unreadable) | ✓ | leave; remove only with `--prune` |
 | `unhashed` | pre-#580 header (URN only), or any header with no `id=` | ✓ | **skip and report** — `--force` to overwrite (ruled 2026-09-23) |
-| `collision` | two declared nodes derive one name under one prefix | ✓ | **refuse the pair**, export the rest |
+| `collision` | two **enabled** declarations for one host store one name (`cor:agt:030:06`: per host, across orgs; a declaration that is not enabled claims no name) | ✓ | **refuse the pair**, export the rest |
 | `unavailable` | listed but unreadable (`nodeBatch.unavailable`) | ✓ | skip, report |
 | `disabled` | declared but not enabled — `enable` absent or `false` (D12; it defaults to OFF) | ✓ | **file present:** remove it, no `--prune` needed. **file absent:** nothing to do. **file `locally-edited`:** REFUSE unless `--force` — see below |
 
@@ -853,7 +853,7 @@ migration:
 | `skill-not-runnable` | error |
 | `skill-content-empty` / `skill-content-has-frontmatter` (a COMPLETE `---…---` block; a leading horizontal rule is a body) | error |
 | ~~`skill-prefix-missing`~~ — **RETIRED by D12** (no org prefix exists to be missing) | — |
-| `skill-name-collision` — two selected nodes **store** one name. D12: this now fires ACROSS orgs, because no prefix keeps two orgs' identically-named tasks apart — the cost D12 accepts. A declaration with no stored name is excluded (`skill-name-missing` is its finding; pairing two nameless nodes as colliding on `""` would report one defect twice) | error |
+| `skill-name-collision` — two selected nodes **enable** one name **for one host**. Only ENABLED declarations claim a name (`cor:agt:030:06`, D-2026-09-23-C, #676): a declaration with `enable: false` or no `enable` (off by default) is excluded. D12: this fires ACROSS orgs, because no prefix keeps two orgs' identically-named tasks apart — the cost D12 accepts. A declaration with no stored name is excluded (`skill-name-missing` is its finding; pairing two nameless nodes as colliding on `""` would report one defect twice) | error |
 | `skill-legacy-key` — declared under a **retired top-level key** (`skill` OR `claudeSkill` — both are legacy relative to `exports.<host>` since D12), or a retired key left beside `exports`. @copilot on #627: a node using only `properties.skill` was previously treated as current, which it is not | warning |
 | `skill-description-no-trigger` — no "use when" phrasing | warning |
 | `skill-content-has-template` — a `{{…}}` placeholder; export is verbatim | warning |
@@ -1107,6 +1107,9 @@ being answered in a doc-alignment PR:
   a name in DIFFERENT hosts do not collide on disk, and grouping the check by
   host is what matches the destinations. D12 deliberately widened collisions
   across orgs; whether it also meant across hosts was never asked.
+  **Decided since (D-2026-09-23-C, `cor:agt:030:06`): per host, across orgs,
+  and ENABLED declarations only. Built in #665 (per host) and #676 (enabled
+  only).**
 
 @Vera both look like `cor:agt:030` material rather than plan material, since
 MCP and the portal need the same answers. Raised, not decided.
