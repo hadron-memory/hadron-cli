@@ -61,7 +61,9 @@ on first post if it does not exist yet.
 
 The body comes from --body <text> (inline), --body - (stdin), or --body-file
 <path> (a file — handy for a composed, multi-line message that would be painful
-to quote inline). Exactly one is required.
+to quote inline). Exactly one is required. --body - is for a PIPE: it is
+refused when stdin is an interactive terminal, which can truncate a long
+message before the CLI sees it; use --body-file there.
 
 AUTHORSHIP COMES FROM THE SESSION. --session <id> posts as the Worker bound to
 that session; with no --session the server records you, the human. --handle,
@@ -87,7 +89,7 @@ one read).`,
 			// accepted no-op so a configured agent does not start failing.
 			h := firstNonEmpty(handle, os.Getenv("HADRON_CHAT_HANDLE"), pc.Handle)
 			warnDeprecatedIdentityFlags(f, cmd, h, firstNonEmpty(identity, pc.Identity), firstNonEmpty(role, pc.Role))
-			text, err := ResolveBody(cmd, body, bodyFile, f.IOStreams.In)
+			text, err := ResolveBody(cmd, body, bodyFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
 			if err != nil {
 				return err
 			}
@@ -140,7 +142,10 @@ one read).`,
 // ResolveBody returns the message text from exactly one source: --body-file (a
 // file), --body - (stdin), or --body <text> (inline). The mutually-exclusive /
 // one-required flag group is enforced by cobra; this reads whichever was set.
-func ResolveBody(cmd *cobra.Command, body, bodyFile string, stdin io.Reader) (string, error) {
+//
+// A message body is a DOCUMENT (#648): "-" from an interactive terminal is
+// refused, since the line discipline can truncate it before it is read.
+func ResolveBody(cmd *cobra.Command, body, bodyFile string, stdin io.Reader, stdinIsTerminal bool) (string, error) {
 	var text string
 	switch {
 	case cmd.Flags().Changed("body-file"):
@@ -154,6 +159,9 @@ func ResolveBody(cmd *cobra.Command, body, bodyFile string, stdin io.Reader) (st
 		}
 		text = string(data)
 	case body == "-":
+		if err := RefuseBodyStdinFromTerminal(stdinIsTerminal); err != nil {
+			return "", err
+		}
 		data, err := io.ReadAll(stdin)
 		if err != nil {
 			return "", exitcode.Newf(exitcode.Usage, "reading the message from stdin: %v", err)
@@ -166,6 +174,13 @@ func ResolveBody(cmd *cobra.Command, body, bodyFile string, stdin io.Reader) (st
 		return "", exitcode.Newf(exitcode.Usage, "empty message — nothing to post")
 	}
 	return text, nil
+}
+
+// RefuseBodyStdinFromTerminal is ResolveBody's terminal refusal on its own, so
+// a caller that does network work before reading the body can fail first.
+// The label fits both spellings of the source, `--body -` and a positional -.
+func RefuseBodyStdinFromTerminal(stdinIsTerminal bool) error {
+	return cmdutil.RefuseDocumentStdinFromTerminal(stdinIsTerminal, `"-" (the message body)`, "--body-file")
 }
 
 // PostInput is one message for PostMessage.

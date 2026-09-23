@@ -21,7 +21,7 @@ func (errReader) Read([]byte) (int, error) { return 0, errors.New("stdin blew up
 // this covers the sibling stdin branch, which a real command can't easily
 // drive (its stdin is a buffer).
 func TestResolveBodyStdinReadErrorIsUsage(t *testing.T) {
-	_, err := ResolveBody(&cobra.Command{}, "-", "", errReader{})
+	_, err := ResolveBody(&cobra.Command{}, "-", "", errReader{}, false)
 	if err == nil {
 		t.Fatal("a failed stdin read must be an error")
 	}

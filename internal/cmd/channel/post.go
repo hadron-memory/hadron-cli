@@ -3,7 +3,6 @@ package channel
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -24,7 +23,9 @@ func newCmdPost(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "post <id|address> <body|->",
 		Short: "Post a message into a Channel",
-		Long: `Post a message into a Channel. Pass - to read the body from stdin.
+		Long: `Post a message into a Channel. Pass - to read the body from stdin —
+piped or redirected (< note.md); it is refused when stdin is an interactive
+terminal, which can truncate a long message before the CLI sees it.
 
 AUTHORSHIP IS EXPLICIT. --session <id> posts as the Worker bound to that
 session; --as-me posts as you. One of the two is required, because the server
@@ -47,7 +48,16 @@ Refusing here is the only place that can be caught.`,
 
 			body := args[1]
 			if body == "-" {
-				b, err := io.ReadAll(os.Stdin)
+				// A message body is a DOCUMENT (#648): refused from an
+				// interactive terminal. There is no --body-file here, so
+				// the remedy is a redirect, which is not a terminal. Read
+				// through IOStreams, not os.Stdin, so the terminal check and
+				// tests see the same stream the read does.
+				if err := cmdutil.RefuseDocumentStdinFromTerminal(f.IOStreams.IsInputTerminal(),
+					`"hadron channel post <address> -"`, "hadron channel post <address> - <"); err != nil {
+					return err
+				}
+				b, err := io.ReadAll(f.IOStreams.In)
 				if err != nil {
 					return fmt.Errorf("reading body from stdin: %w", err)
 				}
