@@ -384,6 +384,16 @@ Two corrections to the thread, measured on this machine:
   tasks into a public repo, caught only by whoever reads the diff. Holger
   ruled to ship without a guard for now.
 
+  **That exposure was REMOVED a day later by B8, not by a guard** (@codex on
+  #661). `cor:agt:030:02` took `--to` off `export` entirely, so there is no
+  longer a command that writes a repo-level bundle: the producer is cli#653's,
+  it writes to an explicit output directory, and it is paused pending specs.
+  `status --to plugin` still exists and still compares against the committed
+  bundle — reading, never writing.
+
+  Kept rather than deleted because the RULING stands and its reasoning is the
+  record; what changed is that the risk it accepted no longer has a path.
+
   **The follow-up is a SCOPE**, not a restored filter (Holger): curation keys
   on a named scope — the platform already has scopes as named sets of memories
   — so a bundle declares what it carries rather than inferring it from
