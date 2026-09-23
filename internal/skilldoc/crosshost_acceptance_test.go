@@ -113,9 +113,11 @@ func loadMatrix(t *testing.T) *xhMatrix {
 	if m.Version != 1 {
 		t.Fatalf("matrix version %d; this loader reads version 1", m.Version)
 	}
+	// `pending` is exempt: it asserts nothing, and it is MEANT to empty as the
+	// writer and resolver land (Copilot on #664).
 	for section, n := range map[string]int{
 		"declarations": len(m.Declarations), "lint": len(m.Lint), "collisions": len(m.Collisions),
-		"rendering": len(m.Rendering), "pending": len(m.Pending),
+		"rendering": len(m.Rendering),
 	} {
 		if n == 0 {
 			t.Fatalf("matrix section %q is empty; a section that loads nothing asserts nothing", section)
@@ -269,7 +271,13 @@ var citation = regexp.MustCompile(`^cor:[a-z]{3}:\d{3}(:\d{2})*$`)
 func TestCrossHostMatrixIsTraceable(t *testing.T) {
 	m := loadMatrix(t)
 	ids := map[string]bool{}
+	// An id names its section (D, L, C, R, P + two digits), so a case filed
+	// under the wrong section, or pasted twice, is caught here.
+	var section string
 	check := func(id string, contracts []string) {
+		if !regexp.MustCompile(`^` + section + `\d{2}$`).MatchString(id) {
+			t.Errorf("case id %q does not match its section (%s + two digits)", id, section)
+		}
 		if ids[id] {
 			t.Errorf("duplicate case id %s", id)
 		}
@@ -283,6 +291,7 @@ func TestCrossHostMatrixIsTraceable(t *testing.T) {
 			}
 		}
 	}
+	section = "D"
 	for _, c := range m.Declarations {
 		check(c.ID, c.Contracts)
 		for _, h := range m.Hosts {
@@ -294,6 +303,7 @@ func TestCrossHostMatrixIsTraceable(t *testing.T) {
 			}
 		}
 	}
+	section = "L"
 	for _, c := range m.Lint {
 		check(c.ID, c.Contracts)
 		for _, h := range m.Hosts {
@@ -302,6 +312,7 @@ func TestCrossHostMatrixIsTraceable(t *testing.T) {
 			}
 		}
 	}
+	section = "C"
 	for _, c := range m.Collisions {
 		check(c.ID, c.Contracts)
 		for _, h := range m.Hosts {
@@ -310,9 +321,11 @@ func TestCrossHostMatrixIsTraceable(t *testing.T) {
 			}
 		}
 	}
+	section = "R"
 	for _, r := range m.Rendering {
 		check(r.ID, r.Contracts)
 	}
+	section = "P"
 	for _, p := range m.Pending {
 		check(p.ID, p.Contracts)
 		if p.PendingOn == "" || p.Given == "" || p.Expect == "" || p.Layer == "" {

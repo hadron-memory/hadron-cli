@@ -981,7 +981,7 @@
     {
       "id": "P11",
       "layer": "cli-lint",
-      "pendingOn": "unrouted (reported to the coordinator)",
+      "pendingOn": "unowned: docs/plans/skill-command-group.md says the all-host lint walk lands with the second renderer, and with one shared renderer nothing triggers it (routed to the coordinator)",
       "contracts": [
         "cor:agt:030:05"
       ],

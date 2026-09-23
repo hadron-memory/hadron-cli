@@ -119,7 +119,7 @@ Two corrections to the thread, measured on this machine:
   "properties": {
     "exports": {
       "claudeSkill": { "name": "hadron-add-copilot-reviewer", "description": "…", "enable": true },
-      "codex":       { "…": "…" }
+      "codexSkill":  { "…": "…" }
     }
   }
   ```
@@ -400,7 +400,7 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 > `claudeSkill` is the default and the only host with a specified renderer.
 >
 > **`lint` takes no `--host` and checks EVERY host entry**, tagging each finding
-> with the host it came from. A node declaring only `exports.codex` is therefore
+> with the host it came from. A node declaring only `exports.codexSkill` is therefore
 > linted for shape — a malformed entry is reported — but the Claude-specific caps
 > (64/1024) apply only to the `claudeSkill` entry, since they are that host's
 > limits. As shipped in #589 lint validates the `claudeSkill` entry only; the
