@@ -28,6 +28,11 @@ server's consent screen, using GitHub for identity. Pass --provider google
 to sign in with Google instead. The resulting token is stored in the OS
 keychain (or ~/.config/hadron/auth.json when no keychain is available).
 
+The browser flow requests the "account" OAuth scope, because the CLI uses
+the server's data API and a key limited to "mcp" is refused there. Against
+a server that does not issue "account" keys, login fails with exit 1 rather
+than storing a key the CLI cannot use; sign in with --with-token instead.
+
 For CI and scripting, pipe a personal access token to
 ` + "`hadron auth login --with-token`" + ` or set the HADRON_TOKEN
 environment variable (which skips storage entirely).`,
