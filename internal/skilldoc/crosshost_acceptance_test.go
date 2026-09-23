@@ -20,6 +20,7 @@ package skilldoc
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"reflect"
 	"regexp"
@@ -32,6 +33,9 @@ type xhDecl struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Enable      bool   `json:"enable"`
+	// EnableSet separates "switched off" from "never switched on" (D05): the
+	// two publish identically, and only this field shows the default at work.
+	EnableSet bool `json:"enableSet"`
 }
 
 type xhMatrix struct {
@@ -101,6 +105,14 @@ func loadMatrix(t *testing.T) *xhMatrix {
 	if err := dec.Decode(&m); err != nil {
 		t.Fatalf("decode matrix: %v", err)
 	}
+	// Decode reads ONE value; a second one, or trailing garbage, would be
+	// ignored while the matrix still passed (Copilot on #664).
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		t.Fatalf("matrix has content after its one JSON value: %v", err)
+	}
+	if m.Version != 1 {
+		t.Fatalf("matrix version %d; this loader reads version 1", m.Version)
+	}
 	for section, n := range map[string]int{
 		"declarations": len(m.Declarations), "lint": len(m.Lint), "collisions": len(m.Collisions),
 		"rendering": len(m.Rendering), "pending": len(m.Pending),
@@ -149,7 +161,7 @@ func TestCrossHostDeclarationsClaudeColumn(t *testing.T) {
 			case want != nil && !declared:
 				t.Fatalf("%s: want a Claude declaration at %s, got none", c.Title, want.Key)
 			case want != nil:
-				got := xhDecl{Key: d.Key, Name: d.Name, Description: d.Description, Enable: d.Enable}
+				got := xhDecl{Key: d.Key, Name: d.Name, Description: d.Description, Enable: d.Enable, EnableSet: d.EnableSet}
 				if got != *want {
 					t.Fatalf("%s:\n got %+v\nwant %+v", c.Title, got, *want)
 				}
@@ -175,7 +187,7 @@ func TestCrossHostLintClaudeColumn(t *testing.T) {
 			}
 			rules := []string{}
 			for _, f := range Lint(n) {
-				rules = append(rules, f.Rule)
+				rules = append(rules, f.Rule+":"+f.Severity)
 			}
 			sort.Strings(rules)
 			if !reflect.DeepEqual(rules, c.Expect[HostClaudeSkill]) {

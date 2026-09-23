@@ -48,13 +48,15 @@
           "key": "exports.claudeSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         },
         "codexSkill": {
           "key": "exports.codexSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         }
       },
       "malformed": {
@@ -88,7 +90,8 @@
           "key": "exports.claudeSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         },
         "codexSkill": null
       },
@@ -122,13 +125,15 @@
           "key": "exports.claudeSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         },
         "codexSkill": {
           "key": "exports.codexSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": false
+          "enable": false,
+          "enableSet": true
         }
       },
       "malformed": {
@@ -157,7 +162,8 @@
           "key": "exports.codexSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         }
       },
       "malformed": {
@@ -189,13 +195,15 @@
           "key": "exports.claudeSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         },
         "codexSkill": {
           "key": "exports.codexSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": false
+          "enable": false,
+          "enableSet": false
         }
       },
       "malformed": {
@@ -228,13 +236,15 @@
           "key": "exports.claudeSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         },
         "codexSkill": {
           "key": "exports.codexSkill",
           "name": "hadron-demo-codex",
           "description": "Use when demoing in Codex.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         }
       },
       "malformed": {
@@ -260,7 +270,8 @@
           "key": "skill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         },
         "codexSkill": null
       },
@@ -294,13 +305,15 @@
           "key": "claudeSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         },
         "codexSkill": {
           "key": "exports.codexSkill",
           "name": "hadron-demo-codex",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         }
       },
       "malformed": {
@@ -338,13 +351,15 @@
           "key": "exports.claudeSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         },
         "codexSkill": {
           "key": "exports.codexSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         }
       },
       "malformed": {
@@ -374,7 +389,8 @@
           "key": "exports.claudeSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         },
         "codexSkill": null
       },
@@ -409,7 +425,8 @@
           "key": "exports.codexSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         }
       },
       "malformed": {
@@ -444,13 +461,15 @@
           "key": "exports.claudeSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": true
+          "enable": true,
+          "enableSet": true
         },
         "codexSkill": {
           "key": "exports.codexSkill",
           "name": "hadron-demo",
           "description": "Use when demoing.",
-          "enable": false
+          "enable": false,
+          "enableSet": false
         }
       },
       "malformed": {
@@ -460,6 +479,46 @@
         "codexSkill": [
           "exports.codexSkill.enable"
         ]
+      }
+    },
+    {
+      "id": "D13",
+      "title": "Enable omitted on Claude: declared, and OFF by default (the Claude column's view of D05)",
+      "contracts": [
+        "cor:agt:030:06"
+      ],
+      "properties": {
+        "exports": {
+          "claudeSkill": {
+            "name": "hadron-demo",
+            "description": "Use when demoing."
+          },
+          "codexSkill": {
+            "name": "hadron-demo",
+            "description": "Use when demoing.",
+            "enable": false
+          }
+        }
+      },
+      "expect": {
+        "claudeSkill": {
+          "key": "exports.claudeSkill",
+          "name": "hadron-demo",
+          "description": "Use when demoing.",
+          "enable": false,
+          "enableSet": false
+        },
+        "codexSkill": {
+          "key": "exports.codexSkill",
+          "name": "hadron-demo",
+          "description": "Use when demoing.",
+          "enable": false,
+          "enableSet": true
+        }
+      },
+      "malformed": {
+        "claudeSkill": [],
+        "codexSkill": []
       }
     }
   ],
@@ -487,7 +546,7 @@
       "expect": {
         "claudeSkill": [],
         "codexSkill": [
-          "skill-description-too-long"
+          "skill-description-too-long:error"
         ]
       }
     },
@@ -539,7 +598,7 @@
       "expect": {
         "claudeSkill": [],
         "codexSkill": [
-          "skill-name-invalid"
+          "skill-name-invalid:error"
         ]
       }
     },
@@ -565,7 +624,7 @@
       },
       "expect": {
         "claudeSkill": [
-          "skill-legacy-key"
+          "skill-legacy-key:warning"
         ],
         "codexSkill": []
       }
