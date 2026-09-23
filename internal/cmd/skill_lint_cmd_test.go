@@ -89,10 +89,10 @@ func TestSkillLintReportsFindingsAndExitsConflict(t *testing.T) {
 	// Retired top-level key, not runnable, description over the cap, and a
 	// stored name that COLLIDES with the fork below.
 	bad := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:start-worker-session-desktop", "tasks:start-worker-session-desktop", false,
-		`{"claudeSkill":{"name":"hadron-start-worker","description":"Use when `+long+`"}}`, `"# Body"`)
+		`{"claudeSkill":{"name":"hadron-start-worker","description":"Use when `+long+`","enable":true}}`, `"# Body"`)
 	// D12: a collision is two nodes STORING one name — the locs need not match.
 	fork := skillNode("n2", "mem1", "hrn:node:hadronmemory.com:core:tasks:swd-copy", "tasks:swd-copy", true,
-		`{"exports":{"claudeSkill":{"name":"hadron-start-worker","description":"Use when x"}}}`, `"# Body"`)
+		`{"exports":{"claudeSkill":{"name":"hadron-start-worker","description":"Use when x","enable":true}}}`, `"# Body"`)
 	out, err := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1", "n2"), "NodeBatch": batchOf(bad, fork),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
@@ -557,9 +557,9 @@ func TestSkillLintCollisionsArePerHost(t *testing.T) {
 	// Two nodes share a Codex name and keep distinct Claude names: a Codex
 	// collision on both members, and none for Claude.
 	a := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
-		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."},"codexSkill":{"name":"hadron-x","description":"Use when x."}}}`, `"# A"`)
+		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."},"codexSkill":{"name":"hadron-x","description":"Use when x.","enable":true}}}`, `"# A"`)
 	b := skillNode("n2", "mem1", "hrn:node:hadronmemory.com:core:tasks:b", "tasks:b", true,
-		`{"exports":{"claudeSkill":{"name":"hadron-b","description":"Use when b."},"codexSkill":{"name":"hadron-x","description":"Use when x."}}}`, `"# B"`)
+		`{"exports":{"claudeSkill":{"name":"hadron-b","description":"Use when b."},"codexSkill":{"name":"hadron-x","description":"Use when x.","enable":true}}}`, `"# B"`)
 	out, _ := runSkillLint(t, map[string]string{
 		"GetMemory": skillMemOrg, "FindNodes": listOf("n1", "n2"), "NodeBatch": batchOf(a, b),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")

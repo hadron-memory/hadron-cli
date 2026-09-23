@@ -200,7 +200,8 @@ func TestLintCollisions(t *testing.T) {
 		return Node{
 			URN: urn, Loc: loc, MemoryURN: memURN, IsRunnable: true, Content: "body",
 			Properties: map[string]any{ExportsKey: map[string]any{
-				HostClaudeSkill: map[string]any{"name": name, "description": "Use when x"},
+				// enable: true — only enabled declarations collide (cor:agt:030:06).
+				HostClaudeSkill: map[string]any{"name": name, "description": "Use when x", "enable": true},
 			}},
 		}
 	}

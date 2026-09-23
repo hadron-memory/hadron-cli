@@ -536,13 +536,19 @@ func LintCollisions(nodes []Node) []Finding {
 // name is a directory under ONE host's root, so one node using one name for
 // both hosts is by design, and two nodes sharing a Codex name collide only
 // for Codex.
+//
+// Only ENABLED declarations collide (cor:agt:030:06, D-2026-09-23-C): a
+// declaration that is not enabled is not exported, so it claims no name —
+// and enable defaults to off, so one with no `enable` claims nothing either.
+// Its earlier file on disk is protected by the export's own rules, not here.
 func LintCollisionsFor(nodes []Node, h Host) []Finding {
 	byName := map[string][]Node{}
 	for _, n := range nodes {
 		decl, ok := DeclaredFor(n.Properties, h)
-		if !ok || strings.TrimSpace(decl.Name) == "" {
+		if !ok || !decl.Enable || strings.TrimSpace(decl.Name) == "" {
 			// A node with no stored name cannot collide with anything; its own
-			// finding is skill-name-missing, not this.
+			// finding is skill-name-missing, not this. A declaration that is
+			// not enabled claims no name at all.
 			continue
 		}
 		byName[decl.Name] = append(byName[decl.Name], n)
