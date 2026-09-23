@@ -414,7 +414,7 @@ Two corrections to the thread, measured on this machine:
 ## 3. Command surface
 
 ```
-hadron skill export  (-m <memory>... | --all | --node <ref>...) [--scope <name>] [--prune] [--dry-run] [--json]
+hadron skill export  ((-m <memory>... | --all) [--scope <name>] | --node <ref>...) [--prune] [--dry-run] [--json]
 hadron skill status  (-m <memory>... | --all) [--scope <name>]   [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json]
 hadron skill lint    (-m <memory>... | --all | --node <ref>...)                       [--strict] [--json]
 ```
