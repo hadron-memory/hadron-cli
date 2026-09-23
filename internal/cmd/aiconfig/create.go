@@ -47,7 +47,9 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 The API key is a secret. To keep it out of argv and shell history you can:
   - pass it on stdin with --api-key - ; or
   - put the whole config, key included, in a JSON file and pass --file <path>
-    (--file - reads the JSON from stdin).
+    (--file - reads the JSON from a pipe; it is refused from an interactive
+    terminal, which can truncate it — to type the key at a terminal, use
+    --api-key - instead).
 
 --file seeds every field; an explicit flag overrides the file's value. The file
 keys mirror the flags: app, agent, org, name, provider, model, apiKey, params
