@@ -30,11 +30,12 @@ func noMatchReplaceResp(scanned int) string {
 
 func TestSpecReplaceReportsTheGovernedSpecsItCouldNotSearch(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		args []string
+		name       string
+		args       []string
+		wantPrefix string // the locPrefix the enumeration must send; "" = none
 	}{
-		{"whole memory", nil},
-		{"with --prefix", []string{"--prefix", "cor:sec"}},
+		{"whole memory", nil, ""},
+		{"with --prefix", []string{"--prefix", "cor:sec"}, "cor:sec"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
@@ -57,6 +58,22 @@ func TestSpecReplaceReportsTheGovernedSpecsItCouldNotSearch(t *testing.T) {
 			_ = json.Unmarshal(captured["SearchReplaceInNodes"], &vars)
 			if len(vars.Input.NodeIds) != 3 {
 				t.Errorf("all 3 in-scope specs must be sent, got %v", vars.Input.NodeIds)
+			}
+			// The fake answers the same corpus either way, so the prefix is
+			// proven on the QUERY: it must narrow the enumeration on the wire
+			// (PR #677 review, Copilot).
+			var find struct {
+				Filter struct {
+					LocPrefix *string `json:"locPrefix"`
+				} `json:"filter"`
+			}
+			_ = json.Unmarshal(captured["FindNodes"], &find)
+			sentPrefix := ""
+			if find.Filter.LocPrefix != nil {
+				sentPrefix = *find.Filter.LocPrefix
+			}
+			if sentPrefix != tc.wantPrefix {
+				t.Errorf("enumeration locPrefix = %q, want %q", sentPrefix, tc.wantPrefix)
 			}
 			var got map[string]any
 			if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
