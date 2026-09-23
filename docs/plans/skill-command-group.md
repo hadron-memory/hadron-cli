@@ -135,7 +135,10 @@ Two corrections to the thread, measured on this machine:
 
   An **object keyed by host**, not an array, so "one export per host" is
   structural and discovery stays a key check rather than jsonb containment —
-  on **`path: ["exports"], exists`**, the CONTAINER, not a host inside it.
+  on **`path: ["exports"], exists`**, the CONTAINER, not a host inside it,
+  **OR either retired top-level key** (`path: ["skill"]`, `path: ["claudeSkill"]`),
+  which nothing was migrated off. That three-way OR is what `listDeclaredIDs`
+  ships; §4.1 states it identically.
 
   *(This line said `path: ["exports","claudeSkill"]` until 2026-09-23 (@codex on
   #661). That would miss a node declaring only `exports.codexSkill`, which
