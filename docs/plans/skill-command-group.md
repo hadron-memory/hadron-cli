@@ -389,7 +389,7 @@ Two corrections to the thread, measured on this machine:
 
 ```
 hadron skill export  (-m <memory>... | --all | --node <ref>...) [--scope <name>] [--prune] [--dry-run] [--json]
-hadron skill status  (-m <memory>... | --all | --scope <name>)  [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json]
+hadron skill status  (-m <memory>... | --all) [--scope <name>]   [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json]
 hadron skill lint    (-m <memory>... | --all | --node <ref>...)                       [--strict] [--json]
 ```
 
@@ -447,12 +447,16 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   @Eli measured Codex at the same numbers (cli#622), so the second host arrives
   as a row in a table rather than as a second renderer.
 
-- **`--scope <name>` (proposed, not built)** narrows the selection to a named
-  scope, per the amended `cor:agt:030:03` — a scope narrows and never widens. It
-  replaces `--to` as export's only knob, and **`status` needs it too** or it
-  cannot compare a disk against the same selection the bundle was produced from
-  (@codex on #661). Shipped `status` has `-m`/`--all` only; that is a gap, named
-  here rather than left implied.
+- **`--scope <name>` (proposed, not built)** NARROWS a selection — it is not
+  an alternative to one. `cor:agt:030:03` says a scope narrows and never
+  widens, so it composes with the base selector on BOTH verbs rather than
+  replacing it: `(-m … | --all) [--scope <name>]`. An earlier draft here wrote
+  it as a third mutually-exclusive selector on `status`, which would have made
+  the same flag mean different things on the two verbs (@codex on #661).
+  It replaces `--to` as export's only knob, and **`status` needs it too** or it
+  cannot compare a disk against the same selection the bundle was produced
+  from. Shipped `status` has `-m`/`--all` only; that is a gap, named here
+  rather than left implied.
 
 - `-m/--memory` is repeatable; `--all` is every memory the caller can read —
   three listings, each drained with `api.CollectAll` and every memory class
@@ -467,7 +471,11 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   that silently targets "whatever memory was active" is how a customer's tasks
   end up on the wrong disk.
 - **`--to` is `status`-only** (amended 2026-09-23, B8) and names the root to
-  COMPARE against: `user` (default) → `~/.claude/skills`; `project` →
+  COMPARE against, **and the root is per HOST**: `user` (default) →
+  `~/.claude/skills` for `claudeSkill` and `~/.agents/skills` for `codexSkill`
+  (@Eli measured, cli#622; `~/.codex/skills` is deprecated but still read).
+  A host with no root of its own is refused for a symbolic destination rather
+  than resolved against Claude's — as shipped in `hostDirs`. Then: `project` →
   `<git toplevel>/.claude/skills`; `plugin` →
   `<git toplevel>/plugins/hadron-cli/skills` (§6); anything else is a
   directory. `project`/`plugin` outside a git worktree is `exit 2`.
@@ -875,7 +883,10 @@ set changes (existing rule).
      the Codex file through it overwrites the Claude one — reproduced.
    - **Fail loud on a server host with no CLI row**, so "write every known host"
      cannot silently skip one.
-6. **Plugin target + CI gate + docs:** `--to plugin`, the `skill-drift`
+6. **CI gate + docs:** ~~`--to plugin`~~ — the plugin target moved OUT of this
+   slice on 2026-09-23 (B8): it is cli#653's own producer, with its own
+   destination and no git anchor, and #653 is paused pending @Vera's specs.
+   What remains here is the `skill-drift`
    workflow, `agentic-usage.md` surface line (`agentic_completeness_test.go`
    fails without it), README, the `doc-map` surfaces, this plan updated to
    *as built*, and a `hadron-cli` memory node + preflight route for the
