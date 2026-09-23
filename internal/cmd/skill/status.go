@@ -486,18 +486,34 @@ func walkSkillFiles(root string) ([]*gen.SkillFileFactsInput, []statusUnreadable
 		facts := &gen.SkillFileFactsInput{DirName: dirName}
 		// The hash recomputed from the file's own bytes, with the id hashed
 		// unconditionally — one form, matching hadron-server's exactly.
+		facts.SourceUrn = &parsed.Source
+
+		// A file with NO `id=` was never written by the current exporter, so
+		// there is nothing to validate and NOTHING IS HASHED FOR IT (ruled
+		// 2026-09-23). Two fields are deliberately withheld, and the second is
+		// the one that matters:
 		//
-		// A file with NO id is a different case and not this one: it was never
-		// written by the current exporter, so there is nothing to validate. It
-		// carries no header hash either, so the server classifies it `unhashed`
-		// and the EXPORT action for that class is skip-and-report, with
-		// `--force` to override (ruled 2026-09-23; the writer is #621).
+		//   - fileHash — it cannot be computed. The digest covers the id, and
+		//     this file has none, so any number we produced would compare
+		//     against a header written under a different formula.
+		//   - headerHash — withheld even when the file HAS one. The server's
+		//     `locally-edited` test is `headerHash !== '' && fileHash !==
+		//     headerHash`, so a header hash arriving WITHOUT its counterpart
+		//     makes that mismatch vacuously true and the file is reported as
+		//     hand-edited on no evidence. Sending neither yields `unhashed`,
+		//     which is the truthful answer: an older header generation.
+		//
+		// @Dara: the server could state this directly — an absent nodeId could
+		// short-circuit to `unhashed` before the locally-edited test — which
+		// would let this client send every fact it has instead of withholding
+		// one to avoid a false positive. Raised, not assumed.
+		if parsed.ID == "" {
+			files = append(files, facts)
+			continue
+		}
+		facts.NodeId = &parsed.ID
 		fileHash := skilldoc.Hash(parsed.ID, parsed.Source, parsed.Name, parsed.Description, parsed.Body)
 		facts.FileHash = &fileHash
-		facts.SourceUrn = &parsed.Source
-		if parsed.ID != "" {
-			facts.NodeId = &parsed.ID
-		}
 		if parsed.Hash != "" {
 			facts.HeaderHash = &parsed.Hash
 		}

@@ -41,13 +41,18 @@ const (
 	statusSkillBody = "# Example\n\nBody text."
 )
 
-// writeSkillFile renders a real skill file through the same Render the
-// exporter uses, so the bytes on disk are the bytes a generated file has —
-// not a hand-written approximation that could agree with a broken parser.
-// An empty id writes a pre-§4a header (no `id=` key at all).
-func writeSkillFile(t *testing.T, root, dir, id string) string {
+// writeSkillFile renders a CURRENT-generation skill file through the same
+// Render the exporter uses, so the bytes on disk are the bytes a generated file
+// has — not a hand-written approximation that could agree with a broken parser.
+//
+// It always writes an id-BEARING header. The no-id generations are deliberately
+// NOT built here: a fixture produced by this package's own writer can only prove
+// the writer and reader agree, which is exactly how a no-id file went on being
+// hashed while a test named for it stayed green. Those cases use literal bytes
+// in TestSkillStatusNeverHashesAFileWithNoId.
+func writeSkillFile(t *testing.T, root, dir string) string {
 	t.Helper()
-	rendered, err := skilldoc.Render(id, statusSkillName, statusSourceURN, statusSkillDesc, statusSkillBody)
+	rendered, err := skilldoc.Render(statusNodeID, statusSkillName, statusSourceURN, statusSkillDesc, statusSkillBody)
 	if err != nil {
 		t.Fatalf("rendering fixture: %v", err)
 	}
@@ -247,7 +252,7 @@ func TestSkillStatusParseFailureIsVisibleInTheTable(t *testing.T) {
 // rather than assumed.
 func TestSkillStatusSendsFileFactsThatMatchAnUntouchedFile(t *testing.T) {
 	root := t.TempDir()
-	writeSkillFile(t, root, "hadron-example", statusNodeID)
+	writeSkillFile(t, root, "hadron-example")
 
 	out, captured, err := runSkillStatus(t, map[string]string{
 		"SkillPlan": skillPlanResp(`"current"`, "false", ""),
@@ -282,7 +287,7 @@ func TestSkillStatusSendsFileFactsThatMatchAnUntouchedFile(t *testing.T) {
 // export would overwrite somebody's work and call it success.
 func TestSkillStatusLocalEditMakesFileHashDivergeFromHeader(t *testing.T) {
 	root := t.TempDir()
-	path := writeSkillFile(t, root, "hadron-example", statusNodeID)
+	path := writeSkillFile(t, root, "hadron-example")
 	data, err := os.ReadFile(path) // #nosec G304 — test fixture
 	if err != nil {
 		t.Fatal(err)
@@ -338,7 +343,7 @@ func TestSkillStatusIgnoresAFileItDidNotGenerate(t *testing.T) {
 // Drift alone exits 0; --strict is the CI gate that turns it into 5.
 func TestSkillStatusStrictIsWhatTurnsDriftIntoAnExitCode(t *testing.T) {
 	root := t.TempDir()
-	writeSkillFile(t, root, "hadron-example", statusNodeID)
+	writeSkillFile(t, root, "hadron-example")
 	responses := map[string]string{"SkillPlan": skillPlanResp(`"stale"`, "false", "")}
 
 	if _, _, err := runSkillStatus(t, responses, "-m", "hrn:mem:hadronmemory.com:core", "--to", root); exitCodeFor(err) != exitcode.OK {
@@ -354,7 +359,7 @@ func TestSkillStatusStrictIsWhatTurnsDriftIntoAnExitCode(t *testing.T) {
 // this, the --strict test above would pass for a gate that fails on anything.
 func TestSkillStatusStrictExitsZeroWhenEverythingIsCurrent(t *testing.T) {
 	root := t.TempDir()
-	writeSkillFile(t, root, "hadron-example", statusNodeID)
+	writeSkillFile(t, root, "hadron-example")
 	_, _, err := runSkillStatus(t, map[string]string{
 		"SkillPlan": skillPlanResp(`"current"`, "false", ""),
 	}, "-m", "hrn:mem:hadronmemory.com:core", "--to", root, "--strict")
@@ -506,38 +511,68 @@ func TestSkillStatusHasNoNodeSelector(t *testing.T) {
 	}
 }
 
-// A pre-§4a file carries no `id=` at all: `nodeId` must be OMITTED from the
-// facts (never sent blank), and the URN must travel as the pairing fallback.
+// A file with no `id=` is never hashed (ruled 2026-09-23). Two real header
+// generations lack one, and they fail differently, so both are covered here.
 //
-// It also checks that the file recomputes to its own header — but note what
-// that can and cannot prove HERE. The fixture is written by Render, so this
-// asserts only that this package's writer and reader agree, which they do
-// under either hashing convention. It therefore CANNOT discriminate
-// one hashing convention from another; believing it could is how a wrong
-// convention survived a green suite. Moot since 2026-09-23 — the hash has one
-// unconditional form and a file with no id is SKIPPED before anything is
-// hashed — but the shape of the mistake is worth keeping in view.
-func TestSkillStatusLegacyHeaderOmitsNodeIdAndPairsByUrn(t *testing.T) {
-	root := t.TempDir()
-	writeSkillFile(t, root, "hadron-example", "")
+// The fixtures are LITERAL bytes, not Render output. The previous version of
+// this test built its file with `Render("")` — which emits a CURRENT machine
+// header whose hash this very package just computed — so it could only ever
+// prove the writer and reader agree, and stayed green while walkSkillFiles
+// hashed no-id files anyway. Both bots caught that on #663; it is the same
+// tautology that let the retired hash convention survive a green suite.
+func TestSkillStatusNeverHashesAFileWithNoId(t *testing.T) {
+	const body = "\n<!-- Edit the source node and re-export; do not edit this file directly. -->\n\n# Example\n"
+	cases := map[string]string{
+		// Pre-#580: a provenance comment, no hash at all.
+		"legacy Generated from": "---\nname: hadron-example\ndescription: Use when example.\n---\n\n" +
+			"<!-- Generated from " + statusSourceURN + " -->\n" + body,
+		// #580 generation: a machine header WITH a hash and NO id. This is the
+		// dangerous one — a headerHash is present, so sending it without a
+		// matching fileHash would make the server report `locally-edited`.
+		"machine header, hash but no id": "---\nname: hadron-example\ndescription: Use when example.\n---\n\n" +
+			"<!-- hadron-skill source=" + statusSourceURN + " hash=4b02a08bb1efbaad -->\n" + body,
+	}
+	for label, file := range cases {
+		t.Run(label, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(root, "hadron-example"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, "hadron-example", "SKILL.md"), []byte(file), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			// Premise: the fixture really does parse and really has no id.
+			parsed, err := skilldoc.ParseFile([]byte(file))
+			if err != nil {
+				t.Fatalf("fixture does not parse, so it exercises the wrong path: %v", err)
+			}
+			if parsed.ID != "" {
+				t.Fatalf("fixture carries an id (%q) — it is not a no-id file", parsed.ID)
+			}
 
-	_, captured, err := runSkillStatus(t, map[string]string{
-		"SkillPlan": skillPlanResp(`"unhashed"`, "false", ""),
-	}, "-m", "hrn:mem:hadronmemory.com:core", "--to", root, "--json")
-	if err != nil {
-		t.Fatalf("status errored: %v", err)
-	}
-	f := sentFiles(t, captured)[0]
-	if _, present := f["nodeId"]; present {
-		t.Errorf("nodeId must be OMITTED for a pre-§4a header, not sent blank: %v", f)
-	}
-	if f["sourceUrn"] != statusSourceURN {
-		t.Errorf("the URN is the pairing FALLBACK for a file with no id, and it did not travel: %v", f)
-	}
-	if f["fileHash"] != f["headerHash"] {
-		t.Errorf("an untouched pre-§4a file must still hash to its own header "+
-			"(the id is hashed unconditionally, so a file written with one recomputes): file=%v header=%v",
-			f["fileHash"], f["headerHash"])
+			_, captured, err := runSkillStatus(t, map[string]string{
+				"SkillPlan": skillPlanResp(`"unhashed"`, "false", ""),
+			}, "-m", "hrn:mem:hadronmemory.com:core", "--to", root, "--json")
+			if err != nil {
+				t.Fatalf("status errored: %v", err)
+			}
+			f := sentFiles(t, captured)[0]
+			if _, present := f["fileHash"]; present {
+				t.Errorf("a no-id file was HASHED: %v", f)
+			}
+			if _, present := f["headerHash"]; present {
+				t.Errorf("headerHash sent without a fileHash — the server's locally-edited "+
+					"test is then vacuously true and reports a hand edit on no evidence: %v", f)
+			}
+			if _, present := f["nodeId"]; present {
+				t.Errorf("nodeId must be absent for a no-id file: %v", f)
+			}
+			// The URN still travels: it is the pairing fallback, and without it
+			// the file cannot even be attributed to its node.
+			if f["sourceUrn"] != statusSourceURN {
+				t.Errorf("sourceUrn did not travel: %v", f)
+			}
+		})
 	}
 }
 
@@ -547,7 +582,7 @@ func TestSkillStatusLegacyHeaderOmitsNodeIdAndPairsByUrn(t *testing.T) {
 // undetectable while every other assertion still passed.
 func TestSkillStatusSendsTheDirectoryNotTheStoredName(t *testing.T) {
 	root := t.TempDir()
-	writeSkillFile(t, root, "the-old-directory", statusNodeID)
+	writeSkillFile(t, root, "the-old-directory")
 
 	resp := `{"data":{"skillPlan":{"scanned":1,"judged":1,"entries":[{"urn":"` + statusSourceURN +
 		`","nodeId":"` + statusNodeID + `","name":"hadron-example","class":"renamed","parseFailure":false,` +
@@ -579,7 +614,7 @@ func TestSkillStatusUnreadableFileIsReportedButNotSent(t *testing.T) {
 		t.Skip("root reads a 0000 file regardless, so the fixture cannot be made unreadable")
 	}
 	root := t.TempDir()
-	path := writeSkillFile(t, root, "hadron-example", statusNodeID)
+	path := writeSkillFile(t, root, "hadron-example")
 	if err := os.Chmod(path, 0o000); err != nil {
 		t.Fatal(err)
 	}
@@ -739,7 +774,7 @@ func TestSkillStatusAllowsAnExplicitDirForAnyHost(t *testing.T) {
 // nothing checked.
 func TestSkillStatusEmptyScopeFailsStrictAndNamesWhatWentUnchecked(t *testing.T) {
 	root := t.TempDir()
-	writeSkillFile(t, root, "hadron-example", statusNodeID)
+	writeSkillFile(t, root, "hadron-example")
 	empty := `{"data":{"memories":{"total":0,"items":[]}}}`
 	responses := func() map[string]string {
 		return map[string]string{"Memories": empty, "MemoriesSharedWithMe": empty}
@@ -812,7 +847,7 @@ func TestSkillStatusHelpQualifiesTheForeignFilePromise(t *testing.T) {
 // a cosmetic one.
 func TestSkillStatusStrictPromotesWarningFindings(t *testing.T) {
 	root := t.TempDir()
-	writeSkillFile(t, root, "hadron-example", statusNodeID)
+	writeSkillFile(t, root, "hadron-example")
 	warning := `[{"rule":"skill-description-no-trigger","severity":"warning","message":"no use-when phrasing","urn":"` +
 		statusSourceURN + `","memory":"hrn:mem:hadronmemory.com:core"}]`
 	// `current` class, so the ONLY thing that can fail the gate is the warning.
@@ -842,7 +877,7 @@ func TestSkillStatusFollowsASymlinkedSkillDirectory(t *testing.T) {
 	}
 	root := t.TempDir()
 	elsewhere := t.TempDir()
-	writeSkillFile(t, elsewhere, "hadron-example", statusNodeID)
+	writeSkillFile(t, elsewhere, "hadron-example")
 	if err := os.Symlink(filepath.Join(elsewhere, "hadron-example"), filepath.Join(root, "linked-skill")); err != nil {
 		t.Skipf("cannot create symlink: %v", err)
 	}

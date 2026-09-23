@@ -866,11 +866,13 @@ func TestHashCoversTheNodeID(t *testing.T) {
 	if a == b {
 		t.Fatal("two different node ids must not fingerprint identically — that is the hazard §4a exists to close")
 	}
-	// An absent id IS skipped (ruled 2026-09-22), and that is precisely why
-	// this assertion still matters: skipping must not collapse into "the id
-	// never mattered". A pre-§4a file and an id-bearing one agreeing on
-	// everything else must still differ, or §4a's pairing is not in the
-	// fingerprint at all and editing the header id alone becomes undetectable.
+	// The id is hashed unconditionally (ruled 2026-09-23), so an empty one is
+	// just another value — and this assertion is what stops "unconditional"
+	// collapsing into "the id never mattered". A file with no id and an
+	// id-bearing one agreeing on everything else must still differ, or §4a's
+	// pairing is not in the fingerprint and editing a header id alone becomes
+	// undetectable. (The CLIENT never hashes a no-id file at all; that is a
+	// separate rule and it lives in the walk, not here.)
 	if Hash("", "hrn:node:a:b:tasks:x", "n", "d", "c") == a {
 		t.Error("an id-bearing hash must differ from the skipped-id one — otherwise the id is not covered")
 	}
