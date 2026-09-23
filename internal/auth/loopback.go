@@ -72,7 +72,14 @@ func (ls *loopbackServer) RedirectURI() string {
 func (ls *loopbackServer) handle(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// State first, for error redirects too (RFC 6749 §4.1.2.1 echoes it):
+	// otherwise any local process could post a forged error to this port and
+	// have the CLI report a denial or a server scope refusal that never
+	// happened. hadron-server includes state on every error redirect.
 	switch {
+	case q.Get("state") != ls.state:
+		fmt.Fprintf(w, errorHTML, "state mismatch")
+		ls.deliver(callbackResult{err: exitcode.Newf(exitcode.Error, "OAuth state mismatch — possible interception, aborting")})
 	case q.Get("error") != "":
 		desc := q.Get("error_description")
 		if desc == "" {
@@ -84,9 +91,6 @@ func (ls *loopbackServer) handle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		ls.deliver(callbackResult{err: exitcode.Newf(exitcode.Cancelled, "authorization denied: %s", desc)})
-	case q.Get("state") != ls.state:
-		fmt.Fprintf(w, errorHTML, "state mismatch")
-		ls.deliver(callbackResult{err: exitcode.Newf(exitcode.Error, "OAuth state mismatch — possible interception, aborting")})
 	case q.Get("code") == "":
 		fmt.Fprintf(w, errorHTML, "missing authorization code")
 		ls.deliver(callbackResult{err: exitcode.Newf(exitcode.Error, "OAuth redirect missing authorization code")})

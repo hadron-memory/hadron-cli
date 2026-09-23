@@ -430,3 +430,40 @@ func TestBrowserLoginGrantedScope(t *testing.T) {
 		})
 	}
 }
+
+// A forged error redirect — right port, wrong state — must be reported as the
+// interception it is, not believed: neither a denial nor a server scope
+// refusal that never happened.
+func TestBrowserLoginErrorRedirectChecksStateFirst(t *testing.T) {
+	for _, oauthErr := range []string{"invalid_scope", "access_denied"} {
+		t.Run(oauthErr, func(t *testing.T) {
+			as := newFakeAS(t)
+			io, _, _ := output.Test()
+
+			openBrowser := func(authorizeURL string) error {
+				u, _ := url.Parse(authorizeURL)
+				q := u.Query()
+				go func() {
+					resp, err := http.Get(q.Get("redirect_uri") + "?" + url.Values{
+						"error": {oauthErr},
+						"state": {"forged-state"},
+					}.Encode())
+					if err == nil {
+						resp.Body.Close()
+					}
+				}()
+				return nil
+			}
+
+			_, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
+				ServerURL:   as.server.URL,
+				IO:          io,
+				HTTPClient:  as.server.Client(),
+				OpenBrowser: openBrowser,
+			})
+			if err == nil || !strings.Contains(err.Error(), "state mismatch") {
+				t.Fatalf("a forged %s redirect must be a state mismatch, got %v", oauthErr, err)
+			}
+		})
+	}
+}
