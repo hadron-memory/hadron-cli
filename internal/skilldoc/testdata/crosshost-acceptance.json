@@ -1410,10 +1410,11 @@
       "layer": "writer",
       "pendingOn": "hadron-cli#621",
       "contracts": [
-        "cor:agt:030:01"
+        "cor:agt:030:00",
+        "cor:agt:030:02"
       ],
       "given": "~/.agents/skills/hadron-demo is a symlink to ~/.claude/skills/hadron-demo; export over D06",
-      "expect": "the Codex write is refused and reported (remove the link); the Claude file is byte-identical to a Claude-only export, never the Codex rendering"
+      "expect": "the Codex write is refused and reported (remove the link): writing through it would put Codex's declaration in CLAUDE's destination (cor:agt:030:02: a destination per host), and an item that cannot be written safely fails without stopping the rest (cor:agt:030:00). The Claude file is byte-identical to a Claude-only export, never the Codex rendering."
     },
     {
       "id": "P07",
@@ -1445,16 +1446,6 @@
       ],
       "given": "export over L01, with an earlier Codex file on disk",
       "expect": "Claude written; Codex skipped as out of export naming the 1,024 limit; the earlier Codex file is left in place"
-    },
-    {
-      "id": "P10",
-      "layer": "writer",
-      "pendingOn": "hadron-cli#621",
-      "contracts": [
-        "cor:agt:030:01"
-      ],
-      "given": "`status` over both roots where one skill directory is a symlink into the other root",
-      "expect": "the one physical file is not reported as two hosts' current files"
     },
     {
       "id": "P12",
