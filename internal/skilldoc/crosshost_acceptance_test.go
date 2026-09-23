@@ -20,6 +20,7 @@ package skilldoc
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"reflect"
@@ -90,40 +91,99 @@ type xhMatrix struct {
 	} `json:"pending"`
 }
 
-// loadMatrix fails on a missing file, an unknown field, or an empty section.
-// A matrix that loads nothing passes every check below and measures nothing,
-// so emptiness is a failure rather than a vacuous pass.
+// decodeMatrix refuses an unknown field, a version other than 1, anything
+// after the one JSON value, and an empty executable section. A matrix that
+// loads nothing passes every check below and measures nothing, so emptiness
+// is an error rather than a vacuous pass. `pending` is exempt: it asserts
+// nothing, and it is MEANT to empty as the writer and resolver land.
+func decodeMatrix(raw []byte) (*xhMatrix, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	var m xhMatrix
+	if err := dec.Decode(&m); err != nil {
+		return nil, fmt.Errorf("decode matrix: %w", err)
+	}
+	// Decode reads ONE value; a second one, or trailing garbage, would be
+	// ignored while the matrix still passed (Copilot on #664).
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		return nil, fmt.Errorf("matrix has content after its one JSON value: %v", err)
+	}
+	if m.Version != 1 {
+		return nil, fmt.Errorf("matrix version %d; this loader reads version 1", m.Version)
+	}
+	for _, s := range []struct {
+		name string
+		n    int
+	}{
+		{"declarations", len(m.Declarations)}, {"lint", len(m.Lint)},
+		{"collisions", len(m.Collisions)}, {"rendering", len(m.Rendering)},
+	} {
+		if s.n == 0 {
+			return nil, fmt.Errorf("matrix section %q is empty; a section that loads nothing asserts nothing", s.name)
+		}
+	}
+	return &m, nil
+}
+
 func loadMatrix(t *testing.T) *xhMatrix {
 	t.Helper()
 	raw, err := os.ReadFile("testdata/crosshost-acceptance.json")
 	if err != nil {
 		t.Fatalf("read matrix: %v", err)
 	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
-	var m xhMatrix
-	if err := dec.Decode(&m); err != nil {
-		t.Fatalf("decode matrix: %v", err)
+	m, err := decodeMatrix(raw)
+	if err != nil {
+		t.Fatal(err)
 	}
-	// Decode reads ONE value; a second one, or trailing garbage, would be
-	// ignored while the matrix still passed (Copilot on #664).
-	if err := dec.Decode(&struct{}{}); err != io.EOF {
-		t.Fatalf("matrix has content after its one JSON value: %v", err)
+	return m
+}
+
+// The loader's refusals are what keep the matrix from going quietly
+// malformed or vacuous, so each is exercised against a variant of the real
+// fixture, not only by hand (Copilot on #664). The unmodified fixture is the
+// positive control: if it failed, every red below would mean nothing.
+func TestCrossHostLoaderRefuses(t *testing.T) {
+	raw, err := os.ReadFile("testdata/crosshost-acceptance.json")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if m.Version != 1 {
-		t.Fatalf("matrix version %d; this loader reads version 1", m.Version)
+	if _, err := decodeMatrix(raw); err != nil {
+		t.Fatalf("positive control: the checked-in fixture must load: %v", err)
 	}
-	// `pending` is exempt: it asserts nothing, and it is MEANT to empty as the
-	// writer and resolver land (Copilot on #664).
-	for section, n := range map[string]int{
-		"declarations": len(m.Declarations), "lint": len(m.Lint), "collisions": len(m.Collisions),
-		"rendering": len(m.Rendering),
-	} {
-		if n == 0 {
-			t.Fatalf("matrix section %q is empty; a section that loads nothing asserts nothing", section)
+	edit := func(f func(map[string]any)) []byte {
+		var doc map[string]any
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			t.Fatal(err)
 		}
+		f(doc)
+		out, err := json.Marshal(doc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out
 	}
-	return &m
+	for name, in := range map[string][]byte{
+		"unknown field":         edit(func(d map[string]any) { d["surprise"] = true }),
+		"version 2":             edit(func(d map[string]any) { d["version"] = 2 }),
+		"trailing value":        append(append([]byte{}, raw...), []byte("{}")...),
+		"trailing garbage":      append(append([]byte{}, raw...), []byte("xx")...),
+		"empty declarations":    edit(func(d map[string]any) { d["declarations"] = []any{} }),
+		"empty lint":            edit(func(d map[string]any) { d["lint"] = []any{} }),
+		"empty collisions":      edit(func(d map[string]any) { d["collisions"] = []any{} }),
+		"empty rendering":       edit(func(d map[string]any) { d["rendering"] = []any{} }),
+		"unknown field in case": edit(func(d map[string]any) { d["lint"].([]any)[0].(map[string]any)["surprise"] = 1 }),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := decodeMatrix(in); err == nil {
+				t.Fatalf("%s was accepted", name)
+			}
+		})
+	}
+	t.Run("empty pending is allowed", func(t *testing.T) {
+		if _, err := decodeMatrix(edit(func(d map[string]any) { d["pending"] = []any{} })); err != nil {
+			t.Fatalf("pending must be allowed to drain: %v", err)
+		}
+	})
 }
 
 // The literal every surface pins (hadron-portal#888). If this changes, the
@@ -266,6 +326,24 @@ func TestCrossHostRendering(t *testing.T) {
 			fx, err := Render(id, cx.Name, source, cx.Description, body)
 			if err != nil {
 				t.Fatal(err)
+			}
+			// The host reads the frontmatter, so assert what landed there. File
+			// inequality alone is not enough: the provenance line carries a hash
+			// of both fields, so a serializer that dropped a changed name would
+			// still produce two different files (@codex on #664).
+			for _, side := range []struct {
+				host, file, name, description string
+			}{
+				{HostClaudeSkill, fc, cl.Name, cl.Description},
+				{"codexSkill", fx, cx.Name, cx.Description},
+			} {
+				pf, err := ParseFile([]byte(side.file))
+				if err != nil {
+					t.Fatalf("%s file does not parse: %v", side.host, err)
+				}
+				if pf.Name != side.name || pf.Description != NormalizeDescription(side.description) {
+					t.Fatalf("%s frontmatter = {name %q, description %q}, want {%q, %q}", side.host, pf.Name, pf.Description, side.name, NormalizeDescription(side.description))
+				}
 			}
 			if (fc == fx) != r.SameFile {
 				t.Fatalf("files identical = %v, want %v", fc == fx, r.SameFile)
