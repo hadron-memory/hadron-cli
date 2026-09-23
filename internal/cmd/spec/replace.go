@@ -32,6 +32,12 @@ type specReplaceNodeDTO struct {
 }
 
 type specReplaceResultDTO struct {
+	// SpecsInScope is how many specs the CLI selected and sent (#659), and
+	// SpecsGoverned how many of those are of a governed kind. The server's bulk
+	// replace SKIPS governed nodes (cor:acl:130:02) without refusing and without
+	// counting them, so SpecsScanned alone reads a skipped corpus as "no match".
+	SpecsInScope      int                  `json:"specsInScope"`
+	SpecsGoverned     int                  `json:"specsGoverned"`
 	SpecsScanned      int                  `json:"specsScanned"`
 	SpecsChanged      int                  `json:"specsChanged"`
 	TotalReplacements int                  `json:"totalReplacements"`
@@ -52,6 +58,14 @@ func newCmdReplace(f *cmdutil.Factory) *cobra.Command {
 		Short: "Bulk find/replace across spec bodies + abstracts",
 		Long: `Search-and-replace a token across every spec's body and abstract in one
 call — the spec-scoped, citation-aware analogue of ` + "`hadron replace text`" + `.
+
+GOVERNED SPECS ARE NOT SEARCHED. The server's bulk replace skips governed nodes
+(cor:acl:130:02), and every rule-level spec is governed (role: spec), so in a
+typical corpus only the untyped index nodes are reachable. The report says how
+many specs were in scope, how many are governed, and how many were searched
+(specsInScope / specsGoverned / specsScanned in --json), so a zero is never
+mistaken for "the text is not there". To change a governed spec, find the text
+with ` + "`hadron spec grep`" + ` and edit it with ` + "`hadron spec edit`" + `.
 
 Matching is a literal token, and by default it is WORD-BOUNDARY-AWARE: only
 whole-token occurrences are rewritten, so renaming ` + "`h-read-node`" + ` never
@@ -122,6 +136,7 @@ example, leave an abstract out of sync with its content.`,
 				return err
 			}
 			specIDs := make([]string, 0, len(all))
+			governed := 0
 			for _, n := range all {
 				if n == nil {
 					continue
@@ -130,6 +145,9 @@ example, leave an abstract out of sync with its content.`,
 					continue
 				}
 				specIDs = append(specIDs, n.Id)
+				if isGovernedKind(n.Role, n.IsRunnable) {
+					governed++
+				}
 			}
 			if len(specIDs) == 0 {
 				fmt.Fprintln(f.IOStreams.ErrOut, "No specs in scope — nothing to replace.")
@@ -153,7 +171,9 @@ example, leave an abstract out of sync with its content.`,
 				if err != nil {
 					return specReplaceResultDTO{}, api.MapError(err)
 				}
-				return specReplaceDTO(resp.SearchReplaceInNodes), nil
+				dto := specReplaceDTO(resp.SearchReplaceInNodes)
+				dto.SpecsInScope, dto.SpecsGoverned = len(specIDs), governed
+				return dto, nil
 			}
 
 			// Preview-only.
@@ -173,7 +193,14 @@ example, leave an abstract out of sync with its content.`,
 				return err
 			}
 			if preview.TotalReplacements == 0 {
-				fmt.Fprintln(f.IOStreams.ErrOut, "No matches — nothing to replace.")
+				// Not "No matches" when ANY in-scope spec went unsearched —
+				// governed or unexplained alike: that reads as an all-clear over
+				// a corpus the server skipped (#659; PR #677 review).
+				if preview.SpecsScanned < preview.SpecsInScope {
+					fmt.Fprintf(f.IOStreams.ErrOut, "No matches in the %d spec(s) searched — nothing replaced.\n", preview.SpecsScanned)
+				} else {
+					fmt.Fprintln(f.IOStreams.ErrOut, "No matches — nothing to replace.")
+				}
 				preview.DryRun = false
 				return writeSpecReplaceReport(f, preview)
 			}
@@ -354,6 +381,7 @@ func renderSpecReplaceReport(w io.Writer, dto specReplaceResultDTO) error {
 	}
 	fmt.Fprintf(w, "%s %d occurrence(s) across %d of %d spec(s) scanned%s\n",
 		verb, dto.TotalReplacements, dto.SpecsChanged, dto.SpecsScanned, suffix)
+	renderUnsearchedNote(w, dto)
 	if len(dto.Results) > 0 {
 		t := output.NewTable(w, "CITATION", "REPLACEMENTS", "FIELDS")
 		for _, n := range dto.Results {
@@ -383,4 +411,32 @@ func renderSpecReplaceReport(w io.Writer, dto specReplaceResultDTO) error {
 		}
 	}
 	return nil
+}
+
+// isGovernedKind reports whether a node is of a kind the server's bulk replace
+// skips: a runnable task, or a spec or review by role (cor:acl:130:01). This is
+// the mapping the client already holds to route writes (api.SpecNodeRole,
+// api.ReviewNodeRole); it is used here only to EXPLAIN a count, never to
+// refuse, so a kind the server later un-governs costs an inaccurate note, not
+// a blocked command.
+func isGovernedKind(role *string, isRunnable *bool) bool {
+	if isRunnable != nil && *isRunnable {
+		return true
+	}
+	return role != nil && (*role == api.SpecNodeRole || *role == api.ReviewNodeRole)
+}
+
+// renderUnsearchedNote says which specs in scope the server did not search, so
+// a zero is never mistaken for "the text is not there" (#659). Governed specs
+// are named as the cause, by rule; any remainder is reported as unexplained
+// rather than attributed to a cause the CLI cannot see.
+func renderUnsearchedNote(w io.Writer, dto specReplaceResultDTO) {
+	if dto.SpecsGoverned > 0 {
+		fmt.Fprintf(w, "note: %d of %d spec(s) in scope are governed and were NOT searched — bulk replace skips governed nodes (cor:acl:130:02). "+
+			"Find the text in them with `hadron spec grep`, and change it with `hadron spec edit`.\n",
+			dto.SpecsGoverned, dto.SpecsInScope)
+	}
+	if other := dto.SpecsInScope - dto.SpecsGoverned - dto.SpecsScanned; other > 0 {
+		fmt.Fprintf(w, "note: %d more spec(s) in scope were not searched by the server, for a reason it does not report.\n", other)
+	}
 }

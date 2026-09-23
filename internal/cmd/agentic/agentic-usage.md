@@ -963,7 +963,11 @@ Conventions:
   `--word-boundary=false` for substring, `--regex` for a pattern with `$1`
   backrefs), gated like other bulk writes (`--dry-run` previews per-citation
   counts, `--yes` non-interactively, `--max-specs N` caps blast radius) and
-  **re-lints the changed specs** afterward; `spec register` is advisory/read-only (`--check` reports
+  **re-lints the changed specs** afterward. **It cannot rewrite governed specs**
+  (every rule-level spec, `role: spec`): the server's bulk replace skips them
+  (cor:acl:130:02), so the report carries `specsInScope` / `specsGoverned` /
+  `specsScanned` and a zero never reads as "not found" (#659) — change those with
+  `spec grep` + `spec edit`; `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5); `spec lint` takes `--product`/`--module`/`--all`,
   flags mixed-arity corpora, names the exact `edge add` remedy for a missing
   inheritance edge, warns (rule `abstract-length`) when a rule-tier abstract
