@@ -494,10 +494,18 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   `~/.claude/skills` for `claudeSkill` and `~/.agents/skills` for `codexSkill`
   (@Eli measured, cli#622; `~/.codex/skills` is deprecated but still read).
   A host with no root of its own is refused for a symbolic destination rather
-  than resolved against Claude's — as shipped in `hostDirs`. Then: `project` →
-  `<git toplevel>/.claude/skills`; `plugin` →
-  `<git toplevel>/plugins/hadron-cli/skills` (§6); anything else is a
-  directory. `project`/`plugin` outside a git worktree is `exit 2`.
+  than resolved against Claude's — as shipped in `hostDirs`.
+
+  **`project` is host-specific too** (@codex on #661): `<git toplevel>/.claude/skills`
+  for `claudeSkill` and `<git toplevel>/.agents/skills` for `codexSkill`. The
+  shipped code already does this — `resolveSkillsRoot` joins the same `hostDir`
+  for `user` and `project` — so the doc was the wrong side; as written it would
+  have had a reader compare a Codex declaration against Claude's project files.
+
+  `plugin` → `<git toplevel>/plugins/hadron-cli/skills`, and is NOT host-keyed
+  today (§6); whether a bundle needs a per-host layout is cli#653's, which is
+  paused. Anything else is a directory. `project`/`plugin` outside a git
+  worktree is `exit 2`.
   **`export` does not take it** — `cor:agt:030:02` gives export one destination
   per host and forbids a repo-level one, so the flag that selects among roots
   is the flag the spec rules out. Leaving this bullet describing export's roots
