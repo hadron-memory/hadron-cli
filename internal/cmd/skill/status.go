@@ -338,7 +338,8 @@ func cmp(s, fallback string) string {
 // claudeSkill has one today. One renderer serves both hosts (cli#622), so the
 // gap is the host TABLE, not rendering: Codex has more than one read root and
 // a root that may itself be a symlink, which a host → dir map cannot express
-// (acceptance audit, docs/plans/skill-command-group.md §3; matrix P17–P21).
+// (acceptance audit, docs/plans/skill-command-group.md §3: matrix P17/P18/
+// P20/P21, plan-only Q1–Q6).
 // The Codex row lands with the #621 writer.
 var hostDirs = map[string]string{skilldoc.HostClaudeSkill: ".claude"}
 
