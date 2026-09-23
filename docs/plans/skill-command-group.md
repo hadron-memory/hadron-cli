@@ -547,21 +547,54 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   3. **The project root is a SEARCH PATH**, not a directory: `.agents/skills`
      at every level from the project root down to the cwd, plus
      `<project>/.codex/skills` (@Eli, cli#622).
-  4. **The symlink can be the root** — see slice 6.
+  4. **The symlink can be the root** — see slice 5 (the writer) in §8.
 
-  **All four are @Eli's host table (cli#622) to design**, and he said in team
-  chat he would coordinate the interface before touching these files. Recorded
-  here so the requirements reach him in one place rather than being rediscovered
-  one review round at a time; NOT specified here, because a `hostDirs` entry
-  that this plan invents is one he then has to argue with.
+  **All four were @Eli's host table (cli#622) to design**; since 2026-09-23
+  (Holger, team chat #1199) the CLI half is mine, and Eli's standing repo is
+  hadron-server. Recorded here so the requirements reach one place rather than
+  being rediscovered one review round at a time.
+
+  **Acceptance audit, 2026-09-23 (cli#622).** Each requirement measured against
+  `cor:agt:030` and today's `skill status`. The matrix
+  (`internal/skilldoc/testdata/crosshost-acceptance.json`) takes ONLY
+  contract-backed cases, because its rule is that every expectation follows
+  from the contract it cites; a requirement no contract decides is listed here
+  as **Q** (plan-only), routed to @Vera, and enters the matrix once specified.
+
+  | # | requirement | measured today | matrix (contract-backed, pending #621) | plan-only (Q), routed |
+  |---|---|---|---|---|
+  | 1 | several READ roots (`~/.codex/skills` deprecated, still read by Codex 0.153) | reference machine: 13 entries, **0** Hadron-generated (third-party + `.system`) | **P20**: export WRITES only `~/.agents/skills` (`:02` one destination per host) | **Q4** status compares every root the host reads, or names the unread one, never clean over `~/.agents/skills` alone; does the export report name the copy · **Q7** may an export remove or migrate a generated file in the deprecated root? (`:02` decides where export writes, not cleanup) |
+  | 2 | duplicates across those roots | not measurable today | **P21**: export WRITES only `~/.agents/skills` (`:02`) | **Q5** status reports both files, dropping neither · **Q7** cleanup of the older copy |
+  | 3 | the project root is a SEARCH PATH | `status --to project` compares one root | — (`:02` forbids a repo-level EXPORT destination; it does not govern the status-only `--to project`) | **Q6** status compares every root in the search path, or names the unread ones |
+  | 4 | the ROOT, or an ANCESTOR, can be a symlink | `walkSkillFiles` reads straight through a symlinked root AND ancestor and attributes the other host's file to this host (throwaway probe, not committed); a live per-directory link on the reference machine (`~/.agents/skills/start-worker-session-desktop` → Claude's: P06 for the writer, Q8 for status) | **P17** root → another host's root, **P18** ancestor → another host's root: Codex items fail and are reported, Claude written (`:02` a destination per host, `:00` item failure) | **Q1** status names the resolved root instead of attributing its files · **Q8** status over both roots, one skill directory a symlink into the other: the one physical file is not reported as two hosts' current files (was matrix P10, which no contract decides) · **Q2** root → an ARBITRARY directory · **Q3** ancestor → an arbitrary directory: detected (plan §8); OPEN whether a deliberate dotfiles link is refused or honoured |
+
+  The writer's guard for #4 is therefore: **resolve the root (realpath) and
+  compare it with the path as written** — any difference means a link is on the
+  path, at the root or any ancestor, whatever it targets (P17, P18, Q2, Q3).
+  **A root that does not exist yet is the first-export case, not a failure**
+  (P03; `:02` writes a location whose host is absent): realpath fails on a
+  missing path, so resolve the NEAREST EXISTING ancestor and append the missing
+  suffix, then create the directories;
+  **compare the resolved roots across hosts** (P17, P18); then **lstat each
+  skill directory** (P06). Per-directory lstat alone passes P17/P18; a
+  cross-host comparison alone passes Q2/Q3; a root-level lstat alone passes
+  P18 and Q3.
+
+  **Corrections from review (#680, Copilot + @codex, two rounds):** the first
+  draft read `:02`, a rule about where EXPORT writes, as governing `status`
+  (declaring #3 out of scope); its guard missed a root or ancestor linked to a
+  directory that is not another host's; and a second draft cited `:01` for
+  status proposals no contract decides, which is why those now live here as Q;
+  a third round showed P20/P21 asserting a cleanup policy ("never moves or
+  removes") that `:02` does not decide, which is Q7; and a fourth moved the
+  status case P10 out (Q8) and re-cited P06 to `:02`/`:00`.
 
   **`codexSkill` is NOT in the shipped map yet** — `hostDirs` holds
   `claudeSkill` only, so `--host codexSkill --to user` is REFUSED today with
   exit 2, measured. What IS shipped is the refusal: a host with no root of its
   own is rejected for a symbolic destination rather than resolved against
   Claude's, so the mismatch cannot happen silently. The Codex row lands with
-  @Eli's host table (cli#622), which is his to add rather than mine to
-  anticipate. *(An earlier draft of this bullet said the Codex root worked "as
+  the #621 writer's host table, against the audit below: matrix P17/P18/P20/P21 and plan-only Q1–Q8. *(An earlier draft of this bullet said the Codex root worked "as
   shipped" — @codex on #661 caught that it does not.)*
 
   **`project` is host-specific too** (@codex on #661): `<git toplevel>/.claude/skills`
