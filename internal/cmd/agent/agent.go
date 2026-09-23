@@ -549,10 +549,6 @@ their prompt from it too.`,
 			if err != nil {
 				return err
 			}
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
 			var surfacesArg []string
 			if changed("surface") {
 				surfacesArg = surfaces
@@ -571,6 +567,14 @@ their prompt from it too.`,
 				return err
 			}
 			personaPromptArg, err := resolvePromptFlag(cmd, "persona-prompt", personaPrompt, personaPromptFile, f.IOStreams.In)
+			if err != nil {
+				return err
+			}
+			// The client is built only after every argument-only check and the
+			// prompt reads: building it resolves the server and credentials, and
+			// a local refusal (#648's terminal guard above all) must not be
+			// masked by an auth error, nor touch the credential store.
+			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}

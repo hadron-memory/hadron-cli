@@ -1123,7 +1123,7 @@ Conventions:
   or `--persona-prompt -` / `--system-prompt -` to read stdin (each prompt inline
   and its `-file` are mutually exclusive, and only one prompt may read stdin; a
   prompt read with `-` is for a PIPE and is refused, exit 2, from an interactive
-  terminal: #648). Prefer
+  terminal, per #648). Prefer
   these for a persona template — it is the longest text the CLI takes and is dense with
   backticks and `{{name}}` braces that inline shell quoting mangles. `agent update <ref> [<field flags>]`
   changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`

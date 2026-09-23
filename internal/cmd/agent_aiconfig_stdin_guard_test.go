@@ -15,48 +15,67 @@ import (
 // an interactive terminal with exit 2, before any request, naming the remedy.
 // Piped forms stay covered by TestAgentCreatePersonaPromptFromStdin and
 // TestAiConfigCreateFileStdin, which run non-TTY.
+//
+// Each case also runs SIGNED OUT (PR #675 review, Copilot + Codex): the test
+// factory is always signed in, which hid a guard sitting after
+// f.GraphQLClient(). Signed out, that ordering answers exit 3 instead of the
+// refusal — so the local refusal must come before credentials are resolved.
 func TestAgentAndAIConfigDocumentStdinRefusesATerminal(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		args   []string
-		remedy string
-	}{
-		{"agent create --system-prompt -", []string{"agent", "create", "--org", "acme.com", "--name", "Bot", "--system-prompt", "-"}, "--system-prompt-file <path>"},
-		{"agent create --persona-prompt -", []string{"agent", "create", "--org", "acme.com", "--name", "Bot", "--persona-prompt", "-"}, "--persona-prompt-file <path>"},
-		{"agent update --system-prompt -", []string{"agent", "update", "agt1", "--system-prompt", "-"}, "--system-prompt-file <path>"},
-		{"agent update --persona-prompt -", []string{"agent", "update", "agt1", "--persona-prompt", "-"}, "--persona-prompt-file <path>"},
-		{"ai-config create --file -", []string{"ai-config", "create", "--file", "-"}, "--file <path>"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			requests := 0
-			gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				requests++
-				_, _ = w.Write([]byte(`{"data":{}}`))
-			}))
-			t.Cleanup(gql.Close)
-			f, _, errOut := testFactoryTTY(t, "typed at a terminal\n")
-			root := NewRootCmd(f)
-			root.SetArgs(append(tc.args, "--server", gql.URL))
-			err := root.Execute()
-			if err == nil {
-				t.Fatal("a document read from a terminal must be refused")
+	for _, signedIn := range []bool{true, false} {
+		for _, tc := range agentAIConfigStdinCases {
+			name := tc.name
+			if !signedIn {
+				name += " (signed out)"
 			}
-			if got := renderError(f, err); got != exitcode.Usage {
-				t.Errorf("want exit %d (usage), got %d", exitcode.Usage, got)
-			}
-			if requests != 0 {
-				t.Errorf("a refusal on argument grounds must make no requests, got %d", requests)
-			}
-			msg := errOut.String()
-			for _, want := range []string{tc.remedy, "interactive terminal"} {
-				if !strings.Contains(msg, want) {
-					t.Errorf("the refusal must mention %q:\n%s", want, msg)
-				}
-			}
-			if strings.Contains(msg, "%!") {
-				t.Errorf("the refusal has a formatting fault:\n%s", msg)
-			}
-		})
+			t.Run(name, func(t *testing.T) { runDocumentStdinRefusal(t, tc.args, tc.remedy, signedIn) })
+		}
+	}
+}
+
+var agentAIConfigStdinCases = []struct {
+	name   string
+	args   []string
+	remedy string
+}{
+	{"agent create --system-prompt -", []string{"agent", "create", "--org", "acme.com", "--name", "Bot", "--system-prompt", "-"}, "--system-prompt-file <path>"},
+	{"agent create --persona-prompt -", []string{"agent", "create", "--org", "acme.com", "--name", "Bot", "--persona-prompt", "-"}, "--persona-prompt-file <path>"},
+	{"agent update --system-prompt -", []string{"agent", "update", "agt1", "--system-prompt", "-"}, "--system-prompt-file <path>"},
+	{"agent update --persona-prompt -", []string{"agent", "update", "agt1", "--persona-prompt", "-"}, "--persona-prompt-file <path>"},
+	{"ai-config create --file -", []string{"ai-config", "create", "--file", "-"}, "--file <path>"},
+}
+
+func runDocumentStdinRefusal(t *testing.T, args []string, remedy string, signedIn bool) {
+	t.Helper()
+	requests := 0
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	t.Cleanup(gql.Close)
+	f, _, errOut := testFactoryTTY(t, "typed at a terminal\n")
+	if !signedIn {
+		t.Setenv("HADRON_TOKEN", "") // testFactory's token store is empty
+	}
+	root := NewRootCmd(f)
+	root.SetArgs(append(args, "--server", gql.URL))
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a document read from a terminal must be refused")
+	}
+	if got := renderError(f, err); got != exitcode.Usage {
+		t.Errorf("want exit %d (usage), got %d", exitcode.Usage, got)
+	}
+	if requests != 0 {
+		t.Errorf("a refusal on argument grounds must make no requests, got %d", requests)
+	}
+	msg := errOut.String()
+	for _, want := range []string{remedy, "interactive terminal"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("the refusal must mention %q:\n%s", want, msg)
+		}
+	}
+	if strings.Contains(msg, "%!") {
+		t.Errorf("the refusal has a formatting fault:\n%s", msg)
 	}
 }
 
