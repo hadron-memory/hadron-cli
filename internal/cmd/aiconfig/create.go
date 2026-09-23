@@ -68,6 +68,15 @@ when given, replaces the file's params object.`,
 				if file == "-" && changed("api-key") && apiKey == "-" {
 					return exitcode.Newf(exitcode.Usage, "--file - and --api-key - both read stdin; put the key in the file")
 				}
+				// The config is a DOCUMENT (#648): a JSON object, refused from an
+				// interactive terminal like any other. --api-key - is NOT: it is
+				// the secret-at-a-terminal path, so key material never enters
+				// argv, and it stays unguarded (TestAIConfigAPIKeyStdinIsNotGuardedByTheDocumentRule).
+				if file == "-" {
+					if err := cmdutil.RefuseDocumentStdinFromTerminal(f.IOStreams.IsInputTerminal(), "--file -", "--file"); err != nil {
+						return err
+					}
+				}
 				s, err := loadCreateFileSpec(file, f.IOStreams.In)
 				if err != nil {
 					return err
@@ -157,7 +166,7 @@ when given, replaces the file's params object.`,
 	cmd.Flags().StringVar(&provider, "provider", "", "provider id (anthropic, openai, glm, bedrock)")
 	cmd.Flags().StringVar(&model, "model", "", "model identifier")
 	cmd.Flags().StringVar(&apiKey, "api-key", "", `provider API key ("-" reads stdin)`)
-	cmd.Flags().StringVar(&file, "file", "", `read the config (key included) from a JSON file ("-" reads stdin)`)
+	cmd.Flags().StringVar(&file, "file", "", `read the config (key included) from a JSON file ("-" reads piped stdin, refused from a terminal)`)
 	cmd.Flags().StringArrayVar(&params, "param", nil, "provider param key=value (repeatable; value parsed as JSON or string)")
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "create the config disabled")
 	return cmd
