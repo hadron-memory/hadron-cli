@@ -273,3 +273,70 @@ func TestAPIInputAndInlineWorkFromATerminal(t *testing.T) {
 		}
 	}
 }
+
+// #648 — the rest of the node group's DOCUMENT stdin readers take the same
+// refusal: `node update --abstract -` / `--data-merge -` and `node import -`
+// (both modes). Before any request, exit 2, the remedy named as a phrase.
+func TestNodeDocumentStdinRefusesATerminal(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		args   []string
+		remedy string
+	}{
+		{"update abstract", []string{"node", "update", "acme.com::kb::x:y", "--abstract", "-"}, "--abstract-file <path>"},
+		{"update data-merge", []string{"node", "update", "acme.com::kb::x:y", "--data-merge", "-"}, "--data-merge-file <path>"},
+		{"import restore", []string{"node", "import", "-"}, "hadron node import <path>"},
+		{"import content", []string{"node", "import", "-", "--as-content", "-m", "acme.com::kb", "--loc", "x:y"}, "hadron node import <path>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			requests := 0
+			gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				_, _ = w.Write([]byte(`{"data":{}}`))
+			}))
+			t.Cleanup(gql.Close)
+			f, _, errOut := testFactoryTTY(t, "typed at a terminal\n")
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", gql.URL))
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("a document read from a terminal must be refused")
+			}
+			if got := renderError(f, err); got != exitcode.Usage {
+				t.Errorf("want exit %d (usage), got %d", exitcode.Usage, got)
+			}
+			if requests != 0 {
+				t.Errorf("a refusal on argument grounds must make no requests, got %d", requests)
+			}
+			msg := errOut.String()
+			for _, want := range []string{tc.remedy, "interactive terminal"} {
+				if !strings.Contains(msg, want) {
+					t.Errorf("the refusal must mention %q:\n%s", want, msg)
+				}
+			}
+			if strings.Contains(msg, "%!") {
+				t.Errorf("the refusal has a formatting fault:\n%s", msg)
+			}
+		})
+	}
+}
+
+// The exemption is enumerable: --url never reads stdin, so a stray "-" beside
+// it must not hit the DOCUMENT refusal (the command may fail for its own
+// reasons — that is not what is under test).
+func TestNodeImportURLIsNotGuardedByTheDocumentRule(t *testing.T) {
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"errors":[{"message":"not under test"}]}`))
+	}))
+	t.Cleanup(gql.Close)
+	f, _, errOut := testFactoryTTY(t, "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "import", "-", "--url", "https://example.com/p",
+		"-m", "acme.com::kb", "--loc", "x:y", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		_ = renderError(f, err)
+	}
+	if msg := errOut.String(); strings.Contains(msg, "interactive terminal") {
+		t.Errorf("--url reads no stdin and must not hit the document guard:\n%s", msg)
+	}
+}
