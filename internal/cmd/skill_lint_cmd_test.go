@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -412,5 +414,157 @@ func TestSkillLintUnavailableNodeIsReportedNotDropped(t *testing.T) {
 	}
 	if findingRules(t, out)["skill-node-unavailable"] != "warning" {
 		t.Errorf("unavailable ref not surfaced: %s", out)
+	}
+}
+
+// ── #665: lint walks every host ─────────────────────────────────────────
+
+type lintRow struct {
+	Node, Memory, Rule, Severity, Message string
+	Hosts                                 []string
+}
+
+func lintRows(t *testing.T, out string) []lintRow {
+	t.Helper()
+	var rows []lintRow
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out)
+	}
+	return rows
+}
+
+// rowsFor returns the rows carrying rule, with their hosts joined, so an
+// assertion can say exactly which host(s) reported it.
+func rowsFor(rows []lintRow, rule string) []string {
+	var got []string
+	for _, r := range rows {
+		if r.Rule == rule {
+			got = append(got, r.Node+" "+strings.Join(r.Hosts, ","))
+		}
+	}
+	return got
+}
+
+func propsJSON(t *testing.T, v any) string {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+// P11 of the cross-host matrix (hadron-cli#622), made real: `skill lint` over
+// L01 reports Codex's over-limit description. L01's properties are read from
+// the matrix file itself, so the case and the command cannot drift apart.
+func TestSkillLintCodexOverLimitIsReported_MatrixP11(t *testing.T) {
+	raw, err := os.ReadFile("../skilldoc/testdata/crosshost-acceptance.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m struct {
+		Lint []struct {
+			ID         string         `json:"id"`
+			Properties map[string]any `json:"properties"`
+		} `json:"lint"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	var props map[string]any
+	for _, c := range m.Lint {
+		if c.ID == "L01" {
+			props = c.Properties
+		}
+	}
+	if props == nil {
+		t.Fatal("matrix has no L01; P11 has nothing to run against")
+	}
+	n := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:demo", "tasks:demo", true, propsJSON(t, props), `"# Demo\n\nSteps."`)
+	out, err := runSkillLint(t, map[string]string{
+		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
+	if got := exitCodeFor(err); got != exitcode.Conflict {
+		t.Fatalf("exit = %d, want %d (Conflict): the over-limit Codex description must be an error\n%s", got, exitcode.Conflict, out)
+	}
+	rows := lintRows(t, out)
+	want := []string{"hrn:node:hadronmemory.com:core:tasks:demo codexSkill"}
+	if got := rowsFor(rows, "skill-description-too-long"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("skill-description-too-long rows = %v, want %v\n%s", got, want, out)
+	}
+	if len(rows) != 1 {
+		t.Errorf("want exactly the one Codex finding (Claude's declaration is clean), got %d:\n%s", len(rows), out)
+	}
+}
+
+func TestSkillLintCodexOnlyDeclarationIsLintedAndCounted(t *testing.T) {
+	n := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:demo", "tasks:demo", true,
+		`{"exports":{"codexSkill":{"name":"hadron-demo","description":"Use when demoing.","enable":true}}}`, `"# Demo"`)
+	out, err := runSkillLint(t, map[string]string{
+		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
+	}, "-m", "hrn:mem:hadronmemory.com:core")
+	if err != nil {
+		t.Fatalf("clean Codex-only declaration errored: %v\n%s", err, out)
+	}
+	// Counted as a skill-declaring node, which it was not when only Claude
+	// was judged.
+	if !strings.Contains(out, "✓ 1 skill-declaring node(s) OK") {
+		t.Errorf("Codex-only node not counted:\n%s", out)
+	}
+}
+
+func TestSkillLintCapsAreIndependentPerHost(t *testing.T) {
+	// A 65-character Codex name fails Codex's cap; Claude's declaration beside
+	// it is clean, so only Codex reports it.
+	n := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:demo", "tasks:demo", true,
+		`{"exports":{"claudeSkill":{"name":"hadron-demo","description":"Use when demoing."},"codexSkill":{"name":"`+strings.Repeat("a", 65)+`","description":"Use when demoing."}}}`, `"# Demo"`)
+	out, _ := runSkillLint(t, map[string]string{
+		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
+	want := []string{"hrn:node:hadronmemory.com:core:tasks:demo codexSkill"}
+	if got := rowsFor(lintRows(t, out), "skill-name-invalid"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("skill-name-invalid rows = %v, want %v\n%s", got, want, out)
+	}
+}
+
+func TestSkillLintLegacyAliasWarnsForClaudeOnly(t *testing.T) {
+	n := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:demo", "tasks:demo", true,
+		`{"skill":{"name":"hadron-demo","description":"Use when demoing."},"exports":{"codexSkill":{"name":"hadron-demo","description":"Use when demoing."}}}`, `"# Demo"`)
+	out, _ := runSkillLint(t, map[string]string{
+		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
+	want := []string{"hrn:node:hadronmemory.com:core:tasks:demo claudeSkill"}
+	if got := rowsFor(lintRows(t, out), "skill-legacy-key"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("skill-legacy-key rows = %v, want %v\n%s", got, want, out)
+	}
+}
+
+func TestSkillLintNodeLevelFindingIsOneRowNamingEveryHost(t *testing.T) {
+	// Not runnable, declared for both hosts: one finding about the NODE,
+	// reported by both hosts' judgment, is one row, not two.
+	n := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:demo", "tasks:demo", false,
+		`{"exports":{"claudeSkill":{"name":"hadron-demo","description":"Use when demoing."},"codexSkill":{"name":"hadron-demo","description":"Use when demoing."}}}`, `"# Demo"`)
+	out, _ := runSkillLint(t, map[string]string{
+		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(n),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
+	want := []string{"hrn:node:hadronmemory.com:core:tasks:demo claudeSkill,codexSkill"}
+	if got := rowsFor(lintRows(t, out), "skill-not-runnable"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("skill-not-runnable rows = %v, want %v\n%s", got, want, out)
+	}
+}
+
+func TestSkillLintCollisionsArePerHost(t *testing.T) {
+	// Two nodes share a Codex name and keep distinct Claude names: a Codex
+	// collision on both members, and none for Claude.
+	a := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
+		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."},"codexSkill":{"name":"hadron-x","description":"Use when x."}}}`, `"# A"`)
+	b := skillNode("n2", "mem1", "hrn:node:hadronmemory.com:core:tasks:b", "tasks:b", true,
+		`{"exports":{"claudeSkill":{"name":"hadron-b","description":"Use when b."},"codexSkill":{"name":"hadron-x","description":"Use when x."}}}`, `"# B"`)
+	out, _ := runSkillLint(t, map[string]string{
+		"GetMemory": skillMemOrg, "FindNodes": listOf("n1", "n2"), "NodeBatch": batchOf(a, b),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
+	want := []string{"hrn:node:hadronmemory.com:core:tasks:a codexSkill", "hrn:node:hadronmemory.com:core:tasks:b codexSkill"}
+	if got := rowsFor(lintRows(t, out), "skill-name-collision"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("skill-name-collision rows = %v, want %v\n%s", got, want, out)
 	}
 }

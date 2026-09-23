@@ -615,10 +615,15 @@ Conventions:
   field. `enable` must be `true` to publish and DEFAULTS TO OFF — a declaration alone
   does not ship a skill, because the corpus holds many runnable automation nodes
   that were never meant to be skills.
-  `skill lint` checks the corpus and touches no disk: name present, kebab-case
-  and ≤64; description present and ≤1024 chars (the host TRUNCATES longer ones
-  in its listing, so trigger phrases past the cut never fire); `isRunnable`
-  set; body non-empty and frontmatter-free; no two nodes storing one name. Note
+  `skill lint` checks the corpus and touches no disk, for EVERY host
+  (`claudeSkill`, `codexSkill`), each declaration against its own host's caps:
+  name present, kebab-case and ≤64; description present and ≤1024 chars (the
+  host TRUNCATES longer ones in its listing, so trigger phrases past the cut
+  never fire); `isRunnable` set; body non-empty and frontmatter-free; no two
+  nodes storing one name for the same host. Each `--json` row carries `hosts`:
+  the host(s) whose judgment produced it. A finding every host reports
+  identically is one row naming them all, and an unreadable node's row has
+  `hosts: []`. Note
   what cannot be checked: with no prefix source, a name's PREFIX is
   unverifiable — `hadon-foo` lints clean. `--all` walks what the server lists for you — own-org,
   shared-with-you and other orgs' PUBLIC memories, every class; a per-user
