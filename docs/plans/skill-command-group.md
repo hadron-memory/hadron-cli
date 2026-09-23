@@ -468,10 +468,11 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 > (`hrn:node:hadronmemory.com:hadron-cli:reference:codex-skill-host`). *(Amended
 > 2026-09-23: this used to say the 64/1024 caps were Claude-specific and applied
 > to the `claudeSkill` entry only, which read as "Codex has no limits".)* The
-> server judges per host since hadron-server#1283 (`skillPlan(host:)`); the
-> CLI's local `lint` as shipped in #589 still validates the `claudeSkill` entry
-> only, tracked as #665. There is no second renderer to wait for: Codex reads
-> the same file shape (#622).
+> server judges per host since hadron-server#1283 (`skillPlan(host:)`), and so
+> does the CLI's local `lint` since #665: it walks the host table in
+> `internal/skilldoc` (`Hosts`) and tags every finding with the host(s) that
+> reported it. There is no second renderer to wait for: Codex reads the same
+> file shape (#622).
 
 - `--host` selects the host's root/limits (D10); `claudeSkill` is the default.
   **It lands with `status` ONLY** — amended 2026-09-23 (B8). It used to say
@@ -485,14 +486,14 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   @Eli measured Codex at the same numbers (cli#622), so the second host arrives
   as a row in a table rather than as a second renderer.
 
-  **Equal limits do NOT mean lint covers Codex today** (@codex on #661). As
-  shipped in #589 lint validates the `claudeSkill` entry only, so a
-  `codexSkill` declaration over 64/1024 is not caught — and because the numbers
-  match, that gap is invisible to anyone reading the caps. The server-side
-  per-host lint shipped in hadron-server#1283; the CLI's local walk is #665,
-  which is also where Codex's own truncation behaviour
-  (1,024 with `...`, plus a shared 2%-of-context budget across all skills)
-  becomes lint's business.
+  **Equal limits did NOT mean lint covered Codex** (@codex on #661). As
+  shipped in #589 lint validated the `claudeSkill` entry only, so a
+  `codexSkill` declaration over 64/1024 was not caught, and because the numbers
+  match, that gap was invisible to anyone reading the caps. Closed on both
+  sides: server-side per host in hadron-server#1283, and the CLI's local walk
+  in #665 (matrix P11 is now a command-level test, not a pending case). Codex's
+  softer budget (a shared ~2% of context across all skills' catalog lines) is
+  still not lint's business: no rule measures it.
 
 - **`--scope <name>` (proposed, not built)** NARROWS a selection — it is not
   an alternative to one. `cor:agt:030:03` says a scope narrows and never

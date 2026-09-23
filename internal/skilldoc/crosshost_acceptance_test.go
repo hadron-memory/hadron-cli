@@ -8,11 +8,9 @@ package skilldoc
 // tied to the cor:agt:030 rule it follows from. It is written from those
 // rules, not generated from any implementation, so it can disagree with one.
 //
-// This package knows ONE host. Declared, Lint and LintCollisions answer for
-// claudeSkill only (the Codex projection comes from the server, through
-// skillPlan), so this file checks the claudeSkill column of every live case.
-// Both columns belong to hadron-server's host registry; server#1254 part 2 is
-// to vendor this file and run them there.
+// Since #665 this package knows every host (Hosts), so this file checks BOTH
+// columns of every live case, as hadron-server does from its vendored copy
+// (src/lib/skilldoc/crosshost.acceptance.test.ts, under a sha256 pin).
 // The `pending` cases need a writer or resolver that does not exist yet; they
 // are skipped BY NAME, so `go test -v` lists what is still owed rather than
 // reporting it as passed.
@@ -315,56 +313,73 @@ func TestCrossHostSharedPayloadIsTheLiteral(t *testing.T) {
 	}
 }
 
-func TestCrossHostDeclarationsClaudeColumn(t *testing.T) {
+// matrixHost resolves a matrix host key to this package's row, failing the
+// test for a key the host table does not carry.
+func matrixHost(t *testing.T, key string) Host {
+	t.Helper()
+	h, ok := HostFor(key)
+	if !ok {
+		t.Fatalf("matrix host %q has no row in Hosts", key)
+	}
+	return h
+}
+
+func TestCrossHostDeclarations(t *testing.T) {
 	m := loadMatrix(t)
-	for _, c := range m.Declarations {
-		t.Run(c.ID, func(t *testing.T) {
-			want, ok := c.Expect[HostClaudeSkill]
-			if !ok {
-				t.Fatalf("%s states no claudeSkill expectation (null is a statement; absence is not)", c.ID)
-			}
-			d, declared := Declared(c.Properties)
-			switch {
-			case want == nil && declared:
-				t.Fatalf("%s: want no Claude declaration, got one at %s", c.Title, d.Key)
-			case want != nil && !declared:
-				t.Fatalf("%s: want a Claude declaration at %s, got none", c.Title, want.Key)
-			case want != nil:
-				if d.Key != want.Key || d.Name != want.Name || d.Description != want.Description ||
-					d.Enable != *want.Enable || d.EnableSet != *want.EnableSet {
-					t.Fatalf("%s:\n got {%s %q %q enable=%v enableSet=%v}\nwant {%s %q %q enable=%v enableSet=%v}", c.Title,
-						d.Key, d.Name, d.Description, d.Enable, d.EnableSet,
-						want.Key, want.Name, want.Description, *want.Enable, *want.EnableSet)
+	for _, key := range m.Hosts {
+		h := matrixHost(t, key)
+		for _, c := range m.Declarations {
+			t.Run(key+"/"+c.ID, func(t *testing.T) {
+				want, ok := c.Expect[key]
+				if !ok {
+					t.Fatalf("%s states no %s expectation (null is a statement; absence is not)", c.ID, key)
 				}
-			}
-			gotBad := Malformed(c.Properties)
-			if gotBad == nil {
-				gotBad = []string{}
-			}
-			if !reflect.DeepEqual(gotBad, c.Malformed[HostClaudeSkill]) {
-				t.Fatalf("%s: malformed = %v, want %v", c.Title, gotBad, c.Malformed[HostClaudeSkill])
-			}
-		})
+				d, declared := DeclaredFor(c.Properties, h)
+				switch {
+				case want == nil && declared:
+					t.Fatalf("%s: want no %s declaration, got one at %s", c.Title, key, d.Key)
+				case want != nil && !declared:
+					t.Fatalf("%s: want a %s declaration at %s, got none", c.Title, key, want.Key)
+				case want != nil:
+					if d.Key != want.Key || d.Name != want.Name || d.Description != want.Description ||
+						d.Enable != *want.Enable || d.EnableSet != *want.EnableSet {
+						t.Fatalf("%s:\n got {%s %q %q enable=%v enableSet=%v}\nwant {%s %q %q enable=%v enableSet=%v}", c.Title,
+							d.Key, d.Name, d.Description, d.Enable, d.EnableSet,
+							want.Key, want.Name, want.Description, *want.Enable, *want.EnableSet)
+					}
+				}
+				gotBad := MalformedFor(c.Properties, h)
+				if gotBad == nil {
+					gotBad = []string{}
+				}
+				if !reflect.DeepEqual(gotBad, c.Malformed[key]) {
+					t.Fatalf("%s: malformed = %v, want %v", c.Title, gotBad, c.Malformed[key])
+				}
+			})
+		}
 	}
 }
 
-func TestCrossHostLintClaudeColumn(t *testing.T) {
+func TestCrossHostLint(t *testing.T) {
 	m := loadMatrix(t)
-	for _, c := range m.Lint {
-		t.Run(c.ID, func(t *testing.T) {
-			n := Node{
-				URN:       "hrn:node:example.com:demo:tasks:" + c.ID,
-				MemoryURN: "hrn:mem:example.com:demo", IsRunnable: true, Content: "Do the demo.\n", Properties: c.Properties,
-			}
-			rules := []string{}
-			for _, f := range Lint(n) {
-				rules = append(rules, f.Rule+":"+f.Severity)
-			}
-			sort.Strings(rules)
-			if !reflect.DeepEqual(rules, c.Expect[HostClaudeSkill]) {
-				t.Fatalf("rules = %v, want %v", rules, c.Expect[HostClaudeSkill])
-			}
-		})
+	for _, key := range m.Hosts {
+		h := matrixHost(t, key)
+		for _, c := range m.Lint {
+			t.Run(key+"/"+c.ID, func(t *testing.T) {
+				n := Node{
+					URN:       "hrn:node:example.com:demo:tasks:" + c.ID,
+					MemoryURN: "hrn:mem:example.com:demo", IsRunnable: true, Content: "Do the demo.\n", Properties: c.Properties,
+				}
+				rules := []string{}
+				for _, f := range LintFor(n, h) {
+					rules = append(rules, f.Rule+":"+f.Severity)
+				}
+				sort.Strings(rules)
+				if !reflect.DeepEqual(rules, c.Expect[key]) {
+					t.Fatalf("rules = %v, want %v", rules, c.Expect[key])
+				}
+			})
+		}
 	}
 }
 
@@ -378,54 +393,55 @@ type xhCollision struct {
 // Every member of a colliding group must be told, at error severity, exactly
 // once. Reducing findings to the set of names would pass a host that flagged
 // only one member, or flagged it as a warning (@codex on #664).
-func TestCrossHostCollisionsClaudeColumn(t *testing.T) {
+func TestCrossHostCollisions(t *testing.T) {
 	m := loadMatrix(t)
-	for _, c := range m.Collisions {
-		t.Run(c.ID, func(t *testing.T) {
-			nodes := make([]Node, 0, len(c.Nodes))
-			for _, n := range c.Nodes {
-				nodes = append(nodes, Node{URN: n.URN, Properties: n.Properties})
-			}
-			byName := map[string][]string{}
-			for _, f := range LintCollisions(nodes) {
-				mm := collisionName.FindStringSubmatch(f.Message)
-				if f.Rule != "skill-name-collision" || f.Severity != SevError || mm == nil {
-					t.Fatalf("unexpected finding %+v", f)
+	for _, key := range m.Hosts {
+		h := matrixHost(t, key)
+		for _, c := range m.Collisions {
+			t.Run(key+"/"+c.ID, func(t *testing.T) {
+				nodes := make([]Node, 0, len(c.Nodes))
+				for _, n := range c.Nodes {
+					nodes = append(nodes, Node{URN: n.URN, Properties: n.Properties})
 				}
-				byName[mm[1]] = append(byName[mm[1]], f.URN)
-			}
-			got := []xhCollision{}
-			for name, urns := range byName {
-				sort.Strings(urns)
-				got = append(got, xhCollision{Name: name, Members: urns})
-			}
-			sort.Slice(got, func(i, j int) bool { return got[i].Name < got[j].Name })
-			if !reflect.DeepEqual(got, c.Expect[HostClaudeSkill]) {
-				t.Fatalf("collisions = %+v, want %+v", got, c.Expect[HostClaudeSkill])
-			}
-		})
+				byName := map[string][]string{}
+				for _, f := range LintCollisionsFor(nodes, h) {
+					mm := collisionName.FindStringSubmatch(f.Message)
+					if f.Rule != "skill-name-collision" || f.Severity != SevError || mm == nil {
+						t.Fatalf("unexpected finding %+v", f)
+					}
+					byName[mm[1]] = append(byName[mm[1]], f.URN)
+				}
+				got := []xhCollision{}
+				for name, urns := range byName {
+					sort.Strings(urns)
+					got = append(got, xhCollision{Name: name, Members: urns})
+				}
+				sort.Slice(got, func(i, j int) bool { return got[i].Name < got[j].Name })
+				if !reflect.DeepEqual(got, c.Expect[key]) {
+					t.Fatalf("collisions = %+v, want %+v", got, c.Expect[key])
+				}
+			})
+		}
 	}
 }
 
 // One renderer serves both hosts (cli#622 item 2): Render takes no host, so
-// what may differ per host is only the declaration it is given. The Claude
-// side renders what Declared ACTUALLY returns, not the expectation, so a
-// reader regression shows up here too. The Codex side has to use the
-// expectation, because this package has no Codex reader; the server checks
-// that the expectation is what its registry reads.
+// what may differ per host is only the declaration it is given. Both sides
+// render what DeclaredFor ACTUALLY returns, not the expectation, so a reader
+// regression shows up here too.
 func TestCrossHostRendering(t *testing.T) {
 	m := loadMatrix(t)
 	props := map[string]map[string]any{}
-	expects := map[string]map[string]*xhDecl{}
 	for _, c := range m.Declarations {
-		props[c.ID], expects[c.ID] = c.Properties, c.Expect
+		props[c.ID] = c.Properties
 	}
+	codex := matrixHost(t, HostCodexSkill)
 	const id, source, body = "01a0000000000000000000000000000r", "hrn:node:example.com:demo:tasks:demo", "Do the demo.\n"
 	for _, r := range m.Rendering {
 		t.Run(r.ID, func(t *testing.T) {
 			cl, ok := Declared(props[r.Case])
-			cx := expects[r.Case]["codexSkill"]
-			if !ok || cx == nil {
+			cx, okx := DeclaredFor(props[r.Case], codex)
+			if !ok || !okx {
 				t.Fatalf("%s must name a case declared for both hosts, got %q", r.ID, r.Case)
 			}
 			fc, err := Render(id, cl.Name, source, cl.Description, body)

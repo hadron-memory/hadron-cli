@@ -52,10 +52,50 @@ const (
 // discovery stays a key check rather than a containment match.
 const ExportsKey = "exports"
 
-// HostClaudeSkill is the only host with a specified renderer (D10/D12). Other
-// keys under `exports` are recognised as declarations but not validated here —
-// a second host's limits arrive with its renderer, not before it.
-const HostClaudeSkill = "claudeSkill"
+// HostClaudeSkill and HostCodexSkill are the skill hosts, each named by its
+// D12 key under `exports`, verbatim. There is ONE renderer: Codex reads the
+// same SKILL.md shape as Claude (measured on codex-cli 0.153.0,
+// hrn:node:hadronmemory.com:hadron-cli:reference:codex-skill-host), so what
+// differs per host is data — its limits and whether the retired keys alias to
+// it — and lives in Hosts. hadron-server's registry (src/lib/skilldoc/hosts.ts)
+// carries the same rows; the cross-host matrix
+// (testdata/crosshost-acceptance.json) pins both against cor:agt:030.
+const (
+	HostClaudeSkill = "claudeSkill"
+	HostCodexSkill  = "codexSkill"
+)
+
+// Host is one skill host's row: the limits its declarations are judged
+// against, and whether the retired top-level keys are read as its alias.
+type Host struct {
+	Key               string
+	MaxNameLen        int
+	MaxDescriptionLen int
+	// LegacyAliases is true for Claude only. The retired `skill` /
+	// `claudeSkill` keys predate hosts and always meant Claude; reading them
+	// as another host's declaration would publish somewhere nobody chose.
+	LegacyAliases bool
+}
+
+// Hosts is every host, Claude first. Both hosts cut a description at 1,024
+// in the listing their model sees and cap a name at 64 (cor:agt:030:05).
+var Hosts = []Host{
+	{Key: HostClaudeSkill, MaxNameLen: MaxNameLen, MaxDescriptionLen: MaxDescriptionLen, LegacyAliases: true},
+	{Key: HostCodexSkill, MaxNameLen: 64, MaxDescriptionLen: 1024, LegacyAliases: false},
+}
+
+// HostFor returns the row for a host key, or false for a key no host owns
+// (`codex`, a typo). A caller must not fall back to Claude for an unknown key.
+func HostFor(key string) (Host, bool) {
+	for _, h := range Hosts {
+		if h.Key == key {
+			return h, true
+		}
+	}
+	return Host{}, false
+}
+
+func claudeHost() Host { return Hosts[0] }
 
 // legacyTopLevelKeys are the pre-D12 declaration properties, read as aliases
 // for `exports.claudeSkill` so nothing has to be migrated to keep working
@@ -127,9 +167,10 @@ type Declaration struct {
 	EnableSet bool
 }
 
-// classify is the ONE scan of a node's declaration properties. It returns the
-// declaration for the claudeSkill host — the only host with a specified
-// renderer — and every property PATH that is present but of the wrong shape.
+// classify is the ONE scan of a node's declaration properties, as the
+// claudeSkill host reads it (classifyFor takes any host). It returns that
+// host's declaration and every property PATH that is present but of the wrong
+// shape.
 //
 // Precedence: `exports.claudeSkill` wins over the retired top-level `skill`,
 // which wins over `claudeSkill`, so a node that has been given the new shape
@@ -142,6 +183,15 @@ type Declaration struct {
 // A wrongly-TYPED field is reported rather than ignored, or a value the
 // contract requires would escape its rule by being a number.
 func classify(props map[string]any) (decl *Declaration, malformed []string) {
+	return classifyFor(props, claudeHost())
+}
+
+// classifyFor is classify for any host: the declaration at `exports.<host>`
+// (or, for Claude only, a retired alias), and the malformed paths that host's
+// plan reports. Every `exports` entry is shape-checked whichever host asks,
+// matching hadron-server; the retired keys are shape-checked only for the
+// host they alias to.
+func classifyFor(props map[string]any, h Host) (decl *Declaration, malformed []string) {
 	read := func(path, host string, obj map[string]any) *Declaration {
 		for _, field := range []string{"description", "name"} {
 			if v, present := obj[field]; present {
@@ -189,14 +239,17 @@ func classify(props map[string]any) (decl *Declaration, malformed []string) {
 					continue
 				}
 				d := read(path, host, obj)
-				if host == HostClaudeSkill {
+				if host == h.Key {
 					decl = d
 				}
 			}
 		}
 	}
 
-	// Then the retired top-level keys, as aliases for the same host.
+	// Then the retired top-level keys, as aliases for Claude only.
+	if !h.LegacyAliases {
+		return decl, malformed
+	}
 	for _, key := range legacyTopLevelKeys {
 		raw, ok := props[key]
 		if !ok {
@@ -241,9 +294,25 @@ func Malformed(props map[string]any) []string {
 	return bad
 }
 
+// DeclaredFor is Declared for any host.
+func DeclaredFor(props map[string]any, h Host) (*Declaration, bool) {
+	decl, _ := classifyFor(props, h)
+	return decl, decl != nil
+}
+
+// MalformedFor is Malformed as host h's plan reports it.
+func MalformedFor(props map[string]any, h Host) []string {
+	_, bad := classifyFor(props, h)
+	return bad
+}
+
 // ValidName reports whether name satisfies the host's grammar and length.
 func ValidName(name string) bool {
-	return utf8.RuneCountInString(name) <= MaxNameLen && nameRE.MatchString(name)
+	return validNameFor(name, MaxNameLen)
+}
+
+func validNameFor(name string, maxLen int) bool {
+	return utf8.RuneCountInString(name) <= maxLen && nameRE.MatchString(name)
 }
 
 // NormalizeDescription is the description as exported: surrounding
@@ -358,11 +427,17 @@ type Finding struct {
 // prefix source, a name's PREFIX is unverifiable, so `hadon-foo` lints clean.
 // Shape is checkable, correctness is not.
 func Lint(n Node) []Finding {
+	return LintFor(n, claudeHost())
+}
+
+// LintFor is Lint judged for host h: its declaration, its limits, and the
+// legacy-key warning only for the host the retired keys alias to.
+func LintFor(n Node, h Host) []Finding {
 	var out []Finding
 	add := func(rule, sev, msg string) {
 		out = append(out, Finding{URN: n.URN, Memory: n.MemoryURN, Rule: rule, Severity: sev, Message: msg})
 	}
-	decl, malformed := classify(n.Properties)
+	decl, malformed := classifyFor(n.Properties, h)
 	for _, key := range malformed {
 		add("skill-declaration-malformed", SevError,
 			fmt.Sprintf("properties.%s is present but has the wrong shape — a declaration is {\"description\": \"…\"} with string fields; fix it or remove the key", key))
@@ -373,9 +448,14 @@ func Lint(n Node) []Finding {
 
 	// D12 moved the declaration to `exports.<host>`; the top-level keys are read
 	// as aliases so nothing needs migrating, and this steers them across.
-	migrated := decl.Key == ExportsKey+"."+HostClaudeSkill
+	// The retired keys alias to Claude only, so for any other host the
+	// declaration is always at exports.<host> and there is nothing to steer.
+	migrated := !h.LegacyAliases || decl.Key == ExportsKey+"."+HostClaudeSkill
 	var strays []string
 	for _, key := range legacyTopLevelKeys {
+		if !h.LegacyAliases {
+			break
+		}
 		if _, ok := n.Properties[key].(map[string]any); ok {
 			strays = append(strays, "properties."+key)
 		}
@@ -398,10 +478,10 @@ func Lint(n Node) []Finding {
 	case desc == "":
 		add("skill-description-missing", SevError,
 			fmt.Sprintf("properties.%s.description is missing or empty — it is the trigger text the host matches against; the node cannot be exported without it", decl.Key))
-	case n > MaxDescriptionLen:
+	case n > h.MaxDescriptionLen:
 		add("skill-description-too-long", SevError,
 			fmt.Sprintf("description is %d characters; the host caps it at %d and TRUNCATES the rest in the skill listing, so trigger phrases past the cut never fire — shorten by %d",
-				n, MaxDescriptionLen, n-MaxDescriptionLen))
+				n, h.MaxDescriptionLen, n-h.MaxDescriptionLen))
 	}
 	if desc != "" && !triggerRE.MatchString(desc) {
 		add("skill-description-no-trigger", SevWarning,
@@ -413,9 +493,9 @@ func Lint(n Node) []Finding {
 	case strings.TrimSpace(decl.Name) == "":
 		add("skill-name-missing", SevError,
 			fmt.Sprintf("properties.%s.name is missing or empty — since D12 the name is stored rather than derived, so there is nothing to fall back to; it is the skill's directory name and the host's identifier", decl.Key))
-	case !ValidName(decl.Name):
+	case !validNameFor(decl.Name, h.MaxNameLen):
 		add("skill-name-invalid", SevError,
-			fmt.Sprintf("skill name %q is not a valid skill name (kebab-case, ≤%d chars) — it is stored at properties.%s.name, so that is what to change", decl.Name, MaxNameLen, decl.Key))
+			fmt.Sprintf("skill name %q is not a valid skill name (kebab-case, ≤%d chars) — it is stored at properties.%s.name, so that is what to change", decl.Name, h.MaxNameLen, decl.Key))
 	}
 
 	if !n.IsRunnable {
@@ -449,9 +529,17 @@ func Lint(n Node) []Finding {
 // identically-named tasks apart, which is the cost D12 accepts. A node with no
 // stored name is skipped: skill-name-missing is its finding.
 func LintCollisions(nodes []Node) []Finding {
+	return LintCollisionsFor(nodes, claudeHost())
+}
+
+// LintCollisionsFor is LintCollisions for host h. Collisions are per host: a
+// name is a directory under ONE host's root, so one node using one name for
+// both hosts is by design, and two nodes sharing a Codex name collide only
+// for Codex.
+func LintCollisionsFor(nodes []Node, h Host) []Finding {
 	byName := map[string][]Node{}
 	for _, n := range nodes {
-		decl, ok := Declared(n.Properties)
+		decl, ok := DeclaredFor(n.Properties, h)
 		if !ok || strings.TrimSpace(decl.Name) == "" {
 			// A node with no stored name cannot collide with anything; its own
 			// finding is skill-name-missing, not this.
