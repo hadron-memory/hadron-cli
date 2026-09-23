@@ -696,8 +696,18 @@ func installCreatedAgent(ctx context.Context, client graphql.Client, appRef, age
 	resp, err := gen.InstallAgentIntoApp(ctx, client, appRef, agentID, nil)
 	if err != nil {
 		mapped := cmdutil.InstallForbiddenGuidance(err)
-		return &agentInstallDTO{AppRef: appRef, Status: installStatusFor(mapped), Error: mapped.Error()},
-			installIncompleteError(mapped, appRef, agentID)
+		incomplete := installIncompleteError(mapped, appRef, agentID)
+		// #681 (PR #683 review, @copilot): `app agent add` fails the same way
+		// until the MCP-only key is replaced, so it is the SECOND step here, not
+		// the finishing one. MapError has already named the credential fix.
+		if api.IsMCPOnlyCredential(err) {
+			incomplete = exitcode.Newf(exitcode.FromError(mapped),
+				"agent was CREATED but NOT installed into %s: %v\n"+
+					"The agent exists — do not re-run `agent create`, it would make a second one.\n"+
+					"Once the key is replaced, finish with: hadron app agent add %s %s",
+				appRef, mapped, appRef, agentID)
+		}
+		return &agentInstallDTO{AppRef: appRef, Status: installStatusFor(mapped), Error: mapped.Error()}, incomplete
 	}
 	if resp.InstallAgentIntoApp == nil || resp.InstallAgentIntoApp.AppAgent == nil {
 		err := exitcode.Newf(exitcode.Error, "server returned no AppAgent row")

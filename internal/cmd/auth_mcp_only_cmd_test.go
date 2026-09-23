@@ -222,3 +222,50 @@ func TestRawAPIReportsTheMCPOnlyRefusalUnmapped(t *testing.T) {
 		t.Errorf("exit code = %d, want %d (the raw path maps extensions.code only): %v", code, exitcode.Forbidden, err)
 	}
 }
+
+// `agent create --install-into` (PR #683 review, @copilot): the create has
+// succeeded, so the error names the finishing command. For an MCP-only key that
+// command fails the same way until the key is replaced, so it has to come second.
+func TestAgentCreateInstallIntoMCPOnlyFinishesAfterTheCredentialFix(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CreateAgent":         `{"data":{"createAgent":` + agentJSON + `}}`,
+		"InstallAgentIntoApp": `{"data":null,"errors":[{"message":"This OAuth credential is limited to the MCP surface.","extensions":{"code":"FORBIDDEN"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "Support Bot",
+		"--install-into", "hrn:app:acme.com:eng-team", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.AuthRequired {
+		t.Fatalf("exit code = %d, want %d: %v", code, exitcode.AuthRequired, err)
+	}
+	msg := err.Error()
+	for _, want := range []string{"CREATED but NOT installed", "/app/account/api-keys", "Once the key is replaced, finish with: hadron app agent add"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("missing %q: %s", want, msg)
+		}
+	}
+	if strings.Contains(msg, "CONTRIBUTOR") {
+		t.Errorf("the role rule is a false remedy for this key: %s", msg)
+	}
+}
+
+// The human rendering of `auth token validate` (PR #683 review, @copilot).
+func TestAuthTokenValidateMCPOnlyHuman(t *testing.T) {
+	gql := graphQLAlways(t, http.StatusInternalServerError, mcpOnlyRefusalBody)
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader("hdr_user_mcponly\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"auth", "token", "validate", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.AuthRequired {
+		t.Fatalf("exit code = %d, want %d: %v", code, exitcode.AuthRequired, err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "limited to the MCP surface") || !strings.Contains(got, "/app/account/api-keys") {
+		t.Errorf("want the MCP-only explanation and the portal page:\n%s", got)
+	}
+	if strings.Contains(got, "invalid, revoked, or expired") {
+		t.Errorf("an MCP-only key is not invalid:\n%s", got)
+	}
+}

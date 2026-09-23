@@ -119,8 +119,10 @@ onto typed `FORBIDDEN`, 17 of them inside seven shared gates.
 whose OAuth grant is `mcp` alone (what a browser login from hadron v0.14.0 or
 earlier stored) is valid for MCP clients and refused on every CLI surface. The
 fix is a different credential, not somebody's permission, so commands exit
-**3** on it. That includes `app agent add/remove`, whose usual "needs
-CONTRIBUTOR+" guidance would be a false remedy here. The message keeps the
+**3** on it. That includes `app agent add/remove` and `agent create
+--install-into`, whose usual "needs CONTRIBUTOR+" guidance would be a false
+remedy here. The latter still reports the agent as created, and puts
+`app agent add` AFTER replacing the key. The message keeps the
 server's sentence and appends both recoveries:
 `hadron auth logout && hadron auth login` (v0.15.0+ requests `account`), or a
 key from the portal's API keys page (`/app/account/api-keys`) passed to
