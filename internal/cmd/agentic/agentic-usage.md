@@ -620,7 +620,8 @@ Conventions:
   name present, kebab-case and ≤64; description present and ≤1024 chars (the
   host TRUNCATES longer ones in its listing, so trigger phrases past the cut
   never fire); `isRunnable` set; body non-empty and frontmatter-free; no two
-  nodes storing one name for the same host. Each `--json` row carries `hosts`:
+  nodes ENABLING one name for the same host (a declaration that is not enabled
+  claims no name — cor:agt:030:06). Each `--json` row carries `hosts`:
   the host(s) whose judgment produced it. A finding every host reports
   identically is one row naming them all, and an unreadable node's row has
   `hosts: []`. Note

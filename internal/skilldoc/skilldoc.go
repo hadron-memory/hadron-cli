@@ -275,9 +275,11 @@ func classifyFor(props map[string]any, h Host) (decl *Declaration, malformed []s
 //
 // Declared is NOT the same question as "will it export": `enable` defaults to
 // off, so most declarations are declared and not enabled. Both states are
-// returned here on purpose — lint judges a declaration whether or not it is
-// enabled, because a broken name is worth reporting BEFORE somebody turns it on,
-// and `status` has to be able to name a file whose declaration is switched off.
+// returned here on purpose — per-node lint (LintFor) judges a declaration
+// whether or not it is enabled, because a broken name is worth reporting BEFORE
+// somebody turns it on, and `status` has to be able to name a file whose
+// declaration is switched off. Collisions are the exception: only an ENABLED
+// declaration claims its name (LintCollisionsFor, cor:agt:030:06).
 func Declared(props map[string]any) (*Declaration, bool) {
 	decl, _ := classify(props)
 	return decl, decl != nil
@@ -523,9 +525,10 @@ func LintFor(n Node, h Host) []Finding {
 	return out
 }
 
-// LintCollisions reports two declaring nodes that store the SAME skill name.
-// Since D12 the name is stored rather than derived, so a collision is two
-// authors having typed one name — there is no prefix left to keep two orgs'
+// LintCollisions reports two nodes whose ENABLED declarations store the SAME
+// skill name (a declaration that is not enabled claims no name). Since D12 the
+// name is stored rather than derived, so a collision is two authors having
+// typed one name — there is no prefix left to keep two orgs'
 // identically-named tasks apart, which is the cost D12 accepts. A node with no
 // stored name is skipped: skill-name-missing is its finding.
 func LintCollisions(nodes []Node) []Finding {
@@ -536,13 +539,19 @@ func LintCollisions(nodes []Node) []Finding {
 // name is a directory under ONE host's root, so one node using one name for
 // both hosts is by design, and two nodes sharing a Codex name collide only
 // for Codex.
+//
+// Only ENABLED declarations collide (cor:agt:030:06, D-2026-09-23-C): a
+// declaration that is not enabled is not exported, so it claims no name —
+// and enable defaults to off, so one with no `enable` claims nothing either.
+// Its earlier file on disk is protected by the export's own rules, not here.
 func LintCollisionsFor(nodes []Node, h Host) []Finding {
 	byName := map[string][]Node{}
 	for _, n := range nodes {
 		decl, ok := DeclaredFor(n.Properties, h)
-		if !ok || strings.TrimSpace(decl.Name) == "" {
+		if !ok || !decl.Enable || strings.TrimSpace(decl.Name) == "" {
 			// A node with no stored name cannot collide with anything; its own
-			// finding is skill-name-missing, not this.
+			// finding is skill-name-missing, not this. A declaration that is
+			// not enabled claims no name at all.
 			continue
 		}
 		byName[decl.Name] = append(byName[decl.Name], n)
