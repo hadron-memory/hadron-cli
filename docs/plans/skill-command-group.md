@@ -498,10 +498,17 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   end up on the wrong disk.
 - **`--to` is `status`-only** (amended 2026-09-23, B8) and names the root to
   COMPARE against, **and the root is per HOST**: `user` (default) →
-  `~/.claude/skills` for `claudeSkill` and `~/.agents/skills` for `codexSkill`
+  `~/.claude/skills` for `claudeSkill`, and `~/.agents/skills` for `codexSkill`
   (@Eli measured, cli#622; `~/.codex/skills` is deprecated but still read).
-  A host with no root of its own is refused for a symbolic destination rather
-  than resolved against Claude's — as shipped in `hostDirs`.
+
+  **`codexSkill` is NOT in the shipped map yet** — `hostDirs` holds
+  `claudeSkill` only, so `--host codexSkill --to user` is REFUSED today with
+  exit 2, measured. What IS shipped is the refusal: a host with no root of its
+  own is rejected for a symbolic destination rather than resolved against
+  Claude's, so the mismatch cannot happen silently. The Codex row lands with
+  @Eli's host table (cli#622), which is his to add rather than mine to
+  anticipate. *(An earlier draft of this bullet said the Codex root worked "as
+  shipped" — @codex on #661 caught that it does not.)*
 
   **`project` is host-specific too** (@codex on #661): `<git toplevel>/.claude/skills`
   for `claudeSkill` and `<git toplevel>/.agents/skills` for `codexSkill`. The
