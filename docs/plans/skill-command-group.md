@@ -511,6 +511,13 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   `~/.claude/skills` for `claudeSkill`, and `~/.agents/skills` for `codexSkill`
   (@Eli measured, cli#622; `~/.codex/skills` is deprecated but still read).
 
+  **A host may have MORE THAN ONE root to read** (@codex on #661): Codex still
+  reads the deprecated `~/.codex/skills`, so comparing only `~/.agents/skills`
+  reports a clean set while Hadron-generated files sit unexamined in the old
+  location — an all-clear wider than the read. A host's entry therefore needs a
+  WRITE root and a list of READ roots, not one path. Naming it here rather than
+  designing it: the host table is @Eli's (cli#622).
+
   **`codexSkill` is NOT in the shipped map yet** — `hostDirs` holds
   `claudeSkill` only, so `--host codexSkill --to user` is REFUSED today with
   exit 2, measured. What IS shipped is the refusal: a host with no root of its
@@ -546,9 +553,17 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 
 ### 4.1 Selection: what is a skill-declaring node
 
-> **SUPERSEDED BY D12 (2026-09-19).** The selector is now
-> **`properties.exports.<host>` with `enable: true`** — an object keyed by host,
-> carrying `{name, description, enable}`. The discovery predicate becomes
+> **SUPERSEDED BY D12 (2026-09-19).** The declaration is now
+> **`properties.exports.<host>`** — an object keyed by host, carrying
+> `{name, description, enable}`.
+>
+> **`enable` is NOT part of DISCOVERY** (@copilot on #661): the predicate must
+> select the container without filtering on it, or a disabled declaration
+> becomes invisible to `lint` (which judges a broken name before anyone turns it
+> on), to `status` (which must show `disabled`), and to the REMOVAL `:06`
+> requires. `enable` decides what is *published*, not what is *found* — and the
+> shipped predicate keeps the two retired top-level aliases for the same reason.
+> The discovery predicate becomes
 > `path: ["exports"], exists` — the CONTAINER, not a host inside it, so a node
 > declaring only a not-yet-rendered host is still selected and reportable
 > (corrected 2026-09-23, @codex on #661; §2 carries the same rule and the same
@@ -938,9 +953,15 @@ set changes (existing rule).
    human act, so the writer is strictly one-way.
 
    Two hazards @Eli measured for this slice (cli#622):
-   - **`lstat` every skill directory and refuse to write through a symlink.**
-     `~/.agents/skills/<name>` can be a link into `~/.claude/skills`, so writing
-     the Codex file through it overwrites the Claude one — reproduced.
+   - **`lstat` every skill directory AND the root itself** before writing.
+     @Eli reproduced `~/.agents/skills/<name>` being a link into
+     `~/.claude/skills`, so writing the Codex file through it overwrites the
+     Claude one. **@codex on #661 sharpened it: the ROOT can be the link** — if
+     `~/.agents/skills`, or an ancestor like `~/.agents`, is itself a symlink,
+     then `lstat` on each `<root>/<name>` sees an ordinary directory and the
+     check passes while the whole host writes over another host's files. The
+     per-directory check is necessary and not sufficient; resolve the root
+     first.
    - **Fail loud on a server host with no CLI row**, so "write every known host"
      cannot silently skip one.
 6. **CI gate + docs:** ~~`--to plugin`~~ — the plugin target moved OUT of this
