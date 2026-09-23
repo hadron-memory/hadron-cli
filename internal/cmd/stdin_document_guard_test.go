@@ -354,9 +354,15 @@ func TestChatBodyStdinRefusesATerminal(t *testing.T) {
 		{"team chat post positional", []string{"team", "chat", "post", "-", "--app", "acme.com:eng-team"}, "--body-file <path>"},
 		{"team chat post --body -", []string{"team", "chat", "post", "--body", "-", "--app", "acme.com:eng-team"}, "--body-file <path>"},
 		{"channel post", []string{"channel", "post", "r", "-", "--as-me"}, "hadron channel post <address> - < <path>"},
+		// Ambient App, no binding: the path on which team chat post pre-flights
+		// the App before posting, so the refusal must come first.
+		{"team chat post ambient", []string{"team", "chat", "post", "-"}, "--body-file <path>"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			teamGitDir(t) // no binding file: keep team chat off the real checkout
+			if strings.HasSuffix(tc.name, "ambient") {
+				configuredApp(t, "acme.com:eng-team")
+			}
 			requests := 0
 			gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				requests++
