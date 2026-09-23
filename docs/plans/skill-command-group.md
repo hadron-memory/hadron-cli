@@ -438,7 +438,7 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 > `claudeSkill` is the default and the only host with a specified renderer.
 >
 > **`lint` takes no `--host` and checks EVERY host entry**, tagging each finding
-> with the host it came from. A node declaring only `exports.codex` is therefore
+> with the host it came from. A node declaring only `exports.codexSkill` is therefore
 > linted for shape — a malformed entry is reported — but the Claude-specific caps
 > (64/1024) apply only to the `claudeSkill` entry, since they are that host's
 > limits. As shipped in #589 lint validates the `claudeSkill` entry only; the
@@ -820,7 +820,10 @@ selection. Two consequences the gate has to state rather than inherit:
   memories, which is the exposure D9's reversal already accepts elsewhere.
 
 So the workflow must **pin its selection explicitly** rather than rely on
-`--all`: name the memories with `-m`, or (once curation lands) name the scope.
+`--all`: name the memories with `-m`, and (once curation lands) narrow further
+with `--scope`. **`-m` AND `--scope`, not either/or** — a scope narrows a base
+selection rather than replacing one (`cor:agt:030:03`), so a gate still has to
+name its memories.
 `--all` is right for a human asking "what does my disk look like"; it is wrong
 for a gate, which has to compare the same two things every night. Whoever
 builds the workflow states the CI identity and what it can read, in the
@@ -978,6 +981,29 @@ Before the first `export --all` on Holger's machine can be clean:
    thing the command accepts — §3.)*
 
 ## 10. Open questions for Holger
+
+**Opened 2026-09-23 by "export writes every known host" (@codex on #661).**
+Both are consequences of `cor:agt:030:02` rather than of this plan, and both
+are DESIGN questions rather than doc drift — so they are named here instead of
+being answered in a doc-alignment PR:
+
+- **Per-host lint gating.** A node whose `claudeSkill` declaration is valid and
+  whose `codexSkill` one fails a host-specific rule: does the Claude file still
+  get written? `cor:agt:030:06` hands no body to a node with an error finding,
+  but that is stated per NODE, and the export is now per host. Writing one and
+  refusing the other is the answer I would expect — a host's limits are that
+  host's — but it is not what the spec says today.
+
+- **Name collisions are per host now.** §5.3 calls any two selected nodes
+  storing one name a collision. With separate per-host roots, two nodes sharing
+  a name in DIFFERENT hosts do not collide on disk, and grouping the check by
+  host is what matches the destinations. D12 deliberately widened collisions
+  across orgs; whether it also meant across hosts was never asked.
+
+@Vera both look like `cor:agt:030` material rather than plan material, since
+MCP and the portal need the same answers. Raised, not decided.
+
+
 
 1. ~~D7 — prefix home~~ **Ruled and landed** (hadron-server#1164, `1491106`):
    `Organization.skillPrefix` + `hadron-` for user-owned tasks (§2).
