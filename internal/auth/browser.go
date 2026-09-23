@@ -190,12 +190,15 @@ func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, c
 // grantsAccount reports whether a PRESENT token-response scope is a JSON
 // string whose space-delimited values include `account`. A non-string fails
 // to decode; null decodes as "", which names nothing — both are refused.
+// The delimiter is the single space of RFC 6749 §3.3, not any whitespace: a
+// tab or newline is not a legal scope-token character, so "mcp\taccount" is
+// one malformed token rather than a grant of `account`.
 func grantsAccount(raw json.RawMessage) bool {
 	var granted string
 	if json.Unmarshal(raw, &granted) != nil {
 		return false
 	}
-	return slices.Contains(strings.Fields(granted), accountScope)
+	return slices.Contains(strings.Split(granted, " "), accountScope)
 }
 
 // requireAccountScope refuses a server whose discovery metadata lists its

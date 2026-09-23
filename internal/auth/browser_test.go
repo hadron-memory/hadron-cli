@@ -402,6 +402,8 @@ func TestBrowserLoginGrantedScope(t *testing.T) {
 		{name: "a non-string is not a grant", granted: json.RawMessage(`["account"]`), wantErr: true},
 		{name: "mcp alone is refused", granted: json.RawMessage(`"mcp"`), wantErr: true},
 		{name: "substring is not a match", granted: json.RawMessage(`"accounts"`), wantErr: true},
+		{name: "a tab is not a delimiter (RFC 6749 3.3)", granted: json.RawMessage(`"mcp\taccount"`), wantErr: true},
+		{name: "repeated spaces still delimit", granted: json.RawMessage(`"mcp  account"`)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
