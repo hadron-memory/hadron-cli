@@ -303,6 +303,9 @@ Two corrections to the thread, measured on this machine:
   must be verified against that host's current documentation before its
   renderer is built, not assumed from memory. `status`/`lint` are host-aware
   only where a limit is host-specific (the 64/1024 caps are Claude Code's).
+  *(Since measured: Codex has the same 64/1024 caps and reads the same file
+  shape, so each host's caps are a row in a table, not a renderer — #622,
+  hadron-server#1283.)*
 
 - **D11. The worker-skill family is renamed for symmetry, and the renames are
   HELD behind `id=` pairing** (Holger, 2026-09-19 — both halves ruled).
@@ -459,10 +462,16 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 >
 > **`lint` takes no `--host` and checks EVERY host entry**, tagging each finding
 > with the host it came from. A node declaring only `exports.codexSkill` is therefore
-> linted for shape — a malformed entry is reported — but the Claude-specific caps
-> (64/1024) apply only to the `claudeSkill` entry, since they are that host's
-> limits. As shipped in #589 lint validates the `claudeSkill` entry only; the
-> all-host walk lands with the second renderer (@codex on #627).
+> linted for shape — a malformed entry is reported — and **each entry is judged
+> against its OWN host's caps**: 64/1024 for both `claudeSkill` and `codexSkill`
+> today, Codex measured on codex-cli 0.153.0
+> (`hrn:node:hadronmemory.com:hadron-cli:reference:codex-skill-host`). *(Amended
+> 2026-09-23: this used to say the 64/1024 caps were Claude-specific and applied
+> to the `claudeSkill` entry only, which read as "Codex has no limits".)* The
+> server judges per host since hadron-server#1283 (`skillPlan(host:)`); the
+> CLI's local `lint` as shipped in #589 still validates the `claudeSkill` entry
+> only, tracked as #665. There is no second renderer to wait for: Codex reads
+> the same file shape (#622).
 
 - `--host` selects the host's root/limits (D10); `claudeSkill` is the default.
   **It lands with `status` ONLY** — amended 2026-09-23 (B8). It used to say
@@ -479,8 +488,9 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   **Equal limits do NOT mean lint covers Codex today** (@codex on #661). As
   shipped in #589 lint validates the `claudeSkill` entry only, so a
   `codexSkill` declaration over 64/1024 is not caught — and because the numbers
-  match, that gap is invisible to anyone reading the caps. The all-host walk
-  lands with #622, which is also where Codex's own truncation behaviour
+  match, that gap is invisible to anyone reading the caps. The server-side
+  per-host lint shipped in hadron-server#1283; the CLI's local walk is #665,
+  which is also where Codex's own truncation behaviour
   (1,024 with `...`, plus a shared 2%-of-context budget across all skills)
   becomes lint's business.
 
