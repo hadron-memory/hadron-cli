@@ -476,7 +476,17 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 - **`--scope <name>` (proposed, not built)** NARROWS a selection — it is not
   an alternative to one. `cor:agt:030:03` says a scope narrows and never
   widens, so it composes with the base selector on BOTH verbs rather than
-  replacing it: `(-m … | --all) [--scope <name>]`. An earlier draft here wrote
+  replacing it: `(-m … | --all) [--scope <name>]`.
+
+  **`--node` + `--scope` is REFUSED** (proposed, @codex on #661): a scope
+  narrows a DISCOVERED selection, while `--node` *is* the selection, named
+  explicitly. Intersecting them is the letter of `:03` — a scope only ever
+  removes — but it would silently drop a node the user named by hand, which is
+  the permissive parse this repo refuses elsewhere. A usage error says the same
+  thing out loud. Flagged for @Vera rather than settled here, since MCP and the
+  portal inherit whichever answer wins.
+
+  An earlier draft here wrote
   it as a third mutually-exclusive selector on `status`, which would have made
   the same flag mean different things on the two verbs (@codex on #661).
   It replaces `--to` as export's only knob, and **`status` needs it too** or it
