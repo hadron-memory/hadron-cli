@@ -594,8 +594,11 @@ func toStatusDTO(root, host string, plan *gen.SkillPlanSkillPlan, unreadable, un
 			if fnd == nil {
 				continue
 			}
+			// A status plan judges exactly one host, so each finding's hosts
+			// is that host — the same field `skill lint` fills (#665), never null.
 			row.Findings = append(row.Findings, statusFindingDTO{
 				Node: fnd.Urn, Memory: fnd.Memory, Rule: fnd.Rule, Severity: fnd.Severity, Message: fnd.Message,
+				Hosts: []string{host},
 			})
 		}
 		dto.Entries = append(dto.Entries, row)

@@ -1,5 +1,5 @@
 {
-  "$comment": "hadron-cli#622 slice 2: the cross-host acceptance matrix for the #621 writer and server#1254. Expected outcomes are written from the contracts cited on each case, never generated from an implementation. crosshost_acceptance_test.go runs the Claude projection of every live section against internal/skilldoc; the Codex projection belongs to hadron-server's host registry (#1280), and server#1254 part 2 is to vendor this file and run both columns. `pending` cases have no implementation yet and are skipped by name, never passed.",
+  "$comment": "hadron-cli#622 slice 2: the cross-host acceptance matrix for the #621 writer and server#1254. Expected outcomes are written from the contracts cited on each case, never generated from an implementation. crosshost_acceptance_test.go runs BOTH host columns of every live section against internal/skilldoc (#665), and hadron-server runs both against its host registry from a sha256-pinned vendored copy (src/lib/skilldoc/crosshost.acceptance.test.ts). `pending` cases have no implementation yet and are skipped by name, never passed.",
   "version": 1,
   "hosts": [
     "claudeSkill",
