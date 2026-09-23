@@ -23,7 +23,15 @@ type statusResult struct {
 	PrincipalType string    `json:"principalType,omitempty"`
 	Key           *tokenDTO `json:"key,omitempty"`
 	Impersonating bool      `json:"impersonating,omitempty"`
+	// RejectedReason says WHY a present credential was rejected, when the
+	// CLI knows (#681). Only ever set alongside authenticated:false. Its one
+	// value today is rejectedMCPOnly; absent means "rejected, reason unknown".
+	RejectedReason string `json:"rejectedReason,omitempty"`
 }
+
+// rejectedMCPOnly: the key is valid but its OAuth grant is `mcp` alone, so
+// every CLI surface refuses it (#681).
+const rejectedMCPOnly = "mcp-only-scope"
 
 func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
@@ -67,8 +75,15 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 				// failure — transport, or schema skew on an older self-hosted
 				// server that lacks authContext — must surface, not masquerade as
 				// a rejected token (Codex #192).
+				//
+				// #681: an MCP-only key is the case this command exists for — the
+				// server knows who it is, and every other command fails on it — so
+				// it is reported, with its reason and remedy, rather than returned
+				// as the server's bare refusal.
 				mapped := api.MapError(err)
-				if exitcode.FromError(mapped) != exitcode.AuthRequired {
+				if api.IsMCPOnlyCredential(err) {
+					dto.RejectedReason = rejectedMCPOnly
+				} else if exitcode.FromError(mapped) != exitcode.AuthRequired {
 					return mapped
 				}
 			} else if resp.AuthContext != nil {
@@ -86,6 +101,11 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			writeErr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				if dto.RejectedReason == rejectedMCPOnly {
+					_, err := fmt.Fprintf(w, "✗ %s: the key from %s is limited to the MCP surface — the CLI cannot use it\n  %s\n",
+						server, describeSource(dto), mcpOnlyRemedy(dto))
+					return err
+				}
 				if !dto.Authenticated {
 					_, err := fmt.Fprintf(w, "✗ %s: token from %s was rejected — run `hadron auth login`\n", server, describeSource(dto))
 					return err
@@ -112,6 +132,19 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// mcpOnlyRemedy is api.MCPOnlyRemedy narrowed by what status knows and the
+// generic path does not: where the key came from. A key in HADRON_TOKEN
+// outranks the store, so `auth logout && auth login` would change nothing
+// while the variable is set — naming it there would be a false remedy.
+func mcpOnlyRemedy(dto statusResult) string {
+	if dto.TokenSource == string(authpkg.SourceEnv) {
+		return "HADRON_TOKEN holds an MCP-only key, and it takes precedence over any stored login. " +
+			"Replace it with a key that has the `account` scope — a key created on the portal's API keys page (/app/account/api-keys) has no scope limit — or unset it and run `hadron auth login`."
+	}
+	return "Sign in again with `hadron auth logout && hadron auth login` (hadron v0.15.0 or later requests the `account` scope), " +
+		"or create a key on the portal's API keys page (/app/account/api-keys) and run `hadron auth login --with-token` with it."
 }
 
 func describeSource(dto statusResult) string {

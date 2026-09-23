@@ -8,7 +8,7 @@ documented contract.
 ## Setup and authentication
 
 ```
-hadron auth status            # am I signed in? exit 0 yes / 3 no
+hadron auth status            # am I signed in? exit 0 yes / 3 no (--json: rejectedReason says why, when known)
 hadron auth login             # interactive browser OAuth (human only)
 echo $TOKEN | hadron auth login --with-token   # store a PAT
 HADRON_TOKEN=hdr_user_...     # env var, overrides stored tokens (CI)
@@ -114,6 +114,32 @@ actions, and telling an authenticated caller to log in is a false remedy.
 
 Expect this class to grow: hadron-server#1220 migrates ~59 further call sites
 onto typed `FORBIDDEN`, 17 of them inside seven shared gates.
+
+**One `FORBIDDEN` exits 3, on purpose: an MCP-only key (#681).** A user key
+whose OAuth grant is `mcp` alone (what a browser login from hadron v0.14.0 or
+earlier stored) is valid for MCP clients and refused on every CLI surface. The
+fix is a different credential, not somebody's permission, so commands exit
+**3** on it. That includes `app agent add/remove`, whose usual "needs
+CONTRIBUTOR+" guidance would be a false remedy here. The message keeps the
+server's sentence and appends both recoveries:
+`hadron auth logout && hadron auth login` (v0.15.0+ requests `account`), or a
+key from the portal's API keys page (`/app/account/api-keys`) passed to
+`hadron auth login --with-token`. If the key is in `HADRON_TOKEN`, replace
+the variable: it outranks any stored login.
+- `auth status --json` still prints its report for such a key:
+  `authenticated: false` plus **`rejectedReason: "mcp-only-scope"`**. It exits
+  3 either way; before #681 it printed no report at all. `auth token validate
+  --json` carries the same field beside `valid: false`.
+- `rejectedReason` is set only alongside a rejection, and only when the CLI
+  knows why. Absent means "rejected, reason unknown". Treat an unknown value as
+  that.
+- **`hadron api` is the exception.** It is the raw path, so it prints the
+  server's envelope as is and exits 8 by `extensions.code`, like any other
+  `FORBIDDEN`.
+- The server marks this refusal only with the generic `FORBIDDEN` and its
+  wording, so the CLI recognises it by both together. If the server rewords it,
+  the error falls back to exit 8 without the remedy. It is never
+  misreported as something else.
 
 Two codes that look like they belong here and do NOT, so a reader does not
 complete the family: `HOST_MEMORY_NOT_WRITABLE` and `HOST_MEMORY_NOT_READABLE`
