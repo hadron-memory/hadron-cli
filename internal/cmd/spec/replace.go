@@ -193,9 +193,10 @@ example, leave an abstract out of sync with its content.`,
 				return err
 			}
 			if preview.TotalReplacements == 0 {
-				// Not "No matches" when specs went unsearched: that reads as an
-				// all-clear over a corpus the server skipped (#659).
-				if preview.SpecsGoverned > 0 {
+				// Not "No matches" when ANY in-scope spec went unsearched —
+				// governed or unexplained alike: that reads as an all-clear over
+				// a corpus the server skipped (#659; PR #677 review).
+				if preview.SpecsScanned < preview.SpecsInScope {
 					fmt.Fprintf(f.IOStreams.ErrOut, "No matches in the %d spec(s) searched — nothing replaced.\n", preview.SpecsScanned)
 				} else {
 					fmt.Fprintln(f.IOStreams.ErrOut, "No matches — nothing to replace.")

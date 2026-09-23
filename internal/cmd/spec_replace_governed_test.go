@@ -133,3 +133,26 @@ func TestSpecReplaceNoMatchDoesNotClaimTheCorpusWasSearched(t *testing.T) {
 		t.Errorf("must say how many specs were actually searched:\n%s", msg)
 	}
 }
+
+// PR #677 review (Copilot + Codex): the no-match wording must key on ANY
+// shortfall, not on the governed count. Here nothing is governed and the
+// server still scans less than was sent.
+func TestSpecReplaceNoMatchCountsAnUnexplainedShortfallToo(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes":            `{"data":{"nodes":[` + specNodeList("cor:sec", `["spec"]`) + `]}}`,
+		"SearchReplaceInNodes": noMatchReplaceResp(0),
+	})
+	f, _, errOut := testFactoryTTY(t, "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "replace", "ZZZNOPE", "x", "-m", specMem, "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	msg := errOut.String()
+	if strings.Contains(msg, "No matches — nothing to replace") {
+		t.Errorf("an unexplained shortfall must not read as an all-clear either:\n%s", msg)
+	}
+	if !strings.Contains(msg, "No matches in the 0 spec(s) searched") {
+		t.Errorf("must say how many specs were actually searched:\n%s", msg)
+	}
+}
