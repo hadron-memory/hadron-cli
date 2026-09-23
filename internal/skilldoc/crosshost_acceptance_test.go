@@ -114,6 +114,9 @@ func decodeMatrix(raw []byte) (*xhMatrix, error) {
 	if m.Version != 1 {
 		return nil, fmt.Errorf("matrix version %d; this loader reads version 1", m.Version)
 	}
+	if err := requireKeys(raw); err != nil {
+		return nil, err
+	}
 	for _, c := range m.Declarations {
 		for host, d := range c.Expect {
 			if d != nil && (d.Enable == nil || d.EnableSet == nil) {
@@ -138,6 +141,77 @@ func decodeMatrix(raw []byte) (*xhMatrix, error) {
 		}
 	}
 	return &m, nil
+}
+
+// requiredKeys is every key each case object must WRITE. An omitted key
+// decodes as its zero value (a nil map, an empty list, false), which is also
+// what several negative rows expect, so an omission would pass as a real
+// expectation (@codex on #664, three rounds, one field at a time). This
+// checks presence on the raw JSON for every field at once instead.
+var requiredKeys = map[string][]string{
+	"declarations": {"id", "title", "contracts", "properties", "expect", "malformed"},
+	"lint":         {"id", "title", "contracts", "properties", "expect"},
+	"collisions":   {"id", "title", "contracts", "nodes", "expect"},
+	"rendering":    {"id", "title", "contracts", "case", "sameFile"},
+	"pending":      {"id", "layer", "pendingOn", "contracts", "given", "expect"},
+}
+
+var requiredDeclKeys = []string{"key", "name", "description", "enable", "enableSet"}
+
+func requireKeys(raw []byte) error {
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &top); err != nil {
+		return err
+	}
+	doc := map[string][]map[string]json.RawMessage{}
+	for section := range requiredKeys {
+		var cases []map[string]json.RawMessage
+		if err := json.Unmarshal(top[section], &cases); err != nil {
+			return fmt.Errorf("section %q: %w", section, err)
+		}
+		doc[section] = cases
+	}
+	has := func(obj map[string]json.RawMessage, where string, keys []string) error {
+		for _, k := range keys {
+			if _, ok := obj[k]; !ok {
+				return fmt.Errorf("%s omits %q; an omitted key decodes as a zero value that can pass as an expectation", where, k)
+			}
+		}
+		return nil
+	}
+	for section, keys := range requiredKeys {
+		for i, c := range doc[section] {
+			where := fmt.Sprintf("%s[%d] %s", section, i, c["id"])
+			if err := has(c, where, keys); err != nil {
+				return err
+			}
+			switch section {
+			case "declarations":
+				var exp map[string]map[string]json.RawMessage
+				if err := json.Unmarshal(c["expect"], &exp); err != nil {
+					return fmt.Errorf("%s expect: %w", where, err)
+				}
+				for host, d := range exp {
+					if d != nil {
+						if err := has(d, where+" expect."+host, requiredDeclKeys); err != nil {
+							return err
+						}
+					}
+				}
+			case "collisions":
+				var nodes []map[string]json.RawMessage
+				if err := json.Unmarshal(c["nodes"], &nodes); err != nil {
+					return fmt.Errorf("%s nodes: %w", where, err)
+				}
+				for j, n := range nodes {
+					if err := has(n, fmt.Sprintf("%s nodes[%d]", where, j), []string{"urn", "properties"}); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func loadMatrix(t *testing.T) *xhMatrix {
@@ -178,16 +252,27 @@ func TestCrossHostLoaderRefuses(t *testing.T) {
 		return out
 	}
 	for name, in := range map[string][]byte{
-		"unknown field":         edit(func(d map[string]any) { d["surprise"] = true }),
-		"version 2":             edit(func(d map[string]any) { d["version"] = 2 }),
-		"trailing value":        append(append([]byte{}, raw...), []byte("{}")...),
-		"trailing garbage":      append(append([]byte{}, raw...), []byte("xx")...),
-		"empty declarations":    edit(func(d map[string]any) { d["declarations"] = []any{} }),
-		"empty lint":            edit(func(d map[string]any) { d["lint"] = []any{} }),
-		"empty collisions":      edit(func(d map[string]any) { d["collisions"] = []any{} }),
-		"empty rendering":       edit(func(d map[string]any) { d["rendering"] = []any{} }),
-		"unknown field in case": edit(func(d map[string]any) { d["lint"].([]any)[0].(map[string]any)["surprise"] = 1 }),
-		"omitted sameFile":      edit(func(d map[string]any) { delete(d["rendering"].([]any)[1].(map[string]any), "sameFile") }),
+		"unknown field":           edit(func(d map[string]any) { d["surprise"] = true }),
+		"version 2":               edit(func(d map[string]any) { d["version"] = 2 }),
+		"trailing value":          append(append([]byte{}, raw...), []byte("{}")...),
+		"trailing garbage":        append(append([]byte{}, raw...), []byte("xx")...),
+		"empty declarations":      edit(func(d map[string]any) { d["declarations"] = []any{} }),
+		"empty lint":              edit(func(d map[string]any) { d["lint"] = []any{} }),
+		"empty collisions":        edit(func(d map[string]any) { d["collisions"] = []any{} }),
+		"empty rendering":         edit(func(d map[string]any) { d["rendering"] = []any{} }),
+		"unknown field in case":   edit(func(d map[string]any) { d["lint"].([]any)[0].(map[string]any)["surprise"] = 1 }),
+		"omitted lint properties": edit(func(d map[string]any) { delete(d["lint"].([]any)[4].(map[string]any), "properties") }),
+		"omitted declaration malformed": edit(func(d map[string]any) {
+			delete(d["declarations"].([]any)[0].(map[string]any), "malformed")
+		}),
+		"omitted collision node properties": edit(func(d map[string]any) {
+			delete(d["collisions"].([]any)[0].(map[string]any)["nodes"].([]any)[0].(map[string]any), "properties")
+		}),
+		"omitted pending given": edit(func(d map[string]any) { delete(d["pending"].([]any)[0].(map[string]any), "given") }),
+		"omitted expected name": edit(func(d map[string]any) {
+			delete(d["declarations"].([]any)[0].(map[string]any)["expect"].(map[string]any)["claudeSkill"].(map[string]any), "name")
+		}),
+		"omitted sameFile": edit(func(d map[string]any) { delete(d["rendering"].([]any)[1].(map[string]any), "sameFile") }),
 		"omitted enable": edit(func(d map[string]any) {
 			delete(d["declarations"].([]any)[4].(map[string]any)["expect"].(map[string]any)["codexSkill"].(map[string]any), "enable")
 		}),
