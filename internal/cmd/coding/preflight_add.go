@@ -94,6 +94,9 @@ usage error, not a half-finished write.`,
     --section "GraphQL read and write surfaces" --tag conventions`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := refuseContentStdin(f.IOStreams.IsInputTerminal(), content); err != nil {
+				return err
+			}
 			mem, err := codingScope(cmd, f, memory)
 			if err != nil {
 				return err
@@ -336,7 +339,7 @@ usage error, not a half-finished write.`,
 	cmd.Flags().StringVar(&name, "name", "", "node name (default: the loc's last segment)")
 	cmd.Flags().StringVar(&symptom, "symptom", "", "the routing line's quoted trigger (default: the route)")
 	cmd.Flags().StringVar(&section, "section", "", "heading in the router's body to add the routing line under")
-	cmd.Flags().StringVarP(&content, "content", "c", "", `node body ("-" reads stdin; default: a scaffold)`)
+	cmd.Flags().StringVarP(&content, "content", "c", "", `node body ("-" reads piped stdin, refused from a terminal; default: a scaffold)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read the node body from a file")
 	cmd.Flags().StringVar(&nodeType, "type", defaultRouteNodeType, "node type")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable)")

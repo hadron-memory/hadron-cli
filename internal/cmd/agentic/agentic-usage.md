@@ -1952,7 +1952,11 @@ Returns the review checks a diff could fire, **with their bodies**, in one
 response. `--diff <path|->` supplies a unified diff (stdin with `-`); otherwise
 the change set comes from git (`--base`/`--head`, defaulting to the merge base
 with the default branch, and untracked files are included when the head is the
-working tree).
+working tree). `--diff -` is for a PIPE and is **refused (exit 2) from an
+interactive terminal** (#648): a truncated diff silently drops changed files, so
+the run would select checks for less than the real change. The same refusal
+covers `coding review create` / `preflight create --content -` (use
+`--content-file`).
 
 Applicability is decided STRUCTURALLY — path patterns the check names, never an
 interpretation of its prose — into three buckets:

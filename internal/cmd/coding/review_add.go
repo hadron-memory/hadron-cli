@@ -107,6 +107,9 @@ edit through the review door for you.`,
     --link conventions:output-contract --tag json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := refuseContentStdin(f.IOStreams.IsInputTerminal(), content); err != nil {
+				return err
+			}
 			mem, err := codingScope(cmd, f, memory)
 			if err != nil {
 				return err
@@ -253,7 +256,7 @@ edit through the review door for you.`,
 	cmd.Flags().StringVar(&trigger, "trigger", "", `the condition the check fires on ("Applies when" is prepended if absent) (required)`)
 	cmd.Flags().StringVar(&description, "description", "", "one-line description (what it checks — applies when …) (required)")
 	cmd.Flags().StringVar(&scope, "scope", "", "the Scope blockquote's condition (default: the trigger)")
-	cmd.Flags().StringVarP(&content, "content", "c", "", `node body ("-" reads stdin; default: a Scope-first scaffold)`)
+	cmd.Flags().StringVarP(&content, "content", "c", "", `node body ("-" reads piped stdin, refused from a terminal; default: a Scope-first scaffold)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read the node body from a file")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "extra tag (repeatable; review and review-criteria are always set)")
 	cmd.Flags().StringArrayVar(&links, "link", nil,
