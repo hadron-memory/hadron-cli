@@ -447,6 +447,13 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   @Eli measured Codex at the same numbers (cli#622), so the second host arrives
   as a row in a table rather than as a second renderer.
 
+- **`--scope <name>` (proposed, not built)** narrows the selection to a named
+  scope, per the amended `cor:agt:030:03` — a scope narrows and never widens. It
+  replaces `--to` as export's only knob, and **`status` needs it too** or it
+  cannot compare a disk against the same selection the bundle was produced from
+  (@codex on #661). Shipped `status` has `-m`/`--all` only; that is a gap, named
+  here rather than left implied.
+
 - `-m/--memory` is repeatable; `--all` is every memory the caller can read —
   three listings, each drained with `api.CollectAll` and every memory class
   named explicitly (a nil filter hides agent-system memories): own-org
@@ -729,7 +736,15 @@ migration:
 > forbids exactly that — a repo-level destination, and a destination that depends
 > on being inside a checkout. **The plugin is now its OWN producer (cli#653),
 > writing to an explicit output directory with no git anchor**, and building
-> hadron-cli's committed bundle is one invocation of it (`--out plugins/hadron-cli`).
+> hadron-cli's committed bundle is one invocation of it.
+>
+> **The producer's surface is NOT defined here** (@copilot on #661, correctly):
+> §3 has no plugin-producing command and no `--out`, so naming one in a
+> superseded paragraph would leave an uncallable invocation in the plan. It is
+> cli#653's to specify, and **#653 is PAUSED pending @Vera's specs** (@Holger via
+> @Bo) — so the shape is deliberately open rather than merely unwritten. The one
+> thing this paragraph settles is the DESTINATION: explicit and user-supplied,
+> never a git toplevel.
 > That also removes the toplevel dependency that made the producer unusable for
 > the audience it exists for — a Cowork user with no checkout.
 >
