@@ -239,20 +239,25 @@ func TestCrossHostCollisionsClaudeColumn(t *testing.T) {
 }
 
 // One renderer serves both hosts (cli#622 item 2): Render takes no host, so
-// what may differ per host is only the declaration it is given.
+// what may differ per host is only the declaration it is given. The Claude
+// side renders what Declared ACTUALLY returns, not the expectation, so a
+// reader regression shows up here too. The Codex side has to use the
+// expectation, because this package has no Codex reader; the server checks
+// that the expectation is what its registry reads.
 func TestCrossHostRendering(t *testing.T) {
 	m := loadMatrix(t)
-	byID := map[string]map[string]*xhDecl{}
+	props := map[string]map[string]any{}
+	expects := map[string]map[string]*xhDecl{}
 	for _, c := range m.Declarations {
-		byID[c.ID] = c.Expect
+		props[c.ID], expects[c.ID] = c.Properties, c.Expect
 	}
 	const id, source, body = "01a0000000000000000000000000000r", "hrn:node:example.com:demo:tasks:demo", "Do the demo.\n"
 	for _, r := range m.Rendering {
 		t.Run(r.ID, func(t *testing.T) {
-			exp := byID[r.Case]
-			cl, cx := exp[HostClaudeSkill], exp["codexSkill"]
-			if cl == nil || cx == nil {
-				t.Fatalf("%s must name a case declared for both hosts, got %s", r.ID, r.Case)
+			cl, ok := Declared(props[r.Case])
+			cx := expects[r.Case]["codexSkill"]
+			if !ok || cx == nil {
+				t.Fatalf("%s must name a case declared for both hosts, got %q", r.ID, r.Case)
 			}
 			fc, err := Render(id, cl.Name, source, cl.Description, body)
 			if err != nil {
@@ -301,6 +306,29 @@ func TestCrossHostMatrixIsTraceable(t *testing.T) {
 		}
 	}
 	section = "D"
+	// A key that is not a host (a typo, `codex`) would be read by nobody and
+	// the case would pass without saying anything about it (Copilot on #664).
+	known := map[string]bool{}
+	for _, h := range m.Hosts {
+		known[h] = true
+	}
+	onlyHosts := func(id, what string, keys []string) {
+		for _, k := range keys {
+			if !known[k] {
+				t.Errorf("%s: %s keyed by %q, which is not a host in the matrix", id, what, k)
+			}
+		}
+	}
+	for _, c := range m.Declarations {
+		onlyHosts(c.ID, "expect", keysOf(c.Expect))
+		onlyHosts(c.ID, "malformed", keysOf(c.Malformed))
+	}
+	for _, c := range m.Lint {
+		onlyHosts(c.ID, "expect", keysOf(c.Expect))
+	}
+	for _, c := range m.Collisions {
+		onlyHosts(c.ID, "expect", keysOf(c.Expect))
+	}
 	for _, c := range m.Declarations {
 		check(c.ID, c.Contracts)
 		for _, h := range m.Hosts {
@@ -352,4 +380,13 @@ func TestCrossHostPending(t *testing.T) {
 			t.Skipf("PENDING on %s (%s): given %s, expect %s", p.PendingOn, p.Layer, p.Given, p.Expect)
 		})
 	}
+}
+
+func keysOf[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }

@@ -520,6 +520,88 @@
         "claudeSkill": [],
         "codexSkill": []
       }
+    },
+    {
+      "id": "D14",
+      "title": "Names differ per host, descriptions equal",
+      "contracts": [
+        "cor:agt:030:06"
+      ],
+      "properties": {
+        "exports": {
+          "claudeSkill": {
+            "name": "hadron-demo",
+            "description": "Use when demoing.",
+            "enable": true
+          },
+          "codexSkill": {
+            "name": "hadron-demo-codex",
+            "description": "Use when demoing.",
+            "enable": true
+          }
+        }
+      },
+      "expect": {
+        "claudeSkill": {
+          "key": "exports.claudeSkill",
+          "name": "hadron-demo",
+          "description": "Use when demoing.",
+          "enable": true,
+          "enableSet": true
+        },
+        "codexSkill": {
+          "key": "exports.codexSkill",
+          "name": "hadron-demo-codex",
+          "description": "Use when demoing.",
+          "enable": true,
+          "enableSet": true
+        }
+      },
+      "malformed": {
+        "claudeSkill": [],
+        "codexSkill": []
+      }
+    },
+    {
+      "id": "D15",
+      "title": "Descriptions differ per host, names equal",
+      "contracts": [
+        "cor:agt:030:06"
+      ],
+      "properties": {
+        "exports": {
+          "claudeSkill": {
+            "name": "hadron-demo",
+            "description": "Use when demoing.",
+            "enable": true
+          },
+          "codexSkill": {
+            "name": "hadron-demo",
+            "description": "Use when demoing in Codex.",
+            "enable": true
+          }
+        }
+      },
+      "expect": {
+        "claudeSkill": {
+          "key": "exports.claudeSkill",
+          "name": "hadron-demo",
+          "description": "Use when demoing.",
+          "enable": true,
+          "enableSet": true
+        },
+        "codexSkill": {
+          "key": "exports.codexSkill",
+          "name": "hadron-demo",
+          "description": "Use when demoing in Codex.",
+          "enable": true,
+          "enableSet": true
+        }
+      },
+      "malformed": {
+        "claudeSkill": [],
+        "codexSkill": []
+      }
     }
   ],
   "lint": [
@@ -887,11 +969,29 @@
     },
     {
       "id": "R02",
-      "title": "Per-host description differs: the two files' provenance hashes differ, so each host's file is judged on its own",
+      "title": "Name and description both differ per host: different files, different hashes",
       "contracts": [
         "cor:agt:030:01"
       ],
       "case": "D06",
+      "sameFile": false
+    },
+    {
+      "id": "R03",
+      "title": "ONLY the name differs: still different files and hashes, so the name is a render and hash input on its own",
+      "contracts": [
+        "cor:agt:030:01"
+      ],
+      "case": "D14",
+      "sameFile": false
+    },
+    {
+      "id": "R04",
+      "title": "ONLY the description differs: still different files and hashes, so the description is a render and hash input on its own",
+      "contracts": [
+        "cor:agt:030:01"
+      ],
+      "case": "D15",
       "sameFile": false
     }
   ],
