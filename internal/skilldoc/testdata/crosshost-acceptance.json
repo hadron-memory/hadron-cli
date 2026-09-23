@@ -1381,7 +1381,7 @@
         "cor:agt:030:02"
       ],
       "given": "export over D01, on a machine with no Codex installed",
-      "expect": "writes ~/.claude/skills/hadron-demo/SKILL.md AND ~/.agents/skills/hadron-demo/SKILL.md (not the deprecated ~/.codex/skills); no detection, no prompt"
+      "expect": "writes ~/.claude/skills/hadron-demo/SKILL.md AND ~/.agents/skills/hadron-demo/SKILL.md (not the deprecated ~/.codex/skills); no detection, no prompt — INCLUDING when ~/.agents/skills, or ~/.agents itself, does not exist yet: the destination is created, and the symlink guard (P17/P18) resolves the nearest EXISTING ancestor and appends the missing suffix, since resolving a path that does not exist fails (cor:agt:030:02: a location whose host is absent is written anyway)"
     },
     {
       "id": "P04",
@@ -1538,8 +1538,8 @@
       "contracts": [
         "cor:agt:030:02"
       ],
-      "given": "a Hadron-generated SKILL.md for D01's node sits in the DEPRECATED ~/.codex/skills, which Codex 0.153 still reads",
-      "expect": "the export writes ONLY ~/.agents/skills (cor:agt:030:02: one destination per host) and never writes, moves or removes the deprecated copy. OPEN: whether the report names a copy the host still reads but the export will never update — no contract decides it. Measured 2026-09-23 on the reference machine: 0 Hadron-generated files in ~/.codex/skills (13 third-party entries and .system)."
+      "given": "the codexSkill host only: a Hadron-generated SKILL.md for D01's node sits in the DEPRECATED ~/.codex/skills, which Codex 0.153 still reads",
+      "expect": "for codexSkill the export writes ONLY ~/.agents/skills (cor:agt:030:02: one destination per host) and never writes, moves or removes the file in ~/.codex/skills. Measured 2026-09-23 on the reference machine: 0 Hadron-generated files in ~/.codex/skills. (Whether the export report names that copy is plan-only, Q4 in the plan's audit.)"
     },
     {
       "id": "P21",
@@ -1548,8 +1548,8 @@
       "contracts": [
         "cor:agt:030:02"
       ],
-      "given": "the same skill name exists in BOTH ~/.agents/skills (current export) and ~/.codex/skills (an older copy)",
-      "expect": "the export updates only ~/.agents/skills. OPEN: which copy Codex loads when both exist is Codex's behaviour, not measured here, and no contract decides whether the export reports the duplicate. Never resolved by deleting the deprecated copy."
+      "given": "the codexSkill host only: the same skill name exists in BOTH ~/.agents/skills (current export) and ~/.codex/skills (an older copy)",
+      "expect": "for codexSkill the export updates only ~/.agents/skills and never writes, moves or removes the copy in ~/.codex/skills (cor:agt:030:02: one destination per host). (Whether it is reported as a duplicate is plan-only, Q5.)"
     }
   ]
 }

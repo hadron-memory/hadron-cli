@@ -570,7 +570,11 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 
   The writer's guard for #4 is therefore: **resolve the root (realpath) and
   compare it with the path as written** — any difference means a link is on the
-  path, at the root or any ancestor, whatever it targets (P17, P18, Q2, Q3);
+  path, at the root or any ancestor, whatever it targets (P17, P18, Q2, Q3).
+  **A root that does not exist yet is the first-export case, not a failure**
+  (P03; `:02` writes a location whose host is absent): realpath fails on a
+  missing path, so resolve the NEAREST EXISTING ancestor and append the missing
+  suffix, then create the directories;
   **compare the resolved roots across hosts** (P17, P18); then **lstat each
   skill directory** (P06). Per-directory lstat alone passes P17/P18; a
   cross-host comparison alone passes Q2/Q3; a root-level lstat alone passes
