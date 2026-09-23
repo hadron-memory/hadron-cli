@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"net"
@@ -20,6 +21,11 @@ const errorHTML = `<!doctype html><meta charset="utf-8"><title>hadron</title>
 <body style="font-family:system-ui;display:grid;place-items:center;height:90vh">
 <div style="text-align:center"><h1>Sign-in failed</h1>
 <p>%s</p><p>Return to the terminal for details.</p></div>`
+
+// errInvalidScope marks an invalid_scope error redirect (RFC 6749 §4.1.2.1):
+// the server refused the requested OAuth scope. It is a server-compatibility
+// failure, not the user declining, so it is not reported as Cancelled.
+var errInvalidScope = errors.New("invalid_scope")
 
 type callbackResult struct {
 	code string
@@ -73,6 +79,10 @@ func (ls *loopbackServer) handle(w http.ResponseWriter, r *http.Request) {
 			desc = q.Get("error")
 		}
 		fmt.Fprintf(w, errorHTML, html.EscapeString(desc))
+		if q.Get("error") == "invalid_scope" {
+			ls.deliver(callbackResult{err: exitcode.New(exitcode.Error, fmt.Errorf("%w: %s", errInvalidScope, desc))})
+			return
+		}
 		ls.deliver(callbackResult{err: exitcode.Newf(exitcode.Cancelled, "authorization denied: %s", desc)})
 	case q.Get("state") != ls.state:
 		fmt.Fprintf(w, errorHTML, "state mismatch")

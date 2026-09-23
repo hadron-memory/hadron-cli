@@ -19,6 +19,9 @@ type Metadata struct {
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 	TokenEndpoint         string `json:"token_endpoint"`
 	RegistrationEndpoint  string `json:"registration_endpoint"`
+	// ScopesSupported is OPTIONAL in RFC 8414; nil means the server did not
+	// say, not that it supports nothing.
+	ScopesSupported []string `json:"scopes_supported"`
 }
 
 // DiscoverResource fetches the RFC 9728 protected-resource metadata

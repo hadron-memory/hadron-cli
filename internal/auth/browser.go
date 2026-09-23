@@ -3,12 +3,14 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os/exec"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -17,6 +19,17 @@ import (
 
 // loginTimeout bounds the whole browser dance.
 const loginTimeout = 5 * time.Minute
+
+// accountScope is the OAuth scope the CLI requests (cor:aut:010:02). The CLI
+// drives the GraphQL data API, which refuses a key carrying `mcp` alone, so
+// `account` is the only scope that yields a usable credential. There is
+// deliberately no fallback to `mcp`: that would store a key the CLI cannot
+// use (#658).
+const accountScope = "account"
+
+// withTokenHint is the remedy when the server cannot issue an `account` key
+// through the browser flow: a portal token is unscoped (cor:aut:010:02 rule 3).
+const withTokenHint = "sign in with a portal token instead: echo $TOKEN | hadron auth login --with-token"
 
 // BrowserStrategy signs in via authorization-code + PKCE with a
 // loopback redirect: discover endpoints, bind 127.0.0.1:<port>,
@@ -48,6 +61,11 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 	if err != nil {
 		return nil, err
 	}
+	// Refuse before opening a browser: a server that predates `account`
+	// would otherwise walk the user through consent only to bounce them.
+	if err := requireAccountScope(meta.ScopesSupported, opts.ServerURL); err != nil {
+		return nil, err
+	}
 	resource, err := DiscoverResource(ctx, opts.ServerURL, httpClient)
 	if err != nil {
 		return nil, err
@@ -76,7 +94,7 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 		"state":                 {pk.State},
 		"code_challenge":        {pk.Challenge},
 		"code_challenge_method": {"S256"},
-		"scope":                 {"mcp"},
+		"scope":                 {accountScope},
 	}
 	if resource != "" {
 		authorizeParams.Set("resource", resource)
@@ -93,6 +111,11 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 	}
 
 	code, err := loopback.Wait(ctx)
+	if errors.Is(err, errInvalidScope) {
+		return nil, exitcode.Newf(exitcode.Error,
+			"%s refused the %q OAuth scope (%v); the CLI needs a server that issues %q keys (hadron-server#1261) — %s",
+			opts.ServerURL, accountScope, err, accountScope, withTokenHint)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -143,11 +166,33 @@ func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, c
 	var out struct {
 		AccessToken string `json:"access_token"`
 		TokenType   string `json:"token_type"`
+		Scope       string `json:"scope"`
 	}
 	if err := json.Unmarshal(body, &out); err != nil || out.AccessToken == "" {
 		return nil, exitcode.Newf(exitcode.Error, "token response missing access_token")
 	}
+	// RFC 6749 §5.1: an omitted scope means the grant equals the request.
+	// A present one that lacks `account` is a key the data API refuses, so
+	// it is not handed back to be stored.
+	if out.Scope != "" && !slices.Contains(strings.Fields(out.Scope), accountScope) {
+		return nil, exitcode.Newf(exitcode.Error,
+			"the server granted OAuth scope %q, not %q — refusing to store a key the CLI cannot use (the issued key is unused; revoke it in the portal); %s",
+			out.Scope, accountScope, withTokenHint)
+	}
 	return &Token{AccessToken: out.AccessToken}, nil
+}
+
+// requireAccountScope refuses a server whose discovery metadata lists its
+// supported OAuth scopes without `account`. An absent list is not a refusal:
+// scopes_supported is optional (RFC 8414), and the authorize step still
+// reports an unsupported scope as invalid_scope.
+func requireAccountScope(supported []string, serverURL string) error {
+	if len(supported) == 0 || slices.Contains(supported, accountScope) {
+		return nil
+	}
+	return exitcode.Newf(exitcode.Error,
+		"%s does not offer the %q OAuth scope (it advertises: %s); the CLI needs a server that issues %q keys (hadron-server#1261) — %s",
+		serverURL, accountScope, strings.Join(supported, ", "), accountScope, withTokenHint)
 }
 
 // OpenInBrowser launches the platform's URL opener. The target is passed as

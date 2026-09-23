@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -26,18 +27,31 @@ type fakeAS struct {
 	registeredRedirect string
 	seenVerifier       string
 	seenResource       string
+	// scopesSupported is advertised in discovery; nil omits the key.
+	scopesSupported []string
+	// tokenScope is the `scope` echoed by the token response; "" omits it.
+	tokenScope string
 }
 
 func newFakeAS(t *testing.T) *fakeAS {
 	t.Helper()
-	as := &fakeAS{clientID: "client-123", authCode: "code-456"}
+	as := &fakeAS{
+		clientID:        "client-123",
+		authCode:        "code-456",
+		scopesSupported: []string{"mcp", "account"},
+		tokenScope:      "account",
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		meta := map[string]any{
 			"authorization_endpoint": as.server.URL + "/oauth/authorize",
 			"token_endpoint":         as.server.URL + "/oauth/token",
 			"registration_endpoint":  as.server.URL + "/oauth/register",
-		})
+		}
+		if as.scopesSupported != nil {
+			meta["scopes_supported"] = as.scopesSupported
+		}
+		_ = json.NewEncoder(w).Encode(meta)
 	})
 	mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -72,10 +86,14 @@ func newFakeAS(t *testing.T) *fakeAS {
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_grant"})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		resp := map[string]string{
 			"access_token": "hdr_user_" + strings.Repeat("a", 64),
 			"token_type":   "Bearer",
-		})
+		}
+		if as.tokenScope != "" {
+			resp["scope"] = as.tokenScope
+		}
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 	as.server = httptest.NewServer(mux)
 	t.Cleanup(as.server.Close)
@@ -101,8 +119,8 @@ func TestBrowserLoginHappyPath(t *testing.T) {
 		if got := q.Get("resource"); got != as.server.URL+"/mcp" {
 			return fmt.Errorf("authorize resource %q, want %q", got, as.server.URL+"/mcp")
 		}
-		if got := q.Get("scope"); got != "mcp" {
-			return fmt.Errorf("authorize scope %q, want %q", got, "mcp")
+		if got := q.Get("scope"); got != "account" {
+			return fmt.Errorf("authorize scope %q, want %q", got, "account")
 		}
 		if got := q.Get("login_provider"); got != "" {
 			return fmt.Errorf("default authorize login_provider %q, want omitted", got)
@@ -233,5 +251,156 @@ func TestBrowserLoginStateMismatch(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "state mismatch") {
 		t.Fatalf("expected state mismatch error, got %v", err)
+	}
+}
+
+// consentingBrowser simulates a user approving consent: it redirects to the
+// loopback callback with the fake server's code and the request's state.
+func consentingBrowser(as *fakeAS) func(string) error {
+	return func(authorizeURL string) error {
+		u, err := url.Parse(authorizeURL)
+		if err != nil {
+			return err
+		}
+		q := u.Query()
+		go func() {
+			resp, err := http.Get(q.Get("redirect_uri") + "?" + url.Values{
+				"code":  {as.authCode},
+				"state": {q.Get("state")},
+			}.Encode())
+			if err == nil {
+				resp.Body.Close()
+			}
+		}()
+		return nil
+	}
+}
+
+// #658: the CLI needs `account`; a server whose discovery lists its scopes
+// without it is refused before registration or any browser is opened.
+func TestBrowserLoginRefusesServerWithoutAccountScope(t *testing.T) {
+	as := newFakeAS(t)
+	as.scopesSupported = []string{"mcp"}
+	io, _, _ := output.Test()
+
+	opened := false
+	_, err := BrowserStrategy{}.Login(context.Background(), LoginOptions{
+		ServerURL:   as.server.URL,
+		IO:          io,
+		HTTPClient:  as.server.Client(),
+		OpenBrowser: func(string) error { opened = true; return nil },
+	})
+	if err == nil {
+		t.Fatal("Login() succeeded against a server that does not offer account")
+	}
+	if opened || as.registeredRedirect != "" {
+		t.Errorf("flow continued past discovery (browser opened=%v, registered=%q)", opened, as.registeredRedirect)
+	}
+	if code := exitcode.FromError(err); code != exitcode.Error {
+		t.Errorf("exit code %d, want %d", code, exitcode.Error)
+	}
+	for _, want := range []string{`"account"`, "advertises: mcp", "--with-token"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
+		}
+	}
+}
+
+// scopes_supported is optional (RFC 8414): its absence proceeds to the
+// authorize step, which is where an unsupported scope is then reported.
+func TestBrowserLoginProceedsWithoutScopesSupported(t *testing.T) {
+	as := newFakeAS(t)
+	as.scopesSupported = nil
+	io, _, _ := output.Test()
+
+	if _, err := (BrowserStrategy{}).Login(context.Background(), LoginOptions{
+		ServerURL:   as.server.URL,
+		IO:          io,
+		HTTPClient:  as.server.Client(),
+		OpenBrowser: consentingBrowser(as),
+	}); err != nil {
+		t.Fatalf("Login() error: %v", err)
+	}
+}
+
+// An invalid_scope redirect is a server-compatibility failure, not the user
+// declining: exit 1 (not Cancelled) with the remedy named.
+func TestBrowserLoginInvalidScope(t *testing.T) {
+	as := newFakeAS(t)
+	io, _, _ := output.Test()
+
+	openBrowser := func(authorizeURL string) error {
+		u, _ := url.Parse(authorizeURL)
+		q := u.Query()
+		go func() {
+			resp, err := http.Get(q.Get("redirect_uri") + "?" + url.Values{
+				"error": {"invalid_scope"},
+				"state": {q.Get("state")},
+			}.Encode())
+			if err == nil {
+				resp.Body.Close()
+			}
+		}()
+		return nil
+	}
+
+	_, err := BrowserStrategy{}.Login(context.Background(), LoginOptions{
+		ServerURL:   as.server.URL,
+		IO:          io,
+		HTTPClient:  as.server.Client(),
+		OpenBrowser: openBrowser,
+	})
+	if err == nil {
+		t.Fatal("Login() succeeded after an invalid_scope redirect")
+	}
+	if code := exitcode.FromError(err); code != exitcode.Error {
+		t.Errorf("exit code %d, want %d (not Cancelled: the user did not decline)", code, exitcode.Error)
+	}
+	for _, want := range []string{`refused the "account" OAuth scope`, "--with-token"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
+		}
+	}
+}
+
+// The granted scope in the token response decides whether the key is usable:
+// one without `account` is refused, never stored as a silent `mcp` downgrade.
+func TestBrowserLoginGrantedScope(t *testing.T) {
+	tests := []struct {
+		name    string
+		granted string
+		wantErr bool
+	}{
+		{name: "account", granted: "account"},
+		{name: "account among several", granted: "mcp account"},
+		{name: "omitted means as requested (RFC 6749 5.1)", granted: ""},
+		{name: "mcp alone is refused", granted: "mcp", wantErr: true},
+		{name: "substring is not a match", granted: "accounts", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			as := newFakeAS(t)
+			as.tokenScope = tt.granted
+			io, _, _ := output.Test()
+
+			token, err := BrowserStrategy{}.Login(context.Background(), LoginOptions{
+				ServerURL:   as.server.URL,
+				IO:          io,
+				HTTPClient:  as.server.Client(),
+				OpenBrowser: consentingBrowser(as),
+			})
+			if !tt.wantErr {
+				if err != nil {
+					t.Fatalf("Login() error: %v", err)
+				}
+				return
+			}
+			if err == nil || token != nil {
+				t.Fatalf("Login() = %v, %v; want a refusal and no token", token, err)
+			}
+			if !strings.Contains(err.Error(), "refusing to store") {
+				t.Errorf("error %q does not say the key is refused", err)
+			}
+		})
 	}
 }
