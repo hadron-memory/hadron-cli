@@ -624,7 +624,10 @@ Conventions:
   claims no name — cor:agt:030:06). Each `--json` row carries `hosts`:
   the host(s) whose judgment produced it. A finding every host reports
   identically is one row naming them all, and an unreadable node's row has
-  `hosts: []`. Note
+  `hosts: []`. A key under `exports` that names NO host (e.g. `codex`) is a
+  `skill-unknown-host-key` WARNING, one row per key with `hosts: []` — it
+  belongs to no host — never read as an alias, and never blocking a known host
+  beside it, however malformed (cor:agt:030:06). Note
   what cannot be checked: with no prefix source, a name's PREFIX is
   unverifiable — `hadon-foo` lints clean. `--all` walks what the server lists for you — own-org,
   shared-with-you and other orgs' PUBLIC memories, every class; a per-user
