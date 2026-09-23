@@ -1030,3 +1030,55 @@ func TestSkillStatusPluginTargetFiltersNothing(t *testing.T) {
 		t.Error("the ORGANIZATION-visibility memory was dropped — the D9 filter is back")
 	}
 }
+
+// The no-id rule applies to the PARSE-FAILURE branch too, which reaches the
+// facts by a different route — @copilot on #663, after I fixed one branch and
+// not the other. An unparseable pre-§4a file must not have its header hash
+// sent without a file hash, or the server reports a hand edit on no evidence.
+func TestSkillStatusNeverSendsHeaderHashForAnUnparseableNoIdFile(t *testing.T) {
+	root := t.TempDir()
+	// Frontmatter that does not parse (unquoted scalar with ": "), under a
+	// #580-generation header: a hash, and NO id.
+	const file = "---\n" +
+		"name: hadron-example\n" +
+		"description: Covers BOTH tracks: the one that breaks the parser.\n" +
+		"---\n\n" +
+		"<!-- hadron-skill source=" + statusSourceURN + " hash=4b02a08bb1efbaad -->\n\n" +
+		"# Example\n"
+	if err := os.MkdirAll(filepath.Join(root, "hadron-example"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "hadron-example", "SKILL.md"), []byte(file), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Premise: it really does fail to parse, and its provenance IS recoverable
+	// with no id — otherwise this exercises some other path.
+	if _, err := skilldoc.ParseFile([]byte(file)); err == nil {
+		t.Fatal("fixture parses cleanly — wrong path")
+	}
+	id, src, hh, ok := skilldoc.ParseProvenance([]byte(file))
+	if !ok || id != "" || src == "" || hh == "" {
+		t.Fatalf("fixture premise wrong: ok=%v id=%q src=%q headerHash=%q", ok, id, src, hh)
+	}
+
+	_, captured, err := runSkillStatus(t, map[string]string{
+		"SkillPlan": skillPlanResp("null", "true", ""),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--to", root, "--json")
+	if err != nil {
+		t.Fatalf("status errored: %v", err)
+	}
+	f := sentFiles(t, captured)[0]
+	if _, present := f["headerHash"]; present {
+		t.Errorf("headerHash sent for an unparseable no-id file — the server's "+
+			"locally-edited test is then vacuously true: %v", f)
+	}
+	if _, present := f["fileHash"]; present {
+		t.Errorf("a file that did not parse cannot have a fileHash: %v", f)
+	}
+	if f["parseFailed"] != true {
+		t.Errorf("the parse failure itself must still be reported: %v", f)
+	}
+	if f["sourceUrn"] != statusSourceURN {
+		t.Errorf("the URN is the pairing fallback and must travel: %v", f)
+	}
+}

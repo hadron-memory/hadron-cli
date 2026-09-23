@@ -514,9 +514,10 @@ description: <properties.exports.<host>.description (D12) — after NormalizeDes
 - One **machine-parseable header line**, `<!-- hadron-skill k=v k=v -->`, parsed
   by a small regex; the second line is prose for humans and is not parsed.
   Existing files carry the older `<!-- Generated from <urn> -->` form; `status`
-  reads that too (URN only, no hash ⇒ reported as `unhashed`, which `export`
-  upgrades). **A file with `source` but no `id`** is the pre-§11a generation:
-  also `unhashed`, also upgraded by the next export (§4.4, §11a).
+  reads that too (URN only, no hash ⇒ reported as `unhashed`). **A file with
+  `source` but no `id`** is the pre-§11a generation: also `unhashed`.
+  **Neither is upgraded automatically** — ruled 2026-09-23: a file with no
+  `id=` is SKIPPED and reported, and `--force` overrides (§11a).
 - **`id`** is the node's stable primary key and is **the pairing key** (§4.4,
   amended per §11a). It survives a `loc` change, which the URN does not.
 - **`hash`** = first 16 hex of SHA-256 over `id + "\x00" + source + "\x00" +
@@ -577,9 +578,10 @@ already carry the flat form, and this surface supports no v1 (Holger,
 2026-09-16) — a `::` or `urn:` header is not ours and stays in the file's body.
 
 **A file with no `id`** is a pre-§11a header: pair it by URN as a fallback and
-classify `unhashed` so the next export upgrades it. That fallback is what makes
-the upgrade possible at all, and it is exactly why **every installation must
-export once before any loc changes** — see §11a's rollout, which is a real
+classify `unhashed`. **That class is now SKIPPED by export, not upgraded**
+(ruled 2026-09-23) — the user deletes the file and re-exports, or passes
+`--force`. The URN fallback still matters for pairing and reporting, which is
+why **every installation must export once before any loc changes** — see §11a's rollout, which is a real
 ordering constraint rather than a nicety.
 
 Non-Hadron skills (no header) are invisible to every command — `hadron skill`
@@ -595,7 +597,7 @@ never lists, moves or removes a file it did not generate.
 | `renamed` | URN paired, directory name ≠ derived name | ✓ | write new dir, remove old, report `moved` |
 | `never-exported` | declared in corpus, no file | ✓ | write |
 | `orphaned` | file's URN resolves to no declared node (deleted, un-declared, or unreadable) | ✓ | leave; remove only with `--prune` |
-| `unhashed` | pre-#580 header (URN only) | ✓ | rewrite with hash |
+| `unhashed` | pre-#580 header (URN only), or any header with no `id=` | ✓ | **skip and report** — `--force` to overwrite (ruled 2026-09-23) |
 | `collision` | two declared nodes derive one name under one prefix | ✓ | **refuse the pair**, export the rest |
 | `unavailable` | listed but unreadable (`nodeBatch.unavailable`) | ✓ | skip, report |
 | `disabled` | declared but not enabled — `enable` absent or `false` (D12; it defaults to OFF) | ✓ | **file present:** remove it, no `--prune` needed. **file absent:** nothing to do. **file `locally-edited`:** REFUSE unless `--force` — see below |
@@ -1000,8 +1002,10 @@ know it can rely on. Reported, not filed.)*
   classifies **`stale`** → rewrite, which updates the header's `source`. Correct
   by construction, no tenth class.
 - Existing files carry no `id`. `unhashed` already means *"an older header
-  generation, rewrite it"* — **widen that class** rather than invent. A1 is
-  unaffected: a header-generation upgrade is not a local edit.
+  generation"* — **widen that class** rather than invent. Its ACTION changed on
+  2026-09-23 from *rewrite* to *skip and report*: without an id there is no way
+  to prove the file was not hand-edited, so A1's promise applies and `--force`
+  is the override, exactly as for a known local edit.
 - **An EMPTY id is hashed like any other value — there is NO special case —
   and a file with no `id=` is SKIPPED by the client instead.**
 
