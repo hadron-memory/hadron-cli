@@ -56,6 +56,9 @@ type xhMatrix struct {
 		Properties map[string]any      `json:"properties"`
 		Expect     map[string]*xhDecl  `json:"expect"`
 		Malformed  map[string][]string `json:"malformed"`
+		// Unknown is UnknownHostKeys: the exports keys no host owns, in UTF-8
+		// byte order. Host-free, so it is not a per-host column (#676).
+		Unknown []string `json:"unknown"`
 	} `json:"declarations"`
 	Lint []struct {
 		ID         string              `json:"id"`
@@ -64,6 +67,9 @@ type xhMatrix struct {
 		Contracts  []string            `json:"contracts"`
 		Properties map[string]any      `json:"properties"`
 		Expect     map[string][]string `json:"expect"`
+		// Unhosted is the findings that belong to NO host (an unknown exports
+		// key, cor:agt:030:06): LintUnknownHostKeys, as rule:severity.
+		Unhosted []string `json:"unhosted"`
 	} `json:"lint"`
 	Collisions []struct {
 		ID        string   `json:"id"`
@@ -147,8 +153,8 @@ func decodeMatrix(raw []byte) (*xhMatrix, error) {
 // expectation (@codex on #664, three rounds, one field at a time). This
 // checks presence on the raw JSON for every field at once instead.
 var requiredKeys = map[string][]string{
-	"declarations": {"id", "title", "contracts", "properties", "expect", "malformed"},
-	"lint":         {"id", "title", "contracts", "properties", "expect"},
+	"declarations": {"id", "title", "contracts", "properties", "expect", "malformed", "unknown"},
+	"lint":         {"id", "title", "contracts", "properties", "expect", "unhosted"},
 	"collisions":   {"id", "title", "contracts", "nodes", "expect"},
 	"rendering":    {"id", "title", "contracts", "case", "sameFile"},
 	"pending":      {"id", "layer", "pendingOn", "contracts", "given", "expect"},
@@ -355,6 +361,13 @@ func TestCrossHostDeclarations(t *testing.T) {
 				if !reflect.DeepEqual(gotBad, c.Malformed[key]) {
 					t.Fatalf("%s: malformed = %v, want %v", c.Title, gotBad, c.Malformed[key])
 				}
+				gotUnknown := UnknownHostKeys(c.Properties)
+				if gotUnknown == nil {
+					gotUnknown = []string{}
+				}
+				if !reflect.DeepEqual(gotUnknown, c.Unknown) {
+					t.Fatalf("%s: unknown host keys = %q, want %q", c.Title, gotUnknown, c.Unknown)
+				}
 			})
 		}
 	}
@@ -380,6 +393,25 @@ func TestCrossHostLint(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// The host-free column: an unknown exports key is judged ONCE, by no host, so
+// it is checked outside the per-host loop above rather than inside it.
+func TestCrossHostUnhosted(t *testing.T) {
+	m := loadMatrix(t)
+	for _, c := range m.Lint {
+		t.Run(c.ID, func(t *testing.T) {
+			n := Node{URN: "hrn:node:example.com:demo:tasks:" + c.ID, MemoryURN: "hrn:mem:example.com:demo",
+				IsRunnable: true, Content: "Do the demo.\n", Properties: c.Properties}
+			rules := []string{}
+			for _, f := range LintUnknownHostKeys(n) {
+				rules = append(rules, f.Rule+":"+f.Severity)
+			}
+			if !reflect.DeepEqual(rules, c.Unhosted) {
+				t.Fatalf("unhosted = %v, want %v", rules, c.Unhosted)
+			}
+		})
 	}
 }
 

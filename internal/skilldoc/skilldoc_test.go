@@ -3,6 +3,7 @@ package skilldoc
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"reflect"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -818,7 +819,8 @@ func TestMalformedExportsPaths(t *testing.T) {
 		{"non-string name", map[string]any{ExportsKey: map[string]any{HostClaudeSkill: map[string]any{"name": 123}}}, ExportsKey + "." + HostClaudeSkill + ".name"},
 		{"non-string description", map[string]any{ExportsKey: map[string]any{HostClaudeSkill: map[string]any{"description": []any{"x"}}}}, ExportsKey + "." + HostClaudeSkill + ".description"},
 		{"non-boolean enable", map[string]any{ExportsKey: map[string]any{HostClaudeSkill: map[string]any{"enable": "true"}}}, ExportsKey + "." + HostClaudeSkill + ".enable"},
-		{"foreign host malformed too", map[string]any{ExportsKey: map[string]any{"codex": map[string]any{"enable": 1}}}, ExportsKey + ".codex.enable"},
+		// Another KNOWN host's entry is shape-checked whichever host asks.
+		{"other known host malformed too", map[string]any{ExportsKey: map[string]any{HostCodexSkill: map[string]any{"enable": 1}}}, ExportsKey + "." + HostCodexSkill + ".enable"},
 	}
 	for _, c := range cases {
 		bad := Malformed(c.props)
@@ -834,16 +836,64 @@ func TestMalformedExportsPaths(t *testing.T) {
 	}
 }
 
+// #676 (cor:agt:030:06, D-2026-09-23-E): a key no host owns is NOT
+// shape-checked — it is reported once, host-free, as skill-unknown-host-key,
+// and must never block a known host. A malformed `exports.codex` used to be a
+// malformed ERROR on every host and withheld the valid Claude export beside it.
+func TestUnknownHostKeyIsNeverMalformed(t *testing.T) {
+	props := map[string]any{ExportsKey: map[string]any{
+		HostClaudeSkill: map[string]any{"name": "hadron-demo", "description": "Use when demoing.", "enable": true},
+		"codex":         "yes",
+	}}
+	for _, h := range Hosts {
+		if bad := MalformedFor(props, h); len(bad) != 0 {
+			t.Errorf("%s: an unknown key must not be malformed, got %v", h.Key, bad)
+		}
+	}
+	if d, ok := DeclaredFor(props, claudeHost()); !ok || !d.Enable {
+		t.Fatalf("the valid Claude declaration beside it must still be read, got %+v", d)
+	}
+	n := Node{URN: "u", IsRunnable: true, Content: "body", Properties: props}
+	for _, f := range LintFor(n, claudeHost()) {
+		if f.Severity == SevError {
+			t.Errorf("the known host must lint as if the unknown key were absent, got %+v", f)
+		}
+	}
+	fs := LintUnknownHostKeys(n)
+	if len(fs) != 1 || fs[0].Rule != RuleUnknownHostKey || fs[0].Severity != SevWarning {
+		t.Fatalf("want one %s warning, got %+v", RuleUnknownHostKey, fs)
+	}
+}
+
+// The unknown keys are reported in UTF-8 BYTE order, stably: several on one
+// node must give the same report every run and on both implementations.
+// U+10000 sorts AFTER U+E000 in UTF-8 but BEFORE it in UTF-16 code units, which
+// is the vector that tells the two orders apart (hadron-server parity pins it).
+func TestUnknownHostKeysAreInUTF8ByteOrder(t *testing.T) {
+	props := map[string]any{ExportsKey: map[string]any{
+		"\U00010000": true, "\uE000": true, "zulu": true, "alpha": true, HostClaudeSkill: map[string]any{},
+	}}
+	want := []string{"alpha", "zulu", "\uE000", "\U00010000"}
+	for i := 0; i < 20; i++ {
+		if got := UnknownHostKeys(props); !reflect.DeepEqual(got, want) {
+			t.Fatalf("want %q, got %q", want, got)
+		}
+	}
+	if UnknownHostKeys(map[string]any{ExportsKey: "yes"}) != nil || UnknownHostKeys(map[string]any{}) != nil {
+		t.Error("no exports object means no unknown keys (a non-object is malformed, not unknown)")
+	}
+}
+
 func TestMalformedHostPathsAreDeterministic(t *testing.T) {
 	// Map iteration order is random in Go, so two hosts both malformed must
 	// still report in a stable order — otherwise the finding list flaps between
-	// runs and a --strict gate is nondeterministic.
+	// runs and a --strict gate is nondeterministic. Known hosts only: an
+	// unknown key is never malformed (TestUnknownHostKeyIsNeverMalformed).
 	props := map[string]any{ExportsKey: map[string]any{
-		"zulu":  true,
-		"alpha": true,
-		"mike":  true,
+		HostCodexSkill:  true,
+		HostClaudeSkill: true,
 	}}
-	want := []string{ExportsKey + ".alpha", ExportsKey + ".mike", ExportsKey + ".zulu"}
+	want := []string{ExportsKey + "." + HostClaudeSkill, ExportsKey + "." + HostCodexSkill}
 	for i := 0; i < 20; i++ {
 		got := Malformed(props)
 		if len(got) != len(want) {

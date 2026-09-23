@@ -57,7 +57,8 @@ never fire; isRunnable is true; the body is non-empty and carries no
 frontmatter of its own; no two selected nodes ENABLE the same name for the same
 host (a declaration that is not enabled claims no name, cor:agt:030:06). Warnings: the declaration still uses a retired key; the description never
 says when to use the skill; the body contains a {{…}} placeholder, which export
-ships verbatim.
+ships verbatim; a key under exports names no host (reported once, with no
+host — it is never read as an alias and never blocks a known host beside it).
 
 Note what cannot be checked: with no prefix source, a name's PREFIX is
 unverifiable — "hadon-foo" lints clean. Shape is checkable, correctness is not.
@@ -109,6 +110,14 @@ listing by the server; lint it by naming it with -m.`,
 			for _, h := range skilldoc.Hosts {
 				for _, fnd := range skilldoc.LintCollisionsFor(nodes, h) {
 					acc.add(fnd, h.Key)
+				}
+			}
+			// An exports key no host owns is judged ONCE, host-free
+			// (cor:agt:030:06): its row carries no host, because it belongs to
+			// none — not every host's, which is what merging it would claim.
+			for _, sn := range nodes {
+				for _, fnd := range skilldoc.LintUnknownHostKeys(sn) {
+					acc.addUnhosted(fnd)
 				}
 			}
 			// Initialized, never nil: a clean corpus is `[]` on --json, not `null`.
@@ -184,6 +193,12 @@ func (s *findingSet) add(f skilldoc.Finding, host string) {
 	}
 	s.index[k] = len(s.rows)
 	s.rows = append(s.rows, lintFindingDTO{Node: f.URN, Memory: f.Memory, Rule: f.Rule, Severity: f.Severity, Message: f.Message, Hosts: []string{host}})
+}
+
+// addUnhosted records a finding about no host (an unknown exports key). It
+// is never merged into a host's row, and its Hosts is empty, not nil.
+func (s *findingSet) addUnhosted(f skilldoc.Finding) {
+	s.rows = append(s.rows, lintFindingDTO{Node: f.URN, Memory: f.Memory, Rule: f.Rule, Severity: f.Severity, Message: f.Message, Hosts: []string{}})
 }
 
 // declaresAnyHost reports whether a node carries a declaration for at least

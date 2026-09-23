@@ -188,9 +188,10 @@ func classify(props map[string]any) (decl *Declaration, malformed []string) {
 
 // classifyFor is classify for any host: the declaration at `exports.<host>`
 // (or, for Claude only, a retired alias), and the malformed paths that host's
-// plan reports. Every `exports` entry is shape-checked whichever host asks,
-// matching hadron-server; the retired keys are shape-checked only for the
-// host they alias to.
+// plan reports. Every KNOWN host's `exports` entry is shape-checked whichever
+// host asks, matching hadron-server; a key no host owns is never shape-checked
+// (LintUnknownHostKeys reports it, host-free); the retired keys are
+// shape-checked only for the host they alias to.
 func classifyFor(props map[string]any, h Host) (decl *Declaration, malformed []string) {
 	read := func(path, host string, obj map[string]any) *Declaration {
 		for _, field := range []string{"description", "name"} {
@@ -219,8 +220,12 @@ func classifyFor(props map[string]any, h Host) (decl *Declaration, malformed []s
 		return d
 	}
 
-	// The new shape first: every host entry is shape-checked, and the
-	// claudeSkill one becomes the declaration.
+	// The new shape first: every KNOWN host's entry is shape-checked, and
+	// this host's becomes the declaration. A key no host owns is NOT
+	// shape-checked (cor:agt:030:06, #676): it is reported once, host-free,
+	// by LintUnknownHostKeys, and must never block a known host — a malformed
+	// `exports.codex` used to error on every host and withhold a valid Claude
+	// export beside it.
 	if raw, ok := props[ExportsKey]; ok {
 		exports, isObj := raw.(map[string]any)
 		if !isObj {
@@ -228,6 +233,9 @@ func classifyFor(props map[string]any, h Host) (decl *Declaration, malformed []s
 		} else {
 			hosts := make([]string, 0, len(exports))
 			for host := range exports {
+				if _, known := HostFor(host); !known {
+					continue
+				}
 				hosts = append(hosts, host)
 			}
 			sort.Strings(hosts) // deterministic malformed order
@@ -521,6 +529,56 @@ func LintFor(n Node, h Host) []Finding {
 	if templateRE.MatchString(n.Content) {
 		add("skill-content-has-template", SevWarning,
 			"content contains a {{…}} placeholder — export is verbatim, so it ships as literal text; keep it only if the skill is meant to carry a template")
+	}
+	return out
+}
+
+// RuleUnknownHostKey names the finding for an `exports` key no host owns.
+// One constant, mirrored by hadron-server's RULE_UNKNOWN_HOST_KEY, so a
+// rename is one line on each side.
+const RuleUnknownHostKey = "skill-unknown-host-key"
+
+// UnknownHostKeys returns the keys under properties.exports that no host
+// owns, in UTF-8 byte order — the order a report of them must use, so a node
+// carrying several gives the same report on every run and on both
+// implementations. Nil when exports is absent or not an object (the latter is
+// a malformed finding of its own).
+func UnknownHostKeys(props map[string]any) []string {
+	exports, ok := props[ExportsKey].(map[string]any)
+	if !ok {
+		return nil
+	}
+	var out []string
+	for key := range exports {
+		if _, known := HostFor(key); !known {
+			out = append(out, key)
+		}
+	}
+	sort.Strings(out) // Go compares strings byte-wise: UTF-8 byte order
+	return out
+}
+
+// LintUnknownHostKeys reports each `exports` key no host owns, as a WARNING
+// attributed to the node and to NO host (cor:agt:030:06, D-2026-09-23-E):
+// the key belongs to none of them, so reporting it under every host would
+// claim the opposite. Never an error, never an alias, never a block — the
+// known hosts beside it are judged by LintFor exactly as if it were absent.
+func LintUnknownHostKeys(n Node) []Finding {
+	keys := UnknownHostKeys(n.Properties)
+	if len(keys) == 0 {
+		return nil
+	}
+	supported := make([]string, 0, len(Hosts))
+	for _, h := range Hosts {
+		supported = append(supported, h.Key)
+	}
+	out := make([]Finding, 0, len(keys))
+	for _, key := range keys {
+		out = append(out, Finding{
+			URN: n.URN, Memory: n.MemoryURN, Rule: RuleUnknownHostKey, Severity: SevWarning,
+			Message: fmt.Sprintf("properties.%s key %q names no skill host (supported: %s) — nothing exports it, and it is not read as an alias for any host; rename it to a supported key or remove it",
+				ExportsKey, key, strings.Join(supported, ", ")),
+		})
 	}
 	return out
 }
