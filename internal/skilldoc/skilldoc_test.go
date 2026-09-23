@@ -229,7 +229,7 @@ func TestLintCollisions(t *testing.T) {
 	// Distinct stored names do not collide, however similar the locs.
 	b2 := b
 	b2.Properties = map[string]any{ExportsKey: map[string]any{
-		HostClaudeSkill: map[string]any{"name": "cli-start-worker", "description": "Use when x"},
+		HostClaudeSkill: map[string]any{"name": "cli-start-worker", "description": "Use when x", "enable": true},
 	}}
 	if fs := LintCollisions([]Node{a, b2}); len(fs) != 0 {
 		t.Errorf("distinct stored names still collide: %+v", fs)
@@ -240,7 +240,9 @@ func TestLintCollisions(t *testing.T) {
 	// a second, misleading report of the same defect.
 	nameless := a
 	nameless.Properties = map[string]any{ExportsKey: map[string]any{
-		HostClaudeSkill: map[string]any{"description": "Use when x"},
+		// enable: true, or the pair would pass for the wrong reason — a
+		// declaration that is not enabled claims no name at all (#676).
+		HostClaudeSkill: map[string]any{"description": "Use when x", "enable": true},
 	}}
 	nameless2 := b
 	nameless2.Properties = nameless.Properties

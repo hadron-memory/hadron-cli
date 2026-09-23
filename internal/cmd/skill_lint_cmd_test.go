@@ -338,7 +338,7 @@ func TestSkillLintOneNodeInTwoSpellingsLintsOnce(t *testing.T) {
 	// twice and the result must be de-duplicated by node id, or it collides
 	// with itself.
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
-		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."}}}`, `"# A"`)
+		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a.","enable":true}}}`, `"# A"`)
 	gql, _ := captureGraphQL(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good, good)})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -355,7 +355,7 @@ func TestSkillLintRepeatedNodeRefLintsOnce(t *testing.T) {
 	// Copilot on #589: a --node named twice must not be read twice, or
 	// LintCollisions reports a node colliding with itself.
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
-		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a."}}}`, `"# A"`)
+		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a.","enable":true}}}`, `"# A"`)
 	gql, captured := captureGraphQL(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good)})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
