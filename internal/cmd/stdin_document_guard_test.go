@@ -340,3 +340,89 @@ func TestNodeImportURLIsNotGuardedByTheDocumentRule(t *testing.T) {
 		t.Errorf("--url reads no stdin and must not hit the document guard:\n%s", msg)
 	}
 }
+
+// #648 — a chat message body is a DOCUMENT. `chat post --body -`,
+// `team chat post -` (positional or --body -) and `channel post <addr> -` all
+// refuse an interactive terminal: exit 2, before any request, remedy named.
+func TestChatBodyStdinRefusesATerminal(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		args   []string
+		remedy string
+	}{
+		{"chat post --body -", []string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--body", "-"}, "--body-file <path>"},
+		{"team chat post positional", []string{"team", "chat", "post", "-", "--app", "acme.com:eng-team"}, "--body-file <path>"},
+		{"team chat post --body -", []string{"team", "chat", "post", "--body", "-", "--app", "acme.com:eng-team"}, "--body-file <path>"},
+		{"channel post", []string{"channel", "post", "r", "-", "--as-me"}, "hadron channel post <address> - < <path>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			teamGitDir(t) // no binding file: keep team chat off the real checkout
+			requests := 0
+			gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				_, _ = w.Write([]byte(`{"data":{}}`))
+			}))
+			t.Cleanup(gql.Close)
+			f, _, errOut := testFactoryTTY(t, "typed at a terminal\n")
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", gql.URL))
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("a message body read from a terminal must be refused")
+			}
+			if got := renderError(f, err); got != exitcode.Usage {
+				t.Errorf("want exit %d (usage), got %d", exitcode.Usage, got)
+			}
+			if requests != 0 {
+				t.Errorf("a refusal on argument grounds must make no requests, got %d", requests)
+			}
+			msg := errOut.String()
+			for _, want := range []string{tc.remedy, "interactive terminal"} {
+				if !strings.Contains(msg, want) {
+					t.Errorf("the refusal must mention %q:\n%s", want, msg)
+				}
+			}
+			if strings.Contains(msg, "%!") {
+				t.Errorf("the refusal has a formatting fault:\n%s", msg)
+			}
+		})
+	}
+}
+
+// The piped form keeps working for all three, and the body reaches the wire
+// verbatim. `channel post` read os.Stdin directly before #648, so this is the
+// first test that can drive its stdin at all.
+func TestChatBodyStdinStillWorksWhenPiped(t *testing.T) {
+	const body = "line one\nline two\n"
+	for _, tc := range []struct {
+		name string
+		args []string
+		op   string
+		resp string
+	}{
+		{"chat post --body -", []string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--body", "-"},
+			"CreateChannelMessage", `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`},
+		{"team chat post -", []string{"team", "chat", "post", "-", "--app", "acme.com:eng-team"},
+			"CreateTeamChatMessage", `{"data":{"createTeamChatMessage":` + teamChatMsgJSON + `}}`},
+		{"channel post", []string{"channel", "post", "r", "-", "--as-me"},
+			"CreateChannelMessage", `{"data":{"createChannelMessage":` + messageJSON + `}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			teamGitDir(t)
+			gql, captured := captureGraphQL(t, map[string]string{
+				tc.op:             tc.resp,
+				"TeamAppIdentity": teamAppIdentityJSON,
+			})
+			f, _ := testFactory(t)
+			f.IOStreams.In = strings.NewReader(body)
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("a piped body must still post: %v", err)
+			}
+			if !strings.Contains(string(captured[tc.op]), `"line one\nline two\n"`) {
+				t.Errorf("the piped body must reach the wire verbatim: %s", captured[tc.op])
+			}
+		})
+	}
+}

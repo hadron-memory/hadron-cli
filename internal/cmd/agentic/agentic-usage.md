@@ -702,6 +702,10 @@ Conventions:
   `HADRON_CHAT_*`, then `.hadron/config.json` (`chat.node`, or
   `chat.memory`+`chat.messagesLoc`), so a configured agent's whole turn is
   `chat read --since <seq>` / `chat post --session <id> --body "…"`.
+  A message body read from `-` (`chat post --body -`, `team chat post -`,
+  `channel post <address> -`) is for a PIPE and is **refused (exit 2) when
+  stdin is an interactive terminal** (#648), like `--content -`: use
+  `--body-file <path>`, or for `channel post` a `< file` redirect.
 - `--reason "<text>"` on `node update` and `replace text` records *why* a change
   was made in the node's version history (the same field MCP `hadron_update_node`'s
   `reason` populates). Optional; omit it and history falls back to the caller

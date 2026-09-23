@@ -216,7 +216,8 @@ you.
 Mentions (@worker-name / @handle; a multiword name by its slug, e.g.
 @mary-jane) are extracted server-side into the message. The body is the
 positional argument (- reads stdin); --body/--body-file are accepted too,
-matching ` + "`hadron chat post`" + `. Exactly one source.
+matching ` + "`hadron chat post`" + `. Exactly one source. - is for a pipe: it is
+refused when stdin is an interactive terminal (use --body-file there).
 
 --reply-to takes the seq of the message being answered, as shown by
 ` + "`team chat read`" + `.`,
@@ -233,6 +234,13 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 				body = args[0]
 			} else if body == "" && bodyFile == "" {
 				return exitcode.Newf(exitcode.Usage, "no message body — pass it as the argument (or - for stdin), or via --body/--body-file")
+			}
+			// Refuse a terminal before the binding/scope lookups below, which
+			// can cost round trips (#648); ResolveBody refuses the same way.
+			if body == "-" && bodyFile == "" {
+				if err := chat.RefuseBodyStdinFromTerminal(f.IOStreams.IsInputTerminal()); err != nil {
+					return err
+				}
 			}
 			var replyToSeq *int
 			if s := strings.TrimSpace(replyTo); s != "" {
@@ -258,7 +266,7 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 				return err
 			}
 			appLabel := lazyAppLabel(ctx, f, scope)
-			text, err := chat.ResolveBody(cmd, body, bodyFile, f.IOStreams.In)
+			text, err := chat.ResolveBody(cmd, body, bodyFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
 			if err != nil {
 				return err
 			}
