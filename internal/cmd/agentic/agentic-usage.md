@@ -1061,7 +1061,9 @@ Conventions:
   `--file <path>` (or `--file -` for stdin) reads the whole config — key
   included — from a JSON object (keys mirror the flags: app/agent/org, name,
   provider, model, apiKey, params, enabled), keeping the secret out of argv;
-  an explicit flag overrides the matching file field.
+  an explicit flag overrides the matching file field. `--file -` is for a PIPE
+  and is refused (exit 2) from an interactive terminal (#648); `--api-key -` is
+  a secret, not a document, and deliberately still reads from a terminal.
   `update <id>` changes only the fields you pass — `--api-key ""` clears the
   key, omitting it keeps it; `--param k=v` (repeatable) replaces the params
   object. `rm <id>` requires `--yes` non-interactively.
@@ -1119,7 +1121,9 @@ Conventions:
   `--system-memory`/`--surface` (repeatable). The two long-text prompts also
   take a file or stdin: `--persona-prompt-file <path>` / `--system-prompt-file <path>`,
   or `--persona-prompt -` / `--system-prompt -` to read stdin (each prompt inline
-  and its `-file` are mutually exclusive, and only one prompt may read stdin). Prefer
+  and its `-file` are mutually exclusive, and only one prompt may read stdin; a
+  prompt read with `-` is for a PIPE and is refused, exit 2, from an interactive
+  terminal, per #648). Prefer
   these for a persona template — it is the longest text the CLI takes and is dense with
   backticks and `{{name}}` braces that inline shell quoting mangles. `agent update <ref> [<field flags>]`
   changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`

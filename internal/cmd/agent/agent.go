@@ -435,6 +435,9 @@ it can refuse after the create succeeds.`,
 			if err := refuseMultiStdin(systemPrompt, personaPrompt); err != nil {
 				return err
 			}
+			if err := refusePromptStdin(f.IOStreams.IsInputTerminal(), systemPrompt, personaPrompt); err != nil {
+				return err
+			}
 			if err := refuseBlankPromptFile(cmd, "system-prompt", "persona-prompt"); err != nil {
 				return err
 			}
@@ -489,11 +492,11 @@ it can refuse after the create succeeds.`,
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT (server default when unset)")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC (server default when unset)")
-	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "system prompt (a lone - reads stdin)")
+	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "system prompt (a lone - reads piped stdin, refused from a terminal)")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable)")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
-	cmd.Flags().StringVar(&personaPrompt, "persona-prompt", "", "persona dressing: identity prompt TEMPLATE with {{name}}/{{role}} placeholders (a lone - reads stdin)")
+	cmd.Flags().StringVar(&personaPrompt, "persona-prompt", "", "persona dressing: identity prompt TEMPLATE with {{name}}/{{role}} placeholders (a lone - reads piped stdin, refused from a terminal)")
 	cmd.Flags().StringVar(&personaPromptFile, "persona-prompt-file", "", "read the persona prompt from a file (multi-line safe); mutually exclusive with --persona-prompt")
 	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "read the system prompt from a file (multi-line safe); mutually exclusive with --system-prompt")
 	cmd.Flags().StringVar(&installInto, "install-into", "", "App (ID or URN) to install the new agent into, so it is castable in one run")
@@ -546,15 +549,14 @@ their prompt from it too.`,
 			if err != nil {
 				return err
 			}
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
 			var surfacesArg []string
 			if changed("surface") {
 				surfacesArg = surfaces
 			}
 			if err := refuseMultiStdin(systemPrompt, personaPrompt); err != nil {
+				return err
+			}
+			if err := refusePromptStdin(f.IOStreams.IsInputTerminal(), systemPrompt, personaPrompt); err != nil {
 				return err
 			}
 			if err := refuseBlankPromptFile(cmd, "system-prompt", "persona-prompt"); err != nil {
@@ -565,6 +567,14 @@ their prompt from it too.`,
 				return err
 			}
 			personaPromptArg, err := resolvePromptFlag(cmd, "persona-prompt", personaPrompt, personaPromptFile, f.IOStreams.In)
+			if err != nil {
+				return err
+			}
+			// The client is built only after every argument-only check and the
+			// prompt reads: building it resolves the server and credentials, and
+			// a local refusal (#648's terminal guard above all) must not be
+			// masked by an auth error, nor touch the credential store.
+			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
@@ -586,12 +596,12 @@ their prompt from it too.`,
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC")
-	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "system prompt (a lone - reads stdin)")
+	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "system prompt (a lone - reads piped stdin, refused from a terminal)")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable; replaces the set)")
 	cmd.Flags().StringVar(&urn, "urn", "", "agent URN path")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
-	cmd.Flags().StringVar(&personaPrompt, "persona-prompt", "", "persona dressing: identity prompt TEMPLATE with {{name}}/{{role}} placeholders (a lone - reads stdin)")
+	cmd.Flags().StringVar(&personaPrompt, "persona-prompt", "", "persona dressing: identity prompt TEMPLATE with {{name}}/{{role}} placeholders (a lone - reads piped stdin, refused from a terminal)")
 	cmd.Flags().StringVar(&personaPromptFile, "persona-prompt-file", "", "read the persona prompt from a file (multi-line safe); mutually exclusive with --persona-prompt")
 	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "read the system prompt from a file (multi-line safe); mutually exclusive with --system-prompt")
 	cmd.MarkFlagsMutuallyExclusive("persona-prompt", "persona-prompt-file")
