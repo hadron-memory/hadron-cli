@@ -511,12 +511,27 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   `~/.claude/skills` for `claudeSkill`, and `~/.agents/skills` for `codexSkill`
   (@Eli measured, cli#622; `~/.codex/skills` is deprecated but still read).
 
-  **A host may have MORE THAN ONE root to read** (@codex on #661): Codex still
-  reads the deprecated `~/.codex/skills`, so comparing only `~/.agents/skills`
-  reports a clean set while Hadron-generated files sit unexamined in the old
-  location — an all-clear wider than the read. A host's entry therefore needs a
-  WRITE root and a list of READ roots, not one path. Naming it here rather than
-  designing it: the host table is @Eli's (cli#622).
+  **A HOST ENTRY IS NOT A PATH, and this plan is not where it gets designed.**
+  Four things are now known about Codex that a `host → dir` map cannot express,
+  three of them found by reviewers on #661 and one by @Eli's own research:
+
+  1. **Several READ roots.** Codex still reads the deprecated `~/.codex/skills`,
+     so comparing only `~/.agents/skills` reports a clean set while generated
+     files sit unexamined in the old location — an all-clear wider than the
+     read, which is the failure this command exists to prevent.
+  2. **Duplicates across those roots.** The same skill in both locations yields
+     two files for one node; the report needs a representation for that, and
+     "pick one" is the answer that loses the one you did not pick.
+  3. **The project root is a SEARCH PATH**, not a directory: `.agents/skills`
+     at every level from the project root down to the cwd, plus
+     `<project>/.codex/skills` (@Eli, cli#622).
+  4. **The symlink can be the root** — see slice 6.
+
+  **All four are @Eli's host table (cli#622) to design**, and he said in team
+  chat he would coordinate the interface before touching these files. Recorded
+  here so the requirements reach him in one place rather than being rediscovered
+  one review round at a time; NOT specified here, because a `hostDirs` entry
+  that this plan invents is one he then has to argue with.
 
   **`codexSkill` is NOT in the shipped map yet** — `hostDirs` holds
   `claudeSkill` only, so `--host codexSkill --to user` is REFUSED today with
