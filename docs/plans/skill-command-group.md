@@ -473,6 +473,14 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   @Eli measured Codex at the same numbers (cli#622), so the second host arrives
   as a row in a table rather than as a second renderer.
 
+  **Equal limits do NOT mean lint covers Codex today** (@codex on #661). As
+  shipped in #589 lint validates the `claudeSkill` entry only, so a
+  `codexSkill` declaration over 64/1024 is not caught — and because the numbers
+  match, that gap is invisible to anyone reading the caps. The all-host walk
+  lands with #622, which is also where Codex's own truncation behaviour
+  (1,024 with `...`, plus a shared 2%-of-context budget across all skills)
+  becomes lint's business.
+
 - **`--scope <name>` (proposed, not built)** NARROWS a selection — it is not
   an alternative to one. `cor:agt:030:03` says a scope narrows and never
   widens, so it composes with the base selector on BOTH verbs rather than
