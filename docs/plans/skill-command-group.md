@@ -134,8 +134,15 @@ Two corrections to the thread, measured on this machine:
   how it drifted; worth a line in `cor:agt:030`.)*
 
   An **object keyed by host**, not an array, so "one export per host" is
-  structural and discovery stays a key check (`path: ["exports","claudeSkill"],
-  exists`) rather than jsonb containment.
+  structural and discovery stays a key check rather than jsonb containment —
+  on **`path: ["exports"], exists`**, the CONTAINER, not a host inside it.
+
+  *(This line said `path: ["exports","claudeSkill"]` until 2026-09-23 (@codex on
+  #661). That would miss a node declaring only `exports.codexSkill`, which
+  `cor:agt:030:02` now requires to be exported — it would never enter the
+  selection at all. The shipped predicate in `listDeclaredIDs` has always asked
+  for the container, precisely so a node declaring only a future host is still
+  listed and reportable; the doc was the stale side. Checked before editing.)*
 
   | field | type | meaning |
   |---|---|---|
