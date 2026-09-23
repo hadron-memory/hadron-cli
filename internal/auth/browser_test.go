@@ -138,7 +138,7 @@ func TestBrowserLoginHappyPath(t *testing.T) {
 		return nil
 	}
 
-	token, err := BrowserStrategy{}.Login(context.Background(), LoginOptions{
+	token, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
 		ServerURL:   as.server.URL,
 		IO:          io,
 		HTTPClient:  as.server.Client(),
@@ -254,6 +254,16 @@ func TestBrowserLoginStateMismatch(t *testing.T) {
 	}
 }
 
+// loginCtx bounds a test login well under loginTimeout, so a regression that
+// leaves the flow waiting on a callback that never comes fails in seconds
+// rather than after five minutes.
+func loginCtx(t *testing.T) context.Context {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
+	return ctx
+}
+
 // consentingBrowser simulates a user approving consent: it redirects to the
 // loopback callback with the fake server's code and the request's state.
 func consentingBrowser(as *fakeAS) func(string) error {
@@ -284,7 +294,7 @@ func TestBrowserLoginRefusesServerWithoutAccountScope(t *testing.T) {
 	io, _, _ := output.Test()
 
 	opened := false
-	_, err := BrowserStrategy{}.Login(context.Background(), LoginOptions{
+	_, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
 		ServerURL:   as.server.URL,
 		IO:          io,
 		HTTPClient:  as.server.Client(),
@@ -313,7 +323,7 @@ func TestBrowserLoginProceedsWithoutScopesSupported(t *testing.T) {
 	as.scopesSupported = nil
 	io, _, _ := output.Test()
 
-	if _, err := (BrowserStrategy{}).Login(context.Background(), LoginOptions{
+	if _, err := (BrowserStrategy{}).Login(loginCtx(t), LoginOptions{
 		ServerURL:   as.server.URL,
 		IO:          io,
 		HTTPClient:  as.server.Client(),
@@ -344,7 +354,7 @@ func TestBrowserLoginInvalidScope(t *testing.T) {
 		return nil
 	}
 
-	_, err := BrowserStrategy{}.Login(context.Background(), LoginOptions{
+	_, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
 		ServerURL:   as.server.URL,
 		IO:          io,
 		HTTPClient:  as.server.Client(),
@@ -383,7 +393,7 @@ func TestBrowserLoginGrantedScope(t *testing.T) {
 			as.tokenScope = tt.granted
 			io, _, _ := output.Test()
 
-			token, err := BrowserStrategy{}.Login(context.Background(), LoginOptions{
+			token, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
 				ServerURL:   as.server.URL,
 				IO:          io,
 				HTTPClient:  as.server.Client(),
