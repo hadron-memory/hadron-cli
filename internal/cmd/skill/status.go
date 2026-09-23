@@ -335,8 +335,11 @@ func cmp(s, fallback string) string {
 }
 
 // hostDirs maps a host to the directory name its skills live under. ONLY
-// claudeSkill has one, because only claudeSkill has a renderer (D10) — and a
-// host with no renderer has no root this command could be right about.
+// claudeSkill has one today. One renderer serves both hosts (cli#622), so the
+// gap is the host TABLE, not rendering: Codex has more than one read root and
+// a root that may itself be a symlink, which a host → dir map cannot express
+// (acceptance audit, docs/plans/skill-command-group.md §3; matrix P17–P21).
+// The Codex row lands with the #621 writer.
 var hostDirs = map[string]string{skilldoc.HostClaudeSkill: ".claude"}
 
 // resolveSkillsRoot maps --to onto a directory. `project` and `plugin` are

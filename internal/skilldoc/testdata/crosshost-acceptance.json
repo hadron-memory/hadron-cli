@@ -1508,6 +1508,60 @@
       ],
       "given": "export over D02 (a valid Claude declaration and an `exports.codex` entry)",
       "expect": "the Claude file is written; the `codex` key is named ONCE in the end-of-run report as a declaration nothing can export, attributed to no host; the run continues and never prompts"
+    },
+    {
+      "id": "P17",
+      "layer": "writer",
+      "pendingOn": "hadron-cli#621",
+      "contracts": [
+        "cor:agt:030:00",
+        "cor:agt:030:01",
+        "cor:agt:030:02"
+      ],
+      "given": "~/.agents/skills is ITSELF a symlink to ~/.claude/skills (the root, not one skill directory); export over D01",
+      "expect": "every Codex item FAILS and is named in the report (writing through the link would replace Claude's files with Codex's declaration); every Claude item is written unchanged. The root is resolved (realpath) BEFORE any per-directory check, because a per-directory lstat sees only ordinary directories here and passes. Measured 2026-09-23: `skill status`'s walk reads straight through such a root."
+    },
+    {
+      "id": "P18",
+      "layer": "writer",
+      "pendingOn": "hadron-cli#621",
+      "contracts": [
+        "cor:agt:030:00",
+        "cor:agt:030:01",
+        "cor:agt:030:02"
+      ],
+      "given": "an ANCESTOR of the Codex root is a symlink (~/.agents -> ~/.claude), so ~/.agents/skills resolves into Claude's root; export over D01",
+      "expect": "same as P17: Codex items fail and are reported, Claude items written unchanged; the check compares RESOLVED roots, not the paths as written"
+    },
+    {
+      "id": "P19",
+      "layer": "status",
+      "pendingOn": "hadron-cli#621 (status and the writer share the host table)",
+      "contracts": [
+        "cor:agt:030:01"
+      ],
+      "given": "`skill status --host codexSkill --to <dir>` where <dir>, or an ancestor of it, resolves into another host's root",
+      "expect": "OPEN, no contract decides it (status is a read-only comparison, outside cor:agt:030:03's export selection). MEASURED today: the walk reads through the link and reports the other host's files as this host's, with no word. Proposed: the report names the resolved root and that it belongs to another host, rather than attributing its files."
+    },
+    {
+      "id": "P20",
+      "layer": "writer",
+      "pendingOn": "hadron-cli#621",
+      "contracts": [
+        "cor:agt:030:02"
+      ],
+      "given": "a Hadron-generated SKILL.md for D01's node sits in the DEPRECATED ~/.codex/skills, which Codex 0.153 still reads",
+      "expect": "the export writes ONLY ~/.agents/skills (cor:agt:030:02: one destination per host) and never writes, moves or removes the deprecated copy. OPEN: whether the report names a copy the host still reads but the export will never update — no contract decides it. Measured 2026-09-23 on the reference machine: 0 Hadron-generated files in ~/.codex/skills (13 third-party entries and .system)."
+    },
+    {
+      "id": "P21",
+      "layer": "writer",
+      "pendingOn": "hadron-cli#621",
+      "contracts": [
+        "cor:agt:030:02"
+      ],
+      "given": "the same skill name exists in BOTH ~/.agents/skills (current export) and ~/.codex/skills (an older copy)",
+      "expect": "the export updates only ~/.agents/skills. OPEN: which copy Codex loads when both exist is Codex's behaviour, not measured here, and no contract decides whether the export reports the duplicate. Never resolved by deleting the deprecated copy."
     }
   ]
 }

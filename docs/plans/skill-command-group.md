@@ -549,19 +549,34 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
      `<project>/.codex/skills` (@Eli, cli#622).
   4. **The symlink can be the root** — see slice 6.
 
-  **All four are @Eli's host table (cli#622) to design**, and he said in team
-  chat he would coordinate the interface before touching these files. Recorded
-  here so the requirements reach him in one place rather than being rediscovered
-  one review round at a time; NOT specified here, because a `hostDirs` entry
-  that this plan invents is one he then has to argue with.
+  **All four were @Eli's host table (cli#622) to design**; since 2026-09-23
+  (Holger, team chat #1199) the CLI half is mine, and Eli's standing repo is
+  hadron-server. Recorded here so the requirements reach one place rather than
+  being rediscovered one review round at a time.
+
+  **Acceptance audit, 2026-09-23 (cli#622).** Each requirement measured against
+  `cor:agt:030:02` and today's `skill status`, and pinned as a PENDING matrix
+  case (`internal/skilldoc/testdata/crosshost-acceptance.json`) for the #621
+  writer to turn green. OPEN means no contract decides it; it is routed, not
+  answered here.
+
+  | # | requirement | contract | measured today | case |
+  |---|---|---|---|---|
+  | 1 | several READ roots (`~/.codex/skills` deprecated, still read by Codex 0.153) | `:02` one destination per host → export writes only `~/.agents/skills`, never the deprecated root | reference machine: `~/.codex/skills` holds 13 entries, **0** Hadron-generated (third-party + `.system`) | P20 — OPEN whether the report names a copy the host reads but export never updates |
+  | 2 | duplicates across those roots | `:02` as above | not measured (no Hadron file in the old root to duplicate) | P21 — OPEN; never resolved by deleting the deprecated copy |
+  | 3 | the project root is a SEARCH PATH | `:02` **no repo-level destination** → out of scope for export | `status --to project` compares one root (`<toplevel>/.claude/skills`) | **no case**: ruled out by contract |
+  | 4 | the ROOT, or an ANCESTOR, can be the symlink | `:00` item failure, `:01` protection of an existing file | `walkSkillFiles` reads straight through a symlinked root AND a symlinked ancestor and attributes the other host's file to this host (throwaway probe, not committed); a live per-directory link exists on the reference machine (`~/.agents/skills/start-worker-session-desktop` → Claude's, i.e. P06/P10) | P17 (root) / P18 (ancestor): Codex items fail and are reported, Claude written unchanged, roots compared RESOLVED; P19 (status) — OPEN, proposed: name the resolved root instead of attributing its files |
+
+  The writer's guard for #4 is therefore **resolve the root first, then compare
+  resolved roots across hosts, then lstat each skill directory** — per-directory
+  lstat alone passes both P17 and P18.
 
   **`codexSkill` is NOT in the shipped map yet** — `hostDirs` holds
   `claudeSkill` only, so `--host codexSkill --to user` is REFUSED today with
   exit 2, measured. What IS shipped is the refusal: a host with no root of its
   own is rejected for a symbolic destination rather than resolved against
   Claude's, so the mismatch cannot happen silently. The Codex row lands with
-  @Eli's host table (cli#622), which is his to add rather than mine to
-  anticipate. *(An earlier draft of this bullet said the Codex root worked "as
+  the #621 writer's host table, against the audit's cases below (P17–P21). *(An earlier draft of this bullet said the Codex root worked "as
   shipped" — @codex on #661 caught that it does not.)*
 
   **`project` is host-specific too** (@codex on #661): `<git toplevel>/.claude/skills`
