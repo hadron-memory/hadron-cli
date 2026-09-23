@@ -88,9 +88,11 @@ func writeUnparseableSkill(t *testing.T, root, dir string) {
 
 func runSkillStatus(t *testing.T, responses map[string]string, args ...string) (string, map[string]json.RawMessage, error) {
 	t.Helper()
-	// `-m` resolves each ref through GetMemory now (the plugin target filters
-	// on VISIBILITY, which only a lookup carries), so every -m test needs one.
+	// `-m` resolves each ref through GetMemory, so every -m test needs one.
 	// Defaulted here rather than repeated, and still overridable per test.
+	// (The lookup was added for the D9 visibility filter, which #655 then
+	// removed; it stays because it buys an early LOCAL refusal of a bad ref
+	// rather than one that fails mid-request naming a GraphQL field.)
 	if _, ok := responses["GetMemory"]; !ok {
 		responses["GetMemory"] = skillMemOrg
 	}
@@ -511,10 +513,10 @@ func TestSkillStatusHasNoNodeSelector(t *testing.T) {
 // that can and cannot prove HERE. The fixture is written by Render, so this
 // asserts only that this package's writer and reader agree, which they do
 // under either hashing convention. It therefore CANNOT discriminate
-// skip-when-empty from hash-the-empty-string; believing it could is how the
-// wrong convention survived a green suite. The test that actually
-// discriminates spells the pre-§4a formula out independently:
-// skilldoc.TestAnEmptyIdReproducesThePreSection4aDigest.
+// one hashing convention from another; believing it could is how a wrong
+// convention survived a green suite. Moot since 2026-09-23 — the hash has one
+// unconditional form and a file with no id is SKIPPED before anything is
+// hashed — but the shape of the mistake is worth keeping in view.
 func TestSkillStatusLegacyHeaderOmitsNodeIdAndPairsByUrn(t *testing.T) {
 	root := t.TempDir()
 	writeSkillFile(t, root, "hadron-example", "")
@@ -534,7 +536,7 @@ func TestSkillStatusLegacyHeaderOmitsNodeIdAndPairsByUrn(t *testing.T) {
 	}
 	if f["fileHash"] != f["headerHash"] {
 		t.Errorf("an untouched pre-§4a file must still hash to its own header "+
-			"(an empty id is SKIPPED, not hashed as \"\"): file=%v header=%v",
+			"(the id is hashed unconditionally, so a file written with one recomputes): file=%v header=%v",
 			f["fileHash"], f["headerHash"])
 	}
 }

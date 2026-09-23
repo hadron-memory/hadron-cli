@@ -484,11 +484,14 @@ func walkSkillFiles(root string) ([]*gen.SkillFileFactsInput, []statusUnreadable
 			continue // somebody else's skill — invisible to every verb
 		}
 		facts := &gen.SkillFileFactsInput{DirName: dirName}
-		// The hash recomputed from the file's own bytes. An empty id is
-		// SKIPPED — it contributes no field and no separator — so a pre-§4a
-		// file recomputes to exactly the digest already in its header and is
-		// therefore NOT `locally-edited`. Which class it DOES get is the
-		// server's word, not this client's, so it is not named here.
+		// The hash recomputed from the file's own bytes, with the id hashed
+		// unconditionally — one form, matching hadron-server's exactly.
+		//
+		// A file with NO id is a different case and not this one: it was never
+		// written by the current exporter, so there is nothing to validate. It
+		// carries no header hash either, so the server classifies it `unhashed`
+		// and the EXPORT action for that class is skip-and-report, with
+		// `--force` to override (ruled 2026-09-23; the writer is #621).
 		fileHash := skilldoc.Hash(parsed.ID, parsed.Source, parsed.Name, parsed.Description, parsed.Body)
 		facts.FileHash = &fileHash
 		facts.SourceUrn = &parsed.Source

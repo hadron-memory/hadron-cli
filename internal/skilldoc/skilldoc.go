@@ -287,42 +287,35 @@ func NormalizeBody(s string) string {
 // pairing turns a rename into orphaned + never-exported — two directories with
 // near-identical trigger text, both firing.
 //
-// An EMPTY id is SKIPPED — it contributes no field and no separator, so the
-// digest is byte-identical to the pre-§4a formula (Holger, 2026-09-22).
+// THE ID IS ALWAYS HASHED, including when it is empty. There is no conditional
+// and no second form of this function (Holger, 2026-09-23).
 //
-// This replaces "an empty id hashes as the empty string", which @Dara measured
-// as doing the OPPOSITE of the rationale we both wrote for it. The rationale
-// was right: a pre-§4a file must stay self-consistent, so that reading one back
-// recomputes to its own stored header hash. Hashing "" defeats it, because
-// prefixing `"" + \0` is not a no-op — a legacy file then mismatched, and
-// `locally-edited` OUTRANKS every other class, so `export` would have REFUSED
-// to touch exactly the files §4b's rollout has to rewrite. A1 would have been
-// protecting work nobody did.
+// The history is worth keeping, because the resolution is not the one either
+// side argued for. @Dara measured that hashing an empty id means a pre-§4a file
+// does NOT recompute to its own stored header hash. That is true. Both of the
+// answers on the table tried to fix it INSIDE the hash — skip the empty id, or
+// keep hashing it and accept the consequence — and each puts a branch in a
+// function that two implementations must agree on byte for byte, which is
+// precisely the thing that then diverged across the two repos for a day.
 //
-// Skipping delivers what the rationale promised: a legacy file recomputes to
-// exactly the digest already in its header, so it is NOT `locally-edited` and
-// an ordinary export rewrites it — gaining `id=` with no --force and no human
-// in the loop. The server must do the same; the two implementations are gated
-// against each other by the A2 parity fixtures.
+// The ruling removes the question instead of answering it: a file with no `id=`
+// was never written by the current exporter, so there is nothing to validate
+// and its hash is never computed at all. The CLIENT skips it and says so in the
+// export report; `--force` overrides, exactly as it does for a hand-edited file,
+// because both are the same promise — we will not silently replace work we
+// cannot prove nobody did.
 //
-// WHICH class such a file gets is the server's to say and is deliberately not
-// asserted here (A4). Note there is an open disagreement about it: the plan
-// says `unhashed` (§4.3, §4.4) while @Dara, reading `classifySkill`, described
-// it falling through to `stale`. Both carry the action "rewrite", so the §4b
-// rollout is safe either way — which is likely why it went unnoticed. Raised
-// for the server side rather than guessed at here.
+// So the branch moves OUT of the hash and into a direct observation (is there an
+// `id=` key?), which needs no cross-implementation convention because it reads a
+// fact off the file rather than computing one.
 func Hash(id, source, name, description, content string) string {
 	description = NormalizeDescription(description)
 	content = NormalizeBody(content)
-	// An empty id is SKIPPED — it contributes neither a field nor a separator,
-	// so the digest is byte-identical to the pre-§4a formula. That equality is
-	// the whole point and it is asserted directly in
-	// TestAnEmptyIdReproducesThePreSection4aDigest.
-	payload := source + "\x00" + name + "\x00" + description + "\x00" + content
-	if id != "" {
-		payload = id + "\x00" + payload
-	}
-	sum := sha256.Sum256([]byte(payload))
+	// UNCONDITIONAL: all five components, always, with no special case for an
+	// empty id. The hash has exactly one form so the two implementations cannot
+	// disagree about a branch — see the doc comment for why the empty-id
+	// question was removed rather than answered.
+	sum := sha256.Sum256([]byte(id + "\x00" + source + "\x00" + name + "\x00" + description + "\x00" + content))
 	return hex.EncodeToString(sum[:])[:16]
 }
 
