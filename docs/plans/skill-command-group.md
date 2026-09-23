@@ -119,14 +119,33 @@ Two corrections to the thread, measured on this machine:
   "properties": {
     "exports": {
       "claudeSkill": { "name": "hadron-add-copilot-reviewer", "description": "…", "enable": true },
-      "codex":       { "…": "…" }
+      "codexSkill":  { "…": "…" }
     }
   }
   ```
 
+  *(The Codex key was written `codex` here when no second host existed —
+  inconsistent with its own sibling `claudeSkill` in the same block. Corrected
+  2026-09-23 to **`codexSkill`**, which is what @Eli's measurement (cli#622) and
+  hadron-server use: srv#1278 documents the merge-patch payload as
+  `{exports: {codexSkill: {enable: false}}}`. Both bots flagged the mismatch on
+  #661 and read it the other way round; the plan was the stale side. @Vera —
+  the key is now asserted in three repos and stated as law in none, which is
+  how it drifted; worth a line in `cor:agt:030`.)*
+
   An **object keyed by host**, not an array, so "one export per host" is
-  structural and discovery stays a key check (`path: ["exports","claudeSkill"],
-  exists`) rather than jsonb containment.
+  structural and discovery stays a key check rather than jsonb containment —
+  on **`path: ["exports"], exists`**, the CONTAINER, not a host inside it,
+  **OR either retired top-level key** (`path: ["skill"]`, `path: ["claudeSkill"]`),
+  which nothing was migrated off. That three-way OR is what `listDeclaredIDs`
+  ships; §4.1 states it identically.
+
+  *(This line said `path: ["exports","claudeSkill"]` until 2026-09-23 (@codex on
+  #661). That would miss a node declaring only `exports.codexSkill`, which
+  `cor:agt:030:02` now requires to be exported — it would never enter the
+  selection at all. The shipped predicate in `listDeclaredIDs` has always asked
+  for the container, precisely so a node declaring only a future host is still
+  listed and reportable; the doc was the stale side. Checked before editing.)*
 
   | field | type | meaning |
   |---|---|---|
@@ -375,6 +394,16 @@ Two corrections to the thread, measured on this machine:
   tasks into a public repo, caught only by whoever reads the diff. Holger
   ruled to ship without a guard for now.
 
+  **That exposure was REMOVED a day later by B8, not by a guard** (@codex on
+  #661). `cor:agt:030:02` took `--to` off `export` entirely, so there is no
+  longer a command that writes a repo-level bundle: the producer is cli#653's,
+  it writes to an explicit output directory, and it is paused pending specs.
+  `status --to plugin` still exists and still compares against the committed
+  bundle — reading, never writing.
+
+  Kept rather than deleted because the RULING stands and its reasoning is the
+  record; what changed is that the risk it accepted no longer has a path.
+
   **The follow-up is a SCOPE**, not a restored filter (Holger): curation keys
   on a named scope — the platform already has scopes as named sets of memories
   — so a bundle declares what it carries rather than inferring it from
@@ -388,10 +417,39 @@ Two corrections to the thread, measured on this machine:
 ## 3. Command surface
 
 ```
-hadron skill export  (-m <memory>... | --all | --node <ref>...) [--host <host>] [--to user|project|plugin|<dir>] [--prune] [--dry-run] [--json]
-hadron skill status  (-m <memory>... | --all)                   [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json]
+hadron skill export  ((-m <memory>... | --all) [--scope <name>] | --node <ref>...) [--prune] [--dry-run] [--json]
+hadron skill status  (-m <memory>... | --all) [--scope <name>]   [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json]
 hadron skill lint    (-m <memory>... | --all | --node <ref>...)                       [--strict] [--json]
 ```
+
+> **SUPERSEDED FOR `export` 2026-09-23 — this surface is now LAW, not plan.**
+> `export` lost `--to` and `--host` to [`cor:agt:030:02`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:02),
+> ruled by Holger (B8). The earlier line read
+> `export … [--host <host>] [--to user|project|plugin|<dir>]` and **each of those
+> flags is now something the spec's "what invalidates this" section names**:
+>
+> - **`--to` at all** — *"one destination per host … the export does not offer a
+>   choice among several."*
+> - **`--to project` / `--to plugin`** — *"adding a repo-level or project-level
+>   destination as a supported path"*, and *"making the export's destination depend
+>   on … being inside a checkout"*. Both resolve against `git rev-parse
+>   --show-toplevel` and exit 2 outside a worktree.
+> - **`--host` as a write selector** — *"every known host, every time. The export
+>   does not detect which hosts are installed, does not ask, and does not skip."*
+>   With Codex measured as a real second host (@Eli, cli#622), selecting one host
+>   would silently leave the other's location empty.
+>
+> So **export writes user-level, every known host, unconditionally.** `--scope`
+> replaces `--to` as the only narrowing knob, per the amended
+> [`cor:agt:030:03`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:03):
+> a scope narrows and never widens.
+>
+> **`status` keeps `--to`** — it writes nothing, so `:02` (a rule about where an
+> export *writes*) does not reach it, and the CI drift gate needs the directory
+> form. **Open, not decided here:** @Eli would retire `status --to project` so it
+> stops advertising a destination export no longer supports, and `--to plugin`
+> should follow whatever #653's producer settles on. Both are shipped behaviour;
+> changing them is a PR, not a doc edit.
 
 > **Updated by D12.** `--prefix` is gone with the prefix itself. **`--host` takes
 > the property key verbatim** — `claudeSkill`, not `claude` — because the host id
@@ -400,18 +458,52 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 > `claudeSkill` is the default and the only host with a specified renderer.
 >
 > **`lint` takes no `--host` and checks EVERY host entry**, tagging each finding
-> with the host it came from. A node declaring only `exports.codex` is therefore
+> with the host it came from. A node declaring only `exports.codexSkill` is therefore
 > linted for shape — a malformed entry is reported — but the Claude-specific caps
 > (64/1024) apply only to the `claudeSkill` entry, since they are that host's
 > limits. As shipped in #589 lint validates the `claudeSkill` entry only; the
 > all-host walk lands with the second renderer (@codex on #627).
 
-- `--host` selects the renderer and the host's root/limits (D10); `claudeSkill` is
-  the default and the only one specified in this plan. It lands with `export`
-  and `status` (the verbs that render or read a host's files); `lint` as
-  shipped in #589 has no host-specific behavior and takes no `--host` — the
-  64/1024 caps it enforces are documented as Claude Code's, and a second
-  host's limits arrive with its renderer.
+- `--host` selects the host's root/limits (D10); `claudeSkill` is the default.
+  **It lands with `status` ONLY** — amended 2026-09-23 (B8). It used to say
+  "`export` and `status`", which the supersession note above now contradicts:
+  `cor:agt:030:02` has export write EVERY known host unconditionally, so a
+  host selector on the writing verb is the thing the spec forbids, not an
+  option it leaves open. On `status` — which writes nothing — it still selects
+  which host's files to compare against.
+  `lint` as shipped in #589 has no host-specific behavior and takes no
+  `--host`; the 64/1024 caps it enforces are documented as Claude Code's, and
+  @Eli measured Codex at the same numbers (cli#622), so the second host arrives
+  as a row in a table rather than as a second renderer.
+
+  **Equal limits do NOT mean lint covers Codex today** (@codex on #661). As
+  shipped in #589 lint validates the `claudeSkill` entry only, so a
+  `codexSkill` declaration over 64/1024 is not caught — and because the numbers
+  match, that gap is invisible to anyone reading the caps. The all-host walk
+  lands with #622, which is also where Codex's own truncation behaviour
+  (1,024 with `...`, plus a shared 2%-of-context budget across all skills)
+  becomes lint's business.
+
+- **`--scope <name>` (proposed, not built)** NARROWS a selection — it is not
+  an alternative to one. `cor:agt:030:03` says a scope narrows and never
+  widens, so it composes with the base selector on BOTH verbs rather than
+  replacing it: `(-m … | --all) [--scope <name>]`.
+
+  **`--node` + `--scope` is REFUSED** (proposed, @codex on #661): a scope
+  narrows a DISCOVERED selection, while `--node` *is* the selection, named
+  explicitly. Intersecting them is the letter of `:03` — a scope only ever
+  removes — but it would silently drop a node the user named by hand, which is
+  the permissive parse this repo refuses elsewhere. A usage error says the same
+  thing out loud. Flagged for @Vera rather than settled here, since MCP and the
+  portal inherit whichever answer wins.
+
+  An earlier draft here wrote
+  it as a third mutually-exclusive selector on `status`, which would have made
+  the same flag mean different things on the two verbs (@codex on #661).
+  It replaces `--to` as export's only knob, and **`status` needs it too** or it
+  cannot compare a disk against the same selection the bundle was produced
+  from. Shipped `status` has `-m`/`--all` only; that is a gap, named here
+  rather than left implied.
 
 - `-m/--memory` is repeatable; `--all` is every memory the caller can read —
   three listings, each drained with `api.CollectAll` and every memory class
@@ -425,10 +517,56 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   required (`exit 2` otherwise) — no active-memory fallback, because an export
   that silently targets "whatever memory was active" is how a customer's tasks
   end up on the wrong disk.
-- `--to` names the skills root: `user` (default) → `~/.claude/skills`;
-  `project` → `<git toplevel>/.claude/skills`; `plugin` →
-  `<git toplevel>/plugins/hadron-cli/skills` (§6); anything else is a directory.
-  `project`/`plugin` outside a git worktree is `exit 2`.
+- **`--to` is `status`-only** (amended 2026-09-23, B8) and names the root to
+  COMPARE against, **and the root is per HOST**: `user` (default) →
+  `~/.claude/skills` for `claudeSkill`, and `~/.agents/skills` for `codexSkill`
+  (@Eli measured, cli#622; `~/.codex/skills` is deprecated but still read).
+
+  **A HOST ENTRY IS NOT A PATH, and this plan is not where it gets designed.**
+  Four things are now known about Codex that a `host → dir` map cannot express,
+  three of them found by reviewers on #661 and one by @Eli's own research:
+
+  1. **Several READ roots.** Codex still reads the deprecated `~/.codex/skills`,
+     so comparing only `~/.agents/skills` reports a clean set while generated
+     files sit unexamined in the old location — an all-clear wider than the
+     read, which is the failure this command exists to prevent.
+  2. **Duplicates across those roots.** The same skill in both locations yields
+     two files for one node; the report needs a representation for that, and
+     "pick one" is the answer that loses the one you did not pick.
+  3. **The project root is a SEARCH PATH**, not a directory: `.agents/skills`
+     at every level from the project root down to the cwd, plus
+     `<project>/.codex/skills` (@Eli, cli#622).
+  4. **The symlink can be the root** — see slice 6.
+
+  **All four are @Eli's host table (cli#622) to design**, and he said in team
+  chat he would coordinate the interface before touching these files. Recorded
+  here so the requirements reach him in one place rather than being rediscovered
+  one review round at a time; NOT specified here, because a `hostDirs` entry
+  that this plan invents is one he then has to argue with.
+
+  **`codexSkill` is NOT in the shipped map yet** — `hostDirs` holds
+  `claudeSkill` only, so `--host codexSkill --to user` is REFUSED today with
+  exit 2, measured. What IS shipped is the refusal: a host with no root of its
+  own is rejected for a symbolic destination rather than resolved against
+  Claude's, so the mismatch cannot happen silently. The Codex row lands with
+  @Eli's host table (cli#622), which is his to add rather than mine to
+  anticipate. *(An earlier draft of this bullet said the Codex root worked "as
+  shipped" — @codex on #661 caught that it does not.)*
+
+  **`project` is host-specific too** (@codex on #661): `<git toplevel>/.claude/skills`
+  for `claudeSkill` and `<git toplevel>/.agents/skills` for `codexSkill`. The
+  shipped code already does this — `resolveSkillsRoot` joins the same `hostDir`
+  for `user` and `project` — so the doc was the wrong side; as written it would
+  have had a reader compare a Codex declaration against Claude's project files.
+
+  `plugin` → `<git toplevel>/plugins/hadron-cli/skills`, and is NOT host-keyed
+  today (§6); whether a bundle needs a per-host layout is cli#653's, which is
+  paused. Anything else is a directory. `project`/`plugin` outside a git
+  worktree is `exit 2`.
+  **`export` does not take it** — `cor:agt:030:02` gives export one destination
+  per host and forbids a repo-level one, so the flag that selects among roots
+  is the flag the spec rules out. Leaving this bullet describing export's roots
+  is how the removed flags would come back (@copilot on #661).
 - `lint` runs on the corpus and touches no disk; `status` reads both and writes
   nothing; `export` is the only writer. Bo's line: *lint on the corpus, status on
   the disk, export bridges them.*
@@ -441,10 +579,26 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 
 ### 4.1 Selection: what is a skill-declaring node
 
-> **SUPERSEDED BY D12 (2026-09-19).** The selector is now
-> **`properties.exports.<host>` with `enable: true`** — an object keyed by host,
-> carrying `{name, description, enable}`. The discovery predicate becomes
-> `path: ["exports","<host>"], exists`, and `enable: false` is a DECLARED but
+> **SUPERSEDED BY D12 (2026-09-19).** The declaration is now
+> **`properties.exports.<host>`** — an object keyed by host, carrying
+> `{name, description, enable}`.
+>
+> **`enable` is NOT part of DISCOVERY** (@copilot on #661): the predicate must
+> select the container without filtering on it, or a disabled declaration
+> becomes invisible to `lint` (which judges a broken name before anyone turns it
+> on), to `status` (which must show `disabled`), and to the REMOVAL `:06`
+> requires. `enable` decides what is *published*, not what is *found* — and the
+> shipped predicate keeps the two retired top-level aliases for the same reason.
+> The discovery predicate becomes
+> the OR of **`path: ["exports"], exists`** — the CONTAINER, not a host inside
+> it, so a node declaring only a not-yet-rendered host is still selected — and
+> the two RETIRED top-level keys, `path: ["skill"]` and `path: ["claudeSkill"]`,
+> which nothing was migrated off (@codex on #661: dropping them would hide
+> every node still on the pre-D12 shape, and the corpus still has them — a live
+> `skill status --all` reports `skill-legacy-key` on real nodes today). That
+> three-way OR is exactly what `listDeclaredIDs` ships.
+> (Corrected 2026-09-23; §2 carries the same rule and the same correction.)
+> `enable: false` is a DECLARED but
 > disabled node (§4.5 `disabled`), not an undeclared one. The paragraph below
 > describes the retired shape; the pagination, batch-read and `unavailable`
 > mechanics under it are unaffected.
@@ -634,12 +788,27 @@ usually a node that *moved*; `--prune` is the deliberate act.
    `--dry-run` prints the same report with nothing written.
 4. Write atomically (temp file + rename in the skill dir) so a crash mid-set
    leaves no half-file.
-5. Report: one row per node — `written | moved(from) | skipped(current) |
-   refused(reason)` — plus `orphaned` files and the reminder that the host
+5. Report: one row per node **PER HOST** — amended 2026-09-23 (@codex on
+   #661). One invocation writes every known host, so a node skipped for Codex
+   and written for Claude produces two different outcomes and a row naming only
+   the node cannot say which is which. The human view carries the host exactly
+   as `hosts[]` does in the JSON below; a single-host run may collapse it, but
+   the contract is per host. Row states —
+   `written | moved(from) | skipped(current) |
+   refused(reason) | removed(reason)` — plus `orphaned` files and the reminder that the host
    loads skills at session start. `--json` shape:
-   `{root, written: [...], moved: [{from,to,urn}], skipped: [...],
-   refused: [{urn, reason}], removed: [{urn, name, reason}], orphaned: [...],
-   pruned: [...]}` with every slice initialized to `[]`.
+   `{hosts: [{host, root, written: [...], moved: [{from,to,urn}],
+   skipped: [...], refused: [{urn, reason}], removed: [{urn, name, reason}],
+   orphaned: [...], pruned: [...]}]}` with every slice initialized to `[]`.
+
+   **Amended 2026-09-23 (B8), and this is a shape change rather than a rename.**
+   The old shape had a SINGULAR `root` and action arrays whose entries name only
+   a node. One invocation now writes every known host (`cor:agt:030:02`), so the
+   same node is written once per host and an entry that names only the node
+   cannot say which write it reports — a skipped-for-Codex, written-for-Claude
+   node would appear in both arrays with nothing to tell the two apart.
+   Keyed by host, `hosts[].root` is also the natural home for the per-host
+   destination, which is no longer a flag the caller supplies.
 
    **D12 changed two things here.** `prefix` is gone from the shape — there is no
    prefix. And `removed` is new: it reports a file deleted because its declaration
@@ -681,7 +850,37 @@ migration:
 
 ## 6. The plugin target (Bo's point 4)
 
-`--to plugin` writes to `plugins/hadron-cli/skills/` in the current checkout,
+> **SUPERSEDED 2026-09-23 (B8).** The paragraph below describes `export --to
+> plugin` writing into the current checkout. [`cor:agt:030:02`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:02)
+> forbids exactly that — a repo-level destination, and a destination that depends
+> on being inside a checkout. **The plugin is now its OWN producer (cli#653),
+> writing to an explicit output directory with no git anchor**, and building
+> hadron-cli's committed bundle is one invocation of it.
+>
+> **The producer's surface is NOT defined here** (@copilot on #661, correctly):
+> §3 has no plugin-producing command and no `--out`, so naming one in a
+> superseded paragraph would leave an uncallable invocation in the plan. It is
+> cli#653's to specify, and **#653 is PAUSED pending @Vera's specs** (@Holger via
+> @Bo) — so the shape is deliberately open rather than merely unwritten. The one
+> thing this paragraph settles is the DESTINATION: explicit and user-supplied,
+> never a git toplevel.
+> That also removes the toplevel dependency that made the producer unusable for
+> the audience it exists for — a Cowork user with no checkout.
+>
+> Two different artifacts were both called "the plugin" and that is what went
+> wrong: **hadron-cli's committed bundle** (a maintainer build, in this repo) and
+> **the end-user bundle** `cor:agt:030:03` governs. One command served both, so a
+> rule fitting either fitted the other badly — the same wrong-noun error D9 made
+> with the visibility filter.
+>
+> What survives below: the `use-hadron-cli` carve-out, the `plugin.json` version
+> rule, the no-local-re-export-in-CI argument, and the drift gate's selection
+> requirement. What does not: the destination.
+
+~~`--to plugin` writes to `plugins/hadron-cli/skills/` in the current
+checkout~~ — **retired by B8; see the note above.** The producer writes to an
+explicit output directory with no git anchor. What the rest of this paragraph
+says still holds: the bundle
 carries **every accessible task node** with no visibility filter (D9, ruled
 2026-09-22 — curation is a later feature and will key on a named scope), and
 leaves `use-hadron-cli` alone — that skill is hand-written on purpose (`hadron-cli:claude-plugin`'s
@@ -712,7 +911,10 @@ selection. Two consequences the gate has to state rather than inherit:
   memories, which is the exposure D9's reversal already accepts elsewhere.
 
 So the workflow must **pin its selection explicitly** rather than rely on
-`--all`: name the memories with `-m`, or (once curation lands) name the scope.
+`--all`: name the memories with `-m`, and (once curation lands) narrow further
+with `--scope`. **`-m` AND `--scope`, not either/or** — a scope narrows a base
+selection rather than replacing one (`cor:agt:030:03`), so a gate still has to
+name its memories.
 `--all` is right for a human asking "what does my disk look like"; it is wrong
 for a gate, which has to compare the same two things every night. Whoever
 builds the workflow states the CI identity and what it can read, in the
@@ -726,8 +928,14 @@ set changes (existing rule).
 ## 7. Out of scope
 
 - Any write to a node. The corpus stays the source; this is one-way publishing.
-- Other skill hosts (Cursor rules, etc.) — the header format carries no
-  host-specific key so a second target can be added without breaking `status`.
+- ~~Other skill hosts~~ — **no longer out of scope for CODEX** (amended
+  2026-09-23, @codex on #661). @Eli measured Codex reading the Claude
+  `SKILL.md` unchanged (cli#622), so it is a real second host, and
+  `cor:agt:030:02`'s "every known host, every time" turns that from a
+  possibility into an obligation this plan must carry. What remains out of
+  scope is a host needing a DIFFERENT renderer (Cursor rules, etc.); the header
+  format carries no host-specific key, so such a target can still be added
+  without breaking `status`.
 - Deduplicating the forks — Eli's corpus work (§9). The command refuses the
   collision; it does not resolve it.
 - The `h-*` slash commands — local files, not this repo's.
@@ -759,7 +967,38 @@ set changes (existing rule).
 4. **`skill status`** — the walk, the pairing, the report, `--strict`.
 5. **`skill export`** — the writer, `--dry-run`, atomic writes, rename pass,
    `--prune`, `--force` for `locally-edited`.
-6. **Plugin target + CI gate + docs:** `--to plugin`, the `skill-drift`
+
+   **Build against the SPECS, not this list** (minted 2026-09-23, so they outrank
+   the plan): [`cor:agt:030:06`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:06)
+   is the one to hold in mind — a not-enabled declaration means export **removes
+   the file it previously wrote**, and that composes three ways:
+
+   | state of the file | action |
+   | --- | --- |
+   | ordinary generated file | **remove**, and report it |
+   | hand-edited (`:01`) | **refuse** to remove, report the refusal |
+   | over its host's limit (`:05`) | **leave in place** — skipping never deletes |
+
+   Every removal is reported. `enable` defaults to OFF, `isRunnable` is never a
+   declaration, and **an export never writes a declaration** — authoring is a
+   human act, so the writer is strictly one-way.
+
+   Two hazards @Eli measured for this slice (cli#622):
+   - **`lstat` every skill directory AND the root itself** before writing.
+     @Eli reproduced `~/.agents/skills/<name>` being a link into
+     `~/.claude/skills`, so writing the Codex file through it overwrites the
+     Claude one. **@codex on #661 sharpened it: the ROOT can be the link** — if
+     `~/.agents/skills`, or an ancestor like `~/.agents`, is itself a symlink,
+     then `lstat` on each `<root>/<name>` sees an ordinary directory and the
+     check passes while the whole host writes over another host's files. The
+     per-directory check is necessary and not sufficient; resolve the root
+     first.
+   - **Fail loud on a server host with no CLI row**, so "write every known host"
+     cannot silently skip one.
+6. **CI gate + docs:** ~~`--to plugin`~~ — the plugin target moved OUT of this
+   slice on 2026-09-23 (B8): it is cli#653's own producer, with its own
+   destination and no git anchor, and #653 is paused pending @Vera's specs.
+   What remains here is the `skill-drift`
    workflow, `agentic-usage.md` surface line (`agentic_completeness_test.go`
    fails without it), README, the `doc-map` surfaces, this plan updated to
    *as built*, and a `hadron-cli` memory node + preflight route for the
@@ -832,11 +1071,36 @@ Before the first `export --all` on Holger's machine can be clean:
 3. **Set `isRunnable`** on every declared node that lacks it.
 4. **Drop `claudeSkill.name`** from every node once D8 is ruled, or set it to
    the derived value during transition.
-5. **The first export IS the rename pass**: `hadron skill export --all --to user
-   --dry-run` shows every `moved(from)`; the real run does them. Then delete the
-   three `~/.claude/commands/h-*.md` by hand.
+5. **The first export IS the rename pass**: `hadron skill export --all --dry-run`
+   shows every `moved(from)`; the real run does them. Then delete the three
+   `~/.claude/commands/h-*.md` by hand. *(`--to user` dropped 2026-09-23: export
+   writes user-level unconditionally, so naming the destination is no longer a
+   thing the command accepts — §3.)*
 
 ## 10. Open questions for Holger
+
+**Opened 2026-09-23 by "export writes every known host" (@codex on #661).**
+Both are consequences of `cor:agt:030:02` rather than of this plan, and both
+are DESIGN questions rather than doc drift — so they are named here instead of
+being answered in a doc-alignment PR:
+
+- **Per-host lint gating.** A node whose `claudeSkill` declaration is valid and
+  whose `codexSkill` one fails a host-specific rule: does the Claude file still
+  get written? `cor:agt:030:06` hands no body to a node with an error finding,
+  but that is stated per NODE, and the export is now per host. Writing one and
+  refusing the other is the answer I would expect — a host's limits are that
+  host's — but it is not what the spec says today.
+
+- **Name collisions are per host now.** §5.3 calls any two selected nodes
+  storing one name a collision. With separate per-host roots, two nodes sharing
+  a name in DIFFERENT hosts do not collide on disk, and grouping the check by
+  host is what matches the destinations. D12 deliberately widened collisions
+  across orgs; whether it also meant across hosts was never asked.
+
+@Vera both look like `cor:agt:030` material rather than plan material, since
+MCP and the portal need the same answers. Raised, not decided.
+
+
 
 1. ~~D7 — prefix home~~ **Ruled and landed** (hadron-server#1164, `1491106`):
    `Organization.skillPrefix` + `hadron-` for user-owned tasks (§2).
