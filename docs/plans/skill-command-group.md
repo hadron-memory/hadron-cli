@@ -119,10 +119,19 @@ Two corrections to the thread, measured on this machine:
   "properties": {
     "exports": {
       "claudeSkill": { "name": "hadron-add-copilot-reviewer", "description": "…", "enable": true },
-      "codex":       { "…": "…" }
+      "codexSkill":  { "…": "…" }
     }
   }
   ```
+
+  *(The Codex key was written `codex` here when no second host existed —
+  inconsistent with its own sibling `claudeSkill` in the same block. Corrected
+  2026-09-23 to **`codexSkill`**, which is what @Eli's measurement (cli#622) and
+  hadron-server use: srv#1278 documents the merge-patch payload as
+  `{exports: {codexSkill: {enable: false}}}`. Both bots flagged the mismatch on
+  #661 and read it the other way round; the plan was the stale side. @Vera —
+  the key is now asserted in three repos and stated as law in none, which is
+  how it drifted; worth a line in `cor:agt:030`.)*
 
   An **object keyed by host**, not an array, so "one export per host" is
   structural and discovery stays a key check (`path: ["exports","claudeSkill"],
@@ -695,7 +704,7 @@ usually a node that *moved*; `--prune` is the deliberate act.
    as `hosts[]` does in the JSON below; a single-host run may collapse it, but
    the contract is per host. Row states —
    `written | moved(from) | skipped(current) |
-   refused(reason)` — plus `orphaned` files and the reminder that the host
+   refused(reason) | removed(reason)` — plus `orphaned` files and the reminder that the host
    loads skills at session start. `--json` shape:
    `{hosts: [{host, root, written: [...], moved: [{from,to,urn}],
    skipped: [...], refused: [{urn, reason}], removed: [{urn, name, reason}],
@@ -777,7 +786,10 @@ migration:
 > rule, the no-local-re-export-in-CI argument, and the drift gate's selection
 > requirement. What does not: the destination.
 
-`--to plugin` writes to `plugins/hadron-cli/skills/` in the current checkout,
+~~`--to plugin` writes to `plugins/hadron-cli/skills/` in the current
+checkout~~ — **retired by B8; see the note above.** The producer writes to an
+explicit output directory with no git anchor. What the rest of this paragraph
+says still holds: the bundle
 carries **every accessible task node** with no visibility filter (D9, ruled
 2026-09-22 — curation is a later feature and will key on a named scope), and
 leaves `use-hadron-cli` alone — that skill is hand-written on purpose (`hadron-cli:claude-plugin`'s
