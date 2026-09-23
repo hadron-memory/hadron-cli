@@ -2037,7 +2037,9 @@ came from stdin and the pipe has already been drained.
 
 --handoff-file reads it from a file, and ` + "`--handoff -`" + ` from stdin. A
 handoff is prose of real length, and putting a paragraph through shell
-quoting is its own hazard.
+quoting is its own hazard. ` + "`--handoff -`" + ` is for a pipe: it is refused when
+stdin is an interactive terminal, which can truncate long input before the
+CLI sees it; use --handoff-file there.
 
 --SUMMARY IS A DIFFERENT FIELD AND THE NEXT DRIVER NEVER SEES IT. It is a
 short label on the session row; nothing reads it back. That is not a
@@ -2071,7 +2073,7 @@ session is still open.`,
 			// text first is what makes it true, and it costs nothing: reading
 			// stdin cannot fail in a way the binding preflight would have
 			// prevented.
-			text, src, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In)
+			text, src, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
 			if err != nil {
 				return err // nothing was successfully taken; there is nothing to rescue
 			}
@@ -2174,7 +2176,7 @@ session is still open.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&handoff, "handoff", "", "continuity record for the next driver — what landed, what is open, what is blocked (a lone - reads stdin)")
+	cmd.Flags().StringVar(&handoff, "handoff", "", "continuity record for the next driver — what landed, what is open, what is blocked (a lone - reads piped stdin, refused from a terminal)")
 	cmd.Flags().StringVar(&handoffFile, "handoff-file", "", "read the handoff from a file (multi-line safe)")
 	cmd.Flags().StringVar(&summary, "summary", "", "short session label — DISPLAY ONLY, the next driver never sees it (use --handoff for that)")
 	cmd.MarkFlagsMutuallyExclusive("handoff", "handoff-file")
@@ -2879,7 +2881,12 @@ type handoffSource struct {
 	fromStdin bool   // `--handoff -`: consumed, and held nowhere else
 }
 
-func resolveHandoff(cmd *cobra.Command, handoff, handoffFile string, stdin io.Reader) (string, handoffSource, error) {
+// resolveHandoff takes the handoff text. A handoff is a DOCUMENT (#648), so
+// `--handoff -` from an interactive terminal is refused before anything is
+// read: the line discipline can truncate it, and a truncated handoff is the
+// lost continuity it exists to prevent. Refusing here, first, leaves nothing
+// taken and so nothing for rescueHandoff to save.
+func resolveHandoff(cmd *cobra.Command, handoff, handoffFile string, stdin io.Reader, stdinIsTerminal bool) (string, handoffSource, error) {
 	changed := cmd.Flags().Changed
 	if !changed("handoff") && !changed("handoff-file") {
 		return "", handoffSource{}, nil
@@ -2894,6 +2901,9 @@ func resolveHandoff(cmd *cobra.Command, handoff, handoffFile string, stdin io.Re
 		}
 		text, src.path = string(data), handoffFile
 	case handoff == "-":
+		if err := cmdutil.RefuseDocumentStdinFromTerminal(stdinIsTerminal, "--handoff -", "--handoff-file"); err != nil {
+			return "", handoffSource{}, err
+		}
 		data, err := io.ReadAll(stdin)
 		if err != nil {
 			return "", handoffSource{}, exitcode.Newf(exitcode.Usage, "reading the handoff from stdin: %v", err)
