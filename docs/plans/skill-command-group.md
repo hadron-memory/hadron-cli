@@ -389,7 +389,7 @@ Two corrections to the thread, measured on this machine:
 
 ```
 hadron skill export  (-m <memory>... | --all | --node <ref>...) [--scope <name>] [--prune] [--dry-run] [--json]
-hadron skill status  (-m <memory>... | --all)                   [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json]
+hadron skill status  (-m <memory>... | --all | --scope <name>)  [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json]
 hadron skill lint    (-m <memory>... | --all | --node <ref>...)                       [--strict] [--json]
 ```
 
@@ -435,12 +435,17 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
 > limits. As shipped in #589 lint validates the `claudeSkill` entry only; the
 > all-host walk lands with the second renderer (@codex on #627).
 
-- `--host` selects the renderer and the host's root/limits (D10); `claudeSkill` is
-  the default and the only one specified in this plan. It lands with `export`
-  and `status` (the verbs that render or read a host's files); `lint` as
-  shipped in #589 has no host-specific behavior and takes no `--host` — the
-  64/1024 caps it enforces are documented as Claude Code's, and a second
-  host's limits arrive with its renderer.
+- `--host` selects the host's root/limits (D10); `claudeSkill` is the default.
+  **It lands with `status` ONLY** — amended 2026-09-23 (B8). It used to say
+  "`export` and `status`", which the supersession note above now contradicts:
+  `cor:agt:030:02` has export write EVERY known host unconditionally, so a
+  host selector on the writing verb is the thing the spec forbids, not an
+  option it leaves open. On `status` — which writes nothing — it still selects
+  which host's files to compare against.
+  `lint` as shipped in #589 has no host-specific behavior and takes no
+  `--host`; the 64/1024 caps it enforces are documented as Claude Code's, and
+  @Eli measured Codex at the same numbers (cli#622), so the second host arrives
+  as a row in a table rather than as a second renderer.
 
 - `-m/--memory` is repeatable; `--all` is every memory the caller can read —
   three listings, each drained with `api.CollectAll` and every memory class
@@ -666,9 +671,18 @@ usually a node that *moved*; `--prune` is the deliberate act.
 5. Report: one row per node — `written | moved(from) | skipped(current) |
    refused(reason)` — plus `orphaned` files and the reminder that the host
    loads skills at session start. `--json` shape:
-   `{root, written: [...], moved: [{from,to,urn}], skipped: [...],
-   refused: [{urn, reason}], removed: [{urn, name, reason}], orphaned: [...],
-   pruned: [...]}` with every slice initialized to `[]`.
+   `{hosts: [{host, root, written: [...], moved: [{from,to,urn}],
+   skipped: [...], refused: [{urn, reason}], removed: [{urn, name, reason}],
+   orphaned: [...], pruned: [...]}]}` with every slice initialized to `[]`.
+
+   **Amended 2026-09-23 (B8), and this is a shape change rather than a rename.**
+   The old shape had a SINGULAR `root` and action arrays whose entries name only
+   a node. One invocation now writes every known host (`cor:agt:030:02`), so the
+   same node is written once per host and an entry that names only the node
+   cannot say which write it reports — a skipped-for-Codex, written-for-Claude
+   node would appear in both arrays with nothing to tell the two apart.
+   Keyed by host, `hosts[].root` is also the natural home for the per-host
+   destination, which is no longer a flag the caller supplies.
 
    **D12 changed two things here.** `prefix` is gone from the shape — there is no
    prefix. And `removed` is new: it reports a file deleted because its declaration
