@@ -902,9 +902,11 @@ Before the first `export --all` on Holger's machine can be clean:
 3. **Set `isRunnable`** on every declared node that lacks it.
 4. **Drop `claudeSkill.name`** from every node once D8 is ruled, or set it to
    the derived value during transition.
-5. **The first export IS the rename pass**: `hadron skill export --all --to user
-   --dry-run` shows every `moved(from)`; the real run does them. Then delete the
-   three `~/.claude/commands/h-*.md` by hand.
+5. **The first export IS the rename pass**: `hadron skill export --all --dry-run`
+   shows every `moved(from)`; the real run does them. Then delete the three
+   `~/.claude/commands/h-*.md` by hand. *(`--to user` dropped 2026-09-23: export
+   writes user-level unconditionally, so naming the destination is no longer a
+   thing the command accepts — §3.)*
 
 ## 10. Open questions for Holger
 
