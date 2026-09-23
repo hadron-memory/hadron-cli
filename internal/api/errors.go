@@ -256,7 +256,7 @@ const MCPOnlyRemedy = "This key was issued for MCP clients only, and the CLI nee
 // key (#681). Call it on the RAW error, before MapError wraps it.
 func IsMCPOnlyCredential(err error) bool {
 	for _, e := range graphQLErrors(err) {
-		if extensionCode(e) == "FORBIDDEN" && strings.HasPrefix(e.Message, mcpOnlyRefusal) {
+		if e != nil && extensionCode(e) == "FORBIDDEN" && strings.HasPrefix(e.Message, mcpOnlyRefusal) {
 			return true
 		}
 	}
