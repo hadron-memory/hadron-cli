@@ -465,14 +465,23 @@ func walkSkillFiles(root string) ([]*gen.SkillFileFactsInput, []statusUnreadable
 			}
 			yes := true
 			facts := &gen.SkillFileFactsInput{DirName: dirName, ParseFailed: &yes}
-			if id != "" {
-				facts.NodeId = &id
-			}
 			if source != "" {
 				facts.SourceUrn = &source
 			}
-			if headerHash != "" {
-				facts.HeaderHash = &headerHash
+			// The SAME no-id rule as the parsed path below, repeated because
+			// this branch reaches the facts by a different route (@copilot on
+			// #663 — I fixed one branch and not the other). A header hash sent
+			// WITHOUT a file hash makes the server's
+			// `headerHash !== '' && fileHash !== headerHash` test vacuously
+			// true, so an unparseable pre-§4a file would be reported as
+			// hand-edited rather than as the older generation it is. No
+			// fileHash can be computed here either way: the frontmatter did not
+			// parse, so three of the five inputs are unavailable.
+			if id != "" {
+				facts.NodeId = &id
+				if headerHash != "" {
+					facts.HeaderHash = &headerHash
+				}
 			}
 			// No fileHash: it cannot be recomputed from a file whose
 			// frontmatter is unreadable, and inventing one would answer a
@@ -508,6 +517,22 @@ func walkSkillFiles(root string) ([]*gen.SkillFileFactsInput, []statusUnreadable
 		// would let this client send every fact it has instead of withholding
 		// one to avoid a false positive. Raised, not assumed.
 		if parsed.ID == "" {
+			// Extra frontmatter still travels (@copilot on #663): it is an
+			// independent local-edit signal rather than part of the hash, and
+			// withholding a true fact is not this rule's business.
+			//
+			// Stated plainly because it is a LIMIT of the rule, not of this
+			// code: with headerHash withheld, the server's locally-edited test
+			// is false whatever this flag says, so a no-id file a human edited
+			// cannot presently be protected AS `locally-edited`. It classifies
+			// `unhashed`, whose action is skip-and-report — which refuses to
+			// touch it anyway, so the outcome is safe and only the reason shown
+			// is wrong. The fix belongs with the server-side nodeId
+			// short-circuit raised below.
+			if len(parsed.Extra) > 0 {
+				yes := true
+				facts.HasExtraFrontmatter = &yes
+			}
 			files = append(files, facts)
 			continue
 		}
