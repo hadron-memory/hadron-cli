@@ -410,6 +410,8 @@ Conventions:
   store a corrupted node — observed on a ~10 KB document with sections missing
   and others joined. If you drive this CLI through a PTY, use `--content-file
   <path>`; `cat file | hadron ...` is a pipe, not a terminal, and still works.
+  The same refusal covers `node update --abstract -` / `--data-merge -` (use
+  the `-file` form) and `node import -` (pass the path) (#648).
   The refusal is on DOCUMENT reads only — `--data-key -` and other secret
   reads from a terminal are deliberate and unaffected;
   the abstract likewise from `--abstract`, `--abstract -`, or

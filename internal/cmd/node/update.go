@@ -59,6 +59,11 @@ The data bag can be written two ways:
 Replace and merge are different operations, so --data and --data-merge are
 mutually exclusive.
 
+--content -, --abstract - and --data-merge - read standard input, and are for
+a PIPE (cat file | hadron node update ...). Each is REFUSED when stdin is an
+interactive terminal, which can truncate large input before the CLI sees it;
+use --content-file, --abstract-file or --data-merge-file instead.
+
 --object-type sets the node's structured-storage collection (#725); pass "" to
 clear it (→ ordinary node), omit to preserve. --properties / --properties-file
 REPLACE the typed properties bag the schema governs (pass "null" to clear) —
@@ -117,11 +122,19 @@ schema-governed memory the server validates the result and rejects a violation.)
 			// command resolves the ref and fetches the node before building
 			// its input, and an argument this invalid should not cost two
 			// round trips first. Same refusal as resolveContent's, from the
-			// one definition in cmdutil.
-			if changed("content") && content == "-" {
-				if err := cmdutil.RefuseDocumentStdinFromTerminal(
-					f.IOStreams.IsInputTerminal(), "--content -", "--content-file"); err != nil {
-					return err
+			// one definition in cmdutil. All three stdin readers are
+			// DOCUMENTS (#648) — content, a paragraph abstract, a JSON merge
+			// patch — none a secret, so all three take the guard.
+			for _, doc := range []struct{ flag, value, fileFlag string }{
+				{"content", content, "--content-file"},
+				{"abstract", abstract, "--abstract-file"},
+				{"data-merge", dataMerge, "--data-merge-file"},
+			} {
+				if changed(doc.flag) && doc.value == "-" {
+					if err := cmdutil.RefuseDocumentStdinFromTerminal(
+						f.IOStreams.IsInputTerminal(), "--"+doc.flag+" -", doc.fileFlag); err != nil {
+						return err
+					}
 				}
 			}
 			// --abstract and --abstract-file are mutually exclusive. Guard on

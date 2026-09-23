@@ -103,7 +103,9 @@ func newCmdImport(f *cmdutil.Factory) *cobra.Command {
 RESTORE (default) — reconstitute a node-export file produced by ` + "`hadron node export`" + `
 (frontmatter-markdown, or ` + "`--format json`" + `). A node already at the target loc is
 updated, else created. Read "-" to import from stdin, so an export pipes straight
-into an import. The target memory/loc come from the file's own keys; -m/--memory
+into an import ("-" is for a pipe: it is refused when stdin is an interactive
+terminal, which can truncate large input — pass the file path instead).
+The target memory/loc come from the file's own keys; -m/--memory
 and --loc override them (re-homing a node into another memory). Outgoing edges
 are imported only with --with-edges (off by default).
 
@@ -167,6 +169,17 @@ the plan without writing.`,
 					onConflict: onConflict, include: include, exclude: exclude,
 					hidden: hidden, maxFileSize: maxFileSize, dryRun: dryRun,
 				})
+			}
+
+			// "-" reads a node file or raw content from stdin — a DOCUMENT,
+			// often a whole export, and possibly binary (#648). Refuse an
+			// interactive terminal before any request, as `node add
+			// --content -` does. --url never reads stdin, so it is exempt.
+			if srcPath == "-" && url == "" {
+				if err := cmdutil.RefuseDocumentStdinFromTerminal(
+					f.IOStreams.IsInputTerminal(), `"hadron node import -"`, "hadron node import"); err != nil {
+					return err
+				}
 			}
 
 			// Mode dispatch. Content mode is selected explicitly (--url,
