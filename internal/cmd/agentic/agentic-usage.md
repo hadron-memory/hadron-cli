@@ -909,7 +909,9 @@ Conventions:
   together in $EDITOR pre-loaded (divided by sentinel lines) — or replaces either
   non-interactively from `--content -`/`--content-file` and/or
   `--abstract -`/`--abstract-file` — writing only the field(s) that actually
-  changed and preserving the rest (`--dry-run` previews). **A body-only edit
+  changed and preserving the rest (`--dry-run` previews). In `spec new|edit|
+  extract`, `--content -` and `--abstract -` are for a PIPE and are **refused
+  (exit 2) from an interactive terminal** (#648); use the `-file` form. **A body-only edit
   ARMS `abstract-stale`** (the abstract was fingerprinted against the old
   content), and preserving an unchanged field by omission is also what makes the
   marker unclearable — re-running with the same abstract writes nothing.

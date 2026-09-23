@@ -112,6 +112,9 @@ is one call instead of four.`, abstractSoftMax),
 			if content == "-" && abstract == "-" {
 				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
 			}
+			if err := refuseDocumentStdin(f.IOStreams.IsInputTerminal(), content, abstract); err != nil {
+				return err
+			}
 			// --abstract and --abstract-file are mutually exclusive — guard on
 			// Changed() so an explicit empty --abstract is caught too, not just
 			// the value-based check inside ResolveTextInput.
@@ -366,9 +369,9 @@ is one call instead of four.`, abstractSoftMax),
 	cmd.Flags().BoolVar(&contract, "contract", false, "scaffold the general-provisions contract at the deepest specified tier")
 	cmd.Flags().BoolVar(&newPath, "new-path", false, "create the positional <citation> and every missing ancestor in one call")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "extra semantic tag (repeatable)")
-	cmd.Flags().StringVar(&abstract, "abstract", "", `the spec's abstract ("-" reads stdin; default: a placeholder lint flags)`)
+	cmd.Flags().StringVar(&abstract, "abstract", "", `the spec's abstract ("-" reads piped stdin, refused from a terminal; default: a placeholder lint flags)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the abstract from a file")
-	cmd.Flags().StringVarP(&content, "content", "c", "", `body content ("-" reads stdin; default: the rubric template)`)
+	cmd.Flags().StringVarP(&content, "content", "c", "", `body content ("-" reads piped stdin, refused from a terminal; default: the rubric template)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read body content from a file")
 	cmd.Flags().StringVar(&inherit, "inherit", "", "inheritance-edge target citation (default: the tier's contract)")
 	cmd.Flags().BoolVar(&noEdges, "no-edges", false, "do not create table-of-contents / inheritance edges")
