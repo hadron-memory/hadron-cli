@@ -465,14 +465,23 @@ func walkSkillFiles(root string) ([]*gen.SkillFileFactsInput, []statusUnreadable
 			}
 			yes := true
 			facts := &gen.SkillFileFactsInput{DirName: dirName, ParseFailed: &yes}
-			if id != "" {
-				facts.NodeId = &id
-			}
 			if source != "" {
 				facts.SourceUrn = &source
 			}
-			if headerHash != "" {
-				facts.HeaderHash = &headerHash
+			// The SAME no-id rule as the parsed path below, repeated because
+			// this branch reaches the facts by a different route (@copilot on
+			// #663 — I fixed one branch and not the other). A header hash sent
+			// WITHOUT a file hash makes the server's
+			// `headerHash !== '' && fileHash !== headerHash` test vacuously
+			// true, so an unparseable pre-§4a file would be reported as
+			// hand-edited rather than as the older generation it is. No
+			// fileHash can be computed here either way: the frontmatter did not
+			// parse, so three of the five inputs are unavailable.
+			if id != "" {
+				facts.NodeId = &id
+				if headerHash != "" {
+					facts.HeaderHash = &headerHash
+				}
 			}
 			// No fileHash: it cannot be recomputed from a file whose
 			// frontmatter is unreadable, and inventing one would answer a
@@ -484,17 +493,52 @@ func walkSkillFiles(root string) ([]*gen.SkillFileFactsInput, []statusUnreadable
 			continue // somebody else's skill — invisible to every verb
 		}
 		facts := &gen.SkillFileFactsInput{DirName: dirName}
-		// The hash recomputed from the file's own bytes. An empty id is
-		// SKIPPED — it contributes no field and no separator — so a pre-§4a
-		// file recomputes to exactly the digest already in its header and is
-		// therefore NOT `locally-edited`. Which class it DOES get is the
-		// server's word, not this client's, so it is not named here.
+		// The hash recomputed from the file's own bytes, with the id hashed
+		// unconditionally — one form, matching hadron-server's exactly.
+		facts.SourceUrn = &parsed.Source
+
+		// A file with NO `id=` was never written by the current exporter, so
+		// there is nothing to validate and NOTHING IS HASHED FOR IT (ruled
+		// 2026-09-23). Two fields are deliberately withheld, and the second is
+		// the one that matters:
+		//
+		//   - fileHash — it cannot be computed. The digest covers the id, and
+		//     this file has none, so any number we produced would compare
+		//     against a header written under a different formula.
+		//   - headerHash — withheld even when the file HAS one. The server's
+		//     `locally-edited` test is `headerHash !== '' && fileHash !==
+		//     headerHash`, so a header hash arriving WITHOUT its counterpart
+		//     makes that mismatch vacuously true and the file is reported as
+		//     hand-edited on no evidence. Sending neither yields `unhashed`,
+		//     which is the truthful answer: an older header generation.
+		//
+		// @Dara: the server could state this directly — an absent nodeId could
+		// short-circuit to `unhashed` before the locally-edited test — which
+		// would let this client send every fact it has instead of withholding
+		// one to avoid a false positive. Raised, not assumed.
+		if parsed.ID == "" {
+			// Extra frontmatter still travels (@copilot on #663): it is an
+			// independent local-edit signal rather than part of the hash, and
+			// withholding a true fact is not this rule's business.
+			//
+			// Stated plainly because it is a LIMIT of the rule, not of this
+			// code: with headerHash withheld, the server's locally-edited test
+			// is false whatever this flag says, so a no-id file a human edited
+			// cannot presently be protected AS `locally-edited`. It classifies
+			// `unhashed`, whose action is skip-and-report — which refuses to
+			// touch it anyway, so the outcome is safe and only the reason shown
+			// is wrong. The fix belongs with the server-side nodeId
+			// short-circuit raised below.
+			if len(parsed.Extra) > 0 {
+				yes := true
+				facts.HasExtraFrontmatter = &yes
+			}
+			files = append(files, facts)
+			continue
+		}
+		facts.NodeId = &parsed.ID
 		fileHash := skilldoc.Hash(parsed.ID, parsed.Source, parsed.Name, parsed.Description, parsed.Body)
 		facts.FileHash = &fileHash
-		facts.SourceUrn = &parsed.Source
-		if parsed.ID != "" {
-			facts.NodeId = &parsed.ID
-		}
 		if parsed.Hash != "" {
 			facts.HeaderHash = &parsed.Hash
 		}

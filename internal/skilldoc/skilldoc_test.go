@@ -866,11 +866,13 @@ func TestHashCoversTheNodeID(t *testing.T) {
 	if a == b {
 		t.Fatal("two different node ids must not fingerprint identically — that is the hazard §4a exists to close")
 	}
-	// An absent id IS skipped (ruled 2026-09-22), and that is precisely why
-	// this assertion still matters: skipping must not collapse into "the id
-	// never mattered". A pre-§4a file and an id-bearing one agreeing on
-	// everything else must still differ, or §4a's pairing is not in the
-	// fingerprint at all and editing the header id alone becomes undetectable.
+	// The id is hashed unconditionally (ruled 2026-09-23), so an empty one is
+	// just another value — and this assertion is what stops "unconditional"
+	// collapsing into "the id never mattered". A file with no id and an
+	// id-bearing one agreeing on everything else must still differ, or §4a's
+	// pairing is not in the fingerprint and editing a header id alone becomes
+	// undetectable. (The CLIENT never hashes a no-id file at all; that is a
+	// separate rule and it lives in the walk, not here.)
 	if Hash("", "hrn:node:a:b:tasks:x", "n", "d", "c") == a {
 		t.Error("an id-bearing hash must differ from the skipped-id one — otherwise the id is not covered")
 	}
@@ -963,52 +965,42 @@ func TestUnknownHeaderKeysAreStillIgnored(t *testing.T) {
 	}
 }
 
-// The PARITY VECTOR, pinned. srv#1235's hadron-server half regenerates its
-// fixtures from this Go, so these digests are a cross-implementation CONTRACT,
-// not an implementation detail.
+// The hash has ONE form: all five components, always. Pinned because the CLI
+// and hadron-server must agree byte for byte, and because a branch here is what
+// diverged across the two repos for a day (cli#654, reverted here).
 //
-// Every other test here is self-referential — it compares hashes this package
-// produced, so it would pass unchanged if the id moved later in the input, the
-// separator changed, or normalization differed. A2 depends on byte-for-byte
-// parity, so a refactor that silently altered the digest would leave this
-// package green and the server's fixtures wrong (@copilot, #650).
-//
-// These constants are published in PR #650 for @Dara to assert against. If a
-// change here turns this test red, the question is not "update the constant" —
-// it is whether the server must change with it.
-// THE test the old convention lacked, and the reason it lacked it: every
-// fixture was built by Render, so it only ever asserted that this package's
-// writer and reader agree — which they do under EITHER rule. The generation
-// that discriminates is the pre-§4a one, whose header hash was computed by a
-// formula with no id slot at all, and which no current code path can produce.
-//
-// So the legacy formula is spelled out here independently. If the two ever
-// disagree, a pre-§4a file stops recomputing to its own stored header hash,
-// becomes `locally-edited` — which outranks every other class — and `export`
-// refuses to touch precisely the files §4b's rollout must rewrite.
-func TestAnEmptyIdReproducesThePreSection4aDigest(t *testing.T) {
+// The CLI never CALLS this with an empty id — a file with no `id=` is skipped
+// before anything is hashed (ruled 2026-09-23) — but the function must still
+// match the server's on that input, because A2 compares the FUNCTIONS, not the
+// paths this client happens to take.
+func TestHashHasNoEmptyIdSpecialCase(t *testing.T) {
 	const (
 		src  = "hrn:node:hadronmemory.com:hadron-cli:tasks:example"
 		name = "hadron-example"
 		desc = "Use when example."
 		body = "# Example\n\nBody text.\n"
 	)
-	// The pre-§4a formula, written out rather than called: no id field, no
-	// leading separator. This is the digest already sitting in every legacy
-	// header on disk, so it is not ours to change.
+	// Spelled out independently rather than by calling Hash, so this cannot
+	// agree with a wrong implementation by sharing its bug.
+	unconditional := func(id string) string {
+		sum := sha256.Sum256([]byte(id + "\x00" + src + "\x00" + name + "\x00" +
+			NormalizeDescription(desc) + "\x00" + NormalizeBody(body)))
+		return hex.EncodeToString(sum[:])[:16]
+	}
+	for _, id := range []string{"", "01a0099f949d76a9baf3a16527485475"} {
+		if got, want := Hash(id, src, name, desc, body), unconditional(id); got != want {
+			t.Errorf("Hash(%q, ...) = %s, want %s -- the id must be hashed unconditionally", id, got, want)
+		}
+	}
+	// And the pre-4a formula must NOT be reproduced: if it were, the id would
+	// not be covered at all and editing a header id alone would be undetectable.
 	legacy := func() string {
 		sum := sha256.Sum256([]byte(src + "\x00" + name + "\x00" +
 			NormalizeDescription(desc) + "\x00" + NormalizeBody(body)))
 		return hex.EncodeToString(sum[:])[:16]
 	}()
-	if got := Hash("", src, name, desc, body); got != legacy {
-		t.Errorf("an empty id must SKIP, not hash as \"\": Hash(\"\",…) = %s, pre-§4a = %s\n"+
-			"a legacy file no longer recomputes to its own header, so export refuses it as locally-edited", got, legacy)
-	}
-	// And a REAL id must still change the digest, or "skip when empty" would
-	// be satisfied by ignoring the id altogether — which is the §4a defect.
-	if Hash("01a0099f949d76a9baf3a16527485475", src, name, desc, body) == legacy {
-		t.Error("a non-empty id did not change the digest — §4a pairing is not in the hash at all")
+	if Hash("", src, name, desc, body) == legacy {
+		t.Error("an empty id reproduced the pre-4a digest -- the skip special case is back")
 	}
 }
 
@@ -1020,7 +1012,7 @@ func TestParityVectorIsPinned(t *testing.T) {
 		desc    = "Use when example."
 		body    = "# Example\n\nBody text.\n"
 		withID  = "3fc4ef3150dc27d5"
-		emptyID = "4b02a08bb1efbaad"
+		emptyID = "283c6ac5b51c3cd7"
 	)
 	if got := Hash(id, src, name, desc, body); got != withID {
 		t.Errorf("hash(with id) = %s, want %s — the published cross-repo constant changed", got, withID)
