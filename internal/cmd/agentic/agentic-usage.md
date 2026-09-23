@@ -1645,7 +1645,8 @@ Conventions:
   and the next bind hands it over — and since handoffs follow the NAME
   (`cor:agt:020:09`), that may be a colleague. `--handoff-file <path>` reads it
   from a file and `--handoff -` from stdin, because a paragraph through shell
-  quoting is its own hazard. It is written BEFORE the session ends and a failed
+  quoting is its own hazard (`--handoff -` is for a PIPE and is **refused, exit
+  2, from an interactive terminal**, which can truncate it: #648). It is written BEFORE the session ends and a failed
   write REFUSES the end (`HANDOFF_WRITE_FAILED`, exit 1) rather than ending
   anyway: a still-bound worker is recoverable, an ended session whose handoff
   evaporated is not. **That ordering is a platform guarantee**
