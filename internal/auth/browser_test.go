@@ -29,8 +29,8 @@ type fakeAS struct {
 	seenResource       string
 	// scopesSupported is advertised in discovery; nil omits the key.
 	scopesSupported []string
-	// tokenScope is the `scope` echoed by the token response; "" omits it.
-	tokenScope string
+	// tokenScope is the `scope` echoed by the token response; nil omits it.
+	tokenScope *string
 }
 
 func newFakeAS(t *testing.T) *fakeAS {
@@ -39,7 +39,7 @@ func newFakeAS(t *testing.T) *fakeAS {
 		clientID:        "client-123",
 		authCode:        "code-456",
 		scopesSupported: []string{"mcp", "account"},
-		tokenScope:      "account",
+		tokenScope:      ptr("account"),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
@@ -90,8 +90,8 @@ func newFakeAS(t *testing.T) *fakeAS {
 			"access_token": "hdr_user_" + strings.Repeat("a", 64),
 			"token_type":   "Bearer",
 		}
-		if as.tokenScope != "" {
-			resp["scope"] = as.tokenScope
+		if as.tokenScope != nil {
+			resp["scope"] = *as.tokenScope
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	})
@@ -286,33 +286,48 @@ func consentingBrowser(as *fakeAS) func(string) error {
 	}
 }
 
-// #658: the CLI needs `account`; a server whose discovery lists its scopes
-// without it is refused before registration or any browser is opened.
-func TestBrowserLoginRefusesServerWithoutAccountScope(t *testing.T) {
-	as := newFakeAS(t)
-	as.scopesSupported = []string{"mcp"}
-	io, _, _ := output.Test()
+func ptr[T any](v T) *T { return &v }
 
-	opened := false
-	_, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
-		ServerURL:   as.server.URL,
-		IO:          io,
-		HTTPClient:  as.server.Client(),
-		OpenBrowser: func(string) error { opened = true; return nil },
-	})
-	if err == nil {
-		t.Fatal("Login() succeeded against a server that does not offer account")
+// #658: the CLI needs `account`; a server whose discovery lists its scopes
+// without it is refused before registration or any browser is opened. A
+// present empty list is a server offering nothing, not an absent one.
+func TestBrowserLoginRefusesServerWithoutAccountScope(t *testing.T) {
+	tests := []struct {
+		name       string
+		supported  []string
+		advertised string
+	}{
+		{name: "mcp only", supported: []string{"mcp"}, advertised: "advertises: mcp"},
+		{name: "explicitly empty", supported: []string{}, advertised: "advertises: none"},
 	}
-	if opened || as.registeredRedirect != "" {
-		t.Errorf("flow continued past discovery (browser opened=%v, registered=%q)", opened, as.registeredRedirect)
-	}
-	if code := exitcode.FromError(err); code != exitcode.Error {
-		t.Errorf("exit code %d, want %d", code, exitcode.Error)
-	}
-	for _, want := range []string{`"account"`, "advertises: mcp", "--with-token"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error %q does not mention %q", err, want)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			as := newFakeAS(t)
+			as.scopesSupported = tt.supported
+			io, _, _ := output.Test()
+
+			opened := false
+			_, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
+				ServerURL:   as.server.URL,
+				IO:          io,
+				HTTPClient:  as.server.Client(),
+				OpenBrowser: func(string) error { opened = true; return nil },
+			})
+			if err == nil {
+				t.Fatal("Login() succeeded against a server that does not offer account")
+			}
+			if opened || as.registeredRedirect != "" {
+				t.Errorf("flow continued past discovery (browser opened=%v, registered=%q)", opened, as.registeredRedirect)
+			}
+			if code := exitcode.FromError(err); code != exitcode.Error {
+				t.Errorf("exit code %d, want %d", code, exitcode.Error)
+			}
+			for _, want := range []string{`"account"`, tt.advertised, "--with-token"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q does not mention %q", err, want)
+				}
+			}
+		})
 	}
 }
 
@@ -378,14 +393,15 @@ func TestBrowserLoginInvalidScope(t *testing.T) {
 func TestBrowserLoginGrantedScope(t *testing.T) {
 	tests := []struct {
 		name    string
-		granted string
+		granted *string // nil omits the field
 		wantErr bool
 	}{
-		{name: "account", granted: "account"},
-		{name: "account among several", granted: "mcp account"},
-		{name: "omitted means as requested (RFC 6749 5.1)", granted: ""},
-		{name: "mcp alone is refused", granted: "mcp", wantErr: true},
-		{name: "substring is not a match", granted: "accounts", wantErr: true},
+		{name: "account", granted: ptr("account")},
+		{name: "account among several", granted: ptr("mcp account")},
+		{name: "omitted means as requested (RFC 6749 5.1)", granted: nil},
+		{name: "explicitly empty is an empty grant", granted: ptr(""), wantErr: true},
+		{name: "mcp alone is refused", granted: ptr("mcp"), wantErr: true},
+		{name: "substring is not a match", granted: ptr("accounts"), wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

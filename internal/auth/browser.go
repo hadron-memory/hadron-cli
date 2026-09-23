@@ -166,33 +166,40 @@ func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, c
 	var out struct {
 		AccessToken string `json:"access_token"`
 		TokenType   string `json:"token_type"`
-		Scope       string `json:"scope"`
+		// A pointer, because an explicit "" is an empty grant while an
+		// omitted scope means "as requested" (RFC 6749 §5.1).
+		Scope *string `json:"scope"`
 	}
 	if err := json.Unmarshal(body, &out); err != nil || out.AccessToken == "" {
 		return nil, exitcode.Newf(exitcode.Error, "token response missing access_token")
 	}
 	// RFC 6749 §5.1: an omitted scope means the grant equals the request.
-	// A present one that lacks `account` is a key the data API refuses, so
-	// it is not handed back to be stored.
-	if out.Scope != "" && !slices.Contains(strings.Fields(out.Scope), accountScope) {
+	// A present one that lacks `account` — the empty string included — is a
+	// key the data API refuses, so it is not handed back to be stored.
+	if out.Scope != nil && !slices.Contains(strings.Fields(*out.Scope), accountScope) {
 		return nil, exitcode.Newf(exitcode.Error,
 			"the server granted OAuth scope %q, not %q — refusing to store a key the CLI cannot use (the issued key was not stored; revoke it on the portal's API keys page); %s",
-			out.Scope, accountScope, withTokenHint)
+			*out.Scope, accountScope, withTokenHint)
 	}
 	return &Token{AccessToken: out.AccessToken}, nil
 }
 
 // requireAccountScope refuses a server whose discovery metadata lists its
-// supported OAuth scopes without `account`. An absent list is not a refusal:
-// scopes_supported is optional (RFC 8414), and the authorize step still
-// reports an unsupported scope as invalid_scope.
+// supported OAuth scopes without `account`. An ABSENT list (nil) is not a
+// refusal: scopes_supported is optional (RFC 8414), and the authorize step
+// still reports an unsupported scope as invalid_scope. A present empty list
+// is a server offering nothing, and is refused.
 func requireAccountScope(supported []string, serverURL string) error {
-	if len(supported) == 0 || slices.Contains(supported, accountScope) {
+	if supported == nil || slices.Contains(supported, accountScope) {
 		return nil
+	}
+	advertised := strings.Join(supported, ", ")
+	if advertised == "" {
+		advertised = "none"
 	}
 	return exitcode.Newf(exitcode.Error,
 		"%s does not offer the %q OAuth scope (it advertises: %s); the CLI needs a server that issues %q keys (hadron-server#1261) — %s",
-		serverURL, accountScope, strings.Join(supported, ", "), accountScope, withTokenHint)
+		serverURL, accountScope, advertised, accountScope, withTokenHint)
 }
 
 // OpenInBrowser launches the platform's URL opener. The target is passed as

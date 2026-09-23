@@ -20,7 +20,7 @@ type Metadata struct {
 	TokenEndpoint         string `json:"token_endpoint"`
 	RegistrationEndpoint  string `json:"registration_endpoint"`
 	// ScopesSupported is OPTIONAL in RFC 8414; nil means the server did not
-	// say, not that it supports nothing.
+	// say (absent or null), while an empty non-nil slice means it listed none.
 	ScopesSupported []string `json:"scopes_supported"`
 }
 
