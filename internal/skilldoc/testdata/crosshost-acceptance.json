@@ -1539,7 +1539,7 @@
         "cor:agt:030:02"
       ],
       "given": "the codexSkill host only: a Hadron-generated SKILL.md for D01's node sits in the DEPRECATED ~/.codex/skills, which Codex 0.153 still reads",
-      "expect": "for codexSkill the export writes ONLY ~/.agents/skills (cor:agt:030:02: one destination per host) and never writes, moves or removes the file in ~/.codex/skills. Measured 2026-09-23 on the reference machine: 0 Hadron-generated files in ~/.codex/skills. (Whether the export report names that copy is plan-only, Q4 in the plan's audit.)"
+      "expect": "for codexSkill the export WRITES only ~/.agents/skills, never ~/.codex/skills (cor:agt:030:02: one destination per host). Measured 2026-09-23 on the reference machine: 0 Hadron-generated files in ~/.codex/skills. (Reporting that copy, and whether an export may remove or migrate it, are plan-only: Q4 and Q7 in the plan's audit.)"
     },
     {
       "id": "P21",
@@ -1549,7 +1549,7 @@
         "cor:agt:030:02"
       ],
       "given": "the codexSkill host only: the same skill name exists in BOTH ~/.agents/skills (current export) and ~/.codex/skills (an older copy)",
-      "expect": "for codexSkill the export updates only ~/.agents/skills and never writes, moves or removes the copy in ~/.codex/skills (cor:agt:030:02: one destination per host). (Whether it is reported as a duplicate is plan-only, Q5.)"
+      "expect": "for codexSkill the export WRITES only ~/.agents/skills, never ~/.codex/skills (cor:agt:030:02: one destination per host). (Reporting the duplicate, and cleanup of the older copy, are plan-only: Q5 and Q7.)"
     }
   ]
 }
