@@ -326,6 +326,14 @@ server planned**, as #621 does, and never re-judged by the client:
   this host's plan. These are reported as the portal's `otherHostOnly` does;
   otherwise a Claude-only task silently vanishes from the Codex artifact.
   It is informational and not an error.
+  - **Where the names come from:** the other host's plan, not this one's
+    counts. A run that builds both hosts already holds both plans, so host
+    X's `notForHost` is the other plan's entries that X's plan did not judge,
+    minus `disabled` ones. That is `otherHostOnly`, and it needs no extra read.
+  - A run narrowed to one host (§7 Q3) must still fetch the other host's
+    plan to fill this, as the portal does with a `STATUS` plan
+    (`routes/app/orgs/[id]/tasks/plugin/+server.ts`). Otherwise
+    `notForHost` would be empty for the wrong reason (@copilot on #702).
 - **`scope`** is `null` when no `--scope` was given. When one was, it carries
   `droppedCount` (scope memories the caller cannot read), so a JSON-only
   caller gets the same disclosure as the human report (@copilot on #700).
@@ -399,7 +407,7 @@ customer's real profile to test. A Cowork or org install uses a test org.
 | X1 | Codex, skills path | the Codex artifact placed in a scratch `~/.agents/skills` | `codex` lists and invokes each skill |
 | X2 | Codex, plugin | `codex plugin marketplace add <codex artifact>` → `codex plugin add …` | installs, **if** §7 Q8 chose to emit a Codex plugin. Record which manifest Codex actually read |
 | X3 | Codex reads Claude layout | `codex plugin marketplace add <claude artifact>` | record accepted or refused. This settles the local-install half of §3.3's UNCONFIRMED claim. Informational, not a gate |
-| R1 | Report | the run's `--json` | every skipped, refused and failed item named with its reason, disabled declarations included; `notForHost` named; `scanned`/`judged` per host; `scope.droppedCount` present when a scope was given; a planted warning appears in `findings` and not in any item list; **exit 5 iff a host `failure`, or any `refused` or `failed` item** (§5.3) |
+| R1 | Report | the run's `--json` | every skipped, refused and failed item named with its reason, disabled declarations included; `notForHost` named; `scanned`/`judged` per host; `scope.droppedCount` present when a scope was given; a planted warning on an otherwise valid entry appears in `findings`, is **not** repeated in that entry's `reasons`, and the entry itself stays in its action bucket (`included`, for a `WRITE`); **exit 5 iff a host `failure`, or any `refused` or `failed` item** (§5.3) |
 | R3 | Empty scope | `--scope` naming a scope with no readable memories | no `skillPlan` call at all, no artifact, a non-zero exit, and the report says the scope was empty |
 | R2 | No git | the whole run with `<out>` in `/tmp` and the cwd outside any repo | identical result |
 
@@ -520,8 +528,14 @@ keep it (@codex on #700). The options:
   skills. A generated name that collides with a seeded one is refused as an
   item failure, never an overwrite. The seed is the only thing that is not
   server-rendered, so the report lists it separately.
-- **(c) Ship no generated skills in the repo's plugin.** Its drift gate (plan
-  §6) is then moot. Reversing plan §6 is Holger's call.
+- **(c) Ship no generated skills in the repo's plugin.** Plan §6's drift gate
+  must then be **retired**, not merely called moot. It runs
+  `skill status … --to plugin --strict` against the committed plugin, and
+  with no generated files every selected declaration would be
+  `never-exported` drift, an error under `--strict`, so the gate would fail
+  on every run (@copilot on #702). The gate is planned but not built (no
+  `skill-drift` workflow exists in `.github/workflows/`), so retiring it
+  means striking it from plan §6. Reversing plan §6 is Holger's call.
 
 Until one is chosen, **no `--out` pointing at `plugins/`**. The §8 build does
 not depend on this: it concerns one invocation, not the command.
