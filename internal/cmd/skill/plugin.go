@@ -339,12 +339,11 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 		}
 		// The replaceability check runs on a dry run too, so a dry run
 		// reports the refusal the real run would hit (#694's parity rule).
-		r := checkArtifactPaths(dir, zipPath)
-		dirWritten := false
-		if r == nil && !opts.dryRun {
-			dirWritten, r = writePluginArtifact(out, dir, zipPath, b)
+		res := writeResult{r: checkArtifactPaths(dir, zipPath)}
+		if res.r == nil && !opts.dryRun {
+			res = writePluginArtifact(out, dir, zipPath, b)
 		}
-		applyWriteResult(&hd, dirWritten, r)
+		applyWriteResult(&hd, res)
 		dto.Hosts = append(dto.Hosts, hd)
 	}
 	dto.Unrecognized = toUnrecognizedDTO(unrecognized)
@@ -360,17 +359,30 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 	return nil
 }
 
+// writeResult is how one host's write ended: which pieces were published,
+// and the failure, if any. A failure can follow a publish — the zip failed,
+// or the previous artifact could not be removed — so the flags and the
+// reason are independent.
+type writeResult struct {
+	dir, zip bool
+	r        *exportReasonDTO
+}
+
 // applyWriteResult records how one host's write ended. A failure before the
 // directory was published means nothing was built: every included skill is
-// failed, named. A failure after it (only the zip) leaves a live directory,
-// so the directory and its skills stay reported and the zip is the failure.
-func applyWriteResult(hd *pluginHostDTO, dirWritten bool, r *exportReasonDTO) {
-	if r == nil {
+// failed, named. A failure after it leaves a live directory, so the
+// directory and its skills stay reported, and the failure says what else
+// went wrong.
+func applyWriteResult(hd *pluginHostDTO, res writeResult) {
+	if res.r == nil {
 		return
 	}
+	r := res.r
 	hd.Failure = r
-	hd.Zip = nil
-	if dirWritten {
+	if !res.zip {
+		hd.Zip = nil
+	}
+	if res.dir {
 		return
 	}
 	hd.Artifact = nil
@@ -661,19 +673,19 @@ func mustJSON(v any) []byte {
 // leaves a half-plugin that installs, and the rename never follows a link at
 // the destination.
 //
-// dirWritten reports whether the artifact directory was replaced: a failure
-// AFTER that (publishing the zip) leaves a live directory the caller must
-// still report.
-func writePluginArtifact(out, dir, zipPath string, a artifact) (dirWritten bool, _ *exportReasonDTO) {
-	fail := func(err error) (bool, *exportReasonDTO) {
+// The result says which pieces were published: a failure AFTER the
+// directory (publishing the zip, removing the previous artifact) leaves a
+// live directory the caller must still report.
+func writePluginArtifact(out, dir, zipPath string, a artifact) writeResult {
+	fail := func(err error) writeResult {
 		r := ioReason(err)
-		return false, &r
+		return writeResult{r: &r}
 	}
 	if err := os.MkdirAll(out, 0o755); err != nil {
 		return fail(err)
 	}
 	if r := checkArtifactPaths(dir, zipPath); r != nil {
-		return false, r
+		return writeResult{r: r}
 	}
 
 	tmp, err := os.MkdirTemp(out, "."+filepath.Base(dir)+".tmp-")
@@ -708,16 +720,24 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (dirWritten bool,
 		}
 	}
 
-	if r := swapInto(tmp, dir, true); r != nil {
-		return false, r
+	published, cleanup := swapInto(tmp, dir, true)
+	if !published {
+		return writeResult{r: cleanup}
 	}
+	res := writeResult{dir: true, r: cleanup}
 	if zipTmp != "" {
-		if r := swapInto(zipTmp, zipPath, false); r != nil {
-			r.Message = fmt.Sprintf("%s was written, but its zip was not: %s", dir, r.Message)
-			return true, r
+		zpub, zr := swapInto(zipTmp, zipPath, false)
+		if !zpub {
+			zr.Message = fmt.Sprintf("%s was written, but its zip was not: %s", dir, zr.Message)
+			res.r = zr
+			return res
+		}
+		res.zip = true
+		if res.r == nil {
+			res.r = zr
 		}
 	}
-	return true, nil
+	return res
 }
 
 func checkArtifactPaths(dir, zipPath string) *exportReasonDTO {
@@ -777,10 +797,17 @@ func checkReplaceable(p string, isDir bool) *exportReasonDTO {
 
 // containsHostRoot walks dir (never following a link) for a host skills
 // root: a `skills` directory directly inside `.claude`, `.agents` or `.codex`.
+//
+// It fails CLOSED: a subtree it cannot read is reported as found, since an
+// unreadable directory may hold exactly the root this scan protects.
 func containsHostRoot(dir string) (string, bool) {
 	var found string
 	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || !d.IsDir() || p == dir {
+		if err != nil {
+			found = p + " (unreadable, so it could not be checked)"
+			return fs.SkipAll
+		}
+		if !d.IsDir() || p == dir {
 			return nil
 		}
 		if _, ok := insideRootShape(strings.TrimPrefix(p, dir)); ok {
@@ -817,24 +844,31 @@ func hasPluginMarker(dir string) bool {
 // under --out that only this run knows; a process that re-binds it between
 // the recheck and the delete is racing this command on purpose, which no
 // portable delete can rule out (the same line as #694's hostFS).
-func swapInto(tmp, dest string, isDir bool) *exportReasonDTO {
+//
+// published says whether tmp is now at dest. A reason with published=true
+// means only the previous artifact could not be removed; it says where it is.
+func swapInto(tmp, dest string, isDir bool) (published bool, _ *exportReasonDTO) {
 	if _, err := os.Lstat(dest); errors.Is(err, fs.ErrNotExist) {
-		return publish(tmp, dest, isDir)
+		r := publish(tmp, dest, isDir)
+		return r == nil, r
 	}
 	old := tmp + "-old"
 	if err := os.Rename(dest, old); err != nil {
 		r := ioReason(err)
-		return &r
+		return false, &r
 	}
 	if r := checkReplaceable(old, isDir); r != nil || !pathExists(old) {
-		return restore(old, dest, &exportReasonDTO{Code: reasonArtifactNotOurs,
+		return false, restore(old, dest, &exportReasonDTO{Code: reasonArtifactNotOurs,
 			Message: fmt.Sprintf("%s changed while the plugin was being built and is no longer one this command wrote, so it was left alone", dest), Origin: originClient})
 	}
 	if r := publish(tmp, dest, isDir); r != nil {
-		return restore(old, dest, r)
+		return false, restore(old, dest, r)
 	}
-	_ = os.RemoveAll(old)
-	return nil
+	if err := os.RemoveAll(old); err != nil {
+		return true, &exportReasonDTO{Code: reasonIOError,
+			Message: fmt.Sprintf("%s was replaced, but the previous artifact could not be removed (%v) and is still at %s", dest, err, old), Origin: originClient}
+	}
+	return true, nil
 }
 
 // linkFile is os.Link, swappable so a test can stand in a filesystem that

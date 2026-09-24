@@ -214,14 +214,14 @@ func sample(body string) artifact {
 func TestWritePluginArtifactWritesAndReplacesItsOwn(t *testing.T) {
 	out := filepath.Join(home(t), "out")
 	dir, zp := filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip")
-	if _, r := writePluginArtifact(out, dir, zp, sample("v1")); r != nil {
+	if r := writePluginArtifact(out, dir, zp, sample("v1")).r; r != nil {
 		t.Fatalf("first write: %+v", r)
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "skills", "a", "SKILL.md")); string(b) != "v1" {
 		t.Fatalf("skill = %q", b)
 	}
 	write(t, filepath.Join(dir, "skills", "stale", "SKILL.md"), "left over")
-	if _, r := writePluginArtifact(out, dir, zp, sample("v2")); r != nil {
+	if r := writePluginArtifact(out, dir, zp, sample("v2")).r; r != nil {
 		t.Fatalf("replacing its own artifact: %+v", r)
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "skills", "a", "SKILL.md")); string(b) != "v2" {
@@ -291,7 +291,7 @@ func TestWritePluginArtifactRefusesWhatItDidNotWrite(t *testing.T) {
 			out := filepath.Join(h, strings.ReplaceAll(name, " ", "-"))
 			setup(out)
 			before := snapshot(t, out)
-			_, r := writePluginArtifact(out, filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip"), sample("v1"))
+			r := writePluginArtifact(out, filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip"), sample("v1")).r
 			if r == nil || (r.Code != reasonArtifactNotOurs && r.Code != reasonArtifactIsLink) {
 				t.Fatalf("reason = %+v, want a refusal", r)
 			}
@@ -310,16 +310,16 @@ func TestWritePluginArtifactInterruptedLeavesNothing(t *testing.T) {
 	broken := sample("v1")
 	// A file and a directory at one path: the second write must fail.
 	broken.dirFiles["skills/a/SKILL.md/x"] = []byte("x")
-	if _, r := writePluginArtifact(out, dir, "", broken); r == nil || r.Code != reasonIOError {
+	if r := writePluginArtifact(out, dir, "", broken).r; r == nil || r.Code != reasonIOError {
 		t.Fatalf("reason = %+v, want an io failure", r)
 	}
 	if exists(dir) {
 		t.Error("an interrupted build left an artifact that would install")
 	}
-	if _, r := writePluginArtifact(out, dir, "", sample("good")); r != nil {
+	if r := writePluginArtifact(out, dir, "", sample("good")).r; r != nil {
 		t.Fatal(r)
 	}
-	if _, r := writePluginArtifact(out, dir, "", broken); r == nil {
+	if r := writePluginArtifact(out, dir, "", broken).r; r == nil {
 		t.Fatal("want a failure")
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "skills", "a", "SKILL.md")); string(b) != "good" {
@@ -426,7 +426,7 @@ func TestSwapIntoRechecksWhatItMovedAside(t *testing.T) {
 	dir, tmp := filepath.Join(h, "hadron"), filepath.Join(h, ".hadron.tmp-1")
 	write(t, filepath.Join(dir, "theirs.txt"), "keep")
 	write(t, filepath.Join(tmp, "skills", "a", "SKILL.md"), "new")
-	r := swapInto(tmp, dir, true)
+	_, r := swapInto(tmp, dir, true)
 	if r == nil || r.Code != reasonArtifactNotOurs {
 		t.Fatalf("reason = %+v, want artifact-not-ours", r)
 	}
@@ -443,7 +443,7 @@ func TestSwapIntoRechecksAZipMovedAside(t *testing.T) {
 	dest, tmp := filepath.Join(h, "hadron.zip"), filepath.Join(h, ".hadron.zip.tmp-1")
 	write(t, dest, "someone else's file")
 	write(t, tmp, "new zip")
-	r := swapInto(tmp, dest, false)
+	_, r := swapInto(tmp, dest, false)
 	if r == nil || r.Code != reasonArtifactNotOurs {
 		t.Fatalf("reason = %+v, want artifact-not-ours", r)
 	}
@@ -463,13 +463,13 @@ func TestApplyWriteResult(t *testing.T) {
 	r := &exportReasonDTO{Code: reasonIOError, Message: "boom"}
 
 	partial := fresh()
-	applyWriteResult(&partial, true, r)
+	applyWriteResult(&partial, writeResult{dir: true, r: r})
 	if partial.Artifact == nil || partial.Zip != nil || partial.Failure != r || len(partial.Included) != 1 || len(partial.Failed) != 0 {
 		t.Errorf("zip-only failure: the live directory and its skills must stay reported: %+v", partial)
 	}
 
 	none := fresh()
-	applyWriteResult(&none, false, r)
+	applyWriteResult(&none, writeResult{r: r})
 	if none.Artifact != nil || none.Zip != nil || len(none.Included) != 0 || !reflect.DeepEqual(names(none.Failed), []string{"a"}) {
 		t.Errorf("nothing written: every included skill must be failed, named: %+v", none)
 	}
@@ -478,7 +478,7 @@ func TestApplyWriteResult(t *testing.T) {
 	}
 
 	ok := fresh()
-	applyWriteResult(&ok, true, nil)
+	applyWriteResult(&ok, writeResult{dir: true, zip: true})
 	if ok.Failure != nil || ok.Zip == nil || len(ok.Included) != 1 {
 		t.Errorf("success changed the report: %+v", ok)
 	}
@@ -582,7 +582,7 @@ func TestSwapIntoPutsBackADirectoryThatAppearedAtTheZipPath(t *testing.T) {
 	dest, tmp := filepath.Join(h, "hadron.zip"), filepath.Join(h, ".hadron.zip.tmp-1")
 	write(t, filepath.Join(dest, "theirs.txt"), "keep")
 	write(t, tmp, "new zip")
-	if r := swapInto(tmp, dest, false); r == nil || r.Code != reasonArtifactNotOurs {
+	if _, r := swapInto(tmp, dest, false); r == nil || r.Code != reasonArtifactNotOurs {
 		t.Fatalf("reason = %+v, want artifact-not-ours", r)
 	}
 	if b, err := os.ReadFile(filepath.Join(dest, "theirs.txt")); err != nil || string(b) != "keep" {
@@ -593,15 +593,95 @@ func TestSwapIntoPutsBackADirectoryThatAppearedAtTheZipPath(t *testing.T) {
 func TestReplaceRefusesAMarkedArtifactHoldingASkillsRoot(t *testing.T) {
 	out := filepath.Join(home(t), "out")
 	dir := filepath.Join(out, "hadron")
-	if _, r := writePluginArtifact(out, dir, "", sample("v1")); r != nil {
+	if r := writePluginArtifact(out, dir, "", sample("v1")).r; r != nil {
 		t.Fatal(r)
 	}
 	write(t, filepath.Join(dir, "proj", ".agents", "skills", "x", "SKILL.md"), "someone's skill")
-	_, r := writePluginArtifact(out, dir, "", sample("v2"))
+	r := writePluginArtifact(out, dir, "", sample("v2")).r
 	if r == nil || r.Code != reasonArtifactNotOurs || !strings.Contains(r.Message, filepath.Join(".agents", "skills")) {
 		t.Fatalf("reason = %+v, want a refusal naming the skills root", r)
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "proj", ".agents", "skills", "x", "SKILL.md")); string(b) != "someone's skill" {
 		t.Error("the project skills root inside the artifact was deleted")
+	}
+}
+
+// A zip published but the old directory not removable: the directory and the
+// zip are both live, so both stay reported, and the failure says where the
+// leftover is.
+func TestApplyWriteResultKeepsAPublishedZip(t *testing.T) {
+	hd := newPluginHost(skilldoc.HostClaudeSkill, "claude-plugin")
+	dir, zp := "/out/hadron", "/out/hadron.zip"
+	hd.Artifact, hd.Zip = &dir, &zp
+	hd.Included = []exportItemDTO{{Name: "a"}}
+	r := &exportReasonDTO{Code: reasonIOError, Message: "still at /out/.x-old"}
+	applyWriteResult(&hd, writeResult{dir: true, zip: true, r: r})
+	if hd.Zip == nil || hd.Artifact == nil || hd.Failure != r || len(hd.Included) != 1 {
+		t.Errorf("a cleanup failure must not un-report what was published: %+v", hd)
+	}
+}
+
+func TestContainsHostRootFailsClosed(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every directory, so nothing is unreadable")
+	}
+	dir := filepath.Join(home(t), "art")
+	locked := filepath.Join(dir, "locked")
+	mkdir(t, filepath.Join(locked, "inside"))
+	if err := os.Chmod(locked, 0o111); err != nil { // searchable, not readable
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+	if root, ok := containsHostRoot(dir); !ok || !strings.Contains(root, "unreadable") {
+		t.Errorf("an unreadable subtree must refuse the replacement: %q, %v", root, ok)
+	}
+}
+
+// A directory rename cannot replace a symlink: rename(2) onto a
+// non-directory fails with ENOTDIR (measured on macOS; POSIX).
+func TestPublishDirectoryNeverReplacesASymlink(t *testing.T) {
+	h := home(t)
+	tmp, dest := filepath.Join(h, "tmpdir"), filepath.Join(h, "hadron")
+	write(t, filepath.Join(tmp, "SKILL.md"), "ours")
+	mkdir(t, filepath.Join(h, "target"))
+	symlink(t, filepath.Join(h, "target"), dest)
+	if r := publish(tmp, dest, true); r == nil || r.Code != reasonArtifactNotOurs {
+		t.Fatalf("reason = %+v, want artifact-not-ours", r)
+	}
+	if fi, err := os.Lstat(dest); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Error("the symlink that appeared was replaced")
+	}
+}
+
+func TestSwapIntoReportsAPreviousArtifactItCouldNotRemove(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root can remove a read-only directory")
+	}
+	out := filepath.Join(home(t), "out")
+	dir := filepath.Join(out, "hadron")
+	if r := writePluginArtifact(out, dir, "", sample("v1")).r; r != nil {
+		t.Fatal(r)
+	}
+	ro := filepath.Join(dir, "skills", "a")
+	if err := os.Chmod(ro, 0o555); err != nil { // its SKILL.md cannot be unlinked
+		t.Fatal(err)
+	}
+	res := writePluginArtifact(out, dir, "", sample("v2"))
+	t.Cleanup(func() {
+		ents, _ := os.ReadDir(out)
+		for _, e := range ents {
+			_ = filepath.Walk(filepath.Join(out, e.Name()), func(p string, fi os.FileInfo, err error) error {
+				if err == nil && fi.IsDir() {
+					_ = os.Chmod(p, 0o755)
+				}
+				return nil
+			})
+		}
+	})
+	if !res.dir || res.r == nil || !strings.Contains(res.r.Message, "could not be removed") || !strings.Contains(res.r.Message, "-old") {
+		t.Fatalf("result = %+v, want the new directory published and the leftover named", res)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "skills", "a", "SKILL.md")); string(b) != "v2" {
+		t.Errorf("the new artifact is not live: %q", b)
 	}
 }
