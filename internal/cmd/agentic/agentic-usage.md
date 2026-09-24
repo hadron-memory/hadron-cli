@@ -216,6 +216,13 @@ successful or not, before anything is retired or prescribed:
   find, a rerun mints a second replacement.
 - **The write errored and the re-read failed**: status `unknown` (it may
   exist), exit 1, and the error says to check with `spec get` first.
+- **The write succeeded but the re-read failed**: status `created`, exit 1,
+  and the spec is **not** retired, because "sole successor" is unverified. A
+  rerun re-reads first and finishes.
+
+A rerun on a spec that already has a `superseded-by` edge finishes the
+retirement, but only when there is exactly **one** successor. With more than
+one, it exits 5 and retires nothing.
 
 Edge `status` values are `planned` (dry run), `created`, `failed` and `unknown`.
 

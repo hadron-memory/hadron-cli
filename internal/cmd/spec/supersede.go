@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -90,6 +91,14 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 			if hasTag(oldNode.Tags, supersededTag) {
 				return exitcode.Newf(exitcode.Usage, "%q is already superseded", oldNode.Loc)
+			}
+			if successors := supersededByTargets(oldNode); len(successors) > 1 {
+				// Two replacements claim this spec (a concurrent supersede). Finishing
+				// would retire it in favour of whichever edge happens to be listed
+				// first, so refuse, and leave the choice to a human.
+				return exitcode.Newf(exitcode.Conflict,
+					"%s is superseded by more than one replacement (%s), so it was not retired; keep one, remove the other %q edge(s), then rerun this command",
+					oldCit.Format(), strings.Join(successors, ", "), supersededByLabel)
 			}
 			if successorLoc, ok := existingSupersededByTarget(oldNode); ok {
 				successorCit, err := ParseCitation(successorLoc)
@@ -226,7 +235,12 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			// link is the whole point of the command). It leaves an EXISTING node,
 			// so it cannot travel inline. Once it exists, rerunning supersede takes
 			// the finish-the-retirement path above.
-			_, cerr := gen.CreateEdge(cmd.Context(), client, oldNode.Id, newID, supersededByLabel, nil, nil, nil, nil, nil, nil)
+			edgeResp, cerr := gen.CreateEdge(cmd.Context(), client, oldNode.Id, newID, supersededByLabel, nil, nil, nil, nil, nil, nil)
+			if cerr == nil && (edgeResp == nil || edgeResp.CreateEdge == nil) {
+				// No error but no edge either: not proof of anything, so let the
+				// re-read below decide, exactly as for an error (#691 review).
+				cerr = errors.New("createEdge returned no edge")
+			}
 
 			// Then LOOK, after every write and not only a failed one (#691 review):
 			//   - a failed create may have committed — a lost response looks like a
@@ -254,12 +268,18 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				return exitcode.Newf(exitcode.Conflict,
 					"created replacement %s, but %s is already superseded by %s (another supersede got there first), so no second %q edge was written and %s was not retired; %s is unlinked — review both replacements before changing anything",
 					newTarget.Format(), oldCit.Format(), other, supersededByLabel, oldCit.Format(), newTarget.Format())
+			case cerr == nil && lerr != nil:
+				// The link was written, but whether it is the ONLY successor can't
+				// be checked, so don't retire on an unverified premise (#691
+				// review). A rerun re-reads first, and finishes only when there is
+				// exactly one successor.
+				result.Edges[supersededByIdx].Status = edgeStatusCreated
+				_ = output.Write(f.IOStreams, f.JSON, result, render)
+				return exitcode.Newf(exitcode.Error,
+					"linked %s to replacement %s but could not re-read %s to confirm it is the only successor (%v), so it was not retired; rerun this command to finish",
+					oldCit.Format(), newTarget.Format(), oldCit.Format(), api.MapError(lerr))
 			case cerr == nil:
-				// The write succeeded. If the re-read failed, the sole-successor
-				// check could not run: proceed as before, but say so.
-				if lerr != nil {
-					fmt.Fprintf(f.IOStreams.ErrOut, "warning: could not re-read %s to confirm %s is its only successor: %v\n", oldCit.Format(), newTarget.Format(), api.MapError(lerr))
-				}
+				// Written, and verified the sole successor: retire below.
 			case lerr == nil && landed:
 				// The create errored but committed; carry on and finish.
 			case lerr == nil:
@@ -372,13 +392,25 @@ func supersededByState(cmd *cobra.Command, client graphql.Client, oldID, success
 }
 
 func existingSupersededByTarget(n *gen.GetNodeNode) (string, bool) {
-	for _, e := range n.OutgoingEdges {
-		if e == nil || e.Target == nil || edgeNameStr(e.Name) != supersededByLabel {
-			continue
-		}
-		return e.Target.Loc, true
+	if t := supersededByTargets(n); len(t) > 0 {
+		return t[0], true
 	}
 	return "", false
+}
+
+// supersededByTargets lists the distinct successors a spec's superseded-by
+// edges point at, in edge order.
+func supersededByTargets(n *gen.GetNodeNode) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, e := range n.OutgoingEdges {
+		if e == nil || e.Target == nil || edgeNameStr(e.Name) != supersededByLabel || seen[e.Target.Loc] {
+			continue
+		}
+		seen[e.Target.Loc] = true
+		out = append(out, e.Target.Loc)
+	}
+	return out
 }
 
 func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason string) error {

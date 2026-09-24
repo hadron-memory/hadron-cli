@@ -2154,6 +2154,72 @@ func TestSpecSupersedeRaceWithBothEdgesCreatedRetiresNothing(t *testing.T) {
 	}
 }
 
+// #691 review (Copilot): `createEdge: null` with no error is not a success.
+// It goes through the same re-read, and a confirmed-absent edge retires nothing.
+func TestSpecSupersedeNullEdgePayloadIsNotASuccess(t *testing.T) {
+	gql, captured := supersedeEdgeServer(t, `{"data":{"createEdge":null}}`, `{"data":{"node":`+cleanSpecDetail+`}}`)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "confirmed absent") {
+		t.Fatalf("a null edge payload must be checked like an error, got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired on a null edge payload")
+	}
+}
+
+// #691 review (Codex, Copilot): the link was written but the re-read failed,
+// so "sole successor" is unverified. Don't retire on it; the rerun re-reads.
+func TestSpecSupersedeUnverifiedSoleSuccessorRetiresNothing(t *testing.T) {
+	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+	gql, captured := supersedeEdgeServer(t, ok, `{"errors":[{"message":"read boom"}]}`)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "rerun this command to finish") {
+		t.Fatalf("an unverified sole successor must stop short of retiring, got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired without verifying it has one successor")
+	}
+	if !strings.Contains(out.String(), `"status": "created"`) {
+		t.Errorf("the link WAS written and must say so:\n%s", out.String())
+	}
+}
+
+// ...which makes the rerun path's own check load-bearing: finishing a spec
+// that TWO replacements claim would retire it in favour of whichever edge is
+// listed first. It refuses instead.
+func TestSpecSupersedeRerunWithTwoSuccessorsIsAConflict(t *testing.T) {
+	two := `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[` +
+		`{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}},` +
+		`{"id":"e9","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:020:01","isRunnable":false,"priority":0,"target":{"id":"n9","loc":"msg:020:01","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + two + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("two successors on rerun must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if !strings.Contains(err.Error(), "msg:010:03, msg:020:01") {
+		t.Errorf("the message must name both successors; got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the rerun retired a spec that two replacements claim")
+	}
+}
+
 // #691 review (Copilot): the re-read can find a superseded-by edge to a
 // DIFFERENT successor — another supersede got there first. That is not
 // "absent": a second edge would make two replacements. Stop with a conflict
