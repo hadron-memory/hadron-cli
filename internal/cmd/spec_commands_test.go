@@ -2138,7 +2138,7 @@ func TestSpecSupersedeUnverifiableEdgeSaysCheckFirst(t *testing.T) {
 	if err == nil {
 		t.Fatal("an unverifiable retirement edge must not report success")
 	}
-	for _, want := range []string{"may or may not exist", "check with `hadron spec get msg:010:02", "if it has no superseded-by edge to msg:010:03"} {
+	for _, want := range []string{"may or may not exist", "check `hadron spec get msg:010:02", "if after a minute it has no superseded-by edge to msg:010:03", "once `hadron spec get msg:010:02 -m micromentor.org::platform-specs` shows that edge"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("message must contain %q; got %v", want, err)
 		}
@@ -2296,6 +2296,53 @@ func TestSpecSupersedeFinishRevalidatesBeforeRetiring(t *testing.T) {
 	}
 	if _, retired := captured["UpdateSpecNode"]; retired {
 		t.Error("retired although a second successor appeared before the retirement")
+	}
+}
+
+// #691 round 18 (Codex): the finish path's pre-retire re-read wrote nothing,
+// so a failure keeps its mapped exit code — 7 for no answer — instead of
+// flattening to 1, and nothing is retired.
+func TestSpecSupersedeFinishRereadKeepsItsExitCode(t *testing.T) {
+	one := withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03")
+	gets := 0
+	var updated bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		switch body.OperationName {
+		case "GetNode":
+			gets++
+			if gets > 1 {
+				w.WriteHeader(http.StatusBadGateway)
+				_, _ = w.Write([]byte("upstream went away"))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(one))
+		case "ResolveUrn":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(resolveSpecJSON))
+		case "UpdateSpecNode":
+			updated = true
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"errors":[{"message":"no write expected"}]}`))
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+		}
+	}))
+	defer srv.Close()
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", srv.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Unavailable {
+		t.Fatalf("a re-read with no answer must keep exit %d (Unavailable), got %d: %v", exitcode.Unavailable, code, err)
+	}
+	if updated {
+		t.Error("retired although the pre-retire re-read failed")
 	}
 }
 

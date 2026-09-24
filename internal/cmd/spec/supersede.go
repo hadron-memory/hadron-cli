@@ -147,9 +147,13 @@ afterward (the tool prints a reminder; it never edits the register).`,
 						ferr = exitcode.Newf(exitcode.NotFound, "%s vanished", oldCit.Format())
 					}
 					_ = output.Write(f.IOStreams, f.JSON, result, render)
-					return exitcode.Newf(exitcode.Error,
+					// Nothing was written in this invocation, so keep the mapped
+					// code (7 for no answer, 4 for not found): scripts retry or
+					// stop on it (#691 review).
+					mapped := api.MapError(ferr)
+					return exitcode.Newf(exitcode.FromError(mapped),
 						"could not re-read %s just before retiring it (%v), so it was not retired; rerun this command to finish",
-						oldCit.Format(), api.MapError(ferr))
+						oldCit.Format(), mapped)
 				}
 				if now := supersededByTargets(fresh.Node); len(now) != 1 || now[0] != successorLoc {
 					_ = output.Write(f.IOStreams, f.JSON, result, render)
@@ -368,10 +372,11 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				result.Edges[supersededByIdx].Status = edgeStatusUnknown
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
 				return exitcode.Newf(exitcode.Error,
-					"created replacement %s but the %q edge from %s may or may not exist (%v, and re-reading %s failed: %v); check with `hadron spec get %s -m %s` — if it has no %s edge to %s, link them with `hadron spec link %s %s -m %s --label %s` — then rerun this command to finish retiring %s",
+					"created replacement %s but the %q edge from %s may or may not exist (%v, and re-reading %s failed: %v); check `hadron spec get %s -m %s` — if after a minute it has no %s edge to %s, link them with `hadron spec link %s %s -m %s --label %s`, and once `hadron spec get %s -m %s` shows that edge, rerun this command to finish retiring %s (rerunning before then can mint a second replacement)",
 					newTarget.Format(), supersededByLabel, oldCit.Format(), api.MapError(cerr), oldCit.Format(), api.MapError(lerr),
 					oldCit.Format(), memURN, supersededByLabel, newTarget.Format(),
-					oldCit.Format(), newTarget.Format(), memURN, supersededByLabel, oldCit.Format())
+					oldCit.Format(), newTarget.Format(), memURN, supersededByLabel,
+					oldCit.Format(), memURN, oldCit.Format())
 			}
 			result.Edges[supersededByIdx].Status = edgeStatusCreated
 			// Retire against the FRESH read, never the first one: the retirement
