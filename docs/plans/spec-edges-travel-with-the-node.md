@@ -77,11 +77,13 @@ additive again. On that basis:
   prescribing anything** (Codex on #691): a lost response looks exactly like a
   refusal, and `spec link` over an edge that landed would fail, while a blind
   rerun over one that didn't would mint a second replacement. An edge that
-  landed finishes the run. One confirmed absent gets
-  `hadron spec link <old> <new> -m <mem> --label superseded-by`, after which
-  rerunning `spec supersede` takes its existing finish-the-retirement path. An
-  unverifiable one reports status `unknown` (Copilot: `failed` would be a claim
-  the run cannot make) and says to check with `spec get` first.
+  shows up finishes the run. One that doesn't is **never** proof of absence,
+  because a read can lag a committed write. So it reports status `unknown`
+  (there is no `failed` any more: nothing this command sees can prove an edge
+  absent). The message says to check with `spec get` first, run
+  `hadron spec link <old> <new> -m <mem> --label superseded-by` only if the edge
+  is still missing after a minute, and rerun once `spec get` shows it, which
+  takes the existing finish-the-retirement path.
 - **The re-read runs after EVERY superseded-by write, not only a failed one**
   (Codex P1, Copilot on #691). Two supersedes that pick different replacements
   both create successfully, since edge identity includes the target, and both

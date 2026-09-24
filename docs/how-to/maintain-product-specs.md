@@ -421,11 +421,12 @@ hadron spec supersede cli:cha:010:01 -m $M --title "backpressure v2" --yes
 The replacement is created together with its table-of-contents and inheritance
 edges. The `superseded-by` edge leaves the *old* spec, so it is a second write.
 If that write errors, supersede re-reads the old spec first, because a lost
-response looks like a refusal. If the edge landed anyway, it finishes the
-retirement. If the edge is confirmed absent, the error names the
-`hadron spec link <old> <new> -m $M --label superseded-by` to run. If it can't
-tell, the error says to check with `hadron spec get <old> -m $M` first.
-Rerunning the same `spec supersede` once the edge exists finishes the
+response looks like a refusal. If the edge shows up, it finishes the
+retirement. If it doesn't, that still isn't proof: a read can lag. So the error
+says to check with `hadron spec get <old> -m $M`. If the edge is still missing
+after a minute, run the
+`hadron spec link <old> <new> -m $M --label superseded-by` it names.
+Once `spec get` shows the edge, rerunning the same `spec supersede` finishes the
 retirement. Don't rerun it *before*: with no edge to find, it mints a second
 replacement.
 

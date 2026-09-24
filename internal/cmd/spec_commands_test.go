@@ -2605,7 +2605,7 @@ func TestSpecSupersedeNullEdgePayloadIsNotASuccess(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "confirmed absent") {
+	if err == nil || !strings.Contains(err.Error(), "may or may not exist") {
 		t.Fatalf("a null edge payload must be checked like an error, got %v", err)
 	}
 	if _, retired := captured["UpdateSpecNode"]; retired {
@@ -2731,14 +2731,16 @@ func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 	if dto.New != "msg:010:03" {
 		t.Fatalf("partial result must name replacement, got %+v", dto)
 	}
-	foundFailedRetirement := false
+	// An errored create the re-read doesn't show is UNKNOWN, never `failed`:
+	// the read may lag a committed write (#691 round 17).
+	foundUnknownRetirement := false
 	for _, e := range dto.Edges {
-		if e.Label == "superseded-by" && e.Status == "failed" {
-			foundFailedRetirement = true
+		if e.Label == "superseded-by" && e.Status == "unknown" {
+			foundUnknownRetirement = true
 		}
 	}
-	if !foundFailedRetirement {
-		t.Fatalf("superseded-by edge should be marked failed, got %+v", dto.Edges)
+	if !foundUnknownRetirement {
+		t.Fatalf("superseded-by edge should be marked unknown, got %+v", dto.Edges)
 	}
 
 	// #687: the remedy is RUN, not read. It used to say "add that edge

@@ -25,7 +25,6 @@ const supersededTag = "superseded"
 const (
 	edgeStatusPlanned = "planned" // dry-run / not yet executed
 	edgeStatusCreated = "created"
-	edgeStatusFailed  = "failed" // CreateEdge rejected it
 	// The create errored AND the re-read failed: it may or may not exist. Same
 	// word as a lost install answer elsewhere in the contract (#394).
 	edgeStatusUnknown = "unknown"
@@ -353,11 +352,16 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			case lerr == nil && landed:
 				// The create errored but committed; carry on and finish.
 			case lerr == nil:
-				result.Edges[supersededByIdx].Status = edgeStatusFailed
+				// The create errored and a re-read doesn't show the edge. That is
+				// still not proof of absence — a read can lag a committed write, as
+				// the success path already allows — so it is `unknown`, and the
+				// remedy checks first (#691 review).
+				result.Edges[supersededByIdx].Status = edgeStatusUnknown
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
 				return exitcode.Newf(exitcode.Error,
-					"created replacement %s but failed to create the %q edge from %s (confirmed absent): %v; link them with `hadron spec link %s %s -m %s --label %s`, and once `hadron spec get %s -m %s` shows that edge, rerun this command to finish retiring %s (rerunning before then can mint a second replacement)",
+					"created replacement %s, but creating the %q edge from %s errored (%v) and a re-read does not show it yet, so it may or may not exist; check `hadron spec get %s -m %s` — if after a minute it has no %s edge to %s, link them with `hadron spec link %s %s -m %s --label %s`, and once `hadron spec get %s -m %s` shows that edge, rerun this command to finish retiring %s (rerunning before then can mint a second replacement)",
 					newTarget.Format(), supersededByLabel, oldCit.Format(), api.MapError(cerr),
+					oldCit.Format(), memURN, supersededByLabel, newTarget.Format(),
 					oldCit.Format(), newTarget.Format(), memURN, supersededByLabel,
 					oldCit.Format(), memURN, oldCit.Format())
 			default:

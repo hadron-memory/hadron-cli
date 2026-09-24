@@ -197,7 +197,7 @@ reliable way to test whether a subcommand exists.
 A **partial write** exits non-zero (generic failure, 1): a command that creates
 the primary entity but cannot wire one or more of its edges — `node import
 --with-edges` (see `unwiredEdges`), and `spec supersede` when the old spec's
-`superseded-by` edge is refused (that edge's `status` is `failed`) — reports the
+`superseded-by` edge can't be confirmed (that edge's `status` is `unknown`) — reports the
 detail on stdout/stderr and
 still exits 1, so a
 caller branching on the exit code never reads a partial success as complete. The
@@ -210,12 +210,13 @@ successful or not, before anything is retired or prescribed:
   replacements, and which one stands is a human call. It narrows the race; it
   cannot close it, since that needs a server-side conditional retirement.
 - **The write errored but the edge landed** (a lost response): the run finishes.
-- **The write errored and the edge is confirmed absent**: status `failed`, exit
-  1, and the error names the exact `spec link` to run. Rerunning the supersede
-  after that finishes the retirement. Don't rerun it first: with no edge to
-  find, a rerun mints a second replacement.
-- **The write errored and the re-read failed**: status `unknown` (it may
-  exist), exit 1, and the error says to check with `spec get` first.
+- **The write errored and the re-read doesn't show the edge, or fails**:
+  status `unknown`, because a read can lag a committed write, so this is never
+  proof of absence. Exit 1. The error says to check with `spec get <old>`.
+  If after a minute there is still no edge, link it with the exact `spec link`
+  it names. Once `spec get` shows the link, rerun the supersede to finish the
+  retirement. Don't rerun it first: with no edge to find, a rerun mints a
+  second replacement.
 - **The write succeeded but the re-read failed, or doesn't show the link
   yet**: status `created`, exit 1, and the spec is **not** retired. It retires
   only on a link it has *seen* to be the sole successor. **Rerun only once
@@ -230,7 +231,8 @@ retirement, but only when there is exactly **one** successor. With more than
 one, even on a spec already tagged `superseded`, it exits 5 and retires
 nothing.
 
-Edge `status` values are `planned` (dry run), `created`, `failed` and `unknown`.
+Edge `status` values are `planned` (dry run), `created` and `unknown`. There is
+no `failed`: no answer this command gets can prove an edge is absent.
 The result's `retired` is `true` only once the old spec has actually been
 tagged `superseded`, `false` when the update was refused outright, and `null`
 when that can't be known (the retirement update got no answer, and the re-read
