@@ -2223,6 +2223,47 @@ func TestSpecSupersedeUnreadableCompetitorIsAConflict(t *testing.T) {
 	}
 }
 
+// #691 round 15 (Copilot): the retirement writes whole tags and content, so it
+// must be built from the FRESH post-link read, never the first one: an edit
+// made to the old spec in between would otherwise be overwritten.
+func TestSpecSupersedeRetiresAgainstTheFreshRead(t *testing.T) {
+	edited := strings.Replace(cleanSpecDetail, "Details.", "Details, with a concurrent edit.", 1)
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	gets := 0
+	gql, captured := captureGraphQLFunc(t, func(op string) string {
+		switch op {
+		case "GetNode":
+			gets++
+			if gets == 1 {
+				return `{"data":{"node":` + cleanSpecDetail + `}}`
+			}
+			return withSupersededByEdge(`{"data":{"node":`+edited+`}}`, "new1", "msg:010:03")
+		case "ResolveUrn":
+			return resolveSpecJSON
+		case "FindNodes":
+			return translateFindNodes(op, scan)
+		case "NodeBatch":
+			return specLintRawBodyStub(cleanSpecDetail)
+		case "CreateSpecNode":
+			return `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
+		case "CreateEdge":
+			return `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+		case "UpdateSpecNode":
+			return `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
+		}
+		return ""
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(string(captured["UpdateSpecNode"]), "with a concurrent edit") {
+		t.Errorf("the retirement was built from the stale first read, overwriting a concurrent edit: %s", captured["UpdateSpecNode"])
+	}
+}
+
 // #691 round 14 (Copilot): the finish path's single-successor check ran only
 // on the FIRST read, before the confirmation prompt. It re-validates right
 // before retiring: a second successor that appeared meanwhile is a conflict
@@ -2383,7 +2424,7 @@ func TestSpecSupersedeLostCreateNamesTheReconciliation(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Unavailable {
 		t.Fatalf("a lost create must exit %d (Unavailable), got %d: %v", exitcode.Unavailable, code, err)
 	}
-	for _, want := range []string{"may have been created", "hadron spec get msg:010:03", "do NOT rerun as-is", "hadron spec link msg:010:02 msg:010:03"} {
+	for _, want := range []string{"may have been created", "hadron spec get msg:010:03", "do NOT rerun as-is", "hadron spec link msg:010:02 msg:010:03", "only once `hadron spec get msg:010:02"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("message must contain %q; got %v", want, err)
 		}
@@ -2705,6 +2746,11 @@ func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 	// exactly as this edge was. `spec link` writes the superseded-by edge, and
 	// with it in place a rerun finishes the retirement
 	// (TestSpecSupersedeRetryExistingRetirementEdgeFinishesUpdate).
+	// The rerun waits for the link to be visible: a rerun whose own first read
+	// is stale would mint a second replacement (#691 round 15).
+	if !strings.Contains(err.Error(), "once `hadron spec get msg:010:02") {
+		t.Errorf("the remedy must wait for the link before rerunning; got %v", err)
+	}
 	_, remedy, _ := strings.Cut(err.Error(), "link them with `")
 	remedy, _, _ = strings.Cut(remedy, "`")
 	args := splitCommandLine(t, remedy)
