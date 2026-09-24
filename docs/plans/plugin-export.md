@@ -511,13 +511,23 @@ temporary and should be named so.
 Measure X2/X3 before choosing. Do not ship a Codex plugin on the strength
 of the UNCONFIRMED Claude-layout fallback.
 
-**Q9.** *(Moot under B8: the producer never writes into a host root. Kept
-for anyone who later proposes writing user-level too.)* **The collision with
-#621 in `~/.claude/skills`.**
-If the producer writes a plugin folder into the root that #621's per-skill
-export also writes, a user who does both gets every skill twice: bare, and as
-`<plugin>:<skill>`. #621's walk would also see a plugin directory it did not
-write, and report it as foreign.
+**Q9. An `--out` at or inside a host's skills root. [Jane]**
+B8 makes the destination explicit, but it doesn't stop a user from choosing
+a host root, for example `--out ~/.claude/skills` (@codex on #703).
+- The producer would then write `~/.claude/skills/<plugin-name>/`, which
+  Claude Code loads as a `@skills-dir` plugin (§3.1).
+- A user who also runs #621's export gets every skill twice: bare, and as
+  `<plugin>:<skill>`.
+- #621's walk would see a plugin directory it didn't write and report it as
+  foreign.
+
+The options:
+- **refuse** an `--out` that is, or is inside, any host's skills root. The
+  roots are #621's `exportRoots` table, compared after resolving;
+- or allow it with a warning in the report.
+
+Refusing keeps both commands' territory disjoint, and matches #621 refusing
+what it didn't write. It is the proposal, and Jane's call.
 
 **Q10. Directory, zip, or both by default; and the marketplace wrapper. [Jane]**
 - Cowork needs a zip; a terminal install needs a directory with

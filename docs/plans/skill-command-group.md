@@ -905,8 +905,11 @@ migration:
 > **The producer's surface is NOT defined here** (@copilot on #661, correctly):
 > §3 has no plugin-producing command and no `--out`, so naming one in a
 > superseded paragraph would leave an uncallable invocation in the plan. It is
-> cli#653's to specify, and **#653 is PAUSED pending @Vera's specs** (@Holger via
-> @Bo) — so the shape is deliberately open rather than merely unwritten. The one
+> cli#653's to specify. **Now specified:** the design and handoff are in
+> [`plugin-export.md`](plugin-export.md) (cli#700/#702/#703). #653 is no longer
+> paused. Holger sequenced it immediately after individual skill-file export
+> (#621), and Jane implements it (Ada, #653 comment, 2026-09-24). The pause
+> on @Vera's specs recorded here was superseded. The one
 > thing this paragraph settles is the DESTINATION: explicit and user-supplied,
 > never a git toplevel.
 > That also removes the toplevel dependency that made the producer unusable for
