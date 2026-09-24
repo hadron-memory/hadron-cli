@@ -314,11 +314,15 @@ server planned**, as #621 does, and never re-judged by the client:
   silently dropped.
 - **`failure`**: the whole host could not be built (output path refused, plan
   refused). Every entry is still named, as in #621's `blockHost`.
-- **`findings`**: the server's **non-error** findings (warnings, info) for
+- **`findings`**: the server's **warning** findings for
   every judged entry, one row per finding, keyed by node like the item rows
   (@codex on #700). They sit beside the item lists rather than inside them,
   so `exportItemDTO` stays exactly #621's. Error findings are not repeated
   here: an entry with one is already `refused` or `failed`, with its reasons.
+  `SkillFinding.severity` is `error` or `warning` and nothing else
+  (`schema/schema.graphql`), so `warning` is the only value this list carries
+  (@copilot on #702). A new server severity would be a schema change, and the
+  list would take it up then.
   Findings never affect the exit status. Whether the **human** report lists
   them is still Q11. #621's `skill export` has no such field either; adding
   one there is a separate, additive change.
@@ -523,7 +527,12 @@ purpose (plan §6). A fresh, never-merged artifact (§5.2, Q5) cannot also
 keep it (@codex on #700). The options:
 - **(a) Keep the committed plugin out of this producer.** It stays
   hand-maintained, and generated task skills, if the repo ships them at all,
-  go in a **second** plugin in the same marketplace.
+  go in a **second** plugin in the same marketplace. Plan §6's planned drift
+  gate must then be **re-pointed** at that second plugin's skills directory,
+  with `status --to <dir>`, because `--to plugin` is fixed to
+  `plugins/hadron-cli/skills`. Otherwise every generated task reads as
+  `never-exported` there and `--strict` fails on every run. The same
+  failure applies to (c) (@codex and @copilot on #702).
 - **(b) A `--seed <dir>`** copied into the artifact before the generated
   skills. A generated name that collides with a seeded one is refused as an
   item failure, never an overwrite. The seed is the only thing that is not
@@ -536,6 +545,9 @@ keep it (@codex on #700). The options:
   on every run (@copilot on #702). The gate is planned but not built (no
   `skill-drift` workflow exists in `.github/workflows/`), so retiring it
   means striking it from plan §6. Reversing plan §6 is Holger's call.
+
+**Only (b) leaves plan §6's gate as written.** (a) re-points it and (c)
+retires it. Either way, the choice amends plan §6 as well as this doc.
 
 Until one is chosen, **no `--out` pointing at `plugins/`**. The §8 build does
 not depend on this: it concerns one invocation, not the command.
