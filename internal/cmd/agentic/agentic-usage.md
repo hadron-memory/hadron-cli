@@ -202,15 +202,22 @@ detail on stdout/stderr and
 still exits 1, so a
 caller branching on the exit code never reads a partial success as complete. The
 node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
-For supersede, a failed `superseded-by` write is re-read before anything is
-prescribed. An edge that landed despite the error finishes the run. One
-confirmed absent is `failed`, and the error names the exact `spec link` to run,
-after which rerunning the supersede finishes the retirement. If the re-read
-fails too, the status is `unknown` (it may exist) and the error says to check
-with `spec get` first. If the old spec turns out to be superseded by a
-*different* replacement, supersede exits 5 (conflict) and writes nothing more:
-which replacement stands is a human call. Edge `status` values are `planned`
-(dry run), `created`, `failed` and `unknown`.
+For supersede, the old spec is **re-read after every `superseded-by` write**,
+successful or not, before anything is retired or prescribed:
+- **Another replacement also supersedes it** (a concurrent supersede, whose
+  edge to a different target succeeded too): supersede **exits 5 (conflict)**,
+  retires nothing and prescribes no write. The message names both
+  replacements, and which one stands is a human call. It narrows the race; it
+  cannot close it, since that needs a server-side conditional retirement.
+- **The write errored but the edge landed** (a lost response): the run finishes.
+- **The write errored and the edge is confirmed absent**: status `failed`, exit
+  1, and the error names the exact `spec link` to run. Rerunning the supersede
+  after that finishes the retirement. Don't rerun it first: with no edge to
+  find, a rerun mints a second replacement.
+- **The write errored and the re-read failed**: status `unknown` (it may
+  exist), exit 1, and the error says to check with `spec get` first.
+
+Edge `status` values are `planned` (dry run), `created`, `failed` and `unknown`.
 
 `spec new`, `spec extract` and `spec supersede` cannot leave a spec without its
 table-of-contents / inheritance edges unless told to: without `--no-edges`
@@ -1065,7 +1072,8 @@ Conventions:
   of the MCP + runner tool registries — with a small ignore-list for known
   non-tools like the `hadron_token` cookie), exit 5 on findings so CI can gate on
   tool-name drift; `spec supersede` retires a
-  spec (never renumbers) and REQUIRES `--yes`; `spec import` is not yet
+  spec (never renumbers), REQUIRES `--yes`, and exits 5 if the old spec ends
+  up with another successor (see "partial write" above); `spec import` is not yet
   implemented (exit 2).
 - **A node's KIND decides which door writes it** (#606 → hadron-server#1201,
   shipped in #1203). Protection used to be by ADDRESS — `Memory.protectedLocs`,

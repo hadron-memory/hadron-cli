@@ -2039,8 +2039,14 @@ func TestSpecSupersedeUnresolvableEdgeCreatesNothing(t *testing.T) {
 
 // supersedeLostEdgeServer answers a supersede whose superseded-by CreateEdge
 // errors. The FIRST GetNode is the old spec as read up front; the second is
-// the re-read after the failure, answered by reread.
+// the re-read after the write, answered by reread.
 func supersedeLostEdgeServer(t *testing.T, reread string) (*httptest.Server, map[string]json.RawMessage) {
+	return supersedeEdgeServer(t, `{"errors":[{"message":"edge boom"}]}`, reread)
+}
+
+// supersedeEdgeServer is supersedeLostEdgeServer with the CreateEdge answer
+// chosen by the caller.
+func supersedeEdgeServer(t *testing.T, createEdge, reread string) (*httptest.Server, map[string]json.RawMessage) {
 	t.Helper()
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
 	responses := map[string]string{
@@ -2048,7 +2054,7 @@ func supersedeLostEdgeServer(t *testing.T, reread string) (*httptest.Server, map
 		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":      scan,
 		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge":     `{"errors":[{"message":"edge boom"}]}`,
+		"CreateEdge":     createEdge,
 		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	}
 	gets := 0
@@ -2112,6 +2118,39 @@ func TestSpecSupersedeUnverifiableEdgeSaysCheckFirst(t *testing.T) {
 	// may exist; agents branch on it. `unknown`, as for a lost install answer.
 	if !strings.Contains(out.String(), `"status": "unknown"`) || strings.Contains(out.String(), `"status": "failed"`) {
 		t.Errorf("an unverifiable edge must report status unknown, not failed:\n%s", out.String())
+	}
+}
+
+// #691 review (Codex P1, Copilot): two supersedes that pick DIFFERENT
+// replacements both CREATE successfully — edge identity includes the target —
+// so checking only after a failed create let both retire the old spec. The
+// re-read runs after every write; this run's replacement must be the SOLE
+// successor, or it stops with a conflict and retires nothing.
+func TestSpecSupersedeRaceWithBothEdgesCreatedRetiresNothing(t *testing.T) {
+	both := `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[` +
+		`{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}},` +
+		`{"id":"e9","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:020:01","isRunnable":false,"priority":0,"target":{"id":"n9","loc":"msg:020:01","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}}}`
+	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+	gql, captured := supersedeEdgeServer(t, ok, both)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("two successors must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if !strings.Contains(err.Error(), "superseded by both msg:010:03 and msg:020:01") {
+		t.Errorf("the message must name both successors; got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired while it has two successors")
+	}
+	if !strings.Contains(out.String(), `"status": "created"`) {
+		t.Errorf("this run's edge WAS created and must say so:\n%s", out.String())
 	}
 }
 

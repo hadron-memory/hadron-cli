@@ -81,9 +81,19 @@ additive again. On that basis:
   `hadron spec link <old> <new> -m <mem> --label superseded-by`, after which
   rerunning `spec supersede` takes its existing finish-the-retirement path. An
   unverifiable one reports status `unknown` (Copilot: `failed` would be a claim
-  the run cannot make) and says to check with `spec get` first. An edge to a
-  *different* successor (a concurrent supersede) exits 5 and prescribes no
-  write, since a second edge would make two replacements.
+  the run cannot make) and says to check with `spec get` first.
+- **The re-read runs after EVERY superseded-by write, not only a failed one**
+  (Codex P1, Copilot on #691). Two supersedes that pick different replacements
+  both create successfully, since edge identity includes the target, and both
+  used to retire the old spec. Now a run retires only when its replacement is
+  the **sole** successor; otherwise it exits 5 and prescribes no write. This
+  narrows a race that predates this change without closing it. Both runs can
+  no longer retire, because each re-reads after its own write, so the later
+  writer always sees the earlier one's edge. What remains: the earlier run may
+  retire before the later one writes, and the later run's edge then stays
+  behind next to it, reported as a conflict for a human to remove. **Refusing
+  that second write needs a server-side conditional retirement**, reported to
+  the coordinator as a hadron-server item.
 - **`spec lint`'s inheritance-edge remedy was a command that could not run.**
   It said `hadron edge add … --label`, and the flag is `--name`, so it exited
   `unknown flag: --label`. It now names `spec link` when both ends carry the
