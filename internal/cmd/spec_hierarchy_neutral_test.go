@@ -811,3 +811,23 @@ func TestSpecBlankPrefixIsRefused(t *testing.T) {
 		}
 	}
 }
+
+// A GIVEN --to or --inherit that is blank is refused, never read as omitted:
+// a script's empty "$TO" would otherwise allocate a numbered replacement and
+// retire the old spec (@codex P1 on #710). Refused before any request.
+func TestSpecBlankToAndInheritAreRefused(t *testing.T) {
+	for _, args := range [][]string{
+		{"supersede", "msg:010:02", "--to", "", "--title", "T", "--yes"},
+		{"supersede", "msg:010:02", "--to", " ", "--title", "T", "--yes"},
+		{"new", "--module", "msg", "--feature", "010", "--inherit", "", "--title", "T"},
+		{"new", "onboarding:mentor", "--inherit", " ", "--title", "T"},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{"spec"}, args...), "-m", specMem, "--server", "http://127.0.0.1:1"))
+		err := root.Execute()
+		if got := exitCodeFor(err); got != exitcode.Usage || !strings.Contains(err.Error(), "is blank") {
+			t.Errorf("%v: exit %d, err %v; want Usage refusing the blank flag", args, got, err)
+		}
+	}
+}

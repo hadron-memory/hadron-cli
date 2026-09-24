@@ -91,6 +91,12 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			// --to is validated up front, before any request and whichever path
 			// runs below: a resumed run must not accept a --to it would then
 			// ignore (@codex on #710).
+			// A GIVEN --to that is blank is refused, never read as "no --to": a
+			// script's empty "$TO" would otherwise allocate a numbered
+			// replacement and retire the old spec (@codex P1 on #710).
+			if cmd.Flags().Changed("to") && strings.TrimSpace(to) == "" {
+				return exitcode.Newf(exitcode.Usage, "--to is blank; name the replacement's loc, or omit --to to allocate a legacy number")
+			}
 			var toLoc string
 			if to != "" {
 				if feature != "" || ruleAfter != "" {

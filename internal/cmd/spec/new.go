@@ -119,6 +119,12 @@ is one call instead of four.`, abstractSoftMax),
 			}
 			// Body and abstract can each read stdin via "-", but stdin is
 			// consumable only once.
+			// A GIVEN --inherit that is blank is refused, never read as "no
+			// --inherit" (which, in the legacy numbering, means the tier
+			// contract's default edge) — same rule as --to and --prefix.
+			if cmd.Flags().Changed("inherit") && strings.TrimSpace(inherit) == "" {
+				return exitcode.Newf(exitcode.Usage, "--inherit is blank; name the spec to inherit from, or omit --inherit")
+			}
 			if content == "-" && abstract == "-" {
 				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
 			}
