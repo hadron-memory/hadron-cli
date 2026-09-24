@@ -42,9 +42,10 @@ const (
 	// A script branching on 3 vs 8 is branching on "sign in" vs "ask someone
 	// for access" — two different humans and two different next actions.
 	//
-	// Which is why ONE FORBIDDEN exits 3 instead: an MCP-only key (#681,
-	// api.IsMCPOnlyCredential). The server refuses it with the same code, but
-	// the next action is a different credential, not anyone's permission.
+	// Which is why an OAuth SCOPE refusal exits 3 instead: an MCP-only key or
+	// one carrying an unsupported scope (#681, api.OAuthScopeRefusal). The
+	// server refuses it with the same code, but the next action is a different
+	// credential, not anyone's permission.
 	Forbidden = 8
 )
 

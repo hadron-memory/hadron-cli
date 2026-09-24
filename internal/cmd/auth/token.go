@@ -123,8 +123,8 @@ a rejected or revoked token exits 3.`,
 				// #681: an MCP-only key is not invalid — it works, just not
 				// here. "Invalid, revoked, or expired" would send its owner
 				// looking for a fault the key does not have.
-				if api.IsMCPOnlyCredential(err) {
-					dto.RejectedReason = rejectedMCPOnly
+				if kind := api.OAuthScopeRefusal(err); kind != "" {
+					dto.RejectedReason = string(kind)
 				}
 			case resp.AuthContext != nil:
 				ac := resp.AuthContext
@@ -158,8 +158,13 @@ a rejected or revoked token exits 3.`,
 			}
 
 			writeErr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				if dto.RejectedReason == rejectedMCPOnly {
+				switch api.ScopeRefusal(dto.RejectedReason) {
+				case api.ScopeMCPOnly:
 					_, err := fmt.Fprintln(w, "✗ Token is limited to the MCP surface — it works for MCP clients, but the CLI cannot use it.\n"+
+						"  A key created on the portal's API keys page (/app/account/api-keys) has no scope limit.")
+					return err
+				case api.ScopeUnsupported:
+					_, err := fmt.Fprintln(w, "✗ Token carries an OAuth scope this server does not support, so it is refused everywhere.\n"+
 						"  A key created on the portal's API keys page (/app/account/api-keys) has no scope limit.")
 					return err
 				}

@@ -700,7 +700,7 @@ func installCreatedAgent(ctx context.Context, client graphql.Client, appRef, age
 		// #681 (PR #683 review, @copilot): `app agent add` fails the same way
 		// until the MCP-only key is replaced, so it is the SECOND step here, not
 		// the finishing one. MapError has already named the credential fix.
-		if api.IsMCPOnlyCredential(err) {
+		if api.OAuthScopeRefusal(err) != "" {
 			incomplete = exitcode.Newf(exitcode.FromError(mapped),
 				"agent was CREATED but NOT installed into %s: %v\n"+
 					"The agent exists — do not re-run `agent create`, it would make a second one.\n"+

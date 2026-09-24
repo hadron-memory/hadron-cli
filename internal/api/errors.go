@@ -189,20 +189,20 @@ func MapError(err error) error {
 	// for access" — is false here: the fix is a different credential, which
 	// is exactly what 3 means. And the server's sentence names no way out,
 	// while the obvious one (`auth token create`) is refused for the same key.
-	if IsMCPOnlyCredential(err) {
+	if kind := OAuthScopeRefusal(err); kind != "" {
 		// Apollo's "Context creation failed: " is transport plumbing, not the
 		// server's sentence, and it means nothing to the person reading it, so
 		// it is dropped the way #566 drops genqlient's decoration. The chain
 		// still unwraps to the original error.
 		// Per message, before joining (PR #690 review, @copilot): trimming the
 		// joined string would strip only the first message's prefix. The list
-		// is never empty here, because IsMCPOnlyCredential matched a message.
+		// is never empty here, because OAuthScopeRefusal matched an error.
 		msgs := ServerMessages(err)
 		for i, m := range msgs {
 			msgs[i] = strings.TrimPrefix(m, apolloContextFailurePrefix)
 		}
 		msg := strings.Join(msgs, "; ")
-		return exitcode.New(exitcode.AuthRequired, &serverError{msg: msg + " " + MCPOnlyRemedy, err: err})
+		return exitcode.New(exitcode.AuthRequired, &serverError{msg: msg + " " + ScopeRefusalRemedy(kind), err: err})
 	}
 
 	var httpErr *graphql.HTTPError
@@ -254,12 +254,12 @@ func MapError(err error) error {
 // production (#681 reopened). The resolver-level refusal arrives unprefixed.
 // Both shapes are pinned in the tests.
 //
-// Matching server PROSE is a stopgap, and a deliberate one (#681): the refusal
-// carries only the generic FORBIDDEN, so its wording is the only thing that
-// tells it apart from every other permission boundary. Both halves must match —
-// the code keeps a stray sentence in some other error from qualifying — and if
-// the server ever rewords it, detection fails safe: the error falls back to
-// the plain FORBIDDEN mapping it had before, with no false remedy.
+// The sentence is now only the FALLBACK. Since server#1306 every scope refusal
+// carries extensions.reason, which OAuthScopeRefusal reads first; the prose is
+// matched only when no reason is sent (a server that predates #1306). Even
+// then both halves must match — FORBIDDEN and the sentence — so a stray
+// sentence in some other error cannot qualify, and a reworded sentence fails
+// safe: the plain FORBIDDEN mapping, with no false remedy.
 const mcpOnlyRefusal = "This OAuth credential is limited to the MCP surface"
 
 // apolloContextFailurePrefix is what Apollo 4 prepends to an error thrown from
@@ -275,15 +275,75 @@ const MCPOnlyRemedy = "This key was issued for MCP clients only, and the CLI nee
 	"or create a key on the portal's API keys page (/app/account/api-keys) and run `hadron auth login --with-token` with it. " +
 	"If the key comes from HADRON_TOKEN, replace that variable instead."
 
+// UnsupportedScopeRemedy is appended for a key whose OAuth grant carries a
+// scope this server does not support: it is refused everywhere, so the only
+// fix is a new credential (server#1306).
+const UnsupportedScopeRemedy = "Sign in again with `hadron auth logout && hadron auth login`, " +
+	"or create a key on the portal's API keys page (/app/account/api-keys) and run `hadron auth login --with-token` with it. " +
+	"If the key comes from HADRON_TOKEN, replace that variable instead."
+
+// ScopeRefusal names why the server refused a credential by its OAuth scope.
+// Its values are also `auth status` / `auth token validate`'s rejectedReason.
+type ScopeRefusal string
+
+const (
+	// ScopeMCPOnly: the grant is `mcp` alone, valid for MCP clients only.
+	ScopeMCPOnly ScopeRefusal = "mcp-only-scope"
+	// ScopeUnsupported: the grant carries a scope this server does not
+	// support, so it is refused everywhere.
+	ScopeUnsupported ScopeRefusal = "unsupported-scope"
+)
+
+// Server reasons for a scope refusal (server#1306, extensions.reason).
+const (
+	reasonScopeInsufficient = "OAUTH_SCOPE_INSUFFICIENT"
+	reasonScopeUnsupported  = "OAUTH_SCOPE_UNSUPPORTED"
+)
+
+// OAuthScopeRefusal classifies a FORBIDDEN that refuses the CREDENTIAL, not
+// the caller's permission. extensions.reason decides whenever the server sends
+// it (server#1306), and an unknown reason is NOT a scope refusal. Only a
+// server that sends no reason at all (one that predates #1306) is recognised
+// by the MCP-only sentence, so the CLI works in either deploy order. Anything else returns "",
+// and the error keeps its ordinary FORBIDDEN mapping. Call it on the RAW error.
+func OAuthScopeRefusal(err error) ScopeRefusal {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "FORBIDDEN" {
+			continue
+		}
+		if raw, present := e.Extensions["reason"]; present {
+			// A server that sends reason has decided: an UNKNOWN reason is not
+			// a scope refusal this CLI understands, whatever the prose says
+			// (#698 review, Codex and Copilot).
+			reason, _ := raw.(string)
+			switch reason {
+			case reasonScopeInsufficient:
+				return ScopeMCPOnly
+			case reasonScopeUnsupported:
+				return ScopeUnsupported
+			}
+			continue
+		}
+		// No reason at all: a server that predates server#1306.
+		if strings.Contains(e.Message, mcpOnlyRefusal) {
+			return ScopeMCPOnly
+		}
+	}
+	return ""
+}
+
+// ScopeRefusalRemedy is the recovery the CLI appends for a scope refusal.
+func ScopeRefusalRemedy(kind ScopeRefusal) string {
+	if kind == ScopeUnsupported {
+		return UnsupportedScopeRemedy
+	}
+	return MCPOnlyRemedy
+}
+
 // IsMCPOnlyCredential reports whether err is the server refusing an MCP-only
 // key (#681). Call it on the RAW error, before MapError wraps it.
 func IsMCPOnlyCredential(err error) bool {
-	for _, e := range graphQLErrors(err) {
-		if e != nil && extensionCode(e) == "FORBIDDEN" && strings.Contains(e.Message, mcpOnlyRefusal) {
-			return true
-		}
-	}
-	return false
+	return OAuthScopeRefusal(err) == ScopeMCPOnly
 }
 
 // HasErrorCode reports whether err carries a GraphQL error whose
