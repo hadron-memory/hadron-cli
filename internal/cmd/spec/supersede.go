@@ -100,12 +100,21 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			if hasTag(oldNode.Tags, supersededTag) {
 				return exitcode.Newf(exitcode.Usage, "%q is already superseded", oldNode.Loc)
 			}
-			if successorLoc, ok := existingSupersededByTarget(oldNode); ok {
-				if successorLoc == unreadableSuccessor {
+			if sc, ok := existingSuccessor(oldNode); ok {
+				if sc.id == "" {
 					return exitcode.Newf(exitcode.NotFound,
 						"%s has a %q edge to a replacement you cannot read, so it was not retired; ask someone who can read it to finish",
 						oldCit.Format(), supersededByLabel)
 				}
+				if sc.otherMemory {
+					// Supersede links within one corpus. A successor elsewhere was not
+					// made by it, and its loc is not a citation in THIS corpus, so
+					// finishing would retire the spec against the wrong node.
+					return exitcode.Newf(exitcode.Conflict,
+						"%s has a %q edge to %s, which is in another memory, so it was not retired; supersede only links within one corpus — review that edge",
+						oldCit.Format(), supersededByLabel, sc.label)
+				}
+				successorLoc := sc.loc
 				successorCit, err := ParseCitation(successorLoc)
 				if err != nil {
 					return err
@@ -405,11 +414,12 @@ func supersededByState(cmd *cobra.Command, client graphql.Client, oldID, success
 	return landed, other, nil
 }
 
-func existingSupersededByTarget(n *gen.GetNodeNode) (string, bool) {
+// existingSuccessor is the spec's (first) superseded-by successor, if any.
+func existingSuccessor(n *gen.GetNodeNode) (successor, bool) {
 	if t := supersededBySuccessors(n); len(t) > 0 {
-		return t[0].label, true
+		return t[0], true
 	}
-	return "", false
+	return successor{}, false
 }
 
 // supersededByTargets lists the labels of a spec's distinct successors.
@@ -425,8 +435,10 @@ func supersededByTargets(n *gen.GetNodeNode) []string {
 // ID, never the loc: a loc is unique only within a memory, and edges may cross
 // memories, so two successors can share a citation (#691 review).
 type successor struct {
-	id    string // "" when the caller cannot read the target
-	label string // the loc, qualified when the target lives in another memory
+	id          string // "" when the caller cannot read the target
+	loc         string // the target's loc, "" when unreadable
+	otherMemory bool   // the target lives in a different memory from the spec
+	label       string // for messages: the loc, qualified when in another memory
 }
 
 // supersededBySuccessors lists the distinct successors of n's superseded-by
@@ -449,11 +461,12 @@ func supersededBySuccessors(n *gen.GetNodeNode) []successor {
 			continue
 		}
 		seen[e.Target.Id] = true
-		label := e.Target.Loc
+		sc := successor{id: e.Target.Id, loc: e.Target.Loc, label: e.Target.Loc}
 		if e.Target.MemoryId != n.MemoryId {
-			label += " (in memory " + e.Target.MemoryId + ")"
+			sc.otherMemory = true
+			sc.label += " (in memory " + e.Target.MemoryId + ")"
 		}
-		out = append(out, successor{id: e.Target.Id, label: label})
+		out = append(out, sc)
 	}
 	return out
 }

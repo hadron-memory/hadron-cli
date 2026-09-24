@@ -2273,6 +2273,30 @@ func TestSpecSupersedeSameLocInAnotherMemoryIsNotThisRunsLink(t *testing.T) {
 	}
 }
 
+// #691 round 9 (Copilot): on the rerun path, a lone superseded-by successor in
+// ANOTHER memory is not a citation of this corpus. It used to reach
+// ParseCitation and fail as a generic invalid citation; it is a conflict that
+// names the other memory, and nothing is retired.
+func TestSpecSupersedeRerunWithSuccessorInAnotherMemoryIsAConflict(t *testing.T) {
+	one := strings.Replace(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "other-mem-node", "msg:010:03"),
+		`"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem1"}`,
+		`"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem2"}`, 1)
+	gql, captured := captureGraphQL(t, map[string]string{"ResolveUrn": resolveSpecJSON, "GetNode": one})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("a successor in another memory must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if !strings.Contains(err.Error(), "(in memory mem2)") {
+		t.Errorf("the message must name the other memory; got %v", err)
+	}
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
+		t.Error("retired against a successor in another memory")
+	}
+}
+
 // ...and two successors that share a citation in different memories are TWO
 // successors: de-duplicating by loc would collapse them and hide the conflict.
 func TestSpecSupersedeSameLocSuccessorsInTwoMemoriesAreAConflict(t *testing.T) {
