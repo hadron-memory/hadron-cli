@@ -124,9 +124,14 @@ superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTi
 				return err
 			}
 			if len(args) == 1 {
-				if _, verr := validateSpecLoc(args[0]); verr != nil {
+				// Keep the normalized loc: the trimmed value is the one fetched,
+				// or a padded argument passes here and is not found there
+				// (@codex, @copilot on #710).
+				loc, verr := validateSpecLoc(args[0])
+				if verr != nil {
 					return verr
 				}
+				args[0] = loc
 			}
 			if err := lintScopeError(len(args) == 1, prefixFlag, product, module, all); err != nil {
 				return err

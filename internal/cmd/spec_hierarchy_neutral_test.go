@@ -683,3 +683,26 @@ func TestSpecLintPrefixIsTrimmed(t *testing.T) {
 		t.Errorf("the empty-scope message should name the trimmed prefix: %v", err)
 	}
 }
+
+// A padded single loc is linted at the trimmed loc, not reported NotFound
+// (@codex, @copilot on #710).
+func TestSpecLintSingleLocIsTrimmed(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
+		"GetMemory":  memGetJSON(`null`),
+		"Memories":   memListJSON,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", " msg:010:02 ", "-m", specMem, "--server", gql.URL})
+	_ = root.Execute()
+	var vars struct {
+		Urn string `json:"urn"`
+	}
+	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
+	if !strings.HasSuffix(vars.Urn, "::msg:010:02") {
+		t.Errorf("lint resolved %q, want the trimmed loc", vars.Urn)
+	}
+}

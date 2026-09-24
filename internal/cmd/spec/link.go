@@ -43,8 +43,9 @@ one — a field spec points at the entity it belongs to, a flow at its rule. So
 <from> is the specific/citing spec and <to> is the general/cited one: the same
 direction ` + "`spec extract`" + ` wires automatically.
 
-Both endpoints must already exist and carry the "spec" tag (reach for
-` + "`edge add`" + ` to link arbitrary nodes, or across memories). With no --label, a
+Both endpoints must already exist and be specs, at any valid loc (the
+"spec" tag or the spec role); reach for
+` + "`edge add`" + ` to link arbitrary nodes, or across memories. With no --label, a
 sentence-style label is synthesized from the two titles in the corpus
 convention ("documents <from> on the <to> entity"); refine it with
 ` + "`edge update`" + `.`,
