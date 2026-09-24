@@ -564,15 +564,19 @@ keep it (@codex on #700). The options:
     copied. A copy that followed a link could package files from
     outside the seed or loop, and one that preserved it would break §5.2's
     link-free artifact (@codex on #702).
-  - **Producer-owned paths are reserved.** `.claude-plugin/plugin.json` and
-    any marketplace file belong to the producer. A seed containing one is
+  - **Producer-owned paths are reserved.** Every manifest the producer
+    writes belongs to it: `.claude-plugin/plugin.json`, and for a Codex plugin
+    whichever of `.codex-plugin/plugin.json` or a root `plugin.json` Q8
+    selects (@codex on #702). So does any marketplace file. A seed containing one is
     refused, never merged or overwritten in either direction. A seeded
     `skills/<name>/` that a generated skill also claims stays the
     **item-level** failure above: the generated item fails, and the seed and
     every other item carry on. Otherwise a seeded manifest's fixed `version` would
     silently defeat C4's update rule (@codex on #702). The committed
-    manifest's hand-written fields (`author`, `homepage`) would therefore
-    need a home in Q6's naming/metadata decision.
+    manifest's hand-written metadata (today `description` and `author` in
+    `plugin.json`, plus the marketplace file's `owner` and `metadata`) would
+    therefore need a home in Q6's naming/metadata decision (@copilot on
+    #702).
   - **Report:** each host gets a `seeded` list, initialized to `[]` and
     empty unless `--seed` is given. It has **one row per seeded file**, with
     its path relative to the artifact root
