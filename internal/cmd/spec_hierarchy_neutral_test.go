@@ -549,3 +549,19 @@ func TestSpecSupersedeResumeHonoursTo(t *testing.T) {
 		}
 	})
 }
+
+// extract allocates in the legacy numbering, so it stays a legacy adapter: a
+// source outside the numbering is refused before any request, with the way
+// forward named instead of the old grammar error (#708 slice C).
+func TestSpecExtractRefusesASourceOutsideTheNumbering(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "onboarding:mentor:screens", "--to-feature", "020", "--title", "T", "--content", "x", "-m", specMem, "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if got := exitCodeFor(err); got != exitcode.Usage || !strings.Contains(err.Error(), "spec new <loc>") {
+		t.Fatalf("exit %d, err %v: want Usage naming `spec new <loc>`", got, err)
+	}
+	if strings.Contains(err.Error(), "must be 3 lowercase letters") && !strings.Contains(err.Error(), "legacy citation") {
+		t.Errorf("the refusal must explain the adapter, not only the grammar: %v", err)
+	}
+}

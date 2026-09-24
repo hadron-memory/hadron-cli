@@ -55,6 +55,10 @@ the new body via --content -/--content-file; it scaffolds the rule (abstract +
 rubric default), wires the table-of-contents and inheritance edges like
 ` + "`spec new`" + `, and adds the cross-ref edge new→source.
 
+extract allocates in the legacy numbering, so the source must be a legacy
+citation. For a spec at any other loc, create the new spec with
+` + "`spec new <loc>`" + ` and trim the source with ` + "`spec edit`" + `.
+
 By default the source is left untouched and you're reminded to trim the moved
 chunk out of it. --strip-source also removes the chunk from the source body,
 but only when it matches verbatim (exactly once) — a reformatted or absent
