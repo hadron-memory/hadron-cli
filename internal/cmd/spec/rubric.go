@@ -42,8 +42,14 @@ var abstractStyleHint = fmt.Sprintf(
 // author to replace it at the rule tier, where the abstract is the
 // load-bearing vector-search retrieval surface.
 func placeholderAbstract(c Citation, title string) string {
+	return placeholderAbstractAt(c.Format(), title)
+}
+
+// placeholderAbstractAt is placeholderAbstract for a spec at ANY loc (#708):
+// the placeholder names the loc and nothing about a tier.
+func placeholderAbstractAt(loc, title string) string {
 	return fmt.Sprintf("%s one paragraph stating what %s — %s governs and the durable contract a reader searches for; this is the vector-search retrieval surface. %s Replace before publishing.",
-		abstractPlaceholder, c.Format(), title, abstractStyleHint)
+		abstractPlaceholder, loc, title, abstractStyleHint)
 }
 
 // tierAbstract returns a tier-worded placeholder abstract: an orientation
@@ -105,16 +111,24 @@ func tierBody(c Citation, title string) string {
 // #217). Flows stay terse: they inherit their rule's scenarios and are pulled on
 // demand, so they get only the mandatory rubric.
 func rubricBody(c Citation, title string) string {
+	return rubricBodyAt(c.Format(), title, c.Level() == 3)
+}
+
+// rubricBodyAt is the rubric scaffold for a spec at ANY loc (#708). optional
+// adds the two un-linted sections ("Scenarios / user stories" and "Acceptance
+// criteria"); a spec created at an explicit loc gets them, since nothing about
+// its loc says it is a terse flow.
+func rubricBodyAt(loc, title string, optional bool) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s — %s\n\n", c.Format(), title)
+	fmt.Fprintf(&b, "# %s — %s\n\n", loc, title)
 	fmt.Fprintf(&b, "## %s\n\nOne-line definition of what this spec governs.\n\n", headingDefinition)
-	if c.Level() == 3 {
+	if optional {
 		fmt.Fprintf(&b, "## %s *(optional — delete if it adds nothing)*\n\n3–7 short scenarios that explain who needs this and why. Prefer\n`As a <actor>, I want <capability>, so that <outcome>.`, or plain\n`Scenarios:` bullets for lower-level, multi-actor, or failure/recovery\nbehavior. Cover the happy path, key alternates, and identity/permission\nboundaries — not filler.\n\n", headingScenarios)
 	}
 	fmt.Fprintf(&b, "## %s\n\nState the rule precisely. Give concrete examples and edge cases.\n\n", headingRule)
 	fmt.Fprintf(&b, "## %s\n\n**Durable:** the parts that, if changed, mean a different spec.\n**Tunable:** the parts that can change without invalidating this spec.\n\n", headingDurable)
 	fmt.Fprintf(&b, "## %s\n\nThe specific changes that repeal or supersede this spec. (Mandatory.)\n", headingInvalidates)
-	if c.Level() == 3 {
+	if optional {
 		fmt.Fprintf(&b, "\n## %s *(optional — include when the behavior must be testable)*\n\nConcrete, checkable statements engineering or QA can verify (one bullet\neach).\n", headingAcceptance)
 	}
 	return b.String()
@@ -172,7 +186,12 @@ func tierChildWord(c Citation) string {
 
 // specName builds the canonical node name "<citation> — <title>".
 func specName(c Citation, title string) string {
-	return c.Format() + " — " + title
+	return specNameAt(c.Format(), title)
+}
+
+// specNameAt is specName for a spec at ANY loc (#708).
+func specNameAt(loc, title string) string {
+	return loc + " — " + title
 }
 
 // specTags returns the tag set for a spec: "spec" then any extra semantic

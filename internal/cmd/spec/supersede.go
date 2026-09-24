@@ -54,7 +54,7 @@ type supersedeResultDTO struct {
 }
 
 func newCmdSupersede(f *cmdutil.Factory) *cobra.Command {
-	var memory, title, feature, ruleAfter, reason string
+	var memory, title, feature, ruleAfter, reason, to string
 	var copyBody, yes, dryRun bool
 	cmd := &cobra.Command{
 		Use:   "supersede <old-citation>",
@@ -63,14 +63,20 @@ func newCmdSupersede(f *cmdutil.Factory) *cobra.Command {
 		// the deletion verbs here rather than at the generic node
 		// commands that do hard-delete a spec node.
 		SuggestFor: []string{"delete", "rm", "remove", "retire", "deprecate"},
-		Long: `Retire a numbered spec and create its replacement.
+		Long: `Retire a spec and create its replacement.
 
 The old spec is never renumbered or deleted — it is tagged "superseded"
-and linked to the replacement with a "superseded-by" edge. The new spec
-gets the next free number (in the same feature by default; --feature
-relocates it to another existing feature). Update the register ledger
+and linked to the replacement with a "superseded-by" edge.
+
+Any spec can be superseded. Name the replacement's loc with --to <loc>
+(any valid loc; it must be free). Without --to, a legacy rule or flow
+citation gets the next free number in the legacy numbering (in the same
+feature by default; --feature relocates it to another existing feature),
+with that numbering's table-of-contents and inheritance edges; a spec
+outside the legacy numbering needs --to. Update the register ledger
 afterward (the tool prints a reminder; it never edits the register).`,
 		Example: `  hadron spec supersede msg:010:02 -m hrn:mem:micromentor.org:platform-specs --title "W2 v2" --yes
+  hadron spec supersede onboarding:mentor:screens -m hrn:mem:micromentor.org:specs --to onboarding:mentor:screens-v2 --title "Screens v2" --yes
   hadron spec supersede msg:010:02 -m hrn:mem:micromentor.org:platform-specs --title "W2 v2" --copy-body --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -90,22 +96,17 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			if err != nil {
 				return err
 			}
-			// Legacy adapter until #708 slice C: successor allocation is legacy
-			// numbering, so supersede still needs the old grammar here.
-			oldCit, err := ParseCitation(oldNode.Loc)
-			if err != nil {
-				return err
-			}
-			if oldCit.Level() < 3 {
-				return exitcode.Newf(exitcode.Usage, "only a numbered rule/flow spec can be superseded, not %q", oldNode.Loc)
-			}
+			// Any spec can be superseded (#708). Only ALLOCATING its successor
+			// needs the legacy numbering (below); a successor named with --to
+			// needs nothing from the old spec's shape.
+			oldLoc := oldNode.Loc
 			if successors := supersededByTargets(oldNode); len(successors) > 1 {
 				// Two replacements claim this spec (a concurrent supersede). Finishing
 				// would retire it in favour of whichever edge happens to be listed
 				// first, so refuse, and leave the choice to a human.
 				return exitcode.Newf(exitcode.Conflict,
 					"%s is superseded by more than one replacement (%s), so it was not retired; keep one, remove the other %q edge(s), then rerun this command",
-					oldCit.Format(), strings.Join(successors, ", "), supersededByLabel)
+					oldLoc, strings.Join(successors, ", "), supersededByLabel)
 			}
 			if hasTag(oldNode.Tags, supersededTag) {
 				return exitcode.Newf(exitcode.Usage, "%q is already superseded", oldNode.Loc)
@@ -114,7 +115,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				if sc.id == "" {
 					return exitcode.Newf(exitcode.NotFound,
 						"%s has a %q edge to a replacement you cannot read, so it was not retired; ask someone who can read it to finish",
-						oldCit.Format(), supersededByLabel)
+						oldLoc, supersededByLabel)
 				}
 				if sc.otherMemory {
 					// Supersede links within one corpus. A successor elsewhere was not
@@ -122,24 +123,20 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					// finishing would retire the spec against the wrong node.
 					return exitcode.Newf(exitcode.Conflict,
 						"%s has a %q edge to %s, which is in another memory, so it was not retired; supersede only links within one corpus — review that edge",
-						oldCit.Format(), supersededByLabel, sc.label)
+						oldLoc, supersededByLabel, sc.label)
 				}
 				successorLoc := sc.loc
-				successorCit, err := ParseCitation(successorLoc)
-				if err != nil {
-					return err
-				}
 				result := supersedeResultDTO{
-					Old: oldCit.Format(), New: successorLoc, MemoryID: memURN,
-					Name: specName(successorCit, title), Tags: specTags(semanticTags(oldNode.Tags)), DryRun: dryRun, Retired: boolRef(false),
-					Edges: []supersedeEdgeDTO{{Label: supersededByLabel, Target: oldCit.Format() + " → " + successorLoc, Status: edgeStatusCreated}},
+					Old: oldLoc, New: successorLoc, MemoryID: memURN,
+					Name: specNameAt(successorLoc, title), Tags: specTags(semanticTags(oldNode.Tags)), DryRun: dryRun, Retired: boolRef(false),
+					Edges: []supersedeEdgeDTO{{Label: supersededByLabel, Target: oldLoc + " → " + successorLoc, Status: edgeStatusCreated}},
 				}
 				render := func(w io.Writer) error { return renderSupersede(w, result) }
 				if dryRun {
 					return output.Write(f.IOStreams, f.JSON, result, render)
 				}
 				if err := cmdutil.Confirm(f.IOStreams, yes,
-					fmt.Sprintf("Finish retiring %s as superseded by %s?", oldCit.Format(), successorLoc)); err != nil {
+					fmt.Sprintf("Finish retiring %s as superseded by %s?", oldLoc, successorLoc)); err != nil {
 					return err
 				}
 				// Re-validate IMMEDIATELY before retiring: the first read can be
@@ -150,7 +147,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				fresh, ferr := gen.GetNode(cmd.Context(), client, oldNode.Id)
 				if ferr != nil || fresh.Node == nil {
 					if ferr == nil {
-						ferr = exitcode.Newf(exitcode.NotFound, "%s vanished", oldCit.Format())
+						ferr = exitcode.Newf(exitcode.NotFound, "%s vanished", oldLoc)
 					}
 					_ = output.Write(f.IOStreams, f.JSON, result, render)
 					// Nothing was written in this invocation, so keep the mapped
@@ -159,59 +156,92 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					mapped := api.MapError(ferr)
 					return exitcode.Newf(exitcode.FromError(mapped),
 						"could not re-read %s just before retiring it (%v), so it was not retired; rerun this command to finish",
-						oldCit.Format(), mapped)
+						oldLoc, mapped)
 				}
 				if now := supersededByTargets(fresh.Node); len(now) != 1 || now[0] != successorLoc {
 					_ = output.Write(f.IOStreams, f.JSON, result, render)
 					return exitcode.Newf(exitcode.Conflict,
 						"%s's successors changed while this ran (now: %s), so it was not retired; review them, then rerun this command",
-						oldCit.Format(), strings.Join(now, ", "))
+						oldLoc, strings.Join(now, ", "))
 				}
 				oldNode = fresh.Node
 				if retired, rerr := retire(cmd, client, oldNode, successorLoc, reason); rerr != nil {
 					result.Retired = retired
 					_ = output.Write(f.IOStreams, f.JSON, result, render)
-					return retireError(retired, rerr, oldCit.Format(), successorLoc, memURN)
+					return retireError(retired, rerr, oldLoc, successorLoc, memURN)
 				}
 				result.Retired = boolRef(true)
-				fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldCit.Format(), successorLoc)
+				fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldLoc, successorLoc)
 				return output.Write(f.IOStreams, f.JSON, result, render)
 			}
 
-			// Scan the module subtree for allocation + parent checks. Paged to
-			// exhaustion — a truncated scan here would make the replacement
-			// allocator reuse a live number on a subtree past one page (#23).
-			prefix := Citation{Product: oldCit.Product, Module: oldCit.Module}.Format()
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
-			if err != nil {
-				return err
-			}
-			locs := map[string]bool{}
-			var allLocs []string
-			for _, n := range all {
-				if n == nil {
-					continue
+			// The successor's loc: named with --to (any valid loc, no edges
+			// derived from it), or allocated in the legacy numbering, which
+			// only a legacy rule/flow citation has.
+			var newLoc, parentLoc, inheritLoc string
+			var newSeq *int
+			scaffoldOptional := true
+			if to != "" {
+				if feature != "" || ruleAfter != "" {
+					return exitcode.Newf(exitcode.Usage, "--to names the replacement's loc — don't combine it with --feature/--rule-after, which allocate a legacy number instead")
 				}
-				if n.Loc != prefix && !strings.HasPrefix(n.Loc, prefix+":") {
-					continue
+				if newLoc, err = validateSpecLoc(to); err != nil {
+					return err
 				}
-				if _, perr := ParseCitation(n.Loc); perr != nil {
-					continue
+				if newLoc == oldLoc {
+					return exitcode.Newf(exitcode.Usage, "a spec cannot supersede itself (%s)", oldLoc)
 				}
-				locs[n.Loc] = true
-				allLocs = append(allLocs, n.Loc)
-			}
+				// The loc must be free: a live node there is refused, never
+				// written over or retired against.
+				if _, rerr := resolveSpecNode(cmd, client, memURN, newLoc); rerr == nil {
+					return exitcode.Newf(exitcode.Usage, "%s already exists — name a free loc with --to", newLoc)
+				} else if exitcode.FromError(rerr) != exitcode.NotFound {
+					return rerr
+				}
+				newSeq = seqFromLoc(newLoc)
+			} else {
+				oldCit, perr := ParseCitation(oldLoc)
+				if perr != nil || oldCit.Level() < 3 {
+					return exitcode.Newf(exitcode.Usage,
+						"%s is not a legacy rule/flow citation, so no replacement number can be allocated for it — name the replacement's loc with --to <loc>", oldLoc)
+				}
+				// Scan the module subtree for allocation + parent checks. Paged to
+				// exhaustion — a truncated scan here would make the replacement
+				// allocator reuse a live number on a subtree past one page (#23).
+				prefix := Citation{Product: oldCit.Product, Module: oldCit.Module}.Format()
+				all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
+				if err != nil {
+					return err
+				}
+				locs := map[string]bool{}
+				var allLocs []string
+				for _, n := range all {
+					if n == nil {
+						continue
+					}
+					if n.Loc != prefix && !strings.HasPrefix(n.Loc, prefix+":") {
+						continue
+					}
+					if _, perr := ParseCitation(n.Loc); perr != nil {
+						continue
+					}
+					locs[n.Loc] = true
+					allLocs = append(allLocs, n.Loc)
+				}
 
-			newTarget, parentLoc, inheritLoc, err := planReplacement(oldCit, feature, ruleAfter, locs, allLocs)
-			if err != nil {
-				return err
+				newTarget, pl, il, err := planReplacement(oldCit, feature, ruleAfter, locs, allLocs)
+				if err != nil {
+					return err
+				}
+				newLoc, parentLoc, inheritLoc = newTarget.Format(), pl, il
+				newSeq, scaffoldOptional = specSeq(newTarget), newTarget.Level() == 3
 			}
 
 			newTags := specTags(semanticTags(oldNode.Tags))
-			name := specName(newTarget, title)
+			name := specNameAt(newLoc, title)
 
 			result := supersedeResultDTO{
-				Old: oldCit.Format(), New: newTarget.Format(), MemoryID: memURN,
+				Old: oldLoc, New: newLoc, MemoryID: memURN,
 				Name: name, Tags: newTags, DryRun: dryRun, Retired: boolRef(false),
 			}
 			if parentLoc != "" {
@@ -224,7 +254,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			// ToC edge carries the user's --title, which could itself be
 			// "superseded-by" and collide with a label match (Codex #155).
 			supersededByIdx := len(result.Edges)
-			result.Edges = append(result.Edges, supersedeEdgeDTO{Label: supersededByLabel, Target: oldCit.Format() + " → " + newTarget.Format(), Status: edgeStatusPlanned})
+			result.Edges = append(result.Edges, supersedeEdgeDTO{Label: supersededByLabel, Target: oldLoc + " → " + newLoc, Status: edgeStatusPlanned})
 
 			render := func(w io.Writer) error { return renderSupersede(w, result) }
 			if dryRun {
@@ -232,14 +262,14 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 
 			if err := cmdutil.Confirm(f.IOStreams, yes,
-				fmt.Sprintf("Supersede %s with %s? The old spec is retired (tagged %q).", oldCit.Format(), newTarget.Format(), supersededTag)); err != nil {
+				fmt.Sprintf("Supersede %s with %s? The old spec is retired (tagged %q).", oldLoc, newLoc, supersededTag)); err != nil {
 				return err
 			}
 
 			// 1. The replacement's body and abstract.
 			var newID string
-			body := rubricBody(newTarget, title)
-			abs := placeholderAbstract(newTarget, title)
+			body := rubricBodyAt(newLoc, title, scaffoldOptional)
+			abs := placeholderAbstractAt(newLoc, title)
 			if copyBody {
 				if oldNode.Content != nil {
 					body = *oldNode.Content
@@ -258,16 +288,16 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					structural = append(structural, plannedEdgeDTO{Label: e.Label, Target: e.Target})
 				}
 			}
-			edges, err := resolveSpecEdges(cmd, client, memURN, newTarget.Format(), structural, nil)
+			edges, err := resolveSpecEdges(cmd, client, memURN, newLoc, structural, nil)
 			if err != nil {
 				return err
 			}
 			nodeType := "info"
 			in := gen.CreateNodeInput{
-				MemoryId: memURN, Loc: newTarget.Format(), Name: name,
+				MemoryId: memURN, Loc: newLoc, Name: name,
 				Tags: newTags, NodeType: &nodeType,
 				Abstract: &abs, Content: &body, Data: specDataRaw(),
-				Seq: specSeq(newTarget), Role: specRole(),
+				Seq: newSeq, Role: specRole(),
 				Edges: edges,
 			}
 			up, err := api.CreateSpecNode(cmd.Context(), client, &in)
@@ -280,9 +310,9 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				if exitcode.FromError(mapped) == exitcode.Unavailable {
 					return exitcode.Newf(exitcode.Unavailable,
 						"creating replacement %s got no answer (%v), so it may have been created; before rerunning, check `hadron spec get %s -m %s` (a fresh node can take a minute to resolve). If it exists, do NOT rerun as-is — that would allocate another replacement — link it with `hadron spec link %s %s -m %s --label %s`, and rerun this command only once `hadron spec get %s -m %s` shows that %s edge. Only if it still does not exist after a minute (a fresh node can take that long to resolve), rerun",
-						newTarget.Format(), mapped, newTarget.Format(), memURN,
-						oldCit.Format(), newTarget.Format(), memURN, supersededByLabel,
-						oldCit.Format(), memURN, supersededByLabel)
+						newLoc, mapped, newLoc, memURN,
+						oldLoc, newLoc, memURN, supersededByLabel,
+						oldLoc, memURN, supersededByLabel)
 				}
 				return mapped
 			}
@@ -331,12 +361,12 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				if wrote {
 					return exitcode.Newf(exitcode.Conflict,
 						"%s is now superseded by both %s and %s (another supersede ran at the same time), so it was not retired; keep one replacement, remove the other's %q edge, then rerun this command to finish",
-						oldCit.Format(), newTarget.Format(), other, supersededByLabel)
+						oldLoc, newLoc, other, supersededByLabel)
 				}
 				return exitcode.Newf(exitcode.Conflict,
 					"created replacement %s, but %s is already superseded by %s (another supersede got there first), so %s was not retired; this run's %q edge to %s failed to confirm and may or may not exist (%v) — check with `hadron spec get %s -m %s` and review both replacements before changing anything",
-					newTarget.Format(), oldCit.Format(), other, oldCit.Format(), supersededByLabel, newTarget.Format(), api.MapError(cerr),
-					oldCit.Format(), memURN)
+					newLoc, oldLoc, other, oldLoc, supersededByLabel, newLoc, api.MapError(cerr),
+					oldLoc, memURN)
 			case cerr == nil && lerr != nil:
 				// The link was written, but whether it is the ONLY successor can't
 				// be checked, so don't retire on an unverified premise (#691
@@ -346,8 +376,8 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
 				return exitcode.Newf(exitcode.Error,
 					"linked %s to replacement %s but could not re-read %s to confirm it is the only successor (%v), so it was not retired; once `hadron spec get %s -m %s` shows its %s edge to %s, rerun this command to finish (rerunning before then can mint a second replacement)",
-					oldCit.Format(), newTarget.Format(), oldCit.Format(), api.MapError(lerr),
-					oldCit.Format(), memURN, supersededByLabel, newTarget.Format())
+					oldLoc, newLoc, oldLoc, api.MapError(lerr),
+					oldLoc, memURN, supersededByLabel, newLoc)
 			case cerr == nil && !landed:
 				// Written, but the re-read doesn't show it (a stale read?). Retire
 				// only on a VERIFIED link, so stop; a rerun re-reads first.
@@ -355,8 +385,8 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
 				return exitcode.Newf(exitcode.Error,
 					"linked %s to replacement %s, but re-reading %s did not show that link yet, so it was not retired; once `hadron spec get %s -m %s` shows its %s edge to %s, rerun this command to finish (rerunning before then can mint a second replacement)",
-					oldCit.Format(), newTarget.Format(), oldCit.Format(),
-					oldCit.Format(), memURN, supersededByLabel, newTarget.Format())
+					oldLoc, newLoc, oldLoc,
+					oldLoc, memURN, supersededByLabel, newLoc)
 			case cerr == nil:
 				// Written, seen, and the sole successor: retire below.
 			case lerr == nil && landed:
@@ -370,19 +400,19 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
 				return exitcode.Newf(exitcode.Error,
 					"created replacement %s, but creating the %q edge from %s errored (%v) and a re-read does not show it yet, so it may or may not exist; check `hadron spec get %s -m %s` — if after a minute it has no %s edge to %s, link them with `hadron spec link %s %s -m %s --label %s`, and once `hadron spec get %s -m %s` shows that edge, rerun this command to finish retiring %s (rerunning before then can mint a second replacement)",
-					newTarget.Format(), supersededByLabel, oldCit.Format(), api.MapError(cerr),
-					oldCit.Format(), memURN, supersededByLabel, newTarget.Format(),
-					oldCit.Format(), newTarget.Format(), memURN, supersededByLabel,
-					oldCit.Format(), memURN, oldCit.Format())
+					newLoc, supersededByLabel, oldLoc, api.MapError(cerr),
+					oldLoc, memURN, supersededByLabel, newLoc,
+					oldLoc, newLoc, memURN, supersededByLabel,
+					oldLoc, memURN, oldLoc)
 			default:
 				result.Edges[supersededByIdx].Status = edgeStatusUnknown
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
 				return exitcode.Newf(exitcode.Error,
 					"created replacement %s but the %q edge from %s may or may not exist (%v, and re-reading %s failed: %v); check `hadron spec get %s -m %s` — if after a minute it has no %s edge to %s, link them with `hadron spec link %s %s -m %s --label %s`, and once `hadron spec get %s -m %s` shows that edge, rerun this command to finish retiring %s (rerunning before then can mint a second replacement)",
-					newTarget.Format(), supersededByLabel, oldCit.Format(), api.MapError(cerr), oldCit.Format(), api.MapError(lerr),
-					oldCit.Format(), memURN, supersededByLabel, newTarget.Format(),
-					oldCit.Format(), newTarget.Format(), memURN, supersededByLabel,
-					oldCit.Format(), memURN, oldCit.Format())
+					newLoc, supersededByLabel, oldLoc, api.MapError(cerr), oldLoc, api.MapError(lerr),
+					oldLoc, memURN, supersededByLabel, newLoc,
+					oldLoc, newLoc, memURN, supersededByLabel,
+					oldLoc, memURN, oldLoc)
 			}
 			result.Edges[supersededByIdx].Status = edgeStatusCreated
 			// Retire against the FRESH read, never the first one: the retirement
@@ -393,14 +423,14 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 
 			// 4. Retire the old spec: tag superseded, same loc, append a note.
-			if retired, rerr := retire(cmd, client, oldNode, newTarget.Format(), reason); rerr != nil {
+			if retired, rerr := retire(cmd, client, oldNode, newLoc, reason); rerr != nil {
 				result.Retired = retired
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
-				return retireError(retired, rerr, oldCit.Format(), newTarget.Format(), memURN)
+				return retireError(retired, rerr, oldLoc, newLoc, memURN)
 			}
 
 			result.Retired = boolRef(true)
-			fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldCit.Format(), newTarget.Format())
+			fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldLoc, newLoc)
 			return output.Write(f.IOStreams, f.JSON, result, render)
 		},
 	}
@@ -408,6 +438,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 	cmd.Flags().StringVar(&title, "title", "", "human title for the replacement spec (required)")
 	cmd.Flags().StringVar(&feature, "feature", "", "relocate the replacement under this existing feature (3 digits)")
 	cmd.Flags().StringVar(&ruleAfter, "rule-after", "", "allocate the replacement rule strictly after this number")
+	cmd.Flags().StringVar(&to, "to", "", "create the replacement at exactly this loc (any valid loc) instead of allocating a legacy number")
 	cmd.Flags().StringVar(&reason, "reason", "", "note appended to the retired spec")
 	cmd.Flags().BoolVar(&copyBody, "copy-body", false, "seed the replacement's body/abstract from the old spec")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")

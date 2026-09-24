@@ -71,7 +71,12 @@ chunk leaves the source alone with a warning.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			source, err := ParseCitation(args[0])
 			if err != nil {
-				return err
+				// extract allocates the new spec's number in the legacy numbering,
+				// under the source's module, so it needs a legacy source (#708).
+				// Any other spec: create the new one with `spec new <loc>` and
+				// edit the source.
+				return exitcode.Newf(exitcode.Usage,
+					"extract allocates the new spec's number under a legacy citation, and %q is not one (%v) — for any other spec, create the new one with `hadron spec new <loc>` and edit the source with `hadron spec edit`", args[0], err)
 			}
 			if title == "" {
 				return exitcode.Newf(exitcode.Usage, "--title is required")

@@ -166,6 +166,11 @@ type ledgerDTO struct {
 	Memory  string            `json:"memory"`
 	Modules []ledgerModuleDTO `json:"modules"`
 	Drift   []string          `json:"drift,omitempty"`
+	// OutsideNumbering lists the specs this ledger does not cover: the
+	// ledger is the legacy numbering, and a spec at any other loc is valid
+	// (#708) but has no number to report. Named rather than counted so the
+	// report says which, and never dropped silently.
+	OutsideNumbering []string `json:"outsideNumbering"`
 }
 
 type ledgerModuleDTO struct {
@@ -311,6 +316,22 @@ func (c Citation) Seq() (int, bool) {
 		return 0, false
 	}
 	return n, true
+}
+
+// seqFromLoc is specSeq for a spec at ANY loc (#708): the loc's last segment,
+// when it is all digits, is the sibling sort order; otherwise there is none.
+// For a legacy citation it agrees with specSeq, whose numeric leaf is always
+// the last segment.
+func seqFromLoc(loc string) *int {
+	leaf := loc[strings.LastIndex(loc, ":")+1:]
+	if leaf == "" || strings.Trim(leaf, "0123456789") != "" {
+		return nil
+	}
+	n, err := strconv.Atoi(leaf)
+	if err != nil {
+		return nil
+	}
+	return &n
 }
 
 // specSeq returns the sibling sort order for a spec citation as a *int ready for

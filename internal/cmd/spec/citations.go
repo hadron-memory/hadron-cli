@@ -78,7 +78,9 @@ of the pointer, and two thirds of a live corpus trips it. For the corpus-wide
 view use ` + "`hadron memory validate <memory> --check stale-abstract`" + `.
 
 Matching is anchored on the prescribed ` + "`Spec:`" + ` prefix, and takes every
-citation on that line — real pointers often list several. --loose drops the
+citation on that line — real pointers often list several. Only numbered
+citations in the legacy numbering are recognized (a feature segment is
+required); a pointer to a spec at any other loc is not checked. --loose drops the
 anchor and scans every line for citation-shaped tokens, which finds pointers
 written some other way at the cost of false positives in prose.
 

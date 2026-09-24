@@ -1,6 +1,6 @@
 # Removing the fixed spec hierarchy (#708, #709)
 
-> **Status: slice A built (this PR); B–D planned.** Written 2026-09-24 by Jonas
+> **Status: slices A and C built; B and D planned.** Written 2026-09-24 by Jonas
 > (cli-engineer) on Ada's dispatch (team chat #1473), under Holger's
 > authorization of the same day. The authorization covers removing the legacy
 > spec-corpus hierarchy checks and the flat/product concept **before** a
@@ -157,26 +157,69 @@ to Vera and Ada in team chat #1484:
 3. Keep it only for legacy rule/flow-shaped locs, as an adapter: no change for
    today's corpora, and no obligation for other shapes.
 
-### C. Authoring adapters: planned
+### C. Authoring adapters: built (second PR)
 
-- `spec new <loc>` creates a spec at **any** valid loc, with only the edges
-  passed explicitly. There's no mandatory parent, no contract and no index
-  obligation.
-- The legacy flags stay as optional conveniences that produce legacy locs:
-  - `--product/--module/--feature/--rule/--flow`;
-  - `--new-*`;
-  - `--contract`, `--new-path`;
-  - allocation.
-  They never become a prerequisite for a node that doesn't use them.
-- `supersede` drops its "only a numbered rule/flow" restriction. Successor
-  allocation (legacy numbering) remains an adapter. A spec outside the grammar
-  supersedes to an **explicitly named** successor, since no numbering policy is
-  invented.
-- `register` (the legacy numbering ledger) and `citations` (legacy-shaped tokens
-  in prose) keep working for legacy numbers, but **say how many specs they
-  don't cover**, instead of dropping them silently.
-- `extract --to-feature` is legacy allocation. It remains an adapter, and its
-  target-scan filter is scoped to that adapter.
+- **`spec new <loc> --title <title>`** creates exactly that spec, at any valid
+  loc, through the spec door:
+  - nothing is derived from the loc's shape, so there's no parent, no contract,
+    no index obligation and no allocation;
+  - the only edge is an explicit `--inherit <loc>`, written inline, and it must
+    resolve first;
+  - a loc that already holds a node is refused (pre-checked, and the server
+    doors are create-only);
+  - the body is the rubric scaffold, including the optional sections, and the
+    abstract is the placeholder;
+  - a numeric last segment sets `seq`;
+  - combining a positional loc with the tier flags is refused, since those
+    select legacy numbering.
+- **The legacy flags stay as optional adapters:**
+  `--product/--module/--feature/--rule/--flow`, `--new-*`, `--contract` and
+  `--new-path`. `--new-path` on a non-legacy loc now says to drop `--new-path`
+  instead of printing the grammar error.
+- **`spec supersede` works on any spec.**
+  - `--to <loc>` names the replacement: any valid, free loc, never the old one,
+    with no derived edges. It can't be combined with `--feature/--rule-after`.
+  - Without `--to`, a legacy rule/flow citation gets an allocated number
+    exactly as before. Anything else is refused with a pointer to `--to`, since
+    no numbering policy is invented.
+  - The resume/finish, re-read-before-retire and concurrent-successor guards
+    are untouched. Their messages now name the node's own loc rather than a
+    re-formatted citation.
+- **`spec register`** stays the legacy-numbering ledger. Specs at any other loc
+  are **named** in a new `outsideNumbering` field (`[]` when there are none)
+  and in the human output, never dropped.
+- **Reported seams, not generalized:**
+  - `spec extract` allocates under the source's legacy module, so a source
+    outside the numbering is refused with a pointer to `spec new <loc>` +
+    `spec edit`.
+  - `spec citations` recognizes only numbered legacy citations in source text
+    (a feature segment is required). Recognizing an arbitrary loc in prose
+    would need a new pointer policy, so its help now says a pointer to any
+    other loc is not checked.
+
+**Tests** (`spec_hierarchy_neutral_test.go`):
+- `new <loc>` at four shapes, checking loc, name, tag, role, no derived edges,
+  `seq` and the scaffold, and that no scan happens;
+- an explicit `--inherit` written inline by resolved id;
+- `--dry-run`;
+- an occupied loc refused;
+- the refusals: invalid loc, tier flags, `--no-contract`, self-inherit, and
+  `--new-path` on a non-legacy loc;
+- `supersede --to` from a non-legacy spec, a legacy module header (once
+  refused) and a legacy rule, with no scan, no derived edges, the old loc kept
+  and retired;
+- without `--to`, non-legacy specs are refused with nothing written;
+- `--to` refused when occupied, self, invalid, or combined with `--feature`;
+- `register` naming specs outside the numbering, and `[]` when there are none.
+
+**Mutation-checked**, each mutation compiled and each run uncached. Each of
+these turns a test red:
+- no existence check;
+- `seq` never set;
+- the supersede depth gate restored;
+- no `--to` occupancy check;
+- `register` dropping specs outside the numbering;
+- `new <loc>` deriving a parent edge.
 
 ### D. Scheme (#709): planned
 
