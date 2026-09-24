@@ -469,7 +469,9 @@ func acceptanceCases() map[string]func(t *testing.T) {
 		if len(sent) != 1 {
 			t.Fatalf("want the edited file submitted, got %v", sent)
 		}
-		if fh, hh := sent[0]["fileHash"], sent[0]["headerHash"]; fh == nil || hh == nil || fh == "" || fh == hh {
+		// Both NON-EMPTY: the planner's locally-edited test is gated on a
+		// non-empty header hash, so "" would slip the refusal (#699 review).
+		if fh, hh := sent[0]["fileHash"], sent[0]["headerHash"]; fh == nil || hh == nil || fh == "" || hh == "" || fh == hh {
 			t.Errorf("a hand-edited file must send differing, non-empty fileHash and headerHash; got %v / %v", fh, hh)
 		}
 		if read(t, p) != edited {
@@ -924,6 +926,15 @@ func TestSkillExportAcceptanceDestinations(t *testing.T) {
 			claude := rep.host(t, "claudeSkill")
 			if c := claude.classOf(accName); c != "refused" || !contains(claude.reasonCodes(accName), "foreign-skill-file") {
 				t.Errorf("%v: reported %q %v, want refused foreign-skill-file", args, c, claude.reasonCodes(accName))
+			}
+			// A refusal on the FIRST host never stops the next one: Codex is
+			// still planned, written and reported (cor:agt:030:00).
+			_ = callFor(t, *calls, "codexSkill")
+			if c := rep.host(t, "codexSkill").classOf(accName); c != "written" {
+				t.Errorf("%v: codex reported %q after claude's refusal, want written", args, c)
+			}
+			if got := read(t, filepath.Join(codexRoot(home), accName, "SKILL.md")); got != rendered(t, "codexSkill") {
+				t.Errorf("%v: codex was not written after claude's refusal:\n%s", args, got)
 			}
 		}
 	})
