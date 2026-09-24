@@ -202,10 +202,11 @@ still exits 1, so a
 caller branching on the exit code never reads a partial success as complete. The
 node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 
-`spec new` and `spec extract` cannot leave a spec without its edges: each spec
-node is written together with its table-of-contents, inheritance and (extract)
-cross-ref edges, and a target that does not resolve refuses the command before
-anything is written. A `spec new` that creates several nodes (a root with its
+`spec new` and `spec extract` cannot leave a spec without its edges unless told
+to: without `--no-edges` (which deliberately creates the node edge-less), each
+spec node is written together with its table-of-contents, inheritance and
+(extract) cross-ref edges, and a target that does not resolve refuses the
+command before anything is written. A `spec new` that creates several nodes (a root with its
 contract, or `--new-path`) writes each separately, so a failure part-way exits
 non-zero naming the nodes it already created, each complete with its edges.
 

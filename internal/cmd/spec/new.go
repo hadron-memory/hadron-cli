@@ -654,9 +654,10 @@ type pathNode struct {
 // runNewPath scaffolds target and every missing ancestor in one call. Each node
 // gets its tier template (the target uses the caller's body/abstract); each
 // created root also gets its general-provisions contract unless noContract.
-// Edges resolve by id for nodes made this run (resolveUrn lags a fresh node ~a
-// minute) and by loc for pre-existing ancestors; an unresolvable target warns,
-// never aborts.
+// Each node carries its edges inline (#687): by the returned id for nodes made
+// this run (resolveUrn lags a fresh node ~a minute), and by an id resolved up
+// front for pre-existing ones. An unresolvable target refuses the whole run
+// before anything is written.
 func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, memURN string, target Citation, title, body, abs string, tagSet []string, noContract, noEdges, dryRun bool) error {
 	prefix := target.Module
 	if target.Product != "" {

@@ -138,9 +138,10 @@ Each of the first three calls also scaffolds its tier's contract (`cli:gen`,
 `cli:cha:000`, `cli:cha:010:00`) unless you pass `--no-contract`. Product and
 module codes are frozen: re-minting one exits 5.
 
-**Each node is written together with its edges.** A spec node and its
-table-of-contents / inheritance edges are one server write, so a node never
-lands without them. A missing parent tier, or an edge target that doesn't
+**Each node is written together with its edges.** Unless you pass
+`--no-edges` (which deliberately creates the node without them), a spec node
+and its table-of-contents / inheritance edges are one server write, so a node
+never lands without them. A missing parent tier, or an edge target that doesn't
 resolve, is rejected up front (exit 4, nothing written).
 
 **A failed `spec new` is still not always a clean slate**, because a command
