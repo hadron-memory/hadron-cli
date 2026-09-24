@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -24,6 +25,10 @@ func newCmdRegister(f *cmdutil.Factory) *cobra.Command {
 		Long: `Print the citation ledger (modules, features, rules, and next-free
 numbers) derived from the live spec nodes.
 
+The ledger is the legacy numbering. A spec at any other loc is valid, but has
+no number to report: it is listed as outside the numbering (outsideNumbering
+in --json), never dropped.
+
 The register node is treated as advisory and is never modified. With
 --check, the live nodes are diffed against the register node's
 hand-written ledger and any drift is reported (exit 5 if drift is found).`,
@@ -40,7 +45,7 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 				return err
 			}
 
-			locs, err := scanAllCitationLocs(cmd, client, memURN)
+			locs, outside, err := scanLedgerLocs(cmd, client, memURN)
 			if err != nil {
 				return err
 			}
@@ -51,12 +56,16 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 			}
 
 			dto := buildLedgerDTO(memURN, locs, ledger)
+			dto.OutsideNumbering = outside
 			if check {
 				dto.Drift = computeDrift(locs, ledger)
 			}
 
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "Citation ledger — %s (derived from live nodes)\n", dto.Memory)
+				if n := len(dto.OutsideNumbering); n > 0 {
+					fmt.Fprintf(w, "(%d spec(s) outside the legacy numbering, not in this ledger: %s)\n", n, strings.Join(dto.OutsideNumbering, ", "))
+				}
 				for _, m := range dto.Modules {
 					fmt.Fprintf(w, "\n%s  (next feature: %s)\n", m.Module, dashIfEmpty(m.NextFeature))
 					for _, fe := range m.Features {
@@ -97,6 +106,30 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 // their full root loc, so a product corpus keys "cli:cha" (not "cha") and two
 // products can reuse a module code without colliding. A bare product root has
 // no numeric ledger of its own and is skipped.
+// scanLedgerLocs reads the memory once and splits it for the ledger: every
+// citation-shaped loc (tag-agnostic, as before, so an untagged legacy node
+// still shows) goes into the ledger, and every spec (isSpec) at any other loc
+// is returned as outside the numbering (#708) — reported, never dropped.
+func scanLedgerLocs(cmd *cobra.Command, client graphql.Client, memURN string) (locs, outside []string, err error) {
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	locs, outside = []string{}, []string{}
+	for _, n := range all {
+		if n == nil {
+			continue
+		}
+		if _, perr := ParseCitation(n.Loc); perr == nil {
+			locs = append(locs, n.Loc)
+		} else if isSpec(n.Tags, n.Role) {
+			outside = append(outside, n.Loc)
+		}
+	}
+	sort.Strings(outside)
+	return locs, outside, nil
+}
+
 func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerDTO {
 	type modAgg struct {
 		cit      Citation // the module-root citation (carries the product)
@@ -158,7 +191,7 @@ func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerD
 	}
 	sort.Strings(modKeys)
 
-	dto := ledgerDTO{Memory: memURN, Modules: []ledgerModuleDTO{}}
+	dto := ledgerDTO{Memory: memURN, Modules: []ledgerModuleDTO{}, OutsideNumbering: []string{}}
 	for _, key := range modKeys {
 		ma := mods[key]
 		featNums := sortedKeys(ma.features)

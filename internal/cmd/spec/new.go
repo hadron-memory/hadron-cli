@@ -49,15 +49,24 @@ func newCmdNew(f *cmdutil.Factory) *cobra.Command {
 		noEdges, noContract, dryRun     bool
 	)
 	cmd := &cobra.Command{
-		Use:     "new",
+		Use:     "new [<loc>]",
 		Aliases: []string{"scaffold"},
-		Short:   "Allocate the next citation and scaffold a spec node",
-		Long: fmt.Sprintf(`Allocate the next free citation number and create a spec node
-pre-filled with the rubric (abstract + the four mandatory sections) and
-wired with table-of-contents and inheritance edges.
+		Short:   "Create a spec node at a loc, or allocate the next legacy citation",
+		Long: fmt.Sprintf(`Create a spec node pre-filled with the rubric (abstract + the four
+mandatory sections).
 
-In a product-rooted corpus, pass --product <ppp> to qualify the module;
-omit it for a flat corpus.
+  hadron spec new <loc> --title <title>
+
+creates exactly that spec, at any valid node loc and any depth: nothing is
+derived from the loc's shape, so there is no parent it must have, no
+contract it inherits, and no number is allocated. Its only edge is an
+--inherit <loc> you name; link anything else with "spec link" afterwards.
+A loc that already holds a node is refused, never overwritten.
+
+Legacy numbering. Without a <loc>, the flags below allocate the next free
+number in the legacy citation scheme and wire the table-of-contents and
+inheritance edges that scheme uses. In a product-rooted corpus, pass
+--product <ppp> to qualify the module; omit it for a flat corpus.
 
 Target (deepest wins):
   --new-product                      create a product root (needs --product)
@@ -83,7 +92,8 @@ characters, which "spec lint" warns above.
 citation and every missing ancestor (each with its tier template and, for the
 roots, their general-provisions contract), so a fresh module + feature + rule
 is one call instead of four.`, abstractSoftMax),
-		Example: `  hadron spec new -m hrn:mem:micromentor.org:platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
+		Example: `  hadron spec new -m hrn:mem:micromentor.org:specs app:onb:mentor:screens:settings --title "Settings screen"
+  hadron spec new -m hrn:mem:micromentor.org:platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
   hadron spec new -m hrn:mem:hadronmemory.com:platform-specs --new-product --product cli --title "Hadron CLI"
   hadron spec new -m hrn:mem:hadronmemory.com:platform-specs --product cli --new-module --module cha --title "chat command group"
   hadron spec new -m hrn:mem:hadronmemory.com:platform-specs cli:cha:010:01 --new-path --title "send a message"`,
@@ -109,6 +119,12 @@ is one call instead of four.`, abstractSoftMax),
 			}
 			// Body and abstract can each read stdin via "-", but stdin is
 			// consumable only once.
+			// A GIVEN --inherit that is blank is refused, never read as "no
+			// --inherit" (which, in the legacy numbering, means the tier
+			// contract's default edge) — same rule as --to and --prefix.
+			if cmd.Flags().Changed("inherit") && strings.TrimSpace(inherit) == "" {
+				return exitcode.Newf(exitcode.Usage, "--inherit is blank; name the spec to inherit from, or omit --inherit")
+			}
 			if content == "-" && abstract == "-" {
 				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
 			}
@@ -122,6 +138,30 @@ is one call instead of four.`, abstractSoftMax),
 				return exitcode.Newf(exitcode.Usage, "--abstract and --abstract-file are mutually exclusive")
 			}
 
+			// A positional <loc> (and an explicit --inherit) is validated before
+			// the memory is resolved, so an invalid one never costs a request
+			// (@copilot on #710). --new-path's legacy parse happens below.
+			if len(args) == 1 && !newPath {
+				if _, verr := validateSpecLoc(args[0]); verr != nil {
+					return verr
+				}
+				// A positional <loc> with the legacy tier flags is refused here
+				// too, before the memory is resolved (@codex on #710).
+				if product != "" || module != "" || feature != "" || rule != "" || ruleAfter != "" || flow != "" ||
+					newFeature || newModule || newProduct || contract || noContract {
+					return exitcode.Newf(exitcode.Usage,
+						"a positional <loc> creates exactly that spec — don't combine it with --product/--module/--feature/--rule/--rule-after/--flow/--new-*/--contract/--no-contract, which allocate legacy numbering instead")
+				}
+				if inherit != "" {
+					inh, verr := validateSpecLoc(inherit)
+					if verr != nil {
+						return verr
+					}
+					if at, _ := validateSpecLoc(args[0]); inh == at {
+						return exitcode.Newf(exitcode.Usage, "a spec cannot inherit from itself (%s)", at)
+					}
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -143,7 +183,10 @@ is one call instead of four.`, abstractSoftMax),
 				}
 				target, perr := ParseCitation(args[0])
 				if perr != nil {
-					return perr
+					// --new-path is the legacy chain scaffolder; any other loc is
+					// created as-is without it (#708).
+					return exitcode.Newf(exitcode.Usage,
+						"--new-path scaffolds a legacy citation chain, and %q is not one (%v) — to create a spec at this loc, drop --new-path", args[0], perr)
 				}
 				body, berr := resolveBody(content, contentFile, f.IOStreams.In, target, title)
 				if berr != nil {
@@ -158,8 +201,20 @@ is one call instead of four.`, abstractSoftMax),
 				}
 				return runNewPath(cmd, f, client, memURN, target, title, body, abs, specTags(tags), noContract, noEdges, dryRun)
 			}
-			if len(args) != 0 {
-				return exitcode.Newf(exitcode.Usage, "a positional <citation> is only for --new-path; otherwise select the tier with flags")
+			if len(args) == 1 {
+				// #708: a positional <loc> creates exactly that spec, at any
+				// valid loc. The tier flags select the legacy numbering instead,
+				// so the two are exclusive rather than silently combined.
+				if product != "" || module != "" || feature != "" || rule != "" || ruleAfter != "" || flow != "" ||
+					newFeature || newModule || newProduct || contract || noContract {
+					return exitcode.Newf(exitcode.Usage,
+						"a positional <loc> creates exactly that spec — don't combine it with --product/--module/--feature/--rule/--rule-after/--flow/--new-*/--contract/--no-contract, which allocate legacy numbering instead")
+				}
+				return runNewAt(cmd, f, client, memURN, newAtInput{
+					loc: args[0], title: title, content: content, contentFile: contentFile,
+					abstract: abstract, abstractFile: abstractFile, inherit: inherit,
+					tags: specTags(tags), noEdges: noEdges, dryRun: dryRun,
+				})
 			}
 
 			// One scan of the whole product/module subtree: existence + allocation.
@@ -357,7 +412,7 @@ is one call instead of four.`, abstractSoftMax),
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the abstract from a file")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `body content ("-" reads piped stdin, refused from a terminal; default: the rubric template)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read body content from a file")
-	cmd.Flags().StringVar(&inherit, "inherit", "", "inheritance-edge target citation (default: the tier's contract)")
+	cmd.Flags().StringVar(&inherit, "inherit", "", "inheritance-edge target citation (legacy numbering default: the tier's contract; with a positional <loc>, only when given)")
 	cmd.Flags().BoolVar(&noEdges, "no-edges", false, "do not create table-of-contents / inheritance edges")
 	cmd.Flags().BoolVar(&noContract, "no-contract", false, "when creating a root, do not also scaffold its general-provisions contract")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned spec without writing anything")
@@ -366,6 +421,101 @@ is one call instead of four.`, abstractSoftMax),
 }
 
 const inheritEdgeLabel = "inherits the shared contract (general provisions)"
+
+type newAtInput struct {
+	loc, title, content, contentFile, abstract, abstractFile, inherit string
+	tags                                                              []string
+	noEdges, dryRun                                                   bool
+}
+
+// runNewAt creates a spec at exactly in.loc (#708): any loc the generic node
+// rule allows, at any depth. Nothing is derived from the loc's shape: there is
+// no parent it must have, no contract it inherits by default, no index that
+// must list it, and no number is allocated. Its only edge is an --inherit the
+// caller names explicitly; any other link is `spec link`, afterwards.
+//
+// It keeps the guards every create has: the loc must be free (a live node
+// there is refused, never overwritten), an explicit edge target must resolve
+// before anything is written, and the node and its edge are written together
+// through the spec door or not at all (#687).
+func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, memURN string, in newAtInput) error {
+	loc, err := validateSpecLoc(in.loc)
+	if err != nil {
+		return err
+	}
+	var inheritLoc string
+	if in.inherit != "" {
+		if inheritLoc, err = validateSpecLoc(in.inherit); err != nil {
+			return err
+		}
+		if inheritLoc == loc {
+			return exitcode.Newf(exitcode.Usage, "a spec cannot inherit from itself (%s)", loc)
+		}
+	}
+	body, err := resolveBodyOr(in.content, in.contentFile, f.IOStreams.In, func() string { return rubricBodyAt(loc, in.title, true) })
+	if err != nil {
+		return err
+	}
+	abs, err := cmdutil.ResolveTextInput("abstract", in.abstract, in.abstractFile, f.IOStreams.In)
+	if err != nil {
+		return err
+	}
+	if abs == "" {
+		abs = placeholderAbstractAt(loc, in.title)
+	}
+
+	// The loc must be free. A NotFound is the go-ahead; anything else — a
+	// live node, or a failure to find out — stops before a write.
+	if _, rerr := resolveSpecNode(cmd, client, memURN, loc); rerr == nil {
+		return exitcode.Newf(exitcode.Usage, "%s already exists — change it with `hadron spec edit %s`, or retire it with `hadron spec supersede`", loc, loc)
+	} else if exitcode.FromError(rerr) != exitcode.NotFound {
+		return rerr
+	}
+
+	name := specNameAt(loc, in.title)
+	result := newResultDTO{
+		Citation: loc,
+		MemoryID: memURN,
+		Name:     name,
+		Tags:     in.tags,
+		Abstract: abs,
+		Edges:    []plannedEdgeDTO{},
+		DryRun:   in.dryRun,
+	}
+	if !in.noEdges && inheritLoc != "" {
+		result.Edges = append(result.Edges, plannedEdgeDTO{Label: inheritEdgeLabel, Target: inheritLoc})
+	}
+	if in.dryRun {
+		result.Content = body
+		return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+			return renderNewResult(w, result)
+		})
+	}
+	edges, err := resolveSpecEdges(cmd, client, memURN, loc, result.Edges, nil)
+	if err != nil {
+		return err
+	}
+	nodeType := "info"
+	input := gen.CreateNodeInput{
+		MemoryId: memURN,
+		Loc:      loc,
+		Name:     name,
+		Tags:     in.tags,
+		NodeType: &nodeType,
+		Abstract: &abs,
+		Content:  &body,
+		Data:     specDataRaw(),
+		Seq:      seqFromLoc(loc),
+		Role:     specRole(),
+		Edges:    edges,
+	}
+	if _, err := api.CreateSpecNode(cmd.Context(), client, &input); err != nil {
+		return api.MapError(err)
+	}
+	return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+		return renderNewResult(w, result)
+	})
+}
 
 // plannedContract is a general-provisions contract co-scaffolded with a root.
 type plannedContract struct {
@@ -568,6 +718,12 @@ func planContract(in planInput, productRoot, moduleCit Citation) (Citation, stri
 }
 
 func resolveBody(content, contentFile string, stdin io.Reader, c Citation, title string) (string, error) {
+	return resolveBodyOr(content, contentFile, stdin, func() string { return tierBody(c, title) })
+}
+
+// resolveBodyOr reads the body from --content/--content-file (or piped stdin),
+// falling back to scaffold() when neither is given.
+func resolveBodyOr(content, contentFile string, stdin io.Reader, scaffold func() string) (string, error) {
 	if content != "" && contentFile != "" {
 		return "", exitcode.Newf(exitcode.Usage, "--content and --content-file are mutually exclusive")
 	}
@@ -591,7 +747,7 @@ func resolveBody(content, contentFile string, stdin io.Reader, c Citation, title
 	if content != "" {
 		return content, nil
 	}
-	return tierBody(c, title), nil
+	return scaffold(), nil
 }
 
 func renderNewResult(w io.Writer, r newResultDTO) error {

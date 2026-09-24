@@ -37,15 +37,18 @@ func NewCmdSpec(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Maintain product specs (loc-as-citation nodes)",
 		Long: `Maintain product specs in a Hadron memory.
 
-A spec's loc IS its citation number — a legal-code-style address
-<module>:<feature>:<rule>:<flow> (e.g. msg:010:02:03) where each colon
-level is a real parent/child node. A ` + "`register`" + ` node in the memory
-holds the frozen 3-letter module codes and the append-only number ledger.
+A spec is a node tagged spec, and its loc is its citation. Any valid node
+loc works, at any depth and in any shape: create one with
+"spec new <loc> --title <title>".
 
-Specs follow a fixed rubric (a mandatory abstract + a "What invalidates
-this spec" section) and numbers are never renumbered — to replace a spec
-you supersede it. These commands encode that discipline on top of the
-generic node/edge primitives. Every subcommand takes -m/--memory.`,
+Some corpora use a legacy numbering, <module>:<feature>:<rule>:<flow>
+(e.g. msg:010:02:03), with a register node holding its module codes and
+number ledger. "spec new"'s allocation flags, "spec register" and "spec
+extract" work in that numbering; nothing else requires it.
+
+A spec is never renumbered or deleted: to replace one you supersede it.
+These commands encode that on top of the generic node/edge primitives.
+Every subcommand takes -m/--memory.`,
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
@@ -108,7 +111,7 @@ type specDTO struct {
 // `null`, but the --json contract says an empty list renders as `[]`. Every
 // spec DTO carrying tags goes through this. Only `find`'s fuzzy branch can
 // actually deliver a tagless node — it scopes to specs client-side via
-// isSpecNode, which accepts a citation-shaped loc with no tags at all. The
+// isSpec, which accepts a spec that carries the governed role and no tags. The
 // `get` paths pin the spec tag (server-side for --prefix, fetchSpecTaggedNode
 // for a citation), so there it is defence for a future caller that doesn't
 // (#312).
@@ -166,6 +169,11 @@ type ledgerDTO struct {
 	Memory  string            `json:"memory"`
 	Modules []ledgerModuleDTO `json:"modules"`
 	Drift   []string          `json:"drift,omitempty"`
+	// OutsideNumbering lists the specs this ledger does not cover: the
+	// ledger is the legacy numbering, and a spec at any other loc is valid
+	// (#708) but has no number to report. Named rather than counted so the
+	// report says which, and never dropped silently.
+	OutsideNumbering []string `json:"outsideNumbering"`
 }
 
 type ledgerModuleDTO struct {
@@ -311,6 +319,26 @@ func (c Citation) Seq() (int, bool) {
 		return 0, false
 	}
 	return n, true
+}
+
+// seqFromLoc is specSeq for a spec at ANY loc (#708): the loc's last segment,
+// when it is all digits, is the sibling sort order; otherwise there is none.
+// For a legacy citation it agrees with specSeq, whose numeric leaf is always
+// the last segment.
+func seqFromLoc(loc string) *int {
+	leaf := loc[strings.LastIndex(loc, ":")+1:]
+	if leaf == "" || strings.Trim(leaf, "0123456789") != "" {
+		return nil
+	}
+	// Node.seq is a GraphQL Int — signed 32-bit — so a numeric leaf past
+	// that range orders nothing rather than failing the create (@codex on
+	// #710).
+	n64, err := strconv.ParseInt(leaf, 10, 32)
+	if err != nil {
+		return nil
+	}
+	n := int(n64)
+	return &n
 }
 
 // specSeq returns the sibling sort order for a spec citation as a *int ready for
@@ -931,22 +959,122 @@ func fetchSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc str
 	return resp.Node, nil
 }
 
-// fetchSpecTaggedNode resolves a citation, reads the node, and requires it to
-// be part of the spec corpus. Lint and register intentionally use the generic
-// fetchSpecNode path because they validate malformed or advisory nodes.
-func fetchSpecTaggedNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetNodeNode, Citation, error) {
-	cit, err := ParseCitation(loc)
+// ---- spec addressing (#708) ----
+
+// validateSpecLoc is the ONLY shape check a spec address gets: the generic node
+// loc rule every node in every memory obeys (colon-separated slug atoms), which
+// is also the server's only loc rule (server#1312 audit, team chat #1483).
+//
+// It replaced ParseCitation at every address a user types (#708). The legacy
+// grammar — a 3-letter module, 3-digit feature, 2-digit rule and flow, at most
+// five segments — is no longer a validity rule: a spec may sit at any depth and
+// any shape. ParseCitation survives only inside the legacy authoring adapters
+// (allocation, contracts, the register), which are optional conveniences for
+// corpora that still use that numbering, never a gate on reading or writing a
+// node that does not.
+func validateSpecLoc(loc string) (string, error) {
+	loc = strings.TrimSpace(loc)
+	if err := cmdutil.ValidateURNPath("citation", loc); err != nil {
+		return "", err
+	}
+	return loc, nil
+}
+
+// validateSpecPrefix checks a --prefix before it is sent anywhere and returns
+// the value to send: a prefix is a loc (that node and its descendants), so it
+// obeys the same generic rule, at any depth, and is trimmed like every other
+// spec address — the TRIMMED value is what the caller must query with, or a
+// padded prefix would pass here and match nothing there (@copilot, @codex on
+// #710). given is whether --prefix was on the command line: an OMITTED prefix
+// means no scope, but a GIVEN one that is empty or trims to empty is refused —
+// a blank "$PREFIX" in a script must never turn `replace --yes` into a
+// corpus-wide write (@codex P1 on #710).
+func validateSpecPrefix(prefix string, given bool) (string, error) {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		if given {
+			return "", exitcode.Newf(exitcode.Usage, "--prefix is blank; omit it to cover the whole memory, or name a branch")
+		}
+		return "", nil
+	}
+	if err := cmdutil.ValidateURNPath("--prefix", prefix); err != nil {
+		return "", err
+	}
+	return prefix, nil
+}
+
+// underPrefix reports whether loc is prefix itself or inside that branch: the
+// match must end on a SEGMENT boundary. The server's locPrefix filter matches
+// characters, so `onboarding:mentor` also returns `onboarding:mentorship`.
+// With fixed-width legacy atoms that could not happen; with any loc valid
+// (#708) it can, and a `spec replace --yes` would rewrite a sibling branch the
+// user never named (@codex on #710). "" is no prefix: everything is under it.
+func underPrefix(loc, prefix string) bool {
+	return prefix == "" || loc == prefix || strings.HasPrefix(loc, prefix+":")
+}
+
+// pageBranch keeps the nodes inside prefix's branch (underPrefix) and, unless
+// the server already cut the page, applies --offset/--limit to what REMAINS.
+// With a prefix the window cannot be left to the server: its locPrefix is
+// character-wise, so a sibling like `onboarding:mentor-foo` would take a slot
+// in the window and then be dropped here, skipping real matches (@copilot on
+// #710). Callers therefore scan the whole branch when a prefix is set and let
+// this cut the page.
+func pageBranch(nodes []*api.ListNode, prefix string, limit, offset int, serverPaged bool) []*api.ListNode {
+	out := make([]*api.ListNode, 0, len(nodes))
+	for _, n := range nodes {
+		if n != nil && underPrefix(n.Loc, prefix) {
+			out = append(out, n)
+		}
+	}
+	if serverPaged {
+		return out
+	}
+	if offset > 0 && limit == 0 {
+		limit = serverDefaultPage // --offset alone is one default page, as before
+	}
+	if offset > 0 {
+		if offset >= len(out) {
+			return []*api.ListNode{}
+		}
+		out = out[offset:]
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out
+}
+
+// isSpec reports whether a node belongs to the spec corpus: the `spec` tag, or
+// the governed spec role (#1201). Never the loc's shape (#708).
+//
+// The tag is the working marker. Measured on 2026-09-24 over both production
+// spec corpora (hadronmemory.com:specs, 369 nodes; micromentor.org:specs, 229),
+// it marks exactly the nodes the old citation-shape filter kept — no spec
+// untagged, no tagged node that was not a spec — while the role alone marks 1
+// of 219 Micromentor specs. The role is accepted as well because it is what the
+// server governs by; the corpus SCANS still filter on the tag server-side,
+// since NodeFilter has no role facet (see docs/plans/spec-hierarchy-removal.md).
+func isSpec(tags []string, role *string) bool {
+	return hasTag(tags, "spec") || (role != nil && *role == api.SpecNodeRole)
+}
+
+// fetchSpecTaggedNode validates an address, reads the node, and requires it to
+// be part of the spec corpus (isSpec). Lint and register intentionally use the
+// generic fetchSpecNode path because they validate malformed or advisory nodes.
+func fetchSpecTaggedNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetNodeNode, error) {
+	loc, err := validateSpecLoc(loc)
 	if err != nil {
-		return nil, Citation{}, err
+		return nil, err
 	}
-	n, err := fetchSpecNode(cmd, client, memoryURN, cit.Format())
+	n, err := fetchSpecNode(cmd, client, memoryURN, loc)
 	if err != nil {
-		return nil, Citation{}, err
+		return nil, err
 	}
-	if !hasTag(n.Tags, "spec") {
-		return nil, Citation{}, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag)", n.Loc)
+	if !isSpec(n.Tags, n.Role) {
+		return nil, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag or spec role)", n.Loc)
 	}
-	return n, cit, nil
+	return n, nil
 }
 
 // fetchRegister reads the memory's `register` node (advisory; not a spec).
@@ -963,6 +1091,11 @@ func fetchRegister(cmd *cobra.Command, client graphql.Client, memoryURN string) 
 // typical spec corpus to a single round-trip; the server materializes the full
 // result set before slicing regardless of limit, so a larger page is cheap.
 const nodesPageSize = 500
+
+// serverDefaultPage is the page the server returns for an unspecified limit.
+// An --offset with no --limit has always meant ONE such page; pageBranch keeps
+// that cap when it cuts the window itself (@codex on #710).
+const serverDefaultPage = 100
 
 // scanAllNodes pages the nodes query to exhaustion and returns every node
 // matching (memory, prefix, tags). Any command whose contract is "the whole
@@ -1051,6 +1184,7 @@ type specNode struct {
 	Name               string
 	NodeType           string
 	Tags               []string
+	Role               *string // the governed role; a spec may carry it without the tag (#708)
 	Abstract           *string
 	AbstractOriginHash *string
 	Content            *string
@@ -1079,6 +1213,7 @@ func nodeFromGQL(n *gen.GetNodeNode) specNode {
 		Name:               n.Name,
 		NodeType:           n.NodeType,
 		Tags:               n.Tags,
+		Role:               n.Role,
 		Abstract:           n.Abstract,
 		AbstractOriginHash: n.AbstractOriginHash,
 		Content:            n.Content,
@@ -1109,6 +1244,7 @@ func nodeFromBatch(n *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) specNode {
 		Name:               n.Name,
 		NodeType:           n.NodeType,
 		Tags:               n.Tags,
+		Role:               n.Role,
 		Abstract:           n.Abstract,
 		AbstractOriginHash: n.AbstractOriginHash,
 		Content:            n.Content,

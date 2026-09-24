@@ -25,7 +25,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Show a spec node: its abstract, edges, body, and a lint summary.
 
 Pass a single <citation>, or --prefix <citation-prefix> to dump every spec
-under that prefix (one feature, one module, or the whole product) with the
+under that prefix (any branch of the loc tree, at any depth) with the
 same per-node detail — a client-side fan-out over the existing reads, handy
 for reviewing or context-stuffing a whole branch in one call. By default every
 spec under the prefix is fetched (the listing is paged to exhaustion); pass
@@ -41,9 +41,20 @@ one object for a single citation, an array for --prefix.`,
   hadron spec get --prefix cor:dmo -m hrn:mem:hadronmemory.com:platform-specs --abstract-only --json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			prefix, err := validateSpecPrefix(prefix, cmd.Flags().Changed("prefix"))
+			if err != nil {
+				return err
+			}
 			// Exactly one of <citation> or --prefix.
 			if (len(args) == 0) == (prefix == "") {
 				return exitcode.Newf(exitcode.Usage, "provide a <citation> or --prefix <prefix> (exactly one)")
+			}
+			// A single loc is validated before the memory is resolved, so an
+			// invalid one never costs a lookup (@copilot on #710).
+			if len(args) == 1 {
+				if _, verr := validateSpecLoc(args[0]); verr != nil {
+					return verr
+				}
 			}
 			if bodyOnly && abstractOnly {
 				return exitcode.Newf(exitcode.Usage, "--body-only and --abstract-only are mutually exclusive")
@@ -62,7 +73,7 @@ one object for a single citation, an array for --prefix.`,
 
 			// Single citation — behavior unchanged.
 			if prefix == "" {
-				n, _, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
+				n, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
 				if err != nil {
 					return err
 				}
@@ -93,38 +104,20 @@ one object for a single citation, an array for --prefix.`,
 			}
 
 			// Prefix dump — list specs under the prefix, then fetch each
-			// node's detail. By default page to exhaustion (#23); an explicit
-			// --limit/--offset is honored verbatim as a single page, mirroring
-			// `spec list`.
+			// node's detail. The whole branch is scanned (#23), and
+			// --limit/--offset cut the window AFTER the segment-boundary filter,
+			// never by the server: its prefix is character-wise (pageBranch,
+			// @copilot on #710).
 			prefixArg := prefix
-			var listed []*api.ListNode
-			if limit > 0 || offset > 0 {
-				var limitArg, offsetArg *int
-				if limit > 0 {
-					limitArg = &limit
-				}
-				if offset > 0 {
-					offsetArg = &offset
-				}
-				page, rerr := api.FindNodes(cmd.Context(), client, nil, nil, newNodeFilter(&memURN, &prefixArg, []string{"spec"}), sortLoc(), nil, limitArg, offsetArg)
-				if rerr != nil {
-					return api.MapError(rerr)
-				}
-				listed = page.Nodes
-			} else {
-				listed, err = scanAllNodes(cmd.Context(), client, &memURN, &prefixArg, []string{"spec"})
-				if err != nil {
-					return err
-				}
+			listed, err := scanAllNodes(cmd.Context(), client, &memURN, &prefixArg, []string{"spec"})
+			if err != nil {
+				return err
 			}
-
+			listed = pageBranch(listed, prefix, limit, offset, false)
 			ids := make([]string, 0, len(listed))
 			for _, n := range listed {
-				if n == nil {
-					continue
-				}
-				if _, perr := ParseCitation(n.Loc); perr != nil {
-					continue // only citation-shaped nodes are specs
+				if n == nil || !underPrefix(n.Loc, prefix) {
+					continue // the server's prefix is character-wise; keep the branch
 				}
 				ids = append(ids, n.Id)
 			}

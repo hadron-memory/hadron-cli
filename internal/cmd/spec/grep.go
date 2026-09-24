@@ -50,6 +50,10 @@ token appears — including inside longer tokens — then rewrite precisely with
   hadron spec grep TODO -m hrn:mem:hadronmemory.com:specs --prefix cor:api --field content`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			prefix, err := validateSpecPrefix(prefix, cmd.Flags().Changed("prefix"))
+			if err != nil {
+				return err
+			}
 			pattern := args[0]
 			if pattern == "" {
 				return exitcode.Newf(exitcode.Usage, "<pattern> must not be empty")
@@ -86,11 +90,8 @@ token appears — including inside longer tokens — then rewrite precisely with
 			}
 			ids := make([]string, 0, len(all))
 			for _, n := range all {
-				if n == nil {
-					continue
-				}
-				if _, perr := ParseCitation(n.Loc); perr != nil {
-					continue // skip any non-citation-shaped node
+				if n == nil || !underPrefix(n.Loc, prefix) {
+					continue // the server's prefix is character-wise; keep the branch
 				}
 				ids = append(ids, n.Id)
 			}

@@ -190,16 +190,17 @@ func TestSpecGet(t *testing.T) {
 	}
 }
 
-// The fuzzy `find` path admits citation-shaped nodes carrying no tags at all
-// (isSpecNode's second branch), and their tags must render as `[]`, never
-// `null` (#312). The `get` paths pin the spec tag — server-side for --prefix,
-// via fetchSpecTaggedNode for a citation — so they can't reach a nil slice
-// today; specDetailFromNode normalizes defensively, covered by the unit test in
-// the spec package.
+// The fuzzy `find` path admits a spec carrying the governed role and no tags
+// at all (isSpec's second branch, #708), and its tags must render as `[]`,
+// never `null` (#312). The `get` paths pin the spec tag — server-side for
+// --prefix, via fetchSpecTaggedNode for a citation — so they can't reach a nil
+// slice today; specDetailFromNode normalizes defensively, covered by the unit
+// test in the spec package.
 func TestSpecFindJSONEmptyTagsRenderAsList(t *testing.T) {
+	roleOnly := strings.Replace(specNodeListNode("id-1", "msg:010:02", `null`, "mem1"), `"tags":null`, `"tags":null,"role":"spec"`, 1)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes": `{"data":{"nodeSearch":{"degraded":null,"reason":null,"nodes":[` +
-			specNodeListNode("id-1", "msg:010:02", `null`, "mem1") + `]}}}`,
+			roleOnly + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -212,12 +213,18 @@ func TestSpecFindJSONEmptyTagsRenderAsList(t *testing.T) {
 	}
 }
 
+// #708: the only shape rule for a spec address is the generic loc rule. A loc
+// that breaks it is refused before any request (the unreachable server proves
+// nothing was sent); `register` is a valid loc now, and a non-spec node there
+// is refused by TestSpecGetRejectsNonSpecNode instead.
 func TestSpecGetRejectsMalformedCitation(t *testing.T) {
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "get", "register", "-m", specMem, "--server", "http://127.0.0.1:1"})
-	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
-		t.Fatalf("malformed spec citation should be Usage, got %d", got)
+	for _, bad := range []string{"msg::010", "has space", ":lead", "trail:"} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"spec", "get", bad, "-m", specMem, "--server", "http://127.0.0.1:1"})
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+			t.Errorf("%q: a loc that breaks the generic rule should be Usage, got %d", bad, got)
+		}
 	}
 }
 
@@ -295,26 +302,24 @@ func TestSpecGetPrefix(t *testing.T) {
 	}
 }
 
+// With a --prefix, --limit/--offset cut the window AFTER the segment-boundary
+// filter: the server's locPrefix is character-wise, so a sibling branch
+// (`onboarding:mentor-foo`) returned first must not take a slot (@copilot on
+// #710). The branch is scanned whole; the window is the CLI's.
 func TestSpecGetPrefixExplicitPage(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
-		"NodeBatch": specBatchResp("msg:010:02"),
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("onboarding:mentor-foo", `["spec"]`) + `,` +
+			specNodeList("onboarding:mentor:screens", `["spec"]`) + `,` + specNodeList("onboarding:mentor:settings", `["spec"]`) + `]}}`,
+		"NodeBatch": specBatchResp("onboarding:mentor:screens"),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "get", "--prefix", "msg:010", "--limit", "1", "-m", specMem, "--server", gql.URL})
+	root.SetArgs([]string{"spec", "get", "--prefix", "onboarding:mentor", "--limit", "1", "-m", specMem, "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(out.String(), "1 spec(s) under msg:010") {
-		t.Errorf("unexpected output:\n%s", out.String())
-	}
-	// An explicit --limit is honored verbatim as a single page, not the
-	// 500-wide exhaustive scan.
-	var vars findNodesVars
-	_ = json.Unmarshal(captured["FindNodes"], &vars)
-	if vars.Limit == nil || *vars.Limit != 1 {
-		t.Errorf("explicit --limit should pass through verbatim, got %v", vars.Limit)
+	if !strings.Contains(out.String(), "1 spec(s) under onboarding:mentor") || !strings.Contains(out.String(), "onboarding:mentor:screens") {
+		t.Errorf("want the branch's first spec, not the sibling:\n%s", out.String())
 	}
 }
 
@@ -1560,80 +1565,6 @@ func TestSpecLintAllReportsUntaggedCitation(t *testing.T) {
 	_ = json.Unmarshal(captured["FindNodes"], &vars)
 	if len(vars.Filter.Tags) != 0 {
 		t.Fatalf("lint --all must not pre-filter by spec tag, got %v", vars.Filter.Tags)
-	}
-}
-
-// #687: lint's inheritance-edge remedy is a command a user copies and runs, so
-// the test RUNS it. It used to be `hadron edge add … --label`, which exits
-// `unknown flag: --label`, and a string assertion on the message could not see
-// that. `spec link` when both ends are spec-tagged (it refuses any that isn't);
-// otherwise `edge add` with its real flag. Either way the edge it writes must be
-// the one lint asked for.
-func TestSpecLintInheritanceRemedyRuns(t *testing.T) {
-	for _, tc := range []struct {
-		name, contractTags, wantCmd string
-	}{
-		{"both spec-tagged", `["spec","p1"]`, "spec link"},
-		{"contract lacks the spec tag", `["p1"]`, "edge add"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			gql, _ := captureGraphQL(t, map[string]string{
-				"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:00", tc.contractTags) + `,` +
-					specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
-				"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
-					specBatchNodeWithTags("msg:010:00", tc.contractTags) + `,` + specBatchNode("msg:010:02") + `]}}}`,
-				"Memories":  memListMicromentorJSON,
-				"GetMemory": memGetVectorEnabledJSON,
-			})
-			f, out := testFactory(t)
-			root := NewRootCmd(f)
-			root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
-			_ = root.Execute() // findings exit non-zero; the report is what matters
-
-			var report []struct {
-				Citation string `json:"citation"`
-				Rule     string `json:"rule"`
-				Message  string `json:"message"`
-			}
-			if err := json.Unmarshal([]byte(out.String()), &report); err != nil {
-				t.Fatalf("lint --json: %v\n%s", err, out.String())
-			}
-			var remedy string
-			for _, r := range report {
-				if r.Citation == "msg:010:02" && r.Rule == "inheritance-edge" {
-					_, remedy, _ = strings.Cut(r.Message, "add it: ")
-				}
-			}
-			if remedy == "" {
-				t.Fatalf("no inheritance-edge remedy for msg:010:02 in:\n%s", out.String())
-			}
-			args := splitCommandLine(t, remedy)
-			if len(args) < 3 || args[0] != "hadron" || strings.Join(args[1:3], " ") != tc.wantCmd {
-				t.Fatalf("remedy = %q, want a `hadron %s` command", remedy, tc.wantCmd)
-			}
-
-			gql2, captured := captureGraphQL(t, map[string]string{
-				"Memories":   memListMicromentorJSON,
-				"ResolveUrn": resolveSpecJSON,
-				"GetNode":    linkSpecDetail,
-				"CreateEdge": linkEdgeResp,
-			})
-			f2, _ := testFactory(t)
-			root2 := NewRootCmd(f2)
-			root2.SetArgs(append(args[1:], "--server", gql2.URL))
-			if err := root2.Execute(); err != nil {
-				t.Fatalf("the remedy lint suggests does not run: %q: %v", remedy, err)
-			}
-			var edge struct {
-				Name string `json:"name"`
-			}
-			if err := json.Unmarshal(captured["CreateEdge"], &edge); err != nil {
-				t.Fatalf("the remedy wrote no edge: %v", err)
-			}
-			if edge.Name != "inherits the shared contract (general provisions)" {
-				t.Errorf("remedy edge name = %q, want the inheritance label", edge.Name)
-			}
-		})
 	}
 }
 

@@ -43,8 +43,9 @@ one — a field spec points at the entity it belongs to, a flow at its rule. So
 <from> is the specific/citing spec and <to> is the general/cited one: the same
 direction ` + "`spec extract`" + ` wires automatically.
 
-Both endpoints must already exist and carry the "spec" tag (reach for
-` + "`edge add`" + ` to link arbitrary nodes, or across memories). With no --label, a
+Both endpoints must already exist and be specs, at any valid loc (the
+"spec" tag or the spec role); reach for
+` + "`edge add`" + ` to link arbitrary nodes, or across memories. With no --label, a
 sentence-style label is synthesized from the two titles in the corpus
 convention ("documents <from> on the <to> entity"); refine it with
 ` + "`edge update`" + `.`,
@@ -53,16 +54,16 @@ convention ("documents <from> on the <to> entity"); refine it with
   hadron spec link cor:dmo:020:04 cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			from, err := ParseCitation(args[0])
+			from, err := validateSpecLoc(args[0])
 			if err != nil {
 				return err
 			}
-			to, err := ParseCitation(args[1])
+			to, err := validateSpecLoc(args[1])
 			if err != nil {
 				return err
 			}
-			if from.Format() == to.Format() {
-				return exitcode.Newf(exitcode.Usage, "cannot link a spec to itself (%s)", from.Format())
+			if from == to {
+				return exitcode.Newf(exitcode.Usage, "cannot link a spec to itself (%s)", from)
 			}
 
 			client, err := f.GraphQLClient()
@@ -91,8 +92,8 @@ convention ("documents <from> on the <to> entity"); refine it with
 			}
 
 			result := linkResultDTO{
-				From:     from.Format(),
-				To:       to.Format(),
+				From:     from,
+				To:       to,
 				Label:    label,
 				MemoryID: memURN,
 				DryRun:   dryRun,
@@ -121,23 +122,23 @@ convention ("documents <from> on the <to> entity"); refine it with
 	return cmd
 }
 
-// requireSpecTag rejects an endpoint that is not a spec — `spec link` is the
+// requireSpec rejects an endpoint that is not a spec (isSpec) — `spec link` is the
 // convention-aware path for spec↔spec cross-refs; `edge add` handles arbitrary
 // nodes.
-func requireSpecTag(tags []string, loc string) error {
-	if !hasTag(tags, "spec") {
+func requireSpec(tags []string, role *string, loc string) error {
+	if !isSpec(tags, role) {
 		return exitcode.Newf(exitcode.Usage,
-			"%s is not a spec (no \"spec\" tag) — use `hadron edge add` for arbitrary nodes", loc)
+			"%s is not a spec (no \"spec\" tag or spec role) — use `hadron edge add` for arbitrary nodes", loc)
 	}
 	return nil
 }
 
-func fetchSpecLinkEndpoint(cmd *cobra.Command, client graphql.Client, memoryURN string, cit Citation) (*gen.GetNodeNode, error) {
-	n, err := fetchSpecNode(cmd, client, memoryURN, cit.Format())
+func fetchSpecLinkEndpoint(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetNodeNode, error) {
+	n, err := fetchSpecNode(cmd, client, memoryURN, loc)
 	if err != nil {
 		return nil, err
 	}
-	if err := requireSpecTag(n.Tags, n.Loc); err != nil {
+	if err := requireSpec(n.Tags, n.Role, n.Loc); err != nil {
 		return nil, err
 	}
 	return n, nil

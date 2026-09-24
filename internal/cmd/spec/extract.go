@@ -55,6 +55,10 @@ the new body via --content -/--content-file; it scaffolds the rule (abstract +
 rubric default), wires the table-of-contents and inheritance edges like
 ` + "`spec new`" + `, and adds the cross-ref edge new→source.
 
+extract allocates in the legacy numbering, so the source must be a legacy
+citation. For a spec at any other loc, create the new spec with
+` + "`spec new <loc>`" + ` and trim the source with ` + "`spec edit`" + `.
+
 By default the source is left untouched and you're reminded to trim the moved
 chunk out of it. --strip-source also removes the chunk from the source body,
 but only when it matches verbatim (exactly once) — a reformatted or absent
@@ -71,7 +75,12 @@ chunk leaves the source alone with a warning.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			source, err := ParseCitation(args[0])
 			if err != nil {
-				return err
+				// extract allocates the new spec's number in the legacy numbering,
+				// under the source's module, so it needs a legacy source (#708).
+				// Any other spec: create the new one with `spec new <loc>` and
+				// edit the source.
+				return exitcode.Newf(exitcode.Usage,
+					"extract allocates the new spec's number under a legacy citation, and %q is not one (%v) — for any other spec, create the new one with `hadron spec new <loc>` and edit the source with `hadron spec edit`", args[0], err)
 			}
 			if title == "" {
 				return exitcode.Newf(exitcode.Usage, "--title is required")
@@ -107,7 +116,7 @@ chunk leaves the source alone with a warning.`,
 
 			// Fetch the source: existence + name (for the default ref-label) +
 			// body (for --strip-source). A typo fails fast here.
-			srcNode, _, err := fetchSpecTaggedNode(cmd, client, memURN, source.Format())
+			srcNode, err := fetchSpecTaggedNode(cmd, client, memURN, source.Format())
 			if err != nil {
 				return err
 			}

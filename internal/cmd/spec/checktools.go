@@ -74,6 +74,10 @@ exits 0.`,
   hadron spec check-tools -m hrn:mem:hadronmemory.com:specs --prefix cor:api --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			prefix, err := validateSpecPrefix(prefix, cmd.Flags().Changed("prefix"))
+			if err != nil {
+				return err
+			}
 			registered := parseToolList(toolManifestRaw)
 			ignored := parseToolList(toolIgnoreRaw)
 
@@ -98,11 +102,8 @@ exits 0.`,
 			ids := make([]string, 0, len(all))
 			locByID := map[string]string{}
 			for _, n := range all {
-				if n == nil {
-					continue
-				}
-				if _, perr := ParseCitation(n.Loc); perr != nil {
-					continue
+				if n == nil || !underPrefix(n.Loc, prefix) {
+					continue // the server's prefix is character-wise; keep the branch
 				}
 				ids = append(ids, n.Id)
 				locByID[n.Id] = n.Loc

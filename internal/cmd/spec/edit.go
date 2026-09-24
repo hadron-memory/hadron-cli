@@ -103,7 +103,7 @@ replacement over the cap is rejected.`,
   hadron spec edit cor:agt:020 -m hrn:mem:hadronmemory.com:specs --abstract-still-accurate`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if _, err := ParseCitation(args[0]); err != nil {
+			if _, err := validateSpecLoc(args[0]); err != nil {
 				return err
 			}
 			changed := cmd.Flags().Changed
@@ -146,7 +146,7 @@ replacement over the cap is rejected.`,
 			if err != nil {
 				return err
 			}
-			node, _, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
+			node, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
 			if err != nil {
 				return err
 			}

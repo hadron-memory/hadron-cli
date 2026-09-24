@@ -7,6 +7,18 @@ renumbered (to replace a spec you `supersede` it), and a fixed rubric (abstract
 
 Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 
+> **The fixed hierarchy is being removed (#708/#709).** A spec is any node
+> tagged `spec` (or carrying the governed spec role), and **any valid node loc
+> is a spec address**, at any depth and in any shape. `get`, `list`, `edit`,
+> `link`, `find`, `grep`, `replace` and `check-tools` no longer check the
+> numbering below, and no longer drop a spec from a listing for its shape. The
+> schemes below describe the **legacy numbering**, which `spec new`'s
+> allocation and contract flags still produce. To create a spec anywhere
+> else, use `spec new <loc> --title <title>`. To replace one, use
+> `spec supersede <old> --to <loc>`. Its lint rules and the flat/product
+> scheme are next to go; this page is rewritten when they land.
+> See [docs/plans/spec-hierarchy-removal.md](../plans/spec-hierarchy-removal.md).
+
 ## Two citation schemes
 
 A memory is either **flat** or **product-rooted** — pick one per memory and

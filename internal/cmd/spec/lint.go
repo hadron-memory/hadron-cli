@@ -104,12 +104,8 @@ available — it cannot move the children, because a citation is never renumbere
 There, length means the abstract is restating its children instead of routing to
 them, and the fix is to rewrite it as one clause per child.
 
-A corpus scope (--all/--prefix/--product/--module) additionally checks that an
-index-tier spec CITES each of its children in its BODY (rule index-incomplete,
-warning). The two surfaces divide the work: the abstract routes by DESCRIBING
-subjects, for retrieval; the body indexes by CITING children. The full citation,
-the last two atoms, or the colon-leaf form all count, and a struck entry for a
-superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
+A spec at any loc owes no parent, contract or index: the legacy tier checks
+(parent-exists, toc-edge, inheritance-edge, index-incomplete) are removed.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix cor:api:140 -m hrn:mem:hadronmemory.com:specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
@@ -117,6 +113,22 @@ superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTi
   hadron spec lint --all -m hrn:mem:micromentor.org:platform-specs --strict`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Addresses are validated (and a prefix trimmed) before any
+			// request, as on every other spec command (@codex, @copilot on #710).
+			prefixFlag, err := validateSpecPrefix(prefixFlag, cmd.Flags().Changed("prefix"))
+			if err != nil {
+				return err
+			}
+			if len(args) == 1 {
+				// Keep the normalized loc: the trimmed value is the one fetched,
+				// or a padded argument passes here and is not found there
+				// (@codex, @copilot on #710).
+				loc, verr := validateSpecLoc(args[0])
+				if verr != nil {
+					return verr
+				}
+				args[0] = loc
+			}
 			if err := lintScopeError(len(args) == 1, prefixFlag, product, module, all); err != nil {
 				return err
 			}
@@ -132,10 +144,6 @@ superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTi
 
 			var nodes []specNode
 			var corpus bool
-			// scopeRoot is the loc at the top of a --product/--module scope; it
-			// bounds the cross-node parent-exists check (see lintCorpus). "" means
-			// the whole corpus (--all), where every parent must be present.
-			var scopeRoot string
 			switch {
 			case len(args) == 1:
 				n, err := fetchSpecNode(cmd, client, memURN, args[0])
@@ -158,8 +166,7 @@ superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTi
 			case prefixFlag != "":
 				// A citation prefix — that node plus its descendants (one feature
 				// and its rules, a module, etc.). Mirrors `spec get --prefix`;
-				// linted as a corpus so subtree parent-exists checks run.
-				scopeRoot = prefixFlag
+				// linted as a corpus so the cross-node checks run.
 				nodes, err = scanPrefixDetail(cmd, client, memURN, prefixFlag)
 				if err != nil {
 					return err
@@ -179,7 +186,6 @@ superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTi
 				if product != "" {
 					prefix = Citation{Product: product, Module: module}.Format()
 				}
-				scopeRoot = prefix
 				nodes, err = scanPrefixDetail(cmd, client, memURN, prefix)
 				if err != nil {
 					return err
@@ -197,7 +203,6 @@ superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTi
 					case 1:
 						product = products[0]
 						prefix = Citation{Product: product, Module: module}.Format()
-						scopeRoot = prefix
 						fmt.Fprintf(f.IOStreams.ErrOut, "note: inferred --product %s (the memory's only product)\n", product)
 						nodes, err = scanPrefixDetail(cmd, client, memURN, prefix)
 						if err != nil {
@@ -232,7 +237,7 @@ superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTi
 
 			findings := []lintFindingDTO{}
 			if corpus {
-				findings = lintCorpus(nodes, scopeRoot, memURN)
+				findings = lintCorpus(nodes, memURN)
 			} else {
 				for _, n := range nodes {
 					findings = append(findings, lintNode(n, memURN)...)
@@ -317,10 +322,11 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 		return fs
 	}
 
+	// #708: a loc outside the legacy numbering is valid, so there is no
+	// `loc-shape` finding any more (@copilot on #710: `spec get` and a replace
+	// re-lint reported one for every such spec). ParseCitation only decides
+	// whether the legacy tier rules below apply at all.
 	c, err := ParseCitation(n.Loc)
-	if err != nil {
-		add("loc-shape", sevError, "loc is not a valid citation: "+err.Error())
-	}
 
 	// #527: put every URN example's decomposition on screen, beside the prose
 	// that claims a shape. Advisory only — see lint_urn.go for why this rule
@@ -344,7 +350,17 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 		add("nodetype-info", sevError, fmt.Sprintf("nodeType must be \"info\", got %q", n.NodeType))
 	}
 	if !hasTag(n.Tags, "spec") {
-		add("tag-spec", sevError, `missing "spec" tag`)
+		if n.Role != nil && *n.Role == api.SpecNodeRole {
+			// A spec by its governed role (isSpec), so not broken — but the
+			// tag-filtered scans (list, get --prefix, grep, replace,
+			// check-tools, find --match-exactly) select by the TAG server-side (NodeFilter has no
+			// role facet), so it is invisible to them. Lint's own scans are not
+			// tag-filtered (lintSelects), so lint is NOT in that list
+			// (@copilot, @codex on #710).
+			add("tag-spec", sevWarning, `carries the spec role but not the "spec" tag — spec list, get --prefix, grep, replace, check-tools and find --match-exactly select by the tag, so they skip this spec; add the tag`)
+		} else {
+			add("tag-spec", sevError, `missing "spec" tag`)
+		}
 	}
 
 	// #545. A UNIVERSAL check, above the tier early-returns: one field having
@@ -377,7 +393,7 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	// ADVISORY soft bound tiers down.
 	if abstractPresent(n.Abstract) {
 		if l := abstractLength(n.Abstract); abstractNearCap(l) {
-			add("abstract-length", sevError, nearCapMessage(l, n.Name, c))
+			add("abstract-length", sevError, nearCapMessage(l, n.Name, c, err == nil))
 		}
 	}
 
@@ -487,55 +503,31 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	if n.DataVersion == "" {
 		add("data-version", sevWarning, "data.version is not set (expected e.g. 0.0.1)")
 	}
-	if p, ok := c.Parent(); ok && !hasOutEdgeTo(n, p.Format()) {
-		add("toc-edge", sevWarning, "no table-of-contents edge to parent "+p.Format())
-	}
+	// #708: no `toc-edge` — a legacy-shaped loc no longer implies a parent
+	// it must link to.
 	return fs
 }
 
-// inheritanceRemedy is the command that adds a missing inheritance edge. It
-// must RUN (#687): `spec link` when both ends carry the "spec" tag, since it
-// refuses any endpoint that doesn't; otherwise `edge add` by full ref. Its flag
-// is --name — the --label this once named does not exist, so the old remedy
-// exited `unknown flag`.
-func inheritanceRemedy(from, to, memURN string, specTagged map[string]bool) string {
-	if specTagged[from] && specTagged[to] {
-		return fmt.Sprintf("hadron spec link %s %s -m %s --label %q", from, to, memURN, inheritEdgeLabel)
-	}
-	return fmt.Sprintf("hadron edge add --from %s --to %s --name %q",
-		specNodeRef(memURN, from), specNodeRef(memURN, to), inheritEdgeLabel)
-}
-
 // lintCorpus runs the per-node rules on every node plus the cross-node
-// checks (collisions, parent existence, inheritance edges). scopeRoot is the
-// loc at the top of a --product/--module scope (e.g. "cor:acl"); the
-// parent-exists check is suppressed for a parent that lives above it, since a
-// scoped scan deliberately omits the subtree's attach point. An empty
-// scopeRoot lints the whole corpus (--all), where every parent must exist.
-// memURN is the -m of the inheritance-edge remedy, so the suggested
-// `hadron spec link` command is copy-pasteable.
-func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
+// checks that hold at any loc (duplicate locs). The legacy tier obligations —
+// a parent must exist, a node must inherit its tier's contract, an index must
+// list its children — are gone (#708): `spec new <loc>` creates a spec with no
+// parent or contract on purpose, and a legacy-shaped loc no longer implies
+// one (@codex on #710). memURN is passed through to the per-node rules.
+func lintCorpus(nodes []specNode, memURN string) []lintFindingDTO {
 	fs := []lintFindingDTO{}
 	locCount := map[string]int{}
-	contracts := map[string]bool{}
-	specTagged := map[string]bool{}
 	productCodes := map[string]bool{}
 	flatCodes := map[string]bool{}
 	for _, n := range nodes {
 		fs = append(fs, lintNode(n, memURN)...)
 		locCount[n.Loc]++
-		if hasTag(n.Tags, "spec") {
-			specTagged[n.Loc] = true
-		}
 		if n.Unavailable {
 			continue
 		}
 		c, err := ParseCitation(n.Loc)
 		if err != nil {
 			continue
-		}
-		if c.IsContract() {
-			contracts[c.Format()] = true
 		}
 		switch {
 		case c.Product != "":
@@ -550,37 +542,11 @@ func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 		if n.Unavailable {
 			continue
 		}
-		c, err := ParseCitation(n.Loc)
-		if err != nil {
-			continue
-		}
 		if locCount[n.Loc] > 1 && !dupReported[n.Loc] {
 			dupReported[n.Loc] = true
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "duplicate-loc", Severity: sevError, Message: "duplicate citation — two nodes share this loc"})
 		}
-		if p, ok := c.Parent(); ok {
-			pLoc := p.Format()
-			if locCount[pLoc] == 0 && parentInScope(pLoc, scopeRoot) {
-				fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "parent-exists", Severity: sevError, Message: "parent " + pLoc + " does not exist"})
-			}
-		}
-		// Any non-contract node inherits the reserved contract at its tier
-		// (rule→feature:00, feature→module:000, product-rooted module→product:gen).
-		if !c.IsContract() {
-			if cl, ok := c.InheritedContractLoc(); ok && contracts[cl.Format()] && !hasOutEdgeTo(n, cl.Format()) {
-				fs = append(fs, lintFindingDTO{
-					Citation: n.Loc, Rule: "inheritance-edge", Severity: sevWarning,
-					Message: fmt.Sprintf("no inheritance edge to general-provisions contract %s — add it: %s",
-						cl.Format(), inheritanceRemedy(n.Loc, cl.Format(), memURN, specTagged)),
-				})
-			}
-		}
 	}
-
-	// #605's second half: an index-tier spec must cite its children in its body.
-	// Cross-node by nature — it is a statement about a node's children — so it
-	// lives here rather than in lintNode. See lintindex.go.
-	fs = append(fs, indexIncompleteFindings(nodes)...)
 
 	// Hygiene: a memory should be all-flat or all-product, never both.
 	if len(productCodes) > 0 && len(flatCodes) > 0 {
@@ -687,26 +653,6 @@ func isPlaceholderAbstract(a *string) bool {
 	return a != nil && strings.Contains(*a, abstractPlaceholder)
 }
 
-func hasOutEdgeTo(n specNode, targetLoc string) bool {
-	for _, e := range n.OutEdges {
-		if e.Loc == targetLoc {
-			return true
-		}
-	}
-	return false
-}
-
-// parentInScope reports whether a node's parent loc falls within the linted
-// scope. With no scope (scopeRoot == "") the whole corpus is in scope, so
-// every parent must exist. Otherwise only the scope root and its descendants
-// are in scope: a parent above the scope root is the subtree's attach point,
-// intentionally absent from a scoped scan, so flagging it missing would be a
-// false positive (issue #21). A missing parent at or below the scope root —
-// a genuinely dangling intermediate — is still reported.
-func parentInScope(parentLoc, scopeRoot string) bool {
-	return scopeRoot == "" || parentLoc == scopeRoot || strings.HasPrefix(parentLoc, scopeRoot+":")
-}
-
 // ---- corpus scans (one Nodes query + per-node detail reads) ----
 
 // scanPrefixDetail reads every node under a loc prefix (headers + specs) with
@@ -727,11 +673,24 @@ func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix 
 		if n.Loc != prefix && !strings.HasPrefix(n.Loc, prefix+":") {
 			continue // keep the scan scoped to the requested subtree
 		}
-		if _, err := ParseCitation(n.Loc); err == nil {
+		if lintSelects(n) {
 			nodes = append(nodes, n)
 		}
 	}
 	return fetchDetails(cmd, client, nodes)
+}
+
+// lintSelects is what a lint scan reads (#708): every spec (the tag or the
+// spec role), at ANY loc, plus an untagged citation-shaped node, so the
+// missing-spec-tag finding still reaches a legacy spec that lost its tag
+// (#241). A spec outside the legacy numbering used to be dropped here, so a
+// corpus lint came back clean without ever checking it (@codex on #710).
+func lintSelects(n *api.ListNode) bool {
+	if isSpec(n.Tags, n.Role) {
+		return true
+	}
+	_, err := ParseCitation(n.Loc)
+	return err == nil
 }
 
 // scanAllSpecsDetail reads every citation-shaped node in the memory with full
@@ -771,10 +730,7 @@ func scanAllCitationLocs(cmd *cobra.Command, client graphql.Client, memURN strin
 func citationListNodes(all []*api.ListNode) []*api.ListNode {
 	nodes := make([]*api.ListNode, 0, len(all))
 	for _, n := range all {
-		if n == nil {
-			continue
-		}
-		if _, err := ParseCitation(n.Loc); err == nil {
+		if n != nil && lintSelects(n) {
 			nodes = append(nodes, n)
 		}
 	}
@@ -1185,15 +1141,19 @@ func indexRemedy(c Citation) string {
 		tier, children)
 }
 
-func nearCapMessage(l int, title string, c Citation) string {
+func nearCapMessage(l int, title string, c Citation, legacy bool) string {
 	// One decision, two consequences. The conjunction hint below is SPLIT-SHAPED,
 	// so it must be tied to the remedy actually chosen rather than re-derived
 	// from the tier — deriving it separately is how a contract ended up being
 	// told that the "and" in its title suggested a split it had just been told
 	// it could not perform (caught by TestConjunctionHintIsRuleTierOnly when
 	// contracts were excluded from indexTier).
+	// The contract and index remedies are legacy-TIER advice, so only a legacy
+	// citation gets them; any other loc gets the generic split remedy, never
+	// index guidance for a zero-value Citation (@copilot on #710).
 	remedy, splitShaped := splitRemedy, true
 	switch {
+	case !legacy:
 	case c.IsContract():
 		remedy, splitShaped = contractRemedy, false
 	case indexTier(c):

@@ -321,62 +321,6 @@ func TestLintNodeUnavailable(t *testing.T) {
 	}
 }
 
-func TestLintCorpusInheritanceAndParent(t *testing.T) {
-	nodes := []specNode{
-		{Loc: "msg", Name: "msg — Messaging", NodeType: "info", Tags: []string{"spec", "p1"}},
-		{Loc: "msg:010", Name: "msg:010 — W-series", NodeType: "info", Tags: []string{"spec", "p1"}},
-		cleanSpec(t, "msg:010:00", "Shared contract"),
-		cleanSpec(t, "msg:010:02", "W2"), // has ToC edge, but no inheritance edge to :00
-	}
-	fs := lintCorpus(nodes, "", lintMem)
-	if !hasRuleFor(fs, "msg:010:02", "inheritance-edge") {
-		t.Errorf("expected inheritance-edge warning on msg:010:02; got %v", fs)
-	}
-	if hasRule(fs, "parent-exists") {
-		t.Errorf("no parent should be missing; got %v", fs)
-	}
-	// #35, then #687: the message names the exact, copy-pasteable remedy —
-	// `spec link` with the memory, since `edge add … --label` could not even
-	// parse. TestSpecLintInheritanceRemedyRuns (package cmd) RUNS it.
-	msg := messageFor(fs, "msg:010:02", "inheritance-edge")
-	for _, want := range []string{
-		"hadron spec link msg:010:02 msg:010:00",
-		"-m acme.com::specs",
-		inheritEdgeLabel,
-	} {
-		if !strings.Contains(msg, want) {
-			t.Errorf("inheritance-edge message must contain %q; got %q", want, msg)
-		}
-	}
-
-	// `spec link` refuses an endpoint without the "spec" tag, so an untagged
-	// end falls back to `edge add` by full ref, with its REAL flag, --name.
-	untagged := cleanSpec(t, "msg:010:00", "Shared contract")
-	untagged.Tags = []string{"topic"}
-	fs = lintCorpus([]specNode{nodes[0], nodes[1], untagged, nodes[3]}, "", lintMem)
-	msg = messageFor(fs, "msg:010:02", "inheritance-edge")
-	for _, want := range []string{
-		"hadron edge add",
-		"--from acme.com::specs::msg:010:02",
-		"--to acme.com::specs::msg:010:00",
-		"--name " + fmt.Sprintf("%q", inheritEdgeLabel),
-	} {
-		if !strings.Contains(msg, want) {
-			t.Errorf("untagged-endpoint remedy must contain %q; got %q", want, msg)
-		}
-	}
-}
-
-// messageFor returns the message of the first finding matching (citation, rule).
-func messageFor(fs []lintFindingDTO, citation, rule string) string {
-	for _, f := range fs {
-		if f.Citation == citation && f.Rule == rule {
-			return f.Message
-		}
-	}
-	return ""
-}
-
 func equalIntSlices(a, b []int) bool {
 	if len(a) != len(b) {
 		return false
@@ -389,70 +333,12 @@ func equalIntSlices(a, b []int) bool {
 	return true
 }
 
-func TestLintCorpusOrphanParent(t *testing.T) {
-	fs := lintCorpus([]specNode{cleanSpec(t, "msg:010:02", "W2")}, "", lintMem)
-	if !hasRuleFor(fs, "msg:010:02", "parent-exists") {
-		t.Errorf("expected parent-exists error for orphan; got %v", fs)
-	}
-}
-
-func TestLintCorpusScopedRootParentAboveScope(t *testing.T) {
-	// Regression for #21: a --product/--module scoped lint (scopeRoot
-	// "cor:acl") must not flag the scope's own root for its parent (cor, the
-	// product root) living above the scanned subtree.
-	nodes := []specNode{
-		{Loc: "cor:acl", Name: "cor:acl — Access control", NodeType: "info", Tags: []string{"spec", "p0"}},
-		{Loc: "cor:acl:010", Name: "cor:acl:010 — Roles", NodeType: "info", Tags: []string{"spec", "p1"}},
-		cleanSpec(t, "cor:acl:010:02", "Role check"),
-	}
-	if fs := lintCorpus(nodes, "cor:acl", lintMem); hasRule(fs, "parent-exists") {
-		t.Errorf("scoped lint must not flag the scope root's above-scope parent; got %v", fs)
-	}
-	// Whole-corpus semantics (scopeRoot "") still treat the same set as an
-	// orphan: cor:acl's parent cor is genuinely absent.
-	if fs := lintCorpus(nodes, "", lintMem); !hasRuleFor(fs, "cor:acl", "parent-exists") {
-		t.Errorf("unscoped lint should flag cor:acl's missing parent; got %v", fs)
-	}
-}
-
-func TestLintCorpusScopedMissingIntermediate(t *testing.T) {
-	// A genuinely dangling intermediate inside the scope (cor:acl:010 missing
-	// under scope root cor:acl) must still be reported — only the scope
-	// boundary's parent is exempt.
-	nodes := []specNode{
-		{Loc: "cor:acl", Name: "cor:acl — Access control", NodeType: "info", Tags: []string{"spec", "p0"}},
-		cleanSpec(t, "cor:acl:010:02", "Role check"), // parent cor:acl:010 is absent
-	}
-	if fs := lintCorpus(nodes, "cor:acl", lintMem); !hasRuleFor(fs, "cor:acl:010:02", "parent-exists") {
-		t.Errorf("a missing intermediate inside the scope must still be flagged; got %v", fs)
-	}
-}
-
 func TestLintCorpusDuplicate(t *testing.T) {
 	a := cleanSpec(t, "msg:010:02", "W2")
 	b := cleanSpec(t, "msg:010:02", "W2 dup")
-	fs := lintCorpus([]specNode{a, b}, "", lintMem)
+	fs := lintCorpus([]specNode{a, b}, lintMem)
 	if !hasRule(fs, "duplicate-loc") {
 		t.Errorf("expected duplicate-loc error; got %v", fs)
-	}
-}
-
-func TestLintCorpusProductInheritance(t *testing.T) {
-	// A product's module root should inherit the product's :gen contract.
-	nodes := []specNode{
-		{Loc: "cli", Name: "cli — CLI", NodeType: "info", Tags: []string{"spec", "p0"}},
-		{Loc: "cli:gen", Name: "cli:gen — general provisions", NodeType: "info", Tags: []string{"spec", "p0"}},
-		{Loc: "cli:cha", Name: "cli:cha — chat", NodeType: "info", Tags: []string{"spec", "p1"}},
-	}
-	fs := lintCorpus(nodes, "", lintMem)
-	if !hasRuleFor(fs, "cli:cha", "inheritance-edge") {
-		t.Errorf("expected inheritance-edge warning cli:cha → cli:gen; got %v", fs)
-	}
-	if hasRule(fs, "parent-exists") {
-		t.Errorf("no parent should be missing; got %v", fs)
-	}
-	if hasRule(fs, "mixed-arity") {
-		t.Errorf("a pure product corpus is not mixed; got %v", fs)
 	}
 }
 
@@ -464,8 +350,8 @@ func TestLintCorpusMixedArity(t *testing.T) {
 		{Loc: "cli", Name: "cli — CLI", NodeType: "info", Tags: []string{"spec", "p0"}},
 		{Loc: "cli:cha", Name: "cli:cha — chat", NodeType: "info", Tags: []string{"spec", "p1"}},
 	}
-	if !hasRule(lintCorpus(nodes, "", lintMem), "mixed-arity") {
-		t.Errorf("expected mixed-arity warning; got %v", lintCorpus(nodes, "", lintMem))
+	if !hasRule(lintCorpus(nodes, lintMem), "mixed-arity") {
+		t.Errorf("expected mixed-arity warning; got %v", lintCorpus(nodes, lintMem))
 	}
 }
 
@@ -475,7 +361,7 @@ func TestLintCorpusCleanReturnsEmptySlice(t *testing.T) {
 		specHeader(t, "msg:010", "W-series", "msg:010:02"),
 		cleanSpec(t, "msg:010:02", "W2"),
 	}
-	fs := lintCorpus(nodes, "", lintMem)
+	fs := lintCorpus(nodes, lintMem)
 	if fs == nil {
 		t.Fatal("clean corpus findings must be an empty slice, not nil")
 	}
@@ -1330,5 +1216,115 @@ func TestWhitespaceOnlyBodyIsStillContent(t *testing.T) {
 	n.AbstractOriginHash = nil
 	if got := abstractVerification(n); got != abstractUnverified {
 		t.Errorf("a whitespace-only body is still content to verify against, got %v", got)
+	}
+}
+
+// ---- #708: lint reads every spec, whatever its loc ----
+
+// What a lint scan reads: every spec (tag or role) at any loc, plus an untagged
+// citation-shaped node so the missing-tag finding still reaches it (#241). A
+// spec outside the legacy numbering is no longer dropped (@codex on #710).
+func TestLintSelectsEverySpec(t *testing.T) {
+	role := api.SpecNodeRole
+	for _, c := range []struct {
+		name string
+		n    api.ListNode
+		want bool
+	}{
+		{"tagged, legacy", api.ListNode{Loc: "msg:010:02", Tags: []string{"spec"}}, true},
+		{"tagged, any loc", api.ListNode{Loc: "onboarding:mentor:screens", Tags: []string{"spec"}}, true},
+		{"role only, any loc", api.ListNode{Loc: "glossary", Role: &role}, true},
+		{"untagged, legacy-shaped (missing-tag finding)", api.ListNode{Loc: "msg:010:03"}, true},
+		{"untagged, any other loc (not a spec)", api.ListNode{Loc: "register"}, false},
+	} {
+		if got := lintSelects(&c.n); got != c.want {
+			t.Errorf("%s: lintSelects = %v, want %v", c.name, got, c.want)
+		}
+	}
+	all := []*api.ListNode{{Loc: "onboarding:mentor", Tags: []string{"spec"}}, {Loc: "register"}, nil}
+	if got := citationListNodes(all); len(got) != 1 || got[0].Loc != "onboarding:mentor" {
+		t.Errorf("citationListNodes = %v, want only the spec outside the numbering", got)
+	}
+}
+
+// Two nodes at one loc is a defect at any loc, not only a legacy one.
+func TestDuplicateLocAtAnyLoc(t *testing.T) {
+	n := specNode{Loc: "onboarding:mentor", Name: "onboarding:mentor — M", NodeType: "info", Tags: []string{"spec"}}
+	if !hasRuleFor(lintCorpus([]specNode{n, n}, lintMem), "onboarding:mentor", "duplicate-loc") {
+		t.Error("a duplicated loc outside the numbering must be reported")
+	}
+}
+
+// A near-cap abstract on a spec outside the numbering gets the generic split
+// remedy, never legacy index or contract guidance built from an empty
+// Citation (@copilot on #710).
+func TestNearCapAtAnyLocIsNotTierAdvice(t *testing.T) {
+	sn := specNode{Loc: "onboarding:mentor", Name: "onboarding:mentor — Mentors", NodeType: "info", Tags: []string{"spec"}}
+	abs := strings.Repeat("a", abstractHardMax-10)
+	sn.Abstract = &abs
+	var msg string
+	for _, f := range lintNode(sn, "") {
+		if f.Rule == "abstract-length" {
+			msg = f.Message
+		}
+	}
+	if msg == "" {
+		t.Fatal("the hard cap binds every spec, so a near-cap abstract must be reported")
+	}
+	if strings.Contains(msg, indexRemedy(Citation{})) || strings.Contains(msg, contractRemedy) {
+		t.Errorf("tier advice for a loc with no tier: %q", msg)
+	}
+	if !strings.Contains(msg, splitRemedy) {
+		t.Errorf("want the generic split remedy: %q", msg)
+	}
+}
+
+// A spec by its governed role but without the tag is a spec (isSpec), so the
+// missing tag is a WARNING that says why it matters — the tag-based scans skip
+// it — not the "broken" error a non-spec gets (@copilot on #710).
+func TestTagSpecFindingKnowsTheRole(t *testing.T) {
+	role := api.SpecNodeRole
+	find := func(n specNode) *lintFindingDTO {
+		for _, f := range lintNode(n, "") {
+			if f.Rule == "tag-spec" {
+				f := f
+				return &f
+			}
+		}
+		return nil
+	}
+	roleOnly := specNode{Loc: "onboarding:mentor", Name: "onboarding:mentor — M", NodeType: "info", Role: &role}
+	if f := find(roleOnly); f == nil || f.Severity != sevWarning || !strings.Contains(f.Message, "skip this spec") {
+		t.Errorf("role-only spec: tag-spec = %+v, want a warning explaining the scans skip it", f)
+	} else if !strings.Contains(f.Message, "find --match-exactly") {
+		t.Errorf("exact find filters by the tag too, so the warning must name it: %q", f.Message)
+	} else if strings.Contains(f.Message, "lint") {
+		t.Errorf("lint's own scans DO include a role-only spec, so the warning must not name lint: %q", f.Message)
+	}
+	untagged := specNode{Loc: "msg:010:02", Name: "msg:010:02 — W", NodeType: "info"}
+	if f := find(untagged); f == nil || f.Severity != sevError {
+		t.Errorf("untagged, no role: tag-spec = %+v, want the error", f)
+	}
+}
+
+// #708: the legacy tier obligations are gone. A corpus that used to trip every
+// one of them — a rule whose feature and module don't exist, no table-of-
+// contents edge, a sibling contract it doesn't inherit, a header whose body
+// lists no children — reports none, because `spec new <loc>` creates exactly
+// such specs on purpose (@codex on #710).
+func TestLintCorpusHasNoTierObligations(t *testing.T) {
+	orphan := cleanSpec(t, "msg:010:02", "W2") // no msg:010, no msg …
+	orphan.OutEdges = nil                      // … and no ToC edge
+	nodes := []specNode{
+		orphan,
+		cleanSpec(t, "cor:acl:010:00", "Provisions"),
+		cleanSpec(t, "cor:acl:010:01", "Rule"), // does not inherit :00
+		{Loc: "cor:acl", Name: "cor:acl — ACL", NodeType: "info", Tags: []string{"spec"}, Content: ptr("# cor:acl — ACL\n")}, // lists no children
+	}
+	fs := lintCorpus(nodes, lintMem)
+	for _, rule := range []string{"parent-exists", "toc-edge", "inheritance-edge", "index-incomplete"} {
+		if hasRule(fs, rule) {
+			t.Errorf("%s is a removed tier obligation, but was reported: %v", rule, fs)
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -8,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
@@ -433,5 +435,54 @@ func TestSpecDetailFromNodeEmptyTags(t *testing.T) {
 	dto := specDetailFromNode(&gen.GetNodeNode{Loc: "msg:010:02", Name: "W2", NodeType: "info"}, false, nil, "")
 	if dto.Tags == nil {
 		t.Error("detail DTO tags must never be nil (renders as null)")
+	}
+}
+
+// The register reminder names only locs that are in the legacy ledger (@codex
+// on #710): a supersede entirely outside the numbering prints nothing.
+func TestRegisterReminderOnlyForTheLedger(t *testing.T) {
+	for _, c := range []struct {
+		old, new, want string
+	}{
+		{"msg:010:02", "msg:010:03", "mark msg:010:02 retired and add msg:010:03"},
+		{"msg:010:02", "onboarding:v2", "mark msg:010:02 retired (its replacement onboarding:v2 is outside"},
+		{"onboarding:v1", "msg:010:03", "add msg:010:03 to the ledger"},
+		{"onboarding:v1", "onboarding:v2", ""},
+	} {
+		var b strings.Builder
+		registerReminder(&b, c.old, c.new)
+		if c.want == "" && b.Len() != 0 || c.want != "" && !strings.Contains(b.String(), c.want) {
+			t.Errorf("%s → %s: reminder %q, want %q", c.old, c.new, b.String(), c.want)
+		}
+	}
+}
+
+// --offset without --limit is one default page after the branch filter, not
+// the whole remaining branch (@codex on #710).
+func TestPageBranchOffsetOnlyIsOneDefaultPage(t *testing.T) {
+	var nodes []*api.ListNode
+	for i := 0; i < serverDefaultPage+50; i++ {
+		nodes = append(nodes, &api.ListNode{Loc: fmt.Sprintf("b:%d", i)})
+	}
+	if got := len(pageBranch(nodes, "b", 0, 10, false)); got != serverDefaultPage {
+		t.Errorf("offset-only window = %d, want one default page (%d)", got, serverDefaultPage)
+	}
+	if got := len(pageBranch(nodes, "b", 0, 0, false)); got != serverDefaultPage+50 {
+		t.Errorf("no window = %d, want the whole branch", got)
+	}
+	if got := len(pageBranch(nodes, "b", 5, 10, false)); got != 5 {
+		t.Errorf("explicit limit = %d, want 5", got)
+	}
+}
+
+// Both read projections carry the role into lint, or a role-only spec read by
+// either path is judged as if it had none (@copilot on #710).
+func TestLintProjectionsCarryTheRole(t *testing.T) {
+	role := api.SpecNodeRole
+	if sn := nodeFromGQL(&gen.GetNodeNode{Loc: "x", Role: &role}); sn.Role == nil || *sn.Role != role {
+		t.Errorf("nodeFromGQL dropped the role: %v", sn.Role)
+	}
+	if sn := nodeFromBatch(&gen.NodeBatchNodeBatchNodeBatchResultNodesNode{Loc: "x", Role: &role}); sn.Role == nil || *sn.Role != role {
+		t.Errorf("nodeFromBatch dropped the role: %v", sn.Role)
 	}
 }

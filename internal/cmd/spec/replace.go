@@ -93,6 +93,10 @@ example, leave an abstract out of sync with its content.`,
   hadron spec replace 'h-chat-(\w+)' 'hadron_chatbot_$1' -m hrn:mem:hadronmemory.com:specs --regex --yes`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			prefix, err := validateSpecPrefix(prefix, cmd.Flags().Changed("prefix"))
+			if err != nil {
+				return err
+			}
 			pattern, replacement := args[0], args[1]
 			if pattern == "" {
 				return exitcode.Newf(exitcode.Usage, "<pattern> must not be empty")
@@ -138,11 +142,8 @@ example, leave an abstract out of sync with its content.`,
 			specIDs := make([]string, 0, len(all))
 			governed := 0
 			for _, n := range all {
-				if n == nil {
-					continue
-				}
-				if _, perr := ParseCitation(n.Loc); perr != nil {
-					continue
+				if n == nil || !underPrefix(n.Loc, prefix) {
+					continue // the server's prefix is character-wise; keep the branch
 				}
 				specIDs = append(specIDs, n.Id)
 				if isGovernedKind(n.Role, n.IsRunnable) {

@@ -19,8 +19,9 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List spec nodes in a memory",
 		Long: `List spec nodes, optionally scoped to a loc prefix.
 
---prefix filters by the citation prefix, e.g. --prefix msg lists one
-module, --prefix msg:010 one feature and its rules/flows.
+--prefix filters by the citation prefix: --prefix msg:010 lists every spec
+whose loc is msg:010 or starts with msg:010:, at any depth. Every node tagged
+spec is listed, whatever the shape of its loc.
 
 By default every matching spec is listed (the query is paged to
 exhaustion). Pass --limit (with optional --offset) to fetch a single
@@ -29,6 +30,10 @@ explicit page instead.`,
   hadron spec list -m hrn:mem:micromentor.org:platform-specs --prefix msg:010 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			prefix, err := validateSpecPrefix(prefix, cmd.Flags().Changed("prefix"))
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -55,9 +60,12 @@ explicit page instead.`,
 			}
 			// Bare `list` lists the whole memory, so page to exhaustion (#23).
 			// An explicit --limit/--offset is honored verbatim as a single
-			// page — deliberate user-driven pagination, not the default.
+			// server page — deliberate user-driven pagination, not the default —
+			// EXCEPT with a --prefix, where the branch is scanned whole and the
+			// window cut after the segment-boundary filter (pageBranch).
 			var rawNodes []*api.ListNode
-			if limit > 0 || offset > 0 {
+			serverPaged := (limit > 0 || offset > 0) && prefix == ""
+			if serverPaged {
 				var limitArg, offsetArg *int
 				if limit > 0 {
 					limitArg = &limit
@@ -77,13 +85,11 @@ explicit page instead.`,
 				}
 			}
 
+			rawNodes = pageBranch(rawNodes, prefix, limit, offset, serverPaged)
 			specs := make([]specDTO, 0, len(rawNodes))
 			for _, n := range rawNodes {
-				if n == nil {
-					continue
-				}
-				if _, err := ParseCitation(n.Loc); err != nil {
-					continue // only citation-shaped nodes are specs
+				if n == nil || !underPrefix(n.Loc, prefix) {
+					continue // the server's prefix is character-wise; keep the branch
 				}
 				specs = append(specs, specDTO{
 					Citation:  n.Loc,

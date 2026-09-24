@@ -269,7 +269,7 @@ hadron channel list [--owner-app <ref>] [-m <memory>] | get <id|address> | creat
 hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
-hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> | import spec-kit|code
+hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> [--to <loc>] | import spec-kit|code
 hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--dry-run] [--force] [--prune] [--json] | plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref>
@@ -1040,21 +1040,32 @@ Conventions:
   memory ref is an id or URN; `add`/`create` upsert; `member rm` / `share rm`
   / `subscription rm` require `--yes` non-interactively. Find user IDs via
   `org member list` or `auth whoami`.
-- `spec` manages product-spec nodes whose loc IS a citation number. A memory
-  is either flat (`<module>:<feature>:<rule>[:<flow>]`, e.g. `msg:010:02`) or
-  product-rooted (`<product>:<module>:<feature>:<rule>[:<flow>]`, e.g.
-  `cli:cha:010:01`) — never both. Each tier has a reserved general-provisions
-  contract its siblings inherit: feature `:00`, module `:000`, product `:gen`.
+- `spec` manages product-spec nodes: a node is a spec when it carries the
+  `spec` tag (or the governed spec role), and its loc is its citation. **Any
+  valid node loc works, at any depth and in any shape (#708)**: `get`, `list`,
+  `edit`, `link`, `find`, `grep`, `replace` and `check-tools` check only the
+  generic loc rule (colon-separated slug segments), and never drop a spec from
+  a listing for its shape. Some corpora use a legacy numbering — flat
+  (`<module>:<feature>:<rule>[:<flow>]`, e.g. `msg:010:02`) or product-rooted
+  (`<product>:<module>:<feature>:<rule>[:<flow>]`, e.g. `cli:cha:010:01`), with
+  reserved general-provisions contracts (feature `:00`, module `:000`, product
+  `:gen`). That numbering is what `spec new`'s allocation and contract flags
+  produce; it is a convention, not a rule other commands enforce.
   It takes `-m/--memory` and addresses specs by bare citation, not a full URN.
   `spec get` shows one citation, or `--prefix <prefix>` dumps every spec under
-  a branch (feature/module/product) with the same per-node detail, paged to
+  any branch of the loc tree, at any depth, with the same per-node detail, paged to
   exhaustion (`--limit`/`--offset` fetch a single page); `--json` emits an array.
   `--body-only` prints just one spec's raw markdown body for a clean
   `… | node update --content -` edit round-trip.
   `spec describe` reports a memory's scheme (flat/product), products, modules,
   and counts, reading any scheme declared in the memory's data
-  (`--declare flat|product` writes it); `spec new` allocates the next number
-  and scaffolds a **tier-appropriate** skeleton — a `## Modules`/`## Features`
+  (`--declare flat|product` writes it); **`spec new <loc> --title <title>`
+  creates exactly that spec at any valid loc** (#708): nothing is derived from
+  the loc's shape — no parent it must have, no contract it inherits, no number
+  allocated — so its only edge is an explicit `--inherit <loc>`, a loc that
+  already holds a node is refused, and it can't be combined with the tier
+  flags below. Without a `<loc>`, `spec new` allocates the next number in the
+  legacy numbering and scaffolds a **tier-appropriate** skeleton — a `## Modules`/`## Features`
   index for a product/module root, a load-bearing-point + rule list for a
   feature root, a general-provisions skeleton for a contract, or the
   four-section rubric for a rule/flow
@@ -1090,7 +1101,9 @@ Conventions:
   into a replacement the server rejects. There is no
   `abstractStillAccurate` argument on GraphQL — that exists only on the MCP
   `hadron_update_node` — so this is the CLI doing client-side what MCP does with
-  a flag; `spec extract <source> --to-feature <fff> [--rule <rr>]`
+  a flag; `spec extract <source> --to-feature <fff> [--rule <rr>]` (legacy
+  numbering only: it allocates under the source's module, so a source outside
+  it is refused with a pointer to `spec new <loc>`)
   splits a sub-rule out of a fat parent into its own citation under another
   feature, piping the moved chunk in via `--content -`/`--content-file`,
   auto-wiring the cross-ref edge new→source (`--ref-label`), and reminding you
@@ -1120,9 +1133,9 @@ Conventions:
   (cor:acl:130:02), so the report carries `specsInScope` / `specsGoverned` /
   `specsScanned` and a zero never reads as "not found" (#659) — change those with
   `spec grep` + `spec edit`; `spec register` is advisory/read-only (`--check` reports
-  ledger drift, exit 5); `spec lint` takes `--product`/`--module`/`--all`,
-  flags mixed-arity corpora, names the exact `edge add` remedy for a missing
-  inheritance edge, warns (rule `abstract-length`) when a rule-tier abstract
+  ledger drift, exit 5; the ledger is the legacy numbering, and specs at any
+  other loc are NAMED in `outsideNumbering`, never dropped); `spec lint` takes `--product`/`--module`/`--all`,
+  flags mixed-arity corpora, warns (rule `abstract-length`) when a rule-tier abstract
   runs past ~1600 characters — a ceiling, not a target: retrieval is flat
   across ~700-1700 chars, and off-topic sentences dilute the embedding far
   more than length does. That finding always reports the HEADROOM left before
@@ -1148,26 +1161,20 @@ Conventions:
   fingerprint — that abstract has never been checked against that body, so it
   reads as unverified rather than verified (server #1128). Both clear by
   re-saving the abstract. A null fingerprint is clean only when there is no
-  abstract, or no content for one to describe. A corpus run (`--all`,
-  `--prefix`, `--product`/`--module`) adds `index-incomplete` (#605): an
-  index-tier spec — module or feature tier — must CITE each of its children in
-  its BODY, and the warning names the uncited locs. The corpus convention is
-  two-layer and the two surfaces are not interchangeable: the ABSTRACT routes by
-  DESCRIBING subjects, because it is the embedded retrieval surface and
-  `abstract-length` already errors on it at the 2000-char cap; the BODY indexes
-  by CITING children, which is where this is checked. Any of three spellings
-  counts — the full citation (including inside an `hrn:node:…` link target, the
-  form the module tier writes), the last two atoms (`020:09`), or the
-  colon-leaf (`:09`) — and a STRUCK entry for a superseded child counts as
-  cited, since a withdrawal correctly recorded is not a gap. The product root
-  and the rule tier are out of scope, as is a general-provisions contract (it is
-  inherited by its siblings rather than indexing anything); `spec check-tools` scans the
+  abstract, or no content for one to describe. The legacy tier obligations —
+  a missing parent (`parent-exists`), table-of-contents or inheritance edge, or
+  an index body that doesn't cite its children (`index-incomplete`) — are
+  REMOVED (#708): a spec at any loc, legacy-shaped or not, owes no parent or
+  contract; `spec check-tools` scans the
   corpus for `hadron_*` tool references and flags any that aren't a real
   registered tool (checked against a manifest baked into the binary — the union
   of the MCP + runner tool registries — with a small ignore-list for known
   non-tools like the `hadron_token` cookie), exit 5 on findings so CI can gate on
   tool-name drift; `spec supersede` retires a
-  spec (never renumbers), REQUIRES `--yes`, and exits 5 if the old spec ends
+  spec (never renumbers), REQUIRES `--yes`, works on ANY spec (#708) —
+  `--to <loc>` names the replacement's loc (free, any shape, no derived edges);
+  without it only a legacy rule/flow gets an allocated number, and anything
+  else is refused with a pointer to `--to` — and exits 5 if the old spec ends
   up with another successor (see "partial write" above); `spec import` is not yet
   implemented (exit 2).
 - **A node's KIND decides which door writes it** (#606 → hadron-server#1201,
