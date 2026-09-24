@@ -415,9 +415,15 @@ func acceptanceCases() map[string]func(t *testing.T) {
 		})
 		rep, err := runExport(t, url)
 		wantExit(t, err, 0)
+		// An UNEDITED file: the hash recomputed from its bytes equals the one
+		// its header records. That equality is what lets the planner tell it
+		// from P05's hand-edited file, so it is asserted, not just presence.
 		sent := callFor(t, *calls, "codexSkill").Files
-		if len(sent) != 1 || sent[0]["nodeId"] != accNodeID || sent[0]["fileHash"] == nil {
-			t.Errorf("the earlier export's file must be submitted with its id and hash; sent %v", sent)
+		if len(sent) != 1 || sent[0]["nodeId"] != accNodeID {
+			t.Fatalf("the earlier export's file must be submitted with its id; sent %v", sent)
+		}
+		if fh, hh := sent[0]["fileHash"], sent[0]["headerHash"]; fh == nil || fh == "" || fh != hh {
+			t.Errorf("an unedited file must send equal, non-empty fileHash and headerHash; got %v / %v", fh, hh)
 		}
 		if !absent(filepath.Join(codexRoot(home), accName)) {
 			t.Error("the removed skill's directory is still there")
@@ -446,9 +452,18 @@ func acceptanceCases() map[string]func(t *testing.T) {
 			}
 			return hostPlan{entries: []map[string]any{planEntry(accName, "REFUSE", "", "", planReason{"locally-edited", "edited by hand"})}}
 		}
-		url, _ := exportServer(t, plan)
+		url, calls := exportServer(t, plan)
 		rep, err := runExport(t, url)
 		wantExit(t, err, exitcode.Conflict)
+		// The hand edit shows as a hash that no longer matches its header: the
+		// evidence the planner refuses on (P04's file sends them equal).
+		sent := callFor(t, *calls, "codexSkill").Files
+		if len(sent) != 1 {
+			t.Fatalf("want the edited file submitted, got %v", sent)
+		}
+		if fh, hh := sent[0]["fileHash"], sent[0]["headerHash"]; fh == nil || hh == nil || fh == "" || fh == hh {
+			t.Errorf("a hand-edited file must send differing, non-empty fileHash and headerHash; got %v / %v", fh, hh)
+		}
 		if read(t, p) != edited {
 			t.Error("the hand-edited file changed")
 		}
@@ -630,8 +645,14 @@ func acceptanceCases() map[string]func(t *testing.T) {
 		})
 		rep, err := runExport(t, url)
 		wantExit(t, err, 0)
-		if f := callFor(t, *calls, "claudeSkill").Force; f != nil {
+		c := callFor(t, *calls, "claudeSkill")
+		if c.Force != nil {
 			t.Error("force was sent without --force")
+		}
+		// No hand edit, so no hand-edit evidence: the planner would refuse
+		// this removal if it were claimed (P14 sends it true).
+		if len(c.Files) != 1 || c.Files[0]["hasExtraFrontmatter"] == true {
+			t.Errorf("a plain no-id file must not claim hand-edit evidence; sent %v", c.Files)
 		}
 		if !absent(p) {
 			t.Error("the disabled no-id file was not removed")
