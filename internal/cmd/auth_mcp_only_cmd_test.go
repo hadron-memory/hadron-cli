@@ -14,14 +14,21 @@ import (
 
 // #681: a key whose OAuth grant is `mcp` alone.
 //
-// mcpOnlyRefusalBody is hadron-server's refusal EXACTLY as it reaches the CLI.
-// The /graphql context builder throws it (src/server.ts,
+// mcpOnlyRefusalBody is hadron-server's refusal EXACTLY as it reaches the CLI,
+// MEASURED over real HTTP (server#1303 integration test, chat #1292), not
+// inferred from source. The /graphql context builder throws it (src/server.ts,
 // `authContextAllowsOAuthSurface(auth, 'account')`) before any resolver runs.
-// Apollo 4 keeps a thrown GraphQLError as is, with no "Context creation
-// failed" prefix, and answers HTTP 500, because the error sets no http
-// extension. So the fake serves the status too: a 200 would skip the #544
-// gateway classifier this body has to survive in production.
-const mcpOnlyRefusalBody = `{"errors":[{"message":"This OAuth credential is limited to the MCP surface.","extensions":{"code":"FORBIDDEN"}}]}`
+//
+// It arrives PREFIXED with "Context creation failed: ". Apollo prefixes only a
+// non-GraphQLError, and the server's error IS one, but from graphql's other
+// module build: ESM in the server, CJS in @apollo/server. So `instanceof` is
+// false and the error is rebuilt, with its extensions copied over. #683's
+// first version served the unprefixed THROWN message here, matched on a
+// prefix, and was inert in production while every test passed (#681 reopened).
+//
+// HTTP 500 is Apollo's default for a context failure, and the fake serves it
+// so the #544 gateway classifier is exercised as in production.
+const mcpOnlyRefusalBody = `{"errors":[{"message":"Context creation failed: This OAuth credential is limited to the MCP surface.","extensions":{"code":"FORBIDDEN"}}]}`
 
 // graphQLAlways answers every operation with one status and body.
 func graphQLAlways(t *testing.T, status int, body string) *httptest.Server {
@@ -117,11 +124,16 @@ func TestMCPOnlyRefusalNamesARecoveryOnAnyCommand(t *testing.T) {
 			t.Errorf("missing %q: %s", want, msg)
 		}
 	}
+	// Apollo's plumbing is not the server's sentence, and it means nothing to
+	// the reader (#681 follow-up).
+	if strings.Contains(msg, "Context creation failed") {
+		t.Errorf("Apollo's context-failure prefix must not reach the user: %s", msg)
+	}
 }
 
 // createUserApiKey's resolver refuses the same key with its own sentence, which
 // arrives as an HTTP 200 envelope rather than the context gate's 500. The
-// /graphql gate normally fires first, so this pins the shared prefix: if the
+// /graphql gate normally fires first, so this pins the shared sentence: if the
 // gate ever moves, `auth token create` still names the recovery, when today it
 // would name a remedy that fails.
 func TestAuthTokenCreateMCPOnlyNamesARecovery(t *testing.T) {

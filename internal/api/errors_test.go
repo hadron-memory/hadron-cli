@@ -607,9 +607,15 @@ func TestMapErrorMCPOnlyKeepsTheErrorChainReachable(t *testing.T) {
 		Message:    "This OAuth credential is limited to the MCP surface.",
 		Extensions: map[string]any{"code": "FORBIDDEN"},
 	}}
+	// The LIVE /graphql shape: Apollo prefixes the context error (#681 reopened).
+	live := gqlerror.List{{
+		Message:    "Context creation failed: This OAuth credential is limited to the MCP surface.",
+		Extensions: map[string]any{"code": "FORBIDDEN"},
+	}}
 	for name, orig := range map[string]error{
-		"list":     refusal,
-		"http 500": &graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: refusal}},
+		"list":          refusal,
+		"http 500":      &graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: refusal}},
+		"live http 500": &graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: live}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			mapped := MapError(orig)
@@ -621,6 +627,9 @@ func TestMapErrorMCPOnlyKeepsTheErrorChainReachable(t *testing.T) {
 			}
 			if !IsMCPOnlyCredential(mapped) {
 				t.Error("IsMCPOnlyCredential must still recognise the refusal after MapError")
+			}
+			if !strings.HasPrefix(mapped.Error(), "This OAuth credential is limited to the MCP surface.") {
+				t.Errorf("the rendered message must open with the server's sentence, not Apollo's prefix: %q", mapped.Error())
 			}
 		})
 	}
