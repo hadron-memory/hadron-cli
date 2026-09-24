@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -43,14 +44,21 @@ const (
 	accName   = "hadron-demo"
 )
 
-// accHome is a disposable, resolved HOME for one export run.
+// accHome is a disposable, resolved HOME for one export run. The suite is
+// Unix-only: these cases build symbolic links, and on Windows os.UserHomeDir
+// reads USERPROFILE — set too, so a run there could never reach a real
+// profile even if the skip were removed (#699 review).
 func accHome(t *testing.T) string {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the export acceptance cases build symbolic links and a POSIX home; Unix only")
+	}
 	h, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("HOME", h)
+	t.Setenv("USERPROFILE", h)
 	return h
 }
 
@@ -582,7 +590,7 @@ func acceptanceCases() map[string]func(t *testing.T) {
 			if c.Force != nil && *c.Force {
 				return hostPlan{entries: []map[string]any{planEntry(newName, "MOVE", rendered(t, c.Host), accName)}}
 			}
-			return hostPlan{entries: []map[string]any{planEntry(newName, "SKIP", "", "", planReason{"missing-provenance-id", "no node id"})}}
+			return hostPlan{entries: []map[string]any{planEntry(newName, "SKIP", "", accName, planReason{"missing-provenance-id", "no node id"})}}
 		}
 		url, _ := exportServer(t, plan)
 		rep, err := runExport(t, url)
@@ -634,29 +642,74 @@ func acceptanceCases() map[string]func(t *testing.T) {
 	}
 
 	// P14: a no-id file that SHOWS a hand edit (a frontmatter key the renderer
-	// never writes). The client reports that evidence; the refusal is honoured
-	// for a rewrite, keeping the file (exit 5).
+	// never writes). The evidence travels as hasExtraFrontmatter, and a
+	// rewrite, a move AND a removal are each refused and kept unless --force is
+	// given; with --force each one is carried out (#699 review: all three, both
+	// ways).
 	cases["P14"] = func(t *testing.T) {
-		home := accHome(t)
-		p := filepath.Join(claudeRoot(home), accName, "SKILL.md")
-		put(t, p, legacyNoID(true))
-		url, calls := exportServer(t, func(c exportCall) hostPlan {
-			if c.Host != "claudeSkill" {
-				return hostPlan{}
-			}
-			return hostPlan{entries: []map[string]any{planEntry(accName, "REFUSE", "", "", planReason{"locally-edited", "edited by hand"})}}
-		})
-		rep, err := runExport(t, url)
-		wantExit(t, err, exitcode.Conflict)
-		sent := callFor(t, *calls, "claudeSkill").Files
-		if len(sent) != 1 || sent[0]["hasExtraFrontmatter"] != true {
-			t.Errorf("the hand-edit evidence must travel as hasExtraFrontmatter; sent %v", sent)
-		}
-		if read(t, p) != legacyNoID(true) {
-			t.Error("a refused no-id file changed")
-		}
-		if c := rep.host(t, "claudeSkill").classOf(accName); c != "refused" {
-			t.Errorf("reported %q, want refused", c)
+		const newName = "hadron-demo-renamed"
+		for _, op := range []struct {
+			name, forced, planName, movedFrom string
+			after                             func(t *testing.T, home string) // after the FORCED run
+		}{
+			{"rewrite", "WRITE", accName, "", func(t *testing.T, home string) {
+				if got := read(t, filepath.Join(claudeRoot(home), accName, "SKILL.md")); got != rendered(t, "claudeSkill") {
+					t.Errorf("--force did not rewrite:\n%s", got)
+				}
+			}},
+			{"move", "MOVE", newName, accName, func(t *testing.T, home string) {
+				if !absent(filepath.Join(claudeRoot(home), accName)) {
+					t.Error("--force left the moved file's source behind")
+				}
+				if got := read(t, filepath.Join(claudeRoot(home), newName, "SKILL.md")); got != rendered(t, "claudeSkill") {
+					t.Errorf("--force did not write the moved file:\n%s", got)
+				}
+			}},
+			{"remove", "REMOVE", accName, accName, func(t *testing.T, home string) {
+				if !absent(filepath.Join(claudeRoot(home), accName)) {
+					t.Error("--force did not remove the file")
+				}
+			}},
+		} {
+			t.Run(op.name, func(t *testing.T) {
+				home := accHome(t)
+				p := filepath.Join(claudeRoot(home), accName, "SKILL.md")
+				put(t, p, legacyNoID(true))
+				plan := func(c exportCall) hostPlan {
+					if c.Host != "claudeSkill" {
+						return hostPlan{}
+					}
+					if c.Force != nil && *c.Force {
+						body := ""
+						if op.forced != "REMOVE" {
+							body = rendered(t, c.Host)
+						}
+						return hostPlan{entries: []map[string]any{planEntry(op.planName, op.forced, body, op.movedFrom)}}
+					}
+					return hostPlan{entries: []map[string]any{planEntry(op.planName, "REFUSE", "", op.movedFrom, planReason{"locally-edited", "edited by hand"})}}
+				}
+				url, calls := exportServer(t, plan)
+				rep, err := runExport(t, url)
+				wantExit(t, err, exitcode.Conflict)
+				sent := callFor(t, *calls, "claudeSkill").Files
+				if len(sent) != 1 || sent[0]["hasExtraFrontmatter"] != true {
+					t.Errorf("the hand-edit evidence must travel as hasExtraFrontmatter; sent %v", sent)
+				}
+				if read(t, p) != legacyNoID(true) || !absent(filepath.Join(claudeRoot(home), newName)) {
+					t.Errorf("a refused %s touched the disk", op.name)
+				}
+				if c := rep.host(t, "claudeSkill").classOf(op.planName); c != "refused" {
+					t.Errorf("reported %q, want refused", c)
+				}
+
+				url2, calls2 := exportServer(t, plan)
+				_, err = runExport(t, url2, "--force")
+				wantExit(t, err, 0)
+				if f := callFor(t, *calls2, "claudeSkill").Force; f == nil || !*f {
+					t.Error("--force was not sent")
+				}
+				op.after(t, home)
+			})
 		}
 	}
 
@@ -701,8 +754,9 @@ func acceptanceCases() map[string]func(t *testing.T) {
 		})
 		rep, err := runExport(t, url)
 		wantExit(t, err, 0)
-		if len(rep.Unrecognized) != 1 || rep.Unrecognized[0].NodeID != accNodeID || rep.Unrecognized[0].KeyCount != 1 {
-			t.Errorf("want the unrecognized key named once, host-free; got %+v", rep.Unrecognized)
+		if len(rep.Unrecognized) != 1 || rep.Unrecognized[0].NodeID != accNodeID || rep.Unrecognized[0].KeyCount != 1 ||
+			len(rep.Unrecognized[0].Keys) != 1 || rep.Unrecognized[0].Keys[0] != "codex" {
+			t.Errorf("want the unrecognized key `codex` named once, host-free; got %+v", rep.Unrecognized)
 		}
 		if got := read(t, filepath.Join(claudeRoot(home), accName, "SKILL.md")); got != rendered(t, "claudeSkill") {
 			t.Error("the claude file was not written")
