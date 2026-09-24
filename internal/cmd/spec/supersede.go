@@ -498,9 +498,11 @@ func supersededBySuccessors(n *gen.GetNodeNode) []successor {
 const unreadableSuccessor = "(a successor you cannot read)"
 
 // retire tags the old spec superseded. When the update gets NO ANSWER it may
-// still have committed (#691 review), so the old spec is re-read: tagged means
-// retired. It returns true on success; false (with the error) when the update
-// failed or the re-read shows no tag; nil when neither could be established.
+// still have committed (#691 review), so the old spec is re-read: a SEEN tag
+// means retired. A re-read without it proves nothing (it may be stale, as the
+// superseded-by check already allows), so that stays unknown. It returns true
+// on success; false (with the error) when the update was refused outright; nil
+// when retirement could not be established either way.
 func retire(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason string) (*bool, error) {
 	err := retireSupersededSpec(cmd, client, oldNode, successorLoc, reason)
 	if err == nil {
@@ -516,14 +518,14 @@ func retire(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode,
 	if hasTag(resp.Node.Tags, supersededTag) {
 		return boolRef(true), nil
 	}
-	return boolRef(false), err
+	return nil, err
 }
 
 // retireError is the error for a retirement that did not verifiably happen.
 func retireError(retired *bool, err error, oldLoc, successorLoc, memURN string) error {
 	if retired == nil {
 		return exitcode.Newf(exitcode.Error,
-			"linked %s to replacement %s, but the retirement update got no answer (%v) and re-reading %s failed, so whether it was retired is unknown; check `hadron spec get %s -m %s` for the %q tag — if it is missing, rerun this command to finish",
+			"linked %s to replacement %s, but the retirement update got no answer (%v) and re-reading %s did not confirm it, so whether it was retired is unknown; check `hadron spec get %s -m %s` for the %q tag — if it is still missing after a minute, rerun this command to finish",
 			oldLoc, successorLoc, api.MapError(err), oldLoc, oldLoc, memURN, supersededTag)
 	}
 	return exitcode.Newf(exitcode.Error,

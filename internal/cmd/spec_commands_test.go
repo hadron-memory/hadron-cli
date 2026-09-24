@@ -2286,19 +2286,27 @@ func TestSpecSupersedeLostRetireAnswerIsVerified(t *testing.T) {
 	}
 }
 
-// ...and when the re-read fails too, retirement is UNKNOWN: retired is null,
-// not false, and the message says to check for the tag before rerunning.
+// ...and when the re-read fails, OR reads back without the tag (it may be
+// stale: #691 round 13), retirement is UNKNOWN: retired is null, not false,
+// and the message says to check for the tag before rerunning.
 func TestSpecSupersedeUnverifiableRetireIsUnknown(t *testing.T) {
-	srv := supersedeLostRetireServer(t, `{"errors":[{"message":"read boom"}]}`)
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
-	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "whether it was retired is unknown") || !strings.Contains(err.Error(), "hadron spec get msg:010:02") {
-		t.Fatalf("an unverifiable retirement must say so and name the check; got %v", err)
-	}
-	if !strings.Contains(out.String(), `"retired": null`) {
-		t.Errorf("an unverifiable retirement must report retired: null, not false:\n%s", out.String())
+	for name, afterRetire := range map[string]string{
+		"re-read fails":        `{"errors":[{"message":"read boom"}]}`,
+		"re-read shows no tag": withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := supersedeLostRetireServer(t, afterRetire)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), "whether it was retired is unknown") || !strings.Contains(err.Error(), "hadron spec get msg:010:02") {
+				t.Fatalf("an unverifiable retirement must say so and name the check; got %v", err)
+			}
+			if !strings.Contains(out.String(), `"retired": null`) {
+				t.Errorf("an unverifiable retirement must report retired: null, not false:\n%s", out.String())
+			}
+		})
 	}
 }
 
