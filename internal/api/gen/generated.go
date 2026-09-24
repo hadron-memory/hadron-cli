@@ -7270,8 +7270,9 @@ type CreateReviewNodeResponse struct {
 	//
 	// Exempt from its OWN kind only — it is fully subject to every other kind and
 	// to Channel address protection, so it cannot forge a chat message.
-	// Deliberately NOT an MCP tool: an agent's node surface is hadron_create_node,
-	// which refuses, and that absence is the mechanism rather than an oversight.
+	// This mutation is not itself an MCP tool; its MCP counterpart is the
+	// deliberate hadron_create_review tool, separate from hadron_create_node,
+	// which refuses (#1301 names it in the refusal).
 	CreateReviewNode *CreateReviewNodeCreateReviewNode `json:"createReviewNode"`
 }
 
@@ -7758,8 +7759,9 @@ type CreateTaskNodeResponse struct {
 	//
 	// Exempt from its OWN kind only — it is fully subject to every other kind and
 	// to Channel address protection, so it cannot forge a chat message.
-	// Deliberately NOT an MCP tool: an agent's node surface is hadron_create_node,
-	// which refuses, and that absence is the mechanism rather than an oversight.
+	// This mutation is not itself an MCP tool; its MCP counterpart is the
+	// deliberate hadron_create_task tool, separate from hadron_create_node,
+	// which refuses (#1301 names it in the refusal).
 	CreateTaskNode *CreateTaskNodeCreateTaskNode `json:"createTaskNode"`
 }
 
@@ -18918,6 +18920,334 @@ func (v *SessionInput) GetType() *string { return v.Type }
 // GetWorkerRef returns SessionInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetWorkerRef() *string { return v.WorkerRef }
 
+// A client-side filesystem action planned by the server. It does not claim that I/O occurred.
+type SkillExportAction string
+
+const (
+	SkillExportActionFail   SkillExportAction = "FAIL"
+	SkillExportActionMove   SkillExportAction = "MOVE"
+	SkillExportActionRefuse SkillExportAction = "REFUSE"
+	SkillExportActionRemove SkillExportAction = "REMOVE"
+	SkillExportActionSkip   SkillExportAction = "SKIP"
+	SkillExportActionWrite  SkillExportAction = "WRITE"
+)
+
+var AllSkillExportAction = []SkillExportAction{
+	SkillExportActionFail,
+	SkillExportActionMove,
+	SkillExportActionRefuse,
+	SkillExportActionRemove,
+	SkillExportActionSkip,
+	SkillExportActionWrite,
+}
+
+// SkillExportPlanResponse is returned by SkillExportPlan on success.
+type SkillExportPlanResponse struct {
+	// #1177 section 3 — the SKILL SEAM: the server judges, the client does I/O.
+	//
+	// One surface serving skill lint, skill status and skill export. The client
+	// sends what it can see of each file on disk; the server returns a drift
+	// CLASS and the lint findings per declared node, plus the rendered body for
+	// anything the client is to write.
+	//
+	// A QUERY, not a mutation, and that is the contract. Nothing here writes to a
+	// node — publishing is one-way, and the only writer in the feature is the
+	// client's own filesystem. So status and lint cannot write by construction
+	// rather than by promise.
+	//
+	// The client cannot name a drift class: the vocabulary is the server's, so it
+	// cannot drift between clients. A node failing lint is never given a rendered
+	// body, so a client cannot write a file the server judged broken.
+	SkillPlan *SkillExportPlanSkillPlan `json:"skillPlan"`
+}
+
+// GetSkillPlan returns SkillExportPlanResponse.SkillPlan, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanResponse) GetSkillPlan() *SkillExportPlanSkillPlan { return v.SkillPlan }
+
+// SkillExportPlanSkillPlan includes the requested fields of the GraphQL type SkillPlan.
+type SkillExportPlanSkillPlan struct {
+	// How many nodes carrying ANY declaration key were in scope. A plan over an
+	// empty corpus and a plan the caller cannot see are otherwise the same empty
+	// list, and a client that cannot tell them apart reports nothing-to-do for a
+	// corpus it was denied.
+	Scanned int `json:"scanned"`
+	// How many of those were judged for THIS host — the number of entries. A node
+	// declaring only another host is scanned and not judged, so the two differ by
+	// design; the gap is a fact about the corpus, not a discrepancy.
+	Judged  int                                              `json:"judged"`
+	Entries []*SkillExportPlanSkillPlanEntriesSkillPlanEntry `json:"entries"`
+	Orphans []*SkillExportPlanSkillPlanOrphansSkillOrphan    `json:"orphans"`
+	// Nodes in scope carrying a key under properties.exports that names no host
+	// (#1292, cor:agt:030:06): an unrecognised key is reported, never read as an
+	// alias, and never blocks anything. HOST-INDEPENDENT: the list is identical
+	// in every host's plan, because the key belongs to none of them, so a client
+	// reports each node once rather than once per host. A node here may also
+	// have an entry, when it declares a known host too; one declaring only
+	// unknown keys has none, and is part of the scanned-minus-judged gap.
+	Unrecognized []*SkillExportPlanSkillPlanUnrecognized `json:"unrecognized"`
+}
+
+// GetScanned returns SkillExportPlanSkillPlan.Scanned, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlan) GetScanned() int { return v.Scanned }
+
+// GetJudged returns SkillExportPlanSkillPlan.Judged, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlan) GetJudged() int { return v.Judged }
+
+// GetEntries returns SkillExportPlanSkillPlan.Entries, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlan) GetEntries() []*SkillExportPlanSkillPlanEntriesSkillPlanEntry {
+	return v.Entries
+}
+
+// GetOrphans returns SkillExportPlanSkillPlan.Orphans, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlan) GetOrphans() []*SkillExportPlanSkillPlanOrphansSkillOrphan {
+	return v.Orphans
+}
+
+// GetUnrecognized returns SkillExportPlanSkillPlan.Unrecognized, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlan) GetUnrecognized() []*SkillExportPlanSkillPlanUnrecognized {
+	return v.Unrecognized
+}
+
+// SkillExportPlanSkillPlanEntriesSkillPlanEntry includes the requested fields of the GraphQL type SkillPlanEntry.
+type SkillExportPlanSkillPlanEntriesSkillPlanEntry struct {
+	Urn    string `json:"urn"`
+	NodeId string `json:"nodeId"`
+	// The stored skill name (D12 retired derivation).
+	Name string `json:"name"`
+	// One of: current, stale, locally-edited, renamed, never-exported, orphaned,
+	// unhashed, collision, unavailable, disabled. Null when the file could not be
+	// parsed — a parse failure is reported as a FAILURE, not as a class.
+	Class *string `json:"class"`
+	// True when the file exists and does not parse. Reported identically by status and export.
+	ParseFailure bool `json:"parseFailure"`
+	// Source directory selected for a MOVE or REMOVE action; also reported for the renamed class.
+	MovedFrom *string `json:"movedFrom"`
+	// Present only for EXPORT, only for a class whose action writes, and only
+	// when the node has no error findings — so a client cannot write a file the
+	// server already judged broken.
+	RenderedBody *string `json:"renderedBody"`
+	// Present only for EXPORT. This is a planned action and its server-owned
+	// reasons, not evidence that the client completed a filesystem write.
+	ExportPlan *SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry `json:"exportPlan"`
+	Findings   []*SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding         `json:"findings"`
+}
+
+// GetUrn returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.Urn, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetUrn() string { return v.Urn }
+
+// GetNodeId returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.NodeId, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetNodeId() string { return v.NodeId }
+
+// GetName returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.Name, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetName() string { return v.Name }
+
+// GetClass returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.Class, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetClass() *string { return v.Class }
+
+// GetParseFailure returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.ParseFailure, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetParseFailure() bool { return v.ParseFailure }
+
+// GetMovedFrom returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.MovedFrom, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetMovedFrom() *string { return v.MovedFrom }
+
+// GetRenderedBody returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.RenderedBody, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetRenderedBody() *string {
+	return v.RenderedBody
+}
+
+// GetExportPlan returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.ExportPlan, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetExportPlan() *SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry {
+	return v.ExportPlan
+}
+
+// GetFindings returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.Findings, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetFindings() []*SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding {
+	return v.Findings
+}
+
+// SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry includes the requested fields of the GraphQL type SkillExportPlanEntry.
+// The GraphQL type's documentation follows.
+//
+// The server's filesystem plan for one skill. The client still performs and
+// reports actual local I/O; this object records only what the server judged safe.
+type SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry struct {
+	Action SkillExportAction `json:"action"`
+	// True when the client must leave any installed file unchanged.
+	PreservesExistingFile bool                                                                                                   `json:"preservesExistingFile"`
+	Reasons               []*SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason `json:"reasons"`
+}
+
+// GetAction returns SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry.Action, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry) GetAction() SkillExportAction {
+	return v.Action
+}
+
+// GetPreservesExistingFile returns SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry.PreservesExistingFile, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry) GetPreservesExistingFile() bool {
+	return v.PreservesExistingFile
+}
+
+// GetReasons returns SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry.Reasons, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry) GetReasons() []*SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason {
+	return v.Reasons
+}
+
+// SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason includes the requested fields of the GraphQL type SkillExportReason.
+// The GraphQL type's documentation follows.
+//
+// One server-owned reason for an export action.
+type SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason struct {
+	// Stable machine-readable reason, usually a drift class or lint rule.
+	Code string `json:"code"`
+	// Actionable text clients can display without recreating server policy.
+	Message string `json:"message"`
+}
+
+// GetCode returns SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason.Code, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason) GetCode() string {
+	return v.Code
+}
+
+// GetMessage returns SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason.Message, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason) GetMessage() string {
+	return v.Message
+}
+
+// SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding includes the requested fields of the GraphQL type SkillFinding.
+// The GraphQL type's documentation follows.
+//
+// One lint result, carrying the node and memory so a renderer never looks them back up.
+type SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding struct {
+	Rule string `json:"rule"`
+	// Either error or warning — the same vocabulary spec lint renders.
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
+	Urn      string `json:"urn"`
+	Memory   string `json:"memory"`
+}
+
+// GetRule returns SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Rule, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetRule() string {
+	return v.Rule
+}
+
+// GetSeverity returns SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Severity, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetSeverity() string {
+	return v.Severity
+}
+
+// GetMessage returns SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Message, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetMessage() string {
+	return v.Message
+}
+
+// GetUrn returns SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Urn, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetUrn() string {
+	return v.Urn
+}
+
+// GetMemory returns SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Memory, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetMemory() string {
+	return v.Memory
+}
+
+// SkillExportPlanSkillPlanOrphansSkillOrphan includes the requested fields of the GraphQL type SkillOrphan.
+// The GraphQL type's documentation follows.
+//
+// A file that paired with no declared node. Never removed without an explicit prune.
+type SkillExportPlanSkillPlanOrphansSkillOrphan struct {
+	DirName   string  `json:"dirName"`
+	NodeId    *string `json:"nodeId"`
+	SourceUrn *string `json:"sourceUrn"`
+}
+
+// GetDirName returns SkillExportPlanSkillPlanOrphansSkillOrphan.DirName, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanOrphansSkillOrphan) GetDirName() string { return v.DirName }
+
+// GetNodeId returns SkillExportPlanSkillPlanOrphansSkillOrphan.NodeId, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanOrphansSkillOrphan) GetNodeId() *string { return v.NodeId }
+
+// GetSourceUrn returns SkillExportPlanSkillPlanOrphansSkillOrphan.SourceUrn, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanOrphansSkillOrphan) GetSourceUrn() *string { return v.SourceUrn }
+
+// SkillExportPlanSkillPlanUnrecognized includes the requested fields of the GraphQL type SkillPlanUnrecognized.
+// The GraphQL type's documentation follows.
+//
+// A node carrying one or more exports keys that name no host (#1292).
+type SkillExportPlanSkillPlanUnrecognized struct {
+	Urn    string `json:"urn"`
+	NodeId string `json:"nodeId"`
+	// The node's display name, not a skill name: an unrecognised key has no host, so it declares no skill name anyone reads.
+	Name   string `json:"name"`
+	Memory string `json:"memory"`
+	// How many unrecognised keys the node carries — the true total, whether or not each is listed.
+	KeyCount int `json:"keyCount"`
+	// The unrecognised keys LISTED, in UTF-8 byte order — e.g. codex for
+	// properties.exports.codex. At most 10, and none over 128 bytes: the report
+	// is bounded because properties is writer-controlled. keyCount is the total;
+	// anything not listed is counted in one extra warning, never dropped silently.
+	Keys []string `json:"keys"`
+	// One warning per listed key, plus one for any not listed. Attributed to no host; never blocks.
+	Findings []*SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding `json:"findings"`
+}
+
+// GetUrn returns SkillExportPlanSkillPlanUnrecognized.Urn, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognized) GetUrn() string { return v.Urn }
+
+// GetNodeId returns SkillExportPlanSkillPlanUnrecognized.NodeId, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognized) GetNodeId() string { return v.NodeId }
+
+// GetName returns SkillExportPlanSkillPlanUnrecognized.Name, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognized) GetName() string { return v.Name }
+
+// GetMemory returns SkillExportPlanSkillPlanUnrecognized.Memory, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognized) GetMemory() string { return v.Memory }
+
+// GetKeyCount returns SkillExportPlanSkillPlanUnrecognized.KeyCount, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognized) GetKeyCount() int { return v.KeyCount }
+
+// GetKeys returns SkillExportPlanSkillPlanUnrecognized.Keys, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognized) GetKeys() []string { return v.Keys }
+
+// GetFindings returns SkillExportPlanSkillPlanUnrecognized.Findings, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognized) GetFindings() []*SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding {
+	return v.Findings
+}
+
+// SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding includes the requested fields of the GraphQL type SkillFinding.
+// The GraphQL type's documentation follows.
+//
+// One lint result, carrying the node and memory so a renderer never looks them back up.
+type SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding struct {
+	Rule string `json:"rule"`
+	// Either error or warning — the same vocabulary spec lint renders.
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
+	Urn      string `json:"urn"`
+	Memory   string `json:"memory"`
+}
+
+// GetRule returns SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding.Rule, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding) GetRule() string { return v.Rule }
+
+// GetSeverity returns SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding.Severity, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding) GetSeverity() string {
+	return v.Severity
+}
+
+// GetMessage returns SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding.Message, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding) GetMessage() string {
+	return v.Message
+}
+
+// GetUrn returns SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding.Urn, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding) GetUrn() string { return v.Urn }
+
+// GetMemory returns SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding.Memory, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanUnrecognizedFindingsSkillFinding) GetMemory() string {
+	return v.Memory
+}
+
 // What the client saw of ONE file on disk. The server never reads the caller's disk.
 type SkillFileFactsInput struct {
 	// The directory the skill occupies — compared against the node's stored name.
@@ -18960,7 +19290,7 @@ func (v *SkillFileFactsInput) GetSourceUrn() *string { return v.SourceUrn }
 type SkillPlanInput struct {
 	// What the client found on disk. Empty for lint, which touches no disk.
 	Files []*SkillFileFactsInput `json:"files,omitempty"`
-	// With EXPORT only, explicitly replace, move, or remove a paired file with detected local edits for this invocation.
+	// With EXPORT only, explicitly override local-edit or missing-provenance-ID protection for this invocation.
 	Force *bool `json:"force,omitempty"`
 	// Target host, named by its D12 declaration key verbatim: claudeSkill (the default) or codexSkill. One host per call; the plan reads that host's declaration and applies its limits, and the retired top-level skill/claudeSkill keys alias to claudeSkill only. An unknown host is refused with BAD_USER_INPUT naming the supported hosts, never judged as another host and never answered with an empty plan.
 	Host   *string         `json:"host,omitempty"`
@@ -23250,8 +23580,8 @@ func (v *UpdateRegisterEntryUpdateRegisterEntry) __premarshalJSON() (*__premarsh
 // UpdateReviewNodeResponse is returned by UpdateReviewNode on success.
 type UpdateReviewNodeResponse struct {
 	// #1201 — the UPDATE door for the review kind, and the counterpart of
-	// createReviewNode. Same posture: pure routing, exempt from its own kind only,
-	// not an MCP tool.
+	// createReviewNode. Same posture: pure routing, exempt from its own kind only;
+	// its MCP counterpart is hadron_update_review.
 	//
 	// It is needed because the gate reads the RESULTING state: editing a node that
 	// already carries this kind still produces one, so the generic updateNode
@@ -23582,8 +23912,8 @@ func (v *UpdateSpecNodeUpdateSpecNode) GetUpdatedAt() string { return v.UpdatedA
 // UpdateTaskNodeResponse is returned by UpdateTaskNode on success.
 type UpdateTaskNodeResponse struct {
 	// #1201 — the UPDATE door for the task kind, and the counterpart of
-	// createTaskNode. Same posture: pure routing, exempt from its own kind only,
-	// not an MCP tool.
+	// createTaskNode. Same posture: pure routing, exempt from its own kind only;
+	// its MCP counterpart is hadron_update_task.
 	//
 	// It is needed because the gate reads the RESULTING state: editing a node that
 	// already carries this kind still produces one, so the generic updateNode
@@ -27544,6 +27874,14 @@ func (v *__SecretsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __SecretsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SecretsInput) GetOffset() *int { return v.Offset }
+
+// __SkillExportPlanInput is used internally by genqlient
+type __SkillExportPlanInput struct {
+	Input *SkillPlanInput `json:"input,omitempty"`
+}
+
+// GetInput returns __SkillExportPlanInput.Input, and is useful for accessing the field via an interface.
+func (v *__SkillExportPlanInput) GetInput() *SkillPlanInput { return v.Input }
 
 // __SkillPlanInput is used internally by genqlient
 type __SkillPlanInput struct {
@@ -35798,6 +36136,98 @@ func ServerInfo(
 	}
 
 	data_ = &ServerInfoResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SkillExportPlan.
+const SkillExportPlan_Operation = `
+query SkillExportPlan ($input: SkillPlanInput!) {
+	skillPlan(input: $input) {
+		scanned
+		judged
+		entries {
+			urn
+			nodeId
+			name
+			class
+			parseFailure
+			movedFrom
+			renderedBody
+			exportPlan {
+				action
+				preservesExistingFile
+				reasons {
+					code
+					message
+				}
+			}
+			findings {
+				rule
+				severity
+				message
+				urn
+				memory
+			}
+		}
+		orphans {
+			dirName
+			nodeId
+			sourceUrn
+		}
+		unrecognized {
+			urn
+			nodeId
+			name
+			memory
+			keyCount
+			keys
+			findings {
+				rule
+				severity
+				message
+				urn
+				memory
+			}
+		}
+	}
+}
+`
+
+// SkillExportPlan is `skill export`'s own operation (#621): the one that selects
+// `renderedBody` and the server's per-entry `exportPlan`. It is a separate
+// operation, not extra fields on SkillPlan, so `status` and `lint` still CANNOT
+// receive a body (TestSkillPlanQueryNeverSelectsRenderedBody).
+//
+// The server decides every ACTION (WRITE/MOVE/REMOVE/SKIP/REFUSE/FAIL) and its
+// reasons, and renders the whole file. This client performs the I/O, reports
+// what it actually did, and never invents a class or an action. `exportPlan`
+// is a plan, not evidence: the report says what happened on disk.
+//
+// The omitempty directives above bind to the shared SkillPlanInput /
+// SkillFileFactsInput types, so they apply here too. `force` in particular is
+// omitted unless --force was given.
+func SkillExportPlan(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SkillPlanInput,
+) (data_ *SkillExportPlanResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SkillExportPlan",
+		Query:  SkillExportPlan_Operation,
+		Variables: &__SkillExportPlanInput{
+			Input: input,
+		},
+	}
+
+	data_ = &SkillExportPlanResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -226,7 +226,7 @@ hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hy
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
 hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> | import spec-kit|code
-hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json]
+hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--dry-run] [--force] [--prune] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref>
 hadron ai-config list [--app <ref>] [--agent <id>] | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
@@ -705,6 +705,38 @@ Conventions:
   sets `scopeEmpty: true`, lists any generated files it could not judge under
   `unchecked`, and **fails `--strict`**: a gate must not pass on a result
   nothing verified.
+  `skill export` is the ONLY writer (#621). It takes **no selector**: it
+  exports every ENABLED declaration you can read (cor:agt:030:03; `memories`
+  is omitted on the wire), for EVERY known host, into user-level roots —
+  `claudeSkill` → `~/.claude/skills/<name>/SKILL.md`, `codexSkill` →
+  `~/.agents/skills/<name>/SKILL.md` — creating an absent root, with no host
+  detection and no prompt. The deprecated `~/.codex/skills` is never written,
+  moved or cleaned. **The server decides every action and renders the whole
+  file**; export writes that body byte for byte (atomically) and reports what
+  actually happened on disk. `--json` is `{dryRun, hosts:[{host, root,
+  failure, scanned, judged, written, moved, removed, skipped, refused, failed,
+  orphaned, pruned, unreadable, unparseable}], unrecognized:[…]}`; every list
+  is `[]` when empty. An item is `{node, nodeId, name, reasons, kept}`, and
+  `moved` items add `from`. Each reason is `{code, message, origin}`:
+  `origin: "server"` is the planner's reason VERBATIM (a drift class or lint
+  rule), `origin: "client"` an I/O fact about this machine (`root-is-link`,
+  `skill-dir-is-link`, `io-error`, `directory-kept`, …). `unrecognized` lists
+  nodes whose `exports` names no host, ONCE, attributed to no host.
+  **Links are refused:** if a host's root, or any directory between `$HOME`
+  and it, is a symbolic link, nothing is written for that host — `failure`
+  is set and every one of its skills is in `failed`, named; a skill directory
+  that is a link is `refused` whatever the plan said. `$HOME` itself is
+  resolved, not refused. A removal (a disabled declaration, a move's old
+  directory, `--prune`) deletes `SKILL.md` and then the directory only if it is
+  empty; anything else stays and is listed in `kept`. A hand-edited file is
+  refused unless `--force` (also when disabled); `--force` also regenerates a
+  file with no node id. Orphans are reported and removed only with `--prune`.
+  `--dry-run` reports the same outcome and changes nothing, not even an absent
+  root. **One failing item never stops the others.** Exit: 0 when nothing was
+  refused or failed; **5 after the full report** when any item was refused or
+  failed, or a host could not be written; a run that cannot start (auth,
+  connection) exits with that error's code. Hosts load skills at session
+  start.
 - `chat` is the low-friction surface for a **team chat** — a shared memory where
   several agents and humans coordinate, each message a `message` node whose
   payload is in `data`, ordered by a server-assigned `seq` (see the "Set up an

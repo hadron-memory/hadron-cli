@@ -70,3 +70,75 @@ query SkillPlan(
     }
   }
 }
+
+# SkillExportPlan is `skill export`'s own operation (#621): the one that selects
+# `renderedBody` and the server's per-entry `exportPlan`. It is a separate
+# operation, not extra fields on SkillPlan, so `status` and `lint` still CANNOT
+# receive a body (TestSkillPlanQueryNeverSelectsRenderedBody).
+#
+# The server decides every ACTION (WRITE/MOVE/REMOVE/SKIP/REFUSE/FAIL) and its
+# reasons, and renders the whole file. This client performs the I/O, reports
+# what it actually did, and never invents a class or an action. `exportPlan`
+# is a plan, not evidence: the report says what happened on disk.
+#
+# The omitempty directives above bind to the shared SkillPlanInput /
+# SkillFileFactsInput types, so they apply here too. `force` in particular is
+# omitted unless --force was given.
+query SkillExportPlan(
+  $input: SkillPlanInput!
+) {
+  skillPlan(input: $input) {
+    scanned
+    judged
+    entries {
+      urn
+      nodeId
+      name
+      class
+      parseFailure
+      # Source directory for a MOVE or REMOVE.
+      movedFrom
+      # The WHOLE file, byte for byte. Present only for a class whose action
+      # writes, and only when the node has no error finding.
+      renderedBody
+      exportPlan {
+        action
+        # True when the client must leave any installed file unchanged.
+        preservesExistingFile
+        reasons {
+          code
+          message
+        }
+      }
+      findings {
+        rule
+        severity
+        message
+        urn
+        memory
+      }
+    }
+    orphans {
+      dirName
+      nodeId
+      sourceUrn
+    }
+    # Nodes carrying an `exports` key that names no host (P16). HOST-FREE and
+    # identical in every host's plan, so the report names each node once.
+    unrecognized {
+      urn
+      nodeId
+      name
+      memory
+      keyCount
+      keys
+      findings {
+        rule
+        severity
+        message
+        urn
+        memory
+      }
+    }
+  }
+}

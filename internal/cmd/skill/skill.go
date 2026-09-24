@@ -56,10 +56,12 @@ properties.skill and properties.claudeSkill are read as aliases for the
 claudeSkill host, so nothing has to be migrated to keep working.
 
   lint    check declaring nodes against the corpus rules (no disk)
-  status  compare the files on disk against the corpus (reads both, writes nothing)`,
+  status  compare the files on disk against the corpus (reads both, writes nothing)
+  export  write the skill files for every enabled declaration (the only writer)`,
 	}
 	cmd.AddCommand(newCmdLint(f))
 	cmd.AddCommand(newCmdStatus(f))
+	cmd.AddCommand(newCmdExport(f))
 	return cmd
 }
 
