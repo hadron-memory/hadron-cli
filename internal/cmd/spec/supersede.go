@@ -24,8 +24,7 @@ const supersededTag = "superseded"
 const (
 	edgeStatusPlanned = "planned" // dry-run / not yet executed
 	edgeStatusCreated = "created"
-	edgeStatusFailed  = "failed"  // CreateEdge rejected it
-	edgeStatusSkipped = "skipped" // target didn't resolve, so it was never attempted
+	edgeStatusFailed  = "failed" // CreateEdge rejected it
 )
 
 // supersedeEdgeDTO is one structural edge with its execution outcome. It extends
@@ -175,7 +174,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				return err
 			}
 
-			// 1. Create the replacement.
+			// 1. The replacement's body and abstract.
 			var newID string
 			body := rubricBody(newTarget, title)
 			abs := placeholderAbstract(newTarget, title)
@@ -187,54 +186,50 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					abs = *oldNode.Abstract
 				}
 			}
+			// 2. The replacement's ToC + inheritance edges travel INLINE on its
+			// createSpecNode (#687), resolved before anything is written: the
+			// replacement is created with them or not at all, so it can no longer
+			// land orphaned from the spec tree (#127/#128's partial state).
+			structural := make([]plannedEdgeDTO, 0, len(result.Edges))
+			for i, e := range result.Edges {
+				if i != supersededByIdx { // the retirement link is step 3's
+					structural = append(structural, plannedEdgeDTO{Label: e.Label, Target: e.Target})
+				}
+			}
+			edges, err := resolveSpecEdges(cmd, client, memURN, newTarget.Format(), structural, nil)
+			if err != nil {
+				return err
+			}
 			nodeType := "info"
 			in := gen.CreateNodeInput{
 				MemoryId: memURN, Loc: newTarget.Format(), Name: name,
 				Tags: newTags, NodeType: &nodeType,
 				Abstract: &abs, Content: &body, Data: specDataRaw(),
 				Seq: specSeq(newTarget), Role: specRole(),
+				Edges: edges,
 			}
 			up, err := api.CreateSpecNode(cmd.Context(), client, &in)
 			if err != nil {
 				return api.MapError(err)
 			}
 			newID = up.Id
-
-			// 2. New node's ToC + inheritance edges. Best-effort, but each outcome
-			// is tracked and surfaced: a target that doesn't resolve was previously
-			// skipped SILENTLY (the else branch was a no-op), and every planned edge
-			// was then printed as if created (#128). Now the status is recorded and a
-			// skip/failure is folded into the exit code (#127).
-			var edgeFailures []string
 			for i := range result.Edges {
-				if i == supersededByIdx {
-					continue // the retirement link is created in step 3
+				if i != supersededByIdx {
+					result.Edges[i].Status = edgeStatusCreated
 				}
-				e := &result.Edges[i]
-				tid, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
-				if rerr != nil {
-					fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
-					e.Status = edgeStatusSkipped
-					edgeFailures = append(edgeFailures, e.Target)
-					continue
-				}
-				if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, tid, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
-					fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
-					e.Status = edgeStatusFailed
-					edgeFailures = append(edgeFailures, e.Target)
-					continue
-				}
-				e.Status = edgeStatusCreated
 			}
 
 			// 3. superseded-by edge old → new (its failure is fatal — the retirement
-			// link is the whole point of the command).
+			// link is the whole point of the command). It leaves an EXISTING node,
+			// so it cannot travel inline. Once it exists, rerunning supersede takes
+			// the finish-the-retirement path above.
 			if _, cerr := gen.CreateEdge(cmd.Context(), client, oldNode.Id, newID, supersededByLabel, nil, nil, nil, nil, nil, nil); cerr != nil {
 				result.Edges[supersededByIdx].Status = edgeStatusFailed
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
 				return exitcode.Newf(exitcode.Error,
-					"created replacement %s but failed to create the %q edge from %s: %v; add that edge manually or remove/review %s before rerunning",
-					newTarget.Format(), supersededByLabel, oldCit.Format(), api.MapError(cerr), newTarget.Format())
+					"created replacement %s but failed to create the %q edge from %s: %v; link them with `hadron spec link %s %s -m %s --label %s`, then rerun this command to finish retiring %s",
+					newTarget.Format(), supersededByLabel, oldCit.Format(), api.MapError(cerr),
+					oldCit.Format(), newTarget.Format(), memURN, supersededByLabel, oldCit.Format())
 			}
 			result.Edges[supersededByIdx].Status = edgeStatusCreated
 
@@ -247,18 +242,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 
 			fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldCit.Format(), newTarget.Format())
-			if err := output.Write(f.IOStreams, f.JSON, result, render); err != nil {
-				return err
-			}
-			// The replacement exists but a structural edge is missing — it's
-			// orphaned from the spec ToC. Exit non-zero so the gap isn't read as a
-			// clean supersede (#127/#128), matching `spec new`'s edge-failure regime.
-			if len(edgeFailures) > 0 {
-				return exitcode.Newf(exitcode.Error,
-					"superseded %s with %s but failed to wire %d structural edge(s) to %s — the replacement is orphaned from the spec tree; fix the target(s) and wire with `hadron edge add`",
-					oldCit.Format(), newTarget.Format(), len(edgeFailures), strings.Join(edgeFailures, ", "))
-			}
-			return nil
+			return output.Write(f.IOStreams, f.JSON, result, render)
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")

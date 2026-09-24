@@ -499,8 +499,8 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 // parent-exists check is suppressed for a parent that lives above it, since a
 // scoped scan deliberately omits the subtree's attach point. An empty
 // scopeRoot lints the whole corpus (--all), where every parent must exist.
-// memURN qualifies the node refs in the inheritance-edge remedy message so the
-// suggested `hadron edge add` command is copy-pasteable.
+// memURN is the -m of the inheritance-edge remedy, so the suggested
+// `hadron spec link` command is copy-pasteable.
 func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 	fs := []lintFindingDTO{}
 	locCount := map[string]int{}
@@ -553,8 +553,8 @@ func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 			if cl, ok := c.InheritedContractLoc(); ok && contracts[cl.Format()] && !hasOutEdgeTo(n, cl.Format()) {
 				fs = append(fs, lintFindingDTO{
 					Citation: n.Loc, Rule: "inheritance-edge", Severity: sevWarning,
-					Message: fmt.Sprintf("no inheritance edge to general-provisions contract %s — add it: hadron edge add --from %s --to %s --label %q",
-						cl.Format(), specNodeRef(memURN, n.Loc), specNodeRef(memURN, cl.Format()), inheritEdgeLabel),
+					Message: fmt.Sprintf("no inheritance edge to general-provisions contract %s — add it: hadron spec link %s %s -m %s --label %q",
+						cl.Format(), n.Loc, cl.Format(), memURN, inheritEdgeLabel),
 				})
 			}
 		}

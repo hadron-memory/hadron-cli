@@ -418,6 +418,12 @@ retire the old one (it keeps its number, gains a `superseded` tag and a
 hadron spec supersede cli:cha:010:01 -m $M --title "backpressure v2" --yes
 ```
 
+The replacement is created together with its table-of-contents and inheritance
+edges. The `superseded-by` edge leaves the *old* spec, so it is a second write;
+if it is refused, the replacement exists unlinked and the error names the
+`hadron spec link <old> <new> -m $M --label superseded-by` to run. Rerunning the
+same `spec supersede` then finds that edge and finishes the retirement.
+
 ## Citations in source, and keeping them honest
 
 The authoring workflow tells you to point at a spec from the code it governs —

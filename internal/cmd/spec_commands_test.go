@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -1562,6 +1563,93 @@ func TestSpecLintAllReportsUntaggedCitation(t *testing.T) {
 	}
 }
 
+// #687: lint's inheritance-edge remedy is a command a user copies and runs, so
+// the test RUNS it. It used to be `hadron edge add … --label`, which exits
+// `unknown flag: --label`, and a string assertion on the message could not see
+// that. Now the remedy goes through `spec link`, and the edge it writes must be
+// the one lint asked for.
+func TestSpecLintInheritanceRemedyRuns(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` +
+			specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			specBatchNode("msg:010:00") + `,` + specBatchNode("msg:010:02") + `]}}}`,
+		"Memories":  memListMicromentorJSON,
+		"GetMemory": memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
+	_ = root.Execute() // findings exit non-zero; the report is what matters
+
+	var report []struct {
+		Citation string `json:"citation"`
+		Rule     string `json:"rule"`
+		Message  string `json:"message"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &report); err != nil {
+		t.Fatalf("lint --json: %v\n%s", err, out.String())
+	}
+	var remedy string
+	for _, r := range report {
+		if r.Citation == "msg:010:02" && r.Rule == "inheritance-edge" {
+			_, remedy, _ = strings.Cut(r.Message, "add it: ")
+		}
+	}
+	if remedy == "" {
+		t.Fatalf("no inheritance-edge remedy for msg:010:02 in:\n%s", out.String())
+	}
+	args := splitCommandLine(t, remedy)
+	if len(args) < 2 || args[0] != "hadron" {
+		t.Fatalf("remedy is not a hadron command: %q", remedy)
+	}
+
+	gql2, captured := captureGraphQL(t, map[string]string{
+		"Memories":   memListMicromentorJSON,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkSpecDetail,
+		"CreateEdge": linkEdgeResp,
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs(append(args[1:], "--server", gql2.URL))
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("the remedy lint suggests does not run: %q: %v", remedy, err)
+	}
+	var edge struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(captured["CreateEdge"], &edge); err != nil {
+		t.Fatalf("the remedy wrote no edge: %v", err)
+	}
+	if edge.Name != "inherits the shared contract (general provisions)" {
+		t.Errorf("remedy edge name = %q, want the inheritance label", edge.Name)
+	}
+}
+
+// splitCommandLine splits a suggested command on spaces, honouring the
+// Go-quoted (%q) arguments lint writes.
+func splitCommandLine(t *testing.T, line string) []string {
+	t.Helper()
+	var args []string
+	for rest := strings.TrimSpace(line); rest != ""; rest = strings.TrimSpace(rest) {
+		if rest[0] == '"' {
+			quoted, err := strconv.QuotedPrefix(rest)
+			if err != nil {
+				t.Fatalf("unterminated quote in %q: %v", line, err)
+			}
+			unq, _ := strconv.Unquote(quoted)
+			args = append(args, unq)
+			rest = rest[len(quoted):]
+			continue
+		}
+		word, tail, _ := strings.Cut(rest, " ")
+		args = append(args, word)
+		rest = tail
+	}
+	return args
+}
+
 func TestSpecLintAllUnavailableListedNode(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
@@ -1878,20 +1966,19 @@ func TestSpecSupersede(t *testing.T) {
 	}
 }
 
-// #127/#128: when a ToC/inheritance target can't be resolved, supersede skips
-// that edge (not silently — it's tagged "skipped" and warned), still emits the
-// JSON, and exits non-zero so the orphaned replacement isn't read as a clean
-// supersede.
-func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
+// #127/#128, then #687: a ToC/inheritance target that can't be resolved used
+// to leave the replacement orphaned from the tree (skipped, warned, exit 1).
+// The structural edges now travel inline on the replacement's create and are
+// resolved first, so the supersede refuses with NOTHING written: no
+// replacement, no superseded-by link, and the old spec is not retired.
+func TestSpecSupersedeUnresolvableEdgeCreatesNothing(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
 	responses := map[string]string{
-		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":      scan,
-		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge":     `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+		"GetNode":   `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch": specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes": scan,
 	}
+	var writes []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			OperationName string `json:"operationName"`
@@ -1902,14 +1989,18 @@ func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &body)
 		w.Header().Set("Content-Type", "application/json")
-		if body.OperationName == "ResolveUrn" {
-			// Only the OLD spec resolves; every ToC/inheritance target misses, so
-			// those edges are skipped and the replacement is left orphaned.
+		switch body.OperationName {
+		case "ResolveUrn":
+			// Only the OLD spec resolves; every ToC/inheritance target misses.
 			if strings.HasSuffix(body.Variables.Urn, "::msg:010:02") {
 				_, _ = w.Write([]byte(resolveSpecJSON))
 			} else {
 				_, _ = w.Write([]byte(`{"data":{"resolveUrn":null}}`))
 			}
+			return
+		case "CreateSpecNode", "CreateEdge", "UpdateSpecNode":
+			writes = append(writes, body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"no write was expected"}]}`))
 			return
 		}
 		resp, ok := responses[body.OperationName]
@@ -1921,41 +2012,18 @@ func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	f, out := testFactory(t)
+	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "orphaned") {
-		t.Fatalf("a supersede that can't wire its ToC edge must fail loudly, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "nothing was created") {
+		t.Fatalf("an unresolvable structural edge must refuse before writing, got %v", err)
 	}
-	if code := exitCodeFor(err); code != exitcode.Error {
-		t.Errorf("orphaned-edge exit code = %d, want %d (Error)", code, exitcode.Error)
+	if code := exitCodeFor(err); code != exitcode.NotFound {
+		t.Errorf("exit code = %d, want %d (NotFound, the target's own code)", code, exitcode.NotFound)
 	}
-	// The JSON still reports each edge's REAL status: ToC/inheritance skipped, the
-	// superseded-by link created.
-	var dto struct {
-		Edges []struct {
-			Label  string `json:"label"`
-			Status string `json:"status"`
-		} `json:"edges"`
-	}
-	if uerr := json.Unmarshal([]byte(out.String()), &dto); uerr != nil {
-		t.Fatalf("supersede JSON must still be emitted: %v\n%s", uerr, out.String())
-	}
-	created, skipped := 0, 0
-	for _, e := range dto.Edges {
-		switch e.Status {
-		case edgeStatusCreatedTest:
-			created++
-		case edgeStatusSkippedTest:
-			skipped++
-		}
-	}
-	if created != 1 || skipped < 1 {
-		t.Errorf("edge statuses = %+v; want superseded-by created and ToC edge(s) skipped", dto.Edges)
-	}
-	if errStr := f.IOStreams.ErrOut.(*strings.Builder).String(); !strings.Contains(errStr, "skipped edge") {
-		t.Errorf("a skipped edge must warn on stderr, got: %q", errStr)
+	if len(writes) != 0 {
+		t.Errorf("writes were sent although a structural edge could not be resolved: %v", writes)
 	}
 }
 
@@ -1997,6 +2065,37 @@ func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 	}
 	if !foundFailedRetirement {
 		t.Fatalf("superseded-by edge should be marked failed, got %+v", dto.Edges)
+	}
+
+	// #687: the remedy is RUN, not read. It used to say "add that edge
+	// manually", naming no command; `hadron edge add` would have been refused
+	// exactly as this edge was. `spec link` writes the superseded-by edge, and
+	// with it in place a rerun finishes the retirement
+	// (TestSpecSupersedeRetryExistingRetirementEdgeFinishesUpdate).
+	_, remedy, _ := strings.Cut(err.Error(), "link them with `")
+	remedy, _, _ = strings.Cut(remedy, "`")
+	args := splitCommandLine(t, remedy)
+	if len(args) < 3 || args[0] != "hadron" || args[1] != "spec" || args[2] != "link" {
+		t.Fatalf("remedy is not a `hadron spec link` command: %q (from %v)", remedy, err)
+	}
+	gql2, captured := captureGraphQL(t, map[string]string{
+		"Memories":   memListMicromentorJSON,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkSpecDetail,
+		"CreateEdge": linkEdgeResp,
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs(append(args[1:], "--server", gql2.URL))
+	if rerr := root2.Execute(); rerr != nil {
+		t.Fatalf("the remedy supersede suggests does not run: %q: %v", remedy, rerr)
+	}
+	var edge struct {
+		Name string `json:"name"`
+	}
+	_ = json.Unmarshal(captured["CreateEdge"], &edge)
+	if edge.Name != "superseded-by" {
+		t.Errorf("remedy edge name = %q, want superseded-by (what the finish-retirement path looks for)", edge.Name)
 	}
 }
 
@@ -2124,6 +2223,15 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 		if body.OperationName == "CreateEdge" {
 			createdEdgeLabels = append(createdEdgeLabels, body.Variables.Name)
 		}
+		if body.OperationName == "CreateSpecNode" {
+			var req struct {
+				Variables json.RawMessage `json:"variables"`
+			}
+			_ = json.Unmarshal(raw, &req)
+			for _, e := range sentSpecEdges(t, req.Variables) {
+				createdEdgeLabels = append(createdEdgeLabels, fmt.Sprint(e["name"]))
+			}
+		}
 		w.Header().Set("Content-Type", "application/json")
 		resp, ok := responses[body.OperationName]
 		if !ok {
@@ -2147,9 +2255,10 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 	}
 	_ = json.Unmarshal([]byte(out.String()), &dto)
 	// Every planned edge — including the ToC edge whose label collides with the
-	// --title — must actually be wired (one CreateEdge each) and reported created.
-	// Before the fix the colliding ToC edge was skipped yet marked created, so
-	// CreateEdge fired fewer times than there were edges.
+	// --title — must actually be wired and reported created: the structural ones
+	// inline on the replacement's create (#687), the retirement link as its own
+	// CreateEdge. Before the #155 fix the colliding ToC edge was skipped yet
+	// marked created, so fewer edges were written than reported.
 	if len(createdEdgeLabels) != len(dto.Edges) {
 		t.Errorf("wired %d edge(s) but planned/reported %d (a colliding ToC edge was skipped): calls=%v", len(createdEdgeLabels), len(dto.Edges), createdEdgeLabels)
 	}
@@ -2164,7 +2273,6 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 // (the constants themselves live in the unexported spec package).
 const (
 	edgeStatusCreatedTest = "created"
-	edgeStatusSkippedTest = "skipped"
 )
 
 func TestSpecImportStub(t *testing.T) {
