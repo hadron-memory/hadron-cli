@@ -64,6 +64,7 @@ const (
 	reasonDirKept           = "directory-kept"
 	reasonFileIsLink        = "skill-file-is-link"
 	reasonForeignFile       = "foreign-skill-file"
+	reasonNotRegular        = "skill-file-not-regular"
 )
 
 type exportReasonDTO struct {
@@ -592,6 +593,23 @@ func applyEntry(hd *exportHostDTO, fsys hostFS, e *gen.SkillExportPlanSkillPlanE
 			fail(*r)
 			return
 		}
+		// On a case-insensitive or normalising filesystem, "Demo" and "demo"
+		// can be ONE directory. Writing the new name then removing the old
+		// one would delete the file just written (#696 review). Such a
+		// rename is done in place: rewrite the file, then rename the
+		// directory to its new spelling. Nothing is removed.
+		if sameDirectory(filepath.Join(root, from), filepath.Join(root, e.Name)) {
+			if r := fsys.write(e); r != nil {
+				fail(*r)
+				return
+			}
+			if r := fsys.renameDir(from, e.Name); r != nil {
+				fail(*r)
+				return
+			}
+			hd.Moved = append(hd.Moved, exportMovedDTO{exportItemDTO: it, From: from})
+			return
+		}
 		if r := fsys.write(e); r != nil {
 			fail(*r)
 			return
@@ -784,6 +802,31 @@ func (fs hostFS) remove(dir string) ([]string, *exportReasonDTO) {
 	return kept, nil
 }
 
+// sameDirectory reports whether two paths are one existing directory — as on a
+// case-insensitive filesystem, where "Demo" and "demo" resolve alike. Neither
+// path is followed: both are Lstat'd, and links are refused elsewhere.
+func sameDirectory(a, b string) bool {
+	fa, errA := os.Lstat(a)
+	fb, errB := os.Lstat(b)
+	return errA == nil && errB == nil && fa.IsDir() && fb.IsDir() && os.SameFile(fa, fb)
+}
+
+// renameDir renames a skill directory in place (a case-only rename). Under
+// --dry-run it only runs the checks.
+func (fs hostFS) renameDir(from, to string) *exportReasonDTO {
+	if r := fs.recheck(from); r != nil {
+		return r
+	}
+	if fs.dryRun || from == to {
+		return nil
+	}
+	if err := os.Rename(filepath.Join(fs.root, from), filepath.Join(fs.root, to)); err != nil {
+		r := ioReason(err)
+		return &r
+	}
+	return nil
+}
+
 // recheck re-runs the root-path guard and the skill-directory check, for use
 // immediately before a mutation.
 func (fs hostFS) recheck(dir string) *exportReasonDTO {
@@ -797,6 +840,20 @@ func (fs hostFS) recheck(dir string) *exportReasonDTO {
 // provenance header: that file was not written by this command. An absent
 // file is fine; an unreadable one is an I/O failure.
 func checkOwned(p string) *exportReasonDTO {
+	// Only a REGULAR file is read: a FIFO or device named SKILL.md would block
+	// the read (a dry run included), and is not ours to replace either way
+	// (#696 review).
+	fi, err := os.Lstat(p)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		r := ioReason(err)
+		return &r
+	}
+	if !fi.Mode().IsRegular() {
+		return &exportReasonDTO{Code: reasonNotRegular, Message: fmt.Sprintf("%s is not a regular file, so it was left alone", p), Origin: originClient}
+	}
 	data, err := os.ReadFile(p)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -860,7 +917,9 @@ func foreignSkillDirs(root string, submitted map[string]bool, linked map[string]
 		fi, err := os.Lstat(filepath.Join(root, name, skillFileName))
 		// A linked SKILL.md is left to the link check, which reports it as
 		// skill-file-is-link rather than as foreign (#694 review).
-		if err == nil && fi.Mode()&os.ModeSymlink == 0 {
+		// A non-regular SKILL.md (a FIFO, a device) is left to the write path,
+		// which reports it precisely as skill-file-not-regular.
+		if err == nil && fi.Mode().IsRegular() {
 			out[name] = true
 		}
 	}
