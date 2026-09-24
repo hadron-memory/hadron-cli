@@ -1392,3 +1392,27 @@ func TestNearCapAtAnyLocIsNotTierAdvice(t *testing.T) {
 		t.Errorf("want the generic split remedy: %q", msg)
 	}
 }
+
+// A spec by its governed role but without the tag is a spec (isSpec), so the
+// missing tag is a WARNING that says why it matters — the tag-based scans skip
+// it — not the "broken" error a non-spec gets (@copilot on #710).
+func TestTagSpecFindingKnowsTheRole(t *testing.T) {
+	role := api.SpecNodeRole
+	find := func(n specNode) *lintFindingDTO {
+		for _, f := range lintNode(n, "") {
+			if f.Rule == "tag-spec" {
+				f := f
+				return &f
+			}
+		}
+		return nil
+	}
+	roleOnly := specNode{Loc: "onboarding:mentor", Name: "onboarding:mentor — M", NodeType: "info", Role: &role}
+	if f := find(roleOnly); f == nil || f.Severity != sevWarning || !strings.Contains(f.Message, "skip this spec") {
+		t.Errorf("role-only spec: tag-spec = %+v, want a warning explaining the scans skip it", f)
+	}
+	untagged := specNode{Loc: "msg:010:02", Name: "msg:010:02 — W", NodeType: "info"}
+	if f := find(untagged); f == nil || f.Severity != sevError {
+		t.Errorf("untagged, no role: tag-spec = %+v, want the error", f)
+	}
+}

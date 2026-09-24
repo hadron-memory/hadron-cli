@@ -1024,6 +1024,9 @@ func pageBranch(nodes []*api.ListNode, prefix string, limit, offset int, serverP
 	if serverPaged {
 		return out
 	}
+	if offset > 0 && limit == 0 {
+		limit = serverDefaultPage // --offset alone is one default page, as before
+	}
 	if offset > 0 {
 		if offset >= len(out) {
 			return []*api.ListNode{}
@@ -1082,6 +1085,11 @@ func fetchRegister(cmd *cobra.Command, client graphql.Client, memoryURN string) 
 // typical spec corpus to a single round-trip; the server materializes the full
 // result set before slicing regardless of limit, so a larger page is cheap.
 const nodesPageSize = 500
+
+// serverDefaultPage is the page the server returns for an unspecified limit.
+// An --offset with no --limit has always meant ONE such page; pageBranch keeps
+// that cap when it cuts the window itself (@codex on #710).
+const serverDefaultPage = 100
 
 // scanAllNodes pages the nodes query to exhaustion and returns every node
 // matching (memory, prefix, tags). Any command whose contract is "the whole
@@ -1170,6 +1178,7 @@ type specNode struct {
 	Name               string
 	NodeType           string
 	Tags               []string
+	Role               *string // the governed role; a spec may carry it without the tag (#708)
 	Abstract           *string
 	AbstractOriginHash *string
 	Content            *string
@@ -1198,6 +1207,7 @@ func nodeFromGQL(n *gen.GetNodeNode) specNode {
 		Name:               n.Name,
 		NodeType:           n.NodeType,
 		Tags:               n.Tags,
+		Role:               n.Role,
 		Abstract:           n.Abstract,
 		AbstractOriginHash: n.AbstractOriginHash,
 		Content:            n.Content,
@@ -1228,6 +1238,7 @@ func nodeFromBatch(n *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) specNode {
 		Name:               n.Name,
 		NodeType:           n.NodeType,
 		Tags:               n.Tags,
+		Role:               n.Role,
 		Abstract:           n.Abstract,
 		AbstractOriginHash: n.AbstractOriginHash,
 		Content:            n.Content,

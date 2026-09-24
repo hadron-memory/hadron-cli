@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -8,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
@@ -452,5 +454,35 @@ func TestRegisterReminderOnlyForTheLedger(t *testing.T) {
 		if c.want == "" && b.Len() != 0 || c.want != "" && !strings.Contains(b.String(), c.want) {
 			t.Errorf("%s → %s: reminder %q, want %q", c.old, c.new, b.String(), c.want)
 		}
+	}
+}
+
+// --offset without --limit is one default page after the branch filter, not
+// the whole remaining branch (@codex on #710).
+func TestPageBranchOffsetOnlyIsOneDefaultPage(t *testing.T) {
+	var nodes []*api.ListNode
+	for i := 0; i < serverDefaultPage+50; i++ {
+		nodes = append(nodes, &api.ListNode{Loc: fmt.Sprintf("b:%d", i)})
+	}
+	if got := len(pageBranch(nodes, "b", 0, 10, false)); got != serverDefaultPage {
+		t.Errorf("offset-only window = %d, want one default page (%d)", got, serverDefaultPage)
+	}
+	if got := len(pageBranch(nodes, "b", 0, 0, false)); got != serverDefaultPage+50 {
+		t.Errorf("no window = %d, want the whole branch", got)
+	}
+	if got := len(pageBranch(nodes, "b", 5, 10, false)); got != 5 {
+		t.Errorf("explicit limit = %d, want 5", got)
+	}
+}
+
+// Both read projections carry the role into lint, or a role-only spec read by
+// either path is judged as if it had none (@copilot on #710).
+func TestLintProjectionsCarryTheRole(t *testing.T) {
+	role := api.SpecNodeRole
+	if sn := nodeFromGQL(&gen.GetNodeNode{Loc: "x", Role: &role}); sn.Role == nil || *sn.Role != role {
+		t.Errorf("nodeFromGQL dropped the role: %v", sn.Role)
+	}
+	if sn := nodeFromBatch(&gen.NodeBatchNodeBatchNodeBatchResultNodesNode{Loc: "x", Role: &role}); sn.Role == nil || *sn.Role != role {
+		t.Errorf("nodeFromBatch dropped the role: %v", sn.Role)
 	}
 }
