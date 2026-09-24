@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // `hadron skill plugin` (#653) run end to end against a fake server: which
@@ -361,5 +363,32 @@ func TestSkillPluginNamesWhereAScopeNameResolved(t *testing.T) {
 		if c.op == "ScopeExplain" && c.vars["appRef"] != "hrn:app:example.com:team" {
 			t.Errorf("ScopeExplain appRef = %v", c.vars["appRef"])
 		}
+	}
+}
+
+// An auth failure on the SECOND host still stops the run before anything is
+// written: no plan is acted on until both are in.
+func TestSkillPluginSecondHostAuthFailureWritesNothing(t *testing.T) {
+	h := pluginHome(t)
+	out := filepath.Join(h, "dist")
+	var mu sync.Mutex
+	n := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		n++
+		call := n
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		if call == 1 {
+			_, _ = w.Write([]byte(`{"data":{"skillPlan":` + planJSON(planEntryJSON("alpha", "WRITE", "# a")) + `}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"errors":[{"message":"token expired","extensions":{"code":"UNAUTHENTICATED"}}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	_, _, err := runPlugin(t, srv.URL, "--out", out)
+	wantExit(t, err, exitcode.AuthRequired)
+	if _, err := os.Stat(out); err == nil {
+		t.Error("a run that could not plan every host wrote a partial bundle")
 	}
 }

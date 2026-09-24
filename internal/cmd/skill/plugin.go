@@ -317,11 +317,14 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 	// until both are in.
 	plans := map[string]*gen.SkillExportPlanSkillPlan{}
 	failures := map[string]*exportReasonDTO{}
-	for i, h := range skilldoc.Hosts {
+	for _, h := range skilldoc.Hosts {
 		p, err := fetchPluginPlan(cmd, client, h.Key, memories)
 		if err != nil {
+			// Nothing is written until every plan is in, so an auth or
+			// transport error on ANY host is the run's error, not a host
+			// failure beside a published partial bundle (@codex on #707).
 			mapped := api.MapError(err)
-			if code := exitcode.FromError(mapped); i == 0 && (code == exitcode.AuthRequired || code == exitcode.Unavailable) {
+			if code := exitcode.FromError(mapped); code == exitcode.AuthRequired || code == exitcode.Unavailable {
 				return mapped
 			}
 			failures[h.Key] = &exportReasonDTO{Code: reasonPlanRefused, Message: mapped.Error(), Origin: originClient}
