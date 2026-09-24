@@ -117,8 +117,11 @@ var (
 	// legacyHeaderRE reads the pre-#580 provenance comment written by the
 	// hand-run export procedure: `<!-- Generated from <urn> -->`. It carries a
 	// source but no hash, so a file with only this line classifies as unhashed.
-	// The token must LOOK like a node URN (a scheme, or the `::` grammar): a
-	// body opening with `<!-- Generated from a template -->` is a body.
+	// The regex captures any token; legacyHeader then accepts it only as a
+	// flat v2 node URN (isNodeURN). A `::` or `urn:` spelling is NOT
+	// provenance: this surface supports no v1 (Holger, 2026-09-16, restated
+	// 2026-09-24 on cli#704 — no skill file carries one). Such a line, like
+	// `<!-- Generated from a template -->`, is body, so its file is foreign.
 	legacyHeaderRE = regexp.MustCompile(`(?m)^<!--\s*Generated from\s+(\S+)\s*-->$`)
 	// hashRE is the provenance hash's exact shape: 16 lowercase hex characters.
 	hashRE = regexp.MustCompile(`^[0-9a-f]{16}$`)
@@ -884,8 +887,8 @@ func machineHeader(t string) (id, source, hash string, ok bool) {
 }
 
 // legacyHeader parses the pre-#580 `<!-- Generated from <urn> -->` line;
-// ok=false unless the token is a flat v2 node URN (which every hand-run
-// export wrote).
+// ok=false unless the token is a flat v2 node URN. No v1 spelling is read
+// here, although urn-lib would parse one (see legacyHeaderRE).
 func legacyHeader(t string) (source string, ok bool) {
 	h := legacyHeaderRE.FindStringSubmatch(t)
 	if h == nil || !isNodeURN(h[1]) {
