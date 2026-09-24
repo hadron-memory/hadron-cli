@@ -1430,3 +1430,37 @@ there would be three more of these.
 
 **Consequence for D11 and #490:** every remaining rename or re-home is a loc
 change, so all of them are held behind this. Cheap now, a migration later.
+
+## 12. `skill export`, as built (#621)
+
+The writer, as shipped. Where it settles something the sections above leave open, or supersedes them, this section wins.
+
+**Selection.** No selector (cor:agt:030:03, D-2026-09-23-B). `memories` is omitted on the wire, so the server's "every memory the caller can read" applies, narrowed by nothing. `--scope` is not built. The §3 synopsis (`export (-m …| --all) …`) and §9.5's `export --all` are superseded.
+
+**Hosts and roots.** Export iterates `skilldoc.Hosts` and plans once per host (`SkillExportPlan`, its own operation, so `status`/`lint` still cannot receive a body). Roots come from an EXPORT-ONLY table: `claudeSkill` → `$HOME/.claude/skills`, `codexSkill` → `$HOME/.agents/skills`. `status`'s `hostDirs` is deliberately unchanged, because adding Codex there would make `status --host codexSkill` compare one of Codex's two read roots and report a wider all-clear than it read (Q4). The deprecated `~/.codex/skills` is never written, moved or cleaned (P20/P21; Q4/Q7 stay open). A host with no row fails its items, named (P07). `TestExportRootsCoverEveryHost` pins the table against `skilldoc.Hosts`.
+
+**The link guard (Holger's Q2/Q3 ruling: refuse).** §3's guard order, adapted in one respect:
+1. `$HOME` is **resolved**, not refused. Every component *below* it (`.agents`, `.agents/skills`, `.claude`, `.claude/skills`) is `lstat`ed in turn, and any link refuses the whole host (P17/P18, Q2/Q3).
+   - Why not compare `realpath(root)` with the path as written, as §3 proposed: that comparison fires on every macOS temp dir (`/var` → `/private/var`) and on any user whose home sits under a symlinked system path.
+   - Checking every component below the resolved home also implies §3's cross-host comparison: two roots cannot resolve to one directory without a link being found.
+2. A missing component is the first-export case (P03). Everything that does exist up to it has already been checked, and the root is created only when something is actually written.
+3. A blocked host still fetches its plan, **with no files**, so nothing is read through the link, and names every skill as failed.
+4. **Skill directories (P06):** a linked `<root>/<name>` is found before the plan. Its facts are **withheld** (the shared walk reads through links on purpose, for `status`), and any entry that would touch it (name or `movedFrom`) is **refused whatever the server planned**. Even a SKIP "current" would be a claim about another host's file. `checkSkillDir` re-checks just before each write or removal, which also catches a link that appears after the walk and a path that is a file.
+
+**Actions.** The server decides; the client performs and reports:
+- WRITE writes `renderedBody` byte for byte via `config.WriteFileAtomic` (temp file plus rename in the skill directory; it refuses a symlinked target).
+- MOVE writes the new file first, then removes the old one, so a failure leaves two visible copies rather than none.
+- REMOVE deletes, as does `--prune`.
+- SKIP, REFUSE and FAIL are reported with the server's reasons.
+- An unknown action, a missing body, a missing source, or `preservesExistingFile` together with a destructive action fails the item. The file wins.
+- Names from the server are checked by `safeDirName` (no separators, no `.`/`..`) before any join.
+- **Removal is not `RemoveAll`:** it deletes `SKILL.md`, then the directory only if it's empty. Anything else a skill directory holds (scripts, assets) is kept and listed in `kept` (reason `directory-kept`). Removal never follows a link.
+
+**Report.** `--json` is `{dryRun, hosts:[{host, root, failure, scanned, judged, written, moved, removed, skipped, refused, failed, orphaned, pruned, unreadable, unparseable}], unrecognized}`, extending §5.1's shape with `failed`, `failure`, the walk's `unreadable`/`unparseable`, and the host-free `unrecognized` (P16, reported once). Reasons are `{code, message, origin}`: `server` reasons are the planner's verbatim; `client` reasons are I/O facts only. `--dry-run` produces the same report and touches nothing, not even an absent root.
+
+**Continuation and exit.** Every item is recorded exactly once, and one failing item never stops the next (cor:agt:030:00).
+- An auth or transport error before any host did I/O is the run's error: the run couldn't start.
+- A plan error after that is a host `failure`.
+- **Exit 5 after the full report** when any item was refused or failed, or a host couldn't be written. P07 says no contract decides this. It's proposed in team chat #1322 and awaits Ada/Holger; it mirrors `spec lint`'s ERROR → 5.
+
+**Testing split.** The writer's own guards and I/O are unit-tested in-package (`internal/cmd/skill/export_test.go`, against a faked plan, mutation-checked guard by guard). The matrix P-cases at command level are Jane's (`internal/cmd/skill_export_acceptance_test.go`, draining `pending` and re-vendoring with Eli).
