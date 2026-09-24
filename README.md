@@ -32,8 +32,15 @@ module `:000`, product `:gen`). See
 
 ```sh
 brew tap hadron-memory/hadron-cli
+brew trust --cask hadron-memory/hadron-cli/hadron
 brew install --cask hadron
 ```
+
+Homebrew 7.0 and later refuses to load a cask from a non-official tap until you
+trust it with `brew trust`. If you tapped before that, your next `brew upgrade`
+stops with `Refusing to load cask hadron-memory/hadron-cli/hadron from untrusted
+tap`. Run the `brew trust` line above once, then upgrade again. Homebrew older
+than 5.1.15 has no `brew trust` command, so skip that line there.
 
 ### Release archives (macOS, Linux, Windows)
 
