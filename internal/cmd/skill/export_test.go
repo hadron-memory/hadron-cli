@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -713,6 +714,12 @@ func TestExportLinkedSkillFileIsALinkNotForeign(t *testing.T) {
 // Only "does not exist" is absent: an unreadable skill directory fails the
 // dry run exactly as it fails the real run (Copilot on #694).
 func TestExportUnreadableDestinationFailsInBothModes(t *testing.T) {
+	// Unix permission semantics only: on Windows, os.Chmod toggles the
+	// read-only attribute and 0o000 does not make a directory unreadable, and
+	// Geteuid is -1 there (#696 review). Root ignores permissions.
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permissions are not Unix-like on Windows")
+	}
 	if os.Geteuid() == 0 {
 		t.Skip("root ignores directory permissions")
 	}
@@ -752,5 +759,30 @@ func TestHostFSRemoveRechecksBeforeDeleting(t *testing.T) {
 	}
 	if !exists(f) {
 		t.Error("the file was deleted although the pre-delete check refused")
+	}
+}
+
+// Ownership is re-checked immediately before the atomic write (#696 review):
+// a foreign SKILL.md that appears after the first checks — planted here on the
+// guard's second call, which runs after MkdirAll — is still not replaced.
+func TestHostFSWriteRechecksOwnershipBeforeWriting(t *testing.T) {
+	h := home(t)
+	root := filepath.Join(h, ".claude", "skills")
+	mkdir(t, root)
+	f := filepath.Join(root, "demo", "SKILL.md")
+	foreign := "---\nname: demo\ndescription: arrived late\n---\n\nmine\n"
+	calls := 0
+	fsys := hostFS{root: root, guard: func() *exportReasonDTO {
+		calls++
+		if calls == 2 {
+			write(t, f, foreign)
+		}
+		return nil
+	}}
+	if r := fsys.write(entry("demo", gen.SkillExportActionWrite, "hadron's", "")); r == nil || r.Code != reasonForeignFile {
+		t.Fatalf("write = %+v, want %s", r, reasonForeignFile)
+	}
+	if got, _ := os.ReadFile(f); string(got) != foreign {
+		t.Error("a foreign file that appeared before the write was replaced")
 	}
 }

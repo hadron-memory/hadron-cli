@@ -693,12 +693,17 @@ func (fs hostFS) write(e *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry) *ex
 		r := ioReason(err)
 		return &r
 	}
-	// Re-check after creating: MkdirAll follows a link it finds, so a link
-	// that appeared since the checks must still refuse the write.
-	if r := fs.guard(); r != nil {
+	// Re-check after creating, immediately before the write: MkdirAll follows
+	// a link it finds, and a link or a foreign file may have appeared since the
+	// first checks (#696 review). The window narrows; see hostFS on why it
+	// cannot close portably.
+	if r := fs.recheck(e.Name); r != nil {
 		return r
 	}
-	if r := checkSkillDir(fs.root, e.Name); r != nil {
+	if r := checkNotLink(target); r != nil {
+		return r
+	}
+	if r := checkOwned(target); r != nil {
 		return r
 	}
 	if err := config.WriteFileAtomic(target, []byte(*e.RenderedBody), 0o644); err != nil {
