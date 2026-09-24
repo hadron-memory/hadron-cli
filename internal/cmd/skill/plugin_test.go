@@ -267,15 +267,11 @@ func TestWritePluginArtifactRefusesWhatItDidNotWrite(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := writeZip(zf, map[string][]byte{"theirs.txt": []byte("keep")}); err != nil {
+			// A valid zip, but without our comment.
+			if err := writeZip(zf, map[string][]byte{"theirs.txt": []byte("keep")}, ""); err != nil {
 				t.Fatal(err)
 			}
 			_ = zf.Close()
-			// writeZip stamps our comment; strip it so the zip is valid but not ours.
-			b, _ := os.ReadFile(filepath.Join(out, "hadron.zip"))
-			b = []byte(strings.TrimSuffix(string(b), pluginZipComment))
-			b[len(b)-2], b[len(b)-1] = 0, 0 // comment length
-			write(t, filepath.Join(out, "hadron.zip"), string(b))
 		},
 		"link at zip path": func(out string) {
 			write(t, filepath.Join(h, "z"), "x")
@@ -431,7 +427,7 @@ func TestSwapIntoRechecksWhatItMovedAside(t *testing.T) {
 	dir, tmp := filepath.Join(h, "hadron"), filepath.Join(h, ".hadron.tmp-1")
 	write(t, filepath.Join(dir, "theirs.txt"), "keep")
 	write(t, filepath.Join(tmp, "skills", "a", "SKILL.md"), "new")
-	_, r := swapInto(tmp, dir, true)
+	_, r := swapInto(tmp, dir, true, skilldoc.HostClaudeSkill)
 	if r == nil || r.Code != reasonArtifactNotOurs {
 		t.Fatalf("reason = %+v, want artifact-not-ours", r)
 	}
@@ -448,7 +444,7 @@ func TestSwapIntoRechecksAZipMovedAside(t *testing.T) {
 	dest, tmp := filepath.Join(h, "hadron.zip"), filepath.Join(h, ".hadron.zip.tmp-1")
 	write(t, dest, "someone else's file")
 	write(t, tmp, "new zip")
-	_, r := swapInto(tmp, dest, false)
+	_, r := swapInto(tmp, dest, false, skilldoc.HostClaudeSkill)
 	if r == nil || r.Code != reasonArtifactNotOurs {
 		t.Fatalf("reason = %+v, want artifact-not-ours", r)
 	}
@@ -587,7 +583,7 @@ func TestSwapIntoPutsBackADirectoryThatAppearedAtTheZipPath(t *testing.T) {
 	dest, tmp := filepath.Join(h, "hadron.zip"), filepath.Join(h, ".hadron.zip.tmp-1")
 	write(t, filepath.Join(dest, "theirs.txt"), "keep")
 	write(t, tmp, "new zip")
-	if _, r := swapInto(tmp, dest, false); r == nil || r.Code != reasonArtifactNotOurs {
+	if _, r := swapInto(tmp, dest, false, skilldoc.HostClaudeSkill); r == nil || r.Code != reasonArtifactNotOurs {
 		t.Fatalf("reason = %+v, want artifact-not-ours", r)
 	}
 	if b, err := os.ReadFile(filepath.Join(dest, "theirs.txt")); err != nil || string(b) != "keep" {
@@ -764,5 +760,35 @@ func TestWritePluginArtifactRefusesAnOutSwappedForALink(t *testing.T) {
 	}
 	if ents, _ := os.ReadDir(filepath.Join(h, ".claude", "skills")); len(ents) != 0 {
 		t.Errorf("wrote through the swapped-in link: %v", ents)
+	}
+}
+
+// `--name foo-codex` names the Claude artifact what `--name foo` names the
+// Codex one: each host's build must refuse the other's, dir and zip alike.
+func TestAnArtifactIsOnlyReplacedByItsOwnHost(t *testing.T) {
+	out := filepath.Join(home(t), "out")
+	dir, zp := filepath.Join(out, "foo-codex"), filepath.Join(out, "foo-codex.zip")
+	codex := buildArtifact(skilldoc.HostCodexSkill, "foo", nil, map[string]string{"a": "codex body"})
+	if r := writePluginArtifact(out, dir, zp, codex).r; r != nil {
+		t.Fatal(r)
+	}
+	claude := buildArtifact(skilldoc.HostClaudeSkill, "foo-codex", nil, map[string]string{"a": "claude body"})
+	res := writePluginArtifact(out, dir, zp, claude)
+	if res.dir || res.r == nil || res.r.Code != reasonArtifactNotOurs {
+		t.Fatalf("result = %+v, want the Codex artifact refused", res)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "a", "SKILL.md")); string(b) != "codex body" {
+		t.Errorf("the Codex artifact was replaced: %q", b)
+	}
+	// Each check alone, so neither can hide behind the other.
+	if r := checkReplaceable(dir, true, skilldoc.HostClaudeSkill); r == nil {
+		t.Error("a Codex directory must not be replaceable by a Claude build")
+	}
+	if r := checkReplaceable(zp, false, skilldoc.HostClaudeSkill); r == nil {
+		t.Error("a Codex zip must not be replaceable by a Claude build")
+	}
+	// And the same host still replaces its own.
+	if r := writePluginArtifact(out, dir, zp, buildArtifact(skilldoc.HostCodexSkill, "foo", nil, map[string]string{"a": "v2"})).r; r != nil {
+		t.Errorf("the owning host must still replace its artifact: %+v", r)
 	}
 }

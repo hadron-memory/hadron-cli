@@ -52,7 +52,8 @@ const (
 	// not write"); anything else at that path is refused and left alone.
 	pluginMarker   = ".hadron-plugin"
 	pluginProducer = "hadron skill plugin"
-	// pluginZipComment marks a zip this command wrote, for the same rule.
+	// pluginZipComment, followed by the host, marks a zip this command wrote,
+	// for the same rule (see zipComment).
 	pluginZipComment = "hadron skill plugin"
 	// defaultPluginName is Holger's ruling (2026-09-24): "hadron", not
 	// "hadron-skills", because a plugin can carry more than skills.
@@ -339,7 +340,7 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 		}
 		// The replaceability check runs on a dry run too, so a dry run
 		// reports the refusal the real run would hit (#694's parity rule).
-		res := writeResult{r: checkArtifactPaths(dir, zipPath)}
+		res := writeResult{r: checkArtifactPaths(dir, zipPath, h.Key)}
 		if res.r == nil && !opts.dryRun {
 			res = writePluginArtifact(out, dir, zipPath, b)
 		}
@@ -578,6 +579,7 @@ func bundleHost(hd *pluginHostDTO, p *gen.SkillExportPlanSkillPlan, others []*ge
 // written to the directory, zipFiles to the zip. Paths are slash-separated
 // and relative to the artifact root.
 type artifact struct {
+	host     string
 	version  string
 	dirFiles map[string][]byte
 	zipFiles map[string][]byte
@@ -590,7 +592,7 @@ func buildArtifact(host, name string, scope *pluginScopeDTO, skills map[string]s
 	}
 	sort.Strings(skillNames)
 
-	a := artifact{dirFiles: map[string][]byte{}, zipFiles: map[string][]byte{}}
+	a := artifact{host: host, dirFiles: map[string][]byte{}, zipFiles: map[string][]byte{}}
 	marker := mustJSON(map[string]string{"producer": pluginProducer, "host": host})
 
 	if host != skilldoc.HostClaudeSkill {
@@ -668,7 +670,18 @@ func mustJSON(v any) []byte {
 	return append(b, '\n')
 }
 
-// writePluginArtifact writes one host's artifact under out. Each piece is
+// writePluginArtifact writes one host's artifact under out.
+//
+// THREAT MODEL, stated so the guarantees below are read at their true size
+// (review:enumerate-the-paths-before-promising-a-guarantee). It protects
+// what is at, or appears at, an ARTIFACT path — a foreign file or directory,
+// a link, another host's artifact — at the instant of every move, and
+// --out as it resolved when the run began (re-resolved after creation). It
+// does not defend against a process that renames --out itself or its
+// parents while the run is writing: such a racer can do whatever the user
+// can, and closing it would need every write anchored to an opened directory
+// handle. That is the configuration-vs-racing-process line #694 drew for
+// skill export's hostFS. Each piece is
 // built in a temp sibling and renamed into place, so an interrupted run never
 // leaves a half-plugin that installs, and the rename never follows a link at
 // the destination.
@@ -691,7 +704,7 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) writeResult {
 		return writeResult{r: &exportReasonDTO{Code: reasonArtifactIsLink,
 			Message: fmt.Sprintf("%s changed while the plugin was being built (it now resolves to %s), so nothing was written", out, cmp(got, "nothing")), Origin: originClient}}
 	}
-	if r := checkArtifactPaths(dir, zipPath); r != nil {
+	if r := checkArtifactPaths(dir, zipPath, a.host); r != nil {
 		return writeResult{r: r}
 	}
 
@@ -718,7 +731,7 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) writeResult {
 		}
 		zipTmp = zf.Name()
 		defer func() { _ = os.Remove(zipTmp) }()
-		werr := writeZip(zf, a.zipFiles)
+		werr := writeZip(zf, a.zipFiles, zipComment(a.host))
 		if cerr := zf.Close(); werr == nil {
 			werr = cerr
 		}
@@ -727,13 +740,13 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) writeResult {
 		}
 	}
 
-	published, cleanup := swapInto(tmp, dir, true)
+	published, cleanup := swapInto(tmp, dir, true, a.host)
 	if !published {
 		return writeResult{r: cleanup}
 	}
 	res := writeResult{dir: true, r: cleanup}
 	if zipTmp != "" {
-		zpub, zr := swapInto(zipTmp, zipPath, false)
+		zpub, zr := swapInto(zipTmp, zipPath, false, a.host)
 		if !zpub {
 			zr.Message = fmt.Sprintf("%s was written, but its zip was not: %s", dir, zr.Message)
 		}
@@ -757,20 +770,26 @@ func joinReasons(a, b *exportReasonDTO) *exportReasonDTO {
 	return &j
 }
 
-func checkArtifactPaths(dir, zipPath string) *exportReasonDTO {
-	if r := checkReplaceable(dir, true); r != nil {
+func checkArtifactPaths(dir, zipPath, host string) *exportReasonDTO {
+	if r := checkReplaceable(dir, true, host); r != nil {
 		return r
 	}
 	if zipPath != "" {
-		return checkReplaceable(zipPath, false)
+		return checkReplaceable(zipPath, false, host)
 	}
 	return nil
 }
 
+// zipComment marks a zip as this command's, for one host: a Claude build
+// never replaces a Codex zip at the same path, or the reverse (@copilot on
+// #707 — `--name foo-codex` names Claude's artifact what `--name foo` names
+// Codex's).
+func zipComment(host string) string { return pluginZipComment + " " + host }
+
 // checkReplaceable is plan §7 Q5: a path that does not exist is free; one
 // this command wrote (a directory carrying the marker, a zip carrying the
 // comment) may be replaced; anything else — a link included — is refused.
-func checkReplaceable(p string, isDir bool) *exportReasonDTO {
+func checkReplaceable(p string, isDir bool, host string) *exportReasonDTO {
 	fi, err := os.Lstat(p)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
@@ -786,7 +805,7 @@ func checkReplaceable(p string, isDir bool) *exportReasonDTO {
 	notOurs := &exportReasonDTO{Code: reasonArtifactNotOurs,
 		Message: fmt.Sprintf("%s exists and was not written by `hadron skill plugin`, so it was left alone; move it or choose another --out or --name", p), Origin: originClient}
 	if isDir {
-		if !fi.IsDir() || !hasPluginMarker(p) {
+		if !fi.IsDir() || !hasPluginMarker(p, host) {
 			return notOurs
 		}
 		// A marked directory someone has since put a host skills root inside
@@ -806,7 +825,7 @@ func checkReplaceable(p string, isDir bool) *exportReasonDTO {
 		return notOurs
 	}
 	defer func() { _ = zr.Close() }()
-	if zr.Comment != pluginZipComment {
+	if zr.Comment != zipComment(host) {
 		return notOurs
 	}
 	return nil
@@ -836,7 +855,9 @@ func containsHostRoot(dir string) (string, bool) {
 	return found, found != ""
 }
 
-func hasPluginMarker(dir string) bool {
+// hasPluginMarker reports whether dir carries this command's marker FOR
+// host: another host's artifact at the same path is not ours to replace.
+func hasPluginMarker(dir, host string) bool {
 	p := filepath.Join(dir, pluginMarker)
 	fi, err := os.Lstat(p)
 	if err != nil || !fi.Mode().IsRegular() {
@@ -848,8 +869,9 @@ func hasPluginMarker(dir string) bool {
 	}
 	var m struct {
 		Producer string `json:"producer"`
+		Host     string `json:"host"`
 	}
-	return json.Unmarshal(b, &m) == nil && m.Producer == pluginProducer
+	return json.Unmarshal(b, &m) == nil && m.Producer == pluginProducer && m.Host == host
 }
 
 // swapInto publishes the built tmp (a directory, or a zip when isDir is
@@ -864,7 +886,7 @@ func hasPluginMarker(dir string) bool {
 //
 // published says whether tmp is now at dest. A reason with published=true
 // means only the previous artifact could not be removed; it says where it is.
-func swapInto(tmp, dest string, isDir bool) (published bool, _ *exportReasonDTO) {
+func swapInto(tmp, dest string, isDir bool, host string) (published bool, _ *exportReasonDTO) {
 	if _, err := os.Lstat(dest); errors.Is(err, fs.ErrNotExist) {
 		return publish(tmp, dest, isDir)
 	}
@@ -873,7 +895,7 @@ func swapInto(tmp, dest string, isDir bool) (published bool, _ *exportReasonDTO)
 		r := ioReason(err)
 		return false, &r
 	}
-	if r := checkReplaceable(old, isDir); r != nil || !pathExists(old) {
+	if r := checkReplaceable(old, isDir, host); r != nil || !pathExists(old) {
 		return false, restore(old, dest, &exportReasonDTO{Code: reasonArtifactNotOurs,
 			Message: fmt.Sprintf("%s changed while the plugin was being built and is no longer one this command wrote, so it was left alone", dest), Origin: originClient})
 	}
@@ -964,7 +986,7 @@ func pathExists(p string) bool {
 	return err == nil
 }
 
-func writeZip(w io.Writer, files map[string][]byte) error {
+func writeZip(w io.Writer, files map[string][]byte, comment string) error {
 	names := make([]string, 0, len(files))
 	for n := range files {
 		names = append(names, n)
@@ -980,7 +1002,7 @@ func writeZip(w io.Writer, files map[string][]byte) error {
 			return err
 		}
 	}
-	if err := zw.SetComment(pluginZipComment); err != nil {
+	if err := zw.SetComment(comment); err != nil {
 		return err
 	}
 	return zw.Close()
