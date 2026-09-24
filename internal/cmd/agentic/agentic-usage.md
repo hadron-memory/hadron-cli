@@ -1018,7 +1018,7 @@ Conventions:
   produce; it is a convention, not a rule other commands enforce.
   It takes `-m/--memory` and addresses specs by bare citation, not a full URN.
   `spec get` shows one citation, or `--prefix <prefix>` dumps every spec under
-  a branch (feature/module/product) with the same per-node detail, paged to
+  any branch of the loc tree, at any depth, with the same per-node detail, paged to
   exhaustion (`--limit`/`--offset` fetch a single page); `--json` emits an array.
   `--body-only` prints just one spec's raw markdown body for a clean
   `… | node update --content -` edit round-trip.

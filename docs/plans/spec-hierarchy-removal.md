@@ -1,6 +1,6 @@
 # Removing the fixed spec hierarchy (#708, #709)
 
-> **Status: slices A and C built; B and D planned.** Written 2026-09-24 by Jonas
+> **Status: slices A and C built (cli#710); B and D planned.** Written 2026-09-24 by Jonas
 > (cli-engineer) on Ada's dispatch (team chat #1473), under Holger's
 > authorization of the same day. The authorization covers removing the legacy
 > spec-corpus hierarchy checks and the flat/product concept **before** a
@@ -34,7 +34,7 @@ them. They fall into six groups:
 
 | Group | Where | What it did | Slice |
 |---|---|---|---|
-| Address grammar | `edit`, `link`, `get`, `extract` source, `find` | Refused any address that did not fit the grammar | **A** |
+| Address grammar | `edit`, `link`, `get`, `find` | Refused any address that did not fit the grammar | **A** (`extract`'s source is legacy allocation: **C**) |
 | Silent scan filters | `list`, `get --prefix`, `grep`, `replace`, `check-tools` (plus scans inside `new`, `extract`, `supersede`, `lint`) | Dropped a tagged spec whose loc did not fit, with no count and no note | **A** (read commands), **C** (authoring scans), **B** (lint) |
 | Tier-derived lint | `lint.go`, `lintindex.go` | Parent must exist, TOC edge to parent, inheritance edge to the tier contract, index lists its children, a rubric only at rule/flow depth, `loc-shape` | **B** |
 | Authoring adapters | `new`, `allocate`, `extract --to-feature`, `supersede`, `register` | Allocate the next legacy number, co-scaffold contracts, require tier parents, supersede only rules/flows | **C** |
@@ -79,7 +79,8 @@ is `cmdutil.ValidateURNPath`. That's the generic node-loc rule of
 colon-separated slug atoms, the same rule every node in every memory obeys and
 the one the server enforces. What's still refused:
 - an empty segment (`msg::010`);
-- whitespace;
+- whitespace inside a loc. Surrounding whitespace is trimmed first, as
+  `ParseCitation` always did (@copilot on #710; kept on purpose, see §6);
 - a leading or trailing colon;
 - anything else that isn't a valid atom;
 - linking a spec to itself;
@@ -87,7 +88,7 @@ the one the server enforces. What's still refused:
 
 ## 4. Slices
 
-### A. Addressing: built in this PR
+### A. Addressing: built (cli#710)
 
 - `validateSpecLoc` replaces `ParseCitation` on every address a user types:
   - `spec get <citation>`;
@@ -157,7 +158,7 @@ to Vera and Ada in team chat #1484:
 3. Keep it only for legacy rule/flow-shaped locs, as an adapter: no change for
    today's corpora, and no obligation for other shapes.
 
-### C. Authoring adapters: built (second PR)
+### C. Authoring adapters: built (cli#710)
 
 - **`spec new <loc> --title <title>`** creates exactly that spec, at any valid
   loc, through the spec door:
@@ -240,3 +241,16 @@ These are all preserved:
   and truthful failure/retry.
 - **What "flat" means here:** the spec-corpus scheme, never the flat-v2 URN
   grammar.
+
+## 6. Review notes
+
+- **Surrounding whitespace is trimmed, not refused** (@copilot on #710).
+  `ParseCitation` trimmed it before this change, so refusing it would be a new
+  failure for any script passing a quoted, padded argument. The generic rule
+  still refuses whitespace inside a loc. Trimming changes nothing about which
+  node is addressed: no stored loc has surrounding whitespace, because the
+  server's `validateLoc` refuses it.
+- **A and C ship together** in cli#710. Copilot's review of A alone found that
+  `extract` and `supersede` still behaved legacy-only in between. Those are
+  exactly slice C's changes, so C was folded in instead of leaving an
+  intermediate state (and a stacked PR) behind.
