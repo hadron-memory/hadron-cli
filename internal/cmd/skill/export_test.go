@@ -436,6 +436,86 @@ func TestExportDTOHasNoNilSlices(t *testing.T) {
 	}
 }
 
+// Matrix P07 (cor:agt:030:00/:02): a host the CLI has no root for. It is
+// unreachable at command level, because the command plans only the hosts in
+// its root table (Jane, #1379), so it is pinned here.
+//   - Every item the server planned for that host FAILS and is NAMED, whatever
+//     its action, with the no-root reason first and the server's reasons kept.
+//   - The plan is still fetched, with no files, because the report must name
+//     the items; nothing is read from or written to disk for the host.
+//   - The next host in the same run is still written, and the run reports
+//     failure (exit 5), not success.
+func TestExportHostWithNoRootFailsAndNamesEveryItem(t *testing.T) {
+	h := home(t)
+	blockedPlan := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{
+		entry("w", gen.SkillExportActionWrite, "body-w", ""),
+		entry("m", gen.SkillExportActionMove, "body-m", "old-m"),
+		entry("r", gen.SkillExportActionRemove, "", ""),
+		entry("s", gen.SkillExportActionSkip, "", ""),
+		nil,
+		entry("f", gen.SkillExportActionFail, "", ""),
+	}}
+	blocked, _, err := exportHost(h, "noSuchHost", blockedPlan.fn, exportOpts{})
+	if err != nil {
+		t.Fatalf("a missing root is an item failure, not a run error: %v", err)
+	}
+	if blockedPlan.calls != 1 || blockedPlan.sent != nil {
+		t.Errorf("the plan must be fetched once with no files: calls=%d sent=%v", blockedPlan.calls, blockedPlan.sent)
+	}
+	if blocked.Failure == nil || blocked.Failure.Code != reasonHostNoRoot || blocked.Root != "" {
+		t.Errorf("host failure = %+v, root = %q", blocked.Failure, blocked.Root)
+	}
+	if got, want := names(blocked.Failed), []string{"w", "m", "r", "s", "f"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("failed = %v, want every planned item named, in plan order: %v", got, want)
+	}
+	for _, it := range blocked.Failed {
+		if got := codes(it.Reasons); len(got) != 2 || got[0] != reasonHostNoRoot || got[1] != "server-code" {
+			t.Errorf("%s reasons = %v, want [%s server-code]", it.Name, got, reasonHostNoRoot)
+		}
+	}
+	for label, list := range map[string][]exportItemDTO{"written": blocked.Written, "removed": blocked.Removed, "skipped": blocked.Skipped, "refused": blocked.Refused} {
+		if len(list) != 0 {
+			t.Errorf("%s = %v; a host with no root does nothing", label, names(list))
+		}
+	}
+	if len(blocked.Moved) != 0 {
+		t.Errorf("moved = %+v; a host with no root does nothing", blocked.Moved)
+	}
+	if ents, err := os.ReadDir(h); err != nil || len(ents) != 0 {
+		t.Fatalf("home after the blocked host = %v (err %v); nothing may be created", ents, err)
+	}
+
+	claudePlan := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{entry("w", gen.SkillExportActionWrite, "body-w", "")}}
+	claude, _, err := exportHost(h, skilldoc.HostClaudeSkill, claudePlan.fn, exportOpts{})
+	if err != nil || claude.Failure != nil || len(claude.Failed) != 0 {
+		t.Fatalf("the next host must still run: err=%v failure=%+v failed=%v", err, claude.Failure, names(claude.Failed))
+	}
+	if got, err := os.ReadFile(filepath.Join(h, ".claude", "skills", "w", "SKILL.md")); err != nil || string(got) != "body-w" {
+		t.Errorf("the next host's file = %q (err %v), want it written", got, err)
+	}
+
+	dto := exportDTO{Hosts: []exportHostDTO{blocked, claude}, Unrecognized: []exportUnrecognizedDTO{}}
+	if !exportHasFailures(dto) {
+		t.Error("a run with a failed host must exit 5, not 0")
+	}
+	var out strings.Builder
+	if err := renderExport(&out, dto); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "nothing written for this host: this CLI has no skills directory for host noSuchHost") {
+		t.Errorf("report does not say why the host failed:\n%s", out.String())
+	}
+	var failedRows []string
+	for _, line := range strings.Split(out.String(), "\n") {
+		if f := strings.Fields(line); len(f) >= 2 && f[0] == "failed" {
+			failedRows = append(failedRows, f[1])
+		}
+	}
+	if want := []string{"w", "m", "r", "s", "f"}; !reflect.DeepEqual(failedRows, want) {
+		t.Errorf("report's failed rows = %v, want %v:\n%s", failedRows, want, out.String())
+	}
+}
+
 // A skill "directory" that is a regular file: the write is refused with the
 // directory check's own reason, and the file is left alone. This is the check
 // that also re-guards against a link appearing after the walk.
