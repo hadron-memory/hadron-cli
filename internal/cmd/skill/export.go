@@ -62,6 +62,8 @@ const (
 	reasonIOError           = "io-error"
 	reasonPlanRefused       = "plan-refused"
 	reasonDirKept           = "directory-kept"
+	reasonFileIsLink        = "skill-file-is-link"
+	reasonForeignFile       = "foreign-skill-file"
 )
 
 type exportReasonDTO struct {
@@ -331,11 +333,28 @@ func exportHost(home, host string, plan planFunc, opts exportOpts) (exportHostDT
 			}
 		}
 	}
+	// Directories holding a SKILL.md that was NOT submitted: somebody else's
+	// skill (it parses and carries no Hadron header, so the walk leaves it
+	// invisible on purpose), or a file that could not be read or attributed.
+	// The plan cannot know about them, so it may plan a WRITE onto one; that
+	// write is refused here, never allowed to replace the file (#692 review).
+	submitted := map[string]bool{}
+	for _, fct := range files {
+		submitted[fct.DirName] = true
+	}
+	foreign, err := foreignSkillDirs(root, submitted, linked)
+	if err != nil {
+		return blockHost(hd, plan, ioReason(err))
+	}
 	p, err := plan(files)
 	if err != nil {
 		return hd, nil, err
 	}
 	hd.Scanned, hd.Judged = p.Scanned, p.Judged
+	fsys := hostFS{root: root, dryRun: opts.dryRun, guard: func() *exportReasonDTO {
+		_, r := checkRoot(home, parts)
+		return r
+	}}
 	for _, e := range p.Entries {
 		if e == nil {
 			continue
@@ -346,7 +365,18 @@ func exportHost(home, host string, plan planFunc, opts exportOpts) (exportHostDT
 			hd.Refused = append(hd.Refused, it)
 			continue
 		}
-		applyEntry(&hd, root, e, opts)
+		if writesInto(e) && foreign[e.Name] {
+			it := itemFor(e)
+			it.Reasons = append(it.Reasons, exportReasonDTO{
+				Code: reasonForeignFile,
+				Message: fmt.Sprintf("%s holds a SKILL.md this command did not write (no Hadron header, or unreadable), so it was left alone; rename or remove it to export this skill here",
+					filepath.Join(root, e.Name)),
+				Origin: originClient,
+			})
+			hd.Refused = append(hd.Refused, it)
+			continue
+		}
+		applyEntry(&hd, fsys, e)
 	}
 	for _, o := range p.Orphans {
 		if o == nil {
@@ -361,12 +391,8 @@ func exportHost(home, host string, plan planFunc, opts exportOpts) (exportHostDT
 			hd.Failed = append(hd.Failed, exportItemDTO{Name: o.DirName, NodeID: od.NodeID, Reasons: []exportReasonDTO{unsafeName(o.DirName)}, Kept: []string{}})
 			continue
 		}
-		if opts.dryRun {
-			hd.Pruned = append(hd.Pruned, od)
-			continue
-		}
-		if _, err := removeSkillFile(root, o.DirName); err != nil {
-			hd.Failed = append(hd.Failed, exportItemDTO{Name: o.DirName, NodeID: od.NodeID, Reasons: []exportReasonDTO{ioReason(err)}, Kept: []string{}})
+		if _, r := fsys.remove(o.DirName); r != nil {
+			hd.Failed = append(hd.Failed, exportItemDTO{Name: o.DirName, NodeID: od.NodeID, Reasons: []exportReasonDTO{*r}, Kept: []string{}})
 			continue
 		}
 		hd.Pruned = append(hd.Pruned, od)
@@ -498,7 +524,8 @@ func linkReason(p, target string) exportReasonDTO {
 // applyEntry performs one planned action and records what actually happened.
 // Every path out of it records the item exactly once, so one failing item
 // never stops the others (cor:agt:030:00: an export runs to the end).
-func applyEntry(hd *exportHostDTO, root string, e *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry, opts exportOpts) {
+func applyEntry(hd *exportHostDTO, fsys hostFS, e *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry) {
+	root := fsys.root
 	it := itemFor(e)
 	fail := func(r exportReasonDTO) {
 		it.Reasons = append(it.Reasons, r)
@@ -533,7 +560,7 @@ func applyEntry(hd *exportHostDTO, root string, e *gen.SkillExportPlanSkillPlanE
 
 	switch ep.Action {
 	case gen.SkillExportActionWrite:
-		if r := writeSkill(root, e, opts); r != nil {
+		if r := fsys.write(e); r != nil {
 			fail(*r)
 			return
 		}
@@ -553,16 +580,17 @@ func applyEntry(hd *exportHostDTO, root string, e *gen.SkillExportPlanSkillPlanE
 			fail(*r)
 			return
 		}
-		if r := writeSkill(root, e, opts); r != nil {
+		if r := fsys.write(e); r != nil {
 			fail(*r)
 			return
 		}
 		// The new file is in place. The old one goes last, so a failure here
-		// leaves two copies (visible, fixable) rather than none.
-		if !opts.dryRun && from != e.Name {
-			kept, err := removeSkillFile(root, from)
-			if err != nil {
-				it.Reasons = append(it.Reasons, ioReason(err))
+		// leaves two copies (visible, fixable) rather than none. Under
+		// --dry-run the same checks run and the same files are listed as kept.
+		if from != e.Name {
+			kept, r := fsys.remove(from)
+			if r != nil {
+				it.Reasons = append(it.Reasons, *r)
 				hd.Failed = append(hd.Failed, it)
 				return
 			}
@@ -587,25 +615,39 @@ func applyEntry(hd *exportHostDTO, root string, e *gen.SkillExportPlanSkillPlanE
 			fail(*r)
 			return
 		}
-		if !opts.dryRun {
-			kept, err := removeSkillFile(root, dir)
-			if err != nil {
-				fail(ioReason(err))
-				return
-			}
-			it.Kept = kept
-			if len(kept) > 0 {
-				it.Reasons = append(it.Reasons, keptReason(root, dir, kept))
-			}
+		kept, r := fsys.remove(dir)
+		if r != nil {
+			fail(*r)
+			return
+		}
+		it.Kept = kept
+		if len(kept) > 0 {
+			it.Reasons = append(it.Reasons, keptReason(root, dir, kept))
 		}
 		hd.Removed = append(hd.Removed, it)
 	}
 }
 
-// writeSkill writes the server's rendered file, byte for byte, to
-// <root>/<name>/SKILL.md, creating the directories it needs. Under --dry-run it
-// only checks what it would check.
-func writeSkill(root string, e *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry, opts exportOpts) *exportReasonDTO {
+// hostFS is where one host's I/O happens. Every write and removal goes
+// through it, so --dry-run runs exactly the same checks as a real run and
+// differs only in not mutating (#692 review).
+//
+// guard re-checks the WHOLE root path (every component below $HOME) right
+// before each mutation. That narrows the window in which an ancestor swapped
+// for a link after the first check would be followed; it does not close it.
+// Closing it needs directory-handle-relative calls (openat and friends), which
+// are Unix-only while this CLI also ships for Windows. The refusal it enforces
+// is about links a user CONFIGURED (a dotfiles setup), not a process racing the
+// export inside the user's own home — which could write there directly anyway.
+type hostFS struct {
+	root   string
+	dryRun bool
+	guard  func() *exportReasonDTO
+}
+
+// write puts the server's rendered file, byte for byte, at
+// <root>/<name>/SKILL.md, creating the directories it needs.
+func (fs hostFS) write(e *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry) *exportReasonDTO {
 	if !safeDirName(e.Name) {
 		r := unsafeName(e.Name)
 		return &r
@@ -613,73 +655,145 @@ func writeSkill(root string, e *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntr
 	if e.RenderedBody == nil {
 		return &exportReasonDTO{Code: reasonNoBody, Message: "the server planned a write but sent no file to write; nothing was done", Origin: originClient}
 	}
-	if r := checkSkillDir(root, e.Name); r != nil {
+	if r := fs.guard(); r != nil {
 		return r
 	}
-	if opts.dryRun {
+	if r := checkSkillDir(fs.root, e.Name); r != nil {
+		return r
+	}
+	dir := filepath.Join(fs.root, e.Name)
+	target := filepath.Join(dir, skillFileName)
+	if r := checkNotLink(target); r != nil {
+		return r
+	}
+	if fs.dryRun {
 		return nil
 	}
-	dir := filepath.Join(root, e.Name)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		r := ioReason(err)
 		return &r
 	}
 	// Re-check after creating: MkdirAll follows a link it finds, so a link
-	// that appeared since the check must still refuse the write.
-	if r := checkSkillDir(root, e.Name); r != nil {
+	// that appeared since the checks must still refuse the write.
+	if r := fs.guard(); r != nil {
 		return r
 	}
-	if err := config.WriteFileAtomic(filepath.Join(dir, skillFileName), []byte(*e.RenderedBody), 0o644); err != nil {
+	if r := checkSkillDir(fs.root, e.Name); r != nil {
+		return r
+	}
+	if err := config.WriteFileAtomic(target, []byte(*e.RenderedBody), 0o644); err != nil {
 		r := ioReason(err)
 		return &r
 	}
 	return nil
 }
 
-// removeSkillFile deletes <root>/<dir>/SKILL.md and then the directory, but
-// only if nothing else is in it. It never follows a link. It returns the names
-// it left behind.
-func removeSkillFile(root, dir string) ([]string, error) {
-	p := filepath.Join(root, dir)
+// remove deletes <root>/<dir>/SKILL.md and then the directory, but only if
+// nothing else is in it. It never follows a link. It returns the names left
+// behind; under --dry-run, the names that WOULD be left, after the same checks.
+func (fs hostFS) remove(dir string) ([]string, *exportReasonDTO) {
+	if !safeDirName(dir) {
+		r := unsafeName(dir)
+		return nil, &r
+	}
+	if r := fs.guard(); r != nil {
+		return nil, r
+	}
+	p := filepath.Join(fs.root, dir)
 	fi, err := os.Lstat(p)
 	if errors.Is(err, os.ErrNotExist) {
 		return []string{}, nil
 	}
 	if err != nil {
-		return nil, err
+		r := ioReason(err)
+		return nil, &r
 	}
 	if fi.Mode()&os.ModeSymlink != 0 {
-		return nil, fmt.Errorf("%s is a symbolic link; not removed", p)
+		target, _ := os.Readlink(p)
+		r := linkReason(p, target)
+		return nil, &r
 	}
 	if !fi.IsDir() {
-		return nil, fmt.Errorf("%s is not a directory; not removed", p)
+		return nil, &exportReasonDTO{Code: reasonNotDir, Message: fmt.Sprintf("%s is not a directory; not removed", p), Origin: originClient}
 	}
 	file := filepath.Join(p, skillFileName)
-	if ffi, err := os.Lstat(file); err == nil {
-		if ffi.Mode()&os.ModeSymlink != 0 {
-			return nil, fmt.Errorf("%s is a symbolic link; not removed", file)
-		}
-		if err := os.Remove(file); err != nil {
-			return nil, err
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
+	if r := checkNotLink(file); r != nil {
+		return nil, r
 	}
 	entries, err := os.ReadDir(p)
 	if err != nil {
-		return nil, err
+		r := ioReason(err)
+		return nil, &r
 	}
 	kept := []string{}
 	for _, en := range entries {
-		kept = append(kept, en.Name())
+		if en.Name() != skillFileName {
+			kept = append(kept, en.Name())
+		}
 	}
 	sort.Strings(kept)
+	if fs.dryRun {
+		return kept, nil
+	}
+	if err := os.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
+		r := ioReason(err)
+		return nil, &r
+	}
 	if len(kept) == 0 {
 		if err := os.Remove(p); err != nil {
-			return nil, err
+			r := ioReason(err)
+			return nil, &r
 		}
 	}
 	return kept, nil
+}
+
+// checkNotLink refuses a SKILL.md that is itself a symbolic link: writing or
+// removing through it would act on whatever it points at.
+func checkNotLink(p string) *exportReasonDTO {
+	fi, err := os.Lstat(p)
+	if err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		return nil
+	}
+	target, _ := os.Readlink(p)
+	return &exportReasonDTO{
+		Code:    reasonFileIsLink,
+		Message: fmt.Sprintf("%s is a symbolic link (to %s), so it was left alone", p, cmp(target, "an unreadable target")),
+		Origin:  originClient,
+	}
+}
+
+// foreignSkillDirs lists the directories under root that hold a SKILL.md which
+// was not submitted to the planner, excluding linked directories (handled on
+// their own). Those files are not this command's to replace.
+func foreignSkillDirs(root string, submitted map[string]bool, linked map[string]string) (map[string]bool, error) {
+	out := map[string]bool{}
+	entries, err := os.ReadDir(root)
+	if errors.Is(err, os.ErrNotExist) {
+		return out, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, en := range entries {
+		name := en.Name()
+		if _, isLink := linked[name]; isLink || !en.IsDir() || submitted[name] {
+			continue
+		}
+		if _, err := os.Lstat(filepath.Join(root, name, skillFileName)); err == nil {
+			out[name] = true
+		}
+	}
+	return out, nil
+}
+
+// writesInto reports whether an entry's planned action writes into the
+// directory named by the entry: WRITE, or MOVE (whose destination it is).
+func writesInto(e *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry) bool {
+	if e.ExportPlan == nil {
+		return false
+	}
+	return e.ExportPlan.Action == gen.SkillExportActionWrite || e.ExportPlan.Action == gen.SkillExportActionMove
 }
 
 // safeDirName reports whether a name from the server can be joined onto a

@@ -353,7 +353,13 @@ func TestExportClientGuardsFailTheItemAndContinue(t *testing.T) {
 		t.Run(tc.code+"/"+tc.e.Name, func(t *testing.T) {
 			h := home(t)
 			root := filepath.Join(h, ".claude", "skills")
-			write(t, filepath.Join(root, "kept", "SKILL.md"), "hand edit")
+			// A real Hadron file, so it is SUBMITTED (a foreign file would be
+			// refused by the foreign-file guard before these guards run).
+			handEdit, err := skilldoc.Render("id-kept", "kept", "hrn:node:example.com:demo:tasks:kept", "d", "hand edit")
+			if err != nil {
+				t.Fatal(err)
+			}
+			write(t, filepath.Join(root, "kept", "SKILL.md"), handEdit)
 			p := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{tc.e, entry("next", gen.SkillExportActionWrite, "ok", "")}}
 			hd, _, err := exportHost(h, skilldoc.HostClaudeSkill, p.fn, exportOpts{})
 			if err != nil {
@@ -368,7 +374,7 @@ func TestExportClientGuardsFailTheItemAndContinue(t *testing.T) {
 			if !reflect.DeepEqual(names(hd.Written), []string{"next"}) {
 				t.Errorf("the next item must still run: written=%v", names(hd.Written))
 			}
-			if got, _ := os.ReadFile(filepath.Join(root, "kept", "SKILL.md")); string(got) != "hand edit" {
+			if got, _ := os.ReadFile(filepath.Join(root, "kept", "SKILL.md")); string(got) != handEdit {
 				t.Error("a guarded item changed a file")
 			}
 			if exists(filepath.Join(h, ".claude", "escape")) || exists(filepath.Join(h, "etc")) {
@@ -466,5 +472,138 @@ func TestRenderExportHumanTable(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
+	}
+}
+
+// Codex P1 (#692): a SKILL.md this command did not write is never replaced.
+// The walk leaves a foreign file invisible on purpose, so the planner cannot
+// know about it and may plan a WRITE onto that name. The writer refuses it,
+// for a foreign file, an unattributable unparseable one, and a MOVE's
+// destination alike.
+func TestExportNeverReplacesAForeignSkillFile(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		e          func() *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry
+	}{
+		{"foreign-write", "---\nname: demo\ndescription: someone else's skill\n---\n\nmine\n",
+			func() *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry {
+				return entry("demo", gen.SkillExportActionWrite, "hadron's", "")
+			}},
+		{"unparseable-write", "---\nname: [unclosed\n",
+			func() *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry {
+				return entry("demo", gen.SkillExportActionWrite, "hadron's", "")
+			}},
+		{"foreign-move-destination", "---\nname: demo\ndescription: someone else's skill\n---\n\nmine\n",
+			func() *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry {
+				return entry("demo", gen.SkillExportActionMove, "hadron's", "old")
+			}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := home(t)
+			root := filepath.Join(h, ".claude", "skills")
+			f := filepath.Join(root, "demo", "SKILL.md")
+			write(t, f, tc.body)
+			write(t, filepath.Join(root, "old", "SKILL.md"), "old")
+			p := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{tc.e()}}
+			hd, _, err := exportHost(h, skilldoc.HostClaudeSkill, p.fn, exportOpts{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(hd.Refused) != 1 {
+				t.Fatalf("refused = %+v written=%v moved=%v", hd.Refused, names(hd.Written), hd.Moved)
+			}
+			if c := codes(hd.Refused[0].Reasons); c[len(c)-1] != reasonForeignFile {
+				t.Errorf("reason codes = %v", c)
+			}
+			if got, _ := os.ReadFile(f); string(got) != tc.body {
+				t.Errorf("a foreign file was replaced: %q", got)
+			}
+			if !exists(filepath.Join(root, "old", "SKILL.md")) {
+				t.Error("a refused move removed its source")
+			}
+		})
+	}
+}
+
+// --dry-run must report what the real run reports (Codex P2 / Copilot on
+// #692): the files a MOVE or REMOVE keeps, and a linked target refused.
+func TestExportDryRunMatchesTheRealReport(t *testing.T) {
+	// Real Hadron files: the server only plans a MOVE or REMOVE for a file it
+	// was shown, and a SUBMITTED file is not foreign.
+	hadronFile := func(t *testing.T, name string) string {
+		b, err := skilldoc.Render("id-"+name, name, "hrn:node:example.com:demo:tasks:"+name, "d", "c")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
+	setup := func(t *testing.T) (string, *fakePlan) {
+		h := home(t)
+		root := filepath.Join(h, ".claude", "skills")
+		write(t, filepath.Join(root, "old", "SKILL.md"), hadronFile(t, "old"))
+		write(t, filepath.Join(root, "old", "helper.sh"), "x")
+		write(t, filepath.Join(root, "gone", "SKILL.md"), hadronFile(t, "gone"))
+		write(t, filepath.Join(root, "gone", "asset.png"), "x")
+		// A SKILL.md that is a link to a Hadron file elsewhere: the walk reads
+		// through it and submits it, so it is not foreign, and the write is
+		// refused by the link check instead.
+		write(t, filepath.Join(h, "elsewhere.md"), hadronFile(t, "linkt"))
+		mkdir(t, filepath.Join(root, "linkt"))
+		symlink(t, filepath.Join(h, "elsewhere.md"), filepath.Join(root, "linkt", "SKILL.md"))
+		return h, &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{
+			entry("new", gen.SkillExportActionMove, "b", "old"),
+			entry("gone", gen.SkillExportActionRemove, "", "gone"),
+			entry("linkt", gen.SkillExportActionWrite, "b", ""),
+		}}
+	}
+	summary := func(hd exportHostDTO) string {
+		if len(hd.Moved) != 1 || len(hd.Removed) != 1 || len(hd.Failed) != 1 {
+			return fmt.Sprintf("unexpected shape: moved=%v removed=%v failed=%v refused=%v",
+				hd.Moved, names(hd.Removed), names(hd.Failed), names(hd.Refused))
+		}
+		return fmt.Sprintf("moved kept=%v removed=%v kept=%v failed=%v %v",
+			hd.Moved[0].Kept, names(hd.Removed), hd.Removed[0].Kept, names(hd.Failed), codes(hd.Failed[0].Reasons))
+	}
+	hDry, pDry := setup(t)
+	dry, _, _ := exportHost(hDry, skilldoc.HostClaudeSkill, pDry.fn, exportOpts{dryRun: true})
+	hReal, pReal := setup(t)
+	real, _, _ := exportHost(hReal, skilldoc.HostClaudeSkill, pReal.fn, exportOpts{})
+	if summary(dry) != summary(real) {
+		t.Errorf("dry run and real run disagree:\n dry:  %s\n real: %s", summary(dry), summary(real))
+	}
+	if len(dry.Moved) != 1 || len(dry.Failed) != 1 {
+		t.Fatalf("dry-run shape: %s", summary(dry))
+	}
+	if !reflect.DeepEqual(dry.Moved[0].Kept, []string{"helper.sh"}) {
+		t.Errorf("dry-run move kept = %v", dry.Moved[0].Kept)
+	}
+	if c := codes(dry.Failed[0].Reasons); c[len(c)-1] != reasonFileIsLink {
+		t.Errorf("a linked SKILL.md must fail the dry run too: %v", c)
+	}
+	if got, _ := os.ReadFile(filepath.Join(hReal, "elsewhere.md")); string(got) != hadronFile(t, "linkt") {
+		t.Error("the real run wrote through a linked SKILL.md")
+	}
+	if !exists(filepath.Join(hDry, ".claude", "skills", "old", "SKILL.md")) {
+		t.Error("the dry run removed a file")
+	}
+}
+
+// The full-path guard runs before every mutation: a root check that fails at
+// that moment stops the write and the removal, and nothing is touched.
+func TestHostFSGuardStopsEveryMutation(t *testing.T) {
+	h := home(t)
+	root := filepath.Join(h, ".claude", "skills")
+	write(t, filepath.Join(root, "x", "SKILL.md"), "keep")
+	fsys := hostFS{root: root, guard: func() *exportReasonDTO {
+		return &exportReasonDTO{Code: reasonRootIsLink, Origin: originClient}
+	}}
+	if r := fsys.write(entry("y", gen.SkillExportActionWrite, "b", "")); r == nil || r.Code != reasonRootIsLink {
+		t.Errorf("write = %+v", r)
+	}
+	if _, r := fsys.remove("x"); r == nil || r.Code != reasonRootIsLink {
+		t.Errorf("remove = %+v", r)
+	}
+	if exists(filepath.Join(root, "y")) || !exists(filepath.Join(root, "x", "SKILL.md")) {
+		t.Error("a guarded mutation touched the disk")
 	}
 }
