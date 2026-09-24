@@ -688,7 +688,7 @@ Conventions:
   the provenance header below the broken frontmatter is still readable, and
   otherwise listed locally under `unparseable` (never sent, since an
   unidentifiable file must not be claimed as an orphan). An unreadable file is
-  listed under `unreadable` with its errno, likewise never sent.
+  listed under `unreadable` with its errno, likewise never sent. A `SKILL.md` that is not a regular file (a FIFO, a device) is listed under `unreadable` WITHOUT being read, so it cannot block the walk.
   There is deliberately no `--node` (the orphan and collision classes are
   properties of a SET). An error finding exits 5; drift and warnings alone
   exit 0, so a CI gate is an explicit `--strict`, which exits 5 on any drift,

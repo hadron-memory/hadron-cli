@@ -786,3 +786,58 @@ func TestHostFSWriteRechecksOwnershipBeforeWriting(t *testing.T) {
 		t.Error("a foreign file that appeared before the write was replaced")
 	}
 }
+
+// sameDirectory is the check that keeps a case-only rename from deleting what
+// it just wrote: one directory reached by two spellings of a path.
+func TestSameDirectory(t *testing.T) {
+	h := home(t)
+	a := filepath.Join(h, "a")
+	mkdir(t, a)
+	mkdir(t, filepath.Join(h, "b"))
+	if !sameDirectory(a, h+string(filepath.Separator)+"b"+string(filepath.Separator)+".."+string(filepath.Separator)+"a") {
+		t.Error("two paths to one directory must be the same directory")
+	}
+	if sameDirectory(a, filepath.Join(h, "b")) || sameDirectory(a, filepath.Join(h, "missing")) {
+		t.Error("different or missing directories are not the same")
+	}
+}
+
+// A case-only rename on a case-insensitive filesystem (#696 review): the file
+// is rewritten in place and the directory takes its new spelling. Nothing is
+// deleted. Runs only where the filesystem folds case.
+func TestExportCaseOnlyRenameKeepsTheFile(t *testing.T) {
+	for _, dry := range []bool{false, true} {
+		t.Run(fmt.Sprintf("dryRun=%v", dry), func(t *testing.T) {
+			h := home(t)
+			root := filepath.Join(h, ".claude", "skills")
+			old, err := skilldoc.Render("id-demo", "Demo", "hrn:node:example.com:demo:tasks:demo", "d", "old")
+			if err != nil {
+				t.Fatal(err)
+			}
+			write(t, filepath.Join(root, "Demo", "SKILL.md"), old)
+			if !exists(filepath.Join(root, "demo")) {
+				t.Skip("this filesystem is case-sensitive")
+			}
+			p := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{entry("demo", gen.SkillExportActionMove, "new", "Demo")}}
+			hd, _, _ := exportHost(h, skilldoc.HostClaudeSkill, p.fn, exportOpts{dryRun: dry})
+			if len(hd.Moved) != 1 || len(hd.Failed)+len(hd.Refused) != 0 {
+				t.Fatalf("moved=%+v failed=%+v refused=%+v", hd.Moved, hd.Failed, hd.Refused)
+			}
+			got, err := os.ReadFile(filepath.Join(root, "demo", "SKILL.md"))
+			if err != nil {
+				t.Fatalf("the file is gone after a case-only rename: %v", err)
+			}
+			entries, _ := os.ReadDir(root)
+			want, wantDir := "new", "demo"
+			if dry {
+				want, wantDir = old, "Demo"
+			}
+			if string(got) != want {
+				t.Errorf("content = %q, want %q", got, want)
+			}
+			if len(entries) != 1 || entries[0].Name() != wantDir {
+				t.Errorf("directory = %v, want [%s]", entries, wantDir)
+			}
+		})
+	}
+}

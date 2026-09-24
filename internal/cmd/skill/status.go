@@ -439,6 +439,13 @@ func walkSkillFiles(root string) ([]*gen.SkillFileFactsInput, []statusUnreadable
 		// (@codex on #652). Reading unconditionally handles the link and costs
 		// one failed open on an entry that is not a directory at all.
 		dirName := d.Name()
+		// Only a REGULAR file is read (Stat follows a link, as the read would):
+		// a FIFO or device named SKILL.md would block the read forever, for
+		// status and export alike (#696 review). It is reported, never read.
+		if fi, err := os.Stat(filepath.Join(root, dirName, skillFileName)); err == nil && !fi.Mode().IsRegular() {
+			unreadable = append(unreadable, statusUnreadableDTO{Dir: dirName, Error: "SKILL.md is not a regular file, so it was not read"})
+			continue
+		}
 		data, err := os.ReadFile(filepath.Join(root, dirName, skillFileName)) // #nosec G304 — the root is the user's own skills directory
 		if err != nil {
 			if os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR) {
