@@ -47,6 +47,9 @@ type supersedeResultDTO struct {
 	Tags     []string           `json:"tags"`
 	Edges    []supersedeEdgeDTO `json:"edges"`
 	DryRun   bool               `json:"dryRun"`
+	// Retired is true only once the old spec has actually been tagged
+	// superseded — the thing a partial run did NOT do, whatever it created.
+	Retired bool `json:"retired"`
 }
 
 func newCmdSupersede(f *cmdutil.Factory) *cobra.Command {
@@ -138,6 +141,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 						"%s is already linked to %s but the old spec could not be tagged retired: %v; rerun this command to retry the retirement update",
 						oldCit.Format(), successorLoc, api.MapError(rerr))
 				}
+				result.Retired = true
 				fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldCit.Format(), successorLoc)
 				return output.Write(f.IOStreams, f.JSON, result, render)
 			}
@@ -293,16 +297,18 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				result.Edges[supersededByIdx].Status = edgeStatusCreated
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
 				return exitcode.Newf(exitcode.Error,
-					"linked %s to replacement %s but could not re-read %s to confirm it is the only successor (%v), so it was not retired; rerun this command to finish",
-					oldCit.Format(), newTarget.Format(), oldCit.Format(), api.MapError(lerr))
+					"linked %s to replacement %s but could not re-read %s to confirm it is the only successor (%v), so it was not retired; once `hadron spec get %s -m %s` shows its %s edge to %s, rerun this command to finish (rerunning before then can mint a second replacement)",
+					oldCit.Format(), newTarget.Format(), oldCit.Format(), api.MapError(lerr),
+					oldCit.Format(), memURN, supersededByLabel, newTarget.Format())
 			case cerr == nil && !landed:
 				// Written, but the re-read doesn't show it (a stale read?). Retire
 				// only on a VERIFIED link, so stop; a rerun re-reads first.
 				result.Edges[supersededByIdx].Status = edgeStatusCreated
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
 				return exitcode.Newf(exitcode.Error,
-					"linked %s to replacement %s, but re-reading %s did not show that link yet, so it was not retired; rerun this command to finish",
-					oldCit.Format(), newTarget.Format(), oldCit.Format())
+					"linked %s to replacement %s, but re-reading %s did not show that link yet, so it was not retired; once `hadron spec get %s -m %s` shows its %s edge to %s, rerun this command to finish (rerunning before then can mint a second replacement)",
+					oldCit.Format(), newTarget.Format(), oldCit.Format(),
+					oldCit.Format(), memURN, supersededByLabel, newTarget.Format())
 			case cerr == nil:
 				// Written, seen, and the sole successor: retire below.
 			case lerr == nil && landed:
@@ -333,6 +339,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					oldCit.Format(), newTarget.Format(), api.MapError(rerr))
 			}
 
+			result.Retired = true
 			fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldCit.Format(), newTarget.Format())
 			return output.Write(f.IOStreams, f.JSON, result, render)
 		},
@@ -514,9 +521,14 @@ func semanticTags(tags []string) []string {
 }
 
 func renderSupersede(w io.Writer, r supersedeResultDTO) error {
-	verb := "✓ superseded"
-	if r.DryRun {
+	// "✓ superseded" only when it happened: a partial run prints its result
+	// right before an error saying the old spec was NOT retired (#691 review).
+	verb := "✗ not retired:"
+	switch {
+	case r.DryRun:
 		verb = "would supersede"
+	case r.Retired:
+		verb = "✓ superseded"
 	}
 	fmt.Fprintf(w, "%s %s → %s — %s\n", verb, r.Old, r.New, r.Name)
 	fmt.Fprintf(w, "  tags: %v\n", r.Tags)

@@ -218,8 +218,9 @@ successful or not, before anything is retired or prescribed:
   exist), exit 1, and the error says to check with `spec get` first.
 - **The write succeeded but the re-read failed, or doesn't show the link
   yet**: status `created`, exit 1, and the spec is **not** retired. It retires
-  only on a link it has *seen* to be the sole successor. A rerun re-reads first
-  and finishes.
+  only on a link it has *seen* to be the sole successor. **Rerun only once
+  `spec get <old>` shows that `superseded-by` edge.** A rerun that still
+  can't see it takes the new-supersede path and mints a *second* replacement.
 
 A `superseded-by` edge whose target you cannot read still counts as a
 successor, so it blocks retirement rather than vanishing from the count.
@@ -230,6 +231,9 @@ one, even on a spec already tagged `superseded`, it exits 5 and retires
 nothing.
 
 Edge `status` values are `planned` (dry run), `created`, `failed` and `unknown`.
+The result's `retired` is true only once the old spec has actually been tagged
+`superseded`. Branch on it, not on the edge list: a partial run can have created
+everything and still not retired anything.
 
 `spec new`, `spec extract` and `spec supersede` cannot leave a spec without its
 table-of-contents / inheritance edges unless told to: without `--no-edges`

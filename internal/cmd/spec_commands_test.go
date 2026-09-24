@@ -2195,8 +2195,8 @@ func TestSpecSupersedeStaleRereadRetiresNothing(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "did not show that link yet") {
-		t.Fatalf("an unseen link must not be retired on, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "did not show that link yet") || !strings.Contains(err.Error(), "once `hadron spec get msg:010:02") {
+		t.Fatalf("an unseen link must not be retired on, and the rerun must wait for the link; got %v", err)
 	}
 	if _, retired := captured["UpdateSpecNode"]; retired {
 		t.Error("the old spec was retired on a link the re-read did not show")
@@ -2220,6 +2220,43 @@ func TestSpecSupersedeUnreadableCompetitorIsAConflict(t *testing.T) {
 	}
 	if _, retired := captured["UpdateSpecNode"]; retired {
 		t.Error("the old spec was retired past a successor the caller cannot read")
+	}
+}
+
+// #691 round 10 (Codex): the human transcript of a partial run must not open
+// with "✓ superseded" right before an error saying nothing was retired; and
+// --json says whether the old spec was retired.
+func TestSpecSupersedeRendersRetiredTruthfully(t *testing.T) {
+	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+	competitor := withSupersededByEdge(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03"), "n-020-01", "msg:020:01")
+	gql, _ := supersedeEdgeServer(t, ok, competitor)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	if code := exitCodeFor(root.Execute()); code != exitcode.Conflict {
+		t.Fatalf("want exit %d (Conflict), got %d", exitcode.Conflict, code)
+	}
+	if strings.Contains(out.String(), "✓ superseded") || !strings.Contains(out.String(), "not retired") {
+		t.Errorf("a partial run must not print success:\n%s", out.String())
+	}
+
+	gql2, _ := captureSupersedeGraphQL(t, "msg:010:03", map[string]string{
+		"ResolveUrn":     resolveSpecJSON,
+		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":      `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":     ok,
+		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	})
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("a clean supersede errored: %v", err)
+	}
+	if !strings.Contains(out2.String(), `"retired": true`) {
+		t.Errorf("a completed supersede must report retired: true:\n%s", out2.String())
 	}
 }
 
