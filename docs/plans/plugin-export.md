@@ -522,8 +522,14 @@ a host root, for example `--out ~/.claude/skills` (@codex on #703).
   foreign.
 
 The options:
-- **refuse** an `--out` that is, or is inside, any host's skills root. The
-  roots are #621's `exportRoots` table, compared after resolving;
+- **refuse** when any **resolved artifact path** (`<out>/<plugin-name>`,
+  `<out>/<plugin-name>-codex`, and any zip) is, or is inside, any host's
+  skills root. The roots are #621's `exportRoots` table.
+  - Checking `--out` alone is not enough: `--out ~/.claude` with a plugin
+    name of `skills` would pass that check and still write exactly
+    `~/.claude/skills` (@codex on #703).
+  - The check runs after resolving, on the same paths the writer will use,
+    and **before anything is written**;
 - or allow it with a warning in the report.
 
 Refusing keeps both commands' territory disjoint, and matches #621 refusing

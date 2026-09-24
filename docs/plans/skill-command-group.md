@@ -400,7 +400,8 @@ Two corrections to the thread, measured on this machine:
   **That exposure was REMOVED a day later by B8, not by a guard** (@codex on
   #661). `cor:agt:030:02` took `--to` off `export` entirely, so there is no
   longer a command that writes a repo-level bundle: the producer is cli#653's,
-  it writes to an explicit output directory, and it is paused pending specs.
+  it writes to an explicit output directory, and it is designed in
+  [`plugin-export.md`](plugin-export.md), sequenced right after #621.
   `status --to plugin` still exists and still compares against the committed
   bundle — reading, never writing.
 
@@ -604,8 +605,8 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...)                 
   have had a reader compare a Codex declaration against Claude's project files.
 
   `plugin` → `<git toplevel>/plugins/hadron-cli/skills`, and is NOT host-keyed
-  today (§6); whether a bundle needs a per-host layout is cli#653's, which is
-  paused. Anything else is a directory. `project`/`plugin` outside a git
+  today (§6); whether a bundle needs a per-host layout is cli#653's, answered
+  in [`plugin-export.md`](plugin-export.md) §3 (one artifact per host). Anything else is a directory. `project`/`plugin` outside a git
   worktree is `exit 2`.
   **`export` does not take it** — `cor:agt:030:02` gives export one destination
   per host and forbids a repo-level one, so the flag that selects among roots
@@ -1045,7 +1046,8 @@ set changes (existing rule).
      cannot silently skip one.
 6. **CI gate + docs:** ~~`--to plugin`~~ — the plugin target moved OUT of this
    slice on 2026-09-23 (B8): it is cli#653's own producer, with its own
-   destination and no git anchor, and #653 is paused pending @Vera's specs.
+   destination and no git anchor, designed in [`plugin-export.md`](plugin-export.md)
+   and sequenced right after this slice.
    What remains here is the `skill-drift`
    workflow, `agentic-usage.md` surface line (`agentic_completeness_test.go`
    fails without it), README, the `doc-map` surfaces, this plan updated to
