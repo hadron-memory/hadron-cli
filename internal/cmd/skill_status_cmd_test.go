@@ -466,6 +466,22 @@ func TestSkillStatusSendsHostVerbatim(t *testing.T) {
 	}
 }
 
+// #656: `force` is EXPORT-only and status never sets it, so it must be ABSENT
+// from the wire. The server reads an explicit `null` differently from an
+// omitted field, and without its omitempty annotation genqlient sends
+// `"force": null` on every request.
+func TestSkillStatusOmitsForce(t *testing.T) {
+	_, captured, err := runSkillStatus(t, map[string]string{
+		"SkillPlan": `{"data":{"skillPlan":{"scanned":0,"judged":0,"entries":[],"orphans":[]}}}`,
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--to", t.TempDir())
+	if err != nil {
+		t.Fatalf("status errored: %v", err)
+	}
+	if v, sent := sentInput(t, captured)["force"]; sent {
+		t.Errorf("force was sent as %v; status must omit it, not send null", v)
+	}
+}
+
 // One of the two memory-wide selectors is required: no active-memory fallback,
 // because a status that silently targets "whatever was active" answers a
 // question the user did not ask.

@@ -80,9 +80,10 @@ type AddMemoryMemberPayload {
 }
 
 """
-The definition (one per Agent) — what a Builder creates and what the
-marketplace sells. Per 008-agent-installation. An App is the deployment
-of an Agent in some org.
+The reusable definition a Builder creates and the marketplace can list.
+Agents are installed into runtime Apps through the AppAgent N:M join: an App
+may install many Agents, and an Agent may be installed in many Apps. The App,
+not the Agent, is the org- or user-owned caller identity and deployment.
 """
 type Agent {
   aiApiKeyPreview: String
@@ -435,9 +436,11 @@ type AiServiceConfigsPage {
 }
 
 """
-The runtime deployment of an Agent in an Organization. Owns long-lived
-App Keys and references its Agent via App.agent_id (a direct FK; the
-legacy AppAgent join was dropped in 008-agent-installation).
+A runtime caller identity owned by exactly one Organization or User. It owns
+long-lived App Keys and installs Agents through the AppAgent N:M join: one
+App may install many Agents, and one Agent may be installed in many Apps.
+The singular agentId / agent fields below are soft-deprecated convenience
+reads of the first install, not a direct foreign key.
 """
 type App {
   agent: Agent
@@ -484,17 +487,19 @@ type App {
   identifyUserMethod: IdentifyUserMethod!
 
   """
-  The installed Agent's canonical URN. An installed agent stays
-  AUTHOR-ROOTED forever, so this is simply the Agent's own URN:
+  SOFT-DEPRECATED convenience read: the FIRST installed Agent's canonical
+  URN, matching agentId / agent. Use appAgents for the full install roster.
+  An installed agent stays AUTHOR-ROOTED forever, so this is simply that
+  Agent's own URN:
   hrn:agent:<author-org>:<agent-slug>. Two orgs installing same-slug
   agents from different authors therefore still produce distinct URNs
   (they differ at the author root), enabling audit-log entries to
-  identify each install unambiguously without a PK disambiguator.
+  identify the selected Agent unambiguously without a PK disambiguator.
   The v1 spec-021 R2 install chain
   (hrn:agent:<installing-org>::<app-slug>::<author-org>:<agent-slug>)
-  is RETIRED — see #697 Stage 2 / D10 and emitInstalledAgentUrnV2. Returns null when the App has no agent attached
-  (orphan apps from the 008 cutover; new apps require an agentId per
-  009).
+  is RETIRED — see #697 Stage 2 / D10 and emitInstalledAgentUrnV2. Returns
+  null when the App has no installed Agent or the selected Agent's stored URN
+  cannot be emitted in grammar v2.
   """
   installedAgentUrn: String
   keys: [AppKey!]!
@@ -1460,10 +1465,25 @@ input CreateAssetReferenceNodeInput {
 }
 
 """
-Create a named Channel WITH its chat root, in one transaction. The host must
-be an app-class memory you may write (the chat-host rule). `loc` is the
-reserved address (e.g. chats:release) and must not overlap an existing
-Channel's; `chats:team` is every App's default and is created with the App.
+Create a named Channel WITH its chat root, in one transaction. The host may be
+a memory of ANY class that you may write — the host memory's own audience
+decides who reads and posts (cor:acl:030:01), so a Channel in a private memory
+is private and one in an app memory is the App's. `loc` is the reserved
+address (e.g. chats:release) and must not overlap an existing Channel's;
+`chats:team` is every App's default and is created with the App.
+
+There is no app-class precondition. This said there was until #1248 — the
+rule was retired by #1196 and the description outlived it, so every client
+mirroring this SDL published a refusal that cannot fire.
+
+**Creating at a DELETED Channel's address starts CLEAN** (#1226). The address
+stays reserved by the tombstone, so a create here adopts it rather than
+inserting beside it — and the previous Channel's messages are tombstoned so
+the new room is empty. The allocator history remains, while the empty
+Channel's last-sequence and last-message watermarks reset. Its first new
+message therefore resumes above the old maximum, so an old read cursor
+cannot hide it. Expect a gap in the numbering, never inherited transcript or
+phantom attention.
 """
 input CreateChannelInput {
   description: String
@@ -1803,8 +1823,13 @@ type DriveFilePage {
 type Edge {
   """
   JSONLogic gating expression. Null = always fires. Validated against
-  the v1 operator subset and the five variable scopes (memory.*,
-  chat.*, agent.*, message.data.*, now()/today()).
+  the v1 operator subset and the FOUR variable scopes — memory.*, chat.*,
+  agent.*, message.data.* (VALID_SCOPE_PREFIXES; anything else is
+  UNKNOWN_SCOPE). The time builtins now() and today() are a SEPARATE
+  constant, not a fifth scope: they are whole references rather than
+  prefixes, and the evaluator pre-resolves them from the request clock.
+  Until #1246 this said "five variable scopes" and listed the builtins as
+  one of them — a count and a category error in one sentence.
   See hadron-docs/docs/reference/edge-conditions.md.
   """
   condition: JSON
@@ -3312,12 +3337,16 @@ type Mutation {
   createAiServiceConfig(apiKey: String, enabled: Boolean, model: String!, name: String!, ownerId: ID!, ownerType: AiConfigOwnerType!, params: JSON, provider: String!): AiServiceConfig!
 
   """
-  Install an Agent into an organization, creating an App that deploys it.
+  Create an App and install its initial Agent. With orgRef, the App is owned
+  by that Organization and requires org ADMIN; without orgRef, it is owned by
+  the authenticated User and remains owner-only.
   
-  Auto-provisions an AgentOrgGrant for (orgId, agentId) on first install,
-  and adds the caller as an AppMember with role 'owner'. Required
-  AgentImports cascade automatically; optional imports cascade only when
-  their id appears in installOptional.
+  An org-owned install auto-provisions an AgentOrgGrant for (orgId, agentId).
+  It adds the caller as an AppMember with role 'owner' only when that role is
+  present in the Agent's installationPolicy and the caller is a User.
+  Required AgentImports cascade automatically for org-owned Apps; optional
+  imports cascade only when their id appears in installOptional. Personal
+  Apps reject dependency cascades in v1.
   
   009-install-agent-flow: the cross-org install restriction (FR-009) is
   enforced at the portal — the Install affordance is hidden for Agents
@@ -3329,12 +3358,14 @@ type Mutation {
   """
   createApp(
     """
-    The Agent this App deploys. Required as of 009-install-agent-flow:
-    every App must reference an Agent. The server itself accepts any
-    Agent the caller can resolve and auto-provisions an AgentOrgGrant
+    The initial Agent installed into this new App. Required as of
+    009-install-agent-flow: every new App starts with an installed Agent.
+    For an org-owned App the
+    server accepts any resolvable Agent and auto-provisions an AgentOrgGrant
     (008 behavior preserved); the portal's install flow restricts the
-    affordance to Agents owned by the caller org. A hard server-side
-    cross-org gate is reserved for the marketplace spec.
+    affordance to Agents owned by the caller org. A personal App accepts only
+    a PUBLIC Agent or one owned by the caller, and licenses a foreign PUBLIC
+    Agent through the owner's AgentSubscription.
     """
     agentRef: ID!
     agentTools: [String!]
@@ -3393,7 +3424,10 @@ type Mutation {
   createAssetReferenceNode(input: CreateAssetReferenceNodeInput!): Node!
 
   """
-  Spec 049 Phase 4 — create a named Channel with its chat root (host: an app-class memory you may write). LOC_OVERLAPS_CHANNEL when the address overlaps an existing Channel's.
+  Spec 049 Phase 4 — create a named Channel with its chat root. The host is
+  any memory class you may write; its audience decides the Channel's
+  (cor:acl:030:01). LOC_OVERLAPS_CHANNEL when the address overlaps an
+  existing Channel's.
   """
   createChannel(input: CreateChannelInput!): Channel!
 
@@ -4274,7 +4308,7 @@ type Mutation {
   context, and the returned Agent carries its systemPrompt — so this gate
   stays at the level that can already read the org's Agents.
   
-  Accepts the entity's ID or URN for both appId and agentId. Optional
+  Accepts the entity's ID or URN for both appRef and agentRef. Optional
   trainingMode flag updates the per-App training flag (applies to
   every installed Agent — training mode is per-App, not per-Agent,
   per spec 023 FR-001).
@@ -4856,11 +4890,12 @@ type Mutation {
   **Ending your chat session does not end a worker session** (#1034): a chat
   session that closes leaves this session open until endSession — #1114
   removed inactivity as a reason to end one, so nothing else will. The worker
-  stops reading as LIVE once its idle window passes without a drive, which is
-  what lets an abandoned name be bound again; the session itself, and any
-  handoff still unwritten, survive. A client that ties its lifetime to a
-  conversation must call endSession itself; nothing about closing a window
-  reaches this server.
+  stops reading as LIVE once its idle window passes without a drive, which
+  lets another bind proceed without ending the stale session or losing its
+  unwritten handoff. A human HOLD stays in force until explicit release, so
+  only its holder can bind it again. A client that ties its lifetime to a
+  conversation must call endSession itself; nothing
+  about closing a window reaches this server.
   """
   startSession(input: SessionInput!): Session!
 
@@ -5106,7 +5141,20 @@ type Mutation {
   (the schema-governed JSONB column, DISTINCT from 'data'). The patch's
   top-level keys are written over the node's existing 'properties' (patch
   wins on collision); unmentioned keys are preserved; a node with no
-  'properties' takes the patch verbatim. 'properties' must be a JSON object
+  'properties' takes the patch verbatim.
+  
+  ONE EXCEPTION (#1227): an OBJECT under 'exports' - the per-host skill
+  export declarations, keyed by host (D12) - is applied as a JSON Merge
+  Patch (RFC 7396), not replaced. Hosts and their fields merge recursively,
+  a null member DELETES that host or field, and scalars/arrays replace. So
+  '{exports: {codexSkill: {enable: false}}}' flips one flag and keeps the
+  host's name, description and every other host, and
+  '{exports: {codexSkill: null}}' removes that host. A non-object 'exports'
+  in the patch (null, a scalar, an array) keeps the top-level rule and
+  replaces the stored value. The merge runs under a per-node lock, so two
+  callers writing different hosts at once both land - do NOT
+  read-modify-write 'exports' client-side, which can lose a concurrent
+  writer's host. 'properties' must be a JSON object
   (not an array or scalar). 'nodeRef' is a node ID or fully-qualified URN.
   On a schema-governed memory the MERGED result is validated against the
   memory's schema (BAD_USER_INPUT on a violation). 'properties' is plaintext
@@ -5131,7 +5179,10 @@ type Mutation {
   Merge fields into an existing object (server-side atomic shallow merge +
   schema conformance on the result). 'ref' is the object id (or node URN);
   'fields' wins on key collision, unmentioned keys preserved. Returns the
-  updated flat object.
+  updated flat object. The merge is shallow for EVERY field, including one
+  named 'exports': the per-host merge-patch updateNodeProperties applies to
+  'properties.exports' (#1227) is a node-level skill-declaration rule and
+  does not apply to object fields.
   """
   updateObject(fields: JSON!, reason: String, ref: ID!): JSON!
 
@@ -8214,10 +8265,11 @@ session, the IDE chat. The two are independent and **ending one does not end
 the other**: a chat session that closes leaves its worker session open
 until endSession. Since #1114 nothing ends it for inactivity — silence is not
 evidence of abandonment — but it stops reading as LIVE once nobody has driven
-it inside its idle window, so an abandoned name frees itself for binding
-without the session being ended or its unwritten handoff lost. Do not use "chat
-session" for a Chat (the agent conversation entity) — that is an **agent
-chat**, a third concept.
+it inside its idle window, so the stale session stops blocking another bind
+without being ended or losing its unwritten handoff. That changes no HOLD: a
+human-held name stays held until explicit release, so only its holder can bind
+it again. Do not use "chat session" for a Chat (the agent conversation entity)
+— that is an **agent chat**, a third concept.
 """
 type Session {
   """
@@ -8425,6 +8477,39 @@ input SetQuotaLimitInput {
 }
 
 """
+A client-side filesystem action planned by the server. It does not claim that I/O occurred.
+"""
+enum SkillExportAction {
+  FAIL
+  MOVE
+  REFUSE
+  REMOVE
+  SKIP
+  WRITE
+}
+
+"""
+The server's filesystem plan for one skill. The client still performs and
+reports actual local I/O; this object records only what the server judged safe.
+"""
+type SkillExportPlanEntry {
+  action: SkillExportAction!
+
+  """True when the client must leave any installed file unchanged."""
+  preservesExistingFile: Boolean!
+  reasons: [SkillExportReason!]!
+}
+
+"""One server-owned reason for an export action."""
+type SkillExportReason {
+  """Stable machine-readable reason, usually a drift class or lint rule."""
+  code: String!
+
+  """Actionable text clients can display without recreating server policy."""
+  message: String!
+}
+
+"""
 What the client saw of ONE file on disk. The server never reads the caller's disk.
 """
 input SkillFileFactsInput {
@@ -8505,9 +8590,17 @@ type SkillPlanEntry {
   parsed — a parse failure is reported as a FAILURE, not as a class.
   """
   class: String
+
+  """
+  Present only for EXPORT. This is a planned action and its server-owned
+  reasons, not evidence that the client completed a filesystem write.
+  """
+  exportPlan: SkillExportPlanEntry
   findings: [SkillFinding!]!
 
-  """For the renamed class: the directory the file currently occupies."""
+  """
+  Source directory selected for a MOVE or REMOVE action; also reported for the renamed class.
+  """
   movedFrom: String
 
   """The stored skill name (D12 retired derivation)."""
@@ -8532,7 +8625,14 @@ input SkillPlanInput {
   """What the client found on disk. Empty for lint, which touches no disk."""
   files: [SkillFileFactsInput!]
 
-  """Target host. Only claudeSkill has a renderer today (D10)."""
+  """
+  With EXPORT only, explicitly replace, move, or remove a paired file with detected local edits for this invocation.
+  """
+  force: Boolean
+
+  """
+  Target host, named by its D12 declaration key verbatim: claudeSkill (the default) or codexSkill. One host per call; the plan reads that host's declaration and applies its limits, and the retired top-level skill/claudeSkill keys alias to claudeSkill only. An unknown host is refused with BAD_USER_INPUT naming the supported hosts, never judged as another host and never answered with an empty plan.
+  """
   host: String
   intent: SkillPlanIntent!
 
@@ -9129,6 +9229,12 @@ type UserApiKey {
   keyPreview: String!
   label: String
   lastUsedAt: DateTime
+
+  """
+  Immutable OAuth scopes bound to this credential. Empty means an
+  unrestricted portal/legacy key rather than an OAuth-scoped key.
+  """
+  oauthScopes: [String!]!
   revokedAt: DateTime
 }
 
