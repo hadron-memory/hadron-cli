@@ -493,23 +493,40 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	return fs
 }
 
+// inheritanceRemedy is the command that adds a missing inheritance edge. It
+// must RUN (#687): `spec link` when both ends carry the "spec" tag, since it
+// refuses any endpoint that doesn't; otherwise `edge add` by full ref. Its flag
+// is --name — the --label this once named does not exist, so the old remedy
+// exited `unknown flag`.
+func inheritanceRemedy(from, to, memURN string, specTagged map[string]bool) string {
+	if specTagged[from] && specTagged[to] {
+		return fmt.Sprintf("hadron spec link %s %s -m %s --label %q", from, to, memURN, inheritEdgeLabel)
+	}
+	return fmt.Sprintf("hadron edge add --from %s --to %s --name %q",
+		specNodeRef(memURN, from), specNodeRef(memURN, to), inheritEdgeLabel)
+}
+
 // lintCorpus runs the per-node rules on every node plus the cross-node
 // checks (collisions, parent existence, inheritance edges). scopeRoot is the
 // loc at the top of a --product/--module scope (e.g. "cor:acl"); the
 // parent-exists check is suppressed for a parent that lives above it, since a
 // scoped scan deliberately omits the subtree's attach point. An empty
 // scopeRoot lints the whole corpus (--all), where every parent must exist.
-// memURN qualifies the node refs in the inheritance-edge remedy message so the
-// suggested `hadron edge add` command is copy-pasteable.
+// memURN is the -m of the inheritance-edge remedy, so the suggested
+// `hadron spec link` command is copy-pasteable.
 func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 	fs := []lintFindingDTO{}
 	locCount := map[string]int{}
 	contracts := map[string]bool{}
+	specTagged := map[string]bool{}
 	productCodes := map[string]bool{}
 	flatCodes := map[string]bool{}
 	for _, n := range nodes {
 		fs = append(fs, lintNode(n, memURN)...)
 		locCount[n.Loc]++
+		if hasTag(n.Tags, "spec") {
+			specTagged[n.Loc] = true
+		}
 		if n.Unavailable {
 			continue
 		}
@@ -553,8 +570,8 @@ func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 			if cl, ok := c.InheritedContractLoc(); ok && contracts[cl.Format()] && !hasOutEdgeTo(n, cl.Format()) {
 				fs = append(fs, lintFindingDTO{
 					Citation: n.Loc, Rule: "inheritance-edge", Severity: sevWarning,
-					Message: fmt.Sprintf("no inheritance edge to general-provisions contract %s — add it: hadron edge add --from %s --to %s --label %q",
-						cl.Format(), specNodeRef(memURN, n.Loc), specNodeRef(memURN, cl.Format()), inheritEdgeLabel),
+					Message: fmt.Sprintf("no inheritance edge to general-provisions contract %s — add it: %s",
+						cl.Format(), inheritanceRemedy(n.Loc, cl.Format(), memURN, specTagged)),
 				})
 			}
 		}

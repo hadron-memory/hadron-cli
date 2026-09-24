@@ -9,8 +9,8 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
-// lintMem is a stand-in memory URN for the corpus-lint tests; it qualifies the
-// node refs in the inheritance-edge remedy message.
+// lintMem is a stand-in memory URN for the corpus-lint tests; it is the -m of
+// the inheritance-edge remedy message.
 const lintMem = "acme.com::specs"
 
 // cleanSpec builds a fully rubric-compliant spec node at loc, with a ToC
@@ -335,17 +335,34 @@ func TestLintCorpusInheritanceAndParent(t *testing.T) {
 	if hasRule(fs, "parent-exists") {
 		t.Errorf("no parent should be missing; got %v", fs)
 	}
-	// #35: the message must name the exact, copy-pasteable remedy with
-	// fully-qualified node refs (the manual back-wire an author would run).
+	// #35, then #687: the message names the exact, copy-pasteable remedy —
+	// `spec link` with the memory, since `edge add … --label` could not even
+	// parse. TestSpecLintInheritanceRemedyRuns (package cmd) RUNS it.
 	msg := messageFor(fs, "msg:010:02", "inheritance-edge")
 	for _, want := range []string{
-		"hadron edge add",
-		"--from acme.com::specs::msg:010:02",
-		"--to acme.com::specs::msg:010:00",
+		"hadron spec link msg:010:02 msg:010:00",
+		"-m acme.com::specs",
 		inheritEdgeLabel,
 	} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("inheritance-edge message must contain %q; got %q", want, msg)
+		}
+	}
+
+	// `spec link` refuses an endpoint without the "spec" tag, so an untagged
+	// end falls back to `edge add` by full ref, with its REAL flag, --name.
+	untagged := cleanSpec(t, "msg:010:00", "Shared contract")
+	untagged.Tags = []string{"topic"}
+	fs = lintCorpus([]specNode{nodes[0], nodes[1], untagged, nodes[3]}, "", lintMem)
+	msg = messageFor(fs, "msg:010:02", "inheritance-edge")
+	for _, want := range []string{
+		"hadron edge add",
+		"--from acme.com::specs::msg:010:02",
+		"--to acme.com::specs::msg:010:00",
+		"--name " + fmt.Sprintf("%q", inheritEdgeLabel),
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("untagged-endpoint remedy must contain %q; got %q", want, msg)
 		}
 	}
 }

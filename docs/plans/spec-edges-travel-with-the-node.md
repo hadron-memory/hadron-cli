@@ -59,21 +59,57 @@ The how-to shows how to create only the missing contract. Making several nodes
 one transaction would need a server batch-create door, and that is not proposed
 here.
 
-## Not in this change: waiting on hadron-server#1300
+## Slice 2: edges added to an EXISTING node
 
-These add an edge to an **existing** node, so they cannot travel inline on a
-create:
+hadron-server#1300 Q1 was ruled yes (Holger, team chat #1306). server#1307 drops
+the platform gate, so `createEdge` is memory-gated like everything else and
+additive again. On that basis:
 
-- `spec link` (between two existing specs)
-- `spec supersede`'s `superseded-by` edge (old → new)
-- repairing orphans already stranded
+- **`spec link` needs no change.** It is a plain `createEdge`. It works for a
+  default-role user once #1307 is deployed, and it is how the two existing
+  orphans get repaired. No customer node is edited by us.
+- **`spec supersede`'s structural edges travel inline** on the replacement's
+  `createSpecNode`, resolved first. The replacement can no longer be left
+  orphaned from the tree, and the `skipped` edge status, which only that state
+  produced, is gone.
+- **The `superseded-by` edge stays a separate `createEdge`**, because it leaves
+  the OLD node. If it errors, supersede **re-reads the old spec before
+  prescribing anything** (Codex on #691): a lost response looks exactly like a
+  refusal, and `spec link` over an edge that landed would fail, while a blind
+  rerun over one that didn't would mint a second replacement. An edge that
+  shows up finishes the run. One that doesn't is **never** proof of absence,
+  because a read can lag a committed write. So it reports status `unknown`
+  (there is no `failed` any more: nothing this command sees can prove an edge
+  absent). The message says to check with `spec get` first, run
+  `hadron spec link <old> <new> -m <mem> --label superseded-by` only if the edge
+  is still missing after a minute, and rerun once `spec get` shows it, which
+  takes the existing finish-the-retirement path.
+- **The re-read runs after EVERY superseded-by write, not only a failed one**
+  (Codex P1, Copilot on #691). Two supersedes that pick different replacements
+  both create successfully, since edge identity includes the target, and both
+  used to retire the old spec. Now a run retires only when its replacement is
+  the **sole** successor; otherwise it exits 5 and prescribes no write. This
+  narrows a race that predates this change without closing it. Both runs can
+  no longer retire, because each re-reads after its own write, so the later
+  writer always sees the earlier one's edge. What remains: the earlier run may
+  retire before the later one writes, and the later run's edge then stays
+  behind next to it, reported as a conflict for a human to remove. **Refusing
+  that second write needs a server-side conditional retirement**, reported to
+  the coordinator as a hadron-server item.
+- **`spec lint`'s inheritance-edge remedy was a command that could not run.**
+  It said `hadron edge add … --label`, and the flag is `--name`, so it exited
+  `unknown flag: --label`. It now names `spec link` when both ends carry the
+  `spec` tag (`spec link` refuses any that doesn't), else `edge add … --name`.
 
-`updateSpecNode.edges` **replaces the whole outgoing set**. Adding one edge
-through it would be read-modify-write over a wholesale replace, which this
-client does not build. The next slice follows whichever contract #1300 settles:
-a memory-scoped `createEdge` gate, a spec edge door, or both. The dead-end
-`hadron edge add` advice on those paths is replaced then, against a remedy that
-actually works.
+Both remedies are tested by RUNNING them: the test takes the command from the
+message and executes it through the CLI. A string assertion on the message
+could not see `--label`, and it was not seeing it.
+
+**Rejected: `updateSpecNode` with the full outgoing edge set** (the CLI-only
+route before Q1). `UpdateNodeInput` has no revision precondition, so
+concurrent links lose edges. The replace also runs `pendingEdge.deleteMany`,
+so it destroys pending edges, and edges to targets the caller cannot read,
+neither of which the client can see to resend.
 
 ## Specs
 

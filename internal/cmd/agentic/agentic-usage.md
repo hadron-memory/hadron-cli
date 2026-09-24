@@ -202,17 +202,56 @@ reliable way to test whether a subcommand exists.
 
 A **partial write** exits non-zero (generic failure, 1): a command that creates
 the primary entity but cannot wire one or more of its edges — `node import
---with-edges` (see `unwiredEdges`) and `spec supersede` (see each edge's
-`status`) — reports the detail on stdout/stderr and
+--with-edges` (see `unwiredEdges`), and `spec supersede` when the old spec's
+`superseded-by` edge can't be confirmed (that edge's `status` is `unknown`) — reports the
+detail on stdout/stderr and
 still exits 1, so a
 caller branching on the exit code never reads a partial success as complete. The
 node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
+For supersede, the old spec is **re-read after every `superseded-by` write**,
+successful or not, before anything is retired or prescribed:
+- **Another replacement also supersedes it** (a concurrent supersede, whose
+  edge to a different target succeeded too): supersede **exits 5 (conflict)**,
+  retires nothing and prescribes no write. The message names both
+  replacements, and which one stands is a human call. It narrows the race; it
+  cannot close it, since that needs a server-side conditional retirement.
+- **The write errored but the edge landed** (a lost response): the run finishes.
+- **The write errored and the re-read doesn't show the edge, or fails**:
+  status `unknown`, because a read can lag a committed write, so this is never
+  proof of absence. Exit 1. The error says to check with `spec get <old>`.
+  If after a minute there is still no edge, link it with the exact `spec link`
+  it names. Once `spec get` shows the link, rerun the supersede to finish the
+  retirement. Don't rerun it first: with no edge to find, a rerun mints a
+  second replacement.
+- **The write succeeded but the re-read failed, or doesn't show the link
+  yet**: status `created`, exit 1, and the spec is **not** retired. It retires
+  only on a link it has *seen* to be the sole successor. **Rerun only once
+  `spec get <old>` shows that `superseded-by` edge.** A rerun that still
+  can't see it takes the new-supersede path and mints a *second* replacement.
 
-`spec new` and `spec extract` cannot leave a spec without its edges unless told
-to: without `--no-edges` (which deliberately creates the node edge-less), each
-spec node is written together with its table-of-contents, inheritance and
-(extract) cross-ref edges, and a target that does not resolve refuses the
-command before anything is written. A `spec new` that creates several nodes (a root with its
+A `superseded-by` edge whose target you cannot read still counts as a
+successor, so it blocks retirement rather than vanishing from the count.
+
+A rerun on a spec that already has a `superseded-by` edge finishes the
+retirement, but only when there is exactly **one** successor. With more than
+one, even on a spec already tagged `superseded`, it exits 5 and retires
+nothing.
+
+Edge `status` values are `planned` (dry run), `created` and `unknown`. There is
+no `failed`: no answer this command gets can prove an edge is absent.
+The result's `retired` is `true` only once the old spec has actually been
+tagged `superseded`, `false` when the update was refused outright, and `null`
+when that can't be known (the retirement update got no answer, and the re-read
+didn't show the tag, which may just be a stale read). Branch on it, not on the edge list: a partial run can have created
+everything and still not retired anything. A retirement update that gets no
+answer is re-read before it is reported, so a committed retirement is never
+reported as `false`.
+
+`spec new`, `spec extract` and `spec supersede` cannot leave a spec without its
+table-of-contents / inheritance edges unless told to: without `--no-edges`
+(new/extract only; it deliberately creates the node edge-less), each spec node
+is written together with those edges and (extract) its cross-ref, and a target
+that does not resolve refuses the command before anything is written. A `spec new` that creates several nodes (a root with its
 contract, or `--new-path`) writes each separately, so a failure part-way exits
 non-zero naming the nodes it already created, each complete with its edges.
 
@@ -1093,7 +1132,8 @@ Conventions:
   of the MCP + runner tool registries — with a small ignore-list for known
   non-tools like the `hadron_token` cookie), exit 5 on findings so CI can gate on
   tool-name drift; `spec supersede` retires a
-  spec (never renumbers) and REQUIRES `--yes`; `spec import` is not yet
+  spec (never renumbers), REQUIRES `--yes`, and exits 5 if the old spec ends
+  up with another successor (see "partial write" above); `spec import` is not yet
   implemented (exit 2).
 - **A node's KIND decides which door writes it** (#606 → hadron-server#1201,
   shipped in #1203). Protection used to be by ADDRESS — `Memory.protectedLocs`,

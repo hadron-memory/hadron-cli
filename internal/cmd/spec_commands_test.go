@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -1562,6 +1563,103 @@ func TestSpecLintAllReportsUntaggedCitation(t *testing.T) {
 	}
 }
 
+// #687: lint's inheritance-edge remedy is a command a user copies and runs, so
+// the test RUNS it. It used to be `hadron edge add … --label`, which exits
+// `unknown flag: --label`, and a string assertion on the message could not see
+// that. `spec link` when both ends are spec-tagged (it refuses any that isn't);
+// otherwise `edge add` with its real flag. Either way the edge it writes must be
+// the one lint asked for.
+func TestSpecLintInheritanceRemedyRuns(t *testing.T) {
+	for _, tc := range []struct {
+		name, contractTags, wantCmd string
+	}{
+		{"both spec-tagged", `["spec","p1"]`, "spec link"},
+		{"contract lacks the spec tag", `["p1"]`, "edge add"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{
+				"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:00", tc.contractTags) + `,` +
+					specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+				"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+					specBatchNodeWithTags("msg:010:00", tc.contractTags) + `,` + specBatchNode("msg:010:02") + `]}}}`,
+				"Memories":  memListMicromentorJSON,
+				"GetMemory": memGetVectorEnabledJSON,
+			})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
+			_ = root.Execute() // findings exit non-zero; the report is what matters
+
+			var report []struct {
+				Citation string `json:"citation"`
+				Rule     string `json:"rule"`
+				Message  string `json:"message"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &report); err != nil {
+				t.Fatalf("lint --json: %v\n%s", err, out.String())
+			}
+			var remedy string
+			for _, r := range report {
+				if r.Citation == "msg:010:02" && r.Rule == "inheritance-edge" {
+					_, remedy, _ = strings.Cut(r.Message, "add it: ")
+				}
+			}
+			if remedy == "" {
+				t.Fatalf("no inheritance-edge remedy for msg:010:02 in:\n%s", out.String())
+			}
+			args := splitCommandLine(t, remedy)
+			if len(args) < 3 || args[0] != "hadron" || strings.Join(args[1:3], " ") != tc.wantCmd {
+				t.Fatalf("remedy = %q, want a `hadron %s` command", remedy, tc.wantCmd)
+			}
+
+			gql2, captured := captureGraphQL(t, map[string]string{
+				"Memories":   memListMicromentorJSON,
+				"ResolveUrn": resolveSpecJSON,
+				"GetNode":    linkSpecDetail,
+				"CreateEdge": linkEdgeResp,
+			})
+			f2, _ := testFactory(t)
+			root2 := NewRootCmd(f2)
+			root2.SetArgs(append(args[1:], "--server", gql2.URL))
+			if err := root2.Execute(); err != nil {
+				t.Fatalf("the remedy lint suggests does not run: %q: %v", remedy, err)
+			}
+			var edge struct {
+				Name string `json:"name"`
+			}
+			if err := json.Unmarshal(captured["CreateEdge"], &edge); err != nil {
+				t.Fatalf("the remedy wrote no edge: %v", err)
+			}
+			if edge.Name != "inherits the shared contract (general provisions)" {
+				t.Errorf("remedy edge name = %q, want the inheritance label", edge.Name)
+			}
+		})
+	}
+}
+
+// splitCommandLine splits a suggested command on spaces, honouring the
+// Go-quoted (%q) arguments lint writes.
+func splitCommandLine(t *testing.T, line string) []string {
+	t.Helper()
+	var args []string
+	for rest := strings.TrimSpace(line); rest != ""; rest = strings.TrimSpace(rest) {
+		if rest[0] == '"' {
+			quoted, err := strconv.QuotedPrefix(rest)
+			if err != nil {
+				t.Fatalf("unterminated quote in %q: %v", line, err)
+			}
+			unq, _ := strconv.Unquote(quoted)
+			args = append(args, unq)
+			rest = rest[len(quoted):]
+			continue
+		}
+		word, tail, _ := strings.Cut(rest, " ")
+		args = append(args, word)
+		rest = tail
+	}
+	return args
+}
+
 func TestSpecLintAllUnavailableListedNode(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
@@ -1816,7 +1914,7 @@ func TestSpecSupersedeRejectsNonSpecSource(t *testing.T) {
 }
 
 func TestSpecSupersede(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
+	gql, captured := captureSupersedeGraphQL(t, "msg:010:03", map[string]string{
 		"ResolveUrn":     resolveSpecJSON,
 		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
@@ -1878,20 +1976,19 @@ func TestSpecSupersede(t *testing.T) {
 	}
 }
 
-// #127/#128: when a ToC/inheritance target can't be resolved, supersede skips
-// that edge (not silently — it's tagged "skipped" and warned), still emits the
-// JSON, and exits non-zero so the orphaned replacement isn't read as a clean
-// supersede.
-func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
+// #127/#128, then #687: a ToC/inheritance target that can't be resolved used
+// to leave the replacement orphaned from the tree (skipped, warned, exit 1).
+// The structural edges now travel inline on the replacement's create and are
+// resolved first, so the supersede refuses with NOTHING written: no
+// replacement, no superseded-by link, and the old spec is not retired.
+func TestSpecSupersedeUnresolvableEdgeCreatesNothing(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
 	responses := map[string]string{
-		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":      scan,
-		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge":     `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+		"GetNode":   `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch": specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes": scan,
 	}
+	var writes []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			OperationName string `json:"operationName"`
@@ -1902,14 +1999,18 @@ func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &body)
 		w.Header().Set("Content-Type", "application/json")
-		if body.OperationName == "ResolveUrn" {
-			// Only the OLD spec resolves; every ToC/inheritance target misses, so
-			// those edges are skipped and the replacement is left orphaned.
+		switch body.OperationName {
+		case "ResolveUrn":
+			// Only the OLD spec resolves; every ToC/inheritance target misses.
 			if strings.HasSuffix(body.Variables.Urn, "::msg:010:02") {
 				_, _ = w.Write([]byte(resolveSpecJSON))
 			} else {
 				_, _ = w.Write([]byte(`{"data":{"resolveUrn":null}}`))
 			}
+			return
+		case "CreateSpecNode", "CreateEdge", "UpdateSpecNode":
+			writes = append(writes, body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"no write was expected"}]}`))
 			return
 		}
 		resp, ok := responses[body.OperationName]
@@ -1921,41 +2022,729 @@ func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	f, out := testFactory(t)
+	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "orphaned") {
-		t.Fatalf("a supersede that can't wire its ToC edge must fail loudly, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "nothing was created") {
+		t.Fatalf("an unresolvable structural edge must refuse before writing, got %v", err)
 	}
-	if code := exitCodeFor(err); code != exitcode.Error {
-		t.Errorf("orphaned-edge exit code = %d, want %d (Error)", code, exitcode.Error)
+	if code := exitCodeFor(err); code != exitcode.NotFound {
+		t.Errorf("exit code = %d, want %d (NotFound, the target's own code)", code, exitcode.NotFound)
 	}
-	// The JSON still reports each edge's REAL status: ToC/inheritance skipped, the
-	// superseded-by link created.
-	var dto struct {
-		Edges []struct {
-			Label  string `json:"label"`
-			Status string `json:"status"`
-		} `json:"edges"`
+	if len(writes) != 0 {
+		t.Errorf("writes were sent although a structural edge could not be resolved: %v", writes)
 	}
-	if uerr := json.Unmarshal([]byte(out.String()), &dto); uerr != nil {
-		t.Fatalf("supersede JSON must still be emitted: %v\n%s", uerr, out.String())
+}
+
+// withSupersededByEdge returns a GetNode response for the old spec that also
+// carries a superseded-by edge to the node successorID at successorLoc: what
+// the server returns once the link exists. Supersede identifies its successor
+// by node ID, so a fixture must say WHICH node — "new1" is the replacement
+// these tests create; anything else is a competitor.
+func withSupersededByEdge(nodeResp, successorID, successorLoc string) string {
+	edge := `{"id":"e-sb-` + successorID + `","name":"superseded-by","loc":"superseded-by:` + successorLoc +
+		`","isRunnable":false,"priority":0,"target":{"id":"` + successorID + `","loc":"` + successorLoc + `","memoryId":"mem1"}}`
+	if strings.Contains(nodeResp, `"outgoingEdges":[]`) {
+		return strings.Replace(nodeResp, `"outgoingEdges":[]`, `"outgoingEdges":[`+edge+`]`, 1)
 	}
-	created, skipped := 0, 0
-	for _, e := range dto.Edges {
-		switch e.Status {
-		case edgeStatusCreatedTest:
-			created++
-		case edgeStatusSkippedTest:
-			skipped++
+	return strings.Replace(nodeResp, `"outgoingEdges":[`, `"outgoingEdges":[`+edge+`,`, 1)
+}
+
+// captureSupersedeGraphQL is captureGraphQL for a supersede that SUCCEEDS:
+// every GetNode after the first (the up-front read) shows the superseded-by
+// edge to successorLoc, since supersede retires only on a link it has seen.
+func captureSupersedeGraphQL(t *testing.T, successorLoc string, responses map[string]string) (*httptest.Server, map[string]json.RawMessage) {
+	t.Helper()
+	gets := 0
+	return captureGraphQLFunc(t, func(op string) string {
+		resp := responses[op]
+		if op == "GetNode" {
+			gets++
+			if gets > 1 {
+				resp = withSupersededByEdge(resp, "new1", successorLoc)
+			}
+		}
+		return translateFindNodes(op, resp)
+	})
+}
+
+// supersedeLostEdgeServer answers a supersede whose superseded-by CreateEdge
+// errors. The FIRST GetNode is the old spec as read up front; the second is
+// the re-read after the write, answered by reread.
+func supersedeLostEdgeServer(t *testing.T, reread string) (*httptest.Server, map[string]json.RawMessage) {
+	return supersedeEdgeServer(t, `{"errors":[{"message":"edge boom"}]}`, reread)
+}
+
+// supersedeEdgeServer is supersedeLostEdgeServer with the CreateEdge answer
+// chosen by the caller.
+func supersedeEdgeServer(t *testing.T, createEdge, reread string) (*httptest.Server, map[string]json.RawMessage) {
+	t.Helper()
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	responses := map[string]string{
+		"ResolveUrn":     resolveSpecJSON,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":      scan,
+		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":     createEdge,
+		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	}
+	gets := 0
+	return captureGraphQLFunc(t, func(op string) string {
+		if op == "GetNode" {
+			gets++
+			if gets == 1 {
+				return `{"data":{"node":` + cleanSpecDetail + `}}`
+			}
+			return reread
+		}
+		return translateFindNodes(op, responses[op])
+	})
+}
+
+// #691 review (Codex): a CreateEdge error is not proof the edge is absent — the
+// response can be lost after the write committed. Supersede re-reads the old
+// spec, and when the superseded-by edge is there it FINISHES the retirement
+// rather than prescribing a `spec link` that would fail on it.
+func TestSpecSupersedeLostEdgeResponseFinishesRetirement(t *testing.T) {
+	landed := `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}}}`
+	gql, captured := supersedeLostEdgeServer(t, landed)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an edge that landed despite the error must finish the supersede: %v\n%s", err, out.String())
+	}
+	if _, retired := captured["UpdateSpecNode"]; !retired {
+		t.Error("the old spec was not retired although its superseded-by edge exists")
+	}
+	if !strings.Contains(out.String(), `"status": "created"`) || strings.Contains(out.String(), `"status": "failed"`) {
+		t.Errorf("the superseded-by edge exists, so it must report created:\n%s", out.String())
+	}
+}
+
+// ...and when the re-read fails too, nothing is known: the message says to
+// CHECK first rather than prescribing a create that may be a duplicate.
+func TestSpecSupersedeUnverifiableEdgeSaysCheckFirst(t *testing.T) {
+	gql, captured := supersedeLostEdgeServer(t, `{"errors":[{"message":"read boom"}]}`)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("an unverifiable retirement edge must not report success")
+	}
+	for _, want := range []string{"may or may not exist", "check `hadron spec get msg:010:02", "if after a minute it has no superseded-by edge to msg:010:03", "once `hadron spec get msg:010:02 -m micromentor.org::platform-specs` shows that edge"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message must contain %q; got %v", want, err)
 		}
 	}
-	if created != 1 || skipped < 1 {
-		t.Errorf("edge statuses = %+v; want superseded-by created and ToC edge(s) skipped", dto.Edges)
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired without knowing the link exists")
 	}
-	if errStr := f.IOStreams.ErrOut.(*strings.Builder).String(); !strings.Contains(errStr, "skipped edge") {
-		t.Errorf("a skipped edge must warn on stderr, got: %q", errStr)
+	// #691 review (Copilot): --json must not claim "failed" for an edge that
+	// may exist; agents branch on it. `unknown`, as for a lost install answer.
+	if !strings.Contains(out.String(), `"status": "unknown"`) || strings.Contains(out.String(), `"status": "failed"`) {
+		t.Errorf("an unverifiable edge must report status unknown, not failed:\n%s", out.String())
+	}
+}
+
+// #691 review (Codex P1, Copilot): two supersedes that pick DIFFERENT
+// replacements both CREATE successfully — edge identity includes the target —
+// so checking only after a failed create let both retire the old spec. The
+// re-read runs after every write; this run's replacement must be the SOLE
+// successor, or it stops with a conflict and retires nothing.
+func TestSpecSupersedeRaceWithBothEdgesCreatedRetiresNothing(t *testing.T) {
+	both := `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[` +
+		`{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}},` +
+		`{"id":"e9","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:020:01","isRunnable":false,"priority":0,"target":{"id":"n9","loc":"msg:020:01","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}}}`
+	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+	gql, captured := supersedeEdgeServer(t, ok, both)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("two successors must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if !strings.Contains(err.Error(), "superseded by both msg:010:03 and msg:020:01") {
+		t.Errorf("the message must name both successors; got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired while it has two successors")
+	}
+	if !strings.Contains(out.String(), `"status": "created"`) {
+		t.Errorf("this run's edge WAS created and must say so:\n%s", out.String())
+	}
+}
+
+// #691 round 6 (Codex): a successful create whose re-read does not SHOW the
+// link (a stale read) retires nothing; only a link it has seen counts.
+func TestSpecSupersedeStaleRereadRetiresNothing(t *testing.T) {
+	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+	gql, captured := supersedeEdgeServer(t, ok, `{"data":{"node":`+cleanSpecDetail+`}}`)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "did not show that link yet") || !strings.Contains(err.Error(), "once `hadron spec get msg:010:02") {
+		t.Fatalf("an unseen link must not be retired on, and the rerun must wait for the link; got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired on a link the re-read did not show")
+	}
+}
+
+// #691 round 6 (Copilot): a superseded-by edge whose target the caller cannot
+// read comes back with a null target. It is still a successor: it blocks
+// retirement as a conflict rather than disappearing from the count.
+func TestSpecSupersedeUnreadableCompetitorIsAConflict(t *testing.T) {
+	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+	hidden := strings.Replace(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03"),
+		`"outgoingEdges":[`, `"outgoingEdges":[{"id":"e9","name":"superseded-by","loc":"x","isRunnable":false,"priority":0,"target":null},`, 1)
+	gql, captured := supersedeEdgeServer(t, ok, hidden)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("an unreadable competing successor must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired past a successor the caller cannot read")
+	}
+}
+
+// #691 round 15 (Copilot): the retirement writes whole tags and content, so it
+// must be built from the FRESH post-link read, never the first one: an edit
+// made to the old spec in between would otherwise be overwritten.
+func TestSpecSupersedeRetiresAgainstTheFreshRead(t *testing.T) {
+	edited := strings.Replace(cleanSpecDetail, "Details.", "Details, with a concurrent edit.", 1)
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	gets := 0
+	gql, captured := captureGraphQLFunc(t, func(op string) string {
+		switch op {
+		case "GetNode":
+			gets++
+			if gets == 1 {
+				return `{"data":{"node":` + cleanSpecDetail + `}}`
+			}
+			return withSupersededByEdge(`{"data":{"node":`+edited+`}}`, "new1", "msg:010:03")
+		case "ResolveUrn":
+			return resolveSpecJSON
+		case "FindNodes":
+			return translateFindNodes(op, scan)
+		case "NodeBatch":
+			return specLintRawBodyStub(cleanSpecDetail)
+		case "CreateSpecNode":
+			return `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
+		case "CreateEdge":
+			return `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+		case "UpdateSpecNode":
+			return `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
+		}
+		return ""
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(string(captured["UpdateSpecNode"]), "with a concurrent edit") {
+		t.Errorf("the retirement was built from the stale first read, overwriting a concurrent edit: %s", captured["UpdateSpecNode"])
+	}
+}
+
+// #691 round 14 (Copilot): the finish path's single-successor check ran only
+// on the FIRST read, before the confirmation prompt. It re-validates right
+// before retiring: a second successor that appeared meanwhile is a conflict
+// (exit 5) and nothing is retired.
+func TestSpecSupersedeFinishRevalidatesBeforeRetiring(t *testing.T) {
+	one := withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03")
+	two := withSupersededByEdge(one, "n-020-01", "msg:020:01")
+	gets := 0
+	gql, captured := captureGraphQLFunc(t, func(op string) string {
+		switch op {
+		case "ResolveUrn":
+			return resolveSpecJSON
+		case "GetNode":
+			gets++
+			if gets == 1 {
+				return one
+			}
+			return two
+		case "UpdateSpecNode":
+			return `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
+		}
+		return ""
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("a successor added before retiring must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("retired although a second successor appeared before the retirement")
+	}
+}
+
+// #691 round 18 (Codex): the finish path's pre-retire re-read wrote nothing,
+// so a failure keeps its mapped exit code — 7 for no answer — instead of
+// flattening to 1, and nothing is retired.
+func TestSpecSupersedeFinishRereadKeepsItsExitCode(t *testing.T) {
+	one := withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03")
+	gets := 0
+	var updated bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		switch body.OperationName {
+		case "GetNode":
+			gets++
+			if gets > 1 {
+				w.WriteHeader(http.StatusBadGateway)
+				_, _ = w.Write([]byte("upstream went away"))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(one))
+		case "ResolveUrn":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(resolveSpecJSON))
+		case "UpdateSpecNode":
+			updated = true
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"errors":[{"message":"no write expected"}]}`))
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+		}
+	}))
+	defer srv.Close()
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", srv.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Unavailable {
+		t.Fatalf("a re-read with no answer must keep exit %d (Unavailable), got %d: %v", exitcode.Unavailable, code, err)
+	}
+	if updated {
+		t.Error("retired although the pre-retire re-read failed")
+	}
+}
+
+// supersedeLostRetireServer answers a supersede whose retirement update gets
+// NO ANSWER (a 502 with no GraphQL envelope). GetNode answers, in order: the
+// up-front read, the post-link re-read (showing this run's link), then the
+// post-retire re-read, answered by afterRetire.
+func supersedeLostRetireServer(t *testing.T, afterRetire string) *httptest.Server {
+	t.Helper()
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	responses := map[string]string{
+		"ResolveUrn":     resolveSpecJSON,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":      scan,
+		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":     `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+	}
+	gets := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		switch body.OperationName {
+		case "UpdateSpecNode":
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte("upstream went away"))
+			return
+		case "GetNode":
+			gets++
+			w.Header().Set("Content-Type", "application/json")
+			switch gets {
+			case 1:
+				_, _ = w.Write([]byte(`{"data":{"node":` + cleanSpecDetail + `}}`))
+			case 2:
+				_, _ = w.Write([]byte(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03")))
+			default:
+				_, _ = w.Write([]byte(afterRetire))
+			}
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, responses[body.OperationName])))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// #691 round 12 (Codex): the retirement update COMMITTED but its answer was
+// lost. The re-read shows the tag, so the run is a success — never "not
+// retired" for a spec that is.
+func TestSpecSupersedeLostRetireAnswerIsVerified(t *testing.T) {
+	tagged := withSupersededByEdge(`{"data":{"node":`+strings.Replace(cleanSpecDetail, `"tags":["spec","p1","messaging"]`, `"tags":["spec","p1","messaging","superseded"]`, 1)+`}}`, "new1", "msg:010:03")
+	srv := supersedeLostRetireServer(t, tagged)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a retirement the re-read confirms must succeed, got %v", err)
+	}
+	if !strings.Contains(out.String(), `"retired": true`) {
+		t.Errorf("a confirmed retirement must report retired: true:\n%s", out.String())
+	}
+}
+
+// ...and when the re-read fails, OR reads back without the tag (it may be
+// stale: #691 round 13), retirement is UNKNOWN: retired is null, not false,
+// and the message says to check for the tag before rerunning.
+func TestSpecSupersedeUnverifiableRetireIsUnknown(t *testing.T) {
+	for name, afterRetire := range map[string]string{
+		"re-read fails":        `{"errors":[{"message":"read boom"}]}`,
+		"re-read shows no tag": withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := supersedeLostRetireServer(t, afterRetire)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), "whether it was retired is unknown") || !strings.Contains(err.Error(), "hadron spec get msg:010:02") {
+				t.Fatalf("an unverifiable retirement must say so and name the check; got %v", err)
+			}
+			if !strings.Contains(out.String(), `"retired": null`) {
+				t.Errorf("an unverifiable retirement must report retired: null, not false:\n%s", out.String())
+			}
+		})
+	}
+}
+
+// #691 round 11 (Copilot): the replacement's create got NO ANSWER (a 5xx with
+// no GraphQL envelope, exit 7). It may have committed, edges and all, so the
+// command must not suggest a blind rerun, which would allocate another number:
+// it names the check and the link-then-finish path, and writes nothing more.
+func TestSpecSupersedeLostCreateNamesTheReconciliation(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	responses := map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":  scan,
+	}
+	var after []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		if body.OperationName == "CreateSpecNode" {
+			w.WriteHeader(http.StatusBadGateway) // no GraphQL envelope: no answer
+			_, _ = w.Write([]byte("upstream went away"))
+			return
+		}
+		if body.OperationName == "CreateEdge" || body.OperationName == "UpdateSpecNode" {
+			after = append(after, body.OperationName)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, responses[body.OperationName])))
+	}))
+	defer srv.Close()
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", srv.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Unavailable {
+		t.Fatalf("a lost create must exit %d (Unavailable), got %d: %v", exitcode.Unavailable, code, err)
+	}
+	for _, want := range []string{"may have been created", "hadron spec get msg:010:03", "do NOT rerun as-is", "hadron spec link msg:010:02 msg:010:03", "only once `hadron spec get msg:010:02", "still does not exist after a minute"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message must contain %q; got %v", want, err)
+		}
+	}
+	if len(after) != 0 {
+		t.Errorf("nothing may be written after a lost create: %v", after)
+	}
+}
+
+// #691 round 10 (Codex): the human transcript of a partial run must not open
+// with "✓ superseded" right before an error saying nothing was retired; and
+// --json says whether the old spec was retired.
+func TestSpecSupersedeRendersRetiredTruthfully(t *testing.T) {
+	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+	competitor := withSupersededByEdge(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03"), "n-020-01", "msg:020:01")
+	gql, _ := supersedeEdgeServer(t, ok, competitor)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	if code := exitCodeFor(root.Execute()); code != exitcode.Conflict {
+		t.Fatalf("want exit %d (Conflict), got %d", exitcode.Conflict, code)
+	}
+	if strings.Contains(out.String(), "✓ superseded") || !strings.Contains(out.String(), "not retired") {
+		t.Errorf("a partial run must not print success:\n%s", out.String())
+	}
+
+	gql2, _ := captureSupersedeGraphQL(t, "msg:010:03", map[string]string{
+		"ResolveUrn":     resolveSpecJSON,
+		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":      `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":     ok,
+		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	})
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("a clean supersede errored: %v", err)
+	}
+	if !strings.Contains(out2.String(), `"retired": true`) {
+		t.Errorf("a completed supersede must report retired: true:\n%s", out2.String())
+	}
+}
+
+// #691 round 7 (Codex): the create SUCCEEDED, and a stale re-read shows a
+// competitor but not this run's edge yet. The conflict must not claim the
+// link was never written; it was, and the message names both.
+func TestSpecSupersedeConfirmedWriteIsNotReportedUnwritten(t *testing.T) {
+	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+	gql, captured := supersedeEdgeServer(t, ok, withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "n-020-01", "msg:020:01"))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("want exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if strings.Contains(err.Error(), "no second") || !strings.Contains(err.Error(), "superseded by both msg:010:03 and msg:020:01") {
+		t.Errorf("a confirmed write must be reported as written; got %v", err)
+	}
+	if !strings.Contains(out.String(), `"status": "created"`) {
+		t.Errorf("the confirmed edge must report created:\n%s", out.String())
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("nothing may be retired on a conflict")
+	}
+}
+
+// #691 round 8 (Codex, Copilot): a loc is unique only WITHIN a memory, and
+// edges may cross memories. A superseded-by edge to the same citation in
+// ANOTHER memory is a different node — not this run's link — so a failed
+// create over it retires nothing, and the other node is reported as a
+// competing successor.
+func TestSpecSupersedeSameLocInAnotherMemoryIsNotThisRunsLink(t *testing.T) {
+	elsewhere := strings.Replace(
+		withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "other-mem-node", "msg:010:03"),
+		`"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem1"}`,
+		`"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem2"}`, 1)
+	gql, captured := supersedeLostEdgeServer(t, elsewhere)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("a same-loc successor in another memory must be a conflict (%d), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if !strings.Contains(err.Error(), "msg:010:03 (in memory mem2)") {
+		t.Errorf("the message must say the competitor lives in another memory; got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("retired on a link to a different node that happens to share the citation")
+	}
+}
+
+// #691 round 9 (Copilot): on the rerun path, a lone superseded-by successor in
+// ANOTHER memory is not a citation of this corpus. It used to reach
+// ParseCitation and fail as a generic invalid citation; it is a conflict that
+// names the other memory, and nothing is retired.
+func TestSpecSupersedeRerunWithSuccessorInAnotherMemoryIsAConflict(t *testing.T) {
+	one := strings.Replace(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "other-mem-node", "msg:010:03"),
+		`"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem1"}`,
+		`"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem2"}`, 1)
+	gql, captured := captureGraphQL(t, map[string]string{"ResolveUrn": resolveSpecJSON, "GetNode": one})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("a successor in another memory must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if !strings.Contains(err.Error(), "(in memory mem2)") {
+		t.Errorf("the message must name the other memory; got %v", err)
+	}
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
+		t.Error("retired against a successor in another memory")
+	}
+}
+
+// ...and two successors that share a citation in different memories are TWO
+// successors: de-duplicating by loc would collapse them and hide the conflict.
+func TestSpecSupersedeSameLocSuccessorsInTwoMemoriesAreAConflict(t *testing.T) {
+	two := withSupersededByEdge(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03"), "other-mem-node", "msg:010:03")
+	two = strings.Replace(two, `"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem1"}`,
+		`"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem2"}`, 1)
+	gql, captured := captureGraphQL(t, map[string]string{"ResolveUrn": resolveSpecJSON, "GetNode": two})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	if code := exitCodeFor(root.Execute()); code != exitcode.Conflict {
+		t.Fatalf("same-loc successors in two memories must exit %d (Conflict), got %d", exitcode.Conflict, code)
+	}
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
+		t.Error("nothing may be written on a conflict")
+	}
+}
+
+// #691 round 7 (Codex): two superseded-by edges into memories the caller
+// cannot read are TWO successors, a conflict (5), not one unreadable (4).
+func TestSpecSupersedeTwoUnreadableSuccessorsAreAConflict(t *testing.T) {
+	hidden := `{"id":"e8","name":"superseded-by","loc":"a","isRunnable":false,"priority":0,"target":null},` +
+		`{"id":"e9","name":"superseded-by","loc":"b","isRunnable":false,"priority":0,"target":null},`
+	node := strings.Replace(`{"data":{"node":`+cleanSpecDetail+`}}`, `"outgoingEdges":[`, `"outgoingEdges":[`+hidden, 1)
+	gql, _ := captureGraphQL(t, map[string]string{"ResolveUrn": resolveSpecJSON, "GetNode": node})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	if code := exitCodeFor(root.Execute()); code != exitcode.Conflict {
+		t.Fatalf("two unreadable successors must exit %d (Conflict), got %d", exitcode.Conflict, code)
+	}
+}
+
+// #691 round 6 (Codex): a spec already tagged superseded that TWO replacements
+// claim — the residual race — reports the conflict (5), not a usage error that
+// hides it behind "already superseded".
+func TestSpecSupersedeRetiredWithTwoSuccessorsReportsTheConflict(t *testing.T) {
+	two := withSupersededByEdge(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03"), "n-020-01", "msg:020:01")
+	two = strings.Replace(two, `"tags":["spec","p1","messaging"]`, `"tags":["spec","p1","messaging","superseded"]`, 1)
+	gql, captured := captureGraphQL(t, map[string]string{"ResolveUrn": resolveSpecJSON, "GetNode": two})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("a retired spec with two successors must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
+		t.Error("nothing may be written on a conflict")
+	}
+}
+
+// #691 review (Copilot): `createEdge: null` with no error is not a success.
+// It goes through the same re-read, and a confirmed-absent edge retires nothing.
+func TestSpecSupersedeNullEdgePayloadIsNotASuccess(t *testing.T) {
+	gql, captured := supersedeEdgeServer(t, `{"data":{"createEdge":null}}`, `{"data":{"node":`+cleanSpecDetail+`}}`)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "may or may not exist") {
+		t.Fatalf("a null edge payload must be checked like an error, got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired on a null edge payload")
+	}
+}
+
+// #691 review (Codex, Copilot): the link was written but the re-read failed,
+// so "sole successor" is unverified. Don't retire on it; the rerun re-reads.
+func TestSpecSupersedeUnverifiedSoleSuccessorRetiresNothing(t *testing.T) {
+	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+	gql, captured := supersedeEdgeServer(t, ok, `{"errors":[{"message":"read boom"}]}`)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "rerun this command to finish") {
+		t.Fatalf("an unverified sole successor must stop short of retiring, got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired without verifying it has one successor")
+	}
+	if !strings.Contains(out.String(), `"status": "created"`) {
+		t.Errorf("the link WAS written and must say so:\n%s", out.String())
+	}
+}
+
+// ...which makes the rerun path's own check load-bearing: finishing a spec
+// that TWO replacements claim would retire it in favour of whichever edge is
+// listed first. It refuses instead.
+func TestSpecSupersedeRerunWithTwoSuccessorsIsAConflict(t *testing.T) {
+	two := `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[` +
+		`{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}},` +
+		`{"id":"e9","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:020:01","isRunnable":false,"priority":0,"target":{"id":"n9","loc":"msg:020:01","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + two + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("two successors on rerun must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if !strings.Contains(err.Error(), "msg:010:03, msg:020:01") {
+		t.Errorf("the message must name both successors; got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the rerun retired a spec that two replacements claim")
+	}
+}
+
+// #691 review (Copilot): the re-read can find a superseded-by edge to a
+// DIFFERENT successor — another supersede got there first. That is not
+// "absent": a second edge would make two replacements. Stop with a conflict
+// and prescribe no write.
+func TestSpecSupersedeConcurrentSuccessorIsAConflict(t *testing.T) {
+	other := `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[{"id":"e9","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:07","isRunnable":false,"priority":0,"target":{"id":"n7","loc":"msg:010:07","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}}}`
+	gql, captured := supersedeLostEdgeServer(t, other)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("a competing successor must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if !strings.Contains(err.Error(), "already superseded by msg:010:07") {
+		t.Errorf("the message must name the competing successor; got %v", err)
+	}
+	if strings.Contains(err.Error(), "spec link") {
+		t.Errorf("a conflict must prescribe no second link; got %v", err)
+	}
+	// The create ERRORED, and the re-read doesn't show this run's edge: that is
+	// not confirmed absence (it may have committed behind a stale read), so it
+	// must not claim `failed` or that nothing was written (#691 round 11).
+	if strings.Contains(err.Error(), "no second") || !strings.Contains(err.Error(), "may or may not exist") {
+		t.Errorf("an unconfirmed edge must not be reported absent; got %v", err)
+	}
+	if !strings.Contains(out.String(), `"status": "unknown"`) {
+		t.Errorf("an unconfirmed edge must report status unknown:\n%s", out.String())
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired in favour of the losing replacement")
 	}
 }
 
@@ -1989,20 +2778,58 @@ func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 	if dto.New != "msg:010:03" {
 		t.Fatalf("partial result must name replacement, got %+v", dto)
 	}
-	foundFailedRetirement := false
+	// An errored create the re-read doesn't show is UNKNOWN, never `failed`:
+	// the read may lag a committed write (#691 round 17).
+	foundUnknownRetirement := false
 	for _, e := range dto.Edges {
-		if e.Label == "superseded-by" && e.Status == "failed" {
-			foundFailedRetirement = true
+		if e.Label == "superseded-by" && e.Status == "unknown" {
+			foundUnknownRetirement = true
 		}
 	}
-	if !foundFailedRetirement {
-		t.Fatalf("superseded-by edge should be marked failed, got %+v", dto.Edges)
+	if !foundUnknownRetirement {
+		t.Fatalf("superseded-by edge should be marked unknown, got %+v", dto.Edges)
+	}
+
+	// #687: the remedy is RUN, not read. It used to say "add that edge
+	// manually", naming no command; `hadron edge add` would have been refused
+	// exactly as this edge was. `spec link` writes the superseded-by edge, and
+	// with it in place a rerun finishes the retirement
+	// (TestSpecSupersedeRetryExistingRetirementEdgeFinishesUpdate).
+	// The rerun waits for the link to be visible: a rerun whose own first read
+	// is stale would mint a second replacement (#691 round 15).
+	if !strings.Contains(err.Error(), "once `hadron spec get msg:010:02") {
+		t.Errorf("the remedy must wait for the link before rerunning; got %v", err)
+	}
+	_, remedy, _ := strings.Cut(err.Error(), "link them with `")
+	remedy, _, _ = strings.Cut(remedy, "`")
+	args := splitCommandLine(t, remedy)
+	if len(args) < 3 || args[0] != "hadron" || args[1] != "spec" || args[2] != "link" {
+		t.Fatalf("remedy is not a `hadron spec link` command: %q (from %v)", remedy, err)
+	}
+	gql2, captured := captureGraphQL(t, map[string]string{
+		"Memories":   memListMicromentorJSON,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkSpecDetail,
+		"CreateEdge": linkEdgeResp,
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs(append(args[1:], "--server", gql2.URL))
+	if rerr := root2.Execute(); rerr != nil {
+		t.Fatalf("the remedy supersede suggests does not run: %q: %v", remedy, rerr)
+	}
+	var edge struct {
+		Name string `json:"name"`
+	}
+	_ = json.Unmarshal(captured["CreateEdge"], &edge)
+	if edge.Name != "superseded-by" {
+		t.Errorf("remedy edge name = %q, want superseded-by (what the finish-retirement path looks for)", edge.Name)
 	}
 }
 
 func TestSpecSupersedeRetireUpdateFailureEmitsRecoverableResult(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
-	gql, _ := captureGraphQL(t, map[string]string{
+	gql, _ := captureSupersedeGraphQL(t, "msg:010:03", map[string]string{
 		"ResolveUrn":     resolveSpecJSON,
 		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
@@ -2066,7 +2893,7 @@ func TestSpecSupersedeDoesNotReuseUnlinkedSameTitleSibling(t *testing.T) {
 		specNodeList("msg:010:02", `["spec","p1"]`) + `,` +
 		`{"id":"id-msg:010:03","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}` +
 		`]}}`
-	gql, captured := captureGraphQL(t, map[string]string{
+	gql, captured := captureSupersedeGraphQL(t, "msg:010:04", map[string]string{
 		"ResolveUrn":     resolveSpecJSON,
 		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
@@ -2112,6 +2939,7 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"CreateEdge":     `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"a","loc":"x"},"target":{"id":"b","loc":"y"}}}}`,
 	}
+	gets := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			OperationName string `json:"operationName"`
@@ -2124,7 +2952,24 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 		if body.OperationName == "CreateEdge" {
 			createdEdgeLabels = append(createdEdgeLabels, body.Variables.Name)
 		}
+		if body.OperationName == "CreateSpecNode" {
+			var req struct {
+				Variables json.RawMessage `json:"variables"`
+			}
+			_ = json.Unmarshal(raw, &req)
+			for _, e := range sentSpecEdges(t, req.Variables) {
+				createdEdgeLabels = append(createdEdgeLabels, fmt.Sprint(e["name"]))
+			}
+		}
 		w.Header().Set("Content-Type", "application/json")
+		if body.OperationName == "GetNode" {
+			gets++
+			if gets > 1 {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(withSupersededByEdge(responses["GetNode"], "new1", "msg:010:03")))
+				return
+			}
+		}
 		resp, ok := responses[body.OperationName]
 		if !ok {
 			t.Errorf("unexpected operation %q", body.OperationName)
@@ -2147,9 +2992,10 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 	}
 	_ = json.Unmarshal([]byte(out.String()), &dto)
 	// Every planned edge — including the ToC edge whose label collides with the
-	// --title — must actually be wired (one CreateEdge each) and reported created.
-	// Before the fix the colliding ToC edge was skipped yet marked created, so
-	// CreateEdge fired fewer times than there were edges.
+	// --title — must actually be wired and reported created: the structural ones
+	// inline on the replacement's create (#687), the retirement link as its own
+	// CreateEdge. Before the #155 fix the colliding ToC edge was skipped yet
+	// marked created, so fewer edges were written than reported.
 	if len(createdEdgeLabels) != len(dto.Edges) {
 		t.Errorf("wired %d edge(s) but planned/reported %d (a colliding ToC edge was skipped): calls=%v", len(createdEdgeLabels), len(dto.Edges), createdEdgeLabels)
 	}
@@ -2164,7 +3010,6 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 // (the constants themselves live in the unexported spec package).
 const (
 	edgeStatusCreatedTest = "created"
-	edgeStatusSkippedTest = "skipped"
 )
 
 func TestSpecImportStub(t *testing.T) {
