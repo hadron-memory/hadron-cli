@@ -22,8 +22,12 @@ import (
 // command groups now reach the same mutation — `app agent add/remove` and
 // `agent create --install-into` — and a second copy of this prose would drift
 // from the first the next time the rule moves.
+//
+// An MCP-only key (#681) is refused with the same FORBIDDEN, and for it this
+// rule is a false remedy — no org role lets that key through — so it is left
+// to MapError, which names the credential fix.
 func InstallForbiddenGuidance(err error) error {
-	if !api.HasErrorCode(err, "FORBIDDEN") {
+	if !api.HasErrorCode(err, "FORBIDDEN") || api.IsMCPOnlyCredential(err) {
 		return api.MapError(err)
 	}
 	mapped := api.MapError(err)

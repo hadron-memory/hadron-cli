@@ -79,6 +79,9 @@ type validateResult struct {
 	AppID         string    `json:"appId,omitempty"`
 	AgentID       string    `json:"agentId,omitempty"`
 	Key           *tokenDTO `json:"key,omitempty"`
+	// RejectedReason is `auth status`'s field, with the same values (#681):
+	// set only alongside valid:false, when the CLI knows why.
+	RejectedReason string `json:"rejectedReason,omitempty"`
 }
 
 func newCmdTokenValidate(f *cmdutil.Factory) *cobra.Command {
@@ -117,6 +120,12 @@ a rejected or revoked token exits 3.`,
 				if exitcode.FromError(mapped) != exitcode.AuthRequired {
 					return mapped
 				}
+				// #681: an MCP-only key is not invalid — it works, just not
+				// here. "Invalid, revoked, or expired" would send its owner
+				// looking for a fault the key does not have.
+				if api.IsMCPOnlyCredential(err) {
+					dto.RejectedReason = rejectedMCPOnly
+				}
 			case resp.AuthContext != nil:
 				ac := resp.AuthContext
 				dto.Valid = true
@@ -149,6 +158,11 @@ a rejected or revoked token exits 3.`,
 			}
 
 			writeErr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				if dto.RejectedReason == rejectedMCPOnly {
+					_, err := fmt.Fprintln(w, "✗ Token is limited to the MCP surface — it works for MCP clients, but the CLI cannot use it.\n"+
+						"  A key created on the portal's API keys page (/app/account/api-keys) has no scope limit.")
+					return err
+				}
 				if !dto.Valid {
 					_, err := fmt.Fprintln(w, "✗ Token is invalid, revoked, or expired")
 					return err

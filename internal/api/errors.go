@@ -183,6 +183,16 @@ func MapError(err error) error {
 			f.what, f.retryHint)
 	}
 
+	// #681: a key whose OAuth grant is `mcp` alone is refused on every
+	// non-MCP surface with a generic FORBIDDEN. Left to the extension-code
+	// mapping below it would exit 8, whose documented remedy — "ask someone
+	// for access" — is false here: the fix is a different credential, which
+	// is exactly what 3 means. And the server's sentence names no way out,
+	// while the obvious one (`auth token create`) is refused for the same key.
+	if IsMCPOnlyCredential(err) {
+		return exitcode.Newf(exitcode.AuthRequired, "%w %s", cleaned(err), MCPOnlyRemedy)
+	}
+
 	var httpErr *graphql.HTTPError
 	if errors.As(err, &httpErr) {
 		// #563: a non-200 that STILL carries a typed GraphQL envelope is
@@ -219,6 +229,38 @@ func MapError(err error) error {
 	}
 
 	return exitcode.New(exitcode.Error, cleaned(err))
+}
+
+// mcpOnlyRefusal is how hadron-server begins its refusal of a user key whose
+// OAuth grant is `mcp` alone (hadron-server#1270, `authContextAllowsOAuthSurface`),
+// on /graphql and on createUserApiKey ("… and cannot create API keys.").
+//
+// Matching server PROSE is a stopgap, and a deliberate one (#681): the refusal
+// carries only the generic FORBIDDEN, so its wording is the only thing that
+// tells it apart from every other permission boundary. Both halves must match —
+// the code keeps a stray sentence in some other error from qualifying — and if
+// the server ever rewords it, detection fails safe: the error falls back to
+// the plain FORBIDDEN mapping it had before, with no false remedy.
+const mcpOnlyRefusal = "This OAuth credential is limited to the MCP surface"
+
+// MCPOnlyRemedy is appended wherever the CLI meets an MCP-only key. It names
+// both ways back, because either may be the one that works: the browser login
+// only helps from a CLI that requests `account` (v0.15.0+), and a portal key
+// is the one route that needs no CLI upgrade.
+const MCPOnlyRemedy = "This key was issued for MCP clients only, and the CLI needs one with the `account` scope. " +
+	"Sign in again with `hadron auth logout && hadron auth login` (hadron v0.15.0 or later requests `account`), " +
+	"or create a key on the portal's API keys page (/app/account/api-keys) and run `hadron auth login --with-token` with it. " +
+	"If the key comes from HADRON_TOKEN, replace that variable instead."
+
+// IsMCPOnlyCredential reports whether err is the server refusing an MCP-only
+// key (#681). Call it on the RAW error, before MapError wraps it.
+func IsMCPOnlyCredential(err error) bool {
+	for _, e := range graphQLErrors(err) {
+		if e != nil && extensionCode(e) == "FORBIDDEN" && strings.HasPrefix(e.Message, mcpOnlyRefusal) {
+			return true
+		}
+	}
+	return false
 }
 
 // HasErrorCode reports whether err carries a GraphQL error whose

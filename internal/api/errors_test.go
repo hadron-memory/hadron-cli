@@ -598,3 +598,30 @@ func TestMapErrorStillCleansAGenuineEnvelopeInsideANon200(t *testing.T) {
 		})
 	}
 }
+
+// The MCP-only mapping (#681) appends a remedy, but it must not make this one
+// error class opaque (PR #683 review, @codex): the chain stays reachable like
+// every other mapped GraphQL error, in both shapes the refusal arrives in.
+func TestMapErrorMCPOnlyKeepsTheErrorChainReachable(t *testing.T) {
+	refusal := gqlerror.List{{
+		Message:    "This OAuth credential is limited to the MCP surface.",
+		Extensions: map[string]any{"code": "FORBIDDEN"},
+	}}
+	for name, orig := range map[string]error{
+		"list":     refusal,
+		"http 500": &graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: refusal}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			mapped := MapError(orig)
+			if exitcode.FromError(mapped) != exitcode.AuthRequired || !strings.Contains(mapped.Error(), MCPOnlyRemedy) {
+				t.Fatalf("want exit 3 with the remedy, got %d: %q", exitcode.FromError(mapped), mapped.Error())
+			}
+			if len(graphQLErrors(mapped)) != 1 {
+				t.Error("the GraphQL envelope must stay reachable through the wrapped chain")
+			}
+			if !IsMCPOnlyCredential(mapped) {
+				t.Error("IsMCPOnlyCredential must still recognise the refusal after MapError")
+			}
+		})
+	}
+}
