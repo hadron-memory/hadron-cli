@@ -281,3 +281,36 @@ func TestAuthTokenValidateMCPOnlyHuman(t *testing.T) {
 		t.Errorf("an MCP-only key is not invalid:\n%s", got)
 	}
 }
+
+// server#1306 (#1303) moves this refusal from Apollo's context-failure 500 to
+// a 403 set on the error, adding extensions.reason / requiredScope /
+// grantedScopes. The code and the prose are unchanged, so the CLI must keep
+// recognising it with no change of its own. This pins that for the day it
+// deploys: the same exit code and remedy, from a 403 carrying the new fields.
+func TestMCPOnlyRefusalAsA403WithReasonStillMaps(t *testing.T) {
+	body := `{"errors":[{"message":"Context creation failed: This OAuth credential is limited to the MCP surface.","extensions":{"code":"FORBIDDEN","reason":"OAUTH_SCOPE_INSUFFICIENT","requiredScope":"account","grantedScopes":["mcp"]}}]}`
+	gql := graphQLAlways(t, http.StatusForbidden, body)
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "list", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.AuthRequired {
+		t.Fatalf("exit code = %d, want %d (AuthRequired): %v", code, exitcode.AuthRequired, err)
+	}
+	if msg := err.Error(); !strings.Contains(msg, "/app/account/api-keys") || strings.Contains(msg, "Context creation failed") {
+		t.Errorf("want the remedy and no Apollo prefix: %s", msg)
+	}
+
+	f2, out := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"auth", "status", "--json", "--server", gql.URL})
+	err = root2.Execute()
+	if code := exitCodeFor(err); code != exitcode.AuthRequired {
+		t.Fatalf("status exit code = %d: %v", code, err)
+	}
+	var dto map[string]any
+	if jerr := json.Unmarshal([]byte(out.String()), &dto); jerr != nil || dto["rejectedReason"] != "mcp-only-scope" {
+		t.Errorf("status must still report the key: %v %s", jerr, out.String())
+	}
+}
