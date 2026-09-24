@@ -469,8 +469,10 @@ func TestExportHostWithNoRootFailsAndNamesEveryItem(t *testing.T) {
 		t.Errorf("failed = %v, want every planned item named, in plan order: %v", got, want)
 	}
 	for _, it := range blocked.Failed {
-		if got := codes(it.Reasons); len(got) != 2 || got[0] != reasonHostNoRoot || got[1] != "server-code" {
-			t.Errorf("%s reasons = %v, want [%s server-code]", it.Name, got, reasonHostNoRoot)
+		action := map[string]string{"w": "WRITE", "m": "MOVE", "r": "REMOVE", "s": "SKIP", "f": "FAIL"}[it.Name]
+		want := []exportReasonDTO{*blocked.Failure, {Code: "server-code", Message: "server says " + action, Origin: originServer}}
+		if !reflect.DeepEqual(it.Reasons, want) {
+			t.Errorf("%s reasons = %+v, want the no-root reason then the server's verbatim: %+v", it.Name, it.Reasons, want)
 		}
 	}
 	for label, list := range map[string][]exportItemDTO{"written": blocked.Written, "removed": blocked.Removed, "skipped": blocked.Skipped, "refused": blocked.Refused} {
