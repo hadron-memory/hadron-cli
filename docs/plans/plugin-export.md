@@ -39,7 +39,7 @@ settled here.
 |---|---|
 | [`cor:agt:030:00`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:00) | Node is authoritative, file derived, nothing flows back. **Run to the end:** an item is one skill for one host; one failing never stops the others; the end-of-run report names every failure and every declaration nothing could export. **No prompting** mid-run. |
 | [`cor:agt:030:01`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:01) | The rendered file is derived from the node; provenance header. |
-| [`cor:agt:030:02`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:02) | User-level destinations, one per host, every known host unconditionally; **no repo-level destination; never dependent on the working directory or a checkout.** See §7 Q1 for how an explicit output directory sits against "one destination per host". |
+| [`cor:agt:030:02`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:02) | User-level destinations, one per host, every known host unconditionally; **no repo-level destination; never dependent on the working directory or a checkout.** These govern **individual skill export** (#621). The plugin is a **separate producer** with an explicit output directory, and `:02` needs no change for it (Holger, B8, team chat #1108; §7 Q1). |
 | [`cor:agt:030:03`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:03) | A plugin is one installable unit carrying many skills. **Selection:** every enabled task the caller can read, for every target; no visibility filter; **narrowed only by a scope** (never by memory picks or named nodes). **Format, layout and manifest are deliberately outside the contract** — so §3 of this document is implementation and may change without superseding anything. |
 | [`cor:agt:030:05`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:05) | A skill over its host's limit is out of export (an item failure, reported). |
 | [`cor:agt:030:06`](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:agt:030:06) | Only an enabled declaration exports; name collisions are item failures. |
@@ -51,7 +51,10 @@ Rulings already made and not reopened here *(ruled)*:
 - **Canonical hosts** `claudeSkill` / `codexSkill`; `SkillPlanInput.host` is
   singular, so two hosts are two plans with separately reported
   `scanned`/`judged` (Dara, measured on `8bbae1d`).
-- **Explicit output, no git requirement** (plan §6 note, B8; Ada on #653).
+- **The plugin is its own producer, writing to an explicit output directory
+  with no git requirement.** Individual export stays user-level and all-host,
+  and `cor:agt:030:02` needs no change (Holger, B8, team chat #1108, relayed
+  by Eli, 2026-09-23; retained in Ada's #653 comment of 2026-09-24).
 - **Exit 5 after the full report** when any item was refused or failed
   (Holger, #1326) — the #621 rule, reused.
 - **Do not infer a shared Claude/Codex format**; actual target installation is
@@ -100,8 +103,9 @@ Sources: [plugins reference](https://code.claude.com/docs/en/plugins-reference),
   useful for acceptance, and it is not an install.
 - **A folder under `~/.claude/skills/` carrying `.claude-plugin/plugin.json`
   loads as `<name>@skills-dir`**, with no install step.
-  - This is a **user-level location with no marketplace**, which matters for
-    §7 Q1.
+  - This is a **user-level location with no marketplace**. It is noted for
+    completeness only: under the B8 ruling the producer writes to `--out`,
+    not here (§7 Q1).
   - It shares a root with #621's per-skill files, which matters for §7 Q9.
   - Documented, but not yet observed by this team.
 - **`claude plugin validate <path>`** validates plugins and marketplaces,
@@ -170,8 +174,8 @@ and `codex plugin --help`.
   `codex plugin marketplace add <local dir | git>`, then
   `codex plugin add <plugin>@<marketplace>`.
 - **A personal marketplace at `~/.agents/plugins/marketplace.json` is read
-  automatically.** That is a **user-level** plugin location, relevant to §7
-  Q1. Its entries use `source: {source: "local", path: "./plugins/x"}` plus a
+  automatically.** That is a **user-level** plugin location, noted for
+  completeness; the producer does not write there (§7 Q1). Its entries use `source: {source: "local", path: "./plugins/x"}` plus a
   `policy` object. **Neither exists in Claude's marketplace schema**, so one
   marketplace file cannot serve both hosts natively.
 - **Skills** are discovered from `.agents/skills` (from the working directory
@@ -215,7 +219,7 @@ early guess, confirmed by reading `export.go`).
 
 ## 5. Proposed shape
 
-### 5.1 Command surface (proposed; contingent on §7 Q1 and Q2)
+### 5.1 Command surface (proposed; the verb is §7 Q2)
 
 ```
 hadron skill export --plugin --out <dir> [--scope <name>] [--host <host>...] [--zip] [--dry-run] [--json]
@@ -224,12 +228,11 @@ hadron skill export --plugin --out <dir> [--scope <name>] [--host <host>...] [--
 or, equivalently, a sibling verb (`hadron skill bundle --out <dir> …`).
 Which of the two is §7 Q2. Either way:
 
-- **`--out <dir>` is required, as proposed.** Whether a user-level default
-  replaces or joins it is §7 Q1. It never defaults to the current directory
-  or a git toplevel (`cor:agt:030:02`: the destination never depends on the
-  working directory or a checkout). The path is taken literally, with `~`
-  expanded; a relative path is resolved against the working directory only
-  because the user typed it.
+- **`--out <dir>` is required** (B8, §2). It never defaults to the current
+  directory or a git toplevel (`cor:agt:030:02`: the destination never
+  depends on the working directory or a checkout). The path is taken
+  literally, with `~` expanded; a relative path is resolved against the
+  working directory only because the user typed it.
 - **Every known host by default** (`cor:agt:030:02`/`:03`: every target).
   `--host` narrowing is §7 Q3 — `:03` forbids narrowing *what is selected*
   by anything but a scope; whether picking *which artifact to build* is
@@ -435,36 +438,30 @@ come out.
 
 ## 7. Unresolved decisions — listed, not chosen
 
-Owner in brackets. **Q1 is a contract question**, so it goes to Vera and
-Holger before implementation. The rest are implementation calls, Jane's
-unless marked.
+Owner in brackets. Every open question here is an implementation call,
+Jane's unless marked. None needs a new contract.
 
-**Q1. Does an explicit `--out` fit `cor:agt:030:02`? [Vera → Holger]**
-`:02` says an export goes to "one destination per host", user-level, and
-"does not offer a choice among several". `:00` defines export as writing files
-"where a host will find them". A bundle written to `--out` is none of those:
-it is an artifact the user then installs. The options:
-- **(a) A bundle is not an "export" under `:02`**, but an artifact whose
-  install is the host's own act. `:02` would gain one sentence saying so.
-  This is what plan §6/B8 and #653 assume.
-- **(b) The producer writes to each host's user-level plugin location** that
-  §3 found:
-  - `~/.claude/skills/<plugin>/` (loads as `@skills-dir`);
-  - `~/.agents/plugins/` plus the personal marketplace for Codex.
-  That satisfies `:02` literally, but it does nothing for a Cowork user, who
-  needs a zip to upload.
-- **(c) Both**, as separate modes: (b) as the default, `--out` for an
-  artifact meant for someone else.
+**Q1.** *(Resolved: already ruled; listed so the numbering holds.)* Does an
+explicit `--out` fit `cor:agt:030:02`? The first version of this plan asked
+it anew. **Holger ruled it on 2026-09-23 (B8, team chat #1108):** individual
+export writes user-level for every known host; **the plugin is its own
+producer, writing to an explicit output directory with no git requirement**;
+and `:02` needs no change. Ada pointed out the re-ask (#1418).
 
-Nothing here should be built until this is ruled, because it decides the
-command's default behaviour.
+**The only thing found since the ruling is a fact, not a conflict.** Both
+hosts turn out to have a user-level *plugin* location (§3.1, §3.3). The
+ruling doesn't depend on that, and nothing here proposes writing there.
+Writing there in addition to `--out` would be a new feature request against
+a settled ruling, and it would bring Q9's collision with it. It is not an
+open question for this build.
 
 **Q2. A flag on `skill export`, or a sibling verb? [Jane]**
 - **`--plugin`:** one verb for "export". But `export`'s every other flag
   (`--force`, `--prune`, the disk walk) would then mean nothing in plugin
   mode, and would have to be refused there.
 - **A sibling** (`skill bundle` / `skill plugin`): its flags stay honest.
-  If Q1 lands on (a), the name should not say "export".
+  Under B8 the plugin is a separate producer, not a mode of export,
+  which argues for the sibling. The name shouldn't say "export".
 
 **Q3. Is `--host` narrowing a selection? [Vera]**
 `:03`: "every exportable task … for every target", narrowed only by scope.
@@ -514,12 +511,29 @@ temporary and should be named so.
 Measure X2/X3 before choosing. Do not ship a Codex plugin on the strength
 of the UNCONFIRMED Claude-layout fallback.
 
-**Q9. The collision with #621 in `~/.claude/skills`. [Jane, only if Q1 ≠ (a)]**
-If the producer writes a plugin folder into the root that #621's per-skill
-export also writes, a user who does both gets every skill twice: bare, and as
-`<plugin>:<skill>`. #621's walk would also see a plugin directory it did not
-write, and report it as foreign. Decide the interaction before shipping (b)
-or (c).
+**Q9. An `--out` at or inside a host's skills root. [Jane]**
+B8 makes the destination explicit, but it doesn't stop a user from choosing
+a host root, for example `--out ~/.claude/skills` (@codex on #703).
+- The producer would then write `~/.claude/skills/<plugin-name>/`, which
+  Claude Code loads as a `@skills-dir` plugin (§3.1).
+- A user who also runs #621's export gets every skill twice: bare, and as
+  `<plugin>:<skill>`.
+- #621's walk would see a plugin directory it didn't write and report it as
+  foreign.
+
+The options:
+- **refuse** when any **resolved artifact path** (`<out>/<plugin-name>`,
+  `<out>/<plugin-name>-codex`, and any zip) is, or is inside, any host's
+  skills root. The roots are #621's `exportRoots` table.
+  - Checking `--out` alone is not enough: `--out ~/.claude` with a plugin
+    name of `skills` would pass that check and still write exactly
+    `~/.claude/skills` (@codex on #703).
+  - The check runs after resolving, on the same paths the writer will use,
+    and **before anything is written**;
+- or allow it with a warning in the report.
+
+Refusing keeps both commands' territory disjoint, and matches #621 refusing
+what it didn't write. It is the proposal, and Jane's call.
 
 **Q10. Directory, zip, or both by default; and the marketplace wrapper. [Jane]**
 - Cowork needs a zip; a terminal install needs a directory with
@@ -604,18 +618,11 @@ not depend on this: it concerns one invocation, not the command.
 ## 8. Handoff to Jane
 
 **Order.**
-1. Get Q1 ruled (Ada routes it to Vera and Holger). Everything in §5.1–5.2
-   depends on it.
-2. Settle Q2, Q6 and Q10 in the implementing PR's description.
-3. Build.
-4. Run §6.
-The build can start on the parts every Q1 answer shares:
-- the per-host plan loop (`files: []`);
-- the included/skipped/failed split, mirroring `planBundle` including the
-  duplicate-name and unsafe-name refusals;
-- the report DTO;
-- rendering the Claude plugin tree in memory.
-**Writing it anywhere** is the part Q1 decides.
+1. Settle Q2, Q6 and Q10 in the implementing PR's description.
+2. Build. Nothing in §5 waits on a ruling. The destination is `--out` (B8).
+   Q12 blocks only one **invocation** (building the committed `hadron-cli`
+   plugin), not the producer.
+3. Run §6.
 
 **Tests.** The #621 pattern applies:
 - a fake `SkillExportPlan` per host through `captureGraphQL`;
@@ -639,11 +646,10 @@ why none of it applies.
 - The how-to is Tove's. Report the as-built shape to Ada for routing, per
   the team rule.
 - Mark `skill-command-group.md` §6's "the producer's surface is not defined
-  here" as answered by this doc once Q1 is ruled.
+  here" as answered by this doc.
 
-**Spec question.** If Q1 is ruled (a) or (c), `cor:agt:030:02` needs its
-sentence. That is Vera's to mint, with Holger's confirmation. Don't mint a
-citation from the CLI side.
+**Spec question: none.** B8 ruled that `cor:agt:030:02` needs no change for
+the plugin. Don't mint or amend a citation from the CLI side.
 
 **Open issues touching this.**
 - portal#879 is closed and portal#890 is merged. Keep the artifacts in
