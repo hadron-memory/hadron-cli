@@ -257,7 +257,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			//     is the SOLE successor keeps two runs from both retiring.
 			// This narrows the race; closing it needs a server-side conditional
 			// retirement, which is the server's to add.
-			landed, other, lerr := supersededByState(cmd, client, oldNode.Id, newTarget.Format())
+			landed, other, lerr := supersededByState(cmd, client, oldNode.Id, newID)
 			switch {
 			case lerr == nil && other != "":
 				// A create that SUCCEEDED is this run's edge even when a stale
@@ -384,9 +384,10 @@ func planReplacement(old Citation, feature, ruleAfter string, locs map[string]bo
 }
 
 // supersededByState re-reads the old spec after the superseded-by write and
-// reports whether its edge to successorLoc exists (landed) and the loc of any
-// superseded-by edge to a DIFFERENT successor (other, "" when none).
-func supersededByState(cmd *cobra.Command, client graphql.Client, oldID, successorLoc string) (landed bool, other string, err error) {
+// reports whether its edge to THIS run's replacement (by node id) exists
+// (landed), and the label of any superseded-by successor that is a different
+// node (other, "" when none).
+func supersededByState(cmd *cobra.Command, client graphql.Client, oldID, successorID string) (landed bool, other string, err error) {
 	resp, err := gen.GetNode(cmd.Context(), client, oldID)
 	if err != nil {
 		return false, "", err
@@ -394,45 +395,65 @@ func supersededByState(cmd *cobra.Command, client graphql.Client, oldID, success
 	if resp.Node == nil {
 		return false, "", exitcode.Newf(exitcode.NotFound, "node %s not found", oldID)
 	}
-	for _, loc := range supersededByTargets(resp.Node) {
-		if loc == successorLoc {
+	for _, sc := range supersededBySuccessors(resp.Node) {
+		if sc.id != "" && sc.id == successorID {
 			landed = true
 		} else {
-			other = loc
+			other = sc.label
 		}
 	}
 	return landed, other, nil
 }
 
 func existingSupersededByTarget(n *gen.GetNodeNode) (string, bool) {
-	if t := supersededByTargets(n); len(t) > 0 {
-		return t[0], true
+	if t := supersededBySuccessors(n); len(t) > 0 {
+		return t[0].label, true
 	}
 	return "", false
 }
 
-// supersededByTargets lists the distinct successors a spec's superseded-by
-// edges point at, in edge order. A target the caller cannot read comes back
-// null; it is still a successor, listed as unreadableSuccessor, never skipped —
-// a hidden competitor must block retirement, not vanish from the count.
+// supersededByTargets lists the labels of a spec's distinct successors.
 func supersededByTargets(n *gen.GetNodeNode) []string {
 	var out []string
+	for _, sc := range supersededBySuccessors(n) {
+		out = append(out, sc.label)
+	}
+	return out
+}
+
+// successor is one node a superseded-by edge points at. Identity is the node
+// ID, never the loc: a loc is unique only within a memory, and edges may cross
+// memories, so two successors can share a citation (#691 review).
+type successor struct {
+	id    string // "" when the caller cannot read the target
+	label string // the loc, qualified when the target lives in another memory
+}
+
+// supersededBySuccessors lists the distinct successors of n's superseded-by
+// edges, in edge order. A target the caller cannot read comes back null; it is
+// still a successor, listed as unreadableSuccessor, never skipped — and each
+// such edge counts on its own, since collapsing them would hide exactly the
+// ambiguity this list exists for.
+func supersededBySuccessors(n *gen.GetNodeNode) []successor {
+	var out []successor
 	seen := map[string]bool{}
 	for _, e := range n.OutgoingEdges {
 		if e == nil || edgeNameStr(e.Name) != supersededByLabel {
 			continue
 		}
 		if e.Target == nil {
-			// Each unreadable edge is its own successor: collapsing two into one
-			// placeholder would hide exactly the ambiguity this list exists for.
-			out = append(out, unreadableSuccessor)
+			out = append(out, successor{label: unreadableSuccessor})
 			continue
 		}
-		if seen[e.Target.Loc] {
+		if seen[e.Target.Id] {
 			continue
 		}
-		seen[e.Target.Loc] = true
-		out = append(out, e.Target.Loc)
+		seen[e.Target.Id] = true
+		label := e.Target.Loc
+		if e.Target.MemoryId != n.MemoryId {
+			label += " (in memory " + e.Target.MemoryId + ")"
+		}
+		out = append(out, successor{id: e.Target.Id, label: label})
 	}
 	return out
 }

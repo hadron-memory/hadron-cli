@@ -2038,11 +2038,13 @@ func TestSpecSupersedeUnresolvableEdgeCreatesNothing(t *testing.T) {
 }
 
 // withSupersededByEdge returns a GetNode response for the old spec that also
-// carries a superseded-by edge to successorLoc: what the server returns once
-// the link exists.
-func withSupersededByEdge(nodeResp, successorLoc string) string {
-	edge := `{"id":"e-sb","name":"superseded-by","loc":"superseded-by:` + successorLoc +
-		`","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"` + successorLoc + `","memoryId":"mem1"}}`
+// carries a superseded-by edge to the node successorID at successorLoc: what
+// the server returns once the link exists. Supersede identifies its successor
+// by node ID, so a fixture must say WHICH node — "new1" is the replacement
+// these tests create; anything else is a competitor.
+func withSupersededByEdge(nodeResp, successorID, successorLoc string) string {
+	edge := `{"id":"e-sb-` + successorID + `","name":"superseded-by","loc":"superseded-by:` + successorLoc +
+		`","isRunnable":false,"priority":0,"target":{"id":"` + successorID + `","loc":"` + successorLoc + `","memoryId":"mem1"}}`
 	if strings.Contains(nodeResp, `"outgoingEdges":[]`) {
 		return strings.Replace(nodeResp, `"outgoingEdges":[]`, `"outgoingEdges":[`+edge+`]`, 1)
 	}
@@ -2060,7 +2062,7 @@ func captureSupersedeGraphQL(t *testing.T, successorLoc string, responses map[st
 		if op == "GetNode" {
 			gets++
 			if gets > 1 {
-				resp = withSupersededByEdge(resp, successorLoc)
+				resp = withSupersededByEdge(resp, "new1", successorLoc)
 			}
 		}
 		return translateFindNodes(op, resp)
@@ -2206,7 +2208,7 @@ func TestSpecSupersedeStaleRereadRetiresNothing(t *testing.T) {
 // retirement as a conflict rather than disappearing from the count.
 func TestSpecSupersedeUnreadableCompetitorIsAConflict(t *testing.T) {
 	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
-	hidden := strings.Replace(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "msg:010:03"),
+	hidden := strings.Replace(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03"),
 		`"outgoingEdges":[`, `"outgoingEdges":[{"id":"e9","name":"superseded-by","loc":"x","isRunnable":false,"priority":0,"target":null},`, 1)
 	gql, captured := supersedeEdgeServer(t, ok, hidden)
 	f, _ := testFactory(t)
@@ -2226,7 +2228,7 @@ func TestSpecSupersedeUnreadableCompetitorIsAConflict(t *testing.T) {
 // link was never written; it was, and the message names both.
 func TestSpecSupersedeConfirmedWriteIsNotReportedUnwritten(t *testing.T) {
 	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
-	gql, captured := supersedeEdgeServer(t, ok, withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "msg:020:01"))
+	gql, captured := supersedeEdgeServer(t, ok, withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "n-020-01", "msg:020:01"))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
@@ -2242,6 +2244,50 @@ func TestSpecSupersedeConfirmedWriteIsNotReportedUnwritten(t *testing.T) {
 	}
 	if _, retired := captured["UpdateSpecNode"]; retired {
 		t.Error("nothing may be retired on a conflict")
+	}
+}
+
+// #691 round 8 (Codex, Copilot): a loc is unique only WITHIN a memory, and
+// edges may cross memories. A superseded-by edge to the same citation in
+// ANOTHER memory is a different node — not this run's link — so a failed
+// create over it retires nothing, and the other node is reported as a
+// competing successor.
+func TestSpecSupersedeSameLocInAnotherMemoryIsNotThisRunsLink(t *testing.T) {
+	elsewhere := strings.Replace(
+		withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "other-mem-node", "msg:010:03"),
+		`"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem1"}`,
+		`"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem2"}`, 1)
+	gql, captured := supersedeLostEdgeServer(t, elsewhere)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("a same-loc successor in another memory must be a conflict (%d), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if !strings.Contains(err.Error(), "msg:010:03 (in memory mem2)") {
+		t.Errorf("the message must say the competitor lives in another memory; got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("retired on a link to a different node that happens to share the citation")
+	}
+}
+
+// ...and two successors that share a citation in different memories are TWO
+// successors: de-duplicating by loc would collapse them and hide the conflict.
+func TestSpecSupersedeSameLocSuccessorsInTwoMemoriesAreAConflict(t *testing.T) {
+	two := withSupersededByEdge(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03"), "other-mem-node", "msg:010:03")
+	two = strings.Replace(two, `"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem1"}`,
+		`"target":{"id":"other-mem-node","loc":"msg:010:03","memoryId":"mem2"}`, 1)
+	gql, captured := captureGraphQL(t, map[string]string{"ResolveUrn": resolveSpecJSON, "GetNode": two})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	if code := exitCodeFor(root.Execute()); code != exitcode.Conflict {
+		t.Fatalf("same-loc successors in two memories must exit %d (Conflict), got %d", exitcode.Conflict, code)
+	}
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
+		t.Error("nothing may be written on a conflict")
 	}
 }
 
@@ -2264,7 +2310,7 @@ func TestSpecSupersedeTwoUnreadableSuccessorsAreAConflict(t *testing.T) {
 // claim — the residual race — reports the conflict (5), not a usage error that
 // hides it behind "already superseded".
 func TestSpecSupersedeRetiredWithTwoSuccessorsReportsTheConflict(t *testing.T) {
-	two := withSupersededByEdge(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "msg:010:03"), "msg:020:01")
+	two := withSupersededByEdge(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03"), "n-020-01", "msg:020:01")
 	two = strings.Replace(two, `"tags":["spec","p1","messaging"]`, `"tags":["spec","p1","messaging","superseded"]`, 1)
 	gql, captured := captureGraphQL(t, map[string]string{"ResolveUrn": resolveSpecJSON, "GetNode": two})
 	f, _ := testFactory(t)
@@ -2585,7 +2631,7 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 			gets++
 			if gets > 1 {
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(withSupersededByEdge(responses["GetNode"], "msg:010:03")))
+				_, _ = w.Write([]byte(withSupersededByEdge(responses["GetNode"], "new1", "msg:010:03")))
 				return
 			}
 		}
