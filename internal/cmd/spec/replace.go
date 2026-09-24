@@ -93,7 +93,7 @@ example, leave an abstract out of sync with its content.`,
   hadron spec replace 'h-chat-(\w+)' 'hadron_chatbot_$1' -m hrn:mem:hadronmemory.com:specs --regex --yes`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			prefix, err := validateSpecPrefix(prefix)
+			prefix, err := validateSpecPrefix(prefix, cmd.Flags().Changed("prefix"))
 			if err != nil {
 				return err
 			}

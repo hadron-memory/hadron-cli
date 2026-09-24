@@ -119,7 +119,7 @@ superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTi
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Addresses are validated (and a prefix trimmed) before any
 			// request, as on every other spec command (@codex, @copilot on #710).
-			prefixFlag, err := validateSpecPrefix(prefixFlag)
+			prefixFlag, err := validateSpecPrefix(prefixFlag, cmd.Flags().Changed("prefix"))
 			if err != nil {
 				return err
 			}

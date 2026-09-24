@@ -74,7 +74,7 @@ exits 0.`,
   hadron spec check-tools -m hrn:mem:hadronmemory.com:specs --prefix cor:api --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			prefix, err := validateSpecPrefix(prefix)
+			prefix, err := validateSpecPrefix(prefix, cmd.Flags().Changed("prefix"))
 			if err != nil {
 				return err
 			}

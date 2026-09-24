@@ -787,3 +787,27 @@ func TestSpecListPrefixWindowSkipsSiblings(t *testing.T) {
 		}
 	}
 }
+
+// A GIVEN --prefix that is blank is refused, never read as "no prefix": a
+// script's empty "$PREFIX" must not turn `replace --yes` into a corpus-wide
+// write (@codex P1 on #710). Refused before any request, on every command.
+func TestSpecBlankPrefixIsRefused(t *testing.T) {
+	for _, blank := range []string{" ", "", "\t"} {
+		for _, args := range [][]string{
+			{"replace", "old", "new", "--yes"},
+			{"list"},
+			{"get"},
+			{"grep", "x"},
+			{"check-tools"},
+			{"lint"},
+		} {
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"spec"}, args...), "--prefix", blank, "-m", specMem, "--server", "http://127.0.0.1:1"))
+			err := root.Execute()
+			if got := exitCodeFor(err); got != exitcode.Usage || !strings.Contains(err.Error(), "--prefix is blank") {
+				t.Errorf("%v --prefix %q: exit %d, err %v; want Usage refusing the blank prefix", args, blank, got, err)
+			}
+		}
+	}
+}

@@ -985,10 +985,16 @@ func validateSpecLoc(loc string) (string, error) {
 // obeys the same generic rule, at any depth, and is trimmed like every other
 // spec address — the TRIMMED value is what the caller must query with, or a
 // padded prefix would pass here and match nothing there (@copilot, @codex on
-// #710). "" (or whitespace only) means no prefix.
-func validateSpecPrefix(prefix string) (string, error) {
+// #710). given is whether --prefix was on the command line: an OMITTED prefix
+// means no scope, but a GIVEN one that is empty or trims to empty is refused —
+// a blank "$PREFIX" in a script must never turn `replace --yes` into a
+// corpus-wide write (@codex P1 on #710).
+func validateSpecPrefix(prefix string, given bool) (string, error) {
 	prefix = strings.TrimSpace(prefix)
 	if prefix == "" {
+		if given {
+			return "", exitcode.Newf(exitcode.Usage, "--prefix is blank; omit it to cover the whole memory, or name a branch")
+		}
 		return "", nil
 	}
 	if err := cmdutil.ValidateURNPath("--prefix", prefix); err != nil {
