@@ -443,8 +443,10 @@ func TestExportDTOHasNoNilSlices(t *testing.T) {
 //     its action, with the no-root reason first and the server's reasons kept.
 //   - The plan is still fetched, with no files, because the report must name
 //     the items; nothing is read from or written to disk for the host.
-//   - The next host in the same run is still written, and the run reports
-//     failure (exit 5), not success.
+//   - A blocked host returns no error, so the command's per-host loop
+//     (newCmdExport) carries on; this test stands in for that loop by
+//     running the next host against the same home, which is still written.
+//     The DTO of both then reports failure (exit 5), not success.
 func TestExportHostWithNoRootFailsAndNamesEveryItem(t *testing.T) {
 	h := home(t)
 	blockedPlan := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{
