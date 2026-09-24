@@ -348,6 +348,23 @@ func TestLintCorpusInheritanceAndParent(t *testing.T) {
 			t.Errorf("inheritance-edge message must contain %q; got %q", want, msg)
 		}
 	}
+
+	// `spec link` refuses an endpoint without the "spec" tag, so an untagged
+	// end falls back to `edge add` by full ref, with its REAL flag, --name.
+	untagged := cleanSpec(t, "msg:010:00", "Shared contract")
+	untagged.Tags = []string{"topic"}
+	fs = lintCorpus([]specNode{nodes[0], nodes[1], untagged, nodes[3]}, "", lintMem)
+	msg = messageFor(fs, "msg:010:02", "inheritance-edge")
+	for _, want := range []string{
+		"hadron edge add",
+		"--from acme.com::specs::msg:010:02",
+		"--to acme.com::specs::msg:010:00",
+		"--name " + fmt.Sprintf("%q", inheritEdgeLabel),
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("untagged-endpoint remedy must contain %q; got %q", want, msg)
+		}
+	}
 }
 
 // messageFor returns the message of the first finding matching (citation, rule).

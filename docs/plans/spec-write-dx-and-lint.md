@@ -51,6 +51,11 @@ Bundled here as one "spec DX + lint" theme; each is severable into its own PR.
   `… — add it: hadron edge add --from <org::mem::child> --to <org::mem::contract> --label "inherits the shared contract (general provisions)"`.
   The label reuses the existing `inheritEdgeLabel` constant, so it can't drift
   from what `spec new` auto-wires.
+  **Superseded by #687:** that command could not run (`edge add`'s flag became
+  `--name`, so it exits `unknown flag: --label`). The remedy is now
+  `hadron spec link <child> <contract> -m <mem> --label "…"` when both ends
+  carry the `spec` tag, else `hadron edge add … --name "…"`, and a test runs
+  it. See [spec-edges-travel-with-the-node.md](spec-edges-travel-with-the-node.md).
 
 ### #41/#38 — abstract files/stdin + `spec get --body-only`
 

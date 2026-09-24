@@ -78,7 +78,8 @@ additive again. On that basis:
   rerunning `spec supersede` takes its existing finish-the-retirement path.
 - **`spec lint`'s inheritance-edge remedy was a command that could not run.**
   It said `hadron edge add … --label`, and the flag is `--name`, so it exited
-  `unknown flag: --label`. It now names `spec link`.
+  `unknown flag: --label`. It now names `spec link` when both ends carry the
+  `spec` tag (`spec link` refuses any that doesn't), else `edge add … --name`.
 
 Both remedies are tested by RUNNING them: the test takes the command from the
 message and executes it through the CLI. A string assertion on the message
