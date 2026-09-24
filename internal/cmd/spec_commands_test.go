@@ -2221,6 +2221,45 @@ func TestSpecSupersedeUnreadableCompetitorIsAConflict(t *testing.T) {
 	}
 }
 
+// #691 round 7 (Codex): the create SUCCEEDED, and a stale re-read shows a
+// competitor but not this run's edge yet. The conflict must not claim the
+// link was never written; it was, and the message names both.
+func TestSpecSupersedeConfirmedWriteIsNotReportedUnwritten(t *testing.T) {
+	ok := `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`
+	gql, captured := supersedeEdgeServer(t, ok, withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "msg:020:01"))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("want exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if strings.Contains(err.Error(), "no second") || !strings.Contains(err.Error(), "superseded by both msg:010:03 and msg:020:01") {
+		t.Errorf("a confirmed write must be reported as written; got %v", err)
+	}
+	if !strings.Contains(out.String(), `"status": "created"`) {
+		t.Errorf("the confirmed edge must report created:\n%s", out.String())
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("nothing may be retired on a conflict")
+	}
+}
+
+// #691 round 7 (Codex): two superseded-by edges into memories the caller
+// cannot read are TWO successors, a conflict (5), not one unreadable (4).
+func TestSpecSupersedeTwoUnreadableSuccessorsAreAConflict(t *testing.T) {
+	hidden := `{"id":"e8","name":"superseded-by","loc":"a","isRunnable":false,"priority":0,"target":null},` +
+		`{"id":"e9","name":"superseded-by","loc":"b","isRunnable":false,"priority":0,"target":null},`
+	node := strings.Replace(`{"data":{"node":`+cleanSpecDetail+`}}`, `"outgoingEdges":[`, `"outgoingEdges":[`+hidden, 1)
+	gql, _ := captureGraphQL(t, map[string]string{"ResolveUrn": resolveSpecJSON, "GetNode": node})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	if code := exitCodeFor(root.Execute()); code != exitcode.Conflict {
+		t.Fatalf("two unreadable successors must exit %d (Conflict), got %d", exitcode.Conflict, code)
+	}
+}
+
 // #691 round 6 (Codex): a spec already tagged superseded that TWO replacements
 // claim — the residual race — reports the conflict (5), not a usage error that
 // hides it behind "already superseded".

@@ -260,12 +260,15 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			landed, other, lerr := supersededByState(cmd, client, oldNode.Id, newTarget.Format())
 			switch {
 			case lerr == nil && other != "":
+				// A create that SUCCEEDED is this run's edge even when a stale
+				// re-read doesn't show it yet, so never report it as unwritten.
+				wrote := landed || cerr == nil
 				result.Edges[supersededByIdx].Status = edgeStatusFailed
-				if landed {
+				if wrote {
 					result.Edges[supersededByIdx].Status = edgeStatusCreated
 				}
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
-				if landed {
+				if wrote {
 					return exitcode.Newf(exitcode.Conflict,
 						"%s is now superseded by both %s and %s (another supersede ran at the same time), so it was not retired; keep one replacement, remove the other's %q edge, then rerun this command to finish",
 						oldCit.Format(), newTarget.Format(), other, supersededByLabel)
@@ -419,15 +422,17 @@ func supersededByTargets(n *gen.GetNodeNode) []string {
 		if e == nil || edgeNameStr(e.Name) != supersededByLabel {
 			continue
 		}
-		loc := unreadableSuccessor
-		if e.Target != nil {
-			loc = e.Target.Loc
-		}
-		if seen[loc] {
+		if e.Target == nil {
+			// Each unreadable edge is its own successor: collapsing two into one
+			// placeholder would hide exactly the ambiguity this list exists for.
+			out = append(out, unreadableSuccessor)
 			continue
 		}
-		seen[loc] = true
-		out = append(out, loc)
+		if seen[e.Target.Loc] {
+			continue
+		}
+		seen[e.Target.Loc] = true
+		out = append(out, e.Target.Loc)
 	}
 	return out
 }
