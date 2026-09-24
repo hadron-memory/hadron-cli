@@ -288,9 +288,14 @@ func TestSkillPluginScopeNarrowsTheMemories(t *testing.T) {
 func TestSkillPluginRefusesAHostSkillsRootBeforeAnyRequest(t *testing.T) {
 	h := pluginHome(t)
 	srv, calls := pluginServer(t, nil, "")
+	// An existing artifact that holds a project skills root is "above" one.
+	if err := os.MkdirAll(filepath.Join(h, "dist", "hadron", "proj", ".claude", "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	for _, args := range [][]string{
 		{"--out", filepath.Join(h, ".claude"), "--name", "skills"},
 		{"--out", filepath.Join(h, "proj", ".agents", "skills")},
+		{"--out", filepath.Join(h, "dist")},
 	} {
 		_, _, err := runPlugin(t, srv.URL, args...)
 		wantExit(t, err, 2)
@@ -300,6 +305,9 @@ func TestSkillPluginRefusesAHostSkillsRootBeforeAnyRequest(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(h, ".claude")); err == nil {
 		t.Error("a refused run created a directory")
+	}
+	if _, err := os.Stat(filepath.Join(h, "dist", "hadron", "proj", ".claude", "skills")); err != nil {
+		t.Error("the project skills root inside the artifact was touched")
 	}
 }
 

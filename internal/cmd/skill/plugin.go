@@ -253,9 +253,19 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 		if !ok {
 			continue
 		}
+		artifactDir := filepath.Join(out, opts.name+pf.Suffix)
 		literal := filepath.Join(absPath(expandHome(opts.out, home)), opts.name+pf.Suffix)
-		if err := refuseHostRoot(filepath.Join(out, opts.name+pf.Suffix), literal, home); err != nil {
+		if err := refuseHostRoot(artifactDir, literal, home); err != nil {
 			return err
+		}
+		// "Above a root" also means an existing artifact directory that
+		// holds one (a project checked out inside it, say). The replace check
+		// refuses it again at write time; this makes it a usage error before
+		// any request, as documented.
+		if fi, err := os.Lstat(artifactDir); err == nil && fi.IsDir() {
+			if root, ok := containsHostRoot(artifactDir); ok {
+				return hostRootError(artifactDir, root)
+			}
 		}
 	}
 
