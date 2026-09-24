@@ -11,8 +11,11 @@ package skilldoc
 // Since #665 this package knows every host (Hosts), so this file checks BOTH
 // columns of every live case, as hadron-server does from its vendored copy
 // (src/lib/skilldoc/crosshost.acceptance.test.ts, under a sha256 pin).
-// The `pending` cases need a writer or resolver that does not exist yet; they
-// are skipped BY NAME, so `go test -v` lists what is still owed rather than
+// The `writer` cases (version 2) are executed against the real `hadron skill
+// export` command by the Go test each one names (internal/cmd
+// skill_export_acceptance_test.go), which holds its table to this section in
+// both directions. The `pending` cases have no executing test yet; they are
+// skipped BY NAME, so `go test -v` lists what is still owed rather than
 // reporting it as passed.
 
 import (
@@ -88,6 +91,16 @@ type xhMatrix struct {
 		Case      string   `json:"case"`
 		SameFile  *bool    `json:"sameFile"`
 	} `json:"rendering"`
+	// Writer cases are executed by the Go test they name, against the real
+	// command; this package only checks that each is well-formed and traceable.
+	Writer []struct {
+		ID        string   `json:"id"`
+		Layer     string   `json:"layer"`
+		Contracts []string `json:"contracts"`
+		Given     string   `json:"given"`
+		Expect    string   `json:"expect"`
+		Test      string   `json:"test"`
+	} `json:"writer"`
 	Pending []struct {
 		ID        string   `json:"id"`
 		Layer     string   `json:"layer"`
@@ -98,7 +111,7 @@ type xhMatrix struct {
 	} `json:"pending"`
 }
 
-// decodeMatrix refuses an unknown field, a version other than 1, anything
+// decodeMatrix refuses an unknown field, a version other than 2, anything
 // after the one JSON value, and an empty executable section. A matrix that
 // loads nothing passes every check below and measures nothing, so emptiness
 // is an error rather than a vacuous pass. `pending` is exempt: it asserts
@@ -115,8 +128,11 @@ func decodeMatrix(raw []byte) (*xhMatrix, error) {
 	if err := dec.Decode(&struct{}{}); err != io.EOF {
 		return nil, fmt.Errorf("matrix has content after its one JSON value: %v", err)
 	}
-	if m.Version != 1 {
-		return nil, fmt.Errorf("matrix version %d; this loader reads version 1", m.Version)
+	// Version 2 added `writer` (#621). A version-1 reader would reject the new
+	// section outright, which is the point: a runner that does not know it
+	// must fail loudly rather than drop it.
+	if m.Version != 2 {
+		return nil, fmt.Errorf("matrix version %d; this loader reads version 2", m.Version)
 	}
 	if err := requireKeys(raw); err != nil {
 		return nil, err
@@ -139,6 +155,7 @@ func decodeMatrix(raw []byte) (*xhMatrix, error) {
 	}{
 		{"declarations", len(m.Declarations)}, {"lint", len(m.Lint)},
 		{"collisions", len(m.Collisions)}, {"rendering", len(m.Rendering)},
+		{"writer", len(m.Writer)},
 	} {
 		if s.n == 0 {
 			return nil, fmt.Errorf("matrix section %q is empty; a section that loads nothing asserts nothing", s.name)
@@ -157,6 +174,7 @@ var requiredKeys = map[string][]string{
 	"lint":         {"id", "title", "contracts", "properties", "expect", "unhosted"},
 	"collisions":   {"id", "title", "contracts", "nodes", "expect"},
 	"rendering":    {"id", "title", "contracts", "case", "sameFile"},
+	"writer":       {"id", "layer", "contracts", "given", "expect", "test"},
 	"pending":      {"id", "layer", "pendingOn", "contracts", "given", "expect"},
 }
 
@@ -257,7 +275,10 @@ func TestCrossHostLoaderRefuses(t *testing.T) {
 	}
 	for name, in := range map[string][]byte{
 		"unknown field":           edit(func(d map[string]any) { d["surprise"] = true }),
-		"version 2":               edit(func(d map[string]any) { d["version"] = 2 }),
+		"version 1":               edit(func(d map[string]any) { d["version"] = 1 }),
+		"version 3":               edit(func(d map[string]any) { d["version"] = 3 }),
+		"empty writer":            edit(func(d map[string]any) { d["writer"] = []any{} }),
+		"omitted writer test":     edit(func(d map[string]any) { delete(d["writer"].([]any)[0].(map[string]any), "test") }),
 		"trailing value":          append(append([]byte{}, raw...), []byte("{}")...),
 		"trailing garbage":        append(append([]byte{}, raw...), []byte("xx")...),
 		"empty declarations":      edit(func(d map[string]any) { d["declarations"] = []any{} }),
@@ -272,7 +293,6 @@ func TestCrossHostLoaderRefuses(t *testing.T) {
 		"omitted collision node properties": edit(func(d map[string]any) {
 			delete(d["collisions"].([]any)[0].(map[string]any)["nodes"].([]any)[0].(map[string]any), "properties")
 		}),
-		"omitted pending given": edit(func(d map[string]any) { delete(d["pending"].([]any)[0].(map[string]any), "given") }),
 		"omitted expected name": edit(func(d map[string]any) {
 			delete(d["declarations"].([]any)[0].(map[string]any)["expect"].(map[string]any)["claudeSkill"].(map[string]any), "name")
 		}),
@@ -287,6 +307,21 @@ func TestCrossHostLoaderRefuses(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			if _, err := decodeMatrix(in); err == nil {
 				t.Fatalf("%s was accepted", name)
+			}
+		})
+	}
+	// `pending` drains as cases gain an executing test, so this refusal is
+	// exercised only while it has a case to omit a key from; indexing an
+	// empty section would panic rather than test anything.
+	var probe map[string]any
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		t.Fatal(err)
+	}
+	if pending, _ := probe["pending"].([]any); len(pending) > 0 {
+		t.Run("omitted pending given", func(t *testing.T) {
+			in := edit(func(d map[string]any) { delete(d["pending"].([]any)[0].(map[string]any), "given") })
+			if _, err := decodeMatrix(in); err == nil {
+				t.Fatal("omitted pending given was accepted")
 			}
 		})
 	}
@@ -598,6 +633,12 @@ func TestCrossHostMatrixIsTraceable(t *testing.T) {
 		check(r.ID, r.Contracts)
 	}
 	section = "P"
+	for _, w := range m.Writer {
+		check(w.ID, w.Contracts)
+		if w.Given == "" || w.Expect == "" || w.Layer == "" || w.Test == "" {
+			t.Errorf("%s: a writer case needs layer, given, expect and the test that executes it", w.ID)
+		}
+	}
 	for _, p := range m.Pending {
 		check(p.ID, p.Contracts)
 		if p.PendingOn == "" || p.Given == "" || p.Expect == "" || p.Layer == "" {
@@ -606,8 +647,8 @@ func TestCrossHostMatrixIsTraceable(t *testing.T) {
 	}
 }
 
-// Pending cases are listed, not passed. When the writer or resolver lands,
-// the case moves into an executable section and this skip goes with it.
+// Pending cases are listed, not passed. When a case gains an executing test it
+// moves into `writer` (or another executable section) and this skip goes with it.
 func TestCrossHostPending(t *testing.T) {
 	m := loadMatrix(t)
 	for _, p := range m.Pending {
