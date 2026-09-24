@@ -213,14 +213,14 @@ func sample(body string) artifact {
 func TestWritePluginArtifactWritesAndReplacesItsOwn(t *testing.T) {
 	out := filepath.Join(home(t), "out")
 	dir, zp := filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip")
-	if r := writePluginArtifact(out, dir, zp, sample("v1")); r != nil {
+	if _, r := writePluginArtifact(out, dir, zp, sample("v1")); r != nil {
 		t.Fatalf("first write: %+v", r)
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "skills", "a", "SKILL.md")); string(b) != "v1" {
 		t.Fatalf("skill = %q", b)
 	}
 	write(t, filepath.Join(dir, "skills", "stale", "SKILL.md"), "left over")
-	if r := writePluginArtifact(out, dir, zp, sample("v2")); r != nil {
+	if _, r := writePluginArtifact(out, dir, zp, sample("v2")); r != nil {
 		t.Fatalf("replacing its own artifact: %+v", r)
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "skills", "a", "SKILL.md")); string(b) != "v2" {
@@ -290,7 +290,7 @@ func TestWritePluginArtifactRefusesWhatItDidNotWrite(t *testing.T) {
 			out := filepath.Join(h, strings.ReplaceAll(name, " ", "-"))
 			setup(out)
 			before := snapshot(t, out)
-			r := writePluginArtifact(out, filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip"), sample("v1"))
+			_, r := writePluginArtifact(out, filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip"), sample("v1"))
 			if r == nil || (r.Code != reasonArtifactNotOurs && r.Code != reasonArtifactIsLink) {
 				t.Fatalf("reason = %+v, want a refusal", r)
 			}
@@ -309,16 +309,16 @@ func TestWritePluginArtifactInterruptedLeavesNothing(t *testing.T) {
 	broken := sample("v1")
 	// A file and a directory at one path: the second write must fail.
 	broken.dirFiles["skills/a/SKILL.md/x"] = []byte("x")
-	if r := writePluginArtifact(out, dir, "", broken); r == nil || r.Code != reasonIOError {
+	if _, r := writePluginArtifact(out, dir, "", broken); r == nil || r.Code != reasonIOError {
 		t.Fatalf("reason = %+v, want an io failure", r)
 	}
 	if exists(dir) {
 		t.Error("an interrupted build left an artifact that would install")
 	}
-	if r := writePluginArtifact(out, dir, "", sample("good")); r != nil {
+	if _, r := writePluginArtifact(out, dir, "", sample("good")); r != nil {
 		t.Fatal(r)
 	}
-	if r := writePluginArtifact(out, dir, "", broken); r == nil {
+	if _, r := writePluginArtifact(out, dir, "", broken); r == nil {
 		t.Fatal("want a failure")
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "skills", "a", "SKILL.md")); string(b) != "good" {
@@ -425,7 +425,7 @@ func TestSwapIntoRechecksWhatItMovedAside(t *testing.T) {
 	dir, tmp := filepath.Join(h, "hadron"), filepath.Join(h, ".hadron.tmp-1")
 	write(t, filepath.Join(dir, "theirs.txt"), "keep")
 	write(t, filepath.Join(tmp, "skills", "a", "SKILL.md"), "new")
-	r := swapInto(tmp, dir)
+	r := swapInto(tmp, dir, true)
 	if r == nil || r.Code != reasonArtifactNotOurs {
 		t.Fatalf("reason = %+v, want artifact-not-ours", r)
 	}
@@ -434,5 +434,68 @@ func TestSwapIntoRechecksWhatItMovedAside(t *testing.T) {
 	}
 	if exists(filepath.Join(dir, "skills")) {
 		t.Error("the new build landed over a directory that is not ours")
+	}
+}
+
+func TestSwapIntoRechecksAZipMovedAside(t *testing.T) {
+	h := home(t)
+	dest, tmp := filepath.Join(h, "hadron.zip"), filepath.Join(h, ".hadron.zip.tmp-1")
+	write(t, dest, "someone else's file")
+	write(t, tmp, "new zip")
+	r := swapInto(tmp, dest, false)
+	if r == nil || r.Code != reasonArtifactNotOurs {
+		t.Fatalf("reason = %+v, want artifact-not-ours", r)
+	}
+	if b, _ := os.ReadFile(dest); string(b) != "someone else's file" {
+		t.Errorf("a foreign file swapped in at the zip path was replaced: %q", b)
+	}
+}
+
+func TestApplyWriteResult(t *testing.T) {
+	fresh := func() pluginHostDTO {
+		hd := newPluginHost(skilldoc.HostClaudeSkill, "claude-plugin")
+		dir, zp := "/out/hadron", "/out/hadron.zip"
+		hd.Artifact, hd.Zip = &dir, &zp
+		hd.Included = []exportItemDTO{{Name: "a", Reasons: []exportReasonDTO{}}}
+		return hd
+	}
+	r := &exportReasonDTO{Code: reasonIOError, Message: "boom"}
+
+	partial := fresh()
+	applyWriteResult(&partial, true, r)
+	if partial.Artifact == nil || partial.Zip != nil || partial.Failure != r || len(partial.Included) != 1 || len(partial.Failed) != 0 {
+		t.Errorf("zip-only failure: the live directory and its skills must stay reported: %+v", partial)
+	}
+
+	none := fresh()
+	applyWriteResult(&none, false, r)
+	if none.Artifact != nil || none.Zip != nil || len(none.Included) != 0 || !reflect.DeepEqual(names(none.Failed), []string{"a"}) {
+		t.Errorf("nothing written: every included skill must be failed, named: %+v", none)
+	}
+	if none.Failed[0].Reasons[0] != *r {
+		t.Errorf("the host's reason must come first: %+v", none.Failed[0].Reasons)
+	}
+
+	ok := fresh()
+	applyWriteResult(&ok, true, nil)
+	if ok.Failure != nil || ok.Zip == nil || len(ok.Included) != 1 {
+		t.Errorf("success changed the report: %+v", ok)
+	}
+}
+
+func TestBuildArtifactVersionIsUnambiguous(t *testing.T) {
+	v := func(scope *pluginScopeDTO, skills map[string]string) string {
+		return buildArtifact(skilldoc.HostClaudeSkill, "hadron", scope, skills).version
+	}
+	// Under a separator-joined hash these two bundles hash the same bytes.
+	if v(nil, map[string]string{"a": "x", "b": "y"}) == v(nil, map[string]string{"a": "x\x00b\x00y"}) {
+		t.Error("a body can be read as the next name: two different bundles share a version")
+	}
+	if v(nil, map[string]string{"a": "x"}) == v(&pluginScopeDTO{Name: "research"}, map[string]string{"a": "x"}) {
+		t.Error("the manifest's description changed but the version did not, so Claude users never get it")
+	}
+	if buildArtifact(skilldoc.HostClaudeSkill, "one", nil, map[string]string{"a": "x"}).version ==
+		buildArtifact(skilldoc.HostClaudeSkill, "two", nil, map[string]string{"a": "x"}).version {
+		t.Error("the plugin name is part of what the version stands for")
 	}
 }

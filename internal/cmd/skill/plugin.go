@@ -340,18 +340,11 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 		// The replaceability check runs on a dry run too, so a dry run
 		// reports the refusal the real run would hit (#694's parity rule).
 		r := checkArtifactPaths(dir, zipPath)
+		dirWritten := false
 		if r == nil && !opts.dryRun {
-			r = writePluginArtifact(out, dir, zipPath, b)
+			dirWritten, r = writePluginArtifact(out, dir, zipPath, b)
 		}
-		if r != nil {
-			hd.Failure = r
-			hd.Artifact, hd.Zip = nil, nil
-			for _, it := range hd.Included {
-				it.Reasons = append([]exportReasonDTO{*r}, it.Reasons...)
-				hd.Failed = append(hd.Failed, it)
-			}
-			hd.Included = []exportItemDTO{}
-		}
+		applyWriteResult(&hd, dirWritten, r)
 		dto.Hosts = append(dto.Hosts, hd)
 	}
 	dto.Unrecognized = toUnrecognizedDTO(unrecognized)
@@ -365,6 +358,27 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 		return exitcode.Silent(exitcode.Conflict)
 	}
 	return nil
+}
+
+// applyWriteResult records how one host's write ended. A failure before the
+// directory was published means nothing was built: every included skill is
+// failed, named. A failure after it (only the zip) leaves a live directory,
+// so the directory and its skills stay reported and the zip is the failure.
+func applyWriteResult(hd *pluginHostDTO, dirWritten bool, r *exportReasonDTO) {
+	if r == nil {
+		return
+	}
+	hd.Failure = r
+	hd.Zip = nil
+	if dirWritten {
+		return
+	}
+	hd.Artifact = nil
+	for _, it := range hd.Included {
+		it.Reasons = append([]exportReasonDTO{*r}, it.Reasons...)
+		hd.Failed = append(hd.Failed, it)
+	}
+	hd.Included = []exportItemDTO{}
 }
 
 func fetchPluginPlan(cmd *cobra.Command, client graphql.Client, host string, memories []string) (*gen.SkillExportPlanSkillPlan, error) {
@@ -387,6 +401,7 @@ func fetchPluginPlan(cmd *cobra.Command, client graphql.Client, host string, mem
 // selection belongs on the server (a `scope` on SkillPlanInput), so MCP and
 // the portal get it too.
 func resolvePluginScope(cmd *cobra.Command, f *cmdutil.Factory, ref string) (*pluginScopeDTO, []string, error) {
+	ref = strings.TrimSpace(ref)
 	client, err := f.GraphQLClient()
 	if err != nil {
 		return nil, nil, err
@@ -576,19 +591,24 @@ func buildArtifact(host, name string, scope *pluginScopeDTO, skills map[string]s
 		return a
 	}
 
-	// The version is a hash of what is bundled, so it moves exactly when the
-	// content does. The `h` keeps the pre-release identifier alphanumeric: an
-	// all-digit one with a leading zero is not valid semver.
-	sum := sha256.New()
-	for _, n := range skillNames {
-		fmt.Fprintf(sum, "%s\x00%s\x00", n, skills[n])
-	}
-	a.version = "0.0.0-h" + hex.EncodeToString(sum.Sum(nil))[:12]
-
 	desc := "Task skills exported from Hadron"
 	if scope != nil {
 		desc += " (scope " + cmp(scope.Name, scope.ID) + ")"
 	}
+	// The version is a hash of everything the version stands for: the
+	// manifest's name and description and every skill. Each part is
+	// length-prefixed, so no body can be read as the next name. The `h` keeps
+	// the pre-release identifier alphanumeric: an all-digit one with a leading
+	// zero is not valid semver.
+	sum := sha256.New()
+	part := func(v string) { _, _ = fmt.Fprintf(sum, "%d:%s", len(v), v) }
+	part(name)
+	part(desc)
+	for _, n := range skillNames {
+		part(n)
+		part(skills[n])
+	}
+	a.version = "0.0.0-h" + hex.EncodeToString(sum.Sum(nil))[:12]
 	manifest := mustJSON(struct {
 		Name        string `json:"name"`
 		Version     string `json:"version"`
@@ -640,30 +660,34 @@ func mustJSON(v any) []byte {
 // built in a temp sibling and renamed into place, so an interrupted run never
 // leaves a half-plugin that installs, and the rename never follows a link at
 // the destination.
-func writePluginArtifact(out, dir, zipPath string, a artifact) *exportReasonDTO {
-	if err := os.MkdirAll(out, 0o755); err != nil {
+//
+// dirWritten reports whether the artifact directory was replaced: a failure
+// AFTER that (publishing the zip) leaves a live directory the caller must
+// still report.
+func writePluginArtifact(out, dir, zipPath string, a artifact) (dirWritten bool, _ *exportReasonDTO) {
+	fail := func(err error) (bool, *exportReasonDTO) {
 		r := ioReason(err)
-		return &r
+		return false, &r
+	}
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		return fail(err)
 	}
 	if r := checkArtifactPaths(dir, zipPath); r != nil {
-		return r
+		return false, r
 	}
 
 	tmp, err := os.MkdirTemp(out, "."+filepath.Base(dir)+".tmp-")
 	if err != nil {
-		r := ioReason(err)
-		return &r
+		return fail(err)
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
 	for rel, body := range a.dirFiles {
 		p := filepath.Join(tmp, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-			r := ioReason(err)
-			return &r
+			return fail(err)
 		}
 		if err := os.WriteFile(p, body, 0o644); err != nil {
-			r := ioReason(err)
-			return &r
+			return fail(err)
 		}
 	}
 
@@ -671,8 +695,7 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) *exportReasonDTO 
 	if zipPath != "" {
 		zf, err := os.CreateTemp(out, "."+filepath.Base(zipPath)+".tmp-")
 		if err != nil {
-			r := ioReason(err)
-			return &r
+			return fail(err)
 		}
 		zipTmp = zf.Name()
 		defer func() { _ = os.Remove(zipTmp) }()
@@ -681,21 +704,20 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) *exportReasonDTO 
 			werr = cerr
 		}
 		if werr != nil {
-			r := ioReason(werr)
-			return &r
+			return fail(werr)
 		}
 	}
 
-	if r := swapInto(tmp, dir); r != nil {
-		return r
+	if r := swapInto(tmp, dir, true); r != nil {
+		return false, r
 	}
 	if zipTmp != "" {
-		if err := os.Rename(zipTmp, zipPath); err != nil {
-			return &exportReasonDTO{Code: reasonIOError,
-				Message: fmt.Sprintf("%s was written, but its zip could not be: %v", dir, err), Origin: originClient}
+		if r := swapInto(zipTmp, zipPath, false); r != nil {
+			r.Message = fmt.Sprintf("%s was written, but its zip was not: %s", dir, r.Message)
+			return true, r
 		}
 	}
-	return nil
+	return true, nil
 }
 
 func checkArtifactPaths(dir, zipPath string) *exportReasonDTO {
@@ -762,35 +784,51 @@ func hasPluginMarker(dir string) bool {
 	return json.Unmarshal(b, &m) == nil && m.Producer == pluginProducer
 }
 
-// swapInto renames the built tmp directory to dir, moving an earlier
-// artifact (already checked to be ours) aside first and deleting it after.
-func swapInto(tmp, dir string) *exportReasonDTO {
-	if _, err := os.Lstat(dir); errors.Is(err, fs.ErrNotExist) {
-		if err := os.Rename(tmp, dir); err != nil {
+// swapInto publishes the built tmp (a directory, or a zip when isDir is
+// false) at dest. An earlier artifact is moved aside first and re-verified
+// AFTER the move, since that copy is what gets deleted: one swapped in after
+// checkReplaceable ran is put back and refused, never replaced.
+//
+// The remaining window is the moved-aside name itself, a fresh random name
+// under --out that only this run knows; a process that re-binds it between
+// the recheck and the delete is racing this command on purpose, which no
+// portable delete can rule out (the same line as #694's hostFS).
+func swapInto(tmp, dest string, isDir bool) *exportReasonDTO {
+	if _, err := os.Lstat(dest); errors.Is(err, fs.ErrNotExist) {
+		if err := os.Rename(tmp, dest); err != nil {
 			r := ioReason(err)
 			return &r
 		}
 		return nil
 	}
 	old := tmp + "-old"
-	if err := os.Rename(dir, old); err != nil {
+	if err := os.Rename(dest, old); err != nil {
 		r := ioReason(err)
 		return &r
 	}
-	// Re-verify what was actually moved aside, since that is what gets
-	// deleted: a directory swapped in after checkReplaceable ran must not be.
-	if fi, err := os.Lstat(old); err != nil || !fi.IsDir() || !hasPluginMarker(old) {
-		_ = os.Rename(old, dir)
-		return &exportReasonDTO{Code: reasonArtifactNotOurs,
-			Message: fmt.Sprintf("%s changed while the plugin was being built and is no longer one this command wrote, so it was left alone", dir), Origin: originClient}
+	if r := checkReplaceable(old, isDir); r != nil || !pathExists(old) {
+		return restore(old, dest, &exportReasonDTO{Code: reasonArtifactNotOurs,
+			Message: fmt.Sprintf("%s changed while the plugin was being built and is no longer one this command wrote, so it was left alone", dest), Origin: originClient})
 	}
-	if err := os.Rename(tmp, dir); err != nil {
-		_ = os.Rename(old, dir) // put the previous artifact back
+	if err := os.Rename(tmp, dest); err != nil {
 		r := ioReason(err)
-		return &r
+		return restore(old, dest, &r)
 	}
 	_ = os.RemoveAll(old)
 	return nil
+}
+
+// restore puts a moved-aside artifact back, and says so if it cannot.
+func restore(old, dest string, r *exportReasonDTO) *exportReasonDTO {
+	if err := os.Rename(old, dest); err != nil {
+		r.Message += fmt.Sprintf("; and putting it back failed (%v), so it is now at %s", err, old)
+	}
+	return r
+}
+
+func pathExists(p string) bool {
+	_, err := os.Lstat(p)
+	return err == nil
 }
 
 func writeZip(w io.Writer, files map[string][]byte) error {
@@ -962,7 +1000,7 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 			}
 		}
 		if h.Failure != nil {
-			if err := p("  ✗ this host's artifact was not built: %s\n", h.Failure.Message); err != nil {
+			if err := p("  ✗ %s\n", h.Failure.Message); err != nil {
 				return err
 			}
 		}

@@ -258,8 +258,14 @@ func TestSkillPluginScopeNarrowsTheMemories(t *testing.T) {
 	scope := `{"resolvedVia":"APP","droppedCount":1,"scope":{"id":"0123456789abcdef0123456789abcdef","name":"research"},"memories":[{"id":"m1","urn":"u1","name":"one"},{"id":"m2","urn":"u2","name":"two"}],"winner":null,"shadowed":[]}`
 	srv, calls := pluginServer(t, map[string]string{"claudeSkill": planJSON(), "codexSkill": planJSON()}, scope)
 
-	rep, _, err := runPlugin(t, srv.URL, "--out", filepath.Join(h, "dist"), "--scope", "0123456789abcdef0123456789abcdef")
+	// Padded, as a quoted shell value arrives: still an id, sent trimmed.
+	rep, _, err := runPlugin(t, srv.URL, "--out", filepath.Join(h, "dist"), "--scope", " 0123456789abcdef0123456789abcdef ")
 	wantExit(t, err, 0)
+	for _, c := range calls() {
+		if c.op == "ScopeExplain" && c.vars["scopeRef"] != "0123456789abcdef0123456789abcdef" {
+			t.Errorf("scopeRef = %q, want it trimmed", c.vars["scopeRef"])
+		}
+	}
 	n := 0
 	for _, c := range calls() {
 		if c.op != "SkillExportPlan" {
