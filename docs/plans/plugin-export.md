@@ -314,15 +314,24 @@ server planned**, as #621 does, and never re-judged by the client:
   silently dropped.
 - **`failure`**: the whole host could not be built (output path refused, plan
   refused). Every entry is still named, as in #621's `blockHost`.
-- **`findings`**: every server finding whose severity is **not `error`**,
-  for every judged entry. There is one row per finding, keyed by node like
-  the item rows (@codex on #700).
+- **`findings`**: every server finding for every judged entry, **except an
+  `error` on an entry already in `refused` or `failed`**, since that one is
+  carried by the entry's reasons. There is one row per finding, keyed by node
+  like the item rows (@codex on #700).
   - They sit beside the item lists rather than inside them, so
     `exportItemDTO` stays exactly #621's.
-  - Error findings are not repeated here. An entry with one is already
-    `refused` or `failed`, with its reasons.
-  - **Today that means `warning`.** `SkillFinding.severity` is documented as
-    "Either error or warning". But it is a `String!`, not an enum, so the
+  - An error finding is left out **only** when its entry is `refused` or
+    `failed`. An error on an entry the server planned otherwise stays here.
+    The case that matters is a **disabled** declaration: discovery still
+    judges it, and the server plans it `SKIP`. Dropping that error would
+    lose it from the report (@copilot on #702).
+  - The client **surfaces** such an error and does **not charge** it. The
+    entry stays `skipped`, and the exit status follows the server's action
+    (the rule below). Promoting it to a failure would re-judge the server's
+    plan, which §5.3 rules out. If a disabled node's error should fail the
+    run, that is a server planning change, not a client rule.
+  - **Today the values are `error` and `warning`.** `SkillFinding.severity`
+    is documented as "Either error or warning". But it is a `String!`, not an enum, so the
     server could add a value without a schema change (@copilot on #702). An
     unknown severity is therefore **passed through verbatim** into this list,
     never dropped and never promoted to an error. Only `error` is
@@ -540,8 +549,21 @@ keep it (@codex on #700). The options:
   failure applies to (c) (@codex and @copilot on #702).
 - **(b) A `--seed <dir>`** copied into the artifact before the generated
   skills. A generated name that collides with a seeded one is refused as an
-  item failure, never an overwrite. The seed is the only thing that is not
-  server-rendered, so the report lists it separately.
+  item failure, never an overwrite.
+  - **The seed is a separate tree holding only hand-written content**, for
+    example `plugins-src/hadron-cli/`. It is never the previous artifact
+    (@codex on #702). Seeding from `plugins/hadron-cli/` would copy the last
+    build's generated skills forward, so a removed or renamed declaration
+    would stay installable: the stale-file problem §5.2 and Q5 exist to
+    prevent.
+  - The producer **refuses a seed that overlaps the output**: the same
+    directory, or either one inside the other (compared after resolving).
+  - **Report:** each host gets a `seeded` list, initialized to `[]` and
+    empty unless `--seed` is given. It has one row per seeded top-level entry
+    (`{"path": "skills/use-hadron-cli", "kind": "dir"}`). This makes the one
+    non-server-rendered part of the artifact visible to a JSON consumer. It
+    has no node, no action and no effect on the exit status. R1 would then
+    also check `seeded`.
 - **(c) Ship no generated skills in the repo's plugin.** Plan §6's drift gate
   must then be **retired**, not merely called moot. It runs
   `skill status … --to plugin --strict` against the committed plugin, and
