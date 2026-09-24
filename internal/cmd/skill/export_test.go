@@ -607,3 +607,150 @@ func TestHostFSGuardStopsEveryMutation(t *testing.T) {
 		t.Error("a guarded mutation touched the disk")
 	}
 }
+
+// Codex P1 on #694: ownership is checked AT THE DESTINATION, not by name. A
+// write reaching a foreign SKILL.md is refused even when no name-level guard
+// flagged it — here by calling hostFS.write directly, so the name map is not
+// involved at all.
+func TestHostFSWriteRefusesAForeignDestination(t *testing.T) {
+	h := home(t)
+	root := filepath.Join(h, ".claude", "skills")
+	f := filepath.Join(root, "demo", "SKILL.md")
+	foreign := "---\nname: demo\ndescription: not ours\n---\n\nmine\n"
+	write(t, f, foreign)
+	fsys := hostFS{root: root, guard: func() *exportReasonDTO { return nil }}
+	for _, dry := range []bool{true, false} {
+		fsys.dryRun = dry
+		if r := fsys.write(entry("demo", gen.SkillExportActionWrite, "hadron's", "")); r == nil || r.Code != reasonForeignFile {
+			t.Errorf("dryRun=%v: write = %+v, want %s", dry, r, reasonForeignFile)
+		}
+	}
+	if got, _ := os.ReadFile(f); string(got) != foreign {
+		t.Error("the foreign file was replaced")
+	}
+}
+
+// On a case-insensitive filesystem (macOS, Windows by default) a foreign
+// "Demo/" is the same directory as "demo/". Runs only where that is true.
+func TestExportCaseInsensitiveForeignDirectoryIsProtected(t *testing.T) {
+	h := home(t)
+	root := filepath.Join(h, ".claude", "skills")
+	f := filepath.Join(root, "Demo", "SKILL.md")
+	foreign := "---\nname: Demo\ndescription: not ours\n---\n\nmine\n"
+	write(t, f, foreign)
+	if !exists(filepath.Join(root, "demo", "SKILL.md")) {
+		t.Skip("this filesystem is case-sensitive; TestHostFSWriteRefusesAForeignDestination covers the check itself")
+	}
+	p := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{entry("demo", gen.SkillExportActionWrite, "hadron's", "")}}
+	hd, _, _ := exportHost(h, skilldoc.HostClaudeSkill, p.fn, exportOpts{})
+	if len(hd.Refused) != 1 || len(hd.Written) != 0 {
+		t.Fatalf("refused=%+v written=%v", hd.Refused, names(hd.Written))
+	}
+	if got, _ := os.ReadFile(f); string(got) != foreign {
+		t.Error("the foreign file was replaced through a case-folded name")
+	}
+}
+
+// Our own files — current header, and a legacy header with no node id — are
+// still replaced when the server plans it: ownership is the Hadron header.
+func TestExportStillRewritesItsOwnFiles(t *testing.T) {
+	h := home(t)
+	root := filepath.Join(h, ".claude", "skills")
+	current, err := skilldoc.Render("id-a", "a", "hrn:node:example.com:demo:tasks:a", "d", "old")
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(root, "a", "SKILL.md"), current)
+	legacy := "---\nname: b\ndescription: d\n---\n\n<!-- hadron-skill source=hrn:node:example.com:demo:tasks:b hash=0123456789abcdef -->\nold\n"
+	write(t, filepath.Join(root, "b", "SKILL.md"), legacy)
+	p := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{
+		entry("a", gen.SkillExportActionWrite, "new a", ""),
+		entry("b", gen.SkillExportActionWrite, "new b", ""),
+	}}
+	hd, _, _ := exportHost(h, skilldoc.HostClaudeSkill, p.fn, exportOpts{})
+	if !reflect.DeepEqual(names(hd.Written), []string{"a", "b"}) {
+		t.Fatalf("written=%v refused=%+v failed=%+v", names(hd.Written), hd.Refused, hd.Failed)
+	}
+	for n, want := range map[string]string{"a": "new a", "b": "new b"} {
+		if got, _ := os.ReadFile(filepath.Join(root, n, "SKILL.md")); string(got) != want {
+			t.Errorf("%s = %q", n, got)
+		}
+	}
+}
+
+// A MOVE whose SOURCE SKILL.md is a link fails before the destination is
+// written: no partial mutation (Copilot on #694).
+func TestExportMoveWithALinkedSourceWritesNothing(t *testing.T) {
+	h := home(t)
+	root := filepath.Join(h, ".claude", "skills")
+	write(t, filepath.Join(h, "elsewhere.md"), "x")
+	mkdir(t, filepath.Join(root, "old"))
+	symlink(t, filepath.Join(h, "elsewhere.md"), filepath.Join(root, "old", "SKILL.md"))
+	p := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{entry("new", gen.SkillExportActionMove, "b", "old")}}
+	hd, _, _ := exportHost(h, skilldoc.HostClaudeSkill, p.fn, exportOpts{})
+	if len(hd.Failed) != 1 || codes(hd.Failed[0].Reasons)[len(hd.Failed[0].Reasons)-1] != reasonFileIsLink {
+		t.Fatalf("failed = %+v", hd.Failed)
+	}
+	if exists(filepath.Join(root, "new")) {
+		t.Error("the destination was written before the source was refused")
+	}
+}
+
+// A dangling or unattributable linked SKILL.md is reported as a LINK, not as a
+// foreign file (Copilot on #694).
+func TestExportLinkedSkillFileIsALinkNotForeign(t *testing.T) {
+	h := home(t)
+	root := filepath.Join(h, ".claude", "skills")
+	mkdir(t, filepath.Join(root, "demo"))
+	symlink(t, filepath.Join(h, "nowhere.md"), filepath.Join(root, "demo", "SKILL.md"))
+	p := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{entry("demo", gen.SkillExportActionWrite, "b", "")}}
+	hd, _, _ := exportHost(h, skilldoc.HostClaudeSkill, p.fn, exportOpts{})
+	if len(hd.Failed) != 1 || codes(hd.Failed[0].Reasons)[len(hd.Failed[0].Reasons)-1] != reasonFileIsLink {
+		t.Fatalf("failed=%+v refused=%+v", hd.Failed, hd.Refused)
+	}
+}
+
+// Only "does not exist" is absent: an unreadable skill directory fails the
+// dry run exactly as it fails the real run (Copilot on #694).
+func TestExportUnreadableDestinationFailsInBothModes(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+	for _, dry := range []bool{true, false} {
+		h := home(t)
+		dir := filepath.Join(h, ".claude", "skills", "demo")
+		mkdir(t, dir)
+		if err := os.Chmod(dir, 0o000); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+		p := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{entry("demo", gen.SkillExportActionWrite, "b", "")}}
+		hd, _, _ := exportHost(h, skilldoc.HostClaudeSkill, p.fn, exportOpts{dryRun: dry})
+		if len(hd.Failed) != 1 || len(hd.Written) != 0 {
+			t.Errorf("dryRun=%v: written=%v failed=%+v", dry, names(hd.Written), hd.Failed)
+		}
+	}
+}
+
+// The guard runs again right before each removal, not only at its start: a
+// root that turns into a link between the checks stops the delete.
+func TestHostFSRemoveRechecksBeforeDeleting(t *testing.T) {
+	h := home(t)
+	root := filepath.Join(h, ".claude", "skills")
+	f := filepath.Join(root, "x", "SKILL.md")
+	write(t, f, "keep")
+	calls := 0
+	fsys := hostFS{root: root, guard: func() *exportReasonDTO {
+		calls++
+		if calls == 1 {
+			return nil
+		}
+		return &exportReasonDTO{Code: reasonRootIsLink, Origin: originClient}
+	}}
+	if _, r := fsys.remove("x"); r == nil || r.Code != reasonRootIsLink {
+		t.Fatalf("remove = %+v, want the second check to refuse", r)
+	}
+	if !exists(f) {
+		t.Error("the file was deleted although the pre-delete check refused")
+	}
+}

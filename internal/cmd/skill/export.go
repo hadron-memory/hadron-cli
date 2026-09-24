@@ -529,6 +529,11 @@ func applyEntry(hd *exportHostDTO, fsys hostFS, e *gen.SkillExportPlanSkillPlanE
 	it := itemFor(e)
 	fail := func(r exportReasonDTO) {
 		it.Reasons = append(it.Reasons, r)
+		if r.Code == reasonForeignFile {
+			// Not a failure: a file that is not ours was protected.
+			hd.Refused = append(hd.Refused, it)
+			return
+		}
 		hd.Failed = append(hd.Failed, it)
 	}
 	ep := e.ExportPlan
@@ -577,6 +582,13 @@ func applyEntry(hd *exportHostDTO, fsys hostFS, e *gen.SkillExportPlanSkillPlanE
 			return
 		}
 		if r := checkSkillDir(root, from); r != nil {
+			fail(*r)
+			return
+		}
+		// Preflight the SOURCE before touching the destination, so a source
+		// that remove() would refuse (a linked SKILL.md) fails the item with
+		// nothing written (#694 review).
+		if r := checkNotLink(filepath.Join(root, from, skillFileName)); r != nil {
 			fail(*r)
 			return
 		}
@@ -666,6 +678,14 @@ func (fs hostFS) write(e *gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry) *ex
 	if r := checkNotLink(target); r != nil {
 		return r
 	}
+	// OWNERSHIP at the destination (#694 review, Codex P1): only a SKILL.md
+	// that carries a Hadron provenance header may be replaced. Checked on the
+	// path the filesystem resolves — not by comparing names — so a foreign
+	// "Demo/" on a case-insensitive filesystem (macOS, Windows) cannot be
+	// reached as "demo/" and overwritten.
+	if r := checkOwned(target); r != nil {
+		return r
+	}
 	if fs.dryRun {
 		return nil
 	}
@@ -735,11 +755,22 @@ func (fs hostFS) remove(dir string) ([]string, *exportReasonDTO) {
 	if fs.dryRun {
 		return kept, nil
 	}
+	// Re-check right before each removal (#694 review): the root path, the
+	// directory, and the file itself.
+	if r := fs.recheck(dir); r != nil {
+		return nil, r
+	}
+	if r := checkNotLink(file); r != nil {
+		return nil, r
+	}
 	if err := os.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
 		r := ioReason(err)
 		return nil, &r
 	}
 	if len(kept) == 0 {
+		if r := fs.recheck(dir); r != nil {
+			return nil, r
+		}
 		if err := os.Remove(p); err != nil {
 			r := ioReason(err)
 			return nil, &r
@@ -748,11 +779,52 @@ func (fs hostFS) remove(dir string) ([]string, *exportReasonDTO) {
 	return kept, nil
 }
 
+// recheck re-runs the root-path guard and the skill-directory check, for use
+// immediately before a mutation.
+func (fs hostFS) recheck(dir string) *exportReasonDTO {
+	if r := fs.guard(); r != nil {
+		return r
+	}
+	return checkSkillDir(fs.root, dir)
+}
+
+// checkOwned refuses to replace an existing SKILL.md that carries no Hadron
+// provenance header: that file was not written by this command. An absent
+// file is fine; an unreadable one is an I/O failure.
+func checkOwned(p string) *exportReasonDTO {
+	data, err := os.ReadFile(p)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		r := ioReason(err)
+		return &r
+	}
+	if _, _, _, ok := skilldoc.ParseProvenance(data); ok {
+		return nil
+	}
+	return &exportReasonDTO{
+		Code: reasonForeignFile,
+		Message: fmt.Sprintf("%s was not written by hadron (no provenance header), so it was left alone; rename or remove it to export this skill here",
+			p),
+		Origin: originClient,
+	}
+}
+
 // checkNotLink refuses a SKILL.md that is itself a symbolic link: writing or
 // removing through it would act on whatever it points at.
 func checkNotLink(p string) *exportReasonDTO {
 	fi, err := os.Lstat(p)
-	if err != nil || fi.Mode()&os.ModeSymlink == 0 {
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		// Only "absent" is absent: an EACCES here would pass a dry run that
+		// the real run then fails (#694 review).
+		r := ioReason(err)
+		return &r
+	}
+	if fi.Mode()&os.ModeSymlink == 0 {
 		return nil
 	}
 	target, _ := os.Readlink(p)
@@ -780,7 +852,10 @@ func foreignSkillDirs(root string, submitted map[string]bool, linked map[string]
 		if _, isLink := linked[name]; isLink || !en.IsDir() || submitted[name] {
 			continue
 		}
-		if _, err := os.Lstat(filepath.Join(root, name, skillFileName)); err == nil {
+		fi, err := os.Lstat(filepath.Join(root, name, skillFileName))
+		// A linked SKILL.md is left to the link check, which reports it as
+		// skill-file-is-link rather than as foreign (#694 review).
+		if err == nil && fi.Mode()&os.ModeSymlink == 0 {
 			out[name] = true
 		}
 	}
