@@ -302,26 +302,24 @@ func TestSpecGetPrefix(t *testing.T) {
 	}
 }
 
+// With a --prefix, --limit/--offset cut the window AFTER the segment-boundary
+// filter: the server's locPrefix is character-wise, so a sibling branch
+// (`onboarding:mentor-foo`) returned first must not take a slot (@copilot on
+// #710). The branch is scanned whole; the window is the CLI's.
 func TestSpecGetPrefixExplicitPage(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
-		"NodeBatch": specBatchResp("msg:010:02"),
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("onboarding:mentor-foo", `["spec"]`) + `,` +
+			specNodeList("onboarding:mentor:screens", `["spec"]`) + `,` + specNodeList("onboarding:mentor:settings", `["spec"]`) + `]}}`,
+		"NodeBatch": specBatchResp("onboarding:mentor:screens"),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "get", "--prefix", "msg:010", "--limit", "1", "-m", specMem, "--server", gql.URL})
+	root.SetArgs([]string{"spec", "get", "--prefix", "onboarding:mentor", "--limit", "1", "-m", specMem, "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(out.String(), "1 spec(s) under msg:010") {
-		t.Errorf("unexpected output:\n%s", out.String())
-	}
-	// An explicit --limit is honored verbatim as a single page, not the
-	// 500-wide exhaustive scan.
-	var vars findNodesVars
-	_ = json.Unmarshal(captured["FindNodes"], &vars)
-	if vars.Limit == nil || *vars.Limit != 1 {
-		t.Errorf("explicit --limit should pass through verbatim, got %v", vars.Limit)
+	if !strings.Contains(out.String(), "1 spec(s) under onboarding:mentor") || !strings.Contains(out.String(), "onboarding:mentor:screens") {
+		t.Errorf("want the branch's first spec, not the sibling:\n%s", out.String())
 	}
 }
 

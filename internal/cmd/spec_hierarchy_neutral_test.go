@@ -756,3 +756,33 @@ func TestSpecPrefixMatchesWholeSegments(t *testing.T) {
 		}
 	})
 }
+
+// list's --limit/--offset with a --prefix: the window is cut after the
+// segment-boundary filter (@copilot on #710).
+func TestSpecListPrefixWindowSkipsSiblings(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("onboarding:mentor-foo", `["spec"]`) + `,` +
+		specNodeList("onboarding:mentor:screens", `["spec"]`) + `,` +
+		specNodeList("onboarding:mentor:settings", `["spec"]`) + `]}}`
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--limit", "1"}, "onboarding:mentor:screens"},
+		{[]string{"--offset", "1", "--limit", "1"}, "onboarding:mentor:settings"},
+	} {
+		gql, _ := captureGraphQL(t, map[string]string{"FindNodes": scan})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"spec", "list", "-m", specMem, "--prefix", "onboarding:mentor", "--json", "--server", gql.URL}, c.args...))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		var got []struct {
+			Citation string `json:"citation"`
+		}
+		_ = json.Unmarshal([]byte(out.String()), &got)
+		if len(got) != 1 || got[0].Citation != c.want {
+			t.Errorf("%v: got %v, want [%s]", c.args, got, c.want)
+		}
+	}
+}

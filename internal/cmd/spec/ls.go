@@ -60,9 +60,12 @@ explicit page instead.`,
 			}
 			// Bare `list` lists the whole memory, so page to exhaustion (#23).
 			// An explicit --limit/--offset is honored verbatim as a single
-			// page — deliberate user-driven pagination, not the default.
+			// server page — deliberate user-driven pagination, not the default —
+			// EXCEPT with a --prefix, where the branch is scanned whole and the
+			// window cut after the segment-boundary filter (pageBranch).
 			var rawNodes []*api.ListNode
-			if limit > 0 || offset > 0 {
+			serverPaged := (limit > 0 || offset > 0) && prefix == ""
+			if serverPaged {
 				var limitArg, offsetArg *int
 				if limit > 0 {
 					limitArg = &limit
@@ -82,6 +85,7 @@ explicit page instead.`,
 				}
 			}
 
+			rawNodes = pageBranch(rawNodes, prefix, limit, offset, serverPaged)
 			specs := make([]specDTO, 0, len(rawNodes))
 			for _, n := range rawNodes {
 				if n == nil || !underPrefix(n.Loc, prefix) {

@@ -1007,6 +1007,35 @@ func underPrefix(loc, prefix string) bool {
 	return prefix == "" || loc == prefix || strings.HasPrefix(loc, prefix+":")
 }
 
+// pageBranch keeps the nodes inside prefix's branch (underPrefix) and, unless
+// the server already cut the page, applies --offset/--limit to what REMAINS.
+// With a prefix the window cannot be left to the server: its locPrefix is
+// character-wise, so a sibling like `onboarding:mentor-foo` would take a slot
+// in the window and then be dropped here, skipping real matches (@copilot on
+// #710). Callers therefore scan the whole branch when a prefix is set and let
+// this cut the page.
+func pageBranch(nodes []*api.ListNode, prefix string, limit, offset int, serverPaged bool) []*api.ListNode {
+	out := make([]*api.ListNode, 0, len(nodes))
+	for _, n := range nodes {
+		if n != nil && underPrefix(n.Loc, prefix) {
+			out = append(out, n)
+		}
+	}
+	if serverPaged {
+		return out
+	}
+	if offset > 0 {
+		if offset >= len(out) {
+			return []*api.ListNode{}
+		}
+		out = out[offset:]
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out
+}
+
 // isSpec reports whether a node belongs to the spec corpus: the `spec` tag, or
 // the governed spec role (#1201). Never the loc's shape (#708).
 //

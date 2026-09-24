@@ -104,31 +104,16 @@ one object for a single citation, an array for --prefix.`,
 			}
 
 			// Prefix dump — list specs under the prefix, then fetch each
-			// node's detail. By default page to exhaustion (#23); an explicit
-			// --limit/--offset is honored verbatim as a single page, mirroring
-			// `spec list`.
+			// node's detail. The whole branch is scanned (#23), and
+			// --limit/--offset cut the window AFTER the segment-boundary filter,
+			// never by the server: its prefix is character-wise (pageBranch,
+			// @copilot on #710).
 			prefixArg := prefix
-			var listed []*api.ListNode
-			if limit > 0 || offset > 0 {
-				var limitArg, offsetArg *int
-				if limit > 0 {
-					limitArg = &limit
-				}
-				if offset > 0 {
-					offsetArg = &offset
-				}
-				page, rerr := api.FindNodes(cmd.Context(), client, nil, nil, newNodeFilter(&memURN, &prefixArg, []string{"spec"}), sortLoc(), nil, limitArg, offsetArg)
-				if rerr != nil {
-					return api.MapError(rerr)
-				}
-				listed = page.Nodes
-			} else {
-				listed, err = scanAllNodes(cmd.Context(), client, &memURN, &prefixArg, []string{"spec"})
-				if err != nil {
-					return err
-				}
+			listed, err := scanAllNodes(cmd.Context(), client, &memURN, &prefixArg, []string{"spec"})
+			if err != nil {
+				return err
 			}
-
+			listed = pageBranch(listed, prefix, limit, offset, false)
 			ids := make([]string, 0, len(listed))
 			for _, n := range listed {
 				if n == nil || !underPrefix(n.Loc, prefix) {
