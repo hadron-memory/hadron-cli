@@ -190,7 +190,7 @@ func MapError(err error) error {
 	// is exactly what 3 means. And the server's sentence names no way out,
 	// while the obvious one (`auth token create`) is refused for the same key.
 	if IsMCPOnlyCredential(err) {
-		return exitcode.Newf(exitcode.AuthRequired, "%v %s", cleaned(err), MCPOnlyRemedy)
+		return exitcode.Newf(exitcode.AuthRequired, "%w %s", cleaned(err), MCPOnlyRemedy)
 	}
 
 	var httpErr *graphql.HTTPError
