@@ -83,6 +83,22 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			if title == "" {
 				return exitcode.Newf(exitcode.Usage, "--title is required")
 			}
+			// --to is validated up front, before any request and whichever path
+			// runs below: a resumed run must not accept a --to it would then
+			// ignore (@codex on #710).
+			var toLoc string
+			if to != "" {
+				if feature != "" || ruleAfter != "" {
+					return exitcode.Newf(exitcode.Usage, "--to names the replacement's loc — don't combine it with --feature/--rule-after, which allocate a legacy number instead")
+				}
+				var terr error
+				if toLoc, terr = validateSpecLoc(to); terr != nil {
+					return terr
+				}
+				if old, oerr := validateSpecLoc(args[0]); oerr == nil && old == toLoc {
+					return exitcode.Newf(exitcode.Usage, "a spec cannot supersede itself (%s)", toLoc)
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -126,6 +142,14 @@ afterward (the tool prints a reminder; it never edits the register).`,
 						oldLoc, supersededByLabel, sc.label)
 				}
 				successorLoc := sc.loc
+				// A resumed run finishes against the successor the earlier run
+				// created. A --to naming a DIFFERENT one is refused, never
+				// silently ignored (@codex on #710).
+				if toLoc != "" && toLoc != successorLoc {
+					return exitcode.Newf(exitcode.Conflict,
+						"%s already has a replacement from an earlier run, %s, but --to names %s, so nothing was retired; rerun with --to %s (or without --to) to finish retiring it against %s, or review that %q edge if it is not the replacement you want",
+						oldLoc, successorLoc, toLoc, successorLoc, successorLoc, supersededByLabel)
+				}
 				result := supersedeResultDTO{
 					Old: oldLoc, New: successorLoc, MemoryID: memURN,
 					Name: specNameAt(successorLoc, title), Tags: specTags(semanticTags(oldNode.Tags)), DryRun: dryRun, Retired: boolRef(false),
@@ -181,16 +205,8 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			var newLoc, parentLoc, inheritLoc string
 			var newSeq *int
 			scaffoldOptional := true
-			if to != "" {
-				if feature != "" || ruleAfter != "" {
-					return exitcode.Newf(exitcode.Usage, "--to names the replacement's loc — don't combine it with --feature/--rule-after, which allocate a legacy number instead")
-				}
-				if newLoc, err = validateSpecLoc(to); err != nil {
-					return err
-				}
-				if newLoc == oldLoc {
-					return exitcode.Newf(exitcode.Usage, "a spec cannot supersede itself (%s)", oldLoc)
-				}
+			if toLoc != "" {
+				newLoc = toLoc
 				// The loc must be free: a live node there is refused, never
 				// written over or retired against.
 				if _, rerr := resolveSpecNode(cmd, client, memURN, newLoc); rerr == nil {

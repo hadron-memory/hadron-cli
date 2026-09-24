@@ -498,3 +498,54 @@ func TestSpecRegisterOutsideNumberingIsNeverNull(t *testing.T) {
 		t.Errorf("want outsideNumbering: []:\n%s", out.String())
 	}
 }
+
+// A resumed supersede (the old spec already carries a superseded-by edge from
+// an earlier run) finishes against THAT successor. A --to naming a different
+// one is refused as a conflict with nothing written; a --to naming the same one
+// finishes (@codex on #710).
+func TestSpecSupersedeResumeHonoursTo(t *testing.T) {
+	const old, earlier = "onboarding:mentor", "onboarding:mentor-v2"
+	resumeServer := func(t *testing.T) (string, map[string]json.RawMessage) {
+		t.Helper()
+		withEdge := withSupersededByEdge(hierarchyNeutralDetail(old), "new1", earlier)
+		gql, captured := captureGraphQLFunc(t, func(op string) string {
+			switch op {
+			case "ResolveUrn":
+				return `{"data":{"resolveUrn":{"id":"id-` + old + `","kind":"node","memoryId":"mem1"}}}`
+			case "GetNode":
+				return withEdge
+			case "UpdateSpecNode":
+				return `{"data":{"updateSpecNode":{"id":"id-` + old + `","memoryId":"mem1","loc":"` + old + `","name":"x","nodeType":"info","tags":["spec","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
+			}
+			return ""
+		})
+		return gql.URL, captured
+	}
+	t.Run("a different --to is refused", func(t *testing.T) {
+		url, captured := resumeServer(t)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"spec", "supersede", old, "--to", "somewhere:else", "-m", specMem, "--title", "v2", "--yes", "--server", url})
+		err := root.Execute()
+		if got := exitCodeFor(err); got != exitcode.Conflict || !strings.Contains(err.Error(), earlier) {
+			t.Fatalf("exit %d, err %v: want a Conflict naming the earlier successor", got, err)
+		}
+		for _, op := range []string{"UpdateSpecNode", "CreateSpecNode", "CreateEdge"} {
+			if _, wrote := captured[op]; wrote {
+				t.Errorf("%s was sent: nothing may be retired or created against a --to that was ignored", op)
+			}
+		}
+	})
+	t.Run("the same --to finishes", func(t *testing.T) {
+		url, captured := resumeServer(t)
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"spec", "supersede", old, "--to", earlier, "-m", specMem, "--title", "v2", "--yes", "--json", "--server", url})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if _, retired := captured["UpdateSpecNode"]; !retired || !strings.Contains(out.String(), `"retired": true`) {
+			t.Errorf("a matching --to must finish the retirement:\n%s", out.String())
+		}
+	})
+}
