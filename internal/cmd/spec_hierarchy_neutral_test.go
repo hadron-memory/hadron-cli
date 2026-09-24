@@ -691,8 +691,6 @@ func TestSpecLintSingleLocIsTrimmed(t *testing.T) {
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
-		"GetMemory":  memGetJSON(`null`),
-		"Memories":   memListJSON,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
