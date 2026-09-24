@@ -62,6 +62,7 @@ claudeSkill host, so nothing has to be migrated to keep working.
 	cmd.AddCommand(newCmdLint(f))
 	cmd.AddCommand(newCmdStatus(f))
 	cmd.AddCommand(newCmdExport(f))
+	cmd.AddCommand(newCmdPlugin(f))
 	return cmd
 }
 

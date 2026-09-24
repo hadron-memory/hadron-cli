@@ -1,13 +1,10 @@
 # Design proposal: `hadron` plugin export — an installable multi-skill bundle (#653)
 
-> **Status: proposal, not built.** Written 2026-09-24 by Jonas (cli-engineer) on
-> Ada's dispatch (team chat #1365) as the bounded design-and-handoff slice of
-> [cli#653](https://github.com/hadron-memory/hadron-cli/issues/653).
-> **Jane implements**, after milestone 1 (individual skill-file export, #621)
-> ships. This document builds nothing, releases nothing, and touches none of
-> Jane's #621 acceptance or matrix files. Where a question has more than one
-> defensible answer it is listed in §7 **without being chosen**; decisions
-> marked *(ruled)* cite who ruled and where.
+> **Status: BUILT as `hadron skill plugin` (#653, Jane, 2026-09-24).** §9 is
+> the as-built record: every §7 call that was Jane's is decided there, with the
+> acceptance rows actually observed. §1–§8 are Jonas's design (team chat
+> #1365, cli#700/#702/#703), kept as written so the decisions can be read
+> against the options they chose between.
 
 ## 1. What this is for
 
@@ -656,3 +653,42 @@ the plugin. Don't mint or amend a citation from the CLI side.
   parity, and report divergence to Ada rather than changing the portal.
 - server#1309 (legacy pairing) does **not** affect this. A bundle pairs
   nothing.
+
+## 9. As built (Jane, 2026-09-24)
+
+**Command:** `hadron skill plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]`
+(`internal/cmd/skill/plugin.go`). §5's report shape and exit rule are built as
+written, including every `@copilot`/`@codex` refinement in §5.3 and §5.4.
+
+### 9.1 Decisions
+
+| Q | Decided | Why |
+|---|---|---|
+| Q2 | **A sibling verb, `skill plugin`.** | B8 makes the plugin a separate producer; `export`'s `--force`/`--prune`/disk walk mean nothing here, and as a flag they would have to be refused. |
+| Q3 | **No `--host` in v1.** Every host is always built. | `:03`'s "every target" with no reading question. Additive later if Vera rules it is not selection. |
+| Q5 | **Replace wholesale only when marked; otherwise the host fails (`artifact-not-ours`). No `--replace`.** | The marker is `.hadron-plugin` in the directory, and the zip's comment for a zip. A link at either path fails as `artifact-is-link`. |
+| Q6 name | **`hadron` by default, `--name` overrides** (lowercase words joined by hyphens, ≤ 64). | **Holger, 2026-09-24:** a plugin can carry more than skills, so not `hadron-skills`. Diverges from the portal's `<org>-skills`, which was flagged to Ada for Gil (team chat #1470). |
+| Q6 version | **`0.0.0-h<12 hex>`, a hash of the bundled skill names and bodies.** | Unchanged content keeps its version; any change moves it. **Measured:** Claude Code 2.1.143 compares versions for EQUALITY. A lower-sorting `0.0.0-0aa111` still updated from `0.0.0-abc123`, and the new body arrived (§6 C4). The `h` keeps the identifier alphanumeric, since an all-digit one with a leading zero is invalid semver. |
+| Q7 | **(a), client-side, named temporary in the code.** | `scopeExplain` resolves the readable memories in order. An empty result never calls `skillPlan` and exits 2. |
+| Q8 | **Codex: skill folders only** (the portal's shape). | No native Codex manifest until X2/X3 are measured. |
+| Q9 | **Refuse, before any request (exit 2).** The check is on each ARTIFACT path, not `--out`. | Refused when the path is at or inside a host skills root: by path shape (`.claude/skills`, `.agents/skills`, `.codex/skills`, so project-level roots count, with no git), as typed and as resolved, and against the user-level roots resolved on disk. Also refused when it is ABOVE a resolved one (team chat #1436). |
+| Q10 | **A directory by default; `--zip` adds zips beside it.** The Claude directory is **also a one-plugin marketplace** (`.claude-plugin/marketplace.json`, `source: "./"`). | **Measured:** it validates, installs through `claude plugin marketplace add <dir>` + `install <name>@<name>`, and updates. The zip carries only `plugin.json` + `skills/`, the portal's layout. |
+| Q11 | **The human report lists every finding** (severity, rule, message). | `--json` carries them in `findings` regardless. |
+| Q12 | **(a)** (team chat #1436). | The committed `hadron-cli` plugin stays hand-maintained. This command's default name (`hadron`) no longer collides with it. |
+
+### 9.2 Acceptance observed
+
+These were run on the command's own output against production (`skill plugin
+--out <tmp> --zip`: 20 included, 10 skipped with the server's reasons, 13
+findings). The install rows used a scratch `HOME`/`CLAUDE_CONFIG_DIR`, with
+`<out>` outside any git repo.
+
+| Row | Result |
+|---|---|
+| C1 | **Pass.** `claude plugin validate <artifact>` is clean. |
+| C3 | **Pass.** `marketplace add` + `install hadron@hadron` installs all 20 skills, version `0.0.0-h9fafc9d1129f`, with no git. |
+| C4 | **Pass** (on a synthetic bundle with the identical layout): a changed body plus a moved version arrived via `claude plugin update`. |
+| C5 | **One finding, for the server.** `hadron-export-task-as-claude-skill` contains the reserved word `claude`. The server's renderer does not enforce it (the open question in §3.2), so it was reported to Ada for routing. Every `name` equals its directory and is ≤ 64. |
+| R1/R2/R3 | Pinned by `internal/cmd/skill_plugin_test.go` and `internal/cmd/skill/plugin_test.go`. |
+| C2, K1–K3, X1–X3 | **Not run.** C2 and X1 need a model session; K1–K3 need a person at the Claude app and a test org. They are handed over, not claimed. |
+

@@ -1,0 +1,1034 @@
+package skill
+
+import (
+	"archive/zip"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/Khan/genqlient/graphql"
+	"github.com/spf13/cobra"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
+	"github.com/hadron-memory/hadron-cli/internal/skilldoc"
+)
+
+// `hadron skill plugin` — the plugin producer (#653, docs/plans/plugin-export.md).
+//
+// It is NOT a mode of `skill export`: under B8 (Holger, team chat #1108) the
+// plugin is its own producer, writing to an explicit --out with no git
+// requirement, and cor:agt:030:02's user-level destinations govern only
+// individual export. So nothing here walks a skills root, pairs a file, moves
+// or prunes: a bundle is built fresh, from a no-files EXPORT plan, into an
+// artifact directory the command owns.
+
+// Client reason codes specific to the producer (the shared ones are in export.go).
+const (
+	reasonArtifactIsLink  = "artifact-is-link"
+	reasonArtifactNotOurs = "artifact-not-ours"
+	reasonDuplicateName   = "duplicate-name"
+	reasonNoFormat        = "host-has-no-format"
+)
+
+const (
+	// pluginMarker names the file that marks an artifact directory as this
+	// command's. An existing artifact is replaced wholesale ONLY when it
+	// carries one (plan §7 Q5, mirroring #694's "never replace a file it did
+	// not write"); anything else at that path is refused and left alone.
+	pluginMarker   = ".hadron-plugin"
+	pluginProducer = "hadron skill plugin"
+	// pluginZipComment marks a zip this command wrote, for the same rule.
+	pluginZipComment = "hadron skill plugin"
+	// defaultPluginName is Holger's ruling (2026-09-24): "hadron", not
+	// "hadron-skills", because a plugin can carry more than skills.
+	defaultPluginName = "hadron"
+)
+
+// pluginNameRE is the plugin-name grammar every Claude surface accepts:
+// lowercase words joined by hyphens (the Cowork org-upload rule, the
+// strictest of them), at most 64 characters.
+var pluginNameRE = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// zipTime is every zip entry's timestamp, so an unchanged bundle zips to
+// identical bytes. 1980-01-01 is the earliest MS-DOS date a zip can hold.
+var zipTime = time.Date(1980, 1, 1, 0, 0, 0, 0, time.UTC)
+
+// pluginFormat is how one host's artifact is laid out (plan §3, which is
+// deliberately outside the cor:agt:030:03 contract).
+type pluginFormat struct {
+	Name   string // the report's `format`
+	Suffix string // appended to the plugin name for the directory and zip
+}
+
+// pluginFormats maps each host to its artifact. Claude: one plugin, which
+// Claude Code, Cowork and org upload all read. Codex: skill folders for
+// ~/.agents/skills, as the portal ships; a native Codex plugin waits on the
+// X2/X3 measurements (plan §7 Q8).
+var pluginFormats = map[string]pluginFormat{
+	skilldoc.HostClaudeSkill: {Name: "claude-plugin"},
+	skilldoc.HostCodexSkill:  {Name: "codex-skills", Suffix: "-codex"},
+}
+
+// hostRootPairs are the path shapes of a host's skills root, user- or
+// project-level. `.codex/skills` is Codex's deprecated root: #621 never
+// writes it, but Codex still reads it.
+var hostRootPairs = [][2]string{{".claude", "skills"}, {".agents", "skills"}, {".codex", "skills"}}
+
+type pluginFindingDTO struct {
+	Node     string `json:"node"`
+	NodeID   string `json:"nodeId"`
+	Name     string `json:"name"`
+	Rule     string `json:"rule"`
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
+}
+
+type pluginScopeDTO struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	MemoryCount  int    `json:"memoryCount"`
+	DroppedCount int    `json:"droppedCount"`
+	// ResolvedVia is the server's answer to which owner's scope of that name
+	// won (App > Agent > organization).
+	ResolvedVia string `json:"resolvedVia"`
+	// source says which App a scope NAME was resolved in, and where that App
+	// came from (review:ambient-scope-must-report-its-source). Render-only.
+	source string
+}
+
+type pluginHostDTO struct {
+	Host   string `json:"host"`
+	Format string `json:"format"`
+	// Artifact and Zip are resolved paths; null when nothing was (or, on a
+	// dry run, would be) written for this host.
+	Artifact *string `json:"artifact"`
+	Zip      *string `json:"zip"`
+	// Version is the Claude manifest's version: derived from the bundled
+	// content, so an unchanged bundle keeps it and any change moves it (Claude
+	// Code compares versions for EQUALITY — measured on 2.1.143, a lower-sorting
+	// version still updated). Null for a format with no manifest.
+	Version    *string            `json:"version"`
+	Failure    *exportReasonDTO   `json:"failure"`
+	Scanned    int                `json:"scanned"`
+	Judged     int                `json:"judged"`
+	Included   []exportItemDTO    `json:"included"`
+	Skipped    []exportItemDTO    `json:"skipped"`
+	Refused    []exportItemDTO    `json:"refused"`
+	Failed     []exportItemDTO    `json:"failed"`
+	NotForHost []exportItemDTO    `json:"notForHost"`
+	Findings   []pluginFindingDTO `json:"findings"`
+}
+
+type pluginDTO struct {
+	DryRun       bool                    `json:"dryRun"`
+	Name         string                  `json:"name"`
+	Out          string                  `json:"out"`
+	Scope        *pluginScopeDTO         `json:"scope"`
+	Hosts        []pluginHostDTO         `json:"hosts"`
+	Unrecognized []exportUnrecognizedDTO `json:"unrecognized"`
+}
+
+func newPluginHost(host, format string) pluginHostDTO {
+	return pluginHostDTO{
+		Host: host, Format: format,
+		Included: []exportItemDTO{}, Skipped: []exportItemDTO{}, Refused: []exportItemDTO{},
+		Failed: []exportItemDTO{}, NotForHost: []exportItemDTO{}, Findings: []pluginFindingDTO{},
+	}
+}
+
+type pluginOpts struct {
+	out    string
+	name   string
+	scope  string
+	zip    bool
+	dryRun bool
+}
+
+func newCmdPlugin(f *cmdutil.Factory) *cobra.Command {
+	var opts pluginOpts
+	cmd := &cobra.Command{
+		Use:   "plugin --out <dir>",
+		Short: "Build an installable plugin of every enabled task you can read",
+		Long: `Build a plugin: one installable unit carrying the skill for every enabled
+task you can read, one artifact per host, written under --out.
+
+  claudeSkill  <out>/<name>/        a Claude plugin, which is also a one-plugin
+                                    marketplace: install it with
+                                      claude plugin marketplace add <out>/<name>
+                                      claude plugin install <name>@<name>
+  codexSkill   <out>/<name>-codex/  skill folders: copy them into ~/.agents/skills
+
+With --zip, each artifact is also zipped beside it (<name>.zip,
+<name>-codex.zip). Upload the Claude zip to Cowork or your organization's
+plugin settings.
+
+--out is required and nothing is inferred from the working directory or a git
+checkout. The plugin is named "hadron" unless --name says otherwise; the name is
+permanent for an install, and skills are invoked as /<name>:<skill>.
+
+WHAT IS INCLUDED. Every enabled declaration you can read, customer and personal
+memories too, unless --scope narrows it to one scope's memories. A scope with no
+memories you can read builds nothing and exits 2: it never widens to everything.
+
+The server renders every skill and decides what may be included; this command
+writes what it planned and reports every item:
+  included     bundled into the artifact
+  skipped      not bundled, and not an error (a disabled declaration, say)
+  refused      not bundled: two skills claim one name, or similar
+  failed       not bundled: the skill is over a host limit, or could not be written
+  notForHost   declared only for the other host
+
+The artifact directory is replaced wholesale, and only when an earlier run of
+this command wrote it. Anything else at that path is refused and left alone, as
+is an artifact path that is a symbolic link, or any path at or inside a host's
+skills directory (.claude/skills, .agents/skills, .codex/skills): a plugin
+there would load every skill twice.
+
+Exit codes: 0 when every item was included or skipped. 5 after the full report
+when any item was refused or failed, or a host's artifact could not be written.
+2 for a bad flag, an unusable --out or an empty scope. A run that cannot start
+(not signed in, server unreachable) exits with that error's code.`,
+		Example: `  hadron skill plugin --out ~/plugins --dry-run
+  hadron skill plugin --out ~/plugins --zip
+  hadron skill plugin --out ./dist --scope research --name research-skills --json`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runPlugin(cmd, f, opts)
+		},
+	}
+	cmd.Flags().StringVar(&opts.out, "out", "", "directory to write the artifacts into (required)")
+	cmd.Flags().StringVar(&opts.name, "name", defaultPluginName, "plugin name: lowercase words joined by hyphens, at most 64 characters")
+	cmd.Flags().StringVar(&opts.scope, "scope", "", "include only the tasks in this scope's memories (name or id)")
+	cmd.Flags().BoolVar(&opts.zip, "zip", false, "also write each artifact as a zip beside it")
+	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "report what would be built, and write nothing")
+	_ = cmd.MarkFlagRequired("out")
+	return cmd
+}
+
+func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
+	// An EMPTY value is not an absent one. `--out ""` satisfies cobra's
+	// required check and would resolve to the working directory, which B8
+	// rules out; `--scope ""` read as "no scope" would widen to everything.
+	if strings.TrimSpace(opts.out) == "" {
+		return exitcode.Newf(exitcode.Usage, "--out is empty: name the directory to write the plugin into")
+	}
+	if cmd.Flags().Changed("scope") && strings.TrimSpace(opts.scope) == "" {
+		return exitcode.Newf(exitcode.Usage, "--scope is empty: name a scope, or omit --scope to include every task you can read")
+	}
+	if !pluginNameRE.MatchString(opts.name) || len(opts.name) > 64 {
+		return exitcode.Newf(exitcode.Usage,
+			"--name %q is not a plugin name: use lowercase letters and digits in words joined by hyphens, at most 64 characters", opts.name)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return exitcode.Newf(exitcode.Error, "cannot locate your home directory: %v", err)
+	}
+	out, err := resolveOut(opts.out, home)
+	if err != nil {
+		return err
+	}
+	dto := pluginDTO{DryRun: opts.dryRun, Name: opts.name, Out: out, Hosts: []pluginHostDTO{}, Unrecognized: []exportUnrecognizedDTO{}}
+
+	// Every artifact path is checked BEFORE anything is planned or written:
+	// a plugin inside a host's skills root is a usage error, not an item
+	// failure (plan §7 Q9, Jane's call in team chat #1436).
+	for _, h := range skilldoc.Hosts {
+		pf, ok := pluginFormats[h.Key]
+		if !ok {
+			continue
+		}
+		literal := filepath.Join(absPath(expandHome(opts.out, home)), opts.name+pf.Suffix)
+		if err := refuseHostRoot(filepath.Join(out, opts.name+pf.Suffix), literal, home); err != nil {
+			return err
+		}
+	}
+
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return err
+	}
+
+	var memories []string
+	if opts.scope != "" {
+		scope, ids, err := resolvePluginScope(cmd, f, opts.scope)
+		if err != nil {
+			return err
+		}
+		dto.Scope = scope
+		// An empty scope must NEVER call skillPlan: `memories` is omitempty,
+		// and an omitted list means every memory the caller can read — the
+		// opposite of the narrowing asked for (@codex P1 on #700).
+		if len(ids) == 0 {
+			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "Scope %s (%s) has no memory you can read (%d hidden from you): nothing was built.\n",
+					cmp(scope.Name, scope.ID), scope.source, scope.DroppedCount)
+				return err
+			}); err != nil {
+				return err
+			}
+			return exitcode.Silent(exitcode.Usage)
+		}
+		memories = ids
+	}
+
+	// Every host's plan first: a host's notForHost list comes from the OTHER
+	// host's plan (the portal's otherHostOnly), so no artifact can be built
+	// until both are in.
+	plans := map[string]*gen.SkillExportPlanSkillPlan{}
+	failures := map[string]*exportReasonDTO{}
+	for i, h := range skilldoc.Hosts {
+		p, err := fetchPluginPlan(cmd, client, h.Key, memories)
+		if err != nil {
+			mapped := api.MapError(err)
+			if code := exitcode.FromError(mapped); i == 0 && (code == exitcode.AuthRequired || code == exitcode.Unavailable) {
+				return mapped
+			}
+			failures[h.Key] = &exportReasonDTO{Code: reasonPlanRefused, Message: mapped.Error(), Origin: originClient}
+			continue
+		}
+		plans[h.Key] = p
+	}
+
+	var unrecognized []*gen.SkillExportPlanSkillPlanUnrecognized
+	for _, h := range skilldoc.Hosts {
+		pf, ok := pluginFormats[h.Key]
+		if !ok {
+			hd := newPluginHost(h.Key, "")
+			hd.Failure = &exportReasonDTO{Code: reasonNoFormat,
+				Message: fmt.Sprintf("this CLI has no plugin format for host %s, so nothing was built for it; upgrade the CLI", h.Key), Origin: originClient}
+			failAll(&hd, plans[h.Key], *hd.Failure)
+			dto.Hosts = append(dto.Hosts, hd)
+			continue
+		}
+		hd := newPluginHost(h.Key, pf.Name)
+		if r := failures[h.Key]; r != nil {
+			hd.Failure = r
+			dto.Hosts = append(dto.Hosts, hd)
+			continue
+		}
+		p := plans[h.Key]
+		if unrecognized == nil {
+			unrecognized = p.Unrecognized
+		}
+		files := bundleHost(&hd, p, otherPlans(plans, h.Key))
+		b := buildArtifact(h.Key, opts.name, dto.Scope, files)
+		if b.version != "" {
+			hd.Version = &b.version
+		}
+		dir := filepath.Join(out, opts.name+pf.Suffix)
+		hd.Artifact = &dir
+		var zipPath string
+		if opts.zip {
+			zipPath = dir + ".zip"
+			hd.Zip = &zipPath
+		}
+		// The replaceability check runs on a dry run too, so a dry run
+		// reports the refusal the real run would hit (#694's parity rule).
+		r := checkArtifactPaths(dir, zipPath)
+		if r == nil && !opts.dryRun {
+			r = writePluginArtifact(out, dir, zipPath, b)
+		}
+		if r != nil {
+			hd.Failure = r
+			hd.Artifact, hd.Zip = nil, nil
+			for _, it := range hd.Included {
+				it.Reasons = append([]exportReasonDTO{*r}, it.Reasons...)
+				hd.Failed = append(hd.Failed, it)
+			}
+			hd.Included = []exportItemDTO{}
+		}
+		dto.Hosts = append(dto.Hosts, hd)
+	}
+	dto.Unrecognized = toUnrecognizedDTO(unrecognized)
+
+	if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		return renderPlugin(w, dto)
+	}); err != nil {
+		return err
+	}
+	if pluginHasFailures(dto) {
+		return exitcode.Silent(exitcode.Conflict)
+	}
+	return nil
+}
+
+func fetchPluginPlan(cmd *cobra.Command, client graphql.Client, host string, memories []string) (*gen.SkillExportPlanSkillPlan, error) {
+	resp, err := gen.SkillExportPlan(cmd.Context(), client, &gen.SkillPlanInput{
+		Intent:   gen.SkillPlanIntentExport,
+		Host:     &host,
+		Memories: memories,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp.SkillPlan == nil {
+		return nil, errors.New("skillPlan returned no result")
+	}
+	return resp.SkillPlan, nil
+}
+
+// resolvePluginScope resolves --scope to the memories the caller can read,
+// in scope order. This is CLIENT-side (plan §7 Q7, option a) and temporary:
+// selection belongs on the server (a `scope` on SkillPlanInput), so MCP and
+// the portal get it too.
+func resolvePluginScope(cmd *cobra.Command, f *cmdutil.Factory, ref string) (*pluginScopeDTO, []string, error) {
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return nil, nil, err
+	}
+	var scopeRef, name, appPtr *string
+	source := "by id"
+	if cmdutil.IsBareID(ref) {
+		scopeRef = &ref
+	} else {
+		appRef, err := f.App()
+		if err != nil {
+			return nil, nil, err
+		}
+		if appRef == "" {
+			return nil, nil, exitcode.Newf(exitcode.Usage,
+				"a scope name resolves in an App's context — pass --app <ref>, run `hadron app set-active <ref>`, or give the scope's id instead")
+		}
+		name, appPtr = &ref, &appRef
+		from := "the App context"
+		if f.AppFlag != "" {
+			from = "--app"
+		}
+		source = fmt.Sprintf("in App %s, from %s", appRef, from)
+	}
+	resp, err := gen.ScopeExplain(cmd.Context(), client, scopeRef, name, appPtr, nil)
+	if err != nil {
+		return nil, nil, api.MapError(err)
+	}
+	if resp == nil || resp.ScopeExplain == nil || resp.ScopeExplain.Scope == nil {
+		return nil, nil, exitcode.Newf(exitcode.NotFound, "no scope %q is readable here", ref)
+	}
+	ex := resp.ScopeExplain
+	ids := []string{}
+	for _, m := range ex.Memories {
+		if m != nil {
+			ids = append(ids, m.Id)
+		}
+	}
+	return &pluginScopeDTO{
+		ID: ex.Scope.Id, Name: ex.Scope.Name,
+		MemoryCount: len(ids), DroppedCount: ex.DroppedCount,
+		ResolvedVia: string(ex.ResolvedVia), source: source,
+	}, ids, nil
+}
+
+func otherPlans(plans map[string]*gen.SkillExportPlanSkillPlan, host string) []*gen.SkillExportPlanSkillPlan {
+	var out []*gen.SkillExportPlanSkillPlan
+	for _, h := range skilldoc.Hosts {
+		if h.Key != host && plans[h.Key] != nil {
+			out = append(out, plans[h.Key])
+		}
+	}
+	return out
+}
+
+// failAll names every planned entry as failed with reason r, the #621
+// blockHost rule: a host that cannot be built still names what it held.
+func failAll(hd *pluginHostDTO, p *gen.SkillExportPlanSkillPlan, r exportReasonDTO) {
+	if p == nil {
+		return
+	}
+	hd.Scanned, hd.Judged = p.Scanned, p.Judged
+	for _, e := range p.Entries {
+		if e == nil {
+			continue
+		}
+		it := itemFor(e)
+		it.Reasons = append([]exportReasonDTO{r}, it.Reasons...)
+		hd.Failed = append(hd.Failed, it)
+	}
+}
+
+// bundleHost buckets one host's plan by the action the SERVER planned — it
+// never re-judges — and returns the skill files to bundle, keyed by skill
+// name. The client adds only I/O facts: an unsafe or duplicate name, a WRITE
+// with no body, or an action a no-files plan should never produce.
+func bundleHost(hd *pluginHostDTO, p *gen.SkillExportPlanSkillPlan, others []*gen.SkillExportPlanSkillPlan) map[string]string {
+	hd.Scanned, hd.Judged = p.Scanned, p.Judged
+	files := map[string]string{}
+
+	// Two WRITEs claiming one name cannot both be bundled, and picking one
+	// would be the client judging: both fail (the portal skips both).
+	writes := map[string]int{}
+	for _, e := range p.Entries {
+		if e != nil && e.ExportPlan != nil && e.ExportPlan.Action == gen.SkillExportActionWrite {
+			writes[e.Name]++
+		}
+	}
+
+	judged := map[string]bool{}
+	for _, e := range p.Entries {
+		if e == nil {
+			continue
+		}
+		judged[e.NodeId] = true
+		it := itemFor(e)
+		failed := false
+		fail := func(r exportReasonDTO) {
+			it.Reasons = append(it.Reasons, r)
+			hd.Failed = append(hd.Failed, it)
+			failed = true
+		}
+		switch ep := e.ExportPlan; {
+		case ep == nil:
+			fail(exportReasonDTO{Code: reasonNoExportPlan, Message: "the server returned no export plan for this skill", Origin: originClient})
+		case ep.Action == gen.SkillExportActionSkip:
+			hd.Skipped = append(hd.Skipped, it)
+		case ep.Action == gen.SkillExportActionRefuse:
+			hd.Refused = append(hd.Refused, it)
+			failed = true
+		case ep.Action == gen.SkillExportActionFail:
+			hd.Failed = append(hd.Failed, it)
+			failed = true
+		case ep.Action == gen.SkillExportActionWrite:
+			switch {
+			case e.RenderedBody == nil:
+				fail(exportReasonDTO{Code: reasonNoBody, Message: "the server planned a write but sent no rendered body", Origin: originClient})
+			case !safeDirName(e.Name):
+				fail(unsafeName(e.Name))
+			case writes[e.Name] > 1:
+				fail(exportReasonDTO{Code: reasonDuplicateName,
+					Message: fmt.Sprintf("%d skills in this bundle are named %q, so none of them was included", writes[e.Name], e.Name), Origin: originClient})
+			default:
+				files[e.Name] = *e.RenderedBody
+				hd.Included = append(hd.Included, it)
+			}
+		default:
+			// MOVE and REMOVE act on a file on disk, and a bundle submits none.
+			fail(exportReasonDTO{Code: reasonUnknownAction,
+				Message: fmt.Sprintf("the server planned %q, which a plugin build cannot act on; nothing was included", ep.Action), Origin: originClient})
+		}
+		for _, fd := range e.Findings {
+			if fd == nil {
+				continue
+			}
+			// An error on a refused or failed entry is carried by its reasons;
+			// anything else — a warning, an unknown severity, an error on a
+			// SKIPPED (disabled) entry — is surfaced here, and never charged.
+			if failed && fd.Severity == "error" {
+				continue
+			}
+			hd.Findings = append(hd.Findings, pluginFindingDTO{
+				Node: e.Urn, NodeID: e.NodeId, Name: e.Name, Rule: fd.Rule, Severity: fd.Severity, Message: fd.Message,
+			})
+		}
+	}
+
+	seen := map[string]bool{}
+	for _, o := range others {
+		for _, e := range o.Entries {
+			if e == nil || judged[e.NodeId] || seen[e.NodeId] || deref(e.Class) == "disabled" {
+				continue
+			}
+			seen[e.NodeId] = true
+			hd.NotForHost = append(hd.NotForHost, exportItemDTO{Node: e.Urn, NodeID: e.NodeId, Name: e.Name, Reasons: []exportReasonDTO{}, Kept: []string{}})
+		}
+	}
+	return files
+}
+
+// artifact is one host's bundle, fully laid out in memory: dirFiles are
+// written to the directory, zipFiles to the zip. Paths are slash-separated
+// and relative to the artifact root.
+type artifact struct {
+	version  string
+	dirFiles map[string][]byte
+	zipFiles map[string][]byte
+}
+
+func buildArtifact(host, name string, scope *pluginScopeDTO, skills map[string]string) artifact {
+	skillNames := make([]string, 0, len(skills))
+	for n := range skills {
+		skillNames = append(skillNames, n)
+	}
+	sort.Strings(skillNames)
+
+	a := artifact{dirFiles: map[string][]byte{}, zipFiles: map[string][]byte{}}
+	marker := mustJSON(map[string]string{"producer": pluginProducer, "host": host})
+
+	if host != skilldoc.HostClaudeSkill {
+		// Codex: skill folders, to be copied into ~/.agents/skills.
+		for _, n := range skillNames {
+			a.dirFiles[n+"/SKILL.md"] = []byte(skills[n])
+			a.zipFiles[n+"/SKILL.md"] = []byte(skills[n])
+		}
+		a.dirFiles[pluginMarker] = marker
+		return a
+	}
+
+	// The version is a hash of what is bundled, so it moves exactly when the
+	// content does. The `h` keeps the pre-release identifier alphanumeric: an
+	// all-digit one with a leading zero is not valid semver.
+	sum := sha256.New()
+	for _, n := range skillNames {
+		fmt.Fprintf(sum, "%s\x00%s\x00", n, skills[n])
+	}
+	a.version = "0.0.0-h" + hex.EncodeToString(sum.Sum(nil))[:12]
+
+	desc := "Task skills exported from Hadron"
+	if scope != nil {
+		desc += " (scope " + cmp(scope.Name, scope.ID) + ")"
+	}
+	manifest := mustJSON(struct {
+		Name        string `json:"name"`
+		Version     string `json:"version"`
+		Description string `json:"description"`
+	}{name, a.version, desc})
+	// The directory is also a one-plugin marketplace whose plugin is itself
+	// (`source: "./"`), so `claude plugin marketplace add <dir>` installs it
+	// with no git and no wrapper directory. Measured on Claude Code 2.1.143:
+	// it validates, installs, and updates when the version moves.
+	type owner struct {
+		Name string `json:"name"`
+	}
+	type meta struct {
+		Description string `json:"description"`
+	}
+	type entry struct {
+		Name        string `json:"name"`
+		Source      string `json:"source"`
+		Description string `json:"description"`
+		Version     string `json:"version"`
+	}
+	marketplace := mustJSON(struct {
+		Name     string  `json:"name"`
+		Owner    owner   `json:"owner"`
+		Metadata meta    `json:"metadata"`
+		Plugins  []entry `json:"plugins"`
+	}{name, owner{"Hadron"}, meta{desc}, []entry{{name, "./", desc, a.version}}})
+
+	a.dirFiles[".claude-plugin/plugin.json"] = manifest
+	a.zipFiles[".claude-plugin/plugin.json"] = manifest
+	a.dirFiles[".claude-plugin/marketplace.json"] = marketplace
+	for _, n := range skillNames {
+		a.dirFiles["skills/"+n+"/SKILL.md"] = []byte(skills[n])
+		a.zipFiles["skills/"+n+"/SKILL.md"] = []byte(skills[n])
+	}
+	a.dirFiles[pluginMarker] = marker
+	return a
+}
+
+func mustJSON(v any) []byte {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		panic(err) // only fixed struct shapes are marshalled here
+	}
+	return append(b, '\n')
+}
+
+// writePluginArtifact writes one host's artifact under out. Each piece is
+// built in a temp sibling and renamed into place, so an interrupted run never
+// leaves a half-plugin that installs, and the rename never follows a link at
+// the destination.
+func writePluginArtifact(out, dir, zipPath string, a artifact) *exportReasonDTO {
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		r := ioReason(err)
+		return &r
+	}
+	if r := checkArtifactPaths(dir, zipPath); r != nil {
+		return r
+	}
+
+	tmp, err := os.MkdirTemp(out, "."+filepath.Base(dir)+".tmp-")
+	if err != nil {
+		r := ioReason(err)
+		return &r
+	}
+	defer func() { _ = os.RemoveAll(tmp) }()
+	for rel, body := range a.dirFiles {
+		p := filepath.Join(tmp, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			r := ioReason(err)
+			return &r
+		}
+		if err := os.WriteFile(p, body, 0o644); err != nil {
+			r := ioReason(err)
+			return &r
+		}
+	}
+
+	var zipTmp string
+	if zipPath != "" {
+		zf, err := os.CreateTemp(out, "."+filepath.Base(zipPath)+".tmp-")
+		if err != nil {
+			r := ioReason(err)
+			return &r
+		}
+		zipTmp = zf.Name()
+		defer func() { _ = os.Remove(zipTmp) }()
+		werr := writeZip(zf, a.zipFiles)
+		if cerr := zf.Close(); werr == nil {
+			werr = cerr
+		}
+		if werr != nil {
+			r := ioReason(werr)
+			return &r
+		}
+	}
+
+	if r := swapInto(tmp, dir); r != nil {
+		return r
+	}
+	if zipTmp != "" {
+		if err := os.Rename(zipTmp, zipPath); err != nil {
+			return &exportReasonDTO{Code: reasonIOError,
+				Message: fmt.Sprintf("%s was written, but its zip could not be: %v", dir, err), Origin: originClient}
+		}
+	}
+	return nil
+}
+
+func checkArtifactPaths(dir, zipPath string) *exportReasonDTO {
+	if r := checkReplaceable(dir, true); r != nil {
+		return r
+	}
+	if zipPath != "" {
+		return checkReplaceable(zipPath, false)
+	}
+	return nil
+}
+
+// checkReplaceable is plan §7 Q5: a path that does not exist is free; one
+// this command wrote (a directory carrying the marker, a zip carrying the
+// comment) may be replaced; anything else — a link included — is refused.
+func checkReplaceable(p string, isDir bool) *exportReasonDTO {
+	fi, err := os.Lstat(p)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		r := ioReason(err)
+		return &r
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return &exportReasonDTO{Code: reasonArtifactIsLink,
+			Message: fmt.Sprintf("%s is a symbolic link, so nothing was written through it", p), Origin: originClient}
+	}
+	notOurs := &exportReasonDTO{Code: reasonArtifactNotOurs,
+		Message: fmt.Sprintf("%s exists and was not written by `hadron skill plugin`, so it was left alone; move it or choose another --out or --name", p), Origin: originClient}
+	if isDir {
+		if !fi.IsDir() || !hasPluginMarker(p) {
+			return notOurs
+		}
+		return nil
+	}
+	if !fi.Mode().IsRegular() {
+		return notOurs
+	}
+	zr, err := zip.OpenReader(p)
+	if err != nil {
+		return notOurs
+	}
+	defer func() { _ = zr.Close() }()
+	if zr.Comment != pluginZipComment {
+		return notOurs
+	}
+	return nil
+}
+
+func hasPluginMarker(dir string) bool {
+	p := filepath.Join(dir, pluginMarker)
+	fi, err := os.Lstat(p)
+	if err != nil || !fi.Mode().IsRegular() {
+		return false
+	}
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return false
+	}
+	var m struct {
+		Producer string `json:"producer"`
+	}
+	return json.Unmarshal(b, &m) == nil && m.Producer == pluginProducer
+}
+
+// swapInto renames the built tmp directory to dir, moving an earlier
+// artifact (already checked to be ours) aside first and deleting it after.
+func swapInto(tmp, dir string) *exportReasonDTO {
+	if _, err := os.Lstat(dir); errors.Is(err, fs.ErrNotExist) {
+		if err := os.Rename(tmp, dir); err != nil {
+			r := ioReason(err)
+			return &r
+		}
+		return nil
+	}
+	old := tmp + "-old"
+	if err := os.Rename(dir, old); err != nil {
+		r := ioReason(err)
+		return &r
+	}
+	// Re-verify what was actually moved aside, since that is what gets
+	// deleted: a directory swapped in after checkReplaceable ran must not be.
+	if fi, err := os.Lstat(old); err != nil || !fi.IsDir() || !hasPluginMarker(old) {
+		_ = os.Rename(old, dir)
+		return &exportReasonDTO{Code: reasonArtifactNotOurs,
+			Message: fmt.Sprintf("%s changed while the plugin was being built and is no longer one this command wrote, so it was left alone", dir), Origin: originClient}
+	}
+	if err := os.Rename(tmp, dir); err != nil {
+		_ = os.Rename(old, dir) // put the previous artifact back
+		r := ioReason(err)
+		return &r
+	}
+	_ = os.RemoveAll(old)
+	return nil
+}
+
+func writeZip(w io.Writer, files map[string][]byte) error {
+	names := make([]string, 0, len(files))
+	for n := range files {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	zw := zip.NewWriter(w)
+	for _, n := range names {
+		fw, err := zw.CreateHeader(&zip.FileHeader{Name: n, Method: zip.Deflate, Modified: zipTime})
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(fw, bytes.NewReader(files[n])); err != nil {
+			return err
+		}
+	}
+	if err := zw.SetComment(pluginZipComment); err != nil {
+		return err
+	}
+	return zw.Close()
+}
+
+// resolveOut makes --out absolute and resolves the part of it that exists:
+// the user named it, so following a link they typed is what they asked for
+// (the $HOME rule of #621, moved to a new anchor). The rest is created later.
+func resolveOut(raw, home string) (string, error) {
+	p := absPath(expandHome(raw, home))
+	cur, rest := p, []string{}
+	for {
+		r, err := filepath.EvalSymlinks(cur)
+		if err == nil {
+			fi, err := os.Stat(r)
+			if err != nil {
+				return "", exitcode.Newf(exitcode.Usage, "--out %s: %v", raw, err)
+			}
+			if !fi.IsDir() {
+				return "", exitcode.Newf(exitcode.Usage, "--out %s: %s is not a directory", raw, cur)
+			}
+			return filepath.Join(append([]string{r}, rest...)...), nil
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "", exitcode.Newf(exitcode.Usage, "--out %s: %v", raw, err)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return p, nil
+		}
+		rest = append([]string{filepath.Base(cur)}, rest...)
+		cur = parent
+	}
+}
+
+func expandHome(p, home string) string {
+	if p == "~" {
+		return home
+	}
+	if strings.HasPrefix(p, "~/") {
+		return filepath.Join(home, p[2:])
+	}
+	return p
+}
+
+func absPath(p string) string {
+	if a, err := filepath.Abs(p); err == nil {
+		return a
+	}
+	return filepath.Clean(p)
+}
+
+// refuseHostRoot is plan §7 Q9: an artifact at or inside a host's skills
+// root would load every skill twice (bare, and as <plugin>:<skill>), and
+// #621's export would report the plugin as a foreign skill. It checks the
+// ARTIFACT path, not --out — `--out ~/.claude --name skills` lands exactly on
+// the root — both as typed and as resolved, by path shape (so project-level
+// roots count too, with no git) and against the user-level roots resolved on
+// disk (which catches a root reached through a link).
+func refuseHostRoot(resolved, literal, home string) error {
+	for _, p := range []string{resolved, literal} {
+		if root, ok := insideRootShape(p); ok {
+			return hostRootError(resolved, root)
+		}
+	}
+	for _, pair := range hostRootPairs {
+		root, err := filepath.EvalSymlinks(filepath.Join(home, pair[0], pair[1]))
+		if err != nil {
+			continue
+		}
+		if within(resolved, root) || within(root, resolved) {
+			return hostRootError(resolved, root)
+		}
+	}
+	return nil
+}
+
+func hostRootError(artifact, root string) error {
+	return exitcode.Newf(exitcode.Usage,
+		"the plugin would be written to %s, which is at, inside or above the host skills directory %s: a plugin there loads every skill twice. Choose an --out outside every skills directory",
+		artifact, root)
+}
+
+func insideRootShape(p string) (string, bool) {
+	comps := strings.Split(filepath.ToSlash(filepath.Clean(p)), "/")
+	for i := 0; i+1 < len(comps); i++ {
+		for _, pair := range hostRootPairs {
+			if comps[i] == pair[0] && comps[i+1] == pair[1] {
+				return filepath.FromSlash(strings.Join(comps[:i+2], "/")), true
+			}
+		}
+	}
+	return "", false
+}
+
+// within reports whether p is root or below it.
+func within(p, root string) bool {
+	rel, err := filepath.Rel(root, p)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// pluginHasFailures is #621's exit rule: 5 after the full report when any
+// host has a failure or any item was refused or failed. Findings never count.
+func pluginHasFailures(dto pluginDTO) bool {
+	for _, h := range dto.Hosts {
+		if h.Failure != nil || len(h.Refused) > 0 || len(h.Failed) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func renderPlugin(w io.Writer, dto pluginDTO) error {
+	p := func(format string, a ...any) error {
+		_, err := fmt.Fprintf(w, format, a...)
+		return err
+	}
+	if dto.DryRun {
+		if err := p("Dry run: nothing was written.\n"); err != nil {
+			return err
+		}
+	}
+	if err := p("Plugin %q → %s\n", dto.Name, dto.Out); err != nil {
+		return err
+	}
+	if dto.Scope == nil {
+		if err := p("No --scope: every enabled task you can read is included, customer and personal memories too.\n"); err != nil {
+			return err
+		}
+	} else if err := p("Scope %s (%s): %d memories (%d you cannot read were left out).\n",
+		cmp(dto.Scope.Name, dto.Scope.ID), dto.Scope.source, dto.Scope.MemoryCount, dto.Scope.DroppedCount); err != nil {
+		return err
+	}
+	for _, h := range dto.Hosts {
+		where := "(nothing built)"
+		if h.Artifact != nil {
+			where = *h.Artifact
+		}
+		if err := p("\n%s → %s\n", h.Host, where); err != nil {
+			return err
+		}
+		if h.Version != nil {
+			if err := p("  version %s\n", *h.Version); err != nil {
+				return err
+			}
+		}
+		if h.Zip != nil {
+			if err := p("  zip %s\n", *h.Zip); err != nil {
+				return err
+			}
+		}
+		if h.Failure != nil {
+			if err := p("  ✗ this host's artifact was not built: %s\n", h.Failure.Message); err != nil {
+				return err
+			}
+		}
+		rows := len(h.Included) + len(h.Skipped) + len(h.Refused) + len(h.Failed) + len(h.NotForHost)
+		if rows > 0 {
+			included := "included"
+			if dto.DryRun {
+				included = "would include"
+			}
+			t := output.NewTable(w, "STATE", "SKILL", "DETAIL")
+			for _, it := range h.Included {
+				// The server's reason on a WRITE describes the file on disk
+				// ("no installed skill exists"), which a bundle never has; --json
+				// keeps it verbatim, the human table leaves it out.
+				t.Row(included, cmp(it.Name, it.Node), "")
+			}
+			for _, it := range h.Skipped {
+				t.Row("skipped", cmp(it.Name, it.Node), reasonText(it.Reasons))
+			}
+			for _, it := range h.Refused {
+				t.Row("refused", cmp(it.Name, it.Node), reasonText(it.Reasons))
+			}
+			for _, it := range h.Failed {
+				t.Row("failed", cmp(it.Name, it.Node), reasonText(it.Reasons))
+			}
+			for _, it := range h.NotForHost {
+				t.Row("other host", cmp(it.Name, it.Node), "declared only for the other host")
+			}
+			if err := t.Flush(); err != nil {
+				return err
+			}
+		} else if h.Failure == nil {
+			if err := p("  no skills for this host\n"); err != nil {
+				return err
+			}
+		}
+		for _, fd := range h.Findings {
+			if err := p("  %s  %s: %s (%s)\n", fd.Severity, cmp(fd.Name, fd.Node), fd.Message, fd.Rule); err != nil {
+				return err
+			}
+		}
+	}
+	if len(dto.Unrecognized) > 0 {
+		if err := p("\nNot included for any host: these nodes declare an exports key that names no known host.\n"); err != nil {
+			return err
+		}
+		for _, u := range dto.Unrecognized {
+			if err := p("  %s (%s): %s\n", cmp(u.Name, u.Node), u.Node, strings.Join(u.Keys, ", ")); err != nil {
+				return err
+			}
+		}
+	}
+	for _, h := range dto.Hosts {
+		if dto.DryRun || h.Artifact == nil || h.Failure != nil {
+			continue
+		}
+		switch h.Host {
+		case skilldoc.HostClaudeSkill:
+			if err := p("\nInstall in Claude Code:\n  claude plugin marketplace add %s\n  claude plugin install %s@%s\n", *h.Artifact, dto.Name, dto.Name); err != nil {
+				return err
+			}
+		case skilldoc.HostCodexSkill:
+			if err := p("\nInstall for Codex: copy the skill folders in %s into ~/.agents/skills\n", *h.Artifact); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
