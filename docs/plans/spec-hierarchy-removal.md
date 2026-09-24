@@ -1,6 +1,6 @@
 # Removing the fixed spec hierarchy (#708, #709)
 
-> **Status: slices A and C built (cli#710); B and D planned.** Written 2026-09-24 by Jonas
+> **Status: A, C and B's tier removals built (cli#710); D (#709) and the rubric (B) follow.** Written 2026-09-24 by Jonas
 > (cli-engineer) on Ada's dispatch (team chat #1473), under Holger's
 > authorization of the same day. The authorization covers removing the legacy
 > spec-corpus hierarchy checks and the flat/product concept **before** a
