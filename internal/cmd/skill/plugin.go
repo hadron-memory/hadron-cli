@@ -803,38 +803,49 @@ func swapInto(tmp, dest string, isDir bool) *exportReasonDTO {
 		return &r
 	}
 	if r := checkReplaceable(old, isDir); r != nil || !pathExists(old) {
-		return restore(old, dest, &exportReasonDTO{Code: reasonArtifactNotOurs,
+		return restore(old, dest, isDir, &exportReasonDTO{Code: reasonArtifactNotOurs,
 			Message: fmt.Sprintf("%s changed while the plugin was being built and is no longer one this command wrote, so it was left alone", dest), Origin: originClient})
 	}
 	if r := publish(tmp, dest, isDir); r != nil {
-		return restore(old, dest, r)
+		return restore(old, dest, isDir, r)
 	}
 	_ = os.RemoveAll(old)
 	return nil
 }
 
-// publish puts tmp at dest WITHOUT replacing anything that appeared there
-// since dest was last checked (@copilot, @codex on #707):
-//   - a zip is hard-linked into place, which fails if the name exists, then
-//     its temp name is removed. Only on a filesystem with no hard links does
-//     it fall back to a rename, which can replace a file created in that
-//     instant; the report does not claim otherwise.
-//   - a directory is renamed, and a rename onto a non-empty directory or a
-//     file fails on every platform. It can replace only an EMPTY directory,
-//     which holds nothing to lose.
+// linkFile is os.Link, swappable so a test can stand in a filesystem that
+// has no hard links.
+var linkFile = os.Link
+
+// publish puts tmp at dest WITHOUT replacing anything there. It is the
+// ONLY way this command moves anything onto a name the user can see —
+// publishing a build, and putting a moved-aside artifact back — so the
+// guarantee "a path this command did not write is never replaced" holds at
+// the instant of every move, not only when it was last checked (#707).
+//   - A file is hard-linked into place, which fails if the name exists, and
+//     its temp name is then removed. A filesystem without hard links is
+//     refused rather than risked with a rename.
+//   - A directory is renamed: a rename cannot replace a file or a non-empty
+//     directory on any platform. It CAN replace an EMPTY directory, which
+//     holds nothing to lose; that is the one stated residue.
+//
+// The other stated boundary is the moved-aside name (see swapInto): a fresh
+// random name no user path points at.
 func publish(tmp, dest string, isDir bool) *exportReasonDTO {
 	occupied := &exportReasonDTO{Code: reasonArtifactNotOurs,
 		Message: fmt.Sprintf("%s appeared while the plugin was being built, so it was left alone", dest), Origin: originClient}
 	if !isDir {
-		err := os.Link(tmp, dest)
+		err := linkFile(tmp, dest)
 		switch {
 		case err == nil:
 			_ = os.Remove(tmp)
 			return nil
 		case errors.Is(err, fs.ErrExist):
 			return occupied
+		default:
+			return &exportReasonDTO{Code: reasonIOError,
+				Message: fmt.Sprintf("%s could not be published without risking a file that is not ours: this filesystem refused a hard link (%v)", dest, err), Origin: originClient}
 		}
-		// No hard links here: fall through to a rename.
 	}
 	if err := os.Rename(tmp, dest); err != nil {
 		if pathExists(dest) {
@@ -846,10 +857,13 @@ func publish(tmp, dest string, isDir bool) *exportReasonDTO {
 	return nil
 }
 
-// restore puts a moved-aside artifact back, and says so if it cannot.
-func restore(old, dest string, r *exportReasonDTO) *exportReasonDTO {
-	if err := os.Rename(old, dest); err != nil {
-		r.Message += fmt.Sprintf("; and putting it back failed (%v), so it is now at %s", err, old)
+// restore puts a moved-aside artifact back with the same no-replace
+// publish, so it never displaces something that appeared at dest meanwhile.
+// When it cannot, the artifact stays at its moved-aside name, and the
+// reason says where.
+func restore(old, dest string, isDir bool, r *exportReasonDTO) *exportReasonDTO {
+	if pr := publish(old, dest, isDir); pr != nil {
+		r.Message += fmt.Sprintf("; the previous artifact could not be put back (%s), so it is now at %s", pr.Message, old)
 	}
 	return r
 }

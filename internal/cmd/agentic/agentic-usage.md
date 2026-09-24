@@ -802,7 +802,8 @@ Conventions:
   readable memory never plans** and exits 2. Plans carry no files. An
   existing artifact is replaced wholesale ONLY if this command wrote it (a
   `.hadron-plugin` marker; a zip's comment); anything else, or a link, is
-  left alone and fails the host (`artifact-not-ours` / `artifact-is-link`).
+  left alone and fails the host (`artifact-not-ours` / `artifact-is-link`),
+  also when it appears mid-build; `--zip` needs a filesystem with hard links.
   `--json` is `{dryRun, name, out, scope, hosts:[{host, format, artifact,
   zip, version, failure, scanned, judged, included, skipped, refused, failed,
   notForHost, findings}], unrecognized}`; `scope` is null unscoped, else

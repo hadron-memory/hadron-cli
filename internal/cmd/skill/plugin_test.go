@@ -2,6 +2,7 @@ package skill
 
 import (
 	"archive/zip"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -540,5 +541,38 @@ func TestPublishNeverReplacesWhatAppeared(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(dest); string(b) != "ours" || exists(tmp) {
 		t.Errorf("dest = %q, tmp left behind = %v", b, exists(tmp))
+	}
+}
+
+// TestSwapIntoNeverRestoresOverWhatAppeared: the old zip is moved aside, the
+// publish is refused because something appeared, and the put-back must not
+// replace it either; the old artifact stays at its moved-aside name.
+func TestSwapIntoNeverRestoresOverWhatAppeared(t *testing.T) {
+	h := home(t)
+	dest, old := filepath.Join(h, "hadron.zip"), filepath.Join(h, ".t-old")
+	write(t, old, "our previous zip")
+	write(t, dest, "appeared meanwhile")
+	r := restore(old, dest, false, &exportReasonDTO{Code: reasonArtifactNotOurs, Message: "x"})
+	if b, _ := os.ReadFile(dest); string(b) != "appeared meanwhile" {
+		t.Errorf("the put-back replaced what appeared: %q", b)
+	}
+	if b, _ := os.ReadFile(old); string(b) != "our previous zip" || !strings.Contains(r.Message, old) {
+		t.Errorf("the previous artifact must stay at %s and the reason must say so: %q / %q", old, b, r.Message)
+	}
+}
+
+func TestPublishRefusesAFilesystemWithoutHardLinks(t *testing.T) {
+	h := home(t)
+	orig := linkFile
+	t.Cleanup(func() { linkFile = orig })
+	linkFile = func(_, _ string) error { return &os.LinkError{Op: "link", Err: errors.New("operation not supported")} }
+	tmp, dest := filepath.Join(h, "z.tmp"), filepath.Join(h, "z.zip")
+	write(t, tmp, "ours")
+	r := publish(tmp, dest, false)
+	if r == nil || r.Code != reasonIOError || !strings.Contains(r.Message, "hard link") {
+		t.Fatalf("reason = %+v, want an io refusal naming the missing hard links", r)
+	}
+	if exists(dest) {
+		t.Error("with no hard links the zip must not be published by a rename")
 	}
 }
