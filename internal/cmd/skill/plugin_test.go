@@ -357,6 +357,7 @@ func TestRefuseHostRoot(t *testing.T) {
 		filepath.Join(h, "repo", ".claude", "skills", "x", "hadron"),
 		filepath.Join(h, ".agents", "skills", "hadron-codex"),
 		filepath.Join(h, ".codex", "skills", "hadron"),
+		filepath.Join(h, "repo", ".CLAUDE", "Skills", "hadron"),
 	} {
 		if err := refuseHostRoot(p, p, h); exitcode.FromError(err) != exitcode.Usage {
 			t.Errorf("%s: err = %v, want a usage refusal", p, err)
@@ -381,6 +382,10 @@ func TestRefuseHostRoot(t *testing.T) {
 	}
 	if err := refuseHostRoot(filepath.Join(h, "dotfiles"), filepath.Join(h, "dotfiles"), h); err == nil {
 		t.Error("an artifact above a live skills root must be refused")
+	}
+	upper := filepath.Join(h, "DOTFILES", "Skills", "hadron")
+	if err := refuseHostRoot(upper, upper, h); err == nil {
+		t.Error("the resolved root spelled in another case must be refused too")
 	}
 }
 

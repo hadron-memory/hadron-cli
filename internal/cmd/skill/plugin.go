@@ -1052,7 +1052,10 @@ func insideRootShape(p string) (string, bool) {
 	comps := strings.Split(filepath.ToSlash(filepath.Clean(p)), "/")
 	for i := 0; i+1 < len(comps); i++ {
 		for _, pair := range hostRootPairs {
-			if comps[i] == pair[0] && comps[i+1] == pair[1] {
+			// Case-folded: on the default macOS and Windows filesystems
+			// `.CLAUDE/Skills` IS `.claude/skills`, and refusing an oddly-cased
+			// look-alike on a case-sensitive one costs nothing.
+			if strings.EqualFold(comps[i], pair[0]) && strings.EqualFold(comps[i+1], pair[1]) {
 				return filepath.FromSlash(strings.Join(comps[:i+2], "/")), true
 			}
 		}
@@ -1060,9 +1063,10 @@ func insideRootShape(p string) (string, bool) {
 	return "", false
 }
 
-// within reports whether p is root or below it.
+// within reports whether p is root or below it, case-folded for the same
+// reason as insideRootShape.
 func within(p, root string) bool {
-	rel, err := filepath.Rel(root, p)
+	rel, err := filepath.Rel(strings.ToLower(root), strings.ToLower(p))
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
