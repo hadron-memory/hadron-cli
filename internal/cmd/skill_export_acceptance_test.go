@@ -1094,8 +1094,10 @@ func equalTrees(a, b map[string]string) bool {
 // The matrix's `writer` section and acceptanceCases must agree in BOTH
 // directions: a writer case with no subtest would read as covered while
 // nothing ran, and a subtest with no writer case would assert something no
-// contract states. A pending case must not have a subtest either — it would
-// then be both "owed" and "passing".
+// contract states. A case executed in ANOTHER package (P07, which needs a host
+// the command cannot present) must name a test that package really declares.
+// A pending case must not have a subtest here either — it would then be both
+// "owed" and "passing".
 func TestSkillExportAcceptanceCoversTheMatrix(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "skilldoc", "testdata", "crosshost-acceptance.json"))
 	if err != nil {
@@ -1113,22 +1115,30 @@ func TestSkillExportAcceptanceCoversTheMatrix(t *testing.T) {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		t.Fatal(err)
 	}
-	const prefix = "internal/cmd TestSkillExportAcceptance/"
+	const here = "internal/cmd TestSkillExportAcceptance/"
 	cases := acceptanceCases()
-	inMatrix := map[string]bool{}
+	executedHere := map[string]bool{}
 	for _, w := range m.Writer {
-		inMatrix[w.ID] = true
-		if w.Test != prefix+w.ID {
-			t.Errorf("%s names test %q; want %q", w.ID, w.Test, prefix+w.ID)
-			continue
-		}
-		if _, ok := cases[w.ID]; !ok {
-			t.Errorf("matrix writer case %s has no subtest here: it would read as covered while nothing ran", w.ID)
+		pkg, name, ok := strings.Cut(w.Test, " ")
+		switch {
+		case !ok || name == "":
+			t.Errorf("%s names test %q; want \"<package dir> <TestName>\"", w.ID, w.Test)
+		case pkg == "internal/cmd":
+			executedHere[w.ID] = true
+			if w.Test != here+w.ID {
+				t.Errorf("%s names test %q; want %q", w.ID, w.Test, here+w.ID)
+			} else if _, ok := cases[w.ID]; !ok {
+				t.Errorf("matrix writer case %s has no subtest here: it would read as covered while nothing ran", w.ID)
+			}
+		default:
+			if !declaresTest(t, filepath.Join("..", "..", pkg), name) {
+				t.Errorf("%s names %s in %s, which declares no such test", w.ID, name, pkg)
+			}
 		}
 	}
 	for id := range cases {
-		if !inMatrix[id] {
-			t.Errorf("subtest %s has no writer case in the matrix: it asserts something no contract states", id)
+		if !executedHere[id] {
+			t.Errorf("subtest %s has no writer case naming it in the matrix: it asserts something no contract states", id)
 		}
 	}
 	for _, p := range m.Pending {
@@ -1136,4 +1146,23 @@ func TestSkillExportAcceptanceCoversTheMatrix(t *testing.T) {
 			t.Errorf("%s is pending in the matrix but has a subtest: move it to writer", p.ID)
 		}
 	}
+}
+
+// declaresTest reports whether a _test.go file in dir declares func name.
+func declaresTest(t *testing.T, dir, name string) bool {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(dir, "*_test.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(b), "\nfunc "+name+"(t *testing.T) {") {
+			return true
+		}
+	}
+	return false
 }

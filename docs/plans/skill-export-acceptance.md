@@ -65,23 +65,23 @@ once these cases run. So:
 - **A new top-level section, `writer`.** Each case is
   `{id, layer, contracts, given, expect, test}`. `given` and `expect` are carried
   over verbatim, since they are contract-cited prose, not generated. `test`
-  names the subtest that executes the case
-  (`internal/cmd TestSkillExportAcceptance/P03`).
+  names the test that executes the case as `<package dir> <TestName>`: a
+  command-level subtest (`internal/cmd TestSkillExportAcceptance/P03`), or, for
+  P07, which needs a host the command cannot present, Jonas's in-package
+  `internal/cmd/skill TestExportHostWithNoRootFailsAndNamesEveryItem` (#701).
 - **The version is now 2**, so a runner that does not know `writer` fails loudly
   instead of silently dropping it. The Go loader
   (`internal/skilldoc/crosshost_acceptance_test.go`) reads version 2, requires
   every `writer` key, and refuses an empty `writer`.
-- **A two-way guard**, `TestSkillExportAcceptanceCoversTheMatrix`. Every `writer`
-  case has a subtest, every subtest has a `writer` case, and no `pending` case
-  has a subtest. Mutation-checked in both directions.
-- **`pending` keeps only what still has no executing test:**
-  - **P02:** its planning half is a server implementation choice, not a
-    contract, and its export-run half is P07 from the writer side.
-  - **P07:** it can't be reached at command level. The CLI plans only the hosts
-    in its own table, and every host has a root (`TestExportRootsCoverEveryHost`).
-    A focused in-package test of `exportHost`'s `host-has-no-root` path is owed
-    in `internal/cmd/skill`: every item failed *and named*, and other hosts still
-    written.
+- **A two-way guard**, `TestSkillExportAcceptanceCoversTheMatrix`. Every
+  `internal/cmd` writer case has a subtest, every subtest has a writer case, a
+  test named in another package must really be declared there, and no
+  `pending` case has a subtest. Mutation-checked in each direction.
+- **`pending` keeps only P02.** Its planning half is a server implementation
+  choice, not a contract, and its export-run half is P07 from the writer side.
+  P07 can't be reached at command level, because the CLI plans only the hosts
+  in its own table and every host has a root. It runs in-package instead
+  (#701).
 - `TestCrossHostLoaderRefuses` no longer indexes `pending[0]` unconditionally,
   since `pending` may drain.
 

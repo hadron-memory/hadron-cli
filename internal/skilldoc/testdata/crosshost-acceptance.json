@@ -1406,6 +1406,17 @@
       "test": "internal/cmd TestSkillExportAcceptance/P06"
     },
     {
+      "id": "P07",
+      "layer": "writer",
+      "contracts": [
+        "cor:agt:030:00",
+        "cor:agt:030:02"
+      ],
+      "given": "the server reports a host the CLI has no root for",
+      "expect": "That host's items FAIL and each is named in the end-of-run report; every other host's items are still written; the run never prompts (cor:agt:030:00, D-2026-09-23-D). The exit status of a run with failed items is not decided by any contract.",
+      "test": "internal/cmd/skill TestExportHostWithNoRootFailsAndNamesEveryItem"
+    },
+    {
       "id": "P08",
       "layer": "writer",
       "contracts": [
@@ -1532,17 +1543,6 @@
       ],
       "given": "skillPlan(host: codex), a key no host owns",
       "expect": "Two different things, kept apart. PLANNING: skillPlan(host: codex) is refused with a typed error naming the supported hosts (hadron-server#1283) — an implementation choice, NOT a contract (Holger via Vera, team chat #1184). EXPORT RUN: a requested host the exporting tool does not support is an ITEM failure named in the end-of-run report, and every other item still runs (cor:agt:030:00). Never judged as Claude, never an empty plan read as success."
-    },
-    {
-      "id": "P07",
-      "layer": "writer",
-      "pendingOn": "hadron-cli: not reachable at command level. The CLI plans only the hosts in its own table, and every host has a root (TestExportRootsCoverEveryHost), so no run can present a host without one; a focused in-package test of exportHost's host-has-no-root path (every item failed AND named, other hosts still written) is owed in internal/cmd/skill.",
-      "contracts": [
-        "cor:agt:030:00",
-        "cor:agt:030:02"
-      ],
-      "given": "the server reports a host the CLI has no root for",
-      "expect": "That host's items FAIL and each is named in the end-of-run report; every other host's items are still written; the run never prompts (cor:agt:030:00, D-2026-09-23-D). The exit status of a run with failed items is not decided by any contract."
     }
   ]
 }
