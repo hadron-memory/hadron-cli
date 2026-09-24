@@ -634,3 +634,22 @@ func TestMapErrorMCPOnlyKeepsTheErrorChainReachable(t *testing.T) {
 		})
 	}
 }
+
+// Several errors in one response: Apollo's prefix is removed from EACH before
+// they are joined, not only from the front of the joined string (PR #690
+// review, @copilot).
+func TestMapErrorMCPOnlyStripsTheApolloPrefixFromEveryMessage(t *testing.T) {
+	two := gqlerror.List{
+		{Message: "Context creation failed: This OAuth credential is limited to the MCP surface.", Extensions: map[string]any{"code": "FORBIDDEN"}},
+		{Message: "Context creation failed: something else was refused too.", Extensions: map[string]any{"code": "FORBIDDEN"}},
+	}
+	got := MapError(&graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: two}}).Error()
+	if strings.Contains(got, "Context creation failed") {
+		t.Errorf("a prefix survived the join: %q", got)
+	}
+	for _, want := range []string{"This OAuth credential is limited to the MCP surface.", "something else was refused too.", MCPOnlyRemedy} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q: %q", want, got)
+		}
+	}
+}

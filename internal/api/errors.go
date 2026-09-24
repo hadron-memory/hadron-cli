@@ -194,7 +194,14 @@ func MapError(err error) error {
 		// server's sentence, and it means nothing to the person reading it, so
 		// it is dropped the way #566 drops genqlient's decoration. The chain
 		// still unwraps to the original error.
-		msg := strings.TrimPrefix(cleaned(err).Error(), apolloContextFailurePrefix)
+		// Per message, before joining (PR #690 review, @copilot): trimming the
+		// joined string would strip only the first message's prefix. The list
+		// is never empty here, because IsMCPOnlyCredential matched a message.
+		msgs := ServerMessages(err)
+		for i, m := range msgs {
+			msgs[i] = strings.TrimPrefix(m, apolloContextFailurePrefix)
+		}
+		msg := strings.Join(msgs, "; ")
 		return exitcode.New(exitcode.AuthRequired, &serverError{msg: msg + " " + MCPOnlyRemedy, err: err})
 	}
 
