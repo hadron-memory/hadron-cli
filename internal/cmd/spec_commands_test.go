@@ -653,12 +653,13 @@ func TestSpecNewResolvesPKForEdgeTargets(t *testing.T) {
 	}
 }
 
-// #91 ask 3: a required ToC/inheritance edge that can't be wired makes spec new
-// fail loudly (non-zero exit) instead of reporting success on a node it left
-// silently orphaned.
-func TestSpecNewFailsLoudOnSkippedEdge(t *testing.T) {
+// #91 ask 3, then #687: a required ToC/inheritance edge that can't be wired
+// must never leave an orphan. It used to create the node and then fail; now
+// every target is resolved BEFORE the write, so the command refuses with
+// NOTHING created and the target's not-found exit code intact.
+func TestSpecNewUnresolvableEdgeCreatesNothing(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
-	gql, _ := captureGraphQL(t, map[string]string{
+	gql, captured := captureGraphQL(t, map[string]string{
 		"FindNodes":      scan,
 		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn":     `{"data":{"resolveUrn":null}}`, // edge target won't resolve
@@ -667,9 +668,65 @@ func TestSpecNewFailsLoudOnSkippedEdge(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "new", "-m", specMem, "--module", "msg", "--feature", "010", "--title", "Test", "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "orphaned") {
-		t.Fatalf("a skipped required edge must fail loudly, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "nothing was created") {
+		t.Fatalf("an unresolvable required edge must refuse before writing, got %v", err)
 	}
+	if code := exitCodeFor(err); code != exitcode.NotFound {
+		t.Errorf("exit code = %d, want %d (NotFound, the target's own code)", code, exitcode.NotFound)
+	}
+	if raw, called := captured["CreateSpecNode"]; called {
+		t.Errorf("the node was written although an edge could not be resolved — an orphan: %s", raw)
+	}
+}
+
+// #687 / hadron-server#1300: spec new's edges travel INLINE on createSpecNode,
+// by id, so the node and its edges land in one server transaction. A separate
+// createEdge is exactly the call a default-role user is refused after the node
+// already exists.
+func TestSpecNewWiresEdgesInline(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes":      scan,
+		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":     `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "-m", specMem, "--module", "msg", "--feature", "010", "--title", "Test", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if raw, called := captured["CreateEdge"]; called {
+		t.Errorf("spec new must not wire through a separate createEdge: %s", raw)
+	}
+	edges := sentSpecEdges(t, captured["CreateSpecNode"])
+	if len(edges) != 2 {
+		t.Fatalf("want the ToC + inheritance edges inline, got %v", edges)
+	}
+	labels := map[string]bool{}
+	for _, e := range edges {
+		if e["targetId"] != "t1" {
+			t.Errorf("edge target = %v, want the RESOLVED id t1, never a loc the server re-resolves", e["targetId"])
+		}
+		labels[fmt.Sprint(e["name"])] = true
+	}
+	if !labels["Test"] || !labels["inherits the shared contract (general provisions)"] {
+		t.Errorf("edge names = %v, want the ToC title and the inheritance label", labels)
+	}
+}
+
+// sentSpecEdges decodes the inline `edges` of a captured CreateSpecNode.
+func sentSpecEdges(t *testing.T, raw json.RawMessage) []map[string]any {
+	t.Helper()
+	var vars struct {
+		Input struct {
+			Edges []map[string]any `json:"edges"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(raw, &vars); err != nil {
+		t.Fatalf("decoding CreateSpecNode vars: %v\n%s", err, raw)
+	}
+	return vars.Input.Edges
 }
 
 // #91 Bug 1: spec describe resolves a memory given by PK. Previously describe
@@ -1185,6 +1242,91 @@ func TestSpecNewModuleAutoContract(t *testing.T) {
 	_ = json.Unmarshal(captured["CreateSpecNode"], &up)
 	if up.Input.Loc != "brd:000" {
 		t.Errorf("the last create should be the contract brd:000, got %q", up.Input.Loc)
+	}
+	// #687: ...and inline on the contract's own create, so the contract can
+	// never exist without it.
+	if raw, called := captured["CreateEdge"]; called {
+		t.Errorf("the contract→root edge must travel inline, not as a createEdge: %s", raw)
+	}
+	edges := sentSpecEdges(t, captured["CreateSpecNode"])
+	if len(edges) != 1 || edges[0]["targetId"] != "new1" || edges[0]["name"] != "Brand general provisions" {
+		t.Errorf("contract edges = %v, want one inline edge to the root's id new1", edges)
+	}
+}
+
+// #687: --new-path writes each node WITH its outgoing edges, and an edge whose
+// target is created earlier in the same plan is wired by that node's returned
+// id. Every create is recorded, since the plan is several.
+func TestSpecNewPathWiresEachNodeInline(t *testing.T) {
+	var creates []json.RawMessage
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "FindNodes":
+			_, _ = w.Write([]byte(translateFindNodes("FindNodes", `{"data":{"nodes":[]}}`)))
+		case "CreateSpecNode":
+			creates = append(creates, body.Variables)
+			var v struct {
+				Input struct {
+					Loc string `json:"loc"`
+				} `json:"input"`
+			}
+			_ = json.Unmarshal(body.Variables, &v)
+			_, _ = fmt.Fprintf(w, `{"data":{"createSpecNode":{"id":"id-%s","memoryId":"mem1","loc":%q,"name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`, v.Input.Loc, v.Input.Loc)
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected operation"}]}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "msg:010:01", "--new-path", "--title", "Send", "-m", specMem, "--json", "--server", server.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	edgesByLoc := map[string]map[string]bool{}
+	for _, raw := range creates {
+		var v struct {
+			Input struct {
+				Loc string `json:"loc"`
+			} `json:"input"`
+		}
+		_ = json.Unmarshal(raw, &v)
+		targets := map[string]bool{}
+		for _, e := range sentSpecEdges(t, raw) {
+			targets[fmt.Sprint(e["targetId"])] = true
+		}
+		edgesByLoc[v.Input.Loc] = targets
+	}
+	want := map[string][]string{
+		"msg":        {},
+		"msg:000":    {"id-msg"},
+		"msg:010":    {"id-msg", "id-msg:000"},
+		"msg:010:00": {"id-msg:010"},
+		"msg:010:01": {"id-msg:010", "id-msg:010:00"},
+	}
+	for loc, targets := range want {
+		got, ok := edgesByLoc[loc]
+		if !ok {
+			t.Errorf("%s was never created; creates: %v", loc, edgesByLoc)
+			continue
+		}
+		if len(got) != len(targets) {
+			t.Errorf("%s inline edge targets = %v, want %v", loc, got, targets)
+		}
+		for _, id := range targets {
+			if !got[id] {
+				t.Errorf("%s is missing its inline edge to %s (got %v)", loc, id, got)
+			}
+		}
 	}
 }
 
@@ -2173,35 +2315,67 @@ func TestSpecExtract(t *testing.T) {
 	}
 }
 
-// An edge that can't be wired (ToC, inheritance, or the cross-ref to the source)
-// is a partial write. The spec is still created (the JSON is emitted), but the
-// command exits non-zero so the gap isn't read as a clean extract — matching
-// `spec new`/`spec supersede` (#127).
-func TestSpecExtractFailsLoudOnEdgeFailure(t *testing.T) {
-	mocks := extractMocks()
-	// Every target resolves, but CreateEdge is rejected — so all planned edges
-	// fail (extract has no must-succeed edge to worry about).
-	mocks["CreateEdge"] = `{"errors":[{"message":"createEdge operator 'flag' is not in the v1 allowlist"}]}`
-	gql, _ := captureGraphQL(t, mocks)
-	f, out := testFactory(t)
+// #687 (replacing #127's create-then-fail-loud): the new spec's ToC,
+// inheritance and cross-ref edges travel INLINE on its createSpecNode, so
+// "created but an edge failed" can no longer happen. The cross-ref goes by the
+// id of the source node extract already read, not a second resolve.
+func TestSpecExtractWiresEdgesInline(t *testing.T) {
+	gql, captured := captureGraphQL(t, extractMocks())
+	f, _ := testFactory(t)
 	f.IOStreams.In = strings.NewReader(extractChunk)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
 		"--to-feature", "020", "--title", "Node type", "--content", "-", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if raw, called := captured["CreateEdge"]; called {
+		t.Errorf("extract must not wire through a separate createEdge: %s", raw)
+	}
+	byName := map[string]any{}
+	for _, e := range sentSpecEdges(t, captured["CreateSpecNode"]) {
+		byName[fmt.Sprint(e["name"])] = e["targetId"]
+	}
+	if len(byName) != 3 {
+		t.Fatalf("want ToC + inheritance + cross-ref inline, got %v", byName)
+	}
+	if byName["documents Node type on the Node entity"] != "src1" {
+		t.Errorf("cross-ref target = %v, want the source's id src1", byName["documents Node type on the Node entity"])
+	}
+	if byName["Node type"] != "t1" {
+		t.Errorf("ToC target = %v, want the resolved id t1", byName["Node type"])
+	}
+}
+
+// ...and a target that cannot be resolved refuses the extract before anything
+// is written: no new spec, and the source is never trimmed.
+func TestSpecExtractUnresolvableEdgeCreatesNothing(t *testing.T) {
+	mocks := extractMocks()
+	// The FIRST resolve is the source extract reads; only the edge targets
+	// after it fail to resolve.
+	resolves := 0
+	gql, captured := captureGraphQLFunc(t, func(op string) string {
+		if op == "ResolveUrn" {
+			resolves++
+			if resolves > 1 {
+				return `{"data":{"resolveUrn":null}}`
+			}
+		}
+		return translateFindNodes(op, mocks[op])
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader(extractChunk)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
+		"--to-feature", "020", "--title", "Node type", "--content", "-", "--strip-source", "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "could not be wired") {
-		t.Fatalf("an extract that can't wire its edge(s) must fail loudly, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "nothing was created") {
+		t.Fatalf("an unresolvable edge target must refuse before writing, got %v", err)
 	}
-	if code := exitCodeFor(err); code != exitcode.Error {
-		t.Errorf("orphaned-edge exit code = %d, want %d (Error)", code, exitcode.Error)
-	}
-	// The created spec is still reported on stdout before the error.
-	var dto extractDTO
-	if uerr := json.Unmarshal([]byte(out.String()), &dto); uerr != nil {
-		t.Fatalf("extract JSON must still be emitted: %v\n%s", uerr, out.String())
-	}
-	if dto.Citation != "cor:dmo:020:04" {
-		t.Errorf("the created spec must still be reported, got %+v", dto)
+	for _, op := range []string{"CreateSpecNode", "UpdateSpecNode"} {
+		if raw, called := captured[op]; called {
+			t.Errorf("%s was sent although an edge could not be resolved: %s", op, raw)
+		}
 	}
 }
 

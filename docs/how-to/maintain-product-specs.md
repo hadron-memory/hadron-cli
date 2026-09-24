@@ -138,20 +138,24 @@ Each of the first three calls also scaffolds its tier's contract (`cli:gen`,
 `cli:cha:000`, `cli:cha:010:00`) unless you pass `--no-contract`. Product and
 module codes are frozen: re-minting one exits 5.
 
-**A failed `spec new` is not always a clean slate.** Only a missing parent tier
-is rejected up front (exit 4, nothing written). Every other failure can leave
-nodes behind, because each is created in its own call: a root whose contract
-then failed, a `--new-path` chain that stopped part-way, or a node created
-without the table-of-contents / inheritance edge it needs (exit 1 — `spec new`
-reports the orphan rather than `✓ created`). Don't reflexively re-run: the
-citation exists now, so `--new-path` and the `--new-*` roots exit 5 on conflict,
-while an allocating call (`--new-feature`, or `--feature` without `--rule`)
-quietly mints a *second* number instead of repairing the first. Inspect what
-actually landed, then finish it by hand:
+**Each node is written together with its edges.** A spec node and its
+table-of-contents / inheritance edges are one server write, so a node never
+lands without them. A missing parent tier, or an edge target that doesn't
+resolve, is rejected up front (exit 4, nothing written).
+
+**A failed `spec new` is still not always a clean slate**, because a command
+that creates *several* nodes creates each in its own write: a root whose
+co-created contract then failed, or a `--new-path` chain that stopped part-way.
+The error names what was already created, and each of those is complete, edges
+included. Don't reflexively re-run: the citation exists now, so `--new-path` and
+the `--new-*` roots exit 5 on conflict, while an allocating call
+(`--new-feature`, or `--feature` without `--rule`) quietly mints a *second*
+number instead of repairing the first. Inspect what actually landed, then create
+only what is missing, e.g. a contract the root is still waiting for:
 
 ```sh
 hadron spec list -m $M --prefix cli:cha            # what actually exists
-hadron edge add -m $M --from cli:cha:010:01 --to cli:cha:010 --name "backpressure"
+hadron spec new -m $M --product cli --module cha --contract --title "chat command group"
 ```
 
 A flat corpus is identical without the `--product` flag (and `--new-module`

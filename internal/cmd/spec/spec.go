@@ -885,6 +885,36 @@ func resolveSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc s
 	return cmdutil.ResolveNodeURN(cmd, client, specNodeRef(memoryURN, loc))
 }
 
+// resolveSpecEdges turns a new node's planned outgoing edges into the inline
+// `edges` of its createSpecNode, which writes the node and those edges in ONE
+// server transaction (#687, hadron-server#1300). Resolving every target
+// BEFORE the write is the point: a target that cannot be resolved refuses the
+// command with nothing created, where wiring afterwards left an orphaned node.
+//
+// created maps citations written earlier in the same command to their ids,
+// which are used instead of resolveUrn (it can lag a fresh node by ~a minute).
+// Targets travel by id, never by loc, so the server resolves nothing itself.
+func resolveSpecEdges(cmd *cobra.Command, client graphql.Client, memoryURN, source string, edges []plannedEdgeDTO, created map[string]string) ([]*gen.NodeEdgeInput, error) {
+	out := make([]*gen.NodeEdgeInput, 0, len(edges))
+	for _, e := range edges {
+		id, ok := created[e.Target]
+		if !ok {
+			rid, err := resolveSpecNode(cmd, client, memoryURN, e.Target)
+			if err != nil {
+				return nil, fmt.Errorf("cannot wire %s's edge %q → %s, so nothing was created: %w", source, e.Label, e.Target, err)
+			}
+			id = rid
+		}
+		out = append(out, inlineSpecEdge(id, e.Label))
+	}
+	return out, nil
+}
+
+// inlineSpecEdge is one inline outgoing edge to the node with id targetID.
+func inlineSpecEdge(targetID, label string) *gen.NodeEdgeInput {
+	return &gen.NodeEdgeInput{TargetId: targetID, Name: &label}
+}
+
 // fetchSpecNode resolves a citation/loc and reads the full node.
 func fetchSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetNodeNode, error) {
 	id, err := resolveSpecNode(cmd, client, memoryURN, loc)
