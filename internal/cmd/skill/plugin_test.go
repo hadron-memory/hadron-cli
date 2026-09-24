@@ -499,3 +499,46 @@ func TestBuildArtifactVersionIsUnambiguous(t *testing.T) {
 		t.Error("the plugin name is part of what the version stands for")
 	}
 }
+
+// TestPublishNeverReplacesWhatAppeared covers the last window: dest was
+// vacant when checked, and something appeared before the publish.
+func TestPublishNeverReplacesWhatAppeared(t *testing.T) {
+	h := home(t)
+	for name, c := range map[string]struct {
+		isDir bool
+		setup func(dest string)
+	}{
+		"file at zip path":          {false, func(d string) { write(t, d, "theirs") }},
+		"non-empty dir at dir path": {true, func(d string) { write(t, filepath.Join(d, "theirs.txt"), "theirs") }},
+		"file at dir path":          {true, func(d string) { write(t, d, "theirs") }},
+	} {
+		t.Run(name, func(t *testing.T) {
+			base := filepath.Join(h, strings.ReplaceAll(name, " ", "-"))
+			tmp, dest := base+".tmp", base
+			if c.isDir {
+				write(t, filepath.Join(tmp, "SKILL.md"), "ours")
+			} else {
+				write(t, tmp, "ours")
+			}
+			c.setup(dest)
+			before := snapshot(t, dest)
+			r := publish(tmp, dest, c.isDir)
+			if r == nil || r.Code != reasonArtifactNotOurs {
+				t.Fatalf("reason = %+v, want artifact-not-ours", r)
+			}
+			if after := snapshot(t, dest); !reflect.DeepEqual(before, after) {
+				t.Errorf("publish replaced what appeared:\nbefore %v\nafter  %v", before, after)
+			}
+		})
+	}
+
+	// And a vacant destination is published, with no temp name left behind.
+	tmp, dest := filepath.Join(h, "z.tmp"), filepath.Join(h, "z.zip")
+	write(t, tmp, "ours")
+	if r := publish(tmp, dest, false); r != nil {
+		t.Fatal(r)
+	}
+	if b, _ := os.ReadFile(dest); string(b) != "ours" || exists(tmp) {
+		t.Errorf("dest = %q, tmp left behind = %v", b, exists(tmp))
+	}
+}

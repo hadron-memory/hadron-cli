@@ -1,8 +1,9 @@
 // Package skill implements `hadron skill ...` — the maintenance surface for
 // the skill files exported from runnable task nodes (hadron-cli#580, design
-// in docs/plans/skill-command-group.md). Three verbs, no more: `lint` reads
-// the corpus and touches no disk, `status` reads both and writes nothing,
-// `export` is the only writer. This file carries what they share: selecting
+// in docs/plans/skill-command-group.md). `lint` reads the corpus and touches
+// no disk, `status` reads both and writes nothing, `export` is the only writer
+// of user-level skill files, and `plugin` (#653) builds bundles under an
+// explicit --out. This file carries what they share: selecting
 // the declaring nodes, reading them RAW through the batch read, and resolving
 // the export prefix each memory's owner decides.
 package skill
@@ -57,7 +58,9 @@ claudeSkill host, so nothing has to be migrated to keep working.
 
   lint    check declaring nodes against the corpus rules (no disk)
   status  compare the files on disk against the corpus (reads both, writes nothing)
-  export  write the skill files for every enabled declaration (the only writer)`,
+  export  write the skill files for every enabled declaration into your
+          user-level skills directories (the only command that writes there)
+  plugin  build an installable plugin per host under an explicit --out`,
 	}
 	cmd.AddCommand(newCmdLint(f))
 	cmd.AddCommand(newCmdStatus(f))

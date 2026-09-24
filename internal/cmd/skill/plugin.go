@@ -795,11 +795,7 @@ func hasPluginMarker(dir string) bool {
 // portable delete can rule out (the same line as #694's hostFS).
 func swapInto(tmp, dest string, isDir bool) *exportReasonDTO {
 	if _, err := os.Lstat(dest); errors.Is(err, fs.ErrNotExist) {
-		if err := os.Rename(tmp, dest); err != nil {
-			r := ioReason(err)
-			return &r
-		}
-		return nil
+		return publish(tmp, dest, isDir)
 	}
 	old := tmp + "-old"
 	if err := os.Rename(dest, old); err != nil {
@@ -810,11 +806,43 @@ func swapInto(tmp, dest string, isDir bool) *exportReasonDTO {
 		return restore(old, dest, &exportReasonDTO{Code: reasonArtifactNotOurs,
 			Message: fmt.Sprintf("%s changed while the plugin was being built and is no longer one this command wrote, so it was left alone", dest), Origin: originClient})
 	}
-	if err := os.Rename(tmp, dest); err != nil {
-		r := ioReason(err)
-		return restore(old, dest, &r)
+	if r := publish(tmp, dest, isDir); r != nil {
+		return restore(old, dest, r)
 	}
 	_ = os.RemoveAll(old)
+	return nil
+}
+
+// publish puts tmp at dest WITHOUT replacing anything that appeared there
+// since dest was last checked (@copilot, @codex on #707):
+//   - a zip is hard-linked into place, which fails if the name exists, then
+//     its temp name is removed. Only on a filesystem with no hard links does
+//     it fall back to a rename, which can replace a file created in that
+//     instant; the report does not claim otherwise.
+//   - a directory is renamed, and a rename onto a non-empty directory or a
+//     file fails on every platform. It can replace only an EMPTY directory,
+//     which holds nothing to lose.
+func publish(tmp, dest string, isDir bool) *exportReasonDTO {
+	occupied := &exportReasonDTO{Code: reasonArtifactNotOurs,
+		Message: fmt.Sprintf("%s appeared while the plugin was being built, so it was left alone", dest), Origin: originClient}
+	if !isDir {
+		err := os.Link(tmp, dest)
+		switch {
+		case err == nil:
+			_ = os.Remove(tmp)
+			return nil
+		case errors.Is(err, fs.ErrExist):
+			return occupied
+		}
+		// No hard links here: fall through to a rename.
+	}
+	if err := os.Rename(tmp, dest); err != nil {
+		if pathExists(dest) {
+			return occupied
+		}
+		r := ioReason(err)
+		return &r
+	}
 	return nil
 }
 

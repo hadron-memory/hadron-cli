@@ -749,7 +749,8 @@ Conventions:
   sets `scopeEmpty: true`, lists any generated files it could not judge under
   `unchecked`, and **fails `--strict`**: a gate must not pass on a result
   nothing verified.
-  `skill export` is the ONLY writer (#621). It takes **no selector**: it
+  `skill export` is the ONLY writer of user-level skill files (#621;
+  `skill plugin` below builds bundles under an explicit `--out`). It takes **no selector**: it
   exports every ENABLED declaration you can read (cor:agt:030:03; `memories`
   is omitted on the wire), for EVERY known host, into user-level roots —
   `claudeSkill` → `~/.claude/skills/<name>/SKILL.md`, `codexSkill` →
