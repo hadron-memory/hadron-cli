@@ -137,6 +137,28 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					fmt.Sprintf("Finish retiring %s as superseded by %s?", oldCit.Format(), successorLoc)); err != nil {
 					return err
 				}
+				// Re-validate IMMEDIATELY before retiring: the first read can be
+				// arbitrarily old by now (the prompt above waits on a human), and a
+				// concurrent supersede may have added a second successor since
+				// (#691 review). This narrows the window; closing it needs a server
+				// conditional (team chat #1333).
+				fresh, ferr := gen.GetNode(cmd.Context(), client, oldNode.Id)
+				if ferr != nil || fresh.Node == nil {
+					if ferr == nil {
+						ferr = exitcode.Newf(exitcode.NotFound, "%s vanished", oldCit.Format())
+					}
+					_ = output.Write(f.IOStreams, f.JSON, result, render)
+					return exitcode.Newf(exitcode.Error,
+						"could not re-read %s just before retiring it (%v), so it was not retired; rerun this command to finish",
+						oldCit.Format(), api.MapError(ferr))
+				}
+				if now := supersededByTargets(fresh.Node); len(now) != 1 || now[0] != successorLoc {
+					_ = output.Write(f.IOStreams, f.JSON, result, render)
+					return exitcode.Newf(exitcode.Conflict,
+						"%s's successors changed while this ran (now: %s), so it was not retired; review them, then rerun this command",
+						oldCit.Format(), strings.Join(now, ", "))
+				}
+				oldNode = fresh.Node
 				if retired, rerr := retire(cmd, client, oldNode, successorLoc, reason); rerr != nil {
 					result.Retired = retired
 					_ = output.Write(f.IOStreams, f.JSON, result, render)

@@ -2223,6 +2223,41 @@ func TestSpecSupersedeUnreadableCompetitorIsAConflict(t *testing.T) {
 	}
 }
 
+// #691 round 14 (Copilot): the finish path's single-successor check ran only
+// on the FIRST read, before the confirmation prompt. It re-validates right
+// before retiring: a second successor that appeared meanwhile is a conflict
+// (exit 5) and nothing is retired.
+func TestSpecSupersedeFinishRevalidatesBeforeRetiring(t *testing.T) {
+	one := withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03")
+	two := withSupersededByEdge(one, "n-020-01", "msg:020:01")
+	gets := 0
+	gql, captured := captureGraphQLFunc(t, func(op string) string {
+		switch op {
+		case "ResolveUrn":
+			return resolveSpecJSON
+		case "GetNode":
+			gets++
+			if gets == 1 {
+				return one
+			}
+			return two
+		case "UpdateSpecNode":
+			return `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
+		}
+		return ""
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("a successor added before retiring must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("retired although a second successor appeared before the retirement")
+	}
+}
+
 // supersedeLostRetireServer answers a supersede whose retirement update gets
 // NO ANSWER (a 502 with no GraphQL envelope). GetNode answers, in order: the
 // up-front read, the post-link re-read (showing this run's link), then the
