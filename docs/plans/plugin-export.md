@@ -558,9 +558,24 @@ keep it (@codex on #700). The options:
     prevent.
   - The producer **refuses a seed that overlaps the output**: the same
     directory, or either one inside the other (compared after resolving).
+  - **Links in the seed are refused**, not only at its root. An `lstat` walk
+    of the whole seed rejects any symlink or non-regular file before
+    anything is copied. A copy that followed a link could package files from
+    outside the seed or loop, and one that preserved it would break §5.2's
+    link-free artifact (@codex on #702).
+  - **Producer-owned paths are reserved.** `.claude-plugin/plugin.json`,
+    any marketplace file, and every `skills/<generated-name>/` belong to the
+    producer. A seed containing one is refused, never merged or overwritten
+    in either direction. Otherwise a seeded manifest's fixed `version` would
+    silently defeat C4's update rule (@codex on #702). The committed
+    manifest's hand-written fields (`author`, `homepage`) would therefore
+    need a home in Q6's naming/metadata decision.
   - **Report:** each host gets a `seeded` list, initialized to `[]` and
-    empty unless `--seed` is given. It has one row per seeded top-level entry
-    (`{"path": "skills/use-hadron-cli", "kind": "dir"}`). This makes the one
+    empty unless `--seed` is given. It has **one row per seeded file**, with
+    its path relative to the artifact root
+    (`{"path": "skills/use-hadron-cli/SKILL.md"}`). Directories are implied
+    by their files, so granularity and collision checks work on one unit
+    (@copilot on #702). This makes the one
     non-server-rendered part of the artifact visible to a JSON consumer. It
     has no node, no action and no effect on the exit status. R1 would then
     also check `seeded`.
