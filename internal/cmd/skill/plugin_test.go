@@ -828,3 +828,15 @@ func TestResolveOutRefusesADanglingLink(t *testing.T) {
 		t.Errorf("a dangling link in --out: err = %v, want usage", err)
 	}
 }
+
+// A root that does not exist yet, under a linked parent, is compared where it
+// WILL be created: --out /shared/claude --name skills lands exactly on it.
+func TestRefuseHostRootSeesARootNotYetCreated(t *testing.T) {
+	h := home(t)
+	mkdir(t, filepath.Join(h, "shared", "claude"))
+	symlink(t, filepath.Join(h, "shared", "claude"), filepath.Join(h, ".claude"))
+	art := filepath.Join(h, "shared", "claude", "skills")
+	if err := refuseHostRoot(art, art, h); err == nil {
+		t.Error("the not-yet-created ~/.claude/skills behind a linked ~/.claude must be refused")
+	}
+}

@@ -1094,6 +1094,23 @@ func resolveOut(raw, home string) (string, error) {
 	}
 }
 
+// resolveExisting resolves the longest existing prefix of p and appends the
+// rest: where p is, or will be once created.
+func resolveExisting(p string) string {
+	cur, rest := p, []string{}
+	for {
+		if r, err := filepath.EvalSymlinks(cur); err == nil {
+			return filepath.Join(append([]string{r}, rest...)...)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return p
+		}
+		rest = append([]string{filepath.Base(cur)}, rest...)
+		cur = parent
+	}
+}
+
 func expandHome(p, home string) string {
 	if p == "~" {
 		return home
@@ -1125,10 +1142,10 @@ func refuseHostRoot(resolved, literal, home string) error {
 		}
 	}
 	for _, pair := range hostRootPairs {
-		root, err := filepath.EvalSymlinks(filepath.Join(home, pair[0], pair[1]))
-		if err != nil {
-			continue
-		}
+		// Resolved through its nearest existing ancestor, so a root that does
+		// not exist YET under a linked parent (~/.claude -> /shared/claude)
+		// is still compared where it will be created (@codex on #707).
+		root := resolveExisting(filepath.Join(home, pair[0], pair[1]))
 		if within(resolved, root) || within(root, resolved) {
 			return hostRootError(resolved, root)
 		}

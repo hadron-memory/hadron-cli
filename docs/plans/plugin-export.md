@@ -1,7 +1,10 @@
 # Design proposal: `hadron` plugin export — an installable multi-skill bundle (#653)
 
-> **Status: BUILT as `hadron skill plugin` (#653, Jane, 2026-09-24).** §9 is
-> the as-built record: every §7 call that was Jane's is decided there, with the
+> **Status: BUILT as `hadron skill plugin` (cli#707, Jane, 2026-09-24); the
+> §6 install GATE is NOT yet met.** Rows C2, K1 and X1 need a model session or
+> a person with the Claude app and a test org, and are unobserved, so #653
+> stays open until they are, or until Holger revises the gate. §9 is the
+> as-built record: every §7 call that was Jane's is decided there, with the
 > acceptance rows actually observed. §1–§8 are Jonas's design (team chat
 > #1365, cli#700/#702/#703), kept as written so the decisions can be read
 > against the options they chose between.
