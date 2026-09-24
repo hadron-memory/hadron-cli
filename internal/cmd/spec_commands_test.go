@@ -2223,6 +2223,85 @@ func TestSpecSupersedeUnreadableCompetitorIsAConflict(t *testing.T) {
 	}
 }
 
+// supersedeLostRetireServer answers a supersede whose retirement update gets
+// NO ANSWER (a 502 with no GraphQL envelope). GetNode answers, in order: the
+// up-front read, the post-link re-read (showing this run's link), then the
+// post-retire re-read, answered by afterRetire.
+func supersedeLostRetireServer(t *testing.T, afterRetire string) *httptest.Server {
+	t.Helper()
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	responses := map[string]string{
+		"ResolveUrn":     resolveSpecJSON,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":      scan,
+		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":     `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+	}
+	gets := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		switch body.OperationName {
+		case "UpdateSpecNode":
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte("upstream went away"))
+			return
+		case "GetNode":
+			gets++
+			w.Header().Set("Content-Type", "application/json")
+			switch gets {
+			case 1:
+				_, _ = w.Write([]byte(`{"data":{"node":` + cleanSpecDetail + `}}`))
+			case 2:
+				_, _ = w.Write([]byte(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03")))
+			default:
+				_, _ = w.Write([]byte(afterRetire))
+			}
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, responses[body.OperationName])))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// #691 round 12 (Codex): the retirement update COMMITTED but its answer was
+// lost. The re-read shows the tag, so the run is a success — never "not
+// retired" for a spec that is.
+func TestSpecSupersedeLostRetireAnswerIsVerified(t *testing.T) {
+	tagged := withSupersededByEdge(`{"data":{"node":`+strings.Replace(cleanSpecDetail, `"tags":["spec","p1","messaging"]`, `"tags":["spec","p1","messaging","superseded"]`, 1)+`}}`, "new1", "msg:010:03")
+	srv := supersedeLostRetireServer(t, tagged)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a retirement the re-read confirms must succeed, got %v", err)
+	}
+	if !strings.Contains(out.String(), `"retired": true`) {
+		t.Errorf("a confirmed retirement must report retired: true:\n%s", out.String())
+	}
+}
+
+// ...and when the re-read fails too, retirement is UNKNOWN: retired is null,
+// not false, and the message says to check for the tag before rerunning.
+func TestSpecSupersedeUnverifiableRetireIsUnknown(t *testing.T) {
+	srv := supersedeLostRetireServer(t, `{"errors":[{"message":"read boom"}]}`)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "whether it was retired is unknown") || !strings.Contains(err.Error(), "hadron spec get msg:010:02") {
+		t.Fatalf("an unverifiable retirement must say so and name the check; got %v", err)
+	}
+	if !strings.Contains(out.String(), `"retired": null`) {
+		t.Errorf("an unverifiable retirement must report retired: null, not false:\n%s", out.String())
+	}
+}
+
 // #691 round 11 (Copilot): the replacement's create got NO ANSWER (a 5xx with
 // no GraphQL envelope, exit 7). It may have committed, edges and all, so the
 // command must not suggest a blind rerun, which would allocate another number:

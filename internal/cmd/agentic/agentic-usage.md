@@ -231,9 +231,13 @@ one, even on a spec already tagged `superseded`, it exits 5 and retires
 nothing.
 
 Edge `status` values are `planned` (dry run), `created`, `failed` and `unknown`.
-The result's `retired` is true only once the old spec has actually been tagged
-`superseded`. Branch on it, not on the edge list: a partial run can have created
-everything and still not retired anything.
+The result's `retired` is `true` only once the old spec has actually been
+tagged `superseded`, `false` when it verifiably was not, and `null` when that
+can't be known (the retirement update got no answer and the re-read failed
+too). Branch on it, not on the edge list: a partial run can have created
+everything and still not retired anything. A retirement update that gets no
+answer is re-read before it is reported, so a committed retirement is never
+reported as `false`.
 
 `spec new`, `spec extract` and `spec supersede` cannot leave a spec without its
 table-of-contents / inheritance edges unless told to: without `--no-edges`

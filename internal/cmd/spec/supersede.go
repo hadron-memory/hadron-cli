@@ -48,8 +48,10 @@ type supersedeResultDTO struct {
 	Edges    []supersedeEdgeDTO `json:"edges"`
 	DryRun   bool               `json:"dryRun"`
 	// Retired is true only once the old spec has actually been tagged
-	// superseded — the thing a partial run did NOT do, whatever it created.
-	Retired bool `json:"retired"`
+	// superseded — the thing a partial run did NOT do, whatever it created —
+	// false when it verifiably was not, and null when that cannot be known
+	// (the retirement update got no answer and the re-read failed too).
+	Retired *bool `json:"retired"`
 }
 
 func newCmdSupersede(f *cmdutil.Factory) *cobra.Command {
@@ -124,7 +126,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				}
 				result := supersedeResultDTO{
 					Old: oldCit.Format(), New: successorLoc, MemoryID: memURN,
-					Name: specName(successorCit, title), Tags: specTags(semanticTags(oldNode.Tags)), DryRun: dryRun,
+					Name: specName(successorCit, title), Tags: specTags(semanticTags(oldNode.Tags)), DryRun: dryRun, Retired: boolRef(false),
 					Edges: []supersedeEdgeDTO{{Label: supersededByLabel, Target: oldCit.Format() + " → " + successorLoc, Status: edgeStatusCreated}},
 				}
 				render := func(w io.Writer) error { return renderSupersede(w, result) }
@@ -135,13 +137,12 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					fmt.Sprintf("Finish retiring %s as superseded by %s?", oldCit.Format(), successorLoc)); err != nil {
 					return err
 				}
-				if rerr := retireSupersededSpec(cmd, client, oldNode, successorLoc, reason); rerr != nil {
+				if retired, rerr := retire(cmd, client, oldNode, successorLoc, reason); rerr != nil {
+					result.Retired = retired
 					_ = output.Write(f.IOStreams, f.JSON, result, render)
-					return exitcode.Newf(exitcode.Error,
-						"%s is already linked to %s but the old spec could not be tagged retired: %v; rerun this command to retry the retirement update",
-						oldCit.Format(), successorLoc, api.MapError(rerr))
+					return retireError(retired, rerr, oldCit.Format(), successorLoc, memURN)
 				}
-				result.Retired = true
+				result.Retired = boolRef(true)
 				fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldCit.Format(), successorLoc)
 				return output.Write(f.IOStreams, f.JSON, result, render)
 			}
@@ -180,7 +181,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 
 			result := supersedeResultDTO{
 				Old: oldCit.Format(), New: newTarget.Format(), MemoryID: memURN,
-				Name: name, Tags: newTags, DryRun: dryRun,
+				Name: name, Tags: newTags, DryRun: dryRun, Retired: boolRef(false),
 			}
 			if parentLoc != "" {
 				result.Edges = append(result.Edges, supersedeEdgeDTO{Label: title, Target: parentLoc, Status: edgeStatusPlanned})
@@ -347,14 +348,13 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			result.Edges[supersededByIdx].Status = edgeStatusCreated
 
 			// 4. Retire the old spec: tag superseded, same loc, append a note.
-			if rerr := retireSupersededSpec(cmd, client, oldNode, newTarget.Format(), reason); rerr != nil {
+			if retired, rerr := retire(cmd, client, oldNode, newTarget.Format(), reason); rerr != nil {
+				result.Retired = retired
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
-				return exitcode.Newf(exitcode.Error,
-					"linked %s to replacement %s but failed to tag/update the old spec as retired: %v; rerun this command to finish the retirement update",
-					oldCit.Format(), newTarget.Format(), api.MapError(rerr))
+				return retireError(retired, rerr, oldCit.Format(), newTarget.Format(), memURN)
 			}
 
-			result.Retired = true
+			result.Retired = boolRef(true)
 			fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldCit.Format(), newTarget.Format())
 			return output.Write(f.IOStreams, f.JSON, result, render)
 		},
@@ -497,6 +497,42 @@ func supersededBySuccessors(n *gen.GetNodeNode) []successor {
 // read (the edge's target resolves null).
 const unreadableSuccessor = "(a successor you cannot read)"
 
+// retire tags the old spec superseded. When the update gets NO ANSWER it may
+// still have committed (#691 review), so the old spec is re-read: tagged means
+// retired. It returns true on success; false (with the error) when the update
+// failed or the re-read shows no tag; nil when neither could be established.
+func retire(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason string) (*bool, error) {
+	err := retireSupersededSpec(cmd, client, oldNode, successorLoc, reason)
+	if err == nil {
+		return boolRef(true), nil
+	}
+	if exitcode.FromError(api.MapError(err)) != exitcode.Unavailable {
+		return boolRef(false), err
+	}
+	resp, rerr := gen.GetNode(cmd.Context(), client, oldNode.Id)
+	if rerr != nil || resp.Node == nil {
+		return nil, err
+	}
+	if hasTag(resp.Node.Tags, supersededTag) {
+		return boolRef(true), nil
+	}
+	return boolRef(false), err
+}
+
+// retireError is the error for a retirement that did not verifiably happen.
+func retireError(retired *bool, err error, oldLoc, successorLoc, memURN string) error {
+	if retired == nil {
+		return exitcode.Newf(exitcode.Error,
+			"linked %s to replacement %s, but the retirement update got no answer (%v) and re-reading %s failed, so whether it was retired is unknown; check `hadron spec get %s -m %s` for the %q tag — if it is missing, rerun this command to finish",
+			oldLoc, successorLoc, api.MapError(err), oldLoc, oldLoc, memURN, supersededTag)
+	}
+	return exitcode.Newf(exitcode.Error,
+		"linked %s to replacement %s but failed to tag the old spec as retired: %v; rerun this command to finish the retirement update",
+		oldLoc, successorLoc, api.MapError(err))
+}
+
+func boolRef(b bool) *bool { return &b }
+
 func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason string) error {
 	note := fmt.Sprintf("\n\n> Superseded by %s.", successorLoc)
 	if reason != "" {
@@ -542,7 +578,9 @@ func renderSupersede(w io.Writer, r supersedeResultDTO) error {
 	switch {
 	case r.DryRun:
 		verb = "would supersede"
-	case r.Retired:
+	case r.Retired == nil:
+		verb = "? retirement unknown:"
+	case *r.Retired:
 		verb = "✓ superseded"
 	}
 	fmt.Fprintf(w, "%s %s → %s — %s\n", verb, r.Old, r.New, r.Name)
