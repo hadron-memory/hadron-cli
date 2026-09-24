@@ -333,6 +333,8 @@ func TestSkillPluginFlagErrors(t *testing.T) {
 		{"--out", " "},
 		{"--out", filepath.Join(h, "d"), "--scope", ""},
 		{"--out", filepath.Join(h, "d"), "--name", ""},
+		{"--out", filepath.Join(h, "d"), "--name", "con"},
+		{"--out", filepath.Join(h, "d"), "--name", "com1"},
 	} {
 		_, _, err := runPlugin(t, srv.URL, args...)
 		wantExit(t, err, 2)

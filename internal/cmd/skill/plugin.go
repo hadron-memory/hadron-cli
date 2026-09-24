@@ -235,6 +235,10 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 		return exitcode.Newf(exitcode.Usage,
 			"--name %q is not a plugin name: use lowercase letters and digits in words joined by hyphens, at most 64 characters", opts.name)
 	}
+	if windowsReserved(opts.name) {
+		return exitcode.Newf(exitcode.Usage,
+			"--name %q is a Windows device name, which no Windows filesystem can hold as a file or directory: choose another", opts.name)
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return exitcode.Newf(exitcode.Error, "cannot locate your home directory: %v", err)
