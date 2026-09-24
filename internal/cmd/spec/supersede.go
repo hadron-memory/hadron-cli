@@ -89,9 +89,6 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			if oldCit.Level() < 3 {
 				return exitcode.Newf(exitcode.Usage, "only a numbered rule/flow spec can be superseded, not %q", oldNode.Loc)
 			}
-			if hasTag(oldNode.Tags, supersededTag) {
-				return exitcode.Newf(exitcode.Usage, "%q is already superseded", oldNode.Loc)
-			}
 			if successors := supersededByTargets(oldNode); len(successors) > 1 {
 				// Two replacements claim this spec (a concurrent supersede). Finishing
 				// would retire it in favour of whichever edge happens to be listed
@@ -100,7 +97,15 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					"%s is superseded by more than one replacement (%s), so it was not retired; keep one, remove the other %q edge(s), then rerun this command",
 					oldCit.Format(), strings.Join(successors, ", "), supersededByLabel)
 			}
+			if hasTag(oldNode.Tags, supersededTag) {
+				return exitcode.Newf(exitcode.Usage, "%q is already superseded", oldNode.Loc)
+			}
 			if successorLoc, ok := existingSupersededByTarget(oldNode); ok {
+				if successorLoc == unreadableSuccessor {
+					return exitcode.Newf(exitcode.NotFound,
+						"%s has a %q edge to a replacement you cannot read, so it was not retired; ask someone who can read it to finish",
+						oldCit.Format(), supersededByLabel)
+				}
 				successorCit, err := ParseCitation(successorLoc)
 				if err != nil {
 					return err
@@ -278,8 +283,16 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				return exitcode.Newf(exitcode.Error,
 					"linked %s to replacement %s but could not re-read %s to confirm it is the only successor (%v), so it was not retired; rerun this command to finish",
 					oldCit.Format(), newTarget.Format(), oldCit.Format(), api.MapError(lerr))
+			case cerr == nil && !landed:
+				// Written, but the re-read doesn't show it (a stale read?). Retire
+				// only on a VERIFIED link, so stop; a rerun re-reads first.
+				result.Edges[supersededByIdx].Status = edgeStatusCreated
+				_ = output.Write(f.IOStreams, f.JSON, result, render)
+				return exitcode.Newf(exitcode.Error,
+					"linked %s to replacement %s, but re-reading %s did not show that link yet, so it was not retired; rerun this command to finish",
+					oldCit.Format(), newTarget.Format(), oldCit.Format())
 			case cerr == nil:
-				// Written, and verified the sole successor: retire below.
+				// Written, seen, and the sole successor: retire below.
 			case lerr == nil && landed:
 				// The create errored but committed; carry on and finish.
 			case lerr == nil:
@@ -378,14 +391,11 @@ func supersededByState(cmd *cobra.Command, client graphql.Client, oldID, success
 	if resp.Node == nil {
 		return false, "", exitcode.Newf(exitcode.NotFound, "node %s not found", oldID)
 	}
-	for _, e := range resp.Node.OutgoingEdges {
-		if e == nil || e.Target == nil || edgeNameStr(e.Name) != supersededByLabel {
-			continue
-		}
-		if e.Target.Loc == successorLoc {
+	for _, loc := range supersededByTargets(resp.Node) {
+		if loc == successorLoc {
 			landed = true
 		} else {
-			other = e.Target.Loc
+			other = loc
 		}
 	}
 	return landed, other, nil
@@ -399,19 +409,32 @@ func existingSupersededByTarget(n *gen.GetNodeNode) (string, bool) {
 }
 
 // supersededByTargets lists the distinct successors a spec's superseded-by
-// edges point at, in edge order.
+// edges point at, in edge order. A target the caller cannot read comes back
+// null; it is still a successor, listed as unreadableSuccessor, never skipped —
+// a hidden competitor must block retirement, not vanish from the count.
 func supersededByTargets(n *gen.GetNodeNode) []string {
 	var out []string
 	seen := map[string]bool{}
 	for _, e := range n.OutgoingEdges {
-		if e == nil || e.Target == nil || edgeNameStr(e.Name) != supersededByLabel || seen[e.Target.Loc] {
+		if e == nil || edgeNameStr(e.Name) != supersededByLabel {
 			continue
 		}
-		seen[e.Target.Loc] = true
-		out = append(out, e.Target.Loc)
+		loc := unreadableSuccessor
+		if e.Target != nil {
+			loc = e.Target.Loc
+		}
+		if seen[loc] {
+			continue
+		}
+		seen[loc] = true
+		out = append(out, loc)
 	}
 	return out
 }
+
+// unreadableSuccessor stands in for a superseded-by target the caller cannot
+// read (the edge's target resolves null).
+const unreadableSuccessor = "(a successor you cannot read)"
 
 func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason string) error {
 	note := fmt.Sprintf("\n\n> Superseded by %s.", successorLoc)
