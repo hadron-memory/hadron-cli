@@ -61,6 +61,11 @@ func TestSpecGetAddressesAnyValidLoc(t *testing.T) {
 			if !strings.Contains(out.String(), `"citation": "`+loc+`"`) {
 				t.Errorf("output does not name %q:\n%s", loc, out.String())
 			}
+			// Its lint summary carries no shape finding: the loc is valid
+			// (@copilot on #710).
+			if strings.Contains(out.String(), "loc-shape") {
+				t.Errorf("a valid loc was linted as malformed:\n%s", out.String())
+			}
 		})
 	}
 }

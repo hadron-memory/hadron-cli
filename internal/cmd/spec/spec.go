@@ -37,15 +37,18 @@ func NewCmdSpec(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Maintain product specs (loc-as-citation nodes)",
 		Long: `Maintain product specs in a Hadron memory.
 
-A spec's loc IS its citation number — a legal-code-style address
-<module>:<feature>:<rule>:<flow> (e.g. msg:010:02:03) where each colon
-level is a real parent/child node. A ` + "`register`" + ` node in the memory
-holds the frozen 3-letter module codes and the append-only number ledger.
+A spec is a node tagged spec, and its loc is its citation. Any valid node
+loc works, at any depth and in any shape: create one with
+"spec new <loc> --title <title>".
 
-Specs follow a fixed rubric (a mandatory abstract + a "What invalidates
-this spec" section) and numbers are never renumbered — to replace a spec
-you supersede it. These commands encode that discipline on top of the
-generic node/edge primitives. Every subcommand takes -m/--memory.`,
+Some corpora use a legacy numbering, <module>:<feature>:<rule>:<flow>
+(e.g. msg:010:02:03), with a register node holding its module codes and
+number ledger. "spec new"'s allocation flags, "spec register" and "spec
+extract" work in that numbering; nothing else requires it.
+
+A spec is never renumbered or deleted: to replace one you supersede it.
+These commands encode that on top of the generic node/edge primitives.
+Every subcommand takes -m/--memory.`,
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))

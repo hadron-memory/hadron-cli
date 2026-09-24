@@ -317,10 +317,11 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 		return fs
 	}
 
+	// #708: a loc outside the legacy numbering is valid, so there is no
+	// `loc-shape` finding any more (@copilot on #710: `spec get` and a replace
+	// re-lint reported one for every such spec). ParseCitation only decides
+	// whether the legacy tier rules below apply at all.
 	c, err := ParseCitation(n.Loc)
-	if err != nil {
-		add("loc-shape", sevError, "loc is not a valid citation: "+err.Error())
-	}
 
 	// #527: put every URN example's decomposition on screen, beside the prose
 	// that claims a shape. Advisory only — see lint_urn.go for why this rule

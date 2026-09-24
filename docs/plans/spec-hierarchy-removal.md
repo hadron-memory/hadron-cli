@@ -128,11 +128,12 @@ the one the server enforces. What's still refused:
 
 ### B. Lint: planned
 
-Remove the rules whose only basis is the tier grammar:
+Remove the rules whose only basis is the tier grammar. (`loc-shape`, the
+grammar itself, went early, in cli#710: with any loc valid, `spec get` and a
+`replace` re-lint reported it for every spec outside the numbering.)
 
 | Rule | Severity | Basis |
 |---|---|---|
-| `loc-shape` | error | the grammar itself |
 | `parent-exists` | error | a mandatory tier parent |
 | `toc-edge` | warning | a mandatory edge to the tier parent |
 | `inheritance-edge` | warning | the tier contract |
