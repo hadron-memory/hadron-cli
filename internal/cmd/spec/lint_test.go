@@ -1332,3 +1332,63 @@ func TestWhitespaceOnlyBodyIsStillContent(t *testing.T) {
 		t.Errorf("a whitespace-only body is still content to verify against, got %v", got)
 	}
 }
+
+// ---- #708: lint reads every spec, whatever its loc ----
+
+// What a lint scan reads: every spec (tag or role) at any loc, plus an untagged
+// citation-shaped node so the missing-tag finding still reaches it (#241). A
+// spec outside the legacy numbering is no longer dropped (@codex on #710).
+func TestLintSelectsEverySpec(t *testing.T) {
+	role := api.SpecNodeRole
+	for _, c := range []struct {
+		name string
+		n    api.ListNode
+		want bool
+	}{
+		{"tagged, legacy", api.ListNode{Loc: "msg:010:02", Tags: []string{"spec"}}, true},
+		{"tagged, any loc", api.ListNode{Loc: "onboarding:mentor:screens", Tags: []string{"spec"}}, true},
+		{"role only, any loc", api.ListNode{Loc: "glossary", Role: &role}, true},
+		{"untagged, legacy-shaped (missing-tag finding)", api.ListNode{Loc: "msg:010:03"}, true},
+		{"untagged, any other loc (not a spec)", api.ListNode{Loc: "register"}, false},
+	} {
+		if got := lintSelects(&c.n); got != c.want {
+			t.Errorf("%s: lintSelects = %v, want %v", c.name, got, c.want)
+		}
+	}
+	all := []*api.ListNode{{Loc: "onboarding:mentor", Tags: []string{"spec"}}, {Loc: "register"}, nil}
+	if got := citationListNodes(all); len(got) != 1 || got[0].Loc != "onboarding:mentor" {
+		t.Errorf("citationListNodes = %v, want only the spec outside the numbering", got)
+	}
+}
+
+// Two nodes at one loc is a defect at any loc, not only a legacy one.
+func TestDuplicateLocAtAnyLoc(t *testing.T) {
+	n := specNode{Loc: "onboarding:mentor", Name: "onboarding:mentor — M", NodeType: "info", Tags: []string{"spec"}}
+	if !hasRuleFor(lintCorpus([]specNode{n, n}, "", lintMem), "onboarding:mentor", "duplicate-loc") {
+		t.Error("a duplicated loc outside the numbering must be reported")
+	}
+}
+
+// A near-cap abstract on a spec outside the numbering gets the generic split
+// remedy, never legacy index or contract guidance built from an empty
+// Citation (@copilot on #710).
+func TestNearCapAtAnyLocIsNotTierAdvice(t *testing.T) {
+	sn := specNode{Loc: "onboarding:mentor", Name: "onboarding:mentor — Mentors", NodeType: "info", Tags: []string{"spec"}}
+	abs := strings.Repeat("a", abstractHardMax-10)
+	sn.Abstract = &abs
+	var msg string
+	for _, f := range lintNode(sn, "") {
+		if f.Rule == "abstract-length" {
+			msg = f.Message
+		}
+	}
+	if msg == "" {
+		t.Fatal("the hard cap binds every spec, so a near-cap abstract must be reported")
+	}
+	if strings.Contains(msg, indexRemedy(Citation{})) || strings.Contains(msg, contractRemedy) {
+		t.Errorf("tier advice for a loc with no tier: %q", msg)
+	}
+	if !strings.Contains(msg, splitRemedy) {
+		t.Errorf("want the generic split remedy: %q", msg)
+	}
+}

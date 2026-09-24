@@ -378,7 +378,7 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	// ADVISORY soft bound tiers down.
 	if abstractPresent(n.Abstract) {
 		if l := abstractLength(n.Abstract); abstractNearCap(l) {
-			add("abstract-length", sevError, nearCapMessage(l, n.Name, c))
+			add("abstract-length", sevError, nearCapMessage(l, n.Name, c, err == nil))
 		}
 	}
 
@@ -551,13 +551,15 @@ func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 		if n.Unavailable {
 			continue
 		}
-		c, err := ParseCitation(n.Loc)
-		if err != nil {
-			continue
-		}
+		// Any loc can be duplicated, so this is checked for every node, ahead
+		// of the legacy parse the tier rules below need (#708).
 		if locCount[n.Loc] > 1 && !dupReported[n.Loc] {
 			dupReported[n.Loc] = true
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "duplicate-loc", Severity: sevError, Message: "duplicate citation — two nodes share this loc"})
+		}
+		c, err := ParseCitation(n.Loc)
+		if err != nil {
+			continue
 		}
 		if p, ok := c.Parent(); ok {
 			pLoc := p.Format()
@@ -728,11 +730,24 @@ func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix 
 		if n.Loc != prefix && !strings.HasPrefix(n.Loc, prefix+":") {
 			continue // keep the scan scoped to the requested subtree
 		}
-		if _, err := ParseCitation(n.Loc); err == nil {
+		if lintSelects(n) {
 			nodes = append(nodes, n)
 		}
 	}
 	return fetchDetails(cmd, client, nodes)
+}
+
+// lintSelects is what a lint scan reads (#708): every spec (the tag or the
+// spec role), at ANY loc, plus an untagged citation-shaped node, so the
+// missing-spec-tag finding still reaches a legacy spec that lost its tag
+// (#241). A spec outside the legacy numbering used to be dropped here, so a
+// corpus lint came back clean without ever checking it (@codex on #710).
+func lintSelects(n *api.ListNode) bool {
+	if isSpec(n.Tags, n.Role) {
+		return true
+	}
+	_, err := ParseCitation(n.Loc)
+	return err == nil
 }
 
 // scanAllSpecsDetail reads every citation-shaped node in the memory with full
@@ -772,10 +787,7 @@ func scanAllCitationLocs(cmd *cobra.Command, client graphql.Client, memURN strin
 func citationListNodes(all []*api.ListNode) []*api.ListNode {
 	nodes := make([]*api.ListNode, 0, len(all))
 	for _, n := range all {
-		if n == nil {
-			continue
-		}
-		if _, err := ParseCitation(n.Loc); err == nil {
+		if n != nil && lintSelects(n) {
 			nodes = append(nodes, n)
 		}
 	}
@@ -1186,15 +1198,19 @@ func indexRemedy(c Citation) string {
 		tier, children)
 }
 
-func nearCapMessage(l int, title string, c Citation) string {
+func nearCapMessage(l int, title string, c Citation, legacy bool) string {
 	// One decision, two consequences. The conjunction hint below is SPLIT-SHAPED,
 	// so it must be tied to the remedy actually chosen rather than re-derived
 	// from the tier — deriving it separately is how a contract ended up being
 	// told that the "and" in its title suggested a split it had just been told
 	// it could not perform (caught by TestConjunctionHintIsRuleTierOnly when
 	// contracts were excluded from indexTier).
+	// The contract and index remedies are legacy-TIER advice, so only a legacy
+	// citation gets them; any other loc gets the generic split remedy, never
+	// index guidance for a zero-value Citation (@copilot on #710).
 	remedy, splitShaped := splitRemedy, true
 	switch {
+	case !legacy:
 	case c.IsContract():
 		remedy, splitShaped = contractRemedy, false
 	case indexTier(c):

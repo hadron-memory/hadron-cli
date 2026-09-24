@@ -128,9 +128,17 @@ the one the server enforces. What's still refused:
 
 ### B. Lint: planned
 
-Remove the rules whose only basis is the tier grammar. (`loc-shape`, the
-grammar itself, went early, in cli#710: with any loc valid, `spec get` and a
-`replace` re-lint reported it for every spec outside the numbering.)
+Remove the rules whose only basis is the tier grammar. Three lint changes
+went early, in cli#710, because a spec outside the numbering had to be read and
+reported correctly as soon as it was addressable:
+- `loc-shape`, the grammar itself. `spec get` and a `replace` re-lint reported
+  it for every such spec.
+- **Lint's scan selection.** `lint --all/--prefix` read only citation-shaped
+  nodes, so a corpus lint came back clean without ever checking a spec outside
+  the numbering. It now reads every spec by tag or role, plus an untagged
+  citation-shaped node for the missing-tag finding (#241).
+- **`duplicate-loc` at any loc**, and a near-cap abstract on a non-legacy loc
+  gets the generic split remedy instead of index advice.
 
 | Rule | Severity | Basis |
 |---|---|---|
