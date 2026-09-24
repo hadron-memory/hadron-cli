@@ -190,16 +190,17 @@ func TestSpecGet(t *testing.T) {
 	}
 }
 
-// The fuzzy `find` path admits citation-shaped nodes carrying no tags at all
-// (isSpecNode's second branch), and their tags must render as `[]`, never
-// `null` (#312). The `get` paths pin the spec tag — server-side for --prefix,
-// via fetchSpecTaggedNode for a citation — so they can't reach a nil slice
-// today; specDetailFromNode normalizes defensively, covered by the unit test in
-// the spec package.
+// The fuzzy `find` path admits a spec carrying the governed role and no tags
+// at all (isSpec's second branch, #708), and its tags must render as `[]`,
+// never `null` (#312). The `get` paths pin the spec tag — server-side for
+// --prefix, via fetchSpecTaggedNode for a citation — so they can't reach a nil
+// slice today; specDetailFromNode normalizes defensively, covered by the unit
+// test in the spec package.
 func TestSpecFindJSONEmptyTagsRenderAsList(t *testing.T) {
+	roleOnly := strings.Replace(specNodeListNode("id-1", "msg:010:02", `null`, "mem1"), `"tags":null`, `"tags":null,"role":"spec"`, 1)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes": `{"data":{"nodeSearch":{"degraded":null,"reason":null,"nodes":[` +
-			specNodeListNode("id-1", "msg:010:02", `null`, "mem1") + `]}}}`,
+			roleOnly + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -212,12 +213,18 @@ func TestSpecFindJSONEmptyTagsRenderAsList(t *testing.T) {
 	}
 }
 
+// #708: the only shape rule for a spec address is the generic loc rule. A loc
+// that breaks it is refused before any request (the unreachable server proves
+// nothing was sent); `register` is a valid loc now, and a non-spec node there
+// is refused by TestSpecGetRejectsNonSpecNode instead.
 func TestSpecGetRejectsMalformedCitation(t *testing.T) {
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "get", "register", "-m", specMem, "--server", "http://127.0.0.1:1"})
-	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
-		t.Fatalf("malformed spec citation should be Usage, got %d", got)
+	for _, bad := range []string{"msg::010", "has space", ":lead", "trail:"} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"spec", "get", bad, "-m", specMem, "--server", "http://127.0.0.1:1"})
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+			t.Errorf("%q: a loc that breaks the generic rule should be Usage, got %d", bad, got)
+		}
 	}
 }
 

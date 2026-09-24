@@ -101,9 +101,6 @@ exits 0.`,
 				if n == nil {
 					continue
 				}
-				if _, perr := ParseCitation(n.Loc); perr != nil {
-					continue
-				}
 				ids = append(ids, n.Id)
 				locByID[n.Id] = n.Loc
 			}

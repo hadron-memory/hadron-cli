@@ -141,9 +141,6 @@ example, leave an abstract out of sync with its content.`,
 				if n == nil {
 					continue
 				}
-				if _, perr := ParseCitation(n.Loc); perr != nil {
-					continue
-				}
 				specIDs = append(specIDs, n.Id)
 				if isGovernedKind(n.Role, n.IsRunnable) {
 					governed++

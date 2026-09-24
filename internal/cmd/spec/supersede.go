@@ -86,7 +86,13 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				return err
 			}
 
-			oldNode, oldCit, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
+			oldNode, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
+			if err != nil {
+				return err
+			}
+			// Legacy adapter until #708 slice C: successor allocation is legacy
+			// numbering, so supersede still needs the old grammar here.
+			oldCit, err := ParseCitation(oldNode.Loc)
 			if err != nil {
 				return err
 			}

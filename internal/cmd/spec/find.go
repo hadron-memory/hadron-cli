@@ -78,8 +78,8 @@ Results are filtered to spec nodes.`,
 			// keyword, degrading to keyword on a vector-less memory). Only the
 			// exact path pins a server-side tag filter (spec + any --tag), as
 			// the old `nodes`-backed path did — the fuzzy path scopes to specs
-			// client-side via isSpecNode so citation-shaped nodes without the
-			// `spec` tag aren't dropped.
+			// client-side via isSpec (the tag or the governed role, never the
+			// loc's shape, #708).
 			mode := gen.FindNodesModeHybrid
 			var tagFilter []string
 			if matchExactly {
@@ -145,7 +145,7 @@ func collectSpecFindResults(
 			reason = page.Reason
 		}
 		for _, n := range page.Nodes {
-			if n == nil || !isSpecNode(n.Tags, n.Loc) {
+			if n == nil || !isSpec(n.Tags, n.Role) {
 				continue
 			}
 			specs = append(specs, specDTO{Citation: n.Loc, MemoryID: n.MemoryId, Name: n.Name, NodeType: n.NodeType, Tags: tagsOrEmpty(n.Tags), UpdatedAt: n.UpdatedAt})
@@ -161,16 +161,6 @@ func collectSpecFindResults(
 		}
 	}
 	return specs, degraded, reason, nil
-}
-
-// isSpecNode reports whether a search hit is a spec: it carries the spec
-// tag or its loc is a valid citation.
-func isSpecNode(tags []string, loc string) bool {
-	if hasTag(tags, "spec") {
-		return true
-	}
-	_, err := ParseCitation(loc)
-	return err == nil
 }
 
 func degradedNote(degraded, reason *string) string {

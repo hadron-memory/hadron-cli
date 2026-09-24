@@ -1005,11 +1005,17 @@ Conventions:
   memory ref is an id or URN; `add`/`create` upsert; `member rm` / `share rm`
   / `subscription rm` require `--yes` non-interactively. Find user IDs via
   `org member list` or `auth whoami`.
-- `spec` manages product-spec nodes whose loc IS a citation number. A memory
-  is either flat (`<module>:<feature>:<rule>[:<flow>]`, e.g. `msg:010:02`) or
-  product-rooted (`<product>:<module>:<feature>:<rule>[:<flow>]`, e.g.
-  `cli:cha:010:01`) — never both. Each tier has a reserved general-provisions
-  contract its siblings inherit: feature `:00`, module `:000`, product `:gen`.
+- `spec` manages product-spec nodes: a node is a spec when it carries the
+  `spec` tag (or the governed spec role), and its loc is its citation. **Any
+  valid node loc works, at any depth and in any shape (#708)**: `get`, `list`,
+  `edit`, `link`, `find`, `grep`, `replace` and `check-tools` check only the
+  generic loc rule (colon-separated slug segments), and never drop a spec from
+  a listing for its shape. Some corpora use a legacy numbering — flat
+  (`<module>:<feature>:<rule>[:<flow>]`, e.g. `msg:010:02`) or product-rooted
+  (`<product>:<module>:<feature>:<rule>[:<flow>]`, e.g. `cli:cha:010:01`), with
+  reserved general-provisions contracts (feature `:00`, module `:000`, product
+  `:gen`). That numbering is what `spec new`'s allocation and contract flags
+  produce; it is a convention, not a rule other commands enforce.
   It takes `-m/--memory` and addresses specs by bare citation, not a full URN.
   `spec get` shows one citation, or `--prefix <prefix>` dumps every spec under
   a branch (feature/module/product) with the same per-node detail, paged to

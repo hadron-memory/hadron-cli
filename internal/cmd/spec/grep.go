@@ -89,9 +89,6 @@ token appears — including inside longer tokens — then rewrite precisely with
 				if n == nil {
 					continue
 				}
-				if _, perr := ParseCitation(n.Loc); perr != nil {
-					continue // skip any non-citation-shaped node
-				}
 				ids = append(ids, n.Id)
 			}
 			// Nothing to read — skip the nodeBatch round-trip entirely.

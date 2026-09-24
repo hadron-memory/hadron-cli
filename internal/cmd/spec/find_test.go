@@ -40,7 +40,8 @@ func TestCollectSpecFindResultsLimitsAfterSpecFiltering(t *testing.T) {
 			return &api.FindNodesPage{
 				Nodes: []*api.ListNode{
 					findNode("msg:010:01", "spec"),
-					findNode("msg:010:02"),
+					findNode("msg:010:02"),                              // citation-shaped but untagged: not a spec (#708)
+					findNode("app:onb:010:02:screens:settings", "spec"), // any shape (#708)
 					findNode("another-note", "misc"),
 				},
 			}, nil
@@ -55,8 +56,8 @@ func TestCollectSpecFindResultsLimitsAfterSpecFiltering(t *testing.T) {
 	if calls != 2 {
 		t.Fatalf("calls = %d, want 2", calls)
 	}
-	if len(got) != 2 || got[0].Citation != "msg:010:01" || got[1].Citation != "msg:010:02" {
-		t.Fatalf("got specs %+v, want msg:010:01 and untagged citation msg:010:02", got)
+	if len(got) != 2 || got[0].Citation != "msg:010:01" || got[1].Citation != "app:onb:010:02:screens:settings" {
+		t.Fatalf("got specs %+v, want the two tagged specs, whatever their shape, and not the untagged citation", got)
 	}
 }
 
@@ -108,11 +109,26 @@ func TestCollectSpecFindResultsCapsRawPageSize(t *testing.T) {
 	}
 }
 
-func TestIsSpecNodeSemanticIncludesUntaggedCitation(t *testing.T) {
-	if !isSpecNode(nil, "msg:010:02") {
-		t.Fatal("semantic spec filtering should include citation-shaped untagged nodes")
-	}
-	if isSpecNode(nil, "register") {
-		t.Fatal("non-citation nodes without the spec tag must be filtered out")
+// #708: what makes a node a spec is its tag or its governed role, never the
+// shape of its loc. An untagged node at a legacy-shaped loc is not a spec, and
+// a tagged node at any shape is.
+func TestIsSpecIgnoresLocShape(t *testing.T) {
+	role := api.SpecNodeRole
+	other := "review"
+	for _, c := range []struct {
+		name string
+		tags []string
+		role *string
+		want bool
+	}{
+		{"tagged", []string{"spec"}, nil, true},
+		{"governed role only", nil, &role, true},
+		{"untagged, no role", nil, nil, false},
+		{"another governed role", nil, &other, false},
+		{"other tags only", []string{"draft"}, nil, false},
+	} {
+		if got := isSpec(c.tags, c.role); got != c.want {
+			t.Errorf("%s: isSpec = %v, want %v", c.name, got, c.want)
+		}
 	}
 }

@@ -108,7 +108,7 @@ type specDTO struct {
 // `null`, but the --json contract says an empty list renders as `[]`. Every
 // spec DTO carrying tags goes through this. Only `find`'s fuzzy branch can
 // actually deliver a tagless node — it scopes to specs client-side via
-// isSpecNode, which accepts a citation-shaped loc with no tags at all. The
+// isSpec, which accepts a spec that carries the governed role and no tags. The
 // `get` paths pin the spec tag (server-side for --prefix, fetchSpecTaggedNode
 // for a citation), so there it is defence for a future caller that doesn't
 // (#312).
@@ -931,22 +931,57 @@ func fetchSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc str
 	return resp.Node, nil
 }
 
-// fetchSpecTaggedNode resolves a citation, reads the node, and requires it to
-// be part of the spec corpus. Lint and register intentionally use the generic
-// fetchSpecNode path because they validate malformed or advisory nodes.
-func fetchSpecTaggedNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetNodeNode, Citation, error) {
-	cit, err := ParseCitation(loc)
+// ---- spec addressing (#708) ----
+
+// validateSpecLoc is the ONLY shape check a spec address gets: the generic node
+// loc rule every node in every memory obeys (colon-separated slug atoms), which
+// is also the server's only loc rule (server#1312 audit, team chat #1483).
+//
+// It replaced ParseCitation at every address a user types (#708). The legacy
+// grammar — a 3-letter module, 3-digit feature, 2-digit rule and flow, at most
+// five segments — is no longer a validity rule: a spec may sit at any depth and
+// any shape. ParseCitation survives only inside the legacy authoring adapters
+// (allocation, contracts, the register), which are optional conveniences for
+// corpora that still use that numbering, never a gate on reading or writing a
+// node that does not.
+func validateSpecLoc(loc string) (string, error) {
+	loc = strings.TrimSpace(loc)
+	if err := cmdutil.ValidateURNPath("citation", loc); err != nil {
+		return "", err
+	}
+	return loc, nil
+}
+
+// isSpec reports whether a node belongs to the spec corpus: the `spec` tag, or
+// the governed spec role (#1201). Never the loc's shape (#708).
+//
+// The tag is the working marker. Measured on 2026-09-24 over both production
+// spec corpora (hadronmemory.com:specs, 369 nodes; micromentor.org:specs, 229),
+// it marks exactly the nodes the old citation-shape filter kept — no spec
+// untagged, no tagged node that was not a spec — while the role alone marks 1
+// of 219 Micromentor specs. The role is accepted as well because it is what the
+// server governs by; the corpus SCANS still filter on the tag server-side,
+// since NodeFilter has no role facet (see docs/plans/spec-hierarchy-removal.md).
+func isSpec(tags []string, role *string) bool {
+	return hasTag(tags, "spec") || (role != nil && *role == api.SpecNodeRole)
+}
+
+// fetchSpecTaggedNode validates an address, reads the node, and requires it to
+// be part of the spec corpus (isSpec). Lint and register intentionally use the
+// generic fetchSpecNode path because they validate malformed or advisory nodes.
+func fetchSpecTaggedNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetNodeNode, error) {
+	loc, err := validateSpecLoc(loc)
 	if err != nil {
-		return nil, Citation{}, err
+		return nil, err
 	}
-	n, err := fetchSpecNode(cmd, client, memoryURN, cit.Format())
+	n, err := fetchSpecNode(cmd, client, memoryURN, loc)
 	if err != nil {
-		return nil, Citation{}, err
+		return nil, err
 	}
-	if !hasTag(n.Tags, "spec") {
-		return nil, Citation{}, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag)", n.Loc)
+	if !isSpec(n.Tags, n.Role) {
+		return nil, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag or spec role)", n.Loc)
 	}
-	return n, cit, nil
+	return n, nil
 }
 
 // fetchRegister reads the memory's `register` node (advisory; not a spec).

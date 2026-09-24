@@ -25,7 +25,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Show a spec node: its abstract, edges, body, and a lint summary.
 
 Pass a single <citation>, or --prefix <citation-prefix> to dump every spec
-under that prefix (one feature, one module, or the whole product) with the
+under that prefix (any branch of the loc tree, at any depth) with the
 same per-node detail — a client-side fan-out over the existing reads, handy
 for reviewing or context-stuffing a whole branch in one call. By default every
 spec under the prefix is fetched (the listing is paged to exhaustion); pass
@@ -62,7 +62,7 @@ one object for a single citation, an array for --prefix.`,
 
 			// Single citation — behavior unchanged.
 			if prefix == "" {
-				n, _, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
+				n, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
 				if err != nil {
 					return err
 				}
@@ -122,9 +122,6 @@ one object for a single citation, an array for --prefix.`,
 			for _, n := range listed {
 				if n == nil {
 					continue
-				}
-				if _, perr := ParseCitation(n.Loc); perr != nil {
-					continue // only citation-shaped nodes are specs
 				}
 				ids = append(ids, n.Id)
 			}

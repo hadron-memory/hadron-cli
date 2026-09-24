@@ -19,8 +19,9 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List spec nodes in a memory",
 		Long: `List spec nodes, optionally scoped to a loc prefix.
 
---prefix filters by the citation prefix, e.g. --prefix msg lists one
-module, --prefix msg:010 one feature and its rules/flows.
+--prefix filters by the citation prefix: --prefix msg:010 lists every spec
+whose loc is msg:010 or starts with msg:010:, at any depth. Every node tagged
+spec is listed, whatever the shape of its loc.
 
 By default every matching spec is listed (the query is paged to
 exhaustion). Pass --limit (with optional --offset) to fetch a single
@@ -81,9 +82,6 @@ explicit page instead.`,
 			for _, n := range rawNodes {
 				if n == nil {
 					continue
-				}
-				if _, err := ParseCitation(n.Loc); err != nil {
-					continue // only citation-shaped nodes are specs
 				}
 				specs = append(specs, specDTO{
 					Citation:  n.Loc,
