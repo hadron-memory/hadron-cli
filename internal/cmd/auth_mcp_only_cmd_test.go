@@ -342,3 +342,36 @@ func TestAuthStatusReportsAnUnsupportedScope(t *testing.T) {
 		t.Errorf("human status:\n%s", got)
 	}
 }
+
+// auth token validate on an unsupported-scope key (#698 review, Copilot):
+// rejectedReason in --json and its own human text, never "invalid, revoked,
+// or expired".
+func TestAuthTokenValidateReportsAnUnsupportedScope(t *testing.T) {
+	body := `{"errors":[{"message":"Context creation failed: This OAuth credential carries a scope this server does not support (telepathy), so it is refused everywhere. Sign in again to get a credential with supported scopes.","extensions":{"code":"FORBIDDEN","reason":"OAUTH_SCOPE_UNSUPPORTED","requiredScope":"account","grantedScopes":["mcp","telepathy"],"unsupportedScopes":["telepathy"]}}]}`
+	gql := graphQLAlways(t, http.StatusForbidden, body)
+	for _, asJSON := range []bool{true, false} {
+		f, out := testFactory(t)
+		f.IOStreams.In = strings.NewReader("hdr_user_unsupported\n")
+		args := []string{"auth", "token", "validate", "--server", gql.URL}
+		if asJSON {
+			args = append(args, "--json")
+		}
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		err := root.Execute()
+		if code := exitCodeFor(err); code != exitcode.AuthRequired {
+			t.Fatalf("json=%v: exit code = %d: %v", asJSON, code, err)
+		}
+		got := out.String()
+		if asJSON {
+			var dto map[string]any
+			if jerr := json.Unmarshal([]byte(got), &dto); jerr != nil || dto["valid"] != false || dto["rejectedReason"] != "unsupported-scope" {
+				t.Errorf("json: %v %s", jerr, got)
+			}
+			continue
+		}
+		if !strings.Contains(got, "does not support") || strings.Contains(got, "invalid, revoked, or expired") {
+			t.Errorf("human output:\n%s", got)
+		}
+	}
+}

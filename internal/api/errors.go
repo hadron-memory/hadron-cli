@@ -254,12 +254,12 @@ func MapError(err error) error {
 // production (#681 reopened). The resolver-level refusal arrives unprefixed.
 // Both shapes are pinned in the tests.
 //
-// Matching server PROSE is a stopgap, and a deliberate one (#681): the refusal
-// carries only the generic FORBIDDEN, so its wording is the only thing that
-// tells it apart from every other permission boundary. Both halves must match —
-// the code keeps a stray sentence in some other error from qualifying — and if
-// the server ever rewords it, detection fails safe: the error falls back to
-// the plain FORBIDDEN mapping it had before, with no false remedy.
+// The sentence is now only the FALLBACK. Since server#1306 every scope refusal
+// carries extensions.reason, which OAuthScopeRefusal reads first; the prose is
+// matched only when no reason is sent (a server that predates #1306). Even
+// then both halves must match — FORBIDDEN and the sentence — so a stray
+// sentence in some other error cannot qualify, and a reworded sentence fails
+// safe: the plain FORBIDDEN mapping, with no false remedy.
 const mcpOnlyRefusal = "This OAuth credential is limited to the MCP surface"
 
 // apolloContextFailurePrefix is what Apollo 4 prepends to an error thrown from
