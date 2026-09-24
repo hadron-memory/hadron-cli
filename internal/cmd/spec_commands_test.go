@@ -2463,7 +2463,7 @@ func TestSpecSupersedeConcurrentSuccessorIsAConflict(t *testing.T) {
 		`"outgoingEdges":[{"id":"e9","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:07","isRunnable":false,"priority":0,"target":{"id":"n7","loc":"msg:010:07","memoryId":"mem1"}}],` +
 		`"incomingEdges":[]}}}`
 	gql, captured := supersedeLostEdgeServer(t, other)
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
 	err := root.Execute()
@@ -2475,6 +2475,15 @@ func TestSpecSupersedeConcurrentSuccessorIsAConflict(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "spec link") {
 		t.Errorf("a conflict must prescribe no second link; got %v", err)
+	}
+	// The create ERRORED, and the re-read doesn't show this run's edge: that is
+	// not confirmed absence (it may have committed behind a stale read), so it
+	// must not claim `failed` or that nothing was written (#691 round 11).
+	if strings.Contains(err.Error(), "no second") || !strings.Contains(err.Error(), "may or may not exist") {
+		t.Errorf("an unconfirmed edge must not be reported absent; got %v", err)
+	}
+	if !strings.Contains(out.String(), `"status": "unknown"`) {
+		t.Errorf("an unconfirmed edge must report status unknown:\n%s", out.String())
 	}
 	if _, retired := captured["UpdateSpecNode"]; retired {
 		t.Error("the old spec was retired in favour of the losing replacement")

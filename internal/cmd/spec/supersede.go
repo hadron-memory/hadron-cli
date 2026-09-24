@@ -276,7 +276,10 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				// A create that SUCCEEDED is this run's edge even when a stale
 				// re-read doesn't show it yet, so never report it as unwritten.
 				wrote := landed || cerr == nil
-				result.Edges[supersededByIdx].Status = edgeStatusFailed
+				// An ERRORED create the re-read doesn't show is not confirmed
+				// absent: it may have committed behind a stale read. So it is
+				// `unknown`, never `failed` (#691 review).
+				result.Edges[supersededByIdx].Status = edgeStatusUnknown
 				if wrote {
 					result.Edges[supersededByIdx].Status = edgeStatusCreated
 				}
@@ -287,8 +290,9 @@ afterward (the tool prints a reminder; it never edits the register).`,
 						oldCit.Format(), newTarget.Format(), other, supersededByLabel)
 				}
 				return exitcode.Newf(exitcode.Conflict,
-					"created replacement %s, but %s is already superseded by %s (another supersede got there first), so no second %q edge was written and %s was not retired; %s is unlinked — review both replacements before changing anything",
-					newTarget.Format(), oldCit.Format(), other, supersededByLabel, oldCit.Format(), newTarget.Format())
+					"created replacement %s, but %s is already superseded by %s (another supersede got there first), so %s was not retired; this run's %q edge to %s failed to confirm and may or may not exist (%v) — check with `hadron spec get %s -m %s` and review both replacements before changing anything",
+					newTarget.Format(), oldCit.Format(), other, oldCit.Format(), supersededByLabel, newTarget.Format(), api.MapError(cerr),
+					oldCit.Format(), memURN)
 			case cerr == nil && lerr != nil:
 				// The link was written, but whether it is the ONLY successor can't
 				// be checked, so don't retire on an unverified premise (#691
