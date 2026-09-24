@@ -140,8 +140,12 @@ is one call instead of four.`, abstractSoftMax),
 					return verr
 				}
 				if inherit != "" {
-					if _, verr := validateSpecLoc(inherit); verr != nil {
+					inh, verr := validateSpecLoc(inherit)
+					if verr != nil {
 						return verr
+					}
+					if at, _ := validateSpecLoc(args[0]); inh == at {
+						return exitcode.Newf(exitcode.Usage, "a spec cannot inherit from itself (%s)", at)
 					}
 				}
 			}

@@ -585,6 +585,7 @@ func TestSpecNewAtValidatesBeforeResolvingTheMemory(t *testing.T) {
 	for _, args := range [][]string{
 		{"msg::010"},
 		{"onboarding:mentor", "--inherit", "a b"},
+		{"onboarding:mentor", "--inherit", "onboarding:mentor"}, // self-inherit, before any request too
 	} {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)

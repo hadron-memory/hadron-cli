@@ -363,10 +363,12 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	if !hasTag(n.Tags, "spec") {
 		if n.Role != nil && *n.Role == api.SpecNodeRole {
 			// A spec by its governed role (isSpec), so not broken — but the
-			// corpus scans select by the TAG server-side (NodeFilter has no
-			// role facet), so it is invisible to them. Say exactly that, as a
-			// warning (@copilot on #710).
-			add("tag-spec", sevWarning, `carries the spec role but not the "spec" tag — spec list, grep, replace and lint --all select by the tag, so they skip this spec; add the tag`)
+			// tag-filtered scans (list, get --prefix, grep, replace,
+			// check-tools) select by the TAG server-side (NodeFilter has no
+			// role facet), so it is invisible to them. Lint's own scans are not
+			// tag-filtered (lintSelects), so lint is NOT in that list
+			// (@copilot, @codex on #710).
+			add("tag-spec", sevWarning, `carries the spec role but not the "spec" tag — spec list, get --prefix, grep, replace and check-tools select by the tag, so they skip this spec; add the tag`)
 		} else {
 			add("tag-spec", sevError, `missing "spec" tag`)
 		}

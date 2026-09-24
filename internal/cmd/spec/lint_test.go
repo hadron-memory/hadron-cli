@@ -1410,6 +1410,8 @@ func TestTagSpecFindingKnowsTheRole(t *testing.T) {
 	roleOnly := specNode{Loc: "onboarding:mentor", Name: "onboarding:mentor — M", NodeType: "info", Role: &role}
 	if f := find(roleOnly); f == nil || f.Severity != sevWarning || !strings.Contains(f.Message, "skip this spec") {
 		t.Errorf("role-only spec: tag-spec = %+v, want a warning explaining the scans skip it", f)
+	} else if strings.Contains(f.Message, "lint") {
+		t.Errorf("lint's own scans DO include a role-only spec, so the warning must not name lint: %q", f.Message)
 	}
 	untagged := specNode{Loc: "msg:010:02", Name: "msg:010:02 — W", NodeType: "info"}
 	if f := find(untagged); f == nil || f.Severity != sevError {
