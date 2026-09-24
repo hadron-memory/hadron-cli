@@ -1461,6 +1461,6 @@ The writer, as shipped. Where it settles something the sections above leave open
 **Continuation and exit.** Every item is recorded exactly once, and one failing item never stops the next (cor:agt:030:00).
 - An auth or transport error before any host did I/O is the run's error: the run couldn't start.
 - A plan error after that is a host `failure`.
-- **Exit 5 after the full report** when any item was refused or failed, or a host couldn't be written. P07 says no contract decides this. It's proposed in team chat #1322 and awaits Ada/Holger; it mirrors `spec lint`'s ERROR → 5.
+- **Exit 5 after the full report** when any item was refused or failed, or a host couldn't be written. **Ruled by Holger on 2026-09-24** (proposed in team chat #1322). No contract decided it before (P07). It mirrors `spec lint`'s ERROR → 5.
 
 **Testing split.** The writer's own guards and I/O are unit-tested in-package (`internal/cmd/skill/export_test.go`, against a faked plan, mutation-checked guard by guard). The matrix P-cases at command level are Jane's (`internal/cmd/skill_export_acceptance_test.go`, draining `pending` and re-vendoring with Eli).
