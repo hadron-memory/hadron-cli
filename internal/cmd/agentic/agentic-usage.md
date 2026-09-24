@@ -1057,9 +1057,12 @@ Conventions:
   exhaustion (`--limit`/`--offset` fetch a single page); `--json` emits an array.
   `--body-only` prints just one spec's raw markdown body for a clean
   `… | node update --content -` edit round-trip.
-  `spec describe` reports a memory's scheme (flat/product), products, modules,
-  and counts, reading any scheme declared in the memory's data
-  (`--declare flat|product` writes it); **`spec new <loc> --title <title>`
+  `spec describe` inventories a memory's spec corpus — `specs`, `roots`,
+  `maxDepth`, `legacyNumbered`, `outsideNumbering` — and classifies nothing
+  (#709): no flat/product scheme, no per-tier counts, and `--declare` is
+  RETIRED (refused, exit 2, nothing written); a scheme still stored in the
+  memory's data is reported as `retiredDeclaration` and never applied;
+  **`spec new <loc> --title <title>`
   creates exactly that spec at any valid loc** (#708): nothing is derived from
   the loc's shape — no parent it must have, no contract it inherits, no number
   allocated — so its only edge is an explicit `--inherit <loc>`, a loc that
@@ -1135,7 +1138,7 @@ Conventions:
   `spec grep` + `spec edit`; `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5; the ledger is the legacy numbering, and specs at any
   other loc are NAMED in `outsideNumbering`, never dropped); `spec lint` takes `--product`/`--module`/`--all`,
-  flags mixed-arity corpora, warns (rule `abstract-length`) when a rule-tier abstract
+  warns (rule `abstract-length`) when a rule-tier abstract
   runs past ~1600 characters — a ceiling, not a target: retrieval is flat
   across ~700-1700 chars, and off-topic sentences dilute the embedding far
   more than length does. That finding always reports the HEADROOM left before

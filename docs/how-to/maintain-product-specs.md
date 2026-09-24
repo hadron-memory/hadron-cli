@@ -15,66 +15,47 @@ Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 > schemes below describe the **legacy numbering**, which `spec new`'s
 > allocation and contract flags still produce. To create a spec anywhere
 > else, use `spec new <loc> --title <title>`. To replace one, use
-> `spec supersede <old> --to <loc>`. Its lint rules and the flat/product
-> scheme are next to go; this page is rewritten when they land.
+> `spec supersede <old> --to <loc>`. The flat/product scheme is retired
+> (#709). The legacy numbering's lint rules are next; this page is updated
+> when they land.
 > See [docs/plans/spec-hierarchy-removal.md](../plans/spec-hierarchy-removal.md).
 
-## Two citation schemes
+## The legacy numbering
 
-A memory is either **flat** or **product-rooted** — pick one per memory and
-don't mix them (`lint` warns if you do).
+Any valid loc is a spec (#708). Some corpora number their specs in a legacy
+scheme, and `spec new`'s allocation and contract flags still produce it:
 
 ```
 flat:      <module>:<feature>:<rule>[:<flow>]            msg:010:02:03
 product:  <product>:<module>:<feature>:<rule>[:<flow>]   cli:cha:010:01:02
 ```
 
-- **product** — a shippable artifact (`cli`, `srv`, `por`). 3 lowercase letters.
-- **module** — its top-level internal division (a command group, a backend
-  service). 3 lowercase letters.
-- **feature** — 3 digits, numbered in tens (`010`, `020`, …).
-- **rule** — 2 digits, `+1`.
-- **flow** — 2 digits, `+1` (pull-on-demand sub-parts of a rule).
+- **product**: a shippable artifact (`cli`, `srv`, `por`), 3 lowercase letters.
+- **module**: its top-level internal division, 3 lowercase letters.
+- **feature**: 3 digits, numbered in tens (`010`, `020`, …).
+- **rule**: 2 digits, `+1`.
+- **flow**: 2 digits, `+1`.
 
-A citation is self-describing: if the second segment is letters it's
-product-rooted (`cli:cha:…`); if it's digits it's flat (`msg:010:…`). Product
-and module codes are **frozen** once created — you never renumber or rename
-them.
+This is a convention, not a rule: nothing refuses or flags a spec at any other
+loc, and a memory no longer has a "scheme". It may mix both forms, or use
+neither (#709). Codes and numbers are still never renumbered; to replace a spec
+you `supersede` it.
 
-Use a flat memory for a single product (e.g. one team's `platform-specs`); use
-a product-rooted memory when one corpus spans several products (e.g. Hadron's
-own `cli` / `srv` / `por`).
-
-### See (or declare) what scheme a memory uses
+### See what a memory holds
 
 ```sh
-hadron spec describe -m hrn:mem:hadronmemory.com:platform-specs
+hadron spec describe -m hrn:mem:hadronmemory.com:specs
 ```
 
-```
-Spec scheme — hadronmemory.com::platform-specs        # legacy form: see note below
-  scheme:    product  (declared)
-  products:  cli, srv
-  modules:   cli:cha, srv:gql
-  counts:    2 products, 2 modules, 12 features, 40 rules, 8 flows, 5 contracts
-  contracts: product <p>:gen · module <m>:000 · feature <m>:<f>:00
-```
+`describe` is a neutral inventory. It reports:
+- how many specs the memory holds;
+- their root segments;
+- the deepest loc;
+- how many specs are in the legacy numbering, and how many are outside it.
 
-> The memory line above is real output. The `spec` group composes the
-> legacy `<org>::<slug>` form internally on purpose — a fixed-arity flat v2 node URN
-> cannot round-trip a COMPOUND app-mem memory (see CLAUDE.md) — so `describe`
-> still prints it. Input accepts every spelling, which is why the invocation
-> uses `hrn:mem:`. Do not "correct" the transcript to match.
-
-The scheme is **derived** from the live nodes, and can also be **declared** in
-the memory's data (`{"spec":{"scheme":"product"}}`) so an empty memory can
-announce its arity before it has any specs. A declaration is authoritative;
-`describe` flags any drift from what the nodes actually look like. Declare it
-once, up front:
-
-```sh
-hadron spec describe -m hrn:mem:hadronmemory.com:platform-specs --declare product
-```
+It classifies nothing. `--declare` is retired: it is refused and writes
+nothing. A scheme a memory's data still carries from it is shown as retired
+and ignored.
 
 ## General-provisions contracts
 
@@ -502,12 +483,9 @@ not in a scanner.
 
 ## Notes
 
-- A memory's declared scheme lives in its `data` bag under `spec.scheme`
-  (`hadron spec describe --declare …` writes it; `describe` reads it). It is
-  optional — `describe` derives the scheme from the live nodes for any
-  non-empty memory — but declaring it up front lets an empty memory state its
-  intended arity and lets `describe` flag drift. See
-  [docs/plans/spec-product-level.md](../plans/spec-product-level.md).
+- A memory's data may still carry `spec.scheme` from the retired
+  `describe --declare`. It is left in place (no sweep), shown by `describe` as
+  retired, and read by nothing (#709).
 - `hadron spec import spec-kit|code` is reserved for future import workflows and
   currently exits with a not-implemented usage error; new, edit, extract,
   link, and supersede are the supported write paths today.

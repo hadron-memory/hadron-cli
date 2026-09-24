@@ -1,6 +1,6 @@
 # Removing the fixed spec hierarchy (#708, #709)
 
-> **Status: A, C and B's tier removals built (cli#710); D (#709) and the rubric (B) follow.** Written 2026-09-24 by Jonas
+> **Status: A, C and B's tier removals built (cli#710); D built (#709's own PR); only the rubric (B) is open.** Written 2026-09-24 by Jonas
 > (cli-engineer) on Ada's dispatch (team chat #1473), under Holger's
 > authorization of the same day. The authorization covers removing the legacy
 > spec-corpus hierarchy checks and the flat/product concept **before** a
@@ -227,14 +227,42 @@ these turns a test red:
 - `register` dropping specs outside the numbering;
 - `new <loc>` deriving a parent edge.
 
-### D. Scheme (#709): planned
+### D. Scheme (#709): built (its own PR, after cli#710)
 
-- `describe --declare flat|product` is retired. It refuses with an explanation
-  and writes nothing.
-- A stored declaration is left in place and no longer read as policy.
-- Scheme inference and `lint`'s `mixed-arity` warning are removed.
-- `describe` remains a neutral read-only inventory, with no tier classification
-  by depth.
+- **`describe --declare flat|product` is retired.** It's refused as a usage
+  error **before any request** ("retired … Nothing was written"). The flag
+  stays registered, hidden, so an old invocation gets that explanation
+  instead of "unknown flag".
+- **A stored `data.spec.scheme` is never read as policy.** `describe` discloses
+  it as `retiredDeclaration`. The value is left in place, with no sweep.
+  Nothing else in the CLI ever read it.
+- **`describe` is a neutral inventory:** `specs`, `roots`, `maxDepth`,
+  `legacyNumbered` and `outsideNumbering`, over the nodes that are specs
+  (`isSpec`).
+  - **Removed from `--json`:** `scheme`, `source`, `declared`, `derived`,
+    `products`, `modules`, `counts` (per tier, by depth), `contracts` and
+    `warnings`. That is an intentional break of the `describe` contract,
+    because every one of those fields was the classification #709 retires.
+  - **Consumers**, inventoried across the CLI, portal, server and docs: no
+    program reads `describe --json`. Human-facing references are the CLI's own
+    how-to and agent contract (updated here), hadron-docs' `maintain-`/
+    `read-product-specs` and the `hadron-cli` reference (Tove's, routed through
+    Ada), and the `add-spec` skill (`core:tasks:mint-spec`, routed through Ada).
+- **`lint`'s `mixed-arity` warning is removed**, along with the scheme it
+  enforced.
+
+**Tests:**
+- the inventory over a mixed corpus, with no retired field present;
+- the retired declaration disclosed;
+- non-specs not counted;
+- `--declare` refused before any request, for both values;
+- `mixed-arity` never raised.
+
+**Mutation-checked:** each of these turns a test red:
+- `--declare` not refused;
+- the retired declaration not disclosed;
+- non-specs counted;
+- specs outside the numbering dropped.
 
 ## 5. Safety boundary: unchanged by every slice
 
