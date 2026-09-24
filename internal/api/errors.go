@@ -301,22 +301,30 @@ const (
 )
 
 // OAuthScopeRefusal classifies a FORBIDDEN that refuses the CREDENTIAL, not
-// the caller's permission. extensions.reason decides when the server sends it
-// (server#1306). A server that predates it is recognised by the MCP-only
-// sentence, so the CLI works in either deploy order. Anything else returns "",
+// the caller's permission. extensions.reason decides whenever the server sends
+// it (server#1306), and an unknown reason is NOT a scope refusal. Only a
+// server that sends no reason at all (one that predates #1306) is recognised
+// by the MCP-only sentence, so the CLI works in either deploy order. Anything else returns "",
 // and the error keeps its ordinary FORBIDDEN mapping. Call it on the RAW error.
 func OAuthScopeRefusal(err error) ScopeRefusal {
 	for _, e := range graphQLErrors(err) {
 		if e == nil || extensionCode(e) != "FORBIDDEN" {
 			continue
 		}
-		reason, _ := e.Extensions["reason"].(string)
-		switch reason {
-		case reasonScopeInsufficient:
-			return ScopeMCPOnly
-		case reasonScopeUnsupported:
-			return ScopeUnsupported
+		if raw, present := e.Extensions["reason"]; present {
+			// A server that sends reason has decided: an UNKNOWN reason is not
+			// a scope refusal this CLI understands, whatever the prose says
+			// (#698 review, Codex and Copilot).
+			reason, _ := raw.(string)
+			switch reason {
+			case reasonScopeInsufficient:
+				return ScopeMCPOnly
+			case reasonScopeUnsupported:
+				return ScopeUnsupported
+			}
+			continue
 		}
+		// No reason at all: a server that predates server#1306.
 		if strings.Contains(e.Message, mcpOnlyRefusal) {
 			return ScopeMCPOnly
 		}

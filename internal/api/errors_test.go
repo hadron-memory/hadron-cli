@@ -674,6 +674,8 @@ func TestOAuthScopeRefusalPrefersReason(t *testing.T) {
 		{"reason UNSUPPORTED, its own sentence", forbidden(unsupported, map[string]any{"reason": "OAUTH_SCOPE_UNSUPPORTED"}), ScopeUnsupported},
 		{"no reason, MCP-only prose (older server)", forbidden("Context creation failed: This OAuth credential is limited to the MCP surface.", nil), ScopeMCPOnly},
 		{"unknown reason, no prose", forbidden("Nope.", map[string]any{"reason": "OAUTH_SCOPE_FUTURE"}), ""},
+		// #698 review: a PRESENT reason decides, even with the legacy sentence.
+		{"unknown reason, MCP-only prose", forbidden("This OAuth credential is limited to the MCP surface.", map[string]any{"reason": "OAUTH_SCOPE_FUTURE"}), ""},
 		{"reason on a non-FORBIDDEN code", gqlerror.List{{Message: "x", Extensions: map[string]any{"code": "INTERNAL_SERVER_ERROR", "reason": "OAUTH_SCOPE_INSUFFICIENT"}}}, ""},
 		{"ordinary FORBIDDEN", forbidden("You do not have access to this memory.", nil), ""},
 	} {
