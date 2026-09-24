@@ -123,7 +123,8 @@ fix is a different credential, not somebody's permission, so commands exit
 --install-into`, whose usual "needs CONTRIBUTOR+" guidance would be a false
 remedy here. The latter still reports the agent as created, and puts
 `app agent add` AFTER replacing the key. The message keeps the
-server's sentence and appends both recoveries:
+server's sentence (without Apollo's `Context creation failed: ` prefix, which
+the live `/graphql` refusal carries) and appends both recoveries:
 `hadron auth logout && hadron auth login` (v0.15.0+ requests `account`), or a
 key from the portal's API keys page (`/app/account/api-keys`) passed to
 `hadron auth login --with-token`. If the key is in `HADRON_TOKEN`, replace

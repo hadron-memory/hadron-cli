@@ -190,7 +190,12 @@ func MapError(err error) error {
 	// is exactly what 3 means. And the server's sentence names no way out,
 	// while the obvious one (`auth token create`) is refused for the same key.
 	if IsMCPOnlyCredential(err) {
-		return exitcode.Newf(exitcode.AuthRequired, "%w %s", cleaned(err), MCPOnlyRemedy)
+		// Apollo's "Context creation failed: " is transport plumbing, not the
+		// server's sentence, and it means nothing to the person reading it, so
+		// it is dropped the way #566 drops genqlient's decoration. The chain
+		// still unwraps to the original error.
+		msg := strings.TrimPrefix(cleaned(err).Error(), apolloContextFailurePrefix)
+		return exitcode.New(exitcode.AuthRequired, &serverError{msg: msg + " " + MCPOnlyRemedy, err: err})
 	}
 
 	var httpErr *graphql.HTTPError
@@ -231,9 +236,16 @@ func MapError(err error) error {
 	return exitcode.New(exitcode.Error, cleaned(err))
 }
 
-// mcpOnlyRefusal is how hadron-server begins its refusal of a user key whose
+// mcpOnlyRefusal is the sentence hadron-server uses to refuse a user key whose
 // OAuth grant is `mcp` alone (hadron-server#1270, `authContextAllowsOAuthSurface`),
 // on /graphql and on createUserApiKey ("… and cannot create API keys.").
+//
+// It is matched as CONTAINED, never as a prefix. On /graphql the live message
+// is "Context creation failed: This OAuth credential …": Apollo rebuilds the
+// context error with that prefix, because graphql's ESM and CJS builds make
+// `instanceof GraphQLError` false. #683 matched a prefix and was inert in
+// production (#681 reopened). The resolver-level refusal arrives unprefixed.
+// Both shapes are pinned in the tests.
 //
 // Matching server PROSE is a stopgap, and a deliberate one (#681): the refusal
 // carries only the generic FORBIDDEN, so its wording is the only thing that
@@ -242,6 +254,10 @@ func MapError(err error) error {
 // the server ever rewords it, detection fails safe: the error falls back to
 // the plain FORBIDDEN mapping it had before, with no false remedy.
 const mcpOnlyRefusal = "This OAuth credential is limited to the MCP surface"
+
+// apolloContextFailurePrefix is what Apollo 4 prepends to an error thrown from
+// the GraphQL context function when it does not recognise it as a GraphQLError.
+const apolloContextFailurePrefix = "Context creation failed: "
 
 // MCPOnlyRemedy is appended wherever the CLI meets an MCP-only key. It names
 // both ways back, because either may be the one that works: the browser login
@@ -256,7 +272,7 @@ const MCPOnlyRemedy = "This key was issued for MCP clients only, and the CLI nee
 // key (#681). Call it on the RAW error, before MapError wraps it.
 func IsMCPOnlyCredential(err error) bool {
 	for _, e := range graphQLErrors(err) {
-		if e != nil && extensionCode(e) == "FORBIDDEN" && strings.HasPrefix(e.Message, mcpOnlyRefusal) {
+		if e != nil && extensionCode(e) == "FORBIDDEN" && strings.Contains(e.Message, mcpOnlyRefusal) {
 			return true
 		}
 	}
