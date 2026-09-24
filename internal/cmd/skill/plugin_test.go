@@ -792,3 +792,39 @@ func TestAnArtifactIsOnlyReplacedByItsOwnHost(t *testing.T) {
 		t.Errorf("the owning host must still replace its artifact: %+v", r)
 	}
 }
+
+func TestWindowsReservedNamesFailAsItems(t *testing.T) {
+	for _, n := range []string{"con", "nul", "aux", "prn", "com1", "lpt9", "CON"} {
+		if !windowsReserved(n) {
+			t.Errorf("%s not treated as reserved", n)
+		}
+	}
+	for _, n := range []string{"console", "com", "com10", "null", "a-con"} {
+		if windowsReserved(n) {
+			t.Errorf("%s wrongly treated as reserved", n)
+		}
+	}
+	hd := newPluginHost(skilldoc.HostClaudeSkill, "claude-plugin")
+	files := bundleHost(&hd, plan(entry("nul", gen.SkillExportActionWrite, "b", ""), entry("ok", gen.SkillExportActionWrite, "b", "")), nil)
+	if _, ok := files["nul"]; ok || !reflect.DeepEqual(names(hd.Failed), []string{"nul"}) || !reflect.DeepEqual(names(hd.Included), []string{"ok"}) {
+		t.Errorf("a reserved name must fail alone: failed=%v included=%v", names(hd.Failed), names(hd.Included))
+	}
+}
+
+func TestContainsHostRootRefusesANestedLink(t *testing.T) {
+	h := home(t)
+	dir := filepath.Join(h, "art")
+	mkdir(t, filepath.Join(h, ".claude", "skills"))
+	symlink(t, filepath.Join(h, ".claude"), filepath.Join(dir, "proj", ".claude"))
+	if root, ok := containsHostRoot(dir); !ok || !strings.Contains(root, "a link") {
+		t.Errorf("a nested link must refuse the replacement: %q, %v", root, ok)
+	}
+}
+
+func TestResolveOutRefusesADanglingLink(t *testing.T) {
+	h := home(t)
+	symlink(t, filepath.Join(h, "gone"), filepath.Join(h, "out"))
+	if _, err := resolveOut(filepath.Join(h, "out", "x"), h); exitcode.FromError(err) != exitcode.Usage {
+		t.Errorf("a dangling link in --out: err = %v, want usage", err)
+	}
+}

@@ -262,9 +262,20 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 		// holds one (a project checked out inside it, say). The replace check
 		// refuses it again at write time; this makes it a usage error before
 		// any request, as documented.
-		if fi, err := os.Lstat(artifactDir); err == nil && fi.IsDir() {
-			if root, ok := containsHostRoot(artifactDir); ok {
-				return hostRootError(artifactDir, root)
+		if fi, err := os.Lstat(artifactDir); err == nil {
+			switch {
+			case fi.Mode()&os.ModeSymlink != 0:
+				// A link is refused at write time anyway; one into a skills
+				// root is refused here, before any request, as documented.
+				if target, err := filepath.EvalSymlinks(artifactDir); err == nil {
+					if err := refuseHostRoot(target, target, home); err != nil {
+						return err
+					}
+				}
+			case fi.IsDir():
+				if root, ok := containsHostRoot(artifactDir); ok {
+					return hostRootError(artifactDir, root)
+				}
 			}
 		}
 	}
@@ -542,7 +553,7 @@ func bundleHost(hd *pluginHostDTO, p *gen.SkillExportPlanSkillPlan, others []*ge
 			switch {
 			case e.RenderedBody == nil:
 				fail(exportReasonDTO{Code: reasonNoBody, Message: "the server planned a write but sent no rendered body", Origin: originClient})
-			case !safeDirName(e.Name):
+			case !safeDirName(e.Name) || windowsReserved(e.Name):
 				fail(unsafeName(e.Name))
 			case writes[e.Name] > 1:
 				fail(exportReasonDTO{Code: reasonDuplicateName,
@@ -583,6 +594,22 @@ func bundleHost(hd *pluginHostDTO, p *gen.SkillExportPlanSkillPlan, others []*ge
 		}
 	}
 	return files
+}
+
+// windowsReserved reports a Windows device name (CON, NUL, COM1, …), which
+// no Windows filesystem can hold as a directory. A bundle is portable — the
+// zip is unpacked wherever its user is — so such a skill fails as an item on
+// every platform, rather than failing the whole artifact on Windows.
+func windowsReserved(name string) bool {
+	base := strings.ToUpper(strings.SplitN(name, ".", 2)[0])
+	switch base {
+	case "CON", "PRN", "AUX", "NUL":
+		return true
+	}
+	if len(base) == 4 && (strings.HasPrefix(base, "COM") || strings.HasPrefix(base, "LPT")) && base[3] >= '0' && base[3] <= '9' {
+		return true
+	}
+	return false
 }
 
 // artifact is one host's bundle, fully laid out in memory: dirFiles are
@@ -853,6 +880,12 @@ func containsHostRoot(dir string) (string, bool) {
 			found = p + " (unreadable, so it could not be checked)"
 			return fs.SkipAll
 		}
+		if d.Type()&fs.ModeSymlink != 0 {
+			// This command never writes a link, so one inside its artifact is
+			// someone else's — and may point at a skills root.
+			found = p + " (a link, which this command never writes)"
+			return fs.SkipAll
+		}
 		if !d.IsDir() || p == dir {
 			return nil
 		}
@@ -1038,6 +1071,12 @@ func resolveOut(raw, home string) (string, error) {
 		}
 		if !errors.Is(err, fs.ErrNotExist) {
 			return "", exitcode.Newf(exitcode.Usage, "--out %s: %v", raw, err)
+		}
+		// Missing, or a link to something missing? A dangling link is not a
+		// path to create: whatever later appears at its target would be
+		// followed.
+		if fi, lerr := os.Lstat(cur); lerr == nil && fi.Mode()&os.ModeSymlink != 0 {
+			return "", exitcode.Newf(exitcode.Usage, "--out %s: %s is a link to something that does not exist", raw, cur)
 		}
 		parent := filepath.Dir(cur)
 		if parent == cur {

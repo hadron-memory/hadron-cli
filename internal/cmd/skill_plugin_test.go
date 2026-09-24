@@ -288,6 +288,16 @@ func TestSkillPluginScopeNarrowsTheMemories(t *testing.T) {
 func TestSkillPluginRefusesAHostSkillsRootBeforeAnyRequest(t *testing.T) {
 	h := pluginHome(t)
 	srv, calls := pluginServer(t, nil, "")
+	// An artifact path that is a link into a skills root.
+	if err := os.MkdirAll(filepath.Join(h, ".agents", "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(h, "linked"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(h, ".agents", "skills"), filepath.Join(h, "linked", "hadron")); err != nil {
+		t.Fatal(err)
+	}
 	// An existing artifact that holds a project skills root is "above" one.
 	if err := os.MkdirAll(filepath.Join(h, "dist", "hadron", "proj", ".claude", "skills"), 0o755); err != nil {
 		t.Fatal(err)
@@ -296,6 +306,7 @@ func TestSkillPluginRefusesAHostSkillsRootBeforeAnyRequest(t *testing.T) {
 		{"--out", filepath.Join(h, ".claude"), "--name", "skills"},
 		{"--out", filepath.Join(h, "proj", ".agents", "skills")},
 		{"--out", filepath.Join(h, "dist")},
+		{"--out", filepath.Join(h, "linked")},
 	} {
 		_, _, err := runPlugin(t, srv.URL, args...)
 		wantExit(t, err, 2)
