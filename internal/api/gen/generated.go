@@ -597,9 +597,10 @@ func (v *AdvanceChannelReadStateResponse) GetAdvanceChannelReadState() *AdvanceC
 // AgentFields includes the GraphQL fields of Agent requested by the fragment AgentFields.
 // The GraphQL type's documentation follows.
 //
-// The definition (one per Agent) — what a Builder creates and what the
-// marketplace sells. Per 008-agent-installation. An App is the deployment
-// of an Agent in some org.
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
 type AgentFields struct {
 	Id             string          `json:"id"`
 	Urn            string          `json:"urn"`
@@ -1472,9 +1473,10 @@ func (v *AgentsAgentsAgentsPage) GetItems() []*AgentsAgentsAgentsPageItemsAgent 
 // AgentsAgentsAgentsPageItemsAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
-// The definition (one per Agent) — what a Builder creates and what the
-// marketplace sells. Per 008-agent-installation. An App is the deployment
-// of an Agent in some org.
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
 type AgentsAgentsAgentsPageItemsAgent struct {
 	AgentFields `json:"-"`
 }
@@ -1721,9 +1723,11 @@ func (v *AiServiceConfigFields) GetUpdatedAt() *string { return v.UpdatedAt }
 // AppAgentRosterApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
-// The runtime deployment of an Agent in an Organization. Owns long-lived
-// App Keys and references its Agent via App.agent_id (a direct FK; the
-// legacy AppAgent join was dropped in 008-agent-installation).
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
 type AppAgentRosterApp struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -1750,9 +1754,10 @@ func (v *AppAgentRosterApp) GetAgents() []*AppAgentRosterAppAgentsAgent { return
 // AppAgentRosterAppAgentsAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
-// The definition (one per Agent) — what a Builder creates and what the
-// marketplace sells. Per 008-agent-installation. An App is the deployment
-// of an Agent in some org.
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
 type AppAgentRosterAppAgentsAgent struct {
 	Id             string          `json:"id"`
 	Urn            string          `json:"urn"`
@@ -2446,9 +2451,11 @@ func (v *AppsAppsAppsPage) GetItems() []*AppsAppsAppsPageItemsApp { return v.Ite
 // AppsAppsAppsPageItemsApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
-// The runtime deployment of an Agent in an Organization. Owns long-lived
-// App Keys and references its Agent via App.agent_id (a direct FK; the
-// legacy AppAgent join was dropped in 008-agent-installation).
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
 type AppsAppsAppsPageItemsApp struct {
 	Id      string  `json:"id"`
 	Urn     string  `json:"urn"`
@@ -4624,9 +4631,10 @@ func (v *ConnectionGrantsResponse) GetConnectionGrants() *ConnectionGrantsConnec
 // CreateAgentCreateAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
-// The definition (one per Agent) — what a Builder creates and what the
-// marketplace sells. Per 008-agent-installation. An App is the deployment
-// of an Agent in some org.
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
 type CreateAgentCreateAgent struct {
 	AgentFields `json:"-"`
 }
@@ -5351,9 +5359,11 @@ func (v *CreateAiServiceConfigResponse) GetCreateAiServiceConfig() *CreateAiServ
 // CreateAppCreateApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
-// The runtime deployment of an Agent in an Organization. Owns long-lived
-// App Keys and references its Agent via App.agent_id (a direct FK; the
-// legacy AppAgent join was dropped in 008-agent-installation).
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
 type CreateAppCreateApp struct {
 	Id      string  `json:"id"`
 	Urn     string  `json:"urn"`
@@ -5392,12 +5402,16 @@ func (v *CreateAppCreateApp) GetCreatedAt() string { return v.CreatedAt }
 
 // CreateAppResponse is returned by CreateApp on success.
 type CreateAppResponse struct {
-	// Install an Agent into an organization, creating an App that deploys it.
+	// Create an App and install its initial Agent. With orgRef, the App is owned
+	// by that Organization and requires org ADMIN; without orgRef, it is owned by
+	// the authenticated User and remains owner-only.
 	//
-	// Auto-provisions an AgentOrgGrant for (orgId, agentId) on first install,
-	// and adds the caller as an AppMember with role 'owner'. Required
-	// AgentImports cascade automatically; optional imports cascade only when
-	// their id appears in installOptional.
+	// An org-owned install auto-provisions an AgentOrgGrant for (orgId, agentId).
+	// It adds the caller as an AppMember with role 'owner' only when that role is
+	// present in the Agent's installationPolicy and the caller is a User.
+	// Required AgentImports cascade automatically for org-owned Apps; optional
+	// imports cascade only when their id appears in installOptional. Personal
+	// Apps reject dependency cascades in v1.
 	//
 	// 009-install-agent-flow: the cross-org install restriction (FR-009) is
 	// enforced at the portal — the Install affordance is hidden for Agents
@@ -5600,10 +5614,25 @@ func (v *CreateChannelCreateChannel) __premarshalJSON() (*__premarshalCreateChan
 	return &retval, nil
 }
 
-// Create a named Channel WITH its chat root, in one transaction. The host must
-// be an app-class memory you may write (the chat-host rule). `loc` is the
-// reserved address (e.g. chats:release) and must not overlap an existing
-// Channel's; `chats:team` is every App's default and is created with the App.
+// Create a named Channel WITH its chat root, in one transaction. The host may be
+// a memory of ANY class that you may write — the host memory's own audience
+// decides who reads and posts (cor:acl:030:01), so a Channel in a private memory
+// is private and one in an app memory is the App's. `loc` is the reserved
+// address (e.g. chats:release) and must not overlap an existing Channel's;
+// `chats:team` is every App's default and is created with the App.
+//
+// There is no app-class precondition. This said there was until #1248 — the
+// rule was retired by #1196 and the description outlived it, so every client
+// mirroring this SDL published a refusal that cannot fire.
+//
+// **Creating at a DELETED Channel's address starts CLEAN** (#1226). The address
+// stays reserved by the tombstone, so a create here adopts it rather than
+// inserting beside it — and the previous Channel's messages are tombstoned so
+// the new room is empty. The allocator history remains, while the empty
+// Channel's last-sequence and last-message watermarks reset. Its first new
+// message therefore resumes above the old maximum, so an old read cursor
+// cannot hide it. Expect a gap in the numbering, never inherited transcript or
+// phantom attention.
 type CreateChannelInput struct {
 	Description *string `json:"description,omitempty"`
 	Loc         string  `json:"loc"`
@@ -5784,7 +5813,10 @@ func (v *CreateChannelMessageResponse) GetCreateChannelMessage() *CreateChannelM
 
 // CreateChannelResponse is returned by CreateChannel on success.
 type CreateChannelResponse struct {
-	// Spec 049 Phase 4 — create a named Channel with its chat root (host: an app-class memory you may write). LOC_OVERLAPS_CHANNEL when the address overlaps an existing Channel's.
+	// Spec 049 Phase 4 — create a named Channel with its chat root. The host is
+	// any memory class you may write; its audience decides the Channel's
+	// (cor:acl:030:01). LOC_OVERLAPS_CHANNEL when the address overlaps an
+	// existing Channel's.
 	CreateChannel *CreateChannelCreateChannel `json:"createChannel"`
 }
 
@@ -8845,10 +8877,11 @@ func (v *EncryptMemoryResponse) GetEncryptMemory() *EncryptMemoryEncryptMemory {
 // the other**: a chat session that closes leaves its worker session open
 // until endSession. Since #1114 nothing ends it for inactivity — silence is not
 // evidence of abandonment — but it stops reading as LIVE once nobody has driven
-// it inside its idle window, so an abandoned name frees itself for binding
-// without the session being ended or its unwritten handoff lost. Do not use "chat
-// session" for a Chat (the agent conversation entity) — that is an **agent
-// chat**, a third concept.
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
 type EndTeamSessionEndSession struct {
 	TeamSessionFields `json:"-"`
 }
@@ -9380,9 +9413,10 @@ func (v *FindObjectsResponse) GetFindObjects() *FindObjectsFindObjectsObjectList
 // GetAgentAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
-// The definition (one per Agent) — what a Builder creates and what the
-// marketplace sells. Per 008-agent-installation. An App is the deployment
-// of an Agent in some org.
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
 type GetAgentAgent struct {
 	AgentFields `json:"-"`
 }
@@ -9542,9 +9576,11 @@ func (v *GetAgentResponse) GetAgent() *GetAgentAgent { return v.Agent }
 // GetAppSharedMemoryApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
-// The runtime deployment of an Agent in an Organization. Owns long-lived
-// App Keys and references its Agent via App.agent_id (a direct FK; the
-// legacy AppAgent join was dropped in 008-agent-installation).
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
 type GetAppSharedMemoryApp struct {
 	Id string `json:"id"`
 	// The App's SHARED app-class memory (#965) — the team space the shared/team
@@ -10732,10 +10768,11 @@ func (v *GetTeamSessionResponse) GetSession() *GetTeamSessionSession { return v.
 // the other**: a chat session that closes leaves its worker session open
 // until endSession. Since #1114 nothing ends it for inactivity — silence is not
 // evidence of abandonment — but it stops reading as LIVE once nobody has driven
-// it inside its idle window, so an abandoned name frees itself for binding
-// without the session being ended or its unwritten handoff lost. Do not use "chat
-// session" for a Chat (the agent conversation entity) — that is an **agent
-// chat**, a third concept.
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
 type GetTeamSessionSession struct {
 	TeamSessionFields `json:"-"`
 }
@@ -11410,9 +11447,10 @@ func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgen
 // InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
-// The definition (one per Agent) — what a Builder creates and what the
-// marketplace sells. Per 008-agent-installation. An App is the deployment
-// of an Agent in some org.
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
 type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -11444,9 +11482,11 @@ func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgen
 // InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
-// The runtime deployment of an Agent in an Organization. Owns long-lived
-// App Keys and references its Agent via App.agent_id (a direct FK; the
-// legacy AppAgent join was dropped in 008-agent-installation).
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
 type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -11494,7 +11534,7 @@ type InstallAgentIntoAppResponse struct {
 	// context, and the returned Agent carries its systemPrompt — so this gate
 	// stays at the level that can already read the org's Agents.
 	//
-	// Accepts the entity's ID or URN for both appId and agentId. Optional
+	// Accepts the entity's ID or URN for both appRef and agentRef. Optional
 	// trainingMode flag updates the per-App training flag (applies to
 	// every installed Agent — training mode is per-App, not per-Agent,
 	// per spec 023 FR-001).
@@ -13859,8 +13899,13 @@ type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge struct {
 	// share a priority, fall back to insertion order.
 	Priority int `json:"priority"`
 	// JSONLogic gating expression. Null = always fires. Validated against
-	// the v1 operator subset and the five variable scopes (memory.*,
-	// chat.*, agent.*, message.data.*, now()/today()).
+	// the v1 operator subset and the FOUR variable scopes — memory.*, chat.*,
+	// agent.*, message.data.* (VALID_SCOPE_PREFIXES; anything else is
+	// UNKNOWN_SCOPE). The time builtins now() and today() are a SEPARATE
+	// constant, not a fifth scope: they are whole references rather than
+	// prefixes, and the evaluator pre-resolves them from the request clock.
+	// Until #1246 this said "five variable scopes" and listed the builtins as
+	// one of them — a count and a category error in one sentence.
 	// See hadron-docs/docs/reference/edge-conditions.md.
 	Condition *json.RawMessage `json:"condition"`
 	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
@@ -15122,9 +15167,10 @@ func (v *PublicAgentsPublicAgentsAgentsPage) GetItems() []*PublicAgentsPublicAge
 // PublicAgentsPublicAgentsAgentsPageItemsAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
-// The definition (one per Agent) — what a Builder creates and what the
-// marketplace sells. Per 008-agent-installation. An App is the deployment
-// of an Agent in some org.
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
 type PublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 	AgentFields `json:"-"`
 }
@@ -18914,7 +18960,9 @@ func (v *SkillFileFactsInput) GetSourceUrn() *string { return v.SourceUrn }
 type SkillPlanInput struct {
 	// What the client found on disk. Empty for lint, which touches no disk.
 	Files []*SkillFileFactsInput `json:"files,omitempty"`
-	// Target host. Only claudeSkill has a renderer today (D10).
+	// With EXPORT only, explicitly replace, move, or remove a paired file with detected local edits for this invocation.
+	Force *bool `json:"force,omitempty"`
+	// Target host, named by its D12 declaration key verbatim: claudeSkill (the default) or codexSkill. One host per call; the plan reads that host's declaration and applies its limits, and the retired top-level skill/claudeSkill keys alias to claudeSkill only. An unknown host is refused with BAD_USER_INPUT naming the supported hosts, never judged as another host and never answered with an empty plan.
 	Host   *string         `json:"host,omitempty"`
 	Intent SkillPlanIntent `json:"intent"`
 	// Memory refs to scan. Omitted means every memory the caller can read.
@@ -18923,6 +18971,9 @@ type SkillPlanInput struct {
 
 // GetFiles returns SkillPlanInput.Files, and is useful for accessing the field via an interface.
 func (v *SkillPlanInput) GetFiles() []*SkillFileFactsInput { return v.Files }
+
+// GetForce returns SkillPlanInput.Force, and is useful for accessing the field via an interface.
+func (v *SkillPlanInput) GetForce() *bool { return v.Force }
 
 // GetHost returns SkillPlanInput.Host, and is useful for accessing the field via an interface.
 func (v *SkillPlanInput) GetHost() *string { return v.Host }
@@ -19015,7 +19066,7 @@ type SkillPlanSkillPlanEntriesSkillPlanEntry struct {
 	Class *string `json:"class"`
 	// True when the file exists and does not parse. Reported identically by status and export.
 	ParseFailure bool `json:"parseFailure"`
-	// For the renamed class: the directory the file currently occupies.
+	// Source directory selected for a MOVE or REMOVE action; also reported for the renamed class.
 	MovedFrom *string                                                        `json:"movedFrom"`
 	Findings  []*SkillPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding `json:"findings"`
 }
@@ -19274,11 +19325,12 @@ type StartTeamSessionResponse struct {
 	// **Ending your chat session does not end a worker session** (#1034): a chat
 	// session that closes leaves this session open until endSession — #1114
 	// removed inactivity as a reason to end one, so nothing else will. The worker
-	// stops reading as LIVE once its idle window passes without a drive, which is
-	// what lets an abandoned name be bound again; the session itself, and any
-	// handoff still unwritten, survive. A client that ties its lifetime to a
-	// conversation must call endSession itself; nothing about closing a window
-	// reaches this server.
+	// stops reading as LIVE once its idle window passes without a drive, which
+	// lets another bind proceed without ending the stale session or losing its
+	// unwritten handoff. A human HOLD stays in force until explicit release, so
+	// only its holder can bind it again. A client that ties its lifetime to a
+	// conversation must call endSession itself; nothing
+	// about closing a window reaches this server.
 	StartSession *StartTeamSessionStartSession `json:"startSession"`
 }
 
@@ -19306,10 +19358,11 @@ func (v *StartTeamSessionResponse) GetStartSession() *StartTeamSessionStartSessi
 // the other**: a chat session that closes leaves its worker session open
 // until endSession. Since #1114 nothing ends it for inactivity — silence is not
 // evidence of abandonment — but it stops reading as LIVE once nobody has driven
-// it inside its idle window, so an abandoned name frees itself for binding
-// without the session being ended or its unwritten handoff lost. Do not use "chat
-// session" for a Chat (the agent conversation entity) — that is an **agent
-// chat**, a third concept.
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
 type StartTeamSessionStartSession struct {
 	TeamSessionFields `json:"-"`
 }
@@ -19513,9 +19566,11 @@ var AllSyncStatus = []SyncStatus{
 // TeamAppIdentityApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
-// The runtime deployment of an Agent in an Organization. Owns long-lived
-// App Keys and references its Agent via App.agent_id (a direct FK; the
-// legacy AppAgent join was dropped in 008-agent-installation).
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
 type TeamAppIdentityApp struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -19864,9 +19919,10 @@ func (v *TeamRoleFields) GetHasNamePlaceholder() *bool { return v.HasNamePlaceho
 // TeamRoleFieldsRoleAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
-// The definition (one per Agent) — what a Builder creates and what the
-// marketplace sells. Per 008-agent-installation. An App is the deployment
-// of an Agent in some org.
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
 type TeamRoleFieldsRoleAgent struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -20036,10 +20092,11 @@ func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) __premarshalJSON() (*__pr
 // the other**: a chat session that closes leaves its worker session open
 // until endSession. Since #1114 nothing ends it for inactivity — silence is not
 // evidence of abandonment — but it stops reading as LIVE once nobody has driven
-// it inside its idle window, so an abandoned name frees itself for binding
-// without the session being ended or its unwritten handoff lost. Do not use "chat
-// session" for a Chat (the agent conversation entity) — that is an **agent
-// chat**, a third concept.
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
 type TeamSessionFields struct {
 	Id string `json:"id"`
 	// The role-agent driving the session (with workerId set, the agent behind the casting).
@@ -20188,10 +20245,11 @@ func (v *TeamSessionsResponse) GetSessions() []*TeamSessionsSessionsSession { re
 // the other**: a chat session that closes leaves its worker session open
 // until endSession. Since #1114 nothing ends it for inactivity — silence is not
 // evidence of abandonment — but it stops reading as LIVE once nobody has driven
-// it inside its idle window, so an abandoned name frees itself for binding
-// without the session being ended or its unwritten handoff lost. Do not use "chat
-// session" for a Chat (the agent conversation entity) — that is an **agent
-// chat**, a third concept.
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
 type TeamSessionsSessionsSession struct {
 	TeamSessionFields `json:"-"`
 }
@@ -21099,9 +21157,10 @@ func (v *UpdateAgentScheduleUpdateAgentSchedule) __premarshalJSON() (*__premarsh
 // UpdateAgentUpdateAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
-// The definition (one per Agent) — what a Builder creates and what the
-// marketplace sells. Per 008-agent-installation. An App is the deployment
-// of an Agent in some org.
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
 type UpdateAgentUpdateAgent struct {
 	AgentFields `json:"-"`
 }
@@ -22749,7 +22808,10 @@ type UpdateObjectResponse struct {
 	// Merge fields into an existing object (server-side atomic shallow merge +
 	// schema conformance on the result). 'ref' is the object id (or node URN);
 	// 'fields' wins on key collision, unmentioned keys preserved. Returns the
-	// updated flat object.
+	// updated flat object. The merge is shallow for EVERY field, including one
+	// named 'exports': the per-host merge-patch updateNodeProperties applies to
+	// 'properties.exports' (#1227) is a node-level skill-declaration rule and
+	// does not apply to object fields.
 	UpdateObject json.RawMessage `json:"updateObject"`
 }
 
@@ -23834,10 +23896,11 @@ func (v *UpdateTeamSessionResponse) GetUpdateSession() *UpdateTeamSessionUpdateS
 // the other**: a chat session that closes leaves its worker session open
 // until endSession. Since #1114 nothing ends it for inactivity — silence is not
 // evidence of abandonment — but it stops reading as LIVE once nobody has driven
-// it inside its idle window, so an abandoned name frees itself for binding
-// without the session being ended or its unwritten handoff lost. Do not use "chat
-// session" for a Chat (the agent conversation entity) — that is an **agent
-// chat**, a third concept.
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
 type UpdateTeamSessionUpdateSession struct {
 	TeamSessionFields `json:"-"`
 }
@@ -35776,6 +35839,8 @@ query SkillPlan ($input: SkillPlanInput!) {
 }
 `
 
+// `force` is read with EXPORT only (its SDL description) and nothing here sets
+// it, so it must be OMITTED rather than sent as `null` (#656).
 func SkillPlan(
 	ctx_ context.Context,
 	client_ graphql.Client,
