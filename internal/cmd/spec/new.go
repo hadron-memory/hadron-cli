@@ -277,6 +277,18 @@ is one call instead of four.`, abstractSoftMax),
 				})
 			}
 
+			// The node's ToC / inheritance edges travel INLINE on createSpecNode,
+			// so the node and its edges are written together or not at all
+			// (#687): no required edge can fail after the node exists, which is
+			// how a user ended up holding orphans no command could repair
+			// (hadron-server#1300).
+			var edges []*gen.NodeEdgeInput
+			if !noEdges {
+				edges, err = resolveSpecEdges(cmd, client, memURN, target.Format(), result.Edges, nil)
+				if err != nil {
+					return err
+				}
+			}
 			nodeType := "info"
 			input := gen.CreateNodeInput{
 				MemoryId: memURN,
@@ -289,6 +301,7 @@ is one call instead of four.`, abstractSoftMax),
 				Data:     specDataRaw(),
 				Seq:      specSeq(target),
 				Role:     specRole(),
+				Edges:    edges,
 			}
 			up, err := api.CreateSpecNode(cmd.Context(), client, &input)
 			if err != nil {
@@ -296,25 +309,10 @@ is one call instead of four.`, abstractSoftMax),
 			}
 			newID := up.Id
 
-			var edgeFailures []string
-			if !noEdges {
-				for _, e := range result.Edges {
-					targetID, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
-					if rerr != nil {
-						fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
-						edgeFailures = append(edgeFailures, e.Target)
-						continue
-					}
-					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, targetID, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
-						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
-						edgeFailures = append(edgeFailures, e.Target)
-					}
-				}
-			}
-
 			// Co-created contract: body/abstract come from the tier templates, and
-			// its sole ToC edge points at the root we just made — wired by id,
-			// since resolveUrn can lag a fresh node by ~a minute.
+			// its sole ToC edge points at the root we just made — by id, since
+			// resolveUrn can lag a fresh node by ~a minute. Inline too, so the
+			// contract is never written without it.
 			if coContract != nil {
 				cInput := gen.CreateNodeInput{
 					MemoryId: memURN,
@@ -328,26 +326,12 @@ is one call instead of four.`, abstractSoftMax),
 					Seq:      specSeq(coContract.cit),
 					Role:     specRole(),
 				}
-				cUp, cErr := api.CreateSpecNode(cmd.Context(), client, &cInput)
-				if cErr != nil {
+				if !noEdges {
+					cInput.Edges = []*gen.NodeEdgeInput{inlineSpecEdge(newID, coContract.title)}
+				}
+				if _, cErr := api.CreateSpecNode(cmd.Context(), client, &cInput); cErr != nil {
 					return fmt.Errorf("created %s but its contract %s failed: %w", target.Format(), coContract.cit.Format(), api.MapError(cErr))
 				}
-				if !noEdges {
-					if _, eErr := gen.CreateEdge(cmd.Context(), client, cUp.Id, newID, coContract.title, nil, nil, nil, nil, nil, nil); eErr != nil {
-						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", coContract.title, target.Format(), api.MapError(eErr))
-						edgeFailures = append(edgeFailures, target.Format())
-					}
-				}
-			}
-
-			// A spec node without its table-of-contents / inheritance edges is
-			// silently orphaned, so a skipped required edge is a hard failure —
-			// the node was created, but the command exits non-zero so the gap
-			// isn't mistaken for success (issue #91 Bug 2).
-			if len(edgeFailures) > 0 {
-				return exitcode.Newf(exitcode.Error,
-					"created %s but failed to wire %d required edge(s) to %s — the node is orphaned; fix the target(s) and re-run, or wire the edge(s) with `hadron edge add`",
-					target.Format(), len(edgeFailures), strings.Join(edgeFailures, ", "))
 			}
 
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
@@ -670,9 +654,10 @@ type pathNode struct {
 // runNewPath scaffolds target and every missing ancestor in one call. Each node
 // gets its tier template (the target uses the caller's body/abstract); each
 // created root also gets its general-provisions contract unless noContract.
-// Edges resolve by id for nodes made this run (resolveUrn lags a fresh node ~a
-// minute) and by loc for pre-existing ancestors; an unresolvable target warns,
-// never aborts.
+// Each node carries its edges inline (#687): by the returned id for nodes made
+// this run (resolveUrn lags a fresh node ~a minute), and by an id resolved up
+// front for pre-existing ones. An unresolvable target refuses the whole run
+// before anything is written.
 func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, memURN string, target Citation, title, body, abs string, tagSet []string, noContract, noEdges, dryRun bool) error {
 	prefix := target.Module
 	if target.Product != "" {
@@ -772,9 +757,34 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 		return render()
 	}
 
+	// Resolve every edge target OUTSIDE the plan before writing anything, so an
+	// unresolvable one refuses the scaffold with nothing created. Targets inside
+	// the plan are created earlier in it (ancestors first) and wired by id.
+	inPlan := map[string]bool{}
+	for _, pn := range plan {
+		inPlan[pn.cit.Format()] = true
+	}
+	resolved := map[string]string{}
+	if !noEdges {
+		for _, pn := range plan {
+			for _, e := range pn.edges {
+				if inPlan[e.Target] || resolved[e.Target] != "" {
+					continue
+				}
+				id, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
+				if rerr != nil {
+					return fmt.Errorf("cannot wire %s's edge %q → %s, so nothing was created: %w", pn.cit.Format(), e.Label, e.Target, rerr)
+				}
+				resolved[e.Target] = id
+			}
+		}
+	}
+
+	// Each node and its outgoing edges are ONE createSpecNode (#687). The
+	// scaffold as a whole is not one transaction, so a failure part-way names
+	// what was already written — each of those is complete, edges included.
 	nodeType := "info"
-	created := map[string]string{}
-	var edgeFailures []string
+	var written []string
 	for _, pn := range plan {
 		ab, bd := pn.abstract, pn.body
 		input := gen.CreateNodeInput{
@@ -783,36 +793,22 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 			Abstract: &ab, Content: &bd, Data: specDataRaw(),
 			Seq: specSeq(pn.cit), Role: specRole(),
 		}
+		if !noEdges {
+			edges, eerr := resolveSpecEdges(cmd, client, memURN, pn.cit.Format(), pn.edges, resolved)
+			if eerr != nil {
+				return eerr
+			}
+			input.Edges = edges
+		}
 		up, uerr := api.CreateSpecNode(cmd.Context(), client, &input)
 		if uerr != nil {
+			if len(written) > 0 {
+				return fmt.Errorf("scaffolding %s failed after creating %s (each with its edges): %w", pn.cit.Format(), strings.Join(written, ", "), api.MapError(uerr))
+			}
 			return fmt.Errorf("scaffolding %s: %w", pn.cit.Format(), api.MapError(uerr))
 		}
-		srcID := up.Id
-		created[pn.cit.Format()] = srcID
-		if noEdges {
-			continue
-		}
-		for _, e := range pn.edges {
-			tid, ok := created[e.Target]
-			if !ok {
-				rid, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
-				if rerr != nil {
-					fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
-					edgeFailures = append(edgeFailures, e.Target)
-					continue
-				}
-				tid = rid
-			}
-			if _, cerr := gen.CreateEdge(cmd.Context(), client, srcID, tid, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
-				fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
-				edgeFailures = append(edgeFailures, e.Target)
-			}
-		}
-	}
-	if len(edgeFailures) > 0 {
-		return exitcode.Newf(exitcode.Error,
-			"scaffolded %s but failed to wire %d required edge(s) to %s — node(s) orphaned; fix the target(s) and re-run, or wire the edge(s) with `hadron edge add`",
-			target.Format(), len(edgeFailures), strings.Join(edgeFailures, ", "))
+		resolved[pn.cit.Format()] = up.Id
+		written = append(written, pn.cit.Format())
 	}
 	return render()
 }
