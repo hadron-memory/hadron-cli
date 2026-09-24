@@ -653,3 +653,47 @@ func TestMapErrorMCPOnlyStripsTheApolloPrefixFromEveryMessage(t *testing.T) {
 		}
 	}
 }
+
+// server#1306: extensions.reason decides when present; the prose is only the
+// fallback for servers that predate it.
+func TestOAuthScopeRefusalPrefersReason(t *testing.T) {
+	forbidden := func(msg string, ext map[string]any) error {
+		e := map[string]any{"code": "FORBIDDEN"}
+		for k, v := range ext {
+			e[k] = v
+		}
+		return gqlerror.List{{Message: msg, Extensions: e}}
+	}
+	unsupported := "This OAuth credential carries a scope this server does not support (telepathy), so it is refused everywhere. Sign in again to get a credential with supported scopes."
+	for _, c := range []struct {
+		name string
+		err  error
+		want ScopeRefusal
+	}{
+		{"reason INSUFFICIENT, reworded prose", forbidden("Some future wording.", map[string]any{"reason": "OAUTH_SCOPE_INSUFFICIENT"}), ScopeMCPOnly},
+		{"reason UNSUPPORTED, its own sentence", forbidden(unsupported, map[string]any{"reason": "OAUTH_SCOPE_UNSUPPORTED"}), ScopeUnsupported},
+		{"no reason, MCP-only prose (older server)", forbidden("Context creation failed: This OAuth credential is limited to the MCP surface.", nil), ScopeMCPOnly},
+		{"unknown reason, no prose", forbidden("Nope.", map[string]any{"reason": "OAUTH_SCOPE_FUTURE"}), ""},
+		{"reason on a non-FORBIDDEN code", gqlerror.List{{Message: "x", Extensions: map[string]any{"code": "INTERNAL_SERVER_ERROR", "reason": "OAUTH_SCOPE_INSUFFICIENT"}}}, ""},
+		{"ordinary FORBIDDEN", forbidden("You do not have access to this memory.", nil), ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := OAuthScopeRefusal(c.err); got != c.want {
+				t.Errorf("OAuthScopeRefusal = %q, want %q", got, c.want)
+			}
+			mapped := MapError(c.err)
+			wantExit := exitcode.Forbidden
+			if c.want != "" {
+				wantExit = exitcode.AuthRequired
+			} else if c.name == "reason on a non-FORBIDDEN code" {
+				wantExit = exitcode.Error
+			}
+			if exitcode.FromError(mapped) != wantExit {
+				t.Errorf("exit = %d, want %d: %v", exitcode.FromError(mapped), wantExit, mapped)
+			}
+			if c.want == ScopeUnsupported && (!strings.Contains(mapped.Error(), UnsupportedScopeRemedy) || strings.Contains(mapped.Error(), "MCP clients only")) {
+				t.Errorf("an unsupported scope needs its own remedy, not the MCP-only one: %v", mapped)
+			}
+		})
+	}
+}

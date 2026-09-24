@@ -314,3 +314,31 @@ func TestMCPOnlyRefusalAsA403WithReasonStillMaps(t *testing.T) {
 		t.Errorf("status must still report the key: %v %s", jerr, out.String())
 	}
 }
+
+// server#1306's unsupported-scope refusal: its own sentence and reason. auth
+// status reports it as such, not as MCP-only.
+func TestAuthStatusReportsAnUnsupportedScope(t *testing.T) {
+	body := `{"errors":[{"message":"Context creation failed: This OAuth credential carries a scope this server does not support (telepathy), so it is refused everywhere. Sign in again to get a credential with supported scopes.","extensions":{"code":"FORBIDDEN","reason":"OAUTH_SCOPE_UNSUPPORTED","requiredScope":"account","grantedScopes":["mcp","telepathy"],"unsupportedScopes":["telepathy"]}}]}`
+	gql := graphQLAlways(t, http.StatusForbidden, body)
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"auth", "status", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.AuthRequired {
+		t.Fatalf("exit code = %d: %v", code, err)
+	}
+	var dto map[string]any
+	if jerr := json.Unmarshal([]byte(out.String()), &dto); jerr != nil || dto["rejectedReason"] != "unsupported-scope" {
+		t.Errorf("rejectedReason: %v %s", jerr, out.String())
+	}
+
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"auth", "status", "--server", gql.URL})
+	_ = root2.Execute()
+	got := out2.String()
+	if !strings.Contains(got, "does not support") || strings.Contains(got, "limited to the MCP surface") || !strings.Contains(got, "HADRON_TOKEN holds a key with an unsupported scope") {
+		t.Errorf("human status:\n%s", got)
+	}
+}

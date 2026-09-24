@@ -130,7 +130,8 @@ key from the portal's API keys page (`/app/account/api-keys`) passed to
 `hadron auth login --with-token`. If the key is in `HADRON_TOKEN`, replace
 the variable: it outranks any stored login.
 - `auth status --json` still prints its report for such a key:
-  `authenticated: false` plus **`rejectedReason: "mcp-only-scope"`**. It exits
+  `authenticated: false` plus **`rejectedReason: "mcp-only-scope"`** (or
+  `"unsupported-scope"`, below). It exits
   3 either way; before #681 it printed no report at all. `auth token validate
   --json` carries the same field beside `valid: false`.
 - `rejectedReason` is set only alongside a rejection, and only when the CLI
@@ -139,10 +140,14 @@ the variable: it outranks any stored login.
 - **`hadron api` is the exception.** It is the raw path, so it prints the
   server's envelope as is and exits 8 by `extensions.code`, like any other
   `FORBIDDEN`.
-- The server marks this refusal only with the generic `FORBIDDEN` and its
-  wording, so the CLI recognises it by both together. If the server rewords it,
-  the error falls back to exit 8 without the remedy. It is never
-  misreported as something else.
+- **How it is recognised:** a `FORBIDDEN` whose `extensions.reason` is
+  `OAUTH_SCOPE_INSUFFICIENT` (→ `rejectedReason: "mcp-only-scope"`) or
+  `OAUTH_SCOPE_UNSUPPORTED` (→ `"unsupported-scope"`: the key carries a scope
+  this server does not support, so it is refused everywhere; same exit 3, a
+  new-credential remedy). A server that predates `reason` (server#1306) is
+  recognised by the MCP-only sentence instead. Anything else keeps the plain
+  `FORBIDDEN` mapping (exit 8, no remedy); it is never misreported as a scope
+  refusal.
 
 Two codes that look like they belong here and do NOT, so a reader does not
 complete the family: `HOST_MEMORY_NOT_WRITABLE` and `HOST_MEMORY_NOT_READABLE`

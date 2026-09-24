@@ -24,14 +24,11 @@ type statusResult struct {
 	Key           *tokenDTO `json:"key,omitempty"`
 	Impersonating bool      `json:"impersonating,omitempty"`
 	// RejectedReason says WHY a present credential was rejected, when the
-	// CLI knows (#681). Only ever set alongside authenticated:false. Its one
-	// value today is rejectedMCPOnly; absent means "rejected, reason unknown".
+	// CLI knows (#681). Only ever set alongside authenticated:false. Values
+	// are api.ScopeRefusal's: "mcp-only-scope" or "unsupported-scope"; absent
+	// means "rejected, reason unknown".
 	RejectedReason string `json:"rejectedReason,omitempty"`
 }
-
-// rejectedMCPOnly: the key is valid but its OAuth grant is `mcp` alone, so
-// every CLI surface refuses it (#681).
-const rejectedMCPOnly = "mcp-only-scope"
 
 func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
@@ -81,8 +78,8 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 				// it is reported, with its reason and remedy, rather than returned
 				// as the server's bare refusal.
 				mapped := api.MapError(err)
-				if api.IsMCPOnlyCredential(err) {
-					dto.RejectedReason = rejectedMCPOnly
+				if kind := api.OAuthScopeRefusal(err); kind != "" {
+					dto.RejectedReason = string(kind)
 				} else if exitcode.FromError(mapped) != exitcode.AuthRequired {
 					return mapped
 				}
@@ -101,9 +98,14 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			writeErr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				if dto.RejectedReason == rejectedMCPOnly {
+				switch api.ScopeRefusal(dto.RejectedReason) {
+				case api.ScopeMCPOnly:
 					_, err := fmt.Fprintf(w, "✗ %s: the key from %s is limited to the MCP surface — the CLI cannot use it\n  %s\n",
-						server, describeSource(dto), mcpOnlyRemedy(dto))
+						server, describeSource(dto), scopeRemedy(dto, "an MCP-only key"))
+					return err
+				case api.ScopeUnsupported:
+					_, err := fmt.Fprintf(w, "✗ %s: the key from %s carries an OAuth scope this server does not support, so it is refused everywhere\n  %s\n",
+						server, describeSource(dto), scopeRemedy(dto, "a key with an unsupported scope"))
 					return err
 				}
 				if !dto.Authenticated {
@@ -134,13 +136,13 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 	}
 }
 
-// mcpOnlyRemedy is api.MCPOnlyRemedy narrowed by what status knows and the
-// generic path does not: where the key came from. A key in HADRON_TOKEN
+// scopeRemedy is the scope-refusal remedy narrowed by what status knows and
+// the generic path does not: where the key came from. A key in HADRON_TOKEN
 // outranks the store, so `auth logout && auth login` would change nothing
 // while the variable is set — naming it there would be a false remedy.
-func mcpOnlyRemedy(dto statusResult) string {
+func scopeRemedy(dto statusResult, what string) string {
 	if dto.TokenSource == string(authpkg.SourceEnv) {
-		return "HADRON_TOKEN holds an MCP-only key, and it takes precedence over any stored login. " +
+		return "HADRON_TOKEN holds " + what + ", and it takes precedence over any stored login. " +
 			"Replace it with a key that has the `account` scope — a key created on the portal's API keys page (/app/account/api-keys) has no scope limit — or unset it and run `hadron auth login`."
 	}
 	return "Sign in again with `hadron auth logout && hadron auth login` (hadron v0.15.0 or later requests the `account` scope), " +

@@ -27,7 +27,7 @@ import (
 // rule is a false remedy — no org role lets that key through — so it is left
 // to MapError, which names the credential fix.
 func InstallForbiddenGuidance(err error) error {
-	if !api.HasErrorCode(err, "FORBIDDEN") || api.IsMCPOnlyCredential(err) {
+	if !api.HasErrorCode(err, "FORBIDDEN") || api.OAuthScopeRefusal(err) != "" {
 		return api.MapError(err)
 	}
 	mapped := api.MapError(err)

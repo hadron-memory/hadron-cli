@@ -189,20 +189,20 @@ func MapError(err error) error {
 	// for access" — is false here: the fix is a different credential, which
 	// is exactly what 3 means. And the server's sentence names no way out,
 	// while the obvious one (`auth token create`) is refused for the same key.
-	if IsMCPOnlyCredential(err) {
+	if kind := OAuthScopeRefusal(err); kind != "" {
 		// Apollo's "Context creation failed: " is transport plumbing, not the
 		// server's sentence, and it means nothing to the person reading it, so
 		// it is dropped the way #566 drops genqlient's decoration. The chain
 		// still unwraps to the original error.
 		// Per message, before joining (PR #690 review, @copilot): trimming the
 		// joined string would strip only the first message's prefix. The list
-		// is never empty here, because IsMCPOnlyCredential matched a message.
+		// is never empty here, because OAuthScopeRefusal matched an error.
 		msgs := ServerMessages(err)
 		for i, m := range msgs {
 			msgs[i] = strings.TrimPrefix(m, apolloContextFailurePrefix)
 		}
 		msg := strings.Join(msgs, "; ")
-		return exitcode.New(exitcode.AuthRequired, &serverError{msg: msg + " " + MCPOnlyRemedy, err: err})
+		return exitcode.New(exitcode.AuthRequired, &serverError{msg: msg + " " + ScopeRefusalRemedy(kind), err: err})
 	}
 
 	var httpErr *graphql.HTTPError
@@ -275,15 +275,67 @@ const MCPOnlyRemedy = "This key was issued for MCP clients only, and the CLI nee
 	"or create a key on the portal's API keys page (/app/account/api-keys) and run `hadron auth login --with-token` with it. " +
 	"If the key comes from HADRON_TOKEN, replace that variable instead."
 
+// UnsupportedScopeRemedy is appended for a key whose OAuth grant carries a
+// scope this server does not support: it is refused everywhere, so the only
+// fix is a new credential (server#1306).
+const UnsupportedScopeRemedy = "Sign in again with `hadron auth logout && hadron auth login`, " +
+	"or create a key on the portal's API keys page (/app/account/api-keys) and run `hadron auth login --with-token` with it. " +
+	"If the key comes from HADRON_TOKEN, replace that variable instead."
+
+// ScopeRefusal names why the server refused a credential by its OAuth scope.
+// Its values are also `auth status` / `auth token validate`'s rejectedReason.
+type ScopeRefusal string
+
+const (
+	// ScopeMCPOnly: the grant is `mcp` alone, valid for MCP clients only.
+	ScopeMCPOnly ScopeRefusal = "mcp-only-scope"
+	// ScopeUnsupported: the grant carries a scope this server does not
+	// support, so it is refused everywhere.
+	ScopeUnsupported ScopeRefusal = "unsupported-scope"
+)
+
+// Server reasons for a scope refusal (server#1306, extensions.reason).
+const (
+	reasonScopeInsufficient = "OAUTH_SCOPE_INSUFFICIENT"
+	reasonScopeUnsupported  = "OAUTH_SCOPE_UNSUPPORTED"
+)
+
+// OAuthScopeRefusal classifies a FORBIDDEN that refuses the CREDENTIAL, not
+// the caller's permission. extensions.reason decides when the server sends it
+// (server#1306). A server that predates it is recognised by the MCP-only
+// sentence, so the CLI works in either deploy order. Anything else returns "",
+// and the error keeps its ordinary FORBIDDEN mapping. Call it on the RAW error.
+func OAuthScopeRefusal(err error) ScopeRefusal {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "FORBIDDEN" {
+			continue
+		}
+		reason, _ := e.Extensions["reason"].(string)
+		switch reason {
+		case reasonScopeInsufficient:
+			return ScopeMCPOnly
+		case reasonScopeUnsupported:
+			return ScopeUnsupported
+		}
+		if strings.Contains(e.Message, mcpOnlyRefusal) {
+			return ScopeMCPOnly
+		}
+	}
+	return ""
+}
+
+// ScopeRefusalRemedy is the recovery the CLI appends for a scope refusal.
+func ScopeRefusalRemedy(kind ScopeRefusal) string {
+	if kind == ScopeUnsupported {
+		return UnsupportedScopeRemedy
+	}
+	return MCPOnlyRemedy
+}
+
 // IsMCPOnlyCredential reports whether err is the server refusing an MCP-only
 // key (#681). Call it on the RAW error, before MapError wraps it.
 func IsMCPOnlyCredential(err error) bool {
-	for _, e := range graphQLErrors(err) {
-		if e != nil && extensionCode(e) == "FORBIDDEN" && strings.Contains(e.Message, mcpOnlyRefusal) {
-			return true
-		}
-	}
-	return false
+	return OAuthScopeRefusal(err) == ScopeMCPOnly
 }
 
 // HasErrorCode reports whether err carries a GraphQL error whose
