@@ -314,6 +314,14 @@ func (h reportHost) reasonCodes(name string) []string {
 
 func runExport(t *testing.T, url string, args ...string) (exportReport, error) {
 	t.Helper()
+	rep, _, err := runExportRaw(t, url, args...)
+	return rep, err
+}
+
+// runExportRaw also returns the report's raw JSON, for assertions a typed
+// decode cannot make (an unknown key is silently dropped by json.Unmarshal).
+func runExportRaw(t *testing.T, url string, args ...string) (exportReport, string, error) {
+	t.Helper()
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"skill", "export", "--json", "--server", url}, args...))
@@ -322,7 +330,7 @@ func runExport(t *testing.T, url string, args ...string) (exportReport, error) {
 	if uerr := json.Unmarshal([]byte(out.String()), &rep); uerr != nil {
 		t.Fatalf("export --json did not print a report (err=%v): %v\n%s", err, uerr, out.String())
 	}
-	return rep, err
+	return rep, out.String(), err
 }
 
 func wantExit(t *testing.T, err error, want int) {
@@ -585,8 +593,22 @@ func acceptanceCases() map[string]func(t *testing.T) {
 		if read(t, p) != earlier {
 			t.Error("a skipped over-limit declaration changed the earlier file")
 		}
-		if c := rep.host(t, "codexSkill").classOf(accName); c != "skipped" {
+		codex := rep.host(t, "codexSkill")
+		if c := codex.classOf(accName); c != "skipped" {
 			t.Errorf("codex: reported %q, want skipped", c)
+		}
+		// ...and the report NAMES the 1,024 limit: the server's reason travels
+		// verbatim, code and message both.
+		var named bool
+		for _, it := range codex.Skipped {
+			for _, r := range it.Reasons {
+				if r.Code == "over-limit" && strings.Contains(r.Message, "1,024") && r.Origin == "server" {
+					named = true
+				}
+			}
+		}
+		if !named {
+			t.Errorf("the skip must name the 1,024 limit (server reason, verbatim); got %+v", codex.Skipped)
 		}
 	}
 
@@ -773,8 +795,27 @@ func acceptanceCases() map[string]func(t *testing.T) {
 			}
 			return hp
 		})
-		rep, err := runExport(t, url)
+		rep, raw, err := runExportRaw(t, url)
 		wantExit(t, err, 0)
+		// HOST-FREE, checked on the raw JSON: a typed decode would silently
+		// drop a `host` key, so attribution to a host could never fail here.
+		var doc struct {
+			Unrecognized []map[string]json.RawMessage `json:"unrecognized"`
+			Hosts        []map[string]json.RawMessage `json:"hosts"`
+		}
+		if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+			t.Fatal(err)
+		}
+		for _, u := range doc.Unrecognized {
+			if _, ok := u["host"]; ok {
+				t.Errorf("an unrecognized key is attributed to a host: %s", raw)
+			}
+		}
+		for _, h := range doc.Hosts {
+			if _, ok := h["unrecognized"]; ok {
+				t.Errorf("an unrecognized key is reported inside a host: %s", raw)
+			}
+		}
 		if len(rep.Unrecognized) != 1 || rep.Unrecognized[0].NodeID != accNodeID || rep.Unrecognized[0].KeyCount != 1 ||
 			len(rep.Unrecognized[0].Keys) != 1 || rep.Unrecognized[0].Keys[0] != "codex" {
 			t.Errorf("want the unrecognized key `codex` named once, host-free; got %+v", rep.Unrecognized)
