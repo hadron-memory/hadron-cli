@@ -73,9 +73,14 @@ additive again. On that basis:
   orphaned from the tree, and the `skipped` edge status, which only that state
   produced, is gone.
 - **The `superseded-by` edge stays a separate `createEdge`**, because it leaves
-  the OLD node. If it is refused, the error names
+  the OLD node. If it errors, supersede **re-reads the old spec before
+  prescribing anything** (Codex on #691): a lost response looks exactly like a
+  refusal, and `spec link` over an edge that landed would fail, while a blind
+  rerun over one that didn't would mint a second replacement. An edge that
+  landed finishes the run. One confirmed absent gets
   `hadron spec link <old> <new> -m <mem> --label superseded-by`, after which
-  rerunning `spec supersede` takes its existing finish-the-retirement path.
+  rerunning `spec supersede` takes its existing finish-the-retirement path. An
+  unverifiable one says to check with `spec get` first.
 - **`spec lint`'s inheritance-edge remedy was a command that could not run.**
   It said `hadron edge add … --label`, and the flag is `--name`, so it exited
   `unknown flag: --label`. It now names `spec link` when both ends carry the

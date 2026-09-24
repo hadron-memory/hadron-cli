@@ -202,8 +202,11 @@ detail on stdout/stderr and
 still exits 1, so a
 caller branching on the exit code never reads a partial success as complete. The
 node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
-For supersede the error names the exact `spec link` to run, after which
-rerunning the supersede finishes the retirement.
+For supersede, a failed `superseded-by` write is re-read before anything is
+prescribed. An edge that landed despite the error finishes the run. One
+confirmed absent gets the exact `spec link` to run, after which rerunning the
+supersede finishes the retirement. An unverifiable one says to check with
+`spec get` first.
 
 `spec new`, `spec extract` and `spec supersede` cannot leave a spec without its
 table-of-contents / inheritance edges unless told to: without `--no-edges`

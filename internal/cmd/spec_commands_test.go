@@ -2037,6 +2037,79 @@ func TestSpecSupersedeUnresolvableEdgeCreatesNothing(t *testing.T) {
 	}
 }
 
+// supersedeLostEdgeServer answers a supersede whose superseded-by CreateEdge
+// errors. The FIRST GetNode is the old spec as read up front; the second is
+// the re-read after the failure, answered by reread.
+func supersedeLostEdgeServer(t *testing.T, reread string) (*httptest.Server, map[string]json.RawMessage) {
+	t.Helper()
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	responses := map[string]string{
+		"ResolveUrn":     resolveSpecJSON,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":      scan,
+		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":     `{"errors":[{"message":"edge boom"}]}`,
+		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	}
+	gets := 0
+	return captureGraphQLFunc(t, func(op string) string {
+		if op == "GetNode" {
+			gets++
+			if gets == 1 {
+				return `{"data":{"node":` + cleanSpecDetail + `}}`
+			}
+			return reread
+		}
+		return translateFindNodes(op, responses[op])
+	})
+}
+
+// #691 review (Codex): a CreateEdge error is not proof the edge is absent — the
+// response can be lost after the write committed. Supersede re-reads the old
+// spec, and when the superseded-by edge is there it FINISHES the retirement
+// rather than prescribing a `spec link` that would fail on it.
+func TestSpecSupersedeLostEdgeResponseFinishesRetirement(t *testing.T) {
+	landed := `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}}}`
+	gql, captured := supersedeLostEdgeServer(t, landed)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an edge that landed despite the error must finish the supersede: %v\n%s", err, out.String())
+	}
+	if _, retired := captured["UpdateSpecNode"]; !retired {
+		t.Error("the old spec was not retired although its superseded-by edge exists")
+	}
+	if !strings.Contains(out.String(), `"status": "created"`) || strings.Contains(out.String(), `"status": "failed"`) {
+		t.Errorf("the superseded-by edge exists, so it must report created:\n%s", out.String())
+	}
+}
+
+// ...and when the re-read fails too, nothing is known: the message says to
+// CHECK first rather than prescribing a create that may be a duplicate.
+func TestSpecSupersedeUnverifiableEdgeSaysCheckFirst(t *testing.T) {
+	gql, captured := supersedeLostEdgeServer(t, `{"errors":[{"message":"read boom"}]}`)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("an unverifiable retirement edge must not report success")
+	}
+	for _, want := range []string{"may or may not exist", "check with `hadron spec get msg:010:02", "if it has no superseded-by edge to msg:010:03"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message must contain %q; got %v", want, err)
+		}
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired without knowing the link exists")
+	}
+}
+
 func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
 	gql, _ := captureGraphQL(t, map[string]string{
