@@ -132,6 +132,19 @@ is one call instead of four.`, abstractSoftMax),
 				return exitcode.Newf(exitcode.Usage, "--abstract and --abstract-file are mutually exclusive")
 			}
 
+			// A positional <loc> (and an explicit --inherit) is validated before
+			// the memory is resolved, so an invalid one never costs a request
+			// (@copilot on #710). --new-path's legacy parse happens below.
+			if len(args) == 1 && !newPath {
+				if _, verr := validateSpecLoc(args[0]); verr != nil {
+					return verr
+				}
+				if inherit != "" {
+					if _, verr := validateSpecLoc(inherit); verr != nil {
+						return verr
+					}
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err

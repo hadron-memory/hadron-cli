@@ -976,6 +976,16 @@ func validateSpecLoc(loc string) (string, error) {
 	return loc, nil
 }
 
+// validateSpecPrefix checks a --prefix before it is sent anywhere: a prefix is
+// a loc (that node and its descendants), so it obeys the same generic rule, at
+// any depth (@copilot on #710). An empty prefix means "no prefix".
+func validateSpecPrefix(prefix string) error {
+	if strings.TrimSpace(prefix) == "" {
+		return nil
+	}
+	return cmdutil.ValidateURNPath("--prefix", strings.TrimSpace(prefix))
+}
+
 // isSpec reports whether a node belongs to the spec corpus: the `spec` tag, or
 // the governed spec role (#1201). Never the loc's shape (#708).
 //

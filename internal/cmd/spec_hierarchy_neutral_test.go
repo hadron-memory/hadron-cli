@@ -136,6 +136,12 @@ func TestSpecAddressingStillRefusesInvalidLocs(t *testing.T) {
 		{"edit, trailing colon", []string{"spec", "edit", "msg:010:", "--content", "x"}},
 		{"link, bad target", []string{"spec", "link", "msg:010:02", "a b"}},
 		{"link, self", []string{"spec", "link", "onboarding:mentor", "onboarding:mentor"}},
+		// A --prefix is a loc too (@copilot on #710), on every command that takes one.
+		{"get --prefix", []string{"spec", "get", "--prefix", "msg::010"}},
+		{"list --prefix", []string{"spec", "list", "--prefix", "has space"}},
+		{"grep --prefix", []string{"spec", "grep", "x", "--prefix", "msg:"}},
+		{"replace --prefix", []string{"spec", "replace", "a", "b", "--prefix", ":msg"}},
+		{"check-tools --prefix", []string{"spec", "check-tools", "--prefix", "a b"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f, _ := testFactory(t)
@@ -568,5 +574,23 @@ func TestSpecExtractRefusesASourceOutsideTheNumbering(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "must be 3 lowercase letters") && !strings.Contains(err.Error(), "legacy citation") {
 		t.Errorf("the refusal must explain the adapter, not only the grammar: %v", err)
+	}
+}
+
+// An invalid positional loc (or --inherit) is refused before the memory is
+// even resolved: -m here names a memory that needs a lookup, and the server is
+// unreachable, so a request made first would surface as exit 7, not Usage
+// (@copilot on #710).
+func TestSpecNewAtValidatesBeforeResolvingTheMemory(t *testing.T) {
+	for _, args := range [][]string{
+		{"msg::010"},
+		{"onboarding:mentor", "--inherit", "a b"},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{"spec", "new"}, args...), "-m", "some-memory-name", "--title", "T", "--server", "http://127.0.0.1:1"))
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+			t.Errorf("%v: exit %d, want Usage before any request", args, got)
+		}
 	}
 }

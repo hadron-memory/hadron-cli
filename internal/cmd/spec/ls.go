@@ -30,6 +30,9 @@ explicit page instead.`,
   hadron spec list -m hrn:mem:micromentor.org:platform-specs --prefix msg:010 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateSpecPrefix(prefix); err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
