@@ -684,6 +684,13 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) writeResult {
 	if err := os.MkdirAll(out, 0o755); err != nil {
 		return fail(err)
 	}
+	// resolveOut resolved only the part of --out that existed; re-resolve now
+	// that all of it does, so a component created as a link in between
+	// (pointing into a skills directory, say) is refused, not followed.
+	if got, err := filepath.EvalSymlinks(out); err != nil || got != out {
+		return writeResult{r: &exportReasonDTO{Code: reasonArtifactIsLink,
+			Message: fmt.Sprintf("%s changed while the plugin was being built (it now resolves to %s), so nothing was written", out, cmp(got, "nothing")), Origin: originClient}}
+	}
 	if r := checkArtifactPaths(dir, zipPath); r != nil {
 		return writeResult{r: r}
 	}
@@ -859,8 +866,7 @@ func hasPluginMarker(dir string) bool {
 // means only the previous artifact could not be removed; it says where it is.
 func swapInto(tmp, dest string, isDir bool) (published bool, _ *exportReasonDTO) {
 	if _, err := os.Lstat(dest); errors.Is(err, fs.ErrNotExist) {
-		r := publish(tmp, dest, isDir)
-		return r == nil, r
+		return publish(tmp, dest, isDir)
 	}
 	old := tmp + "-old"
 	if err := os.Rename(dest, old); err != nil {
@@ -871,14 +877,15 @@ func swapInto(tmp, dest string, isDir bool) (published bool, _ *exportReasonDTO)
 		return false, restore(old, dest, &exportReasonDTO{Code: reasonArtifactNotOurs,
 			Message: fmt.Sprintf("%s changed while the plugin was being built and is no longer one this command wrote, so it was left alone", dest), Origin: originClient})
 	}
-	if r := publish(tmp, dest, isDir); r != nil {
+	pub, r := publish(tmp, dest, isDir)
+	if !pub {
 		return false, restore(old, dest, r)
 	}
 	if err := os.RemoveAll(old); err != nil {
-		return true, &exportReasonDTO{Code: reasonIOError,
-			Message: fmt.Sprintf("%s was replaced, but the previous artifact could not be removed (%v) and is still at %s", dest, err, old), Origin: originClient}
+		r = joinReasons(r, &exportReasonDTO{Code: reasonIOError,
+			Message: fmt.Sprintf("%s was replaced, but the previous artifact could not be removed (%v) and is still at %s", dest, err, old), Origin: originClient})
 	}
-	return true, nil
+	return true, r
 }
 
 // linkFile is os.Link, swappable so a test can stand in a filesystem that
@@ -899,30 +906,36 @@ var linkFile = os.Link
 //
 // The other stated boundary is the moved-aside name (see swapInto): a fresh
 // random name no user path points at.
-func publish(tmp, dest string, isDir bool) *exportReasonDTO {
+//
+// published says whether tmp is now at dest; a reason with published=true
+// means only the temp name could not be removed, and says where it is.
+func publish(tmp, dest string, isDir bool) (published bool, _ *exportReasonDTO) {
 	occupied := &exportReasonDTO{Code: reasonArtifactNotOurs,
 		Message: fmt.Sprintf("%s appeared while the plugin was being built, so it was left alone", dest), Origin: originClient}
 	if !isDir {
 		err := linkFile(tmp, dest)
 		switch {
 		case err == nil:
-			_ = os.Remove(tmp)
-			return nil
+			if err := os.Remove(tmp); err != nil {
+				return true, &exportReasonDTO{Code: reasonIOError,
+					Message: fmt.Sprintf("%s was published, but its temporary copy could not be removed (%v) and is still at %s", dest, err, tmp), Origin: originClient}
+			}
+			return true, nil
 		case errors.Is(err, fs.ErrExist):
-			return occupied
+			return false, occupied
 		default:
-			return &exportReasonDTO{Code: reasonIOError,
+			return false, &exportReasonDTO{Code: reasonIOError,
 				Message: fmt.Sprintf("%s could not be published without risking a file that is not ours: this filesystem refused a hard link (%v)", dest, err), Origin: originClient}
 		}
 	}
 	if err := os.Rename(tmp, dest); err != nil {
 		if pathExists(dest) {
-			return occupied
+			return false, occupied
 		}
 		r := ioReason(err)
-		return &r
+		return false, &r
 	}
-	return nil
+	return true, nil
 }
 
 // restore puts a moved-aside artifact back with the same no-replace
@@ -937,8 +950,11 @@ func restore(old, dest string, r *exportReasonDTO) *exportReasonDTO {
 		r.Message += fmt.Sprintf("; the previous artifact could not be put back (%v)", err)
 		return r
 	}
-	if pr := publish(old, dest, fi.IsDir()); pr != nil {
+	switch pub, pr := publish(old, dest, fi.IsDir()); {
+	case !pub:
 		r.Message += fmt.Sprintf("; the previous artifact could not be put back (%s), so it is now at %s", pr.Message, old)
+	case pr != nil:
+		r.Message += "; the previous artifact was put back, but " + pr.Message
 	}
 	return r
 }

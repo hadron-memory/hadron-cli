@@ -528,7 +528,7 @@ func TestPublishNeverReplacesWhatAppeared(t *testing.T) {
 			}
 			c.setup(dest)
 			before := snapshot(t, dest)
-			r := publish(tmp, dest, c.isDir)
+			_, r := publish(tmp, dest, c.isDir)
 			if r == nil || r.Code != reasonArtifactNotOurs {
 				t.Fatalf("reason = %+v, want artifact-not-ours", r)
 			}
@@ -541,7 +541,7 @@ func TestPublishNeverReplacesWhatAppeared(t *testing.T) {
 	// And a vacant destination is published, with no temp name left behind.
 	tmp, dest := filepath.Join(h, "z.tmp"), filepath.Join(h, "z.zip")
 	write(t, tmp, "ours")
-	if r := publish(tmp, dest, false); r != nil {
+	if _, r := publish(tmp, dest, false); r != nil {
 		t.Fatal(r)
 	}
 	if b, _ := os.ReadFile(dest); string(b) != "ours" || exists(tmp) {
@@ -573,7 +573,7 @@ func TestPublishRefusesAFilesystemWithoutHardLinks(t *testing.T) {
 	linkFile = func(_, _ string) error { return &os.LinkError{Op: "link", Err: errors.New("operation not supported")} }
 	tmp, dest := filepath.Join(h, "z.tmp"), filepath.Join(h, "z.zip")
 	write(t, tmp, "ours")
-	r := publish(tmp, dest, false)
+	_, r := publish(tmp, dest, false)
 	if r == nil || r.Code != reasonIOError || !strings.Contains(r.Message, "hard link") {
 		t.Fatalf("reason = %+v, want an io refusal naming the missing hard links", r)
 	}
@@ -650,7 +650,7 @@ func TestPublishDirectoryNeverReplacesASymlink(t *testing.T) {
 	write(t, filepath.Join(tmp, "SKILL.md"), "ours")
 	mkdir(t, filepath.Join(h, "target"))
 	symlink(t, filepath.Join(h, "target"), dest)
-	if r := publish(tmp, dest, true); r == nil || r.Code != reasonArtifactNotOurs {
+	if _, r := publish(tmp, dest, true); r == nil || r.Code != reasonArtifactNotOurs {
 		t.Fatalf("reason = %+v, want artifact-not-ours", r)
 	}
 	if fi, err := os.Lstat(dest); err != nil || fi.Mode()&os.ModeSymlink == 0 {
@@ -726,5 +726,43 @@ func TestWritePluginArtifactKeepsEveryFailure(t *testing.T) {
 		if !strings.Contains(res.r.Message, want) {
 			t.Errorf("the report lost a failure: %q lacks %q", res.r.Message, want)
 		}
+	}
+}
+
+func TestPublishReportsATempItCouldNotRemove(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root can unlink in a read-only directory")
+	}
+	h := home(t)
+	d := filepath.Join(h, "ro")
+	tmp, dest := filepath.Join(d, "z.tmp"), filepath.Join(d, "z.zip")
+	write(t, tmp, "ours")
+	orig := linkFile
+	t.Cleanup(func() { linkFile = orig; _ = os.Chmod(d, 0o755) })
+	// The link lands, then the directory turns read-only before the unlink.
+	linkFile = func(o, n string) error {
+		if err := os.Link(o, n); err != nil {
+			return err
+		}
+		return os.Chmod(d, 0o555)
+	}
+	pub, r := publish(tmp, dest, false)
+	if !pub || r == nil || !strings.Contains(r.Message, tmp) {
+		t.Fatalf("published=%v reason=%+v, want published with the leftover named", pub, r)
+	}
+}
+
+func TestWritePluginArtifactRefusesAnOutSwappedForALink(t *testing.T) {
+	h := home(t)
+	out := filepath.Join(h, "out")
+	mkdir(t, filepath.Join(h, ".claude", "skills"))
+	// resolveOut saw no --out; it now exists as a link into a skills root.
+	symlink(t, filepath.Join(h, ".claude", "skills"), out)
+	res := writePluginArtifact(out, filepath.Join(out, "hadron"), "", sample("v1"))
+	if res.dir || res.r == nil || res.r.Code != reasonArtifactIsLink {
+		t.Fatalf("result = %+v, want a refusal", res)
+	}
+	if ents, _ := os.ReadDir(filepath.Join(h, ".claude", "skills")); len(ents) != 0 {
+		t.Errorf("wrote through the swapped-in link: %v", ents)
 	}
 }
