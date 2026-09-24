@@ -2424,7 +2424,7 @@ func TestSpecSupersedeLostCreateNamesTheReconciliation(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Unavailable {
 		t.Fatalf("a lost create must exit %d (Unavailable), got %d: %v", exitcode.Unavailable, code, err)
 	}
-	for _, want := range []string{"may have been created", "hadron spec get msg:010:03", "do NOT rerun as-is", "hadron spec link msg:010:02 msg:010:03", "only once `hadron spec get msg:010:02"} {
+	for _, want := range []string{"may have been created", "hadron spec get msg:010:03", "do NOT rerun as-is", "hadron spec link msg:010:02 msg:010:03", "only once `hadron spec get msg:010:02", "still does not exist after a minute"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("message must contain %q; got %v", want, err)
 		}

@@ -270,7 +270,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				// so name the exact check, and what to do if it landed.
 				if exitcode.FromError(mapped) == exitcode.Unavailable {
 					return exitcode.Newf(exitcode.Unavailable,
-						"creating replacement %s got no answer (%v), so it may have been created; before rerunning, check `hadron spec get %s -m %s` (a fresh node can take a minute to resolve). If it exists, do NOT rerun as-is — that would allocate another replacement — link it with `hadron spec link %s %s -m %s --label %s`, and rerun this command only once `hadron spec get %s -m %s` shows that %s edge. If it does not exist, rerun",
+						"creating replacement %s got no answer (%v), so it may have been created; before rerunning, check `hadron spec get %s -m %s` (a fresh node can take a minute to resolve). If it exists, do NOT rerun as-is — that would allocate another replacement — link it with `hadron spec link %s %s -m %s --label %s`, and rerun this command only once `hadron spec get %s -m %s` shows that %s edge. Only if it still does not exist after a minute (a fresh node can take that long to resolve), rerun",
 						newTarget.Format(), mapped, newTarget.Format(), memURN,
 						oldCit.Format(), newTarget.Format(), memURN, supersededByLabel,
 						oldCit.Format(), memURN, supersededByLabel)
