@@ -41,7 +41,8 @@ one object for a single citation, an array for --prefix.`,
   hadron spec get --prefix cor:dmo -m hrn:mem:hadronmemory.com:platform-specs --abstract-only --json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := validateSpecPrefix(prefix); err != nil {
+			prefix, err := validateSpecPrefix(prefix)
+			if err != nil {
 				return err
 			}
 			// Exactly one of <citation> or --prefix.

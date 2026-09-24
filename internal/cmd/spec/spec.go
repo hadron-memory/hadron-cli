@@ -330,10 +330,14 @@ func seqFromLoc(loc string) *int {
 	if leaf == "" || strings.Trim(leaf, "0123456789") != "" {
 		return nil
 	}
-	n, err := strconv.Atoi(leaf)
+	// Node.seq is a GraphQL Int — signed 32-bit — so a numeric leaf past
+	// that range orders nothing rather than failing the create (@codex on
+	// #710).
+	n64, err := strconv.ParseInt(leaf, 10, 32)
 	if err != nil {
 		return nil
 	}
+	n := int(n64)
 	return &n
 }
 
@@ -976,14 +980,21 @@ func validateSpecLoc(loc string) (string, error) {
 	return loc, nil
 }
 
-// validateSpecPrefix checks a --prefix before it is sent anywhere: a prefix is
-// a loc (that node and its descendants), so it obeys the same generic rule, at
-// any depth (@copilot on #710). An empty prefix means "no prefix".
-func validateSpecPrefix(prefix string) error {
-	if strings.TrimSpace(prefix) == "" {
-		return nil
+// validateSpecPrefix checks a --prefix before it is sent anywhere and returns
+// the value to send: a prefix is a loc (that node and its descendants), so it
+// obeys the same generic rule, at any depth, and is trimmed like every other
+// spec address — the TRIMMED value is what the caller must query with, or a
+// padded prefix would pass here and match nothing there (@copilot, @codex on
+// #710). "" (or whitespace only) means no prefix.
+func validateSpecPrefix(prefix string) (string, error) {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		return "", nil
 	}
-	return cmdutil.ValidateURNPath("--prefix", strings.TrimSpace(prefix))
+	if err := cmdutil.ValidateURNPath("--prefix", prefix); err != nil {
+		return "", err
+	}
+	return prefix, nil
 }
 
 // isSpec reports whether a node belongs to the spec corpus: the `spec` tag, or

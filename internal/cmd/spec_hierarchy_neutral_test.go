@@ -594,3 +594,51 @@ func TestSpecNewAtValidatesBeforeResolvingTheMemory(t *testing.T) {
 		}
 	}
 }
+
+// A padded --prefix is accepted, and the TRIMMED prefix is what is queried —
+// validating one value and sending another matched nothing (@copilot, @codex
+// on #710).
+func TestSpecPrefixIsTrimmedBeforeTheQuery(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec"]`) + `]}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "list", "-m", specMem, "--prefix", "  msg:010 ", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars findNodesVars
+	_ = json.Unmarshal(captured["FindNodes"], &vars)
+	if vars.Filter.LocPrefix != "msg:010" {
+		t.Errorf("queried prefix = %q, want the trimmed msg:010", vars.Filter.LocPrefix)
+	}
+}
+
+// Node.seq is a GraphQL Int (signed 32-bit): a numeric leaf past that range
+// sets no order, rather than failing the create (@codex on #710).
+func TestSpecNewAtSeqStaysInGraphQLIntRange(t *testing.T) {
+	for _, c := range []struct {
+		loc     string
+		wantNil bool
+	}{
+		{"guide:2147483647", false},
+		{"guide:2147483648", true},
+		{"guide:99999999999999999999", true},
+	} {
+		t.Run(c.loc, func(t *testing.T) {
+			url, captured := newAtServer(t)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"spec", "new", c.loc, "-m", specMem, "--title", "T", "--server", url})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var in sentSpecInput
+			_ = json.Unmarshal(captured["CreateSpecNode"], &in)
+			if (in.Input.Seq == nil) != c.wantNil {
+				t.Errorf("seq = %v, want nil=%v", in.Input.Seq, c.wantNil)
+			}
+		})
+	}
+}

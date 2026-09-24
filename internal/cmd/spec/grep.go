@@ -50,7 +50,8 @@ token appears — including inside longer tokens — then rewrite precisely with
   hadron spec grep TODO -m hrn:mem:hadronmemory.com:specs --prefix cor:api --field content`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := validateSpecPrefix(prefix); err != nil {
+			prefix, err := validateSpecPrefix(prefix)
+			if err != nil {
 				return err
 			}
 			pattern := args[0]
