@@ -262,6 +262,16 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 		if err := refuseHostRoot(artifactDir, literal, home); err != nil {
 			return err
 		}
+		// The zip path gets the same resolved check: a link there into a
+		// skills root is refused before any request, not at write time.
+		if opts.zip {
+			if fi, err := os.Lstat(artifactDir + ".zip"); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+				target := resolveExisting(artifactDir + ".zip")
+				if err := refuseHostRoot(target, target, home); err != nil {
+					return err
+				}
+			}
+		}
 		// "Above a root" also means an existing artifact directory that
 		// holds one (a project checked out inside it, say). The replace check
 		// refuses it again at write time; this makes it a usage error before
@@ -968,7 +978,10 @@ func swapInto(tmp, dest string, isDir bool, host string) (published bool, _ *exp
 			return false, &exportReasonDTO{Code: reasonIOError,
 				Message: fmt.Sprintf("%s could not be replaced without risking a file that is not ours: this filesystem refused a hard link (%v); the previous zip is untouched", dest, err), Origin: originClient}
 		}
-		_ = os.Remove(probe)
+		if r := cleanupTemp(probe, os.Remove); r != nil {
+			return false, joinReasons(&exportReasonDTO{Code: reasonIOError,
+				Message: fmt.Sprintf("%s was not replaced; the previous zip is untouched", dest), Origin: originClient}, r)
+		}
 	}
 	old := tmp + "-old"
 	if err := os.Rename(dest, old); err != nil {

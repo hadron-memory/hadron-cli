@@ -892,3 +892,30 @@ func TestZipRebuildWithoutHardLinksKeepsThePreviousZip(t *testing.T) {
 		t.Errorf("the previous zip is no longer at %s (err %v)", zp, err)
 	}
 }
+
+func TestZipRebuildStopsWhenTheProbeCannotBeRemoved(t *testing.T) {
+	out := filepath.Join(home(t), "out")
+	dir, zp := filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip")
+	if r := writePluginArtifact(out, dir, zp, sample("v1")).r; r != nil {
+		t.Fatal(r)
+	}
+	before, _ := os.ReadFile(zp)
+	orig := linkFile
+	t.Cleanup(func() { linkFile = orig })
+	// The probe link lands as a DIRECTORY, which os.Remove cannot delete
+	// while it holds a file: a stand-in for a probe another process pins.
+	linkFile = func(o, n string) error {
+		if strings.HasSuffix(n, "-probe") {
+			write(t, filepath.Join(n, "pinned"), "x")
+			return nil
+		}
+		return os.Link(o, n)
+	}
+	res := writePluginArtifact(out, dir, zp, sample("v2"))
+	if res.zip || res.r == nil || !strings.Contains(res.r.Message, "-probe") || !strings.Contains(res.r.Message, "untouched") {
+		t.Fatalf("result = %+v, want the zip refused, the probe named, and the previous zip untouched", res)
+	}
+	if after, _ := os.ReadFile(zp); !bytes.Equal(before, after) {
+		t.Error("the previous zip was replaced")
+	}
+}
