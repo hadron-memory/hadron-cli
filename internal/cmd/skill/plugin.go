@@ -265,10 +265,18 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 		// The zip path gets the same resolved check: a link there into a
 		// skills root is refused before any request, not at write time.
 		if opts.zip {
-			if fi, err := os.Lstat(artifactDir + ".zip"); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-				target := resolveExisting(artifactDir + ".zip")
-				if err := refuseHostRoot(target, target, home); err != nil {
-					return err
+			zp := artifactDir + ".zip"
+			if fi, err := os.Lstat(zp); err == nil {
+				switch {
+				case fi.Mode()&os.ModeSymlink != 0:
+					target := resolveExisting(zp)
+					if err := refuseHostRoot(target, target, home); err != nil {
+						return err
+					}
+				case fi.IsDir():
+					if root, ok := containsHostRoot(zp); ok {
+						return hostRootError(zp, root)
+					}
 				}
 			}
 		}
@@ -821,9 +829,14 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 // one it cannot remove, with where it is: stale skill data left hidden in
 // --out is worth a line in the report (@codex on #707).
 func cleanupTemp(p string, remove func(string) error) *exportReasonDTO {
-	if err := remove(p); err != nil && pathExists(p) {
+	// Silent only when the path is DEFINITELY gone: an Lstat that fails for
+	// another reason (an unsearchable parent) cannot vouch for that.
+	if err := remove(p); err != nil {
+		if _, lerr := os.Lstat(p); errors.Is(lerr, fs.ErrNotExist) {
+			return nil
+		}
 		return &exportReasonDTO{Code: reasonIOError,
-			Message: fmt.Sprintf("a temporary copy could not be removed (%v) and is still at %s", err, p), Origin: originClient}
+			Message: fmt.Sprintf("a temporary copy could not be removed (%v) and may still be at %s", err, p), Origin: originClient}
 	}
 	return nil
 }

@@ -919,3 +919,21 @@ func TestZipRebuildStopsWhenTheProbeCannotBeRemoved(t *testing.T) {
 		t.Error("the previous zip was replaced")
 	}
 }
+
+// An unsearchable parent makes Lstat fail with EACCES, which is not proof
+// the temp is gone: the leftover must still be reported.
+func TestCleanupTempReportsWhenExistenceCannotBeChecked(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root searches every directory")
+	}
+	d := filepath.Join(home(t), "d")
+	p := filepath.Join(d, ".tmp-1")
+	write(t, p, "stale")
+	if err := os.Chmod(d, 0o600); err != nil { // readable, not searchable
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(d, 0o755) })
+	if r := cleanupTemp(p, func(string) error { return errors.New("denied") }); r == nil || !strings.Contains(r.Message, p) {
+		t.Errorf("reason = %+v, want the possible leftover named", r)
+	}
+}

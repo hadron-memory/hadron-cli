@@ -314,6 +314,10 @@ func TestSkillPluginRefusesAHostSkillsRootBeforeAnyRequest(t *testing.T) {
 	if err := os.Symlink(filepath.Join(h, ".agents", "skills", "x.zip"), filepath.Join(h, "zipped", "hadron.zip")); err != nil {
 		t.Fatal(err)
 	}
+	// A DIRECTORY at the zip path that holds a skills root.
+	if err := os.MkdirAll(filepath.Join(h, "zipdir", "hadron.zip", "p", ".codex", "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	// An existing artifact that holds a project skills root is "above" one.
 	if err := os.MkdirAll(filepath.Join(h, "dist", "hadron", "proj", ".claude", "skills"), 0o755); err != nil {
 		t.Fatal(err)
@@ -325,6 +329,7 @@ func TestSkillPluginRefusesAHostSkillsRootBeforeAnyRequest(t *testing.T) {
 		{"--out", filepath.Join(h, "linked")},
 		{"--out", filepath.Join(h, "dangling")},
 		{"--out", filepath.Join(h, "zipped"), "--zip"},
+		{"--out", filepath.Join(h, "zipdir"), "--zip"},
 	} {
 		_, _, err := runPlugin(t, srv.URL, args...)
 		wantExit(t, err, 2)
