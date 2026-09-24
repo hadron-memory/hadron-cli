@@ -314,17 +314,22 @@ server planned**, as #621 does, and never re-judged by the client:
   silently dropped.
 - **`failure`**: the whole host could not be built (output path refused, plan
   refused). Every entry is still named, as in #621's `blockHost`.
-- **`findings`**: the server's **warning** findings for
-  every judged entry, one row per finding, keyed by node like the item rows
-  (@codex on #700). They sit beside the item lists rather than inside them,
-  so `exportItemDTO` stays exactly #621's. Error findings are not repeated
-  here: an entry with one is already `refused` or `failed`, with its reasons.
-  `SkillFinding.severity` is `error` or `warning` and nothing else
-  (`schema/schema.graphql`), so `warning` is the only value this list carries
-  (@copilot on #702). A new server severity would be a schema change, and the
-  list would take it up then.
-  Findings never affect the exit status. Whether the **human** report lists
-  them is still Q11. #621's `skill export` has no such field either; adding
+- **`findings`**: every server finding whose severity is **not `error`**,
+  for every judged entry. There is one row per finding, keyed by node like
+  the item rows (@codex on #700).
+  - They sit beside the item lists rather than inside them, so
+    `exportItemDTO` stays exactly #621's.
+  - Error findings are not repeated here. An entry with one is already
+    `refused` or `failed`, with its reasons.
+  - **Today that means `warning`.** `SkillFinding.severity` is documented as
+    "Either error or warning". But it is a `String!`, not an enum, so the
+    server could add a value without a schema change (@copilot on #702). An
+    unknown severity is therefore **passed through verbatim** into this list,
+    never dropped and never promoted to an error. Only `error` is
+    interpreted.
+  - **This list never affects the exit status.** Error findings do, but only
+    through their entry's `refused`/`failed` bucket (the exit rule below).
+  - Whether the **human** report lists them is still Q11. #621's `skill export` has no such field either; adding
   one there is a separate, additive change.
 - **`notForHost`**: tasks declared only for the *other* host, so absent from
   this host's plan. These are reported as the portal's `otherHostOnly` does;
