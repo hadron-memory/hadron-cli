@@ -958,6 +958,18 @@ func swapInto(tmp, dest string, isDir bool, host string) (published bool, _ *exp
 	if _, err := os.Lstat(dest); errors.Is(err, fs.ErrNotExist) {
 		return publish(tmp, dest, isDir)
 	}
+	if !isDir {
+		// A zip is published by hard link, and so is its put-back. Probe the
+		// filesystem BEFORE moving the previous zip aside, so one without hard
+		// links refuses with the previous zip still in place (@copilot on
+		// #707), instead of hiding it under the moved-aside name.
+		probe := tmp + "-probe"
+		if err := linkFile(tmp, probe); err != nil {
+			return false, &exportReasonDTO{Code: reasonIOError,
+				Message: fmt.Sprintf("%s could not be replaced without risking a file that is not ours: this filesystem refused a hard link (%v); the previous zip is untouched", dest, err), Origin: originClient}
+		}
+		_ = os.Remove(probe)
+	}
 	old := tmp + "-old"
 	if err := os.Rename(dest, old); err != nil {
 		r := ioReason(err)

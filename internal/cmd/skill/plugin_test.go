@@ -2,6 +2,7 @@ package skill
 
 import (
 	"archive/zip"
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -867,5 +868,27 @@ func TestCleanupTempReportsWhatItCannotRemove(t *testing.T) {
 	}
 	if r := cleanupTemp(p, func(string) error { return errors.New("already gone") }); r != nil {
 		t.Errorf("a temp that is already gone is not a leftover: %+v", r)
+	}
+}
+
+// On a filesystem without hard links a rebuild must not hide the previous
+// zip: the refusal comes before anything is moved.
+func TestZipRebuildWithoutHardLinksKeepsThePreviousZip(t *testing.T) {
+	out := filepath.Join(home(t), "out")
+	dir, zp := filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip")
+	if r := writePluginArtifact(out, dir, zp, sample("v1")).r; r != nil {
+		t.Fatal(r)
+	}
+	before, _ := os.ReadFile(zp)
+	orig := linkFile
+	t.Cleanup(func() { linkFile = orig })
+	linkFile = func(_, _ string) error { return &os.LinkError{Op: "link", Err: errors.New("operation not supported")} }
+
+	res := writePluginArtifact(out, dir, zp, sample("v2"))
+	if res.zip || res.r == nil || !strings.Contains(res.r.Message, "untouched") {
+		t.Fatalf("result = %+v, want the zip refused with the previous one untouched", res)
+	}
+	if after, err := os.ReadFile(zp); err != nil || !bytes.Equal(before, after) {
+		t.Errorf("the previous zip is no longer at %s (err %v)", zp, err)
 	}
 }
