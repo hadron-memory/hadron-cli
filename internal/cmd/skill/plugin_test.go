@@ -853,3 +853,19 @@ func TestRefuseHostRootFollowsADanglingParentLink(t *testing.T) {
 	symlink(t, filepath.Join(h, "loop-a"), filepath.Join(h, "loop-b"))
 	_ = resolveExisting(filepath.Join(h, "loop-a", "x"))
 }
+
+func TestCleanupTempReportsWhatItCannotRemove(t *testing.T) {
+	h := home(t)
+	p := filepath.Join(h, ".hadron.tmp-1")
+	write(t, p, "stale")
+	r := cleanupTemp(p, func(string) error { return errors.New("locked") })
+	if r == nil || !strings.Contains(r.Message, p) {
+		t.Errorf("reason = %+v, want the leftover named", r)
+	}
+	if r := cleanupTemp(p, os.Remove); r != nil || exists(p) {
+		t.Errorf("a removable temp: reason %+v, still there %v", r, exists(p))
+	}
+	if r := cleanupTemp(p, func(string) error { return errors.New("already gone") }); r != nil {
+		t.Errorf("a temp that is already gone is not a leftover: %+v", r)
+	}
+}

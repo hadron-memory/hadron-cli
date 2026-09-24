@@ -271,10 +271,11 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 			case fi.Mode()&os.ModeSymlink != 0:
 				// A link is refused at write time anyway; one into a skills
 				// root is refused here, before any request, as documented.
-				if target, err := filepath.EvalSymlinks(artifactDir); err == nil {
-					if err := refuseHostRoot(target, target, home); err != nil {
-						return err
-					}
+				// Resolved as resolveExisting does, so a link into a root
+				// that does not exist yet is caught too (@codex on #707).
+				target := resolveExisting(artifactDir)
+				if err := refuseHostRoot(target, target, home); err != nil {
+					return err
 				}
 			case fi.IsDir():
 				if root, ok := containsHostRoot(artifactDir); ok {
@@ -733,7 +734,7 @@ func mustJSON(v any) []byte {
 // The result says which pieces were published: a failure AFTER the
 // directory (publishing the zip, removing the previous artifact) leaves a
 // live directory the caller must still report.
-func writePluginArtifact(out, dir, zipPath string, a artifact) writeResult {
+func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult) {
 	fail := func(err error) writeResult {
 		r := ioReason(err)
 		return writeResult{r: &r}
@@ -756,7 +757,7 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) writeResult {
 	if err != nil {
 		return fail(err)
 	}
-	defer func() { _ = os.RemoveAll(tmp) }()
+	defer func() { res.r = joinReasons(res.r, cleanupTemp(tmp, os.RemoveAll)) }()
 	for rel, body := range a.dirFiles {
 		p := filepath.Join(tmp, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -774,7 +775,13 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) writeResult {
 			return fail(err)
 		}
 		zipTmp = zf.Name()
-		defer func() { _ = os.Remove(zipTmp) }()
+		defer func() {
+			// publish() already reports a temp it could not remove after a
+			// successful link; this covers every other path.
+			if res.r == nil || !strings.Contains(res.r.Message, zipTmp) {
+				res.r = joinReasons(res.r, cleanupTemp(zipTmp, os.Remove))
+			}
+		}()
 		werr := writeZip(zf, a.zipFiles, zipComment(a.host))
 		if cerr := zf.Close(); werr == nil {
 			werr = cerr
@@ -788,7 +795,7 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) writeResult {
 	if !published {
 		return writeResult{r: cleanup}
 	}
-	res := writeResult{dir: true, r: cleanup}
+	res = writeResult{dir: true, r: cleanup}
 	if zipTmp != "" {
 		zpub, zr := swapInto(zipTmp, zipPath, false, a.host)
 		if !zpub {
@@ -798,6 +805,17 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) writeResult {
 		res.r = joinReasons(res.r, zr)
 	}
 	return res
+}
+
+// cleanupTemp removes a temporary copy that was not published, and reports
+// one it cannot remove, with where it is: stale skill data left hidden in
+// --out is worth a line in the report (@codex on #707).
+func cleanupTemp(p string, remove func(string) error) *exportReasonDTO {
+	if err := remove(p); err != nil && pathExists(p) {
+		return &exportReasonDTO{Code: reasonIOError,
+			Message: fmt.Sprintf("a temporary copy could not be removed (%v) and is still at %s", err, p), Origin: originClient}
+	}
+	return nil
 }
 
 // joinReasons keeps every failure of one host's write: a leftover's location
