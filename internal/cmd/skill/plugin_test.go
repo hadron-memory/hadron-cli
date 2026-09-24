@@ -552,7 +552,7 @@ func TestSwapIntoNeverRestoresOverWhatAppeared(t *testing.T) {
 	dest, old := filepath.Join(h, "hadron.zip"), filepath.Join(h, ".t-old")
 	write(t, old, "our previous zip")
 	write(t, dest, "appeared meanwhile")
-	r := restore(old, dest, false, &exportReasonDTO{Code: reasonArtifactNotOurs, Message: "x"})
+	r := restore(old, dest, &exportReasonDTO{Code: reasonArtifactNotOurs, Message: "x"})
 	if b, _ := os.ReadFile(dest); string(b) != "appeared meanwhile" {
 		t.Errorf("the put-back replaced what appeared: %q", b)
 	}
@@ -574,5 +574,34 @@ func TestPublishRefusesAFilesystemWithoutHardLinks(t *testing.T) {
 	}
 	if exists(dest) {
 		t.Error("with no hard links the zip must not be published by a rename")
+	}
+}
+
+func TestSwapIntoPutsBackADirectoryThatAppearedAtTheZipPath(t *testing.T) {
+	h := home(t)
+	dest, tmp := filepath.Join(h, "hadron.zip"), filepath.Join(h, ".hadron.zip.tmp-1")
+	write(t, filepath.Join(dest, "theirs.txt"), "keep")
+	write(t, tmp, "new zip")
+	if r := swapInto(tmp, dest, false); r == nil || r.Code != reasonArtifactNotOurs {
+		t.Fatalf("reason = %+v, want artifact-not-ours", r)
+	}
+	if b, err := os.ReadFile(filepath.Join(dest, "theirs.txt")); err != nil || string(b) != "keep" {
+		t.Errorf("the directory was not put back at the zip path: %q, %v", b, err)
+	}
+}
+
+func TestReplaceRefusesAMarkedArtifactHoldingASkillsRoot(t *testing.T) {
+	out := filepath.Join(home(t), "out")
+	dir := filepath.Join(out, "hadron")
+	if _, r := writePluginArtifact(out, dir, "", sample("v1")); r != nil {
+		t.Fatal(r)
+	}
+	write(t, filepath.Join(dir, "proj", ".agents", "skills", "x", "SKILL.md"), "someone's skill")
+	_, r := writePluginArtifact(out, dir, "", sample("v2"))
+	if r == nil || r.Code != reasonArtifactNotOurs || !strings.Contains(r.Message, filepath.Join(".agents", "skills")) {
+		t.Fatalf("reason = %+v, want a refusal naming the skills root", r)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "proj", ".agents", "skills", "x", "SKILL.md")); string(b) != "someone's skill" {
+		t.Error("the project skills root inside the artifact was deleted")
 	}
 }

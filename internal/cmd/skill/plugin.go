@@ -752,6 +752,13 @@ func checkReplaceable(p string, isDir bool) *exportReasonDTO {
 		if !fi.IsDir() || !hasPluginMarker(p) {
 			return notOurs
 		}
+		// A marked directory someone has since put a host skills root inside
+		// is refused too: replacing it wholesale would delete that root, and
+		// this command never writes one.
+		if root, ok := containsHostRoot(p); ok {
+			return &exportReasonDTO{Code: reasonArtifactNotOurs,
+				Message: fmt.Sprintf("%s holds a host skills directory (%s) that this command did not write, so it was left alone", p, root), Origin: originClient}
+		}
 		return nil
 	}
 	if !fi.Mode().IsRegular() {
@@ -766,6 +773,23 @@ func checkReplaceable(p string, isDir bool) *exportReasonDTO {
 		return notOurs
 	}
 	return nil
+}
+
+// containsHostRoot walks dir (never following a link) for a host skills
+// root: a `skills` directory directly inside `.claude`, `.agents` or `.codex`.
+func containsHostRoot(dir string) (string, bool) {
+	var found string
+	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() || p == dir {
+			return nil
+		}
+		if _, ok := insideRootShape(strings.TrimPrefix(p, dir)); ok {
+			found = p
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return found, found != ""
 }
 
 func hasPluginMarker(dir string) bool {
@@ -803,11 +827,11 @@ func swapInto(tmp, dest string, isDir bool) *exportReasonDTO {
 		return &r
 	}
 	if r := checkReplaceable(old, isDir); r != nil || !pathExists(old) {
-		return restore(old, dest, isDir, &exportReasonDTO{Code: reasonArtifactNotOurs,
+		return restore(old, dest, &exportReasonDTO{Code: reasonArtifactNotOurs,
 			Message: fmt.Sprintf("%s changed while the plugin was being built and is no longer one this command wrote, so it was left alone", dest), Origin: originClient})
 	}
 	if r := publish(tmp, dest, isDir); r != nil {
-		return restore(old, dest, isDir, r)
+		return restore(old, dest, r)
 	}
 	_ = os.RemoveAll(old)
 	return nil
@@ -861,8 +885,15 @@ func publish(tmp, dest string, isDir bool) *exportReasonDTO {
 // publish, so it never displaces something that appeared at dest meanwhile.
 // When it cannot, the artifact stays at its moved-aside name, and the
 // reason says where.
-func restore(old, dest string, isDir bool, r *exportReasonDTO) *exportReasonDTO {
-	if pr := publish(old, dest, isDir); pr != nil {
+func restore(old, dest string, r *exportReasonDTO) *exportReasonDTO {
+	// Put back by what was actually moved aside, not by what was expected
+	// there: a directory that appeared at the zip path must go back as one.
+	fi, err := os.Lstat(old)
+	if err != nil {
+		r.Message += fmt.Sprintf("; the previous artifact could not be put back (%v)", err)
+		return r
+	}
+	if pr := publish(old, dest, fi.IsDir()); pr != nil {
 		r.Message += fmt.Sprintf("; the previous artifact could not be put back (%s), so it is now at %s", pr.Message, old)
 	}
 	return r
