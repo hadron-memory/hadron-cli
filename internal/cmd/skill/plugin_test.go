@@ -685,3 +685,41 @@ func TestSwapIntoReportsAPreviousArtifactItCouldNotRemove(t *testing.T) {
 		t.Errorf("the new artifact is not live: %q", b)
 	}
 }
+
+// Two failures in one write — the old directory could not be removed, then
+// the zip could not be published — must both reach the report.
+func TestWritePluginArtifactKeepsEveryFailure(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root can remove a read-only directory")
+	}
+	out := filepath.Join(home(t), "out")
+	dir, zp := filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip")
+	if r := writePluginArtifact(out, dir, "", sample("v1")).r; r != nil {
+		t.Fatal(r)
+	}
+	ro := filepath.Join(dir, "skills", "a")
+	if err := os.Chmod(ro, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = filepath.Walk(out, func(p string, fi os.FileInfo, err error) error {
+			if err == nil && fi.IsDir() {
+				_ = os.Chmod(p, 0o755)
+			}
+			return nil
+		})
+	})
+	orig := linkFile
+	t.Cleanup(func() { linkFile = orig })
+	linkFile = func(_, _ string) error { return &os.LinkError{Op: "link", Err: errors.New("operation not supported")} }
+
+	res := writePluginArtifact(out, dir, zp, sample("v2"))
+	if !res.dir || res.zip || res.r == nil {
+		t.Fatalf("result = %+v, want the directory live and the zip failed", res)
+	}
+	for _, want := range []string{"could not be removed", "-old", "its zip was not"} {
+		if !strings.Contains(res.r.Message, want) {
+			t.Errorf("the report lost a failure: %q lacks %q", res.r.Message, want)
+		}
+	}
+}

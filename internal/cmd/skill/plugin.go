@@ -729,15 +729,25 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) writeResult {
 		zpub, zr := swapInto(zipTmp, zipPath, false)
 		if !zpub {
 			zr.Message = fmt.Sprintf("%s was written, but its zip was not: %s", dir, zr.Message)
-			res.r = zr
-			return res
 		}
-		res.zip = true
-		if res.r == nil {
-			res.r = zr
-		}
+		res.zip = zpub
+		res.r = joinReasons(res.r, zr)
 	}
 	return res
+}
+
+// joinReasons keeps every failure of one host's write: a leftover's location
+// is its only recovery path, so a later failure must not overwrite it.
+func joinReasons(a, b *exportReasonDTO) *exportReasonDTO {
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+	j := *a
+	j.Message += "; and " + b.Message
+	return &j
 }
 
 func checkArtifactPaths(dir, zipPath string) *exportReasonDTO {
