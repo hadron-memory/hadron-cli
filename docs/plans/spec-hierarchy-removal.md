@@ -126,46 +126,42 @@ the one the server enforces. What's still refused:
   - restoring the `list` shape filter: red;
   - dropping the role from `isSpec`: red.
 
-### B. Lint: planned
+### B. Lint: tier obligations removed in cli#710; only the rubric is open
 
-Remove the rules whose only basis is the tier grammar. Three lint changes
-went early, in cli#710, because a spec outside the numbering had to be read and
-reported correctly as soon as it was addressable:
-- `loc-shape`, the grammar itself. `spec get` and a `replace` re-lint reported
-  it for every such spec.
-- **Lint's scan selection.** `lint --all/--prefix` read only citation-shaped
-  nodes, so a corpus lint came back clean without ever checking a spec outside
-  the numbering. It now reads every spec by tag or role, plus an untagged
-  citation-shaped node for the missing-tag finding (#241).
-- **`duplicate-loc` at any loc**, and a near-cap abstract on a non-legacy loc
-  gets the generic split remedy instead of index advice.
+Two things moved lint work into cli#710. First, a spec outside the numbering
+had to be read and reported correctly as soon as it was addressable. Second,
+`spec new <loc>` creates a spec with no parent or contract on purpose, so a
+tier rule that fired on a legacy-SHAPED loc contradicted it (@codex on #710).
+
+**Removed** (each was an obligation derived only from the tier grammar):
 
 | Rule | Severity | Basis |
 |---|---|---|
+| `loc-shape` | error | the grammar itself |
 | `parent-exists` | error | a mandatory tier parent |
 | `toc-edge` | warning | a mandatory edge to the tier parent |
-| `inheritance-edge` | warning | the tier contract |
-| `placeholder-contract` | info | the tier contract |
-| `index-incomplete` | (lintindex) | a header tier must list its children |
+| `inheritance-edge` | warning | the tier contract (its `spec link` remedy went with it) |
+| `index-incomplete` | warning | a header tier must cite its children (`lintindex.go` deleted) |
 
-**Kept:**
-- `duplicate-loc`;
-- the URN-example check (#527);
-- the name prefix;
-- the abstract fingerprint and length checks;
-- `unavailable`;
-- `data-version` and the scaffold-body guard, if the rubric stays (below).
+**Changed:**
+- lint reads every spec (tag or role) at any loc;
+- `duplicate-loc` applies at any loc;
+- near-cap advice is generic for a non-legacy loc;
+- a role-only spec gets a `tag-spec` warning that names the scans that skip it.
 
-Explicit edges keep their dangling-target checks.
+**Kept on purpose:**
+- `placeholder-contract` is an EXEMPTION, not an obligation. It spares an
+  untouched scaffolded contract from the rubric, and removing it would add
+  findings to today's corpora.
+- `duplicate-loc`, the URN-example check (#527), the name prefix, the abstract
+  fingerprint and length checks, and `unavailable`.
 
-**Open, and not decided here: the rubric.** `abstract` and `invalidates` as
-errors, plus `data-version` and `scaffold-body`, run only at rule/flow
-**depth**, which is a depth-derived obligation. There are three choices, put
-to Vera and Ada in team chat #1484:
-1. Drop the rubric from lint until per-type rules exist (#684).
-2. Apply it to every spec. That's stricter than today, so it's new policy.
-3. Keep it only for legacy rule/flow-shaped locs, as an adapter: no change for
-   today's corpora, and no obligation for other shapes.
+**Still open, and the only thing left in B: the rubric.** `abstract` and
+`invalidates` as errors, plus `data-version` and `scaffold-body`, run only at
+rule/flow **depth**. The three choices are in team chat #1484:
+1. drop the rubric;
+2. apply it to every spec;
+3. keep it for legacy rule/flow locs only (today's behaviour, unchanged).
 
 ### C. Authoring adapters: built (cli#710)
 

@@ -145,6 +145,13 @@ is one call instead of four.`, abstractSoftMax),
 				if _, verr := validateSpecLoc(args[0]); verr != nil {
 					return verr
 				}
+				// A positional <loc> with the legacy tier flags is refused here
+				// too, before the memory is resolved (@codex on #710).
+				if product != "" || module != "" || feature != "" || rule != "" || ruleAfter != "" || flow != "" ||
+					newFeature || newModule || newProduct || contract || noContract {
+					return exitcode.Newf(exitcode.Usage,
+						"a positional <loc> creates exactly that spec — don't combine it with --product/--module/--feature/--rule/--rule-after/--flow/--new-*/--contract/--no-contract, which allocate legacy numbering instead")
+				}
 				if inherit != "" {
 					inh, verr := validateSpecLoc(inherit)
 					if verr != nil {

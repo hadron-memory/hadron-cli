@@ -1100,8 +1100,7 @@ Conventions:
   `spec grep` + `spec edit`; `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5; the ledger is the legacy numbering, and specs at any
   other loc are NAMED in `outsideNumbering`, never dropped); `spec lint` takes `--product`/`--module`/`--all`,
-  flags mixed-arity corpora, names the exact `edge add` remedy for a missing
-  inheritance edge, warns (rule `abstract-length`) when a rule-tier abstract
+  flags mixed-arity corpora, warns (rule `abstract-length`) when a rule-tier abstract
   runs past ~1600 characters — a ceiling, not a target: retrieval is flat
   across ~700-1700 chars, and off-topic sentences dilute the embedding far
   more than length does. That finding always reports the HEADROOM left before
@@ -1127,20 +1126,11 @@ Conventions:
   fingerprint — that abstract has never been checked against that body, so it
   reads as unverified rather than verified (server #1128). Both clear by
   re-saving the abstract. A null fingerprint is clean only when there is no
-  abstract, or no content for one to describe. A corpus run (`--all`,
-  `--prefix`, `--product`/`--module`) adds `index-incomplete` (#605): an
-  index-tier spec — module or feature tier — must CITE each of its children in
-  its BODY, and the warning names the uncited locs. The corpus convention is
-  two-layer and the two surfaces are not interchangeable: the ABSTRACT routes by
-  DESCRIBING subjects, because it is the embedded retrieval surface and
-  `abstract-length` already errors on it at the 2000-char cap; the BODY indexes
-  by CITING children, which is where this is checked. Any of three spellings
-  counts — the full citation (including inside an `hrn:node:…` link target, the
-  form the module tier writes), the last two atoms (`020:09`), or the
-  colon-leaf (`:09`) — and a STRUCK entry for a superseded child counts as
-  cited, since a withdrawal correctly recorded is not a gap. The product root
-  and the rule tier are out of scope, as is a general-provisions contract (it is
-  inherited by its siblings rather than indexing anything); `spec check-tools` scans the
+  abstract, or no content for one to describe. The legacy tier obligations —
+  a missing parent (`parent-exists`), table-of-contents or inheritance edge, or
+  an index body that doesn't cite its children (`index-incomplete`) — are
+  REMOVED (#708): a spec at any loc, legacy-shaped or not, owes no parent or
+  contract; `spec check-tools` scans the
   corpus for `hadron_*` tool references and flags any that aren't a real
   registered tool (checked against a manifest baked into the binary — the union
   of the MCP + runner tool registries — with a small ignore-list for known

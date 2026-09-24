@@ -586,6 +586,7 @@ func TestSpecNewAtValidatesBeforeResolvingTheMemory(t *testing.T) {
 		{"msg::010"},
 		{"onboarding:mentor", "--inherit", "a b"},
 		{"onboarding:mentor", "--inherit", "onboarding:mentor"}, // self-inherit, before any request too
+		{"onboarding:mentor", "--module", "msg"},                // positional + tier flag (@codex on #710)
 	} {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
