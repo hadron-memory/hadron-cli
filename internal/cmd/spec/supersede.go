@@ -25,6 +25,9 @@ const (
 	edgeStatusPlanned = "planned" // dry-run / not yet executed
 	edgeStatusCreated = "created"
 	edgeStatusFailed  = "failed" // CreateEdge rejected it
+	// The create errored AND the re-read failed: it may or may not exist. Same
+	// word as a lost install answer elsewhere in the contract (#394).
+	edgeStatusUnknown = "unknown"
 )
 
 // supersedeEdgeDTO is one structural edge with its execution outcome. It extends
@@ -229,9 +232,19 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				// So LOOK before prescribing another create — `spec link` over an
 				// edge that landed fails, and a blind rerun over one that didn't
 				// mints a second replacement.
-				switch landed, lerr := supersededByLanded(cmd, client, oldNode.Id, newTarget.Format()); {
-				case lerr == nil && landed:
+				link, other, lerr := supersededByState(cmd, client, oldNode.Id, newTarget.Format())
+				switch {
+				case lerr == nil && link == linkLanded:
 					// It committed; carry on and finish the retirement.
+				case lerr == nil && link == linkConflict:
+					// Another supersede linked the old spec to a DIFFERENT successor.
+					// A second superseded-by edge would make two replacements, so
+					// stop and prescribe no write: which one stands is a human call.
+					result.Edges[supersededByIdx].Status = edgeStatusFailed
+					_ = output.Write(f.IOStreams, f.JSON, result, render)
+					return exitcode.Newf(exitcode.Conflict,
+						"created replacement %s, but %s is already superseded by %s (another supersede got there first), so no second %q edge was written and %s was not retired; %s is unlinked — review both replacements before changing anything",
+						newTarget.Format(), oldCit.Format(), other, supersededByLabel, oldCit.Format(), newTarget.Format())
 				case lerr == nil:
 					result.Edges[supersededByIdx].Status = edgeStatusFailed
 					_ = output.Write(f.IOStreams, f.JSON, result, render)
@@ -240,7 +253,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 						newTarget.Format(), supersededByLabel, oldCit.Format(), api.MapError(cerr),
 						oldCit.Format(), newTarget.Format(), memURN, supersededByLabel, oldCit.Format())
 				default:
-					result.Edges[supersededByIdx].Status = edgeStatusFailed
+					result.Edges[supersededByIdx].Status = edgeStatusUnknown
 					_ = output.Write(f.IOStreams, f.JSON, result, render)
 					return exitcode.Newf(exitcode.Error,
 						"created replacement %s but the %q edge from %s may or may not exist (%v, and re-reading %s failed: %v); check with `hadron spec get %s -m %s` — if it has no %s edge to %s, link them with `hadron spec link %s %s -m %s --label %s` — then rerun this command to finish retiring %s",
@@ -318,19 +331,41 @@ func planReplacement(old Citation, feature, ruleAfter string, locs map[string]bo
 	}
 }
 
-// supersededByLanded re-reads the old spec and reports whether its
-// superseded-by edge to successorLoc exists — the check a failed create needs,
-// since a lost response is indistinguishable from a refusal.
-func supersededByLanded(cmd *cobra.Command, client graphql.Client, oldID, successorLoc string) (bool, error) {
+// retirementLink is what a re-read of the old spec finds for its
+// superseded-by edge.
+type retirementLink int
+
+const (
+	linkAbsent   retirementLink = iota // no superseded-by edge at all
+	linkLanded                         // one to the successor this run created
+	linkConflict                       // one to a DIFFERENT successor
+)
+
+// supersededByState re-reads the old spec after a failed superseded-by create
+// — the check it needs, since a lost response is indistinguishable from a
+// refusal. For linkConflict it also returns the other successor's loc.
+func supersededByState(cmd *cobra.Command, client graphql.Client, oldID, successorLoc string) (retirementLink, string, error) {
 	resp, err := gen.GetNode(cmd.Context(), client, oldID)
 	if err != nil {
-		return false, err
+		return linkAbsent, "", err
 	}
 	if resp.Node == nil {
-		return false, exitcode.Newf(exitcode.NotFound, "node %s not found", oldID)
+		return linkAbsent, "", exitcode.Newf(exitcode.NotFound, "node %s not found", oldID)
 	}
-	loc, ok := existingSupersededByTarget(resp.Node)
-	return ok && loc == successorLoc, nil
+	other := ""
+	for _, e := range resp.Node.OutgoingEdges {
+		if e == nil || e.Target == nil || edgeNameStr(e.Name) != supersededByLabel {
+			continue
+		}
+		if e.Target.Loc == successorLoc {
+			return linkLanded, "", nil
+		}
+		other = e.Target.Loc
+	}
+	if other != "" {
+		return linkConflict, other, nil
+	}
+	return linkAbsent, "", nil
 }
 
 func existingSupersededByTarget(n *gen.GetNodeNode) (string, bool) {

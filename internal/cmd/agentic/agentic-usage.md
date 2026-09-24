@@ -204,9 +204,13 @@ caller branching on the exit code never reads a partial success as complete. The
 node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 For supersede, a failed `superseded-by` write is re-read before anything is
 prescribed. An edge that landed despite the error finishes the run. One
-confirmed absent gets the exact `spec link` to run, after which rerunning the
-supersede finishes the retirement. An unverifiable one says to check with
-`spec get` first.
+confirmed absent is `failed`, and the error names the exact `spec link` to run,
+after which rerunning the supersede finishes the retirement. If the re-read
+fails too, the status is `unknown` (it may exist) and the error says to check
+with `spec get` first. If the old spec turns out to be superseded by a
+*different* replacement, supersede exits 5 (conflict) and writes nothing more:
+which replacement stands is a human call. Edge `status` values are `planned`
+(dry run), `created`, `failed` and `unknown`.
 
 `spec new`, `spec extract` and `spec supersede` cannot leave a spec without its
 table-of-contents / inheritance edges unless told to: without `--no-edges`

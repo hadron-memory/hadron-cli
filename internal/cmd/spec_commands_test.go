@@ -2093,7 +2093,7 @@ func TestSpecSupersedeLostEdgeResponseFinishesRetirement(t *testing.T) {
 // CHECK first rather than prescribing a create that may be a duplicate.
 func TestSpecSupersedeUnverifiableEdgeSaysCheckFirst(t *testing.T) {
 	gql, captured := supersedeLostEdgeServer(t, `{"errors":[{"message":"read boom"}]}`)
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
 	err := root.Execute()
@@ -2107,6 +2107,40 @@ func TestSpecSupersedeUnverifiableEdgeSaysCheckFirst(t *testing.T) {
 	}
 	if _, retired := captured["UpdateSpecNode"]; retired {
 		t.Error("the old spec was retired without knowing the link exists")
+	}
+	// #691 review (Copilot): --json must not claim "failed" for an edge that
+	// may exist; agents branch on it. `unknown`, as for a lost install answer.
+	if !strings.Contains(out.String(), `"status": "unknown"`) || strings.Contains(out.String(), `"status": "failed"`) {
+		t.Errorf("an unverifiable edge must report status unknown, not failed:\n%s", out.String())
+	}
+}
+
+// #691 review (Copilot): the re-read can find a superseded-by edge to a
+// DIFFERENT successor — another supersede got there first. That is not
+// "absent": a second edge would make two replacements. Stop with a conflict
+// and prescribe no write.
+func TestSpecSupersedeConcurrentSuccessorIsAConflict(t *testing.T) {
+	other := `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p1"],` +
+		`"content":"x","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[{"id":"e9","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:07","isRunnable":false,"priority":0,"target":{"id":"n7","loc":"msg:010:07","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}}}`
+	gql, captured := supersedeLostEdgeServer(t, other)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("a competing successor must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
+	}
+	if !strings.Contains(err.Error(), "already superseded by msg:010:07") {
+		t.Errorf("the message must name the competing successor; got %v", err)
+	}
+	if strings.Contains(err.Error(), "spec link") {
+		t.Errorf("a conflict must prescribe no second link; got %v", err)
+	}
+	if _, retired := captured["UpdateSpecNode"]; retired {
+		t.Error("the old spec was retired in favour of the losing replacement")
 	}
 }
 

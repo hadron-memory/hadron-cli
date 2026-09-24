@@ -80,7 +80,10 @@ additive again. On that basis:
   landed finishes the run. One confirmed absent gets
   `hadron spec link <old> <new> -m <mem> --label superseded-by`, after which
   rerunning `spec supersede` takes its existing finish-the-retirement path. An
-  unverifiable one says to check with `spec get` first.
+  unverifiable one reports status `unknown` (Copilot: `failed` would be a claim
+  the run cannot make) and says to check with `spec get` first. An edge to a
+  *different* successor (a concurrent supersede) exits 5 and prescribes no
+  write, since a second edge would make two replacements.
 - **`spec lint`'s inheritance-edge remedy was a command that could not run.**
   It said `hadron edge add … --label`, and the flag is `--name`, so it exited
   `unknown flag: --label`. It now names `spec link` when both ends carry the
