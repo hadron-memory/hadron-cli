@@ -83,6 +83,11 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			if title == "" {
 				return exitcode.Newf(exitcode.Usage, "--title is required")
 			}
+			// The old spec's loc, too, is validated before any request (@copilot
+			// on #710).
+			if _, verr := validateSpecLoc(args[0]); verr != nil {
+				return verr
+			}
 			// --to is validated up front, before any request and whichever path
 			// runs below: a resumed run must not accept a --to it would then
 			// ignore (@codex on #710).

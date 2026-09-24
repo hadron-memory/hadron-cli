@@ -642,3 +642,44 @@ func TestSpecNewAtSeqStaysInGraphQLIntRange(t *testing.T) {
 		})
 	}
 }
+
+// Every addressing command refuses an invalid loc or prefix before the memory
+// is resolved: -m names a memory that needs a lookup and the server is
+// unreachable, so a request made first would surface as exit 7, not Usage
+// (@copilot, @codex on #710).
+func TestSpecAddressesAreValidatedBeforeTheMemoryLookup(t *testing.T) {
+	for _, args := range [][]string{
+		{"get", "msg::010"},
+		{"supersede", "msg::010", "--title", "T", "--yes"},
+		{"lint", "msg::010"},
+		{"lint", "--prefix", "a b"},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{"spec"}, args...), "-m", "some-memory-name", "--server", "http://127.0.0.1:1"))
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+			t.Errorf("%v: exit %d, want Usage before any request", args, got)
+		}
+	}
+}
+
+// lint --prefix is trimmed like every other prefix: the padded value used to
+// reach the scan, so every real node was rejected and lint reported a false
+// NotFound (@codex on #710).
+func TestSpecLintPrefixIsTrimmed(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[]}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--prefix", " msg:010 ", "-m", specMem, "--server", gql.URL})
+	err := root.Execute()
+	var vars findNodesVars
+	_ = json.Unmarshal(captured["FindNodes"], &vars)
+	if vars.Filter.LocPrefix != "msg:010" {
+		t.Errorf("lint scanned prefix %q, want the trimmed msg:010", vars.Filter.LocPrefix)
+	}
+	if err == nil || !strings.Contains(err.Error(), `"msg:010"`) {
+		t.Errorf("the empty-scope message should name the trimmed prefix: %v", err)
+	}
+}

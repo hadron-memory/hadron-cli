@@ -117,6 +117,17 @@ superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTi
   hadron spec lint --all -m hrn:mem:micromentor.org:platform-specs --strict`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Addresses are validated (and a prefix trimmed) before any
+			// request, as on every other spec command (@codex, @copilot on #710).
+			prefixFlag, err := validateSpecPrefix(prefixFlag)
+			if err != nil {
+				return err
+			}
+			if len(args) == 1 {
+				if _, verr := validateSpecLoc(args[0]); verr != nil {
+					return verr
+				}
+			}
 			if err := lintScopeError(len(args) == 1, prefixFlag, product, module, all); err != nil {
 				return err
 			}

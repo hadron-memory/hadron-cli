@@ -49,6 +49,13 @@ one object for a single citation, an array for --prefix.`,
 			if (len(args) == 0) == (prefix == "") {
 				return exitcode.Newf(exitcode.Usage, "provide a <citation> or --prefix <prefix> (exactly one)")
 			}
+			// A single loc is validated before the memory is resolved, so an
+			// invalid one never costs a lookup (@copilot on #710).
+			if len(args) == 1 {
+				if _, verr := validateSpecLoc(args[0]); verr != nil {
+					return verr
+				}
+			}
 			if bodyOnly && abstractOnly {
 				return exitcode.Newf(exitcode.Usage, "--body-only and --abstract-only are mutually exclusive")
 			}
