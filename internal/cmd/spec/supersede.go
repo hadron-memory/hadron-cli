@@ -240,7 +240,18 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 			up, err := api.CreateSpecNode(cmd.Context(), client, &in)
 			if err != nil {
-				return api.MapError(err)
+				mapped := api.MapError(err)
+				// No answer (exit 7) after a write is not "nothing happened": the
+				// replacement, edges included, may have committed. A blind rerun
+				// would allocate ANOTHER number and strand this one (#691 review),
+				// so name the exact check, and what to do if it landed.
+				if exitcode.FromError(mapped) == exitcode.Unavailable {
+					return exitcode.Newf(exitcode.Unavailable,
+						"creating replacement %s got no answer (%v), so it may have been created; before rerunning, check `hadron spec get %s -m %s` (a fresh node can take a minute to resolve). If it exists, do NOT rerun as-is — that would allocate another replacement — link it with `hadron spec link %s %s -m %s --label %s`, then rerun this command to finish retiring %s. If it does not exist, rerun",
+						newTarget.Format(), mapped, newTarget.Format(), memURN,
+						oldCit.Format(), newTarget.Format(), memURN, supersededByLabel, oldCit.Format())
+				}
+				return mapped
 			}
 			newID = up.Id
 			for i := range result.Edges {

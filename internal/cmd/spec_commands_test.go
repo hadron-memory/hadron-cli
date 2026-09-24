@@ -2223,6 +2223,54 @@ func TestSpecSupersedeUnreadableCompetitorIsAConflict(t *testing.T) {
 	}
 }
 
+// #691 round 11 (Copilot): the replacement's create got NO ANSWER (a 5xx with
+// no GraphQL envelope, exit 7). It may have committed, edges and all, so the
+// command must not suggest a blind rerun, which would allocate another number:
+// it names the check and the link-then-finish path, and writes nothing more.
+func TestSpecSupersedeLostCreateNamesTheReconciliation(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	responses := map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":  scan,
+	}
+	var after []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		if body.OperationName == "CreateSpecNode" {
+			w.WriteHeader(http.StatusBadGateway) // no GraphQL envelope: no answer
+			_, _ = w.Write([]byte("upstream went away"))
+			return
+		}
+		if body.OperationName == "CreateEdge" || body.OperationName == "UpdateSpecNode" {
+			after = append(after, body.OperationName)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, responses[body.OperationName])))
+	}))
+	defer srv.Close()
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", srv.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Unavailable {
+		t.Fatalf("a lost create must exit %d (Unavailable), got %d: %v", exitcode.Unavailable, code, err)
+	}
+	for _, want := range []string{"may have been created", "hadron spec get msg:010:03", "do NOT rerun as-is", "hadron spec link msg:010:02 msg:010:03"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message must contain %q; got %v", want, err)
+		}
+	}
+	if len(after) != 0 {
+		t.Errorf("nothing may be written after a lost create: %v", after)
+	}
+}
+
 // #691 round 10 (Codex): the human transcript of a partial run must not open
 // with "✓ superseded" right before an error saying nothing was retired; and
 // --json says whether the old spec was retired.
