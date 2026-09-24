@@ -142,8 +142,8 @@ example, leave an abstract out of sync with its content.`,
 			specIDs := make([]string, 0, len(all))
 			governed := 0
 			for _, n := range all {
-				if n == nil {
-					continue
+				if n == nil || !underPrefix(n.Loc, prefix) {
+					continue // the server's prefix is character-wise; keep the branch
 				}
 				specIDs = append(specIDs, n.Id)
 				if isGovernedKind(n.Role, n.IsRunnable) {

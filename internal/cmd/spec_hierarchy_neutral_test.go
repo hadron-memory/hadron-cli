@@ -707,3 +707,52 @@ func TestSpecLintSingleLocIsTrimmed(t *testing.T) {
 		t.Errorf("lint resolved %q, want the trimmed loc", vars.Urn)
 	}
 }
+
+// A prefix is a BRANCH, matched on segment boundaries: the server's locPrefix
+// is character-wise, so `onboarding:mentor` also returns `onboarding:mentorship`,
+// and a replace would have rewritten that sibling (@codex P1 on #710).
+func TestSpecPrefixMatchesWholeSegments(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("onboarding:mentor", `["spec"]`) + `,` +
+		specNodeList("onboarding:mentor:screens", `["spec"]`) + `,` +
+		specNodeList("onboarding:mentorship", `["spec"]`) + `]}}`
+	t.Run("list", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{"FindNodes": scan})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"spec", "list", "-m", specMem, "--prefix", "onboarding:mentor", "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if strings.Contains(out.String(), "onboarding:mentorship") {
+			t.Errorf("a sibling branch was listed:\n%s", out.String())
+		}
+		if !strings.Contains(out.String(), `"onboarding:mentor:screens"`) {
+			t.Errorf("the branch's own descendant is missing:\n%s", out.String())
+		}
+	})
+	t.Run("replace reads only the branch", func(t *testing.T) {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"FindNodes":            scan,
+			"SearchReplaceInNodes": searchReplaceDryJSON,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"spec", "replace", "a", "b", "-m", specMem, "--prefix", "onboarding:mentor", "--dry-run", "--server", gql.URL})
+		_ = root.Execute()
+		var vars struct {
+			Input struct {
+				NodeIds []string `json:"nodeIds"`
+			} `json:"input"`
+		}
+		_ = json.Unmarshal(captured["SearchReplaceInNodes"], &vars)
+		ids := vars.Input.NodeIds
+		for _, id := range ids {
+			if strings.Contains(id, "mentorship") {
+				t.Errorf("replace targeted a node outside the branch: %v", ids)
+			}
+		}
+		if len(ids) != 2 {
+			t.Errorf("replace targeted %v, want exactly the branch's two specs", ids)
+		}
+	})
+}

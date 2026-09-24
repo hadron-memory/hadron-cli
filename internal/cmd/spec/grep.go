@@ -90,8 +90,8 @@ token appears — including inside longer tokens — then rewrite precisely with
 			}
 			ids := make([]string, 0, len(all))
 			for _, n := range all {
-				if n == nil {
-					continue
+				if n == nil || !underPrefix(n.Loc, prefix) {
+					continue // the server's prefix is character-wise; keep the branch
 				}
 				ids = append(ids, n.Id)
 			}

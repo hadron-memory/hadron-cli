@@ -200,7 +200,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					return retireError(retired, rerr, oldLoc, successorLoc, memURN)
 				}
 				result.Retired = boolRef(true)
-				fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldLoc, successorLoc)
+				registerReminder(f.IOStreams.ErrOut, oldLoc, successorLoc)
 				return output.Write(f.IOStreams, f.JSON, result, render)
 			}
 
@@ -451,7 +451,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 
 			result.Retired = boolRef(true)
-			fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldLoc, newLoc)
+			registerReminder(f.IOStreams.ErrOut, oldLoc, newLoc)
 			return output.Write(f.IOStreams, f.JSON, result, render)
 		},
 	}
@@ -695,4 +695,23 @@ func renderSupersede(w io.Writer, r supersedeResultDTO) error {
 		}
 	}
 	return nil
+}
+
+// registerReminder prints the register-ledger reminder for the locs that are
+// actually IN the ledger: the register is the legacy numbering's, and a spec
+// at any other loc is reported there as outside the numbering, not entered
+// (#708). So a legacy old spec is marked retired, a legacy replacement is
+// added, and a supersede entirely outside the numbering prints nothing
+// (@codex on #710).
+func registerReminder(w io.Writer, oldLoc, newLoc string) {
+	_, oldErr := ParseCitation(oldLoc)
+	_, newErr := ParseCitation(newLoc)
+	switch {
+	case oldErr == nil && newErr == nil:
+		fmt.Fprintf(w, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldLoc, newLoc)
+	case oldErr == nil:
+		fmt.Fprintf(w, "reminder: update the register — mark %s retired (its replacement %s is outside the legacy numbering, so it has no ledger entry).\n", oldLoc, newLoc)
+	case newErr == nil:
+		fmt.Fprintf(w, "reminder: update the register — add %s to the ledger.\n", newLoc)
+	}
 }

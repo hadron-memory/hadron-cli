@@ -131,8 +131,8 @@ one object for a single citation, an array for --prefix.`,
 
 			ids := make([]string, 0, len(listed))
 			for _, n := range listed {
-				if n == nil {
-					continue
+				if n == nil || !underPrefix(n.Loc, prefix) {
+					continue // the server's prefix is character-wise; keep the branch
 				}
 				ids = append(ids, n.Id)
 			}

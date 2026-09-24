@@ -84,8 +84,8 @@ explicit page instead.`,
 
 			specs := make([]specDTO, 0, len(rawNodes))
 			for _, n := range rawNodes {
-				if n == nil {
-					continue
+				if n == nil || !underPrefix(n.Loc, prefix) {
+					continue // the server's prefix is character-wise; keep the branch
 				}
 				specs = append(specs, specDTO{
 					Citation:  n.Loc,

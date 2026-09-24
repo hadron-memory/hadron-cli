@@ -102,8 +102,8 @@ exits 0.`,
 			ids := make([]string, 0, len(all))
 			locByID := map[string]string{}
 			for _, n := range all {
-				if n == nil {
-					continue
+				if n == nil || !underPrefix(n.Loc, prefix) {
+					continue // the server's prefix is character-wise; keep the branch
 				}
 				ids = append(ids, n.Id)
 				locByID[n.Id] = n.Loc

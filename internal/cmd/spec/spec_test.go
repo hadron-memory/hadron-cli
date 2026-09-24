@@ -435,3 +435,22 @@ func TestSpecDetailFromNodeEmptyTags(t *testing.T) {
 		t.Error("detail DTO tags must never be nil (renders as null)")
 	}
 }
+
+// The register reminder names only locs that are in the legacy ledger (@codex
+// on #710): a supersede entirely outside the numbering prints nothing.
+func TestRegisterReminderOnlyForTheLedger(t *testing.T) {
+	for _, c := range []struct {
+		old, new, want string
+	}{
+		{"msg:010:02", "msg:010:03", "mark msg:010:02 retired and add msg:010:03"},
+		{"msg:010:02", "onboarding:v2", "mark msg:010:02 retired (its replacement onboarding:v2 is outside"},
+		{"onboarding:v1", "msg:010:03", "add msg:010:03 to the ledger"},
+		{"onboarding:v1", "onboarding:v2", ""},
+	} {
+		var b strings.Builder
+		registerReminder(&b, c.old, c.new)
+		if c.want == "" && b.Len() != 0 || c.want != "" && !strings.Contains(b.String(), c.want) {
+			t.Errorf("%s → %s: reminder %q, want %q", c.old, c.new, b.String(), c.want)
+		}
+	}
+}

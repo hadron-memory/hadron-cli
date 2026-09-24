@@ -997,6 +997,16 @@ func validateSpecPrefix(prefix string) (string, error) {
 	return prefix, nil
 }
 
+// underPrefix reports whether loc is prefix itself or inside that branch: the
+// match must end on a SEGMENT boundary. The server's locPrefix filter matches
+// characters, so `onboarding:mentor` also returns `onboarding:mentorship`.
+// With fixed-width legacy atoms that could not happen; with any loc valid
+// (#708) it can, and a `spec replace --yes` would rewrite a sibling branch the
+// user never named (@codex on #710). "" is no prefix: everything is under it.
+func underPrefix(loc, prefix string) bool {
+	return prefix == "" || loc == prefix || strings.HasPrefix(loc, prefix+":")
+}
+
 // isSpec reports whether a node belongs to the spec corpus: the `spec` tag, or
 // the governed spec role (#1201). Never the loc's shape (#708).
 //
