@@ -1095,12 +1095,26 @@ func resolveOut(raw, home string) (string, error) {
 }
 
 // resolveExisting resolves the longest existing prefix of p and appends the
-// rest: where p is, or will be once created.
+// rest: where p is, or will be once created. A DANGLING link on the way is
+// followed to its target (~/.claude -> /shared/missing puts the root at
+// /shared/missing/skills), with a bound so a link loop cannot spin.
 func resolveExisting(p string) string {
+	return resolveExistingDepth(p, 0)
+}
+
+func resolveExistingDepth(p string, depth int) string {
 	cur, rest := p, []string{}
 	for {
 		if r, err := filepath.EvalSymlinks(cur); err == nil {
 			return filepath.Join(append([]string{r}, rest...)...)
+		}
+		if fi, err := os.Lstat(cur); err == nil && fi.Mode()&os.ModeSymlink != 0 && depth < 40 {
+			if target, err := os.Readlink(cur); err == nil {
+				if !filepath.IsAbs(target) {
+					target = filepath.Join(filepath.Dir(cur), target)
+				}
+				return resolveExistingDepth(filepath.Join(append([]string{target}, rest...)...), depth+1)
+			}
 		}
 		parent := filepath.Dir(cur)
 		if parent == cur {

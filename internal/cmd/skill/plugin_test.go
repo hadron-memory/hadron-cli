@@ -840,3 +840,16 @@ func TestRefuseHostRootSeesARootNotYetCreated(t *testing.T) {
 		t.Error("the not-yet-created ~/.claude/skills behind a linked ~/.claude must be refused")
 	}
 }
+
+func TestRefuseHostRootFollowsADanglingParentLink(t *testing.T) {
+	h := home(t)
+	symlink(t, filepath.Join(h, "shared", "missing"), filepath.Join(h, ".claude"))
+	art := filepath.Join(h, "shared", "missing", "skills")
+	if err := refuseHostRoot(art, art, h); err == nil {
+		t.Error("~/.claude -> a missing target: the root is where the link points, and must be refused")
+	}
+	// A link loop resolves to something and returns; it must not spin.
+	symlink(t, filepath.Join(h, "loop-b"), filepath.Join(h, "loop-a"))
+	symlink(t, filepath.Join(h, "loop-a"), filepath.Join(h, "loop-b"))
+	_ = resolveExisting(filepath.Join(h, "loop-a", "x"))
+}
