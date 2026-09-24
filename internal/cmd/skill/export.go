@@ -160,7 +160,9 @@ every known host, into your user-level skills directories:
   claudeSkill  ~/.claude/skills/<name>/SKILL.md
   codexSkill   ~/.agents/skills/<name>/SKILL.md
 
-This is the only hadron skill command that writes. The server decides what
+This is the only hadron skill command that writes into your skills
+directories ("hadron skill plugin" builds bundles elsewhere, under --out).
+The server decides what
 each file should be and what to do with it; this command does the I/O and
 reports what actually happened. A missing directory is created. Nothing is
 detected and nothing is prompted for: a host that is not installed still gets

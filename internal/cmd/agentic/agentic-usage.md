@@ -270,7 +270,7 @@ hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hy
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
 hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> | import spec-kit|code
-hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--dry-run] [--force] [--prune] [--json]
+hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--dry-run] [--force] [--prune] [--json] | plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref>
 hadron ai-config list [--app <ref>] [--agent <id>] | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
@@ -749,7 +749,8 @@ Conventions:
   sets `scopeEmpty: true`, lists any generated files it could not judge under
   `unchecked`, and **fails `--strict`**: a gate must not pass on a result
   nothing verified.
-  `skill export` is the ONLY writer (#621). It takes **no selector**: it
+  `skill export` is the ONLY writer of user-level skill files (#621;
+  `skill plugin` below builds bundles under an explicit `--out`). It takes **no selector**: it
   exports every ENABLED declaration you can read (cor:agt:030:03; `memories`
   is omitted on the wire), for EVERY known host, into user-level roots —
   `claudeSkill` → `~/.claude/skills/<name>/SKILL.md`, `codexSkill` →
@@ -781,6 +782,40 @@ Conventions:
   failed, or a host could not be written; a run that cannot start (auth,
   connection) exits with that error's code. Hosts load skills at session
   start.
+  `skill plugin` is the PLUGIN producer (#653), separate from `export`
+  (B8): it builds one installable unit per host under an explicit, required
+  `--out`, never inferred from the working directory or a checkout, and
+  never at, inside or above a host skills directory (`.claude/skills`,
+  `.agents/skills`, `.codex/skills`, user- or project-level — exit 2 before
+  any request). `claudeSkill` → `<out>/<name>/`, a Claude plugin
+  (`.claude-plugin/plugin.json` + `skills/<skill>/SKILL.md`) that is ALSO a
+  one-plugin marketplace, so `claude plugin marketplace add <out>/<name>` then
+  `claude plugin install <name>@<name>` installs it with no git;
+  `codexSkill` → `<out>/<name>-codex/`, skill folders for `~/.agents/skills`.
+  `--zip` adds `<name>.zip` / `<name>-codex.zip` (plugin root at the zip
+  root, the portal's layout; upload the Claude one to Cowork). `--name`
+  defaults to `hadron` (lowercase words joined by hyphens, ≤ 64). The Claude
+  manifest's `version` is derived from the bundled content (`0.0.0-h<hash>`),
+  so it moves exactly when a skill does — Claude Code updates on any version
+  CHANGE. Selection is every enabled declaration you can read unless
+  `--scope` narrows it to that scope's readable memories; **a scope with no
+  readable memory never plans** and exits 2. Plans carry no files. An
+  existing artifact is replaced wholesale ONLY if this command wrote it (a
+  `.hadron-plugin` marker; a zip's comment); anything else, or a link, is
+  left alone and fails the host (`artifact-not-ours` / `artifact-is-link`),
+  also when it appears mid-build; `--zip` needs a filesystem with hard links.
+  `--json` is `{dryRun, name, out, scope, hosts:[{host, format, artifact,
+  zip, version, failure, scanned, judged, included, skipped, refused, failed,
+  notForHost, findings}], unrecognized}`; `scope` is null unscoped, else
+  `{id, name, memoryCount, droppedCount, resolvedVia}` (the human render also names the App a scope NAME resolved in); items are `skill export`'s
+  `{node, nodeId, name, reasons, kept}` (`kept` always `[]`), bucketed by
+  the SERVER's planned action; `notForHost` names tasks declared only for
+  the other host; `findings` (`{node, nodeId, name, rule, severity,
+  message}`) is every finding except an error on a refused/failed entry,
+  never affects the exit, and passes unknown severities through. `--dry-run`
+  writes nothing and reports the same refusals. Exit: 0 when every item was
+  included or skipped; **5 after the full report** on any refused or failed
+  item or host failure; 2 for a bad flag, `--out` or an empty scope.
 - `chat` is the low-friction surface for a **team chat** — a shared memory where
   several agents and humans coordinate, each message a `message` node whose
   payload is in `data`, ordered by a server-assigned `seq` (see the "Set up an
