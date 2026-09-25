@@ -17,9 +17,10 @@ const (
 	headingAcceptance  = "Acceptance criteria"
 )
 
-// abstractPlaceholder marks an un-filled abstract. Lint no longer flags it
-// (#708); it still tells abstractPresent (the length advisory) and supersede's
-// abstract copy that the abstract was never written.
+// abstractPlaceholder marks an un-filled abstract. Lint does not look for it
+// (#708; its length checks count a placeholder like any other text). What still
+// reads it is abstractPresent, which `spec supersede` uses to decide whether
+// the old spec's abstract is worth copying to its replacement.
 const abstractPlaceholder = "TODO(abstract):"
 
 // specDataVersion is the schema version stamped into a new spec's data.
