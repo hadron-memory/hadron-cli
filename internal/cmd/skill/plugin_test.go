@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -935,5 +936,43 @@ func TestCleanupTempReportsWhenExistenceCannotBeChecked(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(d, 0o755) })
 	if r := cleanupTemp(p, func(string) error { return errors.New("denied") }); r == nil || !strings.Contains(r.Message, p) {
 		t.Errorf("reason = %+v, want the possible leftover named", r)
+	}
+}
+
+// MkdirTemp/CreateTemp make private entries, and a rename keeps the mode:
+// the published artifact must carry ordinary modes under the umask, like
+// the files inside it, or nobody else can read a shared plugin.
+func TestPublishedArtifactsHaveOrdinaryModes(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX modes")
+	}
+	old := syscallUmask(0o022)
+	t.Cleanup(func() { syscallUmask(old) })
+	out := filepath.Join(home(t), "out")
+	dir, zp := filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip")
+	if r := writePluginArtifact(out, dir, zp, sample("v1")).r; r != nil {
+		t.Fatal(r)
+	}
+	for p, want := range map[string]os.FileMode{dir: 0o755, zp: 0o644, filepath.Join(dir, "skills", "a", "SKILL.md"): 0o644} {
+		fi, err := os.Stat(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := fi.Mode().Perm(); got != want {
+			t.Errorf("%s mode = %o, want %o", p, got, want)
+		}
+	}
+	// And a restrictive umask is respected, not overridden.
+	syscallUmask(0o077)
+	if r := writePluginArtifact(out, dir, zp, sample("v2")).r; r != nil {
+		t.Fatal(r)
+	}
+	for p, want := range map[string]os.FileMode{dir: 0o700, zp: 0o600} {
+		if fi, _ := os.Stat(p); fi.Mode().Perm() != want {
+			t.Errorf("under umask 077, %s mode = %o, want %o", p, fi.Mode().Perm(), want)
+		}
+	}
+	if ents, _ := os.ReadDir(out); len(ents) != 2 {
+		t.Errorf("--out holds %d entries, want the artifact and its zip (no umask probe left behind)", len(ents))
 	}
 }

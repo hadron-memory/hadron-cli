@@ -776,6 +776,14 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		return fail(err)
 	}
 	defer func() { res.r = joinReasons(res.r, cleanupTemp(tmp, os.RemoveAll)) }()
+	// MkdirTemp and CreateTemp make PRIVATE entries (0700 / 0600), and the
+	// rename into place keeps that mode: an artifact nobody else could read.
+	// Give each the mode an ordinarily created one gets under the user's
+	// umask, as the files inside already have.
+	dirMode, fileMode := umasked(out)
+	if err := os.Chmod(tmp, dirMode); err != nil {
+		return fail(err)
+	}
 	for rel, body := range a.dirFiles {
 		p := filepath.Join(tmp, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -793,6 +801,10 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 			return fail(err)
 		}
 		zipTmp = zf.Name()
+		if err := zf.Chmod(fileMode); err != nil {
+			_ = zf.Close()
+			return fail(err)
+		}
 		defer func() {
 			// publish() already reports a temp it could not remove after a
 			// successful link; this covers every other path.
@@ -823,6 +835,33 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		res.r = joinReasons(res.r, zr)
 	}
 	return res
+}
+
+// umasked returns the modes a directory (0755) and a file (0644) get when
+// created ordinarily in parent, under the process umask. Go has no portable
+// umask read, so it creates a probe directory with 0777 and keeps what the
+// umask left of it; if that fails it falls back to the unmasked modes.
+func umasked(parent string) (dir, file fs.FileMode) {
+	dir, file = 0o755, 0o644
+	// MkdirTemp only reserves a unique name (its own mode is fixed at 0700);
+	// the probe proper is an ordinary Mkdir at that name.
+	probe, err := os.MkdirTemp(parent, ".hadron-umask-")
+	if err != nil {
+		return dir, file
+	}
+	defer func() { _ = os.Remove(probe) }()
+	if err := os.Remove(probe); err != nil {
+		return dir, file
+	}
+	if err := os.Mkdir(probe, 0o777); err != nil {
+		return dir, file
+	}
+	fi, err := os.Stat(probe)
+	if err != nil {
+		return dir, file
+	}
+	allowed := fi.Mode().Perm()
+	return dir & allowed, file & allowed
 }
 
 // cleanupTemp removes a temporary copy that was not published, and reports
