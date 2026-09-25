@@ -791,7 +791,10 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 	// umask, as the files inside already have — but only once it is complete,
 	// just before it is published: widened earlier, a half-built artifact
 	// would be readable by others (@copilot on #713).
-	dirMode, fileMode := umasked(out)
+	dirMode, fileMode, err := umasked(tmp)
+	if err != nil {
+		return fail(err)
+	}
 	for rel, body := range a.dirFiles {
 		p := filepath.Join(tmp, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -880,33 +883,31 @@ func openOwnDir(p string) (*os.File, error) {
 }
 
 // umasked returns the modes a directory (0755) and a file (0644) get when
-// created ordinarily in parent, under the process umask. Go has no portable
-// umask read, so it creates a probe directory with 0777 and keeps what the
-// umask left of it. If it cannot measure, it answers the PRIVATE modes the
-// temp entries already have: an unknown umask may be a restrictive one, and
-// guessing wide would publish what the user meant to keep private (@codex
-// on #713).
-func umasked(parent string) (dir, file fs.FileMode) {
+// created ordinarily, under the process umask. Go has no portable umask
+// read, so it creates a probe directory with 0777 and keeps what the umask
+// left of it.
+//
+// The probe is made INSIDE private, the build's own temp directory, which
+// stays 0700 and the exporter's until publication: no other writer can
+// swap it, fill it or read it there (@copilot, @codex on #713). If it cannot
+// measure, it answers the PRIVATE modes the temp entries already have,
+// since an unknown umask may be a restrictive one. A probe it cannot remove
+// is an error: it would otherwise be published inside the artifact.
+func umasked(private string) (dir, file fs.FileMode, err error) {
 	dir, file = 0o700, 0o600
-	// MkdirTemp only reserves a unique name (its own mode is fixed at 0700);
-	// the probe proper is an ordinary Mkdir at that name.
-	probe, err := os.MkdirTemp(parent, ".hadron-umask-")
-	if err != nil {
-		return dir, file
+	probe := filepath.Join(private, ".umask-probe")
+	if mkErr := os.Mkdir(probe, 0o777); mkErr != nil {
+		return dir, file, nil
 	}
-	defer func() { _ = os.Remove(probe) }()
-	if err := os.Remove(probe); err != nil {
-		return dir, file
+	fi, statErr := os.Lstat(probe)
+	if rmErr := os.Remove(probe); rmErr != nil {
+		return dir, file, fmt.Errorf("the umask probe %s could not be removed: %w", probe, rmErr)
 	}
-	if err := os.Mkdir(probe, 0o777); err != nil {
-		return dir, file
-	}
-	fi, err := os.Stat(probe)
-	if err != nil {
-		return dir, file
+	if statErr != nil || !fi.IsDir() {
+		return dir, file, nil
 	}
 	allowed := fi.Mode().Perm()
-	return 0o755 & allowed, 0o644 & allowed
+	return 0o755 & allowed, 0o644 & allowed, nil
 }
 
 // cleanupTemp removes a temporary copy that was not published, and reports

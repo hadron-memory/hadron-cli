@@ -1051,8 +1051,24 @@ func TestWidenNeverFollowsASwappedName(t *testing.T) {
 }
 
 func TestUmaskedFallsBackToPrivateModes(t *testing.T) {
-	dir, file := umasked(filepath.Join(home(t), "does-not-exist"))
-	if dir != 0o700 || file != 0o600 {
-		t.Errorf("unmeasurable umask gave %o/%o, want the private 0700/0600", dir, file)
+	dir, file, err := umasked(filepath.Join(home(t), "does-not-exist"))
+	if err != nil || dir != 0o700 || file != 0o600 {
+		t.Errorf("unmeasurable umask gave %o/%o (%v), want the private 0700/0600", dir, file, err)
+	}
+}
+
+// The probe lives in the build's private directory and is gone afterwards;
+// the published artifact must not carry it.
+func TestUmaskProbeNeverReachesTheArtifact(t *testing.T) {
+	out := filepath.Join(home(t), "out")
+	dir := filepath.Join(out, "hadron")
+	if r := writePluginArtifact(out, dir, "", sample("v1")).r; r != nil {
+		t.Fatal(r)
+	}
+	if exists(filepath.Join(dir, ".umask-probe")) {
+		t.Error("the umask probe was published inside the artifact")
+	}
+	if ents, _ := os.ReadDir(out); len(ents) != 1 {
+		t.Errorf("--out holds %d entries, want only the artifact", len(ents))
 	}
 }
