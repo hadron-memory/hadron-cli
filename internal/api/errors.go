@@ -776,6 +776,25 @@ func codeForExtension(code string) int {
 	// would document an exit code no caller can ever observe.
 	case code == "TEAM_ROLE_EXISTS":
 		return exitcode.Conflict
+	// A memory's config already has a rule for that role (hadron-server#1325
+	// part b, createNodeRoleRule; cli#716). Spelled without the _ALREADY_ the
+	// suffix rule matches, like TEAM_ROLE_EXISTS, so it fell through to the
+	// generic 1 (measured on c9fa75a). The remedy is `rule update`, not a retry.
+	case code == "NODE_ROLE_RULE_EXISTS":
+		return exitcode.Conflict
+	// #1325 part b's argument refusals, each measured falling through to the
+	// generic 1 on c9fa75a (cli#716 audit):
+	//   - INVALID_NODE_ROLE: a rule key outside the #1322 grammar. Its
+	//     extensions.reason (EMPTY | TOO_LONG | BAD_SEGMENT) names which rule
+	//     was broken; the prose is not the contract, and the server's message
+	//     is shown whole.
+	//   - NOT_A_TASK: an author/validation reference naming a node that exists
+	//     and is readable but is not a runnable task (extensions.field says
+	//     which). A missing or unreadable node is NODE_NOT_FOUND instead (4).
+	// Both are a value the caller can fix, so Usage — not a permission (8) or
+	// a state conflict (5).
+	case code == "INVALID_NODE_ROLE" || code == "NOT_A_TASK":
+		return exitcode.Usage
 	// #619 — AUTHENTICATED BUT NOT PERMITTED. Both reached scripts as the
 	// generic 1 before exitcode.Forbidden existed, indistinguishable from a
 	// bug or an outage on the one class a caller can actually act on.

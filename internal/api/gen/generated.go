@@ -4285,13 +4285,14 @@ type CloneNodeCloneNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role *string  `json:"role"`
 	Tags []string `json:"tags"`
 	Seq  *int     `json:"seq"`
@@ -4626,6 +4627,18 @@ type ConnectionGrantsResponse struct {
 // GetConnectionGrants returns ConnectionGrantsResponse.ConnectionGrants, and is useful for accessing the field via an interface.
 func (v *ConnectionGrantsResponse) GetConnectionGrants() *ConnectionGrantsConnectionGrantsConnectionGrantsPage {
 	return v.ConnectionGrants
+}
+
+type ContentValidator string
+
+const (
+	ContentValidatorAgent    ContentValidator = "AGENT"
+	ContentValidatorPlatform ContentValidator = "PLATFORM"
+)
+
+var AllContentValidator = []ContentValidator{
+	ContentValidatorAgent,
+	ContentValidatorPlatform,
 }
 
 // CreateAgentCreateAgent includes the requested fields of the GraphQL type Agent.
@@ -6583,13 +6596,14 @@ type CreateNodeCreateNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -6744,6 +6758,375 @@ type CreateNodeResponse struct {
 
 // GetCreateNode returns CreateNodeResponse.CreateNode, and is useful for accessing the field via an interface.
 func (v *CreateNodeResponse) GetCreateNode() *CreateNodeCreateNode { return v.CreateNode }
+
+// CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayload includes the requested fields of the GraphQL type NodeRoleRulePayload.
+type CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayload struct {
+	Rule *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule `json:"rule"`
+	// Empty until #1327 adds its visibility warnings.
+	Warnings []*CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning `json:"warnings"`
+}
+
+// GetRule returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayload.Rule, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayload) GetRule() *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule {
+	return v.Rule
+}
+
+// GetWarnings returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayload.Warnings, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayload) GetWarnings() []*CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning {
+	return v.Warnings
+}
+
+// CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule includes the requested fields of the GraphQL type NodeRoleRule.
+// The GraphQL type's documentation follows.
+//
+// #1325 — one node-role rule. Task and description references are stored by
+// node id (they survive moves) and returned as URNs, each with its state.
+type CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule struct {
+	NodeRoleRuleFields `json:"-"`
+}
+
+// GetId returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Id, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetId() string {
+	return v.NodeRoleRuleFields.Id
+}
+
+// GetRole returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Role, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetRole() string {
+	return v.NodeRoleRuleFields.Role
+}
+
+// GetRevision returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Revision, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetRevision() int {
+	return v.NodeRoleRuleFields.Revision
+}
+
+// GetEnabled returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetEnabled() bool {
+	return v.NodeRoleRuleFields.Enabled
+}
+
+// GetStrictSubRoles returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.StrictSubRoles, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetStrictSubRoles() bool {
+	return v.NodeRoleRuleFields.StrictSubRoles
+}
+
+// GetWriters returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Writers, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetWriters() NodeRoleWriters {
+	return v.NodeRoleRuleFields.Writers
+}
+
+// GetValidateBy returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidateBy, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidateBy() *ContentValidator {
+	return v.NodeRoleRuleFields.ValidateBy
+}
+
+// GetAuthorTask returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTask, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTask() *string {
+	return v.NodeRoleRuleFields.AuthorTask
+}
+
+// GetAuthorTaskState returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTaskState, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.AuthorTaskState
+}
+
+// GetValidationTask returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTask, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTask() *string {
+	return v.NodeRoleRuleFields.ValidationTask
+}
+
+// GetValidationTaskState returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTaskState, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.ValidationTaskState
+}
+
+// GetDescriptionNode returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNode, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNode() *string {
+	return v.NodeRoleRuleFields.DescriptionNode
+}
+
+// GetDescriptionNodeState returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNodeState, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNodeState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.DescriptionNodeState
+}
+
+// GetLocked returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Locked, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetLocked() bool {
+	return v.NodeRoleRuleFields.Locked
+}
+
+// GetSourceTemplateId returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.SourceTemplateId, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetSourceTemplateId() *string {
+	return v.NodeRoleRuleFields.SourceTemplateId
+}
+
+// GetSourceTemplate returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.SourceTemplate, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetSourceTemplate() *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate {
+	return v.NodeRoleRuleFields.SourceTemplate
+}
+
+// GetCreatedAt returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetCreatedAt() string {
+	return v.NodeRoleRuleFields.CreatedAt
+}
+
+// GetCreatedBy returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetCreatedBy() *string {
+	return v.NodeRoleRuleFields.CreatedBy
+}
+
+// GetUpdatedAt returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetUpdatedAt() *string {
+	return v.NodeRoleRuleFields.UpdatedAt
+}
+
+// GetUpdatedBy returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetUpdatedBy() *string {
+	return v.NodeRoleRuleFields.UpdatedBy
+}
+
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeRoleRuleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule struct {
+	Id string `json:"id"`
+
+	Role string `json:"role"`
+
+	Revision int `json:"revision"`
+
+	Enabled bool `json:"enabled"`
+
+	StrictSubRoles bool `json:"strictSubRoles"`
+
+	Writers NodeRoleWriters `json:"writers"`
+
+	ValidateBy *ContentValidator `json:"validateBy"`
+
+	AuthorTask *string `json:"authorTask"`
+
+	AuthorTaskState NodeRoleRuleRefState `json:"authorTaskState"`
+
+	ValidationTask *string `json:"validationTask"`
+
+	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
+
+	DescriptionNode *string `json:"descriptionNode"`
+
+	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
+
+	Locked bool `json:"locked"`
+
+	SourceTemplateId *string `json:"sourceTemplateId"`
+
+	SourceTemplate *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate `json:"sourceTemplate"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) __premarshalJSON() (*__premarshalCreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule, error) {
+	var retval __premarshalCreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
+
+	retval.Id = v.NodeRoleRuleFields.Id
+	retval.Role = v.NodeRoleRuleFields.Role
+	retval.Revision = v.NodeRoleRuleFields.Revision
+	retval.Enabled = v.NodeRoleRuleFields.Enabled
+	retval.StrictSubRoles = v.NodeRoleRuleFields.StrictSubRoles
+	retval.Writers = v.NodeRoleRuleFields.Writers
+	retval.ValidateBy = v.NodeRoleRuleFields.ValidateBy
+	retval.AuthorTask = v.NodeRoleRuleFields.AuthorTask
+	retval.AuthorTaskState = v.NodeRoleRuleFields.AuthorTaskState
+	retval.ValidationTask = v.NodeRoleRuleFields.ValidationTask
+	retval.ValidationTaskState = v.NodeRoleRuleFields.ValidationTaskState
+	retval.DescriptionNode = v.NodeRoleRuleFields.DescriptionNode
+	retval.DescriptionNodeState = v.NodeRoleRuleFields.DescriptionNodeState
+	retval.Locked = v.NodeRoleRuleFields.Locked
+	retval.SourceTemplateId = v.NodeRoleRuleFields.SourceTemplateId
+	retval.SourceTemplate = v.NodeRoleRuleFields.SourceTemplate
+	retval.CreatedAt = v.NodeRoleRuleFields.CreatedAt
+	retval.CreatedBy = v.NodeRoleRuleFields.CreatedBy
+	retval.UpdatedAt = v.NodeRoleRuleFields.UpdatedAt
+	retval.UpdatedBy = v.NodeRoleRuleFields.UpdatedBy
+	return &retval, nil
+}
+
+// CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
+// The GraphQL type's documentation follows.
+//
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+type CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
+	MemoryConfigWarningFields `json:"-"`
+}
+
+// GetCode returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Code, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetCode() string {
+	return v.MemoryConfigWarningFields.Code
+}
+
+// GetRole returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Role, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetRole() string {
+	return v.MemoryConfigWarningFields.Role
+}
+
+// GetField returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Field, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetField() *string {
+	return v.MemoryConfigWarningFields.Field
+}
+
+// GetTaskUrn returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.TaskUrn, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetTaskUrn() *string {
+	return v.MemoryConfigWarningFields.TaskUrn
+}
+
+// GetTaskState returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.TaskState, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetTaskState() *NodeRoleRuleRefState {
+	return v.MemoryConfigWarningFields.TaskState
+}
+
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigWarningFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
+	Code string `json:"code"`
+
+	Role string `json:"role"`
+
+	Field *string `json:"field"`
+
+	TaskUrn *string `json:"taskUrn"`
+
+	TaskState *NodeRoleRuleRefState `json:"taskState"`
+}
+
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) __premarshalJSON() (*__premarshalCreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning, error) {
+	var retval __premarshalCreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning
+
+	retval.Code = v.MemoryConfigWarningFields.Code
+	retval.Role = v.MemoryConfigWarningFields.Role
+	retval.Field = v.MemoryConfigWarningFields.Field
+	retval.TaskUrn = v.MemoryConfigWarningFields.TaskUrn
+	retval.TaskState = v.MemoryConfigWarningFields.TaskState
+	return &retval, nil
+}
+
+// #1325 — a new rule. Task and description references are node IDs or URNs you
+// can read; a node you cannot read is refused exactly like a missing one
+// (NODE_NOT_FOUND), and a task reference must be a runnable task (NOT_A_TASK).
+type CreateNodeRoleRuleInput struct {
+	AuthorTaskRef      *string `json:"authorTaskRef,omitempty"`
+	DescriptionNodeRef *string `json:"descriptionNodeRef,omitempty"`
+	Enabled            *bool   `json:"enabled,omitempty"`
+	// Lower-case letter/digit/dash segments joined by dots, 1-64 characters (INVALID_NODE_ROLE).
+	Role           string `json:"role"`
+	StrictSubRoles *bool  `json:"strictSubRoles,omitempty"`
+	// Needs a validation task.
+	ValidateBy        *ContentValidator `json:"validateBy,omitempty"`
+	ValidationTaskRef *string           `json:"validationTaskRef,omitempty"`
+	Writers           *NodeRoleWriters  `json:"writers,omitempty"`
+}
+
+// GetAuthorTaskRef returns CreateNodeRoleRuleInput.AuthorTaskRef, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleInput) GetAuthorTaskRef() *string { return v.AuthorTaskRef }
+
+// GetDescriptionNodeRef returns CreateNodeRoleRuleInput.DescriptionNodeRef, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleInput) GetDescriptionNodeRef() *string { return v.DescriptionNodeRef }
+
+// GetEnabled returns CreateNodeRoleRuleInput.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleInput) GetEnabled() *bool { return v.Enabled }
+
+// GetRole returns CreateNodeRoleRuleInput.Role, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleInput) GetRole() string { return v.Role }
+
+// GetStrictSubRoles returns CreateNodeRoleRuleInput.StrictSubRoles, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleInput) GetStrictSubRoles() *bool { return v.StrictSubRoles }
+
+// GetValidateBy returns CreateNodeRoleRuleInput.ValidateBy, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleInput) GetValidateBy() *ContentValidator { return v.ValidateBy }
+
+// GetValidationTaskRef returns CreateNodeRoleRuleInput.ValidationTaskRef, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleInput) GetValidationTaskRef() *string { return v.ValidationTaskRef }
+
+// GetWriters returns CreateNodeRoleRuleInput.Writers, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleInput) GetWriters() *NodeRoleWriters { return v.Writers }
+
+// CreateNodeRoleRuleResponse is returned by CreateNodeRoleRule on success.
+type CreateNodeRoleRuleResponse struct {
+	// #1325 — add a rule to a memory's config (creating the config on first use).
+	// Managers only; anyone else gets MEMORY_NOT_FOUND. A role that already has a
+	// rule is refused NODE_ROLE_RULE_EXISTS.
+	CreateNodeRoleRule *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayload `json:"createNodeRoleRule"`
+}
+
+// GetCreateNodeRoleRule returns CreateNodeRoleRuleResponse.CreateNodeRoleRule, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleResponse) GetCreateNodeRoleRule() *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayload {
+	return v.CreateNodeRoleRule
+}
 
 // CreateObjectResponse is returned by CreateObject on success.
 type CreateObjectResponse struct {
@@ -7214,13 +7597,14 @@ type CreateReviewNodeCreateReviewNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -7258,7 +7642,7 @@ func (v *CreateReviewNodeCreateReviewNode) GetUpdatedAt() string { return v.Upda
 // CreateReviewNodeResponse is returned by CreateReviewNode on success.
 type CreateReviewNodeResponse struct {
 	// #1201 — the CREATE door for the review kind. A write that would produce a
-	// node with role: 'review' must come through here; the generic createNode
+	// node with role: 'review' or a dotted 'review.*' sub-role must come through here; the generic createNode
 	// refuses it.
 	//
 	// PURE ROUTING: it validates nothing and knows nothing beyond which kind it is
@@ -7610,13 +7994,14 @@ type CreateSpecNodeCreateSpecNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -7654,7 +8039,7 @@ func (v *CreateSpecNodeCreateSpecNode) GetUpdatedAt() string { return v.UpdatedA
 // CreateSpecNodeResponse is returned by CreateSpecNode on success.
 type CreateSpecNodeResponse struct {
 	// #1201 — the CREATE door for the spec kind. A write that would produce a
-	// node with role: 'spec' must come through here; the generic createNode
+	// node with role: 'spec' or a dotted 'spec.*' sub-role must come through here; the generic createNode
 	// refuses it.
 	//
 	// PURE ROUTING: it validates nothing and knows nothing beyond which kind it is
@@ -7703,13 +8088,14 @@ type CreateTaskNodeCreateTaskNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -8575,6 +8961,15 @@ type DeleteNodeRevisionResponse struct {
 // GetDeleteNodeRevision returns DeleteNodeRevisionResponse.DeleteNodeRevision, and is useful for accessing the field via an interface.
 func (v *DeleteNodeRevisionResponse) GetDeleteNodeRevision() bool { return v.DeleteNodeRevision }
 
+// DeleteNodeRoleRuleResponse is returned by DeleteNodeRoleRule on success.
+type DeleteNodeRoleRuleResponse struct {
+	// #1325 — delete a rule by its id; expectedRevision as for updateNodeRoleRule.
+	DeleteNodeRoleRule bool `json:"deleteNodeRoleRule"`
+}
+
+// GetDeleteNodeRoleRule returns DeleteNodeRoleRuleResponse.DeleteNodeRoleRule, and is useful for accessing the field via an interface.
+func (v *DeleteNodeRoleRuleResponse) GetDeleteNodeRoleRule() bool { return v.DeleteNodeRoleRule }
+
 // DeleteObjectResponse is returned by DeleteObject on success.
 type DeleteObjectResponse struct {
 	// Delete an object (soft by default; 'hard: true' removes the row). 'ref' is
@@ -9284,13 +9679,14 @@ type FindNodesFindNodesFindNodesResultHitsNodeHitNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role       *string          `json:"role"`
 	UpdatedAt  string           `json:"updatedAt"`
 	Properties *json.RawMessage `json:"properties"`
@@ -10107,20 +10503,22 @@ type GetNodeNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role *string `json:"role"`
 	// #725 — the COLLECTION discriminator: which domain object this node is an
 	// instance of, e.g. "competitor" / "insight". Validated against the memory's
 	// property schema when it has one. NULL for an ordinary node.
 	//
 	// NOT 'nodeType' (the platform-kind axis, which drives retrieval) and NOT
-	// 'role' (what the node is for, which has no retrieval impact).
+	// 'role' (what the node is for; role can be filtered explicitly but does not
+	// change default ranking or rendering).
 	ObjectType *string          `json:"objectType"`
 	Tags       []string         `json:"tags"`
 	Content    *string          `json:"content"`
@@ -12664,6 +13062,293 @@ var AllMemoryClass = []MemoryClass{
 	MemoryClassSystem,
 }
 
+// MemoryConfigMemoryConfig includes the requested fields of the GraphQL type MemoryConfig.
+// The GraphQL type's documentation follows.
+//
+// #1325 — a memory's config: exactly one per memory, holding its node-role
+// rules (one per role or declared sub-role). Read and changed only by the
+// memory's managers. Materialized by the first rule write; before that it reads
+// as empty, with a null id.
+type MemoryConfigMemoryConfig struct {
+	// Null until the first rule is written.
+	Id        *string `json:"id"`
+	MemoryId  string  `json:"memoryId"`
+	CreatedAt *string `json:"createdAt"`
+	CreatedBy *string `json:"createdBy"`
+	UpdatedAt *string `json:"updatedAt"`
+	UpdatedBy *string `json:"updatedBy"`
+	// Role-ascending.
+	Rules []*MemoryConfigMemoryConfigRulesNodeRoleRule `json:"rules"`
+}
+
+// GetId returns MemoryConfigMemoryConfig.Id, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfig) GetId() *string { return v.Id }
+
+// GetMemoryId returns MemoryConfigMemoryConfig.MemoryId, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfig) GetMemoryId() string { return v.MemoryId }
+
+// GetCreatedAt returns MemoryConfigMemoryConfig.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfig) GetCreatedAt() *string { return v.CreatedAt }
+
+// GetCreatedBy returns MemoryConfigMemoryConfig.CreatedBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfig) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetUpdatedAt returns MemoryConfigMemoryConfig.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfig) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// GetUpdatedBy returns MemoryConfigMemoryConfig.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfig) GetUpdatedBy() *string { return v.UpdatedBy }
+
+// GetRules returns MemoryConfigMemoryConfig.Rules, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfig) GetRules() []*MemoryConfigMemoryConfigRulesNodeRoleRule {
+	return v.Rules
+}
+
+// MemoryConfigMemoryConfigRulesNodeRoleRule includes the requested fields of the GraphQL type NodeRoleRule.
+// The GraphQL type's documentation follows.
+//
+// #1325 — one node-role rule. Task and description references are stored by
+// node id (they survive moves) and returned as URNs, each with its state.
+type MemoryConfigMemoryConfigRulesNodeRoleRule struct {
+	NodeRoleRuleFields `json:"-"`
+}
+
+// GetId returns MemoryConfigMemoryConfigRulesNodeRoleRule.Id, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetId() string { return v.NodeRoleRuleFields.Id }
+
+// GetRole returns MemoryConfigMemoryConfigRulesNodeRoleRule.Role, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetRole() string {
+	return v.NodeRoleRuleFields.Role
+}
+
+// GetRevision returns MemoryConfigMemoryConfigRulesNodeRoleRule.Revision, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetRevision() int {
+	return v.NodeRoleRuleFields.Revision
+}
+
+// GetEnabled returns MemoryConfigMemoryConfigRulesNodeRoleRule.Enabled, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetEnabled() bool {
+	return v.NodeRoleRuleFields.Enabled
+}
+
+// GetStrictSubRoles returns MemoryConfigMemoryConfigRulesNodeRoleRule.StrictSubRoles, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetStrictSubRoles() bool {
+	return v.NodeRoleRuleFields.StrictSubRoles
+}
+
+// GetWriters returns MemoryConfigMemoryConfigRulesNodeRoleRule.Writers, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetWriters() NodeRoleWriters {
+	return v.NodeRoleRuleFields.Writers
+}
+
+// GetValidateBy returns MemoryConfigMemoryConfigRulesNodeRoleRule.ValidateBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetValidateBy() *ContentValidator {
+	return v.NodeRoleRuleFields.ValidateBy
+}
+
+// GetAuthorTask returns MemoryConfigMemoryConfigRulesNodeRoleRule.AuthorTask, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetAuthorTask() *string {
+	return v.NodeRoleRuleFields.AuthorTask
+}
+
+// GetAuthorTaskState returns MemoryConfigMemoryConfigRulesNodeRoleRule.AuthorTaskState, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetAuthorTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.AuthorTaskState
+}
+
+// GetValidationTask returns MemoryConfigMemoryConfigRulesNodeRoleRule.ValidationTask, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetValidationTask() *string {
+	return v.NodeRoleRuleFields.ValidationTask
+}
+
+// GetValidationTaskState returns MemoryConfigMemoryConfigRulesNodeRoleRule.ValidationTaskState, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetValidationTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.ValidationTaskState
+}
+
+// GetDescriptionNode returns MemoryConfigMemoryConfigRulesNodeRoleRule.DescriptionNode, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetDescriptionNode() *string {
+	return v.NodeRoleRuleFields.DescriptionNode
+}
+
+// GetDescriptionNodeState returns MemoryConfigMemoryConfigRulesNodeRoleRule.DescriptionNodeState, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetDescriptionNodeState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.DescriptionNodeState
+}
+
+// GetLocked returns MemoryConfigMemoryConfigRulesNodeRoleRule.Locked, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetLocked() bool {
+	return v.NodeRoleRuleFields.Locked
+}
+
+// GetSourceTemplateId returns MemoryConfigMemoryConfigRulesNodeRoleRule.SourceTemplateId, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetSourceTemplateId() *string {
+	return v.NodeRoleRuleFields.SourceTemplateId
+}
+
+// GetSourceTemplate returns MemoryConfigMemoryConfigRulesNodeRoleRule.SourceTemplate, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetSourceTemplate() *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate {
+	return v.NodeRoleRuleFields.SourceTemplate
+}
+
+// GetCreatedAt returns MemoryConfigMemoryConfigRulesNodeRoleRule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetCreatedAt() string {
+	return v.NodeRoleRuleFields.CreatedAt
+}
+
+// GetCreatedBy returns MemoryConfigMemoryConfigRulesNodeRoleRule.CreatedBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetCreatedBy() *string {
+	return v.NodeRoleRuleFields.CreatedBy
+}
+
+// GetUpdatedAt returns MemoryConfigMemoryConfigRulesNodeRoleRule.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetUpdatedAt() *string {
+	return v.NodeRoleRuleFields.UpdatedAt
+}
+
+// GetUpdatedBy returns MemoryConfigMemoryConfigRulesNodeRoleRule.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetUpdatedBy() *string {
+	return v.NodeRoleRuleFields.UpdatedBy
+}
+
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*MemoryConfigMemoryConfigRulesNodeRoleRule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.MemoryConfigMemoryConfigRulesNodeRoleRule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeRoleRuleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMemoryConfigMemoryConfigRulesNodeRoleRule struct {
+	Id string `json:"id"`
+
+	Role string `json:"role"`
+
+	Revision int `json:"revision"`
+
+	Enabled bool `json:"enabled"`
+
+	StrictSubRoles bool `json:"strictSubRoles"`
+
+	Writers NodeRoleWriters `json:"writers"`
+
+	ValidateBy *ContentValidator `json:"validateBy"`
+
+	AuthorTask *string `json:"authorTask"`
+
+	AuthorTaskState NodeRoleRuleRefState `json:"authorTaskState"`
+
+	ValidationTask *string `json:"validationTask"`
+
+	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
+
+	DescriptionNode *string `json:"descriptionNode"`
+
+	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
+
+	Locked bool `json:"locked"`
+
+	SourceTemplateId *string `json:"sourceTemplateId"`
+
+	SourceTemplate *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate `json:"sourceTemplate"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) __premarshalJSON() (*__premarshalMemoryConfigMemoryConfigRulesNodeRoleRule, error) {
+	var retval __premarshalMemoryConfigMemoryConfigRulesNodeRoleRule
+
+	retval.Id = v.NodeRoleRuleFields.Id
+	retval.Role = v.NodeRoleRuleFields.Role
+	retval.Revision = v.NodeRoleRuleFields.Revision
+	retval.Enabled = v.NodeRoleRuleFields.Enabled
+	retval.StrictSubRoles = v.NodeRoleRuleFields.StrictSubRoles
+	retval.Writers = v.NodeRoleRuleFields.Writers
+	retval.ValidateBy = v.NodeRoleRuleFields.ValidateBy
+	retval.AuthorTask = v.NodeRoleRuleFields.AuthorTask
+	retval.AuthorTaskState = v.NodeRoleRuleFields.AuthorTaskState
+	retval.ValidationTask = v.NodeRoleRuleFields.ValidationTask
+	retval.ValidationTaskState = v.NodeRoleRuleFields.ValidationTaskState
+	retval.DescriptionNode = v.NodeRoleRuleFields.DescriptionNode
+	retval.DescriptionNodeState = v.NodeRoleRuleFields.DescriptionNodeState
+	retval.Locked = v.NodeRoleRuleFields.Locked
+	retval.SourceTemplateId = v.NodeRoleRuleFields.SourceTemplateId
+	retval.SourceTemplate = v.NodeRoleRuleFields.SourceTemplate
+	retval.CreatedAt = v.NodeRoleRuleFields.CreatedAt
+	retval.CreatedBy = v.NodeRoleRuleFields.CreatedBy
+	retval.UpdatedAt = v.NodeRoleRuleFields.UpdatedAt
+	retval.UpdatedBy = v.NodeRoleRuleFields.UpdatedBy
+	return &retval, nil
+}
+
+// MemoryConfigResponse is returned by MemoryConfig on success.
+type MemoryConfigResponse struct {
+	// #1325 — a memory's config, for the memory's managers only. For anyone else,
+	// and for a missing memory, the same MEMORY_NOT_FOUND.
+	MemoryConfig *MemoryConfigMemoryConfig `json:"memoryConfig"`
+}
+
+// GetMemoryConfig returns MemoryConfigResponse.MemoryConfig, and is useful for accessing the field via an interface.
+func (v *MemoryConfigResponse) GetMemoryConfig() *MemoryConfigMemoryConfig { return v.MemoryConfig }
+
+// MemoryConfigWarningFields includes the GraphQL fields of MemoryConfigWarning requested by the fragment MemoryConfigWarningFields.
+// The GraphQL type's documentation follows.
+//
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+type MemoryConfigWarningFields struct {
+	Code      string                `json:"code"`
+	Role      string                `json:"role"`
+	Field     *string               `json:"field"`
+	TaskUrn   *string               `json:"taskUrn"`
+	TaskState *NodeRoleRuleRefState `json:"taskState"`
+}
+
+// GetCode returns MemoryConfigWarningFields.Code, and is useful for accessing the field via an interface.
+func (v *MemoryConfigWarningFields) GetCode() string { return v.Code }
+
+// GetRole returns MemoryConfigWarningFields.Role, and is useful for accessing the field via an interface.
+func (v *MemoryConfigWarningFields) GetRole() string { return v.Role }
+
+// GetField returns MemoryConfigWarningFields.Field, and is useful for accessing the field via an interface.
+func (v *MemoryConfigWarningFields) GetField() *string { return v.Field }
+
+// GetTaskUrn returns MemoryConfigWarningFields.TaskUrn, and is useful for accessing the field via an interface.
+func (v *MemoryConfigWarningFields) GetTaskUrn() *string { return v.TaskUrn }
+
+// GetTaskState returns MemoryConfigWarningFields.TaskState, and is useful for accessing the field via an interface.
+func (v *MemoryConfigWarningFields) GetTaskState() *NodeRoleRuleRefState { return v.TaskState }
+
 // Filter for the uniform memories() list (#473). All clauses AND-combine and
 // only ever narrow the caller's accessible scope — with two documented slice
 // SELECTIONS, each switching which readable set the list draws from (never
@@ -13206,13 +13891,14 @@ type MergeNodesMergeNodesNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role *string  `json:"role"`
 	Tags []string `json:"tags"`
 	// Whether this node can be run as a task (nullable; #513) — it drives the tree
@@ -13461,13 +14147,14 @@ type MoveNodeMoveNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role *string  `json:"role"`
 	Tags []string `json:"tags"`
 	Seq  *int     `json:"seq"`
@@ -13715,20 +14402,22 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role *string `json:"role"`
 	// #725 — the COLLECTION discriminator: which domain object this node is an
 	// instance of, e.g. "competitor" / "insight". Validated against the memory's
 	// property schema when it has one. NULL for an ordinary node.
 	//
 	// NOT 'nodeType' (the platform-kind axis, which drives retrieval) and NOT
-	// 'role' (what the node is for, which has no retrieval impact).
+	// 'role' (what the node is for; role can be filtered explicitly but does not
+	// change default ranking or rendering).
 	ObjectType *string `json:"objectType"`
 	// Whether this node can be run as a task (nullable; #513) — it drives the tree
 	// action indicator, and since #1201 it is also the CAPABILITY gate for the
@@ -14184,7 +14873,9 @@ type NodeFilter struct {
 	MemoryIds []string `json:"memoryIds,omitempty"`
 	NodeType  *string  `json:"nodeType,omitempty"`
 	// #725 — collection facet: only nodes whose objectType equals this (e.g. "competitor").
-	ObjectType    *string  `json:"objectType,omitempty"`
+	ObjectType *string `json:"objectType,omitempty"`
+	// #1322 — role-family filter. 'spec' matches 'spec' and 'spec.*' on a dot boundary, never 'special' / 'specification'.
+	Role          *string  `json:"role"`
 	Tags          []string `json:"tags,omitempty"`
 	UpdatedAfter  *string  `json:"updatedAfter,omitempty"`
 	UpdatedBefore *string  `json:"updatedBefore,omitempty"`
@@ -14215,6 +14906,9 @@ func (v *NodeFilter) GetNodeType() *string { return v.NodeType }
 
 // GetObjectType returns NodeFilter.ObjectType, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetObjectType() *string { return v.ObjectType }
+
+// GetRole returns NodeFilter.Role, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetRole() *string { return v.Role }
 
 // GetTags returns NodeFilter.Tags, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetTags() []string { return v.Tags }
@@ -14625,6 +15319,161 @@ type NodeRevisionsResponse struct {
 // GetNodeRevisions returns NodeRevisionsResponse.NodeRevisions, and is useful for accessing the field via an interface.
 func (v *NodeRevisionsResponse) GetNodeRevisions() []*NodeRevisionsNodeRevisionsNodeRevision {
 	return v.NodeRevisions
+}
+
+// NodeRoleRuleFields includes the GraphQL fields of NodeRoleRule requested by the fragment NodeRoleRuleFields.
+// The GraphQL type's documentation follows.
+//
+// #1325 — one node-role rule. Task and description references are stored by
+// node id (they survive moves) and returned as URNs, each with its state.
+type NodeRoleRuleFields struct {
+	// The rule's id — its ref for updateNodeRoleRule / deleteNodeRoleRule (a rule has no URN).
+	Id string `json:"id"`
+	// The dotted role or sub-role this rule governs, unique within the config.
+	Role string `json:"role"`
+	// Optimistic-concurrency token: pass it as expectedRevision to update or delete.
+	Revision int  `json:"revision"`
+	Enabled  bool `json:"enabled"`
+	// On a parent role: refuse its undeclared sub-roles instead of falling back to it.
+	StrictSubRoles      bool                 `json:"strictSubRoles"`
+	Writers             NodeRoleWriters      `json:"writers"`
+	ValidateBy          *ContentValidator    `json:"validateBy"`
+	AuthorTask          *string              `json:"authorTask"`
+	AuthorTaskState     NodeRoleRuleRefState `json:"authorTaskState"`
+	ValidationTask      *string              `json:"validationTask"`
+	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
+	// Documentation, not procedure: a deleted description node reads as NONE, never BROKEN.
+	DescriptionNode      *string              `json:"descriptionNode"`
+	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
+	// Set by applying a required template (#1334).
+	Locked bool `json:"locked"`
+	// The template this rule was copied from, if any (provenance only; no live link).
+	SourceTemplateId *string                                                     `json:"sourceTemplateId"`
+	SourceTemplate   *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate `json:"sourceTemplate"`
+	CreatedAt        string                                                      `json:"createdAt"`
+	CreatedBy        *string                                                     `json:"createdBy"`
+	UpdatedAt        *string                                                     `json:"updatedAt"`
+	UpdatedBy        *string                                                     `json:"updatedBy"`
+}
+
+// GetId returns NodeRoleRuleFields.Id, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetId() string { return v.Id }
+
+// GetRole returns NodeRoleRuleFields.Role, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetRole() string { return v.Role }
+
+// GetRevision returns NodeRoleRuleFields.Revision, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetRevision() int { return v.Revision }
+
+// GetEnabled returns NodeRoleRuleFields.Enabled, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetEnabled() bool { return v.Enabled }
+
+// GetStrictSubRoles returns NodeRoleRuleFields.StrictSubRoles, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetStrictSubRoles() bool { return v.StrictSubRoles }
+
+// GetWriters returns NodeRoleRuleFields.Writers, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetWriters() NodeRoleWriters { return v.Writers }
+
+// GetValidateBy returns NodeRoleRuleFields.ValidateBy, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetValidateBy() *ContentValidator { return v.ValidateBy }
+
+// GetAuthorTask returns NodeRoleRuleFields.AuthorTask, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetAuthorTask() *string { return v.AuthorTask }
+
+// GetAuthorTaskState returns NodeRoleRuleFields.AuthorTaskState, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetAuthorTaskState() NodeRoleRuleRefState { return v.AuthorTaskState }
+
+// GetValidationTask returns NodeRoleRuleFields.ValidationTask, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetValidationTask() *string { return v.ValidationTask }
+
+// GetValidationTaskState returns NodeRoleRuleFields.ValidationTaskState, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetValidationTaskState() NodeRoleRuleRefState {
+	return v.ValidationTaskState
+}
+
+// GetDescriptionNode returns NodeRoleRuleFields.DescriptionNode, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetDescriptionNode() *string { return v.DescriptionNode }
+
+// GetDescriptionNodeState returns NodeRoleRuleFields.DescriptionNodeState, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetDescriptionNodeState() NodeRoleRuleRefState {
+	return v.DescriptionNodeState
+}
+
+// GetLocked returns NodeRoleRuleFields.Locked, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetLocked() bool { return v.Locked }
+
+// GetSourceTemplateId returns NodeRoleRuleFields.SourceTemplateId, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetSourceTemplateId() *string { return v.SourceTemplateId }
+
+// GetSourceTemplate returns NodeRoleRuleFields.SourceTemplate, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetSourceTemplate() *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate {
+	return v.SourceTemplate
+}
+
+// GetCreatedAt returns NodeRoleRuleFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetCreatedBy returns NodeRoleRuleFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetUpdatedAt returns NodeRoleRuleFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// GetUpdatedBy returns NodeRoleRuleFields.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetUpdatedBy() *string { return v.UpdatedBy }
+
+// NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate includes the requested fields of the GraphQL type NodeRoleRuleSourceTemplate.
+type NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	// The template has been deleted; the rule keeps its copy.
+	Deleted bool `json:"deleted"`
+}
+
+// GetId returns NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate.Id, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate) GetId() string { return v.Id }
+
+// GetName returns NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate.Name, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate) GetName() string { return v.Name }
+
+// GetDeleted returns NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate.Deleted, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate) GetDeleted() bool {
+	return v.Deleted
+}
+
+// #1325 — the state of one rule reference, next to its URN. NONE: not
+// configured. OK: the URN is given. BROKEN: configured, but the node was
+// deleted, so operations relying on the rule are refused until a manager
+// repoints it (fail-closed). UNREADABLE: the node exists but you may not read
+// it, so its URN is withheld.
+type NodeRoleRuleRefState string
+
+const (
+	NodeRoleRuleRefStateBroken     NodeRoleRuleRefState = "BROKEN"
+	NodeRoleRuleRefStateNone       NodeRoleRuleRefState = "NONE"
+	NodeRoleRuleRefStateOk         NodeRoleRuleRefState = "OK"
+	NodeRoleRuleRefStateUnreadable NodeRoleRuleRefState = "UNREADABLE"
+)
+
+var AllNodeRoleRuleRefState = []NodeRoleRuleRefState{
+	NodeRoleRuleRefStateBroken,
+	NodeRoleRuleRefStateNone,
+	NodeRoleRuleRefStateOk,
+	NodeRoleRuleRefStateUnreadable,
+}
+
+type NodeRoleWriters string
+
+const (
+	NodeRoleWritersAdmin NodeRoleWriters = "ADMIN"
+	NodeRoleWritersAll   NodeRoleWriters = "ALL"
+	NodeRoleWritersOwner NodeRoleWriters = "OWNER"
+)
+
+var AllNodeRoleWriters = []NodeRoleWriters{
+	NodeRoleWritersAdmin,
+	NodeRoleWritersAll,
+	NodeRoleWritersOwner,
 }
 
 // Result ordering for findNodes. Default relevance; the rest suppress scoring (browse order).
@@ -22852,13 +23701,14 @@ type UpdateNodeDataUpdateNodeDataNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -23164,6 +24014,700 @@ func (v *UpdateNodeRevisionUpdateNodeRevision) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+// UpdateNodeRoleRuleClearingValidateByResponse is returned by UpdateNodeRoleRuleClearingValidateBy on success.
+type UpdateNodeRoleRuleClearingValidateByResponse struct {
+	// #1325 — change a rule by its id. With expectedRevision, a rule changed since
+	// you read it is refused CONFLICT (extensions.currentRevision) and nothing is
+	// written; omitted, the last writer wins. A rule you may not manage reads as
+	// NOT_FOUND.
+	UpdateNodeRoleRule *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload `json:"updateNodeRoleRule"`
+}
+
+// GetUpdateNodeRoleRule returns UpdateNodeRoleRuleClearingValidateByResponse.UpdateNodeRoleRule, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByResponse) GetUpdateNodeRoleRule() *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload {
+	return v.UpdateNodeRoleRule
+}
+
+// UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload includes the requested fields of the GraphQL type NodeRoleRulePayload.
+type UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload struct {
+	Rule *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule `json:"rule"`
+	// Empty until #1327 adds its visibility warnings.
+	Warnings []*UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning `json:"warnings"`
+}
+
+// GetRule returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload.Rule, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload) GetRule() *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule {
+	return v.Rule
+}
+
+// GetWarnings returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload.Warnings, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload) GetWarnings() []*UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning {
+	return v.Warnings
+}
+
+// UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule includes the requested fields of the GraphQL type NodeRoleRule.
+// The GraphQL type's documentation follows.
+//
+// #1325 — one node-role rule. Task and description references are stored by
+// node id (they survive moves) and returned as URNs, each with its state.
+type UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule struct {
+	NodeRoleRuleFields `json:"-"`
+}
+
+// GetId returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Id, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetId() string {
+	return v.NodeRoleRuleFields.Id
+}
+
+// GetRole returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Role, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetRole() string {
+	return v.NodeRoleRuleFields.Role
+}
+
+// GetRevision returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Revision, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetRevision() int {
+	return v.NodeRoleRuleFields.Revision
+}
+
+// GetEnabled returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetEnabled() bool {
+	return v.NodeRoleRuleFields.Enabled
+}
+
+// GetStrictSubRoles returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.StrictSubRoles, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetStrictSubRoles() bool {
+	return v.NodeRoleRuleFields.StrictSubRoles
+}
+
+// GetWriters returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Writers, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetWriters() NodeRoleWriters {
+	return v.NodeRoleRuleFields.Writers
+}
+
+// GetValidateBy returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidateBy, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidateBy() *ContentValidator {
+	return v.NodeRoleRuleFields.ValidateBy
+}
+
+// GetAuthorTask returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTask, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTask() *string {
+	return v.NodeRoleRuleFields.AuthorTask
+}
+
+// GetAuthorTaskState returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTaskState, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.AuthorTaskState
+}
+
+// GetValidationTask returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTask, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTask() *string {
+	return v.NodeRoleRuleFields.ValidationTask
+}
+
+// GetValidationTaskState returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTaskState, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.ValidationTaskState
+}
+
+// GetDescriptionNode returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNode, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNode() *string {
+	return v.NodeRoleRuleFields.DescriptionNode
+}
+
+// GetDescriptionNodeState returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNodeState, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNodeState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.DescriptionNodeState
+}
+
+// GetLocked returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Locked, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetLocked() bool {
+	return v.NodeRoleRuleFields.Locked
+}
+
+// GetSourceTemplateId returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.SourceTemplateId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetSourceTemplateId() *string {
+	return v.NodeRoleRuleFields.SourceTemplateId
+}
+
+// GetSourceTemplate returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.SourceTemplate, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetSourceTemplate() *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate {
+	return v.NodeRoleRuleFields.SourceTemplate
+}
+
+// GetCreatedAt returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetCreatedAt() string {
+	return v.NodeRoleRuleFields.CreatedAt
+}
+
+// GetCreatedBy returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetCreatedBy() *string {
+	return v.NodeRoleRuleFields.CreatedBy
+}
+
+// GetUpdatedAt returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetUpdatedAt() *string {
+	return v.NodeRoleRuleFields.UpdatedAt
+}
+
+// GetUpdatedBy returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetUpdatedBy() *string {
+	return v.NodeRoleRuleFields.UpdatedBy
+}
+
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeRoleRuleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule struct {
+	Id string `json:"id"`
+
+	Role string `json:"role"`
+
+	Revision int `json:"revision"`
+
+	Enabled bool `json:"enabled"`
+
+	StrictSubRoles bool `json:"strictSubRoles"`
+
+	Writers NodeRoleWriters `json:"writers"`
+
+	ValidateBy *ContentValidator `json:"validateBy"`
+
+	AuthorTask *string `json:"authorTask"`
+
+	AuthorTaskState NodeRoleRuleRefState `json:"authorTaskState"`
+
+	ValidationTask *string `json:"validationTask"`
+
+	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
+
+	DescriptionNode *string `json:"descriptionNode"`
+
+	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
+
+	Locked bool `json:"locked"`
+
+	SourceTemplateId *string `json:"sourceTemplateId"`
+
+	SourceTemplate *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate `json:"sourceTemplate"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) __premarshalJSON() (*__premarshalUpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule, error) {
+	var retval __premarshalUpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
+
+	retval.Id = v.NodeRoleRuleFields.Id
+	retval.Role = v.NodeRoleRuleFields.Role
+	retval.Revision = v.NodeRoleRuleFields.Revision
+	retval.Enabled = v.NodeRoleRuleFields.Enabled
+	retval.StrictSubRoles = v.NodeRoleRuleFields.StrictSubRoles
+	retval.Writers = v.NodeRoleRuleFields.Writers
+	retval.ValidateBy = v.NodeRoleRuleFields.ValidateBy
+	retval.AuthorTask = v.NodeRoleRuleFields.AuthorTask
+	retval.AuthorTaskState = v.NodeRoleRuleFields.AuthorTaskState
+	retval.ValidationTask = v.NodeRoleRuleFields.ValidationTask
+	retval.ValidationTaskState = v.NodeRoleRuleFields.ValidationTaskState
+	retval.DescriptionNode = v.NodeRoleRuleFields.DescriptionNode
+	retval.DescriptionNodeState = v.NodeRoleRuleFields.DescriptionNodeState
+	retval.Locked = v.NodeRoleRuleFields.Locked
+	retval.SourceTemplateId = v.NodeRoleRuleFields.SourceTemplateId
+	retval.SourceTemplate = v.NodeRoleRuleFields.SourceTemplate
+	retval.CreatedAt = v.NodeRoleRuleFields.CreatedAt
+	retval.CreatedBy = v.NodeRoleRuleFields.CreatedBy
+	retval.UpdatedAt = v.NodeRoleRuleFields.UpdatedAt
+	retval.UpdatedBy = v.NodeRoleRuleFields.UpdatedBy
+	return &retval, nil
+}
+
+// UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
+// The GraphQL type's documentation follows.
+//
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+type UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
+	MemoryConfigWarningFields `json:"-"`
+}
+
+// GetCode returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Code, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetCode() string {
+	return v.MemoryConfigWarningFields.Code
+}
+
+// GetRole returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Role, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetRole() string {
+	return v.MemoryConfigWarningFields.Role
+}
+
+// GetField returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Field, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetField() *string {
+	return v.MemoryConfigWarningFields.Field
+}
+
+// GetTaskUrn returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.TaskUrn, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetTaskUrn() *string {
+	return v.MemoryConfigWarningFields.TaskUrn
+}
+
+// GetTaskState returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.TaskState, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetTaskState() *NodeRoleRuleRefState {
+	return v.MemoryConfigWarningFields.TaskState
+}
+
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigWarningFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
+	Code string `json:"code"`
+
+	Role string `json:"role"`
+
+	Field *string `json:"field"`
+
+	TaskUrn *string `json:"taskUrn"`
+
+	TaskState *NodeRoleRuleRefState `json:"taskState"`
+}
+
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) __premarshalJSON() (*__premarshalUpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning, error) {
+	var retval __premarshalUpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning
+
+	retval.Code = v.MemoryConfigWarningFields.Code
+	retval.Role = v.MemoryConfigWarningFields.Role
+	retval.Field = v.MemoryConfigWarningFields.Field
+	retval.TaskUrn = v.MemoryConfigWarningFields.TaskUrn
+	retval.TaskState = v.MemoryConfigWarningFields.TaskState
+	return &retval, nil
+}
+
+// #1325 — change a rule. An omitted field is unchanged. A reference given as
+// null or an empty string CLEARS it; validateBy null clears it. The role itself
+// is the rule's identity and cannot be changed: delete and re-create instead.
+type UpdateNodeRoleRuleInput struct {
+	AuthorTaskRef      *string           `json:"authorTaskRef,omitempty"`
+	DescriptionNodeRef *string           `json:"descriptionNodeRef,omitempty"`
+	Enabled            *bool             `json:"enabled,omitempty"`
+	StrictSubRoles     *bool             `json:"strictSubRoles,omitempty"`
+	ValidateBy         *ContentValidator `json:"validateBy,omitempty"`
+	ValidationTaskRef  *string           `json:"validationTaskRef,omitempty"`
+	Writers            *NodeRoleWriters  `json:"writers,omitempty"`
+}
+
+// GetAuthorTaskRef returns UpdateNodeRoleRuleInput.AuthorTaskRef, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleInput) GetAuthorTaskRef() *string { return v.AuthorTaskRef }
+
+// GetDescriptionNodeRef returns UpdateNodeRoleRuleInput.DescriptionNodeRef, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleInput) GetDescriptionNodeRef() *string { return v.DescriptionNodeRef }
+
+// GetEnabled returns UpdateNodeRoleRuleInput.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleInput) GetEnabled() *bool { return v.Enabled }
+
+// GetStrictSubRoles returns UpdateNodeRoleRuleInput.StrictSubRoles, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleInput) GetStrictSubRoles() *bool { return v.StrictSubRoles }
+
+// GetValidateBy returns UpdateNodeRoleRuleInput.ValidateBy, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleInput) GetValidateBy() *ContentValidator { return v.ValidateBy }
+
+// GetValidationTaskRef returns UpdateNodeRoleRuleInput.ValidationTaskRef, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleInput) GetValidationTaskRef() *string { return v.ValidationTaskRef }
+
+// GetWriters returns UpdateNodeRoleRuleInput.Writers, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleInput) GetWriters() *NodeRoleWriters { return v.Writers }
+
+// UpdateNodeRoleRuleResponse is returned by UpdateNodeRoleRule on success.
+type UpdateNodeRoleRuleResponse struct {
+	// #1325 — change a rule by its id. With expectedRevision, a rule changed since
+	// you read it is refused CONFLICT (extensions.currentRevision) and nothing is
+	// written; omitted, the last writer wins. A rule you may not manage reads as
+	// NOT_FOUND.
+	UpdateNodeRoleRule *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload `json:"updateNodeRoleRule"`
+}
+
+// GetUpdateNodeRoleRule returns UpdateNodeRoleRuleResponse.UpdateNodeRoleRule, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleResponse) GetUpdateNodeRoleRule() *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload {
+	return v.UpdateNodeRoleRule
+}
+
+// UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload includes the requested fields of the GraphQL type NodeRoleRulePayload.
+type UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload struct {
+	Rule *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule `json:"rule"`
+	// Empty until #1327 adds its visibility warnings.
+	Warnings []*UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning `json:"warnings"`
+}
+
+// GetRule returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload.Rule, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload) GetRule() *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule {
+	return v.Rule
+}
+
+// GetWarnings returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload.Warnings, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload) GetWarnings() []*UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning {
+	return v.Warnings
+}
+
+// UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule includes the requested fields of the GraphQL type NodeRoleRule.
+// The GraphQL type's documentation follows.
+//
+// #1325 — one node-role rule. Task and description references are stored by
+// node id (they survive moves) and returned as URNs, each with its state.
+type UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule struct {
+	NodeRoleRuleFields `json:"-"`
+}
+
+// GetId returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Id, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetId() string {
+	return v.NodeRoleRuleFields.Id
+}
+
+// GetRole returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Role, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetRole() string {
+	return v.NodeRoleRuleFields.Role
+}
+
+// GetRevision returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Revision, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetRevision() int {
+	return v.NodeRoleRuleFields.Revision
+}
+
+// GetEnabled returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetEnabled() bool {
+	return v.NodeRoleRuleFields.Enabled
+}
+
+// GetStrictSubRoles returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.StrictSubRoles, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetStrictSubRoles() bool {
+	return v.NodeRoleRuleFields.StrictSubRoles
+}
+
+// GetWriters returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Writers, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetWriters() NodeRoleWriters {
+	return v.NodeRoleRuleFields.Writers
+}
+
+// GetValidateBy returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidateBy, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidateBy() *ContentValidator {
+	return v.NodeRoleRuleFields.ValidateBy
+}
+
+// GetAuthorTask returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTask, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTask() *string {
+	return v.NodeRoleRuleFields.AuthorTask
+}
+
+// GetAuthorTaskState returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTaskState, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.AuthorTaskState
+}
+
+// GetValidationTask returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTask, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTask() *string {
+	return v.NodeRoleRuleFields.ValidationTask
+}
+
+// GetValidationTaskState returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTaskState, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.ValidationTaskState
+}
+
+// GetDescriptionNode returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNode, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNode() *string {
+	return v.NodeRoleRuleFields.DescriptionNode
+}
+
+// GetDescriptionNodeState returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNodeState, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNodeState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.DescriptionNodeState
+}
+
+// GetLocked returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Locked, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetLocked() bool {
+	return v.NodeRoleRuleFields.Locked
+}
+
+// GetSourceTemplateId returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.SourceTemplateId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetSourceTemplateId() *string {
+	return v.NodeRoleRuleFields.SourceTemplateId
+}
+
+// GetSourceTemplate returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.SourceTemplate, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetSourceTemplate() *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate {
+	return v.NodeRoleRuleFields.SourceTemplate
+}
+
+// GetCreatedAt returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetCreatedAt() string {
+	return v.NodeRoleRuleFields.CreatedAt
+}
+
+// GetCreatedBy returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetCreatedBy() *string {
+	return v.NodeRoleRuleFields.CreatedBy
+}
+
+// GetUpdatedAt returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetUpdatedAt() *string {
+	return v.NodeRoleRuleFields.UpdatedAt
+}
+
+// GetUpdatedBy returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetUpdatedBy() *string {
+	return v.NodeRoleRuleFields.UpdatedBy
+}
+
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeRoleRuleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule struct {
+	Id string `json:"id"`
+
+	Role string `json:"role"`
+
+	Revision int `json:"revision"`
+
+	Enabled bool `json:"enabled"`
+
+	StrictSubRoles bool `json:"strictSubRoles"`
+
+	Writers NodeRoleWriters `json:"writers"`
+
+	ValidateBy *ContentValidator `json:"validateBy"`
+
+	AuthorTask *string `json:"authorTask"`
+
+	AuthorTaskState NodeRoleRuleRefState `json:"authorTaskState"`
+
+	ValidationTask *string `json:"validationTask"`
+
+	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
+
+	DescriptionNode *string `json:"descriptionNode"`
+
+	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
+
+	Locked bool `json:"locked"`
+
+	SourceTemplateId *string `json:"sourceTemplateId"`
+
+	SourceTemplate *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate `json:"sourceTemplate"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) __premarshalJSON() (*__premarshalUpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule, error) {
+	var retval __premarshalUpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
+
+	retval.Id = v.NodeRoleRuleFields.Id
+	retval.Role = v.NodeRoleRuleFields.Role
+	retval.Revision = v.NodeRoleRuleFields.Revision
+	retval.Enabled = v.NodeRoleRuleFields.Enabled
+	retval.StrictSubRoles = v.NodeRoleRuleFields.StrictSubRoles
+	retval.Writers = v.NodeRoleRuleFields.Writers
+	retval.ValidateBy = v.NodeRoleRuleFields.ValidateBy
+	retval.AuthorTask = v.NodeRoleRuleFields.AuthorTask
+	retval.AuthorTaskState = v.NodeRoleRuleFields.AuthorTaskState
+	retval.ValidationTask = v.NodeRoleRuleFields.ValidationTask
+	retval.ValidationTaskState = v.NodeRoleRuleFields.ValidationTaskState
+	retval.DescriptionNode = v.NodeRoleRuleFields.DescriptionNode
+	retval.DescriptionNodeState = v.NodeRoleRuleFields.DescriptionNodeState
+	retval.Locked = v.NodeRoleRuleFields.Locked
+	retval.SourceTemplateId = v.NodeRoleRuleFields.SourceTemplateId
+	retval.SourceTemplate = v.NodeRoleRuleFields.SourceTemplate
+	retval.CreatedAt = v.NodeRoleRuleFields.CreatedAt
+	retval.CreatedBy = v.NodeRoleRuleFields.CreatedBy
+	retval.UpdatedAt = v.NodeRoleRuleFields.UpdatedAt
+	retval.UpdatedBy = v.NodeRoleRuleFields.UpdatedBy
+	return &retval, nil
+}
+
+// UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
+// The GraphQL type's documentation follows.
+//
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+type UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
+	MemoryConfigWarningFields `json:"-"`
+}
+
+// GetCode returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Code, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetCode() string {
+	return v.MemoryConfigWarningFields.Code
+}
+
+// GetRole returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Role, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetRole() string {
+	return v.MemoryConfigWarningFields.Role
+}
+
+// GetField returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Field, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetField() *string {
+	return v.MemoryConfigWarningFields.Field
+}
+
+// GetTaskUrn returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.TaskUrn, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetTaskUrn() *string {
+	return v.MemoryConfigWarningFields.TaskUrn
+}
+
+// GetTaskState returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.TaskState, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetTaskState() *NodeRoleRuleRefState {
+	return v.MemoryConfigWarningFields.TaskState
+}
+
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigWarningFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
+	Code string `json:"code"`
+
+	Role string `json:"role"`
+
+	Field *string `json:"field"`
+
+	TaskUrn *string `json:"taskUrn"`
+
+	TaskState *NodeRoleRuleRefState `json:"taskState"`
+}
+
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) __premarshalJSON() (*__premarshalUpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning, error) {
+	var retval __premarshalUpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning
+
+	retval.Code = v.MemoryConfigWarningFields.Code
+	retval.Role = v.MemoryConfigWarningFields.Role
+	retval.Field = v.MemoryConfigWarningFields.Field
+	retval.TaskUrn = v.MemoryConfigWarningFields.TaskUrn
+	retval.TaskState = v.MemoryConfigWarningFields.TaskState
+	return &retval, nil
+}
+
 // UpdateNodeUpdateNode includes the requested fields of the GraphQL type Node.
 type UpdateNodeUpdateNode struct {
 	Id       string `json:"id"`
@@ -23191,13 +24735,14 @@ type UpdateNodeUpdateNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -23724,13 +25269,14 @@ type UpdateReviewNodeUpdateReviewNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -23967,13 +25513,14 @@ type UpdateSpecNodeUpdateSpecNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -24056,13 +25603,14 @@ type UpdateTaskNodeUpdateTaskNode struct {
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
-	// has NO retrieval impact.
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
 	//
-	// A GOVERNED value routes the write to that kind's own authoring door, and the
-	// generic node surface is refused: 'review' and 'spec' today, alongside the
-	// task kind, which is gated on 'isRunnable' rather than on any label because a
-	// label can be omitted and a capability cannot. 'role: "weather-widget"'
-	// does nothing at all.
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -26702,6 +28250,18 @@ type __CreateNodeInput struct {
 // GetInput returns __CreateNodeInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateNodeInput) GetInput() *CreateNodeInput { return v.Input }
 
+// __CreateNodeRoleRuleInput is used internally by genqlient
+type __CreateNodeRoleRuleInput struct {
+	MemoryRef string                   `json:"memoryRef"`
+	Input     *CreateNodeRoleRuleInput `json:"input,omitempty"`
+}
+
+// GetMemoryRef returns __CreateNodeRoleRuleInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__CreateNodeRoleRuleInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetInput returns __CreateNodeRoleRuleInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateNodeRoleRuleInput) GetInput() *CreateNodeRoleRuleInput { return v.Input }
+
 // __CreateObjectInput is used internally by genqlient
 type __CreateObjectInput struct {
 	MemoryRef  string          `json:"memoryRef"`
@@ -27025,6 +28585,18 @@ type __DeleteNodeRevisionInput struct {
 
 // GetRevisionId returns __DeleteNodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
 func (v *__DeleteNodeRevisionInput) GetRevisionId() string { return v.RevisionId }
+
+// __DeleteNodeRoleRuleInput is used internally by genqlient
+type __DeleteNodeRoleRuleInput struct {
+	Ref              string `json:"ref"`
+	ExpectedRevision int    `json:"expectedRevision"`
+}
+
+// GetRef returns __DeleteNodeRoleRuleInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeRoleRuleInput) GetRef() string { return v.Ref }
+
+// GetExpectedRevision returns __DeleteNodeRoleRuleInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeRoleRuleInput) GetExpectedRevision() int { return v.ExpectedRevision }
 
 // __DeleteObjectInput is used internally by genqlient
 type __DeleteObjectInput struct {
@@ -27457,6 +29029,14 @@ func (v *__MemoryAssetsInput) GetSkip() *int { return v.Skip }
 
 // GetCount returns __MemoryAssetsInput.Count, and is useful for accessing the field via an interface.
 func (v *__MemoryAssetsInput) GetCount() *int { return v.Count }
+
+// __MemoryConfigInput is used internally by genqlient
+type __MemoryConfigInput struct {
+	MemoryRef string `json:"memoryRef"`
+}
+
+// GetMemoryRef returns __MemoryConfigInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__MemoryConfigInput) GetMemoryRef() string { return v.MemoryRef }
 
 // __MemoryMembersInput is used internally by genqlient
 type __MemoryMembersInput struct {
@@ -28497,6 +30077,68 @@ func (v *__UpdateNodeRevisionInput) GetRevisionId() string { return v.RevisionId
 
 // GetRevLabel returns __UpdateNodeRevisionInput.RevLabel, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeRevisionInput) GetRevLabel() *string { return v.RevLabel }
+
+// __UpdateNodeRoleRuleClearingValidateByInput is used internally by genqlient
+type __UpdateNodeRoleRuleClearingValidateByInput struct {
+	Ref                string           `json:"ref"`
+	ExpectedRevision   int              `json:"expectedRevision"`
+	AuthorTaskRef      *string          `json:"authorTaskRef,omitempty"`
+	ValidationTaskRef  *string          `json:"validationTaskRef,omitempty"`
+	DescriptionNodeRef *string          `json:"descriptionNodeRef,omitempty"`
+	StrictSubRoles     *bool            `json:"strictSubRoles,omitempty"`
+	Writers            *NodeRoleWriters `json:"writers,omitempty"`
+	Enabled            *bool            `json:"enabled,omitempty"`
+}
+
+// GetRef returns __UpdateNodeRoleRuleClearingValidateByInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRoleRuleClearingValidateByInput) GetRef() string { return v.Ref }
+
+// GetExpectedRevision returns __UpdateNodeRoleRuleClearingValidateByInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRoleRuleClearingValidateByInput) GetExpectedRevision() int {
+	return v.ExpectedRevision
+}
+
+// GetAuthorTaskRef returns __UpdateNodeRoleRuleClearingValidateByInput.AuthorTaskRef, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRoleRuleClearingValidateByInput) GetAuthorTaskRef() *string {
+	return v.AuthorTaskRef
+}
+
+// GetValidationTaskRef returns __UpdateNodeRoleRuleClearingValidateByInput.ValidationTaskRef, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRoleRuleClearingValidateByInput) GetValidationTaskRef() *string {
+	return v.ValidationTaskRef
+}
+
+// GetDescriptionNodeRef returns __UpdateNodeRoleRuleClearingValidateByInput.DescriptionNodeRef, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRoleRuleClearingValidateByInput) GetDescriptionNodeRef() *string {
+	return v.DescriptionNodeRef
+}
+
+// GetStrictSubRoles returns __UpdateNodeRoleRuleClearingValidateByInput.StrictSubRoles, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRoleRuleClearingValidateByInput) GetStrictSubRoles() *bool {
+	return v.StrictSubRoles
+}
+
+// GetWriters returns __UpdateNodeRoleRuleClearingValidateByInput.Writers, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRoleRuleClearingValidateByInput) GetWriters() *NodeRoleWriters { return v.Writers }
+
+// GetEnabled returns __UpdateNodeRoleRuleClearingValidateByInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRoleRuleClearingValidateByInput) GetEnabled() *bool { return v.Enabled }
+
+// __UpdateNodeRoleRuleInput is used internally by genqlient
+type __UpdateNodeRoleRuleInput struct {
+	Ref              string                   `json:"ref"`
+	Input            *UpdateNodeRoleRuleInput `json:"input,omitempty"`
+	ExpectedRevision int                      `json:"expectedRevision"`
+}
+
+// GetRef returns __UpdateNodeRoleRuleInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRoleRuleInput) GetRef() string { return v.Ref }
+
+// GetInput returns __UpdateNodeRoleRuleInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRoleRuleInput) GetInput() *UpdateNodeRoleRuleInput { return v.Input }
+
+// GetExpectedRevision returns __UpdateNodeRoleRuleInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRoleRuleInput) GetExpectedRevision() int { return v.ExpectedRevision }
 
 // __UpdateObjectInput is used internally by genqlient
 type __UpdateObjectInput struct {
@@ -31152,6 +32794,89 @@ func CreateNode(
 	return data_, err_
 }
 
+// The mutation executed by CreateNodeRoleRule.
+const CreateNodeRoleRule_Operation = `
+mutation CreateNodeRoleRule ($memoryRef: ID!, $input: CreateNodeRoleRuleInput!) {
+	createNodeRoleRule(memoryRef: $memoryRef, input: $input) {
+		rule {
+			... NodeRoleRuleFields
+		}
+		warnings {
+			... MemoryConfigWarningFields
+		}
+	}
+}
+fragment NodeRoleRuleFields on NodeRoleRule {
+	id
+	role
+	revision
+	enabled
+	strictSubRoles
+	writers
+	validateBy
+	authorTask
+	authorTaskState
+	validationTask
+	validationTaskState
+	descriptionNode
+	descriptionNodeState
+	locked
+	sourceTemplateId
+	sourceTemplate {
+		id
+		name
+		deleted
+	}
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+fragment MemoryConfigWarningFields on MemoryConfigWarning {
+	code
+	role
+	field
+	taskUrn
+	taskState
+}
+`
+
+// WIRE SEMANTICS: an OMITTED input field means "not given" (the server
+// default on create, unchanged on update); on update a reference sent as ""
+// CLEARS it. So every optional field carries omitempty, and a nil pointer is
+// never sent as null (CLAUDE.md; findings:null-vs-omitted-args).
+//
+// The `for:` directives only bind when the variable list is on its own lines
+// (findings:genqlient-for-directive-needs-multiline-signature). Each input type
+// is used by exactly one operation, so no other operation can disagree with
+// these directives and flip the generated tags.
+func CreateNodeRoleRule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	input *CreateNodeRoleRuleInput,
+) (data_ *CreateNodeRoleRuleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateNodeRoleRule",
+		Query:  CreateNodeRoleRule_Operation,
+		Variables: &__CreateNodeRoleRuleInput{
+			MemoryRef: memoryRef,
+			Input:     input,
+		},
+	}
+
+	data_ = &CreateNodeRoleRuleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateObject.
 const CreateObject_Operation = `
 mutation CreateObject ($memoryRef: String!, $objectType: String!, $fields: JSON!, $key: String, $name: String) {
@@ -32281,6 +34006,40 @@ func DeleteNodeRevision(
 	}
 
 	data_ = &DeleteNodeRevisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteNodeRoleRule.
+const DeleteNodeRoleRule_Operation = `
+mutation DeleteNodeRoleRule ($ref: ID!, $expectedRevision: Int!) {
+	deleteNodeRoleRule(ref: $ref, expectedRevision: $expectedRevision)
+}
+`
+
+func DeleteNodeRoleRule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	expectedRevision int,
+) (data_ *DeleteNodeRoleRuleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteNodeRoleRule",
+		Query:  DeleteNodeRoleRule_Operation,
+		Variables: &__DeleteNodeRoleRuleInput{
+			Ref:              ref,
+			ExpectedRevision: expectedRevision,
+		},
+	}
+
+	data_ = &DeleteNodeRoleRuleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -34117,6 +35876,74 @@ func MemoryAssets(
 	}
 
 	data_ = &MemoryAssetsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemoryConfig.
+const MemoryConfig_Operation = `
+query MemoryConfig ($memoryRef: ID!) {
+	memoryConfig(memoryRef: $memoryRef) {
+		id
+		memoryId
+		createdAt
+		createdBy
+		updatedAt
+		updatedBy
+		rules {
+			... NodeRoleRuleFields
+		}
+	}
+}
+fragment NodeRoleRuleFields on NodeRoleRule {
+	id
+	role
+	revision
+	enabled
+	strictSubRoles
+	writers
+	validateBy
+	authorTask
+	authorTaskState
+	validationTask
+	validationTaskState
+	descriptionNode
+	descriptionNodeState
+	locked
+	sourceTemplateId
+	sourceTemplate {
+		id
+		name
+		deleted
+	}
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+func MemoryConfig(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+) (data_ *MemoryConfigResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoryConfig",
+		Query:  MemoryConfig_Operation,
+		Variables: &__MemoryConfigInput{
+			MemoryRef: memoryRef,
+		},
+	}
+
+	data_ = &MemoryConfigResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -37891,6 +39718,182 @@ func UpdateNodeRevision(
 	}
 
 	data_ = &UpdateNodeRevisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateNodeRoleRule.
+const UpdateNodeRoleRule_Operation = `
+mutation UpdateNodeRoleRule ($ref: ID!, $input: UpdateNodeRoleRuleInput!, $expectedRevision: Int!) {
+	updateNodeRoleRule(ref: $ref, input: $input, expectedRevision: $expectedRevision) {
+		rule {
+			... NodeRoleRuleFields
+		}
+		warnings {
+			... MemoryConfigWarningFields
+		}
+	}
+}
+fragment NodeRoleRuleFields on NodeRoleRule {
+	id
+	role
+	revision
+	enabled
+	strictSubRoles
+	writers
+	validateBy
+	authorTask
+	authorTaskState
+	validationTask
+	validationTaskState
+	descriptionNode
+	descriptionNodeState
+	locked
+	sourceTemplateId
+	sourceTemplate {
+		id
+		name
+		deleted
+	}
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+fragment MemoryConfigWarningFields on MemoryConfigWarning {
+	code
+	role
+	field
+	taskUrn
+	taskState
+}
+`
+
+// `expectedRevision` is always sent: the CLI reads the rule's revision in the
+// same command, so a rule someone changed in between is refused (CONFLICT)
+// rather than overwritten.
+func UpdateNodeRoleRule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	input *UpdateNodeRoleRuleInput,
+	expectedRevision int,
+) (data_ *UpdateNodeRoleRuleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateNodeRoleRule",
+		Query:  UpdateNodeRoleRule_Operation,
+		Variables: &__UpdateNodeRoleRuleInput{
+			Ref:              ref,
+			Input:            input,
+			ExpectedRevision: expectedRevision,
+		},
+	}
+
+	data_ = &UpdateNodeRoleRuleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateNodeRoleRuleClearingValidateBy.
+const UpdateNodeRoleRuleClearingValidateBy_Operation = `
+mutation UpdateNodeRoleRuleClearingValidateBy ($ref: ID!, $expectedRevision: Int!, $authorTaskRef: ID, $validationTaskRef: ID, $descriptionNodeRef: ID, $strictSubRoles: Boolean, $writers: NodeRoleWriters, $enabled: Boolean) {
+	updateNodeRoleRule(ref: $ref, expectedRevision: $expectedRevision, input: {validateBy:null,authorTaskRef:$authorTaskRef,validationTaskRef:$validationTaskRef,descriptionNodeRef:$descriptionNodeRef,strictSubRoles:$strictSubRoles,writers:$writers,enabled:$enabled}) {
+		rule {
+			... NodeRoleRuleFields
+		}
+		warnings {
+			... MemoryConfigWarningFields
+		}
+	}
+}
+fragment NodeRoleRuleFields on NodeRoleRule {
+	id
+	role
+	revision
+	enabled
+	strictSubRoles
+	writers
+	validateBy
+	authorTask
+	authorTaskState
+	validationTask
+	validationTaskState
+	descriptionNode
+	descriptionNodeState
+	locked
+	sourceTemplateId
+	sourceTemplate {
+		id
+		name
+		deleted
+	}
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+fragment MemoryConfigWarningFields on MemoryConfigWarning {
+	code
+	role
+	field
+	taskUrn
+	taskState
+}
+`
+
+// The same update when it also CLEARS validateBy. The server clears validateBy
+// only on an explicit `null`, which a genqlient pointer field cannot send
+// (omitempty drops nil; without omitempty every OTHER update would clear it).
+// So the null is a literal in the document, and every other field rides as a
+// variable in the same input object.
+//
+// An omitempty variable left unset is MISSING, and GraphQL coerces an input
+// field whose variable is missing to ABSENT, not null (graphql-js 16, measured
+// for cli#716): `{validateBy: null, writers: $writers}` with no $writers sends
+// exactly {validateBy: null}. So this is still ONE update under ONE revision
+// check — never a clear followed by a second save (team chat #1888).
+func UpdateNodeRoleRuleClearingValidateBy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	expectedRevision int,
+	authorTaskRef *string,
+	validationTaskRef *string,
+	descriptionNodeRef *string,
+	strictSubRoles *bool,
+	writers *NodeRoleWriters,
+	enabled *bool,
+) (data_ *UpdateNodeRoleRuleClearingValidateByResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateNodeRoleRuleClearingValidateBy",
+		Query:  UpdateNodeRoleRuleClearingValidateBy_Operation,
+		Variables: &__UpdateNodeRoleRuleClearingValidateByInput{
+			Ref:                ref,
+			ExpectedRevision:   expectedRevision,
+			AuthorTaskRef:      authorTaskRef,
+			ValidationTaskRef:  validationTaskRef,
+			DescriptionNodeRef: descriptionNodeRef,
+			StrictSubRoles:     strictSubRoles,
+			Writers:            writers,
+			Enabled:            enabled,
+		},
+	}
+
+	data_ = &UpdateNodeRoleRuleClearingValidateByResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
