@@ -153,9 +153,9 @@ Two codes that look like they belong here and do NOT, so a reader does not
 complete the family: `HOST_MEMORY_NOT_WRITABLE` and `HOST_MEMORY_NOT_READABLE`
 are members of the `RegisterDisclosure` **enum** — rendered explanations of why
 an attendee cannot act on a row, never an `extensions.code` — and `LOC_PROTECTED`
-is a WRONG-DOOR refusal rather than a permission one: the caller may hold full
-write access and simply used the wrong operation, so "ask for access" would be
-the wrong next action.
+is a wrong-door or reserved-address refusal rather than a permission one: the
+caller may hold full write access, so "ask for access" would be the wrong next
+action (it exits 2, #727, below).
 
 **A governed-kind refusal exits 2, not 1 (#721).** This CHANGED: the server's
 `ROLE_GOVERNED` fell through to the generic 1, while the CLI's own refusal of
@@ -171,7 +171,23 @@ access. The message is the server's, kept whole, and says which case it is:
 
 `hadron api` exits 2 on it too, and prints the envelope with its
 `extensions` (`kind`, `door`, `refusal`, and `kinds` for the two-kind case).
-`LOC_PROTECTED`, the other wrong-door refusal, still exits 1.
+**A write to a chat Channel's reserved address exits 2, not 1 (#727).** This
+CHANGED too: the server's `LOC_PROTECTED` fell through to the generic 1. It
+exits 2 in all three of its cases, and the message, kept whole, says which:
+- **the Channel's own operation is the route** (a create or write at a live
+  Channel's address, including a move INTO it: post with `hadron team chat
+  post`, or `hadron channel post <id|address>` for another Channel);
+- **no operation may do this here** (an update, delete, merge, restore, copy
+  or a move OUT of a live Channel's address);
+- **a deleted Channel still reserves the address**: recreate the Channel to
+  write there, or delete what it orphaned. (`hadron api` shows this case as
+  `extensions.channelLive: false`; the curated commands print the message.)
+
+None is a permission (8) or a transient (7), and `hadron api` exits 2 on it
+too. Like the #608 rule below, this is keyed on the server's refusal, not on a
+list of commands: **any command that writes, deletes, moves, merges, copies or
+restores a node at or over a Channel's address exits 2 on it** (verified on
+`node add`, `node update` and `node rm`).
 
 **Writing a node at a loc that is already taken exits 5, not 1 (#608).** This
 CHANGED: it used to exit 1, because the server stamps that `extensions.code`
