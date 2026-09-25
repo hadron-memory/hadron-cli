@@ -50,7 +50,9 @@ retired keys alias to claudeSkill only.
 
 Rules (errors unless noted): the name is present, kebab-case and at most the
 host's cap (64 for both hosts) — it is STORED at properties.exports.<host>.name,
-not derived, so that is what to change; the description is present and at most
+not derived, so that is what to change — and not a name the host reserves
+(claudeSkill: synced, in any capitalization, Claude Code's folder for
+claude.ai-synced skills); the description is present and at most
 the host's cap (1024 for both) — the host does not refuse a longer one, it
 TRUNCATES it in the skill listing, so trigger phrases past the cut silently
 never fire; isRunnable is true; the body is non-empty and carries no

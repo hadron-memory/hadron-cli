@@ -698,7 +698,10 @@ Conventions:
   that were never meant to be skills.
   `skill lint` checks the corpus and touches no disk, for EVERY host
   (`claudeSkill`, `codexSkill`), each declaration against its own host's caps:
-  name present, kebab-case and ≤64; description present and ≤1024 chars (the
+  name present, kebab-case and ≤64, and not one the host reserves
+  (`skill-name-reserved`: `claudeSkill` reserves `synced`, in any
+  capitalization — Claude Code's folder for claude.ai-synced skills);
+  description present and ≤1024 chars (the
   host TRUNCATES longer ones in its listing, so trigger phrases past the cut
   never fire); `isRunnable` set; body non-empty and frontmatter-free; no two
   nodes ENABLING one name for the same host (a declaration that is not enabled
