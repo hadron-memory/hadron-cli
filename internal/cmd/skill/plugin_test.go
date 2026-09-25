@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -935,5 +936,168 @@ func TestCleanupTempReportsWhenExistenceCannotBeChecked(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(d, 0o755) })
 	if r := cleanupTemp(p, func(string) error { return errors.New("denied") }); r == nil || !strings.Contains(r.Message, p) {
 		t.Errorf("reason = %+v, want the possible leftover named", r)
+	}
+}
+
+// MkdirTemp/CreateTemp make private entries, and a rename keeps the mode:
+// the published artifact must carry ordinary modes under the umask, like
+// the files inside it, or nobody else can read a shared plugin.
+func TestPublishedArtifactsHaveOrdinaryModes(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX modes")
+	}
+	old := syscallUmask(0o022)
+	t.Cleanup(func() { syscallUmask(old) })
+	out := filepath.Join(home(t), "out")
+	dir, zp := filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip")
+	if r := writePluginArtifact(out, dir, zp, sample("v1")).r; r != nil {
+		t.Fatal(r)
+	}
+	for p, want := range map[string]os.FileMode{dir: 0o755, zp: 0o644, filepath.Join(dir, "skills", "a", "SKILL.md"): 0o644} {
+		fi, err := os.Stat(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := fi.Mode().Perm(); got != want {
+			t.Errorf("%s mode = %o, want %o", p, got, want)
+		}
+	}
+	// And a restrictive umask is respected, not overridden.
+	syscallUmask(0o077)
+	if r := writePluginArtifact(out, dir, zp, sample("v2")).r; r != nil {
+		t.Fatal(r)
+	}
+	for p, want := range map[string]os.FileMode{dir: 0o700, zp: 0o600} {
+		if fi, _ := os.Stat(p); fi.Mode().Perm() != want {
+			t.Errorf("under umask 077, %s mode = %o, want %o", p, fi.Mode().Perm(), want)
+		}
+	}
+	if ents, _ := os.ReadDir(out); len(ents) != 2 {
+		t.Errorf("--out holds %d entries, want the artifact and its zip (no umask probe left behind)", len(ents))
+	}
+}
+
+// A setgid --out (a shared group directory) passes its group down; widening
+// the artifact must not clear the bit the rest of the tree relies on.
+func TestPublishedArtifactKeepsAnInheritedSetgid(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX modes")
+	}
+	out := filepath.Join(home(t), "shared")
+	mkdir(t, out)
+	if err := os.Chmod(out, 0o2775); err != nil {
+		t.Fatal(err)
+	}
+	fi, _ := os.Stat(out)
+	if fi.Mode()&os.ModeSetgid == 0 {
+		t.Skip("this filesystem does not keep setgid on a directory")
+	}
+	dir := filepath.Join(out, "hadron")
+	if r := writePluginArtifact(out, dir, "", sample("v1")).r; r != nil {
+		t.Fatal(r)
+	}
+	tmpInherited := func() bool { // does this OS pass setgid to new subdirectories?
+		d, err := os.MkdirTemp(out, "probe-")
+		if err != nil {
+			return false
+		}
+		defer func() { _ = os.Remove(d) }()
+		fi, _ := os.Stat(d)
+		return fi.Mode()&os.ModeSetgid != 0
+	}()
+	if !tmpInherited {
+		t.Skip("this OS does not propagate setgid to new directories")
+	}
+	if fi, _ := os.Stat(dir); fi.Mode()&os.ModeSetgid == 0 {
+		t.Error("widening cleared the setgid bit the shared directory passed down")
+	}
+}
+
+// widen changes the mode through the descriptor: once the name has been
+// swapped for a link to another file, that file must be left alone.
+func TestWidenNeverFollowsASwappedName(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX modes")
+	}
+	h := home(t)
+	tmp := filepath.Join(h, ".hadron.tmp-1")
+	mkdir(t, tmp)
+	if err := os.Chmod(tmp, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	td, err := openOwnDir(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = td.Close() }()
+	secret := filepath.Join(h, "secret")
+	write(t, secret, "key")
+	if err := os.Chmod(secret, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(tmp, filepath.Join(h, "moved")); err != nil {
+		t.Fatal(err)
+	}
+	symlink(t, secret, tmp)
+	if err := widen(td, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(secret); fi.Mode().Perm() != 0o600 {
+		t.Errorf("the linked file's mode became %o: widen followed the swapped name", fi.Mode().Perm())
+	}
+	if fi, _ := os.Stat(filepath.Join(h, "moved")); fi.Mode().Perm() != 0o755 {
+		t.Errorf("our own directory was not widened: %o", fi.Mode().Perm())
+	}
+}
+
+func TestUmaskedFallsBackToPrivateModes(t *testing.T) {
+	dir, file, err := umasked(filepath.Join(home(t), "does-not-exist"))
+	if err != nil || dir != 0o700 || file != 0o600 {
+		t.Errorf("unmeasurable umask gave %o/%o (%v), want the private 0700/0600", dir, file, err)
+	}
+}
+
+// The probe lives in the build's private directory and is gone afterwards;
+// the published artifact must not carry it.
+func TestUmaskProbeNeverReachesTheArtifact(t *testing.T) {
+	out := filepath.Join(home(t), "out")
+	dir := filepath.Join(out, "hadron")
+	if r := writePluginArtifact(out, dir, "", sample("v1")).r; r != nil {
+		t.Fatal(r)
+	}
+	if exists(filepath.Join(dir, ".umask-probe")) {
+		t.Error("the umask probe was published inside the artifact")
+	}
+	if ents, _ := os.ReadDir(out); len(ents) != 1 {
+		t.Errorf("--out holds %d entries, want only the artifact", len(ents))
+	}
+}
+
+// On Windows the widening must not run at all: a descriptor chmod there
+// always fails, and a held directory handle blocks the publishing rename.
+// This runs the Windows path on any OS by switching posixModes off.
+func TestNoWideningWithoutPOSIXModes(t *testing.T) {
+	orig, origChmod := posixModes, fchmod
+	t.Cleanup(func() { posixModes, fchmod = orig, origChmod })
+	posixModes = false
+	// As on Windows: a descriptor chmod always fails.
+	fchmod = func(*os.File, os.FileMode) error { return errors.New("not supported by windows") }
+	out := filepath.Join(home(t), "out")
+	res := writePluginArtifact(out, filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip"), sample("v1"))
+	if res.r != nil || !res.dir || !res.zip {
+		t.Fatalf("result = %+v, want the artifact and zip published with no mode handling", res)
+	}
+}
+
+// On a POSIX OS whose filesystem refuses chmod (vfat, exFAT, some network
+// mounts), the export must still publish: the widening is best-effort.
+func TestExportPublishesWhenTheFilesystemRefusesChmod(t *testing.T) {
+	orig := fchmod
+	t.Cleanup(func() { fchmod = orig })
+	fchmod = func(*os.File, os.FileMode) error { return errors.New("operation not supported") }
+	out := filepath.Join(home(t), "out")
+	res := writePluginArtifact(out, filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip"), sample("v1"))
+	if res.r != nil || !res.dir || !res.zip {
+		t.Fatalf("result = %+v, want the artifact and zip published despite the refused chmod", res)
 	}
 }

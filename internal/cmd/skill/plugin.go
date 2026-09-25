@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -776,6 +777,31 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		return fail(err)
 	}
 	defer func() { res.r = joinReasons(res.r, cleanupTemp(tmp, os.RemoveAll)) }()
+	// MkdirTemp and CreateTemp make PRIVATE entries (0700 / 0600), and the
+	// rename into place keeps that mode: an artifact nobody else could read.
+	// Each gets the mode an ordinarily created one would under the user's
+	// umask, as the files inside already have — but only once it is complete,
+	// just before it is published: widened earlier, a half-built artifact
+	// would be readable by others (@copilot on #713).
+	//
+	// POSIX only. Windows has no permission bits for this to fix, a
+	// descriptor chmod there always fails (EWINDOWS), and an open directory
+	// handle blocks the rename that publishes it (@codex, @copilot on #713).
+	var td *os.File
+	var dirMode, fileMode fs.FileMode
+	if posixModes {
+		// A handle on the directory just created: its mode is changed
+		// through this descriptor, never by path, so a temp name swapped for
+		// a link in a shared --out cannot redirect the chmod elsewhere.
+		td, err = openOwnDir(tmp)
+		if err != nil {
+			return fail(err)
+		}
+		defer func() { _ = td.Close() }()
+		if dirMode, fileMode, err = umasked(tmp); err != nil {
+			return fail(err)
+		}
+	}
 	for rel, body := range a.dirFiles {
 		p := filepath.Join(tmp, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -801,6 +827,11 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 			}
 		}()
 		werr := writeZip(zf, a.zipFiles, zipComment(a.host))
+		if werr == nil && posixModes {
+			// Complete now, so widened now, through its own descriptor.
+			// Best-effort: see widen.
+			_ = widen(zf, fileMode)
+		}
 		if cerr := zf.Close(); werr == nil {
 			werr = cerr
 		}
@@ -809,6 +840,9 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		}
 	}
 
+	if td != nil {
+		_ = widen(td, dirMode) // best-effort: see widen
+	}
 	published, cleanup := swapInto(tmp, dir, true, a.host)
 	if !published {
 		return writeResult{r: cleanup}
@@ -823,6 +857,80 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		res.r = joinReasons(res.r, zr)
 	}
 	return res
+}
+
+// posixModes says whether artifacts need their permission bits widened:
+// every platform with POSIX modes, which is every one but Windows.
+var posixModes = runtime.GOOS != "windows"
+
+// widen is BEST-EFFORT, and its callers ignore a failure: a filesystem
+// without chmod (vfat, exFAT, some network and FUSE mounts) refuses it with
+// EPERM or EOPNOTSUPP even on a POSIX OS, and imposes its own modes anyway.
+// Failing the export there would break what worked before this widening
+// existed (@codex on #713); the artifact then keeps the mode it was built
+// with, which is what every export had before.
+//
+// widen sets f's permission bits to mode through its descriptor, KEEPING a
+// setgid bit it inherited from a shared --out: clearing it would give the
+// published directory the exporter's primary group instead of the shared
+// one (@codex on #713).
+func widen(f *os.File, mode fs.FileMode) error {
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	return fchmod(f, mode|fi.Mode()&fs.ModeSetgid)
+}
+
+// fchmod is (*os.File).Chmod, swappable so a test can stand in Windows,
+// where it always fails.
+var fchmod = func(f *os.File, mode fs.FileMode) error { return f.Chmod(mode) }
+
+// openOwnDir opens the directory MkdirTemp just created and confirms the
+// handle is that directory, not something swapped in at its name.
+func openOwnDir(p string) (*os.File, error) {
+	before, err := os.Lstat(p)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := f.Stat()
+	if err != nil || !fi.IsDir() || !before.IsDir() || !os.SameFile(before, fi) {
+		_ = f.Close()
+		return nil, fmt.Errorf("%s changed while it was being created", p)
+	}
+	return f, nil
+}
+
+// umasked returns the modes a directory (0755) and a file (0644) get when
+// created ordinarily, under the process umask. Go has no portable umask
+// read, so it creates a probe directory with 0777 and keeps what the umask
+// left of it.
+//
+// The probe is made INSIDE private, the build's own temp directory, which
+// stays 0700 and the exporter's until publication: no other writer can
+// swap it, fill it or read it there (@copilot, @codex on #713). If it cannot
+// measure, it answers the PRIVATE modes the temp entries already have,
+// since an unknown umask may be a restrictive one. A probe it cannot remove
+// is an error: it would otherwise be published inside the artifact.
+func umasked(private string) (dir, file fs.FileMode, err error) {
+	dir, file = 0o700, 0o600
+	probe := filepath.Join(private, ".umask-probe")
+	if mkErr := os.Mkdir(probe, 0o777); mkErr != nil {
+		return dir, file, nil
+	}
+	fi, statErr := os.Lstat(probe)
+	if rmErr := os.Remove(probe); rmErr != nil {
+		return dir, file, fmt.Errorf("the umask probe %s could not be removed: %w", probe, rmErr)
+	}
+	if statErr != nil || !fi.IsDir() {
+		return dir, file, nil
+	}
+	allowed := fi.Mode().Perm()
+	return 0o755 & allowed, 0o644 & allowed, nil
 }
 
 // cleanupTemp removes a temporary copy that was not published, and reports
