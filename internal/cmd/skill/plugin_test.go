@@ -1072,3 +1072,19 @@ func TestUmaskProbeNeverReachesTheArtifact(t *testing.T) {
 		t.Errorf("--out holds %d entries, want only the artifact", len(ents))
 	}
 }
+
+// On Windows the widening must not run at all: a descriptor chmod there
+// always fails, and a held directory handle blocks the publishing rename.
+// This runs the Windows path on any OS by switching posixModes off.
+func TestNoWideningWithoutPOSIXModes(t *testing.T) {
+	orig, origChmod := posixModes, fchmod
+	t.Cleanup(func() { posixModes, fchmod = orig, origChmod })
+	posixModes = false
+	// As on Windows: a descriptor chmod always fails.
+	fchmod = func(*os.File, os.FileMode) error { return errors.New("not supported by windows") }
+	out := filepath.Join(home(t), "out")
+	res := writePluginArtifact(out, filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip"), sample("v1"))
+	if res.r != nil || !res.dir || !res.zip {
+		t.Fatalf("result = %+v, want the artifact and zip published with no mode handling", res)
+	}
+}

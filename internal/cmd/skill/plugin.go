@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -776,24 +777,30 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		return fail(err)
 	}
 	defer func() { res.r = joinReasons(res.r, cleanupTemp(tmp, os.RemoveAll)) }()
-	// A handle on the directory just created: its mode is changed through
-	// this descriptor, never by path, so a temp name swapped for a link in
-	// a shared --out cannot redirect the chmod to another file (@copilot
-	// on #713).
-	td, err := openOwnDir(tmp)
-	if err != nil {
-		return fail(err)
-	}
-	defer func() { _ = td.Close() }()
 	// MkdirTemp and CreateTemp make PRIVATE entries (0700 / 0600), and the
 	// rename into place keeps that mode: an artifact nobody else could read.
 	// Each gets the mode an ordinarily created one would under the user's
 	// umask, as the files inside already have — but only once it is complete,
 	// just before it is published: widened earlier, a half-built artifact
 	// would be readable by others (@copilot on #713).
-	dirMode, fileMode, err := umasked(tmp)
-	if err != nil {
-		return fail(err)
+	//
+	// POSIX only. Windows has no permission bits for this to fix, a
+	// descriptor chmod there always fails (EWINDOWS), and an open directory
+	// handle blocks the rename that publishes it (@codex, @copilot on #713).
+	var td *os.File
+	var dirMode, fileMode fs.FileMode
+	if posixModes {
+		// A handle on the directory just created: its mode is changed
+		// through this descriptor, never by path, so a temp name swapped for
+		// a link in a shared --out cannot redirect the chmod elsewhere.
+		td, err = openOwnDir(tmp)
+		if err != nil {
+			return fail(err)
+		}
+		defer func() { _ = td.Close() }()
+		if dirMode, fileMode, err = umasked(tmp); err != nil {
+			return fail(err)
+		}
 	}
 	for rel, body := range a.dirFiles {
 		p := filepath.Join(tmp, filepath.FromSlash(rel))
@@ -820,7 +827,7 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 			}
 		}()
 		werr := writeZip(zf, a.zipFiles, zipComment(a.host))
-		if werr == nil {
+		if werr == nil && posixModes {
 			// Complete now, so widened now, through its own descriptor.
 			werr = widen(zf, fileMode)
 		}
@@ -832,8 +839,10 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		}
 	}
 
-	if err := widen(td, dirMode); err != nil {
-		return fail(err)
+	if td != nil {
+		if err := widen(td, dirMode); err != nil {
+			return fail(err)
+		}
 	}
 	published, cleanup := swapInto(tmp, dir, true, a.host)
 	if !published {
@@ -851,6 +860,10 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 	return res
 }
 
+// posixModes says whether artifacts need their permission bits widened:
+// every platform with POSIX modes, which is every one but Windows.
+var posixModes = runtime.GOOS != "windows"
+
 // widen sets f's permission bits to mode through its descriptor, KEEPING a
 // setgid bit it inherited from a shared --out: clearing it would give the
 // published directory the exporter's primary group instead of the shared
@@ -860,8 +873,12 @@ func widen(f *os.File, mode fs.FileMode) error {
 	if err != nil {
 		return err
 	}
-	return f.Chmod(mode | fi.Mode()&fs.ModeSetgid)
+	return fchmod(f, mode|fi.Mode()&fs.ModeSetgid)
 }
+
+// fchmod is (*os.File).Chmod, swappable so a test can stand in Windows,
+// where it always fails.
+var fchmod = func(f *os.File, mode fs.FileMode) error { return f.Chmod(mode) }
 
 // openOwnDir opens the directory MkdirTemp just created and confirms the
 // handle is that directory, not something swapped in at its name.
