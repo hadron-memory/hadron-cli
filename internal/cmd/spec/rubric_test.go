@@ -76,17 +76,10 @@ func TestOptionalSectionsRuleTierOnly(t *testing.T) {
 }
 
 // A freshly scaffolded spec must pass its own structural lint at every tier:
-// the scaffold owns loc-shape, name prefix, nodeType, the "spec" tag,
-// data.version, and — where lint requires it (rule-tier, incl. the feature
-// `:00` contract) — the "what invalidates" statement. The placeholder abstract
-// is deliberately flagged at the rule tier (the author must replace it) and the
-// table-of-contents edge is wired by the command, not the body, so neither is
-// asserted here.
+// the scaffold owns the name prefix, nodeType and the "spec" tag. (Lint has no
+// content rubric since #708, so there is nothing about sections to pass.)
 func TestScaffoldPassesStructuralLint(t *testing.T) {
-	structural := map[string]bool{
-		"loc-shape": true, "name-prefix": true, "nodetype-info": true,
-		"invalidates": true, "tag-spec": true, "data-version": true,
-	}
+	structural := map[string]bool{"name-prefix": true, "nodetype-info": true, "tag-spec": true}
 	for _, c := range []Citation{
 		{Product: "cli"},
 		{Module: "msg"},
@@ -107,8 +100,8 @@ func TestScaffoldPassesStructuralLint(t *testing.T) {
 	}
 }
 
-// tierAbstract is tier-worded but always carries the placeholder marker so lint
-// keeps reminding the author to replace it where it's load-bearing.
+// tierAbstract is tier-worded but always carries the placeholder marker, so a
+// reader (and supersede's abstract copy) can tell it was never written.
 func TestTierAbstractCarriesMarker(t *testing.T) {
 	for _, c := range []Citation{
 		{Product: "cli"},

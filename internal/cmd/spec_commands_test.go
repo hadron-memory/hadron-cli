@@ -1503,12 +1503,15 @@ func TestSpecLintScopedRootParentAboveScope(t *testing.T) {
 }
 
 func TestSpecLintErrorsExitConflict(t *testing.T) {
+	// An ERROR finding exits 5. Structural since #708: a spec whose nodeType
+	// is not info (nodetype-info is an error at any loc).
+	wrongType := strings.Replace(badSpecDetail, `"nodeType":"info"`, `"nodeType":"finding"`, 1)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    `{"data":{"node":` + badSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(badSpecDetail),
+		"GetNode":    `{"data":{"node":` + wrongType + `}}`,
+		"NodeBatch":  specLintRawBodyStub(wrongType),
 		// lint also probes the vector index (#42); an indexed memory keeps the
-		// failing findings here about the rubric, not the index.
+		// failing findings here about the spec, not the index.
 		"Memories":  memListMicromentorJSON,
 		"GetMemory": memGetVectorEnabledJSON,
 	})
@@ -1519,8 +1522,32 @@ func TestSpecLintErrorsExitConflict(t *testing.T) {
 	if exitCodeFor(err) != exitcode.Conflict {
 		t.Fatalf("expected Conflict for a non-compliant spec, got err=%v code=%d", err, exitCodeFor(err))
 	}
-	if !strings.Contains(out.String(), "invalidates") {
-		t.Errorf("expected the invalidates finding in output:\n%s", out.String())
+	if !strings.Contains(out.String(), "nodetype-info") {
+		t.Errorf("expected the nodetype-info finding in output:\n%s", out.String())
+	}
+}
+
+// #708, Holger's ruling (team chat #1681): the old rubric is gone. The spec
+// that used to fail it (no abstract, no "what invalidates", no data.version)
+// now lints clean and exits 0, as a named-path spec already did.
+func TestSpecLintNoLongerEnforcesTheOldRubric(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + badSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(badSpecDetail),
+		"Memories":   memListMicromentorJSON,
+		"GetMemory":  memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "msg:010:02", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a spec missing only the old rubric must lint clean, got %v (exit %d):\n%s", err, exitCodeFor(err), out.String())
+	}
+	for _, gone := range []string{`"invalidates"`, `"data-version"`, `"rule": "abstract"`, `"rule":"abstract"`} {
+		if strings.Contains(out.String(), gone) {
+			t.Errorf("retired rubric finding %s still reported:\n%s", gone, out.String())
+		}
 	}
 }
 

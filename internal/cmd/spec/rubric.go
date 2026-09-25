@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// Canonical rubric section headings. Shared with the lint engine so a
-// freshly scaffolded spec passes its own structural checks.
+// The scaffold's section headings. Lint no longer reads them (#708): they are a
+// starting point for an author, not a requirement.
 const (
 	headingDefinition  = "Definition"
 	headingScenarios   = "Scenarios / user stories"
@@ -17,8 +17,9 @@ const (
 	headingAcceptance  = "Acceptance criteria"
 )
 
-// abstractPlaceholder marks an un-filled abstract; lint flags any abstract
-// that still contains it.
+// abstractPlaceholder marks an un-filled abstract. Lint no longer flags it
+// (#708); it still tells abstractPresent (the length advisory) and supersede's
+// abstract copy that the abstract was never written.
 const abstractPlaceholder = "TODO(abstract):"
 
 // specDataVersion is the schema version stamped into a new spec's data.
@@ -82,9 +83,8 @@ func tierAbstract(c Citation, title string) string {
 // tierBody returns the scaffolded body whose shape matches the citation's
 // tier: an index for product/module roots, a child-list for a feature root, a
 // general-provisions skeleton for a contract, and the full rubric for a rule
-// or flow. Header tiers (level < 3) are exempt from the rubric in lint, so
-// their skeletons are free-form; the feature `:00` contract is a rule-tier
-// node and so keeps the mandatory "what invalidates" statement.
+// or flow. It is a scaffold only: lint enforces none of these sections since
+// #708, so no tier's skeleton is required of an author.
 func tierBody(c Citation, title string) string {
 	switch {
 	case c.IsContract():
@@ -102,14 +102,14 @@ func tierBody(c Citation, title string) string {
 	}
 }
 
-// rubricBody returns the scaffolded spec body: the title H1 plus the four
-// mandatory sections, ready for the author to fill in. Used for rules and
+// rubricBody returns the scaffolded spec body: the title H1 plus the legacy
+// sections (none enforced by lint since #708), ready for the author to fill in. Used for rules and
 // flows — the compliance-loadable tiers. Rule-tier scaffolds also carry two
 // optional, un-linted sections — "Scenarios / user stories" (right after the
 // definition, framing intent) and a trailing "Acceptance criteria" — that an
 // author fills in where they clarify the contract and deletes otherwise (issue
 // #217). Flows stay terse: they inherit their rule's scenarios and are pulled on
-// demand, so they get only the mandatory rubric.
+// demand, so they get only the shorter skeleton.
 func rubricBody(c Citation, title string) string {
 	return rubricBodyAt(c.Format(), title, c.Level() == 3)
 }
@@ -155,8 +155,8 @@ func featureRootBody(c Citation, title string) string {
 
 // contractBody is the skeleton for a reserved general-provisions contract
 // (product `:gen`, module `:000`, feature `:00`). It names the tier whose
-// siblings inherit it and keeps the "what invalidates" statement so the
-// feature-`:00` contract — a rule-tier node — passes its own lint.
+// siblings inherit it and keeps the "what invalidates" statement from when lint
+// required it at rule depth (retired by #708).
 func contractBody(c Citation, title string) string {
 	parentStr := ""
 	if p, ok := c.Parent(); ok {

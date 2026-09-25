@@ -27,7 +27,7 @@ func newCmdImportSpecKit(_ *cmdutil.Factory) *cobra.Command {
 		Use:   "spec-kit <path>",
 		Short: "Import specs from a Spec Kit directory (not yet implemented)",
 		Long: `Extract durable product rules from a Spec Kit specs/NNN-*/ working
-directory into spec nodes, allocating citations and scaffolding the rubric.
+directory into spec nodes, allocating citations and scaffolding each spec.
 
 Not yet implemented — planned for a follow-up effort.`,
 		Args: cobra.ExactArgs(1),

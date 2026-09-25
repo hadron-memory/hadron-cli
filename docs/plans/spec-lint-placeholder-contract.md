@@ -1,5 +1,10 @@
 # Spec lint: exempt untouched placeholder contracts (#99 items 1 & 2)
 
+> **SUPERSEDED by #708.** The content rubric this exemption spared contracts
+> from is removed from lint at every loc (Holger's ruling, team chat #1681), and
+> the `placeholder-contract` finding went with it. See
+> [spec-hierarchy-removal.md](spec-hierarchy-removal.md) §B.
+
 Two ergonomics papercuts from authoring `cor:acl:070` in
 `hadronmemory.com::specs`, both in the lint engine. Shipped as one PR since
 both touch `lintNode`.
