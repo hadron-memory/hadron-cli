@@ -733,6 +733,10 @@ Conventions:
   name present, kebab-case and ≤64, and not one the host reserves
   (`skill-name-reserved`: `claudeSkill` reserves `synced`, in any
   capitalization — Claude Code's folder for claude.ai-synced skills);
+  for `claudeSkill`, a description with no `<…>` markup
+  (`skill-description-markup`: a `<` followed later by a `>` with at least one
+  character between, as Cowork's upload validator refuses — measured on
+  server#1341; `a < b`, `<>` and `<3` pass);
   description present and ≤1024 chars (the
   host TRUNCATES longer ones in its listing, so trigger phrases past the cut
   never fire); `isRunnable` set; body non-empty and frontmatter-free; no two
