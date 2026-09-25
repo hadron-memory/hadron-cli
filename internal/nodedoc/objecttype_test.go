@@ -62,6 +62,15 @@ func TestJSONCarriesObjectType(t *testing.T) {
 	if back.ObjectType != "insight" {
 		t.Errorf("JSON round trip lost objectType: %q", back.ObjectType)
 	}
+	// Unset is "" and the key is still present: the canonical JSON carries
+	// every field (the shape server nodeExport mirrors), so no omitempty.
+	unset, err := RenderJSON(&Document{Name: "N", ID: "n1", Edges: []Edge{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(unset, `"objectType": ""`) {
+		t.Errorf("an unset objectType must render as \"\", key present:\n%s", unset)
+	}
 	old, err := ParseJSON([]byte(`{"name":"N","id":"n1"}`))
 	if err != nil {
 		t.Fatal(err)

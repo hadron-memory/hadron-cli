@@ -892,7 +892,10 @@ Conventions:
     does). On a memory that declares a property schema the server validates it,
     and an undeclared collection is exit 2 (cli#720).
     `memory export` and the server's git sync write these keys; `node export`
-    (server-rendered) does not yet, so its files import with no opinion.
+    (server-rendered) does not yet, so its files import with no opinion. `node
+    import` reads them all back; the server's own git-sync IMPORT does not
+    restore `objectType` yet (a restore from the git mirror drops it; routed to
+    hadron-server).
     A file without them preserves the stored kind. A file that declares two
     governed kinds is refused, exit 2, before any request (`--dry-run`
     included); one whose kind meets a different stored kind is refused exit 2
