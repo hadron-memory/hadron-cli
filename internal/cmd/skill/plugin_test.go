@@ -976,3 +976,39 @@ func TestPublishedArtifactsHaveOrdinaryModes(t *testing.T) {
 		t.Errorf("--out holds %d entries, want the artifact and its zip (no umask probe left behind)", len(ents))
 	}
 }
+
+// A setgid --out (a shared group directory) passes its group down; widening
+// the artifact must not clear the bit the rest of the tree relies on.
+func TestPublishedArtifactKeepsAnInheritedSetgid(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX modes")
+	}
+	out := filepath.Join(home(t), "shared")
+	mkdir(t, out)
+	if err := os.Chmod(out, 0o2775); err != nil {
+		t.Fatal(err)
+	}
+	fi, _ := os.Stat(out)
+	if fi.Mode()&os.ModeSetgid == 0 {
+		t.Skip("this filesystem does not keep setgid on a directory")
+	}
+	dir := filepath.Join(out, "hadron")
+	if r := writePluginArtifact(out, dir, "", sample("v1")).r; r != nil {
+		t.Fatal(r)
+	}
+	tmpInherited := func() bool { // does this OS pass setgid to new subdirectories?
+		d, err := os.MkdirTemp(out, "probe-")
+		if err != nil {
+			return false
+		}
+		defer func() { _ = os.Remove(d) }()
+		fi, _ := os.Stat(d)
+		return fi.Mode()&os.ModeSetgid != 0
+	}()
+	if !tmpInherited {
+		t.Skip("this OS does not propagate setgid to new directories")
+	}
+	if fi, _ := os.Stat(dir); fi.Mode()&os.ModeSetgid == 0 {
+		t.Error("widening cleared the setgid bit the shared directory passed down")
+	}
+}

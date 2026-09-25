@@ -778,12 +778,11 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 	defer func() { res.r = joinReasons(res.r, cleanupTemp(tmp, os.RemoveAll)) }()
 	// MkdirTemp and CreateTemp make PRIVATE entries (0700 / 0600), and the
 	// rename into place keeps that mode: an artifact nobody else could read.
-	// Give each the mode an ordinarily created one gets under the user's
-	// umask, as the files inside already have.
+	// Each gets the mode an ordinarily created one would under the user's
+	// umask, as the files inside already have — but only once it is complete,
+	// just before it is published: widened earlier, a half-built artifact
+	// would be readable by others (@copilot on #713).
 	dirMode, fileMode := umasked(out)
-	if err := os.Chmod(tmp, dirMode); err != nil {
-		return fail(err)
-	}
 	for rel, body := range a.dirFiles {
 		p := filepath.Join(tmp, filepath.FromSlash(rel))
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
@@ -801,10 +800,6 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 			return fail(err)
 		}
 		zipTmp = zf.Name()
-		if err := zf.Chmod(fileMode); err != nil {
-			_ = zf.Close()
-			return fail(err)
-		}
 		defer func() {
 			// publish() already reports a temp it could not remove after a
 			// successful link; this covers every other path.
@@ -821,6 +816,14 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		}
 	}
 
+	if err := widen(tmp, dirMode); err != nil {
+		return fail(err)
+	}
+	if zipTmp != "" {
+		if err := widen(zipTmp, fileMode); err != nil {
+			return fail(err)
+		}
+	}
 	published, cleanup := swapInto(tmp, dir, true, a.host)
 	if !published {
 		return writeResult{r: cleanup}
@@ -835,6 +838,17 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		res.r = joinReasons(res.r, zr)
 	}
 	return res
+}
+
+// widen sets p's permission bits to mode, KEEPING a setgid bit it inherited
+// from a shared --out: clearing it would give the published directory the
+// exporter's primary group instead of the shared one (@codex on #713).
+func widen(p string, mode fs.FileMode) error {
+	fi, err := os.Stat(p)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(p, mode|fi.Mode()&fs.ModeSetgid)
 }
 
 // umasked returns the modes a directory (0755) and a file (0644) get when
