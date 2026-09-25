@@ -1,13 +1,13 @@
 # How to maintain product specs
 
 `hadron spec` runs a Hadron memory like a legal code: a spec's `loc` **is** its
-citation, each colon level is a real parent/child node, numbers are never
-renumbered (to replace a spec you `supersede` it), and a fixed rubric (abstract
-+ a "what invalidates this spec" statement) is enforced by `lint`.
+citation, numbers are never renumbered (to replace a spec you `supersede` it),
+and `lint` checks a rubric (abstract + a "what invalidates this spec"
+statement). A loc implies no parent: a spec's edges are the ones it was given.
 
 Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 
-> **The fixed hierarchy is being removed (#708/#709).** A spec is any node
+> **The fixed hierarchy is removed (#708/#709).** A spec is any node
 > tagged `spec` (or carrying the governed spec role), and **any valid node loc
 > is a spec address**, at any depth and in any shape. `get`, `list`, `edit`,
 > `link`, `find`, `grep`, `replace` and `check-tools` no longer check the
@@ -16,8 +16,9 @@ Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 > allocation and contract flags still produce. To create a spec anywhere
 > else, use `spec new <loc> --title <title>`. To replace one, use
 > `spec supersede <old> --to <loc>`. The flat/product scheme is retired
-> (#709). The legacy numbering's lint rules are next; this page is updated
-> when they land.
+> (#709), and `lint` no longer checks the tiers (parent-exists, toc-edge,
+> inheritance-edge, index-incomplete, mixed-arity). Still open (#708): whether
+> the rubric applies beyond rule and flow depth.
 > See [docs/plans/spec-hierarchy-removal.md](../plans/spec-hierarchy-removal.md).
 
 ## The legacy numbering
