@@ -93,7 +93,7 @@ App).`,
 					return api.MapError(err)
 				}
 				if resp.App == nil {
-					return exitcode.Newf(exitcode.NotFound, "no App %q", scope.Ref)
+					return exitcode.Newf(exitcode.NotFound, "App %q not found, or not visible to you (cor:api:140:03)", scope.Ref)
 				}
 				if resp.App.DefaultChannel == nil {
 					return exitcode.Newf(exitcode.NotFound, "the App %s has no team chat Channel yet — nothing to mark read", scope.Ref)
