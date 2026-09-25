@@ -518,3 +518,36 @@ func TestTeamChatMarkReadRefusals(t *testing.T) {
 		}
 	})
 }
+
+// An EMPTY --channel is an unset variable, not "the team chat": refused before
+// any request, where the absent path would mark a different Channel read.
+func TestTeamChatMarkReadRefusesAnEmptyChannel(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "mark-read", "--through", "5", "--channel", "", "--server", srv.URL})
+	if got := exitOf(root.Execute()); got != exitcode.Usage {
+		t.Errorf("exit = %d, want %d", got, exitcode.Usage)
+	}
+	if len(*calls) != 0 {
+		t.Errorf("refused before any request, got %+v", *calls)
+	}
+}
+
+// The receipt names WHERE it marked — the Channel, the App and which branch
+// resolved the App — since the App came from an ambient binding.
+func TestTeamChatMarkReadReceiptNamesItsScope(t *testing.T) {
+	writeTeamBinding(t)
+	srv, _ := attnServer(t, map[string]string{"MarkOwnTeamChatRead": markReadJSON})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "mark-read", "--through", "1878", "--channel", "ch1", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	want := "Marked read through #1878 for Iris on channel ch1 in capp100000000000000000000 (from the worktree binding)."
+	if !strings.Contains(out.String(), want) {
+		t.Errorf("got %q, want it to contain %q", out.String(), want)
+	}
+}

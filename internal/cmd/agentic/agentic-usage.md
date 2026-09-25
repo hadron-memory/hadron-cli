@@ -2141,7 +2141,8 @@ Conventions:
   forward pages (a `--limit` page included); `--mentions`, `--before` and
   windowed reads do not. For those, **`chat mark-read --through <seq>
   [--channel <ref>]`** advances the bound worker's cursor explicitly
-  (`--channel` defaults to the App's team chat). It is monotonic — a lower seq
+  (`--channel` defaults to the App's team chat; an EMPTY `--channel` is refused,
+  exit 2, rather than falling back to it). It is monotonic — a lower seq
   changes nothing and says so — and a seq past the Channel's head exits 2
   (`SEQ_BEYOND_WATERMARK`). It needs a binding (exit 2 without one), and the
   server accepts only your own live session. `--json`: `{workerId, channelId,

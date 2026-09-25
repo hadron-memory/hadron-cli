@@ -68,6 +68,14 @@ before.
    list (MCP's `hadron_server_info` advertises `team-attention` per caller), so
    the CLI calls the operation and maps the refusal.
 
+8. **An empty `--channel` or `--proof` is refused, not defaulted.** Each is
+   nearly always an unset variable. An empty `--channel` would otherwise mark
+   the App's team chat read, which is a different Channel from the one the
+   caller meant.
+9. **Receipts name their scope.** The App comes from a fallback chain (`--app`,
+   the App context, or the binding), so the switchover prompt and receipt and
+   the mark-read receipt each say which App, and which branch answered.
+
 ### Exit codes
 
 | Code | Exit | Why |
@@ -106,5 +114,8 @@ decision.
 - `internal/api/session_test.go`: the header rides only on a call that asked
   for it.
 - Mutation-checked: dropping the server-match guard, the read header, the
-  per-call scoping, the empty-`--since` refusal, the consent gate, the
-  mark-read header or the already-read branch each reds at least one test.
+  per-call scoping, the empty-`--since` or empty-`--channel` refusal, the
+  consent gate, the mark-read header or the already-read branch each reds at
+  least one test, and each mutation compiles.
+- `App.defaultChannel.id`, which mark-read's default rests on, was observed
+  populated on production by a read-only query before building on it.

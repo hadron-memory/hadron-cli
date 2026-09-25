@@ -56,6 +56,13 @@ App).`,
 			if through < 0 {
 				return exitcode.Newf(exitcode.Usage, "--through must not be negative")
 			}
+			// An EMPTY --channel is not an absent one: it is nearly always an
+			// unset variable, and the absent path would silently mark the
+			// App's team chat read instead of the Channel the caller named.
+			if cmd.Flags().Changed("channel") && strings.TrimSpace(channel) == "" {
+				return exitcode.Newf(exitcode.Usage,
+					"--channel is empty — pass a Channel id or address, or omit --channel for the App's team chat")
+			}
 			ctx := cmd.Context()
 			// A corrupt or unreadable binding keeps its own message (it says
 			// how to fix it); only a MISSING one — or no worktree to hold one —
@@ -106,11 +113,12 @@ App).`,
 				if name == "" {
 					name = dto.WorkerID
 				}
+				where := fmt.Sprintf("channel %s in %s (%s)", dto.ChannelID, scope.Ref, scope.Source)
 				if dto.LastSeenSeq > through {
-					fmt.Fprintf(w, "%s had already read through #%d — nothing changed.\n", name, dto.LastSeenSeq)
+					fmt.Fprintf(w, "%s had already read through #%d on %s — nothing changed.\n", name, dto.LastSeenSeq, where)
 					return nil
 				}
-				fmt.Fprintf(w, "Marked read through #%d for %s.\n", dto.LastSeenSeq, name)
+				fmt.Fprintf(w, "Marked read through #%d for %s on %s.\n", dto.LastSeenSeq, name, where)
 				return nil
 			})
 		},
