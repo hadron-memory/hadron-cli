@@ -296,3 +296,36 @@ func TestNodeGetNeverPairsTwoAbsences(t *testing.T) {
 		t.Errorf("err = %v, want exit 5: the revision could not be paired", err)
 	}
 }
+
+// Mixed deployment: the before-read reaches a server with revisions and the
+// after-read one without. That is not "the server predates revisions"; it is
+// a change under the read, retried and then refused (@copilot on #724).
+func TestNodeGetDoesNotDowngradeWhenTheAfterReadLosesRevisions(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		mu.Lock()
+		defer mu.Unlock()
+		switch op {
+		case "ResolveUrn":
+			return `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`
+		case "GetNode":
+			return nodeGetJSON(testNodeURL)
+		case "NodeLiveRevisions":
+			calls++
+			if calls%2 == 1 {
+				return liveRevisions(map[string]int{"n1": 12})
+			}
+			v, _ := unstubbedDefault("NodeLiveRevisions") // an older server's refusal
+			return v
+		}
+		return ""
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", testNodeURN, "--json", "--server", gql.URL})
+	err := root.Execute()
+	if strings.Contains(out.String(), `"revision": null`) || exitCodeFor(err) != 5 {
+		t.Errorf("err %v; a server changing under the read must not be reported as an older server:\n%s", err, out.String())
+	}
+}

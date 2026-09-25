@@ -350,10 +350,15 @@ func readConsistently(cmd *cobra.Command, client graphql.Client, sel revisionSel
 			ids = append(ids, d.ID)
 		}
 		after, supported, err := liveRevisions(cmd, client, revisionSelector{refs: ids})
-		if err != nil || !supported {
+		if err != nil {
 			return err
 		}
-		if pairRevisions(dtos, before, after) {
+		// The before-read HAD revisions, so an after-read without them is a
+		// server that changed under the read (a rolling or mixed
+		// deployment), not an older server: null would falsely say it
+		// predates revisions. Treated as a change, and read again (@copilot
+		// on #724).
+		if supported && pairRevisions(dtos, before, after) {
 			return nil
 		}
 		if attempt == consistentReadAttempts {
