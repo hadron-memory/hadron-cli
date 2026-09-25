@@ -776,6 +776,15 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		return fail(err)
 	}
 	defer func() { res.r = joinReasons(res.r, cleanupTemp(tmp, os.RemoveAll)) }()
+	// A handle on the directory just created: its mode is changed through
+	// this descriptor, never by path, so a temp name swapped for a link in
+	// a shared --out cannot redirect the chmod to another file (@copilot
+	// on #713).
+	td, err := openOwnDir(tmp)
+	if err != nil {
+		return fail(err)
+	}
+	defer func() { _ = td.Close() }()
 	// MkdirTemp and CreateTemp make PRIVATE entries (0700 / 0600), and the
 	// rename into place keeps that mode: an artifact nobody else could read.
 	// Each gets the mode an ordinarily created one would under the user's
@@ -808,6 +817,10 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 			}
 		}()
 		werr := writeZip(zf, a.zipFiles, zipComment(a.host))
+		if werr == nil {
+			// Complete now, so widened now, through its own descriptor.
+			werr = widen(zf, fileMode)
+		}
 		if cerr := zf.Close(); werr == nil {
 			werr = cerr
 		}
@@ -816,13 +829,8 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		}
 	}
 
-	if err := widen(tmp, dirMode); err != nil {
+	if err := widen(td, dirMode); err != nil {
 		return fail(err)
-	}
-	if zipTmp != "" {
-		if err := widen(zipTmp, fileMode); err != nil {
-			return fail(err)
-		}
 	}
 	published, cleanup := swapInto(tmp, dir, true, a.host)
 	if !published {
@@ -840,23 +848,46 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 	return res
 }
 
-// widen sets p's permission bits to mode, KEEPING a setgid bit it inherited
-// from a shared --out: clearing it would give the published directory the
-// exporter's primary group instead of the shared one (@codex on #713).
-func widen(p string, mode fs.FileMode) error {
-	fi, err := os.Stat(p)
+// widen sets f's permission bits to mode through its descriptor, KEEPING a
+// setgid bit it inherited from a shared --out: clearing it would give the
+// published directory the exporter's primary group instead of the shared
+// one (@codex on #713).
+func widen(f *os.File, mode fs.FileMode) error {
+	fi, err := f.Stat()
 	if err != nil {
 		return err
 	}
-	return os.Chmod(p, mode|fi.Mode()&fs.ModeSetgid)
+	return f.Chmod(mode | fi.Mode()&fs.ModeSetgid)
+}
+
+// openOwnDir opens the directory MkdirTemp just created and confirms the
+// handle is that directory, not something swapped in at its name.
+func openOwnDir(p string) (*os.File, error) {
+	before, err := os.Lstat(p)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := f.Stat()
+	if err != nil || !fi.IsDir() || !before.IsDir() || !os.SameFile(before, fi) {
+		_ = f.Close()
+		return nil, fmt.Errorf("%s changed while it was being created", p)
+	}
+	return f, nil
 }
 
 // umasked returns the modes a directory (0755) and a file (0644) get when
 // created ordinarily in parent, under the process umask. Go has no portable
 // umask read, so it creates a probe directory with 0777 and keeps what the
-// umask left of it; if that fails it falls back to the unmasked modes.
+// umask left of it. If it cannot measure, it answers the PRIVATE modes the
+// temp entries already have: an unknown umask may be a restrictive one, and
+// guessing wide would publish what the user meant to keep private (@codex
+// on #713).
 func umasked(parent string) (dir, file fs.FileMode) {
-	dir, file = 0o755, 0o644
+	dir, file = 0o700, 0o600
 	// MkdirTemp only reserves a unique name (its own mode is fixed at 0700);
 	// the probe proper is an ordinary Mkdir at that name.
 	probe, err := os.MkdirTemp(parent, ".hadron-umask-")
@@ -875,7 +906,7 @@ func umasked(parent string) (dir, file fs.FileMode) {
 		return dir, file
 	}
 	allowed := fi.Mode().Perm()
-	return dir & allowed, file & allowed
+	return 0o755 & allowed, 0o644 & allowed
 }
 
 // cleanupTemp removes a temporary copy that was not published, and reports

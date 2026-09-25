@@ -1012,3 +1012,47 @@ func TestPublishedArtifactKeepsAnInheritedSetgid(t *testing.T) {
 		t.Error("widening cleared the setgid bit the shared directory passed down")
 	}
 }
+
+// widen changes the mode through the descriptor: once the name has been
+// swapped for a link to another file, that file must be left alone.
+func TestWidenNeverFollowsASwappedName(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX modes")
+	}
+	h := home(t)
+	tmp := filepath.Join(h, ".hadron.tmp-1")
+	mkdir(t, tmp)
+	if err := os.Chmod(tmp, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	td, err := openOwnDir(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = td.Close() }()
+	secret := filepath.Join(h, "secret")
+	write(t, secret, "key")
+	if err := os.Chmod(secret, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(tmp, filepath.Join(h, "moved")); err != nil {
+		t.Fatal(err)
+	}
+	symlink(t, secret, tmp)
+	if err := widen(td, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(secret); fi.Mode().Perm() != 0o600 {
+		t.Errorf("the linked file's mode became %o: widen followed the swapped name", fi.Mode().Perm())
+	}
+	if fi, _ := os.Stat(filepath.Join(h, "moved")); fi.Mode().Perm() != 0o755 {
+		t.Errorf("our own directory was not widened: %o", fi.Mode().Perm())
+	}
+}
+
+func TestUmaskedFallsBackToPrivateModes(t *testing.T) {
+	dir, file := umasked(filepath.Join(home(t), "does-not-exist"))
+	if dir != 0o700 || file != 0o600 {
+		t.Errorf("unmeasurable umask gave %o/%o, want the private 0700/0600", dir, file)
+	}
+}
