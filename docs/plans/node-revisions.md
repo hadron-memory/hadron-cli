@@ -47,13 +47,21 @@
 - **What counts as a change** (the whole read repeats, up to 3 attempts, then
   exit 5, "try again"):
   - a revision that differs between the brackets;
-  - a node absent from either bracket (created, deleted or made unavailable in
-    between). Two absences never pair as `0 == 0`;
-  - revision support lost between (1) and (3): a server changing under the
-    read in a rolling or mixed deployment. That is not "predates revisions".
-- **Only one thing downgrades to `null`:** (1) refused as an unknown field
-  (`Cannot query field "revision"` / `GRAPHQL_VALIDATION_FAILED`). Any other
-  failure, including a `null` `nodeBatch` envelope, is the command's error.
+  - a node the content read returned that is absent from either bracket
+    (made unavailable, or deleted and recreated, in between). Two absences
+    never pair as `0 == 0`;
+  - revision support appearing or vanishing between (1) and (3), in either
+    direction: a server changing under the read in a rolling or mixed
+    deployment. That is not "predates revisions".
+- **The guarantee is about the nodes printed.** In `--prefix` mode, a node (1)
+  saw that the content read no longer returns (deleted or made unreadable in
+  between) is correctly absent from a read of that moment. It is not a retry
+  (declined on #724).
+- **Only one thing downgrades to `null`:** both (1) and (3) refused as an
+  unknown field (`Cannot query field "revision"` /
+  `GRAPHQL_VALIDATION_FAILED`). One probe alone cannot say it, because in a
+  mixed deployment either can reach an older instance. Any other failure,
+  including a `null` `nodeBatch` envelope, is the command's error.
 
 ### 2.2 `rev=` in skill files
 

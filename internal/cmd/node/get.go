@@ -332,33 +332,43 @@ type revisionSelector struct {
 // after the last attempt it fails rather than print a pairing it could not
 // verify.
 //
-// Against a server that predates revisions every Revision stays nil — null
-// means exactly that, never a guess and never a race — and the content is
-// read once, as before.
+// Against a server that predates revisions (both probes say so) every
+// Revision stays nil — null means exactly that, never a guess and never a
+// race.
+//
+// The guarantee is about the nodes PRINTED. A node the before-read saw that
+// the content read no longer returns (deleted or made unreadable in between)
+// is correctly absent from a read of that moment; every node that IS printed
+// carries the revision of the content printed.
 func readConsistently(cmd *cobra.Command, client graphql.Client, sel revisionSelector, read func() ([]*nodeDetailDTO, error)) error {
 	for attempt := 1; ; attempt++ {
-		before, supported, err := liveRevisions(cmd, client, sel)
+		before, supportedBefore, err := liveRevisions(cmd, client, sel)
 		if err != nil {
 			return err
 		}
 		dtos, err := read()
-		if err != nil || !supported {
+		if err != nil {
 			return err
 		}
 		ids := make([]string, 0, len(dtos))
 		for _, d := range dtos {
 			ids = append(ids, d.ID)
 		}
-		after, supported, err := liveRevisions(cmd, client, revisionSelector{refs: ids})
+		after, supportedAfter, err := liveRevisions(cmd, client, revisionSelector{refs: ids})
 		if err != nil {
 			return err
 		}
-		// The before-read HAD revisions, so an after-read without them is a
-		// server that changed under the read (a rolling or mixed
-		// deployment), not an older server: null would falsely say it
-		// predates revisions. Treated as a change, and read again (@copilot
-		// on #724).
-		if supported && pairRevisions(dtos, before, after) {
+		switch {
+		case !supportedBefore && !supportedAfter:
+			// Both probes met a server without revisions: null means exactly
+			// that. Two probes, not one, because in a rolling or mixed
+			// deployment either one alone can reach an older instance.
+			return nil
+		case supportedBefore != supportedAfter:
+			// Support appeared or vanished during the read: a server changing
+			// under it, not an older server. Read again (@copilot, @codex on
+			// #724).
+		case pairRevisions(dtos, before, after):
 			return nil
 		}
 		if attempt == consistentReadAttempts {

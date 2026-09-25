@@ -329,3 +329,35 @@ func TestNodeGetDoesNotDowngradeWhenTheAfterReadLosesRevisions(t *testing.T) {
 		t.Errorf("err %v; a server changing under the read must not be reported as an older server:\n%s", err, out.String())
 	}
 }
+
+// The reverse routing: the before-read reaches an older instance, the after
+// read a revision-aware one. Also a change under the read, not "predates".
+func TestNodeGetDoesNotDowngradeWhenOnlyTheBeforeReadLacksRevisions(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		mu.Lock()
+		defer mu.Unlock()
+		switch op {
+		case "ResolveUrn":
+			return `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`
+		case "GetNode":
+			return nodeGetJSON(testNodeURL)
+		case "NodeLiveRevisions":
+			calls++
+			if calls%2 == 1 {
+				v, _ := unstubbedDefault("NodeLiveRevisions") // an older instance
+				return v
+			}
+			return liveRevisions(map[string]int{"n1": 12})
+		}
+		return ""
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", testNodeURN, "--json", "--server", gql.URL})
+	err := root.Execute()
+	if strings.Contains(out.String(), `"revision": null`) || exitCodeFor(err) != 5 {
+		t.Errorf("err %v; support gained during the read must not print null:\n%s", err, out.String())
+	}
+}
