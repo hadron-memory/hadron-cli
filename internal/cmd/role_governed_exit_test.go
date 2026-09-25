@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -69,5 +70,31 @@ func assertRoleGoverned(t *testing.T, err error, keep string) {
 	}
 	if !strings.Contains(err.Error(), keep) {
 		t.Errorf("the server's message must survive the mapping (want %q): %v", keep, err)
+	}
+}
+
+// The no-route case the contract names: a governed node's revision restore.
+// No door restores a revision yet (hadron-server#1204), so the server refuses
+// every such restore with ROLE_GOVERNED in its 'restore' context — exit 2, and
+// the message saying there is no route survives (@copilot on #726).
+const roleGovernedRestoreJSON = `{"errors":[{"message":"This write edits a RUNNABLE node, and no door restores a revision: a governed node's history cannot be restored through any surface yet (tracked with deletes in #1204). Authoring or retiring something the platform will execute is not the same act as writing prose; the generic node surface does not reach it.","extensions":{"code":"ROLE_GOVERNED","kind":"task","strength":"capability","door":"updateTaskNode","mcpDoor":null,"op":"update","refusal":"edits"}}]}`
+
+func TestServerRoleGovernedRefusalOfARevisionRestoreExitsTwo(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{"RestoreNodeRevision": roleGovernedRestoreJSON})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "revision", "restore", "v2", "--server", gql.URL})
+	assertRoleGoverned(t, root.Execute(), "no door restores a revision")
+}
+
+// `hadron api` shares the mapper, so the raw path exits 2 as well — the
+// contract says so (@copilot on #726).
+func TestRawAPIRoleGovernedExitsTwo(t *testing.T) {
+	gql := graphQLAlways(t, http.StatusOK, roleGovernedJSON)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"api", "{ __typename }", "--server", gql.URL})
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+		t.Errorf("`hadron api` must exit %d on ROLE_GOVERNED, got %d", exitcode.Usage, got)
 	}
 }
