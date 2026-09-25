@@ -961,11 +961,12 @@ func TestSpecDescribeInventory(t *testing.T) {
 // #709: --declare is retired. An old invocation is refused with the reason,
 // BEFORE any request — the unreachable server proves nothing was read or
 // written — so it can neither silently succeed nor touch the memory's data.
+// An explicitly empty `--declare=` is given, not omitted, so it is refused too.
 func TestSpecDescribeDeclareIsRetired(t *testing.T) {
-	for _, v := range []string{"product", "flat"} {
+	for _, v := range []string{"product", "flat", ""} {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
-		root.SetArgs([]string{"spec", "describe", "-m", specProductMem, "--declare", v, "--server", "http://127.0.0.1:1"})
+		root.SetArgs([]string{"spec", "describe", "-m", specProductMem, "--declare=" + v, "--server", "http://127.0.0.1:1"})
 		err := root.Execute()
 		if got := exitCodeFor(err); got != exitcode.Usage || !strings.Contains(err.Error(), "retired") || !strings.Contains(err.Error(), "Nothing was written") {
 			t.Errorf("--declare %s: exit %d, err %v; want a Usage refusal saying it is retired and nothing was written", v, got, err)

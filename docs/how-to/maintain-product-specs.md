@@ -240,12 +240,13 @@ abstract** (one bulk fetch, not a per-spec loop) and prints every occurrence as
 `citation:line: text` — literal by default, `--regex`/`-i`, `--field
 content|abstract`, `--prefix` to scope.
 
-`lint` checks the rubric (abstract + "what invalidates"), the `spec` tag,
-duplicate locs, and each abstract's length and freshness; `hadron spec lint
---help` lists every rule. A spec at any loc owes no parent, contract or index,
-and a memory may mix loc shapes: the legacy tier checks (parent-exists,
-toc-edge, inheritance-edge, index-incomplete) and the one-arity rule
-(`mixed-arity`) are removed.
+`lint` checks each spec's name, node type and `spec` tag, duplicate locs,
+serialization leaks, each abstract's length and freshness, and the rubric
+(abstract + "what invalidates") on rule- and flow-depth specs; every finding
+names its rule. A spec at any loc owes no parent, contract or index, and a
+memory may mix loc shapes: the legacy tier checks (parent-exists, toc-edge,
+inheritance-edge, index-incomplete) and the one-arity rule (`mixed-arity`) are
+removed.
 
 Use `hadron spec use $M` when you are repeatedly maintaining the same corpus.
 It writes `spec_memory` to your user config (for example,
