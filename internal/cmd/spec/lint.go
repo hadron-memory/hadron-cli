@@ -686,8 +686,8 @@ func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string
 }
 
 // scanAllCitationLocs reads every citation-shaped node in the memory. It is
-// intentionally tag-agnostic so inventory views don't hide malformed specs
-// before lint can report the missing tag.
+// tag-agnostic so product discovery sees a product whose specs are missing
+// their tag.
 func scanAllCitationLocs(cmd *cobra.Command, client graphql.Client, memURN string) ([]string, error) {
 	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
 	if err != nil {

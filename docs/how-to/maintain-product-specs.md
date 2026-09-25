@@ -240,13 +240,12 @@ abstract** (one bulk fetch, not a per-spec loop) and prints every occurrence as
 `citation:line: text` — literal by default, `--regex`/`-i`, `--field
 content|abstract`, `--prefix` to scope.
 
-`lint` enforces the rubric (abstract + "what invalidates"), the citation shape,
-parent existence, inheritance edges to the tier contract, and the
-**one-arity-per-memory** rule. A corpus scope adds `index-incomplete` — an
-index-tier spec whose body omits a child's citation (see *The index rubric*
-above); the warning names the uncited locs, and says whether each one was edited
-after the index (the list fell behind) or already existed when the index was
-last written (the list was touched and the child left out).
+`lint` checks the rubric (abstract + "what invalidates"), the `spec` tag,
+duplicate locs, and each abstract's length and freshness; `hadron spec lint
+--help` lists every rule. A spec at any loc owes no parent, contract or index,
+and a memory may mix loc shapes: the legacy tier checks (parent-exists,
+toc-edge, inheritance-edge, index-incomplete) and the one-arity rule
+(`mixed-arity`) are removed.
 
 Use `hadron spec use $M` when you are repeatedly maintaining the same corpus.
 It writes `spec_memory` to your user config (for example,

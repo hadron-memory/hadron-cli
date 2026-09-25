@@ -108,7 +108,7 @@ shown as retired and ignored.`,
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	// Kept only so an old invocation is refused with an explanation rather
-	// than "unknown flag" (#709). Hidden: it does nothing.
+	// than "unknown flag" (#709). Hidden: it only refuses.
 	cmd.Flags().StringVar(&declare, "declare", "", "retired (#709): refused, writes nothing")
 	_ = cmd.Flags().MarkHidden("declare")
 	return cmd
