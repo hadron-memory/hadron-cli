@@ -437,8 +437,11 @@ Conventions:
   same way. All three exit 1.
   `asset url <ref>` prints the **UNAUTHENTICATED** public hotlink: anyone holding
   it can fetch the file, there is no read gate, and it is absent (exit 5, with
-  the reason) when the asset is not CLEAN, its memory is encrypted, or the
-  deployment has no public origin. Never construct that URL yourself.
+  the reason) when the asset is not CLEAN, or — for a CLEAN asset — when the
+  deployment has public hotlinks switched off (the server's default), has no
+  public origin, or the memory is encrypted; the server does not say which of
+  those three, so the reason names all three (#731). Never construct that URL
+  yourself.
   `asset upload <file> -m <memory>` is three steps behind one command: the
   server reserves the asset and returns a presigned PUT, the bytes go straight
   to object storage, and a final call marks it usable. Size and MIME are

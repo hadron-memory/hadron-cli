@@ -229,6 +229,61 @@ func TestAssetURLPrintsHotlinkAndWarns(t *testing.T) {
 	if !strings.Contains(out.String(), "https://cdn/one.png") {
 		t.Errorf("the hotlink should be on stdout; got %q", out.String())
 	}
+	// The link is unauthenticated, and the caller must be told so (#731
+	// keeps this).
+	if stderr := f.IOStreams.ErrOut.(*strings.Builder).String(); !strings.Contains(stderr, "NOT access-controlled") {
+		t.Errorf("the unauthenticated-link warning should be on stderr; got %q", stderr)
+	}
+}
+
+// #731: a CLEAN asset with no hotlink. The server returns null for three
+// reasons it does not tell apart — hotlinks switched off (its default), no
+// public origin, an encrypted memory — so the reason must name all three and
+// assert none. It was naming only the last two, both false on a default
+// deployment.
+func TestAssetURLCleanButAbsentNamesEveryPossibleCause(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		gql := fakeGraphQL(t, map[string]string{
+			"GetMemory": assetMemoryResp,
+			"MemoryAssets": assetListResp(1, false,
+				assetJSON("a1", "one.png", "image/png", 10, "CLEAN", "null")),
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		args := []string{"asset", "url", "hrn:asset:acme.com:kb:assets:a1", "--server", gql.URL}
+		if jsonMode {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		err := root.Execute()
+		if code := exitCodeFor(err); code != exitcode.Conflict {
+			t.Fatalf("json=%v: exit code = %d, want %d", jsonMode, code, exitcode.Conflict)
+		}
+		reason := f.IOStreams.ErrOut.(*strings.Builder).String()
+		if jsonMode {
+			var dto struct {
+				PublicURL *string `json:"publicUrl"`
+				Reason    string  `json:"reason"`
+			}
+			if jerr := json.Unmarshal([]byte(out.String()), &dto); jerr != nil {
+				t.Fatalf("--json should emit the DTO: %v\n%s", jerr, out.String())
+			}
+			if dto.PublicURL != nil {
+				t.Errorf("publicUrl must stay null, got %q", *dto.PublicURL)
+			}
+			reason = dto.Reason
+		} else if strings.TrimSpace(out.String()) != "" {
+			t.Errorf("stdout must stay empty with no hotlink; got %q", out.String())
+		}
+		for _, cause := range []string{"hotlinks switched off", "no public origin", "encrypted", "does not say which"} {
+			if !strings.Contains(reason, cause) {
+				t.Errorf("json=%v: reason should name %q; got %q", jsonMode, cause, reason)
+			}
+		}
+		if strings.Contains(reason, "scan") {
+			t.Errorf("json=%v: a CLEAN asset's reason must not blame the scan; got %q", jsonMode, reason)
+		}
+	}
 }
 
 func TestAssetURLAbsentIsAnErrorWithAReason(t *testing.T) {
