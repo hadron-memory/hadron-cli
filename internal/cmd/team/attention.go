@@ -313,7 +313,7 @@ asks for confirmation on a terminal and needs --yes otherwise.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&proof, "proof", "", "the proof `switchover preview` returned (required)")
+	cmd.Flags().StringVar(&proof, "proof", "", "the proof that switchover preview returned (required)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt (required in non-interactive use)")
 	return cmd
 }
