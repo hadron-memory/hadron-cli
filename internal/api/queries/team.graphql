@@ -852,3 +852,88 @@ mutation UpdateWorker($workerRef: ID!, $promptOverride: String) {
     ...WorkerFields
   }
 }
+
+# ── #1353 team attention (hadron-server#1362; internal pilot) ────────────────
+# `hadron team attention`: which of the caller's LIVE workers have relevant
+# unread chat since the token. Bodies are never returned, and the query never
+# changes read state. The CLI passes the token through and NEVER stores it: a
+# router adopts it only after every listed nudge was accepted, so a stored
+# token would be the lost-nudge bug the contract exists to close.
+query TeamAttention(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $since: String
+) {
+  teamAttention(appRef: $appRef, since: $since) {
+    token
+    workers {
+      worker
+      name
+      urn
+      live
+      channels {
+        channel
+        name
+        unread
+        unreadMentions
+        firstUnreadSeq
+        lastSeq
+      }
+    }
+  }
+}
+
+# The read-only half of the one-time switchover: exact cursors and heads, plus
+# a short-lived proof binding them.
+query TeamAttentionSwitchoverPreview($appRef: ID!) {
+  teamAttentionSwitchoverPreview(appRef: $appRef) {
+    proof
+    expiresAt
+    workers {
+      worker
+      name
+      urn
+      channels {
+        channel
+        name
+        fromSeq
+        throughSeq
+        unread
+        unreadMentions
+      }
+    }
+  }
+}
+
+# The confirmed half: advances every previewed worker through the previewed
+# heads only, atomically, or refuses on any drift.
+mutation ConfirmTeamAttentionSwitchover($appRef: ID!, $proof: String!) {
+  confirmTeamAttentionSwitchover(appRef: $appRef, proof: $proof) {
+    applied
+    workersAdvanced
+    channelsAdvanced
+  }
+}
+
+# `hadron team chat mark-read`: advance the bound worker's own cursor. The
+# GraphQL twin of hadron_team_chat_mark_read (same server helper, same pilot
+# gate, pinned to one caller-owned live session) — deliberately NOT the wider
+# advanceChannelReadState, which is neither pilot-gated nor session-pinned.
+mutation MarkOwnTeamChatRead($appRef: ID!, $sessionRef: ID!, $channelRef: ID!, $seq: Int!) {
+  markOwnTeamChatRead(appRef: $appRef, sessionRef: $sessionRef, channelRef: $channelRef, seq: $seq) {
+    workerId
+    channelId
+    lastSeenSeq
+  }
+}
+
+# The App's default team Channel — what `team chat mark-read` advances when no
+# --channel is given, matching hadron_team_chat_mark_read's default.
+query TeamDefaultChannel($appRef: ID!) {
+  app(ref: $appRef) {
+    id
+    defaultChannel {
+      id
+    }
+  }
+}
