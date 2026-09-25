@@ -44,10 +44,11 @@ func TestMapError(t *testing.T) {
 		//   ("only its own operations may delete"), so "ask someone for
 		//   access" would be the wrong next action.
 		{"host memory not writable is an enum member, not a code", gqlErr("HOST_MEMORY_NOT_WRITABLE"), exitcode.Error},
-		// LOC_PROTECTED stays 1 on purpose, beside ROLE_GOVERNED's 2 below: it
-		// has no client-side twin the CLI raises, and cli#721 remapped only the
-		// code that does. Whether it should follow is routed, not decided here.
-		{"loc protected is a wrong door, not a permission boundary", gqlErr("LOC_PROTECTED"), exitcode.Error},
+		// cli#727 (Holger, team chat #1697): LOC_PROTECTED — a wrong-door or
+		// reserved-address refusal — exits 2 like ROLE_GOVERNED. Every remedy
+		// is a different tool, no route, or recreating a deleted Channel; none
+		// is a permission or a transient.
+		{"loc protected is a wrong door, not a permission boundary", gqlErr("LOC_PROTECTED"), exitcode.Usage},
 		// cli#721: the server's governed-kind refusal. Usage, like the CLI's
 		// own refusal of the two-kind case (api.UpdateNodeByKind, cli#714) —
 		// never Forbidden: the caller may hold full write access.

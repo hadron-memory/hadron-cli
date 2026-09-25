@@ -696,6 +696,16 @@ func codeForExtension(code string) int {
 	// so not 8. The server's message says which case it is, and is kept whole.
 	case code == "ROLE_GOVERNED":
 		return exitcode.Usage
+	// A write to a chat Channel's reserved address (hadron-server
+	// LocProtectedError). The server's inventory has three remedies — use the
+	// Channel's own operation, there is no operation that may do this here, or
+	// recreate a deleted Channel whose address stays reserved — and none is a
+	// permission (8) or a transient (7). Holger ruled all three exit 2, like
+	// ROLE_GOVERNED (team chat #1697, cli#727). `extensions.channelLive` tells
+	// the reservation apart, without an exit split — visible through `hadron
+	// api`; the curated commands print the server's message, which says it.
+	case code == "LOC_PROTECTED":
+		return exitcode.Usage
 	case code == "CONFLICT" || strings.HasPrefix(code, "DUPLICATE_") ||
 		strings.HasSuffix(code, "_ALREADY_EXISTS") || strings.HasSuffix(code, "_TAKEN") ||
 		// A drained resource (PERSONA_REGISTER_EXHAUSTED, #935) is a state
