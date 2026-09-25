@@ -97,7 +97,8 @@ func withSecureRedirects(client *http.Client) *http.Client {
 // report it as retryable exit 7. The server answered; retrying cannot help.
 var ErrRedirectPolicy = errors.New("redirect refused by policy")
 
-// bearerDoer injects the Authorization header on every request.
+// bearerDoer injects the Authorization header on every request, and the
+// worker-session header on the requests that asked for it (WithSession).
 type bearerDoer struct {
 	token string
 	inner *http.Client
@@ -106,6 +107,10 @@ type bearerDoer struct {
 func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if d.token != "" {
 		req.Header.Set("Authorization", "Bearer "+d.token)
+	}
+	// Only a call whose context carries a session (WithSession) sends one.
+	if id := sessionFrom(req.Context()); id != "" {
+		req.Header.Set(SessionHeader, id)
 	}
 	resp, err := d.inner.Do(req)
 	if err != nil || resp.StatusCode < 500 {
