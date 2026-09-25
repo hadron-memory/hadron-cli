@@ -923,6 +923,11 @@ query NodeLiveRevisions(
     nodes {
       id
       revision
+      # The content was read by the query BEFORE this one. updatedAt ties the
+      # two together: a revision is used only when it equals the updatedAt of
+      # the content just read, so a node edited between the reads never shows
+      # older content beside a newer revision (@codex on #724).
+      updatedAt
     }
   }
 }

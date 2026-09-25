@@ -230,12 +230,18 @@ the full report when any item was refused or failed. A run that cannot start
 			for _, h := range skilldoc.Hosts {
 				plan := func(files []*gen.SkillFileFactsInput) (*gen.SkillExportPlanSkillPlan, error) {
 					host := h.Key
-					resp, err := gen.SkillExportPlan(cmd.Context(), client, &gen.SkillPlanInput{
-						Intent: gen.SkillPlanIntentExport,
-						Host:   &host,
-						Files:  files,
-						Force:  forcePtr,
-					})
+					ask := func(files []*gen.SkillFileFactsInput) (*gen.SkillExportPlanResponse, error) {
+						return gen.SkillExportPlan(cmd.Context(), client, &gen.SkillPlanInput{
+							Intent: gen.SkillPlanIntentExport,
+							Host:   &host,
+							Files:  files,
+							Force:  forcePtr,
+						})
+					}
+					resp, err := ask(files)
+					if err != nil && hasRevisions(files) && isUnknownRevisionInput(err) {
+						resp, err = ask(withoutRevisions(files))
+					}
 					if err != nil {
 						return nil, err
 					}

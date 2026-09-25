@@ -89,12 +89,16 @@ without templates; for a template node the batch gives you the source.`,
 			// contract and callers of `node get <ref>` must not have to care
 			// that a batch form now exists.
 			if !prefixMode && len(args) == 1 {
-				node, err := fetchNode(cmd, client, memory, args[0])
+				var dto nodeDetailDTO
+				err := readConsistently(func() ([]*nodeDetailDTO, error) {
+					node, err := fetchNode(cmd, client, memory, args[0])
+					if err != nil {
+						return nil, err
+					}
+					dto = detailDTO(node)
+					return []*nodeDetailDTO{&dto}, nil
+				}, func(d []*nodeDetailDTO) (bool, error) { return fillRevisions(cmd, client, d) })
 				if err != nil {
-					return err
-				}
-				dto := detailDTO(node)
-				if err := fillRevisions(cmd, client, []*nodeDetailDTO{&dto}); err != nil {
 					return err
 				}
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -102,23 +106,27 @@ without templates; for a template node the batch gives you the source.`,
 				})
 			}
 
-			nodes, unavailable, err := fetchNodeBatch(cmd, client, memory, locPrefix, args, prefixMode)
-			if err != nil {
-				return err
-			}
-			dto := nodeBatchDTO{Nodes: []nodeDetailDTO{}, Unavailable: []string{}}
-			for _, n := range nodes {
-				if n == nil {
-					continue
+			var dto nodeBatchDTO
+			err = readConsistently(func() ([]*nodeDetailDTO, error) {
+				nodes, unavailable, err := fetchNodeBatch(cmd, client, memory, locPrefix, args, prefixMode)
+				if err != nil {
+					return nil, err
 				}
-				dto.Nodes = append(dto.Nodes, batchDetailDTO(n))
-			}
-			dto.Unavailable = append(dto.Unavailable, unavailable...)
-			ptrs := make([]*nodeDetailDTO, len(dto.Nodes))
-			for i := range dto.Nodes {
-				ptrs[i] = &dto.Nodes[i]
-			}
-			if err := fillRevisions(cmd, client, ptrs); err != nil {
+				dto = nodeBatchDTO{Nodes: []nodeDetailDTO{}, Unavailable: []string{}}
+				for _, n := range nodes {
+					if n == nil {
+						continue
+					}
+					dto.Nodes = append(dto.Nodes, batchDetailDTO(n))
+				}
+				dto.Unavailable = append(dto.Unavailable, unavailable...)
+				ptrs := make([]*nodeDetailDTO, len(dto.Nodes))
+				for i := range dto.Nodes {
+					ptrs[i] = &dto.Nodes[i]
+				}
+				return ptrs, nil
+			}, func(d []*nodeDetailDTO) (bool, error) { return fillRevisions(cmd, client, d) })
+			if err != nil {
 				return err
 			}
 			return emitNodeBatch(f, dto)
@@ -297,18 +305,44 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 	return dto
 }
 
-// revisionBatch is nodeBatch's per-call cap, which NodeLiveRevisions shares.
-const revisionBatch = 200
+// consistentReadAttempts bounds readConsistently's retries.
+const consistentReadAttempts = 3
+
+// readConsistently reads nodes and then their revisions, and retries the
+// WHOLE read while the two disagree: content from one moment must never be
+// shown beside a revision from a later one (@codex on #724). After the last
+// attempt it fails rather than print a pairing it could not verify.
+func readConsistently(read func() ([]*nodeDetailDTO, error), revisions func([]*nodeDetailDTO) (bool, error)) error {
+	for attempt := 1; ; attempt++ {
+		dtos, err := read()
+		if err != nil {
+			return err
+		}
+		consistent, err := revisions(dtos)
+		if err != nil {
+			return err
+		}
+		if consistent {
+			return nil
+		}
+		if attempt == consistentReadAttempts {
+			return exitcode.Newf(exitcode.Conflict,
+				"the node changed while it was being read, %d times running, so its revision could not be paired with its content; try again", consistentReadAttempts)
+		}
+	}
+}
 
 // fillRevisions reads Node.revision for the nodes already fetched, in
-// nodeBatch-sized calls, and sets each DTO's Revision. Against a server that
-// predates the field (#1323) it leaves every Revision nil — "unknown", never
-// a guess — and the read itself still succeeds. Any other failure is the
-// command's error: a revision the caller asked for is not silently dropped.
+// api.NodeBatchCap-sized calls, and sets each DTO's Revision. It reports
+// consistent=false when any node's revision cannot be paired with the content
+// just read: its updatedAt moved on, or it went missing or unavailable in
+// between. The caller then re-reads everything.
 //
-// A node the batch lists as unavailable (it became unreadable between the
-// two reads) keeps a nil revision too; the main read already returned it.
-func fillRevisions(cmd *cobra.Command, client graphql.Client, dtos []*nodeDetailDTO) error {
+// Against a server that predates the field (#1323) it leaves every Revision
+// nil and reports consistent — null means exactly "the server predates
+// revisions", never a guess and never a race. Any other failure, including a
+// null nodeBatch envelope, is the command's error.
+func fillRevisions(cmd *cobra.Command, client graphql.Client, dtos []*nodeDetailDTO) (consistent bool, _ error) {
 	byID := map[string][]*nodeDetailDTO{}
 	ids := []string{}
 	for _, d := range dtos {
@@ -320,29 +354,39 @@ func fillRevisions(cmd *cobra.Command, client graphql.Client, dtos []*nodeDetail
 		}
 		byID[d.ID] = append(byID[d.ID], d)
 	}
-	for start := 0; start < len(ids); start += revisionBatch {
-		end := min(start+revisionBatch, len(ids))
+	paired := 0
+	for start := 0; start < len(ids); start += api.NodeBatchCap {
+		end := min(start+api.NodeBatchCap, len(ids))
 		resp, err := gen.NodeLiveRevisions(cmd.Context(), client, ids[start:end])
 		if err != nil {
 			if isUnknownFieldErr(err, "revision") {
-				return nil
+				for _, d := range dtos {
+					d.Revision = nil
+				}
+				return true, nil
 			}
-			return api.MapError(err)
+			return false, api.MapError(err)
 		}
 		if resp.NodeBatch == nil {
-			continue
+			return false, exitcode.Newf(exitcode.Error, "the server returned no result for the node revision read")
 		}
 		for _, n := range resp.NodeBatch.Nodes {
 			if n == nil {
 				continue
 			}
-			rev := n.Revision
 			for _, d := range byID[n.Id] {
+				if d.UpdatedAt != n.UpdatedAt {
+					return false, nil // changed since the content was read
+				}
+				rev := n.Revision
 				d.Revision = &rev
 			}
+			paired++
 		}
 	}
-	return nil
+	// Every node read a moment ago must still be there to pair: one that is
+	// now missing or unavailable changed in between, like an edit.
+	return paired == len(ids), nil
 }
 
 // fetchNode resolves a node reference (a full URN, or a bare loc within

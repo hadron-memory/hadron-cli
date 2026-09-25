@@ -14259,7 +14259,8 @@ func (v *NodeLiveRevisionsNodeBatchNodeBatchResult) GetNodes() []*NodeLiveRevisi
 type NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode struct {
 	Id string `json:"id"`
 	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
-	Revision int `json:"revision"`
+	Revision  int    `json:"revision"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 // GetId returns NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
@@ -14267,6 +14268,11 @@ func (v *NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode) GetId() string { re
 
 // GetRevision returns NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode.Revision, and is useful for accessing the field via an interface.
 func (v *NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode) GetRevision() int { return v.Revision }
+
+// GetUpdatedAt returns NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
 
 // NodeLiveRevisionsResponse is returned by NodeLiveRevisions on success.
 type NodeLiveRevisionsResponse struct {
@@ -34682,6 +34688,7 @@ query NodeLiveRevisions ($refs: [ID!]!) {
 		nodes {
 			id
 			revision
+			updatedAt
 		}
 	}
 }

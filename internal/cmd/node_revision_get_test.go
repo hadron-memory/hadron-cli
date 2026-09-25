@@ -15,13 +15,22 @@ import (
 // predates it. Against such a server the revision is null — "unknown" — and
 // never a guess; any other failure of that read is the command's error.
 
-func liveRevisions(pairs map[string]int) string {
+// nodeGetJSON's and batchNodeJSON's updatedAt: a revision pairs with the
+// content only when it was read at the same updatedAt.
+const (
+	getUpdatedAt   = "2026-08-24T00:00:00Z"
+	batchUpdatedAt = "2026-07-27T00:00:00Z"
+)
+
+func liveRevisionsAt(updatedAt string, pairs map[string]int) string {
 	nodes := []string{}
 	for id, rev := range pairs {
-		nodes = append(nodes, fmt.Sprintf(`{"id":%q,"revision":%d}`, id, rev))
+		nodes = append(nodes, fmt.Sprintf(`{"id":%q,"revision":%d,"updatedAt":%q}`, id, rev, updatedAt))
 	}
 	return `{"data":{"nodeBatch":{"unavailable":[],"nodes":[` + strings.Join(nodes, ",") + `]}}}`
 }
+
+func liveRevisions(pairs map[string]int) string { return liveRevisionsAt(getUpdatedAt, pairs) }
 
 func runNodeGet(t *testing.T, stubs map[string]string, args ...string) (string, map[string]json.RawMessage, error) {
 	t.Helper()
@@ -118,7 +127,7 @@ func TestNodeGetBatchReadsRevisionsInCappedCalls(t *testing.T) {
 				_, _ = fmt.Sscanf(id, "n%d", &k)
 				pairs[id] = k + 1
 			}
-			_, _ = w.Write([]byte(liveRevisions(pairs)))
+			_, _ = w.Write([]byte(liveRevisionsAt(batchUpdatedAt, pairs)))
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
 		}
@@ -158,5 +167,67 @@ func TestNodeGetBatchReadsRevisionsInCappedCalls(t *testing.T) {
 		if nd.Revision == nil || *nd.Revision != want+1 {
 			t.Fatalf("%s: revision %v, want %d (matched by id)", nd.ID, nd.Revision, want+1)
 		}
+	}
+}
+
+// An edit between the content read and the revision read: the revision's
+// updatedAt no longer matches, so the whole read repeats, and the answer
+// printed pairs content and revision from the same moment (@codex on #724).
+func TestNodeGetRereadsWhenTheNodeChangesBetweenReads(t *testing.T) {
+	var mu sync.Mutex
+	reads := 0
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		mu.Lock()
+		defer mu.Unlock()
+		switch op {
+		case "ResolveUrn":
+			return `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`
+		case "GetNode":
+			reads++
+			return nodeGetJSON(testNodeURL)
+		case "NodeLiveRevisions":
+			if reads == 1 { // edited after the first content read
+				return liveRevisionsAt("2026-08-25T00:00:00Z", map[string]int{"n1": 13})
+			}
+			return liveRevisions(map[string]int{"n1": 12})
+		}
+		return ""
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", testNodeURN, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if reads != 2 || !strings.Contains(out.String(), `"revision": 12`) {
+		t.Errorf("reads = %d; want a re-read and the revision matching the content read:\n%s", reads, out.String())
+	}
+}
+
+func TestNodeGetFailsWhenTheNodeKeepsChanging(t *testing.T) {
+	stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
+	stubs["NodeLiveRevisions"] = liveRevisionsAt("2026-09-01T00:00:00Z", map[string]int{"n1": 99})
+	_, _, err := runNodeGet(t, stubs, testNodeURN)
+	if got := exitCodeFor(err); got != 5 {
+		t.Fatalf("exit = %d (err %v), want 5: a pairing it could not verify is not printed", got, err)
+	}
+}
+
+// A node that turned unavailable between the reads is a change like an edit,
+// never "the server predates revisions".
+func TestNodeGetTreatsANodeGoneUnavailableAsAChange(t *testing.T) {
+	stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
+	stubs["NodeLiveRevisions"] = `{"data":{"nodeBatch":{"unavailable":["n1"],"nodes":[]}}}`
+	out, _, err := runNodeGet(t, stubs, testNodeURN)
+	if exitCodeFor(err) != 5 || strings.Contains(out, "predates") {
+		t.Errorf("err %v; output must not blame the server's age:\n%s", err, out)
+	}
+}
+
+func TestNodeGetNullRevisionEnvelopeIsAnError(t *testing.T) {
+	stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
+	stubs["NodeLiveRevisions"] = `{"data":{"nodeBatch":null}}`
+	if _, _, err := runNodeGet(t, stubs, testNodeURN); err == nil {
+		t.Error("a null nodeBatch envelope must fail, not read as an older server")
 	}
 }
