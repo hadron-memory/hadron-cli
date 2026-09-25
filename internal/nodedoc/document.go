@@ -14,6 +14,13 @@ package nodedoc
 // both codecs share. Optional string fields use "" for "absent" (the markdown
 // codec omits them); Seq/Data/Properties use nil. NodeType "" means the server
 // default (info) — it is never serialized, so a re-import defaults correctly.
+//
+// Role and IsRunnable are the governed signals (#1201; hadron-server#1218 put
+// them in its GitHub mirror, cli#714 here). Both are POINTERS because absent
+// and a value are different statements: nil means the file has no opinion and
+// a re-import PRESERVES the stored value, so a file written before these keys
+// existed never clears one. IsRunnable has three states on a node — true,
+// false, and null — and `false` is carried, unlike on an edge.
 type Document struct {
 	ID                 string   `json:"id"`
 	MemoryURN          string   `json:"memory"`
@@ -27,6 +34,8 @@ type Document struct {
 	ContentHash        string   `json:"contentHash"`
 	Tags               []string `json:"tags"`
 	Seq                *int     `json:"seq"`
+	Role               *string  `json:"role"`
+	IsRunnable         *bool    `json:"isRunnable"`
 	Data               any      `json:"data"`
 	Properties         any      `json:"properties"`
 	Content            string   `json:"content"`

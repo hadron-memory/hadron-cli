@@ -385,6 +385,9 @@ func TestNodeImportUpdate(t *testing.T) {
 		// The node exists (probe resolves it), so the overwrite is gated — --yes
 		// bypasses the prompt; the update-by-(memory,loc) attempt then succeeds.
 		"ResolveUrn": resolveNodeJSON,
+		// cli#714: the stored kind is read to pick the door; an ordinary node
+		// keeps the generic updateNode.
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, out := testFactory(t)

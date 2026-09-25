@@ -1,5 +1,11 @@
 # Design as built: the per-kind authoring doors (#606, completed)
 
+> **PARTLY SUPERSEDED — the routing rule and `node import`.** The server gate
+> reads before ∪ after, not only the resulting state, so an update routes by
+> every kind it touches, and removing a kind needs that kind's door. `node
+> import` now writes through the kinds' doors like `node add` / `node update`.
+> See [node-doc-governed-signals.md](node-doc-governed-signals.md) (cli#714).
+
 > **Status: implemented and verified.** Closes the whole of
 > [#606](https://github.com/hadron-memory/hadron-cli/issues/606) — the create
 > half shipped in [#607](https://github.com/hadron-memory/hadron-cli/pull/607)

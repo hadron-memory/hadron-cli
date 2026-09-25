@@ -172,8 +172,9 @@ schema-governed memory the server validates the result and rejects a violation.)
 			var dto nodeDTO
 			if anyField {
 				// The node's CURRENT kind, read once and used twice: to choose
-				// the door for the write (the gate reads the RESULTING state,
-				// and an omitted field preserves the stored one), and to name
+				// the door for the write (the gate reads the kind the node is
+				// now AND the kind it will be, and an omitted field preserves
+				// the stored one), and to name
 				// the right door in the `--role ""` refusal.
 				//
 				// INSIDE the field branch, not above it: a `--data-merge`-only
@@ -210,8 +211,8 @@ schema-governed memory the server validates the result and rejects a violation.)
 					input.ObjectType = &objectType
 				}
 				// #1201. Sending this is what makes the node GOVERNED — and the
-				// gate reads the resulting state, so an explicit role here wins
-				// over the stored one when the door is chosen below.
+				// gate reads the kind the node will be as well as the one it
+				// is, so an explicit role here counts when the door is chosen.
 				if changed("role") {
 					// Two governed kinds cannot coexist, and an UPDATE can
 					// produce that pair from a node that is already runnable —
@@ -223,7 +224,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 					}
 					if kinds := api.GovernedKindConflict(&role, resultRunnable); kinds != nil {
 						return exitcode.Newf(exitcode.Usage,
-							"this would leave the node as two governed kinds at once — %s — and each door is exempt from its OWN kind only, so every one of them refuses it. Clear the other first, or write it with `hadron api`",
+							"this would leave the node as two governed kinds at once — %s — and each door is exempt from its OWN kind only, so every one of them refuses it. Clear the other first, or write it with `hadron api` if the server's register has changed",
 							strings.Join(kinds, " AND "))
 					}
 					// REFUSED rather than sent. The schema says null clears and
@@ -282,8 +283,9 @@ schema-governed memory the server validates the result and rejects a violation.)
 				}
 				input.Reason = reasonPtr
 
-				// The gate reads the RESULTING state, and an omitted field
-				// preserves the stored one — so a plain `--description` edit of
+				// The gate reads the kind the node is now AND the kind it will
+				// be (before ∪ after, cli#714), and an omitted field preserves
+				// the stored one — so a plain `--description` edit of
 				// a task or a review check still produces a governed node and
 				// the generic `updateNode` refuses it. Deciding from the input
 				// alone would route exactly those edits wrong, which is why the

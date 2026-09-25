@@ -298,8 +298,9 @@ mutation CreateNode(
 # rules stay in `hadron spec` / `hadron coding`, which are on the closed
 # exception list (cor:api:240:02) on the audience ground.
 #
-# THE GATE READS THE RESULTING STATE, not the request, so which door a write
-# needs is decided by what the node WILL BE:
+# THE GATE READS THE NODE'S KIND, not the request: a write needs the door of
+# every kind it touches — what the node WILL BE, and for an update what it IS
+# now (before ∪ after; removing a kind needs that kind's door, cli#714):
 #
 #   role: "spec"        -> createSpecNode   / updateSpecNode     (DILIGENCE)
 #   role: "review"      -> createReviewNode / updateReviewNode   (SECURITY)
@@ -553,9 +554,10 @@ mutation UpdateNode(
 
 # The UPDATE door for the spec kind (#1201) — createSpecNode's counterpart.
 #
-# It is needed because the gate reads the RESULTING state: editing a node that
-# already carries `role: "spec"` still produces one, so the generic `updateNode`
-# refuses it even when the edit touches neither signal. That is the point — a
+# It is needed because the gate reads the kind the node is now as well as the
+# kind it will be: editing a node that already carries `role: "spec"` touches
+# the spec kind, so the generic `updateNode` refuses it even when the edit
+# touches neither signal. That is the point — a
 # spec node must not be rewritable through the generic surface.
 #
 # Identical to `updateNode` otherwise, SELECTORS INCLUDED (`id` XOR `memoryId` +

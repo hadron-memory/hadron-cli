@@ -16,22 +16,27 @@ import (
 // encodes loc in the file path and memory in the sync target, so it omits
 // them); they sit right after id and are ignored by the server's tree importer.
 type frontmatter struct {
-	Name               string      `yaml:"name"`
-	ID                 string      `yaml:"id"`
-	Loc                string      `yaml:"loc,omitempty"`
-	Memory             string      `yaml:"memory,omitempty"`
-	Alias              string      `yaml:"alias,omitempty"`
-	Type               string      `yaml:"type,omitempty"`
-	Description        string      `yaml:"description,omitempty"`
-	Summary            string      `yaml:"summary,omitempty"`
-	Abstract           string      `yaml:"abstract,omitempty"`
-	AbstractOriginHash string      `yaml:"abstractOriginHash,omitempty"`
-	ContentHash        string      `yaml:"contentHash,omitempty"`
-	Tags               []string    `yaml:"tags,omitempty"`
-	Seq                *int        `yaml:"seq,omitempty"`
-	Data               any         `yaml:"data,omitempty"`
-	Properties         any         `yaml:"properties,omitempty"`
-	Nodes              []edgeEntry `yaml:"nodes,omitempty"`
+	Name               string   `yaml:"name"`
+	ID                 string   `yaml:"id"`
+	Loc                string   `yaml:"loc,omitempty"`
+	Memory             string   `yaml:"memory,omitempty"`
+	Alias              string   `yaml:"alias,omitempty"`
+	Type               string   `yaml:"type,omitempty"`
+	Description        string   `yaml:"description,omitempty"`
+	Summary            string   `yaml:"summary,omitempty"`
+	Abstract           string   `yaml:"abstract,omitempty"`
+	AbstractOriginHash string   `yaml:"abstractOriginHash,omitempty"`
+	ContentHash        string   `yaml:"contentHash,omitempty"`
+	Tags               []string `yaml:"tags,omitempty"`
+	Seq                *int     `yaml:"seq,omitempty"`
+	// The governed signals, keyed and placed as hadron-server's mirror writes
+	// them (buildNodeFrontmatter, #1218): emitted when NON-NULL, so an explicit
+	// `runnable: false` is kept. `runnable` is the key the edge codec uses.
+	Role       *string     `yaml:"role,omitempty"`
+	Runnable   *bool       `yaml:"runnable,omitempty"`
+	Data       any         `yaml:"data,omitempty"`
+	Properties any         `yaml:"properties,omitempty"`
+	Nodes      []edgeEntry `yaml:"nodes,omitempty"`
 }
 
 // edgeEntry is one outgoing edge inside the frontmatter `nodes:` array. The
@@ -106,6 +111,8 @@ func ParseMarkdown(data []byte) (*Document, error) {
 		ContentHash:        fm.ContentHash,
 		Tags:               fm.Tags,
 		Seq:                fm.Seq,
+		Role:               fm.Role,
+		IsRunnable:         fm.Runnable,
 		Data:               fm.Data,
 		Properties:         fm.Properties,
 		Content:            strings.TrimSpace(string(m[2])),
@@ -126,6 +133,8 @@ func buildFrontmatter(doc *Document, standalone bool) frontmatter {
 		ContentHash:        ContentHash(doc.Content),
 		Tags:               doc.Tags,
 		Seq:                doc.Seq,
+		Role:               doc.Role,
+		Runnable:           doc.IsRunnable,
 		Data:               doc.Data,
 		Properties:         doc.Properties,
 		Nodes:              buildEdgeEntries(doc.Edges),

@@ -878,7 +878,17 @@ Conventions:
     reported in `unwiredEdges` with a `reason`, never fatal, and re-import is
     idempotent); `--create-only` refuses to update; `--dry-run` classifies
     without mutating. The server recomputes `contentHash`/`abstractOriginHash`,
-    so a clean export→import round-trips losslessly. Landing on an EXISTING node
+    so a clean export→import round-trips losslessly. The file's `role:` and
+    `runnable:` keys (`role`/`isRunnable` in JSON; emitted when non-null, so an
+    explicit `runnable: false` is kept) carry the node's governed kind, and the
+    write goes through that kind's door, like `node add`/`node update` (cli#714).
+    `memory export` and the server's git sync write these keys; `node export`
+    (server-rendered) does not yet, so its files import with no opinion.
+    A file without them preserves the stored kind. A file that declares two
+    governed kinds is refused, exit 2, before any request (`--dry-run`
+    included); one whose kind meets a different stored kind is refused exit 2
+    when the stored kind can be read, else by the server (`ROLE_GOVERNED`).
+    Nothing is written either way. Landing on an EXISTING node
     overwrites it — like the destructive commands, that prompts on a terminal and
     requires `--yes` non-interactively (a prior version is kept); a create is
     never gated.
@@ -943,7 +953,8 @@ Conventions:
   directory as frontmatter
   markdown (`<out>/<loc>.md`, one self-contained file per node, colons in the
   loc become path segments) — the same layout the server's git sync produces,
-  but on disk and without a remote.
+  but on disk and without a remote. Each file carries the node's `role:` and
+  `runnable:` when set, as the git sync does (cli#714).
   **`--out` defaults to `.`, BUT an omitted `--out` is REFUSED (exit 2, usage)
   when the current directory is inside a git work tree and is not empty** — a
   whole memory scattered among your files, overwriting same-named ones
@@ -1181,9 +1192,13 @@ Conventions:
   shipped in #1203). Protection used to be by ADDRESS — `Memory.protectedLocs`,
   a per-memory list of loc patterns, with one generic `authorProtectedNode`
   exempt from all of them. **That column and that door are both GONE.** A write
-  is now gated on what the node WILL BE, read off the resulting state:
+  needs the door of EVERY governed kind it touches: what the node WILL BE, and
+  for an update also what it IS now (before ∪ after). So REMOVING a kind
+  (`isRunnable: false` on a task, a role change away from `spec`/`review`) needs
+  that kind's door too, and a write touching two kinds has no door at all (the
+  CLI refuses it, exit 2):
 
-  | the node carries | door |
+  | the write touches | door |
   | --- | --- |
   | `role: "spec"` | `createSpecNode` / `updateSpecNode` |
   | `role: "review"` | `createReviewNode` / `updateReviewNode` |

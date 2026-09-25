@@ -12,8 +12,8 @@ type (
 )
 
 // DocumentFromBatchNode maps a bulk-read node into the neutral nodedoc.Document
-// the markdown/JSON codecs consume. It is the single gen→Document mapping shared
-// by `memory export` and `node export`. Type "" carries the server default
+// the markdown/JSON codecs consume: `memory export`'s. (`node export` is
+// rendered server-side by nodeExport, which mirrors this codec.) Type "" carries the server default
 // (info), so it never serializes and a re-import defaults correctly. The
 // projection only carries the memory id, not the URN, so callers that emit a
 // standalone file resolve and set Document.MemoryURN themselves.
@@ -27,6 +27,8 @@ func DocumentFromBatchNode(n *batchNode) *nodedoc.Document {
 		Name:       n.Name,
 		Tags:       n.Tags,
 		Seq:        n.Seq,
+		Role:       n.Role,
+		IsRunnable: n.IsRunnable,
 		Data:       nodedoc.DecodeJSON(n.Data),
 		Properties: nodedoc.DecodeJSON(n.Properties),
 		Edges:      edgesFromBatch(n.OutgoingEdges),
