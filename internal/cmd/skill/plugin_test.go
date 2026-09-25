@@ -1121,18 +1121,28 @@ func TestEmptyArtifactLine(t *testing.T) {
 		}
 		return h
 	}
+	// A failure before publication: applyWriteResult clears the artifact.
+	notBuilt := func() pluginHostDTO {
+		h := host(0, 0, true, true)
+		h.Artifact, h.Zip = nil, nil
+		return h
+	}
+	// The directory went live, then the zip failed: the artifact is kept,
+	// the zip dropped, and the failure carried.
+	partial := func() pluginHostDTO { return host(0, 0, false, true) }
 	for name, c := range map[string]struct {
 		h      pluginHostDTO
 		dryRun bool
 		want   []string // substrings; nil = no line at all
 		not    []string
 	}{
-		"empty, zip":     {host(0, 0, true, false), false, []string{"/o/x-codex and /o/x-codex.zip hold no skills", "no skill is declared for this host", "not an installable bundle"}, nil},
-		"empty, no zip":  {host(0, 0, false, false), false, []string{"/o/x-codex holds no skills"}, []string{".zip"}},
-		"empty, dry run": {host(0, 0, true, false), true, []string{"would hold no skills"}, nil},
-		"all skipped":    {host(0, 2, true, false), false, []string{"every skill declared for this host was skipped, refused or failed"}, []string{"no skill is declared"}},
-		"has skills":     {host(1, 0, true, false), false, nil, nil},
-		"host not built": {host(0, 0, true, true), false, nil, nil},
+		"empty, zip":           {host(0, 0, true, false), false, []string{"/o/x-codex and /o/x-codex.zip hold no skills", "no skill is declared for this host", "not an installable bundle"}, nil},
+		"empty, no zip":        {host(0, 0, false, false), false, []string{"/o/x-codex holds no skills"}, []string{".zip"}},
+		"empty, dry run":       {host(0, 0, true, false), true, []string{"would hold no skills"}, nil},
+		"all skipped":          {host(0, 2, true, false), false, []string{"every skill declared for this host was skipped, refused or failed"}, []string{"no skill is declared"}},
+		"has skills":           {host(1, 0, true, false), false, nil, nil},
+		"host not built":       {notBuilt(), false, nil, nil},
+		"dir live, zip failed": {partial(), false, []string{"/o/x-codex holds no skills"}, []string{".zip"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := emptyArtifactLine(c.h, c.dryRun)

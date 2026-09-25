@@ -1374,9 +1374,11 @@ func pluginHasFailures(dto pluginDTO) bool {
 // paths actually produced, and why it is empty (#718): a user holding an
 // empty hadron-codex.zip should not mistake it for a bundle to install. It
 // says nothing for a host whose artifact was not built (its failure line
-// covers that) or that has skills in it.
+// covers that) or that has skills in it. A host failure alone is not "not
+// built": a directory published before its zip failed is live, and its line
+// still belongs beside the failure (@copilot, @codex on #719).
 func emptyArtifactLine(h pluginHostDTO, dryRun bool) string {
-	if h.Artifact == nil || h.Failure != nil || len(h.Included) > 0 {
+	if h.Artifact == nil || len(h.Included) > 0 {
 		return ""
 	}
 	paths := *h.Artifact
