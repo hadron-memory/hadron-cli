@@ -54,6 +54,13 @@ const (
 // discovery stays a key check rather than a containment match.
 const ExportsKey = "exports"
 
+// descriptionMarkupRE is the measured Cowork predicate (server#1341): a `<`,
+// then at least one character that is not `>`, then a `>`. Of the two
+// predicates that fit all 20 probe cases, this is the broader one — it refuses
+// a nested `<<>` the narrower `<[^<>]+>` would accept, which was not measured;
+// refusing the superset errs toward a plugin that uploads.
+var descriptionMarkupRE = regexp.MustCompile(`<[^>]+>`)
+
 // HostClaudeSkill and HostCodexSkill are the skill hosts, each named by its
 // D12 key under `exports`, verbatim. There is ONE renderer: Codex reads the
 // same SKILL.md shape as Claude (measured on codex-cli 0.153.0,
@@ -88,12 +95,20 @@ type Host struct {
 	// claude.ai) that Claude Code does not apply — 2.1.143 loads such names —
 	// so listing them would refuse a working skill.
 	ReservedNames []string
+	// RejectsDescriptionMarkup is true for a host whose upload validator
+	// refuses a description containing what it calls an XML tag (cli#722,
+	// server#1341). Measured on Cowork by Holger's upload of a 20-case probe
+	// (2026-09-25): every refused case matches descriptionMarkupRE and every
+	// accepted one does not. Claude only: Codex's loader has no such check
+	// (rust-v0.153.0 source) and loads a `<worker>` description (team-chat
+	// #1127); the probe itself was not run against Codex.
+	RejectsDescriptionMarkup bool
 }
 
 // Hosts is every host, Claude first. Both hosts cut a description at 1,024
 // in the listing their model sees and cap a name at 64 (cor:agt:030:05).
 var Hosts = []Host{
-	{Key: HostClaudeSkill, MaxNameLen: MaxNameLen, MaxDescriptionLen: MaxDescriptionLen, LegacyAliases: true, ReservedNames: []string{"synced"}},
+	{Key: HostClaudeSkill, MaxNameLen: MaxNameLen, MaxDescriptionLen: MaxDescriptionLen, LegacyAliases: true, ReservedNames: []string{"synced"}, RejectsDescriptionMarkup: true},
 	{Key: HostCodexSkill, MaxNameLen: 64, MaxDescriptionLen: 1024, LegacyAliases: false, ReservedNames: []string{}},
 }
 
@@ -534,6 +549,18 @@ func LintFor(n Node, h Host) []Finding {
 		add("skill-description-too-long", SevError,
 			fmt.Sprintf("description is %d characters; the host caps it at %d and TRUNCATES the rest in the skill listing, so trigger phrases past the cut never fire — shorten by %d",
 				n, h.MaxDescriptionLen, n-h.MaxDescriptionLen))
+	}
+	// cli#722 / server#1341: a `<` followed later by a `>` with something in
+	// between is what Cowork's validator refuses ("cannot contain XML tags"):
+	// `<memory>`, `</end>`, `1 < 2 and 3 > 2`, an email in angle brackets. A
+	// lone `<` or `>`, `<>`, `<3` and `a<b` pass. An error, checked alongside
+	// the length rule. This is the offline lint; keeping such a skill out of
+	// `skill export`/`skill plugin` is the server planner's half (#1341).
+	if h.RejectsDescriptionMarkup {
+		if m := descriptionMarkupRE.FindString(desc); m != "" {
+			add("skill-description-markup", SevError,
+				fmt.Sprintf("description contains %q, which %s's upload validator refuses as an XML tag (any \"<\" followed later by \">\") — reword it in plain words, e.g. \"a memory\" for \"<memory>\"", m, h.Key))
+		}
 	}
 	if desc != "" && !triggerRE.MatchString(desc) {
 		add("skill-description-no-trigger", SevWarning,
