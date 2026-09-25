@@ -493,3 +493,18 @@ func TestNodeGetSplitInBothProbesIsNotAnOlderServer(t *testing.T) {
 		t.Errorf("err %v; a probe split in both brackets must not print null:\n%.400s", err, out.String())
 	}
 }
+
+// A server older than nodeBatch itself: the probe is refused for nodeBatch,
+// not revision. Single-ref `node get` reads through GetNode and must keep
+// working there, with the revision unknown (@copilot on #724).
+func TestNodeGetOnAServerWithoutNodeBatchStillReads(t *testing.T) {
+	stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
+	stubs["NodeLiveRevisions"] = `{"errors":[{"message":"Cannot query field \"nodeBatch\" on type \"Query\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	out, _, err := runNodeGet(t, stubs, testNodeURN, "--json")
+	if err != nil {
+		t.Fatalf("a server without nodeBatch must still serve node get: %v", err)
+	}
+	if !strings.Contains(out, `"revision": null`) {
+		t.Errorf("want the revision unknown:\n%s", out)
+	}
+}

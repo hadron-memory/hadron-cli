@@ -424,7 +424,10 @@ func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelect
 	ask := func(refs []string, memory, prefix *string) (*gen.NodeLiveRevisionsNodeBatchNodeBatchResult, error) {
 		resp, err := gen.NodeLiveRevisions(cmd.Context(), client, refs, memory, prefix)
 		if err != nil {
-			if isUnknownFieldErr(err, "revision") {
+			// A server without nodeBatch at all predates revisions too; the
+			// single-ref content read (GetNode) still works there, so neither
+			// refusal may cost it the read (@copilot on #724).
+			if isUnknownFieldErr(err, "revision") || isUnknownFieldErr(err, "nodeBatch") {
 				no = true
 				return nil, nil
 			}
