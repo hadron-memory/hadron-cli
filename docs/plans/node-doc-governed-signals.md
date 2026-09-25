@@ -84,10 +84,9 @@ The issue asks the design to keep "carrying existing authority" apart from
   safe, but it is not a round trip.
 - **`objectType` is fixed in the CLI by cli#720; see the addendum below.**
   Server-side `node export` omits it too, like the governed signals.
-- **`ROLE_GOVERNED` exits 1.** The server's refusal is unmapped in
-  `codeForExtension`, so it takes the default. The CLI refuses the same
-  condition with exit 2 when it can see it. This predates #714 (`node add` /
-  `node update` too), and mapping it deliberately is a follow-up.
+- **`ROLE_GOVERNED` exited 1.** The server's refusal was unmapped in
+  `codeForExtension`, while the CLI refuses the same condition with exit 2.
+  **Fixed by cli#721:** it maps to 2.
 
 ## Evidence
 

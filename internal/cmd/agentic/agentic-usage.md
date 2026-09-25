@@ -157,6 +157,22 @@ is a WRONG-DOOR refusal rather than a permission one: the caller may hold full
 write access and simply used the wrong operation, so "ask for access" would be
 the wrong next action.
 
+**A governed-kind refusal exits 2, not 1 (#721).** This CHANGED: the server's
+`ROLE_GOVERNED` fell through to the generic 1, while the CLI's own refusal of
+a write touching two governed kinds (task, spec, review) exits 2. It now exits
+2 whichever side catches it. It is not 8: the caller may hold full write
+access. The message is the server's, kept whole, and says which case it is:
+- **a wrong door, or two kinds at once** (`node add`, `node update`, `node
+  import`; the CLI routes by kind, so from it this mostly appears when the
+  node's kind could not be read first — rerunning may be enough);
+- **a governed node's revision restore** (`node revision restore` on a task,
+  spec or review): no door restores one yet (server#1204), so there is no
+  route to take and nothing to retry.
+
+`hadron api` exits 2 on it too, and prints the envelope with its
+`extensions` (`kind`, `door`, `refusal`, and `kinds` for the two-kind case).
+`LOC_PROTECTED`, the other wrong-door refusal, still exits 1.
+
 **Writing a node at a loc that is already taken exits 5, not 1 (#608).** This
 CHANGED: it used to exit 1, because the server stamps that `extensions.code`
 from an Error class name (`NodeLocConflictError`) rather than from the
@@ -898,9 +914,10 @@ Conventions:
     hadron-server).
     A file without them preserves the stored kind. A file that declares two
     governed kinds is refused, exit 2, before any request (`--dry-run`
-    included); one whose kind meets a different stored kind is refused exit 2
-    when the stored kind can be read, else by the server (`ROLE_GOVERNED`).
-    Nothing is written either way. Landing on an EXISTING node
+    included); one whose kind meets a different stored kind is refused exit 2,
+    by the CLI when the stored kind can be read, else by the server
+    (`ROLE_GOVERNED`, also exit 2 since cli#721). Nothing is written either
+    way. Landing on an EXISTING node
     overwrites it — like the destructive commands, that prompts on a terminal and
     requires `--yes` non-interactively (a prior version is kept); a create is
     never gated.
