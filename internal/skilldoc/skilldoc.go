@@ -559,7 +559,7 @@ func LintFor(n Node, h Host) []Finding {
 	if h.RejectsDescriptionMarkup {
 		if m := descriptionMarkupRE.FindString(desc); m != "" {
 			add("skill-description-markup", SevError,
-				fmt.Sprintf("description contains %q, which %s's upload validator refuses as an XML tag (any \"<\" followed later by \">\") — reword it in plain words, e.g. \"a memory\" for \"<memory>\"", m, h.Key))
+				fmt.Sprintf("description contains %q, which %s's upload validator refuses as an XML tag (a \"<\" followed later by a \">\", with at least one character between) — reword it in plain words, e.g. \"a memory\" for \"<memory>\"", m, h.Key))
 		}
 	}
 	if desc != "" && !triggerRE.MatchString(desc) {

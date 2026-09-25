@@ -100,6 +100,11 @@ func TestDescriptionMarkupIsAnErrorNamingWhatToChange(t *testing.T) {
 		if !strings.Contains(f.Message, `"<memory>"`) || !strings.Contains(f.Message, "claudeSkill") {
 			t.Errorf("the message must name the offending text and the host: %s", f.Message)
 		}
+		// @codex on #730: the message states the rule the server will copy, so
+		// it must not describe `<>` (which passes) as refused.
+		if !strings.Contains(f.Message, "at least one character between") {
+			t.Errorf("the message must state the non-empty span condition: %s", f.Message)
+		}
 		return
 	}
 	t.Fatal("skill-description-markup did not fire")
