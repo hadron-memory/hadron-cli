@@ -684,6 +684,18 @@ func codeForExtension(code string) int {
 	// is the mapping for every ref it still forwards unchecked.
 	case code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED":
 		return exitcode.Usage
+	// The governed-kind refusal (hadron-server#1201, RoleGovernedError): a
+	// write through a door its node's kind does not own, one touching two
+	// kinds so no door can make it, or a restore no door performs yet
+	// (server#1204). The CLI refuses the two-kind case itself, exit 2, when it
+	// can read the node's kind (api.UpdateNodeByKind, cli#714); when it cannot,
+	// the server refuses the same condition, and that must not exit
+	// differently (cli#721). The rest of the class goes with it, since the
+	// envelope carries no field telling the cases apart. It is a wrong-DOOR
+	// refusal, not a permission one — the caller may hold full write access —
+	// so not 8. The server's message says which case it is, and is kept whole.
+	case code == "ROLE_GOVERNED":
+		return exitcode.Usage
 	case code == "CONFLICT" || strings.HasPrefix(code, "DUPLICATE_") ||
 		strings.HasSuffix(code, "_ALREADY_EXISTS") || strings.HasSuffix(code, "_TAKEN") ||
 		// A drained resource (PERSONA_REGISTER_EXHAUSTED, #935) is a state
