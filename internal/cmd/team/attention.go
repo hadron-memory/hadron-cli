@@ -289,8 +289,8 @@ asks for confirmation on a terminal and needs --yes otherwise.`,
 				return err
 			}
 			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf(
-				"Mark every previewed worker read through the previewed heads in %s? That backlog will no longer be reported as unread.",
-				scope.Ref)); err != nil {
+				"Mark every previewed worker read through the previewed heads in %s (%s)? That backlog will no longer be reported as unread.",
+				scope.Ref, scope.Source)); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
@@ -305,10 +305,11 @@ asks for confirmation on a terminal and needs --yes otherwise.`,
 			dto := switchoverResultDTO{App: scope.Ref, Applied: r.Applied, WorkersAdvanced: r.WorkersAdvanced, ChannelsAdvanced: r.ChannelsAdvanced}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if !dto.Applied {
-					fmt.Fprintln(w, "Switchover not applied — nothing was written.")
+					fmt.Fprintf(w, "Switchover not applied in %s (%s) — nothing was written.\n", scope.Ref, scope.Source)
 					return nil
 				}
-				fmt.Fprintf(w, "Switchover applied: %d worker(s), %d channel cursor(s) advanced.\n", dto.WorkersAdvanced, dto.ChannelsAdvanced)
+				fmt.Fprintf(w, "Switchover applied in %s (%s): %d worker(s), %d channel cursor(s) advanced.\n",
+					scope.Ref, scope.Source, dto.WorkersAdvanced, dto.ChannelsAdvanced)
 				return nil
 			})
 		},

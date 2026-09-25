@@ -413,6 +413,16 @@ past the end of the chat) reads a window rather than a prefix and records
 nothing. Reading a chat that is EMPTY still counts as
 having read it.
 
+YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). With a worker
+session binding (for the current server), the read carries that session, so
+the server can count it as the bound worker having read the chat — which is
+what stops a team-chat router nudging you about messages you have seen. The
+SERVER decides which reads count: an unfiltered, contiguous, forward read
+(a --limit page included); a --mentions/--mentions-me, --before or windowed
+read does not — use ` + "`team chat mark-read --through <seq>`" + ` for those. This is
+separate from the binding's local watermark above, and it only happens where
+the server has the team-attention pilot enabled for you.
+
 --json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
 alias for readers written against ` + "`hadron chat read`" + `, the retired academy
 dialect, which calls the field ` + "`author`" + ` (#406). Prefer authorName. Unlike
