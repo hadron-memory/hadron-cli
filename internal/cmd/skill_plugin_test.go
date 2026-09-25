@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -411,5 +412,51 @@ func TestSkillPluginSecondHostAuthFailureWritesNothing(t *testing.T) {
 	wantExit(t, err, exitcode.AuthRequired)
 	if _, err := os.Stat(out); err == nil {
 		t.Error("a run that could not plan every host wrote a partial bundle")
+	}
+}
+
+// #718, end to end: Claude declarations only. The report names the empty
+// Codex artifact by the paths the run really produced (custom --out and
+// --name), mentions a zip only when one was written, and offers no install
+// line for it.
+func TestSkillPluginNamesTheEmptyHostArtifact(t *testing.T) {
+	h := pluginHome(t)
+	plans := map[string]string{
+		"claudeSkill": planJSON(planEntryJSON("alpha", "WRITE", "# a")),
+		"codexSkill":  planJSON(),
+	}
+	for _, zip := range []bool{true, false} {
+		out := filepath.Join(h, fmt.Sprintf("dist-%v", zip))
+		srv, _ := pluginServer(t, plans, "")
+		f, buf := testFactory(t)
+		root := NewRootCmd(f)
+		args := []string{"skill", "plugin", "--server", srv.URL, "--out", out, "--name", "team-kit"}
+		if zip {
+			args = append(args, "--zip")
+		}
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		report := buf.String()
+		codexDir := filepath.Join(out, "team-kit-codex")
+		want := codexDir + " holds no skills"
+		if zip {
+			want = codexDir + " and " + codexDir + ".zip hold no skills"
+			if _, err := os.Stat(codexDir + ".zip"); err != nil {
+				t.Fatalf("the report names a zip the run did not write: %v", err)
+			}
+		} else if strings.Contains(report, "team-kit-codex.zip") {
+			t.Errorf("zip=%v: the report names a zip that was not produced:\n%s", zip, report)
+		}
+		if !strings.Contains(report, want) || !strings.Contains(report, "no skill is declared for this host") {
+			t.Errorf("zip=%v: report lacks %q:\n%s", zip, want, report)
+		}
+		if strings.Contains(report, "Install for Codex") {
+			t.Errorf("zip=%v: the empty artifact was offered for install:\n%s", zip, report)
+		}
+		if strings.Contains(report, filepath.Join(out, "team-kit")+" holds no skills") {
+			t.Errorf("zip=%v: the non-empty Claude artifact was called empty", zip)
+		}
 	}
 }

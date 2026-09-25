@@ -1370,6 +1370,31 @@ func pluginHasFailures(dto pluginDTO) bool {
 	return false
 }
 
+// emptyArtifactLine names a host's artifact that holds no skills, by the
+// paths actually produced, and why it is empty (#718): a user holding an
+// empty hadron-codex.zip should not mistake it for a bundle to install. It
+// says nothing for a host whose artifact was not built (its failure line
+// covers that) or that has skills in it.
+func emptyArtifactLine(h pluginHostDTO, dryRun bool) string {
+	if h.Artifact == nil || h.Failure != nil || len(h.Included) > 0 {
+		return ""
+	}
+	paths := *h.Artifact
+	verb := "holds"
+	if h.Zip != nil {
+		paths += " and " + *h.Zip
+		verb = "hold"
+	}
+	if dryRun {
+		verb = "would hold"
+	}
+	why := "no skill is declared for this host"
+	if len(h.Skipped)+len(h.Refused)+len(h.Failed) > 0 {
+		why = "every skill declared for this host was skipped, refused or failed (listed above)"
+	}
+	return fmt.Sprintf("  ⚠ %s %s no skills, because %s: not an installable bundle.", paths, verb, why)
+}
+
 func renderPlugin(w io.Writer, dto pluginDTO) error {
 	p := func(format string, a ...any) error {
 		_, err := fmt.Fprintf(w, format, a...)
@@ -1442,13 +1467,14 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 			if err := t.Flush(); err != nil {
 				return err
 			}
-		} else if h.Failure == nil {
-			if err := p("  no skills for this host\n"); err != nil {
-				return err
-			}
 		}
 		for _, fd := range h.Findings {
 			if err := p("  %s  %s: %s (%s)\n", fd.Severity, cmp(fd.Name, fd.Node), fd.Message, fd.Rule); err != nil {
+				return err
+			}
+		}
+		if line := emptyArtifactLine(h, dto.DryRun); line != "" {
+			if err := p("%s\n", line); err != nil {
 				return err
 			}
 		}
@@ -1464,7 +1490,9 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 		}
 	}
 	for _, h := range dto.Hosts {
-		if dto.DryRun || h.Artifact == nil || h.Failure != nil {
+		// No install line for an artifact with nothing in it: its line above
+		// says it is not an installable bundle (#718).
+		if dto.DryRun || h.Artifact == nil || h.Failure != nil || len(h.Included) == 0 {
 			continue
 		}
 		switch h.Host {

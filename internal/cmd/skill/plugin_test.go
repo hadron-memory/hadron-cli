@@ -1101,3 +1101,101 @@ func TestExportPublishesWhenTheFilesystemRefusesChmod(t *testing.T) {
 		t.Fatalf("result = %+v, want the artifact and zip published despite the refused chmod", res)
 	}
 }
+
+func TestEmptyArtifactLine(t *testing.T) {
+	host := func(included, skipped int, zip, fail bool) pluginHostDTO {
+		h := newPluginHost(skilldoc.HostCodexSkill, "codex-skills")
+		dir, zp := "/o/x-codex", "/o/x-codex.zip"
+		h.Artifact = &dir
+		if zip {
+			h.Zip = &zp
+		}
+		for i := 0; i < included; i++ {
+			h.Included = append(h.Included, exportItemDTO{Name: "a"})
+		}
+		for i := 0; i < skipped; i++ {
+			h.Skipped = append(h.Skipped, exportItemDTO{Name: "s"})
+		}
+		if fail {
+			h.Failure = &exportReasonDTO{Code: reasonIOError}
+		}
+		return h
+	}
+	for name, c := range map[string]struct {
+		h      pluginHostDTO
+		dryRun bool
+		want   []string // substrings; nil = no line at all
+		not    []string
+	}{
+		"empty, zip":     {host(0, 0, true, false), false, []string{"/o/x-codex and /o/x-codex.zip hold no skills", "no skill is declared for this host", "not an installable bundle"}, nil},
+		"empty, no zip":  {host(0, 0, false, false), false, []string{"/o/x-codex holds no skills"}, []string{".zip"}},
+		"empty, dry run": {host(0, 0, true, false), true, []string{"would hold no skills"}, nil},
+		"all skipped":    {host(0, 2, true, false), false, []string{"every skill declared for this host was skipped, refused or failed"}, []string{"no skill is declared"}},
+		"has skills":     {host(1, 0, true, false), false, nil, nil},
+		"host not built": {host(0, 0, true, true), false, nil, nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := emptyArtifactLine(c.h, c.dryRun)
+			if c.want == nil {
+				if got != "" {
+					t.Errorf("line = %q, want none", got)
+				}
+				return
+			}
+			for _, w := range c.want {
+				if !strings.Contains(got, w) {
+					t.Errorf("line = %q, lacks %q", got, w)
+				}
+			}
+			for _, n := range c.not {
+				if strings.Contains(got, n) {
+					t.Errorf("line = %q, must not mention %q", got, n)
+				}
+			}
+		})
+	}
+}
+
+// The install hint is only for a host whose artifact has skills in it.
+func TestRenderPluginOffersNoInstallForAnEmptyArtifact(t *testing.T) {
+	cl, x := "/o/p", "/o/p-codex"
+	c := newPluginHost(skilldoc.HostClaudeSkill, "claude-plugin")
+	c.Artifact, c.Included = &cl, []exportItemDTO{{Name: "a"}}
+	e := newPluginHost(skilldoc.HostCodexSkill, "codex-skills")
+	e.Artifact, e.NotForHost = &x, []exportItemDTO{{Name: "a"}}
+	var out strings.Builder
+	if err := renderPlugin(&out, pluginDTO{Name: "p", Out: "/o", Hosts: []pluginHostDTO{c, e}}); err != nil {
+		t.Fatal(err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "claude plugin marketplace add /o/p") {
+		t.Errorf("the non-empty host lost its install line:\n%s", s)
+	}
+	if strings.Contains(s, "Install for Codex") {
+		t.Errorf("an empty artifact was offered for install:\n%s", s)
+	}
+	if !strings.Contains(s, "/o/p-codex holds no skills, because no skill is declared for this host") {
+		t.Errorf("the empty artifact is not named:\n%s", s)
+	}
+}
+
+func TestRenderPluginBothHostsEmpty(t *testing.T) {
+	a, b := "/o/p", "/o/p-codex"
+	c := newPluginHost(skilldoc.HostClaudeSkill, "claude-plugin")
+	c.Artifact = &a
+	x := newPluginHost(skilldoc.HostCodexSkill, "codex-skills")
+	x.Artifact = &b
+	var out strings.Builder
+	if err := renderPlugin(&out, pluginDTO{Name: "p", Out: "/o", Hosts: []pluginHostDTO{c, x}}); err != nil {
+		t.Fatal(err)
+	}
+	s := out.String()
+	for _, want := range []string{"/o/p holds no skills", "/o/p-codex holds no skills"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("lacks %q:\n%s", want, s)
+		}
+	}
+	if strings.Contains(s, "Install") {
+		t.Errorf("an empty artifact was offered for install:\n%s", s)
+	}
+}
