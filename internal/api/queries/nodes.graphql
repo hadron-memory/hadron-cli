@@ -905,3 +905,37 @@ query NodeExportMeta($ref: ID!) {
     }
   }
 }
+
+# Node.revision (#1323, hadron-server#1339), read ON ITS OWN by `node get`
+# (not NodeRevisions, which is the revision HISTORY in revisions.graphql).
+#
+# Not added to GetNode / NodeBatch: those back some thirty commands (spec,
+# skill, coding, memory export …), and a server that predates the field
+# rejects the WHOLE query that names it. Asked separately, a server without
+# revisions costs `node get` one field it reports as unknown, never the read
+# itself (#715: "truthful compatibility when an old server lacks revision
+# data").
+#
+# `node get` reads it BEFORE and AFTER the content, with the same selector as
+# the content read (ids, refs, or memory + locPrefix), and keeps the content
+# only when both agree: a revision advances on every authoring change, so
+# equal brackets mean the content IS that revision (@codex on #724 — an
+# updatedAt comparison is not collision-free).
+query NodeLiveRevisions(
+  # @genqlient(omitempty: true)
+  $refs: [ID!]
+  # @genqlient(omitempty: true)
+  $memory: ID
+  # @genqlient(omitempty: true)
+  $locPrefix: String
+) {
+  nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+    truncated
+    omitted
+    unavailable
+    nodes {
+      id
+      revision
+    }
+  }
+}

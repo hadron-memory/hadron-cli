@@ -1148,3 +1148,49 @@ func TestParseProvenanceFindsNothingInAForeignFile(t *testing.T) {
 		}
 	}
 }
+
+// TestRevisionParsesLikeTheServer pins the `rev=` rule to hadron-server#1339's
+// (isValidSkillRevision + the ^[1-9]\d*$ shape): a valid value is read, an
+// absent one is 0, and a malformed one VOIDS THE WHOLE HEADER, so the file
+// reads as foreign, exactly as the server reads it (Eli, chat #1626).
+func TestRevisionParsesLikeTheServer(t *testing.T) {
+	const src = "hrn:node:hadronmemory.com:core:tasks:mint-spec"
+	file := func(rev string) []byte {
+		key := ""
+		if rev != "" {
+			key = "rev=" + rev + " "
+		}
+		return []byte("---\nname: x\ndescription: Use when x\n---\n\n<!-- hadron-skill id=abc " + key +
+			"source=" + src + " hash=0123456789abcdef -->\n\n# Body\n")
+	}
+	for _, c := range []struct {
+		rev  string
+		want int
+	}{{"", 0}, {"7", 7}, {"1", 1}, {"2147483647", 2147483647}} {
+		f, err := ParseFile(file(c.rev))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f.Source != src || f.Revision != c.want {
+			t.Errorf("rev=%q: source %q revision %d, want %q and %d", c.rev, f.Source, f.Revision, src, c.want)
+		}
+		if _, s, _, ok := ParseProvenance(file(c.rev)); !ok || s != src {
+			t.Errorf("rev=%q: ParseProvenance must accept the header too", c.rev)
+		}
+	}
+	for _, bad := range []string{"0", "01", "-1", "+1", "1.5", "abc", "2147483648", "99999999999999999999", "7x"} {
+		f, err := ParseFile(file(bad))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f.Source != "" || f.Revision != 0 || f.Hash != "" {
+			t.Errorf("rev=%q must void the header: got source %q revision %d hash %q", bad, f.Source, f.Revision, f.Hash)
+		}
+		if !strings.HasPrefix(f.Body, "<!-- hadron-skill") {
+			t.Errorf("rev=%q: a voided header is body, as on the server; body = %q", bad, f.Body)
+		}
+		if _, _, _, ok := ParseProvenance(file(bad)); ok {
+			t.Errorf("rev=%q: ParseProvenance must void it too", bad)
+		}
+	}
+}

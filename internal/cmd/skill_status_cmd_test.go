@@ -1098,3 +1098,55 @@ func TestSkillStatusNeverSendsHeaderHashForAnUnparseableNoIdFile(t *testing.T) {
 		t.Errorf("the URN is the pairing fallback and must travel: %v", f)
 	}
 }
+
+// #715: a header's rev=N travels as the file's `revision`. It is OMITTED when
+// the file has none, so a server that predates the field accepts the request
+// and an older artifact claims no revision. A malformed rev= voids the header,
+// so that file is not ours and is never submitted at all, as on the server.
+func TestSkillStatusSendsTheHeaderRevisionOnlyWhenPresent(t *testing.T) {
+	root := t.TempDir()
+	withRev := func(dir, rev string) {
+		path := writeSkillFile(t, root, dir)
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := strings.Replace(string(b), "<!-- hadron-skill id="+statusNodeID+" ", "<!-- hadron-skill id="+statusNodeID+" rev="+rev+" ", 1)
+		if s == string(b) {
+			t.Fatalf("fixture header has no id= to anchor rev= on:\n%s", b)
+		}
+		if err := os.WriteFile(path, []byte(s), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	withRev("with-rev", "7")
+	writeSkillFile(t, root, "without-rev")
+	withRev("malformed-rev", "0")
+
+	out, captured, err := runSkillStatus(t, map[string]string{
+		"SkillPlan": skillPlanResp(`"current"`, "false", ""),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--to", root, "--json")
+	if err != nil {
+		t.Fatalf("status errored: %v\n%s", err, out)
+	}
+	byDir := map[string]map[string]any{}
+	for _, f := range sentFiles(t, captured) {
+		byDir[f["dirName"].(string)] = f
+	}
+	if got := byDir["with-rev"]["revision"]; got != float64(7) {
+		t.Errorf("with-rev: revision = %v, want 7", got)
+	}
+	if f := byDir["with-rev"]; f["fileHash"] != f["headerHash"] {
+		t.Errorf("rev= is not a hash input: an untouched file must still hash to its header: %v", f)
+	}
+	if _, present := byDir["without-rev"]["revision"]; present {
+		t.Errorf("without-rev: revision must be OMITTED (an older server rejects the field): %v", byDir["without-rev"])
+	}
+	if _, sent := byDir["malformed-rev"]; sent {
+		t.Errorf("a malformed rev= voids the header, so the file is foreign and never submitted: %v", byDir["malformed-rev"])
+	}
+	raw := string(captured["SkillPlan"])
+	if strings.Count(raw, `"revision"`) != 1 {
+		t.Errorf("exactly one file carries a revision on the wire:\n%s", raw)
+	}
+}

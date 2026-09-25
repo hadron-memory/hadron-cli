@@ -610,6 +610,19 @@ Conventions:
   staleness is the hash DISAGREEING with the current content's hash, which is
   `sha256(content)` truncated to 8 hex chars — the server's own definition, so
   the comparison is exact wherever you make it.
+- **`node get` carries `revision`** (#715, hadron-server#1339): the node's
+  live revision, where creation is 1 and each committed authoring change
+  advances it. The same value MCP's node read prints as `Revision: N`. The
+  key is **always present**: `null` means the server predates revisions, and
+  the human output then says `revision: unknown`; it is never guessed as 0 or
+  "current". It is read in a separate small query, so everything else keeps
+  working against an older server. It is read BEFORE and AFTER the content
+  and kept only when both agree, since a revision advances on every
+  authoring change: if the node changed in between (or became unavailable),
+  the whole read repeats, and after 3 attempts `node get` exits 5 rather
+  than print content beside a revision from another moment. A revision versions the NODE only: it
+  does not version partials or template data the node includes, and it is not
+  proof that the content complies with any task.
   - **For one node you already hold**, compare the two yourself — that is what
     `spec citations --stale-abstracts` does, and exposing the field is what
     makes it possible from `node get` at all. **Compare against RAW content**:
@@ -758,7 +771,17 @@ Conventions:
   `<git toplevel>/.claude/skills`, `plugin` →
   `<git toplevel>/plugins/hadron-cli/skills`, anything else a directory), pairs
   each file to its node by the **id** in its provenance header, and reports the
-  drift CLASS per declared node. **The class is the server's word** — the
+  drift CLASS per declared node. A header rendered by a server with revisions
+  also carries `rev=N`, the source node's revision when the file was written
+  (#715); status sends it as the file's `revision`, and the server reports the
+  file `stale` when the node has moved on, even if the content hash still
+  agrees. The value must be a positive integer of at most 2147483647; a
+  malformed `rev=` voids the WHOLE header (as on the server), so that file
+  reads as somebody else's. Export and plugin write the server's rendered
+  header verbatim, so their files carry `rev=` with no client change. Against
+  a server that predates the field (it refuses `revision` as an unknown input
+  field), status and export ask once more without revisions instead of
+  failing; any other refusal is still the run's error. **The class is the server's word** — the
   vocabulary is one place so it cannot drift between the CLI, MCP and the
   portal — and a file that exists but does not PARSE gets `class: null` with
   `parseFailure: true`, because a parse failure is a failure and not an

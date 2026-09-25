@@ -71,6 +71,13 @@ type nodeDTO struct {
 // nodeDetailDTO extends the list shape for single-node output.
 type nodeDetailDTO struct {
 	nodeDTO
+	// Revision is the node's live revision (#1323, hadron-server#1339):
+	// creation is 1, and each committed authoring change advances it.
+	//
+	// A POINTER with NO omitempty: null is a real answer — the server
+	// predates revisions — and must render rather than vanish. It is never
+	// guessed: not 0, and not "current".
+	Revision    *int    `json:"revision"`
 	ObjectType  *string `json:"objectType"`
 	Description *string `json:"description"`
 	Abstract    *string `json:"abstract"`

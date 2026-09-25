@@ -189,6 +189,10 @@ drift, any parse failure, any orphan, a scope that resolved to no memory, and
 				Files:    files,
 			}
 			resp, err := gen.SkillPlan(cmd.Context(), client, input)
+			if err != nil && hasRevisions(input.Files) && isUnknownRevisionInput(err) {
+				input.Files = withoutRevisions(input.Files)
+				resp, err = gen.SkillPlan(cmd.Context(), client, input)
+			}
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -342,6 +346,42 @@ func cmp(s, fallback string) string {
 // P20/P21, plan-only Q1–Q8).
 // The Codex row lands with the #621 writer.
 var hostDirs = map[string]string{skilldoc.HostClaudeSkill: ".claude"}
+
+// isUnknownRevisionInput reports a server that predates rev= (#1323)
+// refusing a file fact it does not have. The phrase is graphql-js's, measured
+// against production 0.19.0 (BAD_USER_INPUT): `Field "revision" is not
+// defined by type "SkillFileFactsInput".`
+func isUnknownRevisionInput(err error) bool {
+	return err != nil && strings.Contains(err.Error(), `Field "revision" is not defined by type "SkillFileFactsInput"`)
+}
+
+func hasRevisions(files []*gen.SkillFileFactsInput) bool {
+	for _, f := range files {
+		if f != nil && f.Revision != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// withoutRevisions copies files with every revision dropped. A file written
+// by a revision-aware server can meet an older one (a rollback, a mixed
+// deployment, a directory reused against another endpoint); that server
+// cannot use a revision anyway, so the plan is asked again without it rather
+// than failing the whole run (@codex on #724). Only on that exact refusal:
+// any other error is still the run's.
+func withoutRevisions(files []*gen.SkillFileFactsInput) []*gen.SkillFileFactsInput {
+	out := make([]*gen.SkillFileFactsInput, len(files))
+	for i, f := range files {
+		if f == nil {
+			continue
+		}
+		c := *f
+		c.Revision = nil
+		out[i] = &c
+	}
+	return out
+}
 
 // resolveSkillsRoot maps --to onto a directory. `project` and `plugin` are
 // anchored at the git toplevel and are a usage error outside a worktree —
@@ -552,6 +592,15 @@ func walkSkillFiles(root string) ([]*gen.SkillFileFactsInput, []statusUnreadable
 		facts.FileHash = &fileHash
 		if parsed.Hash != "" {
 			facts.HeaderHash = &parsed.Hash
+		}
+		// The header's rev=N (#1323), sent only when present: a nil pointer
+		// is omitted from the wire, so an older server that has no such field
+		// still accepts the request, and an older file with no rev= claims no
+		// revision. The server compares it with the node's live revision and
+		// classifies a mismatch `stale`, even when the content hash agrees.
+		if parsed.Revision > 0 {
+			rev := parsed.Revision
+			facts.Revision = &rev
 		}
 		if len(parsed.Extra) > 0 {
 			// Render writes no frontmatter key but name/description, so an

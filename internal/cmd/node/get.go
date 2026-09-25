@@ -89,28 +89,54 @@ without templates; for a template node the batch gives you the source.`,
 			// contract and callers of `node get <ref>` must not have to care
 			// that a batch form now exists.
 			if !prefixMode && len(args) == 1 {
-				node, err := fetchNode(cmd, client, memory, args[0])
+				id, err := cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
 				if err != nil {
 					return err
 				}
-				dto := detailDTO(node)
+				var dto nodeDetailDTO
+				err = readConsistently(cmd, client, revisionSelector{refs: []string{id}}, func() ([]*nodeDetailDTO, error) {
+					node, err := fetchNodeByID(cmd, client, id, args[0])
+					if err != nil {
+						return nil, err
+					}
+					dto = detailDTO(node)
+					return []*nodeDetailDTO{&dto}, nil
+				})
+				if err != nil {
+					return err
+				}
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					return renderNodeDetail(w, dto)
 				})
 			}
 
-			nodes, unavailable, err := fetchNodeBatch(cmd, client, memory, locPrefix, args, prefixMode)
+			sel, err := batchRevisionSelector(memory, locPrefix, args, prefixMode)
 			if err != nil {
 				return err
 			}
-			dto := nodeBatchDTO{Nodes: []nodeDetailDTO{}, Unavailable: []string{}}
-			for _, n := range nodes {
-				if n == nil {
-					continue
+			var dto nodeBatchDTO
+			err = readConsistently(cmd, client, sel, func() ([]*nodeDetailDTO, error) {
+				nodes, unavailable, err := fetchNodeBatch(cmd, client, memory, locPrefix, args, prefixMode)
+				if err != nil {
+					return nil, err
 				}
-				dto.Nodes = append(dto.Nodes, batchDetailDTO(n))
+				dto = nodeBatchDTO{Nodes: []nodeDetailDTO{}, Unavailable: []string{}}
+				for _, n := range nodes {
+					if n == nil {
+						continue
+					}
+					dto.Nodes = append(dto.Nodes, batchDetailDTO(n))
+				}
+				dto.Unavailable = append(dto.Unavailable, unavailable...)
+				ptrs := make([]*nodeDetailDTO, len(dto.Nodes))
+				for i := range dto.Nodes {
+					ptrs[i] = &dto.Nodes[i]
+				}
+				return ptrs, nil
+			})
+			if err != nil {
+				return err
 			}
-			dto.Unavailable = append(dto.Unavailable, unavailable...)
 			return emitNodeBatch(f, dto)
 		},
 	}
@@ -167,6 +193,11 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		fmt.Fprintf(w, "  tags: %v\n", dto.Tags)
 	}
 	fmt.Fprintf(w, "  updated: %s\n", dto.UpdatedAt)
+	if dto.Revision != nil {
+		fmt.Fprintf(w, "  revision: %d\n", *dto.Revision)
+	} else {
+		fmt.Fprintln(w, "  revision: unknown (the server predates node revisions)")
+	}
 	if dto.Data != nil && len(*dto.Data) > 0 {
 		if dataStr := string(*dto.Data); dataStr != "null" {
 			fmt.Fprintf(w, "  data: %s\n", dataStr)
@@ -280,6 +311,183 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, smem))
 	}
 	return dto
+}
+
+// consistentReadAttempts bounds readConsistently's retries.
+const consistentReadAttempts = 3
+
+// revisionSelector names the same nodes the content read names: explicit
+// refs (ids or canonical refs), or a memory + loc prefix.
+type revisionSelector struct {
+	refs   []string
+	memory *string
+	prefix *string
+}
+
+// revisionSupport is what one probe learned about the server.
+type revisionSupport int
+
+const (
+	// supportUnknown: the probe made no request (it had no nodes to name).
+	supportUnknown revisionSupport = iota
+	// supportYes: every call returned revisions.
+	supportYes
+	// supportNo: every call was refused as an unknown field.
+	supportNo
+	// supportMixed: some calls returned revisions and some were refused — a
+	// rolling or mixed deployment answering one probe from both versions.
+	supportMixed
+)
+
+// readConsistently reads nodes BETWEEN two revision reads and keeps them only
+// when every node's revision is the same before and after (@codex on #724).
+// A revision advances on every authoring change, so equal brackets mean the
+// content read IS that revision; a timestamp comparison could not promise
+// that, since two writes can share one. Otherwise the whole read repeats, and
+// after the last attempt it fails rather than print a pairing it could not
+// verify.
+//
+// Against a server that predates revisions (both probes say so) every
+// Revision stays nil — null means exactly that, never a guess and never a
+// race. Support that appears, vanishes or is split within a probe is a server
+// changing under the read, and the read repeats. A content read that returned
+// no nodes has nothing to pair: the after-probe then makes no request and
+// takes the before-probe's answer, so an empty result stays an empty result.
+//
+// The guarantee is about the nodes PRINTED. A node the before-read saw that
+// the content read no longer returns (deleted or made unreadable in between)
+// is correctly absent from a read of that moment; every node that IS printed
+// carries the revision of the content printed.
+func readConsistently(cmd *cobra.Command, client graphql.Client, sel revisionSelector, read func() ([]*nodeDetailDTO, error)) error {
+	for attempt := 1; ; attempt++ {
+		before, supportBefore, err := liveRevisions(cmd, client, sel)
+		if err != nil {
+			return err
+		}
+		dtos, err := read()
+		if err != nil {
+			return err
+		}
+		ids := make([]string, 0, len(dtos))
+		for _, d := range dtos {
+			ids = append(ids, d.ID)
+		}
+		after, supportAfter, err := liveRevisions(cmd, client, revisionSelector{refs: ids})
+		if err != nil {
+			return err
+		}
+		if supportAfter == supportUnknown {
+			supportAfter = supportBefore // nothing printed, nothing to pair
+		}
+		switch {
+		case supportBefore == supportNo && supportAfter == supportNo:
+			return nil
+		case supportBefore == supportYes && supportAfter == supportYes && pairRevisions(dtos, before, after):
+			return nil
+		}
+		// A changed revision, a node gone missing, or support that differs
+		// between or within the probes (@copilot, @codex on #724).
+		if attempt == consistentReadAttempts {
+			return exitcode.Newf(exitcode.Conflict,
+				"the node changed while it was being read, %d times running, so its revision could not be paired with its content; try again", consistentReadAttempts)
+		}
+	}
+}
+
+// pairRevisions sets each DTO's Revision when its node carried the same
+// revision before and after the content read, and reports whether every node
+// did. A node absent from either read (created, deleted or made unavailable in
+// between) is a change like an edit.
+func pairRevisions(dtos []*nodeDetailDTO, before, after map[string]int) bool {
+	for _, d := range dtos {
+		b, okB := before[d.ID]
+		a, okA := after[d.ID]
+		if !okB || !okA || a != b {
+			return false
+		}
+	}
+	for _, d := range dtos {
+		rev := after[d.ID]
+		d.Revision = &rev
+	}
+	return true
+}
+
+// liveRevisions reads id → revision for the nodes sel names, and what the
+// probe learned about the server's support (see revisionSupport). Explicit
+// refs go in api.NodeBatchCap-sized calls; a prefix read's byte-cap spillover
+// is re-read by id. Any failure other than the unknown-field refusal,
+// including a null envelope, is the command's error.
+func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelector) (map[string]int, revisionSupport, error) {
+	revs := map[string]int{}
+	var yes, no bool
+	ask := func(refs []string, memory, prefix *string) (*gen.NodeLiveRevisionsNodeBatchNodeBatchResult, error) {
+		resp, err := gen.NodeLiveRevisions(cmd.Context(), client, refs, memory, prefix)
+		if err != nil {
+			// A server without nodeBatch at all predates revisions too; the
+			// single-ref content read (GetNode) still works there, so neither
+			// refusal may cost it the read (@copilot on #724).
+			if isUnknownFieldErr(err, "revision") || isUnknownFieldErr(err, "nodeBatch") {
+				no = true
+				return nil, nil
+			}
+			return nil, api.MapError(err)
+		}
+		if resp.NodeBatch == nil {
+			return nil, exitcode.Newf(exitcode.Error, "the server returned no result for the node revision read")
+		}
+		yes = true
+		for _, n := range resp.NodeBatch.Nodes {
+			if n != nil {
+				revs[n.Id] = n.Revision
+			}
+		}
+		return resp.NodeBatch, nil
+	}
+	byRefs := func(refs []string) error {
+		for start := 0; start < len(refs); start += api.NodeBatchCap {
+			end := min(start+api.NodeBatchCap, len(refs))
+			if _, err := ask(refs[start:end], nil, nil); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if sel.prefix != nil {
+		r, err := ask(nil, sel.memory, sel.prefix)
+		if err != nil {
+			return nil, supportUnknown, err
+		}
+		if r != nil && r.Truncated {
+			if err := byRefs(r.Omitted); err != nil {
+				return nil, supportUnknown, err
+			}
+		}
+	} else if err := byRefs(sel.refs); err != nil {
+		return nil, supportUnknown, err
+	}
+	switch {
+	case yes && no:
+		return nil, supportMixed, nil
+	case yes:
+		return revs, supportYes, nil
+	case no:
+		return nil, supportNo, nil
+	}
+	return revs, supportUnknown, nil
+}
+
+// fetchNodeByID reads one node by its resolved id; ref is what the caller
+// typed, for the not-found message.
+func fetchNodeByID(cmd *cobra.Command, client graphql.Client, id, ref string) (*gen.GetNodeNode, error) {
+	resp, err := gen.GetNode(cmd.Context(), client, id)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if resp.Node == nil {
+		return nil, exitcode.Newf(exitcode.NotFound, "node %q not found", ref)
+	}
+	return resp.Node, nil
 }
 
 // fetchNode resolves a node reference (a full URN, or a bare loc within

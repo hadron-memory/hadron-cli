@@ -79,18 +79,9 @@ func fetchNodeBatch(
 	// caller may read comes back in unavailable. Reporting a typo as
 	// "not found, or not readable by you" would hide a caller mistake among
 	// denials, which is exactly the conflation that contract prevents.
-	sendable := make([]string, 0, len(refs))
-	seen := map[string]bool{}
-	for _, ref := range refs {
-		out, err := cmdutil.BatchNodeRef(memory, ref)
-		if err != nil {
-			return nil, nil, err
-		}
-		if seen[out] {
-			continue // a repeated ref must not yield the node twice
-		}
-		seen[out] = true
-		sendable = append(sendable, out)
+	sendable, err := batchRefs(memory, refs)
+	if err != nil {
+		return nil, nil, err
 	}
 	nodes, unavailable, err := api.CollectNodeBatch(sendable, fetch)
 	if err != nil {
@@ -101,6 +92,41 @@ func fetchNodeBatch(
 	// canonical hrn:node: prefix). Every entry here is a real absence or
 	// denial; a malformed ref never got this far.
 	return nodes, unavailable, nil
+}
+
+// batchRefs canonicalizes explicit refs for nodeBatch, dropping repeats.
+// Shared by the content read and the revision read that brackets it, so both
+// name exactly the same nodes.
+func batchRefs(memory string, refs []string) ([]string, error) {
+	sendable := make([]string, 0, len(refs))
+	seen := map[string]bool{}
+	for _, ref := range refs {
+		out, err := cmdutil.BatchNodeRef(memory, ref)
+		if err != nil {
+			return nil, err
+		}
+		if seen[out] {
+			continue // a repeated ref must not yield the node twice
+		}
+		seen[out] = true
+		sendable = append(sendable, out)
+	}
+	return sendable, nil
+}
+
+// batchRevisionSelector names, for the revision read, the nodes the batch
+// content read names.
+func batchRevisionSelector(memory, locPrefix string, refs []string, prefixMode bool) (revisionSelector, error) {
+	if prefixMode {
+		memRef := cmdutil.CanonicalMemoryRef(memory)
+		prefix := locPrefix
+		return revisionSelector{memory: &memRef, prefix: &prefix}, nil
+	}
+	sendable, err := batchRefs(memory, refs)
+	if err != nil {
+		return revisionSelector{}, err
+	}
+	return revisionSelector{refs: sendable}, nil
 }
 
 // batchDetailDTO maps the batch projection onto the same per-node shape the
