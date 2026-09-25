@@ -40,6 +40,9 @@ func DocumentFromBatchNode(n *batchNode) *nodedoc.Document {
 	if n.Alias != nil {
 		doc.Alias = *n.Alias
 	}
+	if n.ObjectType != nil {
+		doc.ObjectType = *n.ObjectType
+	}
 	if n.Description != nil {
 		doc.Description = *n.Description
 	}

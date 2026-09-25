@@ -16,12 +16,15 @@ import (
 // encodes loc in the file path and memory in the sync target, so it omits
 // them); they sit right after id and are ignored by the server's tree importer.
 type frontmatter struct {
-	Name               string   `yaml:"name"`
-	ID                 string   `yaml:"id"`
-	Loc                string   `yaml:"loc,omitempty"`
-	Memory             string   `yaml:"memory,omitempty"`
-	Alias              string   `yaml:"alias,omitempty"`
-	Type               string   `yaml:"type,omitempty"`
+	Name   string `yaml:"name"`
+	ID     string `yaml:"id"`
+	Loc    string `yaml:"loc,omitempty"`
+	Memory string `yaml:"memory,omitempty"`
+	Alias  string `yaml:"alias,omitempty"`
+	Type   string `yaml:"type,omitempty"`
+	// Placed and emitted as hadron-server's git mirror writes it: right after
+	// type, only when set (buildNodeFrontmatter, #725; cli#720).
+	ObjectType         string   `yaml:"objectType,omitempty"`
 	Description        string   `yaml:"description,omitempty"`
 	Summary            string   `yaml:"summary,omitempty"`
 	Abstract           string   `yaml:"abstract,omitempty"`
@@ -104,6 +107,7 @@ func ParseMarkdown(data []byte) (*Document, error) {
 		Loc:                fm.Loc,
 		Name:               fm.Name,
 		Type:               fm.Type,
+		ObjectType:         fm.ObjectType,
 		Alias:              fm.Alias,
 		Description:        desc,
 		Abstract:           fm.Abstract,
@@ -127,6 +131,7 @@ func buildFrontmatter(doc *Document, standalone bool) frontmatter {
 		Name:               doc.Name,
 		ID:                 doc.ID,
 		Alias:              doc.Alias,
+		ObjectType:         doc.ObjectType,
 		Description:        doc.Description,
 		Abstract:           doc.Abstract,
 		AbstractOriginHash: doc.AbstractOriginHash,

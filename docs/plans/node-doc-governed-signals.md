@@ -1,7 +1,8 @@
-# Design as built: the governed signals in node files (#714)
+# Design as built: the governed signals in node files (#714, #720)
 
-> **Status: built (cli#714).** Written 2026-09-25 by Jonas. Part of
-> hadron-memory/hadron-concept#74 (CLI item 4), from Bo's node-kinds plan.
+> **Status: built (cli#714; `objectType` added by cli#720).** Written
+> 2026-09-25 by Jonas. Part of hadron-memory/hadron-concept#74 (CLI item 4),
+> from Bo's node-kinds plan.
 
 ## What was verified before changing anything
 
@@ -81,8 +82,8 @@ The issue asks the design to keep "carrying existing authority" apart from
   `buildNodeFrontmatter` and adds them to `canonicalJsonDocument`, after `seq`,
   in this codec's order. Until then those files import with no opinion. That is
   safe, but it is not a round trip.
-- **`objectType`** (#725) is written by the server mirror and dropped by this
-  codec in the same way. It's the same shape, with a separate issue.
+- **`objectType` is fixed in the CLI by cli#720; see the addendum below.**
+  Server-side `node export` omits it too, like the governed signals.
 - **`ROLE_GOVERNED` exits 1.** The server's refusal is unmapped in
   `codeForExtension`, so it takes the default. The CLI refuses the same
   condition with exit 2 when it can see it. This predates #714 (`node add` /
@@ -104,3 +105,44 @@ The issue asks the design to keep "carrying existing authority" apart from
   role; import skips the stored-kind read; import creates generically; import
   skips the two-kind check; routing is after-only; the two-kind refusal is off;
   `MapError` re-maps a coded error.
+
+## Addendum: `objectType` (cli#720)
+
+`objectType` (#725) had the same gap. `NodeBatch` selects it, but the export
+mapping and the codec dropped it, while the server mirror writes it.
+
+- **Format:** the mirror's. `objectType:` sits right after `type:` and is
+  written only when set. In JSON the `objectType` key is always present and
+  `""` when unset. When the server's `canonicalJsonDocument` adds it, it
+  should use this struct order: after `type`, `""` when unset.
+- **Absent, empty or blank means "no opinion".** Import sends the key only
+  when the value is non-blank. A whitespace-only value is refused too, because
+  the server normalizes it to null, which would clear the stored collection.
+- **What about an explicit clear?** A file cannot express one, deliberately:
+  the mirror never writes an empty `objectType`, so a file carrying one is not
+  a round trip of anything. The supported clear is `node update --object-type ""`.
+- **The server is still the authority.** On a memory that declares a property
+  schema, it validates `objectType` with the properties and refuses an
+  undeclared collection as `BAD_USER_INPUT` (exit 2). On an unschema'd memory
+  it accepts any value.
+- **The #717 routing is unchanged.** `objectType` rides whichever door the
+  node's kind needs.
+- **Tests:**
+  - `internal/nodedoc/objecttype_test.go`;
+  - `TestDocumentFromBatchNodeCarriesObjectType`;
+  - `TestNodeImportCarriesObjectType` (update, a task created through its
+    door, blank and empty values, and a silent file);
+  - `TestNodeImportUndeclaredObjectTypeIsTheServersRefusal`, which uses the
+    server's text verbatim.
+- **Mutation-checked, each red:** render drops it; parse drops it; the export
+  mapping drops it; import drops it; import always sends it; the blank guard is
+  removed. The review pass independently ran nine more, including removing
+  `omitempty`, moving the key, renaming the JSON key, and
+  `updateNodeInputFrom` dropping it.
+- **Routed, not fixed here:**
+  - hadron-server's `node export` omits `objectType`.
+  - Its local-fs/git-sync importer reads an absent key as null (`?? null`),
+    and git sync does not write `objectType` back at all.
+  - Spec `cor:int:020:01` reads an absent field as unset, while this codec,
+    like the mirror's governed signals, reads it as "no opinion".
+

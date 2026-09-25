@@ -22,11 +22,15 @@ package nodedoc
 // existed never clears one. IsRunnable has three states on a node — true,
 // false, and null — and `false` is carried, unlike on an edge.
 type Document struct {
-	ID                 string   `json:"id"`
-	MemoryURN          string   `json:"memory"`
-	Loc                string   `json:"loc"`
-	Name               string   `json:"name"`
-	Type               string   `json:"type"`
+	ID        string `json:"id"`
+	MemoryURN string `json:"memory"`
+	Loc       string `json:"loc"`
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	// ObjectType is the collection discriminator (#725), "" when the node has
+	// none. Like the other optional strings, "" is omitted from markdown and
+	// means "no opinion" on re-import, so a file never clears it (cli#720).
+	ObjectType         string   `json:"objectType"`
 	Alias              string   `json:"alias"`
 	Description        string   `json:"description"`
 	Abstract           string   `json:"abstract"`
