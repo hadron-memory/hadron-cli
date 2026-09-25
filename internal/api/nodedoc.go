@@ -12,8 +12,9 @@ type (
 )
 
 // DocumentFromBatchNode maps a bulk-read node into the neutral nodedoc.Document
-// the markdown/JSON codecs consume: `memory export`'s. (`node export` is
-// rendered server-side by nodeExport, which mirrors this codec.) Type "" carries the server default
+// the markdown/JSON codecs consume: `memory export`'s. `node export` does not
+// use it: the server renders that file with its own nodeExport, which does not
+// yet emit role or isRunnable (cli#714). Type "" carries the server default
 // (info), so it never serializes and a re-import defaults correctly. The
 // projection only carries the memory id, not the URN, so callers that emit a
 // standalone file resolve and set Document.MemoryURN themselves.

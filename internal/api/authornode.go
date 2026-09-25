@@ -287,6 +287,43 @@ type NodeKindState struct {
 	IsRunnable bool
 }
 
+// touchedKinds is every governed kind an update touches: the ones the node
+// carries now and the ones it will carry, an omitted field preserving the
+// stored value.
+func touchedKinds(input *gen.UpdateNodeInput, cur NodeKindState) []string {
+	runnable := cur.IsRunnable
+	if input.IsRunnable != nil {
+		runnable = *input.IsRunnable
+	}
+	role := cur.Role
+	if input.Role != nil {
+		role = input.Role
+	}
+	touched := governedKinds(cur.Role, cur.IsRunnable)
+	for _, k := range governedKinds(role, runnable) {
+		if !slices.Contains(touched, k) {
+			touched = append(touched, k)
+		}
+	}
+	return touched
+}
+
+func refuseTouched(touched []string) error {
+	if len(touched) < 2 {
+		return nil
+	}
+	return exitcode.Newf(exitcode.Usage,
+		"this write touches two governed kinds — %s — and each door is exempt from its OWN kind only, so every one of them refuses it. Change one kind at a time, or write it with `hadron api` if the server's register has changed",
+		strings.Join(touched, " AND "))
+}
+
+// CheckUpdateKinds is UpdateNodeByKind's refusal without the write, for a
+// caller that must know before it reports a plan or prompts (node import's
+// --dry-run and overwrite prompt): nil when some door can make the update.
+func CheckUpdateKinds(input *gen.UpdateNodeInput, cur NodeKindState) error {
+	return refuseTouched(touchedKinds(input, cur))
+}
+
 // UpdateNodeByKind edits a node through the door that owns every governed
 // kind the write TOUCHES — the kind it is now and the kind it will be.
 //
@@ -309,24 +346,9 @@ type NodeKindState struct {
 // OWN kind only. It is refused here as a Usage error rather than sent to be
 // refused. WHO may use a door is hadron-server#1202, not this client's call.
 func UpdateNodeByKind(ctx context.Context, client graphql.Client, input *gen.UpdateNodeInput, cur NodeKindState) (*AuthoredNode, error) {
-	runnable := cur.IsRunnable
-	if input.IsRunnable != nil {
-		runnable = *input.IsRunnable
-	}
-	role := cur.Role
-	if input.Role != nil {
-		role = input.Role
-	}
-	touched := governedKinds(cur.Role, cur.IsRunnable)
-	for _, k := range governedKinds(role, runnable) {
-		if !slices.Contains(touched, k) {
-			touched = append(touched, k)
-		}
-	}
-	if len(touched) > 1 {
-		return nil, exitcode.Newf(exitcode.Usage,
-			"this write touches two governed kinds — %s — and each door is exempt from its OWN kind only, so every one of them refuses it. Change one kind at a time, or write it with `hadron api` if the server's register has changed",
-			strings.Join(touched, " AND "))
+	touched := touchedKinds(input, cur)
+	if err := refuseTouched(touched); err != nil {
+		return nil, err
 	}
 	kind := ""
 	if len(touched) == 1 {

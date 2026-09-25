@@ -414,6 +414,9 @@ func TestNodeImportUpdate(t *testing.T) {
 func TestNodeImportOverwriteRefusedWithoutYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON, // target already exists
+		// cli#714: the stored kind is read before the prompt, so the prompt
+		// never offers a write the kinds check would refuse.
+		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	file := filepath.Join(t.TempDir(), "flaky.md")

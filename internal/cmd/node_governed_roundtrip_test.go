@@ -200,6 +200,9 @@ func TestNodeImportTwoGovernedKindsIsRefusedBeforeAnyWrite(t *testing.T) {
 		{"the file states both, --dry-run", governedMd("role: spec\nrunnable: true\n"), "", []string{"--dry-run"}},
 		{"a review file onto a task", governedMd("role: review\n"), kindDetail("null", "true"), nil},
 		{"a task file onto a spec", governedMd("runnable: true\n"), kindDetail(`"spec"`, "false"), nil},
+		// @codex on #717: the dry run must see the stored kind too, or it
+		// reports "would update" for a write the real run refuses.
+		{"a review file onto a task, --dry-run", governedMd("role: review\n"), kindDetail("null", "true"), []string{"--dry-run"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

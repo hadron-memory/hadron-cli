@@ -316,30 +316,12 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 		return err
 	}
 
-	if dryRun {
-		// Classify create vs update by a best-effort existence probe
-		// (the executed path derives it from which mutation succeeds).
-		action := "created"
-		if _, ok := lookupNode(cmd, client, memoryRef, targetLoc); ok {
-			action = "updated"
-		}
-		return emitImportSummary(f, importNodeSummaryDTO{
-			Mode: "restore", Memory: memoryRef, Loc: targetLoc, Action: action,
-			EdgesWired: 0, UnwiredEdges: []unwiredEdgeDTO{},
-		}, true, withEdges, len(doc.Edges))
-	}
-
-	// An import that lands on an existing node overwrites it — gate that behind
-	// the destructive-op regime (#129). --create-only never overwrites (it fails
-	// on a live loc), so it skips the probe.
+	// The existing node, if any: read once for the dry-run classification, the
+	// overwrite prompt and the door. --create-only never overwrites (it fails on
+	// a live loc), so it skips the probe unless this is a dry run.
 	existingID, exists := "", false
-	if !createOnly {
+	if dryRun || !createOnly {
 		existingID, exists = lookupNode(cmd, client, memoryRef, targetLoc)
-	}
-	if exists {
-		if err := confirmOverwrite(f, yes, overwriteTarget(memoryRef, targetLoc)); err != nil {
-			return err
-		}
 	}
 
 	input, err := buildCreateNodeInput(doc, memoryRef, targetLoc)
@@ -360,13 +342,35 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 			cur.Role = n.Node.Role
 			cur.IsRunnable = n.Node.IsRunnable != nil && *n.Node.IsRunnable
 		}
+		// The file's kind against the stored one — checked here, before the
+		// dry run reports and before the overwrite prompt, so neither promises
+		// a write that UpdateNodeByKind would refuse.
+		if err := api.CheckUpdateKinds(updateNodeInputFrom(input), cur); err != nil {
+			return err
+		}
 	}
 
-	// The old upsert is now emulated (spec 039 Phase 0 split the write):
-	// without --create-only, try updateNode keyed on (memoryId, loc) and
-	// fall back to createNode when the server says NODE_NOT_FOUND; with
-	// --create-only, go straight to createNode (a live node at the loc
-	// rejects with NodeLocConflictError).
+	if dryRun {
+		// Classify create vs update by the existence probe (the executed
+		// path derives it from which mutation succeeds).
+		action := "created"
+		if exists {
+			action = "updated"
+		}
+		return emitImportSummary(f, importNodeSummaryDTO{
+			Mode: "restore", Memory: memoryRef, Loc: targetLoc, Action: action,
+			EdgesWired: 0, UnwiredEdges: []unwiredEdgeDTO{},
+		}, true, withEdges, len(doc.Edges))
+	}
+
+	// An import that lands on an existing node overwrites it — gate that behind
+	// the destructive-op regime (#129).
+	if exists {
+		if err := confirmOverwrite(f, yes, overwriteTarget(memoryRef, targetLoc)); err != nil {
+			return err
+		}
+	}
+
 	var nodeID, nodeLoc, action string
 	if createOnly {
 		n, err := api.CreateNodeByKind(cmd.Context(), client, input)

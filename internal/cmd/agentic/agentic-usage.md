@@ -878,7 +878,8 @@ Conventions:
     reported in `unwiredEdges` with a `reason`, never fatal, and re-import is
     idempotent); `--create-only` refuses to update; `--dry-run` classifies
     without mutating. The server recomputes `contentHash`/`abstractOriginHash`,
-    so a clean export→import round-trips losslessly. The file's `role:` and
+    so a clean export→import round-trips losslessly, except for the node's
+    governed kind from a `node export` file (below). The file's `role:` and
     `runnable:` keys (`role`/`isRunnable` in JSON; emitted when non-null, so an
     explicit `runnable: false` is kept) carry the node's governed kind, and the
     write goes through that kind's door, like `node add`/`node update` (cli#714).

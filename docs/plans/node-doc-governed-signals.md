@@ -55,7 +55,9 @@ only. So a write that removes a kind went to the generic door, which refuses it
 5. **A file declaring two kinds** (`role: spec` + `runnable: true`) is refused
    straight after parsing: before any request, before the overwrite prompt,
    and under `--dry-run` and `--create-only` too. A file whose kind meets a
-   *different* stored kind is refused exit 2 when the stored kind can be read;
+   *different* stored kind is refused exit 2 when the stored kind can be read,
+   and that check too runs before the dry run reports and before the prompt
+   (@codex on #717);
    if that read fails, the server refuses it (`ROLE_GOVERNED`). Nothing is
    written either way.
 
@@ -96,7 +98,7 @@ The issue asks the design to keep "carrying existing authority" apart from
     pre-existing file onto a task; two kinds refused, including
     `--create-only`; the empty role; and `node update --runnable=false` on a
     task.
-- Mutation-checked, 14 mutations, each red: the 13 below, plus the early two-kind check being skipped (reds the `--dry-run` and `--create-only` cases). The render drops role; the parse
+- Mutation-checked, 15 mutations, each red: the 13 below, plus the early two-kind check being skipped (reds the `--dry-run` and `--create-only` cases) and the stored-kind check being skipped (reds the dry run onto a task). The render drops role; the parse
   drops runnable; an explicit false is dropped; the export mapping drops a
   field; import drops role; import reads false as absent; import sends an empty
   role; import skips the stored-kind read; import creates generically; import
