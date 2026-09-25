@@ -27,6 +27,9 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 		captured[body.OperationName] = body.Variables
 		resp, ok := responses[body.OperationName]
 		if !ok {
+			resp, ok = unstubbedDefault(body.OperationName)
+		}
+		if !ok {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
@@ -52,6 +55,9 @@ func captureGraphQLFunc(t *testing.T, respond func(op string) string) (*httptest
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		captured[body.OperationName] = body.Variables
 		resp := respond(body.OperationName)
+		if resp == "" {
+			resp, _ = unstubbedDefault(body.OperationName)
+		}
 		if resp == "" {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			resp = `{"errors":[{"message":"unexpected operation"}]}`

@@ -4688,8 +4688,9 @@ type Mutation {
   every NodeRevision NEWER than the selected one (createdAt strictly greater),
   WITHOUT creating a pre-restore snapshot. Boundary is EXCLUSIVE of the
   selected row: the selected revision is KEPT and becomes the new baseline
-  (the most-recent snapshot afterward); its era and older survive. Restore +
-  truncate run in one transaction (atomic).
+  (the most-recent snapshot afterward); its era and older survive. The live
+  revision counter still advances monotonically for the restore itself.
+  Restore + truncate run in one transaction (atomic).
   """
   restoreNodeRevision(revisionId: ID!, truncate: Boolean = false): Node!
 
@@ -5503,6 +5504,11 @@ type Node {
   """
   portalUrl: String
   properties: JSON
+
+  """
+  #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+  """
+  revision: Int!
 
   """
   #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
@@ -6867,6 +6873,9 @@ type Query {
 
   """
   Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+  Missing and unreadable refs both return null without an error, so a caller
+  cannot use this field to test whether a private memory exists. Malformed
+  refs still fail as caller errors, and operational faults still propagate.
   
   'ref' accepts the entity's ID or URN.
   """
@@ -8539,6 +8548,11 @@ input SkillFileFactsInput {
   """True when the file exists and could not be parsed."""
   parseFailed: Boolean
 
+  """
+  The positive rev=N value from provenance. Null means an older artifact omitted it.
+  """
+  revision: Int
+
   """The source URN from the provenance header."""
   sourceUrn: String
 }
@@ -8631,6 +8645,9 @@ type SkillPlanEntry {
   server already judged broken.
   """
   renderedBody: String
+
+  """Authoritative current node revision used in rendered provenance."""
+  revision: Int!
   urn: String!
 }
 
@@ -8812,6 +8829,18 @@ type TeamChatMessage {
 
   """The session driving the worker author, when posted via sessionRef."""
   sessionId: ID
+
+  """
+  The message node's canonical URN, hrn:node:<memory>:<loc> (#1209), so a
+  client can cite a message in a CLI call, an MCP tool or a reply. Composed
+  server-side: a message loc carries a random component, so the chat root and
+  the seq do not reconstruct it. Null when the address would not resolve back
+  to this message: the host memory's stored URN or the loc cannot be emitted
+  in the flat grammar-v2 shape, or the memory URN is a pre-v2 compound one
+  (e.g. a legacy team space). A client shows nothing then, never a guessed
+  address (the Worker.urn / Channel.urn contract).
+  """
+  urn: String
 }
 
 type TeamChatMessagesPage {

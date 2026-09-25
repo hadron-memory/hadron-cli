@@ -553,6 +553,15 @@ func walkSkillFiles(root string) ([]*gen.SkillFileFactsInput, []statusUnreadable
 		if parsed.Hash != "" {
 			facts.HeaderHash = &parsed.Hash
 		}
+		// The header's rev=N (#1323), sent only when present: a nil pointer
+		// is omitted from the wire, so an older server that has no such field
+		// still accepts the request, and an older file with no rev= claims no
+		// revision. The server compares it with the node's live revision and
+		// classifies a mismatch `stale`, even when the content hash agrees.
+		if parsed.Revision > 0 {
+			rev := parsed.Revision
+			facts.Revision = &rev
+		}
 		if len(parsed.Extra) > 0 {
 			// Render writes no frontmatter key but name/description, so an
 			// extra key IS a local edit — one the header hash cannot see,

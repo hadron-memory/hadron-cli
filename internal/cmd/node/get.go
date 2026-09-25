@@ -94,6 +94,9 @@ without templates; for a template node the batch gives you the source.`,
 					return err
 				}
 				dto := detailDTO(node)
+				if err := fillRevisions(cmd, client, []*nodeDetailDTO{&dto}); err != nil {
+					return err
+				}
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					return renderNodeDetail(w, dto)
 				})
@@ -111,6 +114,13 @@ without templates; for a template node the batch gives you the source.`,
 				dto.Nodes = append(dto.Nodes, batchDetailDTO(n))
 			}
 			dto.Unavailable = append(dto.Unavailable, unavailable...)
+			ptrs := make([]*nodeDetailDTO, len(dto.Nodes))
+			for i := range dto.Nodes {
+				ptrs[i] = &dto.Nodes[i]
+			}
+			if err := fillRevisions(cmd, client, ptrs); err != nil {
+				return err
+			}
 			return emitNodeBatch(f, dto)
 		},
 	}
@@ -167,6 +177,11 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		fmt.Fprintf(w, "  tags: %v\n", dto.Tags)
 	}
 	fmt.Fprintf(w, "  updated: %s\n", dto.UpdatedAt)
+	if dto.Revision != nil {
+		fmt.Fprintf(w, "  revision: %d\n", *dto.Revision)
+	} else {
+		fmt.Fprintln(w, "  revision: unknown (the server predates node revisions)")
+	}
 	if dto.Data != nil && len(*dto.Data) > 0 {
 		if dataStr := string(*dto.Data); dataStr != "null" {
 			fmt.Fprintf(w, "  data: %s\n", dataStr)
@@ -280,6 +295,54 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, smem))
 	}
 	return dto
+}
+
+// revisionBatch is nodeBatch's per-call cap, which NodeLiveRevisions shares.
+const revisionBatch = 200
+
+// fillRevisions reads Node.revision for the nodes already fetched, in
+// nodeBatch-sized calls, and sets each DTO's Revision. Against a server that
+// predates the field (#1323) it leaves every Revision nil — "unknown", never
+// a guess — and the read itself still succeeds. Any other failure is the
+// command's error: a revision the caller asked for is not silently dropped.
+//
+// A node the batch lists as unavailable (it became unreadable between the
+// two reads) keeps a nil revision too; the main read already returned it.
+func fillRevisions(cmd *cobra.Command, client graphql.Client, dtos []*nodeDetailDTO) error {
+	byID := map[string][]*nodeDetailDTO{}
+	ids := []string{}
+	for _, d := range dtos {
+		if d.ID == "" {
+			continue
+		}
+		if _, seen := byID[d.ID]; !seen {
+			ids = append(ids, d.ID)
+		}
+		byID[d.ID] = append(byID[d.ID], d)
+	}
+	for start := 0; start < len(ids); start += revisionBatch {
+		end := min(start+revisionBatch, len(ids))
+		resp, err := gen.NodeLiveRevisions(cmd.Context(), client, ids[start:end])
+		if err != nil {
+			if isUnknownFieldErr(err, "revision") {
+				return nil
+			}
+			return api.MapError(err)
+		}
+		if resp.NodeBatch == nil {
+			continue
+		}
+		for _, n := range resp.NodeBatch.Nodes {
+			if n == nil {
+				continue
+			}
+			rev := n.Revision
+			for _, d := range byID[n.Id] {
+				d.Revision = &rev
+			}
+		}
+	}
+	return nil
 }
 
 // fetchNode resolves a node reference (a full URN, or a bare loc within

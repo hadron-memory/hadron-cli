@@ -905,3 +905,24 @@ query NodeExportMeta($ref: ID!) {
     }
   }
 }
+
+# Node.revision (#1323, hadron-server#1339), read ON ITS OWN by `node get`
+# (not NodeRevisions, which is the revision HISTORY in revisions.graphql).
+#
+# Not added to GetNode / NodeBatch: those back some thirty commands (spec,
+# skill, coding, memory export …), and a server that predates the field
+# rejects the WHOLE query that names it. Asked separately, a server without
+# revisions costs `node get` one field it reports as unknown, never the read
+# itself (#715: "truthful compatibility when an old server lacks revision
+# data"). Refs are node ids, at most nodeBatch's 200 per call.
+query NodeLiveRevisions(
+  $refs: [ID!]!
+) {
+  nodeBatch(refs: $refs) {
+    unavailable
+    nodes {
+      id
+      revision
+    }
+  }
+}

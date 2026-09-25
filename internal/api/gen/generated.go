@@ -10062,6 +10062,9 @@ func (v *GetMemoryMemory) GetUpdatedAt() string { return v.UpdatedAt }
 // GetMemoryResponse is returned by GetMemory on success.
 type GetMemoryResponse struct {
 	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
 	//
 	// 'ref' accepts the entity's ID or URN.
 	Memory *GetMemoryMemory `json:"memory"`
@@ -12875,6 +12878,9 @@ func (v *MemoryMembersMemoryMembersMemoryMemberUser) __premarshalJSON() (*__prem
 // MemoryMembersResponse is returned by MemoryMembers on success.
 type MemoryMembersResponse struct {
 	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
 	//
 	// 'ref' accepts the entity's ID or URN.
 	Memory *MemoryMembersMemory `json:"memory"`
@@ -13024,6 +13030,9 @@ func (v *MemorySharesMemorySharesMemoryShareGranteeUser) __premarshalJSON() (*__
 // MemorySharesResponse is returned by MemoryShares on success.
 type MemorySharesResponse struct {
 	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
 	//
 	// 'ref' accepts the entity's ID or URN.
 	Memory *MemorySharesMemory `json:"memory"`
@@ -13100,6 +13109,9 @@ func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization) G
 // MemorySubscriptionsResponse is returned by MemorySubscriptions on success.
 type MemorySubscriptionsResponse struct {
 	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
 	//
 	// 'ref' accepts the entity's ID or URN.
 	Memory *MemorySubscriptionsMemory `json:"memory"`
@@ -14215,6 +14227,76 @@ func (v *NodeFilter) GetUpdatedBefore() *string { return v.UpdatedBefore }
 
 // GetWhere returns NodeFilter.Where, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetWhere() *gqltypes.NodeWhereInput { return v.Where }
+
+// NodeLiveRevisionsNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type NodeLiveRevisionsNodeBatchNodeBatchResult struct {
+	Unavailable []string                                              `json:"unavailable"`
+	Nodes       []*NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetUnavailable returns NodeLiveRevisionsNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsNodeBatchNodeBatchResult) GetUnavailable() []string { return v.Unavailable }
+
+// GetNodes returns NodeLiveRevisionsNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsNodeBatchNodeBatchResult) GetNodes() []*NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode struct {
+	Id string `json:"id"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int `json:"revision"`
+}
+
+// GetId returns NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetRevision returns NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode.Revision, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode) GetRevision() int { return v.Revision }
+
+// NodeLiveRevisionsResponse is returned by NodeLiveRevisions on success.
+type NodeLiveRevisionsResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	NodeBatch *NodeLiveRevisionsNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns NodeLiveRevisionsResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsResponse) GetNodeBatch() *NodeLiveRevisionsNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
 
 // A node field that mergeNodes can fold from the source into the target.
 type NodeMergeField string
@@ -16734,8 +16816,9 @@ type RestoreNodeRevisionResponse struct {
 	// every NodeRevision NEWER than the selected one (createdAt strictly greater),
 	// WITHOUT creating a pre-restore snapshot. Boundary is EXCLUSIVE of the
 	// selected row: the selected revision is KEPT and becomes the new baseline
-	// (the most-recent snapshot afterward); its era and older survive. Restore +
-	// truncate run in one transaction (atomic).
+	// (the most-recent snapshot afterward); its era and older survive. The live
+	// revision counter still advances monotonically for the restore itself.
+	// Restore + truncate run in one transaction (atomic).
 	RestoreNodeRevision *RestoreNodeRevisionRestoreNodeRevisionNode `json:"restoreNodeRevision"`
 }
 
@@ -19262,6 +19345,8 @@ type SkillFileFactsInput struct {
 	NodeId *string `json:"nodeId,omitempty"`
 	// True when the file exists and could not be parsed.
 	ParseFailed *bool `json:"parseFailed,omitempty"`
+	// The positive rev=N value from provenance. Null means an older artifact omitted it.
+	Revision *int `json:"revision,omitempty"`
 	// The source URN from the provenance header.
 	SourceUrn *string `json:"sourceUrn,omitempty"`
 }
@@ -19283,6 +19368,9 @@ func (v *SkillFileFactsInput) GetNodeId() *string { return v.NodeId }
 
 // GetParseFailed returns SkillFileFactsInput.ParseFailed, and is useful for accessing the field via an interface.
 func (v *SkillFileFactsInput) GetParseFailed() *bool { return v.ParseFailed }
+
+// GetRevision returns SkillFileFactsInput.Revision, and is useful for accessing the field via an interface.
+func (v *SkillFileFactsInput) GetRevision() *int { return v.Revision }
 
 // GetSourceUrn returns SkillFileFactsInput.SourceUrn, and is useful for accessing the field via an interface.
 func (v *SkillFileFactsInput) GetSourceUrn() *string { return v.SourceUrn }
@@ -20193,6 +20281,9 @@ func (v *TeamMemoryAppMemory) GetAppId() *string { return v.AppId }
 // TeamMemoryAppResponse is returned by TeamMemoryApp on success.
 type TeamMemoryAppResponse struct {
 	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
 	//
 	// 'ref' accepts the entity's ID or URN.
 	Memory *TeamMemoryAppMemory `json:"memory"`
@@ -27463,6 +27554,14 @@ type __NodeExportMetaInput struct {
 // GetRef returns __NodeExportMetaInput.Ref, and is useful for accessing the field via an interface.
 func (v *__NodeExportMetaInput) GetRef() string { return v.Ref }
 
+// __NodeLiveRevisionsInput is used internally by genqlient
+type __NodeLiveRevisionsInput struct {
+	Refs []string `json:"refs"`
+}
+
+// GetRefs returns __NodeLiveRevisionsInput.Refs, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsInput) GetRefs() []string { return v.Refs }
+
 // __NodeRevisionInput is used internally by genqlient
 type __NodeRevisionInput struct {
 	RevisionId string `json:"revisionId"`
@@ -34575,6 +34674,53 @@ func NodeExportMeta(
 	return data_, err_
 }
 
+// The query executed by NodeLiveRevisions.
+const NodeLiveRevisions_Operation = `
+query NodeLiveRevisions ($refs: [ID!]!) {
+	nodeBatch(refs: $refs) {
+		unavailable
+		nodes {
+			id
+			revision
+		}
+	}
+}
+`
+
+// Node.revision (#1323, hadron-server#1339), read ON ITS OWN by `node get`
+// (not NodeRevisions, which is the revision HISTORY in revisions.graphql).
+//
+// Not added to GetNode / NodeBatch: those back some thirty commands (spec,
+// skill, coding, memory export …), and a server that predates the field
+// rejects the WHOLE query that names it. Asked separately, a server without
+// revisions costs `node get` one field it reports as unknown, never the read
+// itself (#715: "truthful compatibility when an old server lacks revision
+// data"). Refs are node ids, at most nodeBatch's 200 per call.
+func NodeLiveRevisions(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+) (data_ *NodeLiveRevisionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeLiveRevisions",
+		Query:  NodeLiveRevisions_Operation,
+		Variables: &__NodeLiveRevisionsInput{
+			Refs: refs,
+		},
+	}
+
+	data_ = &NodeLiveRevisionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by NodeRevision.
 const NodeRevision_Operation = `
 query NodeRevision ($revisionId: ID!) {
@@ -36272,6 +36418,10 @@ query SkillPlan ($input: SkillPlanInput!) {
 
 // `force` is read with EXPORT only (its SDL description) and nothing here sets
 // it, so it must be OMITTED rather than sent as `null` (#656).
+// `revision` (#1323, the header's rev=N) is new in hadron-server#1339: a
+// server without it rejects the field outright, so it must be OMITTED when the
+// file carries none, never sent as `null` — or every status/export against an
+// older server fails, whatever its files say.
 func SkillPlan(
 	ctx_ context.Context,
 	client_ graphql.Client,

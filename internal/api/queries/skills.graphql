@@ -29,6 +29,11 @@
 # @genqlient(for: "SkillFileFactsInput.sourceUrn", omitempty: true)
 # @genqlient(for: "SkillFileFactsInput.parseFailed", omitempty: true)
 # @genqlient(for: "SkillFileFactsInput.hasExtraFrontmatter", omitempty: true)
+# `revision` (#1323, the header's rev=N) is new in hadron-server#1339: a
+# server without it rejects the field outright, so it must be OMITTED when the
+# file carries none, never sent as `null` — or every status/export against an
+# older server fails, whatever its files say.
+# @genqlient(for: "SkillFileFactsInput.revision", omitempty: true)
 query SkillPlan(
   $input: SkillPlanInput!
 ) {

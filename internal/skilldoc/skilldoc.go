@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -793,7 +794,13 @@ type File struct {
 	ID     string
 	Source string // the flat v2 source node URN as written, or "" when the file is not Hadron-generated
 	Hash   string // "" for a legacy (pre-#580) header
-	Body   string
+	// Revision is the source node's live revision from the header's `rev=`
+	// key (#1323, hadron-server#1339), or 0 when the header carries none — a
+	// file rendered before revisions existed, or a legacy header. A present
+	// but malformed `rev=` voids the WHOLE header (see machineHeader), so 0
+	// never stands in for a value that failed to parse.
+	Revision int
+	Body     string
 	// Extra holds every frontmatter key other than name/description. Render
 	// writes none, so on a generated file a non-empty Extra IS a local edit
 	// — one the header hash cannot see, since the hash covers the three
@@ -843,7 +850,7 @@ func ParseFile(data []byte) (*File, error) {
 		}
 	}
 	preamble, body := splitPreamble(string(m[2]))
-	f.ID, f.Source, f.Hash, _ = scanProvenance(preamble)
+	f.ID, f.Source, f.Hash, f.Revision, _ = scanProvenance(preamble)
 	f.Body = body
 	return f, nil
 }
@@ -851,16 +858,16 @@ func ParseFile(data []byte) (*File, error) {
 // scanProvenance finds the provenance line in a preamble. ONE recognizer,
 // shared by ParseFile and ParseProvenance, so a header spelling cannot be
 // accepted by one reader and missed by the other.
-func scanProvenance(preamble string) (id, source, hash string, ok bool) {
+func scanProvenance(preamble string) (id, source, hash string, revision int, ok bool) {
 	for _, line := range strings.Split(preamble, "\n") { // raw, like splitPreamble
-		if id, src, h, ok := machineHeader(line); ok {
-			return id, src, h, true
+		if id, src, h, rev, ok := machineHeader(line); ok {
+			return id, src, h, rev, true
 		}
 		if src, ok := legacyHeader(line); ok {
-			return "", src, "", true
+			return "", src, "", 0, true
 		}
 	}
-	return "", "", "", false
+	return "", "", "", 0, false
 }
 
 // ParseProvenance recovers a file's provenance WITHOUT requiring its
@@ -885,7 +892,8 @@ func ParseProvenance(data []byte) (id, source, hash string, ok bool) {
 		return "", "", "", false
 	}
 	preamble, _ := splitPreamble(string(m[2]))
-	return scanProvenance(preamble)
+	id, source, hash, _, ok = scanProvenance(preamble)
+	return id, source, hash, ok
 }
 
 // splitPreamble divides what follows the frontmatter into the PREAMBLE —
@@ -939,11 +947,12 @@ func isNodeURN(tok string) bool {
 // skill exported to date. It is returned so a reader can recompute the hash
 // from the FILE ALONE — the property the whole design rests on — which is no
 // longer possible without it.
-func machineHeader(t string) (id, source, hash string, ok bool) {
+func machineHeader(t string) (id, source, hash string, revision int, ok bool) {
 	h := headerRE.FindStringSubmatch(t)
 	if h == nil {
-		return "", "", "", false
+		return "", "", "", 0, false
 	}
+	rawRevision, hasRevision := "", false
 	for _, kv := range headerKV.FindAllStringSubmatch(h[1], -1) {
 		switch kv[1] {
 		case "id":
@@ -952,12 +961,46 @@ func machineHeader(t string) (id, source, hash string, ok bool) {
 			source = kv[2]
 		case "hash":
 			hash = kv[2]
+		case "rev":
+			rawRevision, hasRevision = kv[2], true
 		}
 	}
 	if !isNodeURN(source) || !hashRE.MatchString(hash) {
-		return "", "", "", false
+		return "", "", "", 0, false
 	}
-	return id, source, hash, true
+	if hasRevision {
+		rev, valid := parseRevision(rawRevision)
+		if !valid {
+			// hadron-server#1339 voids the whole header on a malformed rev=,
+			// and so must this reader: downgrading it to a revision-less
+			// header would send the server a file it reads as foreign as
+			// though it were ours (Eli, dev-team chat #1626).
+			return "", "", "", 0, false
+		}
+		revision = rev
+	}
+	return id, source, hash, revision, true
+}
+
+// MaxRevision is the largest `rev=` a header may carry: Node.revSeq's signed
+// 32-bit column, hadron-server's MAX_SKILL_REVISION (#1339).
+const MaxRevision = 2147483647
+
+// revisionRE is the server's `rev=` shape exactly: a positive decimal with no
+// sign, no leading zero and nothing else (`^[1-9]\d*$`).
+var revisionRE = regexp.MustCompile(`^[1-9][0-9]*$`)
+
+// parseRevision applies hadron-server's one rule for a `rev=` value
+// (isValidSkillRevision, #1339): the shape above, and at most MaxRevision.
+func parseRevision(raw string) (int, bool) {
+	if !revisionRE.MatchString(raw) || len(raw) > 10 {
+		return 0, false
+	}
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || n > MaxRevision {
+		return 0, false
+	}
+	return int(n), true
 }
 
 // legacyHeader parses the pre-#580 `<!-- Generated from <urn> -->` line;
@@ -971,5 +1014,5 @@ func legacyHeader(t string) (source string, ok bool) {
 	return h[1], true
 }
 
-func isMachineHeader(t string) bool { _, _, _, ok := machineHeader(t); return ok }
+func isMachineHeader(t string) bool { _, _, _, _, ok := machineHeader(t); return ok }
 func isLegacyHeader(t string) bool  { _, ok := legacyHeader(t); return ok }

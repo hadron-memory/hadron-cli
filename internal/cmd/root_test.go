@@ -29,6 +29,9 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		resp, ok := responses[body.OperationName]
 		if !ok {
+			resp, ok = unstubbedDefault(body.OperationName)
+		}
+		if !ok {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
@@ -37,6 +40,21 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 	}))
 	t.Cleanup(server.Close)
 	return server
+}
+
+// unstubbedDefault answers the few operations a command sends only as an
+// OPTIONAL read, when a test did not stub them: with exactly what a server
+// that predates the field returns. So a test that does not care about the
+// optional read models an older server (and keeps the compatibility path
+// exercised everywhere), while a test that does care stubs the modern answer.
+// Anything else unstubbed is still an error.
+func unstubbedDefault(op string) (string, bool) {
+	switch op {
+	case "NodeLiveRevisions":
+		// `node get`'s Node.revision read (#715, hadron-server#1339).
+		return `{"errors":[{"message":"Cannot query field \"revision\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	}
+	return "", false
 }
 
 // translateFindNodes lets the many spec/node fakes keep their readable legacy
