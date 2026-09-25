@@ -388,7 +388,7 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	// cap is as unwritable as a rule's, and returning here reported neither the
 	// headroom nor the fact that a replacement would be rejected. Only the
 	// ADVISORY soft bound tiers down.
-	if abstractPresent(n.Abstract) {
+	if abstractWritten(n.Abstract) {
 		if l := abstractLength(n.Abstract); abstractNearCap(l) {
 			add("abstract-length", sevError, nearCapMessage(l, n.Name, c, err == nil))
 		}
@@ -445,7 +445,7 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	// return with spec roles (cli#684); until then specs:tasks:validate-spec
 	// does them. What stays is structural: every check above, and the soft
 	// abstract-length advisory below, unchanged.
-	if abstractPresent(n.Abstract) {
+	if abstractWritten(n.Abstract) {
 		if l := abstractLength(n.Abstract); l > abstractSoftMax && !abstractNearCap(l) {
 			// The SOFT range only. The near-cap finding is raised earlier, above
 			// the header early return, because the server's cap binds a module or
@@ -539,6 +539,16 @@ func hasTag(tags []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// abstractWritten reports whether the abstract carries any text at all,
+// placeholder included — what the LENGTH checks gate on. They used to gate on
+// abstractPresent, which reads a placeholder as absent; that was harmless while
+// the rubric's `abstract` rule flagged placeholders, and after #708 it would
+// have left a long placeholder abstract with no finding at all (@copilot on
+// #728). The server's cap counts every character, placeholder or not.
+func abstractWritten(a *string) bool {
+	return a != nil && strings.TrimSpace(*a) != ""
 }
 
 func abstractPresent(a *string) bool {

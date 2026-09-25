@@ -1230,3 +1230,27 @@ func TestLintNodeNoRubricAtAnyLoc(t *testing.T) {
 		}
 	}
 }
+
+// @copilot on #728: the length diagnostics apply to an abstract that still
+// carries the scaffold placeholder, too. With the rubric's `abstract` rule
+// gone, nothing else would report a long one — and the server's cap counts
+// every character, placeholder or not.
+func TestLintNodeAbstractLengthAppliesToAPlaceholderAbstract(t *testing.T) {
+	for _, tc := range []struct {
+		n   int
+		sev string
+	}{{abstractSoftMax + 50, sevWarning}, {abstractHardMax - 10, sevError}} {
+		sn := cleanSpec(t, "msg:010:02", "W2")
+		abs := abstractPlaceholder + " " + strings.Repeat("a", tc.n-len(abstractPlaceholder)-1)
+		sn.Abstract = &abs
+		var got string
+		for _, f := range lintNode(sn, "") {
+			if f.Rule == "abstract-length" {
+				got = f.Severity
+			}
+		}
+		if got != tc.sev {
+			t.Errorf("a %d-char placeholder abstract: abstract-length severity %q, want %q", tc.n, got, tc.sev)
+		}
+	}
+}
