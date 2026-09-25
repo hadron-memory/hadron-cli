@@ -1177,7 +1177,11 @@ Conventions:
   `specsScanned` and a zero never reads as "not found" (#659) — change those with
   `spec grep` + `spec edit`; `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5; the ledger is the legacy numbering, and specs at any
-  other loc are NAMED in `outsideNumbering`, never dropped); `spec lint` takes `--product`/`--module`/`--all`,
+  other loc are NAMED in `outsideNumbering`, never dropped); `spec lint` is
+  STRUCTURAL: since #708 it enforces no content rubric at any loc (no missing
+  abstract, "what invalidates", `data.version`, scaffold-body or
+  placeholder-contract finding), because the sections a spec needs depend on
+  its type — `specs:tasks:validate-spec` checks those. It takes `--product`/`--module`/`--all`,
   warns (rule `abstract-length`) when a rule-tier abstract
   runs past ~1600 characters — a ceiling, not a target: retrieval is flat
   across ~700-1700 chars, and off-topic sentences dilute the embedding far

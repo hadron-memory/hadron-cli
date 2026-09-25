@@ -2,8 +2,8 @@
 
 `hadron spec` runs a Hadron memory like a legal code: a spec's `loc` **is** its
 citation, numbers are never renumbered (to replace a spec you `supersede` it),
-and `lint` checks a rubric (abstract + a "what invalidates this spec"
-statement). A loc implies no parent: a spec's edges are the ones it was given.
+and `lint` checks a spec's structure (not its content sections, which depend on
+its type). A loc implies no parent: a spec's edges are the ones it was given.
 
 Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 
@@ -17,8 +17,9 @@ Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 > else, use `spec new <loc> --title <title>`. To replace one, use
 > `spec supersede <old> --to <loc>`. The flat/product scheme is retired
 > (#709), and `lint` no longer checks the tiers (parent-exists, toc-edge,
-> inheritance-edge, index-incomplete, mixed-arity). Still open (#708): whether
-> the rubric applies beyond rule and flow depth.
+> inheritance-edge, index-incomplete, mixed-arity). The old content rubric is
+> removed too (#708): no missing abstract, "what invalidates", `data.version`,
+> scaffold-body or placeholder-contract finding at any loc.
 > See [docs/plans/spec-hierarchy-removal.md](../plans/spec-hierarchy-removal.md).
 
 ## The legacy numbering
@@ -160,12 +161,13 @@ creates a top-level module):
 hadron spec new -m hrn:mem:micromentor.org:platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
 ```
 
-## The rule rubric
+## The legacy rule scaffold
 
-`spec new` scaffolds a rule with the sections below. Only the abstract and the
-**What invalidates this spec** statement are `lint`-enforced; the rest are
-conventions you fill in (and the two *optional* sections you delete when they add
-nothing).
+`spec new` scaffolds a legacy-numbered rule with the sections below. **`lint`
+enforces none of them** (#708): the sections a spec needs depend on its type,
+so no one rubric fits every spec. Use the sections your spec type calls for
+(`specs:tasks:validate-spec` checks them); this scaffold is a starting point,
+and the two *optional* sections are deleted when they add nothing.
 
 1. **Definition** — one line: what this spec governs.
 2. **Scenarios / user stories** *(optional)* — 3–7 short scenarios that explain
@@ -177,13 +179,12 @@ nothing).
    pad to fill the template.
 3. **Rule & examples** — the rule precisely, with concrete examples and edge cases.
 4. **Durable vs tunable** — which parts are load-bearing, which are dials.
-5. **What invalidates this spec** *(mandatory)* — the changes that repeal or
-   supersede it.
+5. **What invalidates this spec** — the changes that repeal or supersede it.
 6. **Acceptance criteria** *(optional)* — concrete, checkable statements
    engineering or QA can verify, for specs whose behavior must be testable.
 
-Flows (`:NN:NN`) inherit their rule's scenarios and stay terse — they scaffold
-only the mandatory rubric.
+Flows (`:NN:NN`) inherit their rule's scenarios and stay terse — their scaffold
+is shorter.
 
 ## The index convention (legacy module and feature nodes)
 
@@ -238,9 +239,10 @@ abstract** (one bulk fetch, not a per-spec loop) and prints every occurrence as
 content|abstract`, `--prefix` to scope.
 
 `lint` checks each spec's name, node type and `spec` tag, duplicate locs,
-serialization leaks, each abstract's length and freshness, and the rubric
-(abstract + "what invalidates") on rule- and flow-depth specs; every finding
-names its rule. A spec at any loc owes no parent, contract or index, and a
+serialization leaks, and each abstract's length and freshness; every finding
+names its rule. It is structural: since #708 it checks no content sections at
+any loc (no missing abstract, "what invalidates", `data.version`,
+scaffold-body or placeholder-contract finding). A spec at any loc owes no parent, contract or index, and a
 memory may mix loc shapes: the legacy tier checks (parent-exists, toc-edge,
 inheritance-edge, index-incomplete) and the one-arity rule (`mixed-arity`) are
 removed.

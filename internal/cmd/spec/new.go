@@ -52,8 +52,9 @@ func newCmdNew(f *cmdutil.Factory) *cobra.Command {
 		Use:     "new [<loc>]",
 		Aliases: []string{"scaffold"},
 		Short:   "Create a spec node at a loc, or allocate the next legacy citation",
-		Long: fmt.Sprintf(`Create a spec node pre-filled with the rubric (abstract + the four
-mandatory sections).
+		Long: fmt.Sprintf(`Create a spec node pre-filled with a scaffold (an abstract placeholder and
+a legacy section skeleton). Lint does not require those sections (#708);
+the sections a spec needs depend on its type.
 
   hadron spec new <loc> --title <title>
 
@@ -408,9 +409,9 @@ is one call instead of four.`, abstractSoftMax),
 	cmd.Flags().BoolVar(&contract, "contract", false, "scaffold the general-provisions contract at the deepest specified tier")
 	cmd.Flags().BoolVar(&newPath, "new-path", false, "create the positional <citation> and every missing ancestor in one call")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "extra semantic tag (repeatable)")
-	cmd.Flags().StringVar(&abstract, "abstract", "", `the spec's abstract ("-" reads piped stdin, refused from a terminal; default: a placeholder lint flags)`)
+	cmd.Flags().StringVar(&abstract, "abstract", "", `the spec's abstract ("-" reads piped stdin, refused from a terminal; default: a placeholder)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the abstract from a file")
-	cmd.Flags().StringVarP(&content, "content", "c", "", `body content ("-" reads piped stdin, refused from a terminal; default: the rubric template)`)
+	cmd.Flags().StringVarP(&content, "content", "c", "", `body content ("-" reads piped stdin, refused from a terminal; default: the scaffold template)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read body content from a file")
 	cmd.Flags().StringVar(&inherit, "inherit", "", "inheritance-edge target citation (legacy numbering default: the tier's contract; with a positional <loc>, only when given)")
 	cmd.Flags().BoolVar(&noEdges, "no-edges", false, "do not create table-of-contents / inheritance edges")

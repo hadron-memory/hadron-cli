@@ -54,7 +54,7 @@ hadron edge list hrn:node:acme.com:kb:a --json
 hadron spec list -m acme.com:specs --json                     # list specs (loc IS the citation)
 hadron spec find "win back users" -m acme.com:specs --json    # semantic; --match-exactly for keyword
 hadron spec new -m acme.com:specs --module msg --feature 010 --title "W4" --dry-run --json  # scaffold (preview)
-hadron spec lint --all -m acme.com:specs                      # rubric + stability check (exit 5 on errors)
+hadron spec lint --all -m acme.com:specs                      # structure + stability check (exit 5 on errors)
 ```
 
 Inline or piped content also works: `--content "<text>"` or `--content -` (stdin).
@@ -65,7 +65,7 @@ allowed; after creation, address an edge by the edge ID shown in `edge list`.
 
 `spec` addresses product specs by bare citation (`msg:010:02`), not a full
 URN, and takes `-m/--memory`. `spec new` allocates the next citation and
-scaffolds the rubric — pass `--dry-run` to preview. `spec supersede` retires a
+scaffolds a spec skeleton — pass `--dry-run` to preview. `spec supersede` retires a
 spec (never renumbers) and REQUIRES `--yes`. `spec find` is semantic by default
 (`--match-exactly` for literal keyword).
 

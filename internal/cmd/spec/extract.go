@@ -51,8 +51,8 @@ full-body replaces.
 
 The new rule lands under <source-product>:<source-module>:<to-feature> (the
 source's product and module, your --to-feature). Pipe the moved chunk in as
-the new body via --content -/--content-file; it scaffolds the rule (abstract +
-rubric default), wires the table-of-contents and inheritance edges like
+the new body via --content -/--content-file; it scaffolds the rule (placeholder abstract
+and the default scaffold body), wires the table-of-contents and inheritance edges like
 ` + "`spec new`" + `, and adds the cross-ref edge new→source.
 
 extract allocates in the legacy numbering, so the source must be a legacy
@@ -266,9 +266,9 @@ chunk leaves the source alone with a warning.`,
 	cmd.Flags().StringVar(&toFeature, "to-feature", "", "existing feature the extracted rule lands under (3 digits, required)")
 	cmd.Flags().StringVar(&rule, "rule", "", "create this exact rule number (2 digits; default: allocate the next)")
 	cmd.Flags().StringVar(&title, "title", "", "human title for the extracted spec (required)")
-	cmd.Flags().StringVarP(&content, "content", "c", "", `the moved chunk = the new spec body ("-" reads piped stdin, refused from a terminal; default: the rubric)`)
+	cmd.Flags().StringVarP(&content, "content", "c", "", `the moved chunk = the new spec body ("-" reads piped stdin, refused from a terminal; default: the scaffold template)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read the moved chunk from a file")
-	cmd.Flags().StringVar(&abstract, "abstract", "", `the new spec's abstract ("-" reads piped stdin, refused from a terminal; default: a placeholder lint flags)`)
+	cmd.Flags().StringVar(&abstract, "abstract", "", `the new spec's abstract ("-" reads piped stdin, refused from a terminal; default: a placeholder)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the abstract from a file")
 	cmd.Flags().StringVar(&refLabel, "ref-label", "", "label for the cross-ref edge new→source (default: synthesized from titles)")
 	cmd.Flags().BoolVar(&stripSource, "strip-source", false, "also trim the moved chunk out of the source body (verbatim match only)")

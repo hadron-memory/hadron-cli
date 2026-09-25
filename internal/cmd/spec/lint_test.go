@@ -13,8 +13,7 @@ import (
 // the inheritance-edge remedy message.
 const lintMem = "acme.com::specs"
 
-// cleanSpec builds a fully rubric-compliant spec node at loc, with a ToC
-// edge to its parent.
+// cleanSpec builds a spec node at loc that trips no lint rule.
 func cleanSpec(t *testing.T, loc, title string) specNode {
 	t.Helper()
 	c := mustCit(t, loc)
@@ -26,8 +25,8 @@ func cleanSpec(t *testing.T, loc, title string) specNode {
 	// before that rule, an unauthored body was indistinguishable from an
 	// authored one, here as much as in the corpus.
 	//
-	// It keeps the "what invalidates" heading, because the rubric requires it
-	// and this fixture must still satisfy every OTHER rule.
+	// It keeps the "what invalidates" heading from when the rubric required
+	// it (retired by #708); harmless, and it keeps the fixture a realistic body.
 	content := "# " + c.Format() + " — " + title + "\n\n" +
 		"## Definition\n\nWhat " + loc + " governs, stated in one line.\n\n" +
 		"## Rule\n\nThe rule, with an example and its edge cases.\n\n" +
@@ -114,96 +113,17 @@ func TestLintNodeProblems(t *testing.T) {
 	bad.Content = &empty
 	bad.NodeType = "finding"
 	fs := lintNode(bad, "")
-	for _, want := range []string{"name-prefix", "nodetype-info", "abstract", "invalidates"} {
+	for _, want := range []string{"name-prefix", "nodetype-info"} {
 		if !hasRule(fs, want) {
 			t.Errorf("expected %q finding; got %v", want, fs)
 		}
 	}
-}
-
-func TestLintNodePlaceholderAbstract(t *testing.T) {
-	n := cleanSpec(t, "msg:010:02", "W2")
-	ph := placeholderAbstract(mustCit(t, "msg:010:02"), "W2")
-	n.Abstract = &ph
-	if !hasRule(lintNode(n, ""), "abstract") {
-		t.Error("placeholder abstract should trip the abstract rule")
-	}
-}
-
-func TestLintNodePlaceholderContractExempt(t *testing.T) {
-	// #99 item 1: a feature :00 contract is co-scaffolded automatically with a
-	// new feature. While it still carries its scaffold placeholder abstract the
-	// author hasn't engaged it, so it's exempt from the rubric errors instead
-	// of forcing a contract node nobody asked for.
-	c := mustCit(t, "msg:010:00")
-	if !c.IsContract() {
-		t.Fatalf("%s should be a contract", c.Format())
-	}
-	abs := tierAbstract(c, "W-series general provisions")
-	body := contractBody(c, "W-series general provisions")
-	n := specNode{
-		Loc:         c.Format(),
-		Name:        specName(c, "W-series general provisions"),
-		NodeType:    "info",
-		Tags:        []string{"spec"},
-		Abstract:    &abs,
-		Content:     &body,
-		DataVersion: "0.0.1",
-	}
-	fs := lintNode(n, "")
-	if hasRule(fs, "abstract") || hasRule(fs, "invalidates") {
-		t.Errorf("untouched placeholder contract must not trip rubric errors; got %v", fs)
-	}
-	if !hasRule(fs, "placeholder-contract") {
-		t.Errorf("expected placeholder-contract info finding; got %v", fs)
-	}
-	for _, f := range fs {
-		if f.Severity == sevError {
-			t.Errorf("placeholder contract must yield no errors; got %v", f)
+	// #708: the old rubric is gone, so the missing abstract and the missing
+	// "what invalidates" statement are no longer findings.
+	for _, gone := range removedRubricRules {
+		if hasRule(fs, gone) {
+			t.Errorf("the retired rubric rule %q still fired; got %v", gone, fs)
 		}
-	}
-}
-
-func TestLintNodeEngagedContractFullRubric(t *testing.T) {
-	// Once the author replaces the placeholder abstract the contract is
-	// engaged, and the full rubric applies again — a missing "what invalidates"
-	// statement is flagged.
-	c := mustCit(t, "msg:010:00")
-	abs := "Shared definitions and defaults every W-series rule inherits."
-	body := "# msg:010:00 — provisions\n\n## Provisions\n\nShared rules.\n"
-	n := specNode{
-		Loc:      c.Format(),
-		Name:     specName(c, "provisions"),
-		NodeType: "info",
-		Tags:     []string{"spec"},
-		Abstract: &abs,
-		Content:  &body,
-	}
-	fs := lintNode(n, "")
-	if hasRule(fs, "placeholder-contract") {
-		t.Errorf("an engaged contract must not be treated as a placeholder; got %v", fs)
-	}
-	if !hasRule(fs, "invalidates") {
-		t.Errorf("engaged contract missing 'what invalidates' should be flagged; got %v", fs)
-	}
-}
-
-func TestLintNodeReportsAllRubricGapsAtOnce(t *testing.T) {
-	// #99 item 2: every rubric gap for a node is reported in one pass, not
-	// surfaced one-at-a-time across reruns.
-	c := mustCit(t, "msg:010:02")
-	body := "# msg:010:02 — W2\n\n## Definition\n\nx\n" // no "what invalidates"
-	n := specNode{
-		Loc:      "msg:010:02",
-		Name:     specName(c, "W2"),
-		NodeType: "info",
-		Tags:     []string{"spec"},
-		Abstract: nil, // missing abstract
-		Content:  &body,
-	}
-	fs := lintNode(n, "")
-	if !hasRule(fs, "abstract") || !hasRule(fs, "invalidates") {
-		t.Errorf("both abstract and invalidates gaps must be reported together; got %v", fs)
 	}
 }
 
@@ -281,14 +201,11 @@ func TestLintNodeAbstractLengthCountsCharsNotBytes(t *testing.T) {
 }
 
 func TestLintNodeAbstractLengthNotReportedWhenMissing(t *testing.T) {
-	// A missing abstract is already an error; adding a length finding on top
-	// would be noise pointing at a field that doesn't exist yet.
+	// A length finding on a missing abstract would point at a field that
+	// doesn't exist. (A missing abstract is itself no longer a finding, #708.)
 	n := cleanSpec(t, "msg:010:02", "W2")
 	n.Abstract = nil
 	fs := lintNode(n, "")
-	if !hasRule(fs, "abstract") {
-		t.Fatalf("missing abstract should still be flagged; got %v", fs)
-	}
 	if hasRule(fs, "abstract-length") {
 		t.Errorf("missing abstract should not also trip abstract-length; got %v", fs)
 	}
@@ -592,67 +509,6 @@ func TestLintSerializationLeakQuotingAndHiding(t *testing.T) {
 				t.Errorf("serialization-leak = %v, want %v, for %q", got, tc.leak, tc.text)
 			}
 		})
-	}
-}
-
-// #545 rule B: the scaffold body. The rubric's one body-reading check tests for
-// a "what invalidates" heading, and the scaffold SHIPS with that heading — so a
-// never-authored body passed it, and an unauthored spec was indistinguishable
-// from an authored one.
-func TestLintScaffoldBody(t *testing.T) {
-	n := cleanSpec(t, "msg:010:02", "W2")
-	scaffold := rubricBody(mustCit(t, "msg:010:02"), "W2")
-	n.Content = &scaffold
-
-	fs := lintNode(n, "")
-	if !hasRule(fs, "scaffold-body") {
-		t.Fatalf("an unreplaced scaffold body must be reported, got %v", fs)
-	}
-	// The rubric's invalidates check must NOT fire — that is the whole point:
-	// the scaffold satisfies it, which is why this rule had to exist.
-	if hasRule(fs, "invalidates") {
-		t.Error("the scaffold satisfies the invalidates check; if that fires, this test is not exercising the gap")
-	}
-}
-
-// …and an UNTOUCHED contract is reported once, as placeholder-contract, not
-// twice. placeholder-contract returns early precisely so a spec nobody has
-// started is not also accused of having an unwritten body — which is true but
-// not the finding its author needs.
-func TestLintUntouchedContractIsNotAlsoScaffoldBody(t *testing.T) {
-	c := mustCit(t, "msg:010:00")
-	n := cleanSpec(t, "msg:010:00", "General provisions")
-	placeholder := "TODO(abstract): describe what this contract sets."
-	scaffold := rubricBody(c, "General provisions")
-	n.Abstract, n.Content = &placeholder, &scaffold
-
-	fs := lintNode(n, "")
-	if !hasRule(fs, "placeholder-contract") {
-		t.Fatalf("an untouched contract must be reported as such, got %v", fs)
-	}
-	if hasRule(fs, "scaffold-body") {
-		t.Errorf("an untouched contract must not be double-reported, got %v", fs)
-	}
-}
-
-// #545 rule B carries the SAME self-reference guard as rule A — a spec
-// documenting `spec new` quotes its filler in an example, and matching that
-// would call an authored spec unauthored. Rule A had the guard from the start
-// and rule B did not; that was an inconsistency in the implementation rather
-// than a case nobody had thought of (@codex, PR #547).
-func TestLintScaffoldBodyIgnoresQuotedFiller(t *testing.T) {
-	n := cleanSpec(t, "msg:010:02", "W2")
-	quoted := "# msg:010:02 — W2\n\n## Rule\n\n`spec new` emits:\n\n```\nState the shared rules and defaults.\n```\n\nAuthored prose.\n\n## What invalidates this spec\n\nx\n"
-	n.Content = &quoted
-	if hasRule(lintNode(n, ""), "scaffold-body") {
-		t.Error("filler quoted in an example is documentation, not an unauthored body")
-	}
-
-	// …and the genuine article still fires, so the guard has not disarmed it.
-	real := "# msg:010:02 — W2\n\n## Provisions\n\nState the shared rules and defaults.\n\n## What invalidates this spec\n\nx\n"
-	n.Content = &real
-	if !hasRule(lintNode(n, ""), "scaffold-body") {
-		t.Error("an unreplaced scaffold body must still be reported")
 	}
 }
 
@@ -1327,6 +1183,74 @@ func TestLintCorpusHasNoTierObligations(t *testing.T) {
 	for _, rule := range []string{"parent-exists", "toc-edge", "inheritance-edge", "index-incomplete"} {
 		if hasRule(fs, rule) {
 			t.Errorf("%s is a removed tier obligation, but was reported: %v", rule, fs)
+		}
+	}
+}
+
+// removedRubricRules are the old content rubric's findings, retired by
+// Holger's ruling on #708 (team chat #1681): the sections a spec needs differ
+// by its type, so no one rule is right. None may fire at any loc.
+var removedRubricRules = []string{"abstract", "invalidates", "data-version", "scaffold-body", "placeholder-contract"}
+
+// #708: a spec missing everything the old rubric demanded (no abstract, no
+// "what invalidates", no data.version, and a `spec new` scaffold body) lints
+// with NONE of those findings, at a numbered rule, a flow, a legacy contract
+// and a named path alike. The structural checks still fire on the same nodes,
+// so the lint is not simply silent.
+func TestLintNodeNoRubricAtAnyLoc(t *testing.T) {
+	// Three bodies: the scaffold (which carries a "what invalidates" heading, so
+	// it would pass that check), an empty one (which would fail it), and the
+	// case the ruling came from — a spec written by specs:tasks:write-spec,
+	// whose sections are "What stays fixed" / "What can change".
+	scaffold, empty := rubricBody(mustCit(t, "msg:010:02"), "W2"), ""
+	writeSpec := "## Definition\n\nx\n\n## What stays fixed\n\ny\n\n## What can change\n\nz\n"
+	for _, loc := range []string{"msg:010:02", "msg:010:02:01", "msg:010:00", "authoring:rules:naming"} {
+		// Two abstracts: none, and the scaffold placeholder — the old rubric
+		// flagged both, and a placeholder is what placeholder-contract keyed on.
+		placeholder := placeholderAbstractAt(loc, "X")
+		for _, abs := range []*string{nil, &placeholder} {
+			for _, body := range []*string{&scaffold, &empty, &writeSpec} {
+				n := specNode{Loc: loc, Name: loc + " — X", NodeType: "info", Tags: []string{"spec"}, Abstract: abs, Content: body}
+				fs := lintNode(n, "")
+				for _, gone := range removedRubricRules {
+					if hasRule(fs, gone) {
+						t.Errorf("%s: the retired rubric rule %q still fired; got %v", loc, gone, fs)
+					}
+				}
+				// Negative controls: structure is still checked at the same loc.
+				bad := n
+				bad.Name, bad.NodeType, bad.Tags = "wrong", "finding", nil
+				got := lintNode(bad, "")
+				for _, want := range []string{"name-prefix", "nodetype-info", "tag-spec"} {
+					if !hasRule(got, want) {
+						t.Errorf("%s: the structural check %q must still fire; got %v", loc, want, got)
+					}
+				}
+			}
+		}
+	}
+}
+
+// @copilot on #728: the length diagnostics apply to an abstract that still
+// carries the scaffold placeholder, too. With the rubric's `abstract` rule
+// gone, nothing else would report a long one — and the server's cap counts
+// every character, placeholder or not.
+func TestLintNodeAbstractLengthAppliesToAPlaceholderAbstract(t *testing.T) {
+	for _, tc := range []struct {
+		n   int
+		sev string
+	}{{abstractSoftMax + 50, sevWarning}, {abstractHardMax - 10, sevError}} {
+		sn := cleanSpec(t, "msg:010:02", "W2")
+		abs := abstractPlaceholder + " " + strings.Repeat("a", tc.n-len(abstractPlaceholder)-1)
+		sn.Abstract = &abs
+		var got string
+		for _, f := range lintNode(sn, "") {
+			if f.Rule == "abstract-length" {
+				got = f.Severity
+			}
+		}
+		if got != tc.sev {
+			t.Errorf("a %d-char placeholder abstract: abstract-length severity %q, want %q", tc.n, got, tc.sev)
 		}
 	}
 }

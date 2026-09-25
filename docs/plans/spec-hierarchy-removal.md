@@ -1,6 +1,6 @@
 # Removing the fixed spec hierarchy (#708, #709)
 
-> **Status: A, C and B's tier removals built (cli#710); D built (#709's own PR); only the rubric (B) is open.** Written 2026-09-24 by Jonas
+> **Status: built.** A, C and B's tier removals in cli#710; D in cli#711 (#709); B's rubric removal on Holger's ruling (team chat #1681) in its own PR. Written 2026-09-24 by Jonas
 > (cli-engineer) on Ada's dispatch (team chat #1473), under Holger's
 > authorization of the same day. The authorization covers removing the legacy
 > spec-corpus hierarchy checks and the flat/product concept **before** a
@@ -126,7 +126,7 @@ the one the server enforces. What's still refused:
   - restoring the `list` shape filter: red;
   - dropping the role from `isSpec`: red.
 
-### B. Lint: tier obligations removed in cli#710; only the rubric is open
+### B. Lint: tier obligations removed in cli#710; the rubric removed after #1681
 
 Two things moved lint work into cli#710. First, a spec outside the numbering
 had to be read and reported correctly as soon as it was addressable. Second,
@@ -149,19 +149,33 @@ tier rule that fired on a legacy-SHAPED loc contradicted it (@codex on #710).
 - near-cap advice is generic for a non-legacy loc;
 - a role-only spec gets a `tag-spec` warning that names the scans that skip it.
 
-**Kept on purpose:**
-- `placeholder-contract` is an EXEMPTION, not an obligation. It spares an
-  untouched scaffolded contract from the rubric, and removing it would add
-  findings to today's corpora.
-- `duplicate-loc`, the URN-example check (#527), the name prefix, the abstract
-  fingerprint and length checks, and `unavailable`.
+**Kept on purpose:** `duplicate-loc`, the URN-example check (#527), the name
+prefix, node type, the `spec` tag, serialization leaks, the abstract
+fingerprint (`abstract-stale`/`abstract-unverified`) and length checks,
+`vector-index`, and `unavailable`.
 
-**Still open, and the only thing left in B: the rubric.** `abstract` and
-`invalidates` as errors, plus `data-version` and `scaffold-body`, run only at
-rule/flow **depth**. The three choices are in team chat #1484:
-1. drop the rubric;
-2. apply it to every spec;
-3. keep it for legacy rule/flow locs only (today's behaviour, unchanged).
+**The rubric: removed, on Holger's ruling (team chat #1681).** The three
+choices were in #1484: drop it, apply it to every spec, or keep it for legacy
+rule/flow locs. It was dropped, because the sections a spec needs differ by
+its type, so no one rule is right. A spec written the sanctioned way
+(`specs:tasks:write-spec`, with "What stays fixed / What can change") failed
+`invalidates` at a numbered loc and passed at a named one.
+
+- **Gone, at every loc:** `abstract` (a missing or placeholder abstract),
+  `invalidates`, `data-version`, `scaffold-body`, and the `placeholder-contract`
+  exemption, which existed only to spare an untouched contract from the rubric.
+- **Unchanged:** the soft `abstract-length` advisory, still tiered by legacy
+  depth (warning at a rule, info at a flow). The ruling kept length
+  diagnostics, and re-tiering them is a separate question.
+- **Not changed:** the `spec new` scaffold still writes the legacy sections.
+  The ruling said no scaffold rewrite, and they are now a starting point, not
+  an obligation.
+- **Type-specific checks** return with spec roles (cli#684). Until then
+  `specs:tasks:validate-spec` does them.
+- **Tests:** `TestLintNodeNoRubricAtAnyLoc` covers a numbered rule, a flow, a
+  legacy contract and a named path, each with structural negative controls.
+  `TestSpecLintNoLongerEnforcesTheOldRubric` checks the command: the old
+  failing spec now exits 0.
 
 ### C. Authoring adapters: built (cli#710)
 

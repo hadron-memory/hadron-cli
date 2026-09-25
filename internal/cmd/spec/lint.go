@@ -3,7 +3,6 @@ package spec
 import (
 	"fmt"
 	"io"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -58,27 +57,22 @@ const abstractHardMax = 2000
 // is a supersede-level split, which is a decision rather than an edit.
 const abstractTightHeadroom = 150
 
-var (
-	// Matches the "what invalidates" statement whether it's a heading
-	// (## What invalidates …) or inline bold (**What invalidates:** …),
-	// both of which the platform-specs corpus uses.
-	reInvalidates = regexp.MustCompile(`(?im)^\s*[#*]*\s*what invalidates`)
-)
-
 func newCmdLint(f *cmdutil.Factory) *cobra.Command {
 	var memory, product, module, prefixFlag string
 	var all, strict bool
 	cmd := &cobra.Command{
 		Use:     "lint [<citation>]",
 		Aliases: []string{"check", "validate"},
-		Short:   "Validate specs against the rubric and stability rules",
+		Short:   "Check specs' structure and stability rules",
 		Long: fmt.Sprintf(`Validate one spec, a subtree, a product, a module, or the whole
-corpus against the loc-as-citation rubric and stability rules.
+corpus against the structural and stability rules. Lint is structural: it
+does not check a spec's content sections, which depend on the spec's type
+(specs:tasks:validate-spec does that).
 
 Scope is one of: a single <citation> argument, --prefix <citation> (that
 node plus its descendants — e.g. one feature and its rules), --product
 <ppp>, --module <mmm> (optionally within --product), or --all. Errors
-(rubric/stability violations) exit with code 5; --strict promotes warnings
+(structural/stability violations) exit with code 5; --strict promotes warnings
 to errors too.
 
 Rule abstract-length warns above ~%d characters. That is a ceiling, not
@@ -105,7 +99,10 @@ There, length means the abstract is restating its children instead of routing to
 them, and the fix is to rewrite it as one clause per child.
 
 A spec at any loc owes no parent, contract or index: the legacy tier checks
-(parent-exists, toc-edge, inheritance-edge, index-incomplete) are removed.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
+(parent-exists, toc-edge, inheritance-edge, index-incomplete) are removed. So is
+the old content rubric (#708): a missing abstract, a missing "what invalidates"
+statement, a missing data.version, an unreplaced scaffold body and the
+placeholder-contract exemption are no longer findings, at any loc.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix cor:api:140 -m hrn:mem:hadronmemory.com:specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
@@ -310,8 +307,8 @@ func lintScopeError(hasCitationArg bool, prefixFlag, product, module string, all
 }
 
 // lintNode runs the per-node rules and returns findings tagged with the
-// node's citation. Header nodes (module/feature, level < 3) only get the
-// universal checks; the rubric proper applies to rules and flows.
+// node's citation. There is no content rubric at any depth (#708); the soft
+// abstract-length advisory is the only check still tiered by legacy depth.
 func lintNode(n specNode, memURN string) []lintFindingDTO {
 	var fs []lintFindingDTO
 	add := func(rule, sev, msg string) {
@@ -332,7 +329,7 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	// that claims a shape. Advisory only — see lint_urn.go for why this rule
 	// must never gate, and for what it deliberately refuses to answer.
 	//
-	// ABOVE the tier and placeholder early-returns, deliberately (@copilot, PR
+	// ABOVE the legacy-tier early return, deliberately (@copilot, PR
 	// #632). A product or module header is where a grammar gets EXPLAINED, so
 	// it is more likely to carry worked URN examples than a leaf rule is — and
 	// cor:urn, the module this whole issue came from, is exactly such a node.
@@ -391,7 +388,7 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	// cap is as unwritable as a rule's, and returning here reported neither the
 	// headroom nor the fact that a replacement would be rejected. Only the
 	// ADVISORY soft bound tiers down.
-	if abstractPresent(n.Abstract) {
+	if abstractWritten(n.Abstract) {
 		if l := abstractLength(n.Abstract); abstractNearCap(l) {
 			add("abstract-length", sevError, nearCapMessage(l, n.Name, c, err == nil))
 		}
@@ -440,68 +437,33 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 		return fs
 	}
 
-	// A feature's :00 contract is co-scaffolded automatically with every new
-	// feature (#69) so the feature's rules have an inheritance target — but
-	// contracts are rare by convention, so creating a feature shouldn't force
-	// authoring one. While its abstract is still the scaffold placeholder the
-	// author hasn't engaged it, so it's exempt from the rubric errors (#99
-	// item 1); replacing the placeholder abstract restores the full rubric.
-	if c.IsContract() && isPlaceholderAbstract(n.Abstract) {
-		add("placeholder-contract", sevInfo, "untouched placeholder contract — exempt from the rubric until a rule needs its shared provisions and you author it")
-		return fs
-	}
-
-	// #545. Below the placeholder early-return ON PURPOSE: a genuinely untouched
-	// contract returns above and is reported once, as placeholder-contract.
-	// Reaching here with a scaffold body therefore means the INTERESTING case —
-	// an authored abstract over a body nobody wrote, which is exactly what
-	// cor:api:090:00 was after its provisions leaked into the abstract.
-	//
-	// This is the gap that let an unauthored spec look authored: the one rubric
-	// check that reads the body tests for a "what invalidates" heading, and the
-	// scaffold SHIPS with that heading, so a never-written body passes it.
-	//
-	// Warning rather than error, and a regression guard rather than a cleanup
-	// driver: the blast radius across the corpus was ZERO when this shipped,
-	// because both scaffold bodies belong to the two exempt contracts above. It
-	// earns its place by catching the next one.
-	if isScaffoldBody(n.Content) {
-		add("scaffold-body", sevWarning,
-			"body is still the `spec new` scaffold — its filler prose is unreplaced, so this spec is unauthored even though its abstract reads otherwise")
-	}
-
-	// Rubric proper. Top-level specs (rules) are the compliance-loadable
-	// retrieval surface, so a missing abstract or invalidation is an error;
-	// flows are pulled on demand, so the same gaps are advisory there.
-	rubricSev := sevError
-	if c.Level() == 4 {
-		rubricSev = sevWarning
-	}
-	if !abstractPresent(n.Abstract) {
-		add("abstract", rubricSev, "missing abstract — the vector-search retrieval surface (or still a placeholder); state the questions this spec answers, in your own words, keeping every sentence on its topic")
-	} else if l := abstractLength(n.Abstract); l > abstractSoftMax && !abstractNearCap(l) {
-		// The SOFT range only. The near-cap finding is raised earlier, above the
-		// header early return, because the server's cap binds a module or
-		// feature abstract exactly as it binds a rule's (@codex on #565) — the
-		// advisory soft bound is what tiers down, not the wall.
-		//
-		// Length itself is a weak lever — an on-topic abstract costs almost
-		// nothing up to the server's cap — so this is advisory even at the rule
-		// tier, and info-level for flows. What actually dilutes the vector is
-		// off-topic material, which the message points at.
-		sev := sevWarning
-		if c.Level() == 4 {
-			sev = sevInfo
+	// #708, Holger's ruling (#1681): the old content rubric is gone. No
+	// mandatory abstract, "What invalidates" statement, data.version or
+	// scaffold-body check, at any loc or depth — the sections a spec needs
+	// differ by its type, so no one rule is right, and a spec written the
+	// sanctioned way (specs:tasks:write-spec) failed it. Type-specific checks
+	// return with spec roles (cli#684); until then specs:tasks:validate-spec
+	// does them. What stays is structural: every check above, and the soft
+	// abstract-length advisory below, unchanged.
+	if abstractWritten(n.Abstract) {
+		if l := abstractLength(n.Abstract); l > abstractSoftMax && !abstractNearCap(l) {
+			// The SOFT range only. The near-cap finding is raised earlier, above
+			// the header early return, because the server's cap binds a module or
+			// feature abstract exactly as it binds a rule's (@codex on #565) — the
+			// advisory soft bound is what tiers down, not the wall.
+			//
+			// Length itself is a weak lever — an on-topic abstract costs almost
+			// nothing up to the server's cap — so this is advisory even at the rule
+			// tier, and info-level for flows. What actually dilutes the vector is
+			// off-topic material, which the message points at.
+			sev := sevWarning
+			if c.Level() == 4 {
+				sev = sevInfo
+			}
+			add("abstract-length", sev, fmt.Sprintf(
+				"abstract is %d chars, %s of headroom before the %d-char hard cap — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
+				l, plural(abstractHardMax-l, "char"), abstractHardMax, abstractSoftMax))
 		}
-		add("abstract-length", sev, fmt.Sprintf(
-			"abstract is %d chars, %s of headroom before the %d-char hard cap — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
-			l, plural(abstractHardMax-l, "char"), abstractHardMax, abstractSoftMax))
-	}
-	if n.Content == nil || !reInvalidates.MatchString(*n.Content) {
-		add("invalidates", rubricSev, `body should state what invalidates this spec`)
-	}
-	if n.DataVersion == "" {
-		add("data-version", sevWarning, "data.version is not set (expected e.g. 0.0.1)")
 	}
 	// #708: no `toc-edge` — a legacy-shaped loc no longer implies a parent
 	// it must link to.
@@ -579,6 +541,16 @@ func hasTag(tags []string, want string) bool {
 	return false
 }
 
+// abstractWritten reports whether the abstract carries any text at all,
+// placeholder included — what the LENGTH checks gate on. They used to gate on
+// abstractPresent, which reads a placeholder as absent; that was harmless while
+// the rubric's `abstract` rule flagged placeholders, and after #708 it would
+// have left a long placeholder abstract with no finding at all (@copilot on
+// #728). The server's cap counts every character, placeholder or not.
+func abstractWritten(a *string) bool {
+	return a != nil && strings.TrimSpace(*a) != ""
+}
+
 func abstractPresent(a *string) bool {
 	if a == nil {
 		return false
@@ -621,14 +593,6 @@ func abstractLength(a *string) int {
 		}
 	}
 	return n
-}
-
-// isPlaceholderAbstract reports whether an abstract still carries the scaffold
-// marker — the signal that the author hasn't engaged the node yet. Distinct
-// from !abstractPresent: an empty or absent abstract is a node whose abstract
-// was removed, not an untouched scaffold.
-func isPlaceholderAbstract(a *string) bool {
-	return a != nil && strings.Contains(*a, abstractPlaceholder)
 }
 
 // ---- corpus scans (one Nodes query + per-node detail reads) ----
@@ -837,20 +801,6 @@ var serializationMarkers = []string{
 	"<invoke name=", "</invoke>",
 }
 
-// scaffoldFillers are sentences `spec new` emits and an author is expected to
-// replace. Finding one means the body was never written.
-//
-// Matched on the FILLER PROSE rather than a sentinel, deliberately: a
-// TODO(body:) marker would only cover specs created after it shipped, and the
-// corpus this rule protects is the one that already exists. See scaffoldBody.
-var scaffoldFillers = []string{
-	"State the shared rules and defaults.",
-	"The changes that repeal or supersede these general provisions. (Mandatory.)",
-	"The specific changes that repeal or supersede this spec. (Mandatory.)",
-	"One-line definition of what this spec governs.",
-	"State the rule precisely. Give concrete examples and edge cases.",
-}
-
 // withoutCode removes FENCED CODE BLOCKS, and nothing else.
 //
 // This is the self-reference guard: a spec documenting this very leak would
@@ -980,28 +930,6 @@ func leakedMarkers(s string) []string {
 		}
 	}
 	return found
-}
-
-// isScaffoldBody reports whether the body is still `spec new`'s output — the
-// gap that let an unauthored spec look authored. The rubric's one body-reading
-// check tests for a "what invalidates" heading, and the scaffold SHIPS with
-// that heading, so a never-written body passes it.
-func isScaffoldBody(content *string) bool {
-	if content == nil {
-		return false
-	}
-	// withoutCode for the same reason rule A uses it: a spec DOCUMENTING
-	// `spec new` quotes its filler in an example, and matching that would call
-	// an authored spec unauthored. Rule A had this guard from the start and
-	// rule B did not — an inconsistency in my own implementation rather than a
-	// new case (@codex, PR #547).
-	prose := withoutCode(*content)
-	for _, f := range scaffoldFillers {
-		if strings.Contains(prose, f) {
-			return true
-		}
-	}
-	return false
 }
 
 // titleConjunction returns the conjunction a spec's title uses to join two
