@@ -23,6 +23,8 @@ import (
 	"unicode/utf8"
 
 	yaml "go.yaml.in/yaml/v3"
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 
 	urnlib "github.com/hadron-memory/urn-lib-go"
 
@@ -75,13 +77,50 @@ type Host struct {
 	// `claudeSkill` keys predate hosts and always meant Claude; reading them
 	// as another host's declaration would publish somewhere nobody chose.
 	LegacyAliases bool
+	// ReservedNames are skill names this host will not load from the root an
+	// export writes to (server#1315). Claude Code keeps skills synced from
+	// claude.ai in `<root>/synced/` and skips a skill authored at that name
+	// "in any capitalization" (code.claude.com/docs/en/skills), so an export
+	// named `synced` would land in Claude's own folder and never load.
+	//
+	// Only names the HOST reserves belong here. The `anthropic`/`claude` words
+	// the Claude platform bans are an UPLOAD-surface rule (Skills API,
+	// claude.ai) that Claude Code does not apply — 2.1.143 loads such names —
+	// so listing them would refuse a working skill.
+	ReservedNames []string
 }
 
 // Hosts is every host, Claude first. Both hosts cut a description at 1,024
 // in the listing their model sees and cap a name at 64 (cor:agt:030:05).
 var Hosts = []Host{
-	{Key: HostClaudeSkill, MaxNameLen: MaxNameLen, MaxDescriptionLen: MaxDescriptionLen, LegacyAliases: true},
-	{Key: HostCodexSkill, MaxNameLen: 64, MaxDescriptionLen: 1024, LegacyAliases: false},
+	{Key: HostClaudeSkill, MaxNameLen: MaxNameLen, MaxDescriptionLen: MaxDescriptionLen, LegacyAliases: true, ReservedNames: []string{"synced"}},
+	{Key: HostCodexSkill, MaxNameLen: 64, MaxDescriptionLen: 1024, LegacyAliases: false, ReservedNames: []string{}},
+}
+
+// IsReservedName reports whether name is one host h reserves. The host
+// reserves the name "in any capitalization", so it is compared by collation at
+// primary strength, which folds case, diacritics, width and compatibility
+// variants (`SYNCED`, the long s in `ſynced`) — the Go counterpart of
+// hadron-server's ICU search collator at base sensitivity
+// (src/lib/skilldoc/hosts.ts). The two agree on every name the skill-name
+// grammar admits; outside it they can differ on an exotic code point (x/text
+// carries Unicode 6.2 tables, the server's ICU a newer Unicode), and any such
+// name already fails skill-name-invalid, so no verdict changes. The name is
+// trimmed, as the planner exports it.
+func IsReservedName(h Host, name string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" || len(h.ReservedNames) == 0 {
+		return false
+	}
+	// A Collator reuses its own buffers on every compare, so sharing one
+	// across goroutines would race; build one per call.
+	c := collate.New(language.Und, collate.Loose)
+	for _, r := range h.ReservedNames {
+		if c.CompareString(name, r) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // HostFor returns the row for a host key, or false for a key no host owns
@@ -509,6 +548,14 @@ func LintFor(n Node, h Host) []Finding {
 	case !validNameFor(decl.Name, h.MaxNameLen):
 		add("skill-name-invalid", SevError,
 			fmt.Sprintf("skill name %q is not a valid skill name (kebab-case, ≤%d chars) — it is stored at properties.%s.name, so that is what to change", decl.Name, h.MaxNameLen, decl.Key))
+	}
+	// server#1315: a name the HOST refuses to load from the export root. An
+	// error, so the server's planner keeps it out of export. Checked
+	// independently of the grammar: `Synced` fails both, and reporting only
+	// the grammar would reveal the reservation after the author fixed the case.
+	if IsReservedName(h, decl.Name) {
+		add("skill-name-reserved", SevError,
+			fmt.Sprintf("skill name %q is reserved by %s: the host keeps its own skills in a folder of that name and skips a skill authored there, so the exported file would never load — rename properties.%s.name", decl.Name, h.Key, decl.Key))
 	}
 
 	if !n.IsRunnable {
