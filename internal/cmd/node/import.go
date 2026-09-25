@@ -116,7 +116,8 @@ git sync write the keys, so their files re-import with the kind; node export
 does not write them yet, so its files carry no kind. A file without the keys
 has no opinion: on an existing node the stored kind is kept, and a new node is
 ordinary. A file that would make the node two governed kinds at once is refused
-before anything is written.
+before anything is written. The objectType: key is carried the same way (absent
+keeps the stored value); the server checks it against the memory's schema.
 
 CONTENT — ingest RAW external source (a web page, a captured HTML DOM, a Markdown
 file, or a PDF) and let the server convert it to the node's Markdown body. This
@@ -672,6 +673,15 @@ func buildCreateNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string) (*
 	}
 	if doc.Type != "" {
 		input.NodeType = &doc.Type
+	}
+	// cli#720: carried only when the file states one. An absent key preserves
+	// the stored value on an update, and so does a blank one: the server
+	// normalizes a whitespace-only objectType to null, so sending it would
+	// CLEAR the node's collection. A file never clears it; `node update
+	// --object-type ""` does. The server validates the value, with the
+	// properties, against the memory's property schema when it declares one.
+	if strings.TrimSpace(doc.ObjectType) != "" {
+		input.ObjectType = &doc.ObjectType
 	}
 	if doc.Alias != "" {
 		input.Alias = &doc.Alias

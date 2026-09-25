@@ -19,3 +19,14 @@ func TestDocumentFromBatchNodeCarriesTheGovernedSignals(t *testing.T) {
 		t.Errorf("unset signals must stay nil, got role %v runnable %v", bare.Role, bare.IsRunnable)
 	}
 }
+
+// cli#720: objectType is selected by NodeBatch and must reach the document.
+func TestDocumentFromBatchNodeCarriesObjectType(t *testing.T) {
+	ot := "competitor"
+	if doc := DocumentFromBatchNode(&batchNode{Id: "n1", Loc: "x", Name: "X", ObjectType: &ot}); doc.ObjectType != "competitor" {
+		t.Errorf("objectType = %q, want competitor", doc.ObjectType)
+	}
+	if doc := DocumentFromBatchNode(&batchNode{Id: "n1", Loc: "x", Name: "X"}); doc.ObjectType != "" {
+		t.Errorf("an unset objectType must stay empty, got %q", doc.ObjectType)
+	}
+}

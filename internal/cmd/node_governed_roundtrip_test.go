@@ -278,3 +278,79 @@ func TestNodeUpdateRoutesByTheKindsItTouches(t *testing.T) {
 		}
 	})
 }
+
+// cli#720: objectType is carried when the file states it — through whichever
+// door the node's kind needs (the #717 routing is unchanged) — and never sent
+// when the file is silent, so an old file cannot null a stored value.
+func TestNodeImportCarriesObjectType(t *testing.T) {
+	t.Run("an ordinary node, update", func(t *testing.T) {
+		captured, err := runImport(t, map[string]string{
+			"ResolveUrn": resolveNodeJSON,
+			"GetNode":    kindDetail("null", "null"),
+			"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
+		}, importFile(t, "n.md", governedMd("objectType: competitor\n")))
+		if err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if got := doorInput(t, captured, "UpdateNode")["objectType"]; got != "competitor" {
+			t.Errorf("objectType = %v, want competitor", got)
+		}
+	})
+	t.Run("a task file creates through the task door with it", func(t *testing.T) {
+		captured, err := runImport(t, map[string]string{
+			"CreateTaskNode": `{"data":{"createTaskNode":` + nodeJSON + `}}`,
+		}, importFile(t, "n.md", governedMd("objectType: insight\nrunnable: true\n")), "--create-only")
+		if err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if got := doorInput(t, captured, "CreateTaskNode")["objectType"]; got != "insight" {
+			t.Errorf("objectType = %v, want insight", got)
+		}
+	})
+	// A blank value is no opinion too: the server normalizes whitespace to
+	// null, so sending it would clear the stored collection.
+	for name, extra := range map[string]string{"a blank value": "objectType: \"  \"\n", "an empty value": "objectType: \"\"\n"} {
+		t.Run(name+" preserves the stored value", func(t *testing.T) {
+			captured, err := runImport(t, map[string]string{
+				"ResolveUrn": resolveNodeJSON,
+				"GetNode":    kindDetail("null", "null"),
+				"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
+			}, importFile(t, "n.md", governedMd(extra)))
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if v, present := doorInput(t, captured, "UpdateNode")["objectType"]; present {
+				t.Errorf("a blank objectType must not be sent (the server would clear the stored one): %q", v)
+			}
+		})
+	}
+	t.Run("a file without it preserves the stored value", func(t *testing.T) {
+		captured, err := runImport(t, map[string]string{
+			"ResolveUrn": resolveNodeJSON,
+			"GetNode":    kindDetail("null", "null"),
+			"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
+		}, importFile(t, "n.md", governedMd("")))
+		if err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if v, present := doorInput(t, captured, "UpdateNode")["objectType"]; present {
+			t.Errorf("a silent file must not send objectType (it would stop preserving it): %v", v)
+		}
+	})
+}
+
+// cli#720: the file's objectType is not authority. On a memory that declares a
+// property schema the server validates it, with the properties, and refuses an
+// undeclared collection as BAD_USER_INPUT, which is exit 2. (An unschema'd
+// memory accepts any objectType.)
+func TestNodeImportUndeclaredObjectTypeIsTheServersRefusal(t *testing.T) {
+	_, err := runImport(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    kindDetail("null", "null"),
+		// The server's text verbatim (validateNodeAgainstSchema.ts).
+		"UpdateNode": `{"errors":[{"message":"objectType \"nope\" is not a declared collection in this memory's schema (declared: competitor)","extensions":{"code":"BAD_USER_INPUT"}}]}`,
+	}, importFile(t, "n.md", governedMd("objectType: nope\n")))
+	if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "not a declared collection") {
+		t.Fatalf("want the server's schema refusal as exit 2, got %v", err)
+	}
+}

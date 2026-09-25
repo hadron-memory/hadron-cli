@@ -882,10 +882,15 @@ Conventions:
     idempotent); `--create-only` refuses to update; `--dry-run` classifies
     without mutating. The server recomputes `contentHash`/`abstractOriginHash`,
     so a clean export→import round-trips losslessly, except for the node's
-    governed kind from a `node export` file (below). The file's `role:` and
+    governed kind and `objectType` from a `node export` file (below). The file's `role:` and
     `runnable:` keys (`role`/`isRunnable` in JSON; emitted when non-null, so an
     explicit `runnable: false` is kept) carry the node's governed kind, and the
     write goes through that kind's door, like `node add`/`node update` (cli#714).
+    `objectType:` (#725) is carried the same way: right after `type:`, written
+    only when set, and a file without it, or with a blank one, preserves the
+    stored value — a file never clears it (`node update --object-type ""`
+    does). On a memory that declares a property schema the server validates it,
+    and an undeclared collection is exit 2 (cli#720).
     `memory export` and the server's git sync write these keys; `node export`
     (server-rendered) does not yet, so its files import with no opinion.
     A file without them preserves the stored kind. A file that declares two
