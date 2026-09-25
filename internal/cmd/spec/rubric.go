@@ -40,9 +40,8 @@ var abstractStyleHint = fmt.Sprintf(
 	abstractSoftMax)
 
 // placeholderAbstract is the stand-in abstract a scaffolded spec carries
-// until the author writes a real one. The marker keeps lint reminding the
-// author to replace it at the rule tier, where the abstract is the
-// load-bearing vector-search retrieval surface.
+// until the author writes a real one. Lint does not flag it (#708); the marker
+// is what lets `spec supersede` (abstractPresent) tell it was never written.
 func placeholderAbstract(c Citation, title string) string {
 	return placeholderAbstractAt(c.Format(), title)
 }
@@ -56,7 +55,7 @@ func placeholderAbstractAt(loc, title string) string {
 
 // tierAbstract returns a tier-worded placeholder abstract: an orientation
 // stub for product/module roots, the feature's load-bearing point, the shared
-// provisions for a contract, and the rule rubric's retrieval-surface stub for
+// provisions for a contract, and the retrieval-surface stub for
 // a rule or flow.
 func tierAbstract(c Citation, title string) string {
 	switch {
