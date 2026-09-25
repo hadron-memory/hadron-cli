@@ -127,7 +127,7 @@ func rubricBodyAt(loc, title string, optional bool) string {
 	}
 	fmt.Fprintf(&b, "## %s\n\nState the rule precisely. Give concrete examples and edge cases.\n\n", headingRule)
 	fmt.Fprintf(&b, "## %s\n\n**Durable:** the parts that, if changed, mean a different spec.\n**Tunable:** the parts that can change without invalidating this spec.\n\n", headingDurable)
-	fmt.Fprintf(&b, "## %s\n\nThe specific changes that repeal or supersede this spec. (Mandatory.)\n", headingInvalidates)
+	fmt.Fprintf(&b, "## %s\n\nThe specific changes that repeal or supersede this spec.\n", headingInvalidates)
 	if optional {
 		fmt.Fprintf(&b, "\n## %s *(optional — include when the behavior must be testable)*\n\nConcrete, checkable statements engineering or QA can verify (one bullet\neach).\n", headingAcceptance)
 	}
@@ -166,7 +166,7 @@ func contractBody(c Citation, title string) string {
 	fmt.Fprintf(&b, "# %s — %s\n\n", c.Format(), title)
 	fmt.Fprintf(&b, "General provisions inherited by every %s%s. State the shared definitions, defaults, and rules here; a sibling overrides one only by saying so explicitly.\n\n", tierChildWord(c), parentStr)
 	fmt.Fprintf(&b, "## Provisions\n\nState the shared rules and defaults.\n\n")
-	fmt.Fprintf(&b, "## %s\n\nThe changes that repeal or supersede these general provisions. (Mandatory.)\n", headingInvalidates)
+	fmt.Fprintf(&b, "## %s\n\nThe changes that repeal or supersede these general provisions.\n", headingInvalidates)
 	return b.String()
 }
 

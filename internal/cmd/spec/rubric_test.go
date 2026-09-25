@@ -115,3 +115,31 @@ func TestTierAbstractCarriesMarker(t *testing.T) {
 		}
 	}
 }
+
+// #708 (Ada #1714, on Holger's #1681 ruling): the scaffold keeps its sections
+// but calls none of them mandatory — lint enforces no content rubric, so the
+// label would promise an obligation that no longer exists. The heading and
+// the section structure stay; only the word goes.
+func TestScaffoldCallsNoSectionMandatory(t *testing.T) {
+	for _, c := range []Citation{
+		{Product: "cli"},
+		{Module: "msg"},
+		{Module: "msg", Feature: "000"},
+		{Module: "msg", Feature: "010"},
+		{Module: "msg", Feature: "010", Rule: "00"},
+		{Module: "msg", Feature: "010", Rule: "02"},
+		{Module: "msg", Feature: "010", Rule: "02", Flow: "01"},
+	} {
+		body := tierBody(c, "Title")
+		if strings.Contains(strings.ToLower(body), "mandatory") {
+			t.Errorf("%s: the scaffold still calls a section mandatory:\n%s", c.Format(), body)
+		}
+	}
+	// The sections themselves are unchanged: a rule and a contract still
+	// scaffold the "What invalidates" heading.
+	for _, c := range []Citation{{Module: "msg", Feature: "010", Rule: "02"}, {Module: "msg", Feature: "010", Rule: "00"}} {
+		if !strings.Contains(tierBody(c, "Title"), "## "+headingInvalidates) {
+			t.Errorf("%s: the scaffold must keep its %q section", c.Format(), headingInvalidates)
+		}
+	}
+}
