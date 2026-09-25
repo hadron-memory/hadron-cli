@@ -829,7 +829,8 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 		werr := writeZip(zf, a.zipFiles, zipComment(a.host))
 		if werr == nil && posixModes {
 			// Complete now, so widened now, through its own descriptor.
-			werr = widen(zf, fileMode)
+			// Best-effort: see widen.
+			_ = widen(zf, fileMode)
 		}
 		if cerr := zf.Close(); werr == nil {
 			werr = cerr
@@ -840,9 +841,7 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 	}
 
 	if td != nil {
-		if err := widen(td, dirMode); err != nil {
-			return fail(err)
-		}
+		_ = widen(td, dirMode) // best-effort: see widen
 	}
 	published, cleanup := swapInto(tmp, dir, true, a.host)
 	if !published {
@@ -864,6 +863,13 @@ func writePluginArtifact(out, dir, zipPath string, a artifact) (res writeResult)
 // every platform with POSIX modes, which is every one but Windows.
 var posixModes = runtime.GOOS != "windows"
 
+// widen is BEST-EFFORT, and its callers ignore a failure: a filesystem
+// without chmod (vfat, exFAT, some network and FUSE mounts) refuses it with
+// EPERM or EOPNOTSUPP even on a POSIX OS, and imposes its own modes anyway.
+// Failing the export there would break what worked before this widening
+// existed (@codex on #713); the artifact then keeps the mode it was built
+// with, which is what every export had before.
+//
 // widen sets f's permission bits to mode through its descriptor, KEEPING a
 // setgid bit it inherited from a shared --out: clearing it would give the
 // published directory the exporter's primary group instead of the shared

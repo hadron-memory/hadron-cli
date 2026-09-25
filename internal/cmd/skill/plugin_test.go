@@ -1088,3 +1088,16 @@ func TestNoWideningWithoutPOSIXModes(t *testing.T) {
 		t.Fatalf("result = %+v, want the artifact and zip published with no mode handling", res)
 	}
 }
+
+// On a POSIX OS whose filesystem refuses chmod (vfat, exFAT, some network
+// mounts), the export must still publish: the widening is best-effort.
+func TestExportPublishesWhenTheFilesystemRefusesChmod(t *testing.T) {
+	orig := fchmod
+	t.Cleanup(func() { fchmod = orig })
+	fchmod = func(*os.File, os.FileMode) error { return errors.New("operation not supported") }
+	out := filepath.Join(home(t), "out")
+	res := writePluginArtifact(out, filepath.Join(out, "hadron"), filepath.Join(out, "hadron.zip"), sample("v1"))
+	if res.r != nil || !res.dir || !res.zip {
+		t.Fatalf("result = %+v, want the artifact and zip published despite the refused chmod", res)
+	}
+}
