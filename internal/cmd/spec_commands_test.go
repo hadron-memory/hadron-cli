@@ -750,8 +750,8 @@ func TestSpecDescribeResolvesByPK(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("describe by PK should resolve, got %v", err)
 	}
-	if !strings.Contains(out.String(), "scheme") {
-		t.Errorf("expected a scheme report, got %s", out.String())
+	if !strings.Contains(out.String(), `"specs": 1`) {
+		t.Errorf("expected the inventory, got %s", out.String())
 	}
 }
 
@@ -917,17 +917,22 @@ const memGetNoVectorJSON = `{"data":{"memory":{"id":"mem1","urn":"x:y","name":"P
 // (micromentor.org::platform-specs), in the server's real hrn:memory: form.
 const memListMicromentorJSON = `{"data":{"memories":{"total":1,"items":[{"id":"mem1","urn":"hrn:memory:micromentor.org::platform-specs","name":"Platform Specs","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"}]}}}`
 
-func TestSpecDescribeProduct(t *testing.T) {
+// #709: describe inventories the corpus without classifying it. A mixed
+// memory — legacy product-rooted, legacy flat, and specs outside the numbering
+// — is reported as facts, with no scheme, no tier counts, and no warning; a
+// non-spec node (the register) is not counted; and a scheme still stored by
+// the retired --declare is disclosed, never applied.
+func TestSpecDescribeInventory(t *testing.T) {
 	nodes := strings.Join([]string{
-		specNodeList("cli", `["spec","p0"]`),
-		specNodeList("cli:gen", `["spec","p0"]`),
-		specNodeList("cli:cha", `["spec","p1"]`),
-		specNodeList("cli:cha:010", `["spec","p1"]`),
-		specNodeList("cli:cha:010:01", `["spec","p1"]`),
+		specNodeList("cli", `["spec"]`),
+		specNodeList("cli:cha:010:01", `["spec"]`),
+		specNodeList("msg:010:02", `["spec"]`),
+		specNodeList("onboarding:mentor:screens", `["spec"]`),
+		specNodeList("register", `["index"]`),
 	}, ",")
 	gql, _ := captureGraphQL(t, map[string]string{
 		"Memories":  memListJSON,
-		"GetMemory": memGetJSON(`null`),
+		"GetMemory": memGetJSON(`{"spec":{"scheme":"product"}}`),
 		"FindNodes": `{"data":{"nodes":[` + nodes + `]}}`,
 	})
 	f, out := testFactory(t)
@@ -936,60 +941,36 @@ func TestSpecDescribeProduct(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var dto struct {
-		Scheme   string   `json:"scheme"`
-		Source   string   `json:"source"`
-		Products []string `json:"products"`
-		Modules  []string `json:"modules"`
-	}
+	var dto map[string]any
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 		t.Fatalf("output not JSON: %v\n%s", err, out.String())
 	}
-	if dto.Scheme != "product" {
-		t.Errorf("scheme = %q, want product", dto.Scheme)
+	for _, gone := range []string{"scheme", "source", "declared", "derived", "products", "modules", "counts", "contracts", "warnings"} {
+		if _, ok := dto[gone]; ok {
+			t.Errorf("retired field %q is still reported:\n%s", gone, out.String())
+		}
 	}
-	if dto.Source != "derived" {
-		t.Errorf("source = %q, want derived (memory data was null)", dto.Source)
+	if dto["specs"] != 4.0 || dto["legacyNumbered"] != 3.0 || dto["outsideNumbering"] != 1.0 || dto["maxDepth"] != 4.0 {
+		t.Errorf("inventory = %v", dto)
 	}
-	if len(dto.Products) != 1 || dto.Products[0] != "cli" {
-		t.Errorf("products = %v, want [cli]", dto.Products)
-	}
-	if len(dto.Modules) != 1 || dto.Modules[0] != "cli:cha" {
-		t.Errorf("modules = %v, want [cli:cha]", dto.Modules)
+	if dto["retiredDeclaration"] != "product" {
+		t.Errorf("a stored declaration must be disclosed as retired, got %v", dto["retiredDeclaration"])
 	}
 }
 
-func TestSpecDescribeDeclare(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"Memories":     memListJSON,
-		"GetMemory":    memGetJSON(`null`),
-		"UpdateMemory": `{"data":{"updateMemory":{"id":"mem1","urn":"hadronmemory.com:platform-specs","name":"P","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"data":{"spec":{"scheme":"product"}},"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"FindNodes":    `{"data":{"nodes":[]}}`, // empty corpus: the declared scheme is all there is
-	})
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "describe", "-m", specProductMem, "--declare", "product", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	// UpdateMemory was called with a data bag declaring the scheme.
-	var vars struct {
-		Data json.RawMessage `json:"data"`
-	}
-	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
-	if !strings.Contains(string(vars.Data), `"scheme":"product"`) {
-		t.Errorf("UpdateMemory data must declare scheme product, got %s", vars.Data)
-	}
-	// Output reflects the declaration even though the corpus is empty.
-	var dto struct {
-		Scheme   string `json:"scheme"`
-		Source   string `json:"source"`
-		Declared string `json:"declared"`
-		Derived  string `json:"derived"`
-	}
-	_ = json.Unmarshal([]byte(out.String()), &dto)
-	if dto.Scheme != "product" || dto.Source != "declared" || dto.Declared != "product" || dto.Derived != "empty" {
-		t.Errorf("declared describe = %+v", dto)
+// #709: --declare is retired. An old invocation is refused with the reason,
+// BEFORE any request — the unreachable server proves nothing was read or
+// written — so it can neither silently succeed nor touch the memory's data.
+// An explicitly empty `--declare=` is given, not omitted, so it is refused too.
+func TestSpecDescribeDeclareIsRetired(t *testing.T) {
+	for _, v := range []string{"product", "flat", ""} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"spec", "describe", "-m", specProductMem, "--declare=" + v, "--server", "http://127.0.0.1:1"})
+		err := root.Execute()
+		if got := exitCodeFor(err); got != exitcode.Usage || !strings.Contains(err.Error(), "retired") || !strings.Contains(err.Error(), "Nothing was written") {
+			t.Errorf("--declare %s: exit %d, err %v; want a Usage refusal saying it is retired and nothing was written", v, got, err)
+		}
 	}
 }
 

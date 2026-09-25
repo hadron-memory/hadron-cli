@@ -1,13 +1,13 @@
 # How to maintain product specs
 
 `hadron spec` runs a Hadron memory like a legal code: a spec's `loc` **is** its
-citation, each colon level is a real parent/child node, numbers are never
-renumbered (to replace a spec you `supersede` it), and a fixed rubric (abstract
-+ a "what invalidates this spec" statement) is enforced by `lint`.
+citation, numbers are never renumbered (to replace a spec you `supersede` it),
+and `lint` checks a rubric (abstract + a "what invalidates this spec"
+statement). A loc implies no parent: a spec's edges are the ones it was given.
 
 Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 
-> **The fixed hierarchy is being removed (#708/#709).** A spec is any node
+> **The fixed hierarchy is removed (#708/#709).** A spec is any node
 > tagged `spec` (or carrying the governed spec role), and **any valid node loc
 > is a spec address**, at any depth and in any shape. `get`, `list`, `edit`,
 > `link`, `find`, `grep`, `replace` and `check-tools` no longer check the
@@ -15,66 +15,48 @@ Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 > schemes below describe the **legacy numbering**, which `spec new`'s
 > allocation and contract flags still produce. To create a spec anywhere
 > else, use `spec new <loc> --title <title>`. To replace one, use
-> `spec supersede <old> --to <loc>`. Its lint rules and the flat/product
-> scheme are next to go; this page is rewritten when they land.
+> `spec supersede <old> --to <loc>`. The flat/product scheme is retired
+> (#709), and `lint` no longer checks the tiers (parent-exists, toc-edge,
+> inheritance-edge, index-incomplete, mixed-arity). Still open (#708): whether
+> the rubric applies beyond rule and flow depth.
 > See [docs/plans/spec-hierarchy-removal.md](../plans/spec-hierarchy-removal.md).
 
-## Two citation schemes
+## The legacy numbering
 
-A memory is either **flat** or **product-rooted** — pick one per memory and
-don't mix them (`lint` warns if you do).
+Any valid loc is a spec (#708). Some corpora number their specs in a legacy
+scheme, and `spec new`'s allocation and contract flags still produce it:
 
 ```
 flat:      <module>:<feature>:<rule>[:<flow>]            msg:010:02:03
 product:  <product>:<module>:<feature>:<rule>[:<flow>]   cli:cha:010:01:02
 ```
 
-- **product** — a shippable artifact (`cli`, `srv`, `por`). 3 lowercase letters.
-- **module** — its top-level internal division (a command group, a backend
-  service). 3 lowercase letters.
-- **feature** — 3 digits, numbered in tens (`010`, `020`, …).
-- **rule** — 2 digits, `+1`.
-- **flow** — 2 digits, `+1` (pull-on-demand sub-parts of a rule).
+- **product**: a shippable artifact (`cli`, `srv`, `por`), 3 lowercase letters.
+- **module**: its top-level internal division, 3 lowercase letters.
+- **feature**: 3 digits, numbered in tens (`010`, `020`, …).
+- **rule**: 2 digits, `+1`.
+- **flow**: 2 digits, `+1`.
 
-A citation is self-describing: if the second segment is letters it's
-product-rooted (`cli:cha:…`); if it's digits it's flat (`msg:010:…`). Product
-and module codes are **frozen** once created — you never renumber or rename
-them.
+This is a convention, not a rule: nothing refuses or flags a spec at any other
+loc, and a memory no longer has a "scheme". It may mix both forms, or use
+neither (#709). Codes and numbers are still never renumbered; to replace a spec
+you `supersede` it.
 
-Use a flat memory for a single product (e.g. one team's `platform-specs`); use
-a product-rooted memory when one corpus spans several products (e.g. Hadron's
-own `cli` / `srv` / `por`).
-
-### See (or declare) what scheme a memory uses
+### See what a memory holds
 
 ```sh
-hadron spec describe -m hrn:mem:hadronmemory.com:platform-specs
+hadron spec describe -m hrn:mem:hadronmemory.com:specs
 ```
 
-```
-Spec scheme — hadronmemory.com::platform-specs        # legacy form: see note below
-  scheme:    product  (declared)
-  products:  cli, srv
-  modules:   cli:cha, srv:gql
-  counts:    2 products, 2 modules, 12 features, 40 rules, 8 flows, 5 contracts
-  contracts: product <p>:gen · module <m>:000 · feature <m>:<f>:00
-```
+`describe` is a neutral inventory. It reports:
+- how many specs the memory holds;
+- their root segments;
+- the deepest loc;
+- how many specs are in the legacy numbering, and how many are outside it.
 
-> The memory line above is real output. The `spec` group composes the
-> legacy `<org>::<slug>` form internally on purpose — a fixed-arity flat v2 node URN
-> cannot round-trip a COMPOUND app-mem memory (see CLAUDE.md) — so `describe`
-> still prints it. Input accepts every spelling, which is why the invocation
-> uses `hrn:mem:`. Do not "correct" the transcript to match.
-
-The scheme is **derived** from the live nodes, and can also be **declared** in
-the memory's data (`{"spec":{"scheme":"product"}}`) so an empty memory can
-announce its arity before it has any specs. A declaration is authoritative;
-`describe` flags any drift from what the nodes actually look like. Declare it
-once, up front:
-
-```sh
-hadron spec describe -m hrn:mem:hadronmemory.com:platform-specs --declare product
-```
+It classifies nothing. `--declare` is retired: it is refused and writes
+nothing. A scheme a memory's data still carries from it is shown as retired
+and ignored.
 
 ## General-provisions contracts
 
@@ -203,23 +185,24 @@ nothing).
 Flows (`:NN:NN`) inherit their rule's scenarios and stay terse — they scaffold
 only the mandatory rubric.
 
-## The index rubric (module and feature tier)
+## The index convention (legacy module and feature nodes)
 
-A module or feature node is not a rule — it is an **index of its children**, and
-the two fields it carries divide that work between them. Both halves are
-enforced, by different rules, and they are not interchangeable:
+In the legacy numbering, a module or feature node is not a rule but an **index
+of its children**, and its two fields divide that work between them. This is a
+convention, not a lint obligation: `index-incomplete` is removed (#708), so
+nothing checks the body index, and a spec at any loc owes none. Only the
+abstract's cap still applies, through `abstract-length`.
 
-| field | job | enforced by |
-| --- | --- | --- |
-| **abstract** | ROUTE by *describing* subjects — one clause per child, naming what that child is | `abstract-length` (an index that RESTATES its children instead of routing to them runs long) |
-| **body** | INDEX by *citing* children — one entry per child, carrying its loc | `index-incomplete` |
+| field | job |
+| --- | --- |
+| **abstract** | ROUTE by *describing* subjects — one clause per child, naming what that child is. An index that RESTATES its children instead of routing to them runs into `abstract-length` |
+| **body** | INDEX by *citing* children — one entry per child, carrying its loc |
 
 Keep citations out of the abstract. It is the embedded retrieval surface, a loc
 string means nothing to an embedding, and the characters it spends count against
-the 2000-char cap `abstract-length` already errors on — so the two signals would
-fight. Cite in the body.
+the 2000-char cap. Cite in the body.
 
-Any of three spellings satisfies the body index, and all three are in live use:
+Three spellings of a body entry are in live use:
 
 ```markdown
 - [`cor:acl:010`](hrn:node:hadronmemory.com:specs:cor:acl:010) — full citation
@@ -227,17 +210,12 @@ Any of three spellings satisfies the body index, and all three are in live use:
 - **`:01` Who may impersonate** — colon-leaf, once the node's own citation sets the prefix
 ```
 
-A **struck** entry for a superseded child still counts — a withdrawal correctly
-recorded is not a gap, and dropping the child from the list is:
+Record a superseded child **struck** rather than dropping it, so the withdrawal
+stays visible:
 
 ```markdown
 - ~~[`cor:agt:020:06`](hrn:node:hadronmemory.com:specs:cor:agt:020:06)~~ — **superseded** (rescinded 2026-08-14, no successor)
 ```
-
-The check runs only in a corpus scope (`--all`, `--prefix`, `--product`,
-`--module`), since it is a statement about a node's children. The product root
-and the rule tier are out of scope, and so is a general-provisions contract —
-it is inherited by its siblings rather than indexing anything.
 
 ## Navigating and validating
 
@@ -259,13 +237,13 @@ abstract** (one bulk fetch, not a per-spec loop) and prints every occurrence as
 `citation:line: text` — literal by default, `--regex`/`-i`, `--field
 content|abstract`, `--prefix` to scope.
 
-`lint` enforces the rubric (abstract + "what invalidates"), the citation shape,
-parent existence, inheritance edges to the tier contract, and the
-**one-arity-per-memory** rule. A corpus scope adds `index-incomplete` — an
-index-tier spec whose body omits a child's citation (see *The index rubric*
-above); the warning names the uncited locs, and says whether each one was edited
-after the index (the list fell behind) or already existed when the index was
-last written (the list was touched and the child left out).
+`lint` checks each spec's name, node type and `spec` tag, duplicate locs,
+serialization leaks, each abstract's length and freshness, and the rubric
+(abstract + "what invalidates") on rule- and flow-depth specs; every finding
+names its rule. A spec at any loc owes no parent, contract or index, and a
+memory may mix loc shapes: the legacy tier checks (parent-exists, toc-edge,
+inheritance-edge, index-incomplete) and the one-arity rule (`mixed-arity`) are
+removed.
 
 Use `hadron spec use $M` when you are repeatedly maintaining the same corpus.
 It writes `spec_memory` to your user config (for example,
@@ -502,12 +480,9 @@ not in a scanner.
 
 ## Notes
 
-- A memory's declared scheme lives in its `data` bag under `spec.scheme`
-  (`hadron spec describe --declare …` writes it; `describe` reads it). It is
-  optional — `describe` derives the scheme from the live nodes for any
-  non-empty memory — but declaring it up front lets an empty memory state its
-  intended arity and lets `describe` flag drift. See
-  [docs/plans/spec-product-level.md](../plans/spec-product-level.md).
+- A memory's data may still carry `spec.scheme` from the retired
+  `describe --declare`. It is left in place (no sweep), shown by `describe` as
+  retired, and read by nothing (#709).
 - `hadron spec import spec-kit|code` is reserved for future import workflows and
   currently exits with a not-implemented usage error; new, edit, extract,
   link, and supersede are the supported write paths today.

@@ -20,10 +20,12 @@ with, and the `preflight` router — where a malformed edge label makes a check
 silently stop firing. See
 [docs/how-to/maintain-review-checklists.md](docs/how-to/maintain-review-checklists.md).
 
-Specs follow a legal-code citation scheme — flat (`<module>:<feature>:<rule>`)
-or product-rooted (`<product>:<module>:<feature>:<rule>`) for a multi-product
-corpus — with a general-provisions contract at every tier (feature `:00`,
-module `:000`, product `:gen`). See
+Specs are cited like a legal code: a spec's loc is its citation, and any valid
+loc is a spec address. The legacy numbering — flat
+(`<module>:<feature>:<rule>`) or product-rooted
+(`<product>:<module>:<feature>:<rule>`), with general-provisions contracts — is
+an optional convention that `spec new`'s allocation and contract flags still
+produce; nothing requires it. See
 [docs/how-to/maintain-product-specs.md](docs/how-to/maintain-product-specs.md).
 
 ## Install

@@ -511,30 +511,16 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 // lintCorpus runs the per-node rules on every node plus the cross-node
 // checks that hold at any loc (duplicate locs). The legacy tier obligations —
 // a parent must exist, a node must inherit its tier's contract, an index must
-// list its children — are gone (#708): `spec new <loc>` creates a spec with no
-// parent or contract on purpose, and a legacy-shaped loc no longer implies
-// one (@codex on #710). memURN is passed through to the per-node rules.
+// list its children — are gone (#708), and so is the flat/product
+// `mixed-arity` warning (#709): `spec new <loc>` creates a spec with no
+// parent or contract on purpose, and a memory no longer has a scheme.
+// memURN is passed through to the per-node rules.
 func lintCorpus(nodes []specNode, memURN string) []lintFindingDTO {
 	fs := []lintFindingDTO{}
 	locCount := map[string]int{}
-	productCodes := map[string]bool{}
-	flatCodes := map[string]bool{}
 	for _, n := range nodes {
 		fs = append(fs, lintNode(n, memURN)...)
 		locCount[n.Loc]++
-		if n.Unavailable {
-			continue
-		}
-		c, err := ParseCitation(n.Loc)
-		if err != nil {
-			continue
-		}
-		switch {
-		case c.Product != "":
-			productCodes[c.Product] = true
-		case c.Feature != "": // a flat module with a numeric child
-			flatCodes[c.Module] = true
-		}
 	}
 
 	dupReported := map[string]bool{}
@@ -546,14 +532,6 @@ func lintCorpus(nodes []specNode, memURN string) []lintFindingDTO {
 			dupReported[n.Loc] = true
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "duplicate-loc", Severity: sevError, Message: "duplicate citation — two nodes share this loc"})
 		}
-	}
-
-	// Hygiene: a memory should be all-flat or all-product, never both.
-	if len(productCodes) > 0 && len(flatCodes) > 0 {
-		fs = append(fs, lintFindingDTO{
-			Citation: "(memory)", Rule: "mixed-arity", Severity: sevWarning,
-			Message: "memory mixes flat (" + strings.Join(sortedStringKeys(flatCodes), ", ") + ") and product-rooted (" + strings.Join(sortedStringKeys(productCodes), ", ") + ") citations — keep one arity per memory",
-		})
 	}
 	return fs
 }
@@ -708,8 +686,8 @@ func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string
 }
 
 // scanAllCitationLocs reads every citation-shaped node in the memory. It is
-// intentionally tag-agnostic so inventory views don't hide malformed specs
-// before lint can report the missing tag.
+// tag-agnostic so product discovery sees a product whose specs are missing
+// their tag.
 func scanAllCitationLocs(cmd *cobra.Command, client graphql.Client, memURN string) ([]string, error) {
 	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
 	if err != nil {

@@ -342,7 +342,9 @@ func TestLintCorpusDuplicate(t *testing.T) {
 	}
 }
 
-func TestLintCorpusMixedArity(t *testing.T) {
+// #709: a memory that mixes the old flat and product-rooted numberings is no
+// longer flagged — the `mixed-arity` rule went with the scheme it enforced.
+func TestLintCorpusNoLongerFlagsMixedArity(t *testing.T) {
 	nodes := []specNode{
 		{Loc: "msg", Name: "msg — Messaging", NodeType: "info", Tags: []string{"spec", "p0"}},
 		{Loc: "msg:010", Name: "msg:010 — F", NodeType: "info", Tags: []string{"spec", "p1"}},
@@ -350,8 +352,8 @@ func TestLintCorpusMixedArity(t *testing.T) {
 		{Loc: "cli", Name: "cli — CLI", NodeType: "info", Tags: []string{"spec", "p0"}},
 		{Loc: "cli:cha", Name: "cli:cha — chat", NodeType: "info", Tags: []string{"spec", "p1"}},
 	}
-	if !hasRule(lintCorpus(nodes, lintMem), "mixed-arity") {
-		t.Errorf("expected mixed-arity warning; got %v", lintCorpus(nodes, lintMem))
+	if fs := lintCorpus(nodes, lintMem); hasRule(fs, "mixed-arity") {
+		t.Errorf("mixed-arity is retired (#709); got %v", fs)
 	}
 }
 

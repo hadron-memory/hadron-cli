@@ -1,5 +1,12 @@
 # Implementation Plan: product citation level + tiered general-provisions contracts
 
+> **PARTLY SUPERSEDED — the scheme and the tier obligations are gone.**
+> hadron-cli#710 (#708) made any valid loc a spec address and removed the tier
+> checks, and #709 retired the flat/product scheme: `spec describe --declare`
+> is refused, a stored `spec.scheme` is never applied, and lint's `mixed-arity`
+> warning is removed. The legacy numbering below survives only as an optional
+> adapter. See [spec-hierarchy-removal.md](spec-hierarchy-removal.md).
+
 > **Status: shipped** — merged 2026-06-15 (`6d714b6`). Resolves
 > [#17](https://github.com/hadron-memory/hadron-cli/issues/17) (add a `<product>`
 > top level to the citation scheme) and

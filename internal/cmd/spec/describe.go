@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -15,36 +16,34 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// describeCounts is the per-tier node tally in `spec describe` output.
-type describeCounts struct {
-	Products  int `json:"products"`
-	Modules   int `json:"modules"`
-	Features  int `json:"features"`
-	Rules     int `json:"rules"`
-	Flows     int `json:"flows"`
-	Contracts int `json:"contracts"`
-}
-
-// describeContracts names the reserved general-provisions contract slot at
-// each tier (Product is "" in a flat corpus).
-type describeContracts struct {
-	Product string `json:"product"`
-	Module  string `json:"module"`
-	Feature string `json:"feature"`
-}
-
-// describeDTO is the stable --json shape for `spec describe`.
+// describeDTO is the stable --json shape for `spec describe`: a NEUTRAL
+// inventory of a memory's spec corpus (#709).
+//
+// It used to classify the corpus — a flat/product/mixed "scheme", per-tier
+// counts by depth (modules, features, rules, flows), and the reserved contract
+// code at each tier — and to read a scheme declared in the memory's data as
+// authoritative. All of that was the fixed hierarchy #708/#709 remove, so none
+// of it is reported any more. What remains are facts about the stored nodes,
+// with no tier assigned to any depth.
 type describeDTO struct {
-	Memory    string            `json:"memory"`
-	Scheme    string            `json:"scheme"` // effective: declared if set, else derived
-	Source    string            `json:"source"` // "declared" | "derived"
-	Declared  string            `json:"declared,omitempty"`
-	Derived   string            `json:"derived"` // flat | product | mixed | empty
-	Products  []string          `json:"products"`
-	Modules   []string          `json:"modules"`
-	Counts    describeCounts    `json:"counts"`
-	Contracts describeContracts `json:"contracts"`
-	Warnings  []string          `json:"warnings,omitempty"`
+	Memory string `json:"memory"`
+	// Specs is how many nodes are specs (the spec tag or the spec role).
+	Specs int `json:"specs"`
+	// Roots are the distinct first loc segments of those specs, sorted.
+	Roots []string `json:"roots"`
+	// MaxDepth is the most segments any spec's loc has (0 when there are none).
+	MaxDepth int `json:"maxDepth"`
+	// LegacyNumbered counts the specs whose loc fits the legacy numbering —
+	// what `spec new`'s allocation, `spec register` and `spec extract` still
+	// operate on — and OutsideNumbering the rest. Neither is a validity
+	// judgment: every spec is valid at any loc (#708).
+	LegacyNumbered   int `json:"legacyNumbered"`
+	OutsideNumbering int `json:"outsideNumbering"`
+	// RetiredDeclaration is a flat/product scheme still stored in the
+	// memory's data by the retired `--declare` (#709). It is reported so it
+	// isn't mistaken for policy, and it is never read as one; the stored
+	// value is left in place.
+	RetiredDeclaration string `json:"retiredDeclaration,omitempty"`
 }
 
 func newCmdDescribe(f *cmdutil.Factory) *cobra.Command {
@@ -52,23 +51,24 @@ func newCmdDescribe(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "describe",
 		Aliases: []string{"desc"},
-		Short:   "Report (or declare) a memory's spec scheme",
-		Long: `Report the spec scheme a memory uses — whether citations are flat
-(<module>:<feature>:…) or product-rooted (<product>:<module>:…) — plus the
-products/modules present, per-tier counts, and the general-provisions
-contract code at each tier.
+		Short:   "Inventory a memory's spec corpus",
+		Long: `Inventory a memory's spec corpus: how many specs it holds, their root
+segments, the deepest loc, and how many sit in the legacy numbering (which
+"spec new"'s allocation, "spec register" and "spec extract" operate on).
 
-The scheme can be declared in the memory's data (so an empty memory can
-announce its intended arity); when declared it is authoritative and any
-disagreement with the live nodes is flagged. --declare flat|product
-writes that declaration.`,
-		Example: `  hadron spec describe -m hrn:mem:hadronmemory.com:platform-specs
-  hadron spec describe -m hrn:mem:hadronmemory.com:platform-specs --declare product
-  hadron spec describe -m hrn:mem:micromentor.org:platform-specs --json`,
+Nothing is classified: a spec is valid at any loc, at any depth, and no
+tier is assigned to a depth. A memory no longer has a flat or product-rooted
+"scheme"; one still stored in the memory's data by the retired --declare is
+shown as retired and ignored.`,
+		Example: `  hadron spec describe -m hrn:mem:hadronmemory.com:specs
+  hadron spec describe -m hrn:mem:micromentor.org:specs --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if declare != "" && declare != "flat" && declare != "product" {
-				return exitcode.Newf(exitcode.Usage, "--declare must be \"flat\" or \"product\"")
+			// #709: retired, and refused BEFORE any request, so an old
+			// invocation can't silently succeed or write the memory's data.
+			if cmd.Flags().Changed("declare") {
+				return exitcode.Newf(exitcode.Usage,
+					"--declare is retired (#709): a memory no longer declares a flat or product-rooted spec scheme, and nothing reads one. Nothing was written")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -83,29 +83,23 @@ writes that declaration.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			var curData *json.RawMessage
+			var data *json.RawMessage
 			if memResp.Memory != nil {
-				curData = memResp.Memory.Data
+				data = memResp.Memory.Data
 			}
 
-			if declare != "" {
-				merged, merr := withScheme(curData, declare)
-				if merr != nil {
-					return merr
-				}
-				if _, uerr := gen.UpdateMemory(cmd.Context(), client, memID, nil, nil, nil, nil, nil, &merged, nil, nil, nil); uerr != nil {
-					return api.MapError(uerr)
-				}
-				curData = &merged
-			}
-			declared := schemeFromData(curData)
-
-			locs, err := scanAllCitationLocs(cmd, client, memURN)
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
 			if err != nil {
 				return err
 			}
-			dto := describeScheme(memURN, locs)
-			applyDeclared(&dto, declared)
+			var locs []string
+			for _, n := range all {
+				if n != nil && isSpec(n.Tags, n.Role) {
+					locs = append(locs, n.Loc)
+				}
+			}
+			dto := describeInventory(memURN, locs)
+			dto.RetiredDeclaration = schemeFromData(data)
 
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return renderDescribe(w, dto)
@@ -113,13 +107,16 @@ writes that declaration.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
-	cmd.Flags().StringVar(&declare, "declare", "", "declare the scheme in the memory's data: flat | product")
+	// Kept only so an old invocation is refused with an explanation rather
+	// than "unknown flag" (#709). Hidden: it only refuses.
+	cmd.Flags().StringVar(&declare, "declare", "", "retired (#709): refused, writes nothing")
+	_ = cmd.Flags().MarkHidden("declare")
 	return cmd
 }
 
-// schemeFromData extracts data.spec.scheme; "" if absent or unparseable. It is
-// deliberately lenient on read (unlike withScheme, which rejects a malformed
-// bag on write): a foreign or empty data bag degrades to "no declaration".
+// schemeFromData extracts the retired data.spec.scheme; "" if absent or
+// unparseable. It is read only to DISCLOSE a stale declaration (#709), never
+// as policy.
 func schemeFromData(data *json.RawMessage) string {
 	if data == nil || len(*data) == 0 {
 		return ""
@@ -135,177 +132,41 @@ func schemeFromData(data *json.RawMessage) string {
 	return d.Spec.Scheme
 }
 
-// withScheme merges spec.scheme=scheme into the memory's data bag, preserving
-// every other key.
-func withScheme(data *json.RawMessage, scheme string) (json.RawMessage, error) {
-	bag := map[string]json.RawMessage{}
-	if data != nil && len(*data) > 0 {
-		if err := json.Unmarshal(*data, &bag); err != nil {
-			return nil, exitcode.Newf(exitcode.Usage, "memory data is not a JSON object: %v", err)
-		}
-		if bag == nil { // a literal JSON null unmarshals into a nil map
-			bag = map[string]json.RawMessage{}
-		}
-	}
-	spec := map[string]json.RawMessage{}
-	if raw, ok := bag["spec"]; ok {
-		_ = json.Unmarshal(raw, &spec) // best-effort; the scheme key is overwritten
-	}
-	schemeRaw, _ := json.Marshal(scheme)
-	spec["scheme"] = schemeRaw
-	specRaw, err := json.Marshal(spec)
-	if err != nil {
-		return nil, err
-	}
-	bag["spec"] = specRaw
-	return json.Marshal(bag)
-}
-
-// describeScheme derives the spec scheme and inventory from a memory's live
-// citation locs. A top code is a product when some loc roots under it
-// (code:<alpha>…); a bare such code is a product root, not a flat module.
-func describeScheme(memURN string, locs []string) describeDTO {
-	products := map[string]bool{}
+// describeInventory builds the neutral inventory of the given spec locs.
+func describeInventory(memURN string, locs []string) describeDTO {
+	dto := describeDTO{Memory: memURN, Roots: []string{}}
+	roots := map[string]bool{}
 	for _, loc := range locs {
-		if c, err := ParseCitation(loc); err == nil && c.Product != "" {
-			products[c.Product] = true
+		dto.Specs++
+		segs := strings.Split(loc, ":")
+		roots[segs[0]] = true
+		if len(segs) > dto.MaxDepth {
+			dto.MaxDepth = len(segs)
+		}
+		if _, err := ParseCitation(loc); err == nil {
+			dto.LegacyNumbered++
+		} else {
+			dto.OutsideNumbering++
 		}
 	}
-
-	modules := map[string]bool{}
-	var counts describeCounts
-	flatSeen, productSeen := false, false
-	for _, loc := range locs {
-		c, err := ParseCitation(loc)
-		if err != nil {
-			continue
-		}
-		// Scheme signal: any product-rooted citation ⇒ product; any flat
-		// citation with a numeric child ⇒ flat. (A bare top code is ambiguous
-		// and contributes to neither.)
-		if c.Product != "" {
-			productSeen = true
-		} else if c.Feature != "" {
-			flatSeen = true
-		}
-		// Contracts are tallied once — not also under their position tier.
-		if c.IsContract() {
-			counts.Contracts++
-			continue
-		}
-		switch {
-		case c.Product == "" && products[c.Module] && c.Feature == "":
-			// a bare product root parsed as a flat module — counted via products
-		case c.Level() == 1:
-			modules[c.Format()] = true
-		case c.Level() == 2:
-			counts.Features++
-		case c.Level() == 3:
-			counts.Rules++
-		case c.Level() == 4:
-			counts.Flows++
-		}
+	for r := range roots {
+		dto.Roots = append(dto.Roots, r)
 	}
-	counts.Products = len(products)
-	counts.Modules = len(modules)
-
-	scheme := "empty"
-	switch {
-	case productSeen && flatSeen:
-		scheme = "mixed"
-	case productSeen:
-		scheme = "product"
-	case flatSeen:
-		scheme = "flat"
-	case len(modules) > 0 || len(products) > 0:
-		scheme = "flat" // only bare roots present; default to flat
-	}
-
-	dto := describeDTO{
-		Memory:    memURN,
-		Scheme:    scheme,
-		Source:    "derived",
-		Derived:   scheme,
-		Products:  sortedStringKeys(products),
-		Modules:   sortedStringKeys(modules),
-		Counts:    counts,
-		Contracts: describeContracts{Module: moduleContractFeature, Feature: "00"},
-	}
-	if scheme == "product" || scheme == "mixed" {
-		dto.Contracts.Product = productContractCode
-	}
-	if scheme == "mixed" {
-		dto.Warnings = append(dto.Warnings,
-			"memory mixes flat and product-rooted citations — keep one arity per memory")
-	}
+	sort.Strings(dto.Roots)
 	return dto
 }
 
-// applyDeclared overlays a declared scheme (from the memory's data) onto a
-// derived DTO: the declaration wins, and any disagreement with the live nodes
-// is flagged.
-func applyDeclared(d *describeDTO, declared string) {
-	if declared == "" {
-		return
-	}
-	d.Declared = declared
-	d.Scheme = declared
-	d.Source = "declared"
-	if declared == "product" || declared == "mixed" {
-		d.Contracts.Product = productContractCode
-	}
-	if d.Derived != "empty" && d.Derived != declared {
-		d.Warnings = append(d.Warnings,
-			fmt.Sprintf("declared scheme %q but live nodes look %q", declared, d.Derived))
-	}
-}
-
 func renderDescribe(w io.Writer, d describeDTO) error {
-	fmt.Fprintf(w, "Spec scheme — %s\n", d.Memory)
-	fmt.Fprintf(w, "  scheme:    %s  (%s)\n", d.Scheme, d.Source)
-	if d.Declared != "" && d.Declared != d.Derived {
-		fmt.Fprintf(w, "  derived:   %s  (from live nodes)\n", d.Derived)
+	fmt.Fprintf(w, "Spec corpus — %s\n", d.Memory)
+	if d.Specs == 0 {
+		fmt.Fprintln(w, "  no specs yet — create one with `hadron spec new <loc> --title <title>`")
+	} else {
+		fmt.Fprintf(w, "  specs:     %d  (deepest loc: %d segments)\n", d.Specs, d.MaxDepth)
+		fmt.Fprintf(w, "  roots:     %s\n", strings.Join(d.Roots, ", "))
+		fmt.Fprintf(w, "  numbering: %d in the legacy numbering, %d outside it\n", d.LegacyNumbered, d.OutsideNumbering)
 	}
-	if len(d.Products) > 0 {
-		fmt.Fprintf(w, "  products:  %s\n", strings.Join(d.Products, ", "))
-	}
-	if len(d.Modules) > 0 {
-		fmt.Fprintf(w, "  modules:   %s\n", strings.Join(d.Modules, ", "))
-	}
-	fmt.Fprintf(w, "  counts:    %s\n", describeCountsLine(d.Counts))
-	fmt.Fprintf(w, "  contracts: %s\n", describeContractsLine(d.Contracts))
-	if d.Scheme == "empty" {
-		fmt.Fprintln(w, "  (no spec nodes yet — declare with --declare, or scaffold a root with `spec new --new-product`/`--new-module`)")
-	}
-	for _, warn := range d.Warnings {
-		fmt.Fprintf(w, "  ⚠ %s\n", warn)
+	if d.RetiredDeclaration != "" {
+		fmt.Fprintf(w, "  note:      this memory's data still declares a %q scheme; --declare is retired and nothing reads it\n", d.RetiredDeclaration)
 	}
 	return nil
-}
-
-func describeCountsLine(c describeCounts) string {
-	var parts []string
-	if c.Products > 0 {
-		parts = append(parts, fmt.Sprintf("%d products", c.Products))
-	}
-	parts = append(parts,
-		fmt.Sprintf("%d modules", c.Modules),
-		fmt.Sprintf("%d features", c.Features),
-		fmt.Sprintf("%d rules", c.Rules),
-		fmt.Sprintf("%d flows", c.Flows),
-		fmt.Sprintf("%d contracts", c.Contracts),
-	)
-	return strings.Join(parts, ", ")
-}
-
-func describeContractsLine(c describeContracts) string {
-	var parts []string
-	if c.Product != "" {
-		parts = append(parts, "product <p>:"+c.Product)
-	}
-	parts = append(parts,
-		"module <m>:"+c.Module,
-		"feature <m>:<f>:"+c.Feature,
-	)
-	return strings.Join(parts, " · ")
 }
