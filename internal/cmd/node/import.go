@@ -109,6 +109,15 @@ The target memory/loc come from the file's own keys; -m/--memory
 and --loc override them (re-homing a node into another memory). Outgoing edges
 are imported only with --with-edges (off by default).
 
+A file's role: and runnable: keys (isRunnable in JSON) are the node's kind: a
+task (runnable: true), a spec or a review. The write goes through the door that
+kind requires, like node add and node update. memory export and the server's
+git sync write the keys, so their files re-import with the kind; node export
+does not write them yet, so its files carry no kind. A file without the keys
+has no opinion: on an existing node the stored kind is kept, and a new node is
+ordinary. A file that would make the node two governed kinds at once is refused
+before anything is written.
+
 CONTENT — ingest RAW external source (a web page, a captured HTML DOM, a Markdown
 file, or a PDF) and let the server convert it to the node's Markdown body. This
 mode is selected by --url, by --as-content (force it for an otherwise-ambiguous
@@ -280,6 +289,15 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 		return exitcode.Newf(exitcode.Usage, "%v", err)
 	}
 
+	// cli#714: a file that declares two governed kinds has no door. Checked
+	// here, straight after parsing, so --dry-run reports it and no overwrite
+	// prompt is shown for a write that will be refused.
+	if kinds := api.GovernedKindConflict(doc.Role, doc.IsRunnable != nil && *doc.IsRunnable); kinds != nil {
+		return exitcode.Newf(exitcode.Usage,
+			"the file declares two governed kinds at once — %s — and each door is exempt from its OWN kind only, so every one of them refuses it. Nothing was written",
+			strings.Join(kinds, " AND "))
+	}
+
 	// Target resolution: flag > frontmatter > error.
 	memoryRef := firstNonEmpty(memory, doc.MemoryURN)
 	if memoryRef == "" {
@@ -298,11 +316,45 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 		return err
 	}
 
+	// The existing node, if any: read once for the dry-run classification, the
+	// overwrite prompt and the door. --create-only never overwrites (it fails on
+	// a live loc), so it skips the probe unless this is a dry run.
+	existingID, exists := "", false
+	if dryRun || !createOnly {
+		existingID, exists = lookupNode(cmd, client, memoryRef, targetLoc)
+	}
+
+	input, err := buildCreateNodeInput(doc, memoryRef, targetLoc)
+	if err != nil {
+		return err
+	}
+	// cli#714: every write goes through the door its KIND requires, as `node
+	// add` and `node update` do. The server gate reads the kind the node is now
+	// AND the kind it will be, so re-importing a task, a spec or a review onto
+	// its own loc was refused by the generic surface even when the file said
+	// nothing about the kind. The stored kind is read first for that reason;
+	// a failed read leaves the zero value, and the server then gives the
+	// authoritative refusal. This routes; it grants nothing — each door is
+	// still the server's gate.
+	cur := api.NodeKindState{}
+	if exists {
+		if n, gerr := gen.GetNode(cmd.Context(), client, existingID); gerr == nil && n.Node != nil {
+			cur.Role = n.Node.Role
+			cur.IsRunnable = n.Node.IsRunnable != nil && *n.Node.IsRunnable
+		}
+		// The file's kind against the stored one — checked here, before the
+		// dry run reports and before the overwrite prompt, so neither promises
+		// a write that UpdateNodeByKind would refuse.
+		if err := api.CheckUpdateKinds(updateNodeInputFrom(input), cur); err != nil {
+			return err
+		}
+	}
+
 	if dryRun {
-		// Classify create vs update by a best-effort existence probe
-		// (the executed path derives it from which mutation succeeds).
+		// Classify create vs update by the existence probe (the executed
+		// path derives it from which mutation succeeds).
 		action := "created"
-		if nodeExists(cmd, client, memoryRef, targetLoc) {
+		if exists {
 			action = "updated"
 		}
 		return emitImportSummary(f, importNodeSummaryDTO{
@@ -312,42 +364,31 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 	}
 
 	// An import that lands on an existing node overwrites it — gate that behind
-	// the destructive-op regime (#129). --create-only never overwrites (it fails
-	// on a live loc), so it skips the probe.
-	if !createOnly && nodeExists(cmd, client, memoryRef, targetLoc) {
+	// the destructive-op regime (#129).
+	if exists {
 		if err := confirmOverwrite(f, yes, overwriteTarget(memoryRef, targetLoc)); err != nil {
 			return err
 		}
 	}
 
-	input, err := buildCreateNodeInput(doc, memoryRef, targetLoc)
-	if err != nil {
-		return err
-	}
-
-	// The old upsert is now emulated (spec 039 Phase 0 split the write):
-	// without --create-only, try updateNode keyed on (memoryId, loc) and
-	// fall back to createNode when the server says NODE_NOT_FOUND; with
-	// --create-only, go straight to createNode (a live node at the loc
-	// rejects with NodeLocConflictError).
 	var nodeID, nodeLoc, action string
 	if createOnly {
-		resp, err := gen.CreateNode(cmd.Context(), client, input)
+		n, err := api.CreateNodeByKind(cmd.Context(), client, input)
 		if err != nil {
 			return api.MapError(err)
 		}
-		nodeID, nodeLoc, action = resp.CreateNode.Id, resp.CreateNode.Loc, "created"
+		nodeID, nodeLoc, action = n.Id, n.Loc, "created"
 	} else {
-		uResp, uErr := gen.UpdateNode(cmd.Context(), client, updateNodeInputFrom(input))
+		n, uErr := api.UpdateNodeByKind(cmd.Context(), client, updateNodeInputFrom(input), cur)
 		switch {
 		case uErr == nil:
-			nodeID, nodeLoc, action = uResp.UpdateNode.Id, uResp.UpdateNode.Loc, "updated"
+			nodeID, nodeLoc, action = n.Id, n.Loc, "updated"
 		case api.HasErrorCode(uErr, "NODE_NOT_FOUND"):
-			cResp, cErr := gen.CreateNode(cmd.Context(), client, input)
+			c, cErr := api.CreateNodeByKind(cmd.Context(), client, input)
 			if cErr != nil {
 				return api.MapError(cErr)
 			}
-			nodeID, nodeLoc, action = cResp.CreateNode.Id, cResp.CreateNode.Loc, "created"
+			nodeID, nodeLoc, action = c.Id, c.Loc, "created"
 		default:
 			return api.MapError(uErr)
 		}
@@ -661,6 +702,17 @@ func buildCreateNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string) (*
 		}
 		input.Properties = props
 	}
+	// cli#714: the governed signals, carried only when the file states them. An
+	// absent key is "no opinion", so a file written before these keys existed
+	// preserves the stored kind rather than clearing it. An empty role is read
+	// as absent too: the server keeps "" as a role no kind recognizes, and a
+	// file is not a reason to write that (see `node update --role ""`).
+	if doc.Role != nil && *doc.Role != "" {
+		input.Role = doc.Role
+	}
+	if doc.IsRunnable != nil {
+		input.IsRunnable = doc.IsRunnable
+	}
 	return input, nil
 }
 
@@ -702,12 +754,11 @@ func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 		// #1201. Caught by TestUpdateNodeInputFromMapsAllFields the moment the
 		// field appeared, which is what that guard is for: dropping it would
 		// mean re-importing a spec or review node silently STRIPS the role that
-		// makes it governed, leaving it rewritable through the generic surface.
+		// makes it governed.
 		//
-		// Mapping it does not let `node import` mint a governed node — the
-		// server refuses a governed write on the generic surface, which is the
-		// gate doing its job. It keeps the import honest about what the file
-		// says, and the refusal is then visible rather than silently obeyed.
+		// The write goes through the door of every kind it touches (cli#714,
+		// api.UpdateNodeByKind), as `node update` does. That routes; it grants
+		// nothing a door would not — each door is still the server's gate.
 		Role: in.Role,
 	}
 }
@@ -717,13 +768,23 @@ func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 // upsert that follows is authoritative for real failures (auth/transport), and
 // a dry run degrades to "would create".
 func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string) bool {
+	_, ok := lookupNode(cmd, client, memoryRef, loc)
+	return ok
+}
+
+// lookupNode is nodeExists that also returns the node's id, so a caller that
+// must read the node (its kind, for routing) needs no second resolve.
+func lookupNode(cmd *cobra.Command, client graphql.Client, memoryRef, loc string) (string, bool) {
 	// An org::memory-shaped ref composes an exact node URN in one round-trip.
 	// (cmdutil.NodeURN normalizes the separators — building the URN by hand as
 	// memoryRef+":"+loc produced a single-colon `org::memory:loc` that never
 	// resolved, so the overwrite probe silently missed every existing node.)
 	if urn := cmdutil.NodeURN(memoryRef, loc); urn != "" {
 		resp, err := gen.ResolveUrn(cmd.Context(), client, urn)
-		return err == nil && resp.ResolveUrn != nil && resp.ResolveUrn.Kind == "node"
+		if err != nil || resp.ResolveUrn == nil || resp.ResolveUrn.Kind != "node" {
+			return "", false
+		}
+		return resp.ResolveUrn.Id, true
 	}
 	// A raw memory id: list by loc prefix and match the exact loc.
 	limit := 200
@@ -733,15 +794,15 @@ func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string
 		off := offset
 		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sort, nil, &limit, &off)
 		if err != nil {
-			return false
+			return "", false
 		}
 		for _, nd := range page.Nodes {
 			if nd != nil && nd.Loc == loc {
-				return true
+				return nd.Id, true
 			}
 		}
 		if len(page.Nodes) < limit {
-			return false
+			return "", false
 		}
 	}
 }

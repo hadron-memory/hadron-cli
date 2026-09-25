@@ -152,6 +152,12 @@ func MapError(err error) error {
 	if err == nil {
 		return nil
 	}
+	// Already classified — a client-side refusal from a helper that routes
+	// writes (UpdateNodeByKind, cli#714). Re-mapping would lose its code.
+	var coded *exitcode.CodedError
+	if errors.As(err, &coded) {
+		return err
+	}
 
 	// A curated command sends a query baked into this binary, so a GraphQL
 	// *validation* failure means the CLI and server disagree on the schema —

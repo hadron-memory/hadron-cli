@@ -3,10 +3,13 @@ package api
 import (
 	"context"
 	"errors"
+	"slices"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // The KIND-SPECIFIC authoring doors (hadron-server #1201, shipped in #1203).
@@ -20,8 +23,9 @@ import (
 // # What changed underneath, and why it is a better shape
 //
 // `Memory.protectedLocs` is GONE. Protection is no longer by ADDRESS — a
-// per-memory list of loc patterns — but by KIND, a property of the node itself,
-// read off the RESULTING state of the write:
+// per-memory list of loc patterns — but by KIND, a property of the node itself.
+// A write needs the door of every kind it touches: the kind the node will be,
+// and for an update also the kind it is now (before ∪ after, cli#714):
 //
 //	role: "spec"     -> createSpecNode   / updateSpecNode
 //	role: "review"   -> createReviewNode / updateReviewNode
@@ -128,8 +132,8 @@ const ReviewNodeRole = "review"
 // CreateSpecNode writes a spec node through the spec door.
 //
 // The caller must set `input.Role` to SpecNodeRole — this wrapper does not do
-// it, and that is on purpose: the gate reads the RESULTING state, so a node's
-// kind is a property of the node being written, not of the function called to
+// it, and that is on purpose: for a create the gate reads the state being
+// written, so a node's kind is a property of the node being written, not of the function called to
 // write it. Setting the role here would let a call site that forgot to think
 // about the kind still produce a governed node, which is the wrong direction
 // for a signal whose whole job is to be explicit.
@@ -164,9 +168,9 @@ func CreateReviewNode(ctx context.Context, client graphql.Client, input *gen.Cre
 // create half had to wait for (hadron-server #1192, then folded into #1201).
 //
 // It is needed even when an edit touches neither `role` nor `isRunnable`,
-// because the gate reads the resulting state: editing a node that already
-// carries `role: "spec"` still produces one, so the generic `updateNode`
-// refuses it.
+// because the gate reads the kind the node is now as well as the kind it will
+// be: editing a node that already carries `role: "spec"` touches the spec kind,
+// so the generic `updateNode` refuses it.
 //
 // It keeps `updateNode`'s selectors and, crucially, its OMIT-TO-PRESERVE
 // semantics — which is why routing edits through the create door with
@@ -209,15 +213,33 @@ func UpdateSpecNode(ctx context.Context, client graphql.Client, input *gen.Updat
 // refuses a write that would now succeed — a visible Usage error naming
 // `hadron api` as the way through, rather than a silent wrong result.
 func GovernedKindConflict(role *string, isRunnable bool) []string {
+	if kinds := governedKinds(role, isRunnable); len(kinds) > 1 {
+		return kinds
+	}
+	return nil
+}
+
+// The governed kinds, named as GovernedKindConflict names them so a refusal
+// reads the same whichever check produced it.
+const (
+	kindTask   = "task (isRunnable)"
+	kindSpec   = "role " + SpecNodeRole
+	kindReview = "role " + ReviewNodeRole
+)
+
+// governedKinds lists the governed kinds a (role, isRunnable) state carries.
+func governedKinds(role *string, isRunnable bool) []string {
 	var kinds []string
 	if isRunnable {
-		kinds = append(kinds, "task (isRunnable)")
+		kinds = append(kinds, kindTask)
 	}
-	if role != nil && (*role == SpecNodeRole || *role == ReviewNodeRole) {
-		kinds = append(kinds, "role "+*role)
-	}
-	if len(kinds) < 2 {
-		return nil
+	if role != nil {
+		switch *role {
+		case SpecNodeRole:
+			kinds = append(kinds, kindSpec)
+		case ReviewNodeRole:
+			kinds = append(kinds, kindReview)
+		}
 	}
 	return kinds
 }
@@ -258,27 +280,17 @@ func CreateNodeByKind(ctx context.Context, client graphql.Client, input *gen.Cre
 }
 
 // NodeKindState is what a node ALREADY is, which an update needs because the
-// gate reads the RESULTING state and an omitted field preserves the stored one.
+// gate reads the kind the node is now as well as the kind it will be, and an
+// omitted field preserves the stored one.
 type NodeKindState struct {
 	Role       *string
 	IsRunnable bool
 }
 
-// UpdateNodeByKind edits a node through the door its RESULTING kind requires.
-//
-// THE RESULTING STATE IS THE WHOLE DIFFICULTY, and it is why this takes the
-// node's current kind rather than reading only the input. An update that touches
-// neither `role` nor `isRunnable` still produces a governed node when the stored
-// one was governed — so a plain `hadron node update --description` on a review
-// check or a task is refused by the generic surface. Deciding from the input
-// alone would route exactly those edits wrong.
-//
-// Omitted means preserve; an explicit value wins. `role: null` clears, which
-// UN-governs the node — permitted here because the write still goes through the
-// door of the kind it currently IS, which is what the server requires. The
-// identity question of WHO may clear a governed role is hadron-server#1202, not
-// this client's to answer.
-func UpdateNodeByKind(ctx context.Context, client graphql.Client, input *gen.UpdateNodeInput, cur NodeKindState) (*AuthoredNode, error) {
+// touchedKinds is every governed kind an update touches: the ones the node
+// carries now and the ones it will carry, an omitted field preserving the
+// stored value.
+func touchedKinds(input *gen.UpdateNodeInput, cur NodeKindState) []string {
 	runnable := cur.IsRunnable
 	if input.IsRunnable != nil {
 		runnable = *input.IsRunnable
@@ -287,8 +299,63 @@ func UpdateNodeByKind(ctx context.Context, client graphql.Client, input *gen.Upd
 	if input.Role != nil {
 		role = input.Role
 	}
-	switch {
-	case runnable:
+	touched := governedKinds(cur.Role, cur.IsRunnable)
+	for _, k := range governedKinds(role, runnable) {
+		if !slices.Contains(touched, k) {
+			touched = append(touched, k)
+		}
+	}
+	return touched
+}
+
+func refuseTouched(touched []string) error {
+	if len(touched) < 2 {
+		return nil
+	}
+	return exitcode.Newf(exitcode.Usage,
+		"this write touches two governed kinds — %s — and each door is exempt from its OWN kind only, so every one of them refuses it. Change one kind at a time, or write it with `hadron api` if the server's register has changed",
+		strings.Join(touched, " AND "))
+}
+
+// CheckUpdateKinds is UpdateNodeByKind's refusal without the write, for a
+// caller that must know before it reports a plan or prompts (node import's
+// --dry-run and overwrite prompt): nil when some door can make the update.
+func CheckUpdateKinds(input *gen.UpdateNodeInput, cur NodeKindState) error {
+	return refuseTouched(touchedKinds(input, cur))
+}
+
+// UpdateNodeByKind edits a node through the door that owns every governed
+// kind the write TOUCHES — the kind it is now and the kind it will be.
+//
+// THE SERVER GATE IS BEFORE ∪ AFTER, and that is the whole difficulty
+// (hadron-server governedRole.ts, assertGovernedWrite). Two consequences:
+//
+//   - An update that touches neither `role` nor `isRunnable` still edits a
+//     governed node when the stored one is governed, so a plain
+//     `--description` edit of a review check or a task needs that kind's door.
+//     Hence the node's current kind is an argument: an omitted field preserves
+//     the stored value.
+//   - REMOVING a kind needs that kind's door too. `isRunnable: false` on a task
+//     or a role change away from `spec` leaves an ungoverned node, but the
+//     generic surface refuses it ("removes"): the gate exists so the generic
+//     surface cannot quietly un-govern a node. Routing on the resulting state
+//     alone sent exactly those writes to updateNode (cli#714).
+//
+// A write that touches two governed kinds — a task given `role: spec`, or a
+// spec turned into a task — has no door, because each door is exempt from its
+// OWN kind only. It is refused here as a Usage error rather than sent to be
+// refused. WHO may use a door is hadron-server#1202, not this client's call.
+func UpdateNodeByKind(ctx context.Context, client graphql.Client, input *gen.UpdateNodeInput, cur NodeKindState) (*AuthoredNode, error) {
+	touched := touchedKinds(input, cur)
+	if err := refuseTouched(touched); err != nil {
+		return nil, err
+	}
+	kind := ""
+	if len(touched) == 1 {
+		kind = touched[0]
+	}
+	switch kind {
+	case kindTask:
 		resp, err := gen.UpdateTaskNode(ctx, client, input)
 		if err != nil {
 			return nil, err
@@ -297,9 +364,9 @@ func UpdateNodeByKind(ctx context.Context, client graphql.Client, input *gen.Upd
 			return nil, errors.New("updateTaskNode returned no node")
 		}
 		return authoredNodeFrom(resp.UpdateTaskNode), nil
-	case role != nil && *role == SpecNodeRole:
+	case kindSpec:
 		return UpdateSpecNode(ctx, client, input)
-	case role != nil && *role == ReviewNodeRole:
+	case kindReview:
 		resp, err := gen.UpdateReviewNode(ctx, client, input)
 		if err != nil {
 			return nil, err
