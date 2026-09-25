@@ -324,6 +324,21 @@ type revisionSelector struct {
 	prefix *string
 }
 
+// revisionSupport is what one probe learned about the server.
+type revisionSupport int
+
+const (
+	// supportUnknown: the probe made no request (it had no nodes to name).
+	supportUnknown revisionSupport = iota
+	// supportYes: every call returned revisions.
+	supportYes
+	// supportNo: every call was refused as an unknown field.
+	supportNo
+	// supportMixed: some calls returned revisions and some were refused — a
+	// rolling or mixed deployment answering one probe from both versions.
+	supportMixed
+)
+
 // readConsistently reads nodes BETWEEN two revision reads and keeps them only
 // when every node's revision is the same before and after (@codex on #724).
 // A revision advances on every authoring change, so equal brackets mean the
@@ -334,7 +349,10 @@ type revisionSelector struct {
 //
 // Against a server that predates revisions (both probes say so) every
 // Revision stays nil — null means exactly that, never a guess and never a
-// race.
+// race. Support that appears, vanishes or is split within a probe is a server
+// changing under the read, and the read repeats. A content read that returned
+// no nodes has nothing to pair: the after-probe then makes no request and
+// takes the before-probe's answer, so an empty result stays an empty result.
 //
 // The guarantee is about the nodes PRINTED. A node the before-read saw that
 // the content read no longer returns (deleted or made unreadable in between)
@@ -342,7 +360,7 @@ type revisionSelector struct {
 // carries the revision of the content printed.
 func readConsistently(cmd *cobra.Command, client graphql.Client, sel revisionSelector, read func() ([]*nodeDetailDTO, error)) error {
 	for attempt := 1; ; attempt++ {
-		before, supportedBefore, err := liveRevisions(cmd, client, sel)
+		before, supportBefore, err := liveRevisions(cmd, client, sel)
 		if err != nil {
 			return err
 		}
@@ -354,23 +372,21 @@ func readConsistently(cmd *cobra.Command, client graphql.Client, sel revisionSel
 		for _, d := range dtos {
 			ids = append(ids, d.ID)
 		}
-		after, supportedAfter, err := liveRevisions(cmd, client, revisionSelector{refs: ids})
+		after, supportAfter, err := liveRevisions(cmd, client, revisionSelector{refs: ids})
 		if err != nil {
 			return err
 		}
+		if supportAfter == supportUnknown {
+			supportAfter = supportBefore // nothing printed, nothing to pair
+		}
 		switch {
-		case !supportedBefore && !supportedAfter:
-			// Both probes met a server without revisions: null means exactly
-			// that. Two probes, not one, because in a rolling or mixed
-			// deployment either one alone can reach an older instance.
+		case supportBefore == supportNo && supportAfter == supportNo:
 			return nil
-		case supportedBefore != supportedAfter:
-			// Support appeared or vanished during the read: a server changing
-			// under it, not an older server. Read again (@copilot, @codex on
-			// #724).
-		case pairRevisions(dtos, before, after):
+		case supportBefore == supportYes && supportAfter == supportYes && pairRevisions(dtos, before, after):
 			return nil
 		}
+		// A changed revision, a node gone missing, or support that differs
+		// between or within the probes (@copilot, @codex on #724).
 		if attempt == consistentReadAttempts {
 			return exitcode.Newf(exitcode.Conflict,
 				"the node changed while it was being read, %d times running, so its revision could not be paired with its content; try again", consistentReadAttempts)
@@ -397,62 +413,65 @@ func pairRevisions(dtos []*nodeDetailDTO, before, after map[string]int) bool {
 	return true
 }
 
-// liveRevisions reads id → revision for the nodes sel names. supported is
-// false when the server predates the field (#1323). Explicit refs go in
-// api.NodeBatchCap-sized calls; a prefix read's byte-cap spillover is
-// re-read by id. Any other failure, including a null envelope, is the
-// command's error.
-func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelector) (revs map[string]int, supported bool, _ error) {
-	revs = map[string]int{}
-	ask := func(refs []string, memory, prefix *string) (*gen.NodeLiveRevisionsNodeBatchNodeBatchResult, bool, error) {
+// liveRevisions reads id → revision for the nodes sel names, and what the
+// probe learned about the server's support (see revisionSupport). Explicit
+// refs go in api.NodeBatchCap-sized calls; a prefix read's byte-cap spillover
+// is re-read by id. Any failure other than the unknown-field refusal,
+// including a null envelope, is the command's error.
+func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelector) (map[string]int, revisionSupport, error) {
+	revs := map[string]int{}
+	var yes, no bool
+	ask := func(refs []string, memory, prefix *string) (*gen.NodeLiveRevisionsNodeBatchNodeBatchResult, error) {
 		resp, err := gen.NodeLiveRevisions(cmd.Context(), client, refs, memory, prefix)
 		if err != nil {
 			if isUnknownFieldErr(err, "revision") {
-				return nil, false, nil
+				no = true
+				return nil, nil
 			}
-			return nil, false, api.MapError(err)
+			return nil, api.MapError(err)
 		}
 		if resp.NodeBatch == nil {
-			return nil, false, exitcode.Newf(exitcode.Error, "the server returned no result for the node revision read")
+			return nil, exitcode.Newf(exitcode.Error, "the server returned no result for the node revision read")
 		}
-		return resp.NodeBatch, true, nil
-	}
-	collect := func(r *gen.NodeLiveRevisionsNodeBatchNodeBatchResult) {
-		for _, n := range r.Nodes {
+		yes = true
+		for _, n := range resp.NodeBatch.Nodes {
 			if n != nil {
 				revs[n.Id] = n.Revision
 			}
 		}
+		return resp.NodeBatch, nil
 	}
-	byRefs := func(refs []string) (bool, error) {
+	byRefs := func(refs []string) error {
 		for start := 0; start < len(refs); start += api.NodeBatchCap {
 			end := min(start+api.NodeBatchCap, len(refs))
-			r, ok, err := ask(refs[start:end], nil, nil)
-			if err != nil || !ok {
-				return ok, err
+			if _, err := ask(refs[start:end], nil, nil); err != nil {
+				return err
 			}
-			collect(r)
 		}
-		return true, nil
+		return nil
 	}
 	if sel.prefix != nil {
-		r, ok, err := ask(nil, sel.memory, sel.prefix)
-		if err != nil || !ok {
-			return nil, ok, err
+		r, err := ask(nil, sel.memory, sel.prefix)
+		if err != nil {
+			return nil, supportUnknown, err
 		}
-		collect(r)
-		if r.Truncated {
-			if ok, err := byRefs(r.Omitted); err != nil || !ok {
-				return nil, ok, err
+		if r != nil && r.Truncated {
+			if err := byRefs(r.Omitted); err != nil {
+				return nil, supportUnknown, err
 			}
 		}
-		return revs, true, nil
+	} else if err := byRefs(sel.refs); err != nil {
+		return nil, supportUnknown, err
 	}
-	ok, err := byRefs(sel.refs)
-	if err != nil || !ok {
-		return nil, ok, err
+	switch {
+	case yes && no:
+		return nil, supportMixed, nil
+	case yes:
+		return revs, supportYes, nil
+	case no:
+		return nil, supportNo, nil
 	}
-	return revs, true, nil
+	return revs, supportUnknown, nil
 }
 
 // fetchNodeByID reads one node by its resolved id; ref is what the caller

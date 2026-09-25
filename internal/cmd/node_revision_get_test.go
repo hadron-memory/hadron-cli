@@ -361,3 +361,135 @@ func TestNodeGetDoesNotDowngradeWhenOnlyTheBeforeReadLacksRevisions(t *testing.T
 		t.Errorf("err %v; support gained during the read must not print null:\n%s", err, out.String())
 	}
 }
+
+// An older server and a content read that returns NO nodes: the after-probe
+// makes no request, so it must not be read as "revision support appeared"
+// (@copilot, @codex on #724). The ordinary empty result comes back.
+func TestNodeGetEmptyResultOnAnOlderServerIsNotARace(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"NodeBatch": nodeBatchResult(nil, ""),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "--prefix", "nothing:", "-m", "acme.com::kb", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an empty prefix on an older server must succeed: %v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), `"nodes": []`) {
+		t.Errorf("want the ordinary empty result:\n%s", out.String())
+	}
+}
+
+func TestNodeGetAllUnavailableOnAnOlderServerIsNotARace(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"NodeBatch": nodeBatchResult(nil, `"hrn:node:acme.com:kb:a","hrn:node:acme.com:kb:b"`),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "a", "b", "-m", "acme.com::kb", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if exitCodeFor(err) == 5 {
+		t.Fatalf("every ref unavailable on an older server is not a race (exit 5): %v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), `"unavailable"`) {
+		t.Errorf("want the ordinary unavailable report:\n%s", out.String())
+	}
+}
+
+// One probe answered by both versions (a capped multi-call probe split across
+// instances) is a deployment change, never "predates revisions".
+func TestNodeGetSplitProbeIsAChangeNotAnOlderServer(t *testing.T) {
+	const n = 201
+	nodes := make([]string, n)
+	for i := range nodes {
+		nodes[i] = batchNodeJSON(fmt.Sprintf("n%d", i), fmt.Sprintf("findings:x%d", i))
+	}
+	refusal, _ := unstubbedDefault("NodeLiveRevisions")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
+				Refs []string `json:"refs"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "NodeBatch":
+			_, _ = w.Write([]byte(nodeBatchResult(nodes, "")))
+		case "NodeLiveRevisions":
+			// The prefix probe and the first 200-id call reach a new
+			// instance; the 1-id remainder reaches an old one.
+			if len(body.Variables.Refs) == 1 {
+				_, _ = w.Write([]byte(refusal))
+				return
+			}
+			pairs := map[string]int{}
+			for i := 0; i < n; i++ {
+				pairs[fmt.Sprintf("n%d", i)] = 1
+			}
+			_, _ = w.Write([]byte(liveRevisionsAt(batchUpdatedAt, pairs)))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "--prefix", "findings:", "-m", "acme.com::kb", "--json", "--server", srv.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != 5 || strings.Contains(out.String(), `"revision": null`) {
+		t.Errorf("err %v; a split probe must not be reported as an older server:\n%s", err, out.String())
+	}
+}
+
+// Both probes split the same way (explicit refs, so the before-probe is also
+// two capped calls): mapping "mixed" to "no" would print null for a server
+// that has revisions. It must retry and refuse instead (@codex on #724).
+func TestNodeGetSplitInBothProbesIsNotAnOlderServer(t *testing.T) {
+	const n = 201
+	refs := make([]string, n)
+	byRef := map[string]string{}
+	for i := range refs {
+		loc := fmt.Sprintf("findings:x%d", i)
+		refs[i] = loc
+		byRef["hrn:node:acme.com:kb:"+loc] = batchNodeJSON(fmt.Sprintf("n%d", i), loc)
+	}
+	refusal, _ := unstubbedDefault("NodeLiveRevisions")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
+				Refs []string `json:"refs"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "NodeBatch":
+			nodes := []string{}
+			for _, ref := range body.Variables.Refs {
+				if nd, ok := byRef[ref]; ok {
+					nodes = append(nodes, nd)
+				}
+			}
+			_, _ = w.Write([]byte(nodeBatchResult(nodes, "")))
+		case "NodeLiveRevisions":
+			if len(body.Variables.Refs) == 1 { // the remainder reaches an old instance
+				_, _ = w.Write([]byte(refusal))
+				return
+			}
+			pairs := map[string]int{}
+			for i := 0; i < n; i++ {
+				pairs[fmt.Sprintf("n%d", i)] = 1
+			}
+			_, _ = w.Write([]byte(liveRevisionsAt(batchUpdatedAt, pairs)))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append(append([]string{"node", "get"}, refs...), "-m", "acme.com::kb", "--json", "--server", srv.URL))
+	err := root.Execute()
+	if strings.Contains(out.String(), `"revision": null`) || exitCodeFor(err) != 5 {
+		t.Errorf("err %v; a probe split in both brackets must not print null:\n%.400s", err, out.String())
+	}
+}

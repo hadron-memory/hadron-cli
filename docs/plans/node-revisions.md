@@ -62,6 +62,16 @@
   `GRAPHQL_VALIDATION_FAILED`). One probe alone cannot say it, because in a
   mixed deployment either can reach an older instance. Any other failure,
   including a `null` `nodeBatch` envelope, is the command's error.
+- **Each probe answers in one of four states:** *yes* (every call returned
+  revisions), *no* (every call refused the field), *mixed* (both, across its
+  capped calls, meaning one probe was answered by two versions), or
+  *unknown* (it made no request).
+  - *Mixed* is always a change.
+  - *Unknown* happens when the content read returned no nodes (an empty
+    prefix, or every ref unavailable), so (3) had nothing to name. It
+    inherits (1)'s answer, and an empty result stays an ordinary empty result
+    on an older server rather than reading as "support appeared" (#724
+    round 5).
 
 ### 2.2 `rev=` in skill files
 
