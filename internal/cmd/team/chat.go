@@ -53,6 +53,7 @@ mentions unfired — so that signal comes early rather than in the receipt.`,
 	}
 	cmd.AddCommand(newCmdTeamChatPost(f))
 	cmd.AddCommand(newCmdTeamChatRead(f))
+	cmd.AddCommand(newCmdTeamChatMarkRead(f))
 	return cmd
 }
 
@@ -520,6 +521,18 @@ them "(human)" / "(worker)".`,
 			if cmd.Flags().Changed("limit") {
 				pageSize = limit
 			}
+			// A bound worker's read carries its worker session (#1353). Under
+			// hadron-server#1353's pilot that is what lets the read mark the
+			// worker's OWN messages read, so a team-chat router stops nudging
+			// it; the server alone decides whether this read counts (only an
+			// unfiltered, contiguous, forward read does) and whether the
+			// session is the caller's and live. Outside the pilot it is the
+			// ordinary attribution/heartbeat binding. Never for a binding
+			// made against another server: its session id means nothing here.
+			readCtx := ctx
+			if b != nil && bindingServerMatches(f, b) {
+				readCtx = api.WithSession(ctx, b.SessionID)
+			}
 			msgs := []teamChatMessageDTO{}
 			cursor := since
 			for {
@@ -529,7 +542,7 @@ them "(human)" / "(worker)".`,
 					b := before
 					beforeArg = &b
 				}
-				resp, err := gen.TeamChatMessages(ctx, client, appRef, &cursor, mentionsRef, &size, nil, beforeArg)
+				resp, err := gen.TeamChatMessages(readCtx, client, appRef, &cursor, mentionsRef, &size, nil, beforeArg)
 				if err != nil {
 					return api.MapError(err)
 				}
