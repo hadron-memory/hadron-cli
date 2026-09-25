@@ -185,23 +185,24 @@ nothing).
 Flows (`:NN:NN`) inherit their rule's scenarios and stay terse — they scaffold
 only the mandatory rubric.
 
-## The index rubric (module and feature tier)
+## The index convention (legacy module and feature nodes)
 
-A module or feature node is not a rule — it is an **index of its children**, and
-the two fields it carries divide that work between them. Both halves are
-enforced, by different rules, and they are not interchangeable:
+In the legacy numbering, a module or feature node is not a rule but an **index
+of its children**, and its two fields divide that work between them. This is a
+convention, not a lint obligation: `index-incomplete` is removed (#708), so
+nothing checks the body index, and a spec at any loc owes none. Only the
+abstract's cap still applies, through `abstract-length`.
 
-| field | job | enforced by |
-| --- | --- | --- |
-| **abstract** | ROUTE by *describing* subjects — one clause per child, naming what that child is | `abstract-length` (an index that RESTATES its children instead of routing to them runs long) |
-| **body** | INDEX by *citing* children — one entry per child, carrying its loc | `index-incomplete` |
+| field | job |
+| --- | --- |
+| **abstract** | ROUTE by *describing* subjects — one clause per child, naming what that child is. An index that RESTATES its children instead of routing to them runs into `abstract-length` |
+| **body** | INDEX by *citing* children — one entry per child, carrying its loc |
 
 Keep citations out of the abstract. It is the embedded retrieval surface, a loc
 string means nothing to an embedding, and the characters it spends count against
-the 2000-char cap `abstract-length` already errors on — so the two signals would
-fight. Cite in the body.
+the 2000-char cap. Cite in the body.
 
-Any of three spellings satisfies the body index, and all three are in live use:
+Three spellings of a body entry are in live use:
 
 ```markdown
 - [`cor:acl:010`](hrn:node:hadronmemory.com:specs:cor:acl:010) — full citation
@@ -209,17 +210,12 @@ Any of three spellings satisfies the body index, and all three are in live use:
 - **`:01` Who may impersonate** — colon-leaf, once the node's own citation sets the prefix
 ```
 
-A **struck** entry for a superseded child still counts — a withdrawal correctly
-recorded is not a gap, and dropping the child from the list is:
+Record a superseded child **struck** rather than dropping it, so the withdrawal
+stays visible:
 
 ```markdown
 - ~~[`cor:agt:020:06`](hrn:node:hadronmemory.com:specs:cor:agt:020:06)~~ — **superseded** (rescinded 2026-08-14, no successor)
 ```
-
-The check runs only in a corpus scope (`--all`, `--prefix`, `--product`,
-`--module`), since it is a statement about a node's children. The product root
-and the rule tier are out of scope, and so is a general-provisions contract —
-it is inherited by its siblings rather than indexing anything.
 
 ## Navigating and validating
 
