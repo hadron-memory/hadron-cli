@@ -89,15 +89,19 @@ without templates; for a template node the batch gives you the source.`,
 			// contract and callers of `node get <ref>` must not have to care
 			// that a batch form now exists.
 			if !prefixMode && len(args) == 1 {
+				id, err := cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
+				if err != nil {
+					return err
+				}
 				var dto nodeDetailDTO
-				err := readConsistently(func() ([]*nodeDetailDTO, error) {
-					node, err := fetchNode(cmd, client, memory, args[0])
+				err = readConsistently(cmd, client, revisionSelector{refs: []string{id}}, func() ([]*nodeDetailDTO, error) {
+					node, err := fetchNodeByID(cmd, client, id, args[0])
 					if err != nil {
 						return nil, err
 					}
 					dto = detailDTO(node)
 					return []*nodeDetailDTO{&dto}, nil
-				}, func(d []*nodeDetailDTO) (bool, error) { return fillRevisions(cmd, client, d) })
+				})
 				if err != nil {
 					return err
 				}
@@ -106,8 +110,12 @@ without templates; for a template node the batch gives you the source.`,
 				})
 			}
 
+			sel, err := batchRevisionSelector(memory, locPrefix, args, prefixMode)
+			if err != nil {
+				return err
+			}
 			var dto nodeBatchDTO
-			err = readConsistently(func() ([]*nodeDetailDTO, error) {
+			err = readConsistently(cmd, client, sel, func() ([]*nodeDetailDTO, error) {
 				nodes, unavailable, err := fetchNodeBatch(cmd, client, memory, locPrefix, args, prefixMode)
 				if err != nil {
 					return nil, err
@@ -125,7 +133,7 @@ without templates; for a template node the batch gives you the source.`,
 					ptrs[i] = &dto.Nodes[i]
 				}
 				return ptrs, nil
-			}, func(d []*nodeDetailDTO) (bool, error) { return fillRevisions(cmd, client, d) })
+			})
 			if err != nil {
 				return err
 			}
@@ -308,21 +316,44 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 // consistentReadAttempts bounds readConsistently's retries.
 const consistentReadAttempts = 3
 
-// readConsistently reads nodes and then their revisions, and retries the
-// WHOLE read while the two disagree: content from one moment must never be
-// shown beside a revision from a later one (@codex on #724). After the last
-// attempt it fails rather than print a pairing it could not verify.
-func readConsistently(read func() ([]*nodeDetailDTO, error), revisions func([]*nodeDetailDTO) (bool, error)) error {
+// revisionSelector names the same nodes the content read names: explicit
+// refs (ids or canonical refs), or a memory + loc prefix.
+type revisionSelector struct {
+	refs   []string
+	memory *string
+	prefix *string
+}
+
+// readConsistently reads nodes BETWEEN two revision reads and keeps them only
+// when every node's revision is the same before and after (@codex on #724).
+// A revision advances on every authoring change, so equal brackets mean the
+// content read IS that revision; a timestamp comparison could not promise
+// that, since two writes can share one. Otherwise the whole read repeats, and
+// after the last attempt it fails rather than print a pairing it could not
+// verify.
+//
+// Against a server that predates revisions every Revision stays nil — null
+// means exactly that, never a guess and never a race — and the content is
+// read once, as before.
+func readConsistently(cmd *cobra.Command, client graphql.Client, sel revisionSelector, read func() ([]*nodeDetailDTO, error)) error {
 	for attempt := 1; ; attempt++ {
+		before, supported, err := liveRevisions(cmd, client, sel)
+		if err != nil {
+			return err
+		}
 		dtos, err := read()
-		if err != nil {
+		if err != nil || !supported {
 			return err
 		}
-		consistent, err := revisions(dtos)
-		if err != nil {
+		ids := make([]string, 0, len(dtos))
+		for _, d := range dtos {
+			ids = append(ids, d.ID)
+		}
+		after, supported, err := liveRevisions(cmd, client, revisionSelector{refs: ids})
+		if err != nil || !supported {
 			return err
 		}
-		if consistent {
+		if pairRevisions(dtos, before, after) {
 			return nil
 		}
 		if attempt == consistentReadAttempts {
@@ -332,61 +363,94 @@ func readConsistently(read func() ([]*nodeDetailDTO, error), revisions func([]*n
 	}
 }
 
-// fillRevisions reads Node.revision for the nodes already fetched, in
-// api.NodeBatchCap-sized calls, and sets each DTO's Revision. It reports
-// consistent=false when any node's revision cannot be paired with the content
-// just read: its updatedAt moved on, or it went missing or unavailable in
-// between. The caller then re-reads everything.
-//
-// Against a server that predates the field (#1323) it leaves every Revision
-// nil and reports consistent — null means exactly "the server predates
-// revisions", never a guess and never a race. Any other failure, including a
-// null nodeBatch envelope, is the command's error.
-func fillRevisions(cmd *cobra.Command, client graphql.Client, dtos []*nodeDetailDTO) (consistent bool, _ error) {
-	byID := map[string][]*nodeDetailDTO{}
-	ids := []string{}
+// pairRevisions sets each DTO's Revision when its node carried the same
+// revision before and after the content read, and reports whether every node
+// did. A node absent from either read (created, deleted or made unavailable in
+// between) is a change like an edit.
+func pairRevisions(dtos []*nodeDetailDTO, before, after map[string]int) bool {
 	for _, d := range dtos {
-		if d.ID == "" {
-			continue
+		b, okB := before[d.ID]
+		a, okA := after[d.ID]
+		if !okB || !okA || a != b {
+			return false
 		}
-		if _, seen := byID[d.ID]; !seen {
-			ids = append(ids, d.ID)
-		}
-		byID[d.ID] = append(byID[d.ID], d)
 	}
-	paired := 0
-	for start := 0; start < len(ids); start += api.NodeBatchCap {
-		end := min(start+api.NodeBatchCap, len(ids))
-		resp, err := gen.NodeLiveRevisions(cmd.Context(), client, ids[start:end])
+	for _, d := range dtos {
+		rev := after[d.ID]
+		d.Revision = &rev
+	}
+	return true
+}
+
+// liveRevisions reads id → revision for the nodes sel names. supported is
+// false when the server predates the field (#1323). Explicit refs go in
+// api.NodeBatchCap-sized calls; a prefix read's byte-cap spillover is
+// re-read by id. Any other failure, including a null envelope, is the
+// command's error.
+func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelector) (revs map[string]int, supported bool, _ error) {
+	revs = map[string]int{}
+	ask := func(refs []string, memory, prefix *string) (*gen.NodeLiveRevisionsNodeBatchNodeBatchResult, bool, error) {
+		resp, err := gen.NodeLiveRevisions(cmd.Context(), client, refs, memory, prefix)
 		if err != nil {
 			if isUnknownFieldErr(err, "revision") {
-				for _, d := range dtos {
-					d.Revision = nil
-				}
-				return true, nil
+				return nil, false, nil
 			}
-			return false, api.MapError(err)
+			return nil, false, api.MapError(err)
 		}
 		if resp.NodeBatch == nil {
-			return false, exitcode.Newf(exitcode.Error, "the server returned no result for the node revision read")
+			return nil, false, exitcode.Newf(exitcode.Error, "the server returned no result for the node revision read")
 		}
-		for _, n := range resp.NodeBatch.Nodes {
-			if n == nil {
-				continue
+		return resp.NodeBatch, true, nil
+	}
+	collect := func(r *gen.NodeLiveRevisionsNodeBatchNodeBatchResult) {
+		for _, n := range r.Nodes {
+			if n != nil {
+				revs[n.Id] = n.Revision
 			}
-			for _, d := range byID[n.Id] {
-				if d.UpdatedAt != n.UpdatedAt {
-					return false, nil // changed since the content was read
-				}
-				rev := n.Revision
-				d.Revision = &rev
-			}
-			paired++
 		}
 	}
-	// Every node read a moment ago must still be there to pair: one that is
-	// now missing or unavailable changed in between, like an edit.
-	return paired == len(ids), nil
+	byRefs := func(refs []string) (bool, error) {
+		for start := 0; start < len(refs); start += api.NodeBatchCap {
+			end := min(start+api.NodeBatchCap, len(refs))
+			r, ok, err := ask(refs[start:end], nil, nil)
+			if err != nil || !ok {
+				return ok, err
+			}
+			collect(r)
+		}
+		return true, nil
+	}
+	if sel.prefix != nil {
+		r, ok, err := ask(nil, sel.memory, sel.prefix)
+		if err != nil || !ok {
+			return nil, ok, err
+		}
+		collect(r)
+		if r.Truncated {
+			if ok, err := byRefs(r.Omitted); err != nil || !ok {
+				return nil, ok, err
+			}
+		}
+		return revs, true, nil
+	}
+	ok, err := byRefs(sel.refs)
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+	return revs, true, nil
+}
+
+// fetchNodeByID reads one node by its resolved id; ref is what the caller
+// typed, for the not-found message.
+func fetchNodeByID(cmd *cobra.Command, client graphql.Client, id, ref string) (*gen.GetNodeNode, error) {
+	resp, err := gen.GetNode(cmd.Context(), client, id)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if resp.Node == nil {
+		return nil, exitcode.Newf(exitcode.NotFound, "node %q not found", ref)
+	}
+	return resp.Node, nil
 }
 
 // fetchNode resolves a node reference (a full URN, or a bare loc within

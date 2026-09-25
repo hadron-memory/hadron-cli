@@ -22,12 +22,12 @@ const (
 	batchUpdatedAt = "2026-07-27T00:00:00Z"
 )
 
-func liveRevisionsAt(updatedAt string, pairs map[string]int) string {
+func liveRevisionsAt(_ string, pairs map[string]int) string {
 	nodes := []string{}
 	for id, rev := range pairs {
-		nodes = append(nodes, fmt.Sprintf(`{"id":%q,"revision":%d,"updatedAt":%q}`, id, rev, updatedAt))
+		nodes = append(nodes, fmt.Sprintf(`{"id":%q,"revision":%d}`, id, rev))
 	}
-	return `{"data":{"nodeBatch":{"unavailable":[],"nodes":[` + strings.Join(nodes, ",") + `]}}}`
+	return `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` + strings.Join(nodes, ",") + `]}}}`
 }
 
 func liveRevisions(pairs map[string]int) string { return liveRevisionsAt(getUpdatedAt, pairs) }
@@ -121,6 +121,14 @@ func TestNodeGetBatchReadsRevisionsInCappedCalls(t *testing.T) {
 			mu.Lock()
 			calls = append(calls, body.Variables.Refs)
 			mu.Unlock()
+			if len(body.Variables.Refs) == 0 { // the prefix-mode "before" read
+				pairs := map[string]int{}
+				for i := 0; i < n; i++ {
+					pairs[fmt.Sprintf("n%d", i)] = i + 1
+				}
+				_, _ = w.Write([]byte(liveRevisionsAt(batchUpdatedAt, pairs)))
+				return
+			}
 			pairs := map[string]int{}
 			for _, id := range body.Variables.Refs {
 				var k int
@@ -142,12 +150,13 @@ func TestNodeGetBatchReadsRevisionsInCappedCalls(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if len(calls) != 2 || len(calls[0]) != 200 || len(calls[1]) != 1 {
+	// Before: one prefix-mode call (no refs). After: by id, capped at 200.
+	if len(calls) != 3 || len(calls[0]) != 0 || len(calls[1]) != 200 || len(calls[2]) != 1 {
 		sizes := []int{}
 		for _, c := range calls {
 			sizes = append(sizes, len(c))
 		}
-		t.Fatalf("revision calls = %v, want [200 1]", sizes)
+		t.Fatalf("revision calls = %v, want [0 200 1]", sizes)
 	}
 	var dto struct {
 		Nodes []struct {
@@ -170,12 +179,12 @@ func TestNodeGetBatchReadsRevisionsInCappedCalls(t *testing.T) {
 	}
 }
 
-// An edit between the content read and the revision read: the revision's
-// updatedAt no longer matches, so the whole read repeats, and the answer
-// printed pairs content and revision from the same moment (@codex on #724).
-func TestNodeGetRereadsWhenTheNodeChangesBetweenReads(t *testing.T) {
+// revisionSequence answers NodeLiveRevisions for n1 with the next value of
+// revs on each call (the last one repeats), and counts content reads.
+func revisionSequence(t *testing.T, revs ...int) (*httptest.Server, func() (reads, revCalls int)) {
+	t.Helper()
 	var mu sync.Mutex
-	reads := 0
+	reads, calls := 0, 0
 	gql, _ := captureGraphQLFunc(t, func(op string) string {
 		mu.Lock()
 		defer mu.Unlock()
@@ -186,48 +195,104 @@ func TestNodeGetRereadsWhenTheNodeChangesBetweenReads(t *testing.T) {
 			reads++
 			return nodeGetJSON(testNodeURL)
 		case "NodeLiveRevisions":
-			if reads == 1 { // edited after the first content read
-				return liveRevisionsAt("2026-08-25T00:00:00Z", map[string]int{"n1": 13})
-			}
-			return liveRevisions(map[string]int{"n1": 12})
+			rev := revs[min(calls, len(revs)-1)]
+			calls++
+			// updatedAt is deliberately the SAME throughout: the Codex case,
+			// two writes sharing one timestamp. Only the revision tells.
+			return liveRevisions(map[string]int{"n1": rev})
 		}
 		return ""
 	})
+	return gql, func() (int, int) {
+		mu.Lock()
+		defer mu.Unlock()
+		return reads, calls
+	}
+}
+
+// An edit lands between the revision read before the content and the one
+// after it: the brackets disagree, so the whole read repeats, and the answer
+// printed pairs content and revision from the same moment (@codex on #724).
+// updatedAt never changes here, so a timestamp check could not have caught it.
+func TestNodeGetRereadsWhenTheNodeChangesBetweenReads(t *testing.T) {
+	gql, counts := revisionSequence(t, 12, 13, 13, 13)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"node", "get", testNodeURN, "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if reads != 2 || !strings.Contains(out.String(), `"revision": 12`) {
-		t.Errorf("reads = %d; want a re-read and the revision matching the content read:\n%s", reads, out.String())
+	reads, calls := counts()
+	if reads != 2 || calls != 4 || !strings.Contains(out.String(), `"revision": 13`) {
+		t.Errorf("reads=%d revision calls=%d; want a full re-read and the revision bracketing the content read:\n%s", reads, calls, out.String())
 	}
 }
 
 func TestNodeGetFailsWhenTheNodeKeepsChanging(t *testing.T) {
-	stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
-	stubs["NodeLiveRevisions"] = liveRevisionsAt("2026-09-01T00:00:00Z", map[string]int{"n1": 99})
-	_, _, err := runNodeGet(t, stubs, testNodeURN)
+	gql, counts := revisionSequence(t, 1, 2, 3, 4, 5, 6, 7)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", testNodeURN, "--server", gql.URL})
+	err := root.Execute()
 	if got := exitCodeFor(err); got != 5 {
 		t.Fatalf("exit = %d (err %v), want 5: a pairing it could not verify is not printed", got, err)
+	}
+	if reads, _ := counts(); reads != 3 {
+		t.Errorf("content reads = %d, want 3 attempts", reads)
 	}
 }
 
 // A node that turned unavailable between the reads is a change like an edit,
 // never "the server predates revisions".
 func TestNodeGetTreatsANodeGoneUnavailableAsAChange(t *testing.T) {
-	stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
-	stubs["NodeLiveRevisions"] = `{"data":{"nodeBatch":{"unavailable":["n1"],"nodes":[]}}}`
-	out, _, err := runNodeGet(t, stubs, testNodeURN)
-	if exitCodeFor(err) != 5 || strings.Contains(out, "predates") {
-		t.Errorf("err %v; output must not blame the server's age:\n%s", err, out)
+	var mu sync.Mutex
+	calls := 0
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		mu.Lock()
+		defer mu.Unlock()
+		switch op {
+		case "ResolveUrn":
+			return `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`
+		case "GetNode":
+			return nodeGetJSON(testNodeURL)
+		case "NodeLiveRevisions":
+			calls++
+			if calls%2 == 1 { // before: readable
+				return liveRevisions(map[string]int{"n1": 12})
+			}
+			return `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":["n1"],"nodes":[]}}}`
+		}
+		return ""
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", testNodeURN, "--server", gql.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != 5 || strings.Contains(out.String(), "predates") {
+		t.Errorf("err %v; output must not blame the server's age:\n%s", err, out.String())
 	}
 }
 
 func TestNodeGetNullRevisionEnvelopeIsAnError(t *testing.T) {
 	stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
 	stubs["NodeLiveRevisions"] = `{"data":{"nodeBatch":null}}`
-	if _, _, err := runNodeGet(t, stubs, testNodeURN); err == nil {
-		t.Error("a null nodeBatch envelope must fail, not read as an older server")
+	_, _, err := runNodeGet(t, stubs, testNodeURN)
+	if exitCodeFor(err) != 1 || err == nil || !strings.Contains(err.Error(), "no result") {
+		t.Errorf("err = %v; a null envelope is its own failure (exit 1), not an older server and not a retried race", err)
+	}
+}
+
+// Absent from BOTH revision reads (unreadable to them, though the content
+// read returned it): the two absences must not pair as revision 0 == 0. A
+// revision is never fabricated.
+func TestNodeGetNeverPairsTwoAbsences(t *testing.T) {
+	stubs := nodeGetStubs(nodeGetJSON(testNodeURL))
+	stubs["NodeLiveRevisions"] = `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":["n1"],"nodes":[]}}}`
+	out, _, err := runNodeGet(t, stubs, testNodeURN, "--json")
+	if strings.Contains(out, `"revision": 0`) {
+		t.Fatalf("a revision was fabricated from two absences:\n%s", out)
+	}
+	if exitCodeFor(err) != 5 {
+		t.Errorf("err = %v, want exit 5: the revision could not be paired", err)
 	}
 }

@@ -14243,9 +14243,17 @@ func (v *NodeFilter) GetWhere() *gqltypes.NodeWhereInput { return v.Where }
 // form — pass a URN, get that URN back, not a primary key you never sent — and
 // node ids for the prefix form, which has no caller refs.
 type NodeLiveRevisionsNodeBatchNodeBatchResult struct {
+	Truncated   bool                                                  `json:"truncated"`
+	Omitted     []string                                              `json:"omitted"`
 	Unavailable []string                                              `json:"unavailable"`
 	Nodes       []*NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode `json:"nodes"`
 }
+
+// GetTruncated returns NodeLiveRevisionsNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns NodeLiveRevisionsNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
 
 // GetUnavailable returns NodeLiveRevisionsNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
 func (v *NodeLiveRevisionsNodeBatchNodeBatchResult) GetUnavailable() []string { return v.Unavailable }
@@ -14259,8 +14267,7 @@ func (v *NodeLiveRevisionsNodeBatchNodeBatchResult) GetNodes() []*NodeLiveRevisi
 type NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode struct {
 	Id string `json:"id"`
 	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
-	Revision  int    `json:"revision"`
-	UpdatedAt string `json:"updatedAt"`
+	Revision int `json:"revision"`
 }
 
 // GetId returns NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
@@ -14268,11 +14275,6 @@ func (v *NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode) GetId() string { re
 
 // GetRevision returns NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode.Revision, and is useful for accessing the field via an interface.
 func (v *NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode) GetRevision() int { return v.Revision }
-
-// GetUpdatedAt returns NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *NodeLiveRevisionsNodeBatchNodeBatchResultNodesNode) GetUpdatedAt() string {
-	return v.UpdatedAt
-}
 
 // NodeLiveRevisionsResponse is returned by NodeLiveRevisions on success.
 type NodeLiveRevisionsResponse struct {
@@ -27562,11 +27564,19 @@ func (v *__NodeExportMetaInput) GetRef() string { return v.Ref }
 
 // __NodeLiveRevisionsInput is used internally by genqlient
 type __NodeLiveRevisionsInput struct {
-	Refs []string `json:"refs"`
+	Refs      []string `json:"refs,omitempty"`
+	Memory    *string  `json:"memory,omitempty"`
+	LocPrefix *string  `json:"locPrefix,omitempty"`
 }
 
 // GetRefs returns __NodeLiveRevisionsInput.Refs, and is useful for accessing the field via an interface.
 func (v *__NodeLiveRevisionsInput) GetRefs() []string { return v.Refs }
+
+// GetMemory returns __NodeLiveRevisionsInput.Memory, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsInput) GetMemory() *string { return v.Memory }
+
+// GetLocPrefix returns __NodeLiveRevisionsInput.LocPrefix, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsInput) GetLocPrefix() *string { return v.LocPrefix }
 
 // __NodeRevisionInput is used internally by genqlient
 type __NodeRevisionInput struct {
@@ -34682,13 +34692,14 @@ func NodeExportMeta(
 
 // The query executed by NodeLiveRevisions.
 const NodeLiveRevisions_Operation = `
-query NodeLiveRevisions ($refs: [ID!]!) {
-	nodeBatch(refs: $refs) {
+query NodeLiveRevisions ($refs: [ID!], $memory: ID, $locPrefix: String) {
+	nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+		truncated
+		omitted
 		unavailable
 		nodes {
 			id
 			revision
-			updatedAt
 		}
 	}
 }
@@ -34702,17 +34713,27 @@ query NodeLiveRevisions ($refs: [ID!]!) {
 // rejects the WHOLE query that names it. Asked separately, a server without
 // revisions costs `node get` one field it reports as unknown, never the read
 // itself (#715: "truthful compatibility when an old server lacks revision
-// data"). Refs are node ids, at most nodeBatch's 200 per call.
+// data").
+//
+// `node get` reads it BEFORE and AFTER the content, with the same selector as
+// the content read (ids, refs, or memory + locPrefix), and keeps the content
+// only when both agree: a revision advances on every authoring change, so
+// equal brackets mean the content IS that revision (@codex on #724 — an
+// updatedAt comparison is not collision-free).
 func NodeLiveRevisions(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	refs []string,
+	memory *string,
+	locPrefix *string,
 ) (data_ *NodeLiveRevisionsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "NodeLiveRevisions",
 		Query:  NodeLiveRevisions_Operation,
 		Variables: &__NodeLiveRevisionsInput{
-			Refs: refs,
+			Refs:      refs,
+			Memory:    memory,
+			LocPrefix: locPrefix,
 		},
 	}
 

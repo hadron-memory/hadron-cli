@@ -616,10 +616,11 @@ Conventions:
   key is **always present**: `null` means the server predates revisions, and
   the human output then says `revision: unknown`; it is never guessed as 0 or
   "current". It is read in a separate small query, so everything else keeps
-  working against an older server, and it is PAIRED with the content by
-  `updatedAt`: if the node changed between the two reads (or became
-  unavailable), the whole read repeats, and after 3 attempts `node get`
-  exits 5 rather than print content beside a revision from another moment. A revision versions the NODE only: it
+  working against an older server. It is read BEFORE and AFTER the content
+  and kept only when both agree, since a revision advances on every
+  authoring change: if the node changed in between (or became unavailable),
+  the whole read repeats, and after 3 attempts `node get` exits 5 rather
+  than print content beside a revision from another moment. A revision versions the NODE only: it
   does not version partials or template data the node includes, and it is not
   proof that the content complies with any task.
   - **For one node you already hold**, compare the two yourself — that is what
