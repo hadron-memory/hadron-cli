@@ -891,6 +891,21 @@ func TestTeamAttentionRefusesConfiguredAppAfterServerOverride(t *testing.T) {
 	if len(*calls) != 0 {
 		t.Errorf("configured App on another server must refuse before a request: %+v", *calls)
 	}
+	// A later `config set server` makes the old App look local if we compare
+	// only today's configured server with today's selected server. The App has
+	// no stored deployment provenance, so that equality proves nothing.
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("server = \""+srv.URL+"\"\napp = \"hrn:app:acme.com:eng-team\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, _ = testFactory(t)
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--server", srv.URL})
+	if got := exitOf(root.Execute()); got != exitcode.Usage {
+		t.Errorf("unproven configured App on selected server: exit = %d, want %d", got, exitcode.Usage)
+	}
+	if len(*calls) != 0 {
+		t.Errorf("unproven configured App must refuse before a request: %+v", *calls)
+	}
 	f, _ = testFactory(t)
 	root = NewRootCmd(f)
 	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--app", "acme.com:eng-team", "--server", srv.URL})

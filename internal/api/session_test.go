@@ -2,16 +2,17 @@ package api
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Khan/genqlient/graphql"
 )
 
-// A redirect to ANOTHER host must not carry the worker session (PR #732,
-// @copilot): net/http forwards custom headers across hosts, and the redirect
-// request never passes back through bearerDoer. A same-host redirect keeps it.
+// A redirect to ANOTHER host must not replay a worker session in either the
+// header or the GraphQL POST body. A same-host redirect keeps both.
 // Driven through NewClient, for both of its redirect policies (with a token
 // and without).
 func TestSessionHeaderDoesNotFollowACrossHostRedirect(t *testing.T) {
@@ -20,9 +21,11 @@ func TestSessionHeaderDoesNotFollowACrossHostRedirect(t *testing.T) {
 			path      string
 			crossHost bool
 		}{{"away", true}, {"stay", false}} {
-			var got []string
+			var got, gotBodies []string
 			record := func(w http.ResponseWriter, r *http.Request) {
 				got = append(got, r.Header.Get(SessionHeader))
+				body, _ := io.ReadAll(r.Body)
+				gotBodies = append(gotBodies, string(body))
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(`{"data":{}}`))
 			}
@@ -45,15 +48,13 @@ func TestSessionHeaderDoesNotFollowACrossHostRedirect(t *testing.T) {
 			}
 			ctx := WithSession(context.Background(), "s-1")
 			var data map[string]any
-			if err := c.MakeRequest(ctx, &graphql.Request{Query: "{ x }", OpName: "X"}, &graphql.Response{Data: &data}); err != nil {
-				t.Fatalf("token=%q %s: %v", token, tc.path, err)
-			}
-			want := "s-1"
+			err = c.MakeRequest(ctx, &graphql.Request{Query: "mutation X($sessionRef: ID!) { x(sessionRef: $sessionRef) }", OpName: "X", Variables: map[string]any{"sessionRef": "s-1"}}, &graphql.Response{Data: &data})
 			if tc.crossHost {
-				want = ""
-			}
-			if len(got) != 1 || got[0] != want {
-				t.Errorf("token=%q %s redirect: the landing request carried %q, want %q", token, tc.path, got, want)
+				if err == nil || len(got) != 0 || len(gotBodies) != 0 {
+					t.Errorf("token=%q cross-host redirect must refuse before replaying the body: err=%v headers=%q bodies=%q", token, err, got, gotBodies)
+				}
+			} else if err != nil || len(got) != 1 || got[0] != "s-1" || len(gotBodies) != 1 || !strings.Contains(gotBodies[0], `"sessionRef":"s-1"`) {
+				t.Errorf("token=%q same-host redirect: err=%v session=%q body=%q", token, err, got, gotBodies)
 			}
 			other.Close()
 			origin.Close()
@@ -95,9 +96,8 @@ func TestSessionHeaderOnlyWhenTheCallCarriesOne(t *testing.T) {
 	}
 }
 
-// PR #732 round 2, @copilot: a redirect to a scheme a credential may not ride
-// on strips the session even on the SAME host — the tokenless policy has no
-// scheme check of its own. Both policies are exercised through their
+// PR #732: a redirect to a scheme a credential may not ride on is refused
+// even on the SAME host. Both policies are exercised through their
 // CheckRedirect, as client_test does for the scheme guard.
 func TestSessionHeaderIsStrippedOnAnInsecureRedirect(t *testing.T) {
 	t.Setenv(EnvAllowHTTP, "")
@@ -116,19 +116,17 @@ func TestSessionHeaderIsStrippedOnAnInsecureRedirect(t *testing.T) {
 		} {
 			req, _ := http.NewRequest(http.MethodPost, tc.url, nil)
 			req.Header.Set(SessionHeader, "s-1")
-			_ = c.CheckRedirect(req, []*http.Request{origin})
-			if got := req.Header.Get(SessionHeader) != ""; got != tc.keep {
-				t.Errorf("%s → %s: session kept = %v, want %v", name, tc.url, got, tc.keep)
+			err := c.CheckRedirect(req, []*http.Request{origin})
+			if (err == nil) != tc.keep {
+				t.Errorf("%s → %s: allowed = %v, want %v", name, tc.url, err == nil, tc.keep)
 			}
 		}
 	}
 }
 
-// PR #732 round 4, @codex: the INITIAL request never passes through the
-// redirect policy, and without a bearer token RequireSecureURL admits any http
-// server — so the session header is attached only over a scheme a credential
-// may ride on (https, loopback http, or the explicit opt-in).
-func TestSessionHeaderIsNotSentOverCleartextHTTP(t *testing.T) {
+// The INITIAL request never passes through the redirect policy. A session in
+// its POST body must not ride cleartext even when no bearer token is present.
+func TestSessionRequestIsNotSentOverCleartextHTTP(t *testing.T) {
 	t.Setenv(EnvAllowHTTP, "")
 	var got []string
 	record := roundTripFunc(func(r *http.Request) (*http.Response, error) {
@@ -140,12 +138,18 @@ func TestSessionHeaderIsNotSentOverCleartextHTTP(t *testing.T) {
 	for _, u := range []string{"http://srv.example/graphql", "https://srv.example/graphql", "http://127.0.0.1:8080/graphql"} {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
 		resp, err := d.Do(req)
+		if u == "http://srv.example/graphql" {
+			if err == nil {
+				t.Fatal("cleartext session-bearing request must be refused")
+			}
+			continue
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
 		_ = resp.Body.Close()
 	}
-	want := []string{"", "s-1", "s-1"}
+	want := []string{"s-1", "s-1"}
 	for i := range want {
 		if got[i] != want[i] {
 			t.Errorf("request %d: session = %q, want %q", i, got[i], want[i])

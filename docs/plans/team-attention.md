@@ -145,6 +145,12 @@ decision.
   mutation, so a rebind during the Channel lookup is not acted through
   (`mark-read` exits 5, the read skips its mark). Each reverted fix reds a
   test, and each mutant compiles.
+- Later review: a configured App has no stored server provenance, even when
+  `config set server` makes the current setting match an override. Attention
+  accepts that ambient App only with a matching server-bound worker session;
+  otherwise callers must pass `--app` explicitly. Session-bearing GraphQL
+  requests refuse cross-host and insecure redirects because their POST body
+  may contain `sessionRef` even if the header is removed.
 - Review round 4 (on `d9e5dc4`, @codex P2): the session header is attached
   only when the request's own scheme may carry a credential. Without a bearer
   token `RequireSecureURL` admits any http server, and the first request never

@@ -76,7 +76,9 @@ func schemeIsSecure(u *url.URL) bool {
 func withSecureRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		stripSessionCrossHost(req, via)
+		if err := checkSessionRedirect(req, via); err != nil {
+			return err
+		}
 		if !schemeIsSecure(req.URL) {
 			return fmt.Errorf("%w: refusing to follow a redirect to %s over %s — the bearer token would be sent in cleartext",
 				ErrRedirectPolicy, req.URL.Redacted(), req.URL.Scheme)
@@ -92,12 +94,14 @@ func withSecureRedirects(client *http.Client) *http.Client {
 }
 
 // withSessionRedirects is the redirect policy for a client with NO bearer
-// token: nothing secret rides, so no scheme check, but the worker-session
-// header must still not follow a redirect to another host.
+// token: ordinary requests have no scheme restriction, while session-bearing
+// requests cannot redirect to another host or an insecure URL.
 func withSessionRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		stripSessionCrossHost(req, via)
+		if err := checkSessionRedirect(req, via); err != nil {
+			return err
+		}
 		if len(via) >= 10 {
 			return fmt.Errorf("%w: stopped after 10 redirects", ErrRedirectPolicy)
 		}
@@ -106,24 +110,24 @@ func withSessionRedirects(client *http.Client) *http.Client {
 	return &c
 }
 
-// stripSessionCrossHost drops X-Hadron-Session from a redirect to a different
-// host than the one first asked, or to a scheme a credential may not ride on
-// (cleartext http off loopback — PR #732 review round 2, @copilot: the
-// tokenless policy has no scheme check of its own, so a same-host https→http
-// hop would otherwise carry the session in cleartext). net/http strips
-// Authorization and cookies on a cross-host redirect by itself, but forwards
-// every custom header, and the redirect request never passes back through
-// bearerDoer — so without this a redirecting server could hand the worker
-// session id to a host it chose. The session is attribution rather than a
-// credential, but it identifies a live session and is nobody else's business.
-func stripSessionCrossHost(req *http.Request, via []*http.Request) {
-	if !schemeIsSecure(req.URL) {
-		req.Header.Del(SessionHeader)
-		return
+// checkSessionRedirect refuses a cross-host or insecure redirect for a
+// session-bearing request. Removing only X-Hadron-Session is insufficient:
+// GraphQL mutations also carry sessionRef in the POST body, which Go replays
+// across 307/308 redirects. Check the context as well as the header, since a
+// tokenless request to an insecure initial URL may have no session header.
+func checkSessionRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) == 0 || via[0] == nil || via[0].URL == nil {
+		return nil
 	}
-	if len(via) > 0 && via[0] != nil && via[0].URL != nil && !strings.EqualFold(req.URL.Host, via[0].URL.Host) {
-		req.Header.Del(SessionHeader)
+	hasSession := sessionFrom(req.Context()) != "" || sessionFrom(via[0].Context()) != "" ||
+		via[0].Header.Get(SessionHeader) != "" || req.Header.Get(SessionHeader) != ""
+	if !hasSession {
+		return nil
 	}
+	if !strings.EqualFold(req.URL.Host, via[0].URL.Host) || !schemeIsSecure(req.URL) {
+		return fmt.Errorf("%w: refusing to forward a session-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
+	}
+	return nil
 }
 
 // ErrRedirectPolicy marks a refusal WE made about a redirect, as opposed to a
@@ -144,12 +148,15 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if d.token != "" {
 		req.Header.Set("Authorization", "Bearer "+d.token)
 	}
-	// Only a call whose context carries a session (WithSession) sends one —
-	// and only over a scheme a credential may ride on. With no bearer token,
-	// RequireSecureURL admits any http server, and this first request never
-	// passes through the redirect policy, so a tokenless session call would
-	// otherwise carry the id in cleartext (PR #732 round 4, @codex).
-	if id := sessionFrom(req.Context()); id != "" && schemeIsSecure(req.URL) {
+// Only a call whose context carries a session (WithSession) sends one. A
+// session-bearing request to an insecure initial URL is refused because its
+// GraphQL body may carry the session id even without this header. With no
+// bearer token, RequireSecureURL otherwise admits any http server, and the
+// first request never passes through the redirect policy.
+	if id := sessionFrom(req.Context()); id != "" {
+		if !schemeIsSecure(req.URL) {
+			return nil, fmt.Errorf("%w: refusing to send a session-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
+		}
 		req.Header.Set(SessionHeader, id)
 	}
 	resp, err := d.inner.Do(req)

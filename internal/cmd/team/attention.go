@@ -80,7 +80,8 @@ that reason.
 explicitly confirmed step: ` + "`hadron team attention switchover`" + `.
 
 An internal pilot: outside it this exits 8 (not enabled for this operator
-and App).`,
+and App). A configured App context without a matching server-bound worker
+session has no server provenance; pass --app explicitly in that case.`,
 		Example: `  hadron team attention --json
   hadron team attention --since "$TOKEN" --json`,
 		Args: cobra.NoArgs,
@@ -157,8 +158,9 @@ and App).`,
 
 // attentionScope refuses ambient App scopes that cannot be tied to the current
 // server. App IDs can be reused across deployments, while switchover apply
-// marks every previewed worker's backlog read. An explicit --app is the way to
-// select an App on another server.
+// marks every previewed worker's backlog read. Configured App context has no
+// saved server provenance, so only a matching server-bound worker binding can
+// attest it; otherwise the caller must select --app explicitly.
 func attentionScope(ctx context.Context, f *cmdutil.Factory) (appScope, error) {
 	b, err := readBindingOrNilWithApp(ctx, f)
 	if err != nil {
@@ -169,22 +171,9 @@ func attentionScope(ctx context.Context, f *cmdutil.Factory) (appScope, error) {
 		return appScope{}, err
 	}
 	if f.AppFlag == "" && appRef != "" {
-		cfg, err := f.Config()
-		if err != nil {
-			return appScope{}, err
-		}
-		configuredServer, err := cfg.Get("server")
-		if err != nil {
-			return appScope{}, err
-		}
-		server, err := f.Server()
-		if err != nil {
-			return appScope{}, err
-		}
-		if server != configuredServer {
+		if b == nil || b.AppID == "" || b.AppID != appRef || b.Server == "" || !bindingServerMatches(f, b) {
 			return appScope{}, exitcode.Newf(exitcode.Usage,
-				"the configured App context belongs to %s, but the current server is %s — pass --app explicitly to use this server",
-				configuredServer, server)
+				"the configured App context has no verified server provenance here — pass --app explicitly to select it on this server, or use a matching server-bound worker session")
 		}
 	}
 	if appRef == "" && b != nil {
