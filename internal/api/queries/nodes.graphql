@@ -181,6 +181,8 @@ query NodeBatch(
 # bare loc (memory-scoped via the separate `memory` arg, unused here — the
 # CLI resolves refs to PKs first via resolveUrn).
 query GetNode($ref: ID!) {
+  # Shared with GetNodeRaw below: one Go type, so a caller can hold either read.
+  # @genqlient(typename: "GetNodeNode")
   node(ref: $ref) {
     id
     # The fully-qualified URN and the portal link that opens it (#515).
@@ -201,6 +203,68 @@ query GetNode($ref: ID!) {
     # not here — `Worker.urn` is nullable, `Node.urn` is `String!`. Stating the
     # worker's reason on a node is how a reader inherits a nullability that
     # cannot occur; it had leaked into three places before PR #526 swept it.
+    urn
+    portalUrl
+    memoryId
+    loc
+    name
+    description
+    abstract
+    abstractOriginHash
+    nodeType
+    role
+    objectType
+    tags
+    content
+    data
+    properties
+    seq
+    isRunnable
+    createdAt
+    updatedAt
+    outgoingEdges {
+      id
+      name
+      loc
+      isRunnable
+      priority
+      target {
+        id
+        loc
+        memoryId
+      }
+    }
+    incomingEdges {
+      id
+      name
+      loc
+      isRunnable
+      priority
+      source {
+        id
+        loc
+        memoryId
+      }
+    }
+  }
+}
+
+# The STORED content of one node, Mustache placeholders intact (#736).
+#
+# The single-node `node` read COMPILES {{…}} templates against the node's data
+# unless `raw: true` (hadron-server resolvers.query.node.ts), so a body read
+# through GetNode and written back loses every placeholder — silently, since a
+# read-back through the same rendered path agrees with what was written. Every
+# CLI path that WRITES content it read goes through this operation instead.
+# `nodeBatch` and `nodeExport` never render, so their callers are already safe.
+#
+# Same selection and the SAME Go type as GetNode (the typename directive):
+# genqlient refuses to generate if the two selections ever diverge, so a field
+# added to one and forgotten in the other is a build error, not a silent gap.
+query GetNodeRaw($ref: ID!) {
+  # @genqlient(typename: "GetNodeNode")
+  node(ref: $ref, raw: true) {
+    id
     urn
     portalUrl
     memoryId

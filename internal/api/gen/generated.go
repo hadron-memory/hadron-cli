@@ -11041,6 +11041,31 @@ func (v *GetNodeNodeOutgoingEdgesEdgeTargetNode) GetLoc() string { return v.Loc 
 // GetMemoryId returns GetNodeNodeOutgoingEdgesEdgeTargetNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeOutgoingEdgesEdgeTargetNode) GetMemoryId() string { return v.MemoryId }
 
+// GetNodeRawResponse is returned by GetNodeRaw on success.
+type GetNodeRawResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a readable memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
+	// resolve. Access: the caller's readable-memory set (same gate the old
+	// queries used); denied and missing are both null.
+	Node *GetNodeNode `json:"node"`
+}
+
+// GetNode returns GetNodeRawResponse.Node, and is useful for accessing the field via an interface.
+func (v *GetNodeRawResponse) GetNode() *GetNodeNode { return v.Node }
+
 // GetNodeResponse is returned by GetNode on success.
 type GetNodeResponse struct {
 	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
@@ -30465,6 +30490,14 @@ type __GetNodeInput struct {
 // GetRef returns __GetNodeInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetNodeInput) GetRef() string { return v.Ref }
 
+// __GetNodeRawInput is used internally by genqlient
+type __GetNodeRawInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetNodeRawInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetNodeRawInput) GetRef() string { return v.Ref }
+
 // __GetObjectInput is used internally by genqlient
 type __GetObjectInput struct {
 	Ref string `json:"ref"`
@@ -36800,6 +36833,95 @@ func GetNode(
 	}
 
 	data_ = &GetNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetNodeRaw.
+const GetNodeRaw_Operation = `
+query GetNodeRaw ($ref: ID!) {
+	node(ref: $ref, raw: true) {
+		id
+		urn
+		portalUrl
+		memoryId
+		loc
+		name
+		description
+		abstract
+		abstractOriginHash
+		nodeType
+		role
+		objectType
+		tags
+		content
+		data
+		properties
+		seq
+		isRunnable
+		createdAt
+		updatedAt
+		outgoingEdges {
+			id
+			name
+			loc
+			isRunnable
+			priority
+			target {
+				id
+				loc
+				memoryId
+			}
+		}
+		incomingEdges {
+			id
+			name
+			loc
+			isRunnable
+			priority
+			source {
+				id
+				loc
+				memoryId
+			}
+		}
+	}
+}
+`
+
+// The STORED content of one node, Mustache placeholders intact (#736).
+//
+// The single-node `node` read COMPILES {{…}} templates against the node's data
+// unless `raw: true` (hadron-server resolvers.query.node.ts), so a body read
+// through GetNode and written back loses every placeholder — silently, since a
+// read-back through the same rendered path agrees with what was written. Every
+// CLI path that WRITES content it read goes through this operation instead.
+// `nodeBatch` and `nodeExport` never render, so their callers are already safe.
+//
+// Same selection and the SAME Go type as GetNode (the typename directive):
+// genqlient refuses to generate if the two selections ever diverge, so a field
+// added to one and forgotten in the other is a build error, not a silent gap.
+func GetNodeRaw(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetNodeRawResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetNodeRaw",
+		Query:  GetNodeRaw_Operation,
+		Variables: &__GetNodeRawInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetNodeRawResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
