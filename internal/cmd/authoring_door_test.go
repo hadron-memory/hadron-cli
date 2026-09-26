@@ -257,10 +257,8 @@ func TestPreflightCreateUsesTheGenericSurface(t *testing.T) {
 	confirmEdge := `{"id":"e_r","name":"to fix a flaky timer","loc":"l","isRunnable":false,
 		"priority":0,"target":{"id":"root","loc":"preflight","memoryId":"` + codingMem + `"}}`
 	gql, captured := queueGraphQL(t, map[string][]string{
-		"GetNode": {
-			codingRootJSON("preflight", "", ""),
-			codingNodeJSON("n_route", "findings:flaky-timer", "", confirmEdge),
-		},
+		"GetNodeRaw": {codingRootJSON("preflight", "", "")}, // the router, read raw (#736)
+		"GetNode":    {codingNodeJSON("n_route", "findings:flaky-timer", "", confirmEdge)},
 		"CreateNode": {`{"data":{"createNode":` + newNode + `}}`},
 		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
 	})
