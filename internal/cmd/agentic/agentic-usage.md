@@ -1282,7 +1282,9 @@ Conventions:
   field, and `--json` carries `changes[]`, one entry per field written, each
   `{field: content|abstract, change: replaced|cleared|reaffirmed, before, after,
   diff}` (`before`/`after` byte-exact; `diff` is `""` for `reaffirmed`, which
-  re-sends the same text). A no-op is `changed: false` with `changes: []`. The
+  re-sends the same text; `cleared` also covers a whitespace-only abstract,
+  which the server stores as null). A no-op is `changed: false` with
+  `changes: []`, and a no-op dry run still closes with the not-an-approval line. The
   same `changes[]` is reported by a real edit, built from the one proposal the
   write sends: the changes a run reports are exactly what that run writes.
   A preview is **not an approval**: applying it is a separate run without

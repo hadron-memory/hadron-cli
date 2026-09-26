@@ -86,7 +86,10 @@ func (p editProposal) changes() []fieldChangeDTO {
 
 func fieldChange(field, before, after string) fieldChangeDTO {
 	change := "replaced"
-	if after == "" {
+	// The server stores an empty or whitespace-only ABSTRACT as null (spec
+	// 031), so sending one clears it: `--abstract-file` on a file holding only
+	// a newline is a clear, and must say so. A body is stored as sent.
+	if after == "" || (field == "abstract" && strings.TrimSpace(after) == "") {
 		change = "cleared"
 	}
 	return fieldChangeDTO{
@@ -330,6 +333,11 @@ replacement over the cap is rejected.`,
 			if !result.Changed {
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 					fmt.Fprintf(w, "no changes — %s left untouched\n", node.Loc)
+					if dryRun {
+						// The same closing line as every other dry run, so a
+						// no-op preview reads no differently as to what it is.
+						fmt.Fprintln(w, dryRunDisclaimer)
+					}
 					return nil
 				})
 			}
@@ -507,6 +515,9 @@ func countLines(s string) int {
 	return n
 }
 
+// dryRunDisclaimer closes every dry run, a no-op included.
+const dryRunDisclaimer = "dry run: nothing was written, and this preview is not an approval. Applying it is a separate `spec edit` run without --dry-run, which recomputes the change against the spec as stored at that moment."
+
 func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string) error {
 	verb := "✓ updated"
 	if r.DryRun {
@@ -549,7 +560,7 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 			}
 			fmt.Fprintf(w, "\n%s", c.Diff)
 		}
-		fmt.Fprintln(w, "\ndry run: nothing was written, and this preview is not an approval. Applying it is a separate `spec edit` run without --dry-run, which recomputes the change against the spec as stored at that moment.")
+		fmt.Fprintln(w, "\n"+dryRunDisclaimer)
 	}
 	return nil
 }

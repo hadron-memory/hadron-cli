@@ -41,13 +41,16 @@ server gap** and nothing is invented; the CLI simply never asked for it.
   `before`/`after` are byte-exact, and `diff` is a unified diff (`go-udiff`, a
   port of Go's internal diff with no dependencies, BSD/MIT). A re-affirm is
   metadata: the same text is re-sent, so `before == after` and `diff` is `""`.
+  An abstract that is empty **or whitespace-only** is `cleared`, because the
+  server stores it as null (#740 review, Copilot).
   It is additive; every existing key keeps its meaning. A no-op is
   `changed: false, changes: []`. A real edit reports the same `changes[]`.
 - **The terminal dry-run** prints the summary lines as before, then the
   abstract-stale consequence (the reminder used to be suppressed on a dry run,
   but it is a consequence the reviewer should see before approving), then each
   diff **verbatim and unindented**, so it stays a diff, and finally: "nothing
-  was written, and this preview is not an approval".
+  was written, and this preview is not an approval". A no-op dry run closes
+  with the same line (#740 review, Copilot).
 - **Zero writes:** the dry run returns before any mutation is built.
 
 **Not in scope, and reported:** two sibling write paths in this group still
@@ -83,7 +86,9 @@ Every dry-run test asserts **no operation beyond the two reads** was sent. The
 old `TestSpecEditDryRun` checked `CreateSpecNode`, which `spec edit` never
 sends, so it could not fail. It now uses the same assertion.
 
-**Mutation-checked: 11 compiling mutants, all killed by their intended tests.**
+**Mutation-checked: 13 compiling mutants, all killed by their intended tests**
+(11, plus 2 from the #740 review: the whitespace-only clear, and the no-op
+disclaimer).
 Each was applied from a committed checkpoint and confirmed to have landed
 (a non-empty `git diff`, and `go build` passing) before its tests ran; the
 checkpoint was restored after each.

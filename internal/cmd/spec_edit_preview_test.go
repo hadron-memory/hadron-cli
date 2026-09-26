@@ -181,6 +181,9 @@ func TestSpecEditDryRunShowsAbstractChanges(t *testing.T) {
 	}{
 		"replaced": {"Win back users who signed up and left.", "replaced"},
 		"cleared":  {"", "cleared"},
+		// #740 review (Copilot): the server stores a whitespace-only abstract
+		// as null, so a file holding only a newline clears it.
+		"cleared by whitespace": {"\n", "cleared"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			out, captured := runEdit(t, previewMocks(),
@@ -228,6 +231,16 @@ func TestSpecEditDryRunNoOp(t *testing.T) {
 	assertNoWrites(t, captured)
 	if !strings.Contains(out, `"changes": []`) || !strings.Contains(out, `"changed": false`) {
 		t.Errorf("a no-op must say so explicitly, with changes: []:\n%s", out)
+	}
+}
+
+// A no-op dry run closes like every other dry run (#740 review, Copilot).
+func TestSpecEditDryRunNoOpTextKeepsTheDisclaimer(t *testing.T) {
+	out, captured := runEdit(t, previewMocks(),
+		"--content-file", writeTemp(t, "body.md", placeholderBody), "--dry-run")
+	assertNoWrites(t, captured)
+	if !strings.Contains(out, "no changes") || !strings.Contains(out, "this preview is not an approval") {
+		t.Errorf("a no-op dry run must still say it is not an approval:\n%s", out)
 	}
 }
 
