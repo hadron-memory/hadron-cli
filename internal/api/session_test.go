@@ -123,3 +123,36 @@ func TestSessionHeaderIsStrippedOnAnInsecureRedirect(t *testing.T) {
 		}
 	}
 }
+
+// PR #732 round 4, @codex: the INITIAL request never passes through the
+// redirect policy, and without a bearer token RequireSecureURL admits any http
+// server — so the session header is attached only over a scheme a credential
+// may ride on (https, loopback http, or the explicit opt-in).
+func TestSessionHeaderIsNotSentOverCleartextHTTP(t *testing.T) {
+	t.Setenv(EnvAllowHTTP, "")
+	var got []string
+	record := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		got = append(got, r.Header.Get(SessionHeader))
+		return &http.Response{StatusCode: 200, Body: http.NoBody, Header: http.Header{}, Request: r}, nil
+	})
+	d := &bearerDoer{inner: &http.Client{Transport: record}}
+	ctx := WithSession(context.Background(), "s-1")
+	for _, u := range []string{"http://srv.example/graphql", "https://srv.example/graphql", "http://127.0.0.1:8080/graphql"} {
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
+		resp, err := d.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+	}
+	want := []string{"", "s-1", "s-1"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("request %d: session = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }

@@ -144,8 +144,12 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if d.token != "" {
 		req.Header.Set("Authorization", "Bearer "+d.token)
 	}
-	// Only a call whose context carries a session (WithSession) sends one.
-	if id := sessionFrom(req.Context()); id != "" {
+	// Only a call whose context carries a session (WithSession) sends one —
+	// and only over a scheme a credential may ride on. With no bearer token,
+	// RequireSecureURL admits any http server, and this first request never
+	// passes through the redirect policy, so a tokenless session call would
+	// otherwise carry the id in cleartext (PR #732 round 4, @codex).
+	if id := sessionFrom(req.Context()); id != "" && schemeIsSecure(req.URL) {
 		req.Header.Set(SessionHeader, id)
 	}
 	resp, err := d.inner.Do(req)

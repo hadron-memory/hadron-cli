@@ -2,7 +2,7 @@
 
 > **Status: built as a DRAFT against hadron-server#1362, a candidate that is
 > not merged.** Built at `2ece06ab`; re-pinned at `5378b4fb` after the review
-> hardening (#1945, #1954), then at `338b6578` and `6a2b359`. The snapshot
+> hardening (#1945, #1954), then at `338b6578`, `6a2b359` and `383cc20`. The snapshot
 > re-exported at each is byte-identical, so the GraphQL contract did not move. Written 2026-09-25 by Jonas. The schema
 > snapshot must be re-exported from #1362's merge before this lands. This is
 > the CLI-parity half of hadron-server#1353's first slice (A + B + F), per the
@@ -145,6 +145,10 @@ decision.
   mutation, so a rebind during the Channel lookup is not acted through
   (`mark-read` exits 5, the read skips its mark). Each reverted fix reds a
   test, and each mutant compiles.
+- Review round 4 (on `d9e5dc4`, @codex P2): the session header is attached
+  only when the request's own scheme may carry a credential. Without a bearer
+  token `RequireSecureURL` admits any http server, and the first request never
+  passes through the redirect policy. Reverting it reds a test.
 - Mutation-checked: dropping the server-match guard, the read header, the
   per-call scoping, the empty-`--since` or empty-`--channel` refusal, the
   consent gate, the mark-read header or the already-read branch each reds at
