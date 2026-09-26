@@ -114,7 +114,7 @@ func withSessionRedirects(client *http.Client) *http.Client {
 // session id to a host it chose. The session is attribution rather than a
 // credential, but it identifies a live session and is nobody else's business.
 func stripSessionCrossHost(req *http.Request, via []*http.Request) {
-	if len(via) > 0 && !strings.EqualFold(req.URL.Host, via[0].URL.Host) {
+	if len(via) > 0 && via[0] != nil && via[0].URL != nil && !strings.EqualFold(req.URL.Host, via[0].URL.Host) {
 		req.Header.Del(SessionHeader)
 	}
 }

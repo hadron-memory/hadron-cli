@@ -50,6 +50,13 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 // Anything else unstubbed is still an error.
 func unstubbedDefault(op string) (string, bool) {
 	switch op {
+	// `team chat read`'s best-effort server-side mark after delivery (#1353):
+	// answered as a server OUTSIDE the team-attention pilot, where the mark
+	// is refused and silently skipped. Tests of the mark stub both.
+	case "TeamDefaultChannel":
+		return `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`, true
+	case "MarkOwnTeamChatRead":
+		return `{"errors":[{"message":"Team attention is not enabled for this operator and App.","extensions":{"code":"FEATURE_NOT_AVAILABLE"}}]}`, true
 	case "NodeLiveRevisions":
 		// `node get`'s Node.revision read (#715, hadron-server#1339).
 		return `{"errors":[{"message":"Cannot query field \"revision\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true

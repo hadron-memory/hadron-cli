@@ -2133,14 +2133,16 @@ Conventions:
   stale proof exits **5** — preview again). A token or proof the server did not
   sign for this operator+App exits 2; a token overtaken by a moved watermark
   exits 5 (poll again without `--since`).
-  **A bound worker's `chat read` now carries its session** (`X-Hadron-Session`,
-  only on that read and on `mark-read`, never on other requests, and never for
-  a binding made against another server). Under the pilot that is what makes
-  the read mark the worker's OWN messages read, so the router stops nudging
-  it; the server alone decides which reads count — unfiltered, contiguous,
-  forward pages (a `--limit` page included); `--mentions`, `--before` and
-  windowed reads do not. For those, **`chat mark-read --through <seq>
-  [--channel <ref>]`** advances the bound worker's cursor explicitly
+  **A bound worker's `chat read` now marks its messages read on the server**,
+  under the pilot, which is what stops the router nudging it. It happens only
+  AFTER the messages were printed, for exactly the reads that record the
+  binding's watermark (unfiltered, contiguous, not `--before`, own App, same
+  server — a `--limit` page included), through the highest seq shown: the read
+  itself carries no session, so a read that fails partway marks nothing (a
+  duplicate nudge, never a lost message). Outside the pilot the step is silently
+  skipped; a failure inside it is a stderr note, never a failed read. For the
+  reads that don't count, **`chat mark-read --through <seq> [--channel <ref>]`**
+  advances the bound worker's cursor explicitly
   (`--channel` defaults to the App's team chat; an EMPTY `--channel` is refused,
   exit 2, rather than falling back to it). It is monotonic — a lower seq
   changes nothing and says so — and a seq past the Channel's head exits 2

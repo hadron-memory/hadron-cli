@@ -78,6 +78,9 @@ func chatServer(t *testing.T, pages ...string) (*httptest.Server, *[]chatVars) {
 			_, _ = w.Write([]byte(teamChatPage(0)))
 		case "TeamAppIdentity":
 			_, _ = w.Write([]byte(teamAppIdentityJSON))
+		case "TeamDefaultChannel", "MarkOwnTeamChatRead":
+			resp, _ := unstubbedDefault(body.OperationName)
+			_, _ = w.Write([]byte(resp))
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
 			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))

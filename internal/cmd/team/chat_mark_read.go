@@ -1,11 +1,13 @@
 package team
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -126,4 +128,30 @@ App).`,
 	cmd.Flags().IntVar(&through, "through", 0, "mark read through this seq (required)")
 	cmd.Flags().StringVar(&channel, "channel", "", "Channel id or address (default: the App's team chat)")
 	return cmd
+}
+
+// markDeliveredRead is `team chat read`'s server-side half (#1353): after a
+// read has been delivered, advance the bound worker's own cursor on the App's
+// team chat through `through`. Best-effort — it never fails a read that
+// succeeded. Outside the pilot the server refuses FEATURE_NOT_AVAILABLE,
+// which is the ordinary case and silent; any other failure is a stderr note,
+// because it means a team-chat router may nudge about these messages again.
+func markDeliveredRead(ctx context.Context, f *cmdutil.Factory, client graphql.Client, appRef string, b *binding, through int) {
+	note := func(err error) {
+		fmt.Fprintf(f.IOStreams.ErrOut,
+			"note: this read was not recorded on the server (%v) — a team-chat router may nudge about these messages again; `hadron team chat mark-read --through %d` retries it\n",
+			api.MapError(err), through)
+	}
+	resp, err := gen.TeamDefaultChannel(ctx, client, appRef)
+	if err != nil {
+		note(err)
+		return
+	}
+	if resp.App == nil || resp.App.DefaultChannel == nil {
+		return // no team Channel: there is no server cursor to move
+	}
+	_, err = gen.MarkOwnTeamChatRead(api.WithSession(ctx, b.SessionID), client, appRef, b.SessionID, resp.App.DefaultChannel.Id, through)
+	if err != nil && !api.HasErrorCode(err, "FEATURE_NOT_AVAILABLE") {
+		note(err)
+	}
 }

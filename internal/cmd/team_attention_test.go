@@ -295,19 +295,31 @@ func TestTeamAttentionSwitchoverStaleProofIsAConflict(t *testing.T) {
 	}
 }
 
-// ── team chat read carries the bound worker's session ────────────────────────
+// ── team chat read marks the bound worker read AFTER delivery ───────────────
+//
+// PR #732, @codex P1: the read itself carries NO session, so the server never
+// marks a page the command has not shown yet. After a successful render, a read
+// the binding's watermark rule counts is marked read explicitly, through what it
+// delivered.
 
 func chatReadResponses() map[string]string {
 	return map[string]string{
-		"TeamChatMessages": teamChatPage(2, 1, 2),
-		"TeamAppIdentity":  teamAppIdentityJSON,
+		"TeamChatMessages":    teamChatPage(2, 1, 2),
+		"TeamAppIdentity":     teamAppIdentityJSON,
+		"TeamDefaultChannel":  `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`,
+		"MarkOwnTeamChatRead": `{"data":{"markOwnTeamChatRead":{"workerId":"wkr1","channelId":"ch1","lastSeenSeq":2}}}`,
 	}
 }
 
-// A bound worker's read carries its session — that is what lets the server
-// (under the #1353 pilot) count the read as the worker's own — and ONLY the
-// chat read does: the App-identity lookup around it does not.
-func TestTeamChatReadCarriesTheBoundSession(t *testing.T) {
+func opsOf(calls []attnCall) []string {
+	ops := []string{}
+	for _, c := range calls {
+		ops = append(ops, c.Op)
+	}
+	return ops
+}
+
+func TestTeamChatReadMarksTheBoundWorkerReadAfterDelivery(t *testing.T) {
 	writeTeamBinding(t)
 	srv, calls := attnServer(t, chatReadResponses())
 	f, _ := testFactory(t)
@@ -316,49 +328,109 @@ func TestTeamChatReadCarriesTheBoundSession(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	saw := false
-	for _, c := range *calls {
+	var mark *attnCall
+	for i, c := range *calls {
 		switch c.Op {
 		case "TeamChatMessages":
-			saw = true
-			if c.Session != "s-new" {
-				t.Errorf("a bound read must carry X-Hadron-Session s-new, got %q", c.Session)
-			}
-		default:
+			// The read must NOT carry the session: a header-bound read lets the
+			// server mark a page before this command has shown it.
 			if c.Session != "" {
-				t.Errorf("%s must not carry the session header, got %q", c.Op, c.Session)
+				t.Errorf("the read itself must not carry X-Hadron-Session, got %q", c.Session)
 			}
+		case "MarkOwnTeamChatRead":
+			mark = &(*calls)[i]
 		}
 	}
-	if !saw {
-		t.Fatal("no TeamChatMessages call")
+	if mark == nil {
+		t.Fatalf("a counted read must be marked read on the server, got %v", opsOf(*calls))
+	}
+	if mark.Vars["seq"] != float64(2) || mark.Vars["sessionRef"] != "s-new" || mark.Vars["channelRef"] != "ch1" {
+		t.Errorf("mark through the highest DELIVERED seq, for the bound session, on the team Channel: %v", mark.Vars)
+	}
+	if mark.Session != "s-new" {
+		t.Errorf("the mark carries the session header, got %q", mark.Session)
+	}
+	if last := (*calls)[len(*calls)-1]; last.Op != "MarkOwnTeamChatRead" {
+		t.Errorf("the mark must be the LAST call, after the read; got %v", opsOf(*calls))
 	}
 }
 
-// The header rides regardless of filters: the SERVER decides which reads
-// count (unfiltered, contiguous, forward — a --limit page included, when it
-// is contiguous). The CLI must not second-guess it by withholding the header.
-func TestTeamChatReadSendsTheSessionOnBoundedAndFilteredReadsToo(t *testing.T) {
-	for _, extra := range [][]string{{"--limit", "5"}, {"--mentions-me"}} {
-		t.Run(strings.Join(extra, " "), func(t *testing.T) {
+// A contiguous forward --limit page is a genuine prefix, so it counts; a
+// filtered read does not.
+func TestTeamChatReadMarksABoundedPageButNotAFilteredRead(t *testing.T) {
+	for _, tc := range []struct {
+		extra []string
+		mark  bool
+	}{{[]string{"--limit", "5"}, true}, {[]string{"--mentions-me"}, false}, {[]string{"--before", "3"}, false}} {
+		t.Run(strings.Join(tc.extra, " "), func(t *testing.T) {
 			writeTeamBinding(t)
 			srv, calls := attnServer(t, chatReadResponses())
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
-			root.SetArgs(append([]string{"team", "chat", "read", "--json", "--server", srv.URL}, extra...))
+			root.SetArgs(append([]string{"team", "chat", "read", "--json", "--server", srv.URL}, tc.extra...))
 			if err := root.Execute(); err != nil {
 				t.Fatalf("execute: %v", err)
 			}
+			marked := false
 			for _, c := range *calls {
-				if c.Op == "TeamChatMessages" && c.Session != "s-new" {
-					t.Errorf("got %q", c.Session)
-				}
+				marked = marked || c.Op == "MarkOwnTeamChatRead"
+			}
+			if marked != tc.mark {
+				t.Errorf("marked = %v, want %v (%v)", marked, tc.mark, opsOf(*calls))
 			}
 		})
 	}
 }
 
-func TestTeamChatReadWithoutABindingSendsNoSession(t *testing.T) {
+// Nothing delivered, nothing marked: a render that fails must not mark the
+// messages it failed to show.
+func TestTeamChatReadMarksNothingWhenTheRenderFails(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, chatReadResponses())
+	f, _ := testFactory(t)
+	f.IOStreams.Out = failingWriter{}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--server", srv.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("a failed render must fail the read")
+	}
+	for _, c := range *calls {
+		if c.Op == "MarkOwnTeamChatRead" || c.Session != "" {
+			t.Errorf("nothing may be marked read when nothing was shown: %v (session %q)", c.Op, c.Session)
+		}
+	}
+}
+
+// Outside the pilot the mark is refused FEATURE_NOT_AVAILABLE: silent, and the
+// read still succeeds. Any other failure is a stderr note, never a failure.
+func TestTeamChatReadMarkFailureNeverFailsTheRead(t *testing.T) {
+	for _, tc := range []struct {
+		code string
+		note bool
+	}{{"FEATURE_NOT_AVAILABLE", false}, {"SESSION_NOT_LIVE", true}} {
+		t.Run(tc.code, func(t *testing.T) {
+			writeTeamBinding(t)
+			r := chatReadResponses()
+			r["MarkOwnTeamChatRead"] = gqlErrorJSON(tc.code)
+			srv, _ := attnServer(t, r)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "chat", "read", "--json", "--server", srv.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("a failed server mark must not fail the read: %v", err)
+			}
+			if !strings.Contains(out.String(), `"nextSince": 2`) {
+				t.Errorf("the read's output must be intact: %s", out.String())
+			}
+			stderr := f.IOStreams.ErrOut.(*strings.Builder).String()
+			if got := strings.Contains(stderr, "not recorded on the server"); got != tc.note {
+				t.Errorf("stderr note = %v, want %v: %q", got, tc.note, stderr)
+			}
+		})
+	}
+}
+
+func TestTeamChatReadWithoutABindingMarksNothing(t *testing.T) {
 	teamGitDir(t)
 	srv, calls := attnServer(t, chatReadResponses())
 	f, _ := testFactory(t)
@@ -368,14 +440,14 @@ func TestTeamChatReadWithoutABindingSendsNoSession(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	for _, c := range *calls {
-		if c.Session != "" {
-			t.Errorf("%s: an unbound read must not carry a session, got %q", c.Op, c.Session)
+		if c.Session != "" || c.Op == "MarkOwnTeamChatRead" {
+			t.Errorf("an unbound read must neither carry a session nor mark: %v %q", c.Op, c.Session)
 		}
 	}
 }
 
 // A binding made against ANOTHER server: its session id means nothing here.
-func TestTeamChatReadAgainstAnotherServerSendsNoSession(t *testing.T) {
+func TestTeamChatReadAgainstAnotherServerMarksNothing(t *testing.T) {
 	dir := teamGitDir(t)
 	other := strings.Replace(bindingFixture, `"startedAt"`, `"server":"https://elsewhere.example","startedAt"`, 1)
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(other), 0o600); err != nil {
@@ -389,8 +461,8 @@ func TestTeamChatReadAgainstAnotherServerSendsNoSession(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	for _, c := range *calls {
-		if c.Session != "" {
-			t.Errorf("%s: a cross-server read must not carry the binding's session, got %q", c.Op, c.Session)
+		if c.Session != "" || c.Op == "MarkOwnTeamChatRead" {
+			t.Errorf("a cross-server read must neither carry the binding's session nor mark: %v %q", c.Op, c.Session)
 		}
 	}
 }
@@ -550,4 +622,31 @@ func TestTeamChatMarkReadReceiptNamesItsScope(t *testing.T) {
 	if !strings.Contains(out.String(), want) {
 		t.Errorf("got %q, want it to contain %q", out.String(), want)
 	}
+}
+
+// A poll whose output cannot be written must FAIL (PR #732, @codex P2): the
+// caller then keeps its previous token instead of believing it holds a new
+// one it never received.
+func TestTeamAttentionFailsWhenTheTokenCannotBeWritten(t *testing.T) {
+	teamGitDir(t)
+	srv, _ := attnServer(t, map[string]string{"TeamAttention": attentionJSON})
+	f, _ := testFactory(t)
+	f.IOStreams.Out = failOnWrite{substr: "token:"} // everything lands except the token line
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "--app", "acme.com:eng-team", "--server", srv.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("a poll whose token line was lost must not exit 0")
+	}
+}
+
+// failOnWrite rejects exactly the write containing substr, so a test can lose
+// ONE specific line — a write budget cannot, since a table's rows arrive in an
+// unknown number of writes.
+type failOnWrite struct{ substr string }
+
+func (w failOnWrite) Write(p []byte) (int, error) {
+	if strings.Contains(string(p), w.substr) {
+		return 0, errors.New("broken pipe")
+	}
+	return len(p), nil
 }
