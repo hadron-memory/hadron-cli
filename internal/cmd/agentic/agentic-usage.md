@@ -1277,7 +1277,9 @@ Conventions:
   `--abstract -`/`--abstract-file` — writing only the field(s) that actually
   changed and preserving the rest. `spec edit` reads the body **raw** (as
   stored, `{{…}}` placeholders intact), so the editor, the preview and the
-  write never see Mustache-rendered text (cli#737). **`--dry-run` shows the
+  write never see Mustache-rendered text (cli#737). So does every other `spec`
+  command that writes back a body it read: `spec supersede` (the retirement
+  note, and `--copy-body`) and `spec extract --strip-source` (cli#742). **`--dry-run` shows the
   change itself and writes nothing:** the terminal prints a unified diff per
   field, and `--json` carries `changes[]`, one entry per field written, each
   `{field: content|abstract, change: replaced|cleared|reaffirmed, before, after,
@@ -1313,7 +1315,10 @@ Conventions:
   feature, piping the moved chunk in via `--content -`/`--content-file`,
   auto-wiring the cross-ref edge new→source (`--ref-label`), and reminding you
   to refresh both abstracts (`--strip-source` also trims the chunk out of the
-  source body when it matches verbatim); `spec link <from> <to>`
+  source body when it matches its STORED text verbatim: a chunk copied from
+  `spec get`, which renders `{{…}}` placeholders, will not match a templated
+  source, and the miss says so; trim by hand with `spec edit`, never
+  `spec get | node update`, which deletes the placeholders); `spec link <from> <to>`
   cross-references one spec from another by their bare citations — a
   convention-aware `edge add` that validates both endpoints are specs in the
   same corpus and synthesizes the field→entity label when `--label` is omitted

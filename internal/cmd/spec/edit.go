@@ -274,7 +274,7 @@ replacement over the cap is rejected.`,
 			}
 			// RAW: the stored body, placeholders intact. Everything below —
 			// the editor buffer, the preview and the write — starts from it.
-			node, err := fetchSpecForEdit(cmd, client, memURN, args[0])
+			node, err := fetchRawSpec(cmd, client, memURN, args[0])
 			if err != nil {
 				return err
 			}
@@ -449,10 +449,11 @@ func parseEditBuffer(s string) (abstract, body string, err error) {
 	return abstract, body, nil
 }
 
-// fetchSpecForEdit is fetchSpecTaggedNode over the RAW read (GetSpecNodeRaw):
-// the body as stored, never Mustache-rendered. The same address resolution and
-// the same not-a-spec refusal; only the read differs.
-func fetchSpecForEdit(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetSpecNodeRawNode, error) {
+// fetchRawSpec is fetchSpecTaggedNode over the RAW read (GetSpecNodeRaw): the
+// body as stored, never Mustache-rendered. The same address resolution and the
+// same not-a-spec refusal; only the read differs. Every command that WRITES a
+// body it read uses a raw read (cli#737 edit, cli#742 supersede and extract).
+func fetchRawSpec(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetSpecNodeRawNode, error) {
 	loc, err := validateSpecLoc(loc)
 	if err != nil {
 		return nil, err
@@ -472,6 +473,29 @@ func fetchSpecForEdit(cmd *cobra.Command, client graphql.Client, memoryURN, loc 
 		return nil, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag or spec role)", resp.Node.Loc)
 	}
 	return resp.Node, nil
+}
+
+// withRawBody replaces a GetNode read's body with the STORED one, read raw by
+// id. For a command that needs GetNode's structure (edges, role) and also
+// writes the body back: GetNode renders Mustache, and a rendered body written
+// back deletes every `{{…}}` placeholder (cli#742). The abstract, its
+// fingerprint and the tags come from the SAME read: callers write them
+// together (the retirement replaces content AND tags; --copy-body copies body
+// AND abstract), so they must be one snapshot, never a fresh body beside a
+// stale abstract or tags an intervening edit changed (#743 review).
+func withRawBody(cmd *cobra.Command, client graphql.Client, n *gen.GetNodeNode) error {
+	resp, err := gen.GetSpecNodeRaw(cmd.Context(), client, n.Id)
+	if err != nil {
+		return api.MapError(err)
+	}
+	if resp.Node == nil {
+		return exitcode.Newf(exitcode.NotFound, "spec %q not found", n.Loc)
+	}
+	n.Content = resp.Node.Content
+	n.Abstract = resp.Node.Abstract
+	n.AbstractOriginHash = resp.Node.AbstractOriginHash
+	n.Tags = tagsOrEmpty(resp.Node.Tags)
+	return nil
 }
 
 // derefStr returns the string a *string points at, or "" if nil.

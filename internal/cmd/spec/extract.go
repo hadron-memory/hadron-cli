@@ -30,7 +30,14 @@ type extractResultDTO struct {
 	DryRun       bool             `json:"dryRun"`
 	// Content is the new spec body; included only in --dry-run for preview.
 	Content string `json:"content,omitempty"`
+	// sourceTemplated: the source's STORED body holds {{…}} placeholders. Not
+	// part of --json; it only lets a strip miss say why a chunk copied from a
+	// rendered read (`spec get`) cannot match the stored text (cli#742).
+	sourceTemplated bool
 }
+
+// placeholderMissHint explains a strip miss against a templated source.
+const placeholderMissHint = "the source's stored body holds {{…}} placeholders and is matched as stored; a chunk copied from `spec get`, which renders them, will not match — copy it from `spec edit` instead"
 
 func newCmdExtract(f *cmdutil.Factory) *cobra.Command {
 	var (
@@ -116,7 +123,9 @@ chunk leaves the source alone with a warning.`,
 
 			// Fetch the source: existence + name (for the default ref-label) +
 			// body (for --strip-source). A typo fails fast here.
-			srcNode, err := fetchSpecTaggedNode(cmd, client, memURN, source.Format())
+			// RAW: --strip-source writes a body computed from this one back
+			// to the source, so it must be the stored text (cli#742).
+			srcNode, err := fetchRawSpec(cmd, client, memURN, source.Format())
 			if err != nil {
 				return err
 			}
@@ -200,6 +209,7 @@ chunk leaves the source alone with a warning.`,
 					srcBody = *srcNode.Content
 				}
 				strippedBody, result.StripMatched = stripChunk(srcBody, body)
+				result.sourceTemplated = strings.Contains(srcBody, "{{")
 			}
 
 			if dryRun {
@@ -254,6 +264,9 @@ chunk leaves the source alone with a warning.`,
 					}
 				} else {
 					fmt.Fprintf(f.IOStreams.ErrOut, "warning: --strip-source: chunk not found verbatim (or ambiguous) in %s — source left untouched\n", source.Format())
+					if result.sourceTemplated {
+						fmt.Fprintf(f.IOStreams.ErrOut, "  note: %s\n", placeholderMissHint)
+					}
 				}
 			}
 
@@ -374,6 +387,9 @@ func renderExtractResult(w io.Writer, r extractResultDTO) error {
 			fmt.Fprintf(w, "  strip: chunk found in %s — would trim\n", r.Source)
 		case r.DryRun:
 			fmt.Fprintf(w, "  strip: chunk NOT found verbatim in %s — would skip\n", r.Source)
+			if r.sourceTemplated {
+				fmt.Fprintf(w, "  note: %s\n", placeholderMissHint)
+			}
 		case r.StripMatched:
 			fmt.Fprintf(w, "  strip: trimmed the moved chunk out of %s\n", r.Source)
 			// An executed miss is reported via a stderr warning, not here.
@@ -387,7 +403,9 @@ func renderExtractResult(w io.Writer, r extractResultDTO) error {
 		if r.StripSource && r.StripMatched {
 			fmt.Fprintln(w)
 		} else {
-			fmt.Fprintf(w, "; trim the moved chunk out of %s (spec get %s --body-only | node update --content -)\n", r.Source, r.Source)
+			// `spec edit`, never `spec get | node update`: spec get renders
+			// Mustache, so that round trip deletes every placeholder (cli#742).
+			fmt.Fprintf(w, "; trim the moved chunk out of %s with `spec edit %s -m %s`, which edits the stored body\n", r.Source, r.Source, r.MemoryID)
 		}
 	}
 	return nil

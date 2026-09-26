@@ -264,6 +264,16 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				newSeq, scaffoldOptional = specSeq(newTarget), newTarget.Level() == 3
 			}
 
+			if copyBody {
+				// The STORED body: GetNode renders Mustache, and copying the
+				// rendered text would give the successor none of the old
+				// spec's {{…}} placeholders (cli#742). Read BEFORE the
+				// successor's tags are derived, so its body, abstract and tags
+				// all come from this one snapshot (#743 review).
+				if err := withRawBody(cmd, client, oldNode); err != nil {
+					return err
+				}
+			}
 			newTags := specTags(semanticTags(oldNode.Tags))
 			name := specNameAt(newLoc, title)
 
@@ -298,6 +308,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			body := rubricBodyAt(newLoc, title, scaffoldOptional)
 			abs := placeholderAbstractAt(newLoc, title)
 			if copyBody {
+				// oldNode is the raw snapshot read above.
 				if oldNode.Content != nil {
 					body = *oldNode.Content
 				}
@@ -608,6 +619,15 @@ const unreadableSuccessor = "(a successor you cannot read)"
 // on success; false (with the error) when the update was refused outright; nil
 // when retirement could not be established either way.
 func retire(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason string) (*bool, error) {
+	// The note is appended to the STORED body, read raw right here: every
+	// retire path hands in a fresh GetNode re-read (#691), and GetNode renders
+	// Mustache, so writing its body back would delete every {{…}} placeholder
+	// (cli#742). Read at the write, so it is the freshest body on every path —
+	// and BEFORE the update, so a failed read is a definite "not retired",
+	// never mistaken below for an update that got no answer (#743 review).
+	if err := withRawBody(cmd, client, oldNode); err != nil {
+		return boolRef(false), err
+	}
 	err := retireSupersededSpec(cmd, client, oldNode, successorLoc, reason)
 	if err == nil {
 		return boolRef(true), nil
@@ -640,6 +660,7 @@ func retireError(retired *bool, err error, oldLoc, successorLoc, memURN string) 
 func boolRef(b bool) *bool { return &b }
 
 func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason string) error {
+	// oldNode.Content is the stored body: retire() read it raw just before.
 	note := fmt.Sprintf("\n\n> Superseded by %s.", successorLoc)
 	if reason != "" {
 		note = fmt.Sprintf("\n\n> Superseded by %s: %s", successorLoc, reason)
