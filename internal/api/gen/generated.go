@@ -23821,6 +23821,13 @@ type UpdateNodeInput struct {
 	Description *string          `json:"description,omitempty"`
 	// Replace all outgoing edges when provided (omit to leave edges unchanged)
 	Edges []*NodeEdgeInput `json:"edges,omitempty"`
+	// Optional optimistic-concurrency precondition (#937). When supplied, the
+	// update is applied only while the node's current live revision still equals
+	// this positive integer. A mismatch refuses atomically with
+	// NODE_WRITE_CONFLICT; omitting it or passing null preserves last-write-wins
+	// compatibility.
+	// Read the baseline from Node.revision.
+	ExpectedRevision *int `json:"expectedRevision,omitempty"`
 	// The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryId+loc.
 	Id *string `json:"id,omitempty"`
 	// Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve.
@@ -23875,6 +23882,9 @@ func (v *UpdateNodeInput) GetDescription() *string { return v.Description }
 
 // GetEdges returns UpdateNodeInput.Edges, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetEdges() []*NodeEdgeInput { return v.Edges }
+
+// GetExpectedRevision returns UpdateNodeInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetExpectedRevision() *int { return v.ExpectedRevision }
 
 // GetId returns UpdateNodeInput.Id, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetId() *string { return v.Id }

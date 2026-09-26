@@ -414,6 +414,7 @@ mutation CreateTaskNode(
 }
 
 # @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.expectedRevision", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.name", omitempty: true)
@@ -453,6 +454,7 @@ mutation UpdateReviewNode(
 }
 
 # @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.expectedRevision", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.name", omitempty: true)
@@ -516,6 +518,7 @@ mutation CreateReviewNode(
 # "clear" — nil pointers must therefore be omitted from the wire, not
 # serialized as null.
 # @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.expectedRevision", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.name", omitempty: true)
@@ -566,6 +569,7 @@ mutation UpdateNode(
 # exactly as it does there, which is what `spec edit` depends on and what
 # routing an edit through a CREATE door could never have given it (#1192).
 # @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.expectedRevision", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.name", omitempty: true)

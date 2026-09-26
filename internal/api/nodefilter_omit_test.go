@@ -25,7 +25,29 @@ import (
 // moment it appears — and fails until all three operations sharing NodeFilter
 // (nodes.graphql, search.graphql, chat.graphql) carry its omitempty directive.
 func TestNodeFilterOmitsEveryUnsetField(t *testing.T) {
-	typ := reflect.TypeOf(gen.NodeFilter{})
+	assertOmitsEveryUnsetField(t, gen.NodeFilter{})
+}
+
+// The same rule for the other inputs this change sends or regenerated:
+//   - UpdateNodeInput: every node update sends it. The re-export from the
+//     #1360 merge brought #1352's expectedRevision in with a bare tag, so every
+//     update would have sent expectedRevision: null — rejected as an unknown
+//     field by any server predating #1352. Measured on cli#733, caught here.
+//   - the rule inputs of `memory config rule add|update` (#1325 part b), where
+//     an unset field sent as null would CLEAR it.
+func TestSentInputsOmitEveryUnsetField(t *testing.T) {
+	for _, v := range []any{
+		gen.UpdateNodeInput{},
+		gen.CreateNodeRoleRuleInput{},
+		gen.UpdateNodeRoleRuleInput{},
+	} {
+		assertOmitsEveryUnsetField(t, v)
+	}
+}
+
+func assertOmitsEveryUnsetField(t *testing.T, v any) {
+	t.Helper()
+	typ := reflect.TypeOf(v)
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
 		switch f.Type.Kind() {
@@ -35,9 +57,9 @@ func TestNodeFilterOmitsEveryUnsetField(t *testing.T) {
 		}
 		tag := f.Tag.Get("json")
 		if !strings.Contains(tag, ",omitempty") {
-			t.Errorf("NodeFilter.%s has json tag %q: an unset value would be sent as null. "+
-				"Add `# @genqlient(for: \"NodeFilter.<field>\", omitempty: true)` to every operation using NodeFilter and regenerate",
-				f.Name, tag)
+			t.Errorf("%s.%s has json tag %q: an unset value would be sent as null. "+
+				"Add `# @genqlient(for: \"%s.<field>\", omitempty: true)` to EVERY operation using %s and regenerate",
+				typ.Name(), f.Name, tag, typ.Name(), typ.Name())
 		}
 	}
 }

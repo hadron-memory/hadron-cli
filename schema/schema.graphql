@@ -6937,6 +6937,19 @@ type Query {
   ): GlobalSearchResult!
 
   """
+  Workers CURRENTLY held by userRef across Apps the caller may inspect
+  (#1344), oldest casting first. userRef accepts a user id, handle, URN, or
+  email. Missing users, no holds, and holds confined to unreadable Apps all
+  return the same empty page; total and pagination are computed only after
+  the App authorization filter.
+  
+  Retired castings are hidden unless includeRetired. hasLiveSession on each
+  item uses the existing derived idle-window predicate — it means the worker
+  is being driven now, not merely that an unended Session row exists.
+  """
+  heldWorkers(includeRetired: Boolean, limit: Int, offset: Int, userRef: String!): WorkersPage!
+
+  """
   Fetch one registered Home Assistant instance (org member). Null when
   the row does not exist OR the caller is not a member of its org — no
   existence disclosure.
@@ -9253,6 +9266,16 @@ input UpdateNodeInput {
   edges: [NodeEdgeInput!]
 
   """
+  Optional optimistic-concurrency precondition (#937). When supplied, the
+  update is applied only while the node's current live revision still equals
+  this positive integer. A mismatch refuses atomically with
+  NODE_WRITE_CONFLICT; omitting it or passing null preserves last-write-wins
+  compatibility.
+  Read the baseline from Node.revision.
+  """
+  expectedRevision: Int
+
+  """
   The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryId+loc.
   """
   id: String
@@ -9579,6 +9602,15 @@ type Worker {
   """The App whose staff this casting fills."""
   app: App
   appId: ID!
+
+  """
+  The App's canonical URN (the same value App.urn returns, e.g.
+  hrn:app:acme.com:team), as a scalar identity suitable for cross-App
+  worker lists. Null when the caller cannot inspect this App's workers. This
+  intentionally does not return the App object, whose nested keys and
+  members have a narrower read audience.
+  """
+  appUrn: String
 
   """
   #1029 — what a fresh binding of this worker inherits from the last one.
