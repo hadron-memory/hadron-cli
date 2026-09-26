@@ -3494,12 +3494,19 @@ const editNonSpecDetail = `{"data":{"node":{"id":"x1","memoryId":"mem1","loc":"r
 	`"content":"# register\n","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
 	`"outgoingEdges":[],"incomingEdges":[]}}}`
 
+// specAtRevision stamps a spec fixture with a live revision — what
+// GetSpecNodeForEdit reads with the body, and what the guarded save sends
+// back as expectedRevision (cli#738).
+func specAtRevision(detail string, rev int) string {
+	return strings.Replace(detail, "{", fmt.Sprintf(`{"revision":%d,`, rev), 1)
+}
+
 func editMocks() map[string]string {
 	return map[string]string{
-		"ResolveUrn":     resolveSpecJSON,
-		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
-		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","messaging"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":         resolveSpecJSON,
+		"GetSpecNodeForEdit": `{"data":{"node":` + specAtRevision(cleanSpecDetail, 7) + `}}`,
+		"NodeBatch":          specLintRawBodyStub(cleanSpecDetail),
+		"UpdateSpecNode":     `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","messaging"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	}
 }
 
@@ -3559,9 +3566,9 @@ func TestSpecEditNoOp(t *testing.T) {
 	defer restore()
 
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":     resolveSpecJSON,
-		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"ResolveUrn":         resolveSpecJSON,
+		"GetSpecNodeForEdit": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":          specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -3586,9 +3593,9 @@ func TestSpecEditCRLFNoOp(t *testing.T) {
 	defer restore()
 
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":     resolveSpecJSON,
-		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"ResolveUrn":         resolveSpecJSON,
+		"GetSpecNodeForEdit": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":          specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -3624,9 +3631,9 @@ func TestSpecEditContentStdin(t *testing.T) {
 // TestSpecEditDryRun: --dry-run previews without writing.
 func TestSpecEditDryRun(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":     resolveSpecJSON,
-		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"ResolveUrn":         resolveSpecJSON,
+		"GetSpecNodeForEdit": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":          specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	f.IOStreams.In = strings.NewReader("# replaced body\n")
@@ -3710,9 +3717,9 @@ func TestSpecEditBodyAndAbstract(t *testing.T) {
 // TestSpecEditAbstractNoOp: passing the current abstract back changes nothing.
 func TestSpecEditAbstractNoOp(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":     resolveSpecJSON,
-		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"ResolveUrn":         resolveSpecJSON,
+		"GetSpecNodeForEdit": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":          specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -3796,8 +3803,8 @@ func TestSpecEditDualStdin(t *testing.T) {
 
 func TestSpecEditNonSpec(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":     resolveSpecJSON,
-		"GetSpecNodeRaw": editNonSpecDetail,
+		"ResolveUrn":         resolveSpecJSON,
+		"GetSpecNodeForEdit": editNonSpecDetail,
 	})
 	f, _ := testFactory(t)
 	f.IOStreams.In = strings.NewReader("anything\n")
@@ -4248,10 +4255,10 @@ func TestSpecEditAbstractStillAccurateRejectsAbstractEdit(t *testing.T) {
 // assertion would CLEAR the field it claims to be vouching for.
 func TestSpecEditAbstractStillAccurateRefusesWhenThereIsNoAbstract(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":     resolveSpecJSON,
-		"GetSpecNodeRaw": `{"data":{"node":` + badSpecDetail + `}}`,
-		"NodeBatch":      specLintRawBodyStub(badSpecDetail),
-		"UpdateSpecNode": editMocks()["UpdateSpecNode"],
+		"ResolveUrn":         resolveSpecJSON,
+		"GetSpecNodeForEdit": `{"data":{"node":` + badSpecDetail + `}}`,
+		"NodeBatch":          specLintRawBodyStub(badSpecDetail),
+		"UpdateSpecNode":     editMocks()["UpdateSpecNode"],
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -4318,10 +4325,10 @@ func TestSpecEditAbstractStillAccurateRefusesAnOverCapAbstract(t *testing.T) {
 		`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
 		`"outgoingEdges":[],"incomingEdges":[]}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":     resolveSpecJSON,
-		"GetSpecNodeRaw": `{"data":{"node":` + detail + `}}`,
-		"NodeBatch":      specLintRawBodyStub(detail),
-		"UpdateSpecNode": editMocks()["UpdateSpecNode"],
+		"ResolveUrn":         resolveSpecJSON,
+		"GetSpecNodeForEdit": `{"data":{"node":` + detail + `}}`,
+		"NodeBatch":          specLintRawBodyStub(detail),
+		"UpdateSpecNode":     editMocks()["UpdateSpecNode"],
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

@@ -42,6 +42,12 @@ type editResultDTO struct {
 	// exactly what that run writes. (A dry run and a later real run are two
 	// reads of the spec; closing that gap is cli#738's.)
 	Changes []fieldChangeDTO `json:"changes"`
+	// Revision is the stored revision this proposal is BASED on (cli#738):
+	// the one read with the body, or --expected-revision when given. A save
+	// sends it as expectedRevision, so the server refuses — writing nothing —
+	// if the spec changed since. Carry it from a dry run to the approved save
+	// with --expected-revision.
+	Revision int `json:"revision"`
 }
 
 // fieldChangeDTO is one field of a proposed edit: the text as stored (read
@@ -67,6 +73,9 @@ type editProposal struct {
 	// originHash is the stored abstract's fingerprint (spec 032), nil when it
 	// was never fingerprinted.
 	originHash *string
+	// baseRevision is the revision the proposal was computed against; the
+	// write is guarded by it (cli#738).
+	baseRevision int
 }
 
 func (p editProposal) bodyChanged() bool { return p.newBody != p.curBody }
@@ -130,7 +139,11 @@ func fieldChange(field, before, after string) fieldChangeDTO {
 // (clear), which is the intended "I removed the abstract". The node is
 // targeted by (memoryId, loc); updateNode never creates.
 func (p editProposal) input(memoryID, loc string) gen.UpdateNodeInput {
-	in := gen.UpdateNodeInput{MemoryId: &memoryID, Loc: &loc}
+	// ALWAYS guarded (cli#738): the server applies the write only while the
+	// spec is still at the revision this proposal was computed against, and
+	// refuses with NODE_WRITE_CONFLICT otherwise. There is no unguarded path.
+	rev := p.baseRevision
+	in := gen.UpdateNodeInput{MemoryId: &memoryID, Loc: &loc, ExpectedRevision: &rev}
 	if p.bodyChanged() {
 		body := p.newBody
 		in.Content = &body
@@ -180,6 +193,7 @@ func newCmdEdit(f *cmdutil.Factory) *cobra.Command {
 		abstractFile  string
 		stillAccurate bool
 		dryRun        bool
+		expectedRev   int
 	)
 	cmd := &cobra.Command{
 		Use:   "edit <citation>",
@@ -206,6 +220,18 @@ nothing. The body is read as stored, {{…}} placeholders intact, never rendered
 It is a preview, not an approval; applying it is a separate run without
 --dry-run, recomputed against the spec as stored at that moment.
 
+EVERY SAVE IS GUARDED (cli#738). The write carries the revision the proposal was
+computed against, and the server applies it only while the spec is still at
+that revision — so a change someone else saved meanwhile is never silently
+overwritten. A save in one run is guarded by the revision it read. To save a
+proposal that was previewed and APPROVED earlier (another turn or process),
+pass the revision the dry run reported: --expected-revision N. If the spec has
+changed since, the save is refused (exit 5) and writes nothing; if the server
+reports a conflict at write time, your proposed text is kept in a file the
+message names. Re-read, reconcile, and get the proposal approved again. A
+server that cannot guard a save (predating hadron-server#1339 or #1352) is
+refused, never written to unguarded.
+
 Editing the body alone ARMS the abstract-stale marker: the abstract was
 fingerprinted against the old content, so every later read flags it as a
 possibly-outdated preview. That is intended — but preserving an unchanged field
@@ -223,6 +249,7 @@ a legacy abstract past the server cap — re-affirming replaces it, and a
 replacement over the cap is rejected.`,
 		Example: `  hadron spec edit cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --dry-run
+  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content-file body.md --expected-revision 7
   cat rewrite.md | hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content -
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --abstract-file abstract.md
   hadron spec edit cor:agt:020 -m hrn:mem:hadronmemory.com:specs --content-file body.md --abstract-still-accurate
@@ -257,6 +284,10 @@ replacement over the cap is rejected.`,
 			if err := refuseDocumentStdin(f.IOStreams.IsInputTerminal(), content, abstract); err != nil {
 				return err
 			}
+			if changed("expected-revision") && expectedRev < 1 {
+				return exitcode.Newf(exitcode.Usage,
+					"--expected-revision must be a positive revision number — the one a previous `spec edit --dry-run` or read reported")
+			}
 			contentProvided := changed("content") || changed("content-file")
 			abstractProvided := changed("abstract") || changed("abstract-file")
 			// The assertion on its own is a complete, non-interactive operation:
@@ -274,9 +305,23 @@ replacement over the cap is rejected.`,
 			}
 			// RAW: the stored body, placeholders intact. Everything below —
 			// the editor buffer, the preview and the write — starts from it.
-			node, err := fetchRawSpec(cmd, client, memURN, args[0])
+			node, err := fetchSpecForEdit(cmd, client, memURN, args[0])
 			if err != nil {
 				return err
+			}
+			// The guard's base (cli#738). With --expected-revision the caller
+			// names the revision their proposal — and its approval — was made
+			// against; a spec that has moved on since is refused HERE, before
+			// an editor opens or a preview is computed against text nobody
+			// approved. The server enforces the same comparison on the write.
+			base := node.Revision
+			if changed("expected-revision") {
+				if node.Revision != expectedRev {
+					return exitcode.Newf(exitcode.Conflict,
+						"%s changed since revision %d (it is at revision %d now) — nothing was written. Re-read it (`spec edit --dry-run` shows the stored text), reconcile your proposal with the change, and get it approved again before saving",
+						node.Loc, expectedRev, node.Revision)
+				}
+				base = expectedRev
 			}
 			curBody, curAbstract := derefStr(node.Content), derefStr(node.Abstract)
 
@@ -320,8 +365,9 @@ replacement over the cap is rejected.`,
 			proposal := editProposal{
 				curBody: curBody, curAbstract: curAbstract,
 				newBody: newBody, newAbstract: newAbstract,
-				reaffirm:   stillAccurate && newAbstract == curAbstract,
-				originHash: node.AbstractOriginHash,
+				reaffirm:     stillAccurate && newAbstract == curAbstract,
+				originHash:   node.AbstractOriginHash,
+				baseRevision: base,
 			}
 			result := editResultDTO{
 				Citation:           node.Loc,
@@ -332,6 +378,7 @@ replacement over the cap is rejected.`,
 				AbstractReaffirmed: proposal.reaffirm,
 				DryRun:             dryRun,
 				Changes:            proposal.changes(),
+				Revision:           base,
 			}
 			// A legacy abstract PAST the server's cap cannot be re-sent
 			// (@codex on #613). Omitting it preserves it — which is exactly why
@@ -365,6 +412,7 @@ replacement over the cap is rejected.`,
 						// The same closing line as every other dry run, so a
 						// no-op preview reads no differently as to what it is.
 						fmt.Fprintln(w, dryRunDisclaimer)
+						fmt.Fprintln(w, revisionLine(result.Revision))
 					}
 					return nil
 				})
@@ -381,6 +429,14 @@ replacement over the cap is rejected.`,
 
 			input := proposal.input(node.MemoryId, node.Loc)
 			if _, err := api.UpdateSpecNode(cmd.Context(), client, &input); err != nil {
+				if api.HasErrorCode(err, "NODE_WRITE_CONFLICT") {
+					return conflictRefusal(node.Loc, base, assembleEditBuffer(newAbstract, newBody))
+				}
+				if unsupportedGuard(err) {
+					return exitcode.Newf(exitcode.Usage,
+						"this server does not support guarded saves (UpdateNodeInput.expectedRevision, hadron-server#1352), so %s cannot be saved without risking a silent overwrite of a concurrent change — nothing was written; spec edit needs a server with #1352",
+						node.Loc)
+				}
 				return api.MapError(err)
 			}
 			return render()
@@ -397,6 +453,7 @@ replacement over the cap is rejected.`,
 	cmd.Flags().BoolVar(&stillAccurate, "abstract-still-accurate", false,
 		"assert you re-read the abstract and it still describes the spec: re-sends it unchanged so it is re-fingerprinted against the body, refreshing its verification")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the proposed change as a diff of the stored text, without writing (a preview, not an approval)")
+	cmd.Flags().IntVar(&expectedRev, "expected-revision", 0, "the revision your proposal was made against (from a dry run or read); refused, writing nothing, if the spec has changed since")
 	return cmd
 }
 
@@ -464,6 +521,37 @@ func fetchRawSpec(cmd *cobra.Command, client graphql.Client, memoryURN, loc stri
 	}
 	resp, err := gen.GetSpecNodeRaw(cmd.Context(), client, id)
 	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if resp.Node == nil {
+		return nil, exitcode.Newf(exitcode.NotFound, "spec %q not found", loc)
+	}
+	if !isSpec(resp.Node.Tags, resp.Node.Role) {
+		return nil, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag or spec role)", resp.Node.Loc)
+	}
+	return resp.Node, nil
+}
+
+// fetchSpecForEdit is fetchRawSpec plus the node's live revision, from ONE
+// read (GetSpecNodeForEdit, cli#738): the guarded save needs the revision the
+// body was read at, never a second read's. A server predating Node.revision
+// (hadron-server#1339) cannot guard a save, so it is refused plainly rather
+// than edited unguarded.
+func fetchSpecForEdit(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetSpecNodeForEditNode, error) {
+	loc, err := validateSpecLoc(loc)
+	if err != nil {
+		return nil, err
+	}
+	id, err := resolveSpecNode(cmd, client, memoryURN, loc)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := gen.GetSpecNodeForEdit(cmd.Context(), client, id)
+	if err != nil {
+		if m := err.Error(); strings.Contains(m, "revision") && strings.Contains(m, "Cannot query field") {
+			return nil, exitcode.Newf(exitcode.Usage,
+				"this server predates node revisions (hadron-server#1339), so spec edit cannot guard a save against a concurrent change — refusing rather than write unguarded")
+		}
 		return nil, api.MapError(err)
 	}
 	if resp.Node == nil {
@@ -568,6 +656,41 @@ func countLines(s string) int {
 }
 
 // dryRunDisclaimer closes every dry run, a no-op included.
+// revisionLine tells a dry-run reader how to save EXACTLY what they reviewed
+// (cli#738): the revision the preview was computed against, carried to the
+// save with --expected-revision so an intervening change refuses rather than
+// being overwritten.
+func revisionLine(rev int) string {
+	return fmt.Sprintf("based on revision %d: to save exactly this proposal later, add --expected-revision %d — the save is refused, writing nothing, if the spec changed after this preview.", rev, rev)
+}
+
+// conflictRefusal is the NODE_WRITE_CONFLICT answer (cli#738): nothing was
+// written, the proposal is KEPT — spilled to a file, since it may exist only in
+// an editor buffer or piped stdin — and the caller is told to re-read,
+// reconcile and seek approval again rather than retry blindly.
+func conflictRefusal(loc string, base int, proposal string) error {
+	where := "it could not be saved to a file"
+	if f, err := os.CreateTemp("", "hadron-spec-edit-*.md"); err == nil {
+		_, werr := f.WriteString(proposal)
+		cerr := f.Close()
+		if werr == nil && cerr == nil {
+			where = "it is saved at " + f.Name()
+		}
+	}
+	return exitcode.Newf(exitcode.Conflict,
+		"%s changed since revision %d, which this edit was based on — nothing was written, and your proposed text is kept (%s). Re-read the spec, reconcile your proposal with the change, and get it approved again before saving",
+		loc, base, where)
+}
+
+// unsupportedGuard reports the server refusing the guard itself: a build
+// predating UpdateNodeInput.expectedRevision (hadron-server#1352) rejects the
+// field at validation, before anything runs.
+func unsupportedGuard(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "expectedRevision") &&
+		(strings.Contains(msg, "is not defined") || strings.Contains(msg, "Unknown field") || strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED"))
+}
+
 const dryRunDisclaimer = "dry run: nothing was written, and this preview is not an approval. Applying it is a separate `spec edit` run without --dry-run, which recomputes the change against the spec as stored at that moment."
 
 func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string, armsStale bool) error {
@@ -615,6 +738,7 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 			fmt.Fprintf(w, "\n%s", c.Diff)
 		}
 		fmt.Fprintln(w, "\n"+dryRunDisclaimer)
+		fmt.Fprintln(w, revisionLine(r.Revision))
 	}
 	return nil
 }

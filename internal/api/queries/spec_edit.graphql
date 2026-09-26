@@ -1,0 +1,24 @@
+# `spec edit`'s read (cli#738): GetSpecNodeRaw's stored body PLUS the node's
+# live revision, from ONE read. The guarded save sends that revision as
+# `expectedRevision` (hadron-server#1352), so the server refuses the write if
+# the spec changed since this read, instead of overwriting the change.
+#
+# Its own operation rather than a field on GetSpecNodeRaw: `supersede` and
+# `extract` share that read (cli#742) and do not need a revision, and on a
+# server predating `Node.revision` (hadron-server#1339) the field would fail
+# their whole query. Only `spec edit` requires it — and refuses clearly
+# without it, since an unguarded save is exactly what cli#738 removes.
+query GetSpecNodeForEdit($ref: ID!) {
+  node(ref: $ref, raw: true) {
+    id
+    memoryId
+    loc
+    name
+    tags
+    role
+    content
+    abstract
+    abstractOriginHash
+    revision
+  }
+}

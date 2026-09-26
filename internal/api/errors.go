@@ -727,7 +727,11 @@ func codeForExtension(code string) int {
 		// document exit codes no caller may ever observe, which is the trap the
 		// TEAM_ROLE comment below names. They are candidates, not omissions;
 		// each needs its own measurement, and #608 records that.
-		code == "NodeLocConflictError":
+		code == "NodeLocConflictError" ||
+		// A guarded write whose expectedRevision is stale (hadron-server#1352),
+		// or whose target moved since it was read: the state changed under the
+		// caller, who must re-read before trying again (cli#738).
+		code == "NODE_WRITE_CONFLICT":
 		return exitcode.Conflict
 	// An ambiguous or unusable reference the caller can fix by passing a more
 	// specific argument (TEAM_AGENT_AMBIGUOUS → --team-agent;

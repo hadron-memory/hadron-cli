@@ -11472,6 +11472,91 @@ func (v *GetScopeScope) __premarshalJSON() (*__premarshalGetScopeScope, error) {
 	return &retval, nil
 }
 
+// GetSpecNodeForEditNode includes the requested fields of the GraphQL type Node.
+type GetSpecNodeForEditNode struct {
+	Id       string   `json:"id"`
+	MemoryId string   `json:"memoryId"`
+	Loc      string   `json:"loc"`
+	Name     string   `json:"name"`
+	Tags     []string `json:"tags"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
+	Role    *string `json:"role"`
+	Content *string `json:"content"`
+	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	Abstract *string `json:"abstract"`
+	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
+	AbstractOriginHash *string `json:"abstractOriginHash"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int `json:"revision"`
+}
+
+// GetId returns GetSpecNodeForEditNode.Id, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditNode) GetId() string { return v.Id }
+
+// GetMemoryId returns GetSpecNodeForEditNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns GetSpecNodeForEditNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditNode) GetLoc() string { return v.Loc }
+
+// GetName returns GetSpecNodeForEditNode.Name, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditNode) GetName() string { return v.Name }
+
+// GetTags returns GetSpecNodeForEditNode.Tags, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditNode) GetTags() []string { return v.Tags }
+
+// GetRole returns GetSpecNodeForEditNode.Role, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditNode) GetRole() *string { return v.Role }
+
+// GetContent returns GetSpecNodeForEditNode.Content, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditNode) GetContent() *string { return v.Content }
+
+// GetAbstract returns GetSpecNodeForEditNode.Abstract, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditNode) GetAbstract() *string { return v.Abstract }
+
+// GetAbstractOriginHash returns GetSpecNodeForEditNode.AbstractOriginHash, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditNode) GetAbstractOriginHash() *string { return v.AbstractOriginHash }
+
+// GetRevision returns GetSpecNodeForEditNode.Revision, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditNode) GetRevision() int { return v.Revision }
+
+// GetSpecNodeForEditResponse is returned by GetSpecNodeForEdit on success.
+type GetSpecNodeForEditResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a readable memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
+	// resolve. Access: the caller's readable-memory set (same gate the old
+	// queries used); denied and missing are both null.
+	Node *GetSpecNodeForEditNode `json:"node"`
+}
+
+// GetNode returns GetSpecNodeForEditResponse.Node, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditResponse) GetNode() *GetSpecNodeForEditNode { return v.Node }
+
 // GetSpecNodeRawNode includes the requested fields of the GraphQL type Node.
 type GetSpecNodeRawNode struct {
 	Id       string   `json:"id"`
@@ -30497,6 +30582,14 @@ type __GetScopeInput struct {
 // GetRef returns __GetScopeInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetScopeInput) GetRef() string { return v.Ref }
 
+// __GetSpecNodeForEditInput is used internally by genqlient
+type __GetSpecNodeForEditInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetSpecNodeForEditInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetSpecNodeForEditInput) GetRef() string { return v.Ref }
+
 // __GetSpecNodeRawInput is used internally by genqlient
 type __GetSpecNodeRawInput struct {
 	Ref string `json:"ref"`
@@ -36988,6 +37081,59 @@ func GetScope(
 	}
 
 	data_ = &GetScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetSpecNodeForEdit.
+const GetSpecNodeForEdit_Operation = `
+query GetSpecNodeForEdit ($ref: ID!) {
+	node(ref: $ref, raw: true) {
+		id
+		memoryId
+		loc
+		name
+		tags
+		role
+		content
+		abstract
+		abstractOriginHash
+		revision
+	}
+}
+`
+
+// `spec edit`'s read (cli#738): GetSpecNodeRaw's stored body PLUS the node's
+// live revision, from ONE read. The guarded save sends that revision as
+// `expectedRevision` (hadron-server#1352), so the server refuses the write if
+// the spec changed since this read, instead of overwriting the change.
+//
+// Its own operation rather than a field on GetSpecNodeRaw: `supersede` and
+// `extract` share that read (cli#742) and do not need a revision, and on a
+// server predating `Node.revision` (hadron-server#1339) the field would fail
+// their whole query. Only `spec edit` requires it — and refuses clearly
+// without it, since an unguarded save is exactly what cli#738 removes.
+func GetSpecNodeForEdit(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetSpecNodeForEditResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetSpecNodeForEdit",
+		Query:  GetSpecNodeForEdit_Operation,
+		Variables: &__GetSpecNodeForEditInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetSpecNodeForEditResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

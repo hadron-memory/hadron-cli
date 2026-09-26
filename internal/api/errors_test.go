@@ -42,6 +42,7 @@ func TestMapError(t *testing.T) {
 		// generic 1 before exitcode.Forbidden existed.
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
 		{"channel host not writable", gqlErr("CHANNEL_HOST_NOT_WRITABLE"), exitcode.Forbidden},
+		{"guarded write conflict", gqlErr("NODE_WRITE_CONFLICT"), exitcode.Conflict}, // cli#738
 		// NOT Forbidden, and each for its own reason, so a later reader does
 		// not "complete the family" by mapping them:
 		//   HOST_MEMORY_NOT_WRITABLE is a RegisterDisclosure ENUM member — a
