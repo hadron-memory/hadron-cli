@@ -478,7 +478,10 @@ func fetchRawSpec(cmd *cobra.Command, client graphql.Client, memoryURN, loc stri
 // withRawBody replaces a GetNode read's body with the STORED one, read raw by
 // id. For a command that needs GetNode's structure (edges, role) and also
 // writes the body back: GetNode renders Mustache, and a rendered body written
-// back deletes every `{{…}}` placeholder (cli#742).
+// back deletes every `{{…}}` placeholder (cli#742). The abstract and its
+// fingerprint come from the SAME read, so a body and an abstract copied
+// together are always one snapshot, never a fresh body beside a stale abstract
+// (#743 review).
 func withRawBody(cmd *cobra.Command, client graphql.Client, n *gen.GetNodeNode) error {
 	resp, err := gen.GetSpecNodeRaw(cmd.Context(), client, n.Id)
 	if err != nil {
@@ -488,6 +491,8 @@ func withRawBody(cmd *cobra.Command, client graphql.Client, n *gen.GetNodeNode) 
 		return exitcode.Newf(exitcode.NotFound, "spec %q not found", n.Loc)
 	}
 	n.Content = resp.Node.Content
+	n.Abstract = resp.Node.Abstract
+	n.AbstractOriginHash = resp.Node.AbstractOriginHash
 	return nil
 }
 

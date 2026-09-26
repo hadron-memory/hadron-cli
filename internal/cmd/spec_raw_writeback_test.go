@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -149,5 +152,82 @@ func TestSpecExtractStripSourceKeepsTheStoredBody(t *testing.T) {
 func TestSpecExtractWithoutStripDoesNotWriteTheSource(t *testing.T) {
 	if captured := runExtract(t); captured["UpdateSpecNode"] != nil {
 		t.Errorf("without --strip-source the source must not be written, sent %s", captured["UpdateSpecNode"])
+	}
+}
+
+// --copy-body copies the body AND the abstract from one snapshot, the raw
+// read, never a fresh body beside the first read's stale abstract (#743
+// review, Codex).
+func TestSpecSupersedeCopyBodyCopiesOneSnapshot(t *testing.T) {
+	m := supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent)
+	stale := `"abstract":"Win back users who never engaged after signup."`
+	m["GetNode"] = strings.Replace(m["GetNode"], stale, `"abstract":"The abstract as first read."`, 1)
+	m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], stale, `"abstract":"The abstract as stored now."`, 1)
+	captured := runSupersede(t, m, "--copy-body")
+	var in struct {
+		Input struct {
+			Abstract *string `json:"abstract"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["CreateSpecNode"], &in); err != nil || in.Input.Abstract == nil {
+		t.Fatalf("CreateSpecNode sent no abstract (err %v): %s", err, captured["CreateSpecNode"])
+	}
+	if *in.Input.Abstract != "The abstract as stored now." {
+		t.Errorf("the successor's abstract = %q, want the one read with the body", *in.Input.Abstract)
+	}
+}
+
+// A retirement whose stored-body read gets NO ANSWER wrote nothing: it is a
+// definite "not retired", never "the update got no answer" (#743 review,
+// Codex).
+func TestSpecSupersedeFailedRawReadIsADefiniteNotRetired(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	responses := map[string]string{
+		"ResolveUrn":     resolveSpecJSON,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":      scan,
+		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":     `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+	}
+	gets, updated := 0, false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "GetSpecNodeRaw":
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte("upstream went away"))
+		case "UpdateSpecNode":
+			updated = true
+			_, _ = w.Write([]byte(`{"errors":[{"message":"no write expected"}]}`))
+		case "GetNode":
+			gets++
+			if gets == 1 {
+				_, _ = w.Write([]byte(`{"data":{"node":` + cleanSpecDetail + `}}`))
+				return
+			}
+			_, _ = w.Write([]byte(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03")))
+		default:
+			_, _ = w.Write([]byte(translateFindNodes(body.OperationName, responses[body.OperationName])))
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a retirement that could not read the stored body must fail")
+	}
+	if updated {
+		t.Error("the retirement update must not be sent without the stored body")
+	}
+	if msg := err.Error(); !strings.Contains(msg, "failed to tag the old spec as retired") || strings.Contains(msg, "got no answer") {
+		t.Errorf("want a definite not-retired, never 'the update got no answer'; got: %s", msg)
 	}
 }

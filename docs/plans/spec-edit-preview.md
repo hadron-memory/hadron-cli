@@ -126,13 +126,18 @@ the read was `GetNode`'s rendered one. Each now reads the stored body raw,
   edges it checks, and the role-or-tag spec test (`nodeByIDFromBatch` carries
   no role, so the batch read would not do). `withRawBody` replaces the body
   with the stored one only where it is written:
-  - **Retirement** (`retireSupersededSpec`) reads raw right before composing
-    the write. Every retire path hands in a *fresh* `GetNode` re-read (#691:
+  - **Retirement** reads raw in `retire()`, right before the update. Every retire path hands in a *fresh* `GetNode` re-read (#691:
     never retire against a stale first read), so an up-front raw read would be
     overwritten by that rendered re-read before the write. The first attempt
     did exactly that, and `TestSpecSupersedeRetiresTheStoredBody` caught it.
-    Reading at the write keeps it both fresh and raw.
-  - **`--copy-body`** reads raw where the successor's body is built.
+    Reading at the write keeps it both fresh and raw. The read comes *before*
+    the update, so a read that gets no answer is a definite "not retired". It
+    is never mistaken for an update that got no answer, which would report
+    "unknown" when nothing was written (#743 review, Codex).
+  - **`--copy-body`** reads raw where the successor's body is built. The
+    abstract and its fingerprint come from the same raw read, so the successor
+    never gets a fresh body beside the first read's stale abstract (#743
+    review, Codex).
 
 **Tests** (`internal/cmd/spec_raw_writeback_test.go`) serve `GetNode` a
 rendered body and `GetSpecNodeRaw` the stored one, and assert the **mutation
@@ -144,6 +149,8 @@ payloads**:
 
 The three fail on `main`. Controls: a plain body retires unchanged, no
 `--copy-body` means no copy, and no `--strip-source` means no source write.
-Four mutants are killed: each raw read reverted, and `withRawBody` a no-op.
+Six mutants are killed: each raw read reverted, `withRawBody` a no-op, the
+abstract not taken from the raw snapshot, and a failed raw read reported as
+"unknown".
 `TestSpecSupersedeRetiresAgainstTheFreshRead` now serves the concurrent edit
 to the raw read too, since that read comes after it.
