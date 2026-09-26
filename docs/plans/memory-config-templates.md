@@ -71,6 +71,10 @@ or feed it to `create` to copy it.
   it would drop the reference, and `update` replaces every rule. A NEW
   reference beside a stale state is still accepted: that is the documented
   remedy.
+  Round 2 (Copilot) closed the last gap: an explicit `"…State": null` decoded as
+  *absent*, bypassing the exact check. `get --json` never prints a null state,
+  so a null is a hand edit; it is now refused (exit 2), as is a non-string, and
+  the message points at removing the key, the one spelling of "no state".
 - **Exactly one JSON object:** `{"name":"a"}{"requird":true}` used to apply the
   first object. `cmdutil.HasTrailingJSON` (exported from the `--where` parser,
   so there's one copy) now refuses it.
@@ -133,7 +137,11 @@ runs that happen to keep the tag.
   `cmdutil.CanonicalAppRef`; an org ref is resolved by the server, as `scope`
   does.
 - **`list` pages to exhaustion** (cap 200) and stops at `total` **or** on an
-  empty page, so a shrinking set ends the loop instead of spinning it.
+  empty page, so a shrinking set ends the loop instead of spinning it. It uses
+  the shared `api.CollectAll`, which advances by the rows actually **served**:
+  a short page (a lower enforced cap, a concurrent delete) must not skip the
+  rows after it. The first version stepped by the requested limit (Copilot,
+  review round 2).
 - **`rm`** reads the template (revision, name), confirms, and deletes under that
   revision. It uses `cmdutil.Confirm`, not `ConfirmDeletion`: the delete is soft
   (configs keep their copies), so "cannot be undone" would overstate it, but
@@ -156,7 +164,8 @@ runs that happen to keep the tag.
 `internal/cmd/memory_config_template_cmd_test.go`:
 
 - **`list`:** 201 templates over two pages, with the second page's offset
-  asserted; an empty page ends the loop; `items: []` on the raw output; the owner
+  asserted; a short first page (2 of 5) makes the next request start at offset
+  2; an empty page ends the loop; `items: []` on the raw output; the owner
   filter is sent as given and omitted when absent; two owners or an empty
   `--owner-org` are refused with no request.
 - **`get`:** a template you don't manage is exit 4.
@@ -177,11 +186,13 @@ runs that happen to keep the tag.
 - **`rm`:** without `--yes`, no delete is sent; with it, it deletes under the
   revision read.
 
-**Mutation-checked:** 22 compiling mutants, all red (5 added in round 1: an OK reference dropped, any state accepted, trailing content accepted, an empty `--owner-app` sent, and the remedy refused). They cover:
-- listing: only the first page read, no empty-page stop;
+**Mutation-checked:** 24 compiling mutants, all red (5 added in round 1: an OK reference dropped, any state accepted, trailing content accepted, an empty `--owner-app` sent, and the remedy refused; 2 in round 2: paging by the requested limit, and a null state accepted). They cover:
+- listing: only the first page read, no empty-page stop, stepping by the
+  limit instead of the rows served;
 - the revision guard: a fresh read of the revision, the flag winning over the
   file, a file of another template accepted;
-- file handling: a withheld reference silently dropped, `rules: []` becoming
+- file handling: a withheld reference silently dropped, a null state read as
+  absent, `rules: []` becoming
   nil, unknown keys allowed, the name altered, the id fallback ignored;
 - the description clear sent as an ordinary update;
 - `--owner-me` sending a ref;

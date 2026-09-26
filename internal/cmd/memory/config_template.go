@@ -258,36 +258,38 @@ Narrow by owner with at most one of --owner-server, --owner-org, --owner-me or
 	return cmd
 }
 
-// templatePageSize is the server's cap (cor:api:120).
-const templatePageSize = 200
+type templateListItem = gen.MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate
 
-// listAllTemplates pages to exhaustion: the contract is "the templates you
-// manage", not "the first page of them". It stops at `total`, and ALSO on an
-// empty page — a shrinking set must end the loop, never spin it — in which case
-// what was read is what exists now.
+// listAllTemplates pages to exhaustion, at the server's cap (api.PageLimit,
+// cor:api:120): the contract is "the templates you manage", not "the first page
+// of them". It stops at `total`, and ALSO on an empty page — a shrinking set
+// must end the loop, never spin it — in which case what was read is what exists
+// now.
 func listAllTemplates(cmd *cobra.Command, client graphql.Client, filter *gen.MemoryConfigTemplateFilter) (templateListDTO, error) {
 	dto := templateListDTO{Items: []templateDTO{}}
-	limit := templatePageSize
-	for offset := 0; ; offset += limit {
-		off := offset
-		resp, err := gen.MemoryConfigTemplates(cmd.Context(), client, filter, &limit, &off)
+	// api.CollectAll advances by the rows actually SERVED, so a short page (a
+	// lower enforced cap, a concurrent delete) never skips the rows after it.
+	items, err := api.CollectAll(func(limit, offset int) ([]*templateListItem, int, error) {
+		resp, err := gen.MemoryConfigTemplates(cmd.Context(), client, filter, &limit, &offset)
 		if err != nil {
-			return dto, api.MapError(err)
+			return nil, 0, api.MapError(err)
 		}
 		page := resp.MemoryConfigTemplates
 		if page == nil {
-			return dto, exitcode.Newf(exitcode.Error, "the server returned no template page")
+			return nil, 0, exitcode.Newf(exitcode.Error, "the server returned no template page")
 		}
 		dto.Total = page.Total
-		for _, it := range page.Items {
-			if it != nil {
-				dto.Items = append(dto.Items, dtoFromTemplate(&it.MemoryConfigTemplateFields))
-			}
-		}
-		if len(page.Items) == 0 || len(dto.Items) >= page.Total {
-			return dto, nil
+		return page.Items, page.Total, nil
+	})
+	if err != nil {
+		return dto, err
+	}
+	for _, it := range items {
+		if it != nil {
+			dto.Items = append(dto.Items, dtoFromTemplate(&it.MemoryConfigTemplateFields))
 		}
 	}
+	return dto, nil
 }
 
 func ownerCell(t templateDTO) string {
@@ -404,20 +406,20 @@ type templateFile struct {
 }
 
 type templateFileRule struct {
-	Role                 *string `json:"role"`
-	Enabled              *bool   `json:"enabled"`
-	StrictSubRoles       *bool   `json:"strictSubRoles"`
-	Writers              *string `json:"writers"`
-	ValidateBy           *string `json:"validateBy"`
-	AuthorTask           *string `json:"authorTask"`
-	AuthorTaskID         *string `json:"authorTaskId"`
-	AuthorTaskState      *string `json:"authorTaskState"`
-	ValidationTask       *string `json:"validationTask"`
-	ValidationTaskID     *string `json:"validationTaskId"`
-	ValidationTaskState  *string `json:"validationTaskState"`
-	DescriptionNode      *string `json:"descriptionNode"`
-	DescriptionNodeID    *string `json:"descriptionNodeId"`
-	DescriptionNodeState *string `json:"descriptionNodeState"`
+	Role                 *string         `json:"role"`
+	Enabled              *bool           `json:"enabled"`
+	StrictSubRoles       *bool           `json:"strictSubRoles"`
+	Writers              *string         `json:"writers"`
+	ValidateBy           *string         `json:"validateBy"`
+	AuthorTask           *string         `json:"authorTask"`
+	AuthorTaskID         *string         `json:"authorTaskId"`
+	AuthorTaskState      json.RawMessage `json:"authorTaskState"`
+	ValidationTask       *string         `json:"validationTask"`
+	ValidationTaskID     *string         `json:"validationTaskId"`
+	ValidationTaskState  json.RawMessage `json:"validationTaskState"`
+	DescriptionNode      *string         `json:"descriptionNode"`
+	DescriptionNodeID    *string         `json:"descriptionNodeId"`
+	DescriptionNodeState json.RawMessage `json:"descriptionNodeState"`
 }
 
 // descriptionState is the tri-state of the file's description key.
@@ -530,13 +532,23 @@ func (tf *templateFile) rulesInput() ([]*gen.CreateNodeRoleRuleInput, error) {
 //   - BROKEN / UNREADABLE: the server withheld which node it is, so the file
 //     cannot name it — refused unless the caller has set a new reference, which
 //     is the documented remedy;
-//   - anything else (a typo, `ok`, `UNREADBLE`) is refused outright.
-func fileRef(i int, role, key string, urn, id, state *string) (*string, error) {
+//   - anything else (a typo, `ok`, `UNREADBLE`, an explicit null, a non-string)
+//     is refused outright. `get --json` never prints a null state, so a null is
+//     a hand edit, and absent is the one spelling of "no state".
+func fileRef(i int, role, key string, urn, id *string, rawState json.RawMessage) (*string, error) {
 	pick := func(v *string) string {
 		if v == nil {
 			return ""
 		}
 		return strings.TrimSpace(*v)
+	}
+	var state *string
+	if raw := bytes.TrimSpace(rawState); len(raw) > 0 {
+		if err := json.Unmarshal(raw, &state); err != nil || state == nil {
+			return nil, exitcode.Newf(exitcode.Usage,
+				"--file: rules[%d] (%s): %sState must be NONE, OK, BROKEN or UNREADABLE, got %s — "+
+					"remove the key instead to drop the reference", i, role, key, raw)
+		}
 	}
 	s := pick(state)
 	switch s {

@@ -571,7 +571,8 @@ Conventions:
     URN, else its id. Reference STATES are checked strictly, because the state
     is never sent and a state with nothing behind it would silently drop the
     reference: a `*State` must be `NONE`, `OK`, `BROKEN` or `UNREADABLE`
-    (exact case), an `OK` needs its URN or id, and a `BROKEN`/`UNREADABLE` one —
+    (exact case) or absent — an explicit `null` is refused, since `get --json`
+    never prints one; remove the key instead — an `OK` needs its URN or id, and a `BROKEN`/`UNREADABLE` one —
     the server withheld which node it is — needs a NEW reference set beside it
     (or its state key removed, to drop it on purpose). Each is exit 2
     otherwise. The file must hold exactly one JSON object: trailing content is

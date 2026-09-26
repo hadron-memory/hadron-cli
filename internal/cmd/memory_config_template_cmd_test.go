@@ -86,6 +86,43 @@ func TestTemplateListPagesToExhaustion(t *testing.T) {
 	}
 }
 
+// A page shorter than the limit (a lower enforced cap, a concurrent delete)
+// must not skip rows: the next request starts where the served rows ended, not
+// at offset+limit.
+func TestTemplateListAdvancesByRowsServed(t *testing.T) {
+	page := func(n, from int) string {
+		items := make([]string, 0, n)
+		for i := 0; i < n; i++ {
+			items = append(items, templateJSON("t"+strconv.Itoa(from+i), "tmpl-"+strconv.Itoa(from+i), 1))
+		}
+		return `{"data":{"memoryConfigTemplates":{"total":5,"items":[` + strings.Join(items, ",") + `]}}}`
+	}
+	calls := 0
+	gql, captured := captureGraphQLFunc(t, func(op string) string {
+		calls++
+		if calls == 1 {
+			return page(2, 0)
+		}
+		return page(3, 2)
+	})
+	out, code := runConfig(t, gql.URL, "memory", "config", "template", "list", "--json")
+	if code != exitcode.OK {
+		t.Fatalf("exit = %d\n%s", code, out)
+	}
+	var dto struct {
+		Items []struct{ ID string } `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("output not JSON: %v", err)
+	}
+	if calls != 2 || len(dto.Items) != 5 {
+		t.Errorf("calls = %d, items = %d; want 2 pages and all 5", calls, len(dto.Items))
+	}
+	if v := vars(t, captured["MemoryConfigTemplates"]); v["offset"] != float64(2) {
+		t.Errorf("second page offset = %v, want 2 (the rows served), not the limit", v["offset"])
+	}
+}
+
 // A set that shrinks while paging must END the loop, not spin it.
 func TestTemplateListStopsOnAnEmptyPage(t *testing.T) {
 	calls := 0
@@ -234,8 +271,12 @@ func TestTemplateCreateRefusesBadFilesLocally(t *testing.T) {
 		"OK without URN or id": `{"name":"x","rules":[{"role":"spec","authorTask":null,"authorTaskId":null,"authorTaskState":"OK"}]}`,
 		"misspelled state":     `{"name":"x","rules":[{"role":"spec","authorTaskState":"UNREADBLE"}]}`,
 		"lower-case state":     `{"name":"x","rules":[{"role":"spec","validationTaskState":"ok","validationTask":"hrn:node:acme.com:kb:tasks:check"}]}`,
-		"trailing object":      `{"name":"good"}{"requird":true}`,
-		"trailing garbage":     `{"name":"good"} trailing`,
+		// #735 round 2 (Copilot): absent is the one spelling of "no state".
+		"null state":            `{"name":"x","rules":[{"role":"spec","authorTaskState":null}]}`,
+		"null state beside ref": `{"name":"x","rules":[{"role":"spec","descriptionNodeState":null,"descriptionNode":"hrn:node:acme.com:kb:about"}]}`,
+		"non-string state":      `{"name":"x","rules":[{"role":"spec","validationTaskState":1}]}`,
+		"trailing object":       `{"name":"good"}{"requird":true}`,
+		"trailing garbage":      `{"name":"good"} trailing`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{})
