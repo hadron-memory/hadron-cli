@@ -29,13 +29,13 @@ const (
 		` (e.g. '{"field":"data","path":["rank"],"as":"number","direction":"desc"}')`
 )
 
-// rejectTrailing fails if anything other than whitespace follows the value the
+// HasTrailingJSON reports whether anything other than whitespace follows the value the
 // decoder just consumed. json.Decoder.More() can't be used for this — it reports
 // whether the decoder is mid-array/object, not whether the stream is exhausted —
 // so concatenated JSON like `{...} {}` would otherwise slip through. A second
 // Decode returns io.EOF on a clean stream and a value/parse error on trailing
 // content.
-func rejectTrailing(dec *json.Decoder) bool {
+func HasTrailingJSON(dec *json.Decoder) bool {
 	var rest json.RawMessage
 	return !errors.Is(dec.Decode(&rest), io.EOF)
 }
@@ -60,7 +60,7 @@ func ParseNodeWhere(raw string) (*gqltypes.NodeWhereInput, error) {
 	if err := dec.Decode(&w); err != nil {
 		return nil, exitcode.Newf(exitcode.Usage, "invalid --where JSON: %v", err)
 	}
-	if rejectTrailing(dec) {
+	if HasTrailingJSON(dec) {
 		return nil, exitcode.Newf(exitcode.Usage, "invalid --where JSON: trailing data after the predicate object")
 	}
 	return &w, nil
@@ -79,7 +79,7 @@ func ParseNodePropertySort(raw string) (*gqltypes.NodePropertySort, error) {
 	if err := dec.Decode(&s); err != nil {
 		return nil, exitcode.Newf(exitcode.Usage, "invalid --sort-property JSON: %v", err)
 	}
-	if rejectTrailing(dec) {
+	if HasTrailingJSON(dec) {
 		return nil, exitcode.Newf(exitcode.Usage, "invalid --sort-property JSON: trailing data after the sort object")
 	}
 	// path is required (server `[String!]!`); an omitted or empty path would

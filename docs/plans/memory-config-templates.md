@@ -63,6 +63,19 @@ or feed it to `create` to copy it.
   both remedies: set the reference, or remove its state key to drop it on
   purpose.
 
+**Review round 1 (#735) tightened three things, each from Copilot and Codex:**
+- **Reference states are exact:** `NONE | OK | BROKEN | UNREADABLE` or absent.
+  An `OK` with neither URN nor id is refused, and so is any other spelling
+  (`ok`, `UNREADBLE`). The state is never sent, so a state with nothing behind
+  it would drop the reference, and `update` replaces every rule. A NEW
+  reference beside a stale state is still accepted: that is the documented
+  remedy.
+- **Exactly one JSON object:** `{"name":"a"}{"requird":true}` used to apply the
+  first object. `cmdutil.HasTrailingJSON` (exported from the `--where` parser,
+  so there's one copy) now refuses it.
+- **An empty `--owner-app`** is refused like `--owner-org`. `CanonicalAppRef`
+  reads `""` as "no App", which here would have sent `APP` with an empty ref.
+
 ### 3.2 `update` is guarded by the FILE's revision
 
 The guard is the revision the **file** was derived from: its `"revision"` key,
@@ -163,7 +176,7 @@ runs that happen to keep the tag.
 - **`rm`:** without `--yes`, no delete is sent; with it, it deletes under the
   revision read.
 
-**Mutation-checked:** 17 compiling mutants, all red. They cover:
+**Mutation-checked:** 22 compiling mutants, all red (5 added in round 1: an OK reference dropped, any state accepted, trailing content accepted, an empty `--owner-app` sent, and the remedy refused). They cover:
 - listing: only the first page read, no empty-page stop;
 - the revision guard: a fresh read of the revision, the flag winning over the
   file, a file of another template accepted;

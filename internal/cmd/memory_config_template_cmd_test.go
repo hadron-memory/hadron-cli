@@ -117,6 +117,7 @@ func TestTemplateListOwnerFilter(t *testing.T) {
 	for name, args := range map[string][]string{
 		"two owners":        {"--owner-org", "acme.com", "--owner-me"},
 		"empty --owner-org": {"--owner-org", ""},
+		"empty --owner-app": {"--owner-app", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{})
@@ -229,6 +230,12 @@ func TestTemplateCreateRefusesBadFilesLocally(t *testing.T) {
 		"bad writers":          `{"name":"x","rules":[{"role":"spec","writers":"everyone"}]}`,
 		"bare loc as ref":      `{"name":"x","rules":[{"role":"spec","authorTask":"write-spec"}]}`,
 		"description not text": `{"name":"x","description":7}`,
+		// #735 review round 1 (Copilot, Codex):
+		"OK without URN or id": `{"name":"x","rules":[{"role":"spec","authorTask":null,"authorTaskId":null,"authorTaskState":"OK"}]}`,
+		"misspelled state":     `{"name":"x","rules":[{"role":"spec","authorTaskState":"UNREADBLE"}]}`,
+		"lower-case state":     `{"name":"x","rules":[{"role":"spec","validationTaskState":"ok","validationTask":"hrn:node:acme.com:kb:tasks:check"}]}`,
+		"trailing object":      `{"name":"good"}{"requird":true}`,
+		"trailing garbage":     `{"name":"good"} trailing`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{})
@@ -371,4 +378,21 @@ func TestTemplateRm(t *testing.T) {
 			t.Errorf("vars = %v, want t9 under revision 5", v)
 		}
 	})
+}
+
+// The documented remedy for a withheld reference — set a new one — must still
+// work with the old state key left in place, and a NONE reference may gain one.
+func TestTemplateFileNewReferenceBesideAStaleState(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemoryConfigTemplate": templatePayload("createMemoryConfigTemplate", templateJSON("t1", "x", 1)),
+	})
+	body := `{"name":"x","rules":[{"role":"spec","authorTask":"hrn:node:acme.com:kb:tasks:new","authorTaskState":"UNREADABLE",
+		"validationTaskId":"0123456789abcdef0123456789abcdef","validationTaskState":"NONE"}]}`
+	if _, code := runConfig(t, gql.URL, "memory", "config", "template", "create", "--owner-me", "--file", writeFile(t, body)); code != exitcode.OK {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	rule := vars(t, captured["CreateMemoryConfigTemplate"])["input"].(map[string]any)["rules"].([]any)[0].(map[string]any)
+	if rule["authorTaskRef"] != "hrn:node:acme.com:kb:tasks:new" || rule["validationTaskRef"] != "0123456789abcdef0123456789abcdef" {
+		t.Errorf("rule = %v, want both new references sent", rule)
+	}
 }

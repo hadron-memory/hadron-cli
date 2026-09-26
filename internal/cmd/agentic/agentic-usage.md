@@ -568,9 +568,14 @@ Conventions:
     keys it carries (`id`, `ownerType`, `ownerId`, `revision` on create,
     `created*`/`updated*`) are accepted and never sent; any OTHER unknown key is
     exit 2, so a typo cannot silently do nothing. A reference is taken from its
-    URN, else its id. A reference the file only knows as `BROKEN` or
-    `UNREADABLE` is exit 2: the server withheld which node it is, and sending
-    nothing would drop it from the template.
+    URN, else its id. Reference STATES are checked strictly, because the state
+    is never sent and a state with nothing behind it would silently drop the
+    reference: a `*State` must be `NONE`, `OK`, `BROKEN` or `UNREADABLE`
+    (exact case), an `OK` needs its URN or id, and a `BROKEN`/`UNREADABLE` one —
+    the server withheld which node it is — needs a NEW reference set beside it
+    (or its state key removed, to drop it on purpose). Each is exit 2
+    otherwise. The file must hold exactly one JSON object: trailing content is
+    exit 2.
   - **`update` applies only the keys the file HAS**: an omitted key is
     unchanged, `"description": null` clears it, and `"rules"` REPLACES every
     rule (`"rules": []` removes them all). It is guarded by the revision the

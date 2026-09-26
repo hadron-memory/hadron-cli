@@ -188,6 +188,11 @@ func (o *ownerFlags) resolve(cmd *cobra.Command, required bool) (*gen.MemoryConf
 		ownerType, ref = gen.MemoryConfigTemplateOwnerTypeOrganization, &v
 	}
 	if changed("owner-app") {
+		// CanonicalAppRef reads an exact "" as "no App", which here would send
+		// ownerType APP with an empty ref — refuse it as --owner-org does.
+		if strings.TrimSpace(o.app) == "" {
+			return nil, nil, exitcode.Newf(exitcode.Usage, "--owner-app is empty (an unset shell variable?): pass an App ID or URN")
+		}
 		canon, err := cmdutil.CanonicalAppRef("--owner-app", o.app)
 		if err != nil {
 			return nil, nil, err
@@ -460,6 +465,12 @@ func readTemplateFile(f *cmdutil.Factory, path string) (*templateFile, error) {
 	if err := dec.Decode(&tf); err != nil {
 		return nil, exitcode.Newf(exitcode.Usage, "--file must be a template as JSON (the shape `template get --json` prints): %v", err)
 	}
+	// Decode stops after the first value, so `{"name":"a"}{"requird":true}`
+	// would apply the first object and ignore the rest — the typo the strict
+	// key check exists to catch, one object later.
+	if cmdutil.HasTrailingJSON(dec) {
+		return nil, exitcode.Newf(exitcode.Usage, "--file must hold exactly ONE template object; it has content after it")
+	}
 	return &tf, nil
 }
 
@@ -510,6 +521,16 @@ func (tf *templateFile) rulesInput() ([]*gen.CreateNodeRoleRuleInput, error) {
 	return out, nil
 }
 
+// fileRef reads one rule reference from the file. The STATE is validated
+// strictly, since `update` replaces every rule and the state itself is never
+// sent: a state the file cannot back with a reference would silently DROP it.
+//
+//   - no state key, or NONE: no reference unless the file gives one;
+//   - OK: the file must give the URN or the id (it did, when `get` printed it);
+//   - BROKEN / UNREADABLE: the server withheld which node it is, so the file
+//     cannot name it — refused unless the caller has set a new reference, which
+//     is the documented remedy;
+//   - anything else (a typo, `ok`, `UNREADBLE`) is refused outright.
 func fileRef(i int, role, key string, urn, id, state *string) (*string, error) {
 	pick := func(v *string) string {
 		if v == nil {
@@ -517,12 +538,24 @@ func fileRef(i int, role, key string, urn, id, state *string) (*string, error) {
 		}
 		return strings.TrimSpace(*v)
 	}
+	s := pick(state)
+	switch s {
+	case "", "NONE", "OK", "BROKEN", "UNREADABLE":
+	default:
+		return nil, exitcode.Newf(exitcode.Usage,
+			"--file: rules[%d] (%s): %sState %q is not a reference state — expected NONE, OK, BROKEN or UNREADABLE", i, role, key, s)
+	}
 	value := pick(urn)
 	if value == "" {
 		value = pick(id)
 	}
 	if value == "" {
-		if s := pick(state); s == "BROKEN" || s == "UNREADABLE" {
+		switch s {
+		case "OK":
+			return nil, exitcode.Newf(exitcode.Usage,
+				"--file: rules[%d] (%s): %s is OK but the file gives neither its URN nor its id — "+
+					"restore %s or %sId, or remove %sState to drop the reference", i, role, key, key, key, key)
+		case "BROKEN", "UNREADABLE":
 			return nil, exitcode.Newf(exitcode.Usage,
 				"--file: rules[%d] (%s): %s is %s, so the file does not say which node it is (the server withholds it) — "+
 					"set %s to a node id or URN, or remove %sState to drop the reference", i, role, key, s, key, key)
