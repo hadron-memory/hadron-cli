@@ -348,6 +348,22 @@ func recordChatWatermark(ctx context.Context, sessionID string, seq int) (stillO
 	return err == nil || errors.Is(err, errWatermarkNotOurs)
 }
 
+// bindingIsSession reports, under the binding lock against a fresh read,
+// whether the worktree is still bound to sessionID. A command that read the
+// binding earlier asks this immediately before acting for that session on the
+// server, so a concurrent `session start --force` or `session end` is not
+// acted through (PR #732, @copilot). The window between this check and the
+// server call remains; it is the same one `team chat read`'s mark has.
+func bindingIsSession(ctx context.Context, sessionID string) bool {
+	ours := false
+	_ = withBindingLock(ctx, func() error {
+		cur, _, err := readBinding(ctx)
+		ours = err == nil && cur != nil && cur.SessionID == sessionID
+		return nil
+	})
+	return ours
+}
+
 // errWatermarkNotOurs aborts the watermark update without writing. A sentinel
 // rather than a nil-return-no-op, because updateBinding must be able to tell
 // "nothing to do" from "mutation succeeded" — the latter writes.

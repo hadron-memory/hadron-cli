@@ -102,8 +102,15 @@ App).`,
 				}
 				channelRef = resp.App.DefaultChannel.Id
 			}
-			// The same session also rides as the header, as on `chat read`
-			// (Dara, team chat #1889); the argument is what the server pins.
+			// Re-checked HERE, not only at the start: the Channel lookup above
+			// is a round trip, and a rebind in between would otherwise mark a
+			// retired session's cursor. Nothing is sent; exit 5, re-run.
+			if !bindingIsSession(ctx, b.SessionID) {
+				return exitcode.Newf(exitcode.Conflict,
+					"this worktree's session binding changed while the command ran — nothing was marked; re-run it")
+			}
+			// The same session also rides as the header; the argument is what
+			// the server pins.
 			resp, err := gen.MarkOwnTeamChatRead(api.WithSession(ctx, b.SessionID), client, scope.Ref, b.SessionID, channelRef, through)
 			if err != nil {
 				return api.MapError(err)
@@ -152,6 +159,9 @@ func markDeliveredRead(ctx context.Context, f *cmdutil.Factory, client graphql.C
 	}
 	if resp.App == nil || resp.App.DefaultChannel == nil {
 		return // no team Channel: there is no server cursor to move
+	}
+	if !bindingIsSession(ctx, b.SessionID) {
+		return // rebound or ended during the lookup: not ours to mark
 	}
 	_, err = gen.MarkOwnTeamChatRead(api.WithSession(ctx, b.SessionID), client, appRef, b.SessionID, resp.App.DefaultChannel.Id, through)
 	if err != nil && !api.HasErrorCode(err, "FEATURE_NOT_AVAILABLE") {
