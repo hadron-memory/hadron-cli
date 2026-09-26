@@ -135,6 +135,16 @@ decision.
   skips the mark, "someone read further" still marks), and every human
   receipt after a completed action — switchover preview/apply, mark-read — is
   write-checked. Each reverted fix reds a test.
+- Review round 3 (on `784505a`, @codex + @copilot): the attention commands
+  refuse a binding-supplied App when the binding was made against another
+  server (exit 2; an explicit `--app` still works) — App ids are not unique
+  across deployments, and `switchover apply` would otherwise mark an unrelated
+  App's backlog; the session header is also stripped on a redirect to an
+  insecure scheme, same host included; and both marks (`mark-read` and `chat
+  read`'s) re-check the binding under its lock immediately before the
+  mutation, so a rebind during the Channel lookup is not acted through
+  (`mark-read` exits 5, the read skips its mark). Each reverted fix reds a
+  test, and each mutant compiles.
 - Mutation-checked: dropping the server-match guard, the read header, the
   per-call scoping, the empty-`--since` or empty-`--channel` refusal, the
   consent gate, the mark-read header or the already-read branch each reds at

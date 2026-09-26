@@ -735,3 +735,94 @@ func TestTeamAttentionReceiptsFailWhenTheyCannotBeWritten(t *testing.T) {
 		})
 	}
 }
+
+// PR #732 round 2, @codex/@copilot: a binding made against ANOTHER server
+// must not supply the App to the attention commands — App ids are not unique
+// across deployments. Refused before any request; an explicit --app still
+// reaches this server.
+func TestTeamAttentionRefusesABindingFromAnotherServer(t *testing.T) {
+	for _, args := range [][]string{
+		{"team", "attention"},
+		{"team", "attention", "switchover", "preview"},
+		{"team", "attention", "switchover", "apply", "--proof", "p", "--yes"},
+	} {
+		t.Run(strings.Join(args[1:], " "), func(t *testing.T) {
+			dir := teamGitDir(t)
+			other := strings.Replace(bindingFixture, `"startedAt"`, `"server":"https://elsewhere.example","startedAt"`, 1)
+			if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(other), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			srv, calls := attnServer(t, map[string]string{
+				"TeamAttention":                  attentionJSON,
+				"TeamAttentionSwitchoverPreview": switchoverPreviewJSON,
+				"ConfirmTeamAttentionSwitchover": `{"data":{"confirmTeamAttentionSwitchover":{"applied":true,"workersAdvanced":1,"channelsAdvanced":1}}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{}, args...), "--server", srv.URL))
+			if got := exitOf(root.Execute()); got != exitcode.Usage {
+				t.Errorf("binding-derived App on another server: exit = %d, want %d", got, exitcode.Usage)
+			}
+			if len(*calls) != 0 {
+				t.Errorf("refused before any request, got %v", opsOf(*calls))
+			}
+			// Naming the App explicitly is a deliberate choice, and allowed.
+			f, _ = testFactory(t)
+			root = NewRootCmd(f)
+			root.SetArgs(append(append([]string{}, args...), "--app", "acme.com:eng-team", "--server", srv.URL))
+			if err := root.Execute(); err != nil {
+				t.Errorf("an explicit --app must still work: %v", err)
+			}
+		})
+	}
+}
+
+// PR #732 round 2, @copilot: explicit mark-read re-checks the binding right
+// before the mutation — a rebind during the Channel lookup must not mark the
+// retired session's cursor.
+func TestTeamChatMarkReadRefusesARebindDuringTheCommand(t *testing.T) {
+	writeTeamBinding(t)
+	path := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
+	srv, calls := attnServerHook(t, map[string]string{
+		"TeamDefaultChannel":  `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`,
+		"MarkOwnTeamChatRead": markReadJSON,
+	}, func(op string) {
+		if op == "TeamDefaultChannel" {
+			_ = os.WriteFile(path, []byte(strings.Replace(bindingFixture, `"s-new"`, `"s-other"`, 1)), 0o600)
+		}
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "mark-read", "--through", "5", "--server", srv.URL})
+	if got := exitOf(root.Execute()); got != exitcode.Conflict {
+		t.Errorf("exit = %d, want %d", got, exitcode.Conflict)
+	}
+	for _, c := range *calls {
+		if c.Op == "MarkOwnTeamChatRead" {
+			t.Errorf("a retired session's cursor must not be marked: %v", opsOf(*calls))
+		}
+	}
+}
+
+// …and the same for `chat read`'s post-delivery mark, whose Channel lookup
+// sits between its lock check and the mark.
+func TestTeamChatReadSkipsTheMarkOnARebindDuringTheLookup(t *testing.T) {
+	writeTeamBinding(t)
+	path := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
+	srv, calls := attnServerHook(t, chatReadResponses(), func(op string) {
+		if op == "TeamDefaultChannel" {
+			_ = os.WriteFile(path, []byte(strings.Replace(bindingFixture, `"s-new"`, `"s-other"`, 1)), 0o600)
+		}
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--app", "capp100000000000000000000", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("the read itself must still succeed: %v", err)
+	}
+	for _, c := range *calls {
+		if c.Op == "MarkOwnTeamChatRead" {
+			t.Errorf("rebound mid-lookup: no mark, got %v", opsOf(*calls))
+		}
+	}
+}

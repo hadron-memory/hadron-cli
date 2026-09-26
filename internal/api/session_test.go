@@ -94,3 +94,32 @@ func TestSessionHeaderOnlyWhenTheCallCarriesOne(t *testing.T) {
 		}
 	}
 }
+
+// PR #732 round 2, @copilot: a redirect to a scheme a credential may not ride
+// on strips the session even on the SAME host — the tokenless policy has no
+// scheme check of its own. Both policies are exercised through their
+// CheckRedirect, as client_test does for the scheme guard.
+func TestSessionHeaderIsStrippedOnAnInsecureRedirect(t *testing.T) {
+	t.Setenv(EnvAllowHTTP, "")
+	origin, _ := http.NewRequest(http.MethodPost, "https://srv.example/graphql", nil)
+	for name, c := range map[string]*http.Client{
+		"with token":    withSecureRedirects(&http.Client{}),
+		"without token": withSessionRedirects(&http.Client{}),
+	} {
+		for _, tc := range []struct {
+			url  string
+			keep bool
+		}{
+			{"http://srv.example/graphql", false},    // same host, cleartext
+			{"https://srv.example/graphql", true},    // same host, secure
+			{"https://other.example/graphql", false}, // another host
+		} {
+			req, _ := http.NewRequest(http.MethodPost, tc.url, nil)
+			req.Header.Set(SessionHeader, "s-1")
+			_ = c.CheckRedirect(req, []*http.Request{origin})
+			if got := req.Header.Get(SessionHeader) != ""; got != tc.keep {
+				t.Errorf("%s → %s: session kept = %v, want %v", name, tc.url, got, tc.keep)
+			}
+		}
+	}
+}

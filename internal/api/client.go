@@ -107,13 +107,20 @@ func withSessionRedirects(client *http.Client) *http.Client {
 }
 
 // stripSessionCrossHost drops X-Hadron-Session from a redirect to a different
-// host than the one first asked (PR #732 review, @copilot). net/http strips
+// host than the one first asked, or to a scheme a credential may not ride on
+// (cleartext http off loopback — PR #732 review round 2, @copilot: the
+// tokenless policy has no scheme check of its own, so a same-host https→http
+// hop would otherwise carry the session in cleartext). net/http strips
 // Authorization and cookies on a cross-host redirect by itself, but forwards
 // every custom header, and the redirect request never passes back through
 // bearerDoer — so without this a redirecting server could hand the worker
 // session id to a host it chose. The session is attribution rather than a
 // credential, but it identifies a live session and is nobody else's business.
 func stripSessionCrossHost(req *http.Request, via []*http.Request) {
+	if !schemeIsSecure(req.URL) {
+		req.Header.Del(SessionHeader)
+		return
+	}
 	if len(via) > 0 && via[0] != nil && via[0].URL != nil && !strings.EqualFold(req.URL.Host, via[0].URL.Host) {
 		req.Header.Del(SessionHeader)
 	}

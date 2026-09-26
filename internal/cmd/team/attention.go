@@ -1,6 +1,7 @@
 package team
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -91,11 +92,7 @@ and App).`,
 					"--since is empty — pass the token the previous poll returned, or omit --since to list every worker with unread")
 			}
 			ctx := cmd.Context()
-			b, err := readBindingOrNilWithApp(ctx, f)
-			if err != nil {
-				return err
-			}
-			scope, err := resolveTeamAppScope(ctx, f, b)
+			scope, err := attentionScope(ctx, f)
 			if err != nil {
 				return err
 			}
@@ -155,6 +152,26 @@ and App).`,
 	cmd.Flags().StringVar(&since, "since", "", "the token the previous successful poll returned")
 	cmd.AddCommand(newCmdAttentionSwitchover(f))
 	return cmd
+}
+
+// attentionScope resolves the team App the attention commands act on. When the
+// App comes from the worktree BINDING (no --app, no App context), the binding
+// must have been made against this server: App ids are not unique across
+// deployments (a clone or restore carries them over), so a binding from server
+// A would otherwise name an unrelated App on --server B — and `switchover
+// apply` would mark ITS backlog read (PR #732, @codex / @copilot). An explicit
+// --app still reaches any deployment.
+func attentionScope(ctx context.Context, f *cmdutil.Factory) (appScope, error) {
+	b, err := readBindingOrNilWithApp(ctx, f)
+	if err != nil {
+		return appScope{}, err
+	}
+	if appRef, _ := f.App(); appRef == "" && b != nil {
+		if err := checkBindingServer(f, b); err != nil {
+			return appScope{}, err
+		}
+	}
+	return resolveTeamAppScope(ctx, f, b)
 }
 
 // Switchover DTOs — the stable --json shapes of `switchover preview|apply`.
@@ -217,11 +234,7 @@ func newCmdSwitchoverPreview(f *cmdutil.Factory) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			b, err := readBindingOrNilWithApp(ctx, f)
-			if err != nil {
-				return err
-			}
-			scope, err := resolveTeamAppScope(ctx, f, b)
+			scope, err := attentionScope(ctx, f)
 			if err != nil {
 				return err
 			}
@@ -295,11 +308,7 @@ asks for confirmation on a terminal and needs --yes otherwise.`,
 					"--proof is required — run `hadron team attention switchover preview` and pass the proof it prints")
 			}
 			ctx := cmd.Context()
-			b, err := readBindingOrNilWithApp(ctx, f)
-			if err != nil {
-				return err
-			}
-			scope, err := resolveTeamAppScope(ctx, f, b)
+			scope, err := attentionScope(ctx, f)
 			if err != nil {
 				return err
 			}

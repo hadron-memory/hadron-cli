@@ -2132,7 +2132,10 @@ Conventions:
   apply --proof <proof>`** (prompts on a TTY, `--yes` otherwise; atomic; a
   stale proof exits **5** — preview again). A token or proof the server did not
   sign for this operator+App exits 2; a token overtaken by a moved watermark
-  exits 5 (poll again without `--since`).
+  exits 5 (poll again without `--since`). With no `--app` and no App context
+  the App comes from the worktree binding, and a binding made against ANOTHER
+  server is refused (exit 2): App ids are not unique across deployments. An
+  explicit `--app` still works.
   **A bound worker's `chat read` now marks its messages read on the server**,
   under the pilot, which is what stops the router nudging it. It happens only
   AFTER the messages were printed, for exactly the reads that record the
