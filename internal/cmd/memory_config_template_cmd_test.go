@@ -274,6 +274,8 @@ func TestTemplateCreateRefusesBadFilesLocally(t *testing.T) {
 		// #735 round 2 (Copilot): absent is the one spelling of "no state".
 		"null state":            `{"name":"x","rules":[{"role":"spec","authorTaskState":null}]}`,
 		"null state beside ref": `{"name":"x","rules":[{"role":"spec","descriptionNodeState":null,"descriptionNode":"hrn:node:acme.com:kb:about"}]}`,
+		"empty state":           `{"name":"x","rules":[{"role":"spec","authorTaskState":""}]}`,
+		"padded state":          `{"name":"x","rules":[{"role":"spec","validationTaskState":" OK","validationTask":"hrn:node:acme.com:kb:tasks:check"}]}`,
 		"non-string state":      `{"name":"x","rules":[{"role":"spec","validationTaskState":1}]}`,
 		"trailing object":       `{"name":"good"}{"requird":true}`,
 		"trailing garbage":      `{"name":"good"} trailing`,

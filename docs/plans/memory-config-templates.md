@@ -83,7 +83,9 @@ prints as null: `name`, `required`, `rules` and `revision`; and per rule `role`,
 `enabled`, `strictSubRoles`, `writers` and the three `*State` keys. Keys that
 really print null (`description`, `validateBy`, reference URNs and ids, and the
 server-owned keys) are untouched, and the round-trip test still feeds real
-`get --json` output.
+`get --json` output. A state is also matched **untrimmed**, and `""` is refused
+(Copilot, on `8b2fa9c`): an empty state read as "no state" would drop a
+reference exactly as a null would.
 - **Exactly one JSON object:** `{"name":"a"}{"requird":true}` used to apply the
   first object. `cmdutil.HasTrailingJSON` (exported from the `--where` parser,
   so there's one copy) now refuses it.
@@ -195,7 +197,7 @@ runs that happen to keep the tag.
 - **`rm`:** without `--yes`, no delete is sent; with it, it deletes under the
   revision read.
 
-**Mutation-checked:** 26 compiling mutants, all red (5 added in round 1: an OK reference dropped, any state accepted, trailing content accepted, an empty `--owner-app` sent, and the remedy refused; 4 in round 2: paging by the requested limit, `refuseNulls` disabled, `writers` dropped from the rule keys, `name` dropped from the top-level keys). They cover:
+**Mutation-checked:** 27 compiling mutants, all red (5 added in round 1: an OK reference dropped, any state accepted, trailing content accepted, an empty `--owner-app` sent, and the remedy refused; 4 in round 2: paging by the requested limit, `refuseNulls` disabled, `writers` dropped from the rule keys, `name` dropped from the top-level keys, a state trimmed with `""` accepted). They cover:
 - listing: only the first page read, no empty-page stop, stepping by the
   limit instead of the rows served;
 - the revision guard: a fresh read of the revision, the flag winning over the

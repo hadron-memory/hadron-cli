@@ -590,12 +590,19 @@ func fileRef(i int, role, key string, urn, id, state *string) (*string, error) {
 		}
 		return strings.TrimSpace(*v)
 	}
-	s := pick(state)
-	switch s {
-	case "", "NONE", "OK", "BROKEN", "UNREADABLE":
-	default:
-		return nil, exitcode.Newf(exitcode.Usage,
-			"--file: rules[%d] (%s): %sState %q is not a reference state — expected NONE, OK, BROKEN or UNREADABLE", i, role, key, s)
+	// The state is matched EXACTLY, untrimmed: `get --json` prints only these
+	// four, so "" or " OK" is a hand edit, and "" read as "no state" would drop
+	// a reference exactly as a null would. Absent is the one spelling of that.
+	var s string
+	if state != nil {
+		s = *state
+		switch s {
+		case "NONE", "OK", "BROKEN", "UNREADABLE":
+		default:
+			return nil, exitcode.Newf(exitcode.Usage,
+				"--file: rules[%d] (%s): %sState %q is not a reference state — expected NONE, OK, BROKEN or UNREADABLE "+
+					"(exact), or remove the key", i, role, key, s)
+		}
 	}
 	value := pick(urn)
 	if value == "" {
