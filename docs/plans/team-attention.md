@@ -2,8 +2,8 @@
 
 > **Status: built as a DRAFT against hadron-server#1362, a candidate that is
 > not merged.** Built at `2ece06ab`; re-pinned at `5378b4fb` after the review
-> hardening (#1945, #1954), then at `338b6578`. The snapshot re-exported at
-> each is byte-identical, so the GraphQL contract did not move. Written 2026-09-25 by Jonas. The schema
+> hardening (#1945, #1954), then at `338b6578` and `6a2b359`. The snapshot
+> re-exported at each is byte-identical, so the GraphQL contract did not move. Written 2026-09-25 by Jonas. The schema
 > snapshot must be re-exported from #1362's merge before this lands. This is
 > the CLI-parity half of hadron-server#1353's first slice (A + B + F), per the
 > issue's "Client follow-ups": `hadron team attention`.
