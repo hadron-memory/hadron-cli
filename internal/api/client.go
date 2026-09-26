@@ -76,6 +76,7 @@ func schemeIsSecure(u *url.URL) bool {
 func withSecureRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		stripSessionCrossHost(req, via)
 		if !schemeIsSecure(req.URL) {
 			return fmt.Errorf("%w: refusing to follow a redirect to %s over %s — the bearer token would be sent in cleartext",
 				ErrRedirectPolicy, req.URL.Redacted(), req.URL.Scheme)
@@ -88,6 +89,34 @@ func withSecureRedirects(client *http.Client) *http.Client {
 		return nil
 	}
 	return &c
+}
+
+// withSessionRedirects is the redirect policy for a client with NO bearer
+// token: nothing secret rides, so no scheme check, but the worker-session
+// header must still not follow a redirect to another host.
+func withSessionRedirects(client *http.Client) *http.Client {
+	c := *client
+	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		stripSessionCrossHost(req, via)
+		if len(via) >= 10 {
+			return fmt.Errorf("%w: stopped after 10 redirects", ErrRedirectPolicy)
+		}
+		return nil
+	}
+	return &c
+}
+
+// stripSessionCrossHost drops X-Hadron-Session from a redirect to a different
+// host than the one first asked (PR #732 review, @copilot). net/http strips
+// Authorization and cookies on a cross-host redirect by itself, but forwards
+// every custom header, and the redirect request never passes back through
+// bearerDoer — so without this a redirecting server could hand the worker
+// session id to a host it chose. The session is attribution rather than a
+// credential, but it identifies a live session and is nobody else's business.
+func stripSessionCrossHost(req *http.Request, via []*http.Request) {
+	if len(via) > 0 && !strings.EqualFold(req.URL.Host, via[0].URL.Host) {
+		req.Header.Del(SessionHeader)
+	}
 }
 
 // ErrRedirectPolicy marks a refusal WE made about a redirect, as opposed to a
@@ -208,6 +237,8 @@ func NewClient(serverURL, token string, httpClient *http.Client) (graphql.Client
 	}
 	if token != "" {
 		httpClient = withSecureRedirects(httpClient)
+	} else {
+		httpClient = withSessionRedirects(httpClient)
 	}
 	return graphql.NewClient(Endpoint(serverURL), &bearerDoer{token: token, inner: httpClient}), nil
 }
