@@ -301,7 +301,7 @@ hadron channel list [--owner-app <ref>] [-m <memory>] | get <id|address> | creat
 hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
-hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> [--dry-run] [--expected-revision N] | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> [--to <loc>] | import spec-kit|code
+hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> [--dry-run] [--expected-revision N --expected-node-id ID] | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> [--to <loc>] | import spec-kit|code
 hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--dry-run] [--force] [--prune] [--json] | plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref>
@@ -1291,14 +1291,16 @@ Conventions:
   write sends: the changes a run reports are exactly what that run writes.
   A preview is **not an approval**: applying it is a separate run without
   `--dry-run`, which recomputes against the spec as stored then.
-  **Every save is guarded (cli#738):** the write sends the revision the
-  proposal was computed against as `expectedRevision`, so a concurrent change
-  is refused, never overwritten. `--json` carries **`revision`**, the base
-  revision; a dry run also prints it with the flag to carry it. To save a
-  proposal approved in an EARLIER turn, pass **`--expected-revision N`** (the
-  dry run's `revision`): if the spec changed since, the save refuses with exit
-  **5** and writes nothing. A write-time `NODE_WRITE_CONFLICT` also exits **5**,
-  writes nothing, and keeps the proposed text in a file the message names.
+  **Every save is guarded (cli#738):** the write targets the immutable node ID
+  read with the body and sends that node's revision as `expectedRevision`, so a
+  concurrent change or a replacement at the same citation is never overwritten.
+  `--json` carries **`nodeId`** and **`revision`** from that read; a dry run
+  also prints both flags to carry them. To save a proposal approved in an
+  EARLIER turn, pass **`--expected-node-id ID --expected-revision N`** from the
+  same dry run. If either changed, the save refuses with exit **5** and writes
+  nothing. A write-time `NODE_WRITE_CONFLICT` also exits **5**, writes nothing,
+  and keeps the proposed text in a named file when the file can be created;
+  a file-save failure is reported without claiming the proposal was kept.
   Either way: re-read, reconcile, and get renewed approval before saving. A
   server without revisions or guarded writes is refused (exit 2), never written
   to unguarded. In `spec new|edit|

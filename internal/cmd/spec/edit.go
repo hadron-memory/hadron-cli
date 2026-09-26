@@ -25,6 +25,7 @@ import (
 type editResultDTO struct {
 	Citation        string `json:"citation"`
 	MemoryID        string `json:"memoryId"`
+	NodeID          string `json:"nodeId"`
 	Name            string `json:"name"`
 	Changed         bool   `json:"changed"`
 	BodyChanged     bool   `json:"bodyChanged"`
@@ -42,11 +43,9 @@ type editResultDTO struct {
 	// exactly what that run writes. (A dry run and a later real run are two
 	// reads of the spec; closing that gap is cli#738's.)
 	Changes []fieldChangeDTO `json:"changes"`
-	// Revision is the stored revision this proposal is BASED on (cli#738):
-	// the one read with the body, or --expected-revision when given. A save
-	// sends it as expectedRevision, so the server refuses — writing nothing —
-	// if the spec changed since. Carry it from a dry run to the approved save
-	// with --expected-revision.
+	// Revision and NodeID identify the snapshot this proposal is based on.
+	// Carry both from a dry run to an approved save: a citation can be reused
+	// by a different node at the same revision.
 	Revision int `json:"revision"`
 }
 
@@ -73,8 +72,9 @@ type editProposal struct {
 	// originHash is the stored abstract's fingerprint (spec 032), nil when it
 	// was never fingerprinted.
 	originHash *string
-	// baseRevision is the revision the proposal was computed against; the
-	// write is guarded by it (cli#738).
+	// The write targets the immutable ID read with this revision. A loc can be
+	// vacated and reused by another node at the same revision.
+	baseNodeID   string
 	baseRevision int
 }
 
@@ -137,13 +137,14 @@ func fieldChange(field, before, after string) fieldChangeDTO {
 // input is the write. Omitted fields are preserved; only what changed is set.
 // An abstract changed to empty sends "" — the server normalizes that to null
 // (clear), which is the intended "I removed the abstract". The node is
-// targeted by (memoryId, loc); updateNode never creates.
-func (p editProposal) input(memoryID, loc string) gen.UpdateNodeInput {
+// targeted by immutable node ID; updateNode never creates.
+func (p editProposal) input() gen.UpdateNodeInput {
 	// ALWAYS guarded (cli#738): the server applies the write only while the
 	// spec is still at the revision this proposal was computed against, and
 	// refuses with NODE_WRITE_CONFLICT otherwise. There is no unguarded path.
 	rev := p.baseRevision
-	in := gen.UpdateNodeInput{MemoryId: &memoryID, Loc: &loc, ExpectedRevision: &rev}
+	id := p.baseNodeID
+	in := gen.UpdateNodeInput{Id: &id, ExpectedRevision: &rev}
 	if p.bodyChanged() {
 		body := p.newBody
 		in.Content = &body
@@ -194,6 +195,7 @@ func newCmdEdit(f *cmdutil.Factory) *cobra.Command {
 		stillAccurate bool
 		dryRun        bool
 		expectedRev   int
+		expectedID    string
 	)
 	cmd := &cobra.Command{
 		Use:   "edit <citation>",
@@ -220,15 +222,15 @@ nothing. The body is read as stored, {{…}} placeholders intact, never rendered
 It is a preview, not an approval; applying it is a separate run without
 --dry-run, recomputed against the spec as stored at that moment.
 
-EVERY SAVE IS GUARDED (cli#738). The write carries the revision the proposal was
-computed against, and the server applies it only while the spec is still at
-that revision — so a change someone else saved meanwhile is never silently
-overwritten. A save in one run is guarded by the revision it read. To save a
-proposal that was previewed and APPROVED earlier (another turn or process),
-pass the revision the dry run reported: --expected-revision N. If the spec has
-changed since, the save is refused (exit 5) and writes nothing; if the server
-reports a conflict at write time, your proposed text is kept in a file the
-message names. Re-read, reconcile, and get the proposal approved again. A
+EVERY SAVE IS GUARDED (cli#738). The write targets the immutable node ID read
+with the body and carries that node's revision. A changed node is refused by
+the server, and a replacement at the same citation cannot receive the write.
+To save a proposal previewed and APPROVED earlier (another turn or process),
+pass BOTH values the dry run reported: --expected-revision N and
+--expected-node-id ID. If either the node or its revision changed, the save is
+refused (exit 5) and writes nothing. If the server reports a write-time
+conflict, the proposed text is saved to a file when possible; a failed save is
+reported explicitly. Re-read, reconcile, and get the proposal approved again. A
 server that cannot guard a save (predating hadron-server#1339 or #1352) is
 refused, never written to unguarded.
 
@@ -249,7 +251,7 @@ a legacy abstract past the server cap — re-affirming replaces it, and a
 replacement over the cap is rejected.`,
 		Example: `  hadron spec edit cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --dry-run
-  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content-file body.md --expected-revision 7
+  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content-file body.md --expected-revision 7 --expected-node-id <id-from-preview>
   cat rewrite.md | hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content -
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --abstract-file abstract.md
   hadron spec edit cor:agt:020 -m hrn:mem:hadronmemory.com:specs --content-file body.md --abstract-still-accurate
@@ -286,7 +288,12 @@ replacement over the cap is rejected.`,
 			}
 			if changed("expected-revision") && expectedRev < 1 {
 				return exitcode.Newf(exitcode.Usage,
-					"--expected-revision must be a positive revision number — the one a previous `spec edit --dry-run` or read reported")
+					"--expected-revision must be a positive revision number — use it with --expected-node-id from the same `spec edit --dry-run`")
+			}
+			if changed("expected-revision") != changed("expected-node-id") ||
+				(changed("expected-node-id") && strings.TrimSpace(expectedID) == "") {
+				return exitcode.Newf(exitcode.Usage,
+					"--expected-revision and --expected-node-id must be passed together, using the values from the same `spec edit --dry-run`")
 			}
 			contentProvided := changed("content") || changed("content-file")
 			abstractProvided := changed("abstract") || changed("abstract-file")
@@ -310,12 +317,17 @@ replacement over the cap is rejected.`,
 				return err
 			}
 			// The guard's base (cli#738). With --expected-revision the caller
-			// names the revision their proposal — and its approval — was made
-			// against; a spec that has moved on since is refused HERE, before
+			// names the node and revision their proposal was approved against;
+			// a replacement at the same citation or a changed node is refused HERE, before
 			// an editor opens or a preview is computed against text nobody
 			// approved. The server enforces the same comparison on the write.
 			base := node.Revision
 			if changed("expected-revision") {
+				if node.Id != expectedID {
+					return exitcode.Newf(exitcode.Conflict,
+						"%s now names node %s, not the previewed node %s — nothing was written. Re-read the spec and get the proposal approved again before saving",
+						args[0], node.Id, expectedID)
+				}
 				if node.Revision != expectedRev {
 					return exitcode.Newf(exitcode.Conflict,
 						"%s changed since revision %d (it is at revision %d now) — nothing was written. Re-read it (`spec edit --dry-run` shows the stored text), reconcile your proposal with the change, and get it approved again before saving",
@@ -367,11 +379,13 @@ replacement over the cap is rejected.`,
 				newBody: newBody, newAbstract: newAbstract,
 				reaffirm:     stillAccurate && newAbstract == curAbstract,
 				originHash:   node.AbstractOriginHash,
+				baseNodeID:   node.Id,
 				baseRevision: base,
 			}
 			result := editResultDTO{
 				Citation:           node.Loc,
 				MemoryID:           node.MemoryId,
+				NodeID:             node.Id,
 				Name:               node.Name,
 				BodyChanged:        proposal.bodyChanged(),
 				AbstractChanged:    proposal.abstractChanged(),
@@ -412,7 +426,7 @@ replacement over the cap is rejected.`,
 						// The same closing line as every other dry run, so a
 						// no-op preview reads no differently as to what it is.
 						fmt.Fprintln(w, dryRunDisclaimer)
-						fmt.Fprintln(w, revisionLine(result.Revision))
+						fmt.Fprintln(w, revisionLine(result.Revision, result.NodeID))
 					}
 					return nil
 				})
@@ -427,7 +441,7 @@ replacement over the cap is rejected.`,
 				return render()
 			}
 
-			input := proposal.input(node.MemoryId, node.Loc)
+			input := proposal.input()
 			if _, err := api.UpdateSpecNode(cmd.Context(), client, &input); err != nil {
 				if api.HasErrorCode(err, "NODE_WRITE_CONFLICT") {
 					return conflictRefusal(node.Loc, base, assembleEditBuffer(newAbstract, newBody))
@@ -453,7 +467,8 @@ replacement over the cap is rejected.`,
 	cmd.Flags().BoolVar(&stillAccurate, "abstract-still-accurate", false,
 		"assert you re-read the abstract and it still describes the spec: re-sends it unchanged so it is re-fingerprinted against the body, refreshing its verification")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the proposed change as a diff of the stored text, without writing (a preview, not an approval)")
-	cmd.Flags().IntVar(&expectedRev, "expected-revision", 0, "the revision your proposal was made against (from a dry run or read); refused, writing nothing, if the spec has changed since")
+	cmd.Flags().IntVar(&expectedRev, "expected-revision", 0, "the revision from an approved dry run; use with --expected-node-id, refused if the node changed")
+	cmd.Flags().StringVar(&expectedID, "expected-node-id", "", "the immutable node ID from the same dry run as --expected-revision; refused if this citation now names another node")
 	return cmd
 }
 
@@ -656,30 +671,48 @@ func countLines(s string) int {
 }
 
 // dryRunDisclaimer closes every dry run, a no-op included.
-// revisionLine tells a dry-run reader how to save EXACTLY what they reviewed
-// (cli#738): the revision the preview was computed against, carried to the
-// save with --expected-revision so an intervening change refuses rather than
-// being overwritten.
-func revisionLine(rev int) string {
-	return fmt.Sprintf("based on revision %d: to save exactly this proposal later, add --expected-revision %d — the save is refused, writing nothing, if the spec changed after this preview.", rev, rev)
+// revisionLine tells a dry-run reader how to save EXACTLY what they reviewed:
+// the immutable node ID and revision must both match on the later run.
+func revisionLine(rev int, id string) string {
+	return fmt.Sprintf("based on node %s at revision %d: to save exactly this proposal later, add --expected-node-id %s --expected-revision %d — the save is refused, writing nothing, if the node or revision changed after this preview.", id, rev, id, rev)
 }
 
 // conflictRefusal is the NODE_WRITE_CONFLICT answer (cli#738): nothing was
-// written, the proposal is KEPT — spilled to a file, since it may exist only in
-// an editor buffer or piped stdin — and the caller is told to re-read,
-// reconcile and seek approval again rather than retry blindly.
+// written. It saves the proposal to a file when possible, since it may exist
+// only in an editor buffer or piped stdin. A failed spill is reported plainly;
+// the message must not promise a copy that does not exist.
 func conflictRefusal(loc string, base int, proposal string) error {
-	where := "it could not be saved to a file"
-	if f, err := os.CreateTemp("", "hadron-spec-edit-*.md"); err == nil {
-		_, werr := f.WriteString(proposal)
-		cerr := f.Close()
-		if werr == nil && cerr == nil {
-			where = "it is saved at " + f.Name()
-		}
+	path, err := spillEditProposal(proposal)
+	if err != nil {
+		return exitcode.Newf(exitcode.Conflict,
+			"%s changed since revision %d — nothing was written, and the proposed text could not be saved to a file (%v). Do not assume it was kept; recover your proposal from its original input before retrying",
+			loc, base, err)
 	}
 	return exitcode.Newf(exitcode.Conflict,
-		"%s changed since revision %d, which this edit was based on — nothing was written, and your proposed text is kept (%s). Re-read the spec, reconcile your proposal with the change, and get it approved again before saving",
-		loc, base, where)
+		"%s changed since revision %d, which this edit was based on — nothing was written, and your proposed text is kept (saved at %s). Re-read the spec, reconcile your proposal with the change, and get it approved again before saving",
+		loc, base, path)
+}
+
+func spillEditProposal(proposal string) (string, error) {
+	f, err := os.CreateTemp("", "hadron-spec-edit-*.md")
+	if err != nil {
+		return "", err
+	}
+	path := f.Name()
+	n, err := f.WriteString(proposal)
+	if err == nil && n != len(proposal) {
+		err = io.ErrShortWrite
+	}
+	if err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(path)
+		return "", err
+	}
+	return path, nil
 }
 
 // unsupportedGuard reports the server refusing the guard itself: a build
@@ -738,7 +771,7 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 			fmt.Fprintf(w, "\n%s", c.Diff)
 		}
 		fmt.Fprintln(w, "\n"+dryRunDisclaimer)
-		fmt.Fprintln(w, revisionLine(r.Revision))
+		fmt.Fprintln(w, revisionLine(r.Revision, r.NodeID))
 	}
 	return nil
 }

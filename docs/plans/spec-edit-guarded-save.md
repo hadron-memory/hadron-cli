@@ -30,19 +30,24 @@
    on `GetSpecNodeRaw` because `supersede` and `extract` share that read
    (cli#742) and don't need a revision. On a server predating `Node.revision`
    the new field would fail their whole query.
-2. **Every save is guarded.** `editProposal.input()` always sets
-   `expectedRevision` to the proposal's base revision. There is no unguarded
-   path and no flag to request one.
-3. **`--expected-revision N` carries an approval across turns.** The dry run
-   reports `revision` (in `--json`, plus a text line naming the flag), and a
-   later run passes it. If the spec moved on since, the run is refused with
-   exit 5 **before** an editor opens or a preview is computed. The server
-   enforces the same comparison on the write, so the client check is a
+2. **Every save is guarded and targets a stable identity.**
+   `editProposal.input()` selects the read node's immutable ID and always
+   sets `expectedRevision` to its base revision. Selecting by `(memoryId, loc)`
+   would let a replacement node at the same citation and revision receive an
+   approved edit. There is no unguarded path and no flag to request one.
+3. **`--expected-node-id ID --expected-revision N` carries an approval across
+   turns.** The dry run reports both values (`nodeId` and `revision` in
+   `--json`, plus a text line naming both flags), and a later run passes the
+   pair. A replacement node or changed revision is refused with exit 5
+   **before** an editor opens or a preview is computed. The server enforces
+   the revision comparison on the ID-targeted write, so the client check is a
    courtesy and never the only gate.
 4. **On a write-time conflict, the proposal is kept.** `NODE_WRITE_CONFLICT`
    exits 5, and nothing is retried or written. The proposed text (the edit
    buffer's abstract and body) is spilled to a temp file whose path the
    message names, since it may only have existed in `$EDITOR` or piped stdin.
+   A failed spill removes any partial file and reports that no saved copy is
+   available; it never claims the proposal was kept.
    The message asks the caller to re-read, reconcile, and get renewed
    approval.
 5. **An unsupported server is refused, never written to unguarded.** A server
@@ -54,15 +59,17 @@
 
 ## Tests (`internal/cmd/spec_edit_guard_test.go`)
 
-- A save sends `expectedRevision` equal to the read's revision (7).
-- A matching `--expected-revision` saves.
+- A save selects the read node ID and sends `expectedRevision` equal to its
+  revision (7).
+- A matching `--expected-node-id` and `--expected-revision` pair saves.
+- A replacement at the same citation and revision is refused before a write.
 - A stale one is refused with exit 5 and no write, in both a dry run and a
   real save.
 - A server `NODE_WRITE_CONFLICT` gives exit 5 with **exactly one** write
   attempt (no retry), and the kept file holds the proposed body with its
   placeholders intact.
-- A dry run reports `revision` in `--json` and names `--expected-revision 7` in
-  its text.
+- A dry run reports `nodeId` and `revision` in `--json` and names both flags
+  in its text.
 - These are refused, with nothing written: a non-positive
   `--expected-revision`, a server without revisions, and a server without
   guarded writes (one attempt, no unguarded retry).

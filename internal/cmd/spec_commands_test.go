@@ -3512,6 +3512,7 @@ func editMocks() map[string]string {
 
 type editUpdateInput struct {
 	Input struct {
+		ID       string  `json:"id"`
 		Loc      string  `json:"loc"`
 		Name     string  `json:"name"`
 		Content  *string `json:"content"`
@@ -3539,8 +3540,8 @@ func TestSpecEditInteractive(t *testing.T) {
 	if err := json.Unmarshal(captured["UpdateSpecNode"], &up); err != nil {
 		t.Fatalf("UpdateNode vars: %v", err)
 	}
-	if up.Input.Loc != "msg:010:02" {
-		t.Errorf("loc = %q, want msg:010:02 (no renumber)", up.Input.Loc)
+	if up.Input.ID != "sp1" || up.Input.Loc != "" {
+		t.Errorf("edit must target the read node ID, got id=%q loc=%q", up.Input.ID, up.Input.Loc)
 	}
 	if up.Input.Content == nil || !strings.Contains(*up.Input.Content, "## New") {
 		t.Errorf("edited body not sent: %v", up.Input.Content)

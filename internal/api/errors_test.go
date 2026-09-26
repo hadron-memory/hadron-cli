@@ -16,6 +16,17 @@ func gqlErr(code string) error {
 	return gqlerror.List{{Message: "boom", Extensions: map[string]any{"code": code}}}
 }
 
+func TestHasErrorCodeReadsNon200GraphQLEnvelope(t *testing.T) {
+	refusal := gqlerror.List{{Message: "stale", Extensions: map[string]any{"code": "NODE_WRITE_CONFLICT"}}}
+	err := &graphql.HTTPError{StatusCode: 409, Response: graphql.Response{Errors: refusal}}
+	if !HasErrorCode(err, "NODE_WRITE_CONFLICT") {
+		t.Error("a typed conflict in a non-200 response must take the proposal-preserving branch")
+	}
+	if HasErrorCode(err, "NODE_NOT_FOUND") {
+		t.Error("a different error code must not match")
+	}
+}
+
 func TestMapError(t *testing.T) {
 	tests := []struct {
 		name string

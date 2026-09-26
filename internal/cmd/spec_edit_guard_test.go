@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -45,6 +46,21 @@ func sentRevision(t *testing.T, vars json.RawMessage) *int {
 	return v.Input.ExpectedRevision
 }
 
+func sentNodeID(t *testing.T, vars json.RawMessage) (id *string, memoryID *string, loc *string) {
+	t.Helper()
+	var v struct {
+		Input struct {
+			ID       *string `json:"id"`
+			MemoryID *string `json:"memoryId"`
+			Loc      *string `json:"loc"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(vars, &v); err != nil {
+		t.Fatal(err)
+	}
+	return v.Input.ID, v.Input.MemoryID, v.Input.Loc
+}
+
 func runSpecEdit(t *testing.T, mocks map[string][]string, stdin string, args ...string) (string, map[string][]json.RawMessage, error) {
 	t.Helper()
 	gql, captured := queueGraphQL(t, mocks)
@@ -68,12 +84,14 @@ func TestSpecEditSaveIsGuardedByTheReadRevision(t *testing.T) {
 	if rev := sentRevision(t, captured["UpdateSpecNode"][0]); rev == nil || *rev != 7 {
 		t.Errorf("the save must send expectedRevision 7 (the revision read with the body), got %v", rev)
 	}
+	if id, mem, loc := sentNodeID(t, captured["UpdateSpecNode"][0]); id == nil || *id != "sp1" || mem != nil || loc != nil {
+		t.Errorf("the save must select the read node ID alone, got id=%v memoryId=%v loc=%v", id, mem, loc)
+	}
 }
 
-// --expected-revision carries an EARLIER read's revision to the save; when the
-// spec is still there, that is what the guard sends.
+// The ID/revision pair carries an EARLIER preview's identity to the save.
 func TestSpecEditExpectedRevisionThatStillMatchesSaves(t *testing.T) {
-	_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# new body\n", "--content", "-", "--expected-revision", "7")
+	_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# new body\n", "--content", "-", "--expected-revision", "7", "--expected-node-id", "sp1")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -82,12 +100,24 @@ func TestSpecEditExpectedRevisionThatStillMatchesSaves(t *testing.T) {
 	}
 }
 
+func TestSpecEditRejectsReplacementAtSameCitationAndRevision(t *testing.T) {
+	m := guardMocks(guardWriteOK)
+	m["GetSpecNodeForEdit"][0] = strings.Replace(m["GetSpecNodeForEdit"][0], `"id":"sp1"`, `"id":"sp2"`, 1)
+	_, captured, err := runSpecEdit(t, m, "# new body\n", "--content", "-", "--expected-revision", "7", "--expected-node-id", "sp1")
+	if got := exitCodeFor(err); got != exitcode.Conflict {
+		t.Fatalf("replacement at the same revision: exit = %d, want 5 (%v)", got, err)
+	}
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
+		t.Error("replacement node must not receive the earlier approval")
+	}
+}
+
 // A proposal approved against revision 5 must not be saved over revision 7:
 // refused with exit 5 before any write — dry run included, since a preview of
 // a stale proposal would be approved against text that is no longer there.
 func TestSpecEditStaleExpectedRevisionIsRefusedBeforeWriting(t *testing.T) {
 	for _, extra := range [][]string{nil, {"--dry-run"}} {
-		args := append([]string{"--content", "-", "--expected-revision", "5"}, extra...)
+		args := append([]string{"--content", "-", "--expected-revision", "5", "--expected-node-id", "sp1"}, extra...)
 		_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# new body\n", args...)
 		if got := exitCodeFor(err); got != exitcode.Conflict {
 			t.Errorf("args %v: exit = %d, want %d (%v)", args, got, exitcode.Conflict, err)
@@ -127,6 +157,18 @@ func TestSpecEditConflictKeepsTheProposalAndDoesNotRetry(t *testing.T) {
 	}
 }
 
+func TestSpecEditConflictReportsUnpreservedProposal(t *testing.T) {
+	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
+	conflict := `{"errors":[{"message":"stale","extensions":{"code":"NODE_WRITE_CONFLICT"}}]}`
+	_, _, err := runSpecEdit(t, guardMocks(conflict), "# proposal\n", "--content", "-")
+	if got := exitCodeFor(err); got != exitcode.Conflict {
+		t.Fatalf("exit = %d, want 5 (%v)", got, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "could not be saved") || strings.Contains(err.Error(), "is kept") {
+		t.Errorf("a failed spill must report that no saved copy exists, got %v", err)
+	}
+}
+
 // The dry run reports the revision it was computed against — in --json and in
 // the text, with the flag to carry it to the approved save.
 func TestSpecEditDryRunReportsItsRevision(t *testing.T) {
@@ -135,32 +177,44 @@ func TestSpecEditDryRunReportsItsRevision(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var dto struct {
-		Revision int `json:"revision"`
+		Revision int    `json:"revision"`
+		NodeID   string `json:"nodeId"`
 	}
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
 		t.Fatalf("--json must parse: %v (%s)", err, out)
 	}
-	if dto.Revision != 7 {
-		t.Errorf("revision = %d, want 7", dto.Revision)
+	if dto.Revision != 7 || dto.NodeID != "sp1" {
+		t.Errorf("preview identity = %s at %d, want sp1 at 7", dto.NodeID, dto.Revision)
 	}
 	text, _, err := runSpecEdit(t, guardMocks(""), "# new body\n", "--content", "-", "--dry-run")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(text, "--expected-revision 7") {
-		t.Errorf("the dry run must say how to save exactly this proposal:\n%s", text)
+	if !strings.Contains(text, "--expected-revision 7") || !strings.Contains(text, "--expected-node-id sp1") {
+		t.Errorf("the dry run must name both values needed to save exactly this proposal:\n%s", text)
 	}
 }
 
 // Refusals that must happen before anything is sent or written.
 func TestSpecEditGuardRefusals(t *testing.T) {
 	t.Run("non-positive --expected-revision", func(t *testing.T) {
-		_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# x\n", "--content", "-", "--expected-revision", "0")
+		_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# x\n", "--content", "-", "--expected-revision", "0", "--expected-node-id", "sp1")
 		if got := exitCodeFor(err); got != exitcode.Usage {
 			t.Errorf("exit = %d, want %d", got, exitcode.Usage)
 		}
 		if len(captured) != 0 {
 			t.Errorf("refused before any request, got %v", captured)
+		}
+	})
+	t.Run("incomplete preview identity", func(t *testing.T) {
+		for _, flags := range [][]string{{"--expected-revision", "7"}, {"--expected-node-id", "sp1"}} {
+			_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# x\n", append([]string{"--content", "-"}, flags...)...)
+			if got := exitCodeFor(err); got != exitcode.Usage {
+				t.Errorf("flags %v: exit = %d, want 2", flags, got)
+			}
+			if len(captured) != 0 {
+				t.Errorf("flags %v: refused before any request, got %v", flags, captured)
+			}
 		}
 	})
 	t.Run("a server without revisions", func(t *testing.T) {

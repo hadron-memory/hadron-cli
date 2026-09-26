@@ -353,23 +353,15 @@ func IsMCPOnlyCredential(err error) bool {
 }
 
 // HasErrorCode reports whether err carries a GraphQL error whose
-// extensions.code equals code. It inspects the raw genqlient error (call it
-// BEFORE MapError wraps the error into a CodedError) so callers can branch on
-// a specific server error — e.g. `node import` falling back from updateNode's
-// NODE_NOT_FOUND to createNode.
+// extensions.code equals code, including a non-200 HTTPError with a parsed
+// GraphQL response. It also follows MapError's wrapping, though callers that
+// need a special recovery path should branch before mapping the error — e.g.
+// a guarded spec edit keeping its proposal on NODE_WRITE_CONFLICT.
 func HasErrorCode(err error, code string) bool {
-	var list gqlerror.List
-	if errors.As(err, &list) {
-		for _, e := range list {
-			if extensionCode(e) == code {
-				return true
-			}
+	for _, e := range graphQLErrors(err) {
+		if extensionCode(e) == code {
+			return true
 		}
-		return false
-	}
-	var gqlErr *gqlerror.Error
-	if errors.As(err, &gqlErr) {
-		return extensionCode(gqlErr) == code
 	}
 	return false
 }
