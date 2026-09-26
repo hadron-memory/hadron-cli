@@ -197,7 +197,7 @@ runs that happen to keep the tag.
 - **`rm`:** without `--yes`, no delete is sent; with it, it deletes under the
   revision read.
 
-**Mutation-checked:** 27 compiling mutants, all red (5 added in round 1: an OK reference dropped, any state accepted, trailing content accepted, an empty `--owner-app` sent, and the remedy refused; 4 in round 2: paging by the requested limit, `refuseNulls` disabled, `writers` dropped from the rule keys, `name` dropped from the top-level keys, a state trimmed with `""` accepted). They cover:
+**Mutation-checked:** 27 compiling mutants, all red (5 added in round 1: an OK reference dropped, any state accepted, trailing content accepted, an empty `--owner-app` sent, and the remedy refused; 4 in round 2: paging by the requested limit, `refuseNulls` disabled, `writers` dropped from the rule keys, `name` dropped from the top-level keys; 1 in round 3: a state trimmed with `""` accepted). They cover:
 - listing: only the first page read, no empty-page stop, stepping by the
   limit instead of the rows served;
 - the revision guard: a fresh read of the revision, the flag winning over the
