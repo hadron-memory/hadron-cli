@@ -250,3 +250,83 @@ The steps:
    a template you manage and on one id you don't (exit 4). Only the second `get`
    was possible live (see Limit).
 5. Mark ready and re-request reviews on the final head.
+
+## 6. Slice 3: `template apply` (hadron-server#1334 slice 1)
+
+> **Status: DRAFT, built against the #1399 candidate `5584741`** (Ada, team
+> chat #2215: build against the posted contract; regenerate and verify from
+> the merge before ready). The snapshot was exported from that head, which sits
+> on server `main` `19835fb`, so it also carries #1362's team-attention
+> operations. Those are cli#732's (Jonas); they are annotated in the
+> unbound-ops baseline rather than wired here. Whichever of cli#732 and this
+> lands second re-exports.
+
+**Surface:** `hadron memory config template apply <templateId> <memoryRef>
+[--dry-run] [--expected-revision <n>] [--yes]` over `applyMemoryConfigTemplate`.
+It prints the per-role report (`APPLIED` / `SKIPPED_CONFLICT` / `REPLACED` /
+`SKIPPED_LOCKED`) as a table, or as `--json` `{memoryId, template, templateRevision,
+required, dryRun, entries[{role, outcome, rule}], warnings[]}`. `rule` reuses
+slice 1's rule DTO, and `entries: []` / `warnings: []` are never null.
+
+**Preview, then confirm only what overwrites.** The command always dry-runs
+first. `REPLACED` is the one outcome that destroys something (a required
+template overwrites the memory's rule and locks it), so only a preview
+containing it asks: a prompt on a TTY, `--yes` otherwise (exit 2 without).
+The real apply then sends the preview's `templateRevision` as
+`expectedTemplateRevision`, so the template applied is the template shown, and
+a change in between exits 5.
+
+**Limit, stated:** that pins the TEMPLATE. The server has no precondition on
+the memory's config, so a rule created for a role between the preview and the
+apply can still be REPLACED unasked. The apply's own report is authoritative
+and is what the command prints.
+
+**Exit codes:**
+- `RULE_LOCKED` → 8. It also reaches slice 1's `rule update|rm`. The caller can
+  see and manage the rule, so nothing is concealed and it is an authority
+  refusal, not 4.
+- `NODE_ROLE_RULE_REF_BROKEN` → 5. The stored template's task was deleted; the
+  fix is `template update`, not the caller's input.
+- Skipped entries are the report, not a failure: exit 0.
+
+**No lock policy is invented.** Eli found that under H3 everyone who can
+manage a config already has lock authority, so `RULE_LOCKED` and
+`SKIPPED_LOCKED` stop nobody today (#2216; a question for Holger on #1334).
+The CLI reports both faithfully, whatever the server decides.
+
+**Tests** (`internal/cmd/memory_config_template_apply_cmd_test.go`, with a server
+that records every call in order):
+- a dry run is one call, with no pin;
+- no `REPLACED` means preview then apply, pinned to the previewed revision,
+  with no prompt;
+- `REPLACED` without `--yes` stops after the preview; with `--yes` it applies,
+  pinned;
+- `--expected-revision` pins both calls, and a non-positive one is refused
+  locally;
+- `SKIPPED_LOCKED` exits 0; an empty template gives `entries: []`;
+- server refusals: 4, 4, 5, 5, 4, never followed by an apply;
+- `RULE_LOCKED` exits 8 on `rule update` and `rule rm`.
+
+**Mutation-checked:** 8 compiling mutants, each killed by its intended test:
+- no confirmation;
+- the apply unpinned;
+- a dry run that applies;
+- no revision validation;
+- `RULE_LOCKED` unmapped, and `NODE_ROLE_RULE_REF_BROKEN` unmapped;
+- `entries: null`;
+- the preview ignoring the pin.
+
+Two first attempts did not compile (an unused variable) and were re-run with
+the variable kept referenced.
+
+**Before ready:**
+1. #1399 merged.
+2. Re-export from the merge SHA through a throwaway worktree with its own `tsx`
+   (never a symlinked `node_modules`), `make generate` 6+ times, and a diff
+   check against this candidate.
+3. Every ci.yml build step.
+4. A read-only `template apply --dry-run` on production once the server is
+   deployed: it writes nothing, but it needs a managed template and memory,
+   and this account manages no template, so it may only be possible as a
+   refusal (exit 4).
+5. Mark ready and re-request reviews on the final head.

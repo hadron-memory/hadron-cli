@@ -172,3 +172,46 @@ mutation DeleteNodeRoleRule(
 ) {
   deleteNodeRoleRule(ref: $ref, expectedRevision: $expectedRevision)
 }
+
+# #716 slice 3 / server#1334 — copy a template's rules into ONE memory's config.
+# A one-off copy (later template edits never reach the memory). The report has
+# one entry per template rule: APPLIED, SKIPPED_CONFLICT (a non-required
+# template never overrides), REPLACED (a required template overwrote the rule,
+# now locked) or SKIPPED_LOCKED. `template apply` dry-runs first and, when the
+# preview would REPLACE a rule, confirms before applying with the preview's
+# templateRevision as expectedTemplateRevision, so what was shown is what is
+# applied (CONFLICT otherwise).
+mutation ApplyMemoryConfigTemplate(
+  $templateRef: ID!
+  $memoryRef: ID!
+  # @genqlient(omitempty: true)
+  $expectedTemplateRevision: Int
+  $dryRun: Boolean!
+) {
+  applyMemoryConfigTemplate(
+    templateRef: $templateRef
+    memoryRef: $memoryRef
+    expectedTemplateRevision: $expectedTemplateRevision
+    dryRun: $dryRun
+  ) {
+    memoryId
+    template {
+      id
+      name
+      deleted
+    }
+    templateRevision
+    required
+    dryRun
+    entries {
+      role
+      outcome
+      rule {
+        ...NodeRoleRuleFields
+      }
+    }
+    warnings {
+      ...MemoryConfigWarningFields
+    }
+  }
+}

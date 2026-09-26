@@ -141,6 +141,7 @@ Templates are addressed by id; "template list" shows them.`,
 	cmd.AddCommand(newCmdTemplateCreate(f))
 	cmd.AddCommand(newCmdTemplateUpdate(f))
 	cmd.AddCommand(newCmdTemplateRm(f))
+	cmd.AddCommand(newCmdTemplateApply(f))
 	return cmd
 }
 
