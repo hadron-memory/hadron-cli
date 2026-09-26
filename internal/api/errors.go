@@ -782,6 +782,13 @@ func codeForExtension(code string) int {
 	// generic 1 (measured on c9fa75a). The remedy is `rule update`, not a retry.
 	case code == "NODE_ROLE_RULE_EXISTS":
 		return exitcode.Conflict
+	// A live template of that name already exists under the same owner
+	// (hadron-server#1325 part c; cli#716 slice 2). The same _EXISTS spelling,
+	// so the same literal case. HADRON_SERVER_NOT_CONFIGURED is deliberately
+	// NOT mapped: it means the deployment has no hadron_server row — an
+	// operator's fix, not the caller's — so the generic 1 is the honest code.
+	case code == "MEMORY_CONFIG_TEMPLATE_EXISTS":
+		return exitcode.Conflict
 	// #1325 part b's argument refusals, each measured falling through to the
 	// generic 1 on c9fa75a (cli#716 audit):
 	//   - INVALID_NODE_ROLE: a rule key outside the #1322 grammar. Its

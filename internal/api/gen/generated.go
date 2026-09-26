@@ -6175,6 +6175,297 @@ func (v *CreateMcpServerResponse) GetCreateMcpServer() *CreateMcpServerCreateMcp
 	return v.CreateMcpServer
 }
 
+// CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayload includes the requested fields of the GraphQL type MemoryConfigTemplatePayload.
+type CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayload struct {
+	Template *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate `json:"template"`
+	// Empty until #1327 adds its visibility warnings.
+	Warnings []*CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning `json:"warnings"`
+}
+
+// GetTemplate returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayload.Template, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayload) GetTemplate() *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate {
+	return v.Template
+}
+
+// GetWarnings returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayload.Warnings, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayload) GetWarnings() []*CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning {
+	return v.Warnings
+}
+
+// CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate includes the requested fields of the GraphQL type MemoryConfigTemplate.
+// The GraphQL type's documentation follows.
+//
+// #1325 part (c) — a reusable rulebook with exactly one owner, COPIED into a
+// memory's config when applied (never live-linked). Read and managed only by
+// its owner's managers: a platform admin (server), an org ADMIN/OWNER
+// (organization), the user themselves (user), the App's owner or org
+// ADMIN/OWNER (App). For anyone else it does not exist.
+type CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate struct {
+	MemoryConfigTemplateFields `json:"-"`
+}
+
+// GetId returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Id, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetId() string {
+	return v.MemoryConfigTemplateFields.Id
+}
+
+// GetName returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Name, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetName() string {
+	return v.MemoryConfigTemplateFields.Name
+}
+
+// GetDescription returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Description, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetDescription() *string {
+	return v.MemoryConfigTemplateFields.Description
+}
+
+// GetOwnerType returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OwnerType, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOwnerType() MemoryConfigTemplateOwnerType {
+	return v.MemoryConfigTemplateFields.OwnerType
+}
+
+// GetOwnerId returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OwnerId, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOwnerId() *string {
+	return v.MemoryConfigTemplateFields.OwnerId
+}
+
+// GetRequired returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Required, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRequired() bool {
+	return v.MemoryConfigTemplateFields.Required
+}
+
+// GetRevision returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRevision() int {
+	return v.MemoryConfigTemplateFields.Revision
+}
+
+// GetCreatedAt returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetCreatedAt() string {
+	return v.MemoryConfigTemplateFields.CreatedAt
+}
+
+// GetCreatedBy returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetCreatedBy() *string {
+	return v.MemoryConfigTemplateFields.CreatedBy
+}
+
+// GetUpdatedAt returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetUpdatedAt() *string {
+	return v.MemoryConfigTemplateFields.UpdatedAt
+}
+
+// GetUpdatedBy returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetUpdatedBy() *string {
+	return v.MemoryConfigTemplateFields.UpdatedBy
+}
+
+// GetRules returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Rules, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRules() []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule {
+	return v.MemoryConfigTemplateFields.Rules
+}
+
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigTemplateFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OwnerType MemoryConfigTemplateOwnerType `json:"ownerType"`
+
+	OwnerId *string `json:"ownerId"`
+
+	Required bool `json:"required"`
+
+	Revision int `json:"revision"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+
+	Rules []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule `json:"rules"`
+}
+
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) __premarshalJSON() (*__premarshalCreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate, error) {
+	var retval __premarshalCreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate
+
+	retval.Id = v.MemoryConfigTemplateFields.Id
+	retval.Name = v.MemoryConfigTemplateFields.Name
+	retval.Description = v.MemoryConfigTemplateFields.Description
+	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
+	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
+	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.Revision = v.MemoryConfigTemplateFields.Revision
+	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
+	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
+	retval.UpdatedAt = v.MemoryConfigTemplateFields.UpdatedAt
+	retval.UpdatedBy = v.MemoryConfigTemplateFields.UpdatedBy
+	retval.Rules = v.MemoryConfigTemplateFields.Rules
+	return &retval, nil
+}
+
+// CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
+// The GraphQL type's documentation follows.
+//
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+type CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning struct {
+	MemoryConfigWarningFields `json:"-"`
+}
+
+// GetCode returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.Code, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetCode() string {
+	return v.MemoryConfigWarningFields.Code
+}
+
+// GetRole returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.Role, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetRole() string {
+	return v.MemoryConfigWarningFields.Role
+}
+
+// GetField returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.Field, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetField() *string {
+	return v.MemoryConfigWarningFields.Field
+}
+
+// GetTaskUrn returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.TaskUrn, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetTaskUrn() *string {
+	return v.MemoryConfigWarningFields.TaskUrn
+}
+
+// GetTaskState returns CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.TaskState, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetTaskState() *NodeRoleRuleRefState {
+	return v.MemoryConfigWarningFields.TaskState
+}
+
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigWarningFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning struct {
+	Code string `json:"code"`
+
+	Role string `json:"role"`
+
+	Field *string `json:"field"`
+
+	TaskUrn *string `json:"taskUrn"`
+
+	TaskState *NodeRoleRuleRefState `json:"taskState"`
+}
+
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) __premarshalJSON() (*__premarshalCreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning, error) {
+	var retval __premarshalCreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning
+
+	retval.Code = v.MemoryConfigWarningFields.Code
+	retval.Role = v.MemoryConfigWarningFields.Role
+	retval.Field = v.MemoryConfigWarningFields.Field
+	retval.TaskUrn = v.MemoryConfigWarningFields.TaskUrn
+	retval.TaskState = v.MemoryConfigWarningFields.TaskState
+	return &retval, nil
+}
+
+// #1325 part (c) — a new template. `rules` are validated as a whole before anything is written.
+type CreateMemoryConfigTemplateInput struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+	Required    *bool   `json:"required,omitempty"`
+	// Each role at most once (NODE_ROLE_RULE_EXISTS).
+	Rules []*CreateNodeRoleRuleInput `json:"rules,omitempty"`
+}
+
+// GetDescription returns CreateMemoryConfigTemplateInput.Description, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateInput) GetDescription() *string { return v.Description }
+
+// GetName returns CreateMemoryConfigTemplateInput.Name, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateInput) GetName() string { return v.Name }
+
+// GetRequired returns CreateMemoryConfigTemplateInput.Required, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateInput) GetRequired() *bool { return v.Required }
+
+// GetRules returns CreateMemoryConfigTemplateInput.Rules, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateInput) GetRules() []*CreateNodeRoleRuleInput { return v.Rules }
+
+// CreateMemoryConfigTemplateResponse is returned by CreateMemoryConfigTemplate on success.
+type CreateMemoryConfigTemplateResponse struct {
+	// #1325 part (c) — create a template. ownerRef names the organization, user
+	// or App; omit it for HADRON_SERVER (platform admins only; refused
+	// HADRON_SERVER_NOT_CONFIGURED when this server has no row) and for USER
+	// (yourself — you own templates for no one else). A second live template of
+	// the same name under the same owner is MEMORY_CONFIG_TEMPLATE_EXISTS.
+	CreateMemoryConfigTemplate *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayload `json:"createMemoryConfigTemplate"`
+}
+
+// GetCreateMemoryConfigTemplate returns CreateMemoryConfigTemplateResponse.CreateMemoryConfigTemplate, and is useful for accessing the field via an interface.
+func (v *CreateMemoryConfigTemplateResponse) GetCreateMemoryConfigTemplate() *CreateMemoryConfigTemplateCreateMemoryConfigTemplateMemoryConfigTemplatePayload {
+	return v.CreateMemoryConfigTemplate
+}
+
 // CreateMemoryCreateMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -7100,7 +7391,8 @@ func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadWarningsMemoryCo
 	return &retval, nil
 }
 
-// #1325 — a new rule. Task and description references are node IDs or URNs you
+// #1325 — a new rule, in a memory's config or in a template's rule list.
+// Task and description references are node IDs or URNs you
 // can read; a node you cannot read is refused exactly like a missing one
 // (NODE_NOT_FOUND), and a task reference must be a runnable task (NOT_A_TASK).
 type CreateNodeRoleRuleInput struct {
@@ -8862,6 +9154,17 @@ type DeleteMcpServerResponse struct {
 
 // GetDeleteMcpServer returns DeleteMcpServerResponse.DeleteMcpServer, and is useful for accessing the field via an interface.
 func (v *DeleteMcpServerResponse) GetDeleteMcpServer() bool { return v.DeleteMcpServer }
+
+// DeleteMemoryConfigTemplateResponse is returned by DeleteMemoryConfigTemplate on success.
+type DeleteMemoryConfigTemplateResponse struct {
+	// #1325 part (c) — soft-delete a template. Configs it was applied to keep their copies.
+	DeleteMemoryConfigTemplate bool `json:"deleteMemoryConfigTemplate"`
+}
+
+// GetDeleteMemoryConfigTemplate returns DeleteMemoryConfigTemplateResponse.DeleteMemoryConfigTemplate, and is useful for accessing the field via an interface.
+func (v *DeleteMemoryConfigTemplateResponse) GetDeleteMemoryConfigTemplate() bool {
+	return v.DeleteMemoryConfigTemplate
+}
 
 // DeleteMemoryResponse is returned by DeleteMemory on success.
 type DeleteMemoryResponse struct {
@@ -13371,6 +13674,529 @@ type MemoryConfigResponse struct {
 
 // GetMemoryConfig returns MemoryConfigResponse.MemoryConfig, and is useful for accessing the field via an interface.
 func (v *MemoryConfigResponse) GetMemoryConfig() *MemoryConfigMemoryConfig { return v.MemoryConfig }
+
+// MemoryConfigTemplateFields includes the GraphQL fields of MemoryConfigTemplate requested by the fragment MemoryConfigTemplateFields.
+// The GraphQL type's documentation follows.
+//
+// #1325 part (c) — a reusable rulebook with exactly one owner, COPIED into a
+// memory's config when applied (never live-linked). Read and managed only by
+// its owner's managers: a platform admin (server), an org ADMIN/OWNER
+// (organization), the user themselves (user), the App's owner or org
+// ADMIN/OWNER (App). For anyone else it does not exist.
+type MemoryConfigTemplateFields struct {
+	Id string `json:"id"`
+	// Unique per owner among live templates; 1-64 lower-case letters, digits, '-' or '_'.
+	Name        string                        `json:"name"`
+	Description *string                       `json:"description"`
+	OwnerType   MemoryConfigTemplateOwnerType `json:"ownerType"`
+	// ID of the owning organization, user or App; null for the server.
+	OwnerId *string `json:"ownerId"`
+	// Applied as locked rules (#1334).
+	Required bool `json:"required"`
+	// Optimistic-concurrency token for the template AND its rules.
+	Revision  int     `json:"revision"`
+	CreatedAt string  `json:"createdAt"`
+	CreatedBy *string `json:"createdBy"`
+	UpdatedAt *string `json:"updatedAt"`
+	UpdatedBy *string `json:"updatedBy"`
+	// Role-ascending.
+	Rules []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule `json:"rules"`
+}
+
+// GetId returns MemoryConfigTemplateFields.Id, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetId() string { return v.Id }
+
+// GetName returns MemoryConfigTemplateFields.Name, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetName() string { return v.Name }
+
+// GetDescription returns MemoryConfigTemplateFields.Description, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetDescription() *string { return v.Description }
+
+// GetOwnerType returns MemoryConfigTemplateFields.OwnerType, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetOwnerType() MemoryConfigTemplateOwnerType { return v.OwnerType }
+
+// GetOwnerId returns MemoryConfigTemplateFields.OwnerId, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetOwnerId() *string { return v.OwnerId }
+
+// GetRequired returns MemoryConfigTemplateFields.Required, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetRequired() bool { return v.Required }
+
+// GetRevision returns MemoryConfigTemplateFields.Revision, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetRevision() int { return v.Revision }
+
+// GetCreatedAt returns MemoryConfigTemplateFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetCreatedBy returns MemoryConfigTemplateFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetUpdatedAt returns MemoryConfigTemplateFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// GetUpdatedBy returns MemoryConfigTemplateFields.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetUpdatedBy() *string { return v.UpdatedBy }
+
+// GetRules returns MemoryConfigTemplateFields.Rules, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFields) GetRules() []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule {
+	return v.Rules
+}
+
+// MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule includes the requested fields of the GraphQL type MemoryConfigTemplateRule.
+// The GraphQL type's documentation follows.
+//
+// #1325 part (c) — one rule of a template: a node-role rule without the config-only fields.
+type MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule struct {
+	Role                string               `json:"role"`
+	Enabled             bool                 `json:"enabled"`
+	StrictSubRoles      bool                 `json:"strictSubRoles"`
+	Writers             NodeRoleWriters      `json:"writers"`
+	ValidateBy          *ContentValidator    `json:"validateBy"`
+	AuthorTask          *string              `json:"authorTask"`
+	AuthorTaskId        *string              `json:"authorTaskId"`
+	AuthorTaskState     NodeRoleRuleRefState `json:"authorTaskState"`
+	ValidationTask      *string              `json:"validationTask"`
+	ValidationTaskId    *string              `json:"validationTaskId"`
+	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
+	// Documentation, not procedure: a deleted description node reads as NONE, never BROKEN.
+	DescriptionNode      *string              `json:"descriptionNode"`
+	DescriptionNodeId    *string              `json:"descriptionNodeId"`
+	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
+}
+
+// GetRole returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.Role, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetRole() string { return v.Role }
+
+// GetEnabled returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.Enabled, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetEnabled() bool { return v.Enabled }
+
+// GetStrictSubRoles returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.StrictSubRoles, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetStrictSubRoles() bool {
+	return v.StrictSubRoles
+}
+
+// GetWriters returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.Writers, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetWriters() NodeRoleWriters {
+	return v.Writers
+}
+
+// GetValidateBy returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.ValidateBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetValidateBy() *ContentValidator {
+	return v.ValidateBy
+}
+
+// GetAuthorTask returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.AuthorTask, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetAuthorTask() *string {
+	return v.AuthorTask
+}
+
+// GetAuthorTaskId returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.AuthorTaskId, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetAuthorTaskId() *string {
+	return v.AuthorTaskId
+}
+
+// GetAuthorTaskState returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.AuthorTaskState, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetAuthorTaskState() NodeRoleRuleRefState {
+	return v.AuthorTaskState
+}
+
+// GetValidationTask returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.ValidationTask, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetValidationTask() *string {
+	return v.ValidationTask
+}
+
+// GetValidationTaskId returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.ValidationTaskId, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetValidationTaskId() *string {
+	return v.ValidationTaskId
+}
+
+// GetValidationTaskState returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.ValidationTaskState, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetValidationTaskState() NodeRoleRuleRefState {
+	return v.ValidationTaskState
+}
+
+// GetDescriptionNode returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.DescriptionNode, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetDescriptionNode() *string {
+	return v.DescriptionNode
+}
+
+// GetDescriptionNodeId returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.DescriptionNodeId, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetDescriptionNodeId() *string {
+	return v.DescriptionNodeId
+}
+
+// GetDescriptionNodeState returns MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule.DescriptionNodeState, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule) GetDescriptionNodeState() NodeRoleRuleRefState {
+	return v.DescriptionNodeState
+}
+
+// Filter for memoryConfigTemplates(). Narrows the templates you manage; it never widens them.
+type MemoryConfigTemplateFilter struct {
+	// ID or URN of the owner (with ownerType). An owner you do not manage matches nothing.
+	OwnerRef  *string                        `json:"ownerRef,omitempty"`
+	OwnerType *MemoryConfigTemplateOwnerType `json:"ownerType,omitempty"`
+}
+
+// GetOwnerRef returns MemoryConfigTemplateFilter.OwnerRef, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFilter) GetOwnerRef() *string { return v.OwnerRef }
+
+// GetOwnerType returns MemoryConfigTemplateFilter.OwnerType, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateFilter) GetOwnerType() *MemoryConfigTemplateOwnerType {
+	return v.OwnerType
+}
+
+// MemoryConfigTemplateMemoryConfigTemplate includes the requested fields of the GraphQL type MemoryConfigTemplate.
+// The GraphQL type's documentation follows.
+//
+// #1325 part (c) — a reusable rulebook with exactly one owner, COPIED into a
+// memory's config when applied (never live-linked). Read and managed only by
+// its owner's managers: a platform admin (server), an org ADMIN/OWNER
+// (organization), the user themselves (user), the App's owner or org
+// ADMIN/OWNER (App). For anyone else it does not exist.
+type MemoryConfigTemplateMemoryConfigTemplate struct {
+	MemoryConfigTemplateFields `json:"-"`
+}
+
+// GetId returns MemoryConfigTemplateMemoryConfigTemplate.Id, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetId() string {
+	return v.MemoryConfigTemplateFields.Id
+}
+
+// GetName returns MemoryConfigTemplateMemoryConfigTemplate.Name, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetName() string {
+	return v.MemoryConfigTemplateFields.Name
+}
+
+// GetDescription returns MemoryConfigTemplateMemoryConfigTemplate.Description, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetDescription() *string {
+	return v.MemoryConfigTemplateFields.Description
+}
+
+// GetOwnerType returns MemoryConfigTemplateMemoryConfigTemplate.OwnerType, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetOwnerType() MemoryConfigTemplateOwnerType {
+	return v.MemoryConfigTemplateFields.OwnerType
+}
+
+// GetOwnerId returns MemoryConfigTemplateMemoryConfigTemplate.OwnerId, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetOwnerId() *string {
+	return v.MemoryConfigTemplateFields.OwnerId
+}
+
+// GetRequired returns MemoryConfigTemplateMemoryConfigTemplate.Required, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetRequired() bool {
+	return v.MemoryConfigTemplateFields.Required
+}
+
+// GetRevision returns MemoryConfigTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetRevision() int {
+	return v.MemoryConfigTemplateFields.Revision
+}
+
+// GetCreatedAt returns MemoryConfigTemplateMemoryConfigTemplate.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetCreatedAt() string {
+	return v.MemoryConfigTemplateFields.CreatedAt
+}
+
+// GetCreatedBy returns MemoryConfigTemplateMemoryConfigTemplate.CreatedBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetCreatedBy() *string {
+	return v.MemoryConfigTemplateFields.CreatedBy
+}
+
+// GetUpdatedAt returns MemoryConfigTemplateMemoryConfigTemplate.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetUpdatedAt() *string {
+	return v.MemoryConfigTemplateFields.UpdatedAt
+}
+
+// GetUpdatedBy returns MemoryConfigTemplateMemoryConfigTemplate.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetUpdatedBy() *string {
+	return v.MemoryConfigTemplateFields.UpdatedBy
+}
+
+// GetRules returns MemoryConfigTemplateMemoryConfigTemplate.Rules, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateMemoryConfigTemplate) GetRules() []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule {
+	return v.MemoryConfigTemplateFields.Rules
+}
+
+func (v *MemoryConfigTemplateMemoryConfigTemplate) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*MemoryConfigTemplateMemoryConfigTemplate
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.MemoryConfigTemplateMemoryConfigTemplate = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigTemplateFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMemoryConfigTemplateMemoryConfigTemplate struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OwnerType MemoryConfigTemplateOwnerType `json:"ownerType"`
+
+	OwnerId *string `json:"ownerId"`
+
+	Required bool `json:"required"`
+
+	Revision int `json:"revision"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+
+	Rules []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule `json:"rules"`
+}
+
+func (v *MemoryConfigTemplateMemoryConfigTemplate) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *MemoryConfigTemplateMemoryConfigTemplate) __premarshalJSON() (*__premarshalMemoryConfigTemplateMemoryConfigTemplate, error) {
+	var retval __premarshalMemoryConfigTemplateMemoryConfigTemplate
+
+	retval.Id = v.MemoryConfigTemplateFields.Id
+	retval.Name = v.MemoryConfigTemplateFields.Name
+	retval.Description = v.MemoryConfigTemplateFields.Description
+	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
+	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
+	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.Revision = v.MemoryConfigTemplateFields.Revision
+	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
+	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
+	retval.UpdatedAt = v.MemoryConfigTemplateFields.UpdatedAt
+	retval.UpdatedBy = v.MemoryConfigTemplateFields.UpdatedBy
+	retval.Rules = v.MemoryConfigTemplateFields.Rules
+	return &retval, nil
+}
+
+// #1325 part (c) — which entity owns a MemoryConfigTemplate. Exactly one per template.
+type MemoryConfigTemplateOwnerType string
+
+const (
+	MemoryConfigTemplateOwnerTypeApp          MemoryConfigTemplateOwnerType = "APP"
+	MemoryConfigTemplateOwnerTypeHadronServer MemoryConfigTemplateOwnerType = "HADRON_SERVER"
+	MemoryConfigTemplateOwnerTypeOrganization MemoryConfigTemplateOwnerType = "ORGANIZATION"
+	MemoryConfigTemplateOwnerTypeUser         MemoryConfigTemplateOwnerType = "USER"
+)
+
+var AllMemoryConfigTemplateOwnerType = []MemoryConfigTemplateOwnerType{
+	MemoryConfigTemplateOwnerTypeApp,
+	MemoryConfigTemplateOwnerTypeHadronServer,
+	MemoryConfigTemplateOwnerTypeOrganization,
+	MemoryConfigTemplateOwnerTypeUser,
+}
+
+// MemoryConfigTemplateResponse is returned by MemoryConfigTemplate on success.
+type MemoryConfigTemplateResponse struct {
+	// #1325 part (c) — one template you manage, by id; null for anything else, including a missing or deleted one.
+	MemoryConfigTemplate *MemoryConfigTemplateMemoryConfigTemplate `json:"memoryConfigTemplate"`
+}
+
+// GetMemoryConfigTemplate returns MemoryConfigTemplateResponse.MemoryConfigTemplate, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplateResponse) GetMemoryConfigTemplate() *MemoryConfigTemplateMemoryConfigTemplate {
+	return v.MemoryConfigTemplate
+}
+
+// MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPage includes the requested fields of the GraphQL type MemoryConfigTemplatesPage.
+type MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPage struct {
+	Total int                                                                                             `json:"total"`
+	Items []*MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate `json:"items"`
+}
+
+// GetTotal returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPage.Total, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPage) GetTotal() int {
+	return v.Total
+}
+
+// GetItems returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPage.Items, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPage) GetItems() []*MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate {
+	return v.Items
+}
+
+// MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate includes the requested fields of the GraphQL type MemoryConfigTemplate.
+// The GraphQL type's documentation follows.
+//
+// #1325 part (c) — a reusable rulebook with exactly one owner, COPIED into a
+// memory's config when applied (never live-linked). Read and managed only by
+// its owner's managers: a platform admin (server), an org ADMIN/OWNER
+// (organization), the user themselves (user), the App's owner or org
+// ADMIN/OWNER (App). For anyone else it does not exist.
+type MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate struct {
+	MemoryConfigTemplateFields `json:"-"`
+}
+
+// GetId returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.Id, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetId() string {
+	return v.MemoryConfigTemplateFields.Id
+}
+
+// GetName returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.Name, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetName() string {
+	return v.MemoryConfigTemplateFields.Name
+}
+
+// GetDescription returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.Description, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetDescription() *string {
+	return v.MemoryConfigTemplateFields.Description
+}
+
+// GetOwnerType returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.OwnerType, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetOwnerType() MemoryConfigTemplateOwnerType {
+	return v.MemoryConfigTemplateFields.OwnerType
+}
+
+// GetOwnerId returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.OwnerId, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetOwnerId() *string {
+	return v.MemoryConfigTemplateFields.OwnerId
+}
+
+// GetRequired returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.Required, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetRequired() bool {
+	return v.MemoryConfigTemplateFields.Required
+}
+
+// GetRevision returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetRevision() int {
+	return v.MemoryConfigTemplateFields.Revision
+}
+
+// GetCreatedAt returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetCreatedAt() string {
+	return v.MemoryConfigTemplateFields.CreatedAt
+}
+
+// GetCreatedBy returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.CreatedBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetCreatedBy() *string {
+	return v.MemoryConfigTemplateFields.CreatedBy
+}
+
+// GetUpdatedAt returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetUpdatedAt() *string {
+	return v.MemoryConfigTemplateFields.UpdatedAt
+}
+
+// GetUpdatedBy returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetUpdatedBy() *string {
+	return v.MemoryConfigTemplateFields.UpdatedBy
+}
+
+// GetRules returns MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate.Rules, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) GetRules() []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule {
+	return v.MemoryConfigTemplateFields.Rules
+}
+
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigTemplateFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OwnerType MemoryConfigTemplateOwnerType `json:"ownerType"`
+
+	OwnerId *string `json:"ownerId"`
+
+	Required bool `json:"required"`
+
+	Revision int `json:"revision"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+
+	Rules []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule `json:"rules"`
+}
+
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate) __premarshalJSON() (*__premarshalMemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate, error) {
+	var retval __premarshalMemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItemsMemoryConfigTemplate
+
+	retval.Id = v.MemoryConfigTemplateFields.Id
+	retval.Name = v.MemoryConfigTemplateFields.Name
+	retval.Description = v.MemoryConfigTemplateFields.Description
+	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
+	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
+	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.Revision = v.MemoryConfigTemplateFields.Revision
+	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
+	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
+	retval.UpdatedAt = v.MemoryConfigTemplateFields.UpdatedAt
+	retval.UpdatedBy = v.MemoryConfigTemplateFields.UpdatedBy
+	retval.Rules = v.MemoryConfigTemplateFields.Rules
+	return &retval, nil
+}
+
+// MemoryConfigTemplatesResponse is returned by MemoryConfigTemplates on success.
+type MemoryConfigTemplatesResponse struct {
+	// #1325 part (c) — the templates you manage, name-ascending. Default page 50,
+	// at most 200; limit 0 returns the count only.
+	MemoryConfigTemplates *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPage `json:"memoryConfigTemplates"`
+}
+
+// GetMemoryConfigTemplates returns MemoryConfigTemplatesResponse.MemoryConfigTemplates, and is useful for accessing the field via an interface.
+func (v *MemoryConfigTemplatesResponse) GetMemoryConfigTemplates() *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPage {
+	return v.MemoryConfigTemplates
+}
 
 // MemoryConfigWarningFields includes the GraphQL fields of MemoryConfigWarning requested by the fragment MemoryConfigWarningFields.
 // The GraphQL type's documentation follows.
@@ -23181,6 +24007,566 @@ func (v *UpdateMcpServerUpdateMcpServer) __premarshalJSON() (*__premarshalUpdate
 	return &retval, nil
 }
 
+// UpdateMemoryConfigTemplateClearingDescriptionResponse is returned by UpdateMemoryConfigTemplateClearingDescription on success.
+type UpdateMemoryConfigTemplateClearingDescriptionResponse struct {
+	// #1325 part (c) — change a template by its id. With expectedRevision, a
+	// template changed since you read it is refused CONFLICT
+	// (extensions.currentRevision) and nothing is written. A template you may not
+	// manage reads as MEMORY_CONFIG_TEMPLATE_NOT_FOUND.
+	UpdateMemoryConfigTemplate *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayload `json:"updateMemoryConfigTemplate"`
+}
+
+// GetUpdateMemoryConfigTemplate returns UpdateMemoryConfigTemplateClearingDescriptionResponse.UpdateMemoryConfigTemplate, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionResponse) GetUpdateMemoryConfigTemplate() *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayload {
+	return v.UpdateMemoryConfigTemplate
+}
+
+// UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayload includes the requested fields of the GraphQL type MemoryConfigTemplatePayload.
+type UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayload struct {
+	Template *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate `json:"template"`
+	// Empty until #1327 adds its visibility warnings.
+	Warnings []*UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning `json:"warnings"`
+}
+
+// GetTemplate returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayload.Template, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayload) GetTemplate() *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate {
+	return v.Template
+}
+
+// GetWarnings returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayload.Warnings, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayload) GetWarnings() []*UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning {
+	return v.Warnings
+}
+
+// UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate includes the requested fields of the GraphQL type MemoryConfigTemplate.
+// The GraphQL type's documentation follows.
+//
+// #1325 part (c) — a reusable rulebook with exactly one owner, COPIED into a
+// memory's config when applied (never live-linked). Read and managed only by
+// its owner's managers: a platform admin (server), an org ADMIN/OWNER
+// (organization), the user themselves (user), the App's owner or org
+// ADMIN/OWNER (App). For anyone else it does not exist.
+type UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate struct {
+	MemoryConfigTemplateFields `json:"-"`
+}
+
+// GetId returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Id, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetId() string {
+	return v.MemoryConfigTemplateFields.Id
+}
+
+// GetName returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Name, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetName() string {
+	return v.MemoryConfigTemplateFields.Name
+}
+
+// GetDescription returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Description, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetDescription() *string {
+	return v.MemoryConfigTemplateFields.Description
+}
+
+// GetOwnerType returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OwnerType, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOwnerType() MemoryConfigTemplateOwnerType {
+	return v.MemoryConfigTemplateFields.OwnerType
+}
+
+// GetOwnerId returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OwnerId, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOwnerId() *string {
+	return v.MemoryConfigTemplateFields.OwnerId
+}
+
+// GetRequired returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Required, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRequired() bool {
+	return v.MemoryConfigTemplateFields.Required
+}
+
+// GetRevision returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRevision() int {
+	return v.MemoryConfigTemplateFields.Revision
+}
+
+// GetCreatedAt returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetCreatedAt() string {
+	return v.MemoryConfigTemplateFields.CreatedAt
+}
+
+// GetCreatedBy returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetCreatedBy() *string {
+	return v.MemoryConfigTemplateFields.CreatedBy
+}
+
+// GetUpdatedAt returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetUpdatedAt() *string {
+	return v.MemoryConfigTemplateFields.UpdatedAt
+}
+
+// GetUpdatedBy returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetUpdatedBy() *string {
+	return v.MemoryConfigTemplateFields.UpdatedBy
+}
+
+// GetRules returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Rules, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRules() []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule {
+	return v.MemoryConfigTemplateFields.Rules
+}
+
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigTemplateFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OwnerType MemoryConfigTemplateOwnerType `json:"ownerType"`
+
+	OwnerId *string `json:"ownerId"`
+
+	Required bool `json:"required"`
+
+	Revision int `json:"revision"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+
+	Rules []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule `json:"rules"`
+}
+
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) __premarshalJSON() (*__premarshalUpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate, error) {
+	var retval __premarshalUpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate
+
+	retval.Id = v.MemoryConfigTemplateFields.Id
+	retval.Name = v.MemoryConfigTemplateFields.Name
+	retval.Description = v.MemoryConfigTemplateFields.Description
+	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
+	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
+	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.Revision = v.MemoryConfigTemplateFields.Revision
+	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
+	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
+	retval.UpdatedAt = v.MemoryConfigTemplateFields.UpdatedAt
+	retval.UpdatedBy = v.MemoryConfigTemplateFields.UpdatedBy
+	retval.Rules = v.MemoryConfigTemplateFields.Rules
+	return &retval, nil
+}
+
+// UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
+// The GraphQL type's documentation follows.
+//
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+type UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning struct {
+	MemoryConfigWarningFields `json:"-"`
+}
+
+// GetCode returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.Code, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetCode() string {
+	return v.MemoryConfigWarningFields.Code
+}
+
+// GetRole returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.Role, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetRole() string {
+	return v.MemoryConfigWarningFields.Role
+}
+
+// GetField returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.Field, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetField() *string {
+	return v.MemoryConfigWarningFields.Field
+}
+
+// GetTaskUrn returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.TaskUrn, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetTaskUrn() *string {
+	return v.MemoryConfigWarningFields.TaskUrn
+}
+
+// GetTaskState returns UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.TaskState, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetTaskState() *NodeRoleRuleRefState {
+	return v.MemoryConfigWarningFields.TaskState
+}
+
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigWarningFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning struct {
+	Code string `json:"code"`
+
+	Role string `json:"role"`
+
+	Field *string `json:"field"`
+
+	TaskUrn *string `json:"taskUrn"`
+
+	TaskState *NodeRoleRuleRefState `json:"taskState"`
+}
+
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) __premarshalJSON() (*__premarshalUpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning, error) {
+	var retval __premarshalUpdateMemoryConfigTemplateClearingDescriptionUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning
+
+	retval.Code = v.MemoryConfigWarningFields.Code
+	retval.Role = v.MemoryConfigWarningFields.Role
+	retval.Field = v.MemoryConfigWarningFields.Field
+	retval.TaskUrn = v.MemoryConfigWarningFields.TaskUrn
+	retval.TaskState = v.MemoryConfigWarningFields.TaskState
+	return &retval, nil
+}
+
+// #1325 part (c) — change a template. An omitted field is unchanged;
+// description null clears it. `rules`, when given, REPLACES the template's
+// rules in one transaction.
+type UpdateMemoryConfigTemplateInput struct {
+	Description *string                    `json:"description,omitempty"`
+	Name        *string                    `json:"name,omitempty"`
+	Required    *bool                      `json:"required,omitempty"`
+	Rules       []*CreateNodeRoleRuleInput `json:"rules"`
+}
+
+// GetDescription returns UpdateMemoryConfigTemplateInput.Description, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateInput) GetDescription() *string { return v.Description }
+
+// GetName returns UpdateMemoryConfigTemplateInput.Name, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateInput) GetName() *string { return v.Name }
+
+// GetRequired returns UpdateMemoryConfigTemplateInput.Required, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateInput) GetRequired() *bool { return v.Required }
+
+// GetRules returns UpdateMemoryConfigTemplateInput.Rules, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateInput) GetRules() []*CreateNodeRoleRuleInput { return v.Rules }
+
+// UpdateMemoryConfigTemplateResponse is returned by UpdateMemoryConfigTemplate on success.
+type UpdateMemoryConfigTemplateResponse struct {
+	// #1325 part (c) — change a template by its id. With expectedRevision, a
+	// template changed since you read it is refused CONFLICT
+	// (extensions.currentRevision) and nothing is written. A template you may not
+	// manage reads as MEMORY_CONFIG_TEMPLATE_NOT_FOUND.
+	UpdateMemoryConfigTemplate *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayload `json:"updateMemoryConfigTemplate"`
+}
+
+// GetUpdateMemoryConfigTemplate returns UpdateMemoryConfigTemplateResponse.UpdateMemoryConfigTemplate, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateResponse) GetUpdateMemoryConfigTemplate() *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayload {
+	return v.UpdateMemoryConfigTemplate
+}
+
+// UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayload includes the requested fields of the GraphQL type MemoryConfigTemplatePayload.
+type UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayload struct {
+	Template *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate `json:"template"`
+	// Empty until #1327 adds its visibility warnings.
+	Warnings []*UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning `json:"warnings"`
+}
+
+// GetTemplate returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayload.Template, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayload) GetTemplate() *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate {
+	return v.Template
+}
+
+// GetWarnings returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayload.Warnings, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayload) GetWarnings() []*UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning {
+	return v.Warnings
+}
+
+// UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate includes the requested fields of the GraphQL type MemoryConfigTemplate.
+// The GraphQL type's documentation follows.
+//
+// #1325 part (c) — a reusable rulebook with exactly one owner, COPIED into a
+// memory's config when applied (never live-linked). Read and managed only by
+// its owner's managers: a platform admin (server), an org ADMIN/OWNER
+// (organization), the user themselves (user), the App's owner or org
+// ADMIN/OWNER (App). For anyone else it does not exist.
+type UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate struct {
+	MemoryConfigTemplateFields `json:"-"`
+}
+
+// GetId returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Id, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetId() string {
+	return v.MemoryConfigTemplateFields.Id
+}
+
+// GetName returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Name, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetName() string {
+	return v.MemoryConfigTemplateFields.Name
+}
+
+// GetDescription returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Description, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetDescription() *string {
+	return v.MemoryConfigTemplateFields.Description
+}
+
+// GetOwnerType returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OwnerType, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOwnerType() MemoryConfigTemplateOwnerType {
+	return v.MemoryConfigTemplateFields.OwnerType
+}
+
+// GetOwnerId returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.OwnerId, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetOwnerId() *string {
+	return v.MemoryConfigTemplateFields.OwnerId
+}
+
+// GetRequired returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Required, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRequired() bool {
+	return v.MemoryConfigTemplateFields.Required
+}
+
+// GetRevision returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Revision, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRevision() int {
+	return v.MemoryConfigTemplateFields.Revision
+}
+
+// GetCreatedAt returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetCreatedAt() string {
+	return v.MemoryConfigTemplateFields.CreatedAt
+}
+
+// GetCreatedBy returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetCreatedBy() *string {
+	return v.MemoryConfigTemplateFields.CreatedBy
+}
+
+// GetUpdatedAt returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetUpdatedAt() *string {
+	return v.MemoryConfigTemplateFields.UpdatedAt
+}
+
+// GetUpdatedBy returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetUpdatedBy() *string {
+	return v.MemoryConfigTemplateFields.UpdatedBy
+}
+
+// GetRules returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate.Rules, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) GetRules() []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule {
+	return v.MemoryConfigTemplateFields.Rules
+}
+
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigTemplateFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OwnerType MemoryConfigTemplateOwnerType `json:"ownerType"`
+
+	OwnerId *string `json:"ownerId"`
+
+	Required bool `json:"required"`
+
+	Revision int `json:"revision"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+
+	Rules []*MemoryConfigTemplateFieldsRulesMemoryConfigTemplateRule `json:"rules"`
+}
+
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate) __premarshalJSON() (*__premarshalUpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate, error) {
+	var retval __premarshalUpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadTemplateMemoryConfigTemplate
+
+	retval.Id = v.MemoryConfigTemplateFields.Id
+	retval.Name = v.MemoryConfigTemplateFields.Name
+	retval.Description = v.MemoryConfigTemplateFields.Description
+	retval.OwnerType = v.MemoryConfigTemplateFields.OwnerType
+	retval.OwnerId = v.MemoryConfigTemplateFields.OwnerId
+	retval.Required = v.MemoryConfigTemplateFields.Required
+	retval.Revision = v.MemoryConfigTemplateFields.Revision
+	retval.CreatedAt = v.MemoryConfigTemplateFields.CreatedAt
+	retval.CreatedBy = v.MemoryConfigTemplateFields.CreatedBy
+	retval.UpdatedAt = v.MemoryConfigTemplateFields.UpdatedAt
+	retval.UpdatedBy = v.MemoryConfigTemplateFields.UpdatedBy
+	retval.Rules = v.MemoryConfigTemplateFields.Rules
+	return &retval, nil
+}
+
+// UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
+// The GraphQL type's documentation follows.
+//
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+type UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning struct {
+	MemoryConfigWarningFields `json:"-"`
+}
+
+// GetCode returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.Code, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetCode() string {
+	return v.MemoryConfigWarningFields.Code
+}
+
+// GetRole returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.Role, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetRole() string {
+	return v.MemoryConfigWarningFields.Role
+}
+
+// GetField returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.Field, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetField() *string {
+	return v.MemoryConfigWarningFields.Field
+}
+
+// GetTaskUrn returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.TaskUrn, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetTaskUrn() *string {
+	return v.MemoryConfigWarningFields.TaskUrn
+}
+
+// GetTaskState returns UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning.TaskState, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) GetTaskState() *NodeRoleRuleRefState {
+	return v.MemoryConfigWarningFields.TaskState
+}
+
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigWarningFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning struct {
+	Code string `json:"code"`
+
+	Role string `json:"role"`
+
+	Field *string `json:"field"`
+
+	TaskUrn *string `json:"taskUrn"`
+
+	TaskState *NodeRoleRuleRefState `json:"taskState"`
+}
+
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning) __premarshalJSON() (*__premarshalUpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning, error) {
+	var retval __premarshalUpdateMemoryConfigTemplateUpdateMemoryConfigTemplateMemoryConfigTemplatePayloadWarningsMemoryConfigWarning
+
+	retval.Code = v.MemoryConfigWarningFields.Code
+	retval.Role = v.MemoryConfigWarningFields.Role
+	retval.Field = v.MemoryConfigWarningFields.Field
+	retval.TaskUrn = v.MemoryConfigWarningFields.TaskUrn
+	retval.TaskState = v.MemoryConfigWarningFields.TaskState
+	return &retval, nil
+}
+
 // UpdateMemoryMemberRoleResponse is returned by UpdateMemoryMemberRole on success.
 type UpdateMemoryMemberRoleResponse struct {
 	// 023-app-shape US4 — change the role on an existing team member.
@@ -28263,6 +29649,26 @@ func (v *__CreateMcpServerInput) GetToolAllowlist() *[]string { return v.ToolAll
 // GetEnabled returns __CreateMcpServerInput.Enabled, and is useful for accessing the field via an interface.
 func (v *__CreateMcpServerInput) GetEnabled() *bool { return v.Enabled }
 
+// __CreateMemoryConfigTemplateInput is used internally by genqlient
+type __CreateMemoryConfigTemplateInput struct {
+	OwnerType MemoryConfigTemplateOwnerType    `json:"ownerType"`
+	OwnerRef  *string                          `json:"ownerRef,omitempty"`
+	Input     *CreateMemoryConfigTemplateInput `json:"input,omitempty"`
+}
+
+// GetOwnerType returns __CreateMemoryConfigTemplateInput.OwnerType, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryConfigTemplateInput) GetOwnerType() MemoryConfigTemplateOwnerType {
+	return v.OwnerType
+}
+
+// GetOwnerRef returns __CreateMemoryConfigTemplateInput.OwnerRef, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryConfigTemplateInput) GetOwnerRef() *string { return v.OwnerRef }
+
+// GetInput returns __CreateMemoryConfigTemplateInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryConfigTemplateInput) GetInput() *CreateMemoryConfigTemplateInput {
+	return v.Input
+}
+
 // __CreateMemoryInAppInput is used internally by genqlient
 type __CreateMemoryInAppInput struct {
 	AppRef           string      `json:"appRef"`
@@ -28654,6 +30060,18 @@ type __DeleteMcpServerInput struct {
 
 // GetRef returns __DeleteMcpServerInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteMcpServerInput) GetRef() string { return v.Ref }
+
+// __DeleteMemoryConfigTemplateInput is used internally by genqlient
+type __DeleteMemoryConfigTemplateInput struct {
+	Ref              string `json:"ref"`
+	ExpectedRevision int    `json:"expectedRevision"`
+}
+
+// GetRef returns __DeleteMemoryConfigTemplateInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteMemoryConfigTemplateInput) GetRef() string { return v.Ref }
+
+// GetExpectedRevision returns __DeleteMemoryConfigTemplateInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__DeleteMemoryConfigTemplateInput) GetExpectedRevision() int { return v.ExpectedRevision }
 
 // __DeleteMemoryInput is used internally by genqlient
 type __DeleteMemoryInput struct {
@@ -29162,6 +30580,30 @@ type __MemoryConfigInput struct {
 
 // GetMemoryRef returns __MemoryConfigInput.MemoryRef, and is useful for accessing the field via an interface.
 func (v *__MemoryConfigInput) GetMemoryRef() string { return v.MemoryRef }
+
+// __MemoryConfigTemplateInput is used internally by genqlient
+type __MemoryConfigTemplateInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __MemoryConfigTemplateInput.Ref, and is useful for accessing the field via an interface.
+func (v *__MemoryConfigTemplateInput) GetRef() string { return v.Ref }
+
+// __MemoryConfigTemplatesInput is used internally by genqlient
+type __MemoryConfigTemplatesInput struct {
+	Filter *MemoryConfigTemplateFilter `json:"filter,omitempty"`
+	Limit  *int                        `json:"limit"`
+	Offset *int                        `json:"offset"`
+}
+
+// GetFilter returns __MemoryConfigTemplatesInput.Filter, and is useful for accessing the field via an interface.
+func (v *__MemoryConfigTemplatesInput) GetFilter() *MemoryConfigTemplateFilter { return v.Filter }
+
+// GetLimit returns __MemoryConfigTemplatesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MemoryConfigTemplatesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __MemoryConfigTemplatesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MemoryConfigTemplatesInput) GetOffset() *int { return v.Offset }
 
 // __MemoryMembersInput is used internally by genqlient
 type __MemoryMembersInput struct {
@@ -30058,6 +31500,52 @@ func (v *__UpdateMcpServerInput) GetToolAllowlist() *[]string { return v.ToolAll
 
 // GetEnabled returns __UpdateMcpServerInput.Enabled, and is useful for accessing the field via an interface.
 func (v *__UpdateMcpServerInput) GetEnabled() *bool { return v.Enabled }
+
+// __UpdateMemoryConfigTemplateClearingDescriptionInput is used internally by genqlient
+type __UpdateMemoryConfigTemplateClearingDescriptionInput struct {
+	Ref              string                     `json:"ref"`
+	ExpectedRevision int                        `json:"expectedRevision"`
+	Name             *string                    `json:"name,omitempty"`
+	Required         *bool                      `json:"required,omitempty"`
+	Rules            []*CreateNodeRoleRuleInput `json:"rules"`
+}
+
+// GetRef returns __UpdateMemoryConfigTemplateClearingDescriptionInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetRef() string { return v.Ref }
+
+// GetExpectedRevision returns __UpdateMemoryConfigTemplateClearingDescriptionInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetExpectedRevision() int {
+	return v.ExpectedRevision
+}
+
+// GetName returns __UpdateMemoryConfigTemplateClearingDescriptionInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetName() *string { return v.Name }
+
+// GetRequired returns __UpdateMemoryConfigTemplateClearingDescriptionInput.Required, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetRequired() *bool { return v.Required }
+
+// GetRules returns __UpdateMemoryConfigTemplateClearingDescriptionInput.Rules, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryConfigTemplateClearingDescriptionInput) GetRules() []*CreateNodeRoleRuleInput {
+	return v.Rules
+}
+
+// __UpdateMemoryConfigTemplateInput is used internally by genqlient
+type __UpdateMemoryConfigTemplateInput struct {
+	Ref              string                           `json:"ref"`
+	Input            *UpdateMemoryConfigTemplateInput `json:"input,omitempty"`
+	ExpectedRevision int                              `json:"expectedRevision"`
+}
+
+// GetRef returns __UpdateMemoryConfigTemplateInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryConfigTemplateInput) GetRef() string { return v.Ref }
+
+// GetInput returns __UpdateMemoryConfigTemplateInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryConfigTemplateInput) GetInput() *UpdateMemoryConfigTemplateInput {
+	return v.Input
+}
+
+// GetExpectedRevision returns __UpdateMemoryConfigTemplateInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryConfigTemplateInput) GetExpectedRevision() int { return v.ExpectedRevision }
 
 // __UpdateMemoryInput is used internally by genqlient
 type __UpdateMemoryInput struct {
@@ -32713,6 +34201,87 @@ func CreateMemory(
 	return data_, err_
 }
 
+// The mutation executed by CreateMemoryConfigTemplate.
+const CreateMemoryConfigTemplate_Operation = `
+mutation CreateMemoryConfigTemplate ($ownerType: MemoryConfigTemplateOwnerType!, $ownerRef: ID, $input: CreateMemoryConfigTemplateInput!) {
+	createMemoryConfigTemplate(ownerType: $ownerType, ownerRef: $ownerRef, input: $input) {
+		template {
+			... MemoryConfigTemplateFields
+		}
+		warnings {
+			... MemoryConfigWarningFields
+		}
+	}
+}
+fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
+	id
+	name
+	description
+	ownerType
+	ownerId
+	required
+	revision
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+	rules {
+		role
+		enabled
+		strictSubRoles
+		writers
+		validateBy
+		authorTask
+		authorTaskId
+		authorTaskState
+		validationTask
+		validationTaskId
+		validationTaskState
+		descriptionNode
+		descriptionNodeId
+		descriptionNodeState
+	}
+}
+fragment MemoryConfigWarningFields on MemoryConfigWarning {
+	code
+	role
+	field
+	taskUrn
+	taskState
+}
+`
+
+// ownerRef is OMITTED for HADRON_SERVER and for USER (yourself); a given one
+// must name the owner.
+func CreateMemoryConfigTemplate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ownerType MemoryConfigTemplateOwnerType,
+	ownerRef *string,
+	input *CreateMemoryConfigTemplateInput,
+) (data_ *CreateMemoryConfigTemplateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateMemoryConfigTemplate",
+		Query:  CreateMemoryConfigTemplate_Operation,
+		Variables: &__CreateMemoryConfigTemplateInput{
+			OwnerType: ownerType,
+			OwnerRef:  ownerRef,
+			Input:     input,
+		},
+	}
+
+	data_ = &CreateMemoryConfigTemplateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateMemoryInApp.
 const CreateMemoryInApp_Operation = `
 mutation CreateMemoryInApp ($appRef: ID!, $agentRef: ID!, $memoryClass: MemoryClass!, $name: String!, $shortDescription: String, $description: String, $tags: [String!], $maxRevCount: Int) {
@@ -33977,6 +35546,40 @@ func DeleteMemory(
 	}
 
 	data_ = &DeleteMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteMemoryConfigTemplate.
+const DeleteMemoryConfigTemplate_Operation = `
+mutation DeleteMemoryConfigTemplate ($ref: ID!, $expectedRevision: Int!) {
+	deleteMemoryConfigTemplate(ref: $ref, expectedRevision: $expectedRevision)
+}
+`
+
+func DeleteMemoryConfigTemplate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	expectedRevision int,
+) (data_ *DeleteMemoryConfigTemplateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteMemoryConfigTemplate",
+		Query:  DeleteMemoryConfigTemplate_Operation,
+		Variables: &__DeleteMemoryConfigTemplateInput{
+			Ref:              ref,
+			ExpectedRevision: expectedRevision,
+		},
+	}
+
+	data_ = &DeleteMemoryConfigTemplateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -36075,6 +37678,140 @@ func MemoryConfig(
 	}
 
 	data_ = &MemoryConfigResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemoryConfigTemplate.
+const MemoryConfigTemplate_Operation = `
+query MemoryConfigTemplate ($ref: ID!) {
+	memoryConfigTemplate(ref: $ref) {
+		... MemoryConfigTemplateFields
+	}
+}
+fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
+	id
+	name
+	description
+	ownerType
+	ownerId
+	required
+	revision
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+	rules {
+		role
+		enabled
+		strictSubRoles
+		writers
+		validateBy
+		authorTask
+		authorTaskId
+		authorTaskState
+		validationTask
+		validationTaskId
+		validationTaskState
+		descriptionNode
+		descriptionNodeId
+		descriptionNodeState
+	}
+}
+`
+
+func MemoryConfigTemplate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *MemoryConfigTemplateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoryConfigTemplate",
+		Query:  MemoryConfigTemplate_Operation,
+		Variables: &__MemoryConfigTemplateInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &MemoryConfigTemplateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemoryConfigTemplates.
+const MemoryConfigTemplates_Operation = `
+query MemoryConfigTemplates ($filter: MemoryConfigTemplateFilter, $limit: Int, $offset: Int) {
+	memoryConfigTemplates(filter: $filter, limit: $limit, offset: $offset) {
+		total
+		items {
+			... MemoryConfigTemplateFields
+		}
+	}
+}
+fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
+	id
+	name
+	description
+	ownerType
+	ownerId
+	required
+	revision
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+	rules {
+		role
+		enabled
+		strictSubRoles
+		writers
+		validateBy
+		authorTask
+		authorTaskId
+		authorTaskState
+		validationTask
+		validationTaskId
+		validationTaskState
+		descriptionNode
+		descriptionNodeId
+		descriptionNodeState
+	}
+}
+`
+
+// Paged: default 50, cap 200 (cor:api:120). The CLI pages to exhaustion.
+func MemoryConfigTemplates(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *MemoryConfigTemplateFilter,
+	limit *int,
+	offset *int,
+) (data_ *MemoryConfigTemplatesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoryConfigTemplates",
+		Query:  MemoryConfigTemplates_Operation,
+		Variables: &__MemoryConfigTemplatesInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &MemoryConfigTemplatesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -39497,6 +41234,182 @@ func UpdateMemory(
 	}
 
 	data_ = &UpdateMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateMemoryConfigTemplate.
+const UpdateMemoryConfigTemplate_Operation = `
+mutation UpdateMemoryConfigTemplate ($ref: ID!, $input: UpdateMemoryConfigTemplateInput!, $expectedRevision: Int!) {
+	updateMemoryConfigTemplate(ref: $ref, input: $input, expectedRevision: $expectedRevision) {
+		template {
+			... MemoryConfigTemplateFields
+		}
+		warnings {
+			... MemoryConfigWarningFields
+		}
+	}
+}
+fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
+	id
+	name
+	description
+	ownerType
+	ownerId
+	required
+	revision
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+	rules {
+		role
+		enabled
+		strictSubRoles
+		writers
+		validateBy
+		authorTask
+		authorTaskId
+		authorTaskState
+		validationTask
+		validationTaskId
+		validationTaskState
+		descriptionNode
+		descriptionNodeId
+		descriptionNodeState
+	}
+}
+fragment MemoryConfigWarningFields on MemoryConfigWarning {
+	code
+	role
+	field
+	taskUrn
+	taskState
+}
+`
+
+// Omitted = unchanged; `rules`, when given, REPLACES the template's rules in one
+// transaction. `rules` deliberately has NO omitempty: omitempty drops an EMPTY
+// slice as well as a nil one, so `"rules": []` ("remove every rule") would be
+// silently dropped and the rules kept. The server reads null exactly like
+// omitted (`input.rules != null`), so a nil slice sent as null is unchanged,
+// and this input exists on no server that lacks the field. expectedRevision is ALWAYS sent: the revision the caller's FILE
+// was derived from, so a stale file is refused (CONFLICT), never applied.
+// use_struct_references (genqlient.yaml) makes genqlient ADD omitempty to a
+// struct-typed list by default, so "no omitempty" has to be said explicitly.
+func UpdateMemoryConfigTemplate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	input *UpdateMemoryConfigTemplateInput,
+	expectedRevision int,
+) (data_ *UpdateMemoryConfigTemplateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateMemoryConfigTemplate",
+		Query:  UpdateMemoryConfigTemplate_Operation,
+		Variables: &__UpdateMemoryConfigTemplateInput{
+			Ref:              ref,
+			Input:            input,
+			ExpectedRevision: expectedRevision,
+		},
+	}
+
+	data_ = &UpdateMemoryConfigTemplateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateMemoryConfigTemplateClearingDescription.
+const UpdateMemoryConfigTemplateClearingDescription_Operation = `
+mutation UpdateMemoryConfigTemplateClearingDescription ($ref: ID!, $expectedRevision: Int!, $name: String, $required: Boolean, $rules: [CreateNodeRoleRuleInput!]) {
+	updateMemoryConfigTemplate(ref: $ref, expectedRevision: $expectedRevision, input: {description:null,name:$name,required:$required,rules:$rules}) {
+		template {
+			... MemoryConfigTemplateFields
+		}
+		warnings {
+			... MemoryConfigWarningFields
+		}
+	}
+}
+fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
+	id
+	name
+	description
+	ownerType
+	ownerId
+	required
+	revision
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+	rules {
+		role
+		enabled
+		strictSubRoles
+		writers
+		validateBy
+		authorTask
+		authorTaskId
+		authorTaskState
+		validationTask
+		validationTaskId
+		validationTaskState
+		descriptionNode
+		descriptionNodeId
+		descriptionNodeState
+	}
+}
+fragment MemoryConfigWarningFields on MemoryConfigWarning {
+	code
+	role
+	field
+	taskUrn
+	taskState
+}
+`
+
+// The same update when it also CLEARS the description: the server clears it
+// only on an explicit null, which a genqlient pointer cannot send, so the null
+// is a literal and every other field rides as a variable in the same input
+// (findings:an-explicit-null-needs-a-literal-in-the-document). One update, one
+// revision check.
+func UpdateMemoryConfigTemplateClearingDescription(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	expectedRevision int,
+	name *string,
+	required *bool,
+	rules []*CreateNodeRoleRuleInput,
+) (data_ *UpdateMemoryConfigTemplateClearingDescriptionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateMemoryConfigTemplateClearingDescription",
+		Query:  UpdateMemoryConfigTemplateClearingDescription_Operation,
+		Variables: &__UpdateMemoryConfigTemplateClearingDescriptionInput{
+			Ref:              ref,
+			ExpectedRevision: expectedRevision,
+			Name:             name,
+			Required:         required,
+			Rules:            rules,
+		},
+	}
+
+	data_ = &UpdateMemoryConfigTemplateClearingDescriptionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

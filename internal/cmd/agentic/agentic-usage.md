@@ -291,7 +291,7 @@ non-zero naming the nodes it already created, each complete with its edges.
 
 ```
 hadron auth login | logout | whoami | status | token create|list|validate|revoke <id>
-hadron memory list [--shared-with-me | [--owned-by-me] [--include-agent-system]] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn hrn:mem:<root>:<slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings] | config get <memoryRef> | config rule add|update <memoryRef> <role> [--author-task <ref>] [--validation-task <ref>] [--description-node <ref>] [--writers all|admin|owner] [--validate-by agent|platform] [--strict-sub-roles[=false]] [--enabled[=false]] | config rule rm <memoryRef> <role> --yes
+hadron memory list [--shared-with-me | [--owned-by-me] [--include-agent-system]] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn hrn:mem:<root>:<slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings] | config get <memoryRef> | config rule add|update <memoryRef> <role> [--author-task <ref>] [--validation-task <ref>] [--description-node <ref>] [--writers all|admin|owner] [--validate-by agent|platform] [--strict-sub-roles[=false]] [--enabled[=false]] | config rule rm <memoryRef> <role> --yes | config template list [--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>] | config template get <templateId> | config template create --file <path> (--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>) | config template update <templateId> --file <path> [--expected-revision <n>] | config template rm <templateId> --yes
 hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... | get <loc>... -m <memory> | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>] | upload <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>] | rm <asset-ref> [--yes] | restore <asset-ref> | link <asset-ref> --node <new-node-urn> [--name <n>] [--description <d>]
@@ -395,8 +395,8 @@ Conventions:
   Cross-memory edges are allowed.
 - Destructive / bulk-write commands (`memory rm`, `node rm`, `node merge`,
   `user merge`, `user set-roles`, `edge rm`, `app uninstall`, a real `replace` /
-  `spec replace`, `memory link-user`, `memory config rule rm`, and
-  `memory encrypt`) prompt on a terminal and REQUIRE `--yes` when run
+  `spec replace`, `memory link-user`, `memory config rule rm`, `memory config template rm`,
+  and `memory encrypt`) prompt on a terminal and REQUIRE `--yes` when run
   non-interactively (agents must always pass `--yes`, or `--dry-run` to preview a
   `replace`). Without it they exit 2.
 - `memory link-user <memoryRef> --external-user <id>` is the anonymous →
@@ -546,9 +546,57 @@ Conventions:
   - `warnings[]` are non-fatal findings about a saved rule and never change the
     exit code (on the terminal they go to stderr). Today the server returns
     none; visibility warnings arrive with hadron-server#1327.
-  - `locked` and `sourceTemplate` are shown but nothing sets them yet: templates
-    and applying them (with locked rules and their refusal) are later slices
-    (hadron-server#1325 part c, #1334). No template command exists.
+  - `locked` and `sourceTemplate` are shown but nothing sets them yet: applying
+    a template (with locked rules and their refusal) is a later slice
+    (hadron-server#1334). No apply command exists.
+- `memory config template list|get|create|update|rm` manages TEMPLATES
+  (hadron-server#1325 part c): a reusable rulebook with exactly ONE owner — the
+  server (`--owner-server`, platform admins), an organization (`--owner-org`),
+  you (`--owner-me`) or an App (`--owner-app`) — that is COPIED into a memory's
+  config when applied, never live-linked. Only the owner's managers can see or
+  change one; for anyone else it does not exist (exit 4, and `list` simply
+  omits it). Templates are addressed by id.
+  - `list` pages to exhaustion (`{items[], total}`, name-ascending); at most one
+    owner flag narrows it. `get`, `create` and `update` print a template
+    `{id, name, description, ownerType, ownerId, required, revision, rules[],
+    createdAt, createdBy, updatedAt, updatedBy}` (`create`/`update` wrap it as
+    `{template, warnings[]}`); each rule is a config rule without the
+    config-only fields (no id, revision, locked or provenance), with the same
+    URN/id/STATE references. `rm` prints `{id, name, revision, deleted}`.
+  - **`--file` is `get --json`'s shape**, so a template round-trips: read it,
+    edit it, send it back, or feed it to `create` to copy it. The server-owned
+    keys it carries (`id`, `ownerType`, `ownerId`, `revision` on create,
+    `created*`/`updated*`) are accepted and never sent; any OTHER unknown key is
+    exit 2, so a typo cannot silently do nothing. A reference is taken from its
+    URN, else its id. Reference STATES are checked strictly, because the state
+    is never sent and a state with nothing behind it would silently drop the
+    reference: a `*State` must be `NONE`, `OK`, `BROKEN` or `UNREADABLE`
+    (exact: case, no padding, never `""`), an `OK` needs its URN or id, and a `BROKEN`/`UNREADABLE` one —
+    the server withheld which node it is — needs a NEW reference set beside it
+    (or its state key removed, to drop it on purpose). Each is exit 2
+    otherwise. The file must hold exactly one JSON object: trailing content is
+    exit 2. An explicit `null` is exit 2 on any key `get --json` never prints
+    as null (`name`, `required`, `rules`, `revision`; per rule `role`,
+    `enabled`, `strictSubRoles`, `writers`, every `*State`), because a null
+    would be read as ABSENT: unchanged at the top, and inside a rule, which is
+    replaced whole, the server's default. Give the value, or remove the key.
+  - **`update` applies only the keys the file HAS**: an omitted key is
+    unchanged, `"description": null` clears it, and `"rules"` REPLACES every
+    rule (`"rules": []` removes them all). It is guarded by the revision the
+    FILE was read at — its `"revision"`, or `--expected-revision` — never by a
+    fresh read, so a template changed since you read it exits 5 (`CONFLICT`)
+    instead of being overwritten by your stale copy. No revision at all, a flag
+    that disagrees with the file, or a file whose `id` names ANOTHER template
+    are exit 2.
+  - `create` needs exactly one owner flag (exit 2 otherwise). A name taken by
+    a live template of the same owner is exit 5 (`MEMORY_CONFIG_TEMPLATE_EXISTS`);
+    a role listed twice is exit 5 (`NODE_ROLE_RULE_EXISTS`); a bad name is exit
+    2. A server-owned template on a deployment with no server row is exit 1
+    (`HADRON_SERVER_NOT_CONFIGURED`: an operator's fix). Naming an owner you
+    do not manage is refused by the server.
+  - `rm` deletes softly — configs it was applied to keep their copies — but no
+    command restores a template; it prompts, needs `--yes` non-interactively,
+    and sends the revision it read (exit 5 if the template changed meanwhile).
 - `memory set` creates when called without a positional argument
   and updates when given one. Free-standing create requires `--org` and
   `--name`. `--owner-me --name <name>` instead creates a user-owned memory with
