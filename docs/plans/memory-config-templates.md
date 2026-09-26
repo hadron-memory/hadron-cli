@@ -1,10 +1,11 @@
 # Design as built: `memory config template` — owned, reusable rulebooks (#716 slice 2)
 
-> **Status: built in a draft PR (Jane), stacked on cli#733 (slice 1), against
-> hadron-server#1369 (#1325 part c) at `15914879`**, itself stacked on #1360
-> `9241c55`, the head cli#733 is pinned to. Neither server PR is merged; the
-> snapshot is a candidate and is re-exported from the actual merge before this
-> lands. Slice 1's design: [`memory-config.md`](memory-config.md).
+> **Status: built in draft PR cli#735 (Jane), stacked on cli#733 (slice 1), against
+> hadron-server#1369 (#1325 part c) at `4772da33`.** That head contains the
+> #1360 merge (`d6a67ef6`), and Holger's same-name collision ruling released its
+> hold (team chat #2078). #1369 is not merged yet, so the snapshot is a
+> candidate; it is re-exported from the actual merge before this lands. Slice
+> 1's design: [`memory-config.md`](memory-config.md).
 
 ## 1. Scope
 
