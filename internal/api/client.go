@@ -151,22 +151,52 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if d.token != "" {
 		req.Header.Set("Authorization", "Bearer "+d.token)
 	}
-	// Only a call whose context carries a session (WithSession) sends one. A
-	// session-bearing request to an insecure initial URL is refused because its
-	// GraphQL body may carry the session id even without this header. With no
-	// bearer token, RequireSecureURL otherwise admits any http server, and the
-	// first request never passes through the redirect policy.
+	// Only a call whose context carries a session (WithSession) sends the
+	// header. Some operations put sessionRef only in GraphQL variables, so an
+	// insecure initial URL must inspect the replayable body as well: the first
+	// request never passes through the redirect policy.
 	if id := sessionFrom(req.Context()); id != "" {
 		if !schemeIsSecure(req.URL) {
 			return nil, fmt.Errorf("%w: refusing to send a session-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
 		}
 		req.Header.Set(SessionHeader, id)
 	}
+	if !schemeIsSecure(req.URL) {
+		carriesSession, err := postBodyCarriesSessionRef(req)
+		if err != nil {
+			return nil, fmt.Errorf("%w: cannot inspect a GraphQL POST before sending it to %s: %v", ErrRedirectPolicy, req.URL.Redacted(), err)
+		}
+		if carriesSession {
+			return nil, fmt.Errorf("%w: refusing to send a sessionRef-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
+		}
+	}
 	resp, err := d.inner.Do(req)
 	if err != nil || resp.StatusCode < 500 {
 		return resp, err
 	}
 	return classifyGatewayResponse(resp)
+}
+
+// genqlient constructs POSTs with a bytes.Reader, so GetBody lets us inspect
+// the exact encoded JSON without consuming the request. A non-replayable body
+// on an insecure POST cannot be proved session-free and is refused instead.
+func postBodyCarriesSessionRef(req *http.Request) (bool, error) {
+	if req.Method != http.MethodPost || req.Body == nil {
+		return false, nil
+	}
+	if req.GetBody == nil {
+		return true, nil
+	}
+	body, err := req.GetBody()
+	if err != nil {
+		return true, err
+	}
+	defer body.Close()
+	encoded, err := io.ReadAll(body)
+	if err != nil {
+		return true, err
+	}
+	return bytes.Contains(encoded, []byte(`"sessionRef"`)), nil
 }
 
 // classifyGatewayResponse decides, FROM THE RAW BODY, whether a 5xx is the API

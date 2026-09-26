@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -183,6 +184,40 @@ func TestSessionRequestIsNotSentOverCleartextHTTP(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("request %d: session = %q, want %q", i, got[i], want[i])
 		}
+	}
+}
+
+func TestBodyOnlySessionRefIsNotSentOverInitialHTTP(t *testing.T) {
+	for _, tc := range []struct {
+		name, allowHTTP string
+		variables       map[string]any
+		refuse          bool
+	}{
+		{"body-only session", "", map[string]any{"sessionRef": "s-1"}, true},
+		{"ordinary anonymous post", "", map[string]any{"other": "value"}, false},
+		{"explicit trusted HTTP override", "1", map[string]any{"sessionRef": "s-1"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(EnvAllowHTTP, tc.allowHTTP)
+			requests := 0
+			transport := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				requests++
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"data":{}}`)), Header: http.Header{"Content-Type": []string{"application/json"}}, Request: r}, nil
+			})
+			c, err := NewClient("http://srv.example", "", &http.Client{Transport: transport})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var data map[string]any
+			err = c.MakeRequest(context.Background(), &graphql.Request{Query: "mutation X { x }", OpName: "X", Variables: tc.variables}, &graphql.Response{Data: &data})
+			if tc.refuse {
+				if !errors.Is(err, ErrRedirectPolicy) || requests != 0 {
+					t.Errorf("body-only session must be refused before transport: err=%v requests=%d", err, requests)
+				}
+			} else if err != nil || requests != 1 {
+				t.Errorf("ordinary/trusted POST must pass: err=%v requests=%d", err, requests)
+			}
+		})
 	}
 }
 
