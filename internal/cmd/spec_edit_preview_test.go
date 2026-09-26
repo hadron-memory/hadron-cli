@@ -278,3 +278,33 @@ func TestSpecEditPreviewMatchesTheWrite(t *testing.T) {
 		t.Errorf("the write sent content=%v abstract=%v, not the previewed after-texts", up.Input.Content, up.Input.Abstract)
 	}
 }
+
+// Nothing can go stale without a kept abstract over a non-empty body, so
+// neither the dry-run note nor the saved-edit reminder may claim it
+// (#740 review, Codex): abstractVerification calls both not-applicable, and on
+// a spec with no abstract the suggested --abstract-still-accurate is refused.
+func TestSpecEditClaimsAbstractStaleOnlyWhenItCanArm(t *testing.T) {
+	noAbstract := func() map[string]string {
+		m := previewMocks()
+		m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], `"abstract":"Win back."`, `"abstract":null`, 1)
+		return m
+	}
+	edited := strings.Replace(placeholderBody, "Old rule line.", "New rule line.", 1)
+	for name, tc := range map[string]struct {
+		mocks map[string]string
+		body  string
+		args  []string
+	}{
+		"dry run, no abstract":    {noAbstract(), edited, []string{"--dry-run"}},
+		"dry run, body emptied":   {previewMocks(), "", []string{"--dry-run"}},
+		"saved edit, no abstract": {noAbstract(), edited, nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			args := append([]string{"--content-file", writeTemp(t, "body.md", tc.body)}, tc.args...)
+			out, _ := runEdit(t, tc.mocks, args...)
+			if strings.Contains(out, "abstract-stale") || strings.Contains(out, "--abstract-still-accurate") {
+				t.Errorf("claims abstract-stale where nothing can arm it:\n%s", out)
+			}
+		})
+	}
+}

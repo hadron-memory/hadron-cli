@@ -69,6 +69,16 @@ type editProposal struct {
 func (p editProposal) bodyChanged() bool     { return p.newBody != p.curBody }
 func (p editProposal) abstractChanged() bool { return p.newAbstract != p.curAbstract }
 
+// armsAbstractStale reports whether saving leaves a KEPT abstract fingerprinted
+// against a body that no longer exists. Only then can abstract-stale fire:
+// abstractVerification (citations.go) calls a spec with no abstract, or with an
+// empty body, not-applicable, and on a spec with no abstract the
+// --abstract-still-accurate remedy is refused (#740 review, Codex).
+func (p editProposal) armsAbstractStale() bool {
+	return p.bodyChanged() && !p.abstractChanged() && !p.reaffirm &&
+		strings.TrimSpace(p.curAbstract) != "" && p.newBody != ""
+}
+
 // changes lists the proposal field by field, body first.
 func (p editProposal) changes() []fieldChangeDTO {
 	out := []fieldChangeDTO{}
@@ -343,7 +353,7 @@ replacement over the cap is rejected.`,
 			}
 			render := func() error {
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-					return renderEditResult(w, result, curBody, newBody)
+					return renderEditResult(w, result, curBody, newBody, proposal.armsAbstractStale())
 				})
 			}
 			if dryRun {
@@ -518,7 +528,7 @@ func countLines(s string) int {
 // dryRunDisclaimer closes every dry run, a no-op included.
 const dryRunDisclaimer = "dry run: nothing was written, and this preview is not an approval. Applying it is a separate `spec edit` run without --dry-run, which recomputes the change against the spec as stored at that moment."
 
-func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string) error {
+func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string, armsStale bool) error {
 	verb := "✓ updated"
 	if r.DryRun {
 		verb = "would update"
@@ -533,16 +543,18 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 	if r.AbstractReaffirmed {
 		fmt.Fprintln(w, "  abstract: unchanged, re-fingerprinted against this body (verification refreshed)")
 	}
-	// Only nudge about the abstract when the body changed but the abstract
-	// didn't — now that the abstract is editable here, a meaning shift is easy
-	// to fold into the same command.
+	// Only nudge about the abstract when the body changed but a kept abstract
+	// didn't (armsAbstractStale) — now that the abstract is editable here, a
+	// meaning shift is easy to fold into the same command. With no abstract, or
+	// an emptied body, nothing can go stale and the reaffirm remedy would be
+	// refused, so there is nothing true to say.
 	//
 	// SUPPRESSED once re-affirmed, and that is the #612 fix as much as the flag
 	// is: the reminder asks the author to decide whether the abstract survived
 	// the edit, and --abstract-still-accurate is them answering it. Printing it
 	// anyway would ask a question they just answered, and leave the command
 	// still appearing to have no way to settle the marker.
-	if r.BodyChanged && !r.AbstractChanged && !r.AbstractReaffirmed {
+	if armsStale {
 		if r.DryRun {
 			// A consequence of saving, so the reviewer sees it before approving.
 			fmt.Fprintf(w, "  note: saving this changes the body and not the abstract, so it would arm abstract-stale on %s — add --abstract/--abstract-file if the rule's meaning changed, or --abstract-still-accurate if you re-read the abstract and it still describes the spec\n", r.Citation)

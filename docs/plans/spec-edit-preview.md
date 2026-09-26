@@ -46,7 +46,9 @@ server gap** and nothing is invented; the CLI simply never asked for it.
   It is additive; every existing key keeps its meaning. A no-op is
   `changed: false, changes: []`. A real edit reports the same `changes[]`.
 - **The terminal dry-run** prints the summary lines as before, then the
-  abstract-stale consequence (the reminder used to be suppressed on a dry run,
+  abstract-stale consequence (only when a kept abstract sits over a non-empty
+  body, which is the only case `abstractVerification` can flag; the saved-edit
+  reminder now uses the same gate, #740 review, Codex) (the reminder used to be suppressed on a dry run,
   but it is a consequence the reviewer should see before approving), then each
   diff **verbatim and unindented**, so it stays a diff, and finally: "nothing
   was written, and this preview is not an approval". A no-op dry run closes
@@ -86,9 +88,9 @@ Every dry-run test asserts **no operation beyond the two reads** was sent. The
 old `TestSpecEditDryRun` checked `CreateSpecNode`, which `spec edit` never
 sends, so it could not fail. It now uses the same assertion.
 
-**Mutation-checked: 13 compiling mutants, all killed by their intended tests**
-(11, plus 2 from the #740 review: the whitespace-only clear, and the no-op
-disclaimer).
+**Mutation-checked: 15 compiling mutants, all killed by their intended tests**
+(11, plus 4 from the #740 review: the whitespace-only clear, the no-op
+disclaimer, and each half of the abstract-stale gate).
 Each was applied from a committed checkpoint and confirmed to have landed
 (a non-empty `git diff`, and `go build` passing) before its tests ran; the
 checkpoint was restored after each.
