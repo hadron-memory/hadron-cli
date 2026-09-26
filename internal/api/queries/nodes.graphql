@@ -254,8 +254,11 @@ query GetNode($ref: ID!) {
 # The single-node `node` read COMPILES {{…}} templates against the node's data
 # unless `raw: true` (hadron-server resolvers.query.node.ts), so a body read
 # through GetNode and written back loses every placeholder — silently, since a
-# read-back through the same rendered path agrees with what was written. Every
-# CLI path that WRITES content it read goes through this operation instead.
+# read-back through the same rendered path agrees with what was written. The
+# generic node paths that WRITE content they read (`coding preflight
+# create|route`'s router splice) and `node get --raw` use this operation; the
+# `spec` group has its own raw reads (GetSpecNodeRaw / GetSpecNodeForEdit,
+# cli#737/#742/#738).
 # `nodeBatch` and `nodeExport` never render, so their callers are already safe.
 #
 # Same selection and the SAME Go type as GetNode (the typename directive):

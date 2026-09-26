@@ -74,7 +74,7 @@ Every CLI caller of `GetNode` (the rendered read) was inventoried:
 - `TestGetNodeRawAsksForTheStoredBody` asserts the operation document itself
   carries `raw: true`, since the command fakes answer by operation name and
   cannot see it.
-- **Mutation-checked:** each of these reds a test, and each mutant compiles:
+- **Mutation-checked:** each of these fails a test, and each mutant compiles:
   - reverting any of the three preflight reads to `GetNode`;
   - dropping `raw: true` (regenerated);
   - ignoring `--raw`;
