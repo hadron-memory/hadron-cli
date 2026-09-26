@@ -30,6 +30,10 @@ func TestMapError(t *testing.T) {
 		{"urn not qualified", gqlErr("URN_NOT_QUALIFIED"), exitcode.Usage}, // spec 022, #540
 		{"validation", gqlErr("GRAPHQL_VALIDATION_FAILED"), exitcode.Usage},
 		{"duplicate", gqlErr("DUPLICATE_APP_AGENT"), exitcode.Conflict},
+		// #1325 part b (cli#716): each fell through to the generic 1 on c9fa75a.
+		{"node role rule exists", gqlErr("NODE_ROLE_RULE_EXISTS"), exitcode.Conflict},
+		{"invalid node role", gqlErr("INVALID_NODE_ROLE"), exitcode.Usage},
+		{"not a task", gqlErr("NOT_A_TASK"), exitcode.Usage},
 		// #619 — the permission-denied class. Both reached scripts as the
 		// generic 1 before exitcode.Forbidden existed.
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},

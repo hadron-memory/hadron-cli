@@ -58,6 +58,19 @@ func IsNodeID(ref string) bool {
 	return IsBareID(ref)
 }
 
+// IsEntityID reports whether ref has the shape of a server id of EITHER form the
+// server's own shape rule accepts (hadron-server src/lib/entityRef/shape.ts
+// `isId`): the 32-hex id or a Prisma CUID.
+//
+// Use it ONLY where a colon-free token cannot also be a bare loc — a flag that
+// takes an id or a fully-qualified URN and has no -m to compose a loc with.
+// Everywhere else IsNodeID's narrow gate is the right one, for the reason its
+// doc gives.
+func IsEntityID(ref string) bool {
+	ref = strings.TrimSpace(ref)
+	return reNodeID.MatchString(ref) || reAppIDCuid.MatchString(ref)
+}
+
 // IsQualifiedNodeRef reports whether ref already names its own memory — a
 // scheme-prefixed URN (hrn:node:/urn:node:) or the legacy fully-qualified
 // <org>::<memory>::<loc>. It is the same grammar ResolveNodeURN accepts, in

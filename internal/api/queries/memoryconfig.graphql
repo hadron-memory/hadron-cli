@@ -1,0 +1,174 @@
+# A memory's config: its node-role rules (hadron-server#1325 part b, cli#716).
+#
+# Every read and write here is for the memory's MANAGERS only. For anyone else
+# the server answers exactly as for a missing memory (MEMORY_NOT_FOUND) or a
+# missing rule (NOT_FOUND), so the CLI must never infer "no rules" from a
+# refusal — an empty config is a SUCCESS with `id: null` and `rules: []`.
+
+fragment NodeRoleRuleFields on NodeRoleRule {
+  id
+  role
+  revision
+  enabled
+  strictSubRoles
+  writers
+  validateBy
+  # Each reference is a URN, an id and its STATE (NONE | OK | BROKEN |
+  # UNREADABLE). The id and URN are given only when the state is OK — and even
+  # then the URN is null when the node's memory has a legacy URN that cannot
+  # address it (#697), so the ID is the ref to send back. A BROKEN or UNREADABLE
+  # reference is never rendered as a guessed URN.
+  authorTask
+  authorTaskId
+  authorTaskState
+  validationTask
+  validationTaskId
+  validationTaskState
+  descriptionNode
+  descriptionNodeId
+  descriptionNodeState
+  locked
+  sourceTemplateId
+  sourceTemplate {
+    id
+    name
+    deleted
+  }
+  createdAt
+  createdBy
+  updatedAt
+  updatedBy
+}
+
+fragment MemoryConfigWarningFields on MemoryConfigWarning {
+  code
+  role
+  field
+  taskUrn
+  taskState
+}
+
+query MemoryConfig($memoryRef: ID!) {
+  memoryConfig(memoryRef: $memoryRef) {
+    id
+    memoryId
+    createdAt
+    createdBy
+    updatedAt
+    updatedBy
+    rules {
+      ...NodeRoleRuleFields
+    }
+  }
+}
+
+# WIRE SEMANTICS: an OMITTED input field means "not given" (the server
+# default on create, unchanged on update); on update a reference sent as ""
+# CLEARS it. So every optional field carries omitempty, and a nil pointer is
+# never sent as null (CLAUDE.md; findings:null-vs-omitted-args).
+#
+# The `for:` directives only bind when the variable list is on its own lines
+# (findings:genqlient-for-directive-needs-multiline-signature). Each input type
+# is used by exactly one operation, so no other operation can disagree with
+# these directives and flip the generated tags.
+# @genqlient(for: "CreateNodeRoleRuleInput.authorTaskRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.validationTaskRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.descriptionNodeRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.strictSubRoles", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.writers", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.validateBy", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.enabled", omitempty: true)
+mutation CreateNodeRoleRule(
+  $memoryRef: ID!
+  $input: CreateNodeRoleRuleInput!
+) {
+  createNodeRoleRule(memoryRef: $memoryRef, input: $input) {
+    rule {
+      ...NodeRoleRuleFields
+    }
+    warnings {
+      ...MemoryConfigWarningFields
+    }
+  }
+}
+
+# `expectedRevision` is always sent: the CLI reads the rule's revision in the
+# same command, so a rule someone changed in between is refused (CONFLICT)
+# rather than overwritten.
+# @genqlient(for: "UpdateNodeRoleRuleInput.authorTaskRef", omitempty: true)
+# @genqlient(for: "UpdateNodeRoleRuleInput.validationTaskRef", omitempty: true)
+# @genqlient(for: "UpdateNodeRoleRuleInput.descriptionNodeRef", omitempty: true)
+# @genqlient(for: "UpdateNodeRoleRuleInput.strictSubRoles", omitempty: true)
+# @genqlient(for: "UpdateNodeRoleRuleInput.writers", omitempty: true)
+# @genqlient(for: "UpdateNodeRoleRuleInput.validateBy", omitempty: true)
+# @genqlient(for: "UpdateNodeRoleRuleInput.enabled", omitempty: true)
+mutation UpdateNodeRoleRule(
+  $ref: ID!
+  $input: UpdateNodeRoleRuleInput!
+  $expectedRevision: Int!
+) {
+  updateNodeRoleRule(ref: $ref, input: $input, expectedRevision: $expectedRevision) {
+    rule {
+      ...NodeRoleRuleFields
+    }
+    warnings {
+      ...MemoryConfigWarningFields
+    }
+  }
+}
+
+# The same update when it also CLEARS validateBy. The server clears validateBy
+# only on an explicit `null`, which a genqlient pointer field cannot send
+# (omitempty drops nil; without omitempty every OTHER update would clear it).
+# So the null is a literal in the document, and every other field rides as a
+# variable in the same input object.
+#
+# An omitempty variable left unset is MISSING, and GraphQL coerces an input
+# field whose variable is missing to ABSENT, not null (graphql-js 16, measured
+# for cli#716): `{validateBy: null, writers: $writers}` with no $writers sends
+# exactly {validateBy: null}. So this is still ONE update under ONE revision
+# check — never a clear followed by a second save (team chat #1888).
+mutation UpdateNodeRoleRuleClearingValidateBy(
+  $ref: ID!
+  $expectedRevision: Int!
+  # @genqlient(omitempty: true)
+  $authorTaskRef: ID
+  # @genqlient(omitempty: true)
+  $validationTaskRef: ID
+  # @genqlient(omitempty: true)
+  $descriptionNodeRef: ID
+  # @genqlient(omitempty: true)
+  $strictSubRoles: Boolean
+  # @genqlient(omitempty: true)
+  $writers: NodeRoleWriters
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+) {
+  updateNodeRoleRule(
+    ref: $ref
+    expectedRevision: $expectedRevision
+    input: {
+      validateBy: null
+      authorTaskRef: $authorTaskRef
+      validationTaskRef: $validationTaskRef
+      descriptionNodeRef: $descriptionNodeRef
+      strictSubRoles: $strictSubRoles
+      writers: $writers
+      enabled: $enabled
+    }
+  ) {
+    rule {
+      ...NodeRoleRuleFields
+    }
+    warnings {
+      ...MemoryConfigWarningFields
+    }
+  }
+}
+
+mutation DeleteNodeRoleRule(
+  $ref: ID!
+  $expectedRevision: Int!
+) {
+  deleteNodeRoleRule(ref: $ref, expectedRevision: $expectedRevision)
+}

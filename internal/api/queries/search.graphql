@@ -20,6 +20,7 @@
 # @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
 # @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
 # @genqlient(for: "NodeFilter.where", omitempty: true)
+# @genqlient(for: "NodeFilter.role", omitempty: true)
 # NodeWhereInput / NodePropertySort are bound to hand-authored structs
 # (internal/api/gqltypes) — see nodes.graphql's FindNodes for why genqlient
 # can't own the omitempty on the recursive NodeWhereInput.

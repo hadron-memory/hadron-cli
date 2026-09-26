@@ -24,6 +24,7 @@
 # @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
 # @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
 # @genqlient(for: "NodeFilter.where", omitempty: true)
+# @genqlient(for: "NodeFilter.role", omitempty: true)
 query ChatMessages(
   # @genqlient(omitempty: true)
   $filter: NodeFilter
