@@ -1,9 +1,11 @@
 # Design as built: `memory config template` — owned, reusable rulebooks (#716 slice 2)
 
-> **Status: built in draft PR cli#735 (Jane), stacked on cli#733 (slice 1), against
-> hadron-server#1369 (#1325 part c) at `4772da33`.** That head contains the
-> #1360 merge (`d6a67ef6`), and Holger's same-name collision ruling released its
-> hold (team chat #2078). #1369 is not merged yet, so the snapshot is a
+> **Status: built in draft PR cli#735 (Jane) on `main`, after slice 1 (cli#733)
+> merged as `dca8887`. It is built against hadron-server#1369 (#1325 part c),
+> exported at `4772da33`.** That head contains the #1360 merge (`d6a67ef6`), and
+> Holger's same-name collision ruling released its hold (team chat #2078).
+> Re-exported from #1369's later head `5210019`, the SDL is byte-identical, and
+> so is the generated client. #1369 is not merged yet, so the snapshot is a
 > candidate; it is re-exported from the actual merge before this lands. Slice
 > 1's design: [`memory-config.md`](memory-config.md).
 
@@ -194,10 +196,14 @@ remaining one is killed. The copied name was not asserted; it now is.
 
 ## 5. Before merge
 
-1. #1369 merged (after #1360 and slice 1, cli#733).
+1. #1369 merged (#1360 and slice 1, cli#733, already are).
 2. `make schema` from the merge commit, `make generate`, a diff check, and 6+
-   regenerations to confirm the tags are stable.
-3. The full suite.
+   regenerations to confirm the tags are stable. Export from a throwaway
+   worktree with its own `npm install --no-save tsx graphql` and the
+   `SDL_EXPORT` override. Never symlink a shared `node_modules`
+   (`hadron-cli:findings:make-schema-follows-the-sibling-branch`).
+3. Every ci.yml build step: build, test, codegen freshness,
+   `make unbound-ops-check`, and lint. `make test` + `make lint` is not CI.
 4. Read-only against a server running the merge: `template list`, and `get` on
    a template you manage and on one id you don't (exit 4).
 5. Mark ready and re-request reviews on the final head.
