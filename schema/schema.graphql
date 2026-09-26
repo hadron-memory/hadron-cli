@@ -4866,7 +4866,20 @@ type Mutation {
   
   appRef accepts the entity's ID or URN; sessionRef is the session id.
   """
-  recordTeamWork(action: String!, appRef: ID!, detail: JSON, kind: String!, ref: String!, sessionRef: ID!, tool: String!): TeamWorkItem!
+  recordTeamWork(
+    action: String!
+    appRef: ID!
+    detail: JSON
+    kind: String!
+
+    """
+    Optional explicit model report (#1398). Takes precedence over the session's model; a model switch or a late record should pass the model that actually did the work. Empty string is refused — pass nothing to fall back to the session's model.
+    """
+    model: String
+    ref: String!
+    sessionRef: ID!
+    tool: String!
+  ): TeamWorkItem!
 
   """Record a usage event"""
   recordUsage(event: UsageEventInput!): Boolean!
@@ -9672,6 +9685,11 @@ type TeamWorkItem {
 
   """Artifact kind: pr, issue, commit, branch, or repo."""
   kind: String!
+
+  """
+  The LLM model that produced the work, snapshotted at record time (#1398): an explicit report wins over the recording session's model; null on records that predate the field or were made with none — never backfilled, so null always means unknown-at-record-time.
+  """
+  model: String
 
   """The record node's id."""
   nodeId: ID!

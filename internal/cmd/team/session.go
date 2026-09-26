@@ -99,6 +99,9 @@ type sessionDTO struct {
 	Tool           *string `json:"tool"`
 	TranscriptPath *string `json:"transcriptPath"`
 	LLMModel       *string `json:"llmModel"`
+	// Worklog is populated by provenance queries only. Each entry keeps its
+	// own event-time reported model; a session may switch models between rows.
+	Worklog []worklogMilestoneDTO `json:"worklog,omitempty"`
 	// Active means "not ended" (endedAt IS NULL) and NOTHING MORE. It is not
 	// a liveness signal, and since hadron-server#1114 it is not even a proxy
 	// for one: a developer session ends only on an explicit endSession, so an
@@ -107,6 +110,14 @@ type sessionDTO struct {
 	// driven inside the idle window. (Hard expiry still applies to the
 	// CHATBOT path, which stamps expiresAt.)
 	Active bool `json:"active"`
+}
+
+type worklogMilestoneDTO struct {
+	NodeID string  `json:"nodeId"`
+	Action string  `json:"action"`
+	At     string  `json:"at"`
+	Tool   string  `json:"tool"`
+	Model  *string `json:"model"`
 }
 
 // sessionDTOFromFields maps a session row. The worker name comes from the
@@ -1526,6 +1537,9 @@ type logResultDTO struct {
 	// binding, which carries no worker name.
 	WorkerName string `json:"workerName,omitempty"`
 	WorkerID   string `json:"workerId,omitempty"`
+	// Model is the server's event-time attribution, not the binding's initial
+	// model and not the artifact-host Tool. Null means unknown.
+	Model *string `json:"model"`
 }
 
 // noteUnreadTeamChat tells a heads-down worker what landed in the team chat
@@ -1637,7 +1651,7 @@ func pluralMentions(n int) string {
 }
 
 func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
-	var pr, issue, commit, branch, action, detail, memory string
+	var pr, issue, commit, branch, action, detail, memory, model string
 	cmd := &cobra.Command{
 		Use:   "log (--pr | --issue | --commit | --branch) <ref> [--action <a>]",
 		Short: "Record an artifact milestone for the current worker session",
@@ -1675,7 +1689,14 @@ fails the write, and --json is untouched.
 
 The watermark is this WORKTREE's: a read made through the MCP tools does
 not reach it, so the note reports what this worktree knows rather than
-what you have read. A cross-surface watermark is a server-side question.`,
+what you have read. A cross-surface watermark is a server-side question.
+
+--model reports the LLM that produced THIS milestone, for a model switch or a
+late record. Without it the server uses the recording session's initial model,
+if known; the CLI never copies a possibly stale model from its binding. The
+receipt and provenance query show the model stored on each worklog row. This
+is reported attribution, not cryptographic verification. An old server can
+still record ordinary milestones, but cannot accept an explicit --model.`,
 		Example: `  hadron team session log --pr 371
   hadron team session log --pr acme/widgets#7 --action merged
   hadron team session log --commit 93200b2 --action pushed
@@ -1683,6 +1704,9 @@ what you have read. A cross-surface watermark is a server-side question.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			if cmd.Flags().Changed("model") && strings.TrimSpace(model) == "" {
+				return exitcode.Newf(exitcode.Usage, "--model must name the model that produced this milestone; omit it to use the server's session-model fallback")
+			}
 			kind, raw := "", ""
 			switch {
 			case pr != "":
@@ -1740,6 +1764,9 @@ what you have read. A cross-surface watermark is a server-side question.`,
 				return exitcode.Newf(exitcode.Usage,
 					"an %s milestone lives only in the team worklog, and this binding predates the App-recording CLI — pass -m <team-memory> here, or `hadron team session end` and start a fresh session", kind)
 			}
+			if appRef == "" && cmd.Flags().Changed("model") {
+				return exitcode.Newf(exitcode.Usage, "--model requires a team worklog record, but this binding predates App recording — pass -m <team-memory> or start a new worker session")
+			}
 			// EVERY milestone touches the session: prNumber for PRs, branch
 			// (the name, without the repo qualifier) for branches, and the
 			// EMPTY update for issue/commit — the #932-designed liveness
@@ -1760,6 +1787,7 @@ what you have read. A cross-surface watermark is a server-side question.`,
 				return api.MapError(err)
 			}
 			recorded := "session"
+			var recordedModel *string
 			if appRef != "" {
 				// #396: the dedicated operation owns the record — its field set, the
 				// `at` stamp, and the worker derivation (the server resolves the
@@ -1771,9 +1799,30 @@ what you have read. A cross-surface watermark is a server-side question.`,
 				if detailRaw != nil {
 					detailArg = &detailRaw
 				}
+				var modelArg *string
+				if cmd.Flags().Changed("model") {
+					modelArg = &model
+				}
 				logged, rerr := gen.RecordTeamWork(
-					ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg,
+					ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg, modelArg,
 				)
+				if unsupportedWorklogModel(rerr) {
+					if modelArg != nil {
+						return exitcode.Newf(exitcode.Usage, "this server does not support per-milestone model attribution (#1398) — nothing was recorded in the worklog; omit --model for ordinary logging or use a newer server")
+					}
+					legacy, lerr := gen.RecordTeamWorkLegacy(ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg)
+					if lerr != nil {
+						return api.MapError(lerr)
+					}
+					if legacy.RecordTeamWork.Ref != "" {
+						canonical = legacy.RecordTeamWork.Ref
+					}
+					rerr = nil
+				} else if rerr == nil {
+					// The server returns the attribution actually stored, including
+					// its session fallback when --model was omitted.
+					recordedModel = logged.RecordTeamWork.Model
+				}
 				if rerr != nil {
 					if api.HasErrorCode(rerr, "SESSION_NOT_IN_APP") {
 						// A WORKER session binds to the worker's App, so for one
@@ -1797,7 +1846,7 @@ what you have read. A cross-surface watermark is a server-side question.`,
 				// Prefer the server's canonical spelling for display and local state:
 				// it is the equality key the provenance query matches on, so echoing
 				// our own would let the two diverge.
-				if logged.RecordTeamWork.Ref != "" {
+				if logged != nil && logged.RecordTeamWork != nil && logged.RecordTeamWork.Ref != "" {
 					canonical = logged.RecordTeamWork.Ref
 				}
 				recorded = "worklog"
@@ -1869,7 +1918,7 @@ what you have read. A cross-surface watermark is a server-side question.`,
 			// AFTER the milestone is recorded — this is a courtesy, and it must
 			// never sit between the caller and their write.
 			noteUnreadTeamChat(ctx, f, b)
-			result := logResultDTO{SessionID: b.SessionID, Kind: kind, Ref: canonical, PRNumber: number, Recorded: recorded, WorkerName: b.WorkerName, WorkerID: b.WorkerID}
+			result := logResultDTO{SessionID: b.SessionID, Kind: kind, Ref: canonical, PRNumber: number, Recorded: recorded, WorkerName: b.WorkerName, WorkerID: b.WorkerID, Model: recordedModel}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				// Name the WORKER, not just the session UUID (#559): the worklog
 				// is append-only, so a record filed under the wrong worker — a
@@ -1878,10 +1927,10 @@ what you have read. A cross-surface watermark is a server-side question.`,
 				// recognise on sight. A pre-Worker binding has no name, so it
 				// keeps the session-only line.
 				if b.WorkerName != "" {
-					_, err := fmt.Fprintf(w, "✓ logged %s %s as %s (session %s, %s)\n", kind, canonical, b.WorkerName, b.SessionID, recorded)
+					_, err := fmt.Fprintf(w, "✓ logged %s %s as %s (session %s, %s, reported model: %s)\n", kind, canonical, b.WorkerName, b.SessionID, recorded, worklogModelLabel(recordedModel, recorded))
 					return err
 				}
-				_, err := fmt.Fprintf(w, "✓ logged %s %s for session %s (%s)\n", kind, canonical, b.SessionID, recorded)
+				_, err := fmt.Fprintf(w, "✓ logged %s %s for session %s (%s, reported model: %s)\n", kind, canonical, b.SessionID, recorded, worklogModelLabel(recordedModel, recorded))
 				return err
 			})
 		},
@@ -1892,10 +1941,36 @@ what you have read. A cross-surface watermark is a server-side question.`,
 	cmd.Flags().StringVar(&branch, "branch", "", "branch ref: name, owner/repo:branch, or /tree/ URL")
 	cmd.Flags().StringVar(&action, "action", "worked-on", "what happened to the artifact (e.g. opened, merged, pushed)")
 	cmd.Flags().StringVar(&detail, "detail", "", "optional JSON bag of display extras stored with the milestone")
+	cmd.Flags().StringVar(&model, "model", "", "LLM model that produced this milestone; omit for server-side session fallback")
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "explicit team-memory override (the binding's App is the default worklog home)")
 	cmd.MarkFlagsMutuallyExclusive("pr", "issue", "commit", "branch")
 	cmd.MarkFlagsOneRequired("pr", "issue", "commit", "branch")
 	return cmd
+}
+
+// Only a validation error for the new model field/argument admits the legacy
+// operation. Auth, scope and transport errors must never be retried as a
+// second mutation.
+func unsupportedWorklogModel(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, `"model"`) {
+		return false
+	}
+	return strings.Contains(msg, "Cannot query field") || strings.Contains(msg, "Unknown field") ||
+		strings.Contains(msg, "Unknown argument") || api.HasErrorCode(err, "GRAPHQL_VALIDATION_FAILED")
+}
+
+func worklogModelLabel(model *string, recorded string) string {
+	if recorded != "worklog" {
+		return "not recorded"
+	}
+	if model == nil || *model == "" {
+		return "unknown"
+	}
+	return *model
 }
 
 // appForTeamMemory resolves the team App from the team MEMORY the caller
@@ -2210,7 +2285,10 @@ desirable (a PR spanning three sessions yields three transcripts).
 kinds. The worklog's App comes from the worktree binding, or from --app /
 -m when running unbound (#399). A recorded session that is no longer
 visible to you still lists (id only), rather than being silently
-dropped.`,
+dropped. The provenance JSON includes each matching worklog milestone with
+its reported event-time model; the human output prints those milestones below
+the session table. SESSION MODEL is the session's initial model and may differ
+from a later milestone's REPORTED MODEL.`,
 		Example: `  hadron team session list --active
   hadron team session list --pr 371 -m acme.com:eng-team
   hadron team session list --commit 93200b2`,
@@ -2428,27 +2506,54 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 	}
 	sessionIDs := []string{}
 	workerBySession := map[string]workerRef{}
+	worklogBySession := map[string][]worklogMilestoneDTO{}
 	seen := map[string]bool{}
 	pageSize := sessionPageSize
+	legacyWorklogSchema := false
 	for offset := 0; ; {
 		off := offset
-		resp, werr := gen.TeamWorkItems(
-			ctx, client, appRef, nil, &canonical, &kind, nil, &pageSize, &off,
-		)
-		if werr != nil {
-			return api.MapError(werr)
+		var resp *gen.TeamWorkItemsResponse
+		var werr error
+		if !legacyWorklogSchema {
+			resp, werr = gen.TeamWorkItems(ctx, client, appRef, nil, &canonical, &kind, nil, &pageSize, &off)
 		}
-		items := resp.TeamWorkItems.Items
+		type worklogHit struct {
+			sessionID, workerName string
+			workerID              *string
+			milestone             worklogMilestoneDTO
+		}
+		items := []worklogHit{}
+		if legacyWorklogSchema || unsupportedWorklogModel(werr) {
+			legacyWorklogSchema = true
+			legacy, lerr := gen.TeamWorkItemsLegacy(ctx, client, appRef, nil, &canonical, &kind, nil, &pageSize, &off)
+			if lerr != nil {
+				return api.MapError(lerr)
+			}
+			for _, it := range legacy.TeamWorkItems.Items {
+				items = append(items, worklogHit{sessionID: it.SessionId, workerName: it.WorkerName, workerID: it.WorkerId,
+					milestone: worklogMilestoneDTO{NodeID: it.NodeId, Action: it.Action, At: it.At, Tool: it.Tool}})
+			}
+		} else if werr != nil {
+			return api.MapError(werr)
+		} else {
+			for _, it := range resp.TeamWorkItems.Items {
+				items = append(items, worklogHit{sessionID: it.SessionId, workerName: it.WorkerName, workerID: it.WorkerId,
+					milestone: worklogMilestoneDTO{NodeID: it.NodeId, Action: it.Action, At: it.At, Tool: it.Tool, Model: it.Model}})
+			}
+		}
 		for _, it := range items {
-			if it.SessionId != "" && !seen[it.SessionId] {
-				seen[it.SessionId] = true
-				sessionIDs = append(sessionIDs, it.SessionId)
-				ref := workerRef{id: it.WorkerId}
-				if it.WorkerName != "" {
-					name := it.WorkerName
+			if it.sessionID != "" {
+				worklogBySession[it.sessionID] = append(worklogBySession[it.sessionID], it.milestone)
+			}
+			if it.sessionID != "" && !seen[it.sessionID] {
+				seen[it.sessionID] = true
+				sessionIDs = append(sessionIDs, it.sessionID)
+				ref := workerRef{id: it.workerID}
+				if it.workerName != "" {
+					name := it.workerName
 					ref.name = &name
 				}
-				workerBySession[it.SessionId] = ref
+				workerBySession[it.sessionID] = ref
 			}
 		}
 		// Page to exhaustion — --pr promises the COMPLETE provenance set, and
@@ -2471,10 +2576,12 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 			// worklog row still supplies the worker id + name, so the stub
 			// keeps the actionable ref alongside the label.
 			fmt.Fprintf(f.IOStreams.ErrOut, "note: session %s is recorded in the worklog but not visible to you\n", id)
-			sessions = append(sessions, sessionDTO{ID: id, WorkerID: workerBySession[id].id, WorkerName: workerBySession[id].name})
+			sessions = append(sessions, sessionDTO{ID: id, WorkerID: workerBySession[id].id, WorkerName: workerBySession[id].name, Worklog: worklogBySession[id]})
 			continue
 		}
-		sessions = append(sessions, sessionDTOFromFields(resp.Session.TeamSessionFields, workerBySession[id].name))
+		s := sessionDTOFromFields(resp.Session.TeamSessionFields, workerBySession[id].name)
+		s.Worklog = worklogBySession[id]
+		sessions = append(sessions, s)
 	}
 	return output.Write(f.IOStreams, f.JSON, sessions, func(w io.Writer) error {
 		// #481: this command answers "who produced this artifact", and an empty
@@ -2513,11 +2620,23 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 		}
 		userLabel := sessionUserLabeller(ctx, client)
 		// Same treatment as the listing table above (#486).
-		t := output.NewTable(w, "WORKER", "ROLE", "USER", "TOOL", "HOST", "MODEL", "STARTED", "TRANSCRIPT", "SESSION")
+		t := output.NewTable(w, "WORKER", "ROLE", "USER", "TOOL", "HOST", "SESSION MODEL", "STARTED", "TRANSCRIPT", "SESSION")
 		for _, s := range sessions {
 			t.Row(dash(s.WorkerName), dash(s.WorkerRole), userLabel(s.UserID), dash(s.Tool), dash(s.Host), dash(s.LLMModel), s.StartedAt, dash(s.TranscriptPath), s.ID)
 		}
-		return t.Flush()
+		if err := t.Flush(); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(w, "\nworklog milestones (reported model at record time):"); err != nil {
+			return err
+		}
+		work := output.NewTable(w, "AT", "ACTION", "ARTIFACT TOOL", "REPORTED MODEL", "SESSION")
+		for _, s := range sessions {
+			for _, item := range s.Worklog {
+				work.Row(item.At, item.Action, item.Tool, worklogModelLabel(item.Model, "worklog"), s.ID)
+			}
+		}
+		return work.Flush()
 	})
 }
 

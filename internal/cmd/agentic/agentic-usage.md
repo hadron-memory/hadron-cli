@@ -312,7 +312,7 @@ hadron agent list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--vis
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
-hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
+hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--before <seq>] [--limit <n>] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
 hadron team attention [--since <token>] (uses --app or the binding)
 hadron team attention switchover preview | apply --proof <proof> [--yes] (uses --app or the binding)
@@ -2199,7 +2199,16 @@ Conventions:
   forms, and bare numbers/shas/branch-names qualified by the session's
   `--repo` or the git remote are all accepted; a bare branch value is always
   a branch name, never owner/repo), with `--action` (default `worked-on`)
-  and an optional `--detail` JSON bag. `--pr` and `--branch` additionally
+  and an optional `--detail` JSON bag. `session log --model <m>` explicitly
+  reports the LLM that produced THIS milestone, for model switches or late
+  records; omission leaves fallback to the server's session model. The CLI
+  never sends the binding's possibly stale model as an override. The server's
+  event-time value appears as `model` in the log receipt and each provenance
+  `worklog[]` row (null means unknown); the human provenance view separates
+  REPORTED MODEL from SESSION MODEL and ARTIFACT TOOL. Attribution is reported,
+  not cryptographically verified. `session start --model` still records the
+  session's initial model, and an old server can log without the new flag but
+  refuses an explicit model rather than dropping it. `--pr` and `--branch` additionally
   denormalize onto `Session.prNumber`/`Session.branch` (latest wins —
   display convenience only); every logged milestone — issue and commit
   included — is a heartbeat feeding the server's liveness derivation; without a
