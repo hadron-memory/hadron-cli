@@ -110,21 +110,24 @@ func withSessionRedirects(client *http.Client) *http.Client {
 	return &c
 }
 
-// checkSessionRedirect refuses a cross-host or insecure redirect for a
-// session-bearing request. Removing only X-Hadron-Session is insufficient:
-// GraphQL mutations also carry sessionRef in the POST body, which Go replays
-// across 307/308 redirects. Check the context as well as the header, since a
-// tokenless request to an insecure initial URL may have no session header.
+// checkSessionRedirect refuses cross-host redirects for GraphQL POSTs, whose
+// bodies may carry a sessionRef even when the caller did not use WithSession.
+// Go replays those bodies across 307/308 redirects. Session-bearing requests
+// also cannot redirect to an insecure URL, even on the same host.
 func checkSessionRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) == 0 || via[0] == nil || via[0].URL == nil {
 		return nil
+	}
+	crossHost := !strings.EqualFold(req.URL.Host, via[0].URL.Host)
+	if crossHost && via[0].Method == http.MethodPost {
+		return fmt.Errorf("%w: refusing to forward a GraphQL POST to %s", ErrRedirectPolicy, req.URL.Redacted())
 	}
 	hasSession := sessionFrom(req.Context()) != "" || sessionFrom(via[0].Context()) != "" ||
 		via[0].Header.Get(SessionHeader) != "" || req.Header.Get(SessionHeader) != ""
 	if !hasSession {
 		return nil
 	}
-	if !strings.EqualFold(req.URL.Host, via[0].URL.Host) || !schemeIsSecure(req.URL) {
+	if crossHost || !schemeIsSecure(req.URL) {
 		return fmt.Errorf("%w: refusing to forward a session-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
 	}
 	return nil
@@ -148,11 +151,11 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if d.token != "" {
 		req.Header.Set("Authorization", "Bearer "+d.token)
 	}
-// Only a call whose context carries a session (WithSession) sends one. A
-// session-bearing request to an insecure initial URL is refused because its
-// GraphQL body may carry the session id even without this header. With no
-// bearer token, RequireSecureURL otherwise admits any http server, and the
-// first request never passes through the redirect policy.
+	// Only a call whose context carries a session (WithSession) sends one. A
+	// session-bearing request to an insecure initial URL is refused because its
+	// GraphQL body may carry the session id even without this header. With no
+	// bearer token, RequireSecureURL otherwise admits any http server, and the
+	// first request never passes through the redirect policy.
 	if id := sessionFrom(req.Context()); id != "" {
 		if !schemeIsSecure(req.URL) {
 			return nil, fmt.Errorf("%w: refusing to send a session-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())

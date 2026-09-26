@@ -914,6 +914,31 @@ func TestTeamAttentionRefusesConfiguredAppAfterServerOverride(t *testing.T) {
 	}
 }
 
+func TestTeamAttentionAcceptsConfiguredURNForBoundApp(t *testing.T) {
+	writeTeamBinding(t)
+	f, _ := testFactory(t)
+	srv, calls := attnServer(t, map[string]string{
+		"TeamAppIdentity":                teamAppIdentityJSON,
+		"TeamAttentionSwitchoverPreview": switchoverPreviewJSON,
+	})
+	setTeamBindingServer(t, srv.URL)
+	dir := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("server = \""+srv.URL+"\"\napp = \"hrn:app:acme.com:eng-team\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("configured URN resolves to the bound App: %v", err)
+	}
+	if got := opsOf(*calls); len(got) != 2 || got[0] != "TeamAppIdentity" || got[1] != "TeamAttentionSwitchoverPreview" {
+		t.Errorf("identity must be checked before the preview: %v", got)
+	}
+}
+
 // PR #732 round 2, @copilot: explicit mark-read re-checks the binding right
 // before the mutation — a rebind during the Channel lookup must not mark the
 // retired session's cursor.

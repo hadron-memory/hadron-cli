@@ -18,9 +18,10 @@ import (
 func TestSessionHeaderDoesNotFollowACrossHostRedirect(t *testing.T) {
 	for _, token := range []string{"hdr_user_x", ""} {
 		for _, tc := range []struct {
-			path      string
-			crossHost bool
-		}{{"away", true}, {"stay", false}} {
+			path        string
+			crossHost   bool
+			withSession bool
+		}{{"away", true, true}, {"stay", false, true}, {"body-only-away", true, false}, {"body-only-stay", false, false}} {
 			var got, gotBodies []string
 			record := func(w http.ResponseWriter, r *http.Request) {
 				got = append(got, r.Header.Get(SessionHeader))
@@ -46,14 +47,17 @@ func TestSessionHeaderDoesNotFollowACrossHostRedirect(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ctx := WithSession(context.Background(), "s-1")
+			ctx := context.Background()
+			if tc.withSession {
+				ctx = WithSession(ctx, "s-1")
+			}
 			var data map[string]any
 			err = c.MakeRequest(ctx, &graphql.Request{Query: "mutation X($sessionRef: ID!) { x(sessionRef: $sessionRef) }", OpName: "X", Variables: map[string]any{"sessionRef": "s-1"}}, &graphql.Response{Data: &data})
 			if tc.crossHost {
 				if err == nil || len(got) != 0 || len(gotBodies) != 0 {
 					t.Errorf("token=%q cross-host redirect must refuse before replaying the body: err=%v headers=%q bodies=%q", token, err, got, gotBodies)
 				}
-			} else if err != nil || len(got) != 1 || got[0] != "s-1" || len(gotBodies) != 1 || !strings.Contains(gotBodies[0], `"sessionRef":"s-1"`) {
+			} else if err != nil || len(got) != 1 || (tc.withSession && got[0] != "s-1") || (!tc.withSession && got[0] != "") || len(gotBodies) != 1 || !strings.Contains(gotBodies[0], `"sessionRef":"s-1"`) {
 				t.Errorf("token=%q same-host redirect: err=%v session=%q body=%q", token, err, got, gotBodies)
 			}
 			other.Close()
