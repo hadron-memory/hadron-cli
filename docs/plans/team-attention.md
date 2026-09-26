@@ -31,7 +31,7 @@ before.
 | `team attention switchover preview` | `teamAttentionSwitchoverPreview` |
 | `team attention switchover apply --proof <p> [--yes]` | `confirmTeamAttentionSwitchover` |
 | `team chat mark-read --through <seq> [--channel <ref>]` | `markOwnTeamChatRead` (plus `app.defaultChannel` when `--channel` is omitted) |
-| `team chat read` | unchanged, except that a bound read now carries `X-Hadron-Session` |
+| `team chat read` | unchanged output; a counted bound read is marked read on the server after it is printed |
 
 ### Decisions
 
@@ -43,21 +43,32 @@ before.
    answering the no-token question instead would re-nudge every backlog.
 2. **The session header is per CALL, never a client default.** `api.WithSession`
    puts the id on the context, and the transport's `bearerDoer` adds
-   `X-Hadron-Session` only to requests whose context carries one. Exactly two
-   operations carry it: the `team chat read` pages and `mark-read`. The header
-   has server-side effects (a heartbeat, and in the pilot the worker's own read
-   state), so Dara and Ada scoped it narrowly (team chat #1885, #1889).
-   `team attention` never carries it: that poll is an operator's read, not a
-   worker's.
-3. **The CLI does not decide which reads count.** `team chat read` sends the
-   header whether or not a filter or `--limit` is set. The server advances only
-   unfiltered, contiguous, forward pages. A `--limit` page that is contiguous
-   counts, which Dara confirmed in #1889, so a client-side rule would have been
-   wrong. The binding's own client-side watermark (#474) is untouched: it is a
-   separate, local claim.
-4. **Never for another server's binding.** The header rides only when
-   `bindingServerMatches`. A session id from one deployment means nothing on
-   another.
+   `X-Hadron-Session` only to requests whose context carries one: today that
+   is only `mark-read` (explicit, and the one after `chat read`). It never
+   follows a redirect to another host (`stripSessionCrossHost`, both redirect
+   policies; PR review, @copilot). `team attention` never carries it: that poll
+   is an operator's read, not a worker's.
+3. **`team chat read` marks read AFTER delivery, and carries no session.**
+   First built as "the read carries the header and the server advances as it
+   pages" (Dara, #1889). Codex's P1 on this PR showed why that loses messages:
+   the server marks each page as it is FETCHED, but the CLI prints only after
+   the whole loop, so a later page failing — or the render failing — left
+   messages marked read that were never shown, and the router stopped nudging.
+   So the read is sessionless, and after a successful render the CLI calls
+   `markOwnTeamChatRead` through the highest seq it DELIVERED — for exactly the
+   reads that record the binding's own watermark (#474: unfiltered, contiguous
+   with what the binding has seen, not `--before`, own App, same server; a
+   `--limit` page counts). One predicate decides both claims, so they cannot
+   disagree. A failed mark errs the loss-safe way (a duplicate nudge), prints a
+   stderr note naming the retry, and never fails the read; outside the pilot
+   (`FEATURE_NOT_AVAILABLE`) it is silent. Cost: two small calls after a
+   counted bound read (the team Channel id, then the mark).
+   Known difference from the server's own auto-advance: marking through the
+   highest VISIBLE seq leaves a trailing deleted message's seq unmarked, which
+   the server's exhausted-page rule would have covered; attention counts only
+   live messages, so no nudge results.
+4. **Never for another server's binding.** A binding made against another
+   deployment neither marks nor sends its session: its id means nothing here.
 5. **Mark-read uses the pilot door, not `advanceChannelReadState`.** The legacy
    mutation has a similar gate (the caller's live session on that worker), but
    it is neither pilot-gated nor pinned to one session. So a CLI built on it
@@ -115,6 +126,9 @@ decision.
     wording and refusals.
 - `internal/api/session_test.go`: the header rides only on a call that asked
   for it.
+- Review round 1 (PR #732): Copilot's cross-host redirect finding and
+  Codex's P1 (mark after delivery) and P2 (a lost token line fails the poll)
+  are fixed, each with a test that reds when the fix is reverted.
 - Mutation-checked: dropping the server-match guard, the read header, the
   per-call scoping, the empty-`--since` or empty-`--channel` refusal, the
   consent gate, the mark-read header or the already-read branch each reds at

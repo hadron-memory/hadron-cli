@@ -413,15 +413,15 @@ past the end of the chat) reads a window rather than a prefix and records
 nothing. Reading a chat that is EMPTY still counts as
 having read it.
 
-YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). With a worker
-session binding (for the current server), the read carries that session, so
-the server can count it as the bound worker having read the chat — which is
-what stops a team-chat router nudging you about messages you have seen. The
-SERVER decides which reads count: an unfiltered, contiguous, forward read
-(a --limit page included); a --mentions/--mentions-me, --before or windowed
-read does not — use ` + "`team chat mark-read --through <seq>`" + ` for those. This is
-separate from the binding's local watermark above, and it only happens where
-the server has the team-attention pilot enabled for you.
+YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). Where the server
+has the team-attention pilot enabled for you, a read that records the
+watermark above also marks the bound worker's messages read ON THE SERVER,
+through the same seq — which is what stops a team-chat router nudging you
+about messages you have seen. It happens only AFTER the messages were
+printed, so a read that fails partway marks nothing. A --mentions/--mentions-me,
+--before or windowed read marks nothing; use ` + "`team chat mark-read --through <seq>`" + `
+for those. Outside the pilot this step is silently skipped; if it fails inside
+it, a note on stderr says so and the read still succeeds.
 
 --json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
 alias for readers written against ` + "`hadron chat read`" + `, the retired academy
@@ -531,18 +531,6 @@ them "(human)" / "(worker)".`,
 			if cmd.Flags().Changed("limit") {
 				pageSize = limit
 			}
-			// A bound worker's read carries its worker session (#1353). Under
-			// hadron-server#1353's pilot that is what lets the read mark the
-			// worker's OWN messages read, so a team-chat router stops nudging
-			// it; the server alone decides whether this read counts (only an
-			// unfiltered, contiguous, forward read does) and whether the
-			// session is the caller's and live. Outside the pilot it is the
-			// ordinary attribution/heartbeat binding. Never for a binding
-			// made against another server: its session id means nothing here.
-			readCtx := ctx
-			if b != nil && bindingServerMatches(f, b) {
-				readCtx = api.WithSession(ctx, b.SessionID)
-			}
 			msgs := []teamChatMessageDTO{}
 			cursor := since
 			for {
@@ -552,7 +540,7 @@ them "(human)" / "(worker)".`,
 					b := before
 					beforeArg = &b
 				}
-				resp, err := gen.TeamChatMessages(readCtx, client, appRef, &cursor, mentionsRef, &size, nil, beforeArg)
+				resp, err := gen.TeamChatMessages(ctx, client, appRef, &cursor, mentionsRef, &size, nil, beforeArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -629,7 +617,10 @@ them "(human)" / "(worker)".`,
 			//    already REFUSE on that mismatch; a read is legitimate, so only
 			//    the bookkeeping is skipped.
 			unfiltered := mentionsRef == nil
-			recordWatermark := func() {
+			// recordWatermark reports whether this read COUNTS as having read
+			// through `verified` — the same evidence decides the server-side
+			// mark below (#1353), so the two claims cannot disagree.
+			recordWatermark := func() bool {
 				// Best-effort and deliberately silent: a read that succeeded must
 				// not fail because the bookkeeping did, and a reader with no
 				// binding (--app only) is an ordinary case, not an error.
@@ -655,14 +646,15 @@ them "(human)" / "(worker)".`,
 				// recording 30 claims exactly what was seen.
 				if b == nil || !ok || !unfiltered || !contiguous || cmd.Flags().Changed("before") ||
 					!bindingServerMatches(f, b) {
-					return
+					return false
 				}
 				if !isBindingsApp(ctx, f, scope.Ref, b.AppID) {
-					return
+					return false
 				}
 				if b.ChatSeenSeq == nil || verified > *b.ChatSeenSeq {
 					recordChatWatermark(ctx, b.SessionID, verified)
 				}
+				return true
 			}
 			// prevBefore is nextSince's mirror: the cursor for the page BEFORE
 			// this one, i.e. the lowest seq returned. Pass it as --before to
@@ -726,7 +718,16 @@ them "(human)" / "(worker)".`,
 			}); err != nil {
 				return err
 			}
-			recordWatermark()
+			// The bound worker's SERVER read state (hadron-server#1353) moves
+			// only here: after the messages were delivered, and only for a read
+			// the watermark rule above counts. The read itself carries no
+			// session, so the server never marks a page before this command has
+			// shown it — a later page failing, or the render failing, would
+			// otherwise bury messages the reader never saw (PR #732, @codex
+			// P1). A failed mark errs the loss-safe way: a duplicate nudge.
+			if recordWatermark() && verified > 0 {
+				markDeliveredRead(ctx, f, client, scope.Ref, b, verified)
+			}
 			return nil
 		},
 	}

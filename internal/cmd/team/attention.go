@@ -118,10 +118,17 @@ and App).`,
 				}
 				dto.Workers = append(dto.Workers, wd)
 			}
+			// Every write is CHECKED (PR #732, @codex P2): a poll whose token
+			// line is lost to a closed pipe must fail, so the caller keeps the
+			// previous token rather than believing it holds a new one.
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "app: %s (%s)\n", scope.Ref, scope.Source)
+				if _, err := fmt.Fprintf(w, "app: %s (%s)\n", scope.Ref, scope.Source); err != nil {
+					return err
+				}
 				if len(dto.Workers) == 0 {
-					fmt.Fprintln(w, "No live worker has new relevant unread chat.")
+					if _, err := fmt.Fprintln(w, "No live worker has new relevant unread chat."); err != nil {
+						return err
+					}
 				} else {
 					t := output.NewTable(w, "WORKER", "CHANNEL", "UNREAD", "MENTIONS", "FIRST", "LAST")
 					for _, wk := range dto.Workers {
@@ -137,9 +144,11 @@ and App).`,
 						return err
 					}
 				}
-				fmt.Fprintf(w, "token: %s\n", dto.Token)
-				fmt.Fprintln(w, "Pass it as --since only after every nudge was accepted; on any failure keep the previous token.")
-				return nil
+				if _, err := fmt.Fprintf(w, "token: %s\n", dto.Token); err != nil {
+					return err
+				}
+				_, err := fmt.Fprintln(w, "Pass it as --since only after every nudge was accepted; on any failure keep the previous token.")
+				return err
 			})
 		},
 	}
@@ -252,9 +261,11 @@ func newCmdSwitchoverPreview(f *cmdutil.Factory) *cobra.Command {
 						return err
 					}
 				}
-				fmt.Fprintf(w, "Nothing has been written. To apply exactly this, before %s:\n", dto.ExpiresAt)
-				fmt.Fprintf(w, "  hadron team attention switchover apply --proof '%s'\n", dto.Proof)
-				return nil
+				if _, err := fmt.Fprintf(w, "Nothing has been written. To apply exactly this, before %s:\n", dto.ExpiresAt); err != nil {
+					return err
+				}
+				_, err := fmt.Fprintf(w, "  hadron team attention switchover apply --proof '%s'\n", dto.Proof)
+				return err
 			})
 		},
 	}
