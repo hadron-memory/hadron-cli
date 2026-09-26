@@ -116,7 +116,9 @@ chunk leaves the source alone with a warning.`,
 
 			// Fetch the source: existence + name (for the default ref-label) +
 			// body (for --strip-source). A typo fails fast here.
-			srcNode, err := fetchSpecTaggedNode(cmd, client, memURN, source.Format())
+			// RAW: --strip-source writes a body computed from this one back
+			// to the source, so it must be the stored text (cli#742).
+			srcNode, err := fetchRawSpec(cmd, client, memURN, source.Format())
 			if err != nil {
 				return err
 			}

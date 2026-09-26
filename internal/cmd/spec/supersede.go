@@ -298,6 +298,12 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			body := rubricBodyAt(newLoc, title, scaffoldOptional)
 			abs := placeholderAbstractAt(newLoc, title)
 			if copyBody {
+				// The STORED body: GetNode renders Mustache, and copying the
+				// rendered text would give the successor none of the old
+				// spec's {{…}} placeholders (cli#742).
+				if err := withRawBody(cmd, client, oldNode); err != nil {
+					return err
+				}
 				if oldNode.Content != nil {
 					body = *oldNode.Content
 				}
@@ -640,6 +646,14 @@ func retireError(retired *bool, err error, oldLoc, successorLoc, memURN string) 
 func boolRef(b bool) *bool { return &b }
 
 func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason string) error {
+	// The note is appended to the STORED body, read raw right here: every
+	// retire path hands in a fresh GetNode re-read (#691), and GetNode renders
+	// Mustache, so writing its body back would delete every {{…}} placeholder
+	// (cli#742). Read here rather than up front, so it is the freshest body
+	// on every path.
+	if err := withRawBody(cmd, client, oldNode); err != nil {
+		return err
+	}
 	note := fmt.Sprintf("\n\n> Superseded by %s.", successorLoc)
 	if reason != "" {
 		note = fmt.Sprintf("\n\n> Superseded by %s: %s", successorLoc, reason)

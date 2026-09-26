@@ -340,6 +340,8 @@ func supersedeToServer(t *testing.T, oldLoc, toLoc string) (string, map[string]j
 				return withSupersededByEdge(old, "new1", toLoc)
 			}
 			return old
+		case "GetSpecNodeRaw": // the retirement's stored-body read (cli#742)
+			return old
 		case "CreateSpecNode":
 			return `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"` + toLoc + `","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
 		case "CreateEdge":
@@ -524,6 +526,8 @@ func TestSpecSupersedeResumeHonoursTo(t *testing.T) {
 			case "ResolveUrn":
 				return `{"data":{"resolveUrn":{"id":"id-` + old + `","kind":"node","memoryId":"mem1"}}}`
 			case "GetNode":
+				return withEdge
+			case "GetSpecNodeRaw": // the retirement's stored-body read (cli#742)
 				return withEdge
 			case "UpdateSpecNode":
 				return `{"data":{"updateSpecNode":{"id":"id-` + old + `","memoryId":"mem1","loc":"` + old + `","name":"x","nodeType":"info","tags":["spec","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`

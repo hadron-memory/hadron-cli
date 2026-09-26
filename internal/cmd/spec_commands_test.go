@@ -1825,10 +1825,11 @@ func TestSpecGetBodyOnlyRejectsPrefixAndAbstractOnly(t *testing.T) {
 
 func TestSpecSupersedeRequiresYes(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":  `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"ResolveUrn":     resolveSpecJSON,
+		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":      `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1841,8 +1842,9 @@ func TestSpecSupersedeRequiresYes(t *testing.T) {
 
 func TestSpecSupersedeRejectsNonSpecSource(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    linkNonSpecDetail,
+		"ResolveUrn":     resolveSpecJSON,
+		"GetNode":        linkNonSpecDetail,
+		"GetSpecNodeRaw": linkNonSpecDetail,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1856,6 +1858,7 @@ func TestSpecSupersede(t *testing.T) {
 	gql, captured := captureSupersedeGraphQL(t, "msg:010:03", map[string]string{
 		"ResolveUrn":     resolveSpecJSON,
 		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":      `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
 		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
@@ -1923,9 +1926,10 @@ func TestSpecSupersede(t *testing.T) {
 func TestSpecSupersedeUnresolvableEdgeCreatesNothing(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
 	responses := map[string]string{
-		"GetNode":   `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch": specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes": scan,
+		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":      scan,
 	}
 	var writes []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -2030,6 +2034,9 @@ func supersedeEdgeServer(t *testing.T, createEdge, reread string) (*httptest.Ser
 	}
 	gets := 0
 	return captureGraphQLFunc(t, func(op string) string {
+		if op == "GetSpecNodeRaw" { // the stored body, read once up front (cli#742)
+			return `{"data":{"node":` + cleanSpecDetail + `}}`
+		}
 		if op == "GetNode" {
 			gets++
 			if gets == 1 {
@@ -2171,6 +2178,10 @@ func TestSpecSupersedeRetiresAgainstTheFreshRead(t *testing.T) {
 	gets := 0
 	gql, captured := captureGraphQLFunc(t, func(op string) string {
 		switch op {
+		case "GetSpecNodeRaw":
+			// The retirement's raw body read comes right before the write
+			// (cli#742), after the concurrent edit, so it sees the edit too.
+			return `{"data":{"node":` + edited + `}}`
 		case "GetNode":
 			gets++
 			if gets == 1 {
@@ -2215,6 +2226,8 @@ func TestSpecSupersedeFinishRevalidatesBeforeRetiring(t *testing.T) {
 		switch op {
 		case "ResolveUrn":
 			return resolveSpecJSON
+		case "GetSpecNodeRaw": // the stored body (cli#742)
+			return `{"data":{"node":` + cleanSpecDetail + `}}`
 		case "GetNode":
 			gets++
 			if gets == 1 {
@@ -2252,6 +2265,9 @@ func TestSpecSupersedeFinishRereadKeepsItsExitCode(t *testing.T) {
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &body)
 		switch body.OperationName {
+		case "GetSpecNodeRaw": // the stored body, read once up front (cli#742)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(one))
 		case "GetNode":
 			gets++
 			if gets > 1 {
@@ -2310,6 +2326,10 @@ func supersedeLostRetireServer(t *testing.T, afterRetire string) *httptest.Serve
 		case "UpdateSpecNode":
 			w.WriteHeader(http.StatusBadGateway)
 			_, _ = w.Write([]byte("upstream went away"))
+			return
+		case "GetSpecNodeRaw": // the stored body, read once up front (cli#742)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"data":{"node":` + cleanSpecDetail + `}}`))
 			return
 		case "GetNode":
 			gets++
@@ -2379,10 +2399,11 @@ func TestSpecSupersedeUnverifiableRetireIsUnknown(t *testing.T) {
 func TestSpecSupersedeLostCreateNamesTheReconciliation(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
 	responses := map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":  scan,
+		"ResolveUrn":     resolveSpecJSON,
+		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":      scan,
 	}
 	var after []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -2440,6 +2461,7 @@ func TestSpecSupersedeRendersRetiredTruthfully(t *testing.T) {
 	gql2, _ := captureSupersedeGraphQL(t, "msg:010:03", map[string]string{
 		"ResolveUrn":     resolveSpecJSON,
 		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":      `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
 		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
@@ -2631,8 +2653,9 @@ func TestSpecSupersedeRerunWithTwoSuccessorsIsAConflict(t *testing.T) {
 		`{"id":"e9","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:020:01","isRunnable":false,"priority":0,"target":{"id":"n9","loc":"msg:020:01","memoryId":"mem1"}}],` +
 		`"incomingEdges":[]}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    `{"data":{"node":` + two + `}}`,
+		"ResolveUrn":     resolveSpecJSON,
+		"GetNode":        `{"data":{"node":` + two + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + two + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -2692,6 +2715,7 @@ func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":     resolveSpecJSON,
 		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":      scan,
 		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
@@ -2746,10 +2770,11 @@ func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 		t.Fatalf("remedy is not a `hadron spec link` command: %q (from %v)", remedy, err)
 	}
 	gql2, captured := captureGraphQL(t, map[string]string{
-		"Memories":   memListMicromentorJSON,
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    linkSpecDetail,
-		"CreateEdge": linkEdgeResp,
+		"Memories":       memListMicromentorJSON,
+		"ResolveUrn":     resolveSpecJSON,
+		"GetNode":        linkSpecDetail,
+		"GetSpecNodeRaw": linkSpecDetail,
+		"CreateEdge":     linkEdgeResp,
 	})
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
@@ -2771,6 +2796,7 @@ func TestSpecSupersedeRetireUpdateFailureEmitsRecoverableResult(t *testing.T) {
 	gql, _ := captureSupersedeGraphQL(t, "msg:010:03", map[string]string{
 		"ResolveUrn":     resolveSpecJSON,
 		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":      scan,
 		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
@@ -2803,6 +2829,7 @@ func TestSpecSupersedeRetryExistingRetirementEdgeFinishesUpdate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":     resolveSpecJSON,
 		"GetNode":        `{"data":{"node":` + oldWithEdge + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + oldWithEdge + `}}`,
 		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	})
 	f, out := testFactory(t)
@@ -2835,6 +2862,7 @@ func TestSpecSupersedeDoesNotReuseUnlinkedSameTitleSibling(t *testing.T) {
 	gql, captured := captureSupersedeGraphQL(t, "msg:010:04", map[string]string{
 		"ResolveUrn":     resolveSpecJSON,
 		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":      scan,
 		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:04","name":"msg:010:04 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
@@ -2872,6 +2900,7 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 	responses := map[string]string{
 		"ResolveUrn":     resolveSpecJSON, // every target resolves
 		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":      scan,
 		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — superseded-by","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
@@ -3003,7 +3032,7 @@ func extractScan() string {
 func extractMocks() map[string]string {
 	return map[string]string{
 		"FindNodes":      extractScan(),
-		"GetNode":        extractSrcDetail,
+		"GetSpecNodeRaw": extractSrcDetail,
 		"ResolveUrn":     `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
 		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"cor:dmo:020:04","name":"cor:dmo:020:04 — Node type","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"src1","memoryId":"mem1","loc":"cor:dmo:060:02","name":"cor:dmo:060:02 — Node","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
@@ -3232,9 +3261,9 @@ func TestSpecExtractDryRun(t *testing.T) {
 	// No mutation ops mocked — any CreateNode/UpdateNode/CreateEdge would be an
 	// unexpected op.
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes":  extractScan(),
-		"GetNode":    extractSrcDetail,
-		"ResolveUrn": `{"data":{"resolveUrn":{"id":"src1","kind":"node","memoryId":"mem1"}}}`,
+		"FindNodes":      extractScan(),
+		"GetSpecNodeRaw": extractSrcDetail,
+		"ResolveUrn":     `{"data":{"resolveUrn":{"id":"src1","kind":"node","memoryId":"mem1"}}}`,
 	})
 	f, out := testFactory(t)
 	f.IOStreams.In = strings.NewReader(extractChunk)
@@ -3271,8 +3300,8 @@ func TestSpecExtractStripNeedsChunk(t *testing.T) {
 
 func TestSpecExtractSourceNotFound(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": `{"data":{"resolveUrn":{"id":"src1","kind":"node","memoryId":"mem1"}}}`,
-		"GetNode":    `{"data":{"node":null}}`,
+		"ResolveUrn":     `{"data":{"resolveUrn":{"id":"src1","kind":"node","memoryId":"mem1"}}}`,
+		"GetSpecNodeRaw": `{"data":{"node":null}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -3285,8 +3314,8 @@ func TestSpecExtractSourceNotFound(t *testing.T) {
 
 func TestSpecExtractRejectsNonSpecSource(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    linkNonSpecDetail,
+		"ResolveUrn":     resolveSpecJSON,
+		"GetSpecNodeRaw": linkNonSpecDetail,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
