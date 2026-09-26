@@ -1,13 +1,11 @@
 # Design as built: `memory config template` — owned, reusable rulebooks (#716 slice 2)
 
-> **Status: built in draft PR cli#735 (Jane) on `main`, after slice 1 (cli#733)
-> merged as `dca8887`. It is built against hadron-server#1369 (#1325 part c),
-> exported at `4772da33`.** That head contains the #1360 merge (`d6a67ef6`), and
-> Holger's same-name collision ruling released its hold (team chat #2078).
-> Re-exported from #1369's later head `5210019`, the SDL is byte-identical, and
-> so is the generated client. #1369 is not merged yet, so the snapshot is a
-> candidate; it is re-exported from the actual merge before this lands. Slice
-> 1's design: [`memory-config.md`](memory-config.md).
+> **Status: built in cli#735 (Jane) on `main`, after slice 1 (cli#733) merged
+> as `dca8887`, against hadron-server#1369 (#1325 part c), merged as
+> `dcb64bcd`.** The snapshot is exported from that merge commit. It is
+> byte-identical to the `4772da33` candidate it was built on, and so is the
+> generated client. Production serves the template API: the read-only checks in
+> §5 were made there. Slice 1's design: [`memory-config.md`](memory-config.md).
 
 ## 1. Scope
 
@@ -194,7 +192,29 @@ Two first-round survivors were informative. The empty-rules fallback existed
 twice, each copy covering the other, so the redundant one was deleted and the
 remaining one is killed. The copied name was not asserted; it now is.
 
-## 5. Before merge
+## 5. Before merge (2026-09-26: done, except a live `get` on a managed template; see Limit)
+
+**Re-export from the merge.** `dcb64bcd` is server `main`'s tip, directly on
+`eba16451`. Exported from a throwaway worktree with its own `tsx`, the snapshot
+is byte-identical to the committed `4772da33` candidate, and 8 consecutive
+regenerations left `internal/api/gen` unchanged. Every ci.yml build step is
+green on it.
+
+**Read-only against production (hadron-server 0.19.0):**
+- `template list` and `list --owner-me` return `{"items": [], "total": 0}`
+  (exit 0). An undeployed server would refuse the `memoryConfigTemplates` field
+  outright, so the empty list shows the API is live, not absent.
+- `list --owner-server` also returns empty (exit 0).
+- `get` on an unknown 32-hex id, an unknown CUID, and a non-id token each exit 4,
+  naming `template list`. The server types `ref` as `ID!` and answers
+  `MEMORY_CONFIG_TEMPLATE_NOT_FOUND` for anything it cannot match, so the CLI
+  passes the token through rather than inventing a stricter grammar.
+
+**Limit:** this account manages no template, so `get` on a managed one (and
+every field of a live template) needs a write. Every check stayed read-only, so
+those paths rest on fixtures shaped from the server's resolver.
+
+The steps:
 
 1. #1369 merged (#1360 and slice 1, cli#733, already are).
 2. `make schema` from the merge commit, `make generate`, a diff check, and 6+
@@ -205,5 +225,6 @@ remaining one is killed. The copied name was not asserted; it now is.
 3. Every ci.yml build step: build, test, codegen freshness,
    `make unbound-ops-check`, and lint. `make test` + `make lint` is not CI.
 4. Read-only against a server running the merge: `template list`, and `get` on
-   a template you manage and on one id you don't (exit 4).
+   a template you manage and on one id you don't (exit 4). Only the second `get`
+   was possible live (see Limit).
 5. Mark ready and re-request reviews on the final head.
