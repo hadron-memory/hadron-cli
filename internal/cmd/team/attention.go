@@ -171,7 +171,15 @@ func attentionScope(ctx context.Context, f *cmdutil.Factory) (appScope, error) {
 		return appScope{}, err
 	}
 	if f.AppFlag == "" && appRef != "" {
-		if b == nil || b.AppID == "" || b.Server == "" || !bindingServerMatches(f, b) || !isBindingsApp(ctx, f, appRef, b.AppID) {
+		if b == nil || b.AppID == "" || b.Server == "" || !bindingServerMatches(f, b) {
+			return appScope{}, exitcode.Newf(exitcode.Usage,
+				"the configured App context has no verified server provenance here — pass --app explicitly to select it on this server, or use a matching server-bound worker session")
+		}
+		match, err := bindingsAppIdentity(ctx, f, appRef, b.AppID)
+		if err != nil {
+			return appScope{}, err
+		}
+		if !match {
 			return appScope{}, exitcode.Newf(exitcode.Usage,
 				"the configured App context has no verified server provenance here — pass --app explicitly to select it on this server, or use a matching server-bound worker session")
 		}

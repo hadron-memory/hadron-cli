@@ -447,21 +447,32 @@ func describeApp(ctx context.Context, f *cmdutil.Factory, ref string) string {
 // a binding-sourced scope and for `--app <id>`. Unresolvable means unknown,
 // and unknown must not write.
 func isBindingsApp(ctx context.Context, f *cmdutil.Factory, ref, bindingAppID string) bool {
+	match, _ := bindingsAppIdentity(ctx, f, ref, bindingAppID)
+	return match
+}
+
+// bindingsAppIdentity keeps lookup errors available to callers whose scope
+// guard must distinguish an unknown identity from an authentication or
+// transport failure. Cursor updates use isBindingsApp's conservative bool.
+func bindingsAppIdentity(ctx context.Context, f *cmdutil.Factory, ref, bindingAppID string) (bool, error) {
 	if ref == "" || bindingAppID == "" {
-		return false
+		return false, nil
 	}
 	if ref == bindingAppID {
-		return true
+		return true, nil
 	}
 	client, err := f.GraphQLClient()
 	if err != nil {
-		return false
+		return false, err
 	}
 	resp, err := gen.TeamAppIdentity(ctx, client, ref)
-	if err != nil || resp.App == nil {
-		return false
+	if err != nil {
+		return false, api.MapError(err)
 	}
-	return resp.App.Id == bindingAppID
+	if resp.App == nil {
+		return false, nil
+	}
+	return resp.App.Id == bindingAppID, nil
 }
 
 // lazyAppLabel renders a resolved App scope as "<readable app> (<source>)",

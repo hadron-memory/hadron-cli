@@ -939,6 +939,43 @@ func TestTeamAttentionAcceptsConfiguredURNForBoundApp(t *testing.T) {
 	}
 }
 
+func runConfiguredBoundAttentionPreview(t *testing.T, serverURL string) error {
+	t.Helper()
+	writeTeamBinding(t)
+	f, _ := testFactory(t)
+	setTeamBindingServer(t, serverURL)
+	dir := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("server = \""+serverURL+"\"\napp = \"hrn:app:acme.com:eng-team\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--server", serverURL})
+	return root.Execute()
+}
+
+func TestTeamAttentionPreservesConfiguredAppIdentityLookupErrors(t *testing.T) {
+	t.Run("authentication", func(t *testing.T) {
+		srv, calls := attnServer(t, map[string]string{"TeamAppIdentity": gqlErrorJSON("UNAUTHENTICATED")})
+		if err := runConfiguredBoundAttentionPreview(t, srv.URL); exitOf(err) != exitcode.AuthRequired {
+			t.Errorf("identity auth failure: exit = %d, want %d (%v)", exitOf(err), exitcode.AuthRequired, err)
+		}
+		if got := opsOf(*calls); len(got) != 1 || got[0] != "TeamAppIdentity" {
+			t.Errorf("auth failure must stop before preview: %v", got)
+		}
+	})
+	t.Run("transport", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+		url := srv.URL
+		srv.Close()
+		if err := runConfiguredBoundAttentionPreview(t, url); exitOf(err) != exitcode.Unavailable {
+			t.Errorf("identity transport failure: exit = %d, want %d (%v)", exitOf(err), exitcode.Unavailable, err)
+		}
+	})
+}
+
 // PR #732 round 2, @copilot: explicit mark-read re-checks the binding right
 // before the mutation — a rebind during the Channel lookup must not mark the
 // retired session's cursor.
