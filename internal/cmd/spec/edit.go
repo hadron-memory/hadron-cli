@@ -593,7 +593,8 @@ func fetchSpecForEdit(cmd *cobra.Command, client graphql.Client, memoryURN, loc 
 	}
 	resp, err := gen.GetSpecNodeForEdit(cmd.Context(), client, id)
 	if err != nil {
-		if m := err.Error(); strings.Contains(m, "revision") && strings.Contains(m, "Cannot query field") {
+		if m := err.Error(); strings.Contains(m, "revision") &&
+			(strings.Contains(m, "Cannot query field") || strings.Contains(m, "Unknown field") || api.HasErrorCode(err, "GRAPHQL_VALIDATION_FAILED")) {
 			return nil, exitcode.Newf(exitcode.Usage,
 				"this server predates node revisions (hadron-server#1339), so spec edit cannot guard a save against a concurrent change — refusing rather than write unguarded")
 		}

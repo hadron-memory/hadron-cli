@@ -278,17 +278,23 @@ func TestSpecEditGuardRefusals(t *testing.T) {
 		}
 	})
 	t.Run("a server without revisions", func(t *testing.T) {
-		m := guardMocks(guardWriteOK)
-		m["GetSpecNodeForEdit"] = []string{`{"errors":[{"message":"Cannot query field \"revision\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`}
-		_, captured, err := runSpecEdit(t, m, "# x\n", "--content", "-")
-		if got := exitCodeFor(err); got != exitcode.Usage {
-			t.Errorf("exit = %d, want %d (%v)", got, exitcode.Usage, err)
-		}
-		if err == nil || !strings.Contains(err.Error(), "predates node revisions") {
-			t.Errorf("the refusal must name the missing capability, got %v", err)
-		}
-		if _, wrote := captured["UpdateSpecNode"]; wrote {
-			t.Error("no unguarded write on a server that cannot guard")
+		for _, response := range []string{
+			`{"errors":[{"message":"Cannot query field \"revision\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+			`{"errors":[{"message":"Unknown field \"revision\" on type \"Node\"."}]}`,
+			`{"errors":[{"message":"revision is absent","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+		} {
+			m := guardMocks(guardWriteOK)
+			m["GetSpecNodeForEdit"] = []string{response}
+			_, captured, err := runSpecEdit(t, m, "# x\n", "--content", "-")
+			if got := exitCodeFor(err); got != exitcode.Usage {
+				t.Errorf("response %s: exit = %d, want %d (%v)", response, got, exitcode.Usage, err)
+			}
+			if err == nil || !strings.Contains(err.Error(), "predates node revisions") {
+				t.Errorf("the refusal must name the missing capability, got %v", err)
+			}
+			if _, wrote := captured["UpdateSpecNode"]; wrote {
+				t.Error("no unguarded write on a server that cannot guard")
+			}
 		}
 	})
 	t.Run("a server without guarded writes", func(t *testing.T) {
