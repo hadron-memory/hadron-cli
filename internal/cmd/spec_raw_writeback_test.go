@@ -231,3 +231,58 @@ func TestSpecSupersedeFailedRawReadIsADefiniteNotRetired(t *testing.T) {
 		t.Errorf("want a definite not-retired, never 'the update got no answer'; got: %s", msg)
 	}
 }
+
+// The retirement writes content AND tags (replace-all), so both come from the
+// one raw snapshot: a tag an intervening edit added survives (#743 review,
+// Codex).
+func TestSpecSupersedeRetiresTheSnapshotsTags(t *testing.T) {
+	m := supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent)
+	m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], `"tags":["spec","p1","messaging"]`, `"tags":["spec","p1","messaging","added-meanwhile"]`, 1)
+	captured := runSupersede(t, m)
+	var in struct {
+		Input struct {
+			Tags []string `json:"tags"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["UpdateSpecNode"], &in); err != nil {
+		t.Fatal(err)
+	}
+	if !contains(in.Input.Tags, "added-meanwhile") || !contains(in.Input.Tags, "superseded") {
+		t.Errorf("retirement tags = %v, want the raw snapshot's tags plus superseded", in.Input.Tags)
+	}
+}
+
+// A strip miss against a templated source says why: the stored text is what
+// is matched, and a chunk copied from `spec get` is rendered. The manual-trim
+// reminder names `spec edit`, never the lossy `spec get | node update` (#743
+// review, Copilot).
+func TestSpecExtractStripMissExplainsPlaceholders(t *testing.T) {
+	rendered := "## Tail\n\nend .\n" // what `spec get` shows for "end {{> footer}}."
+	for name, dry := range map[string]bool{"executed": false, "dry run": true} {
+		t.Run(name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, extractRawMocks())
+			f, out := testFactory(t)
+			f.IOStreams.In = strings.NewReader(rendered)
+			args := []string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
+				"--to-feature", "020", "--title", "Tail", "--content", "-", "--strip-source", "--server", gql.URL}
+			if dry {
+				args = append(args, "--dry-run")
+			}
+			root := NewRootCmd(f)
+			root.SetArgs(args)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if captured["UpdateSpecNode"] != nil {
+				t.Error("a strip miss must not write the source")
+			}
+			text := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String()
+			if !strings.Contains(text, "placeholders and is matched as stored") {
+				t.Errorf("a miss on a templated source must explain placeholders:\n%s", text)
+			}
+			if !dry && (!strings.Contains(text, "spec edit cor:dmo:060:02") || strings.Contains(text, "node update --content")) {
+				t.Errorf("the manual trim must point at spec edit, never the lossy spec get | node update:\n%s", text)
+			}
+		})
+	}
+}

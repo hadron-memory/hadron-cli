@@ -1315,7 +1315,10 @@ Conventions:
   feature, piping the moved chunk in via `--content -`/`--content-file`,
   auto-wiring the cross-ref edge new→source (`--ref-label`), and reminding you
   to refresh both abstracts (`--strip-source` also trims the chunk out of the
-  source body when it matches verbatim); `spec link <from> <to>`
+  source body when it matches its STORED text verbatim: a chunk copied from
+  `spec get`, which renders `{{…}}` placeholders, will not match a templated
+  source, and the miss says so; trim by hand with `spec edit`, never
+  `spec get | node update`, which deletes the placeholders); `spec link <from> <to>`
   cross-references one spec from another by their bare citations — a
   convention-aware `edge add` that validates both endpoints are specs in the
   same corpus and synthesizes the field→entity label when `--label` is omitted

@@ -134,10 +134,19 @@ the read was `GetNode`'s rendered one. Each now reads the stored body raw,
     the update, so a read that gets no answer is a definite "not retired". It
     is never mistaken for an update that got no answer, which would report
     "unknown" when nothing was written (#743 review, Codex).
-  - **`--copy-body`** reads raw where the successor's body is built. The
-    abstract and its fingerprint come from the same raw read, so the successor
-    never gets a fresh body beside the first read's stale abstract (#743
-    review, Codex).
+  - **`--copy-body`** reads raw where the successor's body is built.
+  - **One snapshot:** `withRawBody` takes the body, abstract, fingerprint *and
+    tags* from the same raw response. The retirement replaces content and
+    tags together, and `--copy-body` copies body and abstract together, so an
+    edit landing between the two reads cannot be half-applied or reverted
+    (#743 review, Codex, twice).
+- **A strip miss against a templated source explains itself.** `--strip-source`
+  now matches the chunk against the stored body, so a chunk copied from
+  `spec get` (which renders) will not match a source holding `{{…}}`. The
+  miss is safe (nothing is written) and now says why. The manual-trim reminder
+  used to recommend `spec get … --body-only | node update --content -`, a
+  round trip that deletes every placeholder; it now names `spec edit`, which
+  edits the stored body (#743 review, Copilot).
 
 **Tests** (`internal/cmd/spec_raw_writeback_test.go`) serve `GetNode` a
 rendered body and `GetSpecNodeRaw` the stored one, and assert the **mutation
@@ -149,8 +158,10 @@ payloads**:
 
 The three fail on `main`. Controls: a plain body retires unchanged, no
 `--copy-body` means no copy, and no `--strip-source` means no source write.
-Six mutants are killed: each raw read reverted, `withRawBody` a no-op, the
-abstract not taken from the raw snapshot, and a failed raw read reported as
-"unknown".
+Nine mutants are killed:
+- each raw read reverted, and `withRawBody` a no-op;
+- the abstract or the tags not taken from the raw snapshot;
+- a failed raw read reported as "unknown";
+- the placeholder hint suppressed, and the lossy reminder restored.
 `TestSpecSupersedeRetiresAgainstTheFreshRead` now serves the concurrent edit
 to the raw read too, since that read comes after it.
