@@ -23,5 +23,10 @@ query GetSpecNodeRaw($ref: ID!) {
     role
     content
     abstract
+    # spec 032's fingerprint of the body the abstract was verified against.
+    # With the raw body it tells whether saving leaves the abstract stale,
+    # unverified or verified (abstractVerification), not just that the body
+    # changed (#740 review).
+    abstractOriginHash
   }
 }

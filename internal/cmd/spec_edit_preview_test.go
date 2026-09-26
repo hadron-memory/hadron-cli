@@ -24,14 +24,16 @@ const placeholderBody = "# W2 — win-back\n\nHello {{name}}, you are the {{role
 const storedAbstract = "Win back."
 
 // previewMocks serves placeholderBody and storedAbstract as the stored spec,
-// over the raw read.
+// over the raw read, with the abstract fingerprinted against that body (so a
+// body-only edit leaves it stale).
 func previewMocks() map[string]string {
 	b, _ := json.Marshal(placeholderBody)
 	a, _ := json.Marshal(storedAbstract)
 	m := editMocks()
 	delete(m, "GetNode")
 	m["GetSpecNodeRaw"] = `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-		`"tags":["spec"],"role":null,"content":` + string(b) + `,"abstract":` + string(a) + `}}}`
+		`"tags":["spec"],"role":null,"content":` + string(b) + `,"abstract":` + string(a) + `,` +
+		`"abstractOriginHash":"` + specOriginHash(placeholderBody) + `"}}}`
 	return m
 }
 
@@ -284,12 +286,14 @@ func TestSpecEditPreviewMatchesTheWrite(t *testing.T) {
 // (#740 review, Codex): abstractVerification calls both not-applicable, and on
 // a spec with no abstract the suggested --abstract-still-accurate is refused.
 func TestSpecEditClaimsAbstractStaleOnlyWhenItCanArm(t *testing.T) {
-	noAbstract := func() map[string]string {
+	withNode := func(from, to string) map[string]string {
 		m := previewMocks()
-		m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], `"abstract":"Win back."`, `"abstract":null`, 1)
+		m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], from, to, 1)
 		return m
 	}
+	noAbstract := func() map[string]string { return withNode(`"abstract":"Win back."`, `"abstract":null`) }
 	edited := strings.Replace(placeholderBody, "Old rule line.", "New rule line.", 1)
+	hash := `"abstractOriginHash":"` + specOriginHash(placeholderBody) + `"`
 	for name, tc := range map[string]struct {
 		mocks map[string]string
 		body  string
@@ -298,6 +302,11 @@ func TestSpecEditClaimsAbstractStaleOnlyWhenItCanArm(t *testing.T) {
 		"dry run, no abstract":    {noAbstract(), edited, []string{"--dry-run"}},
 		"dry run, body emptied":   {previewMocks(), "", []string{"--dry-run"}},
 		"saved edit, no abstract": {noAbstract(), edited, nil},
+		// #740 round 3 (Codex, Copilot): the fingerprint decides, not the text.
+		"never fingerprinted: stays unverified": {withNode(hash, `"abstractOriginHash":null`), edited, []string{"--dry-run"}},
+		"edited back to the fingerprinted body": {
+			withNode(hash, `"abstractOriginHash":"`+specOriginHash(edited)+`"`), edited, []string{"--dry-run"},
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			args := append([]string{"--content-file", writeTemp(t, "body.md", tc.body)}, tc.args...)
@@ -306,5 +315,19 @@ func TestSpecEditClaimsAbstractStaleOnlyWhenItCanArm(t *testing.T) {
 				t.Errorf("claims abstract-stale where nothing can arm it:\n%s", out)
 			}
 		})
+	}
+}
+
+// A blank abstract over none is no change: the server stores both as null
+// (#740 round 3, Copilot).
+func TestSpecEditBlankAbstractOverNoneIsANoOp(t *testing.T) {
+	m := previewMocks()
+	m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], `"abstract":"Win back."`, `"abstract":null`, 1)
+	out, captured := runEdit(t, m, "--abstract-file", writeTemp(t, "abstract.md", "\n"), "--json")
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
+		t.Error("a blank abstract over none must not be written")
+	}
+	if !strings.Contains(out, `"changed": false`) || !strings.Contains(out, `"changes": []`) {
+		t.Errorf("want an explicit no-op:\n%s", out)
 	}
 }

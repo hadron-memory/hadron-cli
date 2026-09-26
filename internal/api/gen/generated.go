@@ -11496,6 +11496,8 @@ type GetSpecNodeRawNode struct {
 	Content *string `json:"content"`
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
+	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
+	AbstractOriginHash *string `json:"abstractOriginHash"`
 }
 
 // GetId returns GetSpecNodeRawNode.Id, and is useful for accessing the field via an interface.
@@ -11521,6 +11523,9 @@ func (v *GetSpecNodeRawNode) GetContent() *string { return v.Content }
 
 // GetAbstract returns GetSpecNodeRawNode.Abstract, and is useful for accessing the field via an interface.
 func (v *GetSpecNodeRawNode) GetAbstract() *string { return v.Abstract }
+
+// GetAbstractOriginHash returns GetSpecNodeRawNode.AbstractOriginHash, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeRawNode) GetAbstractOriginHash() *string { return v.AbstractOriginHash }
 
 // GetSpecNodeRawResponse is returned by GetSpecNodeRaw on success.
 type GetSpecNodeRawResponse struct {
@@ -37006,6 +37011,7 @@ query GetSpecNodeRaw ($ref: ID!) {
 		role
 		content
 		abstract
+		abstractOriginHash
 	}
 }
 `

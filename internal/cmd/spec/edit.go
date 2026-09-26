@@ -64,19 +64,36 @@ type editProposal struct {
 	curBody, curAbstract string
 	newBody, newAbstract string
 	reaffirm             bool
+	// originHash is the stored abstract's fingerprint (spec 032), nil when it
+	// was never fingerprinted.
+	originHash *string
 }
 
-func (p editProposal) bodyChanged() bool     { return p.newBody != p.curBody }
-func (p editProposal) abstractChanged() bool { return p.newAbstract != p.curAbstract }
+func (p editProposal) bodyChanged() bool { return p.newBody != p.curBody }
 
-// armsAbstractStale reports whether saving leaves a KEPT abstract fingerprinted
-// against a body that no longer exists. Only then can abstract-stale fire:
-// abstractVerification (citations.go) calls a spec with no abstract, or with an
-// empty body, not-applicable, and on a spec with no abstract the
-// --abstract-still-accurate remedy is refused (#740 review, Codex).
+// abstractChanged: the server stores an empty or whitespace-only abstract as
+// null, so blank → blank is no change (and writes nothing).
+func (p editProposal) abstractChanged() bool {
+	if strings.TrimSpace(p.newAbstract) == "" && strings.TrimSpace(p.curAbstract) == "" {
+		return false
+	}
+	return p.newAbstract != p.curAbstract
+}
+
+// armsAbstractStale reports whether a body-only save leaves the kept abstract
+// STALE: answered by abstractVerification (citations.go) over the state the
+// save produces, the same function `spec lint` uses, so the message cannot
+// disagree with the marker. A spec with no abstract or an emptied body is
+// not-applicable, one never fingerprinted stays unverified, and a body edited
+// back to its fingerprinted text becomes verified; none of those is stale
+// (#740 review, Codex and Copilot).
 func (p editProposal) armsAbstractStale() bool {
-	return p.bodyChanged() && !p.abstractChanged() && !p.reaffirm &&
-		strings.TrimSpace(p.curAbstract) != "" && p.newBody != ""
+	if !p.bodyChanged() || p.abstractChanged() || p.reaffirm {
+		return false
+	}
+	abstract, body := p.curAbstract, p.newBody
+	after := specNode{ContentIsRaw: true, Abstract: &abstract, Content: &body, AbstractOriginHash: p.originHash}
+	return abstractVerification(after) == abstractStale
 }
 
 // changes lists the proposal field by field, body first.
@@ -303,7 +320,8 @@ replacement over the cap is rejected.`,
 			proposal := editProposal{
 				curBody: curBody, curAbstract: curAbstract,
 				newBody: newBody, newAbstract: newAbstract,
-				reaffirm: stillAccurate && newAbstract == curAbstract,
+				reaffirm:   stillAccurate && newAbstract == curAbstract,
+				originHash: node.AbstractOriginHash,
 			}
 			result := editResultDTO{
 				Citation:           node.Loc,
