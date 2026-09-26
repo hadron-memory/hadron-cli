@@ -406,20 +406,20 @@ type templateFile struct {
 }
 
 type templateFileRule struct {
-	Role                 *string         `json:"role"`
-	Enabled              *bool           `json:"enabled"`
-	StrictSubRoles       *bool           `json:"strictSubRoles"`
-	Writers              *string         `json:"writers"`
-	ValidateBy           *string         `json:"validateBy"`
-	AuthorTask           *string         `json:"authorTask"`
-	AuthorTaskID         *string         `json:"authorTaskId"`
-	AuthorTaskState      json.RawMessage `json:"authorTaskState"`
-	ValidationTask       *string         `json:"validationTask"`
-	ValidationTaskID     *string         `json:"validationTaskId"`
-	ValidationTaskState  json.RawMessage `json:"validationTaskState"`
-	DescriptionNode      *string         `json:"descriptionNode"`
-	DescriptionNodeID    *string         `json:"descriptionNodeId"`
-	DescriptionNodeState json.RawMessage `json:"descriptionNodeState"`
+	Role                 *string `json:"role"`
+	Enabled              *bool   `json:"enabled"`
+	StrictSubRoles       *bool   `json:"strictSubRoles"`
+	Writers              *string `json:"writers"`
+	ValidateBy           *string `json:"validateBy"`
+	AuthorTask           *string `json:"authorTask"`
+	AuthorTaskID         *string `json:"authorTaskId"`
+	AuthorTaskState      *string `json:"authorTaskState"`
+	ValidationTask       *string `json:"validationTask"`
+	ValidationTaskID     *string `json:"validationTaskId"`
+	ValidationTaskState  *string `json:"validationTaskState"`
+	DescriptionNode      *string `json:"descriptionNode"`
+	DescriptionNodeID    *string `json:"descriptionNodeId"`
+	DescriptionNodeState *string `json:"descriptionNodeState"`
 }
 
 // descriptionState is the tri-state of the file's description key.
@@ -473,7 +473,56 @@ func readTemplateFile(f *cmdutil.Factory, path string) (*templateFile, error) {
 	if cmdutil.HasTrailingJSON(dec) {
 		return nil, exitcode.Newf(exitcode.Usage, "--file must hold exactly ONE template object; it has content after it")
 	}
+	if err := refuseNulls(data); err != nil {
+		return nil, err
+	}
 	return &tf, nil
+}
+
+// Keys `template get --json` never prints as null. encoding/json reads an
+// explicit null as ABSENT, which on `update` means "unchanged" for a top-level
+// key and, because rules are replaced wholesale, the server's CREATION DEFAULT
+// for a rule field: `"writers": null` would quietly turn an ADMIN rule into
+// ALL. A null here is a hand edit, so it is refused rather than guessed at.
+// Nullable keys (description, validateBy, reference URNs and ids, the
+// server-owned keys) are not listed: null is a value they really print.
+var (
+	nonNullTemplateKeys = []string{"name", "required", "rules", "revision"}
+	nonNullRuleKeys     = []string{"role", "enabled", "strictSubRoles", "writers",
+		"authorTaskState", "validationTaskState", "descriptionNodeState"}
+)
+
+// refuseNulls runs after the strict decode has accepted the file's shape, so
+// the re-decode below cannot fail on anything the first one allowed.
+func refuseNulls(data []byte) error {
+	isNull := func(raw json.RawMessage) bool { return bytes.Equal(bytes.TrimSpace(raw), []byte("null")) }
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(data, &top); err != nil {
+		return exitcode.Newf(exitcode.Usage, "--file must be a template as JSON: %v", err)
+	}
+	for _, k := range nonNullTemplateKeys {
+		if isNull(top[k]) {
+			return exitcode.Newf(exitcode.Usage,
+				"--file: %q is null, which `template get --json` never prints — give its value, or remove the key to leave it unchanged", k)
+		}
+	}
+	var rules []map[string]json.RawMessage
+	if raw, ok := top["rules"]; ok {
+		if err := json.Unmarshal(raw, &rules); err != nil {
+			return exitcode.Newf(exitcode.Usage, "--file: rules must be a list of rule objects: %v", err)
+		}
+	}
+	for i, r := range rules {
+		for _, k := range nonNullRuleKeys {
+			if isNull(r[k]) {
+				return exitcode.Newf(exitcode.Usage,
+					"--file: rules[%d].%s is null, which `template get --json` never prints — give its value, "+
+						"or remove the key (a rule is replaced whole, so an omitted field takes the server's default; "+
+						"an omitted *State drops that reference)", i, k)
+			}
+		}
+	}
+	return nil
 }
 
 // rulesInput converts the file's rules. A reference is taken from its URN, or
@@ -532,23 +581,14 @@ func (tf *templateFile) rulesInput() ([]*gen.CreateNodeRoleRuleInput, error) {
 //   - BROKEN / UNREADABLE: the server withheld which node it is, so the file
 //     cannot name it — refused unless the caller has set a new reference, which
 //     is the documented remedy;
-//   - anything else (a typo, `ok`, `UNREADBLE`, an explicit null, a non-string)
-//     is refused outright. `get --json` never prints a null state, so a null is
-//     a hand edit, and absent is the one spelling of "no state".
-func fileRef(i int, role, key string, urn, id *string, rawState json.RawMessage) (*string, error) {
+//   - anything else (a typo, `ok`, `UNREADBLE`) is refused outright. An explicit
+//     null never reaches here: refuseNulls rejects it when the file is read.
+func fileRef(i int, role, key string, urn, id, state *string) (*string, error) {
 	pick := func(v *string) string {
 		if v == nil {
 			return ""
 		}
 		return strings.TrimSpace(*v)
-	}
-	var state *string
-	if raw := bytes.TrimSpace(rawState); len(raw) > 0 {
-		if err := json.Unmarshal(raw, &state); err != nil || state == nil {
-			return nil, exitcode.Newf(exitcode.Usage,
-				"--file: rules[%d] (%s): %sState must be NONE, OK, BROKEN or UNREADABLE, got %s — "+
-					"remove the key instead to drop the reference", i, role, key, raw)
-		}
 	}
 	s := pick(state)
 	switch s {

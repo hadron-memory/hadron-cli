@@ -571,12 +571,15 @@ Conventions:
     URN, else its id. Reference STATES are checked strictly, because the state
     is never sent and a state with nothing behind it would silently drop the
     reference: a `*State` must be `NONE`, `OK`, `BROKEN` or `UNREADABLE`
-    (exact case) or absent — an explicit `null` is refused, since `get --json`
-    never prints one; remove the key instead — an `OK` needs its URN or id, and a `BROKEN`/`UNREADABLE` one —
+    (exact case), an `OK` needs its URN or id, and a `BROKEN`/`UNREADABLE` one —
     the server withheld which node it is — needs a NEW reference set beside it
     (or its state key removed, to drop it on purpose). Each is exit 2
     otherwise. The file must hold exactly one JSON object: trailing content is
-    exit 2.
+    exit 2. An explicit `null` is exit 2 on any key `get --json` never prints
+    as null (`name`, `required`, `rules`, `revision`; per rule `role`,
+    `enabled`, `strictSubRoles`, `writers`, every `*State`), because a null
+    would be read as ABSENT: unchanged at the top, and inside a rule, which is
+    replaced whole, the server's default. Give the value, or remove the key.
   - **`update` applies only the keys the file HAS**: an omitted key is
     unchanged, `"description": null` clears it, and `"rules"` REPLACES every
     rule (`"rules": []` removes them all). It is guarded by the revision the

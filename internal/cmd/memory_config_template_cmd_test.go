@@ -327,6 +327,16 @@ func TestTemplateUpdateRefusals(t *testing.T) {
 		"file of another template":   {templateJSON("t-other", "x", 3), nil},
 		"changes nothing":            {`{"revision":3}`, nil},
 		"withheld reference in file": {`{"revision":3,"rules":[{"role":"spec","authorTaskState":"UNREADABLE"}]}`, nil},
+		// #735 round 2 (Codex): a null is read as ABSENT — "unchanged" at the top,
+		// the server's creation default inside a wholesale-replaced rule.
+		"null name beside a change": {`{"revision":3,"name":null,"description":"d"}`, nil},
+		"null required":             {`{"revision":3,"required":null,"description":"d"}`, nil},
+		"null rules":                {`{"revision":3,"rules":null,"description":"d"}`, nil},
+		"null revision":             {`{"revision":null,"name":"x"}`, []string{"--expected-revision", "3"}},
+		"null writers in a rule":    {`{"revision":3,"rules":[{"role":"spec","writers":null}]}`, nil},
+		"null enabled in a rule":    {`{"revision":3,"rules":[{"role":"spec","enabled":null}]}`, nil},
+		"null strictSubRoles":       {`{"revision":3,"rules":[{"role":"spec","strictSubRoles":null}]}`, nil},
+		"null role":                 {`{"revision":3,"rules":[{"role":null}]}`, nil},
 	} {
 		t.Run(name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{})

@@ -71,10 +71,19 @@ or feed it to `create` to copy it.
   it would drop the reference, and `update` replaces every rule. A NEW
   reference beside a stale state is still accepted: that is the documented
   remedy.
-  Round 2 (Copilot) closed the last gap: an explicit `"…State": null` decoded as
-  *absent*, bypassing the exact check. `get --json` never prints a null state,
-  so a null is a hand edit; it is now refused (exit 2), as is a non-string, and
-  the message points at removing the key, the one spelling of "no state".
+
+**Review round 2 (#735) closed one class, found three times (Copilot and Codex):
+an explicit `null` decoded as ABSENT.** On `update` that means "unchanged" for a
+top-level key (`"name": null` beside a real change was silently half-applied).
+Because rules are replaced wholesale, inside a rule it means the server's
+**creation default** (`"writers": null` would turn an ADMIN rule into ALL), and
+for a `*State` it bypassed the exact check. `refuseNulls` re-reads the file as
+raw maps and refuses (exit 2) a null on every key `template get --json` never
+prints as null: `name`, `required`, `rules` and `revision`; and per rule `role`,
+`enabled`, `strictSubRoles`, `writers` and the three `*State` keys. Keys that
+really print null (`description`, `validateBy`, reference URNs and ids, and the
+server-owned keys) are untouched, and the round-trip test still feeds real
+`get --json` output.
 - **Exactly one JSON object:** `{"name":"a"}{"requird":true}` used to apply the
   first object. `cmdutil.HasTrailingJSON` (exported from the `--where` parser,
   so there's one copy) now refuses it.
@@ -186,13 +195,13 @@ runs that happen to keep the tag.
 - **`rm`:** without `--yes`, no delete is sent; with it, it deletes under the
   revision read.
 
-**Mutation-checked:** 24 compiling mutants, all red (5 added in round 1: an OK reference dropped, any state accepted, trailing content accepted, an empty `--owner-app` sent, and the remedy refused; 2 in round 2: paging by the requested limit, and a null state accepted). They cover:
+**Mutation-checked:** 26 compiling mutants, all red (5 added in round 1: an OK reference dropped, any state accepted, trailing content accepted, an empty `--owner-app` sent, and the remedy refused; 4 in round 2: paging by the requested limit, `refuseNulls` disabled, `writers` dropped from the rule keys, `name` dropped from the top-level keys). They cover:
 - listing: only the first page read, no empty-page stop, stepping by the
   limit instead of the rows served;
 - the revision guard: a fresh read of the revision, the flag winning over the
   file, a file of another template accepted;
-- file handling: a withheld reference silently dropped, a null state read as
-  absent, `rules: []` becoming
+- file handling: a withheld reference silently dropped, an explicit null read
+  as absent, `rules: []` becoming
   nil, unknown keys allowed, the name altered, the id fallback ignored;
 - the description clear sent as an ordinary update;
 - `--owner-me` sending a ref;
