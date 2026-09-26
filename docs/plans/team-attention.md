@@ -2,8 +2,8 @@
 
 > **Status: built as a DRAFT against hadron-server#1362, a candidate that is
 > not merged.** Built at `2ece06ab`; re-pinned at `5378b4fb` after the review
-> hardening (#1945, #1954). The snapshot re-exported from `5378b4fb` is
-> byte-identical, so the GraphQL contract did not move. Written 2026-09-25 by Jonas. The schema
+> hardening (#1945, #1954), then at `338b6578`. The snapshot re-exported at
+> each is byte-identical, so the GraphQL contract did not move. Written 2026-09-25 by Jonas. The schema
 > snapshot must be re-exported from #1362's merge before this lands. This is
 > the CLI-parity half of hadron-server#1353's first slice (A + B + F), per the
 > issue's "Client follow-ups": `hadron team attention`.
@@ -129,6 +129,12 @@ decision.
 - Review round 1 (PR #732): Copilot's cross-host redirect finding and
   Codex's P1 (mark after delivery) and P2 (a lost token line fails the poll)
   are fixed, each with a test that reds when the fix is reverted.
+- Review round 2 (PR #732, @copilot): the server mark now goes out only if
+  the worktree is still bound to the read's session under the binding lock
+  (`recordChatWatermark` reports it; a rebind or `session end` mid-render
+  skips the mark, "someone read further" still marks), and every human
+  receipt after a completed action — switchover preview/apply, mark-read — is
+  write-checked. Each reverted fix reds a test.
 - Mutation-checked: dropping the server-match guard, the read header, the
   per-call scoping, the empty-`--since` or empty-`--channel` refusal, the
   consent gate, the mark-read header or the already-read branch each reds at

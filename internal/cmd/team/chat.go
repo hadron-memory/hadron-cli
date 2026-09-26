@@ -651,10 +651,10 @@ them "(human)" / "(worker)".`,
 				if !isBindingsApp(ctx, f, scope.Ref, b.AppID) {
 					return false
 				}
-				if b.ChatSeenSeq == nil || verified > *b.ChatSeenSeq {
-					recordChatWatermark(ctx, b.SessionID, verified)
-				}
-				return true
+				// Unconditionally: it writes only when the watermark moves, and
+				// its answer — is this worktree still bound to b.SessionID? —
+				// gates the server-side mark below.
+				return recordChatWatermark(ctx, b.SessionID, verified)
 			}
 			// prevBefore is nextSince's mirror: the cursor for the page BEFORE
 			// this one, i.e. the lowest seq returned. Pass it as --before to

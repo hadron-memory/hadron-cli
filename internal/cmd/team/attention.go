@@ -246,9 +246,13 @@ func newCmdSwitchoverPreview(f *cmdutil.Factory) *cobra.Command {
 				dto.Workers = append(dto.Workers, wd)
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "app: %s (%s)\n", scope.Ref, scope.Source)
+				if _, err := fmt.Fprintf(w, "app: %s (%s)\n", scope.Ref, scope.Source); err != nil {
+					return err
+				}
 				if len(dto.Workers) == 0 {
-					fmt.Fprintln(w, "No live worker to switch over.")
+					if _, err := fmt.Fprintln(w, "No live worker to switch over."); err != nil {
+						return err
+					}
 				} else {
 					t := output.NewTable(w, "WORKER", "CHANNEL", "FROM", "THROUGH", "UNREAD", "MENTIONS")
 					for _, wk := range dto.Workers {
@@ -316,12 +320,12 @@ asks for confirmation on a terminal and needs --yes otherwise.`,
 			dto := switchoverResultDTO{App: scope.Ref, Applied: r.Applied, WorkersAdvanced: r.WorkersAdvanced, ChannelsAdvanced: r.ChannelsAdvanced}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if !dto.Applied {
-					fmt.Fprintf(w, "Switchover not applied in %s (%s) — nothing was written.\n", scope.Ref, scope.Source)
-					return nil
+					_, err := fmt.Fprintf(w, "Switchover not applied in %s (%s) — nothing was written.\n", scope.Ref, scope.Source)
+					return err
 				}
-				fmt.Fprintf(w, "Switchover applied in %s (%s): %d worker(s), %d channel cursor(s) advanced.\n",
+				_, err := fmt.Fprintf(w, "Switchover applied in %s (%s): %d worker(s), %d channel cursor(s) advanced.\n",
 					scope.Ref, scope.Source, dto.WorkersAdvanced, dto.ChannelsAdvanced)
-				return nil
+				return err
 			})
 		},
 	}
