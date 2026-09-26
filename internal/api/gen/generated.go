@@ -4439,6 +4439,42 @@ func (v *CompleteAssetUploadResponse) GetCompleteAssetUpload() *CompleteAssetUpl
 	return v.CompleteAssetUpload
 }
 
+// ConfirmTeamAttentionSwitchoverConfirmTeamAttentionSwitchoverTeamAttentionSwitchoverResult includes the requested fields of the GraphQL type TeamAttentionSwitchoverResult.
+type ConfirmTeamAttentionSwitchoverConfirmTeamAttentionSwitchoverTeamAttentionSwitchoverResult struct {
+	Applied          bool `json:"applied"`
+	WorkersAdvanced  int  `json:"workersAdvanced"`
+	ChannelsAdvanced int  `json:"channelsAdvanced"`
+}
+
+// GetApplied returns ConfirmTeamAttentionSwitchoverConfirmTeamAttentionSwitchoverTeamAttentionSwitchoverResult.Applied, and is useful for accessing the field via an interface.
+func (v *ConfirmTeamAttentionSwitchoverConfirmTeamAttentionSwitchoverTeamAttentionSwitchoverResult) GetApplied() bool {
+	return v.Applied
+}
+
+// GetWorkersAdvanced returns ConfirmTeamAttentionSwitchoverConfirmTeamAttentionSwitchoverTeamAttentionSwitchoverResult.WorkersAdvanced, and is useful for accessing the field via an interface.
+func (v *ConfirmTeamAttentionSwitchoverConfirmTeamAttentionSwitchoverTeamAttentionSwitchoverResult) GetWorkersAdvanced() int {
+	return v.WorkersAdvanced
+}
+
+// GetChannelsAdvanced returns ConfirmTeamAttentionSwitchoverConfirmTeamAttentionSwitchoverTeamAttentionSwitchoverResult.ChannelsAdvanced, and is useful for accessing the field via an interface.
+func (v *ConfirmTeamAttentionSwitchoverConfirmTeamAttentionSwitchoverTeamAttentionSwitchoverResult) GetChannelsAdvanced() int {
+	return v.ChannelsAdvanced
+}
+
+// ConfirmTeamAttentionSwitchoverResponse is returned by ConfirmTeamAttentionSwitchover on success.
+type ConfirmTeamAttentionSwitchoverResponse struct {
+	// Explicitly confirm a previously previewed #1353 switchover. The proof is
+	// actor/App/scope-bound; any live-Worker, register or cursor drift rejects
+	// the whole transaction. It advances only through the heads captured by the
+	// preview, so messages arriving afterward remain unread.
+	ConfirmTeamAttentionSwitchover *ConfirmTeamAttentionSwitchoverConfirmTeamAttentionSwitchoverTeamAttentionSwitchoverResult `json:"confirmTeamAttentionSwitchover"`
+}
+
+// GetConfirmTeamAttentionSwitchover returns ConfirmTeamAttentionSwitchoverResponse.ConfirmTeamAttentionSwitchover, and is useful for accessing the field via an interface.
+func (v *ConfirmTeamAttentionSwitchoverResponse) GetConfirmTeamAttentionSwitchover() *ConfirmTeamAttentionSwitchoverConfirmTeamAttentionSwitchoverTeamAttentionSwitchoverResult {
+	return v.ConfirmTeamAttentionSwitchover
+}
+
 // ConnectionGrantFields includes the GraphQL fields of ConnectionGrant requested by the fragment ConnectionGrantFields.
 // The GraphQL type's documentation follows.
 //
@@ -11687,6 +11723,46 @@ type LinkMemoryToUserResponse struct {
 // GetLinkMemoryToUser returns LinkMemoryToUserResponse.LinkMemoryToUser, and is useful for accessing the field via an interface.
 func (v *LinkMemoryToUserResponse) GetLinkMemoryToUser() *LinkMemoryToUserLinkMemoryToUserMemory {
 	return v.LinkMemoryToUser
+}
+
+// MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState includes the requested fields of the GraphQL type OwnTeamChatReadState.
+// The GraphQL type's documentation follows.
+//
+// #1353 — the exact Worker/Channel cursor advanced by markOwnTeamChatRead.
+type MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState struct {
+	WorkerId    string `json:"workerId"`
+	ChannelId   string `json:"channelId"`
+	LastSeenSeq int    `json:"lastSeenSeq"`
+}
+
+// GetWorkerId returns MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState.WorkerId, and is useful for accessing the field via an interface.
+func (v *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetChannelId returns MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState.ChannelId, and is useful for accessing the field via an interface.
+func (v *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState) GetChannelId() string {
+	return v.ChannelId
+}
+
+// GetLastSeenSeq returns MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState.LastSeenSeq, and is useful for accessing the field via an interface.
+func (v *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState) GetLastSeenSeq() int {
+	return v.LastSeenSeq
+}
+
+// MarkOwnTeamChatReadResponse is returned by MarkOwnTeamChatRead on success.
+type MarkOwnTeamChatReadResponse struct {
+	// #1353 internal pilot: explicitly advance the cursor owned by one exact,
+	// caller-owned live Worker session on one readable registered Channel.
+	// Shares the MCP mark-read gate; unlike advanceChannelReadState this door is
+	// operator+App pilot-gated and session-pinned. Monotonic; a seq beyond the
+	// captured Channel watermark is refused.
+	MarkOwnTeamChatRead *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState `json:"markOwnTeamChatRead"`
+}
+
+// GetMarkOwnTeamChatRead returns MarkOwnTeamChatReadResponse.MarkOwnTeamChatRead, and is useful for accessing the field via an interface.
+func (v *MarkOwnTeamChatReadResponse) GetMarkOwnTeamChatRead() *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState {
+	return v.MarkOwnTeamChatRead
 }
 
 // McpServerFields includes the GraphQL fields of McpServer requested by the fragment McpServerFields.
@@ -20025,6 +20101,223 @@ type TeamAppIdentityResponse struct {
 // GetApp returns TeamAppIdentityResponse.App, and is useful for accessing the field via an interface.
 func (v *TeamAppIdentityResponse) GetApp() *TeamAppIdentityApp { return v.App }
 
+// TeamAttentionResponse is returned by TeamAttention on success.
+type TeamAttentionResponse struct {
+	// #1353 internal pilot: compact attention for this operator's LIVE Workers.
+	// The signed token is a pure poll watermark and never changes read state.
+	// Omit since for all current unread. since:"now" is refused: discarding a
+	// backlog requires the separate preview + confirmed switchover.
+	//
+	// A router must adopt the returned token only after EVERY listed nudge was
+	// accepted. On any partial failure retain the prior token; retries can
+	// duplicate a nudge but cannot silently lose one.
+	TeamAttention *TeamAttentionTeamAttentionTeamAttentionResult `json:"teamAttention"`
+}
+
+// GetTeamAttention returns TeamAttentionResponse.TeamAttention, and is useful for accessing the field via an interface.
+func (v *TeamAttentionResponse) GetTeamAttention() *TeamAttentionTeamAttentionTeamAttentionResult {
+	return v.TeamAttention
+}
+
+// TeamAttentionSwitchoverPreviewResponse is returned by TeamAttentionSwitchoverPreview on success.
+type TeamAttentionSwitchoverPreviewResponse struct {
+	// Preview the explicit baseline switchover for the operator's current live
+	// Workers. Read-only: inspect the exact cursors, heads and unread counts,
+	// then pass proof to confirmTeamAttentionSwitchover within ten minutes.
+	TeamAttentionSwitchoverPreview *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreview `json:"teamAttentionSwitchoverPreview"`
+}
+
+// GetTeamAttentionSwitchoverPreview returns TeamAttentionSwitchoverPreviewResponse.TeamAttentionSwitchoverPreview, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewResponse) GetTeamAttentionSwitchoverPreview() *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreview {
+	return v.TeamAttentionSwitchoverPreview
+}
+
+// TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreview includes the requested fields of the GraphQL type TeamAttentionSwitchoverPreview.
+type TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreview struct {
+	// Short-lived proof binding the exact operator, App, Workers, registers, cursors and heads shown here.
+	Proof     string                                                                                              `json:"proof"`
+	ExpiresAt string                                                                                              `json:"expiresAt"`
+	Workers   []*TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker `json:"workers"`
+}
+
+// GetProof returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreview.Proof, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreview) GetProof() string {
+	return v.Proof
+}
+
+// GetExpiresAt returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreview.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreview) GetExpiresAt() string {
+	return v.ExpiresAt
+}
+
+// GetWorkers returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreview.Workers, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreview) GetWorkers() []*TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker {
+	return v.Workers
+}
+
+// TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker includes the requested fields of the GraphQL type TeamAttentionSwitchoverWorker.
+type TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker struct {
+	Worker   string                                                                                                                                    `json:"worker"`
+	Name     string                                                                                                                                    `json:"name"`
+	Urn      *string                                                                                                                                   `json:"urn"`
+	Channels []*TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel `json:"channels"`
+}
+
+// GetWorker returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker.Worker, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker) GetWorker() string {
+	return v.Worker
+}
+
+// GetName returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker.Name, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker.Urn, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker) GetUrn() *string {
+	return v.Urn
+}
+
+// GetChannels returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker.Channels, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorker) GetChannels() []*TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel {
+	return v.Channels
+}
+
+// TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel includes the requested fields of the GraphQL type TeamAttentionSwitchoverChannel.
+type TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel struct {
+	Channel        string `json:"channel"`
+	Name           string `json:"name"`
+	FromSeq        int    `json:"fromSeq"`
+	ThroughSeq     int    `json:"throughSeq"`
+	Unread         int    `json:"unread"`
+	UnreadMentions int    `json:"unreadMentions"`
+}
+
+// GetChannel returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel.Channel, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel) GetChannel() string {
+	return v.Channel
+}
+
+// GetName returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel.Name, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel) GetName() string {
+	return v.Name
+}
+
+// GetFromSeq returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel.FromSeq, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel) GetFromSeq() int {
+	return v.FromSeq
+}
+
+// GetThroughSeq returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel.ThroughSeq, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel) GetThroughSeq() int {
+	return v.ThroughSeq
+}
+
+// GetUnread returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel.Unread, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel) GetUnread() int {
+	return v.Unread
+}
+
+// GetUnreadMentions returns TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel.UnreadMentions, and is useful for accessing the field via an interface.
+func (v *TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreviewWorkersTeamAttentionSwitchoverWorkerChannelsTeamAttentionSwitchoverChannel) GetUnreadMentions() int {
+	return v.UnreadMentions
+}
+
+// TeamAttentionTeamAttentionTeamAttentionResult includes the requested fields of the GraphQL type TeamAttentionResult.
+type TeamAttentionTeamAttentionTeamAttentionResult struct {
+	// Opaque signed snapshot. Adopt it only after every listed nudge is accepted.
+	Token   string                                                                     `json:"token"`
+	Workers []*TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker `json:"workers"`
+}
+
+// GetToken returns TeamAttentionTeamAttentionTeamAttentionResult.Token, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResult) GetToken() string { return v.Token }
+
+// GetWorkers returns TeamAttentionTeamAttentionTeamAttentionResult.Workers, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResult) GetWorkers() []*TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker {
+	return v.Workers
+}
+
+// TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker includes the requested fields of the GraphQL type TeamAttentionWorker.
+// The GraphQL type's documentation follows.
+//
+// #1353 — one live Worker that has relevant unread attention after the supplied token.
+type TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker struct {
+	Worker   string                                                                                                 `json:"worker"`
+	Name     string                                                                                                 `json:"name"`
+	Urn      *string                                                                                                `json:"urn"`
+	Live     bool                                                                                                   `json:"live"`
+	Channels []*TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel `json:"channels"`
+}
+
+// GetWorker returns TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker.Worker, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker) GetWorker() string {
+	return v.Worker
+}
+
+// GetName returns TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker.Name, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker.Urn, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker) GetUrn() *string {
+	return v.Urn
+}
+
+// GetLive returns TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker.Live, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker) GetLive() bool {
+	return v.Live
+}
+
+// GetChannels returns TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker.Channels, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorker) GetChannels() []*TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel {
+	return v.Channels
+}
+
+// TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel includes the requested fields of the GraphQL type TeamAttentionChannel.
+// The GraphQL type's documentation follows.
+//
+// #1353 — compact unread metadata for one Worker/Channel pair. No message body is returned.
+type TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel struct {
+	Channel        string `json:"channel"`
+	Name           string `json:"name"`
+	Unread         int    `json:"unread"`
+	UnreadMentions int    `json:"unreadMentions"`
+	FirstUnreadSeq *int   `json:"firstUnreadSeq"`
+	LastSeq        int    `json:"lastSeq"`
+}
+
+// GetChannel returns TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel.Channel, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel) GetChannel() string {
+	return v.Channel
+}
+
+// GetName returns TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel.Name, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel) GetName() string {
+	return v.Name
+}
+
+// GetUnread returns TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel.Unread, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel) GetUnread() int {
+	return v.Unread
+}
+
+// GetUnreadMentions returns TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel.UnreadMentions, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel) GetUnreadMentions() int {
+	return v.UnreadMentions
+}
+
+// GetFirstUnreadSeq returns TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel.FirstUnreadSeq, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel) GetFirstUnreadSeq() *int {
+	return v.FirstUnreadSeq
+}
+
+// GetLastSeq returns TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel.LastSeq, and is useful for accessing the field via an interface.
+func (v *TeamAttentionTeamAttentionTeamAttentionResultWorkersTeamAttentionWorkerChannelsTeamAttentionChannel) GetLastSeq() int {
+	return v.LastSeq
+}
+
 // TeamChatMessageFields includes the GraphQL fields of TeamChatMessage requested by the fragment TeamChatMessageFields.
 // The GraphQL type's documentation follows.
 //
@@ -20262,6 +20555,59 @@ func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	retval.Mentions = v.TeamChatMessageFields.Mentions
 	return &retval, nil
 }
+
+// TeamDefaultChannelApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type TeamDefaultChannelApp struct {
+	Id string `json:"id"`
+	// Spec 049 Phase 4: the App's default Channel — the row its team chat became (null until provisioned).
+	DefaultChannel *TeamDefaultChannelAppDefaultChannel `json:"defaultChannel"`
+}
+
+// GetId returns TeamDefaultChannelApp.Id, and is useful for accessing the field via an interface.
+func (v *TeamDefaultChannelApp) GetId() string { return v.Id }
+
+// GetDefaultChannel returns TeamDefaultChannelApp.DefaultChannel, and is useful for accessing the field via an interface.
+func (v *TeamDefaultChannelApp) GetDefaultChannel() *TeamDefaultChannelAppDefaultChannel {
+	return v.DefaultChannel
+}
+
+// TeamDefaultChannelAppDefaultChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type TeamDefaultChannelAppDefaultChannel struct {
+	Id string `json:"id"`
+}
+
+// GetId returns TeamDefaultChannelAppDefaultChannel.Id, and is useful for accessing the field via an interface.
+func (v *TeamDefaultChannelAppDefaultChannel) GetId() string { return v.Id }
+
+// TeamDefaultChannelResponse is returned by TeamDefaultChannel on success.
+type TeamDefaultChannelResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *TeamDefaultChannelApp `json:"app"`
+}
+
+// GetApp returns TeamDefaultChannelResponse.App, and is useful for accessing the field via an interface.
+func (v *TeamDefaultChannelResponse) GetApp() *TeamDefaultChannelApp { return v.App }
 
 // TeamMemoryAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -26310,6 +26656,18 @@ type __CompleteAssetUploadInput struct {
 // GetUploadId returns __CompleteAssetUploadInput.UploadId, and is useful for accessing the field via an interface.
 func (v *__CompleteAssetUploadInput) GetUploadId() string { return v.UploadId }
 
+// __ConfirmTeamAttentionSwitchoverInput is used internally by genqlient
+type __ConfirmTeamAttentionSwitchoverInput struct {
+	AppRef string `json:"appRef"`
+	Proof  string `json:"proof"`
+}
+
+// GetAppRef returns __ConfirmTeamAttentionSwitchoverInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ConfirmTeamAttentionSwitchoverInput) GetAppRef() string { return v.AppRef }
+
+// GetProof returns __ConfirmTeamAttentionSwitchoverInput.Proof, and is useful for accessing the field via an interface.
+func (v *__ConfirmTeamAttentionSwitchoverInput) GetProof() string { return v.Proof }
+
 // __ConnectionGrantsInput is used internally by genqlient
 type __ConnectionGrantsInput struct {
 	ConnectionRef *string `json:"connectionRef,omitempty"`
@@ -27366,6 +27724,26 @@ func (v *__LinkMemoryToUserInput) GetExternalUserId() string { return v.External
 // GetDataKey returns __LinkMemoryToUserInput.DataKey, and is useful for accessing the field via an interface.
 func (v *__LinkMemoryToUserInput) GetDataKey() *string { return v.DataKey }
 
+// __MarkOwnTeamChatReadInput is used internally by genqlient
+type __MarkOwnTeamChatReadInput struct {
+	AppRef     string `json:"appRef"`
+	SessionRef string `json:"sessionRef"`
+	ChannelRef string `json:"channelRef"`
+	Seq        int    `json:"seq"`
+}
+
+// GetAppRef returns __MarkOwnTeamChatReadInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__MarkOwnTeamChatReadInput) GetAppRef() string { return v.AppRef }
+
+// GetSessionRef returns __MarkOwnTeamChatReadInput.SessionRef, and is useful for accessing the field via an interface.
+func (v *__MarkOwnTeamChatReadInput) GetSessionRef() string { return v.SessionRef }
+
+// GetChannelRef returns __MarkOwnTeamChatReadInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__MarkOwnTeamChatReadInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetSeq returns __MarkOwnTeamChatReadInput.Seq, and is useful for accessing the field via an interface.
+func (v *__MarkOwnTeamChatReadInput) GetSeq() int { return v.Seq }
+
 // __McpServerInput is used internally by genqlient
 type __McpServerInput struct {
 	Ref string `json:"ref"`
@@ -28054,6 +28432,26 @@ type __TeamAppIdentityInput struct {
 // GetAppRef returns __TeamAppIdentityInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamAppIdentityInput) GetAppRef() string { return v.AppRef }
 
+// __TeamAttentionInput is used internally by genqlient
+type __TeamAttentionInput struct {
+	AppRef string  `json:"appRef"`
+	Since  *string `json:"since,omitempty"`
+}
+
+// GetAppRef returns __TeamAttentionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamAttentionInput) GetAppRef() string { return v.AppRef }
+
+// GetSince returns __TeamAttentionInput.Since, and is useful for accessing the field via an interface.
+func (v *__TeamAttentionInput) GetSince() *string { return v.Since }
+
+// __TeamAttentionSwitchoverPreviewInput is used internally by genqlient
+type __TeamAttentionSwitchoverPreviewInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamAttentionSwitchoverPreviewInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamAttentionSwitchoverPreviewInput) GetAppRef() string { return v.AppRef }
+
 // __TeamChatMessagesInput is used internally by genqlient
 type __TeamChatMessagesInput struct {
 	AppRef      string  `json:"appRef"`
@@ -28081,6 +28479,14 @@ func (v *__TeamChatMessagesInput) GetOffset() *int { return v.Offset }
 
 // GetBeforeSeq returns __TeamChatMessagesInput.BeforeSeq, and is useful for accessing the field via an interface.
 func (v *__TeamChatMessagesInput) GetBeforeSeq() *int { return v.BeforeSeq }
+
+// __TeamDefaultChannelInput is used internally by genqlient
+type __TeamDefaultChannelInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamDefaultChannelInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamDefaultChannelInput) GetAppRef() string { return v.AppRef }
 
 // __TeamMemoryAppInput is used internally by genqlient
 type __TeamMemoryAppInput struct {
@@ -30186,6 +30592,46 @@ func CompleteAssetUpload(
 	}
 
 	data_ = &CompleteAssetUploadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ConfirmTeamAttentionSwitchover.
+const ConfirmTeamAttentionSwitchover_Operation = `
+mutation ConfirmTeamAttentionSwitchover ($appRef: ID!, $proof: String!) {
+	confirmTeamAttentionSwitchover(appRef: $appRef, proof: $proof) {
+		applied
+		workersAdvanced
+		channelsAdvanced
+	}
+}
+`
+
+// The confirmed half: advances every previewed worker through the previewed
+// heads only, atomically, or refuses on any drift.
+func ConfirmTeamAttentionSwitchover(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	proof string,
+) (data_ *ConfirmTeamAttentionSwitchoverResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ConfirmTeamAttentionSwitchover",
+		Query:  ConfirmTeamAttentionSwitchover_Operation,
+		Variables: &__ConfirmTeamAttentionSwitchoverInput{
+			AppRef: appRef,
+			Proof:  proof,
+		},
+	}
+
+	data_ = &ConfirmTeamAttentionSwitchoverResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -33761,6 +34207,52 @@ func LinkMemoryToUser(
 	return data_, err_
 }
 
+// The mutation executed by MarkOwnTeamChatRead.
+const MarkOwnTeamChatRead_Operation = `
+mutation MarkOwnTeamChatRead ($appRef: ID!, $sessionRef: ID!, $channelRef: ID!, $seq: Int!) {
+	markOwnTeamChatRead(appRef: $appRef, sessionRef: $sessionRef, channelRef: $channelRef, seq: $seq) {
+		workerId
+		channelId
+		lastSeenSeq
+	}
+}
+`
+
+// `hadron team chat mark-read`: advance the bound worker's own cursor. The
+// GraphQL twin of hadron_team_chat_mark_read (same server helper, same pilot
+// gate, pinned to one caller-owned live session) — deliberately NOT the wider
+// advanceChannelReadState, which is neither pilot-gated nor session-pinned.
+func MarkOwnTeamChatRead(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	sessionRef string,
+	channelRef string,
+	seq int,
+) (data_ *MarkOwnTeamChatReadResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MarkOwnTeamChatRead",
+		Query:  MarkOwnTeamChatRead_Operation,
+		Variables: &__MarkOwnTeamChatReadInput{
+			AppRef:     appRef,
+			SessionRef: sessionRef,
+			ChannelRef: channelRef,
+			Seq:        seq,
+		},
+	}
+
+	data_ = &MarkOwnTeamChatReadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by McpServer.
 const McpServer_Operation = `
 query McpServer ($ref: ID!) {
@@ -36714,6 +37206,112 @@ func TeamAppIdentity(
 	return data_, err_
 }
 
+// The query executed by TeamAttention.
+const TeamAttention_Operation = `
+query TeamAttention ($appRef: ID!, $since: String) {
+	teamAttention(appRef: $appRef, since: $since) {
+		token
+		workers {
+			worker
+			name
+			urn
+			live
+			channels {
+				channel
+				name
+				unread
+				unreadMentions
+				firstUnreadSeq
+				lastSeq
+			}
+		}
+	}
+}
+`
+
+// ── #1353 team attention (hadron-server#1362; internal pilot) ────────────────
+// `hadron team attention`: which of the caller's LIVE workers have relevant
+// unread chat since the token. Bodies are never returned, and the query never
+// changes read state. The CLI passes the token through and NEVER stores it: a
+// router adopts it only after every listed nudge was accepted, so a stored
+// token would be the lost-nudge bug the contract exists to close.
+func TeamAttention(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	since *string,
+) (data_ *TeamAttentionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamAttention",
+		Query:  TeamAttention_Operation,
+		Variables: &__TeamAttentionInput{
+			AppRef: appRef,
+			Since:  since,
+		},
+	}
+
+	data_ = &TeamAttentionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamAttentionSwitchoverPreview.
+const TeamAttentionSwitchoverPreview_Operation = `
+query TeamAttentionSwitchoverPreview ($appRef: ID!) {
+	teamAttentionSwitchoverPreview(appRef: $appRef) {
+		proof
+		expiresAt
+		workers {
+			worker
+			name
+			urn
+			channels {
+				channel
+				name
+				fromSeq
+				throughSeq
+				unread
+				unreadMentions
+			}
+		}
+	}
+}
+`
+
+// The read-only half of the one-time switchover: exact cursors and heads, plus
+// a short-lived proof binding them.
+func TeamAttentionSwitchoverPreview(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamAttentionSwitchoverPreviewResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamAttentionSwitchoverPreview",
+		Query:  TeamAttentionSwitchoverPreview_Operation,
+		Variables: &__TeamAttentionSwitchoverPreviewInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamAttentionSwitchoverPreviewResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamChatMessages.
 const TeamChatMessages_Operation = `
 query TeamChatMessages ($appRef: ID!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $offset: Int, $beforeSeq: Int) {
@@ -36762,6 +37360,45 @@ func TeamChatMessages(
 	}
 
 	data_ = &TeamChatMessagesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamDefaultChannel.
+const TeamDefaultChannel_Operation = `
+query TeamDefaultChannel ($appRef: ID!) {
+	app(ref: $appRef) {
+		id
+		defaultChannel {
+			id
+		}
+	}
+}
+`
+
+// The App's default team Channel — what `team chat mark-read` advances when no
+// --channel is given, matching hadron_team_chat_mark_read's default.
+func TeamDefaultChannel(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamDefaultChannelResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamDefaultChannel",
+		Query:  TeamDefaultChannel_Operation,
+		Variables: &__TeamDefaultChannelInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamDefaultChannelResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

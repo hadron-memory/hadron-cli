@@ -326,10 +326,18 @@ func marshalBinding(b *binding) ([]byte, error) {
 //
 // Best-effort throughout: the caller has already delivered the messages, and a
 // failed bookkeeping write must not turn that into an error.
-func recordChatWatermark(ctx context.Context, sessionID string, seq int) {
-	_ = updateBinding(ctx, func(b *binding) error {
+//
+// It REPORTS whether the worktree is still bound to sessionID — checked under
+// the lock, against a fresh read — because `team chat read`'s server-side mark
+// (#1353) must not go out for a session that `session end` or a rebind retired
+// while the messages were rendering (PR #732, @copilot). "Someone already read
+// further" is still ours; a removed binding, another session, or a failed
+// write is not, and the mark is then skipped — the loss-safe direction, a
+// duplicate nudge at worst.
+func recordChatWatermark(ctx context.Context, sessionID string, seq int) (stillOurs bool) {
+	err := updateBinding(ctx, func(b *binding) error {
 		if b.SessionID != sessionID {
-			return errWatermarkNotOurs // a different session owns this worktree now
+			return errBindingChangedSession // a different session owns this worktree now
 		}
 		if b.ChatSeenSeq != nil && seq <= *b.ChatSeenSeq {
 			return errWatermarkNotOurs // someone read further while we were rendering
@@ -337,6 +345,23 @@ func recordChatWatermark(ctx context.Context, sessionID string, seq int) {
 		b.ChatSeenSeq = &seq
 		return nil
 	})
+	return err == nil || errors.Is(err, errWatermarkNotOurs)
+}
+
+// bindingIsSession reports, under the binding lock against a fresh read,
+// whether the worktree is still bound to sessionID. A command that read the
+// binding earlier asks this immediately before acting for that session on the
+// server, so a concurrent `session start --force` or `session end` is not
+// acted through (PR #732, @copilot). The window between this check and the
+// server call remains; it is the same one `team chat read`'s mark has.
+func bindingIsSession(ctx context.Context, sessionID string) bool {
+	ours := false
+	_ = withBindingLock(ctx, func() error {
+		cur, _, err := readBinding(ctx)
+		ours = err == nil && cur != nil && cur.SessionID == sessionID
+		return nil
+	})
+	return ours
 }
 
 // errWatermarkNotOurs aborts the watermark update without writing. A sentinel

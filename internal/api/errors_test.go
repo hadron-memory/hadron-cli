@@ -34,6 +34,16 @@ func TestMapError(t *testing.T) {
 		// generic 1 before exitcode.Forbidden existed.
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
 		{"channel host not writable", gqlErr("CHANNEL_HOST_NOT_WRITABLE"), exitcode.Forbidden},
+		// #1353 team attention (hadron-server#1362).
+		{"attention pilot gate", gqlErr("FEATURE_NOT_AVAILABLE"), exitcode.Forbidden},
+		{"attention token invalid", gqlErr("INVALID_ATTENTION_TOKEN"), exitcode.Usage},
+		{"switchover proof invalid", gqlErr("INVALID_SWITCHOVER_PROOF"), exitcode.Usage},
+		{"since now refused", gqlErr("SWITCHOVER_CONFIRMATION_REQUIRED"), exitcode.Usage},
+		{"mark-read past the head", gqlErr("SEQ_BEYOND_WATERMARK"), exitcode.Usage},
+		{"attention token stale", gqlErr("ATTENTION_TOKEN_STALE"), exitcode.Conflict},
+		{"switchover proof stale", gqlErr("SWITCHOVER_PROOF_STALE"), exitcode.Conflict},
+		// These two ride the existing _REQUIRED / _TOO_LARGE suffix rules.
+		{"attention scope too large", gqlErr("TEAM_ATTENTION_SCOPE_TOO_LARGE"), exitcode.Usage},
 		// NOT Forbidden, and each for its own reason, so a later reader does
 		// not "complete the family" by mapping them:
 		//   HOST_MEMORY_NOT_WRITABLE is a RegisterDisclosure ENUM member — a
