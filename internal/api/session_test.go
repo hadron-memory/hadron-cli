@@ -128,6 +128,31 @@ func TestSessionHeaderIsStrippedOnAnInsecureRedirect(t *testing.T) {
 	}
 }
 
+func TestBodyOnlySessionRefCannotFollowAnInsecureRedirect(t *testing.T) {
+	t.Setenv(EnvAllowHTTP, "")
+	origin, _ := http.NewRequest(http.MethodPost, "https://srv.example/graphql", nil)
+	for name, c := range map[string]*http.Client{
+		"with token":    withSecureRedirects(&http.Client{}),
+		"without token": withSessionRedirects(&http.Client{}),
+	} {
+		for _, tc := range []struct {
+			url  string
+			keep bool
+		}{
+			{"http://srv.example/graphql", false},
+			{"https://srv.example/graphql", true},
+			{"https://other.example/graphql", false},
+		} {
+			req, _ := http.NewRequest(http.MethodPost, tc.url, nil)
+			// No WithSession and no session header: the POST body alone contains
+			// sessionRef. CheckRedirect must protect it without parsing the body.
+			if err := c.CheckRedirect(req, []*http.Request{origin}); (err == nil) != tc.keep {
+				t.Errorf("%s body-only POST → %s: allowed = %v, want %v", name, tc.url, err == nil, tc.keep)
+			}
+		}
+	}
+}
+
 // The INITIAL request never passes through the redirect policy. A session in
 // its POST body must not ride cleartext even when no bearer token is present.
 func TestSessionRequestIsNotSentOverCleartextHTTP(t *testing.T) {
