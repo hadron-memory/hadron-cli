@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -154,19 +155,43 @@ and App).`,
 	return cmd
 }
 
-// attentionScope resolves the team App the attention commands act on. When the
-// App comes from the worktree BINDING (no --app, no App context), the binding
-// must have been made against this server: App ids are not unique across
-// deployments (a clone or restore carries them over), so a binding from server
-// A would otherwise name an unrelated App on --server B — and `switchover
-// apply` would mark ITS backlog read (PR #732, @codex / @copilot). An explicit
-// --app still reaches any deployment.
+// attentionScope refuses ambient App scopes that cannot be tied to the current
+// server. App IDs can be reused across deployments, while switchover apply
+// marks every previewed worker's backlog read. An explicit --app is the way to
+// select an App on another server.
 func attentionScope(ctx context.Context, f *cmdutil.Factory) (appScope, error) {
 	b, err := readBindingOrNilWithApp(ctx, f)
 	if err != nil {
 		return appScope{}, err
 	}
-	if appRef, _ := f.App(); appRef == "" && b != nil {
+	appRef, err := f.App()
+	if err != nil {
+		return appScope{}, err
+	}
+	if f.AppFlag == "" && appRef != "" {
+		cfg, err := f.Config()
+		if err != nil {
+			return appScope{}, err
+		}
+		configuredServer, err := cfg.Get("server")
+		if err != nil {
+			return appScope{}, err
+		}
+		server, err := f.Server()
+		if err != nil {
+			return appScope{}, err
+		}
+		if server != configuredServer {
+			return appScope{}, exitcode.Newf(exitcode.Usage,
+				"the configured App context belongs to %s, but the current server is %s — pass --app explicitly to use this server",
+				configuredServer, server)
+		}
+	}
+	if appRef == "" && b != nil {
+		if b.Server == "" {
+			return appScope{}, exitcode.Newf(exitcode.Usage,
+				"this worktree's session binding does not record its server — pass --app explicitly or start a new worker session")
+		}
 		if err := checkBindingServer(f, b); err != nil {
 			return appScope{}, err
 		}
@@ -281,7 +306,16 @@ func newCmdSwitchoverPreview(f *cmdutil.Factory) *cobra.Command {
 				if _, err := fmt.Fprintf(w, "Nothing has been written. To apply exactly this, before %s:\n", dto.ExpiresAt); err != nil {
 					return err
 				}
-				_, err := fmt.Fprintf(w, "  hadron team attention switchover apply --proof '%s'\n", dto.Proof)
+				server, err := f.Server()
+				if err != nil {
+					return err
+				}
+				if runtime.GOOS == "windows" {
+					_, err = fmt.Fprintf(w, "Apply with --app %q, --server %q, and --proof %q.\n", scope.Ref, server, dto.Proof)
+					return err
+				}
+				_, err = fmt.Fprintf(w, "  hadron team attention switchover apply --app %s --server %s --proof %s\n",
+					shellQuote(scope.Ref), shellQuote(server), shellQuote(dto.Proof))
 				return err
 			})
 		},

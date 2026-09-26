@@ -204,8 +204,12 @@ func TestTeamAttentionRefusalsMapToExitCodes(t *testing.T) {
 // The attention poll is an OPERATOR read, not a worker's: it never carries the
 // worktree's session, even from a bound worktree.
 func TestTeamAttentionNeverSendsTheWorkerSession(t *testing.T) {
-	writeTeamBinding(t)
+	dir := teamGitDir(t)
 	srv, calls := attnServer(t, map[string]string{"TeamAttention": attentionJSON})
+	bound := strings.Replace(bindingFixture, `"startedAt"`, `"server":"`+srv.URL+`","startedAt"`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bound), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "attention", "--json", "--server", srv.URL})
@@ -236,10 +240,25 @@ func TestTeamAttentionSwitchoverPreviewIsReadOnlyAndPrintsTheApplyCommand(t *tes
 	if len(*calls) != 1 || (*calls)[0].Op != "TeamAttentionSwitchoverPreview" {
 		t.Fatalf("preview is ONE read, got %+v", *calls)
 	}
-	for _, want := range []string{"#0", "#1878", "Nothing has been written", "switchover apply --proof 'prf-1'"} {
+	for _, want := range []string{"#0", "#1878", "Nothing has been written", "switchover apply --app hrn:app:acme.com:eng-team --server " + srv.URL + " --proof prf-1"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("preview output missing %q:\n%s", want, out.String())
 		}
+	}
+}
+
+func TestTeamAttentionSwitchoverPreviewQuotesOpaqueProof(t *testing.T) {
+	teamGitDir(t)
+	resp := strings.Replace(switchoverPreviewJSON, "prf-1", "p' ; echo wrong", 1)
+	srv, _ := attnServer(t, map[string]string{"TeamAttentionSwitchoverPreview": resp})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--app", "acme.com:eng-team", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), `--proof 'p'\'' ; echo wrong'`) {
+		t.Errorf("proof must be one quoted shell argument:\n%s", out.String())
 	}
 }
 
@@ -774,6 +793,47 @@ func TestTeamAttentionRefusesABindingFromAnotherServer(t *testing.T) {
 				t.Errorf("an explicit --app must still work: %v", err)
 			}
 		})
+	}
+}
+
+func TestTeamAttentionRefusesABindingWithoutServer(t *testing.T) {
+	writeTeamBinding(t) // The old binding format has no server field.
+	srv, calls := attnServer(t, map[string]string{"TeamAttentionSwitchoverPreview": switchoverPreviewJSON})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--server", srv.URL})
+	if got := exitOf(root.Execute()); got != exitcode.Usage {
+		t.Errorf("unknown binding server: exit = %d, want %d", got, exitcode.Usage)
+	}
+	if len(*calls) != 0 {
+		t.Errorf("unknown binding server must refuse before a request: %+v", *calls)
+	}
+}
+
+func TestTeamAttentionRefusesConfiguredAppAfterServerOverride(t *testing.T) {
+	teamGitDir(t)
+	srv, calls := attnServer(t, map[string]string{"TeamAttentionSwitchoverPreview": switchoverPreviewJSON})
+	f, _ := testFactory(t)
+	dir := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("server = \"https://elsewhere.example\"\napp = \"hrn:app:acme.com:eng-team\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--server", srv.URL})
+	if got := exitOf(root.Execute()); got != exitcode.Usage {
+		t.Errorf("configured App on another server: exit = %d, want %d", got, exitcode.Usage)
+	}
+	if len(*calls) != 0 {
+		t.Errorf("configured App on another server must refuse before a request: %+v", *calls)
+	}
+	f, _ = testFactory(t)
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--app", "acme.com:eng-team", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Errorf("explicit App must work on another server: %v", err)
 	}
 }
 
