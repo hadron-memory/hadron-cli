@@ -138,8 +138,8 @@ started sending `role: null`.
 **What I first concluded, and why it was wrong.** I read the NEW server's
 filter (`role` applies only when `f.role != null`) and called it "harmless".
 That checked only the server this snapshot came from. **A server that predates
-the field rejects an unknown input field whatever its value**, and that
-includes production until #1345 deploys. So every listing would have failed
+the field rejects an unknown input field whatever its value**, and at the time
+that included production, since #1345 had not deployed. So every listing would have failed
 against it (Copilot, high, on #733). The argument was complete for one server,
 and it felt like verification.
 
@@ -170,10 +170,15 @@ it fails naming `NodeFilter.Role`.
   the CLI as `INTERNAL_SERVER_ERROR`. That is the server-wide pattern (62 sites),
   not part (b)'s. There is no code to map, and matching the prose would break
   `the-error-code-is-the-contract-the-prose-is-not`. Left on the default.
-- **Nothing here has been observed on a live server**, since #1360 is neither
-  merged nor deployed (review:a-recommended-field-must-be-seen-carrying-a-value).
-  Every field is exercised against fixtures shaped from the server's own
-  resolver, and §7 adds a live read before this is marked ready.
+- **What the live server has shown, and what it has not.** Production runs
+  #1360, and §7's read-only checks passed there: the empty config, a missing
+  memory (exit 4), and `rule update` on a role with no rule (exit 4, before any
+  write). But the empty config is all it has returned, so **no rule field has
+  been seen carrying a live value** (review:a-recommended-field-must-be-seen-carrying-a-value).
+  Seeing one needs a write, and every write path here stayed read-only. Rule
+  fields, reference states and warnings are exercised against fixtures shaped
+  from the server's own resolver. The unmanaged exit-4 path is fixture-only too
+  (§7, Limit).
 
 ## 6. Tests
 
