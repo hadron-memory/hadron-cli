@@ -267,6 +267,11 @@ It prints the per-role report (`APPLIED` / `SKIPPED_CONFLICT` / `REPLACED` /
 `SKIPPED_LOCKED`) as a table, or as `--json` `{memoryId, template, templateRevision,
 required, dryRun, entries[{role, outcome, rule}], warnings[]}`. `rule` reuses
 slice 1's rule DTO, and `entries: []` / `warnings: []` are never null.
+The table's LOCKED column is the state **after** applying. On a dry run the
+entry carries the existing rule, whose lock is the before-state, so the cell
+follows the server's documented outcome contract instead: `REPLACED` locks,
+`APPLIED` locks when the template is required, and a skipped rule keeps its
+lock (#747 review, Copilot). `--json` keeps the server's `rule` untouched.
 
 **Preview, then confirm only what overwrites.** The command always dry-runs
 first. `REPLACED` is the one outcome that destroys something (a required
@@ -305,16 +310,20 @@ that records every call in order):
   locally;
 - `SKIPPED_LOCKED` exits 0; an empty template gives `entries: []`;
 - server refusals: 4, 4, 5, 5, 4, never followed by an apply;
-- `RULE_LOCKED` exits 8 on `rule update` and `rule rm`.
+- `RULE_LOCKED` exits 8 on `rule update` and `rule rm`;
+- the dry-run LOCKED column shows the after-state for all four outcomes;
+- on a terminal, `y` applies (pinned) and `n` cancels (exit 6) after only the
+  preview.
 
-**Mutation-checked:** 8 compiling mutants, each killed by its intended test:
+**Mutation-checked:** 10 compiling mutants, each killed by its intended test:
 - no confirmation;
 - the apply unpinned;
 - a dry run that applies;
 - no revision validation;
 - `RULE_LOCKED` unmapped, and `NODE_ROLE_RULE_REF_BROKEN` unmapped;
 - `entries: null`;
-- the preview ignoring the pin.
+- the preview ignoring the pin;
+- a dry-run LOCKED cell showing the before-state, and one ignoring `required`.
 
 Two first attempts did not compile (an unused variable) and were re-run with
 the variable kept referenced.

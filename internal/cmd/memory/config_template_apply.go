@@ -153,6 +153,29 @@ func applyTemplate(cmd *cobra.Command, client graphql.Client, templateRef, memor
 	return dto, nil
 }
 
+// lockedAfter is the LOCKED column: whether the role's rule is locked once the
+// apply is done. After a real apply the returned rule IS that state. On a dry
+// run the entry carries the EXISTING rule, whose lock is the state before, so
+// a would-be REPLACED row would read "no" for a rule the apply is about to
+// lock (#747 review, Copilot). The dry-run cell therefore follows the
+// server's documented outcome contract (hadron-server#1334): REPLACED locks;
+// APPLIED locks when the template is required; a skipped rule keeps its lock.
+// --json is untouched: `rule` stays exactly what the server returned.
+func lockedAfter(r applyResultDTO, e applyEntryDTO) string {
+	if r.DryRun {
+		switch e.Outcome {
+		case "REPLACED":
+			return "yes"
+		case "APPLIED":
+			return yesNo(r.Required)
+		}
+	}
+	if e.Rule == nil {
+		return "—"
+	}
+	return yesNo(e.Rule.Locked)
+}
+
 // rolesWith lists the roles whose outcome is `outcome`, sorted.
 func rolesWith(r applyResultDTO, outcome string) []string {
 	var roles []string
@@ -181,11 +204,7 @@ func writeApplyResult(f *cmdutil.Factory, r applyResultDTO) error {
 		} else {
 			t := output.NewTable(w, "ROLE", "OUTCOME", "LOCKED")
 			for _, e := range r.Entries {
-				locked := "—"
-				if e.Rule != nil {
-					locked = yesNo(e.Rule.Locked)
-				}
-				t.Row(e.Role, e.Outcome, locked)
+				t.Row(e.Role, e.Outcome, lockedAfter(r, e))
 			}
 			if err := t.Flush(); err != nil {
 				return err

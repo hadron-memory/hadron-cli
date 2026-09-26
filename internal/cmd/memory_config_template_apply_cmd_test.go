@@ -266,3 +266,71 @@ func TestMemoryConfigRuleLockedIsForbidden(t *testing.T) {
 		})
 	}
 }
+
+// A dry run's LOCKED column is the state AFTER applying: its `rule` is the
+// existing one, whose lock is the state before (#747 review, Copilot).
+func TestTemplateApplyDryRunShowsLockAfterApplying(t *testing.T) {
+	unlocked := ruleJSON("r1", "spec", 2, "NONE", "NONE") // "locked":false today
+	for name, tc := range map[string]struct {
+		required bool
+		entry    string
+		want     string
+	}{
+		"replaced will be locked":               {true, applyEntry("spec", "REPLACED", unlocked), "yes"},
+		"applied by a required template":        {true, applyEntry("spec", "APPLIED", ""), "yes"},
+		"applied by a non-required template":    {false, applyEntry("spec", "APPLIED", ""), "no"},
+		"skipped keeps the rule's current lock": {false, applyEntry("spec", "SKIPPED_CONFLICT", unlocked), "no"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv, _ := applyServer(t, applyPayload(true, tc.required, 2, tc.entry), "")
+			out, code := runConfig(t, srv.URL, "memory", "config", "template", "apply", "t1", configMemoryRef, "--dry-run")
+			if code != exitcode.OK {
+				t.Fatalf("exit = %d\n%s", code, out)
+			}
+			var row string
+			for _, line := range strings.Split(out, "\n") {
+				if strings.HasPrefix(line, "spec ") {
+					row = line
+				}
+			}
+			fields := strings.Fields(row)
+			if len(fields) != 3 || fields[2] != tc.want {
+				t.Errorf("row %q: LOCKED = %v, want %q", row, fields, tc.want)
+			}
+		})
+	}
+}
+
+// On a terminal a REPLACED preview prompts: yes applies (pinned), no cancels
+// with nothing written (#747 review, Copilot).
+func TestTemplateApplyReplacementPromptsOnATerminal(t *testing.T) {
+	preview := applyPayload(true, true, 5, applyEntry("spec", "REPLACED", ruleJSON("r1", "spec", 2, "NONE", "NONE")))
+	applied := applyPayload(false, true, 5, applyEntry("spec", "REPLACED", ruleJSON("r1", "spec", 3, "NONE", "NONE")))
+	t.Run("yes applies", func(t *testing.T) {
+		srv, calls := applyServer(t, preview, applied)
+		f, _, errOut := testFactoryTTY(t, "y\n")
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"memory", "config", "template", "apply", "t1", configMemoryRef, "--server", srv.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(errOut.String(), "REPLACES the memory's rule for spec") {
+			t.Errorf("the prompt must name what is replaced:\n%s", errOut.String())
+		}
+		if len(*calls) != 2 || (*calls)[1].Expected == nil || *(*calls)[1].Expected != 5 {
+			t.Errorf("calls = %+v, want the apply pinned to 5", *calls)
+		}
+	})
+	t.Run("no cancels", func(t *testing.T) {
+		srv, calls := applyServer(t, preview, applied)
+		f, _, _ := testFactoryTTY(t, "n\n")
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"memory", "config", "template", "apply", "t1", configMemoryRef, "--server", srv.URL})
+		if code := exitCodeFor(root.Execute()); code != exitcode.Cancelled {
+			t.Errorf("exit = %d, want %d", code, exitcode.Cancelled)
+		}
+		if len(*calls) != 1 {
+			t.Errorf("a declined prompt must not apply; calls = %+v", *calls)
+		}
+	})
+}
