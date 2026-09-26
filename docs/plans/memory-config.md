@@ -1,10 +1,10 @@
 # Design as built: `memory config` — a memory's node-role rules (#716 slice 1)
 
-> **Status: built in draft PR cli#733 (Jane), against hadron-server#1360 (#1325
-> part b) at `9241c55`,** rebased onto server `main` `e3c24a3` after #1345
-> merged (`de6c06f`). #1360 is not merged, so the schema snapshot is a
-> candidate; it is re-exported from the actual merge before this lands. Part of hadron-concept#74 (CLI item 3). The design handoff,
-> Eli's Q1–Q9 answers and the API-readiness audit are on cli#716.
+> **Status: built in cli#733 (Jane) against hadron-server#1360 (#1325 part b),
+> merged as `d6a67ef6`.** The snapshot is re-exported from that merge commit.
+> Production runs it: the read-only checks in §7 were made there. Part of
+> hadron-concept#74 (CLI item 3). The design handoff, Eli's Q1–Q9 answers and
+> the API-readiness audit are on cli#716.
 
 ## 1. Scope
 
@@ -222,7 +222,28 @@ UNREADABLE or as "—", a dropped exit row, skipped confirmation, `rules: null`,
 the clearing operation dropping a field, a trimmed role, dropped warnings, and
 `--enabled=false` omitted.
 
-## 7. Before merge
+## 7. Before merge (all done, 2026-09-26)
+
+**Re-export from the merge.** `d6a67ef6` also carries #1352, #1347 and #1379,
+so the snapshot gained `heldWorkers`, `Worker.appUrn` and
+`UpdateNodeInput.expectedRevision` beyond the candidate. The config/rule SDL is
+unchanged. `expectedRevision` arrived with a bare tag on the input **every node
+update** sends, which is §4's trap again: an older server would reject every
+update. All four operations sharing `UpdateNodeInput` now carry its
+`omitempty`, and the reflection guard covers `UpdateNodeInput` and both rule
+inputs. With the directives removed, it fails naming the field.
+
+**Read-only against production (running #1360):**
+- `config get` on a managed memory returns the empty config (`id: null`,
+  `rules: []`).
+- A missing memory exits 4 (`MEMORY_NOT_FOUND`).
+- `rule update` on a role with no rule exits 4 before any write.
+
+**Limit:** every memory this account can read is in an org it administers, so
+the readable-but-**unmanaged** path (exit 4, never "no rules") is covered by the
+fixtures and the server's own tests, not by a live probe.
+
+The steps:
 
 1. #1360 merged (#1345 already is, as `de6c06f`).
 2. `make schema` from #1360's merge commit, then `make generate`, plus a diff
