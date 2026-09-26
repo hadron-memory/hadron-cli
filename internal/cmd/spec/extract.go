@@ -405,7 +405,7 @@ func renderExtractResult(w io.Writer, r extractResultDTO) error {
 		} else {
 			// `spec edit`, never `spec get | node update`: spec get renders
 			// Mustache, so that round trip deletes every placeholder (cli#742).
-			fmt.Fprintf(w, "; trim the moved chunk out of %s with `spec edit %s`, which edits the stored body\n", r.Source, r.Source)
+			fmt.Fprintf(w, "; trim the moved chunk out of %s with `spec edit %s -m %s`, which edits the stored body\n", r.Source, r.Source, r.MemoryID)
 		}
 	}
 	return nil

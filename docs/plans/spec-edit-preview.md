@@ -61,14 +61,13 @@ server gap** and nothing is invented; the CLI simply never asked for it.
   with the same line (#740 review, Copilot).
 - **Zero writes:** the dry run returns before any mutation is built.
 
-**Not in scope here, fixed in cli#742 (see §5):** two sibling write paths in
-this group still read the body rendered and write it back, so they delete
-placeholders too.
-`spec supersede` always rewrites the retired spec's content (the stored body
-plus the "Superseded by" note), and with `--copy-body` it copies the rendered
-body into the successor. `spec extract --strip-source` writes a body computed
-from the rendered source back to it. They are pre-existing, and the fix is the
-same read; routed to the coordinator (team chat) rather than widened in here.
+**Not in scope here; since fixed in cli#742 (§5):** when this PR was written,
+two sibling write paths in this group read the body rendered and wrote it
+back, deleting placeholders too. `spec supersede` rewrote the retired spec's
+content (its body plus the "Superseded by" note), and with `--copy-body`
+copied the rendered body into the successor. `spec extract --strip-source`
+wrote a body computed from the rendered source back to it. They were
+pre-existing and were routed to the coordinator rather than widened in here.
 
 **Not in scope:** revision provenance. The preview carries no revision:
 `GetNode` never selected one, and `node get`'s bracketed revision read (#724)
@@ -134,7 +133,9 @@ the read was `GetNode`'s rendered one. Each now reads the stored body raw,
     the update, so a read that gets no answer is a definite "not retired". It
     is never mistaken for an update that got no answer, which would report
     "unknown" when nothing was written (#743 review, Codex).
-  - **`--copy-body`** reads raw where the successor's body is built.
+  - **`--copy-body`** reads raw before the successor's tags are derived, so
+    its body, abstract and tags come from that one read (#743 review,
+    Copilot).
   - **One snapshot:** `withRawBody` takes the body, abstract, fingerprint *and
     tags* from the same raw response. The retirement replaces content and
     tags together, and `--copy-body` copies body and abstract together, so an
@@ -145,8 +146,9 @@ the read was `GetNode`'s rendered one. Each now reads the stored body raw,
   `spec get` (which renders) will not match a source holding `{{…}}`. The
   miss is safe (nothing is written) and now says why. The manual-trim reminder
   used to recommend `spec get … --body-only | node update --content -`, a
-  round trip that deletes every placeholder; it now names `spec edit`, which
-  edits the stored body (#743 review, Copilot).
+  round trip that deletes every placeholder; it now names
+  `spec edit <source> -m <memory>`, which edits the stored body (#743 review,
+  Copilot).
 
 **Tests** (`internal/cmd/spec_raw_writeback_test.go`) serve `GetNode` a
 rendered body and `GetSpecNodeRaw` the stored one, and assert the **mutation
@@ -158,10 +160,12 @@ payloads**:
 
 The three fail on `main`. Controls: a plain body retires unchanged, no
 `--copy-body` means no copy, and no `--strip-source` means no source write.
-Nine mutants are killed:
+Eleven mutants are killed, each by its intended test:
 - each raw read reverted, and `withRawBody` a no-op;
 - the abstract or the tags not taken from the raw snapshot;
+- the successor's tags derived before the `--copy-body` snapshot;
 - a failed raw read reported as "unknown";
-- the placeholder hint suppressed, and the lossy reminder restored.
+- the placeholder hint suppressed, the lossy reminder restored, and the
+  reminder's `-m <memory>` dropped.
 `TestSpecSupersedeRetiresAgainstTheFreshRead` now serves the concurrent edit
 to the raw read too, since that read comes after it.

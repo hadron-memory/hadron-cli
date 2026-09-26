@@ -280,9 +280,28 @@ func TestSpecExtractStripMissExplainsPlaceholders(t *testing.T) {
 			if !strings.Contains(text, "placeholders and is matched as stored") {
 				t.Errorf("a miss on a templated source must explain placeholders:\n%s", text)
 			}
-			if !dry && (!strings.Contains(text, "spec edit cor:dmo:060:02") || strings.Contains(text, "node update --content")) {
+			if !dry && (!strings.Contains(text, "spec edit cor:dmo:060:02 -m "+specMem) || strings.Contains(text, "node update --content")) {
 				t.Errorf("the manual trim must point at spec edit, never the lossy spec get | node update:\n%s", text)
 			}
 		})
+	}
+}
+
+// --copy-body derives the successor's tags from the same raw snapshot as its
+// body and abstract (#743 review, Copilot).
+func TestSpecSupersedeCopyBodyTagsComeFromTheSnapshot(t *testing.T) {
+	m := supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent)
+	m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], `"tags":["spec","p1","messaging"]`, `"tags":["spec","p1","messaging","added-meanwhile"]`, 1)
+	captured := runSupersede(t, m, "--copy-body")
+	var in struct {
+		Input struct {
+			Tags []string `json:"tags"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["CreateSpecNode"], &in); err != nil {
+		t.Fatal(err)
+	}
+	if !contains(in.Input.Tags, "added-meanwhile") {
+		t.Errorf("successor tags = %v, want the raw snapshot's topical tags", in.Input.Tags)
 	}
 }

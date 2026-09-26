@@ -264,6 +264,16 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				newSeq, scaffoldOptional = specSeq(newTarget), newTarget.Level() == 3
 			}
 
+			if copyBody {
+				// The STORED body: GetNode renders Mustache, and copying the
+				// rendered text would give the successor none of the old
+				// spec's {{…}} placeholders (cli#742). Read BEFORE the
+				// successor's tags are derived, so its body, abstract and tags
+				// all come from this one snapshot (#743 review).
+				if err := withRawBody(cmd, client, oldNode); err != nil {
+					return err
+				}
+			}
 			newTags := specTags(semanticTags(oldNode.Tags))
 			name := specNameAt(newLoc, title)
 
@@ -298,12 +308,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			body := rubricBodyAt(newLoc, title, scaffoldOptional)
 			abs := placeholderAbstractAt(newLoc, title)
 			if copyBody {
-				// The STORED body: GetNode renders Mustache, and copying the
-				// rendered text would give the successor none of the old
-				// spec's {{…}} placeholders (cli#742).
-				if err := withRawBody(cmd, client, oldNode); err != nil {
-					return err
-				}
+				// oldNode is the raw snapshot read above.
 				if oldNode.Content != nil {
 					body = *oldNode.Content
 				}
