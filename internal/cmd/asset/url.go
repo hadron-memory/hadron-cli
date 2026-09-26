@@ -43,7 +43,7 @@ it) or add -m.
 The URL is absent — and this command says why, as far as it can tell — when
 the asset is not yet scanned CLEAN, or, for a CLEAN asset: when the deployment
 has public hotlinks switched off (the server's default), when it has no valid
-public origin configured, or when the asset's memory is encrypted (an anonymous
+public origin configured (missing, or not an http/https URL), or when the asset's memory is encrypted (an anonymous
 request holds no session key, so an encrypted memory is never hotlinkable).
 The server does not say which of those three applies, so neither can this
 command. Never construct the URL yourself from the id; an absent hotlink means
@@ -112,7 +112,8 @@ there is genuinely nothing safe to hand out.`,
 // For a CLEAN asset the server returns null for three reasons it does not
 // distinguish (hadron-server Asset.publicUrl → publicAssetUrl): public
 // hotlinks disabled — ASSET_PUBLIC_HOTLINK_ENABLED unset, the default since
-// server#897 — no valid BASE_URL, or an encrypted memory. So all three are
+// server#897 — a BASE_URL that is missing or not an http(s) URL, or an
+// encrypted memory. So all three are
 // named, and none is asserted (#731).
 func hotlinkAbsentReason(scan string) string {
 	switch scan {
@@ -121,7 +122,7 @@ func hotlinkAbsentReason(scan string) string {
 	case "BLOCKED":
 		return "its virus scan blocked the file, so it is never served"
 	default:
-		return "this deployment has public hotlinks switched off (the server's default) or no public origin configured, " +
+		return "this deployment has public hotlinks switched off (the server's default) or no valid public origin configured, " +
 			"or the asset's memory is encrypted (never hotlinkable) — the server does not say which"
 	}
 }

@@ -439,7 +439,7 @@ Conventions:
   it can fetch the file, there is no read gate, and it is absent (exit 5, with
   the reason) when the asset is not CLEAN, or — for a CLEAN asset — when the
   deployment has public hotlinks switched off (the server's default), has no
-  public origin, or the memory is encrypted; the server does not say which of
+  valid public origin, or the memory is encrypted; the server does not say which of
   those three, so the reason names all three (#731). Never construct that URL
   yourself.
   `asset upload <file> -m <memory>` is three steps behind one command: the

@@ -238,7 +238,7 @@ func TestAssetURLPrintsHotlinkAndWarns(t *testing.T) {
 
 // #731: a CLEAN asset with no hotlink. The server returns null for three
 // reasons it does not tell apart — hotlinks switched off (its default), no
-// public origin, an encrypted memory — so the reason must name all three and
+// valid public origin (missing OR malformed BASE_URL), an encrypted memory — so the reason must name all three and
 // assert none. It was naming only the last two, both false on a default
 // deployment.
 func TestAssetURLCleanButAbsentNamesEveryPossibleCause(t *testing.T) {
@@ -275,7 +275,7 @@ func TestAssetURLCleanButAbsentNamesEveryPossibleCause(t *testing.T) {
 		} else if strings.TrimSpace(out.String()) != "" {
 			t.Errorf("stdout must stay empty with no hotlink; got %q", out.String())
 		}
-		for _, cause := range []string{"hotlinks switched off", "no public origin", "encrypted", "does not say which"} {
+		for _, cause := range []string{"hotlinks switched off", "no valid public origin", "encrypted", "does not say which"} {
 			if !strings.Contains(reason, cause) {
 				t.Errorf("json=%v: reason should name %q; got %q", jsonMode, cause, reason)
 			}
