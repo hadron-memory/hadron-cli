@@ -1,7 +1,9 @@
 # Design as built: team attention, switchover and own mark-read (#1353)
 
-> **Status: built as a DRAFT against hadron-server#1362 at `2ece06ab`, a
-> candidate that is not merged.** Written 2026-09-25 by Jonas. The schema
+> **Status: built as a DRAFT against hadron-server#1362, a candidate that is
+> not merged.** Built at `2ece06ab`; re-pinned at `5378b4fb` after the review
+> hardening (#1945, #1954). The snapshot re-exported from `5378b4fb` is
+> byte-identical, so the GraphQL contract did not move. Written 2026-09-25 by Jonas. The schema
 > snapshot must be re-exported from #1362's merge before this lands. This is
 > the CLI-parity half of hadron-server#1353's first slice (A + B + F), per the
 > issue's "Client follow-ups": `hadron team attention`.
