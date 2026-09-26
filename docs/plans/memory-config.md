@@ -222,7 +222,7 @@ UNREADABLE or as "—", a dropped exit row, skipped confirmation, `rules: null`,
 the clearing operation dropping a field, a trimmed role, dropped warnings, and
 `--enabled=false` omitted.
 
-## 7. Before merge (all done, 2026-09-26)
+## 7. Before merge (2026-09-26: done, except the unmanaged live probe; see Limit)
 
 **Re-export from the merge.** `d6a67ef6` also carries #1352, #1347 and #1379,
 so the snapshot gained `heldWorkers`, `Worker.appUrn` and
@@ -231,7 +231,9 @@ unchanged. `expectedRevision` arrived with a bare tag on the input **every node
 update** sends, which is §4's trap again: an older server would reject every
 update. All four operations sharing `UpdateNodeInput` now carry its
 `omitempty`, and the reflection guard covers `UpdateNodeInput` and both rule
-inputs. With the directives removed, it fails naming the field.
+inputs. With the directives removed, it fails naming the field. `heldWorkers`
+has no CLI command yet (a `team worker` parity item, not #716), so it is
+annotated in the `internal/api/unbound-ops.txt` baseline rather than wired.
 
 **Read-only against production (running #1360):**
 - `config get` on a managed memory returns the empty config (`id: null`,
@@ -248,8 +250,10 @@ The steps:
 1. #1360 merged (#1345 already is, as `de6c06f`).
 2. `make schema` from #1360's merge commit, then `make generate`, plus a diff
    check against the candidate snapshot.
-3. The full suite.
+3. Every ci.yml build step, not only `make test` and `make lint`: codegen
+   freshness and `make unbound-ops-check` too. The latter is what a refresh
+   that adds server operations fails.
 4. A read-only `memory config get` against a server running the merge: once on
    a memory you manage (the empty config or its rules), and once on one you do
-   not (exit 4).
+   not (exit 4). Only the first half was possible live (see Limit).
 5. Mark ready and re-request reviews on the final head.
