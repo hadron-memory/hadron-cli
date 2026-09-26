@@ -59,6 +59,10 @@ The data bag can be written two ways:
 Replace and merge are different operations, so --data and --data-merge are
 mutually exclusive.
 
+EDITING EXISTING CONTENT: read it with ` + "`node get --raw`" + `, never a plain
+` + "`node get`" + `. A plain single-ref read compiles the node's Mustache templates, so
+writing that text back here deletes every {{…}} placeholder, silently (#736).
+
 --content -, --abstract - and --data-merge - read standard input, and are for
 a PIPE (cat file | hadron node update ...). Each is REFUSED when stdin is an
 interactive terminal, which can truncate large input before the CLI sees it;
