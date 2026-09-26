@@ -84,6 +84,23 @@ func writeTeamBinding(t *testing.T) {
 	}
 }
 
+func setTeamBindingServer(t *testing.T, server string) {
+	t.Helper()
+	path := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	quoted, err := json.Marshal(server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bound := strings.Replace(string(b), `"startedAt"`, `"server":`+string(quoted)+`,"startedAt"`, 1)
+	if err := os.WriteFile(path, []byte(bound), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 const attentionJSON = `{"data":{"teamAttention":{"token":"tok-2","workers":[
 	{"worker":"wkr1","name":"Iris","urn":"hrn:worker:acme.com:eng-team:iris","live":true,"channels":[
 		{"channel":"ch1","name":"team","unread":3,"unreadMentions":1,"firstUnreadSeq":41,"lastSeq":43}]}]}}}`
@@ -352,6 +369,7 @@ func opsOf(calls []attnCall) []string {
 func TestTeamChatReadMarksTheBoundWorkerReadAfterDelivery(t *testing.T) {
 	writeTeamBinding(t)
 	srv, calls := attnServer(t, chatReadResponses())
+	setTeamBindingServer(t, srv.URL)
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "read", "--json", "--server", srv.URL})
@@ -395,6 +413,7 @@ func TestTeamChatReadMarksABoundedPageButNotAFilteredRead(t *testing.T) {
 		t.Run(strings.Join(tc.extra, " "), func(t *testing.T) {
 			writeTeamBinding(t)
 			srv, calls := attnServer(t, chatReadResponses())
+			setTeamBindingServer(t, srv.URL)
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
 			root.SetArgs(append([]string{"team", "chat", "read", "--json", "--server", srv.URL}, tc.extra...))
@@ -417,6 +436,7 @@ func TestTeamChatReadMarksABoundedPageButNotAFilteredRead(t *testing.T) {
 func TestTeamChatReadMarksNothingWhenTheRenderFails(t *testing.T) {
 	writeTeamBinding(t)
 	srv, calls := attnServer(t, chatReadResponses())
+	setTeamBindingServer(t, srv.URL)
 	f, _ := testFactory(t)
 	f.IOStreams.Out = failingWriter{}
 	root := NewRootCmd(f)
@@ -443,6 +463,7 @@ func TestTeamChatReadMarkFailureNeverFailsTheRead(t *testing.T) {
 			r := chatReadResponses()
 			r["MarkOwnTeamChatRead"] = gqlErrorJSON(tc.code)
 			srv, _ := attnServer(t, r)
+			setTeamBindingServer(t, srv.URL)
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"team", "chat", "read", "--json", "--server", srv.URL})
@@ -507,6 +528,7 @@ func TestTeamChatMarkReadDefaultsToTheTeamChannelAndPinsTheSession(t *testing.T)
 		"TeamDefaultChannel":  `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`,
 		"MarkOwnTeamChatRead": markReadJSON,
 	})
+	setTeamBindingServer(t, srv.URL)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "mark-read", "--through", "1878", "--json", "--server", srv.URL})
@@ -533,6 +555,7 @@ func TestTeamChatMarkReadDefaultsToTheTeamChannelAndPinsTheSession(t *testing.T)
 func TestTeamChatMarkReadWithAChannelSkipsTheLookup(t *testing.T) {
 	writeTeamBinding(t)
 	srv, calls := attnServer(t, map[string]string{"MarkOwnTeamChatRead": markReadJSON})
+	setTeamBindingServer(t, srv.URL)
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "mark-read", "--through", "1878", "--channel", "chats:dm-ada", "--server", srv.URL})
@@ -544,11 +567,42 @@ func TestTeamChatMarkReadWithAChannelSkipsTheLookup(t *testing.T) {
 	}
 }
 
+func TestTeamChatMarkReadRefusesLegacyBindingWithoutServer(t *testing.T) {
+	writeTeamBinding(t) // Pre-server binding: session and App IDs have no deployment provenance.
+	srv, calls := attnServer(t, map[string]string{"MarkOwnTeamChatRead": markReadJSON})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "mark-read", "--through", "5", "--channel", "ch1", "--server", srv.URL})
+	if got := exitOf(root.Execute()); got != exitcode.Usage {
+		t.Errorf("unknown binding server: exit = %d, want 2", got)
+	}
+	if len(*calls) != 0 {
+		t.Errorf("no cursor may be advanced through an unverified deployment: %+v", *calls)
+	}
+}
+
+func TestTeamChatReadNeverAutoMarksLegacyBindingWithoutServer(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, chatReadResponses())
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("the read itself must still work: %v", err)
+	}
+	for _, c := range *calls {
+		if c.Op == "MarkOwnTeamChatRead" {
+			t.Errorf("a legacy binding must not auto-mark on an unknown server: %v", opsOf(*calls))
+		}
+	}
+}
+
 // A cursor only moves forward: asking to mark BELOW it changes nothing, and
 // the human output says so rather than claiming a mark.
 func TestTeamChatMarkReadBelowTheCursorSaysNothingChanged(t *testing.T) {
 	writeTeamBinding(t)
 	srv, _ := attnServer(t, map[string]string{"MarkOwnTeamChatRead": markReadJSON})
+	setTeamBindingServer(t, srv.URL)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "mark-read", "--through", "10", "--channel", "ch1", "--server", srv.URL})
@@ -590,6 +644,7 @@ func TestTeamChatMarkReadRefusals(t *testing.T) {
 	t.Run("beyond the watermark", func(t *testing.T) {
 		writeTeamBinding(t)
 		srv, _ := attnServer(t, map[string]string{"MarkOwnTeamChatRead": gqlErrorJSON("SEQ_BEYOND_WATERMARK")})
+		setTeamBindingServer(t, srv.URL)
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"team", "chat", "mark-read", "--through", "999999", "--channel", "ch1", "--server", srv.URL})
@@ -600,6 +655,7 @@ func TestTeamChatMarkReadRefusals(t *testing.T) {
 	t.Run("pilot gate", func(t *testing.T) {
 		writeTeamBinding(t)
 		srv, _ := attnServer(t, map[string]string{"MarkOwnTeamChatRead": gqlErrorJSON("FEATURE_NOT_AVAILABLE")})
+		setTeamBindingServer(t, srv.URL)
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"team", "chat", "mark-read", "--through", "5", "--channel", "ch1", "--server", srv.URL})
@@ -612,6 +668,7 @@ func TestTeamChatMarkReadRefusals(t *testing.T) {
 		srv, _ := attnServer(t, map[string]string{
 			"TeamDefaultChannel": `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":null}}}`,
 		})
+		setTeamBindingServer(t, srv.URL)
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"team", "chat", "mark-read", "--through", "5", "--server", srv.URL})
@@ -642,6 +699,7 @@ func TestTeamChatMarkReadRefusesAnEmptyChannel(t *testing.T) {
 func TestTeamChatMarkReadReceiptNamesItsScope(t *testing.T) {
 	writeTeamBinding(t)
 	srv, _ := attnServer(t, map[string]string{"MarkOwnTeamChatRead": markReadJSON})
+	setTeamBindingServer(t, srv.URL)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "mark-read", "--through", "1878", "--channel", "ch1", "--server", srv.URL})
@@ -708,6 +766,7 @@ func TestTeamChatReadMarksOnlyWhileTheBindingIsStillOurs(t *testing.T) {
 					tc.edit(path) // lands while this command is mid-read
 				}
 			})
+			setTeamBindingServer(t, srv.URL)
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"team", "chat", "read", "--app", "capp100000000000000000000", "--json", "--server", srv.URL})
@@ -744,6 +803,9 @@ func TestTeamAttentionReceiptsFailWhenTheyCannotBeWritten(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			writeTeamBinding(t)
 			srv, _ := attnServer(t, tc.responses)
+			if tc.name == "mark-read" {
+				setTeamBindingServer(t, srv.URL)
+			}
 			f, _ := testFactory(t)
 			f.IOStreams.Out = failOnWrite{substr: tc.lose}
 			root := NewRootCmd(f)
@@ -851,6 +913,7 @@ func TestTeamChatMarkReadRefusesARebindDuringTheCommand(t *testing.T) {
 			_ = os.WriteFile(path, []byte(strings.Replace(bindingFixture, `"s-new"`, `"s-other"`, 1)), 0o600)
 		}
 	})
+	setTeamBindingServer(t, srv.URL)
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "mark-read", "--through", "5", "--server", srv.URL})
@@ -874,6 +937,7 @@ func TestTeamChatReadSkipsTheMarkOnARebindDuringTheLookup(t *testing.T) {
 			_ = os.WriteFile(path, []byte(strings.Replace(bindingFixture, `"s-new"`, `"s-other"`, 1)), 0o600)
 		}
 	})
+	setTeamBindingServer(t, srv.URL)
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "read", "--app", "capp100000000000000000000", "--json", "--server", srv.URL})

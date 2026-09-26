@@ -414,9 +414,10 @@ nothing. Reading a chat that is EMPTY still counts as
 having read it.
 
 YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). Where the server
-has the team-attention pilot enabled for you, a read that records the
-watermark above also marks the bound worker's messages read ON THE SERVER,
-through the same seq — which is what stops a team-chat router nudging you
+has the team-attention pilot enabled for you and the binding records this
+server, a read that records the watermark above also marks the bound worker's
+messages read ON THE SERVER, through the same seq — which is what stops a
+team-chat router nudging you
 about messages you have seen. It happens only AFTER the messages were
 printed, so a read that fails partway marks nothing. A --mentions/--mentions-me,
 --before or windowed read marks nothing; use ` + "`team chat mark-read --through <seq>`" + `

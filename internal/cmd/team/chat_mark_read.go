@@ -45,9 +45,9 @@ The cursor only moves forward: a lower seq changes nothing (the result shows
 where it already is), and a seq beyond the Channel's latest message is refused
 (exit 2). --channel defaults to the App's team chat.
 
-Needs a worker session binding (` + "`hadron team session start`" + `): the cursor belongs to
-the bound worker, and the server accepts only your own live session. An
-internal pilot: outside it this exits 8 (not enabled for this operator and
+Needs a worker session binding (` + "`hadron team session start`" + `) that records
+this server: the cursor belongs to the bound worker, and the server accepts
+only your own live session. An internal pilot: outside it this exits 8 (not enabled for this operator and
 App).`,
 		Example: `  hadron team chat mark-read --through 1878`,
 		Args:    cobra.NoArgs,
@@ -76,6 +76,10 @@ App).`,
 			if b == nil || b.SessionID == "" {
 				return exitcode.Newf(exitcode.Usage,
 					"mark-read advances the BOUND worker's cursor — bind one first with `hadron team session start --as <worker>`")
+			}
+			if b.Server == "" {
+				return exitcode.Newf(exitcode.Usage,
+					"this worktree's session binding does not record its server — start a new worker session before marking read")
 			}
 			if err := checkBindingServer(f, b); err != nil {
 				return err
@@ -147,6 +151,9 @@ App).`,
 // which is the ordinary case and silent; any other failure is a stderr note,
 // because it means a team-chat router may nudge about these messages again.
 func markDeliveredRead(ctx context.Context, f *cmdutil.Factory, client graphql.Client, appRef string, b *binding, through int) {
+	if b == nil || b.Server == "" || !bindingServerMatches(f, b) {
+		return // no verified deployment for this session: never advance a cursor
+	}
 	note := func(err error) {
 		fmt.Fprintf(f.IOStreams.ErrOut,
 			"note: this read was not recorded on the server (%v) — a team-chat router may nudge about these messages again; `hadron team chat mark-read --through %d` retries it\n",

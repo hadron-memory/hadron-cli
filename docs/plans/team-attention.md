@@ -66,8 +66,9 @@ before.
    highest VISIBLE seq leaves a trailing deleted message's seq unmarked, which
    the server's exhausted-page rule would have covered; attention counts only
    live messages, so no nudge results.
-4. **Never for another server's binding.** A binding made against another
-   deployment neither marks nor sends its session: its id means nothing here.
+4. **Only for a binding that records this server.** A binding made against
+   another deployment, or one with no recorded server, neither marks nor sends
+   its session: its id means nothing here.
 5. **Mark-read uses the pilot door, not `advanceChannelReadState`.** The legacy
    mutation has a similar gate (the caller's live session on that worker), but
    it is neither pilot-gated nor pinned to one session. So a CLI built on it

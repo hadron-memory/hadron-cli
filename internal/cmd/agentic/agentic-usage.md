@@ -2263,9 +2263,10 @@ Conventions:
   **A bound worker's `chat read` now marks its messages read on the server**,
   under the pilot, which is what stops the router nudging it. It happens only
   AFTER the messages were printed, for exactly the reads that record the
-  binding's watermark (unfiltered, contiguous, not `--before`, own App, same
-  server — a `--limit` page included), through the highest seq shown: the read
-  itself carries no session, so a read that fails partway marks nothing (a
+  binding's watermark (unfiltered, contiguous, not `--before`, own App, and a
+  binding that records this server — a `--limit` page included), through the
+  highest seq shown: the read itself carries no session, so a read that fails
+  partway marks nothing (a
   duplicate nudge, never a lost message). Outside the pilot the step is silently
   skipped; a failure inside it is a stderr note, never a failed read. For the
   reads that don't count, **`chat mark-read --through <seq> [--channel <ref>]`**
@@ -2273,8 +2274,8 @@ Conventions:
   (`--channel` defaults to the App's team chat; an EMPTY `--channel` is refused,
   exit 2, rather than falling back to it). It is monotonic — a lower seq
   changes nothing and says so — and a seq past the Channel's head exits 2
-  (`SEQ_BEYOND_WATERMARK`). It needs a binding (exit 2 without one), and the
-  server accepts only your own live session. `--json`: `{workerId, channelId,
+  (`SEQ_BEYOND_WATERMARK`). It needs a binding that records this server (exit 2
+  without one), and the server accepts only your own live session. `--json`: `{workerId, channelId,
   through, lastSeenSeq}`.
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org
