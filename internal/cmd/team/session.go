@@ -1955,15 +1955,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 // operation. Auth, scope and transport errors must never be retried as a
 // second mutation.
 func unsupportedWorklogModel(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	if !strings.Contains(msg, `"model"`) {
-		return false
-	}
-	return strings.Contains(msg, "Cannot query field") || strings.Contains(msg, "Unknown field") ||
-		strings.Contains(msg, "Unknown argument") || api.HasErrorCode(err, "GRAPHQL_VALIDATION_FAILED")
+	return api.IsGraphQLValidationFor(err, "model")
 }
 
 func worklogModelLabel(model *string, recorded string) string {

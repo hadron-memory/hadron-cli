@@ -385,6 +385,30 @@ func graphQLErrors(err error) gqlerror.List {
 	return nil
 }
 
+// IsGraphQLValidationFor reports a schema-validation refusal naming one
+// field or argument. It reads the parsed GraphQL envelope, including the one
+// inside an HTTPError, rather than matching HTTPError.Error's JSON-escaped
+// rendering. Callers use it only when retrying a compatible operation is safe.
+func IsGraphQLValidationFor(err error, name string) bool {
+	quotedName := `"` + name + `"`
+	for _, e := range graphQLErrors(err) {
+		if e == nil || !strings.Contains(e.Message, quotedName) {
+			continue
+		}
+		code := extensionCode(e)
+		if code != "" && code != "GRAPHQL_VALIDATION_FAILED" {
+			continue
+		}
+		if code == "GRAPHQL_VALIDATION_FAILED" ||
+			strings.Contains(e.Message, "Cannot query field") ||
+			strings.Contains(e.Message, "Unknown field") ||
+			strings.Contains(e.Message, "Unknown argument") {
+			return true
+		}
+	}
+	return false
+}
+
 // isSchemaSkew reports whether err is a GraphQL validation failure — the server
 // rejecting a query that references a field/operation it doesn't have.
 func isSchemaSkew(err error) bool {

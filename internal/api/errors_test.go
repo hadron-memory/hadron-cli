@@ -27,6 +27,29 @@ func TestHasErrorCodeReadsNon200GraphQLEnvelope(t *testing.T) {
 	}
 }
 
+func TestIsGraphQLValidationForReadsHTTPErrorEnvelope(t *testing.T) {
+	for _, tc := range []struct {
+		name, message, code string
+		want                bool
+	}{
+		{"model field", `Cannot query field "model" on type "TeamWorkItem".`, "GRAPHQL_VALIDATION_FAILED", true},
+		{"model argument", `Unknown argument "model" on field "recordTeamWork".`, "GRAPHQL_VALIDATION_FAILED", true},
+		{"another field", `Cannot query field "other" on type "TeamWorkItem".`, "GRAPHQL_VALIDATION_FAILED", false},
+		{"business error", `Cannot query field "model" on type "TeamWorkItem".`, "FORBIDDEN", false},
+		{"unrelated refusal", `model was refused`, "FORBIDDEN", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: gqlerror.List{{Message: tc.message, Extensions: map[string]any{"code": tc.code}}}}}
+			if got := IsGraphQLValidationFor(err, "model"); got != tc.want {
+				t.Errorf("model validation = %v, want %v: %s", got, tc.want, err)
+			}
+		})
+	}
+}
+
+	}
+}
+
 func TestMapError(t *testing.T) {
 	tests := []struct {
 		name string

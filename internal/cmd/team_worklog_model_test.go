@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +16,35 @@ const modelLogSessionJSON = `{"data":{"updateSession":{"id":"s-new","agentId":"a
 	"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 	"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 	"transcriptPath":null,"llmModel":"initial-model"}}}`
+
+// Older Apollo servers can send schema validation as HTTP 400 rather than a
+// 200 GraphQL errors envelope. That wraps the parsed errors in HTTPError.
+func captureOldWorklogServer(t *testing.T, responses map[string]string) (*httptest.Server, map[string]json.RawMessage) {
+	t.Helper()
+	captured := map[string]json.RawMessage{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		captured[req.OperationName] = req.Variables
+		body, ok := responses[req.OperationName]
+		if !ok {
+			t.Errorf("unexpected operation %q", req.OperationName)
+			body = `{"errors":[{"message":"unexpected operation"}]}`
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if req.OperationName == "RecordTeamWork" || req.OperationName == "TeamWorkItems" {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, captured
+}
 
 func bindWorklogModelTest(t *testing.T) {
 	t.Helper()
@@ -105,7 +136,7 @@ func worklogModelLabelForTest(model string) string {
 
 func TestSessionLogModelOldServerCompatibility(t *testing.T) {
 	bindWorklogModelTest(t)
-	gql, captured := captureGraphQL(t, map[string]string{
+	gql, captured := captureOldWorklogServer(t, map[string]string{
 		"UpdateTeamSession": modelLogSessionJSON,
 		"RecordTeamWork":    `{"errors":[{"message":"Cannot query field \"model\" on type \"TeamWorkItem\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
 		"RecordTeamWorkLegacy": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
@@ -196,7 +227,7 @@ func TestSessionListProvenanceKeepsEachMilestoneModel(t *testing.T) {
 
 func TestSessionListProvenanceReadsOldServerWithoutModel(t *testing.T) {
 	teamGitDir(t)
-	gql, captured := captureGraphQL(t, map[string]string{
+	gql, captured := captureOldWorklogServer(t, map[string]string{
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"TeamWorkItems": `{"errors":[{"message":"Unknown field \"model\" on type \"TeamWorkItem\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
 		"TeamWorkItemsLegacy": `{"data":{"teamWorkItems":{"total":1,"items":[
