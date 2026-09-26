@@ -116,12 +116,15 @@ App).`,
 					name = dto.WorkerID
 				}
 				where := fmt.Sprintf("channel %s in %s (%s)", dto.ChannelID, scope.Ref, scope.Source)
+				// Checked (PR #732, @copilot): the mark has already happened, so
+				// a receipt that cannot be delivered must not exit 0 as if the
+				// caller had been told.
 				if dto.LastSeenSeq > through {
-					fmt.Fprintf(w, "%s had already read through #%d on %s — nothing changed.\n", name, dto.LastSeenSeq, where)
-					return nil
+					_, err := fmt.Fprintf(w, "%s had already read through #%d on %s — nothing changed.\n", name, dto.LastSeenSeq, where)
+					return err
 				}
-				fmt.Fprintf(w, "Marked read through #%d for %s on %s.\n", dto.LastSeenSeq, name, where)
-				return nil
+				_, err := fmt.Fprintf(w, "Marked read through #%d for %s on %s.\n", dto.LastSeenSeq, name, where)
+				return err
 			})
 		},
 	}

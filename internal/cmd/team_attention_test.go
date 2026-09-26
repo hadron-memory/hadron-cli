@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -30,6 +31,13 @@ type attnCall struct {
 // it should not is the bug.
 func attnServer(t *testing.T, responses map[string]string) (*httptest.Server, *[]attnCall) {
 	t.Helper()
+	return attnServerHook(t, responses, nil)
+}
+
+// attnServerHook is attnServer with a hook run as each operation arrives —
+// how a test stages something another agent does mid-command.
+func attnServerHook(t *testing.T, responses map[string]string, onOp func(op string)) (*httptest.Server, *[]attnCall) {
+	t.Helper()
 	calls := &[]attnCall{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -37,6 +45,9 @@ func attnServer(t *testing.T, responses map[string]string) (*httptest.Server, *[
 			Variables     map[string]any `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		if onOp != nil {
+			onOp(body.OperationName)
+		}
 		*calls = append(*calls, attnCall{Op: body.OperationName, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session")})
 		w.Header().Set("Content-Type", "application/json")
 		resp, ok := responses[body.OperationName]
@@ -649,4 +660,78 @@ func (w failOnWrite) Write(p []byte) (int, error) {
 		return 0, errors.New("broken pipe")
 	}
 	return len(p), nil
+}
+
+// PR #732 round 2, @copilot: the server mark goes out only if the worktree is
+// STILL bound to the session the read was for. A `session end` or a rebind
+// that wins while the messages render retires that session here, and marking
+// its cursor anyway would act for a binding that no longer exists. "Someone
+// already read further" is still ours, so that one still marks.
+func TestTeamChatReadMarksOnlyWhileTheBindingIsStillOurs(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		edit  func(path string)
+		marks bool
+	}{
+		{"a rebind to another session", func(path string) {
+			_ = os.WriteFile(path, []byte(strings.Replace(bindingFixture, `"s-new"`, `"s-other"`, 1)), 0o600)
+		}, false},
+		{"session end removed the binding", func(path string) { _ = os.Remove(path) }, false},
+		{"the same session read further meanwhile", func(path string) {
+			_ = os.WriteFile(path, []byte(strings.Replace(bindingFixture, `"startedAt"`, `"chatSeenSeq":99,"startedAt"`, 1)), 0o600)
+		}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			writeTeamBinding(t)
+			path := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
+			srv, calls := attnServerHook(t, chatReadResponses(), func(op string) {
+				if op == "TeamChatMessages" {
+					tc.edit(path) // lands while this command is mid-read
+				}
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "chat", "read", "--app", "capp100000000000000000000", "--json", "--server", srv.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			marked := false
+			for _, c := range *calls {
+				marked = marked || c.Op == "MarkOwnTeamChatRead"
+			}
+			if marked != tc.marks {
+				t.Errorf("marked = %v, want %v (%v)", marked, tc.marks, opsOf(*calls))
+			}
+		})
+	}
+}
+
+// PR #732 round 2, @copilot: every human receipt that follows a completed
+// action is CHECKED, so a lost receipt cannot exit 0.
+func TestTeamAttentionReceiptsFailWhenTheyCannotBeWritten(t *testing.T) {
+	for _, tc := range []struct {
+		name, lose string
+		responses  map[string]string
+		args       []string
+	}{
+		{"switchover preview", "app:", map[string]string{"TeamAttentionSwitchoverPreview": switchoverPreviewJSON},
+			[]string{"team", "attention", "switchover", "preview", "--app", "acme.com:eng-team"}},
+		{"switchover apply", "Switchover applied", map[string]string{
+			"ConfirmTeamAttentionSwitchover": `{"data":{"confirmTeamAttentionSwitchover":{"applied":true,"workersAdvanced":1,"channelsAdvanced":1}}}`},
+			[]string{"team", "attention", "switchover", "apply", "--app", "acme.com:eng-team", "--proof", "p", "--yes"}},
+		{"mark-read", "Marked read", map[string]string{"MarkOwnTeamChatRead": markReadJSON},
+			[]string{"team", "chat", "mark-read", "--through", "1878", "--channel", "ch1"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			writeTeamBinding(t)
+			srv, _ := attnServer(t, tc.responses)
+			f, _ := testFactory(t)
+			f.IOStreams.Out = failOnWrite{substr: tc.lose}
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", srv.URL))
+			if err := root.Execute(); err == nil {
+				t.Fatalf("a %s whose receipt was lost must not exit 0", tc.name)
+			}
+		})
+	}
 }
