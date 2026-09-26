@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
+	"github.com/aymanbagabas/go-udiff"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -33,6 +35,125 @@ type editResultDTO struct {
 	// false` beside a write would be the DTO lying to the agent parsing it.
 	AbstractReaffirmed bool `json:"abstractReaffirmed"`
 	DryRun             bool `json:"dryRun"`
+	// Changes is the proposal itself, one entry per field it writes (cli#737):
+	// the flags above say THAT a field changes, and a reviewer approving an
+	// edit needs to see WHAT. Always a list, `[]` on a no-op. Built from the
+	// same editProposal the write is built from: the changes a run reports are
+	// exactly what that run writes. (A dry run and a later real run are two
+	// reads of the spec; closing that gap is cli#738's.)
+	Changes []fieldChangeDTO `json:"changes"`
+}
+
+// fieldChangeDTO is one field of a proposed edit: the text as stored (read
+// raw, placeholders intact), the text proposed, and a unified diff of the two.
+type fieldChangeDTO struct {
+	Field string `json:"field"` // "content" or "abstract"
+	// Change is "replaced", "cleared" (the proposed text is empty) or
+	// "reaffirmed" (--abstract-still-accurate: the same text re-sent so it is
+	// re-fingerprinted against the body; Before == After and Diff is "").
+	Change string `json:"change"`
+	Before string `json:"before"`
+	After  string `json:"after"`
+	Diff   string `json:"diff"`
+}
+
+// editProposal is the one computed change `spec edit` makes. The dry-run
+// renders it and the write is built from it; nothing between the two
+// recomputes anything.
+type editProposal struct {
+	curBody, curAbstract string
+	newBody, newAbstract string
+	reaffirm             bool
+	// originHash is the stored abstract's fingerprint (spec 032), nil when it
+	// was never fingerprinted.
+	originHash *string
+}
+
+func (p editProposal) bodyChanged() bool { return p.newBody != p.curBody }
+
+// abstractChanged: the server stores an empty or whitespace-only abstract as
+// null, so blank → blank is no change (and writes nothing).
+func (p editProposal) abstractChanged() bool {
+	if strings.TrimSpace(p.newAbstract) == "" && strings.TrimSpace(p.curAbstract) == "" {
+		return false
+	}
+	return p.newAbstract != p.curAbstract
+}
+
+// armsAbstractStale reports whether a body-only save leaves the kept abstract
+// STALE: answered by abstractVerification (citations.go) over the state the
+// save produces, the same function `spec lint` uses, so the message cannot
+// disagree with the marker. A spec with no abstract or an emptied body is
+// not-applicable, one never fingerprinted stays unverified, and a body edited
+// back to its fingerprinted text becomes verified; none of those is stale
+// (#740 review, Codex and Copilot).
+func (p editProposal) armsAbstractStale() bool {
+	if !p.bodyChanged() || p.abstractChanged() || p.reaffirm {
+		return false
+	}
+	abstract, body := p.curAbstract, p.newBody
+	after := specNode{ContentIsRaw: true, Abstract: &abstract, Content: &body, AbstractOriginHash: p.originHash}
+	return abstractVerification(after) == abstractStale
+}
+
+// changes lists the proposal field by field, body first.
+func (p editProposal) changes() []fieldChangeDTO {
+	out := []fieldChangeDTO{}
+	if p.bodyChanged() {
+		out = append(out, fieldChange("content", p.curBody, p.newBody))
+	}
+	switch {
+	case p.abstractChanged():
+		out = append(out, fieldChange("abstract", p.curAbstract, p.newAbstract))
+	case p.reaffirm:
+		out = append(out, fieldChangeDTO{Field: "abstract", Change: "reaffirmed", Before: p.curAbstract, After: p.curAbstract})
+	}
+	return out
+}
+
+func fieldChange(field, before, after string) fieldChangeDTO {
+	change := "replaced"
+	// The server stores an empty or whitespace-only ABSTRACT as null (spec
+	// 031), so sending one clears it: `--abstract-file` on a file holding only
+	// a newline is a clear, and must say so. A body is stored as sent.
+	if after == "" || (field == "abstract" && strings.TrimSpace(after) == "") {
+		change = "cleared"
+	}
+	return fieldChangeDTO{
+		Field: field, Change: change, Before: before, After: after,
+		Diff: udiff.Unified(field+" (stored)", field+" (proposed)", before, after),
+	}
+}
+
+// input is the write. Omitted fields are preserved; only what changed is set.
+// An abstract changed to empty sends "" — the server normalizes that to null
+// (clear), which is the intended "I removed the abstract". The node is
+// targeted by (memoryId, loc); updateNode never creates.
+func (p editProposal) input(memoryID, loc string) gen.UpdateNodeInput {
+	in := gen.UpdateNodeInput{MemoryId: &memoryID, Loc: &loc}
+	if p.bodyChanged() {
+		body := p.newBody
+		in.Content = &body
+	}
+	switch {
+	case p.abstractChanged():
+		abstract := p.newAbstract
+		in.Abstract = &abstract
+	case p.reaffirm:
+		// Spec 032, verified against hadron-server `origin/main` d7ef615
+		// (resolvers.mutation.node.ts): an `abstract` supplied as a STRING
+		// is re-fingerprinted against the post-update content — `input.content`
+		// when supplied, the stored body otherwise. So re-sending the
+		// stored text verbatim is exactly the assertion, and it works on
+		// the GraphQL path with no server change.
+		//
+		// It is NOT `abstractStillAccurate`: that argument exists only on
+		// the MCP surface (#1126) and has no GraphQL equivalent, which is
+		// the parity gap reported on #612.
+		abstract := p.curAbstract
+		in.Abstract = &abstract
+	}
+	return in
 }
 
 // editorFunc is the editor-launch seam. Production uses launchEditor ($EDITOR on
@@ -78,7 +199,12 @@ Pass any of --content -/--content-file/--abstract -/--abstract-file to replace a
 field non-interactively (and skip the editor); supply both kinds to update body
 and abstract in one call. A field whose flag is omitted is preserved untouched,
 and a field that didn't actually change is not rewritten. Nothing changed writes
-nothing.
+nothing. The body is read as stored, {{…}} placeholders intact, never rendered.
+
+--dry-run writes nothing and shows the change itself: a unified diff per field
+(--json: "changes", each with the stored text, the proposed text and the diff).
+It is a preview, not an approval; applying it is a separate run without
+--dry-run, recomputed against the spec as stored at that moment.
 
 Editing the body alone ARMS the abstract-stale marker: the abstract was
 fingerprinted against the old content, so every later read flags it as a
@@ -146,7 +272,9 @@ replacement over the cap is rejected.`,
 			if err != nil {
 				return err
 			}
-			node, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
+			// RAW: the stored body, placeholders intact. Everything below —
+			// the editor buffer, the preview and the write — starts from it.
+			node, err := fetchSpecForEdit(cmd, client, memURN, args[0])
 			if err != nil {
 				return err
 			}
@@ -187,17 +315,24 @@ replacement over the cap is rejected.`,
 				}
 			}
 
-			result := editResultDTO{
-				Citation:        node.Loc,
-				MemoryID:        node.MemoryId,
-				Name:            node.Name,
-				BodyChanged:     newBody != curBody,
-				AbstractChanged: newAbstract != curAbstract,
-				DryRun:          dryRun,
-			}
 			// Re-affirming is only meaningful when the abstract is NOT also
 			// being replaced — a replacement is fingerprinted on its own.
-			result.AbstractReaffirmed = stillAccurate && !result.AbstractChanged
+			proposal := editProposal{
+				curBody: curBody, curAbstract: curAbstract,
+				newBody: newBody, newAbstract: newAbstract,
+				reaffirm:   stillAccurate && newAbstract == curAbstract,
+				originHash: node.AbstractOriginHash,
+			}
+			result := editResultDTO{
+				Citation:           node.Loc,
+				MemoryID:           node.MemoryId,
+				Name:               node.Name,
+				BodyChanged:        proposal.bodyChanged(),
+				AbstractChanged:    proposal.abstractChanged(),
+				AbstractReaffirmed: proposal.reaffirm,
+				DryRun:             dryRun,
+				Changes:            proposal.changes(),
+			}
 			// A legacy abstract PAST the server's cap cannot be re-sent
 			// (@codex on #613). Omitting it preserves it — which is exactly why
 			// such a node still works today — but re-affirming REPLACES it, and
@@ -226,45 +361,25 @@ replacement over the cap is rejected.`,
 			if !result.Changed {
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 					fmt.Fprintf(w, "no changes — %s left untouched\n", node.Loc)
+					if dryRun {
+						// The same closing line as every other dry run, so a
+						// no-op preview reads no differently as to what it is.
+						fmt.Fprintln(w, dryRunDisclaimer)
+					}
 					return nil
 				})
 			}
 			render := func() error {
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-					return renderEditResult(w, result, curBody, newBody)
+					return renderEditResult(w, result, curBody, newBody, proposal.armsAbstractStale())
 				})
 			}
 			if dryRun {
+				// Zero writes: the preview returns before any mutation is built.
 				return render()
 			}
 
-			// Omitted fields are preserved; we set only what changed. An abstract
-			// changed to empty sends "" — the server normalizes that to null
-			// (clear), which is the intended "I removed the abstract". The node
-			// is targeted by (memoryId, loc); updateNode never creates.
-			input := gen.UpdateNodeInput{
-				MemoryId: &node.MemoryId,
-				Loc:      &node.Loc,
-			}
-			if result.BodyChanged {
-				input.Content = &newBody
-			}
-			if result.AbstractChanged {
-				input.Abstract = &newAbstract
-			}
-			if result.AbstractReaffirmed {
-				// Spec 032, verified against hadron-server `origin/main` d7ef615
-				// (resolvers.mutation.node.ts): an `abstract` supplied as a STRING
-				// is re-fingerprinted against the post-update content — `input.content`
-				// when supplied, the stored body otherwise. So re-sending the
-				// stored text verbatim is exactly the assertion, and it works on
-				// the GraphQL path with no server change.
-				//
-				// It is NOT `abstractStillAccurate`: that argument exists only on
-				// the MCP surface (#1126) and has no GraphQL equivalent, which is
-				// the parity gap reported on #612.
-				input.Abstract = &curAbstract
-			}
+			input := proposal.input(node.MemoryId, node.Loc)
 			if _, err := api.UpdateSpecNode(cmd.Context(), client, &input); err != nil {
 				return api.MapError(err)
 			}
@@ -281,7 +396,7 @@ replacement over the cap is rejected.`,
 	// rename the flag's argument in --help (review:backticks-in-flag-usage-become-the-placeholder).
 	cmd.Flags().BoolVar(&stillAccurate, "abstract-still-accurate", false,
 		"assert you re-read the abstract and it still describes the spec: re-sends it unchanged so it is re-fingerprinted against the body, refreshing its verification")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would change without writing")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the proposed change as a diff of the stored text, without writing (a preview, not an approval)")
 	return cmd
 }
 
@@ -332,6 +447,31 @@ func parseEditBuffer(s string) (abstract, body string, err error) {
 	abstract = strings.TrimSpace(strings.Join(absLines, "\n"))
 	body = strings.Join(lines[bodyIdx+1:], "\n")
 	return abstract, body, nil
+}
+
+// fetchSpecForEdit is fetchSpecTaggedNode over the RAW read (GetSpecNodeRaw):
+// the body as stored, never Mustache-rendered. The same address resolution and
+// the same not-a-spec refusal; only the read differs.
+func fetchSpecForEdit(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetSpecNodeRawNode, error) {
+	loc, err := validateSpecLoc(loc)
+	if err != nil {
+		return nil, err
+	}
+	id, err := resolveSpecNode(cmd, client, memoryURN, loc)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := gen.GetSpecNodeRaw(cmd.Context(), client, id)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if resp.Node == nil {
+		return nil, exitcode.Newf(exitcode.NotFound, "spec %q not found", loc)
+	}
+	if !isSpec(resp.Node.Tags, resp.Node.Role) {
+		return nil, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag or spec role)", resp.Node.Loc)
+	}
+	return resp.Node, nil
 }
 
 // derefStr returns the string a *string points at, or "" if nil.
@@ -403,7 +543,10 @@ func countLines(s string) int {
 	return n
 }
 
-func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string) error {
+// dryRunDisclaimer closes every dry run, a no-op included.
+const dryRunDisclaimer = "dry run: nothing was written, and this preview is not an approval. Applying it is a separate `spec edit` run without --dry-run, which recomputes the change against the spec as stored at that moment."
+
+func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string, armsStale bool) error {
 	verb := "✓ updated"
 	if r.DryRun {
 		verb = "would update"
@@ -418,17 +561,36 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 	if r.AbstractReaffirmed {
 		fmt.Fprintln(w, "  abstract: unchanged, re-fingerprinted against this body (verification refreshed)")
 	}
-	// Only nudge about the abstract when the body changed but the abstract
-	// didn't — now that the abstract is editable here, a meaning shift is easy
-	// to fold into the same command.
+	// Only nudge about the abstract when the body changed but a kept abstract
+	// didn't (armsAbstractStale) — now that the abstract is editable here, a
+	// meaning shift is easy to fold into the same command. With no abstract, or
+	// an emptied body, nothing can go stale and the reaffirm remedy would be
+	// refused, so there is nothing true to say.
 	//
 	// SUPPRESSED once re-affirmed, and that is the #612 fix as much as the flag
 	// is: the reminder asks the author to decide whether the abstract survived
 	// the edit, and --abstract-still-accurate is them answering it. Printing it
 	// anyway would ask a question they just answered, and leave the command
 	// still appearing to have no way to settle the marker.
-	if !r.DryRun && r.BodyChanged && !r.AbstractChanged && !r.AbstractReaffirmed {
-		fmt.Fprintf(w, "  reminder: refresh the abstract on %s with --abstract/--abstract-file if the rule's meaning changed — or, if you re-read it and it still describes the spec, re-affirm it with --abstract-still-accurate (the body edit has armed abstract-stale either way)\n", r.Citation)
+	if armsStale {
+		if r.DryRun {
+			// A consequence of saving, so the reviewer sees it before approving.
+			fmt.Fprintf(w, "  note: saving this changes the body and not the abstract, so it would arm abstract-stale on %s — add --abstract/--abstract-file if the rule's meaning changed, or --abstract-still-accurate if you re-read the abstract and it still describes the spec\n", r.Citation)
+		} else {
+			fmt.Fprintf(w, "  reminder: refresh the abstract on %s with --abstract/--abstract-file if the rule's meaning changed — or, if you re-read it and it still describes the spec, re-affirm it with --abstract-still-accurate (the body edit has armed abstract-stale either way)\n", r.Citation)
+		}
+	}
+	if r.DryRun {
+		// The change itself, not only its summary (cli#737): a reviewer asked
+		// to approve an edit has to be able to read it. Printed verbatim and
+		// unindented, so the diff stays a diff (and pastes into `patch`).
+		for _, c := range r.Changes {
+			if c.Diff == "" {
+				continue
+			}
+			fmt.Fprintf(w, "\n%s", c.Diff)
+		}
+		fmt.Fprintln(w, "\n"+dryRunDisclaimer)
 	}
 	return nil
 }

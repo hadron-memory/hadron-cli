@@ -1,5 +1,9 @@
 # Implementation Plan: `hadron spec edit` — in-place body edit
 
+> **Partly superseded:** the dry-run output described below is replaced by
+> [`spec-edit-preview.md`](spec-edit-preview.md) (cli#737), which shows the
+> change itself and adds `changes[]` to `--json`.
+
 > **Status: shipped** — merged 2026-06-18 (`815ec30`). Design *as built* and the review artifact for the change. Closes the
 > `$EDITOR` half of item #1 of
 > [hadron-cli#41](https://github.com/hadron-memory/hadron-cli/issues/41)
