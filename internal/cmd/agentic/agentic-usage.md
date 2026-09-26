@@ -1275,7 +1275,18 @@ Conventions:
   together in $EDITOR pre-loaded (divided by sentinel lines) — or replaces either
   non-interactively from `--content -`/`--content-file` and/or
   `--abstract -`/`--abstract-file` — writing only the field(s) that actually
-  changed and preserving the rest (`--dry-run` previews). In `spec new|edit|
+  changed and preserving the rest. `spec edit` reads the body **raw** (as
+  stored, `{{…}}` placeholders intact), so the editor, the preview and the
+  write never see Mustache-rendered text (cli#737). **`--dry-run` shows the
+  change itself and writes nothing:** the terminal prints a unified diff per
+  field, and `--json` carries `changes[]`, one entry per field written, each
+  `{field: content|abstract, change: replaced|cleared|reaffirmed, before, after,
+  diff}` (`before`/`after` byte-exact; `diff` is `""` for `reaffirmed`, which
+  re-sends the same text). A no-op is `changed: false` with `changes: []`. The
+  same `changes[]` is reported by a real edit, built from the one proposal the
+  write sends, so a preview cannot show one change and the save send another.
+  A preview is **not an approval**: applying it is a separate run without
+  `--dry-run`, which recomputes against the spec as stored then. In `spec new|edit|
   extract`, `--content -` and `--abstract -` are for a PIPE and are **refused
   (exit 2) from an interactive terminal** (#648); use the `-file` form. **A body-only edit
   ARMS `abstract-stale`** (the abstract was fingerprinted against the old

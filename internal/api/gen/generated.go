@@ -11472,6 +11472,81 @@ func (v *GetScopeScope) __premarshalJSON() (*__premarshalGetScopeScope, error) {
 	return &retval, nil
 }
 
+// GetSpecNodeRawNode includes the requested fields of the GraphQL type Node.
+type GetSpecNodeRawNode struct {
+	Id       string   `json:"id"`
+	MemoryId string   `json:"memoryId"`
+	Loc      string   `json:"loc"`
+	Name     string   `json:"name"`
+	Tags     []string `json:"tags"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
+	Role    *string `json:"role"`
+	Content *string `json:"content"`
+	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	Abstract *string `json:"abstract"`
+}
+
+// GetId returns GetSpecNodeRawNode.Id, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeRawNode) GetId() string { return v.Id }
+
+// GetMemoryId returns GetSpecNodeRawNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeRawNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns GetSpecNodeRawNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeRawNode) GetLoc() string { return v.Loc }
+
+// GetName returns GetSpecNodeRawNode.Name, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeRawNode) GetName() string { return v.Name }
+
+// GetTags returns GetSpecNodeRawNode.Tags, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeRawNode) GetTags() []string { return v.Tags }
+
+// GetRole returns GetSpecNodeRawNode.Role, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeRawNode) GetRole() *string { return v.Role }
+
+// GetContent returns GetSpecNodeRawNode.Content, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeRawNode) GetContent() *string { return v.Content }
+
+// GetAbstract returns GetSpecNodeRawNode.Abstract, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeRawNode) GetAbstract() *string { return v.Abstract }
+
+// GetSpecNodeRawResponse is returned by GetSpecNodeRaw on success.
+type GetSpecNodeRawResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a readable memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
+	// resolve. Access: the caller's readable-memory set (same gate the old
+	// queries used); denied and missing are both null.
+	Node *GetSpecNodeRawNode `json:"node"`
+}
+
+// GetNode returns GetSpecNodeRawResponse.Node, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeRawResponse) GetNode() *GetSpecNodeRawNode { return v.Node }
+
 // GetTeamSessionResponse is returned by GetTeamSession on success.
 type GetTeamSessionResponse struct {
 	Session *GetTeamSessionSession `json:"session"`
@@ -30417,6 +30492,14 @@ type __GetScopeInput struct {
 // GetRef returns __GetScopeInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetScopeInput) GetRef() string { return v.Ref }
 
+// __GetSpecNodeRawInput is used internally by genqlient
+type __GetSpecNodeRawInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetSpecNodeRawInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetSpecNodeRawInput) GetRef() string { return v.Ref }
+
 // __GetTeamSessionInput is used internally by genqlient
 type __GetTeamSessionInput struct {
 	Id string `json:"id"`
@@ -36900,6 +36983,61 @@ func GetScope(
 	}
 
 	data_ = &GetScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetSpecNodeRaw.
+const GetSpecNodeRaw_Operation = `
+query GetSpecNodeRaw ($ref: ID!) {
+	node(ref: $ref, raw: true) {
+		id
+		memoryId
+		loc
+		name
+		tags
+		role
+		content
+		abstract
+	}
+}
+`
+
+// `spec edit`'s read (cli#737). A dedicated operation rather than GetNode,
+// for one reason: `raw: true`.
+//
+// Without it node(ref:) compiles the body's Mustache before returning it, so a
+// `{{name}}` placeholder comes back RENDERED (measured on production, cli#737:
+// 0 placeholders read plain, 2 read raw, same revision). `spec edit` builds
+// everything from this read (the $EDITOR buffer, the dry-run preview and the
+// write), and from rendered text it would preview a diff of text that is not
+// stored and, on an interactive save, write the placeholders away.
+//
+// `raw` has been on the server since hadron-server 7b5f66d6 (2026-04-12). It is
+// a literal, not a variable, so no caller can forget it. Only the fields the
+// edit path uses are selected; the general single-node read stays GetNode
+// (whether its callers go raw is cli#736).
+func GetSpecNodeRaw(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetSpecNodeRawResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetSpecNodeRaw",
+		Query:  GetSpecNodeRaw_Operation,
+		Variables: &__GetSpecNodeRawInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetSpecNodeRawResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

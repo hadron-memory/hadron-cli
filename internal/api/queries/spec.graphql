@@ -1,0 +1,26 @@
+# `spec edit`'s read (cli#737). A dedicated operation rather than GetNode,
+# for one reason: `raw: true`.
+#
+# Without it node(ref:) compiles the body's Mustache before returning it, so a
+# `{{name}}` placeholder comes back RENDERED (measured on production, cli#737:
+# 0 placeholders read plain, 2 read raw, same revision). `spec edit` builds
+# everything from this read (the $EDITOR buffer, the dry-run preview and the
+# write), and from rendered text it would preview a diff of text that is not
+# stored and, on an interactive save, write the placeholders away.
+#
+# `raw` has been on the server since hadron-server 7b5f66d6 (2026-04-12). It is
+# a literal, not a variable, so no caller can forget it. Only the fields the
+# edit path uses are selected; the general single-node read stays GetNode
+# (whether its callers go raw is cli#736).
+query GetSpecNodeRaw($ref: ID!) {
+  node(ref: $ref, raw: true) {
+    id
+    memoryId
+    loc
+    name
+    tags
+    role
+    content
+    abstract
+  }
+}
