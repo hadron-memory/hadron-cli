@@ -22,6 +22,7 @@
 # @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
 # @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
 # @genqlient(for: "NodeFilter.where", omitempty: true)
+# @genqlient(for: "NodeFilter.role", omitempty: true)
 # NodeWhereInput / NodePropertySort are bound to hand-authored structs
 # (internal/api/gqltypes, wired in genqlient.yaml) whose json tags pin the
 # omit-vs-null wire contract — genqlient's own omitempty resolution is

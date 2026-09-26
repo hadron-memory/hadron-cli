@@ -6780,7 +6780,8 @@ func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayload) GetWarnings() 
 // The GraphQL type's documentation follows.
 //
 // #1325 — one node-role rule. Task and description references are stored by
-// node id (they survive moves) and returned as URNs, each with its state.
+// node id (they survive moves) and returned as a URN and an id, each with its
+// state. Both are given only when the state is OK; see NodeRoleRuleRefState.
 type CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule struct {
 	NodeRoleRuleFields `json:"-"`
 }
@@ -6825,6 +6826,11 @@ func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
 	return v.NodeRoleRuleFields.AuthorTask
 }
 
+// GetAuthorTaskId returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTaskId, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTaskId() *string {
+	return v.NodeRoleRuleFields.AuthorTaskId
+}
+
 // GetAuthorTaskState returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTaskState, and is useful for accessing the field via an interface.
 func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTaskState() NodeRoleRuleRefState {
 	return v.NodeRoleRuleFields.AuthorTaskState
@@ -6835,6 +6841,11 @@ func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
 	return v.NodeRoleRuleFields.ValidationTask
 }
 
+// GetValidationTaskId returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTaskId, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTaskId() *string {
+	return v.NodeRoleRuleFields.ValidationTaskId
+}
+
 // GetValidationTaskState returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTaskState, and is useful for accessing the field via an interface.
 func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTaskState() NodeRoleRuleRefState {
 	return v.NodeRoleRuleFields.ValidationTaskState
@@ -6843,6 +6854,11 @@ func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
 // GetDescriptionNode returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNode, and is useful for accessing the field via an interface.
 func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNode() *string {
 	return v.NodeRoleRuleFields.DescriptionNode
+}
+
+// GetDescriptionNodeId returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNodeId, and is useful for accessing the field via an interface.
+func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNodeId() *string {
+	return v.NodeRoleRuleFields.DescriptionNodeId
 }
 
 // GetDescriptionNodeState returns CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNodeState, and is useful for accessing the field via an interface.
@@ -6927,13 +6943,19 @@ type __premarshalCreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNode
 
 	AuthorTask *string `json:"authorTask"`
 
+	AuthorTaskId *string `json:"authorTaskId"`
+
 	AuthorTaskState NodeRoleRuleRefState `json:"authorTaskState"`
 
 	ValidationTask *string `json:"validationTask"`
 
+	ValidationTaskId *string `json:"validationTaskId"`
+
 	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
 
 	DescriptionNode *string `json:"descriptionNode"`
+
+	DescriptionNodeId *string `json:"descriptionNodeId"`
 
 	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
 
@@ -6971,10 +6993,13 @@ func (v *CreateNodeRoleRuleCreateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
 	retval.Writers = v.NodeRoleRuleFields.Writers
 	retval.ValidateBy = v.NodeRoleRuleFields.ValidateBy
 	retval.AuthorTask = v.NodeRoleRuleFields.AuthorTask
+	retval.AuthorTaskId = v.NodeRoleRuleFields.AuthorTaskId
 	retval.AuthorTaskState = v.NodeRoleRuleFields.AuthorTaskState
 	retval.ValidationTask = v.NodeRoleRuleFields.ValidationTask
+	retval.ValidationTaskId = v.NodeRoleRuleFields.ValidationTaskId
 	retval.ValidationTaskState = v.NodeRoleRuleFields.ValidationTaskState
 	retval.DescriptionNode = v.NodeRoleRuleFields.DescriptionNode
+	retval.DescriptionNodeId = v.NodeRoleRuleFields.DescriptionNodeId
 	retval.DescriptionNodeState = v.NodeRoleRuleFields.DescriptionNodeState
 	retval.Locked = v.NodeRoleRuleFields.Locked
 	retval.SourceTemplateId = v.NodeRoleRuleFields.SourceTemplateId
@@ -13108,7 +13133,8 @@ func (v *MemoryConfigMemoryConfig) GetRules() []*MemoryConfigMemoryConfigRulesNo
 // The GraphQL type's documentation follows.
 //
 // #1325 — one node-role rule. Task and description references are stored by
-// node id (they survive moves) and returned as URNs, each with its state.
+// node id (they survive moves) and returned as a URN and an id, each with its
+// state. Both are given only when the state is OK; see NodeRoleRuleRefState.
 type MemoryConfigMemoryConfigRulesNodeRoleRule struct {
 	NodeRoleRuleFields `json:"-"`
 }
@@ -13151,6 +13177,11 @@ func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetAuthorTask() *string {
 	return v.NodeRoleRuleFields.AuthorTask
 }
 
+// GetAuthorTaskId returns MemoryConfigMemoryConfigRulesNodeRoleRule.AuthorTaskId, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetAuthorTaskId() *string {
+	return v.NodeRoleRuleFields.AuthorTaskId
+}
+
 // GetAuthorTaskState returns MemoryConfigMemoryConfigRulesNodeRoleRule.AuthorTaskState, and is useful for accessing the field via an interface.
 func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetAuthorTaskState() NodeRoleRuleRefState {
 	return v.NodeRoleRuleFields.AuthorTaskState
@@ -13161,6 +13192,11 @@ func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetValidationTask() *string 
 	return v.NodeRoleRuleFields.ValidationTask
 }
 
+// GetValidationTaskId returns MemoryConfigMemoryConfigRulesNodeRoleRule.ValidationTaskId, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetValidationTaskId() *string {
+	return v.NodeRoleRuleFields.ValidationTaskId
+}
+
 // GetValidationTaskState returns MemoryConfigMemoryConfigRulesNodeRoleRule.ValidationTaskState, and is useful for accessing the field via an interface.
 func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetValidationTaskState() NodeRoleRuleRefState {
 	return v.NodeRoleRuleFields.ValidationTaskState
@@ -13169,6 +13205,11 @@ func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetValidationTaskState() Nod
 // GetDescriptionNode returns MemoryConfigMemoryConfigRulesNodeRoleRule.DescriptionNode, and is useful for accessing the field via an interface.
 func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetDescriptionNode() *string {
 	return v.NodeRoleRuleFields.DescriptionNode
+}
+
+// GetDescriptionNodeId returns MemoryConfigMemoryConfigRulesNodeRoleRule.DescriptionNodeId, and is useful for accessing the field via an interface.
+func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) GetDescriptionNodeId() *string {
+	return v.NodeRoleRuleFields.DescriptionNodeId
 }
 
 // GetDescriptionNodeState returns MemoryConfigMemoryConfigRulesNodeRoleRule.DescriptionNodeState, and is useful for accessing the field via an interface.
@@ -13253,13 +13294,19 @@ type __premarshalMemoryConfigMemoryConfigRulesNodeRoleRule struct {
 
 	AuthorTask *string `json:"authorTask"`
 
+	AuthorTaskId *string `json:"authorTaskId"`
+
 	AuthorTaskState NodeRoleRuleRefState `json:"authorTaskState"`
 
 	ValidationTask *string `json:"validationTask"`
 
+	ValidationTaskId *string `json:"validationTaskId"`
+
 	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
 
 	DescriptionNode *string `json:"descriptionNode"`
+
+	DescriptionNodeId *string `json:"descriptionNodeId"`
 
 	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
 
@@ -13297,10 +13344,13 @@ func (v *MemoryConfigMemoryConfigRulesNodeRoleRule) __premarshalJSON() (*__prema
 	retval.Writers = v.NodeRoleRuleFields.Writers
 	retval.ValidateBy = v.NodeRoleRuleFields.ValidateBy
 	retval.AuthorTask = v.NodeRoleRuleFields.AuthorTask
+	retval.AuthorTaskId = v.NodeRoleRuleFields.AuthorTaskId
 	retval.AuthorTaskState = v.NodeRoleRuleFields.AuthorTaskState
 	retval.ValidationTask = v.NodeRoleRuleFields.ValidationTask
+	retval.ValidationTaskId = v.NodeRoleRuleFields.ValidationTaskId
 	retval.ValidationTaskState = v.NodeRoleRuleFields.ValidationTaskState
 	retval.DescriptionNode = v.NodeRoleRuleFields.DescriptionNode
+	retval.DescriptionNodeId = v.NodeRoleRuleFields.DescriptionNodeId
 	retval.DescriptionNodeState = v.NodeRoleRuleFields.DescriptionNodeState
 	retval.Locked = v.NodeRoleRuleFields.Locked
 	retval.SourceTemplateId = v.NodeRoleRuleFields.SourceTemplateId
@@ -14875,7 +14925,7 @@ type NodeFilter struct {
 	// #725 — collection facet: only nodes whose objectType equals this (e.g. "competitor").
 	ObjectType *string `json:"objectType,omitempty"`
 	// #1322 — role-family filter. 'spec' matches 'spec' and 'spec.*' on a dot boundary, never 'special' / 'specification'.
-	Role          *string  `json:"role"`
+	Role          *string  `json:"role,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
 	UpdatedAfter  *string  `json:"updatedAfter,omitempty"`
 	UpdatedBefore *string  `json:"updatedBefore,omitempty"`
@@ -15325,7 +15375,8 @@ func (v *NodeRevisionsResponse) GetNodeRevisions() []*NodeRevisionsNodeRevisions
 // The GraphQL type's documentation follows.
 //
 // #1325 — one node-role rule. Task and description references are stored by
-// node id (they survive moves) and returned as URNs, each with its state.
+// node id (they survive moves) and returned as a URN and an id, each with its
+// state. Both are given only when the state is OK; see NodeRoleRuleRefState.
 type NodeRoleRuleFields struct {
 	// The rule's id — its ref for updateNodeRoleRule / deleteNodeRoleRule (a rule has no URN).
 	Id string `json:"id"`
@@ -15339,11 +15390,14 @@ type NodeRoleRuleFields struct {
 	Writers             NodeRoleWriters      `json:"writers"`
 	ValidateBy          *ContentValidator    `json:"validateBy"`
 	AuthorTask          *string              `json:"authorTask"`
+	AuthorTaskId        *string              `json:"authorTaskId"`
 	AuthorTaskState     NodeRoleRuleRefState `json:"authorTaskState"`
 	ValidationTask      *string              `json:"validationTask"`
+	ValidationTaskId    *string              `json:"validationTaskId"`
 	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
 	// Documentation, not procedure: a deleted description node reads as NONE, never BROKEN.
 	DescriptionNode      *string              `json:"descriptionNode"`
+	DescriptionNodeId    *string              `json:"descriptionNodeId"`
 	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
 	// Set by applying a required template (#1334).
 	Locked bool `json:"locked"`
@@ -15380,11 +15434,17 @@ func (v *NodeRoleRuleFields) GetValidateBy() *ContentValidator { return v.Valida
 // GetAuthorTask returns NodeRoleRuleFields.AuthorTask, and is useful for accessing the field via an interface.
 func (v *NodeRoleRuleFields) GetAuthorTask() *string { return v.AuthorTask }
 
+// GetAuthorTaskId returns NodeRoleRuleFields.AuthorTaskId, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetAuthorTaskId() *string { return v.AuthorTaskId }
+
 // GetAuthorTaskState returns NodeRoleRuleFields.AuthorTaskState, and is useful for accessing the field via an interface.
 func (v *NodeRoleRuleFields) GetAuthorTaskState() NodeRoleRuleRefState { return v.AuthorTaskState }
 
 // GetValidationTask returns NodeRoleRuleFields.ValidationTask, and is useful for accessing the field via an interface.
 func (v *NodeRoleRuleFields) GetValidationTask() *string { return v.ValidationTask }
+
+// GetValidationTaskId returns NodeRoleRuleFields.ValidationTaskId, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetValidationTaskId() *string { return v.ValidationTaskId }
 
 // GetValidationTaskState returns NodeRoleRuleFields.ValidationTaskState, and is useful for accessing the field via an interface.
 func (v *NodeRoleRuleFields) GetValidationTaskState() NodeRoleRuleRefState {
@@ -15393,6 +15453,9 @@ func (v *NodeRoleRuleFields) GetValidationTaskState() NodeRoleRuleRefState {
 
 // GetDescriptionNode returns NodeRoleRuleFields.DescriptionNode, and is useful for accessing the field via an interface.
 func (v *NodeRoleRuleFields) GetDescriptionNode() *string { return v.DescriptionNode }
+
+// GetDescriptionNodeId returns NodeRoleRuleFields.DescriptionNodeId, and is useful for accessing the field via an interface.
+func (v *NodeRoleRuleFields) GetDescriptionNodeId() *string { return v.DescriptionNodeId }
 
 // GetDescriptionNodeState returns NodeRoleRuleFields.DescriptionNodeState, and is useful for accessing the field via an interface.
 func (v *NodeRoleRuleFields) GetDescriptionNodeState() NodeRoleRuleRefState {
@@ -15441,11 +15504,13 @@ func (v *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate) GetDeleted(
 	return v.Deleted
 }
 
-// #1325 — the state of one rule reference, next to its URN. NONE: not
-// configured. OK: the URN is given. BROKEN: configured, but the node was
-// deleted, so operations relying on the rule are refused until a manager
-// repoints it (fail-closed). UNREADABLE: the node exists but you may not read
-// it, so its URN is withheld.
+// #1325 — the state of one rule reference, next to its URN and id. NONE: not
+// configured. OK: the node is live and you can read it; its id is given, and
+// its URN too unless the node's memory has a legacy URN that cannot address it
+// (#697), when the URN is null and the id is the ref to use. BROKEN: configured,
+// but the node was deleted, so operations relying on the rule are refused until
+// a manager repoints it (fail-closed). UNREADABLE: the node exists but you may
+// not read it, so its URN and id are withheld.
 type NodeRoleRuleRefState string
 
 const (
@@ -24049,7 +24114,8 @@ func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePaylo
 // The GraphQL type's documentation follows.
 //
 // #1325 — one node-role rule. Task and description references are stored by
-// node id (they survive moves) and returned as URNs, each with its state.
+// node id (they survive moves) and returned as a URN and an id, each with its
+// state. Both are given only when the state is OK; see NodeRoleRuleRefState.
 type UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule struct {
 	NodeRoleRuleFields `json:"-"`
 }
@@ -24094,6 +24160,11 @@ func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePaylo
 	return v.NodeRoleRuleFields.AuthorTask
 }
 
+// GetAuthorTaskId returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTaskId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTaskId() *string {
+	return v.NodeRoleRuleFields.AuthorTaskId
+}
+
 // GetAuthorTaskState returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTaskState, and is useful for accessing the field via an interface.
 func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTaskState() NodeRoleRuleRefState {
 	return v.NodeRoleRuleFields.AuthorTaskState
@@ -24104,6 +24175,11 @@ func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePaylo
 	return v.NodeRoleRuleFields.ValidationTask
 }
 
+// GetValidationTaskId returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTaskId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTaskId() *string {
+	return v.NodeRoleRuleFields.ValidationTaskId
+}
+
 // GetValidationTaskState returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTaskState, and is useful for accessing the field via an interface.
 func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTaskState() NodeRoleRuleRefState {
 	return v.NodeRoleRuleFields.ValidationTaskState
@@ -24112,6 +24188,11 @@ func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePaylo
 // GetDescriptionNode returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNode, and is useful for accessing the field via an interface.
 func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNode() *string {
 	return v.NodeRoleRuleFields.DescriptionNode
+}
+
+// GetDescriptionNodeId returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNodeId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNodeId() *string {
+	return v.NodeRoleRuleFields.DescriptionNodeId
 }
 
 // GetDescriptionNodeState returns UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNodeState, and is useful for accessing the field via an interface.
@@ -24196,13 +24277,19 @@ type __premarshalUpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleR
 
 	AuthorTask *string `json:"authorTask"`
 
+	AuthorTaskId *string `json:"authorTaskId"`
+
 	AuthorTaskState NodeRoleRuleRefState `json:"authorTaskState"`
 
 	ValidationTask *string `json:"validationTask"`
 
+	ValidationTaskId *string `json:"validationTaskId"`
+
 	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
 
 	DescriptionNode *string `json:"descriptionNode"`
+
+	DescriptionNodeId *string `json:"descriptionNodeId"`
 
 	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
 
@@ -24240,10 +24327,13 @@ func (v *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePaylo
 	retval.Writers = v.NodeRoleRuleFields.Writers
 	retval.ValidateBy = v.NodeRoleRuleFields.ValidateBy
 	retval.AuthorTask = v.NodeRoleRuleFields.AuthorTask
+	retval.AuthorTaskId = v.NodeRoleRuleFields.AuthorTaskId
 	retval.AuthorTaskState = v.NodeRoleRuleFields.AuthorTaskState
 	retval.ValidationTask = v.NodeRoleRuleFields.ValidationTask
+	retval.ValidationTaskId = v.NodeRoleRuleFields.ValidationTaskId
 	retval.ValidationTaskState = v.NodeRoleRuleFields.ValidationTaskState
 	retval.DescriptionNode = v.NodeRoleRuleFields.DescriptionNode
+	retval.DescriptionNodeId = v.NodeRoleRuleFields.DescriptionNodeId
 	retval.DescriptionNodeState = v.NodeRoleRuleFields.DescriptionNodeState
 	retval.Locked = v.NodeRoleRuleFields.Locked
 	retval.SourceTemplateId = v.NodeRoleRuleFields.SourceTemplateId
@@ -24413,7 +24503,8 @@ func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload) GetWarnings() 
 // The GraphQL type's documentation follows.
 //
 // #1325 — one node-role rule. Task and description references are stored by
-// node id (they survive moves) and returned as URNs, each with its state.
+// node id (they survive moves) and returned as a URN and an id, each with its
+// state. Both are given only when the state is OK; see NodeRoleRuleRefState.
 type UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule struct {
 	NodeRoleRuleFields `json:"-"`
 }
@@ -24458,6 +24549,11 @@ func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
 	return v.NodeRoleRuleFields.AuthorTask
 }
 
+// GetAuthorTaskId returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTaskId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTaskId() *string {
+	return v.NodeRoleRuleFields.AuthorTaskId
+}
+
 // GetAuthorTaskState returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTaskState, and is useful for accessing the field via an interface.
 func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTaskState() NodeRoleRuleRefState {
 	return v.NodeRoleRuleFields.AuthorTaskState
@@ -24468,6 +24564,11 @@ func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
 	return v.NodeRoleRuleFields.ValidationTask
 }
 
+// GetValidationTaskId returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTaskId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTaskId() *string {
+	return v.NodeRoleRuleFields.ValidationTaskId
+}
+
 // GetValidationTaskState returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTaskState, and is useful for accessing the field via an interface.
 func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTaskState() NodeRoleRuleRefState {
 	return v.NodeRoleRuleFields.ValidationTaskState
@@ -24476,6 +24577,11 @@ func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
 // GetDescriptionNode returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNode, and is useful for accessing the field via an interface.
 func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNode() *string {
 	return v.NodeRoleRuleFields.DescriptionNode
+}
+
+// GetDescriptionNodeId returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNodeId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNodeId() *string {
+	return v.NodeRoleRuleFields.DescriptionNodeId
 }
 
 // GetDescriptionNodeState returns UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNodeState, and is useful for accessing the field via an interface.
@@ -24560,13 +24666,19 @@ type __premarshalUpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNode
 
 	AuthorTask *string `json:"authorTask"`
 
+	AuthorTaskId *string `json:"authorTaskId"`
+
 	AuthorTaskState NodeRoleRuleRefState `json:"authorTaskState"`
 
 	ValidationTask *string `json:"validationTask"`
 
+	ValidationTaskId *string `json:"validationTaskId"`
+
 	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
 
 	DescriptionNode *string `json:"descriptionNode"`
+
+	DescriptionNodeId *string `json:"descriptionNodeId"`
 
 	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
 
@@ -24604,10 +24716,13 @@ func (v *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
 	retval.Writers = v.NodeRoleRuleFields.Writers
 	retval.ValidateBy = v.NodeRoleRuleFields.ValidateBy
 	retval.AuthorTask = v.NodeRoleRuleFields.AuthorTask
+	retval.AuthorTaskId = v.NodeRoleRuleFields.AuthorTaskId
 	retval.AuthorTaskState = v.NodeRoleRuleFields.AuthorTaskState
 	retval.ValidationTask = v.NodeRoleRuleFields.ValidationTask
+	retval.ValidationTaskId = v.NodeRoleRuleFields.ValidationTaskId
 	retval.ValidationTaskState = v.NodeRoleRuleFields.ValidationTaskState
 	retval.DescriptionNode = v.NodeRoleRuleFields.DescriptionNode
+	retval.DescriptionNodeId = v.NodeRoleRuleFields.DescriptionNodeId
 	retval.DescriptionNodeState = v.NodeRoleRuleFields.DescriptionNodeState
 	retval.Locked = v.NodeRoleRuleFields.Locked
 	retval.SourceTemplateId = v.NodeRoleRuleFields.SourceTemplateId
@@ -32815,10 +32930,13 @@ fragment NodeRoleRuleFields on NodeRoleRule {
 	writers
 	validateBy
 	authorTask
+	authorTaskId
 	authorTaskState
 	validationTask
+	validationTaskId
 	validationTaskState
 	descriptionNode
+	descriptionNodeId
 	descriptionNodeState
 	locked
 	sourceTemplateId
@@ -35911,10 +36029,13 @@ fragment NodeRoleRuleFields on NodeRoleRule {
 	writers
 	validateBy
 	authorTask
+	authorTaskId
 	authorTaskState
 	validationTask
+	validationTaskId
 	validationTaskState
 	descriptionNode
+	descriptionNodeId
 	descriptionNodeState
 	locked
 	sourceTemplateId
@@ -39750,10 +39871,13 @@ fragment NodeRoleRuleFields on NodeRoleRule {
 	writers
 	validateBy
 	authorTask
+	authorTaskId
 	authorTaskState
 	validationTask
+	validationTaskId
 	validationTaskState
 	descriptionNode
+	descriptionNodeId
 	descriptionNodeState
 	locked
 	sourceTemplateId
@@ -39829,10 +39953,13 @@ fragment NodeRoleRuleFields on NodeRoleRule {
 	writers
 	validateBy
 	authorTask
+	authorTaskId
 	authorTaskState
 	validationTask
+	validationTaskId
 	validationTaskState
 	descriptionNode
+	descriptionNodeId
 	descriptionNodeState
 	locked
 	sourceTemplateId

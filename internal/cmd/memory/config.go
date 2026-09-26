@@ -3,6 +3,7 @@ package memory
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -25,9 +26,11 @@ import (
 // nodeRoleRuleDTO is the stable --json shape of one rule. Field changes here are
 // contract changes (docs/agentic-usage.md).
 //
-// A reference is its URN AND its state. The URN is null unless the state is OK:
-// BROKEN (the node was deleted) and UNREADABLE (it exists; you may not read it)
-// both withhold it, and the CLI never guesses one.
+// A reference is its URN, its id AND its state. The id and URN are null unless
+// the state is OK: BROKEN (the node was deleted) and UNREADABLE (it exists; you
+// may not read it) both withhold them, and the CLI never guesses one. Even an OK
+// reference can have a null URN — its memory's legacy URN cannot address it
+// (#697) — and then the id is the ref to send back.
 type nodeRoleRuleDTO struct {
 	ID                   string             `json:"id"`
 	Role                 string             `json:"role"`
@@ -37,10 +40,13 @@ type nodeRoleRuleDTO struct {
 	Writers              string             `json:"writers"`
 	ValidateBy           *string            `json:"validateBy"`
 	AuthorTask           *string            `json:"authorTask"`
+	AuthorTaskID         *string            `json:"authorTaskId"`
 	AuthorTaskState      string             `json:"authorTaskState"`
 	ValidationTask       *string            `json:"validationTask"`
+	ValidationTaskID     *string            `json:"validationTaskId"`
 	ValidationTaskState  string             `json:"validationTaskState"`
 	DescriptionNode      *string            `json:"descriptionNode"`
+	DescriptionNodeID    *string            `json:"descriptionNodeId"`
 	DescriptionNodeState string             `json:"descriptionNodeState"`
 	Locked               bool               `json:"locked"`
 	SourceTemplateID     *string            `json:"sourceTemplateId"`
@@ -99,9 +105,9 @@ func dtoFromRule(r *gen.NodeRoleRuleFields) nodeRoleRuleDTO {
 	dto := nodeRoleRuleDTO{
 		ID: r.Id, Role: r.Role, Revision: r.Revision, Enabled: r.Enabled,
 		StrictSubRoles: r.StrictSubRoles, Writers: string(r.Writers),
-		AuthorTask: r.AuthorTask, AuthorTaskState: string(r.AuthorTaskState),
-		ValidationTask: r.ValidationTask, ValidationTaskState: string(r.ValidationTaskState),
-		DescriptionNode: r.DescriptionNode, DescriptionNodeState: string(r.DescriptionNodeState),
+		AuthorTask: r.AuthorTask, AuthorTaskID: r.AuthorTaskId, AuthorTaskState: string(r.AuthorTaskState),
+		ValidationTask: r.ValidationTask, ValidationTaskID: r.ValidationTaskId, ValidationTaskState: string(r.ValidationTaskState),
+		DescriptionNode: r.DescriptionNode, DescriptionNodeID: r.DescriptionNodeId, DescriptionNodeState: string(r.DescriptionNodeState),
 		Locked: r.Locked, SourceTemplateID: r.SourceTemplateId,
 		CreatedAt: r.CreatedAt, CreatedBy: r.CreatedBy, UpdatedAt: r.UpdatedAt, UpdatedBy: r.UpdatedBy,
 	}
@@ -215,9 +221,9 @@ func renderRule(w io.Writer, r nodeRoleRuleDTO) error {
 		{"strict sub-roles", yesNo(r.StrictSubRoles)},
 		{"writers", r.Writers},
 		{"validate by", validateBy},
-		{"author task", refCell(r.AuthorTask, r.AuthorTaskState, "--author-task")},
-		{"validation task", refCell(r.ValidationTask, r.ValidationTaskState, "--validation-task")},
-		{"description node", refCell(r.DescriptionNode, r.DescriptionNodeState, "--description-node")},
+		{"author task", refCell(r.AuthorTask, r.AuthorTaskID, r.AuthorTaskState, "--author-task")},
+		{"validation task", refCell(r.ValidationTask, r.ValidationTaskID, r.ValidationTaskState, "--validation-task")},
+		{"description node", refCell(r.DescriptionNode, r.DescriptionNodeID, r.DescriptionNodeState, "--description-node")},
 		{"locked", yesNo(r.Locked)},
 		{"source template", templateCell(r)},
 	}
@@ -234,14 +240,19 @@ func renderRule(w io.Writer, r nodeRoleRuleDTO) error {
 
 // refCell renders a reference by its STATE, never by guessing a URN the server
 // withheld. BROKEN and UNREADABLE are different facts with different remedies
-// (#1325 H5, #1327), so they must not share a rendering.
-func refCell(urn *string, state, flag string) string {
+// (#1325 H5, #1327), so they must not share a rendering. An OK reference whose
+// URN is null is still addressable — by its id — and must never read as broken.
+func refCell(urn, id *string, state, flag string) string {
 	switch state {
 	case "OK":
-		if urn != nil {
+		switch {
+		case urn != nil:
 			return *urn
+		case id != nil:
+			return *id + " (id; its memory's legacy URN cannot address it — pass the id)"
+		default:
+			return "OK (neither URN nor id returned)"
 		}
-		return "OK (URN not returned)"
 	case "NONE":
 		return "—"
 	case "BROKEN":
@@ -301,12 +312,26 @@ func findRule(cmd *cobra.Command, f *cmdutil.Factory, memoryRef, role string) (*
 	if resp.MemoryConfig == nil {
 		return nil, "", notFoundMemory(memoryRef)
 	}
+	roles := []string{}
 	for _, r := range resp.MemoryConfig.Rules {
-		if r != nil && r.Role == role {
+		if r == nil {
+			continue
+		}
+		if r.Role == role {
 			return &r.NodeRoleRuleFields, resp.MemoryConfig.MemoryId, nil
 		}
+		roles = append(roles, r.Role)
+	}
+	// Exit 4 is the truthful answer: there IS no rule for this role. A role
+	// outside the grammar cannot have one, so it lands here too rather than on
+	// INVALID_NODE_ROLE (2). The grammar stays the server's alone — copying it
+	// would be a second definition to drift, and it already changed once during
+	// #1325's own review (a floated `_` was dropped). Naming the roles that DO
+	// exist, from the same read, is what turns a typo ("Spec") into a fix.
+	have := "it has no rules"
+	if len(roles) > 0 {
+		have = "its rules are for: " + strings.Join(roles, ", ")
 	}
 	return nil, "", exitcode.Newf(exitcode.NotFound,
-		"memory %s has no rule for role %q — `hadron memory config get %s` lists its rules",
-		memoryRef, role, memoryRef)
+		"memory %s has no rule for role %q (roles are matched exactly) — %s", memoryRef, role, have)
 }

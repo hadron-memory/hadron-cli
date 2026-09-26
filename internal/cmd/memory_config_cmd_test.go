@@ -16,8 +16,8 @@ import (
 const configMemoryRef = "hrn:mem:acme.com:kb"
 
 // ruleJSON is one NodeRoleRule as the server returns it, with the given
-// reference states. A reference whose state is not OK carries a null URN —
-// the server never returns a URN beside BROKEN or UNREADABLE.
+// reference states. A reference whose state is not OK carries a null URN AND a
+// null id — the server never returns either beside BROKEN or UNREADABLE.
 func ruleJSON(id, role string, revision int, authorState, validationState string) string {
 	urn := func(state, loc string) string {
 		if state == "OK" {
@@ -25,11 +25,19 @@ func ruleJSON(id, role string, revision int, authorState, validationState string
 		}
 		return "null"
 	}
+	nodeID := func(state, hex string) string {
+		if state == "OK" {
+			return `"` + hex + `"`
+		}
+		return "null"
+	}
 	return `{"id":"` + id + `","role":"` + role + `","revision":` + itoa(revision) + `,"enabled":true,
 		"strictSubRoles":false,"writers":"ALL","validateBy":"AGENT",
-		"authorTask":` + urn(authorState, "write") + `,"authorTaskState":"` + authorState + `",
-		"validationTask":` + urn(validationState, "check") + `,"validationTaskState":"` + validationState + `",
-		"descriptionNode":null,"descriptionNodeState":"NONE","locked":false,
+		"authorTask":` + urn(authorState, "write") + `,"authorTaskId":` + nodeID(authorState, "0123456789abcdef0123456789abcdef") + `,
+		"authorTaskState":"` + authorState + `",
+		"validationTask":` + urn(validationState, "check") + `,"validationTaskId":` + nodeID(validationState, "fedcba9876543210fedcba9876543210") + `,
+		"validationTaskState":"` + validationState + `",
+		"descriptionNode":null,"descriptionNodeId":null,"descriptionNodeState":"NONE","locked":false,
 		"sourceTemplateId":null,"sourceTemplate":null,
 		"createdAt":"2026-09-25T00:00:00Z","createdBy":"u1","updatedAt":null,"updatedBy":null}`
 }
@@ -215,6 +223,7 @@ func TestMemoryConfigRuleAddRefusesBadFlagsLocally(t *testing.T) {
 		"unknown writers":       {"--writers", "everyone"},
 		"unknown validate-by":   {"--validate-by", "human"},
 		"unqualified task ref":  {"--author-task", "tasks:write"},
+		"bare loc, no memory":   {"--author-task", "write-spec"},
 		"single-colon task ref": {"--validation-task", "acme.com:kb:tasks:check"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -491,4 +500,96 @@ func TestMemoryConfigRuleRm(t *testing.T) {
 			t.Errorf("exit = %d, want %d", code, exitcode.Conflict)
 		}
 	})
+}
+
+// #1360 eddffe5: an OK reference can carry a NULL URN — its memory's legacy URN
+// cannot address the node (#697) — and then the id is the ref. It must render
+// as addressable by that id, never as broken, and --json must carry the id.
+func TestMemoryConfigGetOKReferenceWithNullURNUsesTheID(t *testing.T) {
+	rule := strings.Replace(ruleJSON("r1", "spec", 2, "OK", "NONE"),
+		`"authorTask":"hrn:node:acme.com:kb:tasks:write"`, `"authorTask":null`, 1)
+	if strings.Contains(rule, "tasks:write") {
+		t.Fatalf("fixture still carries the author URN: %s", rule)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{"MemoryConfig": configJSON(rule)})
+
+	out, code := runConfig(t, gql.URL, "memory", "config", "get", configMemoryRef, "--json")
+	if code != exitcode.OK {
+		t.Fatalf("exit = %d\n%s", code, out)
+	}
+	var dto struct {
+		Rules []struct {
+			AuthorTask       *string `json:"authorTask"`
+			AuthorTaskID     *string `json:"authorTaskId"`
+			AuthorTaskState  string  `json:"authorTaskState"`
+			ValidationTaskID *string `json:"validationTaskId"`
+		} `json:"rules"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil || len(dto.Rules) != 1 {
+		t.Fatalf("output = %s (err %v)", out, err)
+	}
+	r := dto.Rules[0]
+	if r.AuthorTask != nil || r.AuthorTaskState != "OK" || r.AuthorTaskID == nil || *r.AuthorTaskID != "0123456789abcdef0123456789abcdef" {
+		t.Errorf("rule = %+v, want OK with a null URN and the id", r)
+	}
+	if r.ValidationTaskID != nil {
+		t.Errorf("a NONE reference must carry no id, got %v", *r.ValidationTaskID)
+	}
+	// The key is present as null on the raw output, not omitted.
+	if !strings.Contains(out, `"validationTaskId": null`) {
+		t.Errorf("an absent id must render as null, not be omitted:\n%s", out)
+	}
+
+	text, _ := runConfig(t, gql.URL, "memory", "config", "get", configMemoryRef)
+	if !strings.Contains(text, "0123456789abcdef0123456789abcdef (id;") {
+		t.Errorf("an OK reference with no URN must render its id:\n%s", text)
+	}
+	if strings.Contains(text, "BROKEN") || strings.Contains(text, "UNREADABLE") {
+		t.Errorf("an OK reference with no URN must not read as broken or unreadable:\n%s", text)
+	}
+}
+
+// A server id of EITHER shape passes through the reference flags unchanged:
+// they have no -m, so a colon-free token can only be an id (a Node's id
+// defaults to a CUID server-side). A bare loc is still refused locally.
+func TestMemoryConfigRuleRefFlagsAcceptBothIDShapes(t *testing.T) {
+	for name, ref := range map[string]string{
+		"32-hex id": "0123456789abcdef0123456789abcdef",
+		"cuid":      "cjld2cjxh0000qzrmn831i7rn",
+	} {
+		t.Run(name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"CreateNodeRoleRule": `{"data":{"createNodeRoleRule":{"rule":` + ruleJSON("r1", "spec", 1, "OK", "NONE") + `,"warnings":[]}}}`,
+			})
+			if _, code := runConfig(t, gql.URL, "memory", "config", "rule", "add", configMemoryRef, "spec", "--author-task", ref); code != exitcode.OK {
+				t.Fatalf("exit = %d, want 0", code)
+			}
+			if got := vars(t, captured["CreateNodeRoleRule"])["input"].(map[string]any)["authorTaskRef"]; got != ref {
+				t.Errorf("authorTaskRef = %v, want the id %q unchanged", got, ref)
+			}
+		})
+	}
+}
+
+// update/rm match the role against the rules that EXIST, so a role with no
+// rule — including one outside the grammar, which cannot have one — is exit 4,
+// and the message names the roles there are. The grammar is not copied
+// client-side (it is the server's, and it has already changed once).
+func TestMemoryConfigRuleUpdateUnknownRoleNamesTheRolesThatExist(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MemoryConfig": configJSON(ruleJSON("r1", "spec", 1, "NONE", "NONE"), ruleJSON("r2", "spec.rule", 1, "NONE", "NONE")),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "config", "rule", "update", configMemoryRef, "Spec", "--enabled=false", "--server", gql.URL})
+	err := root.Execute()
+	if code := renderError(f, err); code != exitcode.NotFound {
+		t.Errorf("exit = %d, want %d", code, exitcode.NotFound)
+	}
+	if err == nil || !strings.Contains(err.Error(), "spec, spec.rule") {
+		t.Errorf("error = %v, want it to name the existing roles", err)
+	}
+	if _, sent := captured["UpdateNodeRoleRule"]; sent {
+		t.Errorf("no update may be sent for a role with no rule")
+	}
 }

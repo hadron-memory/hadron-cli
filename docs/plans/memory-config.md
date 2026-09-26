@@ -1,9 +1,9 @@
 # Design as built: `memory config` — a memory's node-role rules (#716 slice 1)
 
-> **Status: built in a draft PR (Jane), against hadron-server#1360 (#1325
-> part b) at `058fce63`, stacked on #1345 at `3d41666`.** Neither is merged, so
-> the schema snapshot is a candidate; it is re-exported from the actual merge
-> before this lands. Part of hadron-concept#74 (CLI item 3). The design handoff,
+> **Status: built in draft PR cli#733 (Jane), against hadron-server#1360 (#1325
+> part b) at `9241c55`,** rebased onto server `main` `e3c24a3` after #1345
+> merged (`de6c06f`). #1360 is not merged, so the schema snapshot is a
+> candidate; it is re-exported from the actual merge before this lands. Part of hadron-concept#74 (CLI item 3). The design handoff,
 > Eli's Q1–Q9 answers and the API-readiness audit are on cli#716.
 
 ## 1. Scope
@@ -29,8 +29,10 @@ them yet.
   (optimistic concurrency): `updateNodeRoleRule` / `deleteNodeRoleRule` take
   `expectedRevision` and refuse a mismatch with `CONFLICT {currentRevision}`,
   writing nothing.
-- **References** are stored by node id and returned as a URN plus a state:
-  `NONE | OK | BROKEN | UNREADABLE`, the URN null unless OK.
+- **References** are stored by node id and returned as a URN, an id and a
+  state: `NONE | OK | BROKEN | UNREADABLE`. The id and URN are null unless OK,
+  and since #1360 `eddffe5` an OK reference's URN can be null too, when its
+  memory's legacy URN can't address it (#697). The id is then the ref.
 - **Update semantics:** an omitted input field is unchanged; a reference sent as
   `null` or `""` clears it; `validateBy` clears only on an explicit `null`.
 - **Errors:** `NODE_ROLE_RULE_EXISTS`, `INVALID_NODE_ROLE {role, reason, maxLength}`
@@ -47,7 +49,9 @@ them yet.
 it. Exit 4 is never rendered as "no rules": the refusal and the empty config
 are different facts, and only the second is the server's claim.
 
-A reference renders by its **state**, never by a guessed URN. BROKEN ("the node
+A reference renders by its **state**, never by a guessed URN. An OK reference
+with a null URN renders its id ("… (id; its memory's legacy URN cannot address
+it — pass the id)"), never as broken. BROKEN ("the node
 was deleted; a config manager must repoint it") and UNREADABLE ("it exists but
 you may not read it") get different text because their remedies differ. The
 human output is a labelled block per rule: too many fields, and URNs too long,
@@ -61,11 +65,25 @@ for a table row.
   optional input field; findings:null-vs-omitted-args).
 - **An empty value is a clear on `update` and a usage error on `add`** (nothing to
   clear). `--writers ""` is a usage error on both: writers cannot be cleared.
-- **Refs are canonicalized and validated locally (`cmdutil.BatchNodeRef`), then
-  resolved by the server.** No `resolveUrn` round-trip: the server resolves the
-  ref itself, conceals an unreadable node as missing, and has no creation lag.
+- **Refs are canonicalized and validated locally, then resolved by the
+  server.** No `resolveUrn` round-trip: the server resolves the ref itself,
+  conceals an unreadable node as missing, and has no creation lag. A server id
+  of **either** shape passes through (`cmdutil.IsEntityID`: 32-hex or a Prisma
+  CUID, the server's own `isId` rule, and a Node's id defaults to `cuid()`);
+  everything else goes through `cmdutil.BatchNodeRef`. `IsNodeID` stays narrow
+  on purpose, because there a CUID-shaped token can be a bare loc composed via
+  `-m`. These flags have no `-m`, so that ambiguity can't arise (Codex on #733).
 - **The role is sent verbatim.** The grammar is the server's (#1322), and a
   client-side trim would be the silent repair #1826 rules out.
+- **On `update`/`rm` the role is matched exactly against the rules that
+  exist**, so a role with no rule exits 4, and the message lists the roles that
+  do. That includes a malformed role, which can't have a rule. Codex and
+  Copilot both asked for a client-side grammar check (exit 2) instead. It is
+  declined: that would be a second definition of the grammar to drift, and the
+  grammar already changed once during #1325's own review (a floated `_` was
+  dropped between Eli's design and Dara's #1345). Exit 4 is also the truthful
+  answer: there is no such rule. Listing the existing roles is what turns a
+  typo (`Spec`) into a fix.
 - **`update` and `rm` read the config first.** That one read yields the rule's id
   (role → id) and its revision, and the write carries that revision. A rule
   changed in between is refused, exit 5, rather than overwritten or removed
@@ -111,13 +129,27 @@ caller can see.
 `add`/`update` print `{rule, warnings[]}`. A warning never changes the exit
 code; in the human branch it goes to stderr. Today the server returns none.
 
-## 4. Schema refresh check
+## 4. Schema refresh check: a wrong "harmless", kept on purpose
 
-Regenerating from #1360 added `NodeFilter.role` to an input the CLI already
-sends, with a bare `json:"role"` tag, so every `nodes` listing now sends
-`role: null`. Checked against the server: its filter applies `role` only when
-`f.role != null`, so null is the same as omitted. No regression, and read-path
-filters don't need `omitempty`.
+Regenerating from #1360 added `NodeFilter.role`, with a bare `json:"role"` tag,
+to an input the CLI already sends. So every `nodes` / search / chat listing
+started sending `role: null`.
+
+**What I first concluded, and why it was wrong.** I read the NEW server's
+filter (`role` applies only when `f.role != null`) and called it "harmless".
+That checked only the server this snapshot came from. **A server that predates
+the field rejects an unknown input field whatever its value**, and that
+includes production until #1345 deploys. So every listing would have failed
+against it (Copilot, high, on #733). The argument was complete for one server,
+and it felt like verification.
+
+**The fix:** `# @genqlient(for: "NodeFilter.role", omitempty: true)` on **all
+three** operations sharing the input (`nodes.graphql`, `search.graphql`,
+`chat.graphql`); a subset would make the tag flip between runs. Plus
+`TestNodeFilterOmitsEveryUnsetField` (`internal/api`), which walks the
+generated struct by reflection rather than a hand-kept list. So the next field
+a refresh adds is checked the moment it appears. With the directives removed,
+it fails naming `NodeFilter.Role`.
 
 ## 5. Decisions a reviewer should see
 
@@ -166,6 +198,14 @@ filters don't need `omitempty`.
   unknown `--writers`/`--validate-by`, an unqualified or single-colon ref,
   `update` with no flags, `--writers ""`.
 
+- #1360 `eddffe5` ids: an OK reference with a null URN renders and emits its
+  id and never reads as broken; a NONE reference's id is `null`, present, not
+  omitted.
+- Id shapes: a 32-hex id and a CUID both pass through unchanged; a bare loc is
+  refused locally.
+- A role with no rule on `update`: exit 4, the existing roles named, no
+  mutation sent.
+
 `TestMemoryConfigClearingOperationCarriesLiteralNull` asserts the generated
 **operation text**, field-exact: the clearing document carries
 `validateBy:null`, and the ordinary update does not. The variable assertions
@@ -173,15 +213,18 @@ cannot see a literal (review:assert-the-query-not-the-capture). Deleting the
 literal from the `.graphql` and regenerating turned this test, and only this
 test, red.
 
-Mutation-checked: 13 compiling mutants, all red. They cover the literal null
-deleted from the document, never using the clearing operation, omitting an empty ref, revision 0, BROKEN rendered as
+Mutation-checked: 19 compiling mutants, all red. They cover NodeFilter.role's
+omitempty dropped from all three operations, the id ignored on an OK/null-URN
+reference, the id not mapped into the DTO, a CUID refused, every colon-free
+token treated as an id, the existing roles not listed, the literal null deleted
+from the document, never using the clearing operation, omitting an empty ref, revision 0, BROKEN rendered as
 UNREADABLE or as "—", a dropped exit row, skipped confirmation, `rules: null`,
 the clearing operation dropping a field, a trimmed role, dropped warnings, and
 `--enabled=false` omitted.
 
 ## 7. Before merge
 
-1. #1345 → #1360 merged.
+1. #1360 merged (#1345 already is, as `de6c06f`).
 2. `make schema` from #1360's merge commit, then `make generate`, plus a diff
    check against the candidate snapshot.
 3. The full suite.

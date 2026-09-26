@@ -13,14 +13,19 @@ fragment NodeRoleRuleFields on NodeRoleRule {
   strictSubRoles
   writers
   validateBy
-  # Each reference is a URN plus its STATE (NONE | OK | BROKEN | UNREADABLE).
-  # The URN is null unless the state is OK: a BROKEN or UNREADABLE reference is
-  # never rendered as a guessed URN.
+  # Each reference is a URN, an id and its STATE (NONE | OK | BROKEN |
+  # UNREADABLE). The id and URN are given only when the state is OK — and even
+  # then the URN is null when the node's memory has a legacy URN that cannot
+  # address it (#697), so the ID is the ref to send back. A BROKEN or UNREADABLE
+  # reference is never rendered as a guessed URN.
   authorTask
+  authorTaskId
   authorTaskState
   validationTask
+  validationTaskId
   validationTaskState
   descriptionNode
+  descriptionNodeId
   descriptionNodeState
   locked
   sourceTemplateId

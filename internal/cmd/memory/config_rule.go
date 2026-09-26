@@ -91,6 +91,13 @@ func (rf *ruleFlags) parse(cmd *cobra.Command, update bool) (ruleInput, error) {
 			empty := ""
 			return &empty, nil
 		}
+		// A server id of either shape passes through. These flags have no -m, so
+		// a colon-free token can only be an id: the CUID/loc ambiguity that keeps
+		// IsNodeID narrow (a bare loc composed through -m) cannot arise here, and
+		// a Node's id defaults to a CUID server-side.
+		if id := strings.TrimSpace(value); cmdutil.IsEntityID(id) {
+			return &id, nil
+		}
 		// Canonicalize and validate the spelling locally, but leave RESOLVING it
 		// to the server: it resolves the ref itself, answers an unreadable node
 		// exactly like a missing one, and has no resolveUrn creation lag.
@@ -237,8 +244,9 @@ someone else changed in between is refused (exit 5) instead of overwritten:
 re-run to apply your change on top of theirs. Clearing --validate-by is part of
 the same single update, never a separate save.
 
-The role itself is the rule's identity and cannot be renamed: remove the rule
-and add it again.`,
+The role is matched exactly against the rules that exist: a role with no rule
+exits 4 and names the roles there are. The role itself is the rule's identity
+and cannot be renamed: remove the rule and add it again.`,
 		Example: `  hadron memory config rule update hrn:mem:acme.com:kb spec --writers owner
   hadron memory config rule update hrn:mem:acme.com:kb spec --validation-task "" --validate-by ""`,
 		Args: cobra.ExactArgs(2),
@@ -328,8 +336,10 @@ func newCmdConfigRuleRm(f *cmdutil.Factory) *cobra.Command {
 		Long: `Remove the rule for one role from a memory's config. Prompts on a terminal;
 non-interactively --yes is required.
 
-The rule's revision is read first and sent with the delete, so a rule someone
-else changed in between is refused (exit 5) rather than removed unseen.`,
+The role is matched exactly against the rules that exist: a role with no rule
+exits 4 and names the roles there are. The rule's revision is read first and
+sent with the delete, so a rule someone else changed in between is refused
+(exit 5) rather than removed unseen.`,
 		Example: `  hadron memory config rule rm hrn:mem:acme.com:kb spec.draft --yes`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

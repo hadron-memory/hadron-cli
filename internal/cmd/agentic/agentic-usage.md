@@ -504,17 +504,19 @@ Conventions:
   and `rules: []`.
   - `--json` for `get` is `{id, memoryId, rules[], createdAt, createdBy,
     updatedAt, updatedBy}`; each rule is `{id, role, revision, enabled,
-    strictSubRoles, writers, validateBy, authorTask, authorTaskState,
-    validationTask, validationTaskState, descriptionNode, descriptionNodeState,
-    locked, sourceTemplateId, sourceTemplate{id,name,deleted}, createdAt,
+    strictSubRoles, writers, validateBy, authorTask, authorTaskId,
+    authorTaskState, validationTask, validationTaskId, validationTaskState,
+    descriptionNode, descriptionNodeId, descriptionNodeState, locked, sourceTemplateId, sourceTemplate{id,name,deleted}, createdAt,
     createdBy, updatedAt, updatedBy}`. `add`/`update` print `{rule, warnings[]}`;
     `rm` prints `{memoryId, role, id, revision, deleted}`.
-  - **A reference is a URN plus a STATE**: `OK` (the URN is given), `NONE`
-    (not configured), `BROKEN` (the node was deleted; a manager must repoint
-    it), `UNREADABLE` (it exists, you may not read it). The URN is `null`
-    unless the state is `OK` — branch on the state, never on the URN's
-    presence, because BROKEN and UNREADABLE are different facts with different
-    remedies.
+  - **A reference is a URN, an id and a STATE**: `OK` (the node is live and
+    readable), `NONE` (not configured), `BROKEN` (the node was deleted; a
+    manager must repoint it), `UNREADABLE` (it exists, you may not read it).
+    The id and URN are `null` unless the state is `OK`, and even an `OK`
+    reference can have a `null` URN (its memory's legacy URN cannot address
+    it, hadron-server#697) — then the `*Id` is the ref to pass back. Branch on
+    the STATE, never on the URN's presence: BROKEN and UNREADABLE are
+    different facts with different remedies, and a null URN on OK is neither.
   - **Only the flags you give change.** An omitted flag leaves the field alone;
     on `update`, an EMPTY `--author-task` / `--validation-task` /
     `--description-node` / `--validate-by` CLEARS it (on `add` an empty value is
@@ -526,14 +528,19 @@ Conventions:
     `--validate-by` is part of the SAME single update as any other flag, never
     a second save. The role is the rule's identity: to rename one, `rm` and
     `add`.
-  - Refs are node ids or URNs; the SERVER resolves them, and a node you cannot
-    read is refused exactly like a missing one (exit 4). A readable node that
-    is not a runnable task is exit 2 (`NOT_A_TASK`, `extensions.field` names
-    which reference). A role outside the grammar (lower-case letter/digit/dash
-    segments joined by dots, 1–64 characters) is exit 2 (`INVALID_NODE_ROLE`,
-    `extensions.reason` is `EMPTY | TOO_LONG | BAD_SEGMENT`); nothing is
-    trimmed or lower-cased for you. An existing role on `add` is exit 5
-    (`NODE_ROLE_RULE_EXISTS`: use `update`). `--validate-by` without a
+  - Refs are node ids (32-hex or CUID) or fully-qualified URNs; the SERVER
+    resolves them, and a node you cannot read is refused exactly like a missing
+    one (exit 4). A bare loc is refused locally (exit 2): these flags take no
+    `-m`. A readable node that is not a runnable task is exit 2 (`NOT_A_TASK`,
+    `extensions.field` names which reference).
+  - **The role on `add`** must fit the grammar (lower-case letter/digit/dash
+    segments joined by dots, 1–64 characters), else exit 2
+    (`INVALID_NODE_ROLE`, `extensions.reason` is `EMPTY | TOO_LONG |
+    BAD_SEGMENT`); nothing is trimmed or lower-cased for you. An existing role
+    on `add` is exit 5 (`NODE_ROLE_RULE_EXISTS`: use `update`). **The role on
+    `update`/`rm`** is matched EXACTLY against the rules that exist, so a role
+    with no rule — including a malformed one, which cannot have a rule — is
+    exit 4, and the message lists the roles that do. `--validate-by` without a
     validation task is exit 2 (`BAD_USER_INPUT`, `reason:
     VALIDATION_TASK_REQUIRED`).
   - `warnings[]` are non-fatal findings about a saved rule and never change the
