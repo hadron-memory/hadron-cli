@@ -34,6 +34,10 @@ func TestMapError(t *testing.T) {
 		{"node role rule exists", gqlErr("NODE_ROLE_RULE_EXISTS"), exitcode.Conflict},
 		{"invalid node role", gqlErr("INVALID_NODE_ROLE"), exitcode.Usage},
 		{"not a task", gqlErr("NOT_A_TASK"), exitcode.Usage},
+		// #1325 part c (cli#716 slice 2).
+		{"template name taken", gqlErr("MEMORY_CONFIG_TEMPLATE_EXISTS"), exitcode.Conflict},
+		{"template not found", gqlErr("MEMORY_CONFIG_TEMPLATE_NOT_FOUND"), exitcode.NotFound},
+		{"no server row: an operator's fix, the generic 1", gqlErr("HADRON_SERVER_NOT_CONFIGURED"), exitcode.Error},
 		// #619 — the permission-denied class. Both reached scripts as the
 		// generic 1 before exitcode.Forbidden existed.
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},

@@ -1497,6 +1497,18 @@ input CreateChannelInput {
   name: String!
 }
 
+"""
+#1325 part (c) — a new template. `rules` are validated as a whole before anything is written.
+"""
+input CreateMemoryConfigTemplateInput {
+  description: String
+  name: String!
+  required: Boolean
+
+  """Each role at most once (NODE_ROLE_RULE_EXISTS)."""
+  rules: [CreateNodeRoleRuleInput!]
+}
+
 type CreateMemorySharePayload {
   memoryShare: MemoryShare!
 }
@@ -1571,7 +1583,8 @@ input CreateNodeInput {
 }
 
 """
-#1325 — a new rule. Task and description references are node IDs or URNs you
+#1325 — a new rule, in a memory's config or in a template's rule list.
+Task and description references are node IDs or URNs you
 can read; a node you cannot read is refused exactly like a missing one
 (NODE_NOT_FOUND), and a task reference must be a runnable task (NOT_A_TASK).
 """
@@ -2774,6 +2787,97 @@ type MemoryConfig {
 }
 
 """
+#1325 part (c) — a reusable rulebook with exactly one owner, COPIED into a
+memory's config when applied (never live-linked). Read and managed only by
+its owner's managers: a platform admin (server), an org ADMIN/OWNER
+(organization), the user themselves (user), the App's owner or org
+ADMIN/OWNER (App). For anyone else it does not exist.
+"""
+type MemoryConfigTemplate {
+  createdAt: DateTime!
+  createdBy: ID
+  description: String
+  id: ID!
+
+  """
+  Unique per owner among live templates; 1-64 lower-case letters, digits, '-' or '_'.
+  """
+  name: String!
+
+  """ID of the owning organization, user or App; null for the server."""
+  ownerId: ID
+  ownerType: MemoryConfigTemplateOwnerType!
+
+  """Applied as locked rules (#1334)."""
+  required: Boolean!
+
+  """Optimistic-concurrency token for the template AND its rules."""
+  revision: Int!
+
+  """Role-ascending."""
+  rules: [MemoryConfigTemplateRule!]!
+  updatedAt: DateTime
+  updatedBy: ID
+}
+
+"""
+Filter for memoryConfigTemplates(). Narrows the templates you manage; it never widens them.
+"""
+input MemoryConfigTemplateFilter {
+  """
+  ID or URN of the owner (with ownerType). An owner you do not manage matches nothing.
+  """
+  ownerRef: ID
+  ownerType: MemoryConfigTemplateOwnerType
+}
+
+"""
+#1325 part (c) — which entity owns a MemoryConfigTemplate. Exactly one per template.
+"""
+enum MemoryConfigTemplateOwnerType {
+  APP
+  HADRON_SERVER
+  ORGANIZATION
+  USER
+}
+
+type MemoryConfigTemplatePayload {
+  template: MemoryConfigTemplate!
+
+  """Empty until #1327 adds its visibility warnings."""
+  warnings: [MemoryConfigWarning!]!
+}
+
+"""
+#1325 part (c) — one rule of a template: a node-role rule without the config-only fields.
+"""
+type MemoryConfigTemplateRule {
+  authorTask: String
+  authorTaskId: ID
+  authorTaskState: NodeRoleRuleRefState!
+
+  """
+  Documentation, not procedure: a deleted description node reads as NONE, never BROKEN.
+  """
+  descriptionNode: String
+  descriptionNodeId: ID
+  descriptionNodeState: NodeRoleRuleRefState!
+  enabled: Boolean!
+  role: String!
+  strictSubRoles: Boolean!
+  validateBy: ContentValidator
+  validationTask: String
+  validationTaskId: ID
+  validationTaskState: NodeRoleRuleRefState!
+  writers: NodeRoleWriters!
+}
+
+type MemoryConfigTemplatesPage {
+  items: [MemoryConfigTemplate!]!
+  total: Int!
+}
+
+"""
 #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
 """
 type MemoryConfigWarning {
@@ -3609,6 +3713,15 @@ type Mutation {
   ): Memory!
 
   """
+  #1325 part (c) — create a template. ownerRef names the organization, user
+  or App; omit it for HADRON_SERVER (platform admins only; refused
+  HADRON_SERVER_NOT_CONFIGURED when this server has no row) and for USER
+  (yourself — you own templates for no one else). A second live template of
+  the same name under the same owner is MEMORY_CONFIG_TEMPLATE_EXISTS.
+  """
+  createMemoryConfigTemplate(input: CreateMemoryConfigTemplateInput!, ownerRef: ID, ownerType: MemoryConfigTemplateOwnerType!): MemoryConfigTemplatePayload!
+
+  """
   Add a NEW memory to an App, born App-scoped.
   
   Unlike createMemory (which only makes free-standing memories), this scopes
@@ -3991,6 +4104,11 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   deleteMemory(id: ID!): Boolean!
+
+  """
+  #1325 part (c) — soft-delete a template. Configs it was applied to keep their copies.
+  """
+  deleteMemoryConfigTemplate(expectedRevision: Int, ref: ID!): Boolean!
 
   """
   023-app-shape US3 — delete a MemoryShare. Per FR-022, revocation
@@ -5117,6 +5235,14 @@ type Mutation {
   non-encrypted memory the flag is a no-op.
   """
   updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, data: JSON, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, id: ID!, license: String, listedOnMarketplace: Boolean, maxRevCount: Int, name: String, organizationId: ID, readBranch: String, schema: JSON, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
+
+  """
+  #1325 part (c) — change a template by its id. With expectedRevision, a
+  template changed since you read it is refused CONFLICT
+  (extensions.currentRevision) and nothing is written. A template you may not
+  manage reads as MEMORY_CONFIG_TEMPLATE_NOT_FOUND.
+  """
+  updateMemoryConfigTemplate(expectedRevision: Int, input: UpdateMemoryConfigTemplateInput!, ref: ID!): MemoryConfigTemplatePayload!
 
   """
   023-app-shape US4 — change the role on an existing team member.
@@ -7097,6 +7223,17 @@ type Query {
   and for a missing memory, the same MEMORY_NOT_FOUND.
   """
   memoryConfig(memoryRef: ID!): MemoryConfig!
+
+  """
+  #1325 part (c) — one template you manage, by id; null for anything else, including a missing or deleted one.
+  """
+  memoryConfigTemplate(ref: ID!): MemoryConfigTemplate
+
+  """
+  #1325 part (c) — the templates you manage, name-ascending. Default page 50,
+  at most 200; limit 0 returns the count only.
+  """
+  memoryConfigTemplates(filter: MemoryConfigTemplateFilter, limit: Int, offset: Int): MemoryConfigTemplatesPage!
 
   """
   Slim, paginated edge list for a memory's graph view (issue #466) — phase two
@@ -9228,6 +9365,18 @@ input UpdateAgentScheduleInput {
 input UpdateChannelInput {
   description: String
   name: String
+}
+
+"""
+#1325 part (c) — change a template. An omitted field is unchanged;
+description null clears it. `rules`, when given, REPLACES the template's
+rules in one transaction.
+"""
+input UpdateMemoryConfigTemplateInput {
+  description: String
+  name: String
+  required: Boolean
+  rules: [CreateNodeRoleRuleInput!]
 }
 
 type UpdateMemoryMemberRolePayload {

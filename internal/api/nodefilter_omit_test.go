@@ -28,21 +28,44 @@ func TestNodeFilterOmitsEveryUnsetField(t *testing.T) {
 	assertOmitsEveryUnsetField(t, gen.NodeFilter{})
 }
 
-// The same rule for the other inputs this change sends or regenerated:
+// The same rule for the other inputs cli#716 sends or regenerated:
 //   - UpdateNodeInput: every node update sends it. The re-export from the
 //     #1360 merge brought #1352's expectedRevision in with a bare tag, so every
 //     update would have sent expectedRevision: null — rejected as an unknown
 //     field by any server predating #1352. Measured on cli#733, caught here.
-//   - the rule inputs of `memory config rule add|update` (#1325 part b), where
-//     an unset field sent as null would CLEAR it.
+//   - the rule and template inputs of `memory config rule|template` (#1325),
+//     where an unset field sent as null would CLEAR it on update.
+//
+// CreateNodeRoleRuleInput is SHARED by four operations (memoryconfig.graphql
+// and memoryconfigtemplate.graphql). With its directives on only one of them,
+// genqlient flipped these tags between runs: red in 4 of 10 regenerations,
+// measured while building cli#716 slice 2. So this is NOT a determinism test —
+// a partial directive set passes on the runs that happen to keep the tag. What
+// it checks is the COMMITTED generated code, which is what ships: a flip that
+// lands in a commit is red here. The determinism itself comes from repeating
+// the directives on every operation.
 func TestSentInputsOmitEveryUnsetField(t *testing.T) {
 	for _, v := range []any{
 		gen.UpdateNodeInput{},
 		gen.CreateNodeRoleRuleInput{},
 		gen.UpdateNodeRoleRuleInput{},
+		gen.CreateMemoryConfigTemplateInput{},
+		gen.UpdateMemoryConfigTemplateInput{},
+		gen.MemoryConfigTemplateFilter{},
 	} {
 		assertOmitsEveryUnsetField(t, v)
 	}
+}
+
+// sendsNullOnPurpose is the ENUMERATED set of nullable fields that must NOT
+// carry omitempty, each with the reason the server can take a null there. A
+// field is exempt only by name here — never by a pattern — so a new one cannot
+// hide in it.
+var sendsNullOnPurpose = map[string]string{
+	// omitempty would drop `rules: []` ("remove every rule") along with nil.
+	// The server reads null as unchanged (`input.rules != null`), and the input
+	// exists on no server lacking the field.
+	"UpdateMemoryConfigTemplateInput.Rules": "an empty list must reach the wire",
 }
 
 func assertOmitsEveryUnsetField(t *testing.T, v any) {
@@ -50,6 +73,12 @@ func assertOmitsEveryUnsetField(t *testing.T, v any) {
 	typ := reflect.TypeOf(v)
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
+		if reason, ok := sendsNullOnPurpose[typ.Name()+"."+f.Name]; ok {
+			if strings.Contains(f.Tag.Get("json"), ",omitempty") {
+				t.Errorf("%s.%s must NOT carry omitempty: %s", typ.Name(), f.Name, reason)
+			}
+			continue
+		}
 		switch f.Type.Kind() {
 		case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface:
 		default:

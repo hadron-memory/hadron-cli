@@ -1,0 +1,177 @@
+# Memory-config TEMPLATES (hadron-server#1325 part c, cli#716 slice 2): a
+# reusable rulebook with exactly one owner, COPIED into a memory's config when
+# applied (#1334) — never live-linked.
+#
+# CreateNodeRoleRuleInput is SHARED with memoryconfig.graphql's
+# CreateNodeRoleRule, so every operation here that sends it repeats that
+# operation's seven omitempty directives VERBATIM. Leaving them on one operation
+# only made genqlient flip the tags between runs (measured while building this
+# slice: `rule add` would then have sent null for every unset reference).
+#
+# Read and managed only by the owner's managers; for anyone else a template
+# does not exist (memoryConfigTemplate → null, writes → NOT_FOUND). Template
+# rules reuse CreateNodeRoleRuleInput, whose omitempty directives live in
+# memoryconfig.graphql and bind here too (a shared input must carry the same
+# directives everywhere, or genqlient flips the tags between runs).
+
+fragment MemoryConfigTemplateFields on MemoryConfigTemplate {
+  id
+  name
+  description
+  ownerType
+  ownerId
+  required
+  revision
+  createdAt
+  createdBy
+  updatedAt
+  updatedBy
+  rules {
+    role
+    enabled
+    strictSubRoles
+    writers
+    validateBy
+    authorTask
+    authorTaskId
+    authorTaskState
+    validationTask
+    validationTaskId
+    validationTaskState
+    descriptionNode
+    descriptionNodeId
+    descriptionNodeState
+  }
+}
+
+query MemoryConfigTemplate($ref: ID!) {
+  memoryConfigTemplate(ref: $ref) {
+    ...MemoryConfigTemplateFields
+  }
+}
+
+# Paged: default 50, cap 200 (cor:api:120). The CLI pages to exhaustion.
+# @genqlient(for: "MemoryConfigTemplateFilter.ownerRef", omitempty: true)
+# @genqlient(for: "MemoryConfigTemplateFilter.ownerType", omitempty: true)
+query MemoryConfigTemplates(
+  # @genqlient(omitempty: true)
+  $filter: MemoryConfigTemplateFilter
+  $limit: Int
+  $offset: Int
+) {
+  memoryConfigTemplates(filter: $filter, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...MemoryConfigTemplateFields
+    }
+  }
+}
+
+# ownerRef is OMITTED for HADRON_SERVER and for USER (yourself); a given one
+# must name the owner.
+# @genqlient(for: "CreateMemoryConfigTemplateInput.description", omitempty: true)
+# @genqlient(for: "CreateMemoryConfigTemplateInput.required", omitempty: true)
+# @genqlient(for: "CreateMemoryConfigTemplateInput.rules", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.authorTaskRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.validationTaskRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.descriptionNodeRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.strictSubRoles", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.writers", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.validateBy", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.enabled", omitempty: true)
+mutation CreateMemoryConfigTemplate(
+  $ownerType: MemoryConfigTemplateOwnerType!
+  # @genqlient(omitempty: true)
+  $ownerRef: ID
+  $input: CreateMemoryConfigTemplateInput!
+) {
+  createMemoryConfigTemplate(ownerType: $ownerType, ownerRef: $ownerRef, input: $input) {
+    template {
+      ...MemoryConfigTemplateFields
+    }
+    warnings {
+      ...MemoryConfigWarningFields
+    }
+  }
+}
+
+# Omitted = unchanged; `rules`, when given, REPLACES the template's rules in one
+# transaction. `rules` deliberately has NO omitempty: omitempty drops an EMPTY
+# slice as well as a nil one, so `"rules": []` ("remove every rule") would be
+# silently dropped and the rules kept. The server reads null exactly like
+# omitted (`input.rules != null`), so a nil slice sent as null is unchanged,
+# and this input exists on no server that lacks the field. expectedRevision is ALWAYS sent: the revision the caller's FILE
+# was derived from, so a stale file is refused (CONFLICT), never applied.
+# use_struct_references (genqlient.yaml) makes genqlient ADD omitempty to a
+# struct-typed list by default, so "no omitempty" has to be said explicitly.
+# @genqlient(for: "UpdateMemoryConfigTemplateInput.rules", omitempty: false)
+# @genqlient(for: "UpdateMemoryConfigTemplateInput.name", omitempty: true)
+# @genqlient(for: "UpdateMemoryConfigTemplateInput.description", omitempty: true)
+# @genqlient(for: "UpdateMemoryConfigTemplateInput.required", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.authorTaskRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.validationTaskRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.descriptionNodeRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.strictSubRoles", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.writers", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.validateBy", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.enabled", omitempty: true)
+mutation UpdateMemoryConfigTemplate(
+  $ref: ID!
+  $input: UpdateMemoryConfigTemplateInput!
+  $expectedRevision: Int!
+) {
+  updateMemoryConfigTemplate(ref: $ref, input: $input, expectedRevision: $expectedRevision) {
+    template {
+      ...MemoryConfigTemplateFields
+    }
+    warnings {
+      ...MemoryConfigWarningFields
+    }
+  }
+}
+
+# The same update when it also CLEARS the description: the server clears it
+# only on an explicit null, which a genqlient pointer cannot send, so the null
+# is a literal and every other field rides as a variable in the same input
+# (findings:an-explicit-null-needs-a-literal-in-the-document). One update, one
+# revision check.
+# @genqlient(for: "CreateNodeRoleRuleInput.authorTaskRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.validationTaskRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.descriptionNodeRef", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.strictSubRoles", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.writers", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.validateBy", omitempty: true)
+# @genqlient(for: "CreateNodeRoleRuleInput.enabled", omitempty: true)
+mutation UpdateMemoryConfigTemplateClearingDescription(
+  $ref: ID!
+  $expectedRevision: Int!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $required: Boolean
+  # NOT omitempty, for the same reason as the update above: [] must reach the
+  # server; nil is sent as null, which it reads as unchanged. Explicit, because
+  # use_struct_references would otherwise add it.
+  # @genqlient(omitempty: false)
+  $rules: [CreateNodeRoleRuleInput!]
+) {
+  updateMemoryConfigTemplate(
+    ref: $ref
+    expectedRevision: $expectedRevision
+    input: { description: null, name: $name, required: $required, rules: $rules }
+  ) {
+    template {
+      ...MemoryConfigTemplateFields
+    }
+    warnings {
+      ...MemoryConfigWarningFields
+    }
+  }
+}
+
+mutation DeleteMemoryConfigTemplate(
+  $ref: ID!
+  $expectedRevision: Int!
+) {
+  deleteMemoryConfigTemplate(ref: $ref, expectedRevision: $expectedRevision)
+}

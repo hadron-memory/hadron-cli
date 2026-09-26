@@ -91,17 +91,7 @@ func (rf *ruleFlags) parse(cmd *cobra.Command, update bool) (ruleInput, error) {
 			empty := ""
 			return &empty, nil
 		}
-		// A server id of either shape passes through. These flags have no -m, so
-		// a colon-free token can only be an id: the CUID/loc ambiguity that keeps
-		// IsNodeID narrow (a bare loc composed through -m) cannot arise here, and
-		// a Node's id defaults to a CUID server-side.
-		if id := strings.TrimSpace(value); cmdutil.IsEntityID(id) {
-			return &id, nil
-		}
-		// Canonicalize and validate the spelling locally, but leave RESOLVING it
-		// to the server: it resolves the ref itself, answers an unreadable node
-		// exactly like a missing one, and has no resolveUrn creation lag.
-		canon, err := cmdutil.BatchNodeRef("", value)
+		canon, err := canonicalRuleRef(value)
 		if err != nil {
 			return nil, exitcode.Newf(exitcode.Usage, "--%s: %v", flag, err)
 		}
@@ -148,6 +138,22 @@ func (rf *ruleFlags) parse(cmd *cobra.Command, update bool) (ruleInput, error) {
 		in.enabled = &v
 	}
 	return in, nil
+}
+
+// canonicalRuleRef validates one task/description reference — from a flag or a
+// template file — without resolving it: the SERVER resolves it, answers an
+// unreadable node exactly like a missing one, and has no resolveUrn lag.
+//
+// A server id of either shape passes through. Rule references have no -m, so a
+// colon-free token can only be an id: the CUID/loc ambiguity that keeps
+// IsNodeID narrow (a bare loc composed through -m) cannot arise here, and a
+// Node's id defaults to a CUID server-side. Anything else must be a
+// fully-qualified node URN (cmdutil.BatchNodeRef canonicalizes it).
+func canonicalRuleRef(value string) (string, error) {
+	if id := strings.TrimSpace(value); cmdutil.IsEntityID(id) {
+		return id, nil
+	}
+	return cmdutil.BatchNodeRef("", value)
 }
 
 func parseWriters(s string) (gen.NodeRoleWriters, error) {

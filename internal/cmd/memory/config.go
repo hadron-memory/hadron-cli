@@ -144,6 +144,7 @@ gets the same answer as for a memory that does not exist (exit 4).`,
 	}
 	cmd.AddCommand(newCmdConfigGet(f))
 	cmd.AddCommand(newCmdConfigRule(f))
+	cmd.AddCommand(newCmdConfigTemplate(f))
 	return cmd
 }
 
