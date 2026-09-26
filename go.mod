@@ -4,6 +4,7 @@ go 1.26.6
 
 require (
 	github.com/Khan/genqlient v0.8.1
+	github.com/aymanbagabas/go-udiff v0.4.1
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/gofrs/flock v0.13.0
 	github.com/google/uuid v1.6.0
@@ -16,6 +17,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.19
 	github.com/zalando/go-keyring v0.2.8
 	go.yaml.in/yaml/v3 v3.0.4
+	golang.org/x/sys v0.47.0
 	golang.org/x/term v0.37.0
 	golang.org/x/text v0.39.0
 )
@@ -36,7 +38,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
