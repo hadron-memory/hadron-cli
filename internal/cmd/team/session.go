@@ -1704,8 +1704,11 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			if cmd.Flags().Changed("model") && strings.TrimSpace(model) == "" {
-				return exitcode.Newf(exitcode.Usage, "--model must name the model that produced this milestone; omit it to use the server's session-model fallback")
+			if cmd.Flags().Changed("model") {
+				model = strings.TrimSpace(model)
+				if model == "" {
+					return exitcode.Newf(exitcode.Usage, "--model must name the model that produced this milestone; omit it to use the server's session-model fallback")
+				}
 			}
 			kind, raw := "", ""
 			switch {

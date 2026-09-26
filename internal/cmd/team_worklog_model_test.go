@@ -31,6 +31,7 @@ func TestSessionLogReportsServerStoredMilestoneModel(t *testing.T) {
 		name, modelFlag, stored string
 	}{
 		{"explicit switch", "switched-model", "switched-model"},
+		{"trimmed explicit switch", " switched-model ", "switched-model"},
 		{"omitted uses server fallback", "", "initial-model"},
 		{"unknown remains unknown", "", ""},
 	} {
@@ -65,8 +66,8 @@ func TestSessionLogReportsServerStoredMilestoneModel(t *testing.T) {
 				if _, present := vars["model"]; present {
 					t.Errorf("omitted --model must leave fallback to the server, got %v", vars["model"])
 				}
-			} else if vars["model"] != tc.modelFlag {
-				t.Errorf("model argument = %v, want %q", vars["model"], tc.modelFlag)
+			} else if vars["model"] != tc.stored {
+				t.Errorf("model argument = %v, want %q", vars["model"], tc.stored)
 			}
 			var dto struct {
 				Model *string `json:"model"`
