@@ -38,8 +38,9 @@ type editResultDTO struct {
 	// Changes is the proposal itself, one entry per field it writes (cli#737):
 	// the flags above say THAT a field changes, and a reviewer approving an
 	// edit needs to see WHAT. Always a list, `[]` on a no-op. Built from the
-	// same editProposal the write is built from, so the preview cannot show one
-	// change and the save send another.
+	// same editProposal the write is built from: the changes a run reports are
+	// exactly what that run writes. (A dry run and a later real run are two
+	// reads of the spec; closing that gap is cli#738's.)
 	Changes []fieldChangeDTO `json:"changes"`
 }
 

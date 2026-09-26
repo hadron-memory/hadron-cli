@@ -1284,7 +1284,7 @@ Conventions:
   diff}` (`before`/`after` byte-exact; `diff` is `""` for `reaffirmed`, which
   re-sends the same text). A no-op is `changed: false` with `changes: []`. The
   same `changes[]` is reported by a real edit, built from the one proposal the
-  write sends, so a preview cannot show one change and the save send another.
+  write sends: the changes a run reports are exactly what that run writes.
   A preview is **not an approval**: applying it is a separate run without
   `--dry-run`, which recomputes against the spec as stored then. In `spec new|edit|
   extract`, `--content -` and `--abstract -` are for a PIPE and are **refused

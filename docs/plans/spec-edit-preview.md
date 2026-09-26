@@ -34,8 +34,8 @@ server gap** and nothing is invented; the CLI simply never asked for it.
   their current read; whether they go raw belongs to #736.
 - **One proposal:** `editProposal` holds the stored and proposed body and
   abstract, plus whether the abstract is re-affirmed. `changes()` renders it and
-  `input()` builds the write from it. Nothing between the preview and the save
-  recomputes anything.
+  `input()` builds the write from it, so the changes a run reports are exactly
+  what that run writes. A dry run and a later real run are two separate reads.
 - **`--json` gains `changes[]`,** one entry per field written:
   `{field: content|abstract, change: replaced|cleared|reaffirmed, before, after, diff}`.
   `before`/`after` are byte-exact, and `diff` is a unified diff (`go-udiff`, a
@@ -49,6 +49,14 @@ server gap** and nothing is invented; the CLI simply never asked for it.
   diff **verbatim and unindented**, so it stays a diff, and finally: "nothing
   was written, and this preview is not an approval".
 - **Zero writes:** the dry run returns before any mutation is built.
+
+**Not in scope, and reported:** two sibling write paths in this group still
+read the body rendered and write it back, so they delete placeholders too.
+`spec supersede` always rewrites the retired spec's content (the stored body
+plus the "Superseded by" note), and with `--copy-body` it copies the rendered
+body into the successor. `spec extract --strip-source` writes a body computed
+from the rendered source back to it. They are pre-existing, and the fix is the
+same read; routed to the coordinator (team chat) rather than widened in here.
 
 **Not in scope:** revision provenance. The preview carries no revision:
 `GetNode` never selected one, and `node get`'s bracketed revision read (#724)
@@ -76,6 +84,9 @@ old `TestSpecEditDryRun` checked `CreateSpecNode`, which `spec edit` never
 sends, so it could not fail. It now uses the same assertion.
 
 **Mutation-checked: 11 compiling mutants, all killed by their intended tests.**
+Each was applied from a committed checkpoint and confirmed to have landed
+(a non-empty `git diff`, and `go build` passing) before its tests ran; the
+checkpoint was restored after each.
 They are: `raw: true` dropped; the write sending other text than previewed;
 `changes` nil; before/after swapped; the dry run writing; no text diff; no
 disclaimer; no re-affirm entry; "cleared" never used; no abstract-stale note;
