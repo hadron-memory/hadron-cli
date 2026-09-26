@@ -1,6 +1,8 @@
 package spec
 
 import (
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -47,6 +49,9 @@ type editResultDTO struct {
 	// Carry both from a dry run to an approved save: a citation can be reused
 	// by a different node at the same revision.
 	Revision int `json:"revision"`
+	// ProposalHash binds a later approved save to the exact write input shown
+	// in the preview, including which fields are written and their text.
+	ProposalHash string `json:"proposalHash"`
 }
 
 // fieldChangeDTO is one field of a proposed edit: the text as stored (read
@@ -170,6 +175,17 @@ func (p editProposal) input() gen.UpdateNodeInput {
 	return in
 }
 
+// proposalHash fingerprints the exact mutation input computed from a preview.
+// A file or stdin can change between preview and save without changing the
+// node's revision, so the baseline guard alone cannot protect approval.
+func (p editProposal) proposalHash() (string, error) {
+	b, err := json.Marshal(p.input())
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("sha256:%x", sha256.Sum256(b)), nil
+}
+
 // editorFunc is the editor-launch seam. Production uses launchEditor ($EDITOR on
 // a temp file); SetEditorFuncForTest swaps it so command-level tests exercise
 // the interactive path without spawning a real editor.
@@ -196,6 +212,7 @@ func newCmdEdit(f *cmdutil.Factory) *cobra.Command {
 		dryRun        bool
 		expectedRev   int
 		expectedID    string
+		expectedHash  string
 	)
 	cmd := &cobra.Command{
 		Use:   "edit <citation>",
@@ -226,9 +243,10 @@ EVERY SAVE IS GUARDED (cli#738). The write targets the immutable node ID read
 with the body and carries that node's revision. A changed node is refused by
 the server, and a replacement at the same citation cannot receive the write.
 To save a proposal previewed and APPROVED earlier (another turn or process),
-pass BOTH values the dry run reported: --expected-revision N and
---expected-node-id ID. If either the node or its revision changed, the save is
-refused (exit 5) and writes nothing. If the server reports a write-time
+pass ALL THREE values the dry run reported: --expected-revision N,
+--expected-node-id ID and --expected-proposal-hash HASH. If the node, revision
+or proposed write changed, the save is refused (exit 5) and writes nothing.
+If the server reports a write-time
 conflict, the proposed text is saved to a file when possible; a failed save is
 reported explicitly. Re-read, reconcile, and get the proposal approved again. A
 server that cannot guard a save (predating hadron-server#1339 or #1352) is
@@ -251,7 +269,7 @@ a legacy abstract past the server cap — re-affirming replaces it, and a
 replacement over the cap is rejected.`,
 		Example: `  hadron spec edit cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --dry-run
-  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content-file body.md --expected-revision 7 --expected-node-id <id-from-preview>
+  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content-file body.md --expected-revision 7 --expected-node-id <id-from-preview> --expected-proposal-hash <hash-from-preview>
   cat rewrite.md | hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content -
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --abstract-file abstract.md
   hadron spec edit cor:agt:020 -m hrn:mem:hadronmemory.com:specs --content-file body.md --abstract-still-accurate
@@ -288,12 +306,14 @@ replacement over the cap is rejected.`,
 			}
 			if changed("expected-revision") && expectedRev < 1 {
 				return exitcode.Newf(exitcode.Usage,
-					"--expected-revision must be a positive revision number — use it with --expected-node-id from the same `spec edit --dry-run`")
+					"--expected-revision must be a positive revision number — use it with --expected-node-id and --expected-proposal-hash from the same `spec edit --dry-run`")
 			}
 			if changed("expected-revision") != changed("expected-node-id") ||
-				(changed("expected-node-id") && strings.TrimSpace(expectedID) == "") {
+				changed("expected-revision") != changed("expected-proposal-hash") ||
+				(changed("expected-node-id") && strings.TrimSpace(expectedID) == "") ||
+				(changed("expected-proposal-hash") && strings.TrimSpace(expectedHash) == "") {
 				return exitcode.Newf(exitcode.Usage,
-					"--expected-revision and --expected-node-id must be passed together, using the values from the same `spec edit --dry-run`")
+					"--expected-revision, --expected-node-id and --expected-proposal-hash must be passed together, using the values from the same `spec edit --dry-run`")
 			}
 			contentProvided := changed("content") || changed("content-file")
 			abstractProvided := changed("abstract") || changed("abstract-file")
@@ -382,6 +402,14 @@ replacement over the cap is rejected.`,
 				baseNodeID:   node.Id,
 				baseRevision: base,
 			}
+			proposalHash, err := proposal.proposalHash()
+			if err != nil {
+				return fmt.Errorf("fingerprint spec edit proposal: %w", err)
+			}
+			if changed("expected-proposal-hash") && proposalHash != expectedHash {
+				return exitcode.Newf(exitcode.Conflict,
+					"%s has a different proposed write than the approved dry run — nothing was written. Re-run `spec edit --dry-run` and get this proposal approved again", node.Loc)
+			}
 			result := editResultDTO{
 				Citation:           node.Loc,
 				MemoryID:           node.MemoryId,
@@ -393,6 +421,7 @@ replacement over the cap is rejected.`,
 				DryRun:             dryRun,
 				Changes:            proposal.changes(),
 				Revision:           base,
+				ProposalHash:       proposalHash,
 			}
 			// A legacy abstract PAST the server's cap cannot be re-sent
 			// (@codex on #613). Omitting it preserves it — which is exactly why
@@ -426,7 +455,7 @@ replacement over the cap is rejected.`,
 						// The same closing line as every other dry run, so a
 						// no-op preview reads no differently as to what it is.
 						fmt.Fprintln(w, dryRunDisclaimer)
-						fmt.Fprintln(w, revisionLine(result.Revision, result.NodeID))
+						fmt.Fprintln(w, revisionLine(result.Revision, result.NodeID, result.ProposalHash))
 					}
 					return nil
 				})
@@ -467,8 +496,9 @@ replacement over the cap is rejected.`,
 	cmd.Flags().BoolVar(&stillAccurate, "abstract-still-accurate", false,
 		"assert you re-read the abstract and it still describes the spec: re-sends it unchanged so it is re-fingerprinted against the body, refreshing its verification")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the proposed change as a diff of the stored text, without writing (a preview, not an approval)")
-	cmd.Flags().IntVar(&expectedRev, "expected-revision", 0, "the revision from an approved dry run; use with --expected-node-id, refused if the node changed")
-	cmd.Flags().StringVar(&expectedID, "expected-node-id", "", "the immutable node ID from the same dry run as --expected-revision; refused if this citation now names another node")
+	cmd.Flags().IntVar(&expectedRev, "expected-revision", 0, "the revision from an approved dry run; use with --expected-node-id and --expected-proposal-hash")
+	cmd.Flags().StringVar(&expectedID, "expected-node-id", "", "the immutable node ID from the same dry run as --expected-revision and --expected-proposal-hash")
+	cmd.Flags().StringVar(&expectedHash, "expected-proposal-hash", "", "the proposalHash from the same dry run as --expected-node-id and --expected-revision; refused if the proposed write changed")
 	return cmd
 }
 
@@ -673,8 +703,8 @@ func countLines(s string) int {
 // dryRunDisclaimer closes every dry run, a no-op included.
 // revisionLine tells a dry-run reader how to save EXACTLY what they reviewed:
 // the immutable node ID and revision must both match on the later run.
-func revisionLine(rev int, id string) string {
-	return fmt.Sprintf("based on node %s at revision %d: to save exactly this proposal later, add --expected-node-id %s --expected-revision %d — the save is refused, writing nothing, if the node or revision changed after this preview.", id, rev, id, rev)
+func revisionLine(rev int, id, hash string) string {
+	return fmt.Sprintf("based on node %s at revision %d: to save exactly this proposal later, add --expected-node-id %s --expected-revision %d --expected-proposal-hash %s — the save is refused, writing nothing, if the node, revision or proposed write changed after this preview.", id, rev, id, rev, hash)
 }
 
 // conflictRefusal is the NODE_WRITE_CONFLICT answer (cli#738): nothing was
@@ -771,7 +801,7 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 			fmt.Fprintf(w, "\n%s", c.Diff)
 		}
 		fmt.Fprintln(w, "\n"+dryRunDisclaimer)
-		fmt.Fprintln(w, revisionLine(r.Revision, r.NodeID))
+		fmt.Fprintln(w, revisionLine(r.Revision, r.NodeID, r.ProposalHash))
 	}
 	return nil
 }

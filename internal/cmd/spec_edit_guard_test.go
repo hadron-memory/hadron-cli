@@ -72,6 +72,24 @@ func runSpecEdit(t *testing.T, mocks map[string][]string, stdin string, args ...
 	return out.String(), captured, err
 }
 
+func previewProposalHash(t *testing.T, body string) string {
+	t.Helper()
+	out, _, err := runSpecEdit(t, guardMocks(""), body, "--content", "-", "--dry-run", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var preview struct {
+		ProposalHash string `json:"proposalHash"`
+	}
+	if err := json.Unmarshal([]byte(out), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(preview.ProposalHash, "sha256:") {
+		t.Fatalf("invalid proposal hash: %q", preview.ProposalHash)
+	}
+	return preview.ProposalHash
+}
+
 // A read-then-save in one run is guarded by the revision of THAT read.
 func TestSpecEditSaveIsGuardedByTheReadRevision(t *testing.T) {
 	_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# new body\n", "--content", "-")
@@ -89,9 +107,10 @@ func TestSpecEditSaveIsGuardedByTheReadRevision(t *testing.T) {
 	}
 }
 
-// The ID/revision pair carries an EARLIER preview's identity to the save.
+// The ID/revision/hash triple carries an EARLIER preview's identity and write.
 func TestSpecEditExpectedRevisionThatStillMatchesSaves(t *testing.T) {
-	_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# new body\n", "--content", "-", "--expected-revision", "7", "--expected-node-id", "sp1")
+	hash := previewProposalHash(t, "# new body\n")
+	_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# new body\n", "--content", "-", "--expected-revision", "7", "--expected-node-id", "sp1", "--expected-proposal-hash", hash)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -101,9 +120,10 @@ func TestSpecEditExpectedRevisionThatStillMatchesSaves(t *testing.T) {
 }
 
 func TestSpecEditRejectsReplacementAtSameCitationAndRevision(t *testing.T) {
+	hash := previewProposalHash(t, "# new body\n")
 	m := guardMocks(guardWriteOK)
 	m["GetSpecNodeForEdit"][0] = strings.Replace(m["GetSpecNodeForEdit"][0], `"id":"sp1"`, `"id":"sp2"`, 1)
-	_, captured, err := runSpecEdit(t, m, "# new body\n", "--content", "-", "--expected-revision", "7", "--expected-node-id", "sp1")
+	_, captured, err := runSpecEdit(t, m, "# new body\n", "--content", "-", "--expected-revision", "7", "--expected-node-id", "sp1", "--expected-proposal-hash", hash)
 	if got := exitCodeFor(err); got != exitcode.Conflict {
 		t.Fatalf("replacement at the same revision: exit = %d, want 5 (%v)", got, err)
 	}
@@ -116,8 +136,9 @@ func TestSpecEditRejectsReplacementAtSameCitationAndRevision(t *testing.T) {
 // refused with exit 5 before any write — dry run included, since a preview of
 // a stale proposal would be approved against text that is no longer there.
 func TestSpecEditStaleExpectedRevisionIsRefusedBeforeWriting(t *testing.T) {
+	hash := previewProposalHash(t, "# new body\n")
 	for _, extra := range [][]string{nil, {"--dry-run"}} {
-		args := append([]string{"--content", "-", "--expected-revision", "5", "--expected-node-id", "sp1"}, extra...)
+		args := append([]string{"--content", "-", "--expected-revision", "5", "--expected-node-id", "sp1", "--expected-proposal-hash", hash}, extra...)
 		_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# new body\n", args...)
 		if got := exitCodeFor(err); got != exitcode.Conflict {
 			t.Errorf("args %v: exit = %d, want %d (%v)", args, got, exitcode.Conflict, err)
@@ -128,6 +149,44 @@ func TestSpecEditStaleExpectedRevisionIsRefusedBeforeWriting(t *testing.T) {
 		if err != nil && !strings.Contains(err.Error(), "approved again") {
 			t.Errorf("the refusal must say to reconcile and re-approve, got: %v", err)
 		}
+	}
+}
+
+func TestSpecEditRejectsChangedProposalAtSameNodeRevision(t *testing.T) {
+	hash := previewProposalHash(t, "# approved body\n")
+	_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# changed body\n", "--content", "-", "--expected-revision", "7", "--expected-node-id", "sp1", "--expected-proposal-hash", hash)
+	if got := exitCodeFor(err); got != exitcode.Conflict {
+		t.Fatalf("changed proposal: exit = %d, want 5 (%v)", got, err)
+	}
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
+		t.Error("a changed proposal must not inherit the prior approval")
+	}
+}
+
+func TestSpecEditRejectsContentFileChangedAfterPreview(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "body.md")
+	if err := os.WriteFile(path, []byte("# approved body\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := runSpecEdit(t, guardMocks(""), "", "--content-file", path, "--dry-run", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var preview struct {
+		ProposalHash string `json:"proposalHash"`
+	}
+	if err := json.Unmarshal([]byte(out), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("# unapproved body\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "", "--content-file", path, "--expected-revision", "7", "--expected-node-id", "sp1", "--expected-proposal-hash", preview.ProposalHash)
+	if got := exitCodeFor(err); got != exitcode.Conflict {
+		t.Fatalf("changed file: exit = %d, want 5 (%v)", got, err)
+	}
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
+		t.Error("changed file must not be written under the earlier approval")
 	}
 }
 
@@ -177,28 +236,29 @@ func TestSpecEditDryRunReportsItsRevision(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var dto struct {
-		Revision int    `json:"revision"`
-		NodeID   string `json:"nodeId"`
+		Revision     int    `json:"revision"`
+		NodeID       string `json:"nodeId"`
+		ProposalHash string `json:"proposalHash"`
 	}
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
 		t.Fatalf("--json must parse: %v (%s)", err, out)
 	}
-	if dto.Revision != 7 || dto.NodeID != "sp1" {
-		t.Errorf("preview identity = %s at %d, want sp1 at 7", dto.NodeID, dto.Revision)
+	if dto.Revision != 7 || dto.NodeID != "sp1" || !strings.HasPrefix(dto.ProposalHash, "sha256:") {
+		t.Errorf("preview identity = %s at %d with %s, want sp1 at 7 with hash", dto.NodeID, dto.Revision, dto.ProposalHash)
 	}
 	text, _, err := runSpecEdit(t, guardMocks(""), "# new body\n", "--content", "-", "--dry-run")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(text, "--expected-revision 7") || !strings.Contains(text, "--expected-node-id sp1") {
-		t.Errorf("the dry run must name both values needed to save exactly this proposal:\n%s", text)
+	if !strings.Contains(text, "--expected-revision 7") || !strings.Contains(text, "--expected-node-id sp1") || !strings.Contains(text, "--expected-proposal-hash "+dto.ProposalHash) {
+		t.Errorf("the dry run must name all values needed to save exactly this proposal:\n%s", text)
 	}
 }
 
 // Refusals that must happen before anything is sent or written.
 func TestSpecEditGuardRefusals(t *testing.T) {
 	t.Run("non-positive --expected-revision", func(t *testing.T) {
-		_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# x\n", "--content", "-", "--expected-revision", "0", "--expected-node-id", "sp1")
+		_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# x\n", "--content", "-", "--expected-revision", "0", "--expected-node-id", "sp1", "--expected-proposal-hash", "sha256:x")
 		if got := exitCodeFor(err); got != exitcode.Usage {
 			t.Errorf("exit = %d, want %d", got, exitcode.Usage)
 		}
@@ -207,7 +267,7 @@ func TestSpecEditGuardRefusals(t *testing.T) {
 		}
 	})
 	t.Run("incomplete preview identity", func(t *testing.T) {
-		for _, flags := range [][]string{{"--expected-revision", "7"}, {"--expected-node-id", "sp1"}} {
+		for _, flags := range [][]string{{"--expected-revision", "7"}, {"--expected-node-id", "sp1"}, {"--expected-proposal-hash", "sha256:x"}, {"--expected-revision", "7", "--expected-node-id", "sp1"}} {
 			_, captured, err := runSpecEdit(t, guardMocks(guardWriteOK), "# x\n", append([]string{"--content", "-"}, flags...)...)
 			if got := exitCodeFor(err); got != exitcode.Usage {
 				t.Errorf("flags %v: exit = %d, want 2", flags, got)
