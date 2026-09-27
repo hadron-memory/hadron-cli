@@ -24,6 +24,8 @@ func TestClientSanitizesNullGraphQLErrors(t *testing.T) {
 	}{
 		{"200 all null", http.StatusOK, `[null]`, exitcode.Error, false},
 		{"400 all null", http.StatusBadRequest, `[null]`, exitcode.Error, false},
+		{"401 all null", http.StatusUnauthorized, `[null]`, exitcode.AuthRequired, false},
+		{"404 all null", http.StatusNotFound, `[null]`, exitcode.NotFound, false},
 		// A 5xx body with no real GraphQL error is classified as a gateway
 		// failure by bearerDoer before genqlient decodes it.
 		{"500 all null", http.StatusInternalServerError, `[null]`, exitcode.Unavailable, false},
@@ -57,9 +59,12 @@ func TestClientSanitizesNullGraphQLErrors(t *testing.T) {
 			_ = err.Error()
 			_ = errors.Is(err, errors.New("probe"))
 			var httpErr *graphql.HTTPError
-			if tc.status != http.StatusOK && tc.valid {
+			if tc.status != http.StatusOK && (tc.valid || tc.status != http.StatusInternalServerError) {
 				if !errors.As(err, &httpErr) {
 					t.Fatalf("non-200 must keep HTTP status: %T: %v", err, err)
+				}
+				if httpErr.StatusCode != tc.status {
+					t.Fatalf("HTTP status = %d, want %d", httpErr.StatusCode, tc.status)
 				}
 			}
 			list := resp.Errors

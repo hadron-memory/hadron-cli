@@ -381,11 +381,11 @@ func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Re
 			return err
 		}
 		clean := nonNullGraphQLErrors(e.Response.Errors)
-		if len(clean) == 0 {
-			return fmt.Errorf("malformed GraphQL response (HTTP %d): errors contains only null entries", e.StatusCode)
-		}
 		copy := *e
 		copy.Response.Errors = clean
+		if len(clean) == 0 {
+			return fmt.Errorf("malformed GraphQL response (HTTP %d): errors contains only null entries: %w", e.StatusCode, &copy)
+		}
 		return &copy
 	default:
 		return err
