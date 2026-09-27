@@ -171,6 +171,39 @@ func TestSkillExportSelectedAcceptsLegacyFullyQualifiedURN(t *testing.T) {
 	}
 }
 
+func TestSkillExportSelectedAcceptsUserRootedURN(t *testing.T) {
+	home := accHome(t)
+	selector := "hrn:node:@holger:inbox:tasks:demo"
+	emitted := "hrn:node:holger:inbox:tasks:demo"
+	url, calls := selectedServer(t, func(c selectedExportCall) map[string]any {
+		body, err := skilldoc.Render(accNodeID, accName, emitted, "Use when testing selected export.", "# Demo\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		entry := planEntry(accName, "WRITE", body, "")
+		entry["urn"] = emitted
+		return selectedPlanJSON([]map[string]any{entry}, nil)
+	})
+	rep, err := runExport(t, url, "--node", selector)
+	wantExit(t, err, 0)
+	if len(*calls) != 2 {
+		t.Fatalf("requests = %d, want two hosts", len(*calls))
+	}
+	for _, c := range *calls {
+		if !reflect.DeepEqual(c.Nodes, []string{selector}) {
+			t.Errorf("nodes = %v, want selector with owner sigil", c.Nodes)
+		}
+	}
+	for _, host := range []struct{ key, root string }{{"claudeSkill", claudeRoot(home)}, {"codexSkill", codexRoot(home)}} {
+		if got := rep.host(t, host.key).classOf(accName); got != "written" {
+			t.Errorf("%s class = %s", host.key, got)
+		}
+		if absent(filepath.Join(host.root, accName, "SKILL.md")) {
+			t.Errorf("%s did not write the user-rooted selection", host.key)
+		}
+	}
+}
+
 func TestSkillExportSelectedValidatesBeforeIO(t *testing.T) {
 	home := accHome(t)
 	url, calls := selectedServer(t, func(c selectedExportCall) map[string]any { return selectedPlanJSON(nil, nil) })

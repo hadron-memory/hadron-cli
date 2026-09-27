@@ -24,6 +24,7 @@ func TestSelectedNodeIdentityKey(t *testing.T) {
 		{"hrn:node:example.com:demo:tasks:demo", "hrn:node:example.com:demo:tasks:demo"},
 		{"hrn:node:example.com::demo::tasks:demo", "hrn:node:example.com:demo:tasks:demo"},
 		{"hrn:node:example.com::agent:app-mem:slug::tasks:demo", "hrn:node:example.com:agent:app-mem:slug:tasks:demo"},
+		{"hrn:node:@holger:inbox:tasks:demo", "hrn:node:holger:inbox:tasks:demo"},
 	} {
 		got, err := nodeIdentityKey(tc.ref)
 		if err != nil || got != tc.want {
