@@ -416,6 +416,9 @@ retire the old one (it keeps its number, gains a `superseded` tag and a
 hadron spec supersede cli:cha:010:01 -m $M --title "backpressure v2" --yes
 ```
 
+The replacement keeps the old `spec.*` subrole, if present. A legacy spec
+recognized by its tag alone gets the base `spec` role.
+
 The replacement is created together with its table-of-contents and inheritance
 edges. The `superseded-by` edge leaves the *old* spec, so it is a second write.
 If that write errors, supersede re-reads the old spec first, because a lost
