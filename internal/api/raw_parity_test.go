@@ -74,6 +74,10 @@ func TestRawGraphQLProtectsBodyOnlySessionRefOnInitialHTTP(t *testing.T) {
 	if !errors.Is(err, ErrRedirectPolicy) || requests != 2 {
 		t.Errorf("inline sessionRef must refuse before transport: err=%v requests=%d", err, requests)
 	}
+	_, err = RawGraphQL(context.Background(), "http://remote.example", "", "mutation X($s: ID!) { x(sessionRef: $s) }", map[string]any{"s": "s-1"}, client)
+	if !errors.Is(err, ErrRedirectPolicy) || requests != 2 {
+		t.Errorf("renamed session variable must refuse before transport: err=%v requests=%d", err, requests)
+	}
 }
 
 func TestRawGraphQLProtectsBodyOnlySessionRefAcrossHosts(t *testing.T) {
@@ -104,5 +108,9 @@ func TestRawGraphQLProtectsBodyOnlySessionRefAcrossHosts(t *testing.T) {
 	_, err = RawGraphQL(context.Background(), origin.URL, "", `mutation X { x(sessionRef: "s-1") }`, nil, origin.Client())
 	if !errors.Is(err, ErrRedirectPolicy) || landed != 2 {
 		t.Errorf("inline sessionRef must not cross hosts: err=%v landed=%d", err, landed)
+	}
+	_, err = RawGraphQL(context.Background(), origin.URL, "", "mutation X($s: ID!) { x(sessionRef: $s) }", map[string]any{"s": "s-1"}, origin.Client())
+	if !errors.Is(err, ErrRedirectPolicy) || landed != 2 {
+		t.Errorf("renamed session variable must not cross hosts: err=%v landed=%d", err, landed)
 	}
 }
