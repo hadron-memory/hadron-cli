@@ -115,6 +115,10 @@ func TestCollectSpecFindResultsCapsRawPageSize(t *testing.T) {
 func TestIsSpecIgnoresLocShape(t *testing.T) {
 	role := api.SpecNodeRole
 	other := "review"
+	subrole := "spec.rule"
+	deepSubrole := "spec.feature.screen"
+	nearPrefix := "special"
+	otherNearPrefix := "specification"
 	for _, c := range []struct {
 		name string
 		tags []string
@@ -123,8 +127,13 @@ func TestIsSpecIgnoresLocShape(t *testing.T) {
 	}{
 		{"tagged", []string{"spec"}, nil, true},
 		{"governed role only", nil, &role, true},
+		{"dotted role only", nil, &subrole, true},
+		{"deep dotted role only", nil, &deepSubrole, true},
 		{"untagged, no role", nil, nil, false},
 		{"another governed role", nil, &other, false},
+		{"ordinary prefix", nil, &nearPrefix, false},
+		{"another ordinary prefix", nil, &otherNearPrefix, false},
+		{"legacy tag remains sufficient", []string{"spec"}, &nearPrefix, true},
 		{"other tags only", []string{"draft"}, nil, false},
 	} {
 		if got := isSpec(c.tags, c.role); got != c.want {

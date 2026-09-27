@@ -73,7 +73,9 @@ Any spec can be superseded. Name the replacement's loc with --to <loc>
 citation gets the next free number in the legacy numbering (in the same
 feature by default; --feature relocates it to another existing feature),
 with that numbering's table-of-contents and inheritance edges; a spec
-outside the legacy numbering needs --to. Update the register ledger
+outside the legacy numbering needs --to. The replacement keeps a dotted
+spec role such as spec.rule; a legacy tag-only spec gets the base spec role.
+Update the register ledger
 afterward (the tool prints a reminder; it never edits the register).`,
 		Example: `  hadron spec supersede msg:010:02 -m hrn:mem:micromentor.org:platform-specs --title "W2 v2" --yes
   hadron spec supersede onboarding:mentor:screens -m hrn:mem:micromentor.org:specs --to onboarding:mentor:screens-v2 --title "Screens v2" --yes
@@ -331,11 +333,18 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				return err
 			}
 			nodeType := "info"
+			// A successor keeps the old spec's dotted kind. A tag-only legacy
+			// spec still starts with the base role; another open role must not
+			// be forwarded through the spec door.
+			successorRole := specRole()
+			if api.RoleInFamily(oldNode.Role, api.SpecNodeRole) {
+				successorRole = oldNode.Role
+			}
 			in := gen.CreateNodeInput{
 				MemoryId: memURN, Loc: newLoc, Name: name,
 				Tags: newTags, NodeType: &nodeType,
 				Abstract: &abs, Content: &body, Data: specDataRaw(),
-				Seq: newSeq, Role: specRole(),
+				Seq: newSeq, Role: successorRole,
 				Edges: edges,
 			}
 			up, err := api.CreateSpecNode(cmd.Context(), client, &in)

@@ -1430,14 +1430,15 @@ Conventions:
   exempt from all of them. **That column and that door are both GONE.** A write
   needs the door of EVERY governed kind it touches: what the node WILL BE, and
   for an update also what it IS now (before ∪ after). So REMOVING a kind
-  (`isRunnable: false` on a task, a role change away from `spec`/`review`) needs
+  (`isRunnable: false` on a task, a role change away from `spec`/`spec.*` or
+  `review`/`review.*`) needs
   that kind's door too, and a write touching two kinds has no door at all (the
   CLI refuses it, exit 2):
 
   | the write touches | door |
   | --- | --- |
-  | `role: "spec"` | `createSpecNode` / `updateSpecNode` |
-  | `role: "review"` | `createReviewNode` / `updateReviewNode` |
+  | `role: "spec"` or dotted `spec.*` | `createSpecNode` / `updateSpecNode` |
+  | `role: "review"` or dotted `review.*` | `createReviewNode` / `updateReviewNode` |
   | `isRunnable: true` | `createTaskNode` / `updateTaskNode` |
 
   A generic `createNode` / `updateNode` / `hadron_create_node` that would

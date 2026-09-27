@@ -339,7 +339,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 	// — and the usage says what it is not, the condition @Holger attached to
 	// there being three kind-ish fields at all (nodeType / objectType / role).
 	cmd.Flags().StringVar(&role, "role", "",
-		`what this node is FOR (#1201) — governed values "spec"/"review" route the write through that kind's door; omit to preserve (clearing needs an explicit null; "" is refused). NOT --type (the platform kind) and NOT a membership role`)
+		`what this node is FOR (#1201) — "spec"/"spec.*" and "review"/"review.*" use their governed doors; omit to preserve (clearing needs an explicit null; "" is refused). NOT --type (the platform kind) and NOT a membership role`)
 	cmd.Flags().StringVar(&description, "description", "", "new one-line description")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `new paragraph-length summary ("-" reads stdin)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the new abstract from a file")
@@ -402,9 +402,9 @@ func clearDoorFor(cur api.NodeKindState) string {
 	switch {
 	case cur.IsRunnable:
 		return "updateTaskNode"
-	case cur.Role != nil && *cur.Role == api.SpecNodeRole:
+	case api.RoleInFamily(cur.Role, api.SpecNodeRole):
 		return "updateSpecNode"
-	case cur.Role != nil && *cur.Role == api.ReviewNodeRole:
+	case api.RoleInFamily(cur.Role, api.ReviewNodeRole):
 		return "updateReviewNode"
 	}
 	return "updateNode"

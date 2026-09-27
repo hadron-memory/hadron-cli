@@ -27,8 +27,8 @@ import (
 // A write needs the door of every kind it touches: the kind the node will be,
 // and for an update also the kind it is now (before ∪ after, cli#714):
 //
-//	role: "spec"     -> createSpecNode   / updateSpecNode
-//	role: "review"   -> createReviewNode / updateReviewNode
+//	role: "spec" or "spec.*"     -> createSpecNode   / updateSpecNode
+//	role: "review" or "review.*" -> createReviewNode / updateReviewNode
 //	isRunnable: true -> createTaskNode   / updateTaskNode
 //
 // The gain is containment. One generic door was exempt from EVERY declared
@@ -118,20 +118,25 @@ func authoredNodeFrom(n interface {
 	}
 }
 
-// SpecNodeRole is the governed `Node.role` value that routes a write to the
-// spec door. Setting it is what makes the node governed — the door is how the
-// write gets through, and the role is what the gate reads.
+// SpecNodeRole is the root of the governed spec role family. The server also
+// governs its dotted descendants; the role is what the gate reads.
 const SpecNodeRole = "spec"
 
-// ReviewNodeRole is the governed `Node.role` value for a review check. #1201
+// ReviewNodeRole is the root of the governed review role family. #1201
 // put `review` in the register for a SECURITY reason rather than a tidiness
 // one: a review may be a safety check, so being able to remove one silently is
 // the attack.
 const ReviewNodeRole = "review"
 
+// RoleInFamily matches the server's governed role boundary: the base role or
+// one of its dotted descendants, never an ordinary prefix such as "special".
+func RoleInFamily(role *string, base string) bool {
+	return role != nil && (*role == base || strings.HasPrefix(*role, base+"."))
+}
+
 // CreateSpecNode writes a spec node through the spec door.
 //
-// The caller must set `input.Role` to SpecNodeRole — this wrapper does not do
+// The caller must set `input.Role` in the spec family — this wrapper does not do
 // it, and that is on purpose: for a create the gate reads the state being
 // written, so a node's kind is a property of the node being written, not of the function called to
 // write it. Setting the role here would let a call site that forgot to think
@@ -169,7 +174,7 @@ func CreateReviewNode(ctx context.Context, client graphql.Client, input *gen.Cre
 //
 // It is needed even when an edit touches neither `role` nor `isRunnable`,
 // because the gate reads the kind the node is now as well as the kind it will
-// be: editing a node that already carries `role: "spec"` touches the spec kind,
+// be: editing a node that already carries `role: "spec.rule"` touches the spec kind,
 // so the generic `updateNode` refuses it.
 //
 // It keeps `updateNode`'s selectors and, crucially, its OMIT-TO-PRESERVE
@@ -234,10 +239,10 @@ func governedKinds(role *string, isRunnable bool) []string {
 		kinds = append(kinds, kindTask)
 	}
 	if role != nil {
-		switch *role {
-		case SpecNodeRole:
+		switch {
+		case RoleInFamily(role, SpecNodeRole):
 			kinds = append(kinds, kindSpec)
-		case ReviewNodeRole:
+		case RoleInFamily(role, ReviewNodeRole):
 			kinds = append(kinds, kindReview)
 		}
 	}
@@ -264,9 +269,9 @@ func CreateNodeByKind(ctx context.Context, client graphql.Client, input *gen.Cre
 			return nil, errors.New("createTaskNode returned no node")
 		}
 		return authoredNodeFrom(resp.CreateTaskNode), nil
-	case input.Role != nil && *input.Role == SpecNodeRole:
+	case RoleInFamily(input.Role, SpecNodeRole):
 		return CreateSpecNode(ctx, client, input)
-	case input.Role != nil && *input.Role == ReviewNodeRole:
+	case RoleInFamily(input.Role, ReviewNodeRole):
 		return CreateReviewNode(ctx, client, input)
 	}
 	resp, err := gen.CreateNode(ctx, client, input)

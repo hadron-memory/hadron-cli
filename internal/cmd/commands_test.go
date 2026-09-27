@@ -2731,7 +2731,11 @@ func TestMemoryExtractAcceptsEverySpellingOfTargetURN(t *testing.T) {
 func TestNodeAddRoleRoutesToItsDoor(t *testing.T) {
 	for _, tc := range []struct{ role, door string }{
 		{"spec", "CreateSpecNode"},
+		{"spec.rule", "CreateSpecNode"},
 		{"review", "CreateReviewNode"},
+		{"review.security.audit", "CreateReviewNode"},
+		{"special", "CreateNode"},
+		{"reviewer", "CreateNode"},
 		{"weather-widget", "CreateNode"}, // open string, ungoverned: generic surface
 	} {
 		t.Run(tc.role, func(t *testing.T) {
@@ -2905,8 +2909,12 @@ func TestNodeTwoGovernedKindsIsRefused(t *testing.T) {
 	}{
 		{"add: runnable + spec", []string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y",
 			"--name", "X", "--runnable", "--role", "spec"}},
+		{"add: runnable + spec.rule", []string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y",
+			"--name", "X", "--runnable", "--role", "spec.rule"}},
 		{"add: runnable + review", []string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y",
 			"--name", "X", "--runnable", "--role", "review"}},
+		{"add: runnable + review.security", []string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y",
+			"--name", "X", "--runnable", "--role", "review.security"}},
 		{"update: runnable + spec", []string{"node", "update", nodeURN, "--runnable", "--role", "spec"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -2966,7 +2974,9 @@ func TestNodeUpdateClearRemedyNamesTheCurrentKindsDoor(t *testing.T) {
 	}
 	for _, tc := range []struct{ name, node, want string }{
 		{"spec node", detail(`"spec"`, "false"), "updateSpecNode"},
+		{"spec subrole node", detail(`"spec.rule"`, "false"), "updateSpecNode"},
 		{"review node", detail(`"review"`, "false"), "updateReviewNode"},
+		{"review subrole node", detail(`"review.security"`, "false"), "updateReviewNode"},
 		{"runnable node", detail("null", "true"), "updateTaskNode"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

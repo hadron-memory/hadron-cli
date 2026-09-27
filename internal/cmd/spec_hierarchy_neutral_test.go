@@ -322,9 +322,12 @@ func TestSpecNewAtRefusals(t *testing.T) {
 // ResolveUrn) finds nothing there; the replacement is created; every re-read
 // of the old spec shows the superseded-by edge, so it is retired. No scan is
 // answered — naming the replacement allocates nothing.
-func supersedeToServer(t *testing.T, oldLoc, toLoc string) (string, map[string]json.RawMessage) {
+func supersedeToServer(t *testing.T, oldLoc, toLoc string, oldRole ...string) (string, map[string]json.RawMessage) {
 	t.Helper()
 	old := hierarchyNeutralDetail(oldLoc)
+	if len(oldRole) > 0 {
+		old = strings.Replace(old, `"tags":["spec"],`, `"tags":[],"role":"`+oldRole[0]+`",`, 1)
+	}
 	resolves, gets := 0, 0
 	gql, captured := captureGraphQLFunc(t, func(op string) string {
 		switch op {
@@ -354,6 +357,42 @@ func supersedeToServer(t *testing.T, oldLoc, toLoc string) (string, map[string]j
 	return gql.URL, captured
 }
 
+// #757: broadening isSpec admits a tagless spec.rule into supersede. Its
+// successor must keep that subrole; silently minting plain spec loses the
+// seven-type distinction Jade's Specs 2.0 corpus depends on.
+func TestSpecSupersedePreservesDottedRole(t *testing.T) {
+	for _, role := range []string{"spec.rule", "spec.feature.screen"} {
+		t.Run(role, func(t *testing.T) {
+			const oldLoc = "app:pas:010:01"
+			const newLoc = "app:pas:010:02"
+			url, captured := supersedeToServer(t, oldLoc, newLoc, role)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"spec", "supersede", oldLoc, "--to", newLoc,
+				"-m", "micromentor.org:specs-2.0", "--title", "Replacement", "--yes", "--server", url})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("supersede tagless %s: %v", role, err)
+			}
+			var created sentSpecInput
+			if err := json.Unmarshal(captured["CreateSpecNode"], &created); err != nil {
+				t.Fatal(err)
+			}
+			if created.Input.Role == nil || *created.Input.Role != role {
+				t.Errorf("successor role = %v, want %s", created.Input.Role, role)
+			}
+			var retired struct {
+				Input map[string]json.RawMessage `json:"input"`
+			}
+			if err := json.Unmarshal(captured["UpdateSpecNode"], &retired); err != nil {
+				t.Fatal(err)
+			}
+			if _, sent := retired.Input["role"]; sent {
+				t.Error("retiring the old spec must preserve its dotted role by omission")
+			}
+		})
+	}
+}
+
 // Any spec can be superseded to a named loc: one outside the legacy numbering,
 // a legacy module header (once refused as "not a rule/flow"), and a legacy
 // rule that chooses its successor's loc instead of an allocated number.
@@ -378,6 +417,9 @@ func TestSpecSupersedeToAnyLoc(t *testing.T) {
 			_ = json.Unmarshal(captured["CreateSpecNode"], &in)
 			if in.Input.Loc != c.to || len(in.Input.Edges) != 0 {
 				t.Errorf("replacement loc/edges = %q/%v, want %q with no derived edges", in.Input.Loc, in.Input.Edges, c.to)
+			}
+			if in.Input.Role == nil || *in.Input.Role != "spec" {
+				t.Errorf("legacy tag-only spec successor role = %v, want base spec", in.Input.Role)
 			}
 			var retire struct {
 				Input struct {

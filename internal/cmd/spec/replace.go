@@ -424,7 +424,7 @@ func isGovernedKind(role *string, isRunnable *bool) bool {
 	if isRunnable != nil && *isRunnable {
 		return true
 	}
-	return role != nil && (*role == api.SpecNodeRole || *role == api.ReviewNodeRole)
+	return api.RoleInFamily(role, api.SpecNodeRole) || api.RoleInFamily(role, api.ReviewNodeRole)
 }
 
 // renderUnsearchedNote says which specs in scope the server did not search, so
