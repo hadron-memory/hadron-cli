@@ -9829,7 +9829,7 @@ func (v *DeleteNodeRevisionResponse) GetDeleteNodeRevision() bool { return v.Del
 
 // DeleteNodeRoleRuleResponse is returned by DeleteNodeRoleRule on success.
 type DeleteNodeRoleRuleResponse struct {
-	// #1325 — delete a rule by its id; expectedRevision as for updateNodeRoleRule.
+	// #1325 — delete a rule by its id; expectedRevision as for updateNodeRoleRule. A LOCKED rule (#1334) is refused with RULE_LOCKED for every caller: unlock it first (unlockNodeRoleRule).
 	DeleteNodeRoleRule bool `json:"deleteNodeRoleRule"`
 }
 
@@ -16993,7 +16993,7 @@ type NodeRoleRuleFields struct {
 	DescriptionNode      *string              `json:"descriptionNode"`
 	DescriptionNodeId    *string              `json:"descriptionNodeId"`
 	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
-	// Set by applying a required template (#1334).
+	// Set by applying a required template (#1334). A locked rule refuses every ordinary edit and delete (RULE_LOCKED); unlockNodeRoleRule is the deliberate step.
 	Locked bool `json:"locked"`
 	// The template this rule was copied from, if any (provenance only; no live link).
 	SourceTemplateId *string                                                     `json:"sourceTemplateId"`
@@ -27636,7 +27636,9 @@ type UpdateNodeRoleRuleClearingValidateByResponse struct {
 	// #1325 — change a rule by its id. With expectedRevision, a rule changed since
 	// you read it is refused CONFLICT (extensions.currentRevision) and nothing is
 	// written; omitted, the last writer wins. A rule you may not manage reads as
-	// NOT_FOUND.
+	// NOT_FOUND. A LOCKED rule (#1334) is refused with RULE_LOCKED (extensions
+	// ruleId, role, sourceTemplateId) for EVERY caller: unlock it first
+	// (unlockNodeRoleRule) or re-apply its required template.
 	UpdateNodeRoleRule *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload `json:"updateNodeRoleRule"`
 }
 
@@ -28025,7 +28027,9 @@ type UpdateNodeRoleRuleResponse struct {
 	// #1325 — change a rule by its id. With expectedRevision, a rule changed since
 	// you read it is refused CONFLICT (extensions.currentRevision) and nothing is
 	// written; omitted, the last writer wins. A rule you may not manage reads as
-	// NOT_FOUND.
+	// NOT_FOUND. A LOCKED rule (#1334) is refused with RULE_LOCKED (extensions
+	// ruleId, role, sourceTemplateId) for EVERY caller: unlock it first
+	// (unlockNodeRoleRule) or re-apply its required template.
 	UpdateNodeRoleRule *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload `json:"updateNodeRoleRule"`
 }
 

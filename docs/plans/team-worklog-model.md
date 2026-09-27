@@ -1,8 +1,8 @@
 # Design as built: event-time model on team worklog milestones (#746)
 
-This CLI follows the candidate server contract in hadron-server#1398 at
-`d033eaa5`. The final schema snapshot must be regenerated from the server's
-merged SHA before this PR is ready to merge.
+This CLI follows the merged server contract in hadron-server#1401 at
+`17d6d96d8c29babeec80e779f150519932275597`. The schema snapshot and
+generated client were refreshed from that commit.
 
 ## Recording
 
@@ -42,5 +42,5 @@ Command tests cover explicit, omitted fallback and unknown receipts; a
 changed model across three rows in one session; an old server's ordinary
 record/read fallback and explicit-model refusal; and blank-model refusal.
 The full Go suite, `go vet ./...`, and `go tool genqlient` pass against the
-candidate SDL. The server's own #1398 tests establish event-time snapshot
+merged SDL. The server's own #1398 tests establish event-time snapshot
 and historical-row behavior; the CLI preserves and renders those values.

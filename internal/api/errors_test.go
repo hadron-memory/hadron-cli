@@ -47,9 +47,6 @@ func TestIsGraphQLValidationForReadsHTTPErrorEnvelope(t *testing.T) {
 	}
 }
 
-	}
-}
-
 func TestMapError(t *testing.T) {
 	tests := []struct {
 		name string
