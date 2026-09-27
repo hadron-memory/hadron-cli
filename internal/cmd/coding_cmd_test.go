@@ -717,10 +717,12 @@ func preflightCreateArgs(serverURL string, extra ...string) []string {
 // route edge, the mirrored back-edge and the router's BODY line all land.
 func TestCodingPreflightCreateWiresRouteAndBody(t *testing.T) {
 	gql, captured := queueGraphQL(t, map[string][]string{
-		"GetNode": {
+		"GetNodeRaw": {
 			codingRouterWithBody(flatRouterBody), // resolve the router + plan the line
-			newRouteNodeRead(backEdgeJSON),       // confirm the embedded back-edge
 			codingRouterWithBody(flatRouterBody), // re-read before the splice
+		},
+		"GetNode": {
+			newRouteNodeRead(backEdgeJSON), // confirm the embedded back-edge
 		},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
 		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
@@ -820,7 +822,7 @@ func TestCodingPreflightCreateWiresRouteAndBody(t *testing.T) {
 // half-created node behind.
 func TestCodingPreflightCreateAmbiguousBodyWritesNothing(t *testing.T) {
 	gql, captured := queueGraphQL(t, map[string][]string{
-		"GetNode": {codingRouterWithBody(sectionedRouterBody)},
+		"GetNodeRaw": {codingRouterWithBody(sectionedRouterBody)},
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -834,10 +836,12 @@ func TestCodingPreflightCreateAmbiguousBodyWritesNothing(t *testing.T) {
 
 	// Naming the section resolves it.
 	gql2, captured2 := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {
+			codingRouterWithBody(sectionedRouterBody),
+			codingRouterWithBody(sectionedRouterBody),
+		},
 		"GetNode": {
-			codingRouterWithBody(sectionedRouterBody),
 			newRouteNodeRead(backEdgeJSON),
-			codingRouterWithBody(sectionedRouterBody),
 		},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
 		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
@@ -867,8 +871,10 @@ func TestCodingPreflightCreateAmbiguousBodyWritesNothing(t *testing.T) {
 // UpdateNode here would be an unexpected operation and fail the fake.
 func TestCodingPreflightCreateNoBodyLine(t *testing.T) {
 	gql, captured := queueGraphQL(t, map[string][]string{
-		"GetNode": {
+		"GetNodeRaw": {
 			codingRouterWithBody("# Preflight\n\nMatch your intent to an edge.\n"),
+		},
+		"GetNode": {
 			newRouteNodeRead(""), // no back-edge asked for, none expected
 		},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
@@ -900,8 +906,10 @@ func TestCodingPreflightCreateNoBodyLine(t *testing.T) {
 // That is a partial write: report it and exit 1, never 0.
 func TestCodingPreflightCreateUnroutedExits1(t *testing.T) {
 	gql, _ := queueGraphQL(t, map[string][]string{
-		"GetNode": {
+		"GetNodeRaw": {
 			codingRouterWithBody(flatRouterBody),
+		},
+		"GetNode": {
 			newRouteNodeRead(backEdgeJSON),
 		},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
@@ -923,10 +931,12 @@ func TestCodingPreflightCreateUnroutedExits1(t *testing.T) {
 // It is reported with the exact line to paste, and still exits 1.
 func TestCodingPreflightCreateBodyUpdateFailureExits1(t *testing.T) {
 	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {
+			codingRouterWithBody(flatRouterBody),
+			codingRouterWithBody(flatRouterBody),
+		},
 		"GetNode": {
-			codingRouterWithBody(flatRouterBody),
 			newRouteNodeRead(backEdgeJSON),
-			codingRouterWithBody(flatRouterBody),
 		},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
 		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
@@ -949,7 +959,7 @@ func TestCodingPreflightCreateBodyUpdateFailureExits1(t *testing.T) {
 // case worth rehearsing.
 func TestCodingPreflightCreateDryRun(t *testing.T) {
 	gql, captured := queueGraphQL(t, map[string][]string{
-		"GetNode": {codingRouterWithBody(sectionedRouterBody)},
+		"GetNodeRaw": {codingRouterWithBody(sectionedRouterBody)},
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -972,7 +982,7 @@ func TestCodingPreflightCreateDryRun(t *testing.T) {
 
 	// An ambiguous router still refuses under --dry-run: the rehearsal answers
 	// the same question the real run does.
-	gql2, _ := queueGraphQL(t, map[string][]string{"GetNode": {codingRouterWithBody(sectionedRouterBody)}})
+	gql2, _ := queueGraphQL(t, map[string][]string{"GetNodeRaw": {codingRouterWithBody(sectionedRouterBody)}})
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs(preflightCreateArgs(gql2.URL, "--dry-run"))
@@ -986,10 +996,12 @@ func TestCodingPreflightCreateDryRun(t *testing.T) {
 // it: the DTO tells the truth and the exit code is 1 (Codex on #376).
 func TestCodingPreflightCreateUnconfirmedBackEdge(t *testing.T) {
 	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {
+			codingRouterWithBody(flatRouterBody),
+			codingRouterWithBody(flatRouterBody),
+		},
 		"GetNode": {
-			codingRouterWithBody(flatRouterBody),
 			newRouteNodeRead(""), // the back-edge did not land
-			codingRouterWithBody(flatRouterBody),
 		},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
 		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
@@ -1019,7 +1031,7 @@ func TestCodingPreflightCreateUnconfirmedBackEdge(t *testing.T) {
 // A missing router means the node would hang off nothing — fail before writing.
 func TestCodingPreflightCreateMissingRouter(t *testing.T) {
 	gql, captured := queueGraphQL(t, map[string][]string{
-		"GetNode": {`{"data":{"node":null}}`},
+		"GetNodeRaw": {`{"data":{"node":null}}`},
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1114,10 +1126,12 @@ func TestCodingFetchNodesContentIsOptIn(t *testing.T) {
 func TestCodingPreflightRouteExistingNode(t *testing.T) {
 	target := codingNodeJSON("n_target", "findings:flaky-otp-timer", "", "")
 	gql, captured := queueGraphQL(t, map[string][]string{
-		"GetNode": {
+		"GetNodeRaw": {
 			codingRouterWithBody(flatRouterBody), // the router + plan
-			target,                               // the target read
 			codingRouterWithBody(flatRouterBody), // fresh re-read before the splice
+		},
+		"GetNode": {
+			target, // the target read
 		},
 		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem1"}}}`},
 		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
@@ -1172,7 +1186,8 @@ func TestCodingPreflightRouteUsesTargetDescription(t *testing.T) {
 		"isRunnable":false,"createdAt":"2026-07-30T00:00:00Z","updatedAt":"2026-07-30T00:00:00Z",
 		"outgoingEdges":[],"incomingEdges":[]}}}`
 	gql, _ := queueGraphQL(t, map[string][]string{
-		"GetNode":    {codingRouterWithBody(flatRouterBody), target},
+		"GetNodeRaw": {codingRouterWithBody(flatRouterBody)},
+		"GetNode":    {target},
 		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem1"}}}`},
 	})
 	f, out := testFactory(t)
@@ -1192,7 +1207,8 @@ func TestCodingPreflightRouteUsesTargetDescription(t *testing.T) {
 func TestCodingPreflightRoutePartialWriteIsHonest(t *testing.T) {
 	target := codingNodeJSON("n_target", "findings:flaky-otp-timer", "", "")
 	gql, _ := queueGraphQL(t, map[string][]string{
-		"GetNode":    {codingRouterWithBody(flatRouterBody), target},
+		"GetNodeRaw": {codingRouterWithBody(flatRouterBody)},
+		"GetNode":    {target},
 		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem1"}}}`},
 		"CreateEdge": {
 			`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`, // forward route lands
@@ -1239,7 +1255,8 @@ func TestCodingPreflightRouteIgnoresDifferentlyLabelledEdge(t *testing.T) {
 		"isRunnable":false,"createdAt":"2026-07-30T00:00:00Z","updatedAt":"2026-07-30T00:00:00Z",
 		"outgoingEdges":[` + other + `],"incomingEdges":[]}}}`
 	gql, _ := queueGraphQL(t, map[string][]string{
-		"GetNode":    {routerWithOther, codingNodeJSON("n_target", "findings:flaky-otp-timer", "", "")},
+		"GetNodeRaw": {routerWithOther},
+		"GetNode":    {codingNodeJSON("n_target", "findings:flaky-otp-timer", "", "")},
 		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem1"}}}`},
 	})
 	f, out := testFactory(t)
@@ -1675,5 +1692,50 @@ func TestCodingReviewLintListedButUnreadableHasNoEdgeToRemove(t *testing.T) {
 	}
 	if !strings.Contains(s, "check-node-resolves") {
 		t.Errorf("expected the indeterminate classification: %q", s)
+	}
+}
+
+// #736: the router body is read RAW and written back with its Mustache
+// placeholders intact. The single-node read compiles {{…}} unless asked not
+// to, so splicing the routing line into a rendered body and saving it stripped
+// every placeholder — silently, because a read-back through the same rendered
+// path agreed with what was written. This asserts the STORED text sent in the
+// mutation, not a rendered re-read.
+func TestCodingPreflightCreateKeepsRouterPlaceholders(t *testing.T) {
+	templated := flatRouterBody + "\nAsk {{name}} ({{role}}) when unsure; {{absent.variable}} stays literal too.\n"
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {
+			codingRouterWithBody(templated), // resolve the router + plan the line
+			codingRouterWithBody(templated), // re-read before the splice
+		},
+		"GetNode":    {newRouteNodeRead(backEdgeJSON)},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(preflightCreateArgs(gql.URL))
+	if err := root.Execute(); err != nil {
+		t.Fatalf("create should succeed, got %v", err)
+	}
+	if len(captured["UpdateNode"]) != 1 {
+		t.Fatalf("expected exactly one router UpdateNode, got %d", len(captured["UpdateNode"]))
+	}
+	var upd struct {
+		Input struct {
+			Content string `json:"content"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["UpdateNode"][0], &upd); err != nil {
+		t.Fatal(err)
+	}
+	for _, ph := range []string{"{{name}}", "{{role}}", "{{absent.variable}}"} {
+		if !strings.Contains(upd.Input.Content, ph) {
+			t.Errorf("the router write must keep %s literally; sent:\n%s", ph, upd.Input.Content)
+		}
+	}
+	if !strings.Contains(upd.Input.Content, "[[findings:flaky-otp-timer]]") {
+		t.Errorf("the routing line must still land; sent:\n%s", upd.Input.Content)
 	}
 }

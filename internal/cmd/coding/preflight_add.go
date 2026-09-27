@@ -147,7 +147,10 @@ usage error, not a half-finished write.`,
 			if err != nil {
 				return err
 			}
-			router, err := gen.GetNode(ctx, client, routerRef)
+			// RAW (#736): the plan is validated against the body the write
+			// will splice into, and that must be the STORED body — a rendered
+			// one has its {{…}} placeholders compiled away.
+			router, err := gen.GetNodeRaw(ctx, client, routerRef)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -500,8 +503,13 @@ func routerBody(content *string) string {
 // Only `content` is sent. Every other field is omitted, which the server reads
 // as "preserve" — in particular `edges`, which would otherwise REPLACE the
 // router's whole outgoing edge set and delete every route it has.
+//
+// The body is read RAW (#736). The single-node read compiles Mustache unless
+// asked not to, so splicing into the rendered body and writing it back stripped
+// every {{…}} placeholder from the router — silently, since a read-back through
+// the same rendered path agreed with what was written.
 func appendRoutingLine(ctx context.Context, client graphql.Client, routerRef, section, line, linkKey string) (routingPlan, error) {
-	fresh, err := gen.GetNode(ctx, client, routerRef)
+	fresh, err := gen.GetNodeRaw(ctx, client, routerRef)
 	if err != nil {
 		return routingPlan{}, api.MapError(err)
 	}

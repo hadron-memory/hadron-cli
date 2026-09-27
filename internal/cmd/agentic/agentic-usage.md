@@ -292,7 +292,7 @@ non-zero naming the nodes it already created, each complete with its edges.
 ```
 hadron auth login | logout | whoami | status | token create|list|validate|revoke <id>
 hadron memory list [--shared-with-me | [--owned-by-me] [--include-agent-system]] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn hrn:mem:<root>:<slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings] | config get <memoryRef> | config rule add|update <memoryRef> <role> [--author-task <ref>] [--validation-task <ref>] [--description-node <ref>] [--writers all|admin|owner] [--validate-by agent|platform] [--strict-sub-roles[=false]] [--enabled[=false]] | config rule rm <memoryRef> <role> --yes | config template list [--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>] | config template get <templateId> | config template create --file <path> (--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>) | config template update <templateId> --file <path> [--expected-revision <n>] | config template rm <templateId> --yes
-hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... | get <loc>... -m <memory> | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
+hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... [--raw] | get <loc>... -m <memory> [--raw] | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>] | upload <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>] | rm <asset-ref> [--yes] | restore <asset-ref> | link <asset-ref> --node <new-node-urn> [--name <n>] [--description <d>]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
@@ -313,7 +313,9 @@ hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or t
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
-hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--before <seq>] [--limit <n>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
+hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--before <seq>] [--limit <n>] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
+hadron team attention [--since <token>] (uses --app or the binding)
+hadron team attention switchover preview | apply --proof <proof> [--yes] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron server-info
@@ -732,8 +734,8 @@ Conventions:
   - **For one node you already hold**, compare the two yourself — that is what
     `spec citations --stale-abstracts` does, and exposing the field is what
     makes it possible from `node get` at all. **Compare against RAW content**:
-    read it with the batched form (several refs, or `--prefix`), which returns
-    content uncompiled. A single-ref `node get` COMPILES Mustache templates,
+    read it with `--raw`, or the batched form (several refs, or `--prefix`),
+    which return content uncompiled. A plain single-ref `node get` COMPILES Mustache templates,
     and the hash is defined over the raw plaintext — so on a template node the
     two disagree for that reason alone and the node reads as stale when it is
     not. Identical for a node with no templates.
@@ -787,12 +789,17 @@ Conventions:
   complete one. A MALFORMED ref (not fully qualified, or a URN of the wrong
   entity) is a different case: it fails the whole call with exit **2**, before
   anything is read, so a typo never hides among the denials.
-  **Content differs between the forms:** a batched read returns content RAW
-  (Mustache templates NOT compiled); a single-ref read compiles them. That is
-  the server's design — the batch is a bulk SOURCE read for
-  lint/audit/migration. Identical for a node without templates; for a template
-  node the batch gives the source. Use a single-ref `node get` when you need
-  rendered output.
+  **Rendered or raw (#736):** a single-ref read COMPILES the node's Mustache
+  templates by default — every `{{…}}` is replaced by its value against the
+  node's data, or by nothing. **`--raw` returns the STORED body**, placeholders
+  intact; batched and `--prefix` reads are always raw (the server's bulk SOURCE
+  read for lint/audit/migration). `--json` carries **`rendered`** on every node:
+  `true` only for a compiled body. **To edit a node's content, read it with
+  `--raw`**: writing a rendered body back (`node update --content-file`)
+  deletes every placeholder silently — a later rendered read agrees with what
+  was written. Identical for a node without templates. The CLI's own
+  read-modify-write paths (`coding preflight create|route` rewriting the router
+  body) read raw.
 - **`--where` reads ONE JSONB column, and the default is `properties` (#603).**
   A leaf reads `properties` unless it sets `"field":"data"`. A node's free-form
   envelope — `authorName`, `sessionId`, a chat message's whole payload — lives in
@@ -2252,6 +2259,44 @@ Conventions:
   unfired. Warning, never refusal; NOT suppressed by `--json`, since stderr
   leaves the stdout contract untouched. The `--json` shapes are unchanged
   and the reads issue no extra call under `--json`.
+  **Team attention** (hadron-server#1353, an INTERNAL PILOT gated per
+  operator+App — outside it every command below exits **8**,
+  `FEATURE_NOT_AVAILABLE`). `team attention [--since <token>]` is what a
+  team-chat ROUTER polls: which of YOUR live workers have relevant unread chat,
+  with no message bodies and no read-state change. `--json`:
+  `{app, token, workers:[{worker, name, urn, live, channels:[{channel, name,
+  unread, unreadMentions, firstUnreadSeq, lastSeq}]}]}` (`workers` is `[]` when
+  idle). Pass the returned `token` as the next `--since` **only after every
+  listed nudge was accepted**; on any failure keep the previous token — a retry
+  may duplicate a nudge but cannot lose one. The CLI never stores the token. An
+  empty `--since` is refused (exit 2 — usually an unset variable); `--since now`
+  is refused by the server (exit 2): discarding a backlog is the explicit
+  **`attention switchover preview`** (read-only; prints each worker's
+  from/through seqs and a short-lived `proof`) then **`attention switchover
+  apply --proof <proof>`** (prompts on a TTY, `--yes` otherwise; atomic; a
+  stale proof exits **5** — preview again). A token or proof the server did not
+  sign for this operator+App exits 2; a token overtaken by a moved watermark
+  exits 5 (poll again without `--since`). With no `--app` and no App context
+  the App comes from the worktree binding, and a binding made against ANOTHER
+  server is refused (exit 2): App ids are not unique across deployments. An
+  explicit `--app` still works.
+  **A bound worker's `chat read` now marks its messages read on the server**,
+  under the pilot, which is what stops the router nudging it. It happens only
+  AFTER the messages were printed, for exactly the reads that record the
+  binding's watermark (unfiltered, contiguous, not `--before`, own App, and a
+  binding that records this server — a `--limit` page included), through the
+  highest seq shown: the read itself carries no session, so a read that fails
+  partway marks nothing (a
+  duplicate nudge, never a lost message). Outside the pilot the step is silently
+  skipped; a failure inside it is a stderr note, never a failed read. For the
+  reads that don't count, **`chat mark-read --through <seq> [--channel <ref>]`**
+  advances the bound worker's cursor explicitly
+  (`--channel` defaults to the App's team chat; an EMPTY `--channel` is refused,
+  exit 2, rather than falling back to it). It is monotonic — a lower seq
+  changes nothing and says so — and a seq past the Channel's head exits 2
+  (`SEQ_BEYOND_WATERMARK`). It needs a binding that records this server (exit 2
+  without one), and the server accepts only your own live session. `--json`: `{workerId, channelId,
+  through, lastSeenSeq}`.
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org
   member`/`memory member`/`memory share`. **Omit the query** (also spelled `user
