@@ -151,7 +151,7 @@ App).`,
 // which is the ordinary case and silent; any other failure is a stderr note,
 // because it means a team-chat router may nudge about these messages again.
 func markDeliveredRead(ctx context.Context, f *cmdutil.Factory, client graphql.Client, appRef string, b *binding, through int) {
-	if b == nil || b.Server == "" || !bindingServerMatches(f, b) {
+	if b == nil || b.SessionID == "" || b.Server == "" || !bindingServerMatches(f, b) {
 		return // no verified deployment for this session: never advance a cursor
 	}
 	note := func(err error) {

@@ -497,6 +497,27 @@ func TestTeamChatReadWithoutABindingMarksNothing(t *testing.T) {
 	}
 }
 
+func TestTeamChatReadWithSessionlessBindingMarksNothing(t *testing.T) {
+	dir := teamGitDir(t)
+	bound := strings.Replace(bindingFixture, `"sessionId":"s-new"`, `"sessionId":""`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bound), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	srv, calls := attnServer(t, chatReadResponses())
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	for _, c := range *calls {
+		if c.Op == "MarkOwnTeamChatRead" {
+			t.Errorf("a binding without a session must not mark server read state: %v", opsOf(*calls))
+		}
+	}
+}
+
 // A binding made against ANOTHER server: its session id means nothing here.
 func TestTeamChatReadAgainstAnotherServerMarksNothing(t *testing.T) {
 	dir := teamGitDir(t)

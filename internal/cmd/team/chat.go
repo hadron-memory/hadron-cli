@@ -645,7 +645,7 @@ them "(human)" / "(worker)".`,
 				// point: a bounded FORWARD read from the watermark is a genuine
 				// prefix — seqs 1..30 of a chat, with nothing skipped — so
 				// recording 30 claims exactly what was seen.
-				if b == nil || !ok || !unfiltered || !contiguous || cmd.Flags().Changed("before") ||
+				if b == nil || b.SessionID == "" || !ok || !unfiltered || !contiguous || cmd.Flags().Changed("before") ||
 					!bindingServerMatches(f, b) {
 					return false
 				}
