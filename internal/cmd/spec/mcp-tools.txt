@@ -61,6 +61,9 @@ hadron_spawn
 hadron_start_session
 hadron_store_file
 hadron_sync_graph
+hadron_team_attention
+hadron_team_attention_switchover
+hadron_team_chat_mark_read
 hadron_team_chat_post
 hadron_team_chat_read
 hadron_team_work_items
