@@ -402,7 +402,13 @@ func TestExportDTOHasNoNilSlices(t *testing.T) {
 		switch v.Kind() {
 		case reflect.Struct:
 			for i := 0; i < v.NumField(); i++ {
-				walk(name+"."+v.Type().Field(i).Name, v.Field(i))
+				field := v.Type().Field(i)
+				// A nil optional slice is omitted, not rendered as null. Scoped
+				// selection fields are absent from legacy unscoped reports.
+				if v.Field(i).Kind() == reflect.Slice && v.Field(i).IsNil() && strings.Contains(field.Tag.Get("json"), ",omitempty") {
+					continue
+				}
+				walk(name+"."+field.Name, v.Field(i))
 			}
 		case reflect.Slice:
 			if v.IsNil() {

@@ -1,0 +1,62 @@
+# Individual-file export uses its own server query. The dedicated input has no
+# memory scope, and the returned scope marker prevents accidental orphan work.
+# Optional fields are omitted when unset, never serialized as null.
+# @genqlient(for: "SelectedSkillFilePlanInput.host", omitempty: true)
+# @genqlient(for: "SelectedSkillFilePlanInput.files", omitempty: true)
+# @genqlient(for: "SelectedSkillFilePlanInput.force", omitempty: true)
+# The file-facts input is shared with skillPlan. Genqlient may generate its
+# Go type from either operation first, so both declare its omission contract.
+# @genqlient(for: "SkillFileFactsInput.fileHash", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.headerHash", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.nodeId", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.sourceUrn", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.parseFailed", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.hasExtraFrontmatter", omitempty: true)
+# @genqlient(for: "SkillFileFactsInput.revision", omitempty: true)
+query SelectedSkillFilePlan(
+  $input: SelectedSkillFilePlanInput!
+) {
+  selectedSkillFilePlan(input: $input) {
+    scanned
+    judged
+    orphanAssessmentSkipped
+    selectionResults {
+      ref
+      nodeId
+      action
+      reason {
+        code
+        message
+      }
+    }
+    entries {
+      urn
+      nodeId
+      name
+      class
+      parseFailure
+      movedFrom
+      renderedBody
+      exportPlan {
+        action
+        preservesExistingFile
+        reasons {
+          code
+          message
+        }
+      }
+      findings {
+        rule
+        severity
+        message
+        urn
+        memory
+      }
+    }
+    orphans {
+      dirName
+      nodeId
+      sourceUrn
+    }
+  }
+}

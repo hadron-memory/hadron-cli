@@ -7918,6 +7918,11 @@ type Query {
   secrets(limit: Int, offset: Int, ownerRef: ID, ownerType: String!): SecretsPage!
 
   """
+  Selected individual skill files only. Plugin bundles cannot use node selectors.
+  """
+  selectedSkillFilePlan(input: SelectedSkillFilePlanInput!): SkillPlan!
+
+  """
   Identity of the hadron-server this GraphQL endpoint is bound to: the
   server-identity version and the deployment's canonical base URL. The
   GraphQL counterpart to the hadron_server_info MCP tool — both read the
@@ -8873,6 +8878,20 @@ type SecretsPage {
   total: Int!
 }
 
+"""
+Plan installed individual skill files for explicit task refs; plugin exports use skillPlan.
+"""
+input SelectedSkillFilePlanInput {
+  files: [SkillFileFactsInput!]
+  force: Boolean
+  host: String
+
+  """
+  Nonempty node IDs or fully qualified node URNs. Relative locs are refused.
+  """
+  nodes: [String!]!
+}
+
 """Identity of the running hadron-server (see Query.serverInfo)."""
 type ServerInfo {
   """
@@ -9213,6 +9232,11 @@ type SkillPlan {
   design; the gap is a fact about the corpus, not a discrepancy.
   """
   judged: Int!
+
+  """
+  True for explicit individual-file selection: unselected files are not classified as orphans.
+  """
+  orphanAssessmentSkipped: Boolean!
   orphans: [SkillOrphan!]!
 
   """
@@ -9222,6 +9246,11 @@ type SkillPlan {
   corpus it was denied.
   """
   scanned: Int!
+
+  """
+  Opaque unavailable refs and selected nodes with no declaration for this host.
+  """
+  selectionResults: [SkillSelectionResult!]!
 
   """
   Nodes in scope carrying a key under properties.exports that names no host
@@ -9340,6 +9369,16 @@ type SkillPlanUnrecognized {
   name: String!
   nodeId: String!
   urn: String!
+}
+
+"""
+A named task that cannot produce a host entry. An unavailable ref reveals no node metadata.
+"""
+type SkillSelectionResult {
+  action: SkillExportAction!
+  nodeId: String
+  reason: SkillExportReason!
+  ref: String!
 }
 
 """
