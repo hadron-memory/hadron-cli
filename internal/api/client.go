@@ -361,7 +361,7 @@ func NewClient(serverURL, token string, httpClient *http.Client) (graphql.Client
 	return &nullSafeGraphQLClient{inner: inner}, nil
 }
 
-// gqlparser's List.Error/As/Is dereference every entry, including nil entries
+// gqlparser's List.As/Is traverse every entry and dereference nil entries
 // decoded from a malformed `errors: [null]` response. Sanitize at the client
 // boundary so no caller can receive a panic-prone GraphQL error list.
 type nullSafeGraphQLClient struct{ inner graphql.Client }

@@ -31,6 +31,7 @@ func TestClientSanitizesNullGraphQLErrors(t *testing.T) {
 		{"400 mixed", http.StatusBadRequest, `[null,{"message":"no such node","extensions":{"code":"NOT_FOUND"}}]`, exitcode.NotFound, true},
 		{"500 mixed", http.StatusInternalServerError, `[null,{"message":"no such node","extensions":{"code":"NOT_FOUND"}}]`, exitcode.NotFound, true},
 		{"200 ordinary", http.StatusOK, `[{"message":"no such node","extensions":{"code":"NOT_FOUND"}}]`, exitcode.NotFound, true},
+		{"400 ordinary", http.StatusBadRequest, `[{"message":"no such node","extensions":{"code":"NOT_FOUND"}}]`, exitcode.NotFound, true},
 		{"500 ordinary", http.StatusInternalServerError, `[{"message":"no such node","extensions":{"code":"NOT_FOUND"}}]`, exitcode.NotFound, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -51,8 +52,8 @@ func TestClientSanitizesNullGraphQLErrors(t *testing.T) {
 			if err == nil {
 				t.Fatal("a response with only null errors must not become success")
 			}
-			// gqlparser's List.Error/As/Is panic on a nil entry. Exercise all
-			// three through the real client boundary, before MapError wraps it.
+			// gqlparser's List.Is/As panic on a nil entry. Exercise those and
+			// Error through the real client boundary, before MapError wraps it.
 			_ = err.Error()
 			_ = errors.Is(err, errors.New("probe"))
 			var httpErr *graphql.HTTPError
