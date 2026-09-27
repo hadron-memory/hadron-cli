@@ -155,30 +155,39 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if d.token != "" {
 		req.Header.Set("Authorization", "Bearer "+d.token)
 	}
-	// Only a call whose context carries a session (WithSession) sends the
-	// header. Some operations put sessionRef only in GraphQL variables, so an
-	// insecure initial URL must inspect the replayable body as well: the first
-	// request never passes through the redirect policy.
-	if id := sessionFrom(req.Context()); id != "" {
-		if !schemeIsSecure(req.URL) {
-			return nil, fmt.Errorf("%w: refusing to send a session-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
-		}
-		req.Header.Set(SessionHeader, id)
+	if err := checkInitialSessionRequest(req); err != nil {
+		return nil, err
 	}
-	if !schemeIsSecure(req.URL) {
-		carriesSession, err := postBodyCarriesSessionRef(req)
-		if err != nil {
-			return nil, fmt.Errorf("%w: cannot inspect a GraphQL POST before sending it to %s: %v", ErrRedirectPolicy, req.URL.Redacted(), err)
-		}
-		if carriesSession {
-			return nil, fmt.Errorf("%w: refusing to send a sessionRef-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
-		}
+	// Only a call whose context carries a session (WithSession) sends the
+	// header. A body-only sessionRef was checked above without adding one.
+	if id := sessionFrom(req.Context()); id != "" {
+		req.Header.Set(SessionHeader, id)
 	}
 	resp, err := d.inner.Do(req)
 	if err != nil || resp.StatusCode < 500 {
 		return resp, err
 	}
 	return classifyGatewayResponse(resp)
+}
+
+// The initial request never passes through CheckRedirect. Share this guard
+// between genqlient and RawGraphQL: both may carry sessionRef in POST JSON
+// without a worker-session header or a bearer token.
+func checkInitialSessionRequest(req *http.Request) error {
+	if schemeIsSecure(req.URL) {
+		return nil
+	}
+	if sessionFrom(req.Context()) != "" || req.Header.Get(SessionHeader) != "" {
+		return fmt.Errorf("%w: refusing to send a session-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
+	}
+	carriesSession, err := postBodyCarriesSessionRef(req)
+	if err != nil {
+		return fmt.Errorf("%w: cannot inspect a GraphQL POST before sending it to %s: %v", ErrRedirectPolicy, req.URL.Redacted(), err)
+	}
+	if carriesSession {
+		return fmt.Errorf("%w: refusing to send a sessionRef-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
+	}
+	return nil
 }
 
 // genqlient constructs POSTs with a bytes.Reader, so GetBody lets us inspect

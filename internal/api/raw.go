@@ -36,6 +36,8 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 	}
 	if token != "" {
 		httpClient = withSecureRedirects(httpClient)
+	} else {
+		httpClient = withSessionRedirects(httpClient)
 	}
 	payload, err := json.Marshal(map[string]any{"query": query, "variables": variables})
 	if err != nil {
@@ -48,6 +50,9 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 	req.Header.Set("Content-Type", "application/json")
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if err := checkInitialSessionRequest(req); err != nil {
+		return nil, exitcode.New(exitcode.Error, err)
 	}
 	// #394: `hadron api` is the one path that KNOWS whether a write was at
 	// stake, so its transport failures name it outright rather than hedging.
