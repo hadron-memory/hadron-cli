@@ -31,9 +31,9 @@ func previewMocks() map[string]string {
 	a, _ := json.Marshal(storedAbstract)
 	m := editMocks()
 	delete(m, "GetNode")
-	m["GetSpecNodeRaw"] = `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+	m["GetSpecNodeForEdit"] = `{"data":{"node":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
 		`"tags":["spec"],"role":null,"content":` + string(b) + `,"abstract":` + string(a) + `,` +
-		`"abstractOriginHash":"` + specOriginHash(placeholderBody) + `"}}}`
+		`"abstractOriginHash":"` + specOriginHash(placeholderBody) + `","revision":7}}}`
 	return m
 }
 
@@ -63,7 +63,7 @@ func writeTemp(t *testing.T, name, body string) string {
 
 // readOnlyOps is every operation a dry run may send. Anything else — above all
 // UpdateSpecNode — is a write the preview must never make.
-var readOnlyOps = map[string]bool{"ResolveUrn": true, "GetSpecNodeRaw": true}
+var readOnlyOps = map[string]bool{"ResolveUrn": true, "GetSpecNodeRaw": true, "GetSpecNodeForEdit": true}
 
 func assertNoWrites(t *testing.T, captured map[string]json.RawMessage) {
 	t.Helper()
@@ -94,8 +94,8 @@ func runEdit(t *testing.T, mocks map[string]string, args ...string) (string, map
 // The edit reads the STORED body: a rendered read would hand the editor, the
 // preview and the write text without its placeholders.
 func TestSpecEditReadsTheRawBody(t *testing.T) {
-	if !strings.Contains(gen.GetSpecNodeRaw_Operation, "node(ref: $ref, raw: true)") {
-		t.Fatalf("the edit read must ask for raw: true, got:\n%s", gen.GetSpecNodeRaw_Operation)
+	if !strings.Contains(gen.GetSpecNodeForEdit_Operation, "node(ref: $ref, raw: true)") {
+		t.Fatalf("the edit read must ask for raw: true, got:\n%s", gen.GetSpecNodeForEdit_Operation)
 	}
 	var seen string
 	restore := spec.SetEditorFuncForTest(func(_ *output.IOStreams, current string) (string, error) {
@@ -288,7 +288,7 @@ func TestSpecEditPreviewMatchesTheWrite(t *testing.T) {
 func TestSpecEditClaimsAbstractStaleOnlyWhenItCanArm(t *testing.T) {
 	withNode := func(from, to string) map[string]string {
 		m := previewMocks()
-		m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], from, to, 1)
+		m["GetSpecNodeForEdit"] = strings.Replace(m["GetSpecNodeForEdit"], from, to, 1)
 		return m
 	}
 	noAbstract := func() map[string]string { return withNode(`"abstract":"Win back."`, `"abstract":null`) }
@@ -322,7 +322,7 @@ func TestSpecEditClaimsAbstractStaleOnlyWhenItCanArm(t *testing.T) {
 // (#740 round 3, Copilot).
 func TestSpecEditBlankAbstractOverNoneIsANoOp(t *testing.T) {
 	m := previewMocks()
-	m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], `"abstract":"Win back."`, `"abstract":null`, 1)
+	m["GetSpecNodeForEdit"] = strings.Replace(m["GetSpecNodeForEdit"], `"abstract":"Win back."`, `"abstract":null`, 1)
 	out, captured := runEdit(t, m, "--abstract-file", writeTemp(t, "abstract.md", "\n"), "--json")
 	if _, wrote := captured["UpdateSpecNode"]; wrote {
 		t.Error("a blank abstract over none must not be written")
