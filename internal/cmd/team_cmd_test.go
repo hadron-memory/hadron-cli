@@ -2935,9 +2935,18 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 				OperationName string `json:"operationName"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			during() // another agent, mid-fetch
+			// Another agent, mid-FETCH — so only during the chat read itself,
+			// not the post-render server mark (#1353), which runs after the
+			// watermark is written and would otherwise model a later edit.
+			if body.OperationName == "TeamChatMessages" {
+				during()
+			}
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(oneMessage[body.OperationName]))
+			resp, ok := oneMessage[body.OperationName]
+			if !ok {
+				resp, _ = unstubbedDefault(body.OperationName)
+			}
+			_, _ = w.Write([]byte(resp))
 		}))
 		t.Cleanup(gql.Close)
 		f, _ := testFactory(t)

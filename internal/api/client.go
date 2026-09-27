@@ -5,6 +5,7 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,8 @@ import (
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/urlsec"
@@ -76,6 +79,9 @@ func schemeIsSecure(u *url.URL) bool {
 func withSecureRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if err := checkSessionRedirect(req, via); err != nil {
+			return err
+		}
 		if !schemeIsSecure(req.URL) {
 			return fmt.Errorf("%w: refusing to follow a redirect to %s over %s — the bearer token would be sent in cleartext",
 				ErrRedirectPolicy, req.URL.Redacted(), req.URL.Scheme)
@@ -90,6 +96,50 @@ func withSecureRedirects(client *http.Client) *http.Client {
 	return &c
 }
 
+// withSessionRedirects is the redirect policy for a client with NO bearer
+// token: ordinary requests have no scheme restriction, while session-bearing
+// requests cannot redirect to another host or an insecure URL.
+func withSessionRedirects(client *http.Client) *http.Client {
+	c := *client
+	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if err := checkSessionRedirect(req, via); err != nil {
+			return err
+		}
+		if len(via) >= 10 {
+			return fmt.Errorf("%w: stopped after 10 redirects", ErrRedirectPolicy)
+		}
+		return nil
+	}
+	return &c
+}
+
+// checkSessionRedirect refuses cross-host and insecure redirects when a
+// request carries a worker session. GraphQL POSTs can carry sessionRef in the
+// body without WithSession, which Go replays across 307/308 redirects. A POST
+// without a session keeps the ordinary redirect behavior.
+func checkSessionRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) == 0 || via[0] == nil || via[0].URL == nil {
+		return nil
+	}
+	crossHost := !strings.EqualFold(req.URL.Host, via[0].URL.Host)
+	hasSession := sessionFrom(req.Context()) != "" || sessionFrom(via[0].Context()) != "" ||
+		via[0].Header.Get(SessionHeader) != "" || req.Header.Get(SessionHeader) != ""
+	if via[0].Method == http.MethodPost {
+		bodySession, err := postBodyCarriesSessionRef(via[0])
+		if err != nil {
+			return fmt.Errorf("%w: cannot inspect a GraphQL POST before redirecting it to %s: %v", ErrRedirectPolicy, req.URL.Redacted(), err)
+		}
+		hasSession = hasSession || bodySession
+	}
+	if !hasSession {
+		return nil
+	}
+	if crossHost || !schemeIsSecure(req.URL) {
+		return fmt.Errorf("%w: refusing to forward a session-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
+	}
+	return nil
+}
+
 // ErrRedirectPolicy marks a refusal WE made about a redirect, as opposed to a
 // network failure. net/http wraps a CheckRedirect error in *url.Error, which
 // satisfies net.Error — so without this sentinel the transport classifier
@@ -97,7 +147,8 @@ func withSecureRedirects(client *http.Client) *http.Client {
 // report it as retryable exit 7. The server answered; retrying cannot help.
 var ErrRedirectPolicy = errors.New("redirect refused by policy")
 
-// bearerDoer injects the Authorization header on every request.
+// bearerDoer injects the Authorization header on every request, and the
+// worker-session header on the requests that asked for it (WithSession).
 type bearerDoer struct {
 	token string
 	inner *http.Client
@@ -107,11 +158,109 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if d.token != "" {
 		req.Header.Set("Authorization", "Bearer "+d.token)
 	}
+	if err := checkInitialSessionRequest(req); err != nil {
+		return nil, err
+	}
+	// Only a call whose context carries a session (WithSession) sends the
+	// header. A body-only sessionRef was checked above without adding one.
+	if id := sessionFrom(req.Context()); id != "" {
+		req.Header.Set(SessionHeader, id)
+	}
 	resp, err := d.inner.Do(req)
 	if err != nil || resp.StatusCode < 500 {
 		return resp, err
 	}
 	return classifyGatewayResponse(resp)
+}
+
+// The initial request never passes through CheckRedirect. Share this guard
+// between genqlient and RawGraphQL: both may carry sessionRef in POST JSON
+// without a worker-session header or a bearer token.
+func checkInitialSessionRequest(req *http.Request) error {
+	if schemeIsSecure(req.URL) {
+		return nil
+	}
+	if sessionFrom(req.Context()) != "" || req.Header.Get(SessionHeader) != "" {
+		return fmt.Errorf("%w: refusing to send a session-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
+	}
+	carriesSession, err := postBodyCarriesSessionRef(req)
+	if err != nil {
+		return fmt.Errorf("%w: cannot inspect a GraphQL POST before sending it to %s: %v", ErrRedirectPolicy, req.URL.Redacted(), err)
+	}
+	if carriesSession {
+		return fmt.Errorf("%w: refusing to send a sessionRef-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
+	}
+	return nil
+}
+
+// genqlient and RawGraphQL construct POSTs with a bytes.Reader, so GetBody
+// lets us inspect the encoded request without consuming it. Only the
+// operation's top-level sessionRef variable or argument identifies a worker
+// session; arbitrary nested JSON may use the same key for unrelated data.
+// A non-replayable body cannot be proved session-free and is refused instead.
+func postBodyCarriesSessionRef(req *http.Request) (bool, error) {
+	if req.Method != http.MethodPost || req.Body == nil {
+		return false, nil
+	}
+	if req.GetBody == nil {
+		return true, nil
+	}
+	body, err := req.GetBody()
+	if err != nil {
+		return true, err
+	}
+	defer body.Close()
+	encoded, err := io.ReadAll(body)
+	if err != nil {
+		return true, err
+	}
+	var envelope struct {
+		Query     string                     `json:"query"`
+		Variables map[string]json.RawMessage `json:"variables"`
+	}
+	if err := json.Unmarshal(encoded, &envelope); err != nil {
+		return true, err
+	}
+	if _, ok := envelope.Variables["sessionRef"]; ok {
+		return true, nil
+	}
+	// RawGraphQL also accepts an inline argument, without a variables map.
+	// Parse only documents that mention sessionRef at all; parsing distinguishes
+	// a real argument from a string, comment, alias, or nested JSON value.
+	if !bytes.Contains([]byte(envelope.Query), []byte("sessionRef")) {
+		return false, nil
+	}
+	doc, err := parser.ParseQuery(&ast.Source{Input: envelope.Query})
+	if err != nil {
+		return true, err
+	}
+	for _, op := range doc.Operations {
+		if selectionHasSessionRef(op.SelectionSet) {
+			return true, nil
+		}
+	}
+	for _, fragment := range doc.Fragments {
+		if selectionHasSessionRef(fragment.SelectionSet) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func selectionHasSessionRef(selections ast.SelectionSet) bool {
+	for _, selection := range selections {
+		switch s := selection.(type) {
+		case *ast.Field:
+			if s.Arguments.ForName("sessionRef") != nil || selectionHasSessionRef(s.SelectionSet) {
+				return true
+			}
+		case *ast.InlineFragment:
+			if selectionHasSessionRef(s.SelectionSet) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // classifyGatewayResponse decides, FROM THE RAW BODY, whether a 5xx is the API
@@ -203,6 +352,8 @@ func NewClient(serverURL, token string, httpClient *http.Client) (graphql.Client
 	}
 	if token != "" {
 		httpClient = withSecureRedirects(httpClient)
+	} else {
+		httpClient = withSessionRedirects(httpClient)
 	}
 	return graphql.NewClient(Endpoint(serverURL), &bearerDoer{token: token, inner: httpClient}), nil
 }
