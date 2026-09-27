@@ -25,8 +25,9 @@ Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 
 Spec reads recognize the union of the legacy `spec` tag and the `spec` / dotted
 `spec.*` role family. This includes `list`, `get --prefix`,
-`find --match-exactly`, `grep` and `check-tools`; an overlapping node appears once.
-`spec replace` remains tag-scoped and may skip a role-only spec (#659).
+`find --match-exactly`, `grep`, `check-tools` and `replace`; an overlapping node
+appears once. The server's bulk replace still skips governed specs, including
+role-only specs, and reports how many it did not search (#659).
 
 ## The legacy numbering
 

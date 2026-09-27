@@ -9,10 +9,10 @@
 > taxonomy, no new numbering policy, no new schema fields.
 
 > **Read-side update, 2026-09-27 (#684):** the server now exposes the
-> `NodeFilter.role` family filter. `spec list`, `get --prefix`, `grep` and
-> `check-tools` union it with the legacy `spec` tag, and exact `find` filters
-> the same union client-side. The known scan limit below describes #708 at
-> merge time; `spec replace` remains tag-scoped (#659).
+> `NodeFilter.role` family filter. `spec list`, `get --prefix`, `grep`,
+> `check-tools` and `replace` union it with the legacy `spec` tag, and exact
+> `find` filters the same union client-side. The known scan limit below
+> describes #708 at merge time. Bulk replace still skips governed specs (#659).
 
 ## 1. What "the hierarchy" is, and where it lives
 

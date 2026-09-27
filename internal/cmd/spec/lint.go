@@ -349,10 +349,10 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	if !hasTag(n.Tags, "spec") {
 		if api.RoleInFamily(n.Role, api.SpecNodeRole) {
 			// A spec by its governed role (isSpec), so not broken — but the
-			// role-aware reads include it (#684). The bulk replace path remains
-			// tag-scoped and can still omit it; the missing-tag policy itself is
-			// unchanged while the team decides whether that warning should stay.
-			add("tag-spec", sevWarning, `carries the spec role but not the "spec" tag — spec replace and other legacy tag-only consumers may skip it; role-aware spec reads include it`)
+			// CLI reads include it (#684), but other tag-only clients can omit it.
+			// The missing-tag policy itself is unchanged; Jade's request to
+			// revisit that policy is tracked separately.
+			add("tag-spec", sevWarning, `carries the spec role but not the "spec" tag — legacy tag-only clients may skip it; role-aware spec commands include it`)
 		} else {
 			add("tag-spec", sevError, `missing "spec" tag`)
 		}
@@ -601,7 +601,7 @@ func abstractLength(a *string) int {
 // "cli:cha", or a feature like "cor:api:140"). The scan pages to exhaustion so
 // a subtree larger than one server page is linted whole (#23).
 func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix string) ([]specNode, error) {
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -639,7 +639,7 @@ func lintSelects(n *api.ListNode) bool {
 // tag, including on malformed corpus members (#241). The scan pages to
 // exhaustion so a corpus larger than one server page is linted whole (#23).
 func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string) ([]specNode, error) {
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -651,7 +651,7 @@ func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string
 // tag-agnostic so product discovery sees a product whose specs are missing
 // their tag.
 func scanAllCitationLocs(cmd *cobra.Command, client graphql.Client, memURN string) ([]string, error) {
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil)
 	if err != nil {
 		return nil, err
 	}

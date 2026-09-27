@@ -136,7 +136,7 @@ chunk leaves the source alone with a warning.`,
 			if source.Product != "" {
 				prefix = source.Product
 			}
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix)
 			if err != nil {
 				return err
 			}

@@ -1097,8 +1097,8 @@ const serverDefaultPage = 100
 // under-reporting: a missed tail makes the allocator reuse a live number.
 // Spec nodes are addressed by tag/prefix, never nodeType, so nodeType is left
 // unset; add it back here if a caller ever needs it.
-func scanAllNodes(ctx context.Context, client graphql.Client, memory, prefix *string, tags []string) ([]*api.ListNode, error) {
-	nodes, err := scanAllNodesFiltered(ctx, client, newNodeFilter(memory, prefix, tags))
+func scanAllNodes(ctx context.Context, client graphql.Client, memory, prefix *string) ([]*api.ListNode, error) {
+	nodes, err := scanAllNodesFiltered(ctx, client, newNodeFilter(memory, prefix, nil))
 	if err != nil {
 		return nil, api.MapError(err)
 	}

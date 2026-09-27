@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -26,6 +28,114 @@ var governedCorpus = `{"data":{"nodes":[` + specNodeList("cor:sec", `["spec"]`) 
 
 func noMatchReplaceResp(scanned int) string {
 	return fmt.Sprintf(`{"data":{"searchReplaceInNodes":{"nodesScanned":%d,"nodesChanged":0,"totalReplacements":0,"dryRun":true,"results":[]}}}`, scanned)
+}
+
+// #684: replace must select both spec markers before it sends nodeIds to the
+// existing bulk door. A role-only spec is still governed and therefore not
+// searched by that door; the CLI must count it without claiming an all-clear.
+func TestSpecReplaceUnionsRoleOnlySpecsBeforeDryRunAndNoMatch(t *testing.T) {
+	for _, dryRun := range []bool{true, false} {
+		t.Run(fmt.Sprintf("dryRun=%v", dryRun), func(t *testing.T) {
+			seen := map[string]bool{}
+			var sentIDs []string
+			searchCalls := 0
+			gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var req struct {
+					OperationName string          `json:"operationName"`
+					Variables     json.RawMessage `json:"variables"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+					t.Errorf("decode request: %v", err)
+					return
+				}
+				var resp string
+				switch req.OperationName {
+				case "FindNodes":
+					var vars findNodesVars
+					if err := json.Unmarshal(req.Variables, &vars); err != nil {
+						t.Errorf("decode find vars: %v", err)
+						return
+					}
+					if len(vars.Filter.MemoryIds) != 1 || vars.Filter.MemoryIds[0] != specMem || vars.Filter.LocPrefix != "cor:sec" {
+						t.Errorf("each stream must keep memory and prefix scope: %+v", vars.Filter)
+					}
+					switch {
+					case len(vars.Filter.Tags) == 1 && vars.Filter.Tags[0] == "spec":
+						seen["tag"] = true
+						resp = `{"data":{"nodes":[` + specNodeList("cor:sec", `["spec"]`) + `,` + specNodeListWithRole("cor:sec:040", `["spec"]`) + `]}}`
+					case vars.Filter.Role != nil && *vars.Filter.Role == "spec":
+						seen["role"] = true
+						resp = `{"data":{"nodes":[` + specNodeListWithRole("cor:sec:040", `["spec"]`) + `,` + specNodeListWithRole("cor:sec:040:01", `[]`) + `,` + specNodeListWithRole("cor:security:010", `[]`) + `]}}`
+					default:
+						t.Errorf("unexpected find filter: %+v", vars.Filter)
+						return
+					}
+				case "SearchReplaceInNodes":
+					searchCalls++
+					var vars struct {
+						Input struct {
+							NodeIds   []string `json:"nodeIds"`
+							MemoryIds []string `json:"memoryIds"`
+							DryRun    bool     `json:"dryRun"`
+						} `json:"input"`
+					}
+					if err := json.Unmarshal(req.Variables, &vars); err != nil {
+						t.Errorf("decode replace vars: %v", err)
+						return
+					}
+					sentIDs = vars.Input.NodeIds
+					if !vars.Input.DryRun || len(vars.Input.MemoryIds) != 0 {
+						t.Errorf("replace must preview explicit node ids without a whole-memory write: %+v", vars.Input)
+					}
+					resp = noMatchReplaceResp(1)
+				default:
+					t.Errorf("unexpected operation %q", req.OperationName)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(translateFindNodes(req.OperationName, resp)))
+			}))
+			t.Cleanup(gql.Close)
+
+			f, out, errOut := testFactoryTTY(t, "")
+			root := NewRootCmd(f)
+			args := []string{"spec", "replace", "ZZZNOPE", "x", "-m", specMem, "--prefix", "cor:sec", "--json", "--server", gql.URL}
+			if dryRun {
+				args = append(args, "--dry-run")
+			} else {
+				args = append(args, "--yes")
+			}
+			root.SetArgs(args)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if !seen["tag"] || !seen["role"] || searchCalls != 1 {
+				t.Errorf("expected both discovery streams and one preview, got streams=%v calls=%d", seen, searchCalls)
+			}
+			wantIDs := []string{"id-cor:sec", "id-cor:sec:040", "id-cor:sec:040:01"}
+			if fmt.Sprint(sentIDs) != fmt.Sprint(wantIDs) {
+				t.Errorf("explicit ids = %v, want deduped in-branch specs %v", sentIDs, wantIDs)
+			}
+			var dto struct {
+				SpecsInScope      int `json:"specsInScope"`
+				SpecsGoverned     int `json:"specsGoverned"`
+				SpecsScanned      int `json:"specsScanned"`
+				TotalReplacements int `json:"totalReplacements"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+				t.Fatalf("output JSON: %v\n%s", err, out.String())
+			}
+			if dto.SpecsInScope != 3 || dto.SpecsGoverned != 2 || dto.SpecsScanned != 1 || dto.TotalReplacements != 0 {
+				t.Errorf("role-only governed spec must be counted but not claimed searched: %+v", dto)
+			}
+			if !dryRun {
+				msg := errOut.String()
+				if !strings.Contains(msg, "No matches in the 1 spec(s) searched") || strings.Contains(msg, "No matches — nothing to replace") {
+					t.Errorf("real no-match note must name the searched subset: %s", msg)
+				}
+			}
+		})
+	}
 }
 
 func TestSpecReplaceReportsTheGovernedSpecsItCouldNotSearch(t *testing.T) {

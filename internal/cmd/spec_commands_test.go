@@ -272,6 +272,84 @@ func TestSpecLsOldServerFallsBackToCompleteAccessGatedScan(t *testing.T) {
 	}
 }
 
+// The read paths below must each reach a tagless spec through the role stream.
+// The fake server returns that node ONLY for filter.role, so a regression to a
+// tag-only scan produces an empty result rather than a misleading passing test.
+func roleOnlySpecScanServer(t *testing.T, loc, content string) (*httptest.Server, *int, *int) {
+	t.Helper()
+	tagCalls, roleCalls := 0, 0
+	batchNode := strings.Replace(specBatchNodeBody(loc, content), `"tags":["spec","p1"]`, `"tags":[],"role":"spec.rule"`, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string        `json:"operationName"`
+			Variables     findNodesVars `json:"variables"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode request: %v", err)
+			return
+		}
+		var resp string
+		switch body.OperationName {
+		case "FindNodes":
+			if len(body.Variables.Filter.MemoryIds) != 1 || body.Variables.Filter.MemoryIds[0] != specMem {
+				t.Errorf("memory scope lost: %+v", body.Variables.Filter)
+			}
+			switch {
+			case len(body.Variables.Filter.Tags) == 1 && body.Variables.Filter.Tags[0] == "spec":
+				tagCalls++
+				resp = `{"data":{"nodes":[]}}`
+			case body.Variables.Filter.Role != nil && *body.Variables.Filter.Role == "spec":
+				roleCalls++
+				resp = `{"data":{"nodes":[` + specNodeListWithRole(loc, `[]`) + `]}}`
+			default:
+				t.Errorf("unexpected filter: %+v", body.Variables.Filter)
+				return
+			}
+		case "NodeBatch":
+			resp = `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` + batchNode + `]}}}`
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
+	}))
+	t.Cleanup(server.Close)
+	return server, &tagCalls, &roleCalls
+}
+
+func TestRoleOnlySpecAppearsInPrefixGetGrepAndCheckTools(t *testing.T) {
+	const loc = "cor:api:010:01"
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+		exit int
+	}{
+		{"prefix get", []string{"get", "--prefix", "cor:api"}, `"citation": "` + loc + `"`, 0},
+		{"grep", []string{"grep", "JadeMarker"}, `"citation": "` + loc + `"`, 0},
+		{"check-tools", []string{"check-tools"}, `"token": "hadron_bogus_tool"`, exitcode.Conflict},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, tagCalls, roleCalls := roleOnlySpecScanServer(t, loc, "JadeMarker uses hadron_bogus_tool.")
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := append([]string{"spec"}, tc.args...)
+			args = append(args, "-m", specMem, "--json", "--server", gql.URL)
+			root.SetArgs(args)
+			if got := exitCodeFor(root.Execute()); got != tc.exit {
+				t.Fatalf("exit = %d, want %d", got, tc.exit)
+			}
+			if *tagCalls != 1 || *roleCalls != 1 {
+				t.Errorf("expected tag and role scans, got tag=%d role=%d", *tagCalls, *roleCalls)
+			}
+			if !strings.Contains(out.String(), tc.want) {
+				t.Errorf("role-only node missing from %s: %s", tc.name, out.String())
+			}
+		})
+	}
+}
+
 func TestSpecGet(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
