@@ -292,7 +292,7 @@ non-zero naming the nodes it already created, each complete with its edges.
 ```
 hadron auth login | logout | whoami | status | token create|list|validate|revoke <id>
 hadron memory list [--shared-with-me | [--owned-by-me] [--include-agent-system]] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn hrn:mem:<root>:<slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings] | config get <memoryRef> | config rule add|update <memoryRef> <role> [--author-task <ref>] [--validation-task <ref>] [--description-node <ref>] [--writers all|admin|owner] [--validate-by agent|platform] [--strict-sub-roles[=false]] [--enabled[=false]] | config rule rm <memoryRef> <role> --yes | config template list [--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>] | config template get <templateId> | config template create --file <path> (--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>) | config template update <templateId> --file <path> [--expected-revision <n>] | config template rm <templateId> --yes
-hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... | get <loc>... -m <memory> | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
+hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... [--raw] | get <loc>... -m <memory> [--raw] | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>] | upload <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>] | rm <asset-ref> [--yes] | restore <asset-ref> | link <asset-ref> --node <new-node-urn> [--name <n>] [--description <d>]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
@@ -734,8 +734,8 @@ Conventions:
   - **For one node you already hold**, compare the two yourself — that is what
     `spec citations --stale-abstracts` does, and exposing the field is what
     makes it possible from `node get` at all. **Compare against RAW content**:
-    read it with the batched form (several refs, or `--prefix`), which returns
-    content uncompiled. A single-ref `node get` COMPILES Mustache templates,
+    read it with `--raw`, or the batched form (several refs, or `--prefix`),
+    which return content uncompiled. A plain single-ref `node get` COMPILES Mustache templates,
     and the hash is defined over the raw plaintext — so on a template node the
     two disagree for that reason alone and the node reads as stale when it is
     not. Identical for a node with no templates.
@@ -789,12 +789,17 @@ Conventions:
   complete one. A MALFORMED ref (not fully qualified, or a URN of the wrong
   entity) is a different case: it fails the whole call with exit **2**, before
   anything is read, so a typo never hides among the denials.
-  **Content differs between the forms:** a batched read returns content RAW
-  (Mustache templates NOT compiled); a single-ref read compiles them. That is
-  the server's design — the batch is a bulk SOURCE read for
-  lint/audit/migration. Identical for a node without templates; for a template
-  node the batch gives the source. Use a single-ref `node get` when you need
-  rendered output.
+  **Rendered or raw (#736):** a single-ref read COMPILES the node's Mustache
+  templates by default — every `{{…}}` is replaced by its value against the
+  node's data, or by nothing. **`--raw` returns the STORED body**, placeholders
+  intact; batched and `--prefix` reads are always raw (the server's bulk SOURCE
+  read for lint/audit/migration). `--json` carries **`rendered`** on every node:
+  `true` only for a compiled body. **To edit a node's content, read it with
+  `--raw`**: writing a rendered body back (`node update --content-file`)
+  deletes every placeholder silently — a later rendered read agrees with what
+  was written. Identical for a node without templates. The CLI's own
+  read-modify-write paths (`coding preflight create|route` rewriting the router
+  body) read raw.
 - **`--where` reads ONE JSONB column, and the default is `properties` (#603).**
   A leaf reads `properties` unless it sets `"field":"data"`. A node's free-form
   envelope — `authorName`, `sessionId`, a chat message's whole payload — lives in

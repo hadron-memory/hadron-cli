@@ -17,6 +17,7 @@ import (
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	var memory, locPrefix string
+	var raw bool
 	cmd := &cobra.Command{
 		Use:   "get <node-urn>... | <loc>... -m <memory> | --prefix <loc> -m <memory>",
 		Short: "Show one or more nodes, including content and edges",
@@ -54,15 +55,23 @@ guess, and the one that means "this says nothing about whether the node
 exists" — #334 was filed after an intermittent 502 was read as missing data.
 Under --json the envelope explaining it is on stdout with the rest.
 
-One difference to know about: a batched read returns content RAW, with Mustache
-templates left uncompiled, while a single-ref read compiles them. That is the
-server's design — the batch is a bulk SOURCE read for lint/audit/migration, and
-compiling per node would reintroduce the N+1 it removes. Identical for a node
-without templates; for a template node the batch gives you the source.`,
+RENDERED OR RAW (#736). A single-ref read COMPILES the node's Mustache
+templates by default: every {{…}} placeholder is replaced by its value against
+the node's data, or by nothing when there is none. --raw returns the STORED
+body instead, placeholders intact. Batch and --prefix reads are always raw —
+the batch is a bulk SOURCE read for lint/audit/migration, and compiling per
+node would reintroduce the N+1 it removes — so --raw changes nothing there.
+--json says which you hold: "rendered" is true only for a compiled body.
+
+TO EDIT A NODE'S CONTENT, READ IT WITH --raw. Writing a rendered body back
+(` + "`node update --content-file`" + `) deletes every placeholder it had, silently: a
+later rendered read agrees with what was written. For a node without
+templates the two bodies are identical.`,
 		Example: `  hadron node get hrn:node:hadronmemory.com:dev:start-here
   hadron node get start-here -m hrn:mem:hadronmemory.com:dev --json
   hadron node get start-here preflight instructions -m hrn:mem:hadronmemory.com:dev --json
-  hadron node get --prefix findings: -m hrn:mem:hadronmemory.com:dev --json`,
+  hadron node get --prefix findings: -m hrn:mem:hadronmemory.com:dev --json
+  hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --raw --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			prefixMode := cmd.Flags().Changed("prefix")
 			// The two forms are mutually exclusive server-side, so reject the
@@ -95,11 +104,12 @@ without templates; for a template node the batch gives you the source.`,
 				}
 				var dto nodeDetailDTO
 				err = readConsistently(cmd, client, revisionSelector{refs: []string{id}}, func() ([]*nodeDetailDTO, error) {
-					node, err := fetchNodeByID(cmd, client, id, args[0])
+					node, err := fetchNodeByID(cmd, client, id, args[0], raw)
 					if err != nil {
 						return nil, err
 					}
 					dto = detailDTO(node)
+					dto.Rendered = !raw
 					return []*nodeDetailDTO{&dto}, nil
 				})
 				if err != nil {
@@ -142,6 +152,7 @@ without templates; for a template node the batch gives you the source.`,
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&locPrefix, "prefix", "", "read every node under this loc prefix in one call (needs -m; empty means the whole memory)")
+	cmd.Flags().BoolVar(&raw, "raw", false, "return the stored body with {{…}} placeholders intact, not the rendered one — read this way to edit content")
 	return cmd
 }
 
@@ -218,6 +229,9 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		}
 	}
 	if dto.Content != nil && *dto.Content != "" {
+		if !dto.Rendered {
+			fmt.Fprintln(w, "  content: stored body ({{…}} placeholders not compiled)")
+		}
 		fmt.Fprintf(w, "\n%s\n", *dto.Content)
 	} else if dto.Abstract != nil && *dto.Abstract != "" {
 		fmt.Fprintf(w, "\n(abstract)\n%s\n", *dto.Abstract)
@@ -478,16 +492,30 @@ func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelect
 }
 
 // fetchNodeByID reads one node by its resolved id; ref is what the caller
-// typed, for the not-found message.
-func fetchNodeByID(cmd *cobra.Command, client graphql.Client, id, ref string) (*gen.GetNodeNode, error) {
-	resp, err := gen.GetNode(cmd.Context(), client, id)
-	if err != nil {
-		return nil, api.MapError(err)
+// typed, for the not-found message. raw selects the stored body (GetNodeRaw)
+// over the rendered one (#736); both return the same node type.
+//
+// "not found or not readable by you": since cor:api:140:03 a node in a memory
+// the caller cannot open answers exactly like a missing one.
+func fetchNodeByID(cmd *cobra.Command, client graphql.Client, id, ref string, raw bool) (*gen.GetNodeNode, error) {
+	var node *gen.GetNodeNode
+	if raw {
+		resp, err := gen.GetNodeRaw(cmd.Context(), client, id)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		node = resp.Node
+	} else {
+		resp, err := gen.GetNode(cmd.Context(), client, id)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		node = resp.Node
 	}
-	if resp.Node == nil {
-		return nil, exitcode.Newf(exitcode.NotFound, "node %q not found", ref)
+	if node == nil {
+		return nil, exitcode.Newf(exitcode.NotFound, "node %q not found, or not readable by you", ref)
 	}
-	return resp.Node, nil
+	return node, nil
 }
 
 // fetchNode resolves a node reference (a full URN, or a bare loc within

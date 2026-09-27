@@ -77,7 +77,13 @@ type nodeDetailDTO struct {
 	// A POINTER with NO omitempty: null is a real answer — the server
 	// predates revisions — and must render rather than vanish. It is never
 	// guessed: not 0, and not "current".
-	Revision    *int    `json:"revision"`
+	Revision *int `json:"revision"`
+	// Rendered says which body `content` is (#736). true: the single-node
+	// read COMPILED its Mustache {{…}} templates against the node's data, so
+	// placeholders are gone — never edit and write that text back. false: the
+	// STORED body, placeholders intact — what `--raw`, batch and --prefix
+	// reads return, and the one to edit. Always present, never omitted.
+	Rendered    bool    `json:"rendered"`
 	ObjectType  *string `json:"objectType"`
 	Description *string `json:"description"`
 	Abstract    *string `json:"abstract"`
