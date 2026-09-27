@@ -51,6 +51,39 @@ func TestRawGraphQLPrefersEnvelopeCodeLikeMapError(t *testing.T) {
 	}
 }
 
+func TestRawGraphQLSkipsNullErrorsWhenClassifyingHTTP200(t *testing.T) {
+	for _, tc := range []struct {
+		name, errors, message string
+		want                  int
+	}{
+		{"later typed refusal", `[null,{"message":"no such node","extensions":{"code":"NOT_FOUND"}}]`, "no such node", exitcode.NotFound},
+		{"only null", `[null]`, "malformed GraphQL response", exitcode.Error},
+		{"null and empty object", `[null,{}]`, "malformed GraphQL response", exitcode.Error},
+		{"code without message", `[null,{"extensions":{"code":"NOT_FOUND"}}]`, "GraphQL error: NOT_FOUND", exitcode.NotFound},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := `{"errors":` + tc.errors + `}`
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(body))
+			}))
+			defer srv.Close()
+
+			result, err := RawGraphQL(context.Background(), srv.URL, "", "query Q { __typename }", nil, srv.Client())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(result.Body) != body {
+				t.Fatalf("raw body changed: %q, want %q", result.Body, body)
+			}
+			err = result.Err()
+			if got := exitcode.FromError(err); got != tc.want || err == nil || !strings.Contains(err.Error(), tc.message) {
+				t.Fatalf("classified error = %v (exit %d), want %q (exit %d)", err, got, tc.message, tc.want)
+			}
+		})
+	}
+}
+
 func TestRawGraphQLProtectsBodyOnlySessionRefOnInitialHTTP(t *testing.T) {
 	t.Setenv(EnvAllowHTTP, "")
 	requests := 0

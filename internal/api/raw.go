@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -136,15 +137,27 @@ func codeFromEnvelope(body []byte) (int, bool) {
 	return 0, false
 }
 
-// Err returns a CodedError summarizing the response's GraphQL errors,
-// or nil when the response is error-free.
+// Err returns a CodedError summarizing the first substantive GraphQL error,
+// or nil when the response is error-free. A null error entry decodes to an
+// empty rawError; it must not hide a later typed refusal.
 func (r *RawResult) Err() error {
 	if len(r.Errors) == 0 {
 		return nil
 	}
-	code := exitcode.Error
-	if c, ok := r.Errors[0].Extensions["code"].(string); ok {
-		code = codeForExtension(c)
+	for _, e := range r.Errors {
+		message := e.Message
+		name, _ := e.Extensions["code"].(string)
+		if strings.TrimSpace(message) == "" && name == "" {
+			continue
+		}
+		code := exitcode.Error
+		if name != "" {
+			code = codeForExtension(name)
+		}
+		if strings.TrimSpace(message) == "" {
+			message = "GraphQL error: " + name
+		}
+		return exitcode.New(code, fmt.Errorf("%s", message))
 	}
-	return exitcode.New(code, fmt.Errorf("%s", r.Errors[0].Message))
+	return exitcode.Newf(exitcode.Error, "malformed GraphQL response: errors contained no substantive entry")
 }
