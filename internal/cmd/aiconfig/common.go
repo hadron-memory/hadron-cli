@@ -33,13 +33,19 @@ func dtoFromEndpointFields(f gen.AiServiceConfigEndpointFields) endpointConfigDT
 }
 
 func mapEndpointError(err error) error {
-	message := api.ServerMessage(err)
-	if api.HasErrorCode(err, "GRAPHQL_VALIDATION_FAILED") ||
-		strings.Contains(message, "Cannot query field") ||
-		strings.Contains(message, "Unknown argument") ||
-		strings.Contains(message, "Unknown field") ||
-		strings.Contains(message, "not defined by type") {
-		return exitcode.Newf(exitcode.Usage, "this hadron-server does not support AI config endpoints; upgrade the server (%s)", api.ServerMessage(err))
+	for _, message := range api.ServerMessages(err) {
+		// A validation failure can also mean that some unrelated selection is
+		// stale. Only name an old server when it rejects this feature's fields.
+		missingEndpoint := strings.Contains(message, `"endpoint"`) ||
+			strings.Contains(message, `"effectiveEndpoint"`) ||
+			strings.Contains(message, `"aiProviderEndpoints"`)
+		missingSchemaField := strings.Contains(message, "Cannot query field") ||
+			strings.Contains(message, "Unknown argument") ||
+			strings.Contains(message, "Unknown field") ||
+			strings.Contains(message, "not defined by type")
+		if missingEndpoint && missingSchemaField {
+			return exitcode.Newf(exitcode.Usage, "this hadron-server does not support AI config endpoints; upgrade the server (%s)", message)
+		}
 	}
 	return api.MapError(err)
 }

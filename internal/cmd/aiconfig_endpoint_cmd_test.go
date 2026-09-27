@@ -249,6 +249,19 @@ func TestAiConfigEndpointCommandsReportOldServer(t *testing.T) {
 	}
 }
 
+func TestAiConfigEndpointValidationDoesNotMislabelOtherSchemaSkew(t *testing.T) {
+	validation := `{"errors":[{"message":"Cannot query field \"createdAt\" on type \"AiServiceConfig\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	gql, _ := captureGraphQL(t, map[string]string{"AiServiceConfigWithEndpoint": validation})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "get", "cfg1", "--server", gql.URL})
+	err := root.Execute()
+	wantExit(t, err, 2)
+	if err == nil || !strings.Contains(err.Error(), "out of sync") || strings.Contains(err.Error(), "does not support AI config endpoints") {
+		t.Fatalf("unrelated schema skew mislabelled as old endpoint server: %v", err)
+	}
+}
+
 func TestAiConfigEndpointValidationKeepsTypedServerMessage(t *testing.T) {
 	refusal := `{"errors":[{"message":"endpoint must use https","extensions":{"code":"AiConfigValidationError"}}]}`
 	gql, _ := captureGraphQL(t, map[string]string{"UpdateAiServiceConfigWithEndpoint": refusal})
