@@ -168,6 +168,20 @@ func TestSessionFreePostMayFollowSecureCrossHostRedirect(t *testing.T) {
 	}
 }
 
+func TestNestedSessionRefJSONDoesNotCountAsWorkerSession(t *testing.T) {
+	t.Setenv(EnvAllowHTTP, "")
+	origin, _ := http.NewRequest(http.MethodPost, "https://old.example/graphql", strings.NewReader(`{"query":"mutation X($fields: JSON!) { x(fields: $fields) }","variables":{"fields":{"sessionRef":"external-id"}}}`))
+	target, _ := http.NewRequest(http.MethodPost, "https://new.example/graphql", nil)
+	for name, client := range map[string]*http.Client{
+		"with token":    withSecureRedirects(&http.Client{}),
+		"without token": withSessionRedirects(&http.Client{}),
+	} {
+		if err := client.CheckRedirect(target, []*http.Request{origin}); err != nil {
+			t.Errorf("%s must allow nested JSON data across secure hosts: %v", name, err)
+		}
+	}
+}
+
 // The INITIAL request never passes through the redirect policy. A session in
 // its POST body must not ride cleartext even when no bearer token is present.
 func TestSessionRequestIsNotSentOverCleartextHTTP(t *testing.T) {

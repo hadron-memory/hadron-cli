@@ -44,9 +44,9 @@ before.
    puts the id on the context, and the transport's `bearerDoer` adds
    `X-Hadron-Session` only to requests whose context carries one: today that
    is only `mark-read` (explicit, and the one after `chat read`). It never
-   follows a redirect to another host (`stripSessionCrossHost`, both redirect
-   policies; PR review, @copilot). `team attention` never carries it: that poll
-   is an operator's read, not a worker's.
+   follows a redirect to another host: both redirect policies refuse to replay
+   a session-bearing request across hosts or onto insecure HTTP. `team attention`
+   never carries it: that poll is an operator's read, not a worker's.
 3. **`team chat read` marks read AFTER delivery, and carries no session.**
    First built as "the read carries the header and the server advances as it
    pages" (Dara, #1889). Codex's P1 on this PR showed why that loses messages:

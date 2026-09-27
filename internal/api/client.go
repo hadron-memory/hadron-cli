@@ -5,6 +5,7 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,8 @@ import (
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/urlsec"
@@ -190,9 +193,11 @@ func checkInitialSessionRequest(req *http.Request) error {
 	return nil
 }
 
-// genqlient constructs POSTs with a bytes.Reader, so GetBody lets us inspect
-// the exact encoded JSON without consuming the request. A non-replayable body
-// on an insecure POST cannot be proved session-free and is refused instead.
+// genqlient and RawGraphQL construct POSTs with a bytes.Reader, so GetBody
+// lets us inspect the encoded request without consuming it. Only the
+// operation's top-level sessionRef variable or argument identifies a worker
+// session; arbitrary nested JSON may use the same key for unrelated data.
+// A non-replayable body cannot be proved session-free and is refused instead.
 func postBodyCarriesSessionRef(req *http.Request) (bool, error) {
 	if req.Method != http.MethodPost || req.Body == nil {
 		return false, nil
@@ -209,7 +214,53 @@ func postBodyCarriesSessionRef(req *http.Request) (bool, error) {
 	if err != nil {
 		return true, err
 	}
-	return bytes.Contains(encoded, []byte(`"sessionRef"`)), nil
+	var envelope struct {
+		Query     string                     `json:"query"`
+		Variables map[string]json.RawMessage `json:"variables"`
+	}
+	if err := json.Unmarshal(encoded, &envelope); err != nil {
+		return true, err
+	}
+	if _, ok := envelope.Variables["sessionRef"]; ok {
+		return true, nil
+	}
+	// RawGraphQL also accepts an inline argument, without a variables map.
+	// Parse only documents that mention sessionRef at all; parsing distinguishes
+	// a real argument from a string, comment, alias, or nested JSON value.
+	if !bytes.Contains([]byte(envelope.Query), []byte("sessionRef")) {
+		return false, nil
+	}
+	doc, err := parser.ParseQuery(&ast.Source{Input: envelope.Query})
+	if err != nil {
+		return true, err
+	}
+	for _, op := range doc.Operations {
+		if selectionHasSessionRef(op.SelectionSet) {
+			return true, nil
+		}
+	}
+	for _, fragment := range doc.Fragments {
+		if selectionHasSessionRef(fragment.SelectionSet) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func selectionHasSessionRef(selections ast.SelectionSet) bool {
+	for _, selection := range selections {
+		switch s := selection.(type) {
+		case *ast.Field:
+			if s.Arguments.ForName("sessionRef") != nil || selectionHasSessionRef(s.SelectionSet) {
+				return true
+			}
+		case *ast.InlineFragment:
+			if selectionHasSessionRef(s.SelectionSet) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // classifyGatewayResponse decides, FROM THE RAW BODY, whether a 5xx is the API

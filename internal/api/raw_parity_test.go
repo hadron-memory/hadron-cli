@@ -66,6 +66,14 @@ func TestRawGraphQLProtectsBodyOnlySessionRefOnInitialHTTP(t *testing.T) {
 	if err != nil || requests != 1 {
 		t.Errorf("ordinary anonymous raw POST must still pass: err=%v requests=%d", err, requests)
 	}
+	_, err = RawGraphQL(context.Background(), "http://remote.example", "", "mutation X($fields: JSON!) { x(fields: $fields) }", map[string]any{"fields": map[string]any{"sessionRef": "external-id"}}, client)
+	if err != nil || requests != 2 {
+		t.Errorf("nested sessionRef JSON is ordinary data: err=%v requests=%d", err, requests)
+	}
+	_, err = RawGraphQL(context.Background(), "http://remote.example", "", `mutation X { x(sessionRef: "s-1") }`, nil, client)
+	if !errors.Is(err, ErrRedirectPolicy) || requests != 2 {
+		t.Errorf("inline sessionRef must refuse before transport: err=%v requests=%d", err, requests)
+	}
 }
 
 func TestRawGraphQLProtectsBodyOnlySessionRefAcrossHosts(t *testing.T) {
@@ -88,5 +96,13 @@ func TestRawGraphQLProtectsBodyOnlySessionRefAcrossHosts(t *testing.T) {
 	_, err = RawGraphQL(context.Background(), origin.URL, "", "query X { x }", map[string]any{"appRef": "hrn:app:example:team"}, origin.Client())
 	if err != nil || landed != 1 {
 		t.Errorf("session-free raw POST must follow secure redirect: err=%v landed=%d", err, landed)
+	}
+	_, err = RawGraphQL(context.Background(), origin.URL, "", "mutation X($fields: JSON!) { x(fields: $fields) }", map[string]any{"fields": map[string]any{"sessionRef": "external-id"}}, origin.Client())
+	if err != nil || landed != 2 {
+		t.Errorf("nested sessionRef JSON must follow secure redirect: err=%v landed=%d", err, landed)
+	}
+	_, err = RawGraphQL(context.Background(), origin.URL, "", `mutation X { x(sessionRef: "s-1") }`, nil, origin.Client())
+	if !errors.Is(err, ErrRedirectPolicy) || landed != 2 {
+		t.Errorf("inline sessionRef must not cross hosts: err=%v landed=%d", err, landed)
 	}
 }
