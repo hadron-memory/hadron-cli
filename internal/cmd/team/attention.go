@@ -102,7 +102,7 @@ session has no server provenance; pass --app explicitly in that case.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.TeamAttention(ctx, client, scope.Ref, optStr(strings.TrimSpace(since)))
+			resp, err := gen.TeamAttention(ctx, client, scope.Ref, optStr(since))
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -352,7 +352,7 @@ asks for confirmation on a terminal and needs --yes otherwise.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.ConfirmTeamAttentionSwitchover(ctx, client, scope.Ref, strings.TrimSpace(proof))
+			resp, err := gen.ConfirmTeamAttentionSwitchover(ctx, client, scope.Ref, proof)
 			if err != nil {
 				return api.MapError(err)
 			}

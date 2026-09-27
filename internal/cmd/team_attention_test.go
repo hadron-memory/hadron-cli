@@ -150,11 +150,11 @@ func TestTeamAttentionPollPassesTheTokenThroughAndNeverSendsAnEmptySince(t *test
 	*calls = nil
 	f2, _ := testFactory(t)
 	root = NewRootCmd(f2)
-	root.SetArgs([]string{"team", "attention", "--app", "acme.com:eng-team", "--since", "tok-2", "--json", "--server", srv.URL})
+	root.SetArgs([]string{"team", "attention", "--app", "acme.com:eng-team", "--since", " tok-2 ", "--json", "--server", srv.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if got := (*calls)[0].Vars["since"]; got != "tok-2" {
+	if got := (*calls)[0].Vars["since"]; got != " tok-2 " {
 		t.Errorf("--since must reach the server verbatim, got %v", got)
 	}
 }
@@ -319,11 +319,11 @@ func TestTeamAttentionSwitchoverApplyNeedsProofAndConsent(t *testing.T) {
 	// --yes: the proof reaches the server verbatim.
 	f, out := testFactory(t)
 	root = NewRootCmd(f)
-	root.SetArgs([]string{"team", "attention", "switchover", "apply", "--app", "acme.com:eng-team", "--proof", "prf-1", "--yes", "--json", "--server", srv.URL})
+	root.SetArgs([]string{"team", "attention", "switchover", "apply", "--app", "acme.com:eng-team", "--proof", " prf-1 ", "--yes", "--json", "--server", srv.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(*calls) != 1 || (*calls)[0].Vars["proof"] != "prf-1" {
+	if len(*calls) != 1 || (*calls)[0].Vars["proof"] != " prf-1 " {
 		t.Fatalf("apply must send the proof verbatim, got %+v", *calls)
 	}
 	if !strings.Contains(out.String(), `"workersAdvanced": 2`) {
