@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 62 unbound
+[Query] 64 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -66,10 +66,12 @@ resolveAIConfig
 secret
 slackConnection
 slackConnections
+teamAttention  # #1353: CLI parity is in open cli#732, pending its review/merge
+teamAttentionSwitchoverPreview  # #1353: CLI parity is in open cli#732, pending its review/merge
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
-[Mutation] 85 unbound
+[Mutation] 87 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -79,6 +81,7 @@ calendarDeleteEvent
 calendarRespondToEvent
 calendarUpdateEvent
 clearAgentAIConfig
+confirmTeamAttentionSwitchover  # #1353: CLI parity is in open cli#732, pending its review/merge
 createAgentOrgGrant
 createAppKey
 createAppUser
@@ -112,6 +115,7 @@ joinApp
 joinWaitingList
 leaveApp
 linkGithubApp
+markOwnTeamChatRead  # #1353: CLI parity is in open cli#732, pending its review/merge
 mergeMemories
 processChatResponse
 publishAgentImport

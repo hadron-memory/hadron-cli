@@ -38,6 +38,9 @@ directives. Genqlient chooses one operation's directives when generating that
 shared Go input type; a partial set can silently turn omitted fields into
 explicit `null` in existing `skill status` and unscoped `skill export` calls
 (`findings:genqlient-shared-input-omitempty-must-match-across-ops`).
+The pinned server SDL also contains four #1353 team-attention operations whose
+CLI parity is in open cli#732. The refreshed `unbound-ops.txt` names that
+dependency instead of treating those operations as #749 work.
 
 ## Verification
 
