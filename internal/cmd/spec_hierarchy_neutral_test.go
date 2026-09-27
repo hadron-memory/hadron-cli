@@ -237,6 +237,83 @@ func TestSpecNewAtAnyLoc(t *testing.T) {
 	}
 }
 
+func TestSpecNewAtDottedRole(t *testing.T) {
+	url, captured := newAtServer(t)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "onboarding:mentor:rule", "-m", specMem, "--title", "Rule", "--role", "spec.rule", "--json", "--server", url})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var in sentSpecInput
+	if err := json.Unmarshal(captured["CreateSpecNode"], &in); err != nil {
+		t.Fatalf("CreateSpecNode vars: %v", err)
+	}
+	if in.Input.Role == nil || *in.Input.Role != "spec.rule" || in.Input.Name != "onboarding:mentor:rule — Rule" {
+		t.Errorf("role/name = %v/%q", in.Input.Role, in.Input.Name)
+	}
+	if len(in.Input.Tags) != 1 || in.Input.Tags[0] != "spec" {
+		t.Errorf("the existing spec tag default must stay, got %v", in.Input.Tags)
+	}
+	if !strings.Contains(out.String(), `"role": "spec.rule"`) {
+		t.Errorf("output should report the requested role: %s", out.String())
+	}
+}
+
+func TestSpecNewAtRoleDryRun(t *testing.T) {
+	url, captured := newAtServer(t)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "onboarding:mentor:rule", "-m", specMem, "--title", "Rule", "--role", "spec.rule", "--dry-run", "--json", "--server", url})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, wrote := captured["CreateSpecNode"]; wrote {
+		t.Fatal("dry-run wrote a node")
+	}
+	if !strings.Contains(out.String(), `"role": "spec.rule"`) {
+		t.Errorf("dry-run should show the selected role: %s", out.String())
+	}
+}
+
+func TestSpecNewAtPassesThroughStrictSubroleRefusal(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":     notFoundResolve,
+		"CreateSpecNode": `{"data":null,"errors":[{"message":"Role \"spec.rule\" is not declared in this memory's config, and its parent role \"spec\" allows only declared sub-roles (strictSubRoles).","extensions":{"code":"ROLE_NOT_DECLARED","role":"spec.rule","strictParent":"spec"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "onboarding:mentor:rule", "-m", specMem, "--title", "Rule", "--role", "spec.rule", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), `Role "spec.rule" is not declared`) {
+		t.Errorf("strict role refusal should reach the user unchanged, got %v", err)
+	}
+}
+
+func TestSpecNewRoleRefusesInvalidOrLegacyUsesBeforeRequest(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		args []string
+	}{
+		{"empty", []string{"onboarding:mentor", "--role", ""}},
+		{"other family", []string{"onboarding:mentor", "--role", "review"}},
+		{"lookalike", []string{"onboarding:mentor", "--role", "specification"}},
+		{"empty segment", []string{"onboarding:mentor", "--role", "spec..rule"}},
+		{"trailing dot", []string{"onboarding:mentor", "--role", "spec."}},
+		{"legacy allocator", []string{"--module", "msg", "--feature", "010", "--role", "spec.rule"}},
+		{"legacy new path", []string{"msg:010:01", "--new-path", "--role", "spec.rule"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"spec", "new"}, c.args...), "-m", specMem, "--title", "T", "--server", "http://127.0.0.1:1"))
+			if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+				t.Errorf("exit = %d, want Usage", got)
+			}
+		})
+	}
+}
+
 // The one edge a spec at an explicit loc gets is the one you name, written
 // inline with the node, by resolved id.
 func TestSpecNewAtExplicitInherit(t *testing.T) {

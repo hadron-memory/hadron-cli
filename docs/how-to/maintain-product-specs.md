@@ -23,6 +23,11 @@ Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 > scaffold-body or placeholder-contract finding at any loc.
 > See [docs/plans/spec-hierarchy-removal.md](../plans/spec-hierarchy-removal.md).
 
+For an explicit loc, `spec new <loc> --title <title> --role spec.rule`
+creates a spec with the requested dotted role. The default remains `spec`.
+The memory's role rules may refuse an undeclared subrole; the CLI reports
+that server refusal. Legacy numbering and `--new-path` do not take `--role`.
+
 Direct `spec get`, `edit` and `link` accept a tagless `spec.*` node. Corpus
 scans still select the `spec` tag server-side, so tagless nodes are absent from
 `list`, `get --prefix`, `grep`, `replace`, `check-tools` and
