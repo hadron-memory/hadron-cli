@@ -259,8 +259,17 @@ type reportHost struct {
 }
 
 type exportReport struct {
-	DryRun       bool         `json:"dryRun"`
-	Hosts        []reportHost `json:"hosts"`
+	DryRun                  bool         `json:"dryRun"`
+	Hosts                   []reportHost `json:"hosts"`
+	SelectedNodes           []string     `json:"selectedNodes"`
+	OrphanAssessmentSkipped bool         `json:"orphanAssessmentSkipped"`
+	Selections              []struct {
+		Ref    string       `json:"ref"`
+		NodeID string       `json:"nodeId"`
+		Host   string       `json:"host"`
+		Action string       `json:"action"`
+		Reason reportReason `json:"reason"`
+	} `json:"selections"`
 	Unrecognized []struct {
 		Node     string   `json:"node"`
 		NodeID   string   `json:"nodeId"`

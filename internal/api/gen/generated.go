@@ -20844,6 +20844,315 @@ func (v *SecretsSecretsSecretsPageItemsSecret) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+// Plan installed individual skill files for explicit task refs; plugin exports use skillPlan.
+type SelectedSkillFilePlanInput struct {
+	Files []*SkillFileFactsInput `json:"files,omitempty"`
+	Force *bool                  `json:"force,omitempty"`
+	Host  *string                `json:"host,omitempty"`
+	// Nonempty node IDs or fully qualified node URNs. Relative locs are refused.
+	Nodes []string `json:"nodes"`
+}
+
+// GetFiles returns SelectedSkillFilePlanInput.Files, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanInput) GetFiles() []*SkillFileFactsInput { return v.Files }
+
+// GetForce returns SelectedSkillFilePlanInput.Force, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanInput) GetForce() *bool { return v.Force }
+
+// GetHost returns SelectedSkillFilePlanInput.Host, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanInput) GetHost() *string { return v.Host }
+
+// GetNodes returns SelectedSkillFilePlanInput.Nodes, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanInput) GetNodes() []string { return v.Nodes }
+
+// SelectedSkillFilePlanResponse is returned by SelectedSkillFilePlan on success.
+type SelectedSkillFilePlanResponse struct {
+	// Selected individual skill files only. Plugin bundles cannot use node selectors.
+	SelectedSkillFilePlan *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan `json:"selectedSkillFilePlan"`
+}
+
+// GetSelectedSkillFilePlan returns SelectedSkillFilePlanResponse.SelectedSkillFilePlan, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanResponse) GetSelectedSkillFilePlan() *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan {
+	return v.SelectedSkillFilePlan
+}
+
+// SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan includes the requested fields of the GraphQL type SkillPlan.
+type SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan struct {
+	// How many nodes carrying ANY declaration key were in scope. A plan over an
+	// empty corpus and a plan the caller cannot see are otherwise the same empty
+	// list, and a client that cannot tell them apart reports nothing-to-do for a
+	// corpus it was denied.
+	Scanned int `json:"scanned"`
+	// How many of those were judged for THIS host — the number of entries. A node
+	// declaring only another host is scanned and not judged, so the two differ by
+	// design; the gap is a fact about the corpus, not a discrepancy.
+	Judged int `json:"judged"`
+	// True for explicit individual-file selection: unselected files are not classified as orphans.
+	OrphanAssessmentSkipped bool `json:"orphanAssessmentSkipped"`
+	// Opaque unavailable refs and selected nodes with no declaration for this host.
+	SelectionResults []*SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult `json:"selectionResults"`
+	Entries          []*SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry                `json:"entries"`
+	Orphans          []*SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanOrphansSkillOrphan                   `json:"orphans"`
+}
+
+// GetScanned returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan.Scanned, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan) GetScanned() int { return v.Scanned }
+
+// GetJudged returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan.Judged, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan) GetJudged() int { return v.Judged }
+
+// GetOrphanAssessmentSkipped returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan.OrphanAssessmentSkipped, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan) GetOrphanAssessmentSkipped() bool {
+	return v.OrphanAssessmentSkipped
+}
+
+// GetSelectionResults returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan.SelectionResults, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan) GetSelectionResults() []*SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult {
+	return v.SelectionResults
+}
+
+// GetEntries returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan.Entries, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan) GetEntries() []*SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry {
+	return v.Entries
+}
+
+// GetOrphans returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan.Orphans, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan) GetOrphans() []*SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanOrphansSkillOrphan {
+	return v.Orphans
+}
+
+// SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry includes the requested fields of the GraphQL type SkillPlanEntry.
+type SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry struct {
+	Urn    string `json:"urn"`
+	NodeId string `json:"nodeId"`
+	// The stored skill name (D12 retired derivation).
+	Name string `json:"name"`
+	// One of: current, stale, locally-edited, renamed, never-exported, orphaned,
+	// unhashed, collision, unavailable, disabled. Null when the file could not be
+	// parsed — a parse failure is reported as a FAILURE, not as a class.
+	Class *string `json:"class"`
+	// True when the file exists and does not parse. Reported identically by status and export.
+	ParseFailure bool `json:"parseFailure"`
+	// Source directory selected for a MOVE or REMOVE action; also reported for the renamed class.
+	MovedFrom *string `json:"movedFrom"`
+	// Present only for EXPORT, only for a class whose action writes, and only
+	// when the node has no error findings — so a client cannot write a file the
+	// server already judged broken.
+	RenderedBody *string `json:"renderedBody"`
+	// Present only for EXPORT. This is a planned action and its server-owned
+	// reasons, not evidence that the client completed a filesystem write.
+	ExportPlan *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry `json:"exportPlan"`
+	Findings   []*SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding         `json:"findings"`
+}
+
+// GetUrn returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.Urn, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry) GetUrn() string {
+	return v.Urn
+}
+
+// GetNodeId returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.NodeId, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetName returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.Name, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry) GetName() string {
+	return v.Name
+}
+
+// GetClass returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.Class, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry) GetClass() *string {
+	return v.Class
+}
+
+// GetParseFailure returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.ParseFailure, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry) GetParseFailure() bool {
+	return v.ParseFailure
+}
+
+// GetMovedFrom returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.MovedFrom, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry) GetMovedFrom() *string {
+	return v.MovedFrom
+}
+
+// GetRenderedBody returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.RenderedBody, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry) GetRenderedBody() *string {
+	return v.RenderedBody
+}
+
+// GetExportPlan returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.ExportPlan, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry) GetExportPlan() *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry {
+	return v.ExportPlan
+}
+
+// GetFindings returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.Findings, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry) GetFindings() []*SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding {
+	return v.Findings
+}
+
+// SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry includes the requested fields of the GraphQL type SkillExportPlanEntry.
+// The GraphQL type's documentation follows.
+//
+// The server's filesystem plan for one skill. The client still performs and
+// reports actual local I/O; this object records only what the server judged safe.
+type SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry struct {
+	Action SkillExportAction `json:"action"`
+	// True when the client must leave any installed file unchanged.
+	PreservesExistingFile bool                                                                                                                              `json:"preservesExistingFile"`
+	Reasons               []*SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason `json:"reasons"`
+}
+
+// GetAction returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry.Action, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry) GetAction() SkillExportAction {
+	return v.Action
+}
+
+// GetPreservesExistingFile returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry.PreservesExistingFile, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry) GetPreservesExistingFile() bool {
+	return v.PreservesExistingFile
+}
+
+// GetReasons returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry.Reasons, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntry) GetReasons() []*SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason {
+	return v.Reasons
+}
+
+// SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason includes the requested fields of the GraphQL type SkillExportReason.
+// The GraphQL type's documentation follows.
+//
+// One server-owned reason for an export action.
+type SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason struct {
+	// Stable machine-readable reason, usually a drift class or lint rule.
+	Code string `json:"code"`
+	// Actionable text clients can display without recreating server policy.
+	Message string `json:"message"`
+}
+
+// GetCode returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason.Code, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason) GetCode() string {
+	return v.Code
+}
+
+// GetMessage returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason.Message, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryExportPlanSkillExportPlanEntryReasonsSkillExportReason) GetMessage() string {
+	return v.Message
+}
+
+// SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding includes the requested fields of the GraphQL type SkillFinding.
+// The GraphQL type's documentation follows.
+//
+// One lint result, carrying the node and memory so a renderer never looks them back up.
+type SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding struct {
+	Rule string `json:"rule"`
+	// Either error or warning — the same vocabulary spec lint renders.
+	Severity string `json:"severity"`
+	Message  string `json:"message"`
+	Urn      string `json:"urn"`
+	Memory   string `json:"memory"`
+}
+
+// GetRule returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Rule, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetRule() string {
+	return v.Rule
+}
+
+// GetSeverity returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Severity, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetSeverity() string {
+	return v.Severity
+}
+
+// GetMessage returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Message, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetMessage() string {
+	return v.Message
+}
+
+// GetUrn returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Urn, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetUrn() string {
+	return v.Urn
+}
+
+// GetMemory returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding.Memory, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding) GetMemory() string {
+	return v.Memory
+}
+
+// SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanOrphansSkillOrphan includes the requested fields of the GraphQL type SkillOrphan.
+// The GraphQL type's documentation follows.
+//
+// A file that paired with no declared node. Never removed without an explicit prune.
+type SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanOrphansSkillOrphan struct {
+	DirName   string  `json:"dirName"`
+	NodeId    *string `json:"nodeId"`
+	SourceUrn *string `json:"sourceUrn"`
+}
+
+// GetDirName returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanOrphansSkillOrphan.DirName, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanOrphansSkillOrphan) GetDirName() string {
+	return v.DirName
+}
+
+// GetNodeId returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanOrphansSkillOrphan.NodeId, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanOrphansSkillOrphan) GetNodeId() *string {
+	return v.NodeId
+}
+
+// GetSourceUrn returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanOrphansSkillOrphan.SourceUrn, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanOrphansSkillOrphan) GetSourceUrn() *string {
+	return v.SourceUrn
+}
+
+// SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult includes the requested fields of the GraphQL type SkillSelectionResult.
+// The GraphQL type's documentation follows.
+//
+// A named task that cannot produce a host entry. An unavailable ref reveals no node metadata.
+type SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult struct {
+	Ref    string                                                                                                          `json:"ref"`
+	NodeId *string                                                                                                         `json:"nodeId"`
+	Action SkillExportAction                                                                                               `json:"action"`
+	Reason *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResultReasonSkillExportReason `json:"reason"`
+}
+
+// GetRef returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult.Ref, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult) GetRef() string {
+	return v.Ref
+}
+
+// GetNodeId returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult.NodeId, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult) GetNodeId() *string {
+	return v.NodeId
+}
+
+// GetAction returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult.Action, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult) GetAction() SkillExportAction {
+	return v.Action
+}
+
+// GetReason returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult.Reason, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult) GetReason() *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResultReasonSkillExportReason {
+	return v.Reason
+}
+
+// SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResultReasonSkillExportReason includes the requested fields of the GraphQL type SkillExportReason.
+// The GraphQL type's documentation follows.
+//
+// One server-owned reason for an export action.
+type SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResultReasonSkillExportReason struct {
+	// Stable machine-readable reason, usually a drift class or lint rule.
+	Code string `json:"code"`
+	// Actionable text clients can display without recreating server policy.
+	Message string `json:"message"`
+}
+
+// GetCode returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResultReasonSkillExportReason.Code, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResultReasonSkillExportReason) GetCode() string {
+	return v.Code
+}
+
+// GetMessage returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResultReasonSkillExportReason.Message, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResultReasonSkillExportReason) GetMessage() string {
+	return v.Message
+}
+
 // ServerInfoResponse is returned by ServerInfo on success.
 type ServerInfoResponse struct {
 	// Identity of the hadron-server this GraphQL endpoint is bound to: the
@@ -31729,6 +32038,14 @@ func (v *__SecretsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __SecretsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SecretsInput) GetOffset() *int { return v.Offset }
 
+// __SelectedSkillFilePlanInput is used internally by genqlient
+type __SelectedSkillFilePlanInput struct {
+	Input *SelectedSkillFilePlanInput `json:"input,omitempty"`
+}
+
+// GetInput returns __SelectedSkillFilePlanInput.Input, and is useful for accessing the field via an interface.
+func (v *__SelectedSkillFilePlanInput) GetInput() *SelectedSkillFilePlanInput { return v.Input }
+
 // __SkillExportPlanInput is used internally by genqlient
 type __SkillExportPlanInput struct {
 	Input *SkillPlanInput `json:"input,omitempty"`
@@ -40872,6 +41189,85 @@ func Secrets(
 	}
 
 	data_ = &SecretsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SelectedSkillFilePlan.
+const SelectedSkillFilePlan_Operation = `
+query SelectedSkillFilePlan ($input: SelectedSkillFilePlanInput!) {
+	selectedSkillFilePlan(input: $input) {
+		scanned
+		judged
+		orphanAssessmentSkipped
+		selectionResults {
+			ref
+			nodeId
+			action
+			reason {
+				code
+				message
+			}
+		}
+		entries {
+			urn
+			nodeId
+			name
+			class
+			parseFailure
+			movedFrom
+			renderedBody
+			exportPlan {
+				action
+				preservesExistingFile
+				reasons {
+					code
+					message
+				}
+			}
+			findings {
+				rule
+				severity
+				message
+				urn
+				memory
+			}
+		}
+		orphans {
+			dirName
+			nodeId
+			sourceUrn
+		}
+	}
+}
+`
+
+// Individual-file export uses its own server query. The dedicated input has no
+// memory scope, and the returned scope marker prevents accidental orphan work.
+// Optional fields are omitted when unset, never serialized as null.
+// The file-facts input is shared with skillPlan. Genqlient may generate its
+// Go type from either operation first, so both declare its omission contract.
+func SelectedSkillFilePlan(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SelectedSkillFilePlanInput,
+) (data_ *SelectedSkillFilePlanResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SelectedSkillFilePlan",
+		Query:  SelectedSkillFilePlan_Operation,
+		Variables: &__SelectedSkillFilePlanInput{
+			Input: input,
+		},
+	}
+
+	data_ = &SelectedSkillFilePlanResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
