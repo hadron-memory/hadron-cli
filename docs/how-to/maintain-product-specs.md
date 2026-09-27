@@ -28,6 +28,8 @@ Spec reads recognize the union of the legacy `spec` tag and the `spec` / dotted
 `find --match-exactly`, `grep`, `check-tools` and `replace`; an overlapping node
 appears once. The server's bulk replace still skips governed specs, including
 role-only specs, and reports how many it did not search (#659).
+`spec lint` accepts either marker; a node with a `spec.*` role needs no `spec`
+tag and gets no missing-tag finding.
 
 ## The legacy numbering
 
