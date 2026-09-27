@@ -1,0 +1,109 @@
+# Endpoint-aware operations are separate from the original AI-config CRUD and
+# picker operations. An older server can still serve the original commands;
+# asking for endpoint fields or arguments explicitly requires the new contract.
+fragment AiServiceConfigEndpointFields on AiServiceConfig {
+  id
+  name
+  ownerType
+  ownerId
+  provider
+  model
+  hasApiKey
+  apiKeyPreview
+  params
+  endpoint
+  effectiveEndpoint
+  enabled
+  createdAt
+  updatedAt
+}
+
+query AiServiceConfigWithEndpoint($ref: ID!) {
+  aiServiceConfig(ref: $ref) {
+    ...AiServiceConfigEndpointFields
+  }
+}
+
+query ResolveAiServiceConfigsWithEndpoint(
+  # @genqlient(omitempty: true)
+  $appRef: ID
+  # @genqlient(omitempty: true)
+  $agentRef: ID
+) {
+  resolveAiServiceConfigs(appRef: $appRef, agentRef: $agentRef) {
+    ...AiServiceConfigEndpointFields
+  }
+}
+
+query AiProviderEndpoints($provider: String!) {
+  aiProviderEndpoints(provider: $provider) {
+    url
+    label
+    isDefault
+    note
+  }
+}
+
+mutation CreateAiServiceConfigWithEndpoint(
+  $name: String!
+  $provider: String!
+  $model: String!
+  $ownerId: ID!
+  $ownerType: AiConfigOwnerType!
+  # @genqlient(omitempty: true)
+  $apiKey: String
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+  # @genqlient(omitempty: true)
+  $params: JSON
+  # @genqlient(omitempty: true)
+  $endpoint: String
+) {
+  createAiServiceConfig(
+    name: $name
+    provider: $provider
+    model: $model
+    ownerId: $ownerId
+    ownerType: $ownerType
+    apiKey: $apiKey
+    enabled: $enabled
+    params: $params
+    endpoint: $endpoint
+  ) {
+    ...AiServiceConfigEndpointFields
+  }
+}
+
+# A nil endpoint pointer is omitted (preserve); a non-nil empty string is sent
+# and the server clears the override. An explicit null is not needed because
+# the final server contract also accepts the empty string as clear.
+mutation UpdateAiServiceConfigWithEndpoint(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $provider: String
+  # @genqlient(omitempty: true)
+  $model: String
+  # @genqlient(omitempty: true)
+  $apiKey: String
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+  # @genqlient(omitempty: true)
+  $params: JSON
+  # @genqlient(omitempty: true)
+  $endpoint: String
+) {
+  updateAiServiceConfig(
+    id: $id
+    name: $name
+    provider: $provider
+    model: $model
+    apiKey: $apiKey
+    enabled: $enabled
+    params: $params
+    endpoint: $endpoint
+  ) {
+    ...AiServiceConfigEndpointFields
+  }
+}

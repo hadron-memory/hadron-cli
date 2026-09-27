@@ -15,7 +15,7 @@ import (
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var (
 		name, provider, model string
-		apiKey                string
+		apiKey, endpoint      string
 		params                []string
 		enabled               bool
 	)
@@ -26,16 +26,19 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 
 --api-key sets a new key ("-" reads stdin); --api-key "" clears the stored key;
 omit it to keep the current key. --param replaces the whole params object.
+--endpoint sets a provider base URL; --endpoint "" clears the stored override
+and returns to the server's provider default. Omitting --endpoint preserves it.
 Find ids with 'hadron ai-config list --json'.`,
 		Example: `  hadron ai-config update cfg_123 --model claude-opus-4-8
   printf '%s' "$KEY" | hadron ai-config update cfg_123 --api-key -
   hadron ai-config update cfg_123 --api-key ""        # clear the key
+  hadron ai-config update cfg_123 --endpoint ""     # use provider default
   hadron ai-config update cfg_123 --enabled=false`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
 			if !changed("name") && !changed("provider") && !changed("model") &&
-				!changed("api-key") && !changed("param") && !changed("enabled") {
+				!changed("api-key") && !changed("param") && !changed("enabled") && !changed("endpoint") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
 			paramsJSON, err := cmdutil.KeyValsToJSON(params, "param")
@@ -69,6 +72,22 @@ Find ids with 'hadron ai-config list --json'.`,
 				enabledArg = &enabled
 			}
 
+			if changed("endpoint") {
+				resp, err := gen.UpdateAiServiceConfigWithEndpoint(cmd.Context(), client, args[0], nameArg, providerArg, modelArg, keyArg, enabledArg, paramsJSON, &endpoint)
+				if err != nil {
+					return mapEndpointError(err)
+				}
+				if resp.UpdateAiServiceConfig == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no config")
+				}
+				dto := dtoFromEndpointFields(resp.UpdateAiServiceConfig.AiServiceConfigEndpointFields)
+				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+					if err := writeConfigLine(w, "✓ updated", dto.aiConfigDTO); err != nil {
+						return err
+					}
+					return writeEndpointLines(w, dto)
+				})
+			}
 			resp, err := gen.UpdateAiServiceConfig(cmd.Context(), client, args[0], nameArg, providerArg, modelArg, keyArg, enabledArg, paramsJSON)
 			if err != nil {
 				return api.MapError(err)
@@ -86,6 +105,7 @@ Find ids with 'hadron ai-config list --json'.`,
 	cmd.Flags().StringVar(&provider, "provider", "", "new provider id")
 	cmd.Flags().StringVar(&model, "model", "", "new model identifier")
 	cmd.Flags().StringVar(&apiKey, "api-key", "", `new API key ("-" reads stdin; "" clears)`)
+	cmd.Flags().StringVar(&endpoint, "endpoint", "", `provider base URL ("" clears to the server default)`)
 	cmd.Flags().StringArrayVar(&params, "param", nil, "replace params with key=value (repeatable)")
 	cmd.Flags().BoolVar(&enabled, "enabled", true, "enable/disable the config (e.g. --enabled=false)")
 	return cmd

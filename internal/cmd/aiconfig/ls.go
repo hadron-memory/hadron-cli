@@ -32,6 +32,7 @@ type aiConfigDTO struct {
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var agent string
+	var withEndpoints bool
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
@@ -44,7 +45,9 @@ Output is masked: never key material, only hasApiKey and a short apiKeyPreview.
 
 --app defaults to the configured App context (hadron app use / global --app);
 you must be a member of that App. --agent narrows to an agent installed in it.
-Both accept an ID or a URN.`,
+Both accept an ID or a URN. --with-endpoints adds the stored endpoint and the
+server-resolved effective endpoint; it requires a server with endpoint support.
+The default list remains usable with older servers.`,
 		Example: `  hadron ai-config list --app acme.com:juno-app
   hadron ai-config list --app acme.com:juno-app --agent acme.com:juno --json`,
 		Args: cobra.NoArgs,
@@ -56,6 +59,31 @@ Both accept an ID or a URN.`,
 			appCtx, err := f.App()
 			if err != nil {
 				return err
+			}
+			if withEndpoints {
+				resp, err := gen.ResolveAiServiceConfigsWithEndpoint(cmd.Context(), client, optional(appCtx), optional(agent))
+				if err != nil {
+					return mapEndpointError(err)
+				}
+				configs := make([]endpointConfigDTO, 0, len(resp.ResolveAiServiceConfigs))
+				for _, c := range resp.ResolveAiServiceConfigs {
+					if c != nil {
+						configs = append(configs, dtoFromEndpointFields(c.AiServiceConfigEndpointFields))
+					}
+				}
+				return output.Write(f.IOStreams, f.JSON, configs, func(w io.Writer) error {
+					t := output.NewTable(w, "NAME", "OWNER", "PROVIDER", "MODEL", "ENABLED", "KEY", "STORED ENDPOINT", "EFFECTIVE ENDPOINT")
+					for _, c := range configs {
+						key := endpointDisplay(c.APIKeyPreview, "—")
+						enabled := "false"
+						if c.Enabled {
+							enabled = "true"
+						}
+						t.Row(c.Name, c.OwnerType, c.Provider, c.Model, enabled, key,
+							endpointDisplay(c.Endpoint, "provider default"), endpointDisplay(c.EffectiveEndpoint, "server-derived"))
+					}
+					return t.Flush()
+				})
 			}
 			resp, err := gen.ResolveAiServiceConfigs(cmd.Context(), client, optional(appCtx), optional(agent))
 			if err != nil {
@@ -98,6 +126,7 @@ Both accept an ID or a URN.`,
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent ID or URN to narrow the context")
+	cmd.Flags().BoolVar(&withEndpoints, "with-endpoints", false, "include configured and server-resolved endpoints (requires newer server)")
 	return cmd
 }
 

@@ -5,10 +5,57 @@ import (
 	"io"
 	"strings"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
+
+// endpointConfigDTO is used only when the endpoint-aware server operation was
+// requested. Both nullable fields remain present in JSON, so a provider
+// default is distinguishable from an explicit stored override.
+type endpointConfigDTO struct {
+	aiConfigDTO
+	Endpoint          *string `json:"endpoint"`
+	EffectiveEndpoint *string `json:"effectiveEndpoint"`
+}
+
+func dtoFromEndpointFields(f gen.AiServiceConfigEndpointFields) endpointConfigDTO {
+	return endpointConfigDTO{
+		aiConfigDTO: aiConfigDTO{
+			ID: f.Id, Name: f.Name, OwnerType: string(f.OwnerType), OwnerID: f.OwnerId,
+			Provider: f.Provider, Model: f.Model, HasAPIKey: f.HasApiKey,
+			APIKeyPreview: f.ApiKeyPreview, Params: f.Params, Enabled: f.Enabled,
+			CreatedAt: f.CreatedAt, UpdatedAt: f.UpdatedAt,
+		},
+		Endpoint: f.Endpoint, EffectiveEndpoint: f.EffectiveEndpoint,
+	}
+}
+
+func mapEndpointError(err error) error {
+	message := api.ServerMessage(err)
+	if api.HasErrorCode(err, "GRAPHQL_VALIDATION_FAILED") ||
+		strings.Contains(message, "Cannot query field") ||
+		strings.Contains(message, "Unknown argument") ||
+		strings.Contains(message, "Unknown field") ||
+		strings.Contains(message, "not defined by type") {
+		return exitcode.Newf(exitcode.Usage, "this hadron-server does not support AI config endpoints; upgrade the server (%s)", api.ServerMessage(err))
+	}
+	return api.MapError(err)
+}
+
+func endpointDisplay(value *string, fallback string) string {
+	if value == nil {
+		return fallback
+	}
+	return *value
+}
+
+func writeEndpointLines(w io.Writer, dto endpointConfigDTO) error {
+	_, err := fmt.Fprintf(w, "  configured endpoint: %s\n  effective endpoint: %s\n",
+		endpointDisplay(dto.Endpoint, "provider default"), endpointDisplay(dto.EffectiveEndpoint, "server-derived"))
+	return err
+}
 
 // resolveOwner maps the mutually-exclusive --app/--agent/--org flags to an
 // (ownerType, ownerId). Exactly one must be set. ownerId may be an ID or a URN

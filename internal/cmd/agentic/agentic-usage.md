@@ -305,7 +305,7 @@ hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | u
 hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--dry-run] [--force] [--prune] [--json] | plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref>
-hadron ai-config list [--app <ref>] [--agent <id>] | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
+hadron ai-config list [--app <ref>] [--agent <id>] [--with-endpoints] | get <id> | endpoints <provider> | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--endpoint <url>] [--api-key -] [--file <path>] | update <id> [--endpoint <url|"">] ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
 hadron agent list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>|--persona-prompt-file <path>] | update <id> [<field flags>] | rm <id> --yes
@@ -1475,15 +1475,23 @@ Conventions:
   underlying provider configs: `create` needs an owner (exactly one of
   `--app`/`--agent`/`--org`, ID or URN) plus `--name`/`--provider`/`--model`;
   the API key is a secret read via `--api-key -` (stdin) and never echoed back.
+  App, Agent, and Organization configs require a stored key on current servers.
   `--file <path>` (or `--file -` for stdin) reads the whole config — key
   included — from a JSON object (keys mirror the flags: app/agent/org, name,
-  provider, model, apiKey, params, enabled), keeping the secret out of argv;
+  provider, model, endpoint, apiKey, params, enabled), keeping the secret out of argv;
   an explicit flag overrides the matching file field. `--file -` is for a PIPE
   and is refused (exit 2) from an interactive terminal (#648); `--api-key -` is
   a secret, not a document, and deliberately still reads from a terminal.
   `update <id>` changes only the fields you pass — `--api-key ""` clears the
   key, omitting it keeps it; `--param k=v` (repeatable) replaces the params
-  object. `rm <id>` requires `--yes` non-interactively.
+  object. `--endpoint <url>` stores a provider base URL; on update,
+  `--endpoint ""` clears the override and omission preserves it. `get <id>`
+  and `list --with-endpoints` show both the stored `endpoint` and the server's
+  `effectiveEndpoint`; null stored means the provider default. `endpoints
+  <provider>` returns the server-owned suggestions with billing and terms
+  notes. These endpoint-aware commands require a newer server, while the
+  original list/create/update paths remain compatible with older servers.
+  `rm <id>` requires `--yes` non-interactively.
 - `secret create|list|rm` manages the general owner-scoped secret store. Values
   are write-only: `create` reads the secret material from stdin, a file, or an
   interactive no-echo prompt (never argv), and `list` prints only the inspectable

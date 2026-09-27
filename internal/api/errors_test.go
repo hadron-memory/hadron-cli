@@ -40,6 +40,10 @@ func TestMapError(t *testing.T) {
 		{"bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
 		{"urn not qualified", gqlErr("URN_NOT_QUALIFIED"), exitcode.Usage}, // spec 022, #540
 		{"validation", gqlErr("GRAPHQL_VALIDATION_FAILED"), exitcode.Usage},
+		{"ai endpoint validation", gqlErr("AiConfigValidationError"), exitcode.Usage},
+		{"unknown ai provider", gqlErr("UnknownAiProviderError"), exitcode.Usage},
+		{"ai config missing", gqlErr("AiServiceConfigNotFoundError"), exitcode.NotFound},
+		{"ai config name taken", gqlErr("DuplicateAiServiceConfigNameError"), exitcode.Conflict},
 		{"duplicate", gqlErr("DUPLICATE_APP_AGENT"), exitcode.Conflict},
 		// #1325 part b (cli#716): each fell through to the generic 1 on c9fa75a.
 		{"node role rule exists", gqlErr("NODE_ROLE_RULE_EXISTS"), exitcode.Conflict},
