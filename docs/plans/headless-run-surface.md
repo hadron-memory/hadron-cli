@@ -107,15 +107,19 @@ documented in the README's "CLI coverage and deliberate exclusions":
 
 - **Interactive / portal-only** — chat + session lifecycle, editor lock,
   revision/version machinery, multipart asset upload, invitation/onboarding.
-- **Git-sync internals** — `replaceSubtree`, `mergeMemories`/`mergeNodes`,
+- **Git-sync internals** — `mergeMemories`/`mergeNodes`,
   `pushMemoryToGit`/`syncMemory`, `setMemorySourceToken`, `encryptMemory` (the
   end-user round-trip is `memory export` / `node import`).
+- **Retired field** — `replaceSubtree` stays deprecated in the SDL to return
+  `REPLACE_SUBTREE_RETIRED` after the memory access check. It no longer writes
+  nodes or edges, including via `hadron api`; use canonical node writes.
 - **Not-yet-built follow-ups** — the whole Agent command group (`agent` CRUD, AI
   config wiring, subscriptions, imports); one-time schedules
   (`schedule create --at`, blocked on hadron-server#510); the admin
   grants/policy/quota surface (blocked on hadron-server#510/#501).
 
-All remain reachable through the `hadron api` raw-GraphQL escape hatch.
+The active operations remain reachable through the `hadron api` raw-GraphQL
+escape hatch; the retired field remains only to give a clear refusal.
 
 `ai-config` (spec-036 era) already satisfies the audit's AI-config check: it
 covers all three owner levels (`--app`/`--agent`/`--org`), the bedrock provider

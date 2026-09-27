@@ -524,6 +524,11 @@ input AiServiceConfigTestOverride {
   """Omitted = the saved endpoint; null or empty = the provider default."""
   endpoint: String
   model: String
+
+  """
+  Edited params to test instead of the saved ones (#1413): validated exactly as a save validates them, including the params.baseUrl refusal, against the effective provider — before anything outbound. Used for the call, never stored. Omitted = the saved params; null = the edit clears them (the provider defaults). On the wire the probe exercises the effective provider/model/endpoint/key and (hard-capped at 16, per #1378's original ceiling pending a cost ruling) maxTokens, like its one-word prompt; the platform's request contract does not yet forward the other knobs (temperature, reasoningEffort, …) on any path, so they are validated and reported, not transmitted.
+  """
+  params: JSON
   provider: String
 }
 
@@ -557,6 +562,7 @@ type AiServiceConfigTestUsed {
   endpoint: AiConfigTestValueSource!
   key: AiConfigTestKeySource!
   model: AiConfigTestValueSource!
+  params: AiConfigTestValueSource!
   provider: AiConfigTestValueSource!
 }
 
@@ -5135,8 +5141,12 @@ type Mutation {
   """
   repairAgentSystemMemory(agentRef: ID!): Agent!
 
-  """Replace all nodes owned by a repo within a memory (collection tool)"""
-  replaceSubtree(edges: [EdgeInput!]!, memoryId: String!, nodes: [NodeInput!]!, ownerRepo: String!): Int!
+  """
+  Retired. Calls return REPLACE_SUBTREE_RETIRED without changing nodes or
+  edges. The field remains temporarily so existing clients get a clear
+  refusal rather than an unknown-field error.
+  """
+  replaceSubtree(edges: [EdgeInput!]!, memoryId: String!, nodes: [NodeInput!]!, ownerRepo: String!): Int! @deprecated(reason: "Retired (#454): every authorized call refuses with REPLACE_SUBTREE_RETIRED and writes nothing. Use the canonical node write mutations.")
   restoreAsset(assetId: ID!): Asset!
 
   """
@@ -6281,8 +6291,9 @@ type NodeHit {
 }
 
 """
-Bulk-import node shape, used only by replaceSubtree (git-sync). Single-node
-writes use CreateNodeInput / UpdateNodeInput (spec 039 Phase 0 D1).
+Legacy bulk-import node shape retained for replaceSubtree compatibility.
+replaceSubtree now refuses without writing; single-node writes use
+CreateNodeInput / UpdateNodeInput (spec 039 Phase 0 D1).
 """
 input NodeInput {
   """
