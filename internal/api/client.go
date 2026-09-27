@@ -110,20 +110,24 @@ func withSessionRedirects(client *http.Client) *http.Client {
 	return &c
 }
 
-// checkSessionRedirect refuses cross-host and insecure redirects for GraphQL
-// POSTs, whose bodies may carry a sessionRef even without WithSession. Go
-// replays those bodies across 307/308 redirects. Session-bearing requests of
-// other methods also cannot redirect to an insecure URL.
+// checkSessionRedirect refuses cross-host and insecure redirects when a
+// request carries a worker session. GraphQL POSTs can carry sessionRef in the
+// body without WithSession, which Go replays across 307/308 redirects. A POST
+// without a session keeps the ordinary redirect behavior.
 func checkSessionRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) == 0 || via[0] == nil || via[0].URL == nil {
 		return nil
 	}
 	crossHost := !strings.EqualFold(req.URL.Host, via[0].URL.Host)
-	if via[0].Method == http.MethodPost && (crossHost || !schemeIsSecure(req.URL)) {
-		return fmt.Errorf("%w: refusing to forward a GraphQL POST to %s", ErrRedirectPolicy, req.URL.Redacted())
-	}
 	hasSession := sessionFrom(req.Context()) != "" || sessionFrom(via[0].Context()) != "" ||
 		via[0].Header.Get(SessionHeader) != "" || req.Header.Get(SessionHeader) != ""
+	if via[0].Method == http.MethodPost {
+		bodySession, err := postBodyCarriesSessionRef(via[0])
+		if err != nil {
+			return fmt.Errorf("%w: cannot inspect a GraphQL POST before redirecting it to %s: %v", ErrRedirectPolicy, req.URL.Redacted(), err)
+		}
+		hasSession = hasSession || bodySession
+	}
 	if !hasSession {
 		return nil
 	}

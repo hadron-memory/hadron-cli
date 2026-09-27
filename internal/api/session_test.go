@@ -154,6 +154,20 @@ func TestBodyOnlySessionRefCannotFollowAnInsecureRedirect(t *testing.T) {
 	}
 }
 
+func TestSessionFreePostMayFollowSecureCrossHostRedirect(t *testing.T) {
+	t.Setenv(EnvAllowHTTP, "")
+	origin, _ := http.NewRequest(http.MethodPost, "https://old.example/graphql", strings.NewReader(`{"variables":{"appRef":"hrn:app:example:team"}}`))
+	target, _ := http.NewRequest(http.MethodPost, "https://new.example/graphql", nil)
+	for name, client := range map[string]*http.Client{
+		"with token":    withSecureRedirects(&http.Client{}),
+		"without token": withSessionRedirects(&http.Client{}),
+	} {
+		if err := client.CheckRedirect(target, []*http.Request{origin}); err != nil {
+			t.Errorf("%s must allow a secure cross-host POST without a worker session: %v", name, err)
+		}
+	}
+}
+
 // The INITIAL request never passes through the redirect policy. A session in
 // its POST body must not ride cleartext even when no bearer token is present.
 func TestSessionRequestIsNotSentOverCleartextHTTP(t *testing.T) {
