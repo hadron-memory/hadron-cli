@@ -128,9 +128,20 @@ type exportUnrecognizedDTO struct {
 // exportDTO is the whole report. Every slice is initialised, so an empty
 // field renders as [] and never as null.
 type exportDTO struct {
-	DryRun       bool                    `json:"dryRun"`
-	Hosts        []exportHostDTO         `json:"hosts"`
-	Unrecognized []exportUnrecognizedDTO `json:"unrecognized"`
+	DryRun                  bool                    `json:"dryRun"`
+	Hosts                   []exportHostDTO         `json:"hosts"`
+	Unrecognized            []exportUnrecognizedDTO `json:"unrecognized"`
+	SelectedNodes           []string                `json:"selectedNodes,omitempty"`
+	OrphanAssessmentSkipped bool                    `json:"orphanAssessmentSkipped,omitempty"`
+	Selections              []exportSelectionDTO    `json:"selections,omitempty"`
+}
+
+type exportSelectionDTO struct {
+	Ref    string          `json:"ref"`
+	NodeID string          `json:"nodeId,omitempty"`
+	Host   string          `json:"host,omitempty"`
+	Action string          `json:"action"`
+	Reason exportReasonDTO `json:"reason"`
 }
 
 func newExportHost(host, root string) exportHostDTO {
@@ -151,10 +162,11 @@ type exportOpts struct {
 func newCmdExport(f *cmdutil.Factory) *cobra.Command {
 	var opts exportOpts
 	var force bool
+	var nodes []string
 	cmd := &cobra.Command{
-		Use:   "export",
-		Short: "Write the skill files for every enabled task you can read",
-		Long: `Write the skill file for every enabled skill declaration you can read, for
+		Use:   "export [--node <ref>...]",
+		Short: "Write individual skill files for enabled tasks you can read",
+		Long: `By default, write every enabled skill declaration you can read, for
 every known host, into your user-level skills directories:
 
   claudeSkill  ~/.claude/skills/<name>/SKILL.md
@@ -162,8 +174,8 @@ every known host, into your user-level skills directories:
 
 This is the only hadron skill command that writes into your skills
 directories ("hadron skill plugin" builds bundles elsewhere, under --out).
-The server decides what
-each file should be and what to do with it; this command does the I/O and
+The server decides what each file should be and what to do with it; this
+command does the I/O and
 reports what actually happened. A missing directory is created. Nothing is
 detected and nothing is prompted for: a host that is not installed still gets
 its files, ready for when it is.
@@ -192,17 +204,33 @@ into another host's directory.
 Files on disk that no enabled declaration claims are reported as orphaned and
 left alone. --prune removes them.
 
+--node selects only named task files by node id or fully qualified node URN;
+repeat it to select several. The server still checks readable declarations
+outside that selection for name collisions, while this command submits all
+local file facts for pairing and target safety. Unselected installed skills
+are left untouched and are not assessed as orphans. --prune is therefore
+refused with --node. Plugin bundles use the separate skill plugin command.
+
 Hosts load skills when a session starts, so restart a running session to pick
 up changes.
 
 Exit codes: 0 when every item was written, moved, removed or skipped. 5 after
 the full report when any item was refused or failed. A run that cannot start
 (not signed in, server unreachable) exits with that error's code.`,
-		Example: `  hadron skill export --dry-run
+		Example: `  hadron skill export --node hrn:node:example.com:core:tasks:demo --dry-run
+  hadron skill export --node hrn:node:example.com:core:tasks:demo
+  hadron skill export --dry-run
   hadron skill export
   hadron skill export --force --prune --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			selected, err := exportNodeRefs(nodes)
+			if err != nil {
+				return err
+			}
+			if len(selected) > 0 && opts.prune {
+				return exitcode.Newf(exitcode.Usage, "--prune cannot be used with --node: unselected installed skills are outside this export")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -225,11 +253,23 @@ the full report when any item was refused or failed. A run that cannot start
 			}
 
 			dto := exportDTO{DryRun: opts.dryRun, Hosts: []exportHostDTO{}, Unrecognized: []exportUnrecognizedDTO{}}
+			if len(selected) > 0 {
+				dto.SelectedNodes = selected
+				dto.OrphanAssessmentSkipped = true
+				dto.Selections = []exportSelectionDTO{}
+			}
 			var unrecognized []*gen.SkillExportPlanSkillPlanUnrecognized
+			unavailable := map[string]bool{}
 			ioStarted := false
 			for _, h := range skilldoc.Hosts {
+				var selectionResults []*gen.SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult
 				plan := func(files []*gen.SkillFileFactsInput) (*gen.SkillExportPlanSkillPlan, error) {
 					host := h.Key
+					if len(selected) > 0 {
+						p, results, err := selectedExportPlan(cmd.Context(), client, selected, host, files, forcePtr)
+						selectionResults = results
+						return p, err
+					}
 					ask := func(files []*gen.SkillFileFactsInput) (*gen.SkillExportPlanResponse, error) {
 						return gen.SkillExportPlan(cmd.Context(), client, &gen.SkillPlanInput{
 							Intent: gen.SkillPlanIntentExport,
@@ -264,6 +304,24 @@ the full report when any item was refused or failed. A run that cannot start
 				if p != nil && unrecognized == nil {
 					unrecognized = p.Unrecognized
 				}
+				for _, sr := range selectionResults {
+					if sr == nil {
+						continue
+					}
+					item := exportSelectionDTO{Ref: sr.Ref, NodeID: deref(sr.NodeId), Action: string(sr.Action)}
+					if sr.Reason != nil {
+						item.Reason = exportReasonDTO{Code: sr.Reason.Code, Message: sr.Reason.Message, Origin: originServer}
+					}
+					if sr.NodeId == nil {
+						if unavailable[sr.Ref] {
+							continue
+						}
+						unavailable[sr.Ref] = true
+					} else {
+						item.Host = h.Key
+					}
+					dto.Selections = append(dto.Selections, item)
+				}
 				dto.Hosts = append(dto.Hosts, hd)
 			}
 			dto.Unrecognized = toUnrecognizedDTO(unrecognized)
@@ -282,6 +340,7 @@ the full report when any item was refused or failed. A run that cannot start
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "report what would happen, and change nothing on disk")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite, move or remove a hand-edited file, or one with no node id")
 	cmd.Flags().BoolVar(&opts.prune, "prune", false, "remove orphaned skill files that no enabled declaration claims")
+	cmd.Flags().StringArrayVar(&nodes, "node", nil, "export only these task nodes (repeatable): a node id or fully qualified node URN")
 	return cmd
 }
 
@@ -1010,6 +1069,11 @@ func toUnrecognizedDTO(in []*gen.SkillExportPlanSkillPlanUnrecognized) []exportU
 // exportHasFailures is the exit-code rule: any refused or failed item, or a
 // host that could not be written, exits 5 AFTER the full report.
 func exportHasFailures(dto exportDTO) bool {
+	for _, s := range dto.Selections {
+		if s.Action != string(gen.SkillExportActionSkip) {
+			return true
+		}
+	}
 	for _, h := range dto.Hosts {
 		if h.Failure != nil || len(h.Refused) > 0 || len(h.Failed) > 0 {
 			return true
@@ -1030,6 +1094,11 @@ func renderExport(w io.Writer, dto exportDTO) error {
 			return err
 		}
 	}
+	if dto.OrphanAssessmentSkipped {
+		if _, err := fmt.Fprintln(w, "Selected task files only; unselected installed skills were not assessed as orphans."); err != nil {
+			return err
+		}
+	}
 	for _, h := range dto.Hosts {
 		if _, err := fmt.Fprintf(w, "\n%s → %s\n", h.Host, cmp(h.Root, "(no directory)")); err != nil {
 			return err
@@ -1042,7 +1111,11 @@ func renderExport(w io.Writer, dto exportDTO) error {
 		rows := len(h.Written) + len(h.Moved) + len(h.Removed) + len(h.Skipped) + len(h.Refused) +
 			len(h.Failed) + len(h.Pruned) + len(h.Orphaned) + len(h.Unreadable) + len(h.Unparseable)
 		if rows == 0 {
-			if _, err := fmt.Fprintln(w, "  nothing to export for this host"); err != nil {
+			message := "  nothing to export for this host"
+			if dto.OrphanAssessmentSkipped {
+				message = "  no file action for selected tasks on this host"
+			}
+			if _, err := fmt.Fprintln(w, message); err != nil {
 				return err
 			}
 			continue
@@ -1100,6 +1173,20 @@ func renderExport(w io.Writer, dto exportDTO) error {
 		}
 		if err := t.Flush(); err != nil {
 			return err
+		}
+	}
+	if len(dto.Selections) > 0 {
+		if _, err := fmt.Fprintln(w, "\nSelected tasks without a host entry:"); err != nil {
+			return err
+		}
+		for _, s := range dto.Selections {
+			where := s.Host
+			if where == "" {
+				where = "all hosts"
+			}
+			if _, err := fmt.Fprintf(w, "  %s (%s): %s — %s\n", s.Ref, where, strings.ToLower(s.Action), reasonText([]exportReasonDTO{s.Reason})); err != nil {
+				return err
+			}
 		}
 	}
 	if len(dto.Unrecognized) > 0 {

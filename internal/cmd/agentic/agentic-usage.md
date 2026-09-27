@@ -302,7 +302,7 @@ hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hy
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
 hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> [--to <loc>] | import spec-kit|code
-hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--dry-run] [--force] [--prune] [--json] | plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]
+hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--node <ref>...] [--dry-run] [--force] [--prune] [--json] | plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref>
 hadron ai-config list [--app <ref>] [--agent <id>] | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
@@ -918,9 +918,15 @@ Conventions:
   `unchecked`, and **fails `--strict`**: a gate must not pass on a result
   nothing verified.
   `skill export` is the ONLY writer of user-level skill files (#621;
-  `skill plugin` below builds bundles under an explicit `--out`). It takes **no selector**: it
+  `skill plugin` below builds bundles under an explicit `--out`). By default it
   exports every ENABLED declaration you can read (cor:agt:030:03; `memories`
-  is omitted on the wire), for EVERY known host, into user-level roots —
+  is omitted on the wire). Repeat `--node <id-or-fully-qualified-URN>` to
+  export only named individual task files. The server checks readable name
+  collisions beyond the selection, and the CLI submits all local file facts;
+  unselected installed files are untouched and not assessed as orphans, so
+  `--node` refuses `--prune` before disk or network I/O. Plugin bundles keep
+  scope selection through `skill plugin` and never take node selectors. Both
+  export modes write for EVERY known host, into user-level roots —
   `claudeSkill` → `~/.claude/skills/<name>/SKILL.md`, `codexSkill` →
   `~/.agents/skills/<name>/SKILL.md` — creating an absent root, with no host
   detection and no prompt. The deprecated `~/.codex/skills` is never written,
@@ -935,6 +941,11 @@ Conventions:
   rule), `origin: "client"` an I/O fact about this machine (`root-is-link`,
   `skill-dir-is-link`, `io-error`, `directory-kept`, …). `unrecognized` lists
   nodes whose `exports` names no host, ONCE, attributed to no host.
+  Selected runs add `selectedNodes` and `orphanAssessmentSkipped: true`, plus
+  `selections` when named tasks have no host entries. An unavailable ref is
+  reported once, host-free, with no node id; a known task with no declaration
+  for a host is a skip for that host. These fields are omitted in the default
+  unscoped report.
   **Links are refused:** if a host's root, or any directory between `$HOME`
   and it, is a symbolic link, nothing is written for that host — `failure`
   is set and every one of its skills is in `failed`, named; a skill directory
