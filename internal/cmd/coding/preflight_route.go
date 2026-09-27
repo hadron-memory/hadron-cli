@@ -87,7 +87,9 @@ that already references the target is left alone.`,
 			if err != nil {
 				return err
 			}
-			router, err := gen.GetNode(ctx, client, routerRef)
+			// RAW (#736): planned against the stored body appendRoutingLine
+			// writes back, not a rendered copy.
+			router, err := gen.GetNodeRaw(ctx, client, routerRef)
 			if err != nil {
 				return api.MapError(err)
 			}
