@@ -7764,7 +7764,7 @@ type Query {
   The signed token is a pure poll watermark and never changes read state.
   Omit since for all current unread. since:"now" is refused: discarding a
   backlog requires the separate preview + confirmed switchover.
-  
+
   A router must adopt the returned token only after EVERY listed nudge was
   accepted. On any partial failure retain the prior token; retries can
   duplicate a nudge but cannot silently lose one.

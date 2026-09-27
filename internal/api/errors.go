@@ -353,23 +353,15 @@ func IsMCPOnlyCredential(err error) bool {
 }
 
 // HasErrorCode reports whether err carries a GraphQL error whose
-// extensions.code equals code. It inspects the raw genqlient error (call it
-// BEFORE MapError wraps the error into a CodedError) so callers can branch on
-// a specific server error — e.g. `node import` falling back from updateNode's
-// NODE_NOT_FOUND to createNode.
+// extensions.code equals code, including a non-200 HTTPError with a parsed
+// GraphQL response. It also follows MapError's wrapping, though callers that
+// need a special recovery path should branch before mapping the error — e.g.
+// a guarded spec edit keeping its proposal on NODE_WRITE_CONFLICT.
 func HasErrorCode(err error, code string) bool {
-	var list gqlerror.List
-	if errors.As(err, &list) {
-		for _, e := range list {
-			if extensionCode(e) == code {
-				return true
-			}
+	for _, e := range graphQLErrors(err) {
+		if extensionCode(e) == code {
+			return true
 		}
-		return false
-	}
-	var gqlErr *gqlerror.Error
-	if errors.As(err, &gqlErr) {
-		return extensionCode(gqlErr) == code
 	}
 	return false
 }
@@ -727,7 +719,11 @@ func codeForExtension(code string) int {
 		// document exit codes no caller may ever observe, which is the trap the
 		// TEAM_ROLE comment below names. They are candidates, not omissions;
 		// each needs its own measurement, and #608 records that.
-		code == "NodeLocConflictError":
+		code == "NodeLocConflictError" ||
+		// A guarded write whose expectedRevision is stale (hadron-server#1352),
+		// or whose target moved since it was read: the state changed under the
+		// caller, who must re-read before trying again (cli#738).
+		code == "NODE_WRITE_CONFLICT":
 		return exitcode.Conflict
 	// An ambiguous or unusable reference the caller can fix by passing a more
 	// specific argument (TEAM_AGENT_AMBIGUOUS → --team-agent;
