@@ -110,7 +110,8 @@ and --loc override them (re-homing a node into another memory). Outgoing edges
 are imported only with --with-edges (off by default).
 
 A file's role: and runnable: keys (isRunnable in JSON) are the node's kind: a
-task (runnable: true), a spec or a review. The write goes through the door that
+task (runnable: true), a spec (spec or spec.*) or a review (review or review.*).
+The write goes through the door that
 kind requires, like node add and node update. memory export and the server's
 git sync write the keys, so their files re-import with the kind; node export
 does not write them yet, so its files carry no kind. A file without the keys

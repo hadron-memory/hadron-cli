@@ -347,7 +347,7 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 		add("nodetype-info", sevError, fmt.Sprintf("nodeType must be \"info\", got %q", n.NodeType))
 	}
 	if !hasTag(n.Tags, "spec") {
-		if n.Role != nil && *n.Role == api.SpecNodeRole {
+		if api.RoleInFamily(n.Role, api.SpecNodeRole) {
 			// A spec by its governed role (isSpec), so not broken — but the
 			// tag-filtered scans (list, get --prefix, grep, replace,
 			// check-tools, find --match-exactly) select by the TAG server-side (NodeFilter has no

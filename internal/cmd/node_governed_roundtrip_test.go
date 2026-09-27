@@ -115,6 +115,24 @@ func TestNodeImportRoutesByTheKindTheWriteTouches(t *testing.T) {
 			door: "CreateSpecNode", want: map[string]any{"role": "spec"},
 		},
 		{
+			name: "a spec subrole file onto a new loc creates through the spec door",
+			file: governedMd("role: spec.rule\n"),
+			responses: map[string]string{
+				"UpdateSpecNode": notFoundJSON,
+				"CreateSpecNode": `{"data":{"createSpecNode":` + nodeJSON + `}}`,
+			},
+			door: "CreateSpecNode", want: map[string]any{"role": "spec.rule"},
+		},
+		{
+			name: "a review subrole file onto a new loc creates through the review door",
+			file: governedMd("role: review.security\n"),
+			responses: map[string]string{
+				"UpdateReviewNode": notFoundJSON,
+				"CreateReviewNode": `{"data":{"createReviewNode":` + nodeJSON + `}}`,
+			},
+			door: "CreateReviewNode", want: map[string]any{"role": "review.security"},
+		},
+		{
 			name: "an open role onto a spec leaves it through the spec door",
 			file: governedMd("role: weather-widget\n"), stored: kindDetail(`"spec"`, "false"),
 			responses: map[string]string{"UpdateSpecNode": `{"data":{"updateSpecNode":` + nodeJSON + `}}`},

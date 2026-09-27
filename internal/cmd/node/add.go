@@ -175,7 +175,7 @@ schema and rejects a violation.`,
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "read the JSON properties object from a file")
 	// See node update's --role: NOT --type, and NOT a membership role.
 	cmd.Flags().StringVar(&role, "role", "",
-		`what this node is FOR (#1201) — governed values "spec"/"review" route the write through that kind's door. NOT --type (the platform kind) and NOT a membership role`)
+		`what this node is FOR (#1201) — "spec"/"spec.*" and "review"/"review.*" route through their governed doors. NOT --type (the platform kind) and NOT a membership role`)
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run'")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable)")
 	_ = cmd.MarkFlagRequired("memory")

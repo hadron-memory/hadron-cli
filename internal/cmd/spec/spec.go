@@ -1056,7 +1056,7 @@ func pageBranch(nodes []*api.ListNode, prefix string, limit, offset int, serverP
 // server governs by; the corpus SCANS still filter on the tag server-side,
 // since NodeFilter has no role facet (see docs/plans/spec-hierarchy-removal.md).
 func isSpec(tags []string, role *string) bool {
-	return hasTag(tags, "spec") || (role != nil && *role == api.SpecNodeRole)
+	return hasTag(tags, "spec") || api.RoleInFamily(role, api.SpecNodeRole)
 }
 
 // fetchSpecTaggedNode validates an address, reads the node, and requires it to

@@ -8,7 +8,8 @@ its type). A loc implies no parent: a spec's edges are the ones it was given.
 Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 
 > **The fixed hierarchy is removed (#708/#709).** A spec is any node
-> tagged `spec` (or carrying the governed spec role), and **any valid node loc
+> tagged `spec` (or carrying the governed `spec` or dotted `spec.*` role), and
+> **any valid node loc
 > is a spec address**, at any depth and in any shape. `get`, `list`, `edit`,
 > `link`, `find`, `grep`, `replace` and `check-tools` no longer check the
 > numbering below, and no longer drop a spec from a listing for its shape. The
@@ -21,6 +22,11 @@ Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 > removed too (#708): no missing abstract, "what invalidates", `data.version`,
 > scaffold-body or placeholder-contract finding at any loc.
 > See [docs/plans/spec-hierarchy-removal.md](../plans/spec-hierarchy-removal.md).
+
+Direct `spec get`, `edit` and `link` accept a tagless `spec.*` node. Corpus
+scans still select the `spec` tag server-side, so tagless nodes are absent from
+`list`, `get --prefix`, `grep`, `replace`, `check-tools` and
+`find --match-exactly` until role-family listing support lands (#684).
 
 ## The legacy numbering
 
