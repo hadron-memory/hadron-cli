@@ -627,9 +627,54 @@ fragment TeamWorkItemFields on TeamWorkItem {
   action
   at
   detail
+  # Reported LLM at record time (#1398), not the artifact-host tool or the
+  # session's initial llmModel. Null means unknown, including old rows.
+  model
+}
+
+# Old servers lack both TeamWorkItem.model and recordTeamWork(model:).
+# Keep their ordinary logging and provenance reads available when the caller
+# did not require an explicit model. Never use this for --model.
+fragment TeamWorkItemLegacyFields on TeamWorkItem {
+  nodeId
+  sessionId
+  workerId
+  workerName
+  tool
+  kind
+  ref
+  action
+  at
+  detail
 }
 
 mutation RecordTeamWork(
+  $appRef: ID!
+  $sessionRef: ID!
+  $tool: String!
+  $kind: String!
+  $ref: String!
+  $action: String!
+  # @genqlient(omitempty: true)
+  $detail: JSON
+  # @genqlient(omitempty: true)
+  $model: String
+) {
+  recordTeamWork(
+    appRef: $appRef
+    sessionRef: $sessionRef
+    tool: $tool
+    kind: $kind
+    ref: $ref
+    action: $action
+    detail: $detail
+    model: $model
+  ) {
+    ...TeamWorkItemFields
+  }
+}
+
+mutation RecordTeamWorkLegacy(
   $appRef: ID!
   $sessionRef: ID!
   $tool: String!
@@ -648,7 +693,7 @@ mutation RecordTeamWork(
     action: $action
     detail: $detail
   ) {
-    ...TeamWorkItemFields
+    ...TeamWorkItemLegacyFields
   }
 }
 
@@ -679,6 +724,37 @@ query TeamWorkItems(
     total
     items {
       ...TeamWorkItemFields
+    }
+  }
+}
+
+query TeamWorkItemsLegacy(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sessionRef: ID
+  # @genqlient(omitempty: true)
+  $ref: String
+  # @genqlient(omitempty: true)
+  $kind: String
+  # @genqlient(omitempty: true)
+  $tool: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  teamWorkItems(
+    appRef: $appRef
+    sessionRef: $sessionRef
+    ref: $ref
+    kind: $kind
+    tool: $tool
+    limit: $limit
+    offset: $offset
+  ) {
+    total
+    items {
+      ...TeamWorkItemLegacyFields
     }
   }
 }

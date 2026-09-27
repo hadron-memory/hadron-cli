@@ -2916,6 +2916,59 @@ type MemoryConfig {
   updatedBy: ID
 }
 
+type MemoryConfigApplyEntry {
+  outcome: MemoryConfigApplyOutcome!
+  role: String!
+
+  """
+  The rule in force for this role afterwards. On a dry run, the existing rule, or null for a would-be APPLIED.
+  """
+  rule: NodeRoleRule
+}
+
+"""
+#1334 — what applying a template did (or, on a dry run, would do) for one role.
+"""
+enum MemoryConfigApplyOutcome {
+  """
+  The memory had no rule for the role; the template's was copied in (locked if the template is required).
+  """
+  APPLIED
+
+  """
+  The memory's rule for the role was overwritten by a required template's, and is now locked.
+  """
+  REPLACED
+
+  """
+  The memory already had a rule for the role, and a non-required template never overrides one.
+  """
+  SKIPPED_CONFLICT
+
+  """
+  A required template met a LOCKED rule that you have no authority to move; the rule stands.
+  """
+  SKIPPED_LOCKED
+}
+
+type MemoryConfigApplyResult {
+  dryRun: Boolean!
+
+  """One per template rule, role-ascending."""
+  entries: [MemoryConfigApplyEntry!]!
+  memoryId: ID!
+  required: Boolean!
+  template: NodeRoleRuleSourceTemplate!
+
+  """
+  The template revision that was applied; pass it back as expectedTemplateRevision to apply exactly what a dry run showed.
+  """
+  templateRevision: Int!
+
+  """Empty until #1327 adds its visibility warnings."""
+  warnings: [MemoryConfigWarning!]!
+}
+
 """
 #1325 part (c) — a reusable rulebook with exactly one owner, COPIED into a
 memory's config when applied (never live-linked). Read and managed only by
@@ -3412,6 +3465,28 @@ type Mutation {
   channelRef: the Channel's id or its address (`Channel.chatRootUrn`, #1171).
   """
   advanceChannelReadState(appRef: ID, attendeeRef: ID!, channelRef: ID!, seq: Int!): ChannelReadState!
+
+  """
+  #1334 — copy a template's rules into ONE memory's config. A one-off copy:
+  later template edits never reach this memory, and re-applying is explicit.
+
+  Needs MANAGE on the memory (else MemoryNotFound) and on the template,
+  which exists for you only if you manage its owner (else
+  MEMORY_CONFIG_TEMPLATE_NOT_FOUND). The rules are validated as a whole,
+  under a share lock, as createNodeRoleRule validates a new rule's
+  references (NODE_NOT_FOUND for one you cannot read, NOT_A_TASK), and a
+  template rule whose task was deleted refuses the whole apply
+  (NODE_ROLE_RULE_REF_BROKEN). All-or-nothing per memory.
+
+  When the memory already has a rule for a role, a non-required template
+  skips it and a required template replaces it. A LOCKED rule is only
+  replaced by a caller with lock authority (see unlockNodeRoleRule);
+  otherwise SKIPPED_LOCKED. Rules written by a required template are locked.
+
+  expectedTemplateRevision: CONFLICT (with currentRevision) if the template
+  changed since you read it. dryRun: the same report with nothing written.
+  """
+  applyMemoryConfigTemplate(dryRun: Boolean, expectedTemplateRevision: Int, memoryRef: ID!, templateRef: ID!): MemoryConfigApplyResult!
 
   """
   Attach an EXISTING free-standing memory to an App.
@@ -4372,7 +4447,7 @@ type Mutation {
   deleteNodeRevision(revisionId: ID!): Boolean!
 
   """
-  #1325 — delete a rule by its id; expectedRevision as for updateNodeRoleRule.
+  #1325 — delete a rule by its id; expectedRevision as for updateNodeRoleRule. A LOCKED rule (#1334) is refused with RULE_LOCKED for every caller: unlock it first (unlockNodeRoleRule).
   """
   deleteNodeRoleRule(expectedRevision: Int, ref: ID!): Boolean!
 
@@ -4866,7 +4941,20 @@ type Mutation {
   
   appRef accepts the entity's ID or URN; sessionRef is the session id.
   """
-  recordTeamWork(action: String!, appRef: ID!, detail: JSON, kind: String!, ref: String!, sessionRef: ID!, tool: String!): TeamWorkItem!
+  recordTeamWork(
+    action: String!
+    appRef: ID!
+    detail: JSON
+    kind: String!
+
+    """
+    Optional explicit model report (#1398). Takes precedence over the session's model; a model switch or a late record should pass the model that actually did the work. Empty string is refused — pass nothing to fall back to the session's model.
+    """
+    model: String
+    ref: String!
+    sessionRef: ID!
+    tool: String!
+  ): TeamWorkItem!
 
   """Record a usage event"""
   recordUsage(event: UsageEventInput!): Boolean!
@@ -5330,6 +5418,17 @@ type Mutation {
   unlinkGithubApp(orgId: ID!): Organization!
 
   """
+  #1334 — the deliberate step before a rule a required template LOCKED can be
+  edited or deleted (Holger, 2026-09-27: nobody changes a locked rule through
+  an ordinary edit). Needs lock authority: an org ADMIN/OWNER of the memory's
+  org; on a personal/private or org-less memory, its manager. Anyone else who
+  manages the memory gets RULE_LOCKED. Visible: bumps revision and stamps
+  updatedBy. Unlocking an unlocked rule changes nothing. expectedRevision as
+  for updateNodeRoleRule.
+  """
+  unlockNodeRoleRule(expectedRevision: Int, ref: ID!): NodeRoleRulePayload!
+
+  """
   Update an Agent.
   
   urn renames the slug (org-owned agents only). personaRole / personaPrompt
@@ -5616,7 +5715,9 @@ type Mutation {
   #1325 — change a rule by its id. With expectedRevision, a rule changed since
   you read it is refused CONFLICT (extensions.currentRevision) and nothing is
   written; omitted, the last writer wins. A rule you may not manage reads as
-  NOT_FOUND.
+  NOT_FOUND. A LOCKED rule (#1334) is refused with RULE_LOCKED (extensions
+  ruleId, role, sourceTemplateId) for EVERY caller: unlock it first
+  (unlockNodeRoleRule) or re-apply its required template.
   """
   updateNodeRoleRule(expectedRevision: Int, input: UpdateNodeRoleRuleInput!, ref: ID!): NodeRoleRulePayload!
 
@@ -5847,7 +5948,17 @@ type Node {
   carrying data.asset still has a live asset behind it.
   """
   asset: Asset
+
+  """
+  #1326 — attribution of this content state. Null means legacy or unknown. Task identity is redacted unless its memory is independently readable.
+  """
+  authorship: NodeAuthorship
   content: String
+
+  """
+  #1326 — advisory validation for this exact revision. A report for an older revision is STALE.
+  """
+  contentValidation: NodeContentValidationStatus!
   createdAt: DateTime!
   data: JSON
   description: String
@@ -5980,6 +6091,19 @@ type Node {
   urn: String!
 }
 
+type NodeAuthorship {
+  authoredAt: DateTime!
+  human: NodeRevisionEditor
+  kind: NodeAuthorshipKind!
+  taskRef: String
+  taskRevision: Int
+}
+
+enum NodeAuthorshipKind {
+  HUMAN
+  TASK
+}
+
 """
 Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
 'nodes' is the authorized, existing subset (input order for a ref set, loc
@@ -5998,6 +6122,33 @@ type NodeBatchResult {
   omitted: [ID!]!
   truncated: Boolean!
   unavailable: [ID!]!
+}
+
+enum NodeContentValidationOutcome {
+  ERROR
+  FAIL
+  PASS
+}
+
+type NodeContentValidationReport {
+  nodeRevision: Int!
+  outcome: NodeContentValidationOutcome!
+  reportedAt: DateTime!
+  validationTaskRef: String
+  validationTaskRevision: Int
+}
+
+enum NodeContentValidationState {
+  ERROR
+  FAIL
+  PASS
+  STALE
+  UNVALIDATED
+}
+
+type NodeContentValidationStatus {
+  latestReport: NodeContentValidationReport
+  state: NodeContentValidationState!
 }
 
 """Outgoing edge on a node, used in NodeInput.edges"""
@@ -6262,6 +6413,9 @@ type NodeRevision {
   """
   approvedByUser: NodeRevisionEditor
 
+  """#1326 — attribution of the content captured before the next edit."""
+  authorship: NodeAuthorship
+
   """
   Which node fields the edit that took this snapshot changed, e.g.
   ["abstract","tags"] (#620). The snapshot is the PRE-edit state, so this
@@ -6270,6 +6424,9 @@ type NodeRevision {
   """
   changes: [String!]!
   content: String
+
+  """#1326 — advisory validation at this historical revision."""
+  contentValidation: NodeContentValidationStatus!
   createdAt: DateTime!
   data: JSON
   description: String
@@ -6370,7 +6527,9 @@ type NodeRoleRule {
   """
   id: ID!
 
-  """Set by applying a required template (#1334)."""
+  """
+  Set by applying a required template (#1334). A locked rule refuses every ordinary edit and delete (RULE_LOCKED); unlockNodeRoleRule is the deliberate step.
+  """
   locked: Boolean!
 
   """
@@ -9672,6 +9831,11 @@ type TeamWorkItem {
 
   """Artifact kind: pr, issue, commit, branch, or repo."""
   kind: String!
+
+  """
+  The LLM model that produced the work, snapshotted at record time (#1398): an explicit report wins over the recording session's model; null on records that predate the field or were made with none — never backfilled, so null always means unknown-at-record-time.
+  """
+  model: String
 
   """The record node's id."""
   nodeId: ID!

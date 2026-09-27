@@ -9829,7 +9829,7 @@ func (v *DeleteNodeRevisionResponse) GetDeleteNodeRevision() bool { return v.Del
 
 // DeleteNodeRoleRuleResponse is returned by DeleteNodeRoleRule on success.
 type DeleteNodeRoleRuleResponse struct {
-	// #1325 — delete a rule by its id; expectedRevision as for updateNodeRoleRule.
+	// #1325 — delete a rule by its id; expectedRevision as for updateNodeRoleRule. A LOCKED rule (#1334) is refused with RULE_LOCKED for every caller: unlock it first (unlockNodeRoleRule).
 	DeleteNodeRoleRule bool `json:"deleteNodeRoleRule"`
 }
 
@@ -16993,7 +16993,7 @@ type NodeRoleRuleFields struct {
 	DescriptionNode      *string              `json:"descriptionNode"`
 	DescriptionNodeId    *string              `json:"descriptionNodeId"`
 	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
-	// Set by applying a required template (#1334).
+	// Set by applying a required template (#1334). A locked rule refuses every ordinary edit and delete (RULE_LOCKED); unlockNodeRoleRule is the deliberate step.
 	Locked bool `json:"locked"`
 	// The template this rule was copied from, if any (provenance only; no live link).
 	SourceTemplateId *string                                                     `json:"sourceTemplateId"`
@@ -18208,6 +18208,181 @@ func (v *PublicResourceRefFields) GetUrn() string { return v.Urn }
 // GetDescription returns PublicResourceRefFields.Description, and is useful for accessing the field via an interface.
 func (v *PublicResourceRefFields) GetDescription() *string { return v.Description }
 
+// RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem includes the requested fields of the GraphQL type TeamWorkItem.
+// The GraphQL type's documentation follows.
+//
+// One team-worklog record (#947) — an externally visible work milestone (a PR
+// opened, a branch pushed, an issue closed), append-only. The worklog is the
+// AUTHORITATIVE PR-session join (spec cor:agt:020:03); Session.prNumber is a
+// latest-wins display convenience. ref carries the ONE canonical spelling per
+// artifact (github: owner/repo#N, owner/repo@sha, owner/repo:branch,
+// owner/repo; owner/repo lowercased).
+type RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem struct {
+	TeamWorkItemLegacyFields `json:"-"`
+}
+
+// GetNodeId returns RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem.NodeId, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) GetNodeId() string {
+	return v.TeamWorkItemLegacyFields.NodeId
+}
+
+// GetSessionId returns RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem.SessionId, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) GetSessionId() string {
+	return v.TeamWorkItemLegacyFields.SessionId
+}
+
+// GetWorkerId returns RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem.WorkerId, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) GetWorkerId() *string {
+	return v.TeamWorkItemLegacyFields.WorkerId
+}
+
+// GetWorkerName returns RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem.WorkerName, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) GetWorkerName() string {
+	return v.TeamWorkItemLegacyFields.WorkerName
+}
+
+// GetTool returns RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem.Tool, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) GetTool() string {
+	return v.TeamWorkItemLegacyFields.Tool
+}
+
+// GetKind returns RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem.Kind, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) GetKind() string {
+	return v.TeamWorkItemLegacyFields.Kind
+}
+
+// GetRef returns RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem.Ref, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) GetRef() string {
+	return v.TeamWorkItemLegacyFields.Ref
+}
+
+// GetAction returns RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem.Action, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) GetAction() string {
+	return v.TeamWorkItemLegacyFields.Action
+}
+
+// GetAt returns RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem.At, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) GetAt() string {
+	return v.TeamWorkItemLegacyFields.At
+}
+
+// GetDetail returns RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem.Detail, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) GetDetail() *json.RawMessage {
+	return v.TeamWorkItemLegacyFields.Detail
+}
+
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamWorkItemLegacyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRecordTeamWorkLegacyRecordTeamWorkTeamWorkItem struct {
+	NodeId string `json:"nodeId"`
+
+	SessionId string `json:"sessionId"`
+
+	WorkerId *string `json:"workerId"`
+
+	WorkerName string `json:"workerName"`
+
+	Tool string `json:"tool"`
+
+	Kind string `json:"kind"`
+
+	Ref string `json:"ref"`
+
+	Action string `json:"action"`
+
+	At string `json:"at"`
+
+	Detail *json.RawMessage `json:"detail"`
+}
+
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem) __premarshalJSON() (*__premarshalRecordTeamWorkLegacyRecordTeamWorkTeamWorkItem, error) {
+	var retval __premarshalRecordTeamWorkLegacyRecordTeamWorkTeamWorkItem
+
+	retval.NodeId = v.TeamWorkItemLegacyFields.NodeId
+	retval.SessionId = v.TeamWorkItemLegacyFields.SessionId
+	retval.WorkerId = v.TeamWorkItemLegacyFields.WorkerId
+	retval.WorkerName = v.TeamWorkItemLegacyFields.WorkerName
+	retval.Tool = v.TeamWorkItemLegacyFields.Tool
+	retval.Kind = v.TeamWorkItemLegacyFields.Kind
+	retval.Ref = v.TeamWorkItemLegacyFields.Ref
+	retval.Action = v.TeamWorkItemLegacyFields.Action
+	retval.At = v.TeamWorkItemLegacyFields.At
+	retval.Detail = v.TeamWorkItemLegacyFields.Detail
+	return &retval, nil
+}
+
+// RecordTeamWorkLegacyResponse is returned by RecordTeamWorkLegacy on success.
+type RecordTeamWorkLegacyResponse struct {
+	// Record an externally visible work milestone into the team App's worklog
+	// (#947) — the append-only, authoritative PR-session join (spec
+	// cor:agt:020:03). The session must be writable by the caller and a session
+	// OF this App (SessionInput.appRef, #944); an ENDED session is accepted —
+	// late attribution (a merge lands after the session ends) is the point.
+	// ref accepts URL and short spellings and is stored in ONE canonical form
+	// (github: owner/repo#N, owner/repo@sha, owner/repo:branch, owner/repo);
+	// a bare number is refused — the server never infers a repo. kind must be
+	// one of pr, issue, commit, branch, repo; action is a free lowercased verb
+	// (opened, merged, claimed, reviewed, closed, pushed, ...). kind: pr also
+	// denormalizes the latest-wins Session.prNumber display convenience.
+	// detail is an optional JSON bag of display extras (title, URL) — stored,
+	// never filtered on. Records are append-only: correct a wrong record by
+	// recording a newer one.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, or the owner of a user-owned App. A pure
+	// App-key principal may NOT record (read-only on the worklog).
+	//
+	// A worker-bound session records under its Worker's name (#974,
+	// cor:agt:020:05) — the worker must belong to THIS App and not be retired
+	// (SESSION_WORKER_NOT_IN_APP / WORKER_RETIRED — a retired or foreign
+	// worker refuses rather than reshaping the attribution); an unbound
+	// session records under the attributed user's handle.
+	//
+	// Typed refusals: WORK_REF_INVALID, SESSION_NOT_FOUND, SESSION_NOT_IN_APP,
+	// SESSION_WORKER_NOT_IN_APP, WORKER_RETIRED, TEAM_AGENT_NOT_FOUND /
+	// TEAM_AGENT_AMBIGUOUS (first-write bootstrap could not locate the Team
+	// Agent), APP_UNINSTALLED, FORBIDDEN, BAD_USER_INPUT.
+	//
+	// appRef accepts the entity's ID or URN; sessionRef is the session id.
+	RecordTeamWork *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem `json:"recordTeamWork"`
+}
+
+// GetRecordTeamWork returns RecordTeamWorkLegacyResponse.RecordTeamWork, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkLegacyResponse) GetRecordTeamWork() *RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem {
+	return v.RecordTeamWork
+}
+
 // RecordTeamWorkRecordTeamWorkTeamWorkItem includes the requested fields of the GraphQL type TeamWorkItem.
 // The GraphQL type's documentation follows.
 //
@@ -18263,6 +18438,11 @@ func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetDetail() *json.RawMessage 
 	return v.TeamWorkItemFields.Detail
 }
 
+// GetModel returns RecordTeamWorkRecordTeamWorkTeamWorkItem.Model, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetModel() *string {
+	return v.TeamWorkItemFields.Model
+}
+
 func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -18308,6 +18488,8 @@ type __premarshalRecordTeamWorkRecordTeamWorkTeamWorkItem struct {
 	At string `json:"at"`
 
 	Detail *json.RawMessage `json:"detail"`
+
+	Model *string `json:"model"`
 }
 
 func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) MarshalJSON() ([]byte, error) {
@@ -18331,6 +18513,7 @@ func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) __premarshalJSON() (*__premar
 	retval.Action = v.TeamWorkItemFields.Action
 	retval.At = v.TeamWorkItemFields.At
 	retval.Detail = v.TeamWorkItemFields.Detail
+	retval.Model = v.TeamWorkItemFields.Model
 	return &retval, nil
 }
 
@@ -24137,6 +24320,8 @@ type TeamWorkItemFields struct {
 	At string `json:"at"`
 	// Optional display extras (title, URL) — never filtered on.
 	Detail *json.RawMessage `json:"detail"`
+	// The LLM model that produced the work, snapshotted at record time (#1398): an explicit report wins over the recording session's model; null on records that predate the field or were made with none — never backfilled, so null always means unknown-at-record-time.
+	Model *string `json:"model"`
 }
 
 // GetNodeId returns TeamWorkItemFields.NodeId, and is useful for accessing the field via an interface.
@@ -24168,6 +24353,238 @@ func (v *TeamWorkItemFields) GetAt() string { return v.At }
 
 // GetDetail returns TeamWorkItemFields.Detail, and is useful for accessing the field via an interface.
 func (v *TeamWorkItemFields) GetDetail() *json.RawMessage { return v.Detail }
+
+// GetModel returns TeamWorkItemFields.Model, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetModel() *string { return v.Model }
+
+// Old servers lack both TeamWorkItem.model and recordTeamWork(model:).
+// Keep their ordinary logging and provenance reads available when the caller
+// did not require an explicit model. Never use this for --model.
+type TeamWorkItemLegacyFields struct {
+	// The record node's id.
+	NodeId string `json:"nodeId"`
+	// The session the work is attributed to.
+	SessionId string `json:"sessionId"`
+	// The Worker (named casting) behind the record, when the session was worker-bound.
+	WorkerId *string `json:"workerId"`
+	// Display convenience, denormalized at write: the session's bound worker name, else the attributed user's handle (pre-#974 records surface their stored personaName here).
+	WorkerName string `json:"workerName"`
+	// The external tool the artifact lives in ('github', ...). Lowercased.
+	Tool string `json:"tool"`
+	// Artifact kind: pr, issue, commit, branch, or repo.
+	Kind string `json:"kind"`
+	// The canonical artifact ref — the equality-lookup key.
+	Ref string `json:"ref"`
+	// What happened: opened, merged, claimed, reviewed, closed, pushed, ... (free string, lowercased).
+	Action string `json:"action"`
+	// When the record was made (server-stamped).
+	At string `json:"at"`
+	// Optional display extras (title, URL) — never filtered on.
+	Detail *json.RawMessage `json:"detail"`
+}
+
+// GetNodeId returns TeamWorkItemLegacyFields.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemLegacyFields) GetNodeId() string { return v.NodeId }
+
+// GetSessionId returns TeamWorkItemLegacyFields.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemLegacyFields) GetSessionId() string { return v.SessionId }
+
+// GetWorkerId returns TeamWorkItemLegacyFields.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemLegacyFields) GetWorkerId() *string { return v.WorkerId }
+
+// GetWorkerName returns TeamWorkItemLegacyFields.WorkerName, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemLegacyFields) GetWorkerName() string { return v.WorkerName }
+
+// GetTool returns TeamWorkItemLegacyFields.Tool, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemLegacyFields) GetTool() string { return v.Tool }
+
+// GetKind returns TeamWorkItemLegacyFields.Kind, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemLegacyFields) GetKind() string { return v.Kind }
+
+// GetRef returns TeamWorkItemLegacyFields.Ref, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemLegacyFields) GetRef() string { return v.Ref }
+
+// GetAction returns TeamWorkItemLegacyFields.Action, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemLegacyFields) GetAction() string { return v.Action }
+
+// GetAt returns TeamWorkItemLegacyFields.At, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemLegacyFields) GetAt() string { return v.At }
+
+// GetDetail returns TeamWorkItemLegacyFields.Detail, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemLegacyFields) GetDetail() *json.RawMessage { return v.Detail }
+
+// TeamWorkItemsLegacyResponse is returned by TeamWorkItemsLegacy on success.
+type TeamWorkItemsLegacyResponse struct {
+	// Read a team App's worklog (#947) — the provenance query: which sessions
+	// (and transcripts) produced this PR? Newest first, as a uniform
+	// { items, total } page. ref accepts ANY accepted spelling (URL, short form,
+	// canonical) and is matched tool-awarely: with tool 'github' (or none) it is
+	// normalized, so 'https://github.com/o/r/pull/371' and 'o/r#371' return the
+	// same records; with another tool it matches the stored verbatim ref; with
+	// no tool it matches either spelling. sessionRef / tool / kind are equality
+	// filters; kind must be one of pr, issue, commit, branch, repo when given.
+	// limit defaults to 50 (cap 200); limit: 0 returns only total.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
+	// App's own key (a pure App-key principal may READ its own App's worklog).
+	//
+	// appRef accepts the entity's ID or URN; sessionRef is the session id.
+	TeamWorkItems *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPage `json:"teamWorkItems"`
+}
+
+// GetTeamWorkItems returns TeamWorkItemsLegacyResponse.TeamWorkItems, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyResponse) GetTeamWorkItems() *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPage {
+	return v.TeamWorkItems
+}
+
+// TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPage includes the requested fields of the GraphQL type TeamWorkItemsPage.
+type TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPage struct {
+	Total int                                                                   `json:"total"`
+	Items []*TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem `json:"items"`
+}
+
+// GetTotal returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPage.Total, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPage) GetTotal() int { return v.Total }
+
+// GetItems returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPage) GetItems() []*TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem {
+	return v.Items
+}
+
+// TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem includes the requested fields of the GraphQL type TeamWorkItem.
+// The GraphQL type's documentation follows.
+//
+// One team-worklog record (#947) — an externally visible work milestone (a PR
+// opened, a branch pushed, an issue closed), append-only. The worklog is the
+// AUTHORITATIVE PR-session join (spec cor:agt:020:03); Session.prNumber is a
+// latest-wins display convenience. ref carries the ONE canonical spelling per
+// artifact (github: owner/repo#N, owner/repo@sha, owner/repo:branch,
+// owner/repo; owner/repo lowercased).
+type TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem struct {
+	TeamWorkItemLegacyFields `json:"-"`
+}
+
+// GetNodeId returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetNodeId() string {
+	return v.TeamWorkItemLegacyFields.NodeId
+}
+
+// GetSessionId returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetSessionId() string {
+	return v.TeamWorkItemLegacyFields.SessionId
+}
+
+// GetWorkerId returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetWorkerId() *string {
+	return v.TeamWorkItemLegacyFields.WorkerId
+}
+
+// GetWorkerName returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.WorkerName, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetWorkerName() string {
+	return v.TeamWorkItemLegacyFields.WorkerName
+}
+
+// GetTool returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Tool, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetTool() string {
+	return v.TeamWorkItemLegacyFields.Tool
+}
+
+// GetKind returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Kind, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetKind() string {
+	return v.TeamWorkItemLegacyFields.Kind
+}
+
+// GetRef returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Ref, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetRef() string {
+	return v.TeamWorkItemLegacyFields.Ref
+}
+
+// GetAction returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Action, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetAction() string {
+	return v.TeamWorkItemLegacyFields.Action
+}
+
+// GetAt returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.At, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetAt() string {
+	return v.TeamWorkItemLegacyFields.At
+}
+
+// GetDetail returns TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Detail, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetDetail() *json.RawMessage {
+	return v.TeamWorkItemLegacyFields.Detail
+}
+
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamWorkItemLegacyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem struct {
+	NodeId string `json:"nodeId"`
+
+	SessionId string `json:"sessionId"`
+
+	WorkerId *string `json:"workerId"`
+
+	WorkerName string `json:"workerName"`
+
+	Tool string `json:"tool"`
+
+	Kind string `json:"kind"`
+
+	Ref string `json:"ref"`
+
+	Action string `json:"action"`
+
+	At string `json:"at"`
+
+	Detail *json.RawMessage `json:"detail"`
+}
+
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) __premarshalJSON() (*__premarshalTeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem, error) {
+	var retval __premarshalTeamWorkItemsLegacyTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem
+
+	retval.NodeId = v.TeamWorkItemLegacyFields.NodeId
+	retval.SessionId = v.TeamWorkItemLegacyFields.SessionId
+	retval.WorkerId = v.TeamWorkItemLegacyFields.WorkerId
+	retval.WorkerName = v.TeamWorkItemLegacyFields.WorkerName
+	retval.Tool = v.TeamWorkItemLegacyFields.Tool
+	retval.Kind = v.TeamWorkItemLegacyFields.Kind
+	retval.Ref = v.TeamWorkItemLegacyFields.Ref
+	retval.Action = v.TeamWorkItemLegacyFields.Action
+	retval.At = v.TeamWorkItemLegacyFields.At
+	retval.Detail = v.TeamWorkItemLegacyFields.Detail
+	return &retval, nil
+}
 
 // TeamWorkItemsResponse is returned by TeamWorkItems on success.
 type TeamWorkItemsResponse struct {
@@ -24271,6 +24688,11 @@ func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetDetail
 	return v.TeamWorkItemFields.Detail
 }
 
+// GetModel returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Model, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetModel() *string {
+	return v.TeamWorkItemFields.Model
+}
+
 func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -24316,6 +24738,8 @@ type __premarshalTeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem st
 	At string `json:"at"`
 
 	Detail *json.RawMessage `json:"detail"`
+
+	Model *string `json:"model"`
 }
 
 func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) MarshalJSON() ([]byte, error) {
@@ -24339,6 +24763,7 @@ func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) __premars
 	retval.Action = v.TeamWorkItemFields.Action
 	retval.At = v.TeamWorkItemFields.At
 	retval.Detail = v.TeamWorkItemFields.Detail
+	retval.Model = v.TeamWorkItemFields.Model
 	return &retval, nil
 }
 
@@ -27211,7 +27636,9 @@ type UpdateNodeRoleRuleClearingValidateByResponse struct {
 	// #1325 — change a rule by its id. With expectedRevision, a rule changed since
 	// you read it is refused CONFLICT (extensions.currentRevision) and nothing is
 	// written; omitted, the last writer wins. A rule you may not manage reads as
-	// NOT_FOUND.
+	// NOT_FOUND. A LOCKED rule (#1334) is refused with RULE_LOCKED (extensions
+	// ruleId, role, sourceTemplateId) for EVERY caller: unlock it first
+	// (unlockNodeRoleRule) or re-apply its required template.
 	UpdateNodeRoleRule *UpdateNodeRoleRuleClearingValidateByUpdateNodeRoleRuleNodeRoleRulePayload `json:"updateNodeRoleRule"`
 }
 
@@ -27600,7 +28027,9 @@ type UpdateNodeRoleRuleResponse struct {
 	// #1325 — change a rule by its id. With expectedRevision, a rule changed since
 	// you read it is refused CONFLICT (extensions.currentRevision) and nothing is
 	// written; omitted, the last writer wins. A rule you may not manage reads as
-	// NOT_FOUND.
+	// NOT_FOUND. A LOCKED rule (#1334) is refused with RULE_LOCKED (extensions
+	// ruleId, role, sourceTemplateId) for EVERY caller: unlock it first
+	// (unlockNodeRoleRule) or re-apply its required template.
 	UpdateNodeRoleRule *UpdateNodeRoleRuleUpdateNodeRoleRuleNodeRoleRulePayload `json:"updateNodeRoleRule"`
 }
 
@@ -32667,6 +33096,7 @@ type __RecordTeamWorkInput struct {
 	Ref        string           `json:"ref"`
 	Action     string           `json:"action"`
 	Detail     *json.RawMessage `json:"detail,omitempty"`
+	Model      *string          `json:"model,omitempty"`
 }
 
 // GetAppRef returns __RecordTeamWorkInput.AppRef, and is useful for accessing the field via an interface.
@@ -32689,6 +33119,41 @@ func (v *__RecordTeamWorkInput) GetAction() string { return v.Action }
 
 // GetDetail returns __RecordTeamWorkInput.Detail, and is useful for accessing the field via an interface.
 func (v *__RecordTeamWorkInput) GetDetail() *json.RawMessage { return v.Detail }
+
+// GetModel returns __RecordTeamWorkInput.Model, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkInput) GetModel() *string { return v.Model }
+
+// __RecordTeamWorkLegacyInput is used internally by genqlient
+type __RecordTeamWorkLegacyInput struct {
+	AppRef     string           `json:"appRef"`
+	SessionRef string           `json:"sessionRef"`
+	Tool       string           `json:"tool"`
+	Kind       string           `json:"kind"`
+	Ref        string           `json:"ref"`
+	Action     string           `json:"action"`
+	Detail     *json.RawMessage `json:"detail,omitempty"`
+}
+
+// GetAppRef returns __RecordTeamWorkLegacyInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkLegacyInput) GetAppRef() string { return v.AppRef }
+
+// GetSessionRef returns __RecordTeamWorkLegacyInput.SessionRef, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkLegacyInput) GetSessionRef() string { return v.SessionRef }
+
+// GetTool returns __RecordTeamWorkLegacyInput.Tool, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkLegacyInput) GetTool() string { return v.Tool }
+
+// GetKind returns __RecordTeamWorkLegacyInput.Kind, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkLegacyInput) GetKind() string { return v.Kind }
+
+// GetRef returns __RecordTeamWorkLegacyInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkLegacyInput) GetRef() string { return v.Ref }
+
+// GetAction returns __RecordTeamWorkLegacyInput.Action, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkLegacyInput) GetAction() string { return v.Action }
+
+// GetDetail returns __RecordTeamWorkLegacyInput.Detail, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkLegacyInput) GetDetail() *json.RawMessage { return v.Detail }
 
 // __RegisterEntriesInput is used internally by genqlient
 type __RegisterEntriesInput struct {
@@ -33201,6 +33666,38 @@ func (v *__TeamWorkItemsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __TeamWorkItemsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamWorkItemsInput) GetOffset() *int { return v.Offset }
+
+// __TeamWorkItemsLegacyInput is used internally by genqlient
+type __TeamWorkItemsLegacyInput struct {
+	AppRef     string  `json:"appRef"`
+	SessionRef *string `json:"sessionRef,omitempty"`
+	Ref        *string `json:"ref,omitempty"`
+	Kind       *string `json:"kind,omitempty"`
+	Tool       *string `json:"tool,omitempty"`
+	Limit      *int    `json:"limit,omitempty"`
+	Offset     *int    `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __TeamWorkItemsLegacyInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsLegacyInput) GetAppRef() string { return v.AppRef }
+
+// GetSessionRef returns __TeamWorkItemsLegacyInput.SessionRef, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsLegacyInput) GetSessionRef() *string { return v.SessionRef }
+
+// GetRef returns __TeamWorkItemsLegacyInput.Ref, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsLegacyInput) GetRef() *string { return v.Ref }
+
+// GetKind returns __TeamWorkItemsLegacyInput.Kind, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsLegacyInput) GetKind() *string { return v.Kind }
+
+// GetTool returns __TeamWorkItemsLegacyInput.Tool, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsLegacyInput) GetTool() *string { return v.Tool }
+
+// GetLimit returns __TeamWorkItemsLegacyInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsLegacyInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __TeamWorkItemsLegacyInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsLegacyInput) GetOffset() *int { return v.Offset }
 
 // __TriggerAppRunInput is used internally by genqlient
 type __TriggerAppRunInput struct {
@@ -41207,8 +41704,8 @@ func PublicOrganization(
 
 // The mutation executed by RecordTeamWork.
 const RecordTeamWork_Operation = `
-mutation RecordTeamWork ($appRef: ID!, $sessionRef: ID!, $tool: String!, $kind: String!, $ref: String!, $action: String!, $detail: JSON) {
-	recordTeamWork(appRef: $appRef, sessionRef: $sessionRef, tool: $tool, kind: $kind, ref: $ref, action: $action, detail: $detail) {
+mutation RecordTeamWork ($appRef: ID!, $sessionRef: ID!, $tool: String!, $kind: String!, $ref: String!, $action: String!, $detail: JSON, $model: String) {
+	recordTeamWork(appRef: $appRef, sessionRef: $sessionRef, tool: $tool, kind: $kind, ref: $ref, action: $action, detail: $detail, model: $model) {
 		... TeamWorkItemFields
 	}
 }
@@ -41223,6 +41720,7 @@ fragment TeamWorkItemFields on TeamWorkItem {
 	action
 	at
 	detail
+	model
 }
 `
 
@@ -41236,6 +41734,7 @@ func RecordTeamWork(
 	ref string,
 	action string,
 	detail *json.RawMessage,
+	model *string,
 ) (data_ *RecordTeamWorkResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RecordTeamWork",
@@ -41248,10 +41747,69 @@ func RecordTeamWork(
 			Ref:        ref,
 			Action:     action,
 			Detail:     detail,
+			Model:      model,
 		},
 	}
 
 	data_ = &RecordTeamWorkResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RecordTeamWorkLegacy.
+const RecordTeamWorkLegacy_Operation = `
+mutation RecordTeamWorkLegacy ($appRef: ID!, $sessionRef: ID!, $tool: String!, $kind: String!, $ref: String!, $action: String!, $detail: JSON) {
+	recordTeamWork(appRef: $appRef, sessionRef: $sessionRef, tool: $tool, kind: $kind, ref: $ref, action: $action, detail: $detail) {
+		... TeamWorkItemLegacyFields
+	}
+}
+fragment TeamWorkItemLegacyFields on TeamWorkItem {
+	nodeId
+	sessionId
+	workerId
+	workerName
+	tool
+	kind
+	ref
+	action
+	at
+	detail
+}
+`
+
+func RecordTeamWorkLegacy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	sessionRef string,
+	tool string,
+	kind string,
+	ref string,
+	action string,
+	detail *json.RawMessage,
+) (data_ *RecordTeamWorkLegacyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecordTeamWorkLegacy",
+		Query:  RecordTeamWorkLegacy_Operation,
+		Variables: &__RecordTeamWorkLegacyInput{
+			AppRef:     appRef,
+			SessionRef: sessionRef,
+			Tool:       tool,
+			Kind:       kind,
+			Ref:        ref,
+			Action:     action,
+			Detail:     detail,
+		},
+	}
+
+	data_ = &RecordTeamWorkLegacyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -43295,6 +43853,7 @@ fragment TeamWorkItemFields on TeamWorkItem {
 	action
 	at
 	detail
+	model
 }
 `
 
@@ -43324,6 +43883,67 @@ func TeamWorkItems(
 	}
 
 	data_ = &TeamWorkItemsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamWorkItemsLegacy.
+const TeamWorkItemsLegacy_Operation = `
+query TeamWorkItemsLegacy ($appRef: ID!, $sessionRef: ID, $ref: String, $kind: String, $tool: String, $limit: Int, $offset: Int) {
+	teamWorkItems(appRef: $appRef, sessionRef: $sessionRef, ref: $ref, kind: $kind, tool: $tool, limit: $limit, offset: $offset) {
+		total
+		items {
+			... TeamWorkItemLegacyFields
+		}
+	}
+}
+fragment TeamWorkItemLegacyFields on TeamWorkItem {
+	nodeId
+	sessionId
+	workerId
+	workerName
+	tool
+	kind
+	ref
+	action
+	at
+	detail
+}
+`
+
+func TeamWorkItemsLegacy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	sessionRef *string,
+	ref *string,
+	kind *string,
+	tool *string,
+	limit *int,
+	offset *int,
+) (data_ *TeamWorkItemsLegacyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamWorkItemsLegacy",
+		Query:  TeamWorkItemsLegacy_Operation,
+		Variables: &__TeamWorkItemsLegacyInput{
+			AppRef:     appRef,
+			SessionRef: sessionRef,
+			Ref:        ref,
+			Kind:       kind,
+			Tool:       tool,
+			Limit:      limit,
+			Offset:     offset,
+		},
+	}
+
+	data_ = &TeamWorkItemsLegacyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
