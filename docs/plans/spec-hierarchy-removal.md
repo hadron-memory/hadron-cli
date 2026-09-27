@@ -8,6 +8,12 @@
 > September 23 types/pen/attestation design. This plan is removal only: no new
 > taxonomy, no new numbering policy, no new schema fields.
 
+> **Read-side update, 2026-09-27 (#684):** the server now exposes the
+> `NodeFilter.role` family filter. `spec list`, `get --prefix`, `grep` and
+> `check-tools` union it with the legacy `spec` tag, and exact `find` filters
+> the same union client-side. The known scan limit below describes #708 at
+> merge time; `spec replace` remains tag-scoped (#659).
+
 ## 1. What "the hierarchy" is, and where it lives
 
 A spec's loc is its citation. Until now the CLI also required that citation to
@@ -62,7 +68,7 @@ predicate drops nothing and admits nothing on today's data. The role alone
 would miss 218 of 219 Micromentor specs, so it can't be the only marker. It is
 accepted as well because it's what the server governs by.
 
-**Known limit:**
+**Known limit at the time of #708:**
 - `NodeFilter` has no role facet, so the corpus **scans** still select by the
   `spec` tag server-side.
 - A spec carrying the role but no tag is found by address (`get`, `edit`,
@@ -147,7 +153,7 @@ tier rule that fired on a legacy-SHAPED loc contradicted it (@codex on #710).
 - lint reads every spec (tag or role) at any loc;
 - `duplicate-loc` applies at any loc;
 - near-cap advice is generic for a non-legacy loc;
-- a role-only spec gets a `tag-spec` warning that names the scans that skip it.
+- a role-only spec gets a `tag-spec` warning about legacy tag-only consumers.
 
 **Kept on purpose:** `duplicate-loc`, the URN-example check (#527), the name
 prefix, node type, the `spec` tag, serialization leaks, the abstract

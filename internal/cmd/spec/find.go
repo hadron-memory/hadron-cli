@@ -75,16 +75,16 @@ Results are filtered to spec nodes.`,
 			// --match-exactly wants literal-fragment matching. Keyword mode is
 			// now FTS-ranked/stemmed (not substring), so exact matching runs as
 			// mode:regex; the default fuzzy path stays hybrid (semantic +
-			// keyword, degrading to keyword on a vector-less memory). Only the
-			// exact path pins a server-side tag filter (spec + any --tag), as
-			// the old `nodes`-backed path did — the fuzzy path scopes to specs
-			// client-side via isSpec (the tag or the governed role, never the
-			// loc's shape, #708).
+			// keyword, degrading to keyword on a vector-less memory). Both paths
+			// scope to specs client-side via isSpec (legacy tag OR
+			// governed role, never loc shape). Exact search still applies any
+			// user-supplied --tag on the server, but must not require the legacy
+			// spec tag or it silently excludes role-only specs (#684).
 			mode := gen.FindNodesModeHybrid
 			var tagFilter []string
 			if matchExactly {
 				mode = gen.FindNodesModeRegex
-				tagFilter = append([]string{"spec"}, tags...)
+				tagFilter = tags
 			}
 			filter := newNodeFilter(memoryArg, nil, tagFilter)
 

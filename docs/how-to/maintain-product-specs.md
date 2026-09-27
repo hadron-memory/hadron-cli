@@ -23,10 +23,10 @@ Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 > scaffold-body or placeholder-contract finding at any loc.
 > See [docs/plans/spec-hierarchy-removal.md](../plans/spec-hierarchy-removal.md).
 
-Direct `spec get`, `edit` and `link` accept a tagless `spec.*` node. Corpus
-scans still select the `spec` tag server-side, so tagless nodes are absent from
-`list`, `get --prefix`, `grep`, `replace`, `check-tools` and
-`find --match-exactly` until role-family listing support lands (#684).
+Spec reads recognize the union of the legacy `spec` tag and the `spec` / dotted
+`spec.*` role family. This includes `list`, `get --prefix`,
+`find --match-exactly`, `grep` and `check-tools`; an overlapping node appears once.
+`spec replace` remains tag-scoped and may skip a role-only spec (#659).
 
 ## The legacy numbering
 

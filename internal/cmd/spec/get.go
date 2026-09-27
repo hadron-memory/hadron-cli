@@ -109,11 +109,11 @@ one object for a single citation, an array for --prefix.`,
 			// never by the server: its prefix is character-wise (pageBranch,
 			// @copilot on #710).
 			prefixArg := prefix
-			listed, err := scanAllNodes(cmd.Context(), client, &memURN, &prefixArg, []string{"spec"})
+			listed, err := scanAllSpecNodes(cmd.Context(), client, &memURN, &prefixArg)
 			if err != nil {
 				return err
 			}
-			listed = pageBranch(listed, prefix, limit, offset, false)
+			listed = pageBranch(listed, prefix, limit, offset)
 			ids := make([]string, 0, len(listed))
 			for _, n := range listed {
 				if n == nil || !underPrefix(n.Loc, prefix) {

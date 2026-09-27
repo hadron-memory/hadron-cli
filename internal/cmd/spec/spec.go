@@ -37,7 +37,7 @@ func NewCmdSpec(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Maintain product specs (loc-as-citation nodes)",
 		Long: `Maintain product specs in a Hadron memory.
 
-A spec is a node tagged spec, and its loc is its citation. Any valid node
+A spec is a node with the spec tag or spec role family, and its loc is its citation. Any valid node
 loc works, at any depth and in any shape: create one with
 "spec new <loc> --title <title>".
 
@@ -109,12 +109,9 @@ type specDTO struct {
 
 // tagsOrEmpty normalizes a node's tags for a DTO: a nil slice marshals to
 // `null`, but the --json contract says an empty list renders as `[]`. Every
-// spec DTO carrying tags goes through this. Only `find`'s fuzzy branch can
-// actually deliver a tagless node — it scopes to specs client-side via
-// isSpec, which accepts a spec that carries the governed role and no tags. The
-// `get` paths pin the spec tag (server-side for --prefix, fetchSpecTaggedNode
-// for a citation), so there it is defence for a future caller that doesn't
-// (#312).
+// spec DTO carrying tags goes through this. Role-aware reads can now deliver
+// a tagless spec through list, prefix get and find, so the empty-list contract
+// applies to all of them (#312, #684).
 func tagsOrEmpty(tags []string) []string {
 	if tags == nil {
 		return []string{}
@@ -1013,22 +1010,16 @@ func underPrefix(loc, prefix string) bool {
 	return prefix == "" || loc == prefix || strings.HasPrefix(loc, prefix+":")
 }
 
-// pageBranch keeps the nodes inside prefix's branch (underPrefix) and, unless
-// the server already cut the page, applies --offset/--limit to what REMAINS.
-// With a prefix the window cannot be left to the server: its locPrefix is
-// character-wise, so a sibling like `onboarding:mentor-foo` would take a slot
-// in the window and then be dropped here, skipping real matches (@copilot on
-// #710). Callers therefore scan the whole branch when a prefix is set and let
-// this cut the page.
-func pageBranch(nodes []*api.ListNode, prefix string, limit, offset int, serverPaged bool) []*api.ListNode {
+// pageBranch keeps nodes inside prefix's branch (underPrefix), then applies
+// --offset/--limit to that complete set. The server's locPrefix is character-
+// wise, so a sibling like `onboarding:mentor-foo` can otherwise steal a page
+// slot. Role/tag union and dedup must likewise happen before this cut (#684).
+func pageBranch(nodes []*api.ListNode, prefix string, limit, offset int) []*api.ListNode {
 	out := make([]*api.ListNode, 0, len(nodes))
 	for _, n := range nodes {
 		if n != nil && underPrefix(n.Loc, prefix) {
 			out = append(out, n)
 		}
-	}
-	if serverPaged {
-		return out
 	}
 	if offset > 0 && limit == 0 {
 		limit = serverDefaultPage // --offset alone is one default page, as before
@@ -1048,13 +1039,13 @@ func pageBranch(nodes []*api.ListNode, prefix string, limit, offset int, serverP
 // isSpec reports whether a node belongs to the spec corpus: the `spec` tag, or
 // the governed spec role (#1201). Never the loc's shape (#708).
 //
-// The tag is the working marker. Measured on 2026-09-24 over both production
+// The tag is the legacy marker. Measured on 2026-09-24 over both production
 // spec corpora (hadronmemory.com:specs, 369 nodes; micromentor.org:specs, 229),
 // it marks exactly the nodes the old citation-shape filter kept — no spec
 // untagged, no tagged node that was not a spec — while the role alone marks 1
 // of 219 Micromentor specs. The role is accepted as well because it is what the
-// server governs by; the corpus SCANS still filter on the tag server-side,
-// since NodeFilter has no role facet (see docs/plans/spec-hierarchy-removal.md).
+// server governs by. Read-side corpus scans union the two markers (#684);
+// neither one may silently exclude the other's nodes.
 func isSpec(tags []string, role *string) bool {
 	return hasTag(tags, "spec") || api.RoleInFamily(role, api.SpecNodeRole)
 }
@@ -1107,14 +1098,108 @@ const serverDefaultPage = 100
 // Spec nodes are addressed by tag/prefix, never nodeType, so nodeType is left
 // unset; add it back here if a caller ever needs it.
 func scanAllNodes(ctx context.Context, client graphql.Client, memory, prefix *string, tags []string) ([]*api.ListNode, error) {
+	nodes, err := scanAllNodesFiltered(ctx, client, newNodeFilter(memory, prefix, tags))
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	return nodes, nil
+}
+
+func scanAllNodesFiltered(ctx context.Context, client graphql.Client, filter *gen.NodeFilter) ([]*api.ListNode, error) {
 	return paginateNodes(func(limit, offset int) ([]*api.ListNode, error) {
 		l, o := limit, offset
-		page, err := api.FindNodes(ctx, client, nil, nil, newNodeFilter(memory, prefix, tags), sortLoc(), nil, &l, &o)
+		page, err := api.FindNodes(ctx, client, nil, nil, filter, sortLoc(), nil, &l, &o)
 		if err != nil {
-			return nil, api.MapError(err)
+			return nil, err
 		}
 		return page.Nodes, nil
 	})
+}
+
+// scanAllSpecNodes reads the union of legacy-tagged specs and the spec role
+// family. Both server streams are paged to exhaustion before deduplication and
+// the caller's --limit/--offset window; an overlapping node must occupy only
+// one slot. The fallback covers older servers without NodeFilter.role by
+// reading the same access-gated scope without a server-side marker and applying
+// isSpec locally. It is slower, but never returns a silently partial corpus.
+func scanAllSpecNodes(ctx context.Context, client graphql.Client, memory, prefix *string) ([]*api.ListNode, error) {
+	nodes, err := collectSpecNodes(memory, prefix, func(filter *gen.NodeFilter) ([]*api.ListNode, error) {
+		return scanAllNodesFiltered(ctx, client, filter)
+	})
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	return nodes, nil
+}
+
+func collectSpecNodes(memory, prefix *string, fetch func(*gen.NodeFilter) ([]*api.ListNode, error)) ([]*api.ListNode, error) {
+	tagged, err := fetch(newNodeFilter(memory, prefix, []string{"spec"}))
+	if err != nil {
+		return nil, err
+	}
+	roleFilter := newNodeFilter(memory, prefix, nil)
+	if roleFilter == nil {
+		roleFilter = &gen.NodeFilter{}
+	}
+	role := api.SpecNodeRole
+	roleFilter.Role = &role
+	roleNodes, err := fetch(roleFilter)
+	if err != nil {
+		if !roleFilterUnsupported(err) {
+			return nil, err
+		}
+		all, fallbackErr := fetch(newNodeFilter(memory, prefix, nil))
+		if fallbackErr != nil {
+			return nil, fallbackErr
+		}
+		return unionSpecNodes(all, nil), nil
+	}
+	return unionSpecNodes(tagged, roleNodes), nil
+}
+
+func roleFilterUnsupported(err error) bool {
+	if !api.HasErrorCode(err, "GRAPHQL_VALIDATION_FAILED") {
+		return false
+	}
+	for _, msg := range api.ServerMessages(err) {
+		if strings.Contains(msg, "NodeFilter") && strings.Contains(msg, "role") &&
+			(strings.Contains(msg, "not defined") || strings.Contains(msg, "Unknown field")) {
+			return true
+		}
+	}
+	return false
+}
+
+func unionSpecNodes(first, second []*api.ListNode) []*api.ListNode {
+	seen := make(map[string]bool, len(first)+len(second))
+	out := make([]*api.ListNode, 0, len(first)+len(second))
+	for _, stream := range [][]*api.ListNode{first, second} {
+		for _, n := range stream {
+			if n == nil || !isSpec(n.Tags, n.Role) {
+				continue
+			}
+			key := n.Id
+			if key == "" {
+				key = n.MemoryId + "\x00" + n.Loc
+			}
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			out = append(out, n)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i], out[j]
+		if a.Loc != b.Loc {
+			return a.Loc < b.Loc
+		}
+		if a.MemoryId != b.MemoryId {
+			return a.MemoryId < b.MemoryId
+		}
+		return a.Id < b.Id
+	})
+	return out
 }
 
 // newNodeFilter builds the structured findNodes filter from the (memory, prefix,
