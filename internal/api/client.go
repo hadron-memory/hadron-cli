@@ -5,6 +5,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 	"github.com/vektah/gqlparser/v2/parser"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -355,5 +357,47 @@ func NewClient(serverURL, token string, httpClient *http.Client) (graphql.Client
 	} else {
 		httpClient = withSessionRedirects(httpClient)
 	}
-	return graphql.NewClient(Endpoint(serverURL), &bearerDoer{token: token, inner: httpClient}), nil
+	inner := graphql.NewClient(Endpoint(serverURL), &bearerDoer{token: token, inner: httpClient})
+	return &nullSafeGraphQLClient{inner: inner}, nil
+}
+
+// gqlparser's List.Error/As/Is dereference every entry, including nil entries
+// decoded from a malformed `errors: [null]` response. Sanitize at the client
+// boundary so no caller can receive a panic-prone GraphQL error list.
+type nullSafeGraphQLClient struct{ inner graphql.Client }
+
+func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
+	err := c.inner.MakeRequest(ctx, req, resp)
+	switch e := err.(type) {
+	case gqlerror.List: // HTTP 200
+		clean := nonNullGraphQLErrors(e)
+		resp.Errors = clean
+		if len(clean) == 0 {
+			return errors.New("malformed GraphQL response: errors contains only null entries")
+		}
+		return clean
+	case *graphql.HTTPError: // non-200 with a parsed GraphQL body
+		if len(e.Response.Errors) == 0 {
+			return err
+		}
+		clean := nonNullGraphQLErrors(e.Response.Errors)
+		if len(clean) == 0 {
+			return fmt.Errorf("malformed GraphQL response (HTTP %d): errors contains only null entries", e.StatusCode)
+		}
+		copy := *e
+		copy.Response.Errors = clean
+		return &copy
+	default:
+		return err
+	}
+}
+
+func nonNullGraphQLErrors(list gqlerror.List) gqlerror.List {
+	clean := make(gqlerror.List, 0, len(list))
+	for _, e := range list {
+		if e != nil {
+			clean = append(clean, e)
+		}
+	}
+	return clean
 }
