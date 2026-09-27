@@ -668,13 +668,14 @@ func codeForExtension(code string) int {
 	switch {
 	case code == "UNAUTHENTICATED":
 		return exitcode.AuthRequired
-	case code == "NOT_FOUND" || strings.HasSuffix(code, "_NOT_FOUND"):
+	case code == "NOT_FOUND" || strings.HasSuffix(code, "_NOT_FOUND") || code == "AiServiceConfigNotFoundError":
 		return exitcode.NotFound
 	// URN_NOT_QUALIFIED (spec 022) is the server refusing a ref that is not
 	// a PK and not a fully-qualified URN — an argument the caller can fix.
 	// The CLI pre-checks App refs (cmdutil.CanonicalAppRef, #540), so this
 	// is the mapping for every ref it still forwards unchecked.
-	case code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED":
+	case code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED" ||
+		code == "AiConfigValidationError" || code == "UnknownAiProviderError":
 		return exitcode.Usage
 	// The governed-kind refusal (hadron-server#1201, RoleGovernedError): a
 	// write through a door its node's kind does not own, one touching two
@@ -719,7 +720,7 @@ func codeForExtension(code string) int {
 		// document exit codes no caller may ever observe, which is the trap the
 		// TEAM_ROLE comment below names. They are candidates, not omissions;
 		// each needs its own measurement, and #608 records that.
-		code == "NodeLocConflictError" ||
+		code == "NodeLocConflictError" || code == "DuplicateAiServiceConfigNameError" ||
 		// A guarded write whose expectedRevision is stale (hadron-server#1352),
 		// or whose target moved since it was read: the state changed under the
 		// caller, who must re-read before trying again (cli#738).

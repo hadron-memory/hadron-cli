@@ -26,6 +26,7 @@ type createFileSpec struct {
 	Name     *string          `json:"name"`
 	Provider *string          `json:"provider"`
 	Model    *string          `json:"model"`
+	Endpoint *string          `json:"endpoint"`
 	APIKey   *string          `json:"apiKey"`
 	Params   *json.RawMessage `json:"params"`
 	Enabled  *bool            `json:"enabled"`
@@ -35,6 +36,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var (
 		app, agent, org       string
 		name, provider, model string
+		endpoint              string
 		apiKey, file          string
 		params                []string
 		disabled              bool
@@ -52,10 +54,13 @@ The API key is a secret. To keep it out of argv and shell history you can:
     --api-key - instead).
 
 --file seeds every field; an explicit flag overrides the file's value. The file
-keys mirror the flags: app, agent, org, name, provider, model, apiKey, params
-(an object), enabled. Omit the key entirely to store a key-less config and set
-it later with 'ai-config update'. --param sets provider knobs (repeatable) and,
-when given, replaces the file's params object.`,
+keys mirror the flags: app, agent, org, name, provider, model, endpoint, apiKey, params
+(an object), enabled. The server requires a stored key for App, Agent, and
+Organization configs; use --api-key - or put it in the file. --param sets
+provider knobs (repeatable) and,
+when given, replaces the file's params object. --endpoint chooses the stored
+provider base URL; omitting it uses the server's provider default. Inspect
+choices and billing notes with 'ai-config endpoints <provider>'.`,
 		Example: `  printf '%s' "$KEY" | hadron ai-config create --app acme.com:juno-app \
     --name default --provider anthropic --model claude-opus-4-8 --api-key -
   hadron ai-config create --file config.json
@@ -103,6 +108,8 @@ when given, replaces the file's params object.`,
 			nameVal := strOr(spec.Name, name, changed("name"))
 			providerVal := strOr(spec.Provider, provider, changed("provider"))
 			modelVal := strOr(spec.Model, model, changed("model"))
+			endpointVal := strOr(spec.Endpoint, endpoint, changed("endpoint"))
+			endpointProvided := changed("endpoint") || spec.Endpoint != nil
 			if nameVal == "" || providerVal == "" || modelVal == "" {
 				return exitcode.Newf(exitcode.Usage, "--name, --provider, and --model are required (via flags or --file)")
 			}
@@ -148,6 +155,22 @@ when given, replaces the file's params object.`,
 				return err
 			}
 
+			if endpointProvided {
+				resp, err := gen.CreateAiServiceConfigWithEndpoint(cmd.Context(), client, nameVal, providerVal, modelVal, ownerID, ownerType, keyArg, &enabled, paramsJSON, &endpointVal)
+				if err != nil {
+					return mapEndpointError(err)
+				}
+				if resp.CreateAiServiceConfig == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no config")
+				}
+				dto := dtoFromEndpointFields(resp.CreateAiServiceConfig.AiServiceConfigEndpointFields)
+				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+					if err := writeConfigLine(w, "✓ created", dto.aiConfigDTO); err != nil {
+						return err
+					}
+					return writeEndpointLines(w, dto)
+				})
+			}
 			resp, err := gen.CreateAiServiceConfig(cmd.Context(), client, nameVal, providerVal, modelVal, ownerID, ownerType, keyArg, &enabled, paramsJSON)
 			if err != nil {
 				return api.MapError(err)
@@ -165,8 +188,9 @@ when given, replaces the file's params object.`,
 	cmd.Flags().StringVar(&agent, "agent", "", "owning Agent (ID or URN)")
 	cmd.Flags().StringVar(&org, "org", "", "owning Organization (ID or URN)")
 	cmd.Flags().StringVar(&name, "name", "", "config name (1-64 chars, [a-z0-9_-], unique per owner)")
-	cmd.Flags().StringVar(&provider, "provider", "", "provider id (anthropic, openai, glm, bedrock)")
+	cmd.Flags().StringVar(&provider, "provider", "", "provider id (anthropic, openai, glm, bedrock, openai-compatible)")
 	cmd.Flags().StringVar(&model, "model", "", "model identifier")
+	cmd.Flags().StringVar(&endpoint, "endpoint", "", "provider base URL; omit for the server default")
 	cmd.Flags().StringVar(&apiKey, "api-key", "", `provider API key ("-" reads stdin)`)
 	cmd.Flags().StringVar(&file, "file", "", `read the config (key included) from a JSON file ("-" reads piped stdin, refused from a terminal)`)
 	cmd.Flags().StringArrayVar(&params, "param", nil, "provider param key=value (repeatable; value parsed as JSON or string)")

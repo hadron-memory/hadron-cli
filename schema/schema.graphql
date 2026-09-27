@@ -339,6 +339,19 @@ type AgentsPage {
   total: Int!
 }
 
+"""#1373: the wire protocol of an OpenAI-compatible provider."""
+enum AiApiStyle {
+  """
+  POST {endpoint}/chat/completions — what most OpenAI-compatible hosts serve (the glm default).
+  """
+  CHAT_COMPLETIONS
+
+  """
+  POST {endpoint}/responses — OpenAI's Responses API (the openai default).
+  """
+  RESPONSES
+}
+
 """
 036-ai-service-config: which entity owns an AiServiceConfig. Exactly one
 owner per config (DB-enforced).
@@ -348,6 +361,24 @@ enum AiConfigOwnerType {
   APP
   HADRON_SERVER
   ORGANIZATION
+}
+
+"""#1378: which key a test used; NONE when there was none to use."""
+enum AiConfigTestKeySource {
+  NONE
+  OVERRIDE
+
+  """
+  A HADRON_SERVER config with no stored key: the server's own credential for that provider served the call, as it serves a run (#1385).
+  """
+  PLATFORM
+  SAVED
+}
+
+"""#1378: where a tested value came from."""
+enum AiConfigTestValueSource {
+  OVERRIDE
+  SAVED
 }
 
 """
@@ -380,6 +411,19 @@ type AiModelPriceList {
 }
 
 """
+#1373: one known endpoint for a provider, from the server's single suggestion list.
+"""
+type AiProviderEndpoint {
+  """The endpoint a config with no endpoint uses."""
+  isDefault: Boolean!
+  label: String!
+
+  """What the URL does not say: billing, terms."""
+  note: String
+  url: String!
+}
+
+"""
 036-ai-service-config: a named AI service configuration (masked
 management view — never carries key material beyond the preview).
 Owned by exactly one of HadronServer / Organization / App / Agent.
@@ -391,12 +435,35 @@ Name is unique per owner.
 type AiServiceConfig {
   """Ellipsis + last 4 characters of the stored key; null when no key."""
   apiKeyPreview: String
+
+  """
+  #1373: the wire protocol as stored; null = the provider default. OpenAI-compatible providers only.
+  """
+  apiStyle: AiApiStyle
   createdAt: DateTime!
+
+  """
+  #1373: the wire protocol a request actually uses (apiStyle, else the provider default); null for single-protocol providers.
+  """
+  effectiveApiStyle: AiApiStyle
+
+  """
+  #1373: where a request for this config actually goes: endpoint, else the
+  provider default. Null only for bedrock, whose endpoint is derived from
+  its region.
+  """
+  effectiveEndpoint: String
 
   """
   Disabled configs are skipped by resolution (the walk continues outward).
   """
   enabled: Boolean!
+
+  """
+  #1373: the base URL this config's requests are sent to, as stored. Null =
+  the provider's default (see effectiveEndpoint and aiProviderEndpoints).
+  """
+  endpoint: String
   hasApiKey: Boolean!
   id: ID!
 
@@ -412,7 +479,7 @@ type AiServiceConfig {
   params: JSON
 
   """
-  Provider identifier; v1 known: 'anthropic' | 'openai' | 'glm' | 'bedrock'.
+  Provider identifier; known: 'anthropic' | 'openai' | 'glm' | 'bedrock' | 'openai-compatible' (any OpenAI-wire host; endpoint required).
   """
   provider: String!
   updatedAt: DateTime
@@ -428,6 +495,69 @@ input AiServiceConfigFilter {
   """The owning entity — accepts ID or URN (HADRON_SERVER: ID only)."""
   ownerId: ID!
   ownerType: AiConfigOwnerType!
+}
+
+type AiServiceConfigTestError {
+  """
+  NO_API_KEY | KEY_UNREADABLE (the stored key cannot be decrypted here; re-enter it) | CONFIG_INVALID (the config cannot be built at all, e.g. a malformed Bedrock key; no call made) | QUOTA_EXCEEDED (a platform-funded test with the org's daily token allowance used up; no call made) | LLM_CALL_FAILED (the provider call failed or timed out; see transient)
+  """
+  code: String!
+
+  """Provider error text, scrubbed of the key and truncated."""
+  message: String!
+  transient: Boolean!
+}
+
+"""
+#1378: values to test INSTEAD of the saved ones — e.g. an edited form before
+it is saved. Never stored. Each is validated exactly as a write would be.
+"""
+input AiServiceConfigTestOverride {
+  """
+  A key to test with instead of the stored one. Never stored, never echoed.
+  """
+  apiKey: String
+
+  """Omitted = the saved style; null = the provider default."""
+  apiStyle: AiApiStyle
+
+  """Omitted = the saved endpoint; null or empty = the provider default."""
+  endpoint: String
+  model: String
+  provider: String
+}
+
+"""
+#1378: one test call, made through the same client and endpoint a run uses.
+"""
+type AiServiceConfigTestResult {
+  """The wire protocol the request actually used."""
+  apiStyle: AiApiStyle
+
+  """
+  The endpoint the request actually went to: the explicit endpoint, else the host the SDK chose (OPENAI_BASE_URL / ANTHROPIC_BASE_URL when the server sets one, Bedrock's regional host), else the catalog default. Null when it can't be known (Bedrock with no region).
+  """
+  endpoint: String
+  error: AiServiceConfigTestError
+  latencyMs: Int!
+  model: String!
+  ok: Boolean!
+  provider: String!
+
+  """The model's reply, truncated."""
+  reply: String
+  used: AiServiceConfigTestUsed!
+}
+
+"""
+#1378: per field, whether the test used the saved value or the override.
+"""
+type AiServiceConfigTestUsed {
+  apiStyle: AiConfigTestValueSource!
+  endpoint: AiConfigTestValueSource!
+  key: AiConfigTestKeySource!
+  model: AiConfigTestValueSource!
+  provider: AiConfigTestValueSource!
 }
 
 type AiServiceConfigsPage {
@@ -3503,16 +3633,43 @@ type Mutation {
   """
   036-ai-service-config: create a named AI config on an owner entity.
   
-  apiKey semantics: omitted = stored without a key (unusable for
-  execution until one is set); non-empty = encrypted at rest with a
-  masked preview. Name must be 1-64 lower-case [a-z0-9_-], unique per
+  apiKey semantics: non-empty = encrypted at rest with a masked preview.
+  Omitted is accepted only where a run may use the server's own
+  credential: a HADRON_SERVER config for openai, anthropic or bedrock at
+  their default host (no endpoint). Every ORGANIZATION, APP and AGENT
+  config needs its own key: the platform credential is platform spend
+  (#1390). Any other provider (glm, openai-compatible), and any config
+  with an endpoint, needs one too, because the SDK would otherwise send
+  the server's credential to a host that didn't issue it (#1389). All of
+  these are refused with AiConfigValidationError. A host that checks no
+  key takes any placeholder.
+  Name must be 1-64 lower-case [a-z0-9_-], unique per
   owner. provider must be a known provider; params are validated per
   provider.
   
   Auth: as aiServiceConfigs. ownerId accepts ID or URN
   (HADRON_SERVER: ID only).
   """
-  createAiServiceConfig(apiKey: String, enabled: Boolean, model: String!, name: String!, ownerId: ID!, ownerType: AiConfigOwnerType!, params: JSON, provider: String!): AiServiceConfig!
+  createAiServiceConfig(
+    apiKey: String
+
+    """
+    #1373: OpenAI-compatible providers only; omit for the provider default.
+    """
+    apiStyle: AiApiStyle
+    enabled: Boolean
+
+    """
+    #1373: base URL; https only, no query/fragment/credentials. Omit for the provider default.
+    """
+    endpoint: String
+    model: String!
+    name: String!
+    ownerId: ID!
+    ownerType: AiConfigOwnerType!
+    params: JSON
+    provider: String!
+  ): AiServiceConfig!
 
   """
   Create an App and install its initial Agent. With orgRef, the App is owned
@@ -3547,6 +3704,10 @@ type Mutation {
     """
     agentRef: ID!
     agentTools: [String!]
+
+    """
+    036 legacy shim over the App's 'default' AI config; held to createAiServiceConfig's key rule (#1389).
+    """
     aiApiKey: String
     aiModel: String
     aiProvider: String
@@ -5131,6 +5292,17 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   syncMemory(id: ID!): Memory!
+
+  """
+  #1378: test a SAVED config by id with one small real call, through the same
+  client, endpoint and egress guard a run uses; the stored key never leaves
+  the server. The override argument tests edited values without saving them. Auth: as
+  updateAiServiceConfig; refused under impersonation. Every test that
+  reaches the provider is metered (usage type ai-config-test); NO_API_KEY
+  and KEY_UNREADABLE make no call and record nothing. The call is bounded
+  by a 20s timeout. Rate-limited per caller and config (RATE_LIMITED).
+  """
+  testAiServiceConfig(id: ID!, override: AiServiceConfigTestOverride): AiServiceConfigTestResult!
   testExchangeConnection(id: ID!): Boolean!
 
   """
@@ -5192,18 +5364,59 @@ type Mutation {
   036-ai-service-config: update a named AI config. All fields optional.
   
   apiKey semantics: omitted = keep the stored key; empty string =
-  clear it; non-empty = replace (encrypted, preview recomputed).
+  clear it; non-empty = replace (encrypted, preview recomputed). The
+  RESULTING config is held to createAiServiceConfig's key rule, so
+  clearing the key of a config that needs one is refused.
   
   Auth: admin rights on the owning entity (as aiServiceConfigs).
   """
-  updateAiServiceConfig(apiKey: String, enabled: Boolean, id: ID!, model: String, name: String, params: JSON, provider: String): AiServiceConfig!
+  updateAiServiceConfig(
+    apiKey: String
+
+    """#1373: omitted = unchanged; null = clear (provider default)."""
+    apiStyle: AiApiStyle
+    enabled: Boolean
+
+    """
+    #1373: omitted = unchanged; null or empty string = clear (provider default).
+    """
+    endpoint: String
+    id: ID!
+    model: String
+    name: String
+    params: JSON
+    provider: String
+  ): AiServiceConfig!
 
   """
   Update an App.
   
   Accepts the entity's ID or URN.
   """
-  updateApp(agentTools: [String!], aiApiKey: String, aiModel: String, aiProvider: String, anonymousTtlDays: Int, appType: AppType, createUserPermission: CreateUserPermission, description: String, expiresAt: String, identifyUserMethod: IdentifyUserMethod, name: String, ref: ID!, role: AppMembershipRole, sessionTimeoutSeconds: Int, surfaces: [String!], systemPrompt: String, trainingMode: Boolean, urn: String): App!
+  updateApp(
+    agentTools: [String!]
+
+    """
+    036 legacy shim over the App's 'default' AI config; held to createAiServiceConfig's key rule (#1389).
+    """
+    aiApiKey: String
+    aiModel: String
+    aiProvider: String
+    anonymousTtlDays: Int
+    appType: AppType
+    createUserPermission: CreateUserPermission
+    description: String
+    expiresAt: String
+    identifyUserMethod: IdentifyUserMethod
+    name: String
+    ref: ID!
+    role: AppMembershipRole
+    sessionTimeoutSeconds: Int
+    surfaces: [String!]
+    systemPrompt: String
+    trainingMode: Boolean
+    urn: String
+  ): App!
 
   """
   Spec 049 Phase 4 — rename / re-describe a Channel whose host memory you may write. ref: its id or its address (Channel.chatRootUrn, #1171).
@@ -6570,6 +6783,15 @@ type Query {
   Provider rate rows, newest effective first, optional provider/model filter (spec 046). Authenticated read.
   """
   aiModelPrices(limit: Int, model: String, offset: Int, provider: String, tier: Int): AiModelPriceList!
+
+  """
+  #1373: the known endpoints for a provider — the server's single suggestion
+  list, so the portal and the CLI render the same choices and neither
+  hardcodes a URL. Empty for an unknown provider and for bedrock (its
+  endpoint comes from the region). Public reference data (vendor URLs), so
+  it needs no auth.
+  """
+  aiProviderEndpoints(provider: String!): [AiProviderEndpoint!]!
 
   """
   The uniform single-config read (#473). 'ref' is the config's ID —
@@ -8335,6 +8557,16 @@ type ResolvedAiConfig {
   """
   apiKey: String!
   configId: ID!
+
+  """
+  #1373: the wire protocol requests use (see AiServiceConfig.effectiveApiStyle).
+  """
+  effectiveApiStyle: AiApiStyle
+
+  """
+  #1373: where requests for this config go (see AiServiceConfig.effectiveEndpoint).
+  """
+  effectiveEndpoint: String
   model: String!
   name: String!
 

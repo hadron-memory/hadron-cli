@@ -5,13 +5,12 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 62 unbound
+[Query] 61 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
 aiModelPrice
 aiModelPrices
-aiServiceConfig
 aiServiceConfigs
 appAIConfig
 appKeys
@@ -69,7 +68,7 @@ slackConnections
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
-[Mutation] 85 unbound
+[Mutation] 86 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -142,6 +141,7 @@ setQuotaLimit
 startAgentSession
 startChat
 syncMemory
+testAiServiceConfig  # server#1378 saved-config provider probe; outside cli#739 endpoint CRUD scope
 testExchangeConnection
 unlinkGithubApp
 updateAgentAIConfig
