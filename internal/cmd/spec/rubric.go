@@ -210,6 +210,23 @@ func specTags(extra []string) []string {
 	return tags
 }
 
+// specTagsWithoutDefault keeps only explicitly requested tags for a typed
+// positional spec. The governed role is its corpus marker; a caller may still
+// opt into the legacy "spec" tag by passing --tag spec.
+func specTagsWithoutDefault(extra []string) []string {
+	tags := make([]string, 0, len(extra))
+	seen := map[string]bool{}
+	for _, t := range extra {
+		t = strings.TrimSpace(t)
+		if t == "" || seen[t] {
+			continue
+		}
+		seen[t] = true
+		tags = append(tags, t)
+	}
+	return tags
+}
+
 // specDataRaw returns the data JSON for a new spec ({"version":"0.0.1"}).
 func specDataRaw() *json.RawMessage {
 	raw := json.RawMessage(fmt.Sprintf(`{"version":%q}`, specDataVersion))

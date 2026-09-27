@@ -249,14 +249,48 @@ func TestSpecNewAtDottedRole(t *testing.T) {
 	if err := json.Unmarshal(captured["CreateSpecNode"], &in); err != nil {
 		t.Fatalf("CreateSpecNode vars: %v", err)
 	}
-	if in.Input.Role == nil || *in.Input.Role != "spec.rule" || in.Input.Name != "onboarding:mentor:rule — Rule" {
+	if in.Input.Role == nil || *in.Input.Role != "spec.rule" || in.Input.Name != "Rule" {
 		t.Errorf("role/name = %v/%q", in.Input.Role, in.Input.Name)
 	}
-	if len(in.Input.Tags) != 1 || in.Input.Tags[0] != "spec" {
-		t.Errorf("the existing spec tag default must stay, got %v", in.Input.Tags)
+	if len(in.Input.Tags) != 0 {
+		t.Errorf("an explicit role uses no automatic tag, got %v", in.Input.Tags)
 	}
-	if !strings.Contains(out.String(), `"role": "spec.rule"`) {
-		t.Errorf("output should report the requested role: %s", out.String())
+	if !strings.Contains(out.String(), `"role": "spec.rule"`) || !strings.Contains(out.String(), `"name": "Rule"`) || !strings.Contains(out.String(), `"tags": []`) {
+		t.Errorf("output should report the typed plain-title node: %s", out.String())
+	}
+}
+
+func TestSpecNewAtDottedRoleKeepsOnlyExplicitTags(t *testing.T) {
+	url, captured := newAtServer(t)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "onboarding:mentor:rule", "-m", specMem, "--title", "Rule", "--role", "spec.rule", "--tag", "topic", "--tag", "spec", "--tag", "topic", "--server", url})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var in sentSpecInput
+	if err := json.Unmarshal(captured["CreateSpecNode"], &in); err != nil {
+		t.Fatalf("CreateSpecNode vars: %v", err)
+	}
+	if len(in.Input.Tags) != 2 || in.Input.Tags[0] != "topic" || in.Input.Tags[1] != "spec" {
+		t.Errorf("explicit tags should be trimmed, deduped and ordered, got %v", in.Input.Tags)
+	}
+}
+
+func TestSpecNewAtExplicitBaseRoleUsesPlainTitle(t *testing.T) {
+	url, captured := newAtServer(t)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "onboarding:mentor", "-m", specMem, "--title", "Mentor", "--role", "spec", "--server", url})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var in sentSpecInput
+	if err := json.Unmarshal(captured["CreateSpecNode"], &in); err != nil {
+		t.Fatalf("CreateSpecNode vars: %v", err)
+	}
+	if in.Input.Role == nil || *in.Input.Role != "spec" || in.Input.Name != "Mentor" || len(in.Input.Tags) != 0 {
+		t.Errorf("explicit base role should use typed creation convention: %+v", in.Input)
 	}
 }
 
@@ -271,8 +305,8 @@ func TestSpecNewAtRoleDryRun(t *testing.T) {
 	if _, wrote := captured["CreateSpecNode"]; wrote {
 		t.Fatal("dry-run wrote a node")
 	}
-	if !strings.Contains(out.String(), `"role": "spec.rule"`) {
-		t.Errorf("dry-run should show the selected role: %s", out.String())
+	if !strings.Contains(out.String(), `"role": "spec.rule"`) || !strings.Contains(out.String(), `"name": "Rule"`) || !strings.Contains(out.String(), `"tags": []`) {
+		t.Errorf("dry-run should show the typed plain-title node: %s", out.String())
 	}
 }
 
