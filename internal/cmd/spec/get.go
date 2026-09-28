@@ -251,6 +251,7 @@ func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.G
 		Loc:                b.Loc,
 		Name:               b.Name,
 		NodeType:           b.NodeType,
+		Role:               b.Role,
 		Tags:               tagsOrEmpty(b.Tags),
 		Abstract:           b.Abstract,
 		AbstractOriginHash: b.AbstractOriginHash,
