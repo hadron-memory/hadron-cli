@@ -88,6 +88,7 @@ type findNodesVars struct {
 		LocPrefix  string   `json:"locPrefix"`
 		NodeType   string   `json:"nodeType"`
 		Tags       []string `json:"tags"`
+		Role       *string  `json:"role"`
 		IsRunnable *bool    `json:"isRunnable"`
 	} `json:"filter"`
 }

@@ -113,10 +113,11 @@ func TestLintNodeProblems(t *testing.T) {
 	bad.Content = &empty
 	bad.NodeType = "finding"
 	fs := lintNode(bad, "")
-	for _, want := range []string{"name-prefix", "nodetype-info"} {
-		if !hasRule(fs, want) {
-			t.Errorf("expected %q finding; got %v", want, fs)
-		}
+	if hasRule(fs, "name-prefix") {
+		t.Errorf("a human-readable name must not be rejected for lacking a citation prefix; got %v", fs)
+	}
+	if !hasRule(fs, "nodetype-info") {
+		t.Errorf("expected nodetype-info finding; got %v", fs)
 	}
 	// #708: the old rubric is gone, so the missing abstract and the missing
 	// "what invalidates" statement are no longer findings.
@@ -124,6 +125,25 @@ func TestLintNodeProblems(t *testing.T) {
 		if hasRule(fs, gone) {
 			t.Errorf("the retired rubric rule %q still fired; got %v", gone, fs)
 		}
+	}
+}
+
+func TestLintNodeAcceptsHumanAndPrefixedNames(t *testing.T) {
+	for _, tc := range []struct {
+		loc, role, name string
+	}{
+		{"msg:010:02", "spec", "Who may impersonate"},
+		{"msg:010:02", "spec", "msg:010:02 — Who may impersonate"},
+		{"authoring:rules:naming", "spec.rule", "Human-readable naming policy"},
+		{"authoring:rules:naming", "spec.rule", "authoring:rules:naming — Human-readable naming policy"},
+	} {
+		t.Run(tc.loc+"/"+tc.name, func(t *testing.T) {
+			role := tc.role
+			n := specNode{Loc: tc.loc, Role: &role, Name: tc.name, NodeType: "info", Tags: []string{"spec"}}
+			if fs := lintNode(n, ""); len(fs) != 0 {
+				t.Errorf("name %q at %q with role %q should lint cleanly; got %v", tc.name, tc.loc, tc.role, fs)
+			}
+		})
 	}
 }
 
@@ -588,9 +608,10 @@ func TestTitleConjunction(t *testing.T) {
 		{"cor:agt:020:03 — Sessions, liveness, and provenance", "and"},
 		{"cor:agt:020:02 — Worker allocation and permanence", "and"},
 		{"msg:010:02 — Delivery", ""},
-		// The citation half never counts: a loc has colons, not conjunctions,
-		// and splitting on the em-dash first keeps it out of range entirely.
+		// The citation half never counts: a loc has colons, not conjunctions.
 		{"cor:and:010 — Delivery", ""},
+		// Without a required prefix, a human name's first clause matters too.
+		{"Roles and responsibilities — guide", "and"},
 		// EVERY supported separator, because a helper with three branches and
 		// one tested branch is two branches that can be dropped without anything
 		// going red (@copilot, suppressed in the verdict body of #565).
@@ -1138,8 +1159,9 @@ func TestNearCapAtAnyLocIsNotTierAdvice(t *testing.T) {
 }
 
 // A spec by its governed role but without the tag is a spec (isSpec), so the
-// missing tag is a WARNING that says why it matters — the tag-based scans skip
-// it — not the "broken" error a non-spec gets (@copilot on #710).
+// missing tag remains a WARNING about legacy tag-only consumers, not the
+// "broken" error a non-spec gets (@copilot on #710). Role-aware reads include
+// the node (#684); external tag-only clients may still skip it.
 func TestTagSpecFindingKnowsTheRole(t *testing.T) {
 	find := func(n specNode) *lintFindingDTO {
 		for _, f := range lintNode(n, "") {
@@ -1152,10 +1174,10 @@ func TestTagSpecFindingKnowsTheRole(t *testing.T) {
 	}
 	for _, role := range []string{api.SpecNodeRole, "spec.rule"} {
 		roleOnly := specNode{Loc: "onboarding:mentor", Name: "onboarding:mentor — M", NodeType: "info", Role: &role}
-		if f := find(roleOnly); f == nil || f.Severity != sevWarning || !strings.Contains(f.Message, "skip this spec") {
-			t.Errorf("role-only %s spec: tag-spec = %+v, want a warning explaining the scans skip it", role, f)
-		} else if !strings.Contains(f.Message, "find --match-exactly") {
-			t.Errorf("exact find filters by the tag too, so the warning must name it: %q", f.Message)
+		if f := find(roleOnly); f == nil || f.Severity != sevWarning || !strings.Contains(f.Message, "legacy tag-only clients") {
+			t.Errorf("role-only %s spec: tag-spec = %+v, want a warning naming legacy tag-only clients", role, f)
+		} else if !strings.Contains(f.Message, "role-aware spec commands include it") {
+			t.Errorf("the warning must acknowledge role-aware reads: %q", f.Message)
 		} else if strings.Contains(f.Message, "lint") {
 			t.Errorf("lint's own scans DO include a role-only spec, so the warning must not name lint: %q", f.Message)
 		}
@@ -1220,9 +1242,9 @@ func TestLintNodeNoRubricAtAnyLoc(t *testing.T) {
 				}
 				// Negative controls: structure is still checked at the same loc.
 				bad := n
-				bad.Name, bad.NodeType, bad.Tags = "wrong", "finding", nil
+				bad.NodeType, bad.Tags = "finding", nil
 				got := lintNode(bad, "")
-				for _, want := range []string{"name-prefix", "nodetype-info", "tag-spec"} {
+				for _, want := range []string{"nodetype-info", "tag-spec"} {
 					if !hasRule(got, want) {
 						t.Errorf("%s: the structural check %q must still fire; got %v", loc, want, got)
 					}

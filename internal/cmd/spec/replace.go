@@ -128,14 +128,14 @@ example, leave an abstract out of sync with its content.`,
 			// Scope the rewrite to the SPEC nodes explicitly: searchReplaceInNodes
 			// with memoryIds would rewrite every live node in the memory (the
 			// register, any non-spec node), but this command is citation-aware. So
-			// list the spec-tagged citation nodes in scope (--prefix narrows here,
-			// not on the wire) and pass their ids as nodeIds. Doubles as the id set
-			// for the re-lint below.
+			// list the tag/role union in scope (--prefix narrows here and on
+			// the wire) and pass their ids as nodeIds. Doubles as the id set for
+			// the re-lint below. The server still skips governed nodes (#659).
 			var prefixPtr *string
 			if prefix != "" {
 				prefixPtr = &prefix
 			}
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, prefixPtr, []string{"spec"})
+			all, err := scanAllSpecNodes(cmd.Context(), client, &memURN, prefixPtr)
 			if err != nil {
 				return err
 			}

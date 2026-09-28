@@ -71,7 +71,7 @@ func TestSpecGetAddressesAnyValidLoc(t *testing.T) {
 }
 
 // The corpus scans no longer drop a tagged spec for its shape: what the
-// server returns for the `spec` tag is what `spec ls` lists.
+// server returns for the legacy marker is included in `spec ls`.
 func TestSpecLsListsEveryShape(t *testing.T) {
 	var hits []string
 	for _, loc := range hierarchyNeutralLocs {
@@ -91,12 +91,12 @@ func TestSpecLsListsEveryShape(t *testing.T) {
 			t.Errorf("spec ls dropped %q:\n%s", loc, out.String())
 		}
 	}
-	// The corpus is still selected by the tag, server-side — not by shape, and
-	// not by scanning everything.
+	// The tag stream is unioned with the role-family stream, not selected by
+	// shape or a full unfiltered scan on a current server.
 	var vars findNodesVars
 	_ = json.Unmarshal(captured["FindNodes"], &vars)
-	if len(vars.Filter.Tags) != 1 || vars.Filter.Tags[0] != "spec" {
-		t.Errorf("ls must still select the corpus by the spec tag, got %v", vars.Filter.Tags)
+	if vars.Filter.Role == nil || *vars.Filter.Role != "spec" {
+		t.Errorf("ls must include the role-family stream, got %+v", vars.Filter)
 	}
 }
 
