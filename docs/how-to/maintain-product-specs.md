@@ -23,6 +23,11 @@ Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 > scaffold-body or placeholder-contract finding at any loc.
 > See [docs/plans/spec-hierarchy-removal.md](../plans/spec-hierarchy-removal.md).
 
+For an explicit loc, `spec new <loc> --title <title> --role spec.rule`
+creates a spec with the requested dotted role. The default remains `spec`.
+The memory's role rules may refuse an undeclared subrole; the CLI reports
+that server refusal. Legacy numbering and `--new-path` do not take `--role`.
+
 Spec reads recognize the union of the legacy `spec` tag and the `spec` / dotted
 `spec.*` role family. This includes `list`, `get --prefix`,
 `find --match-exactly`, `grep`, `check-tools` and `replace`; an overlapping node
