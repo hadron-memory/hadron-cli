@@ -24,7 +24,10 @@ Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 > See [docs/plans/spec-hierarchy-removal.md](../plans/spec-hierarchy-removal.md).
 
 For an explicit loc, `spec new <loc> --title <title> --role spec.rule`
-creates a spec with the requested dotted role. The default remains `spec`.
+creates a spec with the requested dotted role, the plain title as its name,
+and no automatic tags. Pass `--tag spec` only if a legacy consumer needs it.
+Without `--role`, creation keeps the base `spec` role, citation-prefixed name,
+and `spec` tag.
 The memory's role rules may refuse an undeclared subrole; the CLI reports
 that server refusal. Legacy numbering and `--new-path` do not take `--role`.
 

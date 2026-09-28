@@ -65,8 +65,11 @@ derived from the loc's shape, so there is no parent it must have, no
 contract it inherits, and no number is allocated. Its only edge is an
 --inherit <loc> you name; link anything else with "spec link" afterwards.
 A loc that already holds a node is refused, never overwritten.
---role selects a spec-family role for this positional form. The default is
-spec. Roles use lower-case letter/digit/dash segments joined by dots, up to
+--role selects a spec-family role for this positional form. When explicitly
+given, the title is used as the node name without a citation prefix, and only
+tags explicitly supplied with --tag are written. Without --role, the default
+is the base spec role, a citation-prefixed name, and the legacy spec tag.
+Roles use lower-case letter/digit/dash segments joined by dots, up to
 64 characters; a valid dotted subrole may still be refused by the memory's
 role rules.
 
@@ -225,10 +228,15 @@ is one call instead of four.`, abstractSoftMax),
 					return exitcode.Newf(exitcode.Usage,
 						"a positional <loc> creates exactly that spec — don't combine it with --product/--module/--feature/--rule/--rule-after/--flow/--new-*/--contract/--no-contract, which allocate legacy numbering instead")
 				}
+				roleExplicit := cmd.Flags().Changed("role")
+				tagSet := specTags(tags)
+				if roleExplicit {
+					tagSet = specTagsWithoutDefault(tags)
+				}
 				return runNewAt(cmd, f, client, memURN, newAtInput{
 					loc: args[0], title: title, content: content, contentFile: contentFile,
 					abstract: abstract, abstractFile: abstractFile, inherit: inherit,
-					role: role, tags: specTags(tags), noEdges: noEdges, dryRun: dryRun,
+					role: role, roleExplicit: roleExplicit, tags: tagSet, noEdges: noEdges, dryRun: dryRun,
 				})
 			}
 
@@ -462,7 +470,7 @@ func validSpecRole(role string) bool {
 type newAtInput struct {
 	loc, title, content, contentFile, abstract, abstractFile, inherit, role string
 	tags                                                                    []string
-	noEdges, dryRun                                                         bool
+	noEdges, dryRun, roleExplicit                                           bool
 }
 
 // runNewAt creates a spec at exactly in.loc (#708): any loc the generic node
@@ -510,6 +518,9 @@ func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 	}
 
 	name := specNameAt(loc, in.title)
+	if in.roleExplicit {
+		name = in.title
+	}
 	result := newResultDTO{
 		Citation: loc,
 		MemoryID: memURN,
@@ -519,7 +530,7 @@ func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 		Edges:    []plannedEdgeDTO{},
 		DryRun:   in.dryRun,
 	}
-	if in.role != api.SpecNodeRole {
+	if in.roleExplicit || in.role != api.SpecNodeRole {
 		result.Role = in.role
 	}
 	if !in.noEdges && inheritLoc != "" {
