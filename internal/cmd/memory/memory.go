@@ -165,14 +165,19 @@ func resolveMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (str
 // accepted; MemoryParts intentionally handles only the two-atom short forms.
 // Refuse malformed refs locally: the server's error still cites v1 grammar.
 func validateMemoryRef(ref string) error {
-	if cmdutil.IsEntityID(ref) {
+	candidate := strings.TrimSpace(ref)
+	if cmdutil.IsEntityID(candidate) {
 		return nil
 	}
-	if _, _, ok := cmdutil.MemoryParts(ref); ok {
+	if _, _, ok := cmdutil.MemoryParts(candidate); ok {
 		return nil
 	}
-	if parsed, err := urn.ParseUrn(strings.TrimSpace(ref)); err == nil && parsed.Type == "memory" {
-		return nil
+	// ParseUrn recognizes a type but accepts partial paths such as hrn:mem:foo;
+	// qualification is a separate check in urn-lib-go.
+	if parsed, err := urn.ParseUrn(candidate); err == nil && parsed.Type == "memory" {
+		if urn.AssertFullyQualifiedUrn(candidate, "memory") == nil {
+			return nil
+		}
 	}
 	return exitcode.Newf(exitcode.Usage, "invalid memory reference %q — %s", ref, memoryRefGuidance)
 }

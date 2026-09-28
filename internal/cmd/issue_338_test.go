@@ -138,7 +138,12 @@ func TestSpecEditDescriptionDryRunWritesNothing(t *testing.T) {
 }
 
 func TestMemoryGetRejectsMalformedReferenceLocally(t *testing.T) {
-	for _, ref := range []string{"definitely-not-a-memory", "hrn:memory:acme.com:kb:extra"} {
+	for _, ref := range []string{
+		"definitely-not-a-memory",
+		"hrn:memory:acme.com:kb:extra",
+		"hrn:mem:foo",
+		"hrn:memory:foo",
+	} {
 		t.Run(ref, func(t *testing.T) {
 			gql, sent := captureGraphQL(t, map[string]string{})
 			f, _ := testFactory(t)
@@ -155,6 +160,23 @@ func TestMemoryGetRejectsMalformedReferenceLocally(t *testing.T) {
 				t.Fatalf("malformed ref reached GraphQL: %v", sent)
 			}
 		})
+	}
+}
+
+func TestMemorySetRejectsUnqualifiedMemoryURNLocally(t *testing.T) {
+	gql, sent := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "hrn:mem:foo", "--short", "Summary", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitCodeFor(err); got != exitcode.Usage {
+		t.Fatalf("exit %d, want usage (%v)", got, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "hrn:mem:<root>:<slug>") {
+		t.Fatalf("missing v2 guidance: %v", err)
+	}
+	if len(sent) != 0 {
+		t.Fatalf("unqualified memory ref reached GraphQL: %v", sent)
 	}
 }
 
