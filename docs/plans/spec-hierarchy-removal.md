@@ -13,6 +13,8 @@
 > `check-tools` and `replace` union it with the legacy `spec` tag, and exact
 > `find` filters the same union client-side. The known scan limit below
 > describes #708 at merge time. Bulk replace still skips governed specs (#659).
+> Later lint changes removed the mandatory name prefix (#762) and made the
+> `spec` tag optional for nodes with a `spec` or dotted `spec.*` role (#765).
 
 ## 1. What "the hierarchy" is, and where it lives
 
@@ -149,16 +151,22 @@ tier rule that fired on a legacy-SHAPED loc contradicted it (@codex on #710).
 | `inheritance-edge` | warning | the tier contract (its `spec link` remedy went with it) |
 | `index-incomplete` | warning | a header tier must cite its children (`lintindex.go` deleted) |
 
-**Changed:**
+**Changed in the hierarchy-removal slice:**
 - lint reads every spec (tag or role) at any loc;
 - `duplicate-loc` applies at any loc;
 - near-cap advice is generic for a non-legacy loc;
-- a role-only spec gets a `tag-spec` warning about legacy tag-only consumers.
+- at the time, a role-only spec got a `tag-spec` warning about legacy tag-only
+  consumers. #765 later removed that finding; the role alone is now a complete
+  spec marker for lint.
 
-**Kept on purpose:** `duplicate-loc`, the URN-example check (#527), the name
-prefix, node type, the `spec` tag, serialization leaks, the abstract
-fingerprint (`abstract-stale`/`abstract-unverified`) and length checks,
-`vector-index`, and `unavailable`.
+**Kept on purpose:** `duplicate-loc`, the URN-example check (#527), node type,
+serialization leaks, the abstract fingerprint
+(`abstract-stale`/`abstract-unverified`) and length checks, `vector-index`,
+and `unavailable`.
+
+The name-prefix check and the `spec` tag requirement were also kept in the
+initial slice, then removed or relaxed by #762 and #765 respectively. A node
+with neither a spec-family role nor the legacy `spec` tag still fails lint.
 
 **The rubric: removed, on Holger's ruling (team chat #1681).** The three
 choices were in #1484: drop it, apply it to every spec, or keep it for legacy

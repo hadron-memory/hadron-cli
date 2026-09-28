@@ -344,16 +344,10 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	if n.NodeType != "info" {
 		add("nodetype-info", sevError, fmt.Sprintf("nodeType must be \"info\", got %q", n.NodeType))
 	}
-	if !hasTag(n.Tags, "spec") {
-		if api.RoleInFamily(n.Role, api.SpecNodeRole) {
-			// A spec by its governed role (isSpec), so not broken — but the
-			// CLI reads include it (#684), but other tag-only clients can omit it.
-			// The missing-tag policy itself is unchanged; Jade's request to
-			// revisit that policy is tracked separately.
-			add("tag-spec", sevWarning, `carries the spec role but not the "spec" tag — legacy tag-only clients may skip it; role-aware spec commands include it`)
-		} else {
-			add("tag-spec", sevError, `missing "spec" tag`)
-		}
+	// A governed spec role is a complete corpus marker (#684). Legacy
+	// tag-only specs still pass, but a node with neither marker is malformed.
+	if !hasTag(n.Tags, "spec") && !api.RoleInFamily(n.Role, api.SpecNodeRole) {
+		add("tag-spec", sevError, `missing "spec" tag or spec-family role`)
 	}
 
 	// #545. A UNIVERSAL check, above the tier early-returns: one field having

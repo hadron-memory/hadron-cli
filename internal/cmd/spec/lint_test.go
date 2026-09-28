@@ -1158,11 +1158,9 @@ func TestNearCapAtAnyLocIsNotTierAdvice(t *testing.T) {
 	}
 }
 
-// A spec by its governed role but without the tag is a spec (isSpec), so the
-// missing tag remains a WARNING about legacy tag-only consumers, not the
-// "broken" error a non-spec gets (@copilot on #710). Role-aware reads include
-// the node (#684); external tag-only clients may still skip it.
-func TestTagSpecFindingKnowsTheRole(t *testing.T) {
+// A spec-family role is a complete marker: role-only nodes have no tag-spec
+// finding. A node with neither marker still fails the structural check.
+func TestTagSpecFindingAcceptsGovernedRole(t *testing.T) {
 	find := func(n specNode) *lintFindingDTO {
 		for _, f := range lintNode(n, "") {
 			if f.Rule == "tag-spec" {
@@ -1172,19 +1170,24 @@ func TestTagSpecFindingKnowsTheRole(t *testing.T) {
 		}
 		return nil
 	}
-	for _, role := range []string{api.SpecNodeRole, "spec.rule"} {
+	for _, role := range []string{api.SpecNodeRole, "spec.rule", "spec.rule.detail"} {
 		roleOnly := specNode{Loc: "onboarding:mentor", Name: "onboarding:mentor — M", NodeType: "info", Role: &role}
-		if f := find(roleOnly); f == nil || f.Severity != sevWarning || !strings.Contains(f.Message, "legacy tag-only clients") {
-			t.Errorf("role-only %s spec: tag-spec = %+v, want a warning naming legacy tag-only clients", role, f)
-		} else if !strings.Contains(f.Message, "role-aware spec commands include it") {
-			t.Errorf("the warning must acknowledge role-aware reads: %q", f.Message)
-		} else if strings.Contains(f.Message, "lint") {
-			t.Errorf("lint's own scans DO include a role-only spec, so the warning must not name lint: %q", f.Message)
+		if f := find(roleOnly); f != nil {
+			t.Errorf("role-only %s spec: unexpected tag-spec finding %+v", role, f)
 		}
 	}
 	untagged := specNode{Loc: "msg:010:02", Name: "msg:010:02 — W", NodeType: "info"}
 	if f := find(untagged); f == nil || f.Severity != sevError {
 		t.Errorf("untagged, no role: tag-spec = %+v, want the error", f)
+	}
+	lookalike := "specification"
+	untagged.Role = &lookalike
+	if f := find(untagged); f == nil || f.Severity != sevError {
+		t.Errorf("a lookalike role must not count as a spec marker: %+v", f)
+	}
+	tagged := specNode{Loc: "msg:010:02", Name: "msg:010:02 — W", NodeType: "info", Tags: []string{"spec"}}
+	if f := find(tagged); f != nil {
+		t.Errorf("legacy tagged spec: unexpected tag-spec finding %+v", f)
 	}
 }
 
