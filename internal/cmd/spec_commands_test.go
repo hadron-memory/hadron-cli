@@ -346,6 +346,27 @@ func TestRoleOnlySpecAppearsInPrefixGetGrepAndCheckTools(t *testing.T) {
 			if !strings.Contains(out.String(), tc.want) {
 				t.Errorf("role-only node missing from %s: %s", tc.name, out.String())
 			}
+			if tc.name == "prefix get" {
+				var details []struct {
+					Lint []struct {
+						Rule     string `json:"rule"`
+						Severity string `json:"severity"`
+					} `json:"lint"`
+				}
+				if err := json.Unmarshal([]byte(out.String()), &details); err != nil {
+					t.Fatalf("decode prefix get: %v\n%s", err, out.String())
+				}
+				if len(details) != 1 {
+					t.Fatalf("prefix get details = %d, want 1", len(details))
+				}
+				for _, finding := range details[0].Lint {
+					if finding.Rule == "tag-spec" {
+						if finding.Severity != "warning" {
+							t.Errorf("role lost from prefix get batch: tag-spec = %s, want warning", finding.Severity)
+						}
+					}
+				}
+			}
 		})
 	}
 }
@@ -1756,6 +1777,46 @@ func TestSpecLintAllReportsUntaggedCitation(t *testing.T) {
 	_ = json.Unmarshal(captured["FindNodes"], &vars)
 	if len(vars.Filter.Tags) != 0 {
 		t.Fatalf("lint --all must not pre-filter by spec tag, got %v", vars.Filter.Tags)
+	}
+}
+
+func TestSpecLintAllPreservesRoleFromBatch(t *testing.T) {
+	const roleLoc, legacyLoc = "onboarding:mentor:screens", "msg:010:02"
+	roleNode := strings.Replace(specBatchNodeWithTags(roleLoc, `[]`), `"tags":[]`, `"tags":[],"role":"spec.rule"`, 1)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeListWithRole(roleLoc, `[]`) + `,` + specNodeList(legacyLoc, `["spec","p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			roleNode + `,` + specBatchNode(legacyLoc) + `]}}}`,
+		"Memories":  memListMicromentorJSON,
+		"GetMemory": memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("role-only and legacy tagged specs must avoid lint errors: %v\n%s", err, out.String())
+	}
+	var findings []struct {
+		Citation string `json:"citation"`
+		Rule     string `json:"rule"`
+		Severity string `json:"severity"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &findings); err != nil {
+		t.Fatalf("decode lint findings: %v\n%s", err, out.String())
+	}
+	for _, finding := range findings {
+		if finding.Severity == "error" {
+			t.Errorf("unexpected lint error: %+v", finding)
+		}
+		if finding.Rule != "tag-spec" {
+			continue
+		}
+		if finding.Citation == legacyLoc {
+			t.Errorf("legacy tagged control has tag-spec finding: %+v", finding)
+		}
+		if finding.Citation == roleLoc && finding.Severity != "warning" {
+			t.Errorf("role-only tag-spec finding must be a warning when present: %+v", finding)
+		}
 	}
 }
 
