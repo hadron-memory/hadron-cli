@@ -19,6 +19,7 @@
 
 # @genqlient(for: "SkillPlanInput.files", omitempty: true)
 # @genqlient(for: "SkillPlanInput.memories", omitempty: true)
+# @genqlient(for: "SkillPlanInput.scopeRef", omitempty: true)
 # @genqlient(for: "SkillPlanInput.host", omitempty: true)
 # `force` is read with EXPORT only (its SDL description) and nothing here sets
 # it, so it must be OMITTED rather than sent as `null` (#656).
@@ -95,6 +96,13 @@ query SkillExportPlan(
   skillPlan(input: $input) {
     scanned
     judged
+    scopeSelection {
+      id
+      name
+      readableMemoryCount
+      droppedCount
+      fingerprint
+    }
     entries {
       urn
       nodeId

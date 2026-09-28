@@ -23,6 +23,8 @@ type pluginCall struct {
 	vars map[string]any
 }
 
+const testPluginScopeID = "0123456789abcdef0123456789abcdef"
+
 // pluginServer answers every skillPlan by host, and ScopeExplain with scope,
 // recording EVERY call in order — captureGraphQL keeps only the last call per
 // operation, and this command sends SkillExportPlan once per host.
@@ -78,6 +80,12 @@ func planEntryJSON(name, action, body string) string {
 
 func planJSON(entries ...string) string {
 	return `{"scanned":` + itoa(len(entries)) + `,"judged":` + itoa(len(entries)) + `,"entries":[` + strings.Join(entries, ",") + `],"orphans":[],"unrecognized":[]}`
+}
+
+func scopedPlanJSON(fingerprint string, readable, dropped int, entries ...string) string {
+	return strings.TrimSuffix(planJSON(entries...), "}") + `,"scopeSelection":{"id":"` + testPluginScopeID +
+		`","name":"research","readableMemoryCount":` + itoa(readable) +
+		`,"droppedCount":` + itoa(dropped) + `,"fingerprint":"` + fingerprint + `"}}`
 }
 
 type pluginReport struct {
@@ -148,9 +156,9 @@ func TestSkillPluginBuildsEveryHostFromNoFilesPlans(t *testing.T) {
 		if in["intent"] != "EXPORT" {
 			t.Errorf("intent = %v, want EXPORT", in["intent"])
 		}
-		for _, k := range []string{"files", "memories", "force"} {
+		for _, k := range []string{"files", "memories", "scopeRef", "force"} {
 			if _, ok := in[k]; ok {
-				t.Errorf("%s was sent (%v); a bundle submits no files and, unscoped, no memories", k, in[k])
+				t.Errorf("%s was sent (%v); an unscoped bundle sends no file or scope selection", k, in[k])
 			}
 		}
 	}
@@ -256,10 +264,13 @@ func TestSkillPluginEmptyScopeNeverPlans(t *testing.T) {
 	}
 }
 
-func TestSkillPluginScopeNarrowsTheMemories(t *testing.T) {
+func TestSkillPluginScopeSendsResolvedID(t *testing.T) {
 	h := pluginHome(t)
 	scope := `{"resolvedVia":"APP","droppedCount":1,"scope":{"id":"0123456789abcdef0123456789abcdef","name":"research"},"memories":[{"id":"m1","urn":"u1","name":"one"},{"id":"m2","urn":"u2","name":"two"}],"winner":null,"shadowed":[]}`
-	srv, calls := pluginServer(t, map[string]string{"claudeSkill": planJSON(), "codexSkill": planJSON()}, scope)
+	srv, calls := pluginServer(t, map[string]string{
+		"claudeSkill": scopedPlanJSON("same-members", 1, 2),
+		"codexSkill":  scopedPlanJSON("same-members", 1, 2),
+	}, scope)
 
 	// Padded, as a quoted shell value arrives: still an id, sent trimmed.
 	rep, _, err := runPlugin(t, srv.URL, "--out", filepath.Join(h, "dist"), "--scope", " 0123456789abcdef0123456789abcdef ")
@@ -275,16 +286,80 @@ func TestSkillPluginScopeNarrowsTheMemories(t *testing.T) {
 			continue
 		}
 		n++
-		got, _ := json.Marshal(c.vars["input"].(map[string]any)["memories"])
-		if string(got) != `["m1","m2"]` {
-			t.Errorf("memories = %s, want the scope's readable memories in order", got)
+		input := c.vars["input"].(map[string]any)
+		if got := input["scopeRef"]; got != "0123456789abcdef0123456789abcdef" {
+			t.Errorf("scopeRef = %v, want the resolved scope ID", got)
+		}
+		if _, ok := input["memories"]; ok {
+			t.Errorf("plugin EXPORT sent arbitrary memories: %v", input["memories"])
 		}
 	}
 	if n != 2 {
 		t.Errorf("%d plans, want 2", n)
 	}
-	if rep.Scope == nil || rep.Scope.MemoryCount != 2 || rep.Scope.DroppedCount != 1 {
-		t.Errorf("scope = %+v", rep.Scope)
+	if rep.Scope == nil || rep.Scope.MemoryCount != 1 || rep.Scope.DroppedCount != 2 {
+		t.Errorf("scope = %+v, want the server's fresh selection counts rather than scopeExplain's preview", rep.Scope)
+	}
+}
+
+func TestSkillPluginScopeDriftWritesNothing(t *testing.T) {
+	h := pluginHome(t)
+	out := filepath.Join(h, "dist")
+	scopeID := "0123456789abcdef0123456789abcdef"
+	scope := `{"resolvedVia":"APP","droppedCount":0,"scope":{"id":"` + scopeID + `","name":"research"},"memories":[{"id":"m1","urn":"u1","name":"one"}],"winner":null,"shadowed":[]}`
+	srv, calls := pluginServer(t, map[string]string{
+		"claudeSkill": scopedPlanJSON("membership-before", 1, 0, planEntryJSON("alpha", "WRITE", "# a")),
+		"codexSkill":  scopedPlanJSON("membership-after", 1, 0, planEntryJSON("alpha", "WRITE", "# a")),
+	}, scope)
+	_, _, err := runPlugin(t, srv.URL, "--out", out, "--scope", scopeID)
+	wantExit(t, err, exitcode.Conflict)
+	if !strings.Contains(err.Error(), "scope membership changed between host plans") {
+		t.Errorf("unexpected refusal: %v", err)
+	}
+	if _, err := os.Stat(out); !os.IsNotExist(err) {
+		t.Errorf("scope drift wrote an artifact path: %v", err)
+	}
+	var plans int
+	for _, c := range calls() {
+		if c.op == "SkillExportPlan" {
+			plans++
+		}
+	}
+	if plans != 2 {
+		t.Errorf("got %d host plans, want both before the no-write decision", plans)
+	}
+}
+
+func TestSkillPluginServerEmptyScopeWritesNothing(t *testing.T) {
+	h := pluginHome(t)
+	out := filepath.Join(h, "dist")
+	scope := `{"resolvedVia":"APP","droppedCount":0,"scope":{"id":"` + testPluginScopeID + `","name":"research"},"memories":[{"id":"m1","urn":"u1","name":"one"}],"winner":null,"shadowed":[]}`
+	srv, _ := pluginServer(t, map[string]string{
+		"claudeSkill": scopedPlanJSON("empty-members", 0, 1, planEntryJSON("alpha", "WRITE", "# a")),
+		"codexSkill":  scopedPlanJSON("empty-members", 0, 1, planEntryJSON("alpha", "WRITE", "# a")),
+	}, scope)
+	_, _, err := runPlugin(t, srv.URL, "--out", out, "--scope", testPluginScopeID)
+	wantExit(t, err, exitcode.Conflict)
+	if _, err := os.Stat(out); !os.IsNotExist(err) {
+		t.Errorf("a server-empty scope wrote an artifact path: %v", err)
+	}
+}
+
+func TestSkillPluginScopedPlanFailureWritesNothing(t *testing.T) {
+	h := pluginHome(t)
+	out := filepath.Join(h, "dist")
+	scopeID := "0123456789abcdef0123456789abcdef"
+	scope := `{"resolvedVia":"APP","droppedCount":0,"scope":{"id":"` + scopeID + `","name":"research"},"memories":[{"id":"m1","urn":"u1","name":"one"}],"winner":null,"shadowed":[]}`
+	srv, _ := pluginServer(t, map[string]string{
+		"claudeSkill": scopedPlanJSON("same-members", 1, 0, planEntryJSON("alpha", "WRITE", "# a")),
+		"codexSkill":  "null",
+	}, scope)
+	_, _, err := runPlugin(t, srv.URL, "--out", out, "--scope", scopeID)
+	if err == nil {
+		t.Fatal("the second host's missing plan allowed the scoped export")
+	}
+	if _, err := os.Stat(out); !os.IsNotExist(err) {
+		t.Errorf("scoped plan failure wrote an artifact path: %v", err)
 	}
 }
 
@@ -371,7 +446,10 @@ func TestSkillPluginFlagErrors(t *testing.T) {
 func TestSkillPluginNamesWhereAScopeNameResolved(t *testing.T) {
 	h := pluginHome(t)
 	scope := `{"resolvedVia":"APP","droppedCount":0,"scope":{"id":"0123456789abcdef0123456789abcdef","name":"research"},"memories":[{"id":"m1","urn":"u1","name":"one"}],"winner":null,"shadowed":[]}`
-	srv, calls := pluginServer(t, map[string]string{"claudeSkill": planJSON(), "codexSkill": planJSON()}, scope)
+	srv, calls := pluginServer(t, map[string]string{
+		"claudeSkill": scopedPlanJSON("same-members", 1, 0),
+		"codexSkill":  scopedPlanJSON("same-members", 1, 0),
+	}, scope)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"skill", "plugin", "--server", srv.URL, "--app", "hrn:app:example.com:team", "--out", filepath.Join(h, "d"), "--scope", "research", "--dry-run"})

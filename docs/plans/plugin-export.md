@@ -7,7 +7,8 @@
 > as-built record: every §7 call that was Jane's is decided there, with the
 > acceptance rows actually observed. §1–§8 are Jonas's design (team chat
 > #1365, cli#700/#702/#703), kept as written so the decisions can be read
-> against the options they chose between.
+> against the options they chose between. §9 Q7's client-side selection is
+> superseded by the paired server-owned scope implementation in §10.
 
 ## 1. What this is for
 
@@ -695,3 +696,26 @@ findings). The install rows used a scratch `HOME`/`CLAUDE_CONFIG_DIR`, with
 | R1/R2/R3 | Pinned by `internal/cmd/skill_plugin_test.go` and `internal/cmd/skill/plugin_test.go`. |
 | C2, K1–K3, X1–X3 | **Not run.** C2 and X1 need a model session; K1–K3 need a person at the Claude app and a test org. They are handed over, not claimed. |
 
+## 10. Server-owned plugin selection (paired candidate, 2026-09-27)
+
+The paired server candidate accepts a persisted `scopeRef` on
+`skillPlan(intent: EXPORT)`.
+It resolves that Scope and its readable memories afresh for each host plan,
+and refuses a missing, unreadable or empty selection. An EXPORT caller cannot
+pass `memories`, including `[]`; LINT and STATUS keep their memory filters.
+Explicit individual-file export still uses `selectedSkillFilePlan`.
+
+`skill plugin --scope` continues to resolve a name through `scopeExplain` in
+the selected App context, or an ID directly, so the report can identify the
+scope and an empty preview exits without requesting a plan. It now passes the
+resolved Scope **ID**, not the readable memory IDs, to both host plans. Each
+plan returns `scopeSelection` with its live membership count, dropped count
+and fingerprint. The CLI compares the IDs and fingerprints before any artifact
+I/O; a missing selection, zero readable count, changed membership, or failed
+host plan leaves both host artifacts untouched. A matching server selection
+supplies the report's final counts, replacing the earlier preview counts.
+
+The GraphQL client is generated from the paired server candidate. The server
+and CLI changes must be delivered together because the old plugin caller
+sends `EXPORT+memories`, which the new server refuses. Holger ruled that
+support for older clients is not a delivery gate (team chat #3027/#3029).

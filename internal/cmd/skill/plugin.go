@@ -186,6 +186,8 @@ permanent for an install, and skills are invoked as /<name>:<skill>.
 WHAT IS INCLUDED. Every enabled declaration you can read, customer and personal
 memories too, unless --scope narrows it to one scope's memories. A scope with no
 memories you can read builds nothing and exits 2: it never widens to everything.
+The server resolves a scoped selection afresh for each host. If the two host
+plans see different scope memberships, nothing is written and the run exits 5.
 
 The server renders every skill and decides what may be included; this command
 writes what it planned and reports every item:
@@ -309,16 +311,15 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 		return err
 	}
 
-	var memories []string
+	var scopeRef *string
 	if opts.scope != "" {
 		scope, ids, err := resolvePluginScope(cmd, f, opts.scope)
 		if err != nil {
 			return err
 		}
 		dto.Scope = scope
-		// An empty scope must NEVER call skillPlan: `memories` is omitempty,
-		// and an omitted list means every memory the caller can read — the
-		// opposite of the narrowing asked for (@codex P1 on #700).
+		// An empty scope must NEVER call skillPlan. Its resolved membership
+		// cannot silently widen to every readable memory.
 		if len(ids) == 0 {
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "Scope %s (%s) has no memory you can read (%d hidden from you): nothing was built.\n",
@@ -329,7 +330,7 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 			}
 			return exitcode.Silent(exitcode.Usage)
 		}
-		memories = ids
+		scopeRef = &scope.ID
 	}
 
 	// Every host's plan first: a host's notForHost list comes from the OTHER
@@ -338,12 +339,18 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 	plans := map[string]*gen.SkillExportPlanSkillPlan{}
 	failures := map[string]*exportReasonDTO{}
 	for _, h := range skilldoc.Hosts {
-		p, err := fetchPluginPlan(cmd, client, h.Key, memories)
+		p, err := fetchPluginPlan(cmd, client, h.Key, scopeRef)
 		if err != nil {
 			// Nothing is written until every plan is in, so an auth or
 			// transport error on ANY host is the run's error, not a host
 			// failure beside a published partial bundle (@codex on #707).
 			mapped := api.MapError(err)
+			// A scoped bundle needs every host's server-resolved selection before
+			// any artifact can be written. A missing plan cannot prove that the
+			// other host saw the same scope membership.
+			if scopeRef != nil {
+				return mapped
+			}
 			if code := exitcode.FromError(mapped); code == exitcode.AuthRequired || code == exitcode.Unavailable {
 				return mapped
 			}
@@ -351,6 +358,26 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 			continue
 		}
 		plans[h.Key] = p
+	}
+	if scopeRef != nil {
+		var fingerprint string
+		for _, h := range skilldoc.Hosts {
+			selection := plans[h.Key].ScopeSelection
+			if selection == nil || selection.Id != *scopeRef || selection.Fingerprint == "" || selection.ReadableMemoryCount == 0 {
+				return exitcode.Newf(exitcode.Conflict,
+					"the server did not confirm a nonempty scope selection for %s; no plugin artifact was written", h.Key)
+			}
+			if fingerprint != "" && selection.Fingerprint != fingerprint {
+				return exitcode.Newf(exitcode.Conflict,
+					"scope membership changed between host plans; no plugin artifact was written — retry")
+			}
+			fingerprint = selection.Fingerprint
+			// The server's fresh selection, rather than the earlier scopeExplain
+			// preview, is the membership that the artifact actually carries.
+			dto.Scope.MemoryCount = selection.ReadableMemoryCount
+			dto.Scope.DroppedCount = selection.DroppedCount
+			dto.Scope.Name = selection.Name
+		}
 	}
 
 	var unrecognized []*gen.SkillExportPlanSkillPlanUnrecognized
@@ -442,11 +469,11 @@ func applyWriteResult(hd *pluginHostDTO, res writeResult) {
 	hd.Included = []exportItemDTO{}
 }
 
-func fetchPluginPlan(cmd *cobra.Command, client graphql.Client, host string, memories []string) (*gen.SkillExportPlanSkillPlan, error) {
+func fetchPluginPlan(cmd *cobra.Command, client graphql.Client, host string, scopeRef *string) (*gen.SkillExportPlanSkillPlan, error) {
 	resp, err := gen.SkillExportPlan(cmd.Context(), client, &gen.SkillPlanInput{
 		Intent:   gen.SkillPlanIntentExport,
 		Host:     &host,
-		Memories: memories,
+		ScopeRef: scopeRef,
 	})
 	if err != nil {
 		return nil, err
@@ -457,10 +484,9 @@ func fetchPluginPlan(cmd *cobra.Command, client graphql.Client, host string, mem
 	return resp.SkillPlan, nil
 }
 
-// resolvePluginScope resolves --scope to the memories the caller can read,
-// in scope order. This is CLIENT-side (plan §7 Q7, option a) and temporary:
-// selection belongs on the server (a `scope` on SkillPlanInput), so MCP and
-// the portal get it too.
+// resolvePluginScope resolves --scope to a stable scope ID. Its readable
+// membership is used only for the local empty-scope guard and report; the
+// server selects plugin EXPORT members afresh from the scope ID.
 func resolvePluginScope(cmd *cobra.Command, f *cmdutil.Factory, ref string) (*pluginScopeDTO, []string, error) {
 	ref = strings.TrimSpace(ref)
 	client, err := f.GraphQLClient()

@@ -985,7 +985,10 @@ Conventions:
   so it moves exactly when a skill does — Claude Code updates on any version
   CHANGE. Selection is every enabled declaration you can read unless
   `--scope` narrows it to that scope's readable memories; **a scope with no
-  readable memory never plans** and exits 2. Plans carry no files. An
+  readable memory never plans** and exits 2. The CLI sends the persisted
+  Scope ID, and the server resolves membership afresh for each host. If host
+  plans report different scope fingerprints, the CLI writes neither artifact
+  and exits 5. Plans carry no files. An
   existing artifact is replaced wholesale ONLY if this command wrote it (a
   `.hadron-plugin` marker; a zip's comment); anything else, or a link, is
   left alone and fails the host (`artifact-not-ours` / `artifact-is-link`),
