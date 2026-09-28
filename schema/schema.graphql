@@ -7162,6 +7162,8 @@ type Query {
   appRef → App.defaultChannel convenience over this. Authorization is the
   host App's team-chat read gate; a Channel you may not read — or one that
   does not exist — is CHANNEL_NOT_FOUND, identically.
+  TeamChatMessagesPage.total has the same cursor- and mention-filtered
+  meaning as for teamChatMessages, before paging.
   """
   channelMessages(beforeSeq: Int, channelRef: ID!, limit: Int, mentionsRef: ID, offset: Int, sinceSeq: Int): TeamChatMessagesPage!
 
@@ -8189,6 +8191,8 @@ type Query {
   messages with seq STRICTLY LESS than it are considered, and the NEWEST
   limit of those come back -- the page immediately before the cursor, still
   ascending. The two compose, so passing both reads a bounded slice.
+  TeamChatMessagesPage.total counts that cursor range and the mentionsRef
+  filter before paging, not the whole team-chat history.
   offset is IGNORED when beforeSeq is given: a cursor exists precisely
   because a position is unstable while workers keep posting, and honouring
   both would put that race back. mentionsRef filters to messages whose stored envelope mentions the
@@ -9404,7 +9408,7 @@ type SkillPlan {
   judged: Int!
 
   """
-  True for explicit individual-file selection: unselected files are not classified as orphans.
+  True for scoped or selected exports: out-of-selection files are not classified as orphans.
   """
   orphanAssessmentSkipped: Boolean!
   orphans: [SkillOrphan!]!
@@ -9416,6 +9420,9 @@ type SkillPlan {
   corpus it was denied.
   """
   scanned: Int!
+
+  """Non-null only when EXPORT selected a persisted Scope."""
+  scopeSelection: SkillPlanScopeSelection
 
   """
   Opaque unavailable refs and selected nodes with no declaration for this host.
@@ -9490,8 +9497,15 @@ input SkillPlanInput {
   host: String
   intent: SkillPlanIntent!
 
-  """Memory refs to scan. Omitted means every memory the caller can read."""
+  """
+  Memory refs for LINT/STATUS only. EXPORT refuses this field, even an empty list.
+  """
   memories: [String!]
+
+  """
+  Persisted Scope ID for a narrowed EXPORT. Membership is resolved afresh for each call.
+  """
+  scopeRef: ID
 }
 
 """
@@ -9510,6 +9524,17 @@ enum SkillPlanIntent {
 
   """Classes and findings for files the client found. Never returns a body."""
   STATUS
+}
+
+"""The live, access-intersected Scope selection used by this EXPORT plan."""
+type SkillPlanScopeSelection {
+  droppedCount: Int!
+
+  """Stable digest for comparing separate host plans from one export."""
+  fingerprint: String!
+  id: ID!
+  name: String!
+  readableMemoryCount: Int!
 }
 
 """A node carrying one or more exports keys that name no host (#1292)."""
@@ -9742,6 +9767,12 @@ type TeamChatMessage {
 
 type TeamChatMessagesPage {
   items: [TeamChatMessage!]!
+
+  """
+  Number of canonical messages matching this read's sinceSeq/beforeSeq cursor
+  range and mentionsRef filter, before limit/offset. It is not the total
+  number of messages in the chat or Channel when a cursor/filter is present.
+  """
   total: Int!
 }
 

@@ -3987,6 +3987,9 @@ func (v *ChannelMessageFields) GetNodeId() string { return v.NodeId }
 
 // ChannelMessagesChannelMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
 type ChannelMessagesChannelMessagesTeamChatMessagesPage struct {
+	// Number of canonical messages matching this read's sinceSeq/beforeSeq cursor
+	// range and mentionsRef filter, before limit/offset. It is not the total
+	// number of messages in the chat or Channel when a cursor/filter is present.
 	Total int                                                                       `json:"total"`
 	Items []*ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
 }
@@ -4149,6 +4152,8 @@ type ChannelMessagesResponse struct {
 	// appRef → App.defaultChannel convenience over this. Authorization is the
 	// host App's team-chat read gate; a Channel you may not read — or one that
 	// does not exist — is CHANNEL_NOT_FOUND, identically.
+	// TeamChatMessagesPage.total has the same cursor- and mention-filtered
+	// meaning as for teamChatMessages, before paging.
 	ChannelMessages *ChannelMessagesChannelMessagesTeamChatMessagesPage `json:"channelMessages"`
 }
 
@@ -21769,7 +21774,7 @@ type SelectedSkillFilePlanSelectedSkillFilePlanSkillPlan struct {
 	// declaring only another host is scanned and not judged, so the two differ by
 	// design; the gap is a fact about the corpus, not a discrepancy.
 	Judged int `json:"judged"`
-	// True for explicit individual-file selection: unselected files are not classified as orphans.
+	// True for scoped or selected exports: out-of-selection files are not classified as orphans.
 	OrphanAssessmentSkipped bool `json:"orphanAssessmentSkipped"`
 	// Opaque unavailable refs and selected nodes with no declaration for this host.
 	SelectionResults []*SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult `json:"selectionResults"`
@@ -22262,9 +22267,11 @@ type SkillExportPlanSkillPlan struct {
 	// How many of those were judged for THIS host — the number of entries. A node
 	// declaring only another host is scanned and not judged, so the two differ by
 	// design; the gap is a fact about the corpus, not a discrepancy.
-	Judged  int                                              `json:"judged"`
-	Entries []*SkillExportPlanSkillPlanEntriesSkillPlanEntry `json:"entries"`
-	Orphans []*SkillExportPlanSkillPlanOrphansSkillOrphan    `json:"orphans"`
+	Judged int `json:"judged"`
+	// Non-null only when EXPORT selected a persisted Scope.
+	ScopeSelection *SkillExportPlanSkillPlanScopeSelection          `json:"scopeSelection"`
+	Entries        []*SkillExportPlanSkillPlanEntriesSkillPlanEntry `json:"entries"`
+	Orphans        []*SkillExportPlanSkillPlanOrphansSkillOrphan    `json:"orphans"`
 	// Nodes in scope carrying a key under properties.exports that names no host
 	// (#1292, cor:agt:030:06): an unrecognised key is reported, never read as an
 	// alias, and never blocks anything. HOST-INDEPENDENT: the list is identical
@@ -22280,6 +22287,11 @@ func (v *SkillExportPlanSkillPlan) GetScanned() int { return v.Scanned }
 
 // GetJudged returns SkillExportPlanSkillPlan.Judged, and is useful for accessing the field via an interface.
 func (v *SkillExportPlanSkillPlan) GetJudged() int { return v.Judged }
+
+// GetScopeSelection returns SkillExportPlanSkillPlan.ScopeSelection, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlan) GetScopeSelection() *SkillExportPlanSkillPlanScopeSelection {
+	return v.ScopeSelection
+}
 
 // GetEntries returns SkillExportPlanSkillPlan.Entries, and is useful for accessing the field via an interface.
 func (v *SkillExportPlanSkillPlan) GetEntries() []*SkillExportPlanSkillPlanEntriesSkillPlanEntry {
@@ -22458,6 +22470,36 @@ func (v *SkillExportPlanSkillPlanOrphansSkillOrphan) GetNodeId() *string { retur
 // GetSourceUrn returns SkillExportPlanSkillPlanOrphansSkillOrphan.SourceUrn, and is useful for accessing the field via an interface.
 func (v *SkillExportPlanSkillPlanOrphansSkillOrphan) GetSourceUrn() *string { return v.SourceUrn }
 
+// SkillExportPlanSkillPlanScopeSelection includes the requested fields of the GraphQL type SkillPlanScopeSelection.
+// The GraphQL type's documentation follows.
+//
+// The live, access-intersected Scope selection used by this EXPORT plan.
+type SkillExportPlanSkillPlanScopeSelection struct {
+	Id                  string `json:"id"`
+	Name                string `json:"name"`
+	ReadableMemoryCount int    `json:"readableMemoryCount"`
+	DroppedCount        int    `json:"droppedCount"`
+	// Stable digest for comparing separate host plans from one export.
+	Fingerprint string `json:"fingerprint"`
+}
+
+// GetId returns SkillExportPlanSkillPlanScopeSelection.Id, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanScopeSelection) GetId() string { return v.Id }
+
+// GetName returns SkillExportPlanSkillPlanScopeSelection.Name, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanScopeSelection) GetName() string { return v.Name }
+
+// GetReadableMemoryCount returns SkillExportPlanSkillPlanScopeSelection.ReadableMemoryCount, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanScopeSelection) GetReadableMemoryCount() int {
+	return v.ReadableMemoryCount
+}
+
+// GetDroppedCount returns SkillExportPlanSkillPlanScopeSelection.DroppedCount, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanScopeSelection) GetDroppedCount() int { return v.DroppedCount }
+
+// GetFingerprint returns SkillExportPlanSkillPlanScopeSelection.Fingerprint, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanScopeSelection) GetFingerprint() string { return v.Fingerprint }
+
 // SkillExportPlanSkillPlanUnrecognized includes the requested fields of the GraphQL type SkillPlanUnrecognized.
 // The GraphQL type's documentation follows.
 //
@@ -22588,8 +22630,10 @@ type SkillPlanInput struct {
 	// Target host, named by its D12 declaration key verbatim: claudeSkill (the default) or codexSkill. One host per call; the plan reads that host's declaration and applies its limits, and the retired top-level skill/claudeSkill keys alias to claudeSkill only. An unknown host is refused with BAD_USER_INPUT naming the supported hosts, never judged as another host and never answered with an empty plan.
 	Host   *string         `json:"host,omitempty"`
 	Intent SkillPlanIntent `json:"intent"`
-	// Memory refs to scan. Omitted means every memory the caller can read.
+	// Memory refs for LINT/STATUS only. EXPORT refuses this field, even an empty list.
 	Memories []string `json:"memories,omitempty"`
+	// Persisted Scope ID for a narrowed EXPORT. Membership is resolved afresh for each call.
+	ScopeRef *string `json:"scopeRef,omitempty"`
 }
 
 // GetFiles returns SkillPlanInput.Files, and is useful for accessing the field via an interface.
@@ -22606,6 +22650,9 @@ func (v *SkillPlanInput) GetIntent() SkillPlanIntent { return v.Intent }
 
 // GetMemories returns SkillPlanInput.Memories, and is useful for accessing the field via an interface.
 func (v *SkillPlanInput) GetMemories() []string { return v.Memories }
+
+// GetScopeRef returns SkillPlanInput.ScopeRef, and is useful for accessing the field via an interface.
+func (v *SkillPlanInput) GetScopeRef() *string { return v.ScopeRef }
 
 // What the caller intends to do with the plan. It decides the ACTION, never the class.
 type SkillPlanIntent string
@@ -23505,6 +23552,8 @@ type TeamChatMessagesResponse struct {
 	// messages with seq STRICTLY LESS than it are considered, and the NEWEST
 	// limit of those come back -- the page immediately before the cursor, still
 	// ascending. The two compose, so passing both reads a bounded slice.
+	// TeamChatMessagesPage.total counts that cursor range and the mentionsRef
+	// filter before paging, not the whole team-chat history.
 	// offset is IGNORED when beforeSeq is given: a cursor exists precisely
 	// because a position is unstable while workers keep posting, and honouring
 	// both would put that race back. mentionsRef filters to messages whose stored envelope mentions the
@@ -23531,6 +23580,9 @@ func (v *TeamChatMessagesResponse) GetTeamChatMessages() *TeamChatMessagesTeamCh
 
 // TeamChatMessagesTeamChatMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
 type TeamChatMessagesTeamChatMessagesTeamChatMessagesPage struct {
+	// Number of canonical messages matching this read's sinceSeq/beforeSeq cursor
+	// range and mentionsRef filter, before limit/offset. It is not the total
+	// number of messages in the chat or Channel when a cursor/filter is present.
 	Total int                                                                         `json:"total"`
 	Items []*TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
 }
@@ -43082,6 +43134,13 @@ query SkillExportPlan ($input: SkillPlanInput!) {
 	skillPlan(input: $input) {
 		scanned
 		judged
+		scopeSelection {
+			id
+			name
+			readableMemoryCount
+			droppedCount
+			fingerprint
+		}
 		entries {
 			urn
 			nodeId
