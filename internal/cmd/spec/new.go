@@ -66,7 +66,9 @@ contract it inherits, and no number is allocated. Its only edge is an
 --inherit <loc> you name; link anything else with "spec link" afterwards.
 A loc that already holds a node is refused, never overwritten.
 --role selects a spec-family role for this positional form. The default is
-spec; a dotted subrole may be refused by the memory's role rules.
+spec. Roles use lower-case letter/digit/dash segments joined by dots, up to
+64 characters; a valid dotted subrole may still be refused by the memory's
+role rules.
 
 Legacy numbering. Without a <loc>, the flags below allocate the next free
 number in the legacy citation scheme and wire the table-of-contents and
@@ -120,8 +122,8 @@ is one call instead of four.`, abstractSoftMax),
 				if len(args) != 1 || newPath {
 					return exitcode.Newf(exitcode.Usage, "--role is supported only with spec new <loc> (without --new-path)")
 				}
-				if !api.RoleInFamily(&role, api.SpecNodeRole) || strings.HasSuffix(role, ".") || strings.Contains(role, "..") {
-					return exitcode.Newf(exitcode.Usage, "--role %q must be spec or a dotted spec subrole (for example spec.rule)", role)
+				if !validSpecRole(role) {
+					return exitcode.Newf(exitcode.Usage, "--role %q must be spec or a dotted spec subrole of lower-case letter/digit/dash segments (1-64 characters)", role)
 				}
 			}
 			if newFeature && feature != "" {
@@ -435,6 +437,27 @@ is one call instead of four.`, abstractSoftMax),
 }
 
 const inheritEdgeLabel = "inherits the shared contract (general provisions)"
+
+// validSpecRole mirrors the server's node-role grammar for the positional
+// --role flag, then narrows it to the governed spec family. The server remains
+// authoritative for whether a syntactically valid subrole is declared.
+func validSpecRole(role string) bool {
+	if len(role) == 0 || len(role) > 64 || !api.RoleInFamily(&role, api.SpecNodeRole) {
+		return false
+	}
+	for _, segment := range strings.Split(role, ".") {
+		if segment == "" {
+			return false
+		}
+		for i := 0; i < len(segment); i++ {
+			c := segment[i]
+			if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 type newAtInput struct {
 	loc, title, content, contentFile, abstract, abstractFile, inherit, role string
@@ -773,6 +796,9 @@ func renderNewResult(w io.Writer, r newResultDTO) error {
 		verb = "would create"
 	}
 	fmt.Fprintf(w, "%s %s — %s\n", verb, r.Citation, r.Name)
+	if r.Role != "" {
+		fmt.Fprintf(w, "  role: %s\n", r.Role)
+	}
 	fmt.Fprintf(w, "  tags: %v\n", r.Tags)
 	for _, e := range r.Edges {
 		fmt.Fprintf(w, "  edge: %s → %s\n", e.Label, e.Target)

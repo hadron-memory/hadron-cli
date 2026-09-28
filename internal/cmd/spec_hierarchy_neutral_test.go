@@ -276,6 +276,40 @@ func TestSpecNewAtRoleDryRun(t *testing.T) {
 	}
 }
 
+func TestSpecNewAtRoleHumanDryRun(t *testing.T) {
+	url, captured := newAtServer(t)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "onboarding:mentor:rule", "-m", specMem, "--title", "Rule", "--role", "spec.rule", "--dry-run", "--server", url})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, wrote := captured["CreateSpecNode"]; wrote {
+		t.Fatal("dry-run wrote a node")
+	}
+	if !strings.Contains(out.String(), "  role: spec.rule\n") {
+		t.Errorf("human dry-run must show the selected role: %s", out.String())
+	}
+}
+
+func TestSpecNewAtMaxLengthRole(t *testing.T) {
+	role := "spec." + strings.Repeat("a", 59) // server's 64-character limit
+	url, captured := newAtServer(t)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "onboarding:mentor:rule", "-m", specMem, "--title", "Rule", "--role", role, "--server", url})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("64-character role refused: %v", err)
+	}
+	var in sentSpecInput
+	if err := json.Unmarshal(captured["CreateSpecNode"], &in); err != nil {
+		t.Fatalf("CreateSpecNode vars: %v", err)
+	}
+	if in.Input.Role == nil || *in.Input.Role != role {
+		t.Errorf("CreateSpecNode role = %v, want %q", in.Input.Role, role)
+	}
+}
+
 func TestSpecNewAtPassesThroughStrictSubroleRefusal(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":     notFoundResolve,
@@ -300,6 +334,10 @@ func TestSpecNewRoleRefusesInvalidOrLegacyUsesBeforeRequest(t *testing.T) {
 		{"lookalike", []string{"onboarding:mentor", "--role", "specification"}},
 		{"empty segment", []string{"onboarding:mentor", "--role", "spec..rule"}},
 		{"trailing dot", []string{"onboarding:mentor", "--role", "spec."}},
+		{"uppercase", []string{"onboarding:mentor", "--role", "spec.Rule"}},
+		{"whitespace", []string{"onboarding:mentor", "--role", "spec.bad role"}},
+		{"punctuation", []string{"onboarding:mentor", "--role", "spec.bad_role"}},
+		{"too long", []string{"onboarding:mentor", "--role", "spec." + strings.Repeat("a", 60)}},
 		{"legacy allocator", []string{"--module", "msg", "--feature", "010", "--role", "spec.rule"}},
 		{"legacy new path", []string{"msg:010:01", "--new-path", "--role", "spec.rule"}},
 	} {
