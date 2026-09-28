@@ -27,6 +27,11 @@ func specNodeList(loc, tags string) string {
 	return specNodeListNode("id-"+loc, loc, tags, "mem1")
 }
 
+func specNodeListWithRole(loc, tags string) string {
+	node := specNodeList(loc, tags)
+	return strings.Replace(node, `"updatedAt":`, `"role":"spec.rule","updatedAt":`, 1)
+}
+
 // specNodeListIn is specNodeList for a spec hit in a named memory: cross-memory
 // list/find results carry colliding citations and names, so the tests that
 // exercise the MEMORY column need hits that differ only by memoryId — hence the
@@ -160,8 +165,209 @@ func TestSpecLs(t *testing.T) {
 	if vars.Filter.LocPrefix != "msg:010" {
 		t.Errorf("prefix = %q", vars.Filter.LocPrefix)
 	}
-	if len(vars.Filter.Tags) != 1 || vars.Filter.Tags[0] != "spec" {
-		t.Errorf("ls should filter to spec tag, got %v", vars.Filter.Tags)
+	if vars.Filter.Role == nil || *vars.Filter.Role != "spec" {
+		t.Errorf("ls should include the spec role-family stream, got %+v", vars.Filter)
+	}
+}
+
+func TestSpecLsIncludesRoleOnlyBeforeApplyingLimit(t *testing.T) {
+	queries := 0
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string        `json:"operationName"`
+			Variables     findNodesVars `json:"variables"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode request: %v", err)
+			return
+		}
+		if body.OperationName != "FindNodes" {
+			t.Errorf("unexpected operation %q", body.OperationName)
+			return
+		}
+		if len(body.Variables.Filter.MemoryIds) != 1 || body.Variables.Filter.MemoryIds[0] != specMem {
+			t.Errorf("both marker streams must keep the memory scope, got %+v", body.Variables.Filter)
+			return
+		}
+		queries++
+		var nodes string
+		switch {
+		case len(body.Variables.Filter.Tags) == 1 && body.Variables.Filter.Tags[0] == "spec":
+			nodes = specNodeList("b", `["spec"]`) + `,` + specNodeListWithRole("c", `["spec"]`)
+		case body.Variables.Filter.Role != nil && *body.Variables.Filter.Role == "spec":
+			nodes = specNodeListWithRole("a", `[]`) + `,` + specNodeListWithRole("c", `["spec"]`)
+		default:
+			t.Errorf("unexpected filter: %+v", body.Variables.Filter)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(translateFindNodes("FindNodes", `{"data":{"nodes":[`+nodes+`]}}`)))
+	}))
+	t.Cleanup(gql.Close)
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "ls", "-m", specMem, "--limit", "1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var specs []struct {
+		Citation string `json:"citation"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &specs); err != nil || len(specs) != 1 || specs[0].Citation != "a" {
+		t.Errorf("role-only spec must win first sorted page; got %q (%v)", out.String(), err)
+	}
+	if queries != 2 {
+		t.Errorf("expected tag and role streams, got %d requests", queries)
+	}
+}
+
+func TestSpecLsOldServerFallsBackToCompleteAccessGatedScan(t *testing.T) {
+	queries := 0
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string        `json:"operationName"`
+			Variables     findNodesVars `json:"variables"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode request: %v", err)
+			return
+		}
+		if body.OperationName != "FindNodes" || len(body.Variables.Filter.MemoryIds) != 1 || body.Variables.Filter.MemoryIds[0] != specMem {
+			t.Errorf("fallback must keep the authorized memory scope, got %+v", body)
+			return
+		}
+		queries++
+		var resp string
+		switch {
+		case len(body.Variables.Filter.Tags) == 1:
+			resp = `{"data":{"nodes":[` + specNodeList("b", `["spec"]`) + `]}}`
+		case body.Variables.Filter.Role != nil:
+			resp = `{"data":null,"errors":[{"message":"Field \"role\" is not defined by type \"NodeFilter\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+		case len(body.Variables.Filter.Tags) == 0 && body.Variables.Filter.Role == nil:
+			resp = `{"data":{"nodes":[` + specNodeList("b", `["spec"]`) + `,` + specNodeListWithRole("a", `[]`) + `,` + specNodeList("c", `[]`) + `]}}`
+		default:
+			t.Errorf("unexpected filter: %+v", body.Variables.Filter)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(translateFindNodes("FindNodes", resp)))
+	}))
+	t.Cleanup(gql.Close)
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "ls", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var specs []struct {
+		Citation string `json:"citation"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &specs); err != nil || len(specs) != 2 || specs[0].Citation != "a" || specs[1].Citation != "b" {
+		t.Errorf("old-server fallback should keep both markers and exclude non-specs; got %q (%v)", out.String(), err)
+	}
+	if queries != 3 {
+		t.Errorf("want tag query, rejected role query, complete fallback query; got %d", queries)
+	}
+}
+
+// The read paths below must each reach a tagless spec through the role stream.
+// The fake server returns that node ONLY for filter.role, so a regression to a
+// tag-only scan produces an empty result rather than a misleading passing test.
+func roleOnlySpecScanServer(t *testing.T, loc, content string) (*httptest.Server, *int, *int) {
+	t.Helper()
+	tagCalls, roleCalls := 0, 0
+	batchNode := strings.Replace(specBatchNodeBody(loc, content), `"tags":["spec","p1"]`, `"tags":[],"role":"spec.rule"`, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string        `json:"operationName"`
+			Variables     findNodesVars `json:"variables"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode request: %v", err)
+			return
+		}
+		var resp string
+		switch body.OperationName {
+		case "FindNodes":
+			if len(body.Variables.Filter.MemoryIds) != 1 || body.Variables.Filter.MemoryIds[0] != specMem {
+				t.Errorf("memory scope lost: %+v", body.Variables.Filter)
+			}
+			switch {
+			case len(body.Variables.Filter.Tags) == 1 && body.Variables.Filter.Tags[0] == "spec":
+				tagCalls++
+				resp = `{"data":{"nodes":[]}}`
+			case body.Variables.Filter.Role != nil && *body.Variables.Filter.Role == "spec":
+				roleCalls++
+				resp = `{"data":{"nodes":[` + specNodeListWithRole(loc, `[]`) + `]}}`
+			default:
+				t.Errorf("unexpected filter: %+v", body.Variables.Filter)
+				return
+			}
+		case "NodeBatch":
+			resp = `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` + batchNode + `]}}}`
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
+	}))
+	t.Cleanup(server.Close)
+	return server, &tagCalls, &roleCalls
+}
+
+func TestRoleOnlySpecAppearsInPrefixGetGrepAndCheckTools(t *testing.T) {
+	const loc = "cor:api:010:01"
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+		exit int
+	}{
+		{"prefix get", []string{"get", "--prefix", "cor:api"}, `"citation": "` + loc + `"`, 0},
+		{"grep", []string{"grep", "JadeMarker"}, `"citation": "` + loc + `"`, 0},
+		{"check-tools", []string{"check-tools"}, `"token": "hadron_bogus_tool"`, exitcode.Conflict},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, tagCalls, roleCalls := roleOnlySpecScanServer(t, loc, "JadeMarker uses hadron_bogus_tool.")
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := append([]string{"spec"}, tc.args...)
+			args = append(args, "-m", specMem, "--json", "--server", gql.URL)
+			root.SetArgs(args)
+			if got := exitCodeFor(root.Execute()); got != tc.exit {
+				t.Fatalf("exit = %d, want %d", got, tc.exit)
+			}
+			if *tagCalls != 1 || *roleCalls != 1 {
+				t.Errorf("expected tag and role scans, got tag=%d role=%d", *tagCalls, *roleCalls)
+			}
+			if !strings.Contains(out.String(), tc.want) {
+				t.Errorf("role-only node missing from %s: %s", tc.name, out.String())
+			}
+			if tc.name == "prefix get" {
+				var details []struct {
+					Lint []struct {
+						Rule     string `json:"rule"`
+						Severity string `json:"severity"`
+					} `json:"lint"`
+				}
+				if err := json.Unmarshal([]byte(out.String()), &details); err != nil {
+					t.Fatalf("decode prefix get: %v\n%s", err, out.String())
+				}
+				if len(details) != 1 {
+					t.Fatalf("prefix get details = %d, want 1", len(details))
+				}
+				for _, finding := range details[0].Lint {
+					if finding.Rule == "tag-spec" {
+						if finding.Severity != "warning" {
+							t.Errorf("role lost from prefix get batch: tag-spec = %s, want warning", finding.Severity)
+						}
+					}
+				}
+			}
+		})
 	}
 }
 
@@ -192,10 +398,9 @@ func TestSpecGet(t *testing.T) {
 
 // The fuzzy `find` path admits a spec carrying the governed role and no tags
 // at all (isSpec's second branch, #708), and its tags must render as `[]`,
-// never `null` (#312). The `get` paths pin the spec tag — server-side for
-// --prefix, via fetchSpecTaggedNode for a citation — so they can't reach a nil
-// slice today; specDetailFromNode normalizes defensively, covered by the unit
-// test in the spec package.
+// never `null` (#312). The direct `get` path checks the marker by address;
+// the prefix path uses the tag/role union. specDetailFromNode normalizes
+// defensively, covered by the unit test in the spec package.
 func TestSpecFindJSONEmptyTagsRenderAsList(t *testing.T) {
 	roleOnly := strings.Replace(specNodeListNode("id-1", "msg:010:02", `null`, "mem1"), `"tags":null`, `"tags":null,"role":"spec"`, 1)
 	gql, _ := captureGraphQL(t, map[string]string{
@@ -282,12 +487,11 @@ func TestSpecGetPrefix(t *testing.T) {
 	if !strings.Contains(text, "Win back users") || !strings.Contains(text, "Lint: ✓ ok") {
 		t.Errorf("prefix dump should render each node's detail:\n%s", text)
 	}
-	// Default prefix mode pages the listing to exhaustion (#23) via scanAllNodes
-	// — a 500-wide page, not the old single capped Nodes call.
+	// Default prefix mode pages each marker stream to exhaustion (#23).
 	var nodesVars findNodesVars
 	_ = json.Unmarshal(captured["FindNodes"], &nodesVars)
-	if nodesVars.Filter.LocPrefix != "msg:010" || len(nodesVars.Filter.Tags) != 1 || nodesVars.Filter.Tags[0] != "spec" {
-		t.Errorf("prefix/tags wrong: %+v", nodesVars.Filter)
+	if nodesVars.Filter.LocPrefix != "msg:010" || nodesVars.Filter.Role == nil || *nodesVars.Filter.Role != "spec" {
+		t.Errorf("prefix/role wrong in role stream: %+v", nodesVars.Filter)
 	}
 	if nodesVars.Limit == nil || *nodesVars.Limit != 500 {
 		t.Errorf("default prefix mode should page by 500 (exhaustive), got limit=%v", nodesVars.Limit)
@@ -502,11 +706,11 @@ func TestSpecListScopedOmitsMemoryColumn(t *testing.T) {
 
 func TestSpecFindMatchExactly(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"FindNodes": `{"data":{"nodes":[` + specNodeListWithRole("msg:010:02", `["topic"]`) + `]}}`,
 	})
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "find", "msg:010", "-m", specMem, "--match-exactly", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"spec", "find", "msg:010", "-m", specMem, "--match-exactly", "--tag", "topic", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -518,14 +722,14 @@ func TestSpecFindMatchExactly(t *testing.T) {
 	if vars.Mode == nil || *vars.Mode != "regex" {
 		t.Errorf("--match-exactly should use regex mode, got %v", vars.Mode)
 	}
-	found := false
-	for _, tag := range vars.Filter.Tags {
-		if tag == "spec" {
-			found = true
-		}
+	if len(vars.Filter.Tags) != 1 || vars.Filter.Tags[0] != "topic" {
+		t.Errorf("--match-exactly should keep the requested tag without requiring legacy spec, got %v", vars.Filter.Tags)
 	}
-	if !found {
-		t.Errorf("--match-exactly should filter to spec tag, got %v", vars.Filter.Tags)
+	var specs []struct {
+		Citation string `json:"citation"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &specs); err != nil || len(specs) != 1 || specs[0].Citation != "msg:010:02" {
+		t.Errorf("exact find should include tagless spec.rule node; got %q (%v)", out.String(), err)
 	}
 }
 
@@ -1573,6 +1777,46 @@ func TestSpecLintAllReportsUntaggedCitation(t *testing.T) {
 	_ = json.Unmarshal(captured["FindNodes"], &vars)
 	if len(vars.Filter.Tags) != 0 {
 		t.Fatalf("lint --all must not pre-filter by spec tag, got %v", vars.Filter.Tags)
+	}
+}
+
+func TestSpecLintAllPreservesRoleFromBatch(t *testing.T) {
+	const roleLoc, legacyLoc = "onboarding:mentor:screens", "msg:010:02"
+	roleNode := strings.Replace(specBatchNodeWithTags(roleLoc, `[]`), `"tags":[]`, `"tags":[],"role":"spec.rule"`, 1)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeListWithRole(roleLoc, `[]`) + `,` + specNodeList(legacyLoc, `["spec","p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			roleNode + `,` + specBatchNode(legacyLoc) + `]}}}`,
+		"Memories":  memListMicromentorJSON,
+		"GetMemory": memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("role-only and legacy tagged specs must avoid lint errors: %v\n%s", err, out.String())
+	}
+	var findings []struct {
+		Citation string `json:"citation"`
+		Rule     string `json:"rule"`
+		Severity string `json:"severity"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &findings); err != nil {
+		t.Fatalf("decode lint findings: %v\n%s", err, out.String())
+	}
+	for _, finding := range findings {
+		if finding.Severity == "error" {
+			t.Errorf("unexpected lint error: %+v", finding)
+		}
+		if finding.Rule != "tag-spec" {
+			continue
+		}
+		if finding.Citation == legacyLoc {
+			t.Errorf("legacy tagged control has tag-spec finding: %+v", finding)
+		}
+		if finding.Citation == roleLoc && finding.Severity != "warning" {
+			t.Errorf("role-only tag-spec finding must be a warning when present: %+v", finding)
+		}
 	}
 }
 

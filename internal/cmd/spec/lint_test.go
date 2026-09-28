@@ -1159,8 +1159,9 @@ func TestNearCapAtAnyLocIsNotTierAdvice(t *testing.T) {
 }
 
 // A spec by its governed role but without the tag is a spec (isSpec), so the
-// missing tag is a WARNING that says why it matters — the tag-based scans skip
-// it — not the "broken" error a non-spec gets (@copilot on #710).
+// missing tag remains a WARNING about legacy tag-only consumers, not the
+// "broken" error a non-spec gets (@copilot on #710). Role-aware reads include
+// the node (#684); external tag-only clients may still skip it.
 func TestTagSpecFindingKnowsTheRole(t *testing.T) {
 	find := func(n specNode) *lintFindingDTO {
 		for _, f := range lintNode(n, "") {
@@ -1173,10 +1174,10 @@ func TestTagSpecFindingKnowsTheRole(t *testing.T) {
 	}
 	for _, role := range []string{api.SpecNodeRole, "spec.rule"} {
 		roleOnly := specNode{Loc: "onboarding:mentor", Name: "onboarding:mentor — M", NodeType: "info", Role: &role}
-		if f := find(roleOnly); f == nil || f.Severity != sevWarning || !strings.Contains(f.Message, "skip this spec") {
-			t.Errorf("role-only %s spec: tag-spec = %+v, want a warning explaining the scans skip it", role, f)
-		} else if !strings.Contains(f.Message, "find --match-exactly") {
-			t.Errorf("exact find filters by the tag too, so the warning must name it: %q", f.Message)
+		if f := find(roleOnly); f == nil || f.Severity != sevWarning || !strings.Contains(f.Message, "legacy tag-only clients") {
+			t.Errorf("role-only %s spec: tag-spec = %+v, want a warning naming legacy tag-only clients", role, f)
+		} else if !strings.Contains(f.Message, "role-aware spec commands include it") {
+			t.Errorf("the warning must acknowledge role-aware reads: %q", f.Message)
 		} else if strings.Contains(f.Message, "lint") {
 			t.Errorf("lint's own scans DO include a role-only spec, so the warning must not name lint: %q", f.Message)
 		}

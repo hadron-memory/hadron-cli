@@ -429,8 +429,7 @@ func TestTagsOrEmpty(t *testing.T) {
 	}
 }
 
-// specDetailFromNode's paths pin the spec tag today, so this guards the
-// normalization for any future caller that doesn't (#312).
+// A role-only spec can have no tags; detail output still promises [] (#312).
 func TestSpecDetailFromNodeEmptyTags(t *testing.T) {
 	dto := specDetailFromNode(&gen.GetNodeNode{Loc: "msg:010:02", Name: "W2", NodeType: "info"}, false, nil, "")
 	if dto.Tags == nil {
@@ -464,13 +463,13 @@ func TestPageBranchOffsetOnlyIsOneDefaultPage(t *testing.T) {
 	for i := 0; i < serverDefaultPage+50; i++ {
 		nodes = append(nodes, &api.ListNode{Loc: fmt.Sprintf("b:%d", i)})
 	}
-	if got := len(pageBranch(nodes, "b", 0, 10, false)); got != serverDefaultPage {
+	if got := len(pageBranch(nodes, "b", 0, 10)); got != serverDefaultPage {
 		t.Errorf("offset-only window = %d, want one default page (%d)", got, serverDefaultPage)
 	}
-	if got := len(pageBranch(nodes, "b", 0, 0, false)); got != serverDefaultPage+50 {
+	if got := len(pageBranch(nodes, "b", 0, 0)); got != serverDefaultPage+50 {
 		t.Errorf("no window = %d, want the whole branch", got)
 	}
-	if got := len(pageBranch(nodes, "b", 5, 10, false)); got != 5 {
+	if got := len(pageBranch(nodes, "b", 5, 10)); got != 5 {
 		t.Errorf("explicit limit = %d, want 5", got)
 	}
 }

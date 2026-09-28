@@ -93,9 +93,9 @@ exits 0.`,
 			if prefix != "" {
 				prefixPtr = &prefix
 			}
-			// Same spec-scoped bulk read as `spec grep`: list the spec-tagged
-			// citation nodes, then read their content/abstract in one nodeBatch.
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, prefixPtr, []string{"spec"})
+			// Same spec-scoped bulk read as `spec grep`: list nodes carrying
+			// either spec marker, then read content/abstract in one nodeBatch.
+			all, err := scanAllSpecNodes(cmd.Context(), client, &memURN, prefixPtr)
 			if err != nil {
 				return err
 			}

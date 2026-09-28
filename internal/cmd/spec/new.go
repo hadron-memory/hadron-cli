@@ -228,7 +228,7 @@ is one call instead of four.`, abstractSoftMax),
 			if prefix == "" {
 				return exitcode.Newf(exitcode.Usage, "pass --product and/or --module")
 			}
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix)
 			if err != nil {
 				return err
 			}
@@ -820,7 +820,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 	if target.Product != "" {
 		prefix = target.Product
 	}
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix)
 	if err != nil {
 		return err
 	}

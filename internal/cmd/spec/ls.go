@@ -5,7 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
@@ -20,12 +19,12 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Long: `List spec nodes, optionally scoped to a loc prefix.
 
 --prefix filters by the citation prefix: --prefix msg:010 lists every spec
-whose loc is msg:010 or starts with msg:010:, at any depth. Every node tagged
-spec is listed, whatever the shape of its loc.
+whose loc is msg:010 or starts with msg:010:, at any depth. A node is a spec
+when it has the legacy "spec" tag or a "spec" / "spec.*" role.
 
 By default every matching spec is listed (the query is paged to
-exhaustion). Pass --limit (with optional --offset) to fetch a single
-explicit page instead.`,
+exhaustion). Pass --limit (with optional --offset) to display one page
+after merging both spec markers.`,
 		Example: `  hadron spec list -m hrn:mem:micromentor.org:platform-specs
   hadron spec list -m hrn:mem:micromentor.org:platform-specs --prefix msg:010 --json`,
 		Args: cobra.NoArgs,
@@ -58,34 +57,15 @@ explicit page instead.`,
 			if prefix != "" {
 				prefixArg = &prefix
 			}
-			// Bare `list` lists the whole memory, so page to exhaustion (#23).
-			// An explicit --limit/--offset is honored verbatim as a single
-			// server page — deliberate user-driven pagination, not the default —
-			// EXCEPT with a --prefix, where the branch is scanned whole and the
-			// window cut after the segment-boundary filter (pageBranch).
-			var rawNodes []*api.ListNode
-			serverPaged := (limit > 0 || offset > 0) && prefix == ""
-			if serverPaged {
-				var limitArg, offsetArg *int
-				if limit > 0 {
-					limitArg = &limit
-				}
-				if offset > 0 {
-					offsetArg = &offset
-				}
-				page, rerr := api.FindNodes(cmd.Context(), client, nil, nil, newNodeFilter(memoryArg, prefixArg, []string{"spec"}), sortLoc(), nil, limitArg, offsetArg)
-				if rerr != nil {
-					return api.MapError(rerr)
-				}
-				rawNodes = page.Nodes
-			} else {
-				rawNodes, err = scanAllNodes(cmd.Context(), client, memoryArg, prefixArg, []string{"spec"})
-				if err != nil {
-					return err
-				}
+			// The two marker streams are each paged to exhaustion and deduped
+			// before a user window is cut. Applying --limit/--offset to either
+			// stream on the server would skip specs from the other (#684).
+			rawNodes, err := scanAllSpecNodes(cmd.Context(), client, memoryArg, prefixArg)
+			if err != nil {
+				return err
 			}
 
-			rawNodes = pageBranch(rawNodes, prefix, limit, offset, serverPaged)
+			rawNodes = pageBranch(rawNodes, prefix, limit, offset)
 			specs := make([]specDTO, 0, len(rawNodes))
 			for _, n := range rawNodes {
 				if n == nil || !underPrefix(n.Loc, prefix) {
@@ -114,7 +94,7 @@ explicit page instead.`,
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "scope to a memory (ID or fully-qualified URN)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by citation prefix (e.g. msg:010)")
-	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of specs to fetch in one page (default: all)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of specs to display (default: all)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset (implies a single page)")
 	return cmd
 }
