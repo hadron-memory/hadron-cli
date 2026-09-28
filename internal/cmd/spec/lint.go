@@ -68,6 +68,7 @@ func newCmdLint(f *cmdutil.Factory) *cobra.Command {
 corpus against the structural and stability rules. Lint is structural: it
 does not check a spec's content sections, which depend on the spec's type
 (specs:tasks:validate-spec does that).
+Names may be human-readable; they need not start with the citation.
 
 Scope is one of: a single <citation> argument, --prefix <citation> (that
 node plus its descendants — e.g. one feature and its rules), --product
@@ -340,21 +341,16 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 			add(u.Rule, u.Severity, u.Message)
 		}
 	}
-	if !strings.HasPrefix(n.Name, n.Loc+" — ") {
-		add("name-prefix", sevError, fmt.Sprintf("name must start with %q", n.Loc+" — "))
-	}
 	if n.NodeType != "info" {
 		add("nodetype-info", sevError, fmt.Sprintf("nodeType must be \"info\", got %q", n.NodeType))
 	}
 	if !hasTag(n.Tags, "spec") {
 		if api.RoleInFamily(n.Role, api.SpecNodeRole) {
 			// A spec by its governed role (isSpec), so not broken — but the
-			// tag-filtered scans (list, get --prefix, grep, replace,
-			// check-tools, find --match-exactly) select by the TAG server-side (NodeFilter has no
-			// role facet), so it is invisible to them. Lint's own scans are not
-			// tag-filtered (lintSelects), so lint is NOT in that list
-			// (@copilot, @codex on #710).
-			add("tag-spec", sevWarning, `carries the spec role but not the "spec" tag — spec list, get --prefix, grep, replace, check-tools and find --match-exactly select by the tag, so they skip this spec; add the tag`)
+			// CLI reads include it (#684), but other tag-only clients can omit it.
+			// The missing-tag policy itself is unchanged; Jade's request to
+			// revisit that policy is tracked separately.
+			add("tag-spec", sevWarning, `carries the spec role but not the "spec" tag — legacy tag-only clients may skip it; role-aware spec commands include it`)
 		} else {
 			add("tag-spec", sevError, `missing "spec" tag`)
 		}
@@ -603,7 +599,7 @@ func abstractLength(a *string) int {
 // "cli:cha", or a feature like "cor:api:140"). The scan pages to exhaustion so
 // a subtree larger than one server page is linted whole (#23).
 func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix string) ([]specNode, error) {
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -641,7 +637,7 @@ func lintSelects(n *api.ListNode) bool {
 // tag, including on malformed corpus members (#241). The scan pages to
 // exhaustion so a corpus larger than one server page is linted whole (#23).
 func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string) ([]specNode, error) {
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -653,7 +649,7 @@ func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string
 // tag-agnostic so product discovery sees a product whose specs are missing
 // their tag.
 func scanAllCitationLocs(cmd *cobra.Command, client graphql.Client, memURN string) ([]string, error) {
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -947,12 +943,9 @@ func leakedMarkers(s string) []string {
 // contain "and" ("create and update"), so on its own it would be noise. Paired
 // with an abstract a sentence from the cap, it is a lead worth printing.
 func titleConjunction(title string) string {
-	// The spec title carries its citation as a prefix ("cor:agt:020:03 — …");
-	// only the human half can name subjects, and a citation never contains a
-	// conjunction, so splitting first avoids matching one inside a loc.
-	if _, human, found := strings.Cut(title, "—"); found {
-		title = human
-	}
+	// A citation prefix is optional. Citation locs cannot contain any of the
+	// separators below, so a human name can be inspected as-is, including its
+	// first clause before an em dash.
 	lower := strings.ToLower(title)
 	for _, c := range []string{" and ", " & ", "/"} {
 		if strings.Contains(lower, c) {

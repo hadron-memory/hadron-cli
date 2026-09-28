@@ -111,7 +111,7 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 // still shows) goes into the ledger, and every spec (isSpec) at any other loc
 // is returned as outside the numbering (#708) — reported, never dropped.
 func scanLedgerLocs(cmd *cobra.Command, client graphql.Client, memURN string) (locs, outside []string, err error) {
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil)
 	if err != nil {
 		return nil, nil, err
 	}

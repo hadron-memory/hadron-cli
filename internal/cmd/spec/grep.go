@@ -79,12 +79,12 @@ token appears — including inside longer tokens — then rewrite precisely with
 			if prefix != "" {
 				prefixPtr = &prefix
 			}
-			// List every spec-tagged citation node in scope (paged to exhaustion —
+			// List every spec node in scope (paged to exhaustion —
 			// #23), then bulk-read their full content/abstract via nodeBatch (200/1
 			// MB per call) rather than a per-spec GetNode loop, which timed out over
-			// the whole corpus (#240). Scoping to the "spec" tag keeps grep to the
-			// corpus proper — never the register or other non-spec nodes.
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, prefixPtr, []string{"spec"})
+			// the whole corpus (#240). The tag/role union keeps grep to the corpus
+			// proper — never the register or other non-spec nodes.
+			all, err := scanAllSpecNodes(cmd.Context(), client, &memURN, prefixPtr)
 			if err != nil {
 				return err
 			}

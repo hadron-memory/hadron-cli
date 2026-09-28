@@ -31,10 +31,11 @@ and `spec` tag.
 The memory's role rules may refuse an undeclared subrole; the CLI reports
 that server refusal. Legacy numbering and `--new-path` do not take `--role`.
 
-Direct `spec get`, `edit` and `link` accept a tagless `spec.*` node. Corpus
-scans still select the `spec` tag server-side, so tagless nodes are absent from
-`list`, `get --prefix`, `grep`, `replace`, `check-tools` and
-`find --match-exactly` until role-family listing support lands (#684).
+Spec reads recognize the union of the legacy `spec` tag and the `spec` / dotted
+`spec.*` role family. This includes `list`, `get --prefix`,
+`find --match-exactly`, `grep`, `check-tools` and `replace`; an overlapping node
+appears once. The server's bulk replace still skips governed specs, including
+role-only specs, and reports how many it did not search (#659).
 
 ## The legacy numbering
 
@@ -126,8 +127,8 @@ citation *positionally* and refuses to be combined with the tier-selecting flags
 
 **Rename the ancestors afterward.** `--title` lands on the citation you named;
 each ancestor is titled from its own citation segment — `cli:cha` is titled
-`cha`, `cli:cha:010` is titled `010`. That lints clean (the name leads with the
-citation), so nothing will remind you:
+`cha`, `cli:cha:010` is titled `010`. That lints clean because lint does not
+judge how descriptive a name is, so nothing will remind you:
 
 ```sh
 hadron node update cli:cha -m $M --name "cli:cha — chat command group"
@@ -252,14 +253,14 @@ abstract** (one bulk fetch, not a per-spec loop) and prints every occurrence as
 `citation:line: text` — literal by default, `--regex`/`-i`, `--field
 content|abstract`, `--prefix` to scope.
 
-`lint` checks each spec's name, node type and `spec` tag, duplicate locs,
+`lint` checks each spec's node type and `spec` tag, duplicate locs,
 serialization leaks, and each abstract's length and freshness; every finding
 names its rule. It is structural: since #708 it checks no content sections at
 any loc (no missing abstract, "what invalidates", `data.version`,
 scaffold-body or placeholder-contract finding). A spec at any loc owes no parent, contract or index, and a
 memory may mix loc shapes: the legacy tier checks (parent-exists, toc-edge,
 inheritance-edge, index-incomplete) and the one-arity rule (`mixed-arity`) are
-removed.
+removed. Names may be human-readable or citation-prefixed; lint accepts both.
 
 Use `hadron spec use $M` when you are repeatedly maintaining the same corpus.
 It writes `spec_memory` to your user config (for example,

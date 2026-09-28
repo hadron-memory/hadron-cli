@@ -71,7 +71,7 @@ func TestSpecGetAddressesAnyValidLoc(t *testing.T) {
 }
 
 // The corpus scans no longer drop a tagged spec for its shape: what the
-// server returns for the `spec` tag is what `spec ls` lists.
+// server returns for the legacy marker is included in `spec ls`.
 func TestSpecLsListsEveryShape(t *testing.T) {
 	var hits []string
 	for _, loc := range hierarchyNeutralLocs {
@@ -91,12 +91,12 @@ func TestSpecLsListsEveryShape(t *testing.T) {
 			t.Errorf("spec ls dropped %q:\n%s", loc, out.String())
 		}
 	}
-	// The corpus is still selected by the tag, server-side — not by shape, and
-	// not by scanning everything.
+	// The tag stream is unioned with the role-family stream, not selected by
+	// shape or a full unfiltered scan on a current server.
 	var vars findNodesVars
 	_ = json.Unmarshal(captured["FindNodes"], &vars)
-	if len(vars.Filter.Tags) != 1 || vars.Filter.Tags[0] != "spec" {
-		t.Errorf("ls must still select the corpus by the spec tag, got %v", vars.Filter.Tags)
+	if vars.Filter.Role == nil || *vars.Filter.Role != "spec" {
+		t.Errorf("ls must include the role-family stream, got %+v", vars.Filter)
 	}
 }
 
@@ -310,6 +310,40 @@ func TestSpecNewAtRoleDryRun(t *testing.T) {
 	}
 }
 
+func TestSpecNewAtRoleHumanDryRun(t *testing.T) {
+	url, captured := newAtServer(t)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "onboarding:mentor:rule", "-m", specMem, "--title", "Rule", "--role", "spec.rule", "--dry-run", "--server", url})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, wrote := captured["CreateSpecNode"]; wrote {
+		t.Fatal("dry-run wrote a node")
+	}
+	if !strings.Contains(out.String(), "  role: spec.rule\n") || !strings.Contains(out.String(), " — Rule\n") {
+		t.Errorf("human dry-run must show the selected role and plain title: %s", out.String())
+	}
+}
+
+func TestSpecNewAtMaxLengthRole(t *testing.T) {
+	role := "spec." + strings.Repeat("a", 59) // server's 64-character limit
+	url, captured := newAtServer(t)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "onboarding:mentor:rule", "-m", specMem, "--title", "Rule", "--role", role, "--server", url})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("64-character role refused: %v", err)
+	}
+	var in sentSpecInput
+	if err := json.Unmarshal(captured["CreateSpecNode"], &in); err != nil {
+		t.Fatalf("CreateSpecNode vars: %v", err)
+	}
+	if in.Input.Role == nil || *in.Input.Role != role || in.Input.Name != "Rule" || len(in.Input.Tags) != 0 {
+		t.Errorf("64-character typed create = %+v", in.Input)
+	}
+}
+
 func TestSpecNewAtPassesThroughStrictSubroleRefusal(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":     notFoundResolve,
@@ -334,6 +368,10 @@ func TestSpecNewRoleRefusesInvalidOrLegacyUsesBeforeRequest(t *testing.T) {
 		{"lookalike", []string{"onboarding:mentor", "--role", "specification"}},
 		{"empty segment", []string{"onboarding:mentor", "--role", "spec..rule"}},
 		{"trailing dot", []string{"onboarding:mentor", "--role", "spec."}},
+		{"uppercase", []string{"onboarding:mentor", "--role", "spec.Rule"}},
+		{"whitespace", []string{"onboarding:mentor", "--role", "spec.bad role"}},
+		{"punctuation", []string{"onboarding:mentor", "--role", "spec.bad_role"}},
+		{"too long", []string{"onboarding:mentor", "--role", "spec." + strings.Repeat("a", 60)}},
 		{"legacy allocator", []string{"--module", "msg", "--feature", "010", "--role", "spec.rule"}},
 		{"legacy new path", []string{"msg:010:01", "--new-path", "--role", "spec.rule"}},
 	} {

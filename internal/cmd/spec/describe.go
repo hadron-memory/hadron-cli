@@ -88,7 +88,7 @@ shown as retired and ignored.`,
 				data = memResp.Memory.Data
 			}
 
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, nil)
 			if err != nil {
 				return err
 			}

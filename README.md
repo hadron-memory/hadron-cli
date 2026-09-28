@@ -174,20 +174,24 @@ reissues it. Full flag reference: `hadron agentic-usage`.
 
 Everything the platform can do is meant to be drivable from `hadron`. The
 headless-run surface above closes the spec-040 gap. Some server GraphQL
-operations have no dedicated command **by design** — they are reachable through
-the `hadron api` raw-GraphQL escape hatch when needed:
+operations have no dedicated command **by design**. Active operations are
+reachable through the `hadron api` raw-GraphQL escape hatch when needed:
 
 - **Interactive / portal-only flows** — the chatbot chat lifecycle
   (`startChat`, `sendChatMessage`, …), the system-memory editor
   lock and revision/version machinery, multipart asset upload, and invitation /
   onboarding / profile mutations. These are browser-interaction shaped, not
   batch-CLI shaped.
-- **Git-sync internals** — `replaceSubtree`, `mergeMemories`/`mergeNodes`,
+- **Git-sync internals** — `mergeMemories`/`mergeNodes`,
   `pushMemoryToGit`/`syncMemory`, `setMemorySourceToken`, `encryptMemory`. These
   are server↔git machinery; the CLI's `memory export`/`node import` cover the
   end-user round-trip.
   (Coding-session lifecycle moved out of this bucket: `hadron team session`
   drives `startSession`/`endSession` for persona sessions, #369.)
+- **Retired field** — `replaceSubtree` remains deprecated in the server SDL so
+  existing clients receive `REPLACE_SUBTREE_RETIRED` after the memory access
+  check. It writes nothing, including through `hadron api`; use the canonical
+  node write mutations instead. Full SDL removal is separate server work.
 - **Not-yet-built, tracked as follow-ups** — the remaining Agent surface
   (subscriptions, imports); one-time
   schedules (`schedule create --at <iso>`), and the admin grants/policy/quota
