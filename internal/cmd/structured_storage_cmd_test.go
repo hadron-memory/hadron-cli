@@ -187,7 +187,7 @@ func TestMemorySetSchema(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "set", "m1",
+	root.SetArgs([]string{"memory", "set", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		"--schema", `{"objectTypes":{"competitor":{"fields":{"tier":{"type":"text"}}}}}`,
 		"--server", gql.URL})
 	if err := root.Execute(); err != nil {
@@ -214,7 +214,7 @@ func TestMemorySetSchemaClear(t *testing.T) {
 		})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
-		root.SetArgs([]string{"memory", "set", "m1", "--schema", clear, "--server", gql.URL})
+		root.SetArgs([]string{"memory", "set", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "--schema", clear, "--server", gql.URL})
 		if err := root.Execute(); err != nil {
 			t.Fatalf("clear %q execute: %v", clear, err)
 		}
@@ -233,7 +233,7 @@ func TestMemorySetSchemaMalformedIsUsageError(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "set", "m1", "--schema", `{"objectTypes":`, "--server", gql.URL})
+	root.SetArgs([]string{"memory", "set", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "--schema", `{"objectTypes":`, "--server", gql.URL})
 	err := root.Execute()
 	if err == nil || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("malformed --schema should be a usage error, got %v", err)
@@ -281,7 +281,7 @@ func TestMemorySetSchemaServerRejectionSurfaced(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "set", "m1", "--schema", `{"objectTypes":{"competitor":{"fields":{"tier":{"type":"bogus"}}}}}`, "--server", gql.URL})
+	root.SetArgs([]string{"memory", "set", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "--schema", `{"objectTypes":{"competitor":{"fields":{"tier":{"type":"bogus"}}}}}`, "--server", gql.URL})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), serverMsg) {
 		t.Errorf("server schema rejection must surface verbatim, got %v", err)

@@ -12042,11 +12042,12 @@ func (v *GetScopeScope) __premarshalJSON() (*__premarshalGetScopeScope, error) {
 
 // GetSpecNodeForEditNode includes the requested fields of the GraphQL type Node.
 type GetSpecNodeForEditNode struct {
-	Id       string   `json:"id"`
-	MemoryId string   `json:"memoryId"`
-	Loc      string   `json:"loc"`
-	Name     string   `json:"name"`
-	Tags     []string `json:"tags"`
+	Id          string   `json:"id"`
+	MemoryId    string   `json:"memoryId"`
+	Loc         string   `json:"loc"`
+	Name        string   `json:"name"`
+	Description *string  `json:"description"`
+	Tags        []string `json:"tags"`
 	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
 	// platform reads a small CLOSED subset and ignores every other value.
 	//
@@ -12081,6 +12082,9 @@ func (v *GetSpecNodeForEditNode) GetLoc() string { return v.Loc }
 
 // GetName returns GetSpecNodeForEditNode.Name, and is useful for accessing the field via an interface.
 func (v *GetSpecNodeForEditNode) GetName() string { return v.Name }
+
+// GetDescription returns GetSpecNodeForEditNode.Description, and is useful for accessing the field via an interface.
+func (v *GetSpecNodeForEditNode) GetDescription() *string { return v.Description }
 
 // GetTags returns GetSpecNodeForEditNode.Tags, and is useful for accessing the field via an interface.
 func (v *GetSpecNodeForEditNode) GetTags() []string { return v.Tags }
@@ -39682,6 +39686,7 @@ query GetSpecNodeForEdit ($ref: ID!) {
 		memoryId
 		loc
 		name
+		description
 		tags
 		role
 		content

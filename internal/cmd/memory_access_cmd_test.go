@@ -15,13 +15,13 @@ func TestMemoryMemberAdd(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	// mixed-case role must normalize to the lower-case enum.
-	root.SetArgs([]string{"memory", "member", "add", "mem1", "--user", "usr1", "--role", "Writer", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "member", "add", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--user", "usr1", "--role", "Writer", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["AddMemoryMember"], &vars)
-	if vars["memoryRef"] != "mem1" || vars["userRef"] != "usr1" || vars["role"] != "writer" {
+	if vars["memoryRef"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || vars["userRef"] != "usr1" || vars["role"] != "writer" {
 		t.Errorf("add vars: %v", vars)
 	}
 }
@@ -37,7 +37,7 @@ func TestMemoryMemberAddSendsUserRefUnresolved(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "member", "add", "mem1", "--user", "jane@acme.com", "--role", "reader", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "member", "add", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--user", "jane@acme.com", "--role", "reader", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestMemoryMemberAddSendsUserRefUnresolved(t *testing.T) {
 func TestMemoryMemberAddRejectsBadRole(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "member", "add", "mem1", "--user", "u", "--role", "manager", "--server", "http://127.0.0.1:1"})
+	root.SetArgs([]string{"memory", "member", "add", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--user", "u", "--role", "manager", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "invalid --role") {
 		t.Fatalf("expected invalid-role error, got %v", err)
@@ -60,13 +60,13 @@ func TestMemoryMemberAddRejectsBadRole(t *testing.T) {
 
 func TestMemoryMemberLs(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"MemoryMembers": `{"data":{"memory":{"id":"mem1","members":[
+		"MemoryMembers": `{"data":{"memory":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","members":[
 			{"role":"owner","createdAt":"2026-06-19T00:00:00Z","user":` + memUserJSON + `}
 		]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "member", "ls", "mem1", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "member", "ls", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestMemoryMemberSetRole(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "member", "set-role", "mem1", "--user", "usr1", "--role", "reader", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "member", "set-role", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--user", "usr1", "--role", "reader", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestMemoryMemberSetRole(t *testing.T) {
 func TestMemoryMemberRmRequiresYes(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "member", "rm", "mem1", "--user", "usr1", "--server", "http://127.0.0.1:1"})
+	root.SetArgs([]string{"memory", "member", "rm", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--user", "usr1", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "--yes") {
 		t.Fatalf("expected --yes refusal, got %v", err)
@@ -113,17 +113,17 @@ func TestMemoryMemberRmRequiresYes(t *testing.T) {
 
 func TestMemoryMemberRmWithYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"RemoveMemoryMember": `{"data":{"removeMemoryMember":{"memoryId":"mem1","userId":"usr1"}}}`,
+		"RemoveMemoryMember": `{"data":{"removeMemoryMember":{"memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","userId":"usr1"}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "member", "rm", "mem1", "--user", "usr1", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "member", "rm", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--user", "usr1", "--yes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["RemoveMemoryMember"], &vars)
-	if vars["memoryRef"] != "mem1" || vars["userRef"] != "usr1" {
+	if vars["memoryRef"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || vars["userRef"] != "usr1" {
 		t.Errorf("rm vars: %v", vars)
 	}
 }
@@ -136,13 +136,13 @@ func TestMemoryShareCreate(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "share", "create", "mem1", "--grantee", "usr1", "--role", "reader", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "share", "create", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--grantee", "usr1", "--role", "reader", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateMemoryShare"], &vars)
-	if vars["memoryId"] != "mem1" || vars["granteeRef"] != "usr1" || vars["role"] != "reader" {
+	if vars["memoryId"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || vars["granteeRef"] != "usr1" || vars["role"] != "reader" {
 		t.Errorf("share vars: %v", vars)
 	}
 }
@@ -156,7 +156,7 @@ func TestMemoryShareCreateResolvesGranteeRef(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "share", "create", "mem1", "--grantee", "@jane", "--role", "writer", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "share", "create", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--grantee", "@jane", "--role", "writer", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestMemoryShareCreateResolvesGranteeRef(t *testing.T) {
 func TestMemoryShareRejectsOwnerRole(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "share", "create", "mem1", "--grantee", "u", "--role", "owner", "--server", "http://127.0.0.1:1"})
+	root.SetArgs([]string{"memory", "share", "create", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--grantee", "u", "--role", "owner", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "invalid --role") {
 		t.Fatalf("expected invalid-role error (owner isn't a share role), got %v", err)
@@ -187,13 +187,13 @@ func TestMemoryShareRejectsOwnerRole(t *testing.T) {
 
 func TestMemoryShareLs(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"MemoryShares": `{"data":{"memory":{"id":"mem1","shares":[
+		"MemoryShares": `{"data":{"memory":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","shares":[
 			{"role":"reader","createdAt":"2026-06-19T00:00:00Z","grantee":` + memUserJSON + `}
 		]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "share", "ls", "mem1", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "share", "ls", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -214,17 +214,17 @@ func TestMemoryShareLs(t *testing.T) {
 func TestMemoryShareRmWithYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetUser":           `{"data":{"user":{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice","githubUsername":null,"roles":[]}}}`,
-		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr1"}}}`,
+		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","granteeId":"usr1"}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "share", "rm", "mem1", "--grantee", "usr1", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "share", "rm", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--grantee", "usr1", "--yes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteMemoryShare"], &vars)
-	if vars["memoryRef"] != "mem1" || vars["granteeRef"] != "usr1" {
+	if vars["memoryRef"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || vars["granteeRef"] != "usr1" {
 		t.Errorf("rm vars: %v", vars)
 	}
 }
@@ -234,11 +234,11 @@ func TestMemoryShareRmWithYes(t *testing.T) {
 func TestMemoryShareRevokeAlias(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetUser":           `{"data":{"user":{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice","githubUsername":null,"roles":[]}}}`,
-		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr1"}}}`,
+		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","granteeId":"usr1"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "share", "revoke", "mem1", "--grantee", "usr1", "--yes", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "share", "revoke", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--grantee", "usr1", "--yes", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -261,11 +261,11 @@ func TestMemoryShareRevokeAlias(t *testing.T) {
 func TestMemoryShareRmStatusRemoved(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetUser":           `{"data":{"user":{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice","githubUsername":null,"roles":[]}}}`,
-		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr1"}}}`,
+		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","granteeId":"usr1"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "share", "rm", "mem1", "--grantee", "usr1", "--yes", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "share", "rm", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--grantee", "usr1", "--yes", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -279,17 +279,17 @@ func TestMemoryShareRmStatusRemoved(t *testing.T) {
 // only when the key is absent). No GetUser round-trip either: nothing to resolve.
 func TestMemoryShareRmSelfOmitsGrantee(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr_me"}}}`,
+		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","granteeId":"usr_me"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "share", "rm", "mem1", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "share", "rm", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--yes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteMemoryShare"], &vars)
-	if vars["memoryRef"] != "mem1" {
+	if vars["memoryRef"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Errorf("rm vars: %v", vars)
 	}
 	// Key ABSENT, not present-and-null: a null would be a different request
@@ -309,7 +309,7 @@ func TestMemoryShareRmSelfOmitsGrantee(t *testing.T) {
 // that lookup can't see a soft-deleted memory, and leaving one is supported.
 func TestMemoryShareRmPassesMemoryRefWithoutLookup(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr_me"}}}`,
+		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","granteeId":"usr_me"}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -336,13 +336,13 @@ func TestMemorySubscriptionCreate(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	// Mixed-case role must normalize to the UPPER-case general Role enum.
-	root.SetArgs([]string{"memory", "subscription", "create", "mem1", "--org", "org1", "--role", "Reader", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "subscription", "create", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--org", "org1", "--role", "Reader", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateMemorySubscription"], &vars)
-	if vars["memoryRef"] != "mem1" || vars["orgRef"] != "org1" || vars["role"] != "READER" {
+	if vars["memoryRef"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || vars["orgRef"] != "org1" || vars["role"] != "READER" {
 		t.Errorf("subscription vars: %v", vars)
 	}
 }
@@ -350,7 +350,7 @@ func TestMemorySubscriptionCreate(t *testing.T) {
 func TestMemorySubscriptionRejectsBadRole(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "subscription", "create", "mem1", "--org", "org1", "--role", "manager", "--server", "http://127.0.0.1:1"})
+	root.SetArgs([]string{"memory", "subscription", "create", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--org", "org1", "--role", "manager", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "invalid --role") {
 		t.Fatalf("expected invalid-role error, got %v", err)
@@ -359,13 +359,13 @@ func TestMemorySubscriptionRejectsBadRole(t *testing.T) {
 
 func TestMemorySubscriptionLs(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"MemorySubscriptions": `{"data":{"memory":{"id":"mem1","subscriptions":[
+		"MemorySubscriptions": `{"data":{"memory":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","subscriptions":[
 			{"role":"CONTRIBUTOR","activated":true,"organization":` + memOrgJSON + `}
 		]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "subscription", "ls", "mem1", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "subscription", "ls", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -391,7 +391,7 @@ func TestMemorySubscriptionSetRole(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "subscription", "set-role", "mem1", "--org", "org1", "--role", "admin", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "subscription", "set-role", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--org", "org1", "--role", "admin", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestMemorySubscriptionSetRole(t *testing.T) {
 func TestMemorySubscriptionRmRequiresYes(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "subscription", "rm", "mem1", "--org", "org1", "--server", "http://127.0.0.1:1"})
+	root.SetArgs([]string{"memory", "subscription", "rm", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--org", "org1", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "--yes") {
 		t.Fatalf("expected --yes refusal, got %v", err)
@@ -418,13 +418,13 @@ func TestMemorySubscriptionRmWithYes(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "subscription", "rm", "mem1", "--org", "org1", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "subscription", "rm", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--org", "org1", "--yes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteMemorySubscription"], &vars)
-	if vars["memoryRef"] != "mem1" || vars["orgRef"] != "org1" {
+	if vars["memoryRef"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || vars["orgRef"] != "org1" {
 		t.Errorf("rm vars: %v", vars)
 	}
 }

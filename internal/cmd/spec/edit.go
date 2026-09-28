@@ -21,17 +21,18 @@ import (
 )
 
 // editResultDTO is the --json shape for `spec edit`. Changed is the overall
-// "anything written" flag (body or abstract); BodyChanged/AbstractChanged break
+// "anything written" flag (body, abstract or description); the field flags break
 // it down. Changed could only mean "body changed" before the abstract became
 // editable here, so the broadening is backward-compatible.
 type editResultDTO struct {
-	Citation        string `json:"citation"`
-	MemoryID        string `json:"memoryId"`
-	NodeID          string `json:"nodeId"`
-	Name            string `json:"name"`
-	Changed         bool   `json:"changed"`
-	BodyChanged     bool   `json:"bodyChanged"`
-	AbstractChanged bool   `json:"abstractChanged"`
+	Citation           string `json:"citation"`
+	MemoryID           string `json:"memoryId"`
+	NodeID             string `json:"nodeId"`
+	Name               string `json:"name"`
+	Changed            bool   `json:"changed"`
+	BodyChanged        bool   `json:"bodyChanged"`
+	AbstractChanged    bool   `json:"abstractChanged"`
+	DescriptionChanged bool   `json:"descriptionChanged"`
 	// AbstractReaffirmed reports that the abstract was re-sent UNCHANGED to
 	// re-fingerprint it against the current body (#612). Additive, and it is
 	// counted into Changed because the call really does write — a `changed:
@@ -57,7 +58,7 @@ type editResultDTO struct {
 // fieldChangeDTO is one field of a proposed edit: the text as stored (read
 // raw, placeholders intact), the text proposed, and a unified diff of the two.
 type fieldChangeDTO struct {
-	Field string `json:"field"` // "content" or "abstract"
+	Field string `json:"field"` // "content", "abstract" or "description"
 	// Change is "replaced", "cleared" (the proposed text is empty) or
 	// "reaffirmed" (--abstract-still-accurate: the same text re-sent so it is
 	// re-fingerprinted against the body; Before == After and Diff is "").
@@ -71,9 +72,9 @@ type fieldChangeDTO struct {
 // renders it and the write is built from it; nothing between the two
 // recomputes anything.
 type editProposal struct {
-	curBody, curAbstract string
-	newBody, newAbstract string
-	reaffirm             bool
+	curBody, curAbstract, curDescription string
+	newBody, newAbstract, newDescription string
+	reaffirm                             bool
 	// originHash is the stored abstract's fingerprint (spec 032), nil when it
 	// was never fingerprinted.
 	originHash *string
@@ -83,7 +84,8 @@ type editProposal struct {
 	baseRevision int
 }
 
-func (p editProposal) bodyChanged() bool { return p.newBody != p.curBody }
+func (p editProposal) bodyChanged() bool        { return p.newBody != p.curBody }
+func (p editProposal) descriptionChanged() bool { return p.newDescription != p.curDescription }
 
 // abstractChanged: the server stores an empty or whitespace-only abstract as
 // null, so blank → blank is no change (and writes nothing).
@@ -115,6 +117,9 @@ func (p editProposal) changes() []fieldChangeDTO {
 	out := []fieldChangeDTO{}
 	if p.bodyChanged() {
 		out = append(out, fieldChange("content", p.curBody, p.newBody))
+	}
+	if p.descriptionChanged() {
+		out = append(out, fieldChange("description", p.curDescription, p.newDescription))
 	}
 	switch {
 	case p.abstractChanged():
@@ -153,6 +158,10 @@ func (p editProposal) input() gen.UpdateNodeInput {
 	if p.bodyChanged() {
 		body := p.newBody
 		in.Content = &body
+	}
+	if p.descriptionChanged() {
+		description := p.newDescription
+		in.Description = &description
 	}
 	switch {
 	case p.abstractChanged():
@@ -203,20 +212,22 @@ func SetEditorFuncForTest(fn func(io *output.IOStreams, current string) (string,
 
 func newCmdEdit(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory        string
-		content       string
-		contentFile   string
-		abstract      string
-		abstractFile  string
-		stillAccurate bool
-		dryRun        bool
-		expectedRev   int
-		expectedID    string
-		expectedHash  string
+		memory          string
+		content         string
+		contentFile     string
+		abstract        string
+		abstractFile    string
+		description     string
+		descriptionFile string
+		stillAccurate   bool
+		dryRun          bool
+		expectedRev     int
+		expectedID      string
+		expectedHash    string
 	)
 	cmd := &cobra.Command{
 		Use:   "edit <citation>",
-		Short: "Edit a spec's body and abstract in $EDITOR (or from flags)",
+		Short: "Edit a spec's body, abstract and description with guarded writes",
 		// "update" is the intuitive verb for this and reads nothing
 		// like "edit", so distance-based suggestion never finds it.
 		SuggestFor: []string{"update", "modify", "change", "set"},
@@ -233,6 +244,15 @@ field non-interactively (and skip the editor); supply both kinds to update body
 and abstract in one call. A field whose flag is omitted is preserved untouched,
 and a field that didn't actually change is not rewritten. Nothing changed writes
 nothing. The body is read as stored, {{…}} placeholders intact, never rendered.
+
+The description shown by spec list and search is edited with --description or
+--description-file, through the same guarded spec write. It is not part of the
+default editor buffer; supply its flag to edit it alone or together with the
+body and abstract. The description is preserved when its flag is omitted.
+
+An abstract replacement may contain at most 2000 characters as counted by the
+server (UTF-16 code units, including surrounding whitespace and newlines).
+Both --dry-run and a save refuse an over-limit proposal before writing.
 
 --dry-run writes nothing and shows the change itself: a unified diff per field
 (--json: "changes", each with the stored text, the proposed text and the diff).
@@ -272,6 +292,7 @@ replacement over the cap is rejected.`,
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content-file body.md --expected-revision 7 --expected-node-id <id-from-preview> --expected-proposal-hash <hash-from-preview>
   cat rewrite.md | hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content -
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --abstract-file abstract.md
+  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --description-file description.md
   hadron spec edit cor:agt:020 -m hrn:mem:hadronmemory.com:specs --content-file body.md --abstract-still-accurate
   hadron spec edit cor:agt:020 -m hrn:mem:hadronmemory.com:specs --abstract-still-accurate`,
 		Args: cobra.ExactArgs(1),
@@ -289,6 +310,9 @@ replacement over the cap is rejected.`,
 			if changed("abstract") && changed("abstract-file") {
 				return exitcode.Newf(exitcode.Usage, "--abstract and --abstract-file are mutually exclusive")
 			}
+			if changed("description") && changed("description-file") {
+				return exitcode.Newf(exitcode.Usage, "--description and --description-file are mutually exclusive")
+			}
 			// The flag ASSERTS that the stored abstract survives this edit, so
 			// replacing that abstract in the same call contradicts it. Caught at
 			// parse time, before the node is read or an editor opens.
@@ -298,11 +322,22 @@ replacement over the cap is rejected.`,
 			}
 			// Body and abstract can each read stdin via "-", but stdin is
 			// consumable only once.
-			if content == "-" && abstract == "-" {
-				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
+			stdinInputs := 0
+			for _, value := range []string{content, abstract, description} {
+				if value == "-" {
+					stdinInputs++
+				}
+			}
+			if stdinInputs > 1 {
+				return exitcode.Newf(exitcode.Usage, "only one of --content -, --abstract -, and --description - can read stdin")
 			}
 			if err := refuseDocumentStdin(f.IOStreams.IsInputTerminal(), content, abstract); err != nil {
 				return err
+			}
+			if description == "-" {
+				if err := cmdutil.RefuseDocumentStdinFromTerminal(f.IOStreams.IsInputTerminal(), "--description -", "--description-file"); err != nil {
+					return err
+				}
 			}
 			if changed("expected-revision") && expectedRev < 1 {
 				return exitcode.Newf(exitcode.Usage,
@@ -317,10 +352,11 @@ replacement over the cap is rejected.`,
 			}
 			contentProvided := changed("content") || changed("content-file")
 			abstractProvided := changed("abstract") || changed("abstract-file")
+			descriptionProvided := changed("description") || changed("description-file")
 			// The assertion on its own is a complete, non-interactive operation:
 			// it is the way to clear an `abstract-stale` marker without editing
 			// anything, which is the half of #612 the command had no answer for.
-			nonInteractive := contentProvided || abstractProvided || stillAccurate
+			nonInteractive := contentProvided || abstractProvided || descriptionProvided || stillAccurate
 
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -355,7 +391,7 @@ replacement over the cap is rejected.`,
 				}
 				base = expectedRev
 			}
-			curBody, curAbstract := derefStr(node.Content), derefStr(node.Abstract)
+			curBody, curAbstract, curDescription := derefStr(node.Content), derefStr(node.Abstract), derefStr(node.Description)
 
 			// A field defaults to its stored value (preserved); only a field the
 			// caller actually supplies is replaced. CRLF→LF normalization is
@@ -363,7 +399,7 @@ replacement over the cap is rejected.`,
 			// or an abstract-only edit could flip a CRLF body to LF and write it,
 			// breaking omit-to-preserve. (parseEditBuffer normalizes the editor
 			// buffer itself, so both interactive fields arrive LF.)
-			newBody, newAbstract := curBody, curAbstract
+			newBody, newAbstract, newDescription := curBody, curAbstract, curDescription
 			if nonInteractive {
 				if contentProvided {
 					b, rerr := cmdutil.ResolveTextInput("content", content, contentFile, f.IOStreams.In)
@@ -378,6 +414,13 @@ replacement over the cap is rejected.`,
 						return rerr
 					}
 					newAbstract = strings.ReplaceAll(a, "\r\n", "\n")
+				}
+				if descriptionProvided {
+					d, rerr := cmdutil.ResolveTextInput("description", description, descriptionFile, f.IOStreams.In)
+					if rerr != nil {
+						return rerr
+					}
+					newDescription = strings.ReplaceAll(d, "\r\n", "\n")
 				}
 			} else {
 				// The default seam (launchEditor) enforces the TTY requirement, so
@@ -395,12 +438,17 @@ replacement over the cap is rejected.`,
 			// Re-affirming is only meaningful when the abstract is NOT also
 			// being replaced — a replacement is fingerprinted on its own.
 			proposal := editProposal{
-				curBody: curBody, curAbstract: curAbstract,
-				newBody: newBody, newAbstract: newAbstract,
+				curBody: curBody, curAbstract: curAbstract, curDescription: curDescription,
+				newBody: newBody, newAbstract: newAbstract, newDescription: newDescription,
 				reaffirm:     stillAccurate && newAbstract == curAbstract,
 				originHash:   node.AbstractOriginHash,
 				baseNodeID:   node.Id,
 				baseRevision: base,
+			}
+			if proposal.abstractChanged() && abstractLength(&newAbstract) > abstractHardMax {
+				return exitcode.Newf(exitcode.Usage,
+					"abstract exceeds the %d-character cap (%d characters); shorten --abstract/--abstract-file before previewing or saving",
+					abstractHardMax, abstractLength(&newAbstract))
 			}
 			proposalHash, err := proposal.proposalHash()
 			if err != nil {
@@ -417,6 +465,7 @@ replacement over the cap is rejected.`,
 				Name:               node.Name,
 				BodyChanged:        proposal.bodyChanged(),
 				AbstractChanged:    proposal.abstractChanged(),
+				DescriptionChanged: proposal.descriptionChanged(),
 				AbstractReaffirmed: proposal.reaffirm,
 				DryRun:             dryRun,
 				Changes:            proposal.changes(),
@@ -446,7 +495,7 @@ replacement over the cap is rejected.`,
 				return exitcode.Newf(exitcode.Usage,
 					"%s has no abstract, so there is nothing to re-affirm — --abstract-still-accurate would clear the field rather than re-fingerprint it; write one with --abstract/--abstract-file instead", node.Loc)
 			}
-			result.Changed = result.BodyChanged || result.AbstractChanged || result.AbstractReaffirmed
+			result.Changed = result.BodyChanged || result.AbstractChanged || result.DescriptionChanged || result.AbstractReaffirmed
 
 			if !result.Changed {
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
@@ -473,7 +522,11 @@ replacement over the cap is rejected.`,
 			input := proposal.input()
 			if _, err := api.UpdateSpecNode(cmd.Context(), client, &input); err != nil {
 				if api.HasErrorCode(err, "NODE_WRITE_CONFLICT") {
-					return conflictRefusal(node.Loc, base, assembleEditBuffer(newAbstract, newBody))
+					proposalText := assembleEditBuffer(newAbstract, newBody)
+					if proposal.descriptionChanged() {
+						proposalText = "<!-- Proposed description (--description-file): -->\n" + newDescription + "\n\n" + proposalText
+					}
+					return conflictRefusal(node.Loc, base, proposalText)
 				}
 				if unsupportedGuard(err) {
 					return exitcode.Newf(exitcode.Usage,
@@ -488,8 +541,10 @@ replacement over the cap is rejected.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `replace the body with this value ("-" reads piped stdin, refused from a terminal) instead of opening $EDITOR`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "replace the body with a file's contents instead of opening $EDITOR")
-	cmd.Flags().StringVar(&abstract, "abstract", "", `replace the abstract with this value ("-" reads piped stdin, refused from a terminal) instead of opening $EDITOR`)
-	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "replace the abstract with a file's contents instead of opening $EDITOR")
+	cmd.Flags().StringVar(&abstract, "abstract", "", `replace the abstract (max 2000 UTF-16 code units incl whitespace/newlines); "-" reads piped stdin, refused from a terminal`)
+	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "replace the abstract with a file's contents (max 2000 UTF-16 code units incl whitespace/newlines)")
+	cmd.Flags().StringVar(&description, "description", "", `replace the description with this value ("-" reads piped stdin, refused from a terminal) through the guarded spec write`)
+	cmd.Flags().StringVar(&descriptionFile, "description-file", "", "replace the description with a file's contents through the guarded spec write")
 	// No backticks in this usage string: cobra's UnquoteUsage reads backquoted
 	// text as the flag's placeholder name, so "clearing `abstract-stale`" would
 	// rename the flag's argument in --help (review:backticks-in-flag-usage-become-the-placeholder).
@@ -768,6 +823,9 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 	}
 	if r.AbstractChanged {
 		fmt.Fprintln(w, "  abstract: updated")
+	}
+	if r.DescriptionChanged {
+		fmt.Fprintln(w, "  description: updated")
 	}
 	if r.AbstractReaffirmed {
 		fmt.Fprintln(w, "  abstract: unchanged, re-fingerprinted against this body (verification refreshed)")
