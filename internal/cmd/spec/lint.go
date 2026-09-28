@@ -68,6 +68,7 @@ func newCmdLint(f *cmdutil.Factory) *cobra.Command {
 corpus against the structural and stability rules. Lint is structural: it
 does not check a spec's content sections, which depend on the spec's type
 (specs:tasks:validate-spec does that).
+Names may be human-readable; they need not start with the citation.
 
 Scope is one of: a single <citation> argument, --prefix <citation> (that
 node plus its descendants — e.g. one feature and its rules), --product
@@ -339,9 +340,6 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 		for _, u := range lintURNExamples(*n.Content, memURN) {
 			add(u.Rule, u.Severity, u.Message)
 		}
-	}
-	if !strings.HasPrefix(n.Name, n.Loc+" — ") {
-		add("name-prefix", sevError, fmt.Sprintf("name must start with %q", n.Loc+" — "))
 	}
 	if n.NodeType != "info" {
 		add("nodetype-info", sevError, fmt.Sprintf("nodeType must be \"info\", got %q", n.NodeType))
@@ -947,12 +945,9 @@ func leakedMarkers(s string) []string {
 // contain "and" ("create and update"), so on its own it would be noise. Paired
 // with an abstract a sentence from the cap, it is a lead worth printing.
 func titleConjunction(title string) string {
-	// The spec title carries its citation as a prefix ("cor:agt:020:03 — …");
-	// only the human half can name subjects, and a citation never contains a
-	// conjunction, so splitting first avoids matching one inside a loc.
-	if _, human, found := strings.Cut(title, "—"); found {
-		title = human
-	}
+	// A citation prefix is optional. Citation locs cannot contain any of the
+	// separators below, so a human name can be inspected as-is, including its
+	// first clause before an em dash.
 	lower := strings.ToLower(title)
 	for _, c := range []string{" and ", " & ", "/"} {
 		if strings.Contains(lower, c) {
