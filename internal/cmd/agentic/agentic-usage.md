@@ -1295,15 +1295,19 @@ Conventions:
   without writing); `spec edit <citation>` opens the spec's abstract **and** body
   together in $EDITOR pre-loaded (divided by sentinel lines) — or replaces either
   non-interactively from `--content -`/`--content-file` and/or
-  `--abstract -`/`--abstract-file` — writing only the field(s) that actually
-  changed and preserving the rest. `spec edit` reads the body **raw** (as
-  stored, `{{…}}` placeholders intact), so the editor, the preview and the
+  `--abstract -`/`--abstract-file`. Use `--description`/`--description-file`
+  to change the description shown in spec lists and search through the same
+  guarded write. The description is not in the editor buffer. Only changed
+  fields are written; the rest are preserved. An abstract replacement is
+  limited to 2000 UTF-16 code units, including whitespace and newlines;
+  both preview and save reject an over-limit proposal. `spec edit` reads the
+  body **raw** (as stored, `{{…}}` placeholders intact), so the editor, the preview and the
   write never see Mustache-rendered text (cli#737). So does every other `spec`
   command that writes back a body it read: `spec supersede` (the retirement
   note, and `--copy-body`) and `spec extract --strip-source` (cli#742). **`--dry-run` shows the
   change itself and writes nothing:** the terminal prints a unified diff per
   field, and `--json` carries `changes[]`, one entry per field written, each
-  `{field: content|abstract, change: replaced|cleared|reaffirmed, before, after,
+  `{field: content|abstract|description, change: replaced|cleared|reaffirmed, before, after,
   diff}` (`before`/`after` byte-exact; `diff` is `""` for `reaffirmed`, which
   re-sends the same text; `cleared` also covers a whitespace-only abstract,
   which the server stores as null). A no-op is `changed: false` with

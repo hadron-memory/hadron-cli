@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
+	urn "github.com/hadron-memory/urn-lib-go"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -142,6 +143,9 @@ func annotateMemoryRefHelp(cmd *cobra.Command) {
 // dispatches PKs and URNs server-side (hadron-server#473). The mutations
 // this feeds (updateMemory, member/share writes) still accept PK ids only.
 func resolveMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
+	if err := validateMemoryRef(ref); err != nil {
+		return "", err
+	}
 	canon := cmdutil.CanonicalMemoryRef(ref)
 	if !strings.Contains(canon, ":") {
 		return canon, nil // a raw id — no round-trip needed
@@ -156,9 +160,28 @@ func resolveMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (str
 	return resp.Memory.Id, nil
 }
 
+// A memory argument is a server ID, an advertised short form, or a memory URN.
+// Parse full URNs with the shared grammar so legacy compound memories remain
+// accepted; MemoryParts intentionally handles only the two-atom short forms.
+// Refuse malformed refs locally: the server's error still cites v1 grammar.
+func validateMemoryRef(ref string) error {
+	if cmdutil.IsEntityID(ref) {
+		return nil
+	}
+	if _, _, ok := cmdutil.MemoryParts(ref); ok {
+		return nil
+	}
+	if parsed, err := urn.ParseUrn(strings.TrimSpace(ref)); err == nil && parsed.Type == "memory" {
+		return nil
+	}
+	return exitcode.Newf(exitcode.Usage, "invalid memory reference %q — %s", ref, memoryRefGuidance)
+}
+
+const memoryRefGuidance = "expected a memory id or a URN: hrn:mem:<root>:<slug> (canonical), the <root>::<slug> / <root>:<slug> short forms, or the legacy hrn:memory: prefix"
+
 // notFoundMemory is the shared "no memory" error, naming the accepted forms so a
 // rejected short form isn't mistaken for a genuinely-absent memory (#108).
 func notFoundMemory(ref string) error {
 	return exitcode.Newf(exitcode.NotFound,
-		"no memory found for %q — expected a memory id or a URN: hrn:mem:<root>:<slug> (canonical), the <root>::<slug> / <root>:<slug> short forms, or the legacy hrn:memory: prefix", ref)
+		"no memory found for %q — %s", ref, memoryRefGuidance)
 }

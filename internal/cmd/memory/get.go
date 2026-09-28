@@ -31,6 +31,9 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Short: "Show a memory",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateMemoryRef(args[0]); err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err

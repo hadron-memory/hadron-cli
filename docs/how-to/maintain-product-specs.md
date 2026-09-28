@@ -342,7 +342,11 @@ hadron spec edit cli:cha:010:01 -m $M --content-file /tmp/rule.md --abstract-fil
 ```
 
 The interactive form opens both abstract and body in `$EDITOR`; non-interactive
-flags update only the fields you provide and preserve the rest.
+flags update only the fields you provide and preserve the rest. The abstract
+may have at most 2000 UTF-16 code units, including whitespace and newlines;
+`--dry-run` checks this before a save. To update the description shown by
+`spec list` and search, use `--description` or `--description-file` on the same
+guarded `spec edit` command. The description is not in the editor buffer.
 
 Use `extract` when part of a fat rule deserves its own citation. Pipe or pass
 the moved chunk as the new body; `--strip-source` trims it from the old body only

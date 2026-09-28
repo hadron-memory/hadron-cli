@@ -14,15 +14,15 @@ import (
 func TestMemoryExportSurfacesHiddenEdge(t *testing.T) {
 	// A root-ish node (short colon-free loc) suppresses the manifest fetch.
 	const nodesResp = `{"data":{"nodes":[
-		{"id":"n-root","memoryId":"mem1","loc":"root","name":"Root","nodeType":"info","tags":[],"updatedAt":"2026-06-11T00:00:00Z"},
-		{"id":"n-src","memoryId":"mem1","loc":"guide:intro","name":"Intro","nodeType":"info","tags":[],"updatedAt":"2026-06-11T00:00:00Z"}
+		{"id":"n-root","memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","loc":"root","name":"Root","nodeType":"info","tags":[],"updatedAt":"2026-06-11T00:00:00Z"},
+		{"id":"n-src","memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","loc":"guide:intro","name":"Intro","nodeType":"info","tags":[],"updatedAt":"2026-06-11T00:00:00Z"}
 	]}}`
 	// n-src has one readable edge and one whose target is null (hidden memory).
 	const batchResp = `{"data":{"nodeBatch":{
 		"truncated":false,"omitted":[],"unavailable":[],
 		"nodes":[
-			{"id":"n-root","memoryId":"mem1","loc":"root","name":"Root","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Root.","outgoingEdges":[]},
-			{"id":"n-src","memoryId":"mem1","loc":"guide:intro","name":"Intro","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Intro.","outgoingEdges":[{"name":"next","priority":0,"condition":null,"target":{"id":"n-root","loc":"root"}},{"name":"crosslink","priority":0,"condition":null,"target":null}]}
+			{"id":"n-root","memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","loc":"root","name":"Root","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Root.","outgoingEdges":[]},
+			{"id":"n-src","memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","loc":"guide:intro","name":"Intro","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Intro.","outgoingEdges":[{"name":"next","priority":0,"condition":null,"target":{"id":"n-root","loc":"root"}},{"name":"crosslink","priority":0,"condition":null,"target":null}]}
 		]
 	}}}`
 	for _, jsonMode := range []bool{true, false} {
@@ -33,7 +33,7 @@ func TestMemoryExportSurfacesHiddenEdge(t *testing.T) {
 		f, out := testFactory(t)
 		dir := t.TempDir()
 		root := NewRootCmd(f)
-		args := []string{"memory", "export", "mem1", "--out", dir, "--server", gql.URL}
+		args := []string{"memory", "export", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--out", dir, "--server", gql.URL}
 		if jsonMode {
 			args = append(args, "--json")
 		}
@@ -64,15 +64,15 @@ func TestMemoryExportSurfacesHiddenEdge(t *testing.T) {
 // node has a short colon-free loc so the manifest is skipped (no GetMemory).
 func TestMemoryExport(t *testing.T) {
 	const nodesResp = `{"data":{"nodes":[
-		{"id":"n-root","memoryId":"mem1","loc":"root","name":"Root","nodeType":"info","tags":[],"updatedAt":"2026-06-11T00:00:00Z"},
-		{"id":"n-intro","memoryId":"mem1","loc":"guide:intro","name":"Intro","nodeType":"task","tags":["g"],"updatedAt":"2026-06-11T00:00:00Z"},
-		{"id":"n-blob","memoryId":"mem1","loc":"blob","name":"Blob","nodeType":"data","tags":[],"updatedAt":"2026-06-11T00:00:00Z"}
+		{"id":"n-root","memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","loc":"root","name":"Root","nodeType":"info","tags":[],"updatedAt":"2026-06-11T00:00:00Z"},
+		{"id":"n-intro","memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","loc":"guide:intro","name":"Intro","nodeType":"task","tags":["g"],"updatedAt":"2026-06-11T00:00:00Z"},
+		{"id":"n-blob","memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","loc":"blob","name":"Blob","nodeType":"data","tags":[],"updatedAt":"2026-06-11T00:00:00Z"}
 	]}}`
 	const batchResp = `{"data":{"nodeBatch":{
 		"truncated":false,"omitted":[],"unavailable":[],
 		"nodes":[
-			{"id":"n-root","memoryId":"mem1","loc":"root","name":"Root","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Root body.","outgoingEdges":[]},
-			{"id":"n-intro","memoryId":"mem1","loc":"guide:intro","name":"Intro","alias":null,"nodeType":"task","description":"One liner","abstract":null,"abstractOriginHash":null,"tags":["g"],"seq":null,"data":null,"properties":null,"content":"Intro body.","outgoingEdges":[{"name":"next","priority":0,"condition":null,"target":{"id":"n-root","loc":"root"}}]}
+			{"id":"n-root","memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","loc":"root","name":"Root","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Root body.","outgoingEdges":[]},
+			{"id":"n-intro","memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","loc":"guide:intro","name":"Intro","alias":null,"nodeType":"task","description":"One liner","abstract":null,"abstractOriginHash":null,"tags":["g"],"seq":null,"data":null,"properties":null,"content":"Intro body.","outgoingEdges":[{"name":"next","priority":0,"condition":null,"target":{"id":"n-root","loc":"root"}}]}
 		]
 	}}}`
 
@@ -84,7 +84,7 @@ func TestMemoryExport(t *testing.T) {
 	dir := t.TempDir()
 
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "export", "mem1", "--out", dir, "--json", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "export", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--out", dir, "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -149,12 +149,12 @@ func TestMemoryExport(t *testing.T) {
 // and the summary reports outDir ".".
 func TestMemoryExportDefaultsOutToCwd(t *testing.T) {
 	const nodesResp = `{"data":{"nodes":[
-		{"id":"n-root","memoryId":"mem1","loc":"root","name":"Root","nodeType":"info","tags":[],"updatedAt":"2026-06-11T00:00:00Z"}
+		{"id":"n-root","memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","loc":"root","name":"Root","nodeType":"info","tags":[],"updatedAt":"2026-06-11T00:00:00Z"}
 	]}}`
 	const batchResp = `{"data":{"nodeBatch":{
 		"truncated":false,"omitted":[],"unavailable":[],
 		"nodes":[
-			{"id":"n-root","memoryId":"mem1","loc":"root","name":"Root","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Root body.","outgoingEdges":[]}
+			{"id":"n-root","memoryId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","loc":"root","name":"Root","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Root body.","outgoingEdges":[]}
 		]
 	}}}`
 
@@ -167,7 +167,7 @@ func TestMemoryExportDefaultsOutToCwd(t *testing.T) {
 	t.Chdir(dir) // export should write here when --out is omitted
 
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "export", "mem1", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "export", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
