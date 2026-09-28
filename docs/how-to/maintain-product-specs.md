@@ -34,6 +34,9 @@ Spec reads recognize the union of the legacy `spec` tag and the `spec` / dotted
 appears once. The server's bulk replace still skips governed specs, including
 role-only specs, and reports how many it did not search (#659).
 
+`spec lint` accepts either marker; a node with a `spec.*` role needs no `spec`
+tag and gets no missing-tag finding.
+
 ## The legacy numbering
 
 Any valid loc is a spec (#708). Some corpora number their specs in a legacy
