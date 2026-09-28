@@ -76,10 +76,10 @@ func TestOptionalSectionsRuleTierOnly(t *testing.T) {
 }
 
 // A freshly scaffolded spec must pass its own structural lint at every tier:
-// the scaffold owns the name prefix, nodeType and the "spec" tag. (Lint has no
+// the scaffold owns nodeType and the "spec" tag. (Lint has no
 // content rubric since #708, so there is nothing about sections to pass.)
 func TestScaffoldPassesStructuralLint(t *testing.T) {
-	structural := map[string]bool{"name-prefix": true, "nodetype-info": true, "tag-spec": true}
+	structural := map[string]bool{"nodetype-info": true, "tag-spec": true}
 	for _, c := range []Citation{
 		{Product: "cli"},
 		{Module: "msg"},

@@ -125,7 +125,7 @@ removeAgentImport
 removeAppMember
 removeMemoryFromAgent
 repairAgentSystemMemory
-replaceSubtree
+replaceSubtree  # server#1407: deprecated field; authorized calls return REPLACE_SUBTREE_RETIRED without writes
 restoreRevision
 retryFailedEmbeddings
 revokeAgentOrgGrant
