@@ -11,9 +11,9 @@ import (
 )
 
 // #648 — agent prompts and an ai-config file are DOCUMENTS: `agent create|update
-// --system-prompt - / --persona-prompt -` and `ai-config create --file -` refuse
+// --system-prompt -` and `ai-config create --file -` refuse
 // an interactive terminal with exit 2, before any request, naming the remedy.
-// Piped forms stay covered by TestAgentCreatePersonaPromptFromStdin and
+// Piped forms stay covered by TestAgentCreateSystemPromptFromStdin and
 // TestAiConfigCreateFileStdin, which run non-TTY.
 //
 // Each case also runs SIGNED OUT (PR #675 review, Copilot + Codex): the test
@@ -38,9 +38,7 @@ var agentAIConfigStdinCases = []struct {
 	remedy string
 }{
 	{"agent create --system-prompt -", []string{"agent", "create", "--org", "acme.com", "--name", "Bot", "--system-prompt", "-"}, "--system-prompt-file <path>"},
-	{"agent create --persona-prompt -", []string{"agent", "create", "--org", "acme.com", "--name", "Bot", "--persona-prompt", "-"}, "--persona-prompt-file <path>"},
 	{"agent update --system-prompt -", []string{"agent", "update", "agt1", "--system-prompt", "-"}, "--system-prompt-file <path>"},
-	{"agent update --persona-prompt -", []string{"agent", "update", "agt1", "--persona-prompt", "-"}, "--persona-prompt-file <path>"},
 	{"ai-config create --file -", []string{"ai-config", "create", "--file", "-"}, "--file <path>"},
 }
 

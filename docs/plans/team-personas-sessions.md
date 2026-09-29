@@ -1,6 +1,6 @@
 # Implementation Plan: `hadron team` — personas and sessions (#369 slice 1)
 
-> **Status: implemented** — design as built. First slice of
+> **Status: historical (implemented at the time)** — design as built. First slice of
 > [#369](https://github.com/hadron-memory/hadron-cli/issues/369) (`hadron team`:
 > personas, sessions, group chat, worklog — supersedes #368). Server dependency:
 > hadron-server [#928](https://github.com/hadron-memory/hadron-server/issues/928)
@@ -10,6 +10,12 @@
 > rationale in hadron-concept
 > `design-discussions/platform-apps/2026-08-11-agent-personas/` (registry
 > D-2026-08-11-001…008).
+>
+> **Historical surface.** The later Worker-model migration replaced the
+> persona commands described here; see
+> [team-worker-model-migration.md](team-worker-model-migration.md). Server
+> #1438/CLI #771 then moved the shared prompt from `personaPrompt` to
+> `systemPrompt`; see [agent-prompt-cutover-771.md](agent-prompt-cutover-771.md).
 
 ## Scope
 

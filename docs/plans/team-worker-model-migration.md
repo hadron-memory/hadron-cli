@@ -5,6 +5,12 @@
 > records the decisions as taken. Server side:
 > hadron-server#974 (merged via #978, plus the #979 mention-token reversal),
 > specs `cor:dmo:050:11` and `cor:agt:020` v0.0.3.
+>
+> **Prompt-field update (#771):** the Worker model and permanent named
+> casting described here still apply. Its `personaPrompt` field/flag examples
+> are historical: server #1438 collapsed that template into `systemPrompt`.
+> See [agent-prompt-cutover-771.md](agent-prompt-cutover-771.md) for the current
+> CLI surface.
 
 ## What changed upstream
 

@@ -17,7 +17,7 @@ const agentsOwnedJSON = `{"data":{"agents":{"total":1,"items":[
 	{"id":"a1","urn":"hrn:agent:holger:flow-lab","name":"flow-lab","description":null,
 	 "type":"ASSISTANT","visibility":"PERSONAL","organizationId":null,"surfaces":[],
 	 "systemMemoryId":null,"systemPrompt":null,"aiProvider":null,"aiModel":null,
-	 "hasAiApiKey":false,"personaRole":null,"personaPrompt":null,
+	 "hasAiApiKey":false,"personaRole":null,
 	 "createdAt":"2026-09-20T00:00:00Z"}]}}}`
 
 const appsOwnedJSON = `{"data":{"apps":{"total":1,"items":[
