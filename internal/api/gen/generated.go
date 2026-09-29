@@ -40386,9 +40386,9 @@ mutation MarkOwnTeamChatRead ($appRef: ID!, $sessionRef: ID!, $channelRef: ID!, 
 `
 
 // `hadron team chat mark-read`: advance the bound worker's own cursor. The
-// GraphQL twin of hadron_team_chat_mark_read (same server helper, same pilot
-// gate, pinned to one caller-owned live session) — deliberately NOT the wider
-// advanceChannelReadState, which is neither pilot-gated nor session-pinned.
+// GraphQL twin of hadron_team_chat_mark_read (same server helper, pinned to
+// one caller-owned live session) — deliberately NOT the wider
+// advanceChannelReadState, which is not pinned to one session.
 func MarkOwnTeamChatRead(
 	ctx_ context.Context,
 	client_ graphql.Client,
