@@ -60,6 +60,11 @@ func unstubbedDefault(op string) (string, bool) {
 	case "NodeLiveRevisions":
 		// `node get`'s Node.revision read (#715, hadron-server#1339).
 		return `{"errors":[{"message":"Cannot query field \"revision\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "SpecCorpusState":
+		// `spec describe`'s corpus-state read (hadron-server#1447, cli#777),
+		// answered as a server that predates draft corpora — describe then
+		// omits the state. Tests of the state stub it.
+		return `{"errors":[{"message":"Cannot query field \"corpusState\" on type \"Memory\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	}
 	return "", false
 }

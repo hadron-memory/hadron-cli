@@ -3547,7 +3547,7 @@ type Mutation {
   """
   #1334 — copy a template's rules into ONE memory's config. A one-off copy:
   later template edits never reach this memory, and re-applying is explicit.
-
+  
   Needs MANAGE on the memory (else MemoryNotFound) and on the template,
   which exists for you only if you manage its owner (else
   MEMORY_CONFIG_TEMPLATE_NOT_FOUND). The rules are validated as a whole,
@@ -3555,12 +3555,12 @@ type Mutation {
   references (NODE_NOT_FOUND for one you cannot read, NOT_A_TASK), and a
   template rule whose task was deleted refuses the whole apply
   (NODE_ROLE_RULE_REF_BROKEN). All-or-nothing per memory.
-
+  
   When the memory already has a rule for a role, a non-required template
   skips it and a required template replaces it. A LOCKED rule is only
   replaced by a caller with lock authority (see unlockNodeRoleRule);
   otherwise SKIPPED_LOCKED. Rules written by a required template are locked.
-
+  
   expectedTemplateRevision: CONFLICT (with currentRevision) if the template
   changed since you read it. dryRun: the same report with nothing written.
   """

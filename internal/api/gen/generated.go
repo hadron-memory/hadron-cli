@@ -4969,6 +4969,19 @@ var AllContentValidator = []ContentValidator{
 	ContentValidatorPlatform,
 }
 
+// #1447 — a spec corpus's lifecycle state. DRAFT becomes MINTED once, one-way.
+type CorpusState string
+
+const (
+	CorpusStateDraft  CorpusState = "DRAFT"
+	CorpusStateMinted CorpusState = "MINTED"
+)
+
+var AllCorpusState = []CorpusState{
+	CorpusStateDraft,
+	CorpusStateMinted,
+}
+
 // CreateAgentCreateAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
@@ -15771,6 +15784,185 @@ type MintActionTicketsResponse struct {
 // GetMintActionTickets returns MintActionTicketsResponse.MintActionTickets, and is useful for accessing the field via an interface.
 func (v *MintActionTicketsResponse) GetMintActionTickets() int { return v.MintActionTickets }
 
+// MintSpecCorpusMintSpecCorpusSpecCorpusMintReport includes the requested fields of the GraphQL type SpecCorpusMintReport.
+// The GraphQL type's documentation follows.
+//
+// #1448 — the mint report. blockers must all be gone for a mint to succeed.
+// staleAbstracts are listed separately; they block only when
+// staleAbstractsBlock is true (once abstract re-affirmation is saved and
+// deployed, server#1408). openQuestions never block.
+type MintSpecCorpusMintSpecCorpusSpecCorpusMintReport struct {
+	MemoryId string `json:"memoryId"`
+	DryRun   bool   `json:"dryRun"`
+	// True when this call minted the corpus.
+	Minted              bool                                                                                  `json:"minted"`
+	StaleAbstractsBlock bool                                                                                  `json:"staleAbstractsBlock"`
+	Blockers            []*MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding            `json:"blockers"`
+	StaleAbstracts      []*MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding      `json:"staleAbstracts"`
+	OpenQuestions       []*MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup `json:"openQuestions"`
+}
+
+// GetMemoryId returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReport.MemoryId, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport) GetMemoryId() string { return v.MemoryId }
+
+// GetDryRun returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReport.DryRun, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport) GetDryRun() bool { return v.DryRun }
+
+// GetMinted returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReport.Minted, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport) GetMinted() bool { return v.Minted }
+
+// GetStaleAbstractsBlock returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReport.StaleAbstractsBlock, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport) GetStaleAbstractsBlock() bool {
+	return v.StaleAbstractsBlock
+}
+
+// GetBlockers returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReport.Blockers, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport) GetBlockers() []*MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding {
+	return v.Blockers
+}
+
+// GetStaleAbstracts returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReport.StaleAbstracts, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport) GetStaleAbstracts() []*MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding {
+	return v.StaleAbstracts
+}
+
+// GetOpenQuestions returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReport.OpenQuestions, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport) GetOpenQuestions() []*MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup {
+	return v.OpenQuestions
+}
+
+// MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding includes the requested fields of the GraphQL type SpecMintFinding.
+// The GraphQL type's documentation follows.
+//
+// #1448 — one item in a mint report. loc is where it was found; targetLoc the cited spec, for a reference.
+type MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding struct {
+	Kind      SpecMintFindingKind `json:"kind"`
+	Rule      *string             `json:"rule"`
+	Loc       string              `json:"loc"`
+	TargetLoc *string             `json:"targetLoc"`
+	Message   string              `json:"message"`
+}
+
+// GetKind returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding.Kind, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding) GetKind() SpecMintFindingKind {
+	return v.Kind
+}
+
+// GetRule returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding.Rule, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding) GetRule() *string {
+	return v.Rule
+}
+
+// GetLoc returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding.Loc, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding) GetLoc() string {
+	return v.Loc
+}
+
+// GetTargetLoc returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding.TargetLoc, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding) GetTargetLoc() *string {
+	return v.TargetLoc
+}
+
+// GetMessage returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding.Message, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding) GetMessage() string {
+	return v.Message
+}
+
+// MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup includes the requested fields of the GraphQL type SpecOpenQuestionGroup.
+// The GraphQL type's documentation follows.
+//
+// #1448 — open questions grouped by who decides; decider null means unassigned.
+type MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup struct {
+	Decider   *string                                                                                                        `json:"decider"`
+	Questions []*MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion `json:"questions"`
+}
+
+// GetDecider returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup.Decider, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup) GetDecider() *string {
+	return v.Decider
+}
+
+// GetQuestions returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup.Questions, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup) GetQuestions() []*MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion {
+	return v.Questions
+}
+
+// MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion includes the requested fields of the GraphQL type SpecOpenQuestion.
+// The GraphQL type's documentation follows.
+//
+// #1448 — one open question in the corpus (report-only, never blocks minting).
+type MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion struct {
+	Loc      string `json:"loc"`
+	Question string `json:"question"`
+}
+
+// GetLoc returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion.Loc, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion) GetLoc() string {
+	return v.Loc
+}
+
+// GetQuestion returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion.Question, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion) GetQuestion() string {
+	return v.Question
+}
+
+// MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding includes the requested fields of the GraphQL type SpecMintFinding.
+// The GraphQL type's documentation follows.
+//
+// #1448 — one item in a mint report. loc is where it was found; targetLoc the cited spec, for a reference.
+type MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding struct {
+	Kind      SpecMintFindingKind `json:"kind"`
+	Rule      *string             `json:"rule"`
+	Loc       string              `json:"loc"`
+	TargetLoc *string             `json:"targetLoc"`
+	Message   string              `json:"message"`
+}
+
+// GetKind returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding.Kind, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding) GetKind() SpecMintFindingKind {
+	return v.Kind
+}
+
+// GetRule returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding.Rule, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding) GetRule() *string {
+	return v.Rule
+}
+
+// GetLoc returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding.Loc, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding) GetLoc() string {
+	return v.Loc
+}
+
+// GetTargetLoc returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding.TargetLoc, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding) GetTargetLoc() *string {
+	return v.TargetLoc
+}
+
+// GetMessage returns MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding.Message, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintFinding) GetMessage() string {
+	return v.Message
+}
+
+// MintSpecCorpusResponse is returned by MintSpecCorpus on success.
+type MintSpecCorpusResponse struct {
+	// #1448 — mint a DRAFT spec corpus: once, one-way, for the whole corpus.
+	// After minting, citations are permanent (moves record URN aliases again) and
+	// no placeholder can be reserved. Refuses SPEC_CORPUS_MINT_BLOCKED while any
+	// blocker remains: a placeholder, an unresolved reference, a structural lint
+	// error over the citation-shaped nodes (nodetype-info, tag-spec,
+	// serialization-leak, duplicate-loc), or a stale abstract once
+	// staleAbstractsBlock is true. dryRun returns the full report without
+	// minting. Owner or org ADMIN only. memoryRef accepts the ID or URN. A real
+	// run holds every write to the corpus off while it checks and flips, and
+	// refuses SPEC_CORPUS_BUSY (retryable) if a write is already in flight.
+	MintSpecCorpus *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport `json:"mintSpecCorpus"`
+}
+
+// GetMintSpecCorpus returns MintSpecCorpusResponse.MintSpecCorpus, and is useful for accessing the field via an interface.
+func (v *MintSpecCorpusResponse) GetMintSpecCorpus() *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport {
+	return v.MintSpecCorpus
+}
+
 // MoveNodeMoveNode includes the requested fields of the GraphQL type Node.
 type MoveNodeMoveNode struct {
 	Id string `json:"id"`
@@ -19273,6 +19465,214 @@ type RemoveOrgMemberResponse struct {
 
 // GetRemoveOrgMember returns RemoveOrgMemberResponse.RemoveOrgMember, and is useful for accessing the field via an interface.
 func (v *RemoveOrgMemberResponse) GetRemoveOrgMember() bool { return v.RemoveOrgMember }
+
+// RenumberSpecRenumberSpecSpecRenumberResult includes the requested fields of the GraphQL type SpecRenumberResult.
+// The GraphQL type's documentation follows.
+//
+// #1449 — the result (or, with dryRun, the plan) of renumberSpec.
+type RenumberSpecRenumberSpecSpecRenumberResult struct {
+	DryRun        bool                                                                       `json:"dryRun"`
+	Moved         []*RenumberSpecRenumberSpecSpecRenumberResultMovedSpecRenumberMove         `json:"moved"`
+	Rewrites      []*RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite   `json:"rewrites"`
+	TextCitations []*RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation `json:"textCitations"`
+}
+
+// GetDryRun returns RenumberSpecRenumberSpecSpecRenumberResult.DryRun, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResult) GetDryRun() bool { return v.DryRun }
+
+// GetMoved returns RenumberSpecRenumberSpecSpecRenumberResult.Moved, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResult) GetMoved() []*RenumberSpecRenumberSpecSpecRenumberResultMovedSpecRenumberMove {
+	return v.Moved
+}
+
+// GetRewrites returns RenumberSpecRenumberSpecSpecRenumberResult.Rewrites, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResult) GetRewrites() []*RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite {
+	return v.Rewrites
+}
+
+// GetTextCitations returns RenumberSpecRenumberSpecSpecRenumberResult.TextCitations, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResult) GetTextCitations() []*RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation {
+	return v.TextCitations
+}
+
+// RenumberSpecRenumberSpecSpecRenumberResultMovedSpecRenumberMove includes the requested fields of the GraphQL type SpecRenumberMove.
+// The GraphQL type's documentation follows.
+//
+// #1449 — one spec a renumber moves (the spec or a descendant).
+type RenumberSpecRenumberSpecSpecRenumberResultMovedSpecRenumberMove struct {
+	FromLoc string `json:"fromLoc"`
+	ToLoc   string `json:"toLoc"`
+}
+
+// GetFromLoc returns RenumberSpecRenumberSpecSpecRenumberResultMovedSpecRenumberMove.FromLoc, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultMovedSpecRenumberMove) GetFromLoc() string {
+	return v.FromLoc
+}
+
+// GetToLoc returns RenumberSpecRenumberSpecSpecRenumberResultMovedSpecRenumberMove.ToLoc, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultMovedSpecRenumberMove) GetToLoc() string {
+	return v.ToLoc
+}
+
+// RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite includes the requested fields of the GraphQL type SpecRenumberRewrite.
+// The GraphQL type's documentation follows.
+//
+// #1449 — one node whose URN references a renumber rewrites.
+type RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite struct {
+	NodeId string            `json:"nodeId"`
+	Loc    string            `json:"loc"`
+	Status SpecRewriteStatus `json:"status"`
+	// The text fields rewritten.
+	Fields []string `json:"fields"`
+	// How many URN references were rewritten.
+	Count int     `json:"count"`
+	Error *string `json:"error"`
+}
+
+// GetNodeId returns RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite.NodeId, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetLoc returns RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite.Loc, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite) GetLoc() string {
+	return v.Loc
+}
+
+// GetStatus returns RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite.Status, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite) GetStatus() SpecRewriteStatus {
+	return v.Status
+}
+
+// GetFields returns RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite.Fields, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite) GetFields() []string {
+	return v.Fields
+}
+
+// GetCount returns RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite.Count, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite) GetCount() int {
+	return v.Count
+}
+
+// GetError returns RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite.Error, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultRewritesSpecRenumberRewrite) GetError() *string {
+	return v.Error
+}
+
+// RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation includes the requested fields of the GraphQL type SpecTextCitation.
+// The GraphQL type's documentation follows.
+//
+// #1449 — a moved citation that appears as bare TEXT (a link label, a node
+// name, prose). Reported, never rewritten: it cannot be told apart from other
+// characters in prose.
+type RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation struct {
+	SourceNodeId string `json:"sourceNodeId"`
+	SourceLoc    string `json:"sourceLoc"`
+	Field        string `json:"field"`
+	Citation     string `json:"citation"`
+	// A short window of text around the citation.
+	Excerpt string `json:"excerpt"`
+}
+
+// GetSourceNodeId returns RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation.SourceNodeId, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation) GetSourceNodeId() string {
+	return v.SourceNodeId
+}
+
+// GetSourceLoc returns RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation.SourceLoc, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation) GetSourceLoc() string {
+	return v.SourceLoc
+}
+
+// GetField returns RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation.Field, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation) GetField() string {
+	return v.Field
+}
+
+// GetCitation returns RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation.Citation, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation) GetCitation() string {
+	return v.Citation
+}
+
+// GetExcerpt returns RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation.Excerpt, and is useful for accessing the field via an interface.
+func (v *RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation) GetExcerpt() string {
+	return v.Excerpt
+}
+
+// RenumberSpecResponse is returned by RenumberSpec on success.
+type RenumberSpecResponse struct {
+	// #1449 — renumber a spec in a DRAFT spec corpus: move it and its subtree
+	// from fromLoc to toLoc (no URN alias in a draft), then rewrite every node
+	// URN in the corpus that cites the moved specs, each as a normal edit. Bare
+	// text citations (labels, names) are reported in textCitations, not
+	// rewritten. dryRun returns the plan and writes nothing. The move is atomic;
+	// each rewrite is a separate guarded edit, and one that fails is reported
+	// FAILED without undoing the move.
+	RenumberSpec *RenumberSpecRenumberSpecSpecRenumberResult `json:"renumberSpec"`
+}
+
+// GetRenumberSpec returns RenumberSpecResponse.RenumberSpec, and is useful for accessing the field via an interface.
+func (v *RenumberSpecResponse) GetRenumberSpec() *RenumberSpecRenumberSpecSpecRenumberResult {
+	return v.RenumberSpec
+}
+
+// ReserveSpecCitationReserveSpecCitationNode includes the requested fields of the GraphQL type Node.
+type ReserveSpecCitationReserveSpecCitationNode struct {
+	Id   string `json:"id"`
+	Loc  string `json:"loc"`
+	Name string `json:"name"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
+	Role *string `json:"role"`
+	// #1450 — true for a RESERVED spec citation that has no spec written yet (a
+	// placeholder in a draft corpus, created by reserveSpecCitation). Set only by
+	// the server, never inferred from an empty body; writing real content through
+	// updateSpecNode clears it. Minting refuses while any remain.
+	IsPlaceholder bool `json:"isPlaceholder"`
+}
+
+// GetId returns ReserveSpecCitationReserveSpecCitationNode.Id, and is useful for accessing the field via an interface.
+func (v *ReserveSpecCitationReserveSpecCitationNode) GetId() string { return v.Id }
+
+// GetLoc returns ReserveSpecCitationReserveSpecCitationNode.Loc, and is useful for accessing the field via an interface.
+func (v *ReserveSpecCitationReserveSpecCitationNode) GetLoc() string { return v.Loc }
+
+// GetName returns ReserveSpecCitationReserveSpecCitationNode.Name, and is useful for accessing the field via an interface.
+func (v *ReserveSpecCitationReserveSpecCitationNode) GetName() string { return v.Name }
+
+// GetRole returns ReserveSpecCitationReserveSpecCitationNode.Role, and is useful for accessing the field via an interface.
+func (v *ReserveSpecCitationReserveSpecCitationNode) GetRole() *string { return v.Role }
+
+// GetIsPlaceholder returns ReserveSpecCitationReserveSpecCitationNode.IsPlaceholder, and is useful for accessing the field via an interface.
+func (v *ReserveSpecCitationReserveSpecCitationNode) GetIsPlaceholder() bool { return v.IsPlaceholder }
+
+// ReserveSpecCitationResponse is returned by ReserveSpecCitation on success.
+type ReserveSpecCitationResponse struct {
+	// #1450 — reserve a citation in a DRAFT spec corpus as a placeholder: a spec
+	// node at loc (role spec, nodeType info) marked isPlaceholder, so links can
+	// point at it and the placeholders left are the corpus's to-do list. Writing
+	// real content through updateSpecNode turns it into a real spec at the same
+	// citation. Refuses SPEC_CORPUS_NOT_DRAFT in a minted memory, where a
+	// citation is permanent once written, and NodeLocConflictError at a live loc.
+	// memoryRef accepts the memory's ID or URN.
+	ReserveSpecCitation *ReserveSpecCitationReserveSpecCitationNode `json:"reserveSpecCitation"`
+}
+
+// GetReserveSpecCitation returns ReserveSpecCitationResponse.ReserveSpecCitation, and is useful for accessing the field via an interface.
+func (v *ReserveSpecCitationResponse) GetReserveSpecCitation() *ReserveSpecCitationReserveSpecCitationNode {
+	return v.ReserveSpecCitation
+}
 
 // ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
 // The GraphQL type's documentation follows.
@@ -22880,6 +23280,247 @@ func (v *SoftDeleteAssetSoftDeleteAsset) GetFilename() string { return v.Filenam
 
 // GetDeletedAt returns SoftDeleteAssetSoftDeleteAsset.DeletedAt, and is useful for accessing the field via an interface.
 func (v *SoftDeleteAssetSoftDeleteAsset) GetDeletedAt() *string { return v.DeletedAt }
+
+// SpecBacklinksResponse is returned by SpecBacklinks on success.
+type SpecBacklinksResponse struct {
+	// #1449 — what refers to the spec at loc in a DRAFT spec corpus: node URNs
+	// in the corpus text (inside URLs too) plus real edges from corpus nodes.
+	// Exact citation, not descendants. Refuses SPEC_CORPUS_NOT_DRAFT for a
+	// minted memory. memoryRef accepts the memory's ID or URN.
+	SpecBacklinks []*SpecBacklinksSpecBacklinksSpecReference `json:"specBacklinks"`
+}
+
+// GetSpecBacklinks returns SpecBacklinksResponse.SpecBacklinks, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksResponse) GetSpecBacklinks() []*SpecBacklinksSpecBacklinksSpecReference {
+	return v.SpecBacklinks
+}
+
+// SpecBacklinksSpecBacklinksSpecReference includes the requested fields of the GraphQL type SpecReference.
+// The GraphQL type's documentation follows.
+//
+// #1449 — one reference to a spec in a draft corpus. For kind URN, field is
+// the text field it was found in and text the URN as written; for kind EDGE,
+// field is 'edge' and text the edge's relationship name.
+type SpecBacklinksSpecBacklinksSpecReference struct {
+	Kind SpecReferenceKind `json:"kind"`
+	// The scanned field; edge for a real edge; pendingEdge for an edge whose target is not a node yet.
+	Field        string `json:"field"`
+	SourceLoc    string `json:"sourceLoc"`
+	SourceNodeId string `json:"sourceNodeId"`
+	// The cited loc; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
+	TargetLoc string  `json:"targetLoc"`
+	Text      *string `json:"text"`
+}
+
+// GetKind returns SpecBacklinksSpecBacklinksSpecReference.Kind, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksSpecBacklinksSpecReference) GetKind() SpecReferenceKind { return v.Kind }
+
+// GetField returns SpecBacklinksSpecBacklinksSpecReference.Field, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksSpecBacklinksSpecReference) GetField() string { return v.Field }
+
+// GetSourceLoc returns SpecBacklinksSpecBacklinksSpecReference.SourceLoc, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksSpecBacklinksSpecReference) GetSourceLoc() string { return v.SourceLoc }
+
+// GetSourceNodeId returns SpecBacklinksSpecBacklinksSpecReference.SourceNodeId, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksSpecBacklinksSpecReference) GetSourceNodeId() string { return v.SourceNodeId }
+
+// GetTargetLoc returns SpecBacklinksSpecBacklinksSpecReference.TargetLoc, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksSpecBacklinksSpecReference) GetTargetLoc() string { return v.TargetLoc }
+
+// GetText returns SpecBacklinksSpecBacklinksSpecReference.Text, and is useful for accessing the field via an interface.
+func (v *SpecBacklinksSpecBacklinksSpecReference) GetText() *string { return v.Text }
+
+// SpecCorpusStateMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type SpecCorpusStateMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn string `json:"urn"`
+	// #1447/#1448 — whether this memory is a DRAFT spec corpus or MINTED. In a
+	// draft corpus spec citations are not yet permanent: specs can be moved,
+	// renumbered and deleted, and a move records no URN alias. Chosen only at
+	// creation (createMemory draftCorpus); minting is one-way. Every memory
+	// created without asking for draft is MINTED.
+	CorpusState CorpusState `json:"corpusState"`
+	// #1448 — when this corpus was minted (draft → minted). Null if it was never a draft.
+	CorpusMintedAt *string `json:"corpusMintedAt"`
+}
+
+// GetId returns SpecCorpusStateMemory.Id, and is useful for accessing the field via an interface.
+func (v *SpecCorpusStateMemory) GetId() string { return v.Id }
+
+// GetUrn returns SpecCorpusStateMemory.Urn, and is useful for accessing the field via an interface.
+func (v *SpecCorpusStateMemory) GetUrn() string { return v.Urn }
+
+// GetCorpusState returns SpecCorpusStateMemory.CorpusState, and is useful for accessing the field via an interface.
+func (v *SpecCorpusStateMemory) GetCorpusState() CorpusState { return v.CorpusState }
+
+// GetCorpusMintedAt returns SpecCorpusStateMemory.CorpusMintedAt, and is useful for accessing the field via an interface.
+func (v *SpecCorpusStateMemory) GetCorpusMintedAt() *string { return v.CorpusMintedAt }
+
+// SpecCorpusStateResponse is returned by SpecCorpusState on success.
+type SpecCorpusStateResponse struct {
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Memory *SpecCorpusStateMemory `json:"memory"`
+}
+
+// GetMemory returns SpecCorpusStateResponse.Memory, and is useful for accessing the field via an interface.
+func (v *SpecCorpusStateResponse) GetMemory() *SpecCorpusStateMemory { return v.Memory }
+
+// #1448 — why the mint report lists an item.
+type SpecMintFindingKind string
+
+const (
+	// A structural lint error (rule: nodetype-info | tag-spec | serialization-leak | duplicate-loc).
+	SpecMintFindingKindLint SpecMintFindingKind = "LINT"
+	// A reserved citation with no spec written yet.
+	SpecMintFindingKindPlaceholder SpecMintFindingKind = "PLACEHOLDER"
+	// An abstract written for an earlier body.
+	SpecMintFindingKindStaleAbstract SpecMintFindingKind = "STALE_ABSTRACT"
+	// A reference to a spec that does not exist, or to a placeholder (rule: MISSING | PLACEHOLDER).
+	SpecMintFindingKindUnresolvedReference SpecMintFindingKind = "UNRESOLVED_REFERENCE"
+)
+
+var AllSpecMintFindingKind = []SpecMintFindingKind{
+	SpecMintFindingKindLint,
+	SpecMintFindingKindPlaceholder,
+	SpecMintFindingKindStaleAbstract,
+	SpecMintFindingKindUnresolvedReference,
+}
+
+// #1449 — how a spec corpus reference was found.
+type SpecReferenceKind string
+
+const (
+	// A real edge from a corpus node.
+	SpecReferenceKindEdge SpecReferenceKind = "EDGE"
+	// A node URN in the corpus text (name, description, abstract or content), including inside a URL.
+	SpecReferenceKindUrn SpecReferenceKind = "URN"
+)
+
+var AllSpecReferenceKind = []SpecReferenceKind{
+	SpecReferenceKindEdge,
+	SpecReferenceKindUrn,
+}
+
+// #1449 — why a reference does not reach a written spec.
+type SpecReferenceProblem string
+
+const (
+	// No live node at the cited loc.
+	SpecReferenceProblemMissing SpecReferenceProblem = "MISSING"
+	// The cited node is a placeholder: a reserved citation with no spec written yet.
+	SpecReferenceProblemPlaceholder SpecReferenceProblem = "PLACEHOLDER"
+)
+
+var AllSpecReferenceProblem = []SpecReferenceProblem{
+	SpecReferenceProblemMissing,
+	SpecReferenceProblemPlaceholder,
+}
+
+// #1449 — state of one node's reference rewrite in a renumber.
+type SpecRewriteStatus string
+
+const (
+	// The rewrite was refused or kept conflicting; error says why. The move itself stands.
+	SpecRewriteStatusFailed SpecRewriteStatus = "FAILED"
+	// Dry run: this rewrite would be made.
+	SpecRewriteStatusPlanned   SpecRewriteStatus = "PLANNED"
+	SpecRewriteStatusRewritten SpecRewriteStatus = "REWRITTEN"
+	// A concurrent edit removed the references (or the node) before the rewrite, so nothing was written.
+	SpecRewriteStatusUnchanged SpecRewriteStatus = "UNCHANGED"
+)
+
+var AllSpecRewriteStatus = []SpecRewriteStatus{
+	SpecRewriteStatusFailed,
+	SpecRewriteStatusPlanned,
+	SpecRewriteStatusRewritten,
+	SpecRewriteStatusUnchanged,
+}
+
+// SpecUnresolvedReferencesResponse is returned by SpecUnresolvedReferences on success.
+type SpecUnresolvedReferencesResponse struct {
+	// #1449 — references in a DRAFT spec corpus that do not reach a written
+	// spec: URNs citing a missing loc or a placeholder, edges to a
+	// placeholder, and pending edges (field pendingEdge) whose target is not
+	// a written node yet. Minting refuses while any remain.
+	SpecUnresolvedReferences []*SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference `json:"specUnresolvedReferences"`
+}
+
+// GetSpecUnresolvedReferences returns SpecUnresolvedReferencesResponse.SpecUnresolvedReferences, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesResponse) GetSpecUnresolvedReferences() []*SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference {
+	return v.SpecUnresolvedReferences
+}
+
+// SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference includes the requested fields of the GraphQL type SpecReference.
+// The GraphQL type's documentation follows.
+//
+// #1449 — one reference to a spec in a draft corpus. For kind URN, field is
+// the text field it was found in and text the URN as written; for kind EDGE,
+// field is 'edge' and text the edge's relationship name.
+type SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference struct {
+	Kind SpecReferenceKind `json:"kind"`
+	// The scanned field; edge for a real edge; pendingEdge for an edge whose target is not a node yet.
+	Field string `json:"field"`
+	// Set only by specUnresolvedReferences.
+	Reason       *SpecReferenceProblem `json:"reason"`
+	SourceLoc    string                `json:"sourceLoc"`
+	SourceNodeId string                `json:"sourceNodeId"`
+	// The cited loc; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
+	TargetLoc string  `json:"targetLoc"`
+	Text      *string `json:"text"`
+}
+
+// GetKind returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.Kind, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetKind() SpecReferenceKind {
+	return v.Kind
+}
+
+// GetField returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.Field, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetField() string {
+	return v.Field
+}
+
+// GetReason returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.Reason, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetReason() *SpecReferenceProblem {
+	return v.Reason
+}
+
+// GetSourceLoc returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.SourceLoc, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetSourceLoc() string {
+	return v.SourceLoc
+}
+
+// GetSourceNodeId returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.SourceNodeId, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetSourceNodeId() string {
+	return v.SourceNodeId
+}
+
+// GetTargetLoc returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.TargetLoc, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetTargetLoc() string {
+	return v.TargetLoc
+}
+
+// GetText returns SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference.Text, and is useful for accessing the field via an interface.
+func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetText() *string {
+	return v.Text
+}
 
 // StartImpersonationResponse is returned by StartImpersonation on success.
 type StartImpersonationResponse struct {
@@ -32335,6 +32976,7 @@ type __CreateMemoryInput struct {
 	Tags             *[]string         `json:"tags,omitempty"`
 	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
 	MaxRevCount      *int              `json:"maxRevCount,omitempty"`
+	DraftCorpus      *bool             `json:"draftCorpus,omitempty"`
 }
 
 // GetOrgId returns __CreateMemoryInput.OrgId, and is useful for accessing the field via an interface.
@@ -32360,6 +33002,9 @@ func (v *__CreateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visib
 
 // GetMaxRevCount returns __CreateMemoryInput.MaxRevCount, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInput) GetMaxRevCount() *int { return v.MaxRevCount }
+
+// GetDraftCorpus returns __CreateMemoryInput.DraftCorpus, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetDraftCorpus() *bool { return v.DraftCorpus }
 
 // __CreateMemoryShareInput is used internally by genqlient
 type __CreateMemoryShareInput struct {
@@ -33321,6 +33966,18 @@ type __MintActionTicketsInput struct {
 // GetInput returns __MintActionTicketsInput.Input, and is useful for accessing the field via an interface.
 func (v *__MintActionTicketsInput) GetInput() *MintActionTicketsInput { return v.Input }
 
+// __MintSpecCorpusInput is used internally by genqlient
+type __MintSpecCorpusInput struct {
+	MemoryRef string `json:"memoryRef"`
+	DryRun    bool   `json:"dryRun"`
+}
+
+// GetMemoryRef returns __MintSpecCorpusInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__MintSpecCorpusInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetDryRun returns __MintSpecCorpusInput.DryRun, and is useful for accessing the field via an interface.
+func (v *__MintSpecCorpusInput) GetDryRun() bool { return v.DryRun }
+
 // __MoveNodeInput is used internally by genqlient
 type __MoveNodeInput struct {
 	SourceRef       string  `json:"sourceRef"`
@@ -33605,6 +34262,42 @@ func (v *__RemoveOrgMemberInput) GetOrgId() string { return v.OrgId }
 // GetUserId returns __RemoveOrgMemberInput.UserId, and is useful for accessing the field via an interface.
 func (v *__RemoveOrgMemberInput) GetUserId() string { return v.UserId }
 
+// __RenumberSpecInput is used internally by genqlient
+type __RenumberSpecInput struct {
+	MemoryRef string `json:"memoryRef"`
+	FromLoc   string `json:"fromLoc"`
+	ToLoc     string `json:"toLoc"`
+	DryRun    bool   `json:"dryRun"`
+}
+
+// GetMemoryRef returns __RenumberSpecInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__RenumberSpecInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetFromLoc returns __RenumberSpecInput.FromLoc, and is useful for accessing the field via an interface.
+func (v *__RenumberSpecInput) GetFromLoc() string { return v.FromLoc }
+
+// GetToLoc returns __RenumberSpecInput.ToLoc, and is useful for accessing the field via an interface.
+func (v *__RenumberSpecInput) GetToLoc() string { return v.ToLoc }
+
+// GetDryRun returns __RenumberSpecInput.DryRun, and is useful for accessing the field via an interface.
+func (v *__RenumberSpecInput) GetDryRun() bool { return v.DryRun }
+
+// __ReserveSpecCitationInput is used internally by genqlient
+type __ReserveSpecCitationInput struct {
+	MemoryRef string  `json:"memoryRef"`
+	Loc       string  `json:"loc"`
+	Name      *string `json:"name,omitempty"`
+}
+
+// GetMemoryRef returns __ReserveSpecCitationInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__ReserveSpecCitationInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetLoc returns __ReserveSpecCitationInput.Loc, and is useful for accessing the field via an interface.
+func (v *__ReserveSpecCitationInput) GetLoc() string { return v.Loc }
+
+// GetName returns __ReserveSpecCitationInput.Name, and is useful for accessing the field via an interface.
+func (v *__ReserveSpecCitationInput) GetName() *string { return v.Name }
+
 // __ResolveAiServiceConfigsInput is used internally by genqlient
 type __ResolveAiServiceConfigsInput struct {
 	AppRef   *string `json:"appRef,omitempty"`
@@ -33880,6 +34573,34 @@ type __SoftDeleteAssetInput struct {
 
 // GetAssetId returns __SoftDeleteAssetInput.AssetId, and is useful for accessing the field via an interface.
 func (v *__SoftDeleteAssetInput) GetAssetId() string { return v.AssetId }
+
+// __SpecBacklinksInput is used internally by genqlient
+type __SpecBacklinksInput struct {
+	MemoryRef string `json:"memoryRef"`
+	Loc       string `json:"loc"`
+}
+
+// GetMemoryRef returns __SpecBacklinksInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__SpecBacklinksInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetLoc returns __SpecBacklinksInput.Loc, and is useful for accessing the field via an interface.
+func (v *__SpecBacklinksInput) GetLoc() string { return v.Loc }
+
+// __SpecCorpusStateInput is used internally by genqlient
+type __SpecCorpusStateInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __SpecCorpusStateInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SpecCorpusStateInput) GetRef() string { return v.Ref }
+
+// __SpecUnresolvedReferencesInput is used internally by genqlient
+type __SpecUnresolvedReferencesInput struct {
+	MemoryRef string `json:"memoryRef"`
+}
+
+// GetMemoryRef returns __SpecUnresolvedReferencesInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__SpecUnresolvedReferencesInput) GetMemoryRef() string { return v.MemoryRef }
 
 // __StartImpersonationInput is used internally by genqlient
 type __StartImpersonationInput struct {
@@ -37207,8 +37928,8 @@ func CreateMcpServer(
 
 // The mutation executed by CreateMemory.
 const CreateMemory_Operation = `
-mutation CreateMemory ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int) {
-	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount) {
+mutation CreateMemory ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int, $draftCorpus: Boolean) {
+	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, draftCorpus: $draftCorpus) {
 		id
 		urn
 		name
@@ -37234,6 +37955,7 @@ func CreateMemory(
 	tags *[]string,
 	visibility *MemoryVisibility,
 	maxRevCount *int,
+	draftCorpus *bool,
 ) (data_ *CreateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateMemory",
@@ -37247,6 +37969,7 @@ func CreateMemory(
 			Tags:             tags,
 			Visibility:       visibility,
 			MaxRevCount:      maxRevCount,
+			DraftCorpus:      draftCorpus,
 		},
 	}
 
@@ -41409,6 +42132,68 @@ func MintActionTickets(
 	return data_, err_
 }
 
+// The mutation executed by MintSpecCorpus.
+const MintSpecCorpus_Operation = `
+mutation MintSpecCorpus ($memoryRef: ID!, $dryRun: Boolean!) {
+	mintSpecCorpus(memoryRef: $memoryRef, dryRun: $dryRun) {
+		memoryId
+		dryRun
+		minted
+		staleAbstractsBlock
+		blockers {
+			kind
+			rule
+			loc
+			targetLoc
+			message
+		}
+		staleAbstracts {
+			kind
+			rule
+			loc
+			targetLoc
+			message
+		}
+		openQuestions {
+			decider
+			questions {
+				loc
+				question
+			}
+		}
+	}
+}
+`
+
+// #1448 — mint the corpus. dryRun returns the full report without minting; a
+// real run refuses SPEC_CORPUS_MINT_BLOCKED while a blocker remains.
+func MintSpecCorpus(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	dryRun bool,
+) (data_ *MintSpecCorpusResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MintSpecCorpus",
+		Query:  MintSpecCorpus_Operation,
+		Variables: &__MintSpecCorpusInput{
+			MemoryRef: memoryRef,
+			DryRun:    dryRun,
+		},
+	}
+
+	data_ = &MintSpecCorpusResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by MoveNode.
 const MoveNode_Operation = `
 mutation MoveNode ($sourceRef: ID!, $targetUrn: String, $targetMemoryRef: ID) {
@@ -42491,6 +43276,111 @@ func RemoveOrgMember(
 	}
 
 	data_ = &RemoveOrgMemberResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RenumberSpec.
+const RenumberSpec_Operation = `
+mutation RenumberSpec ($memoryRef: ID!, $fromLoc: String!, $toLoc: String!, $dryRun: Boolean!) {
+	renumberSpec(memoryRef: $memoryRef, fromLoc: $fromLoc, toLoc: $toLoc, dryRun: $dryRun) {
+		dryRun
+		moved {
+			fromLoc
+			toLoc
+		}
+		rewrites {
+			nodeId
+			loc
+			status
+			fields
+			count
+			error
+		}
+		textCitations {
+			sourceNodeId
+			sourceLoc
+			field
+			citation
+			excerpt
+		}
+	}
+}
+`
+
+// #1449 — renumber a spec (and its subtree) and rewrite the URN references to
+// it. dryRun returns the plan and writes nothing.
+func RenumberSpec(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	fromLoc string,
+	toLoc string,
+	dryRun bool,
+) (data_ *RenumberSpecResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RenumberSpec",
+		Query:  RenumberSpec_Operation,
+		Variables: &__RenumberSpecInput{
+			MemoryRef: memoryRef,
+			FromLoc:   fromLoc,
+			ToLoc:     toLoc,
+			DryRun:    dryRun,
+		},
+	}
+
+	data_ = &RenumberSpecResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ReserveSpecCitation.
+const ReserveSpecCitation_Operation = `
+mutation ReserveSpecCitation ($memoryRef: ID!, $loc: String!, $name: String) {
+	reserveSpecCitation(memoryRef: $memoryRef, loc: $loc, name: $name) {
+		id
+		loc
+		name
+		role
+		isPlaceholder
+	}
+}
+`
+
+// #1450 — reserve a citation as a placeholder spec. name is optional: the
+// server names an unnamed placeholder itself.
+func ReserveSpecCitation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	loc string,
+	name *string,
+) (data_ *ReserveSpecCitationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ReserveSpecCitation",
+		Query:  ReserveSpecCitation_Operation,
+		Variables: &__ReserveSpecCitationInput{
+			MemoryRef: memoryRef,
+			Loc:       loc,
+			Name:      name,
+		},
+	}
+
+	data_ = &ReserveSpecCitationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -43708,6 +44598,129 @@ func SoftDeleteAsset(
 	}
 
 	data_ = &SoftDeleteAssetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SpecBacklinks.
+const SpecBacklinks_Operation = `
+query SpecBacklinks ($memoryRef: ID!, $loc: String!) {
+	specBacklinks(memoryRef: $memoryRef, loc: $loc) {
+		kind
+		field
+		sourceLoc
+		sourceNodeId
+		targetLoc
+		text
+	}
+}
+`
+
+// #1449 — what refers to the spec at loc: node URNs in the corpus text
+// (inside URLs too) plus real edges from corpus nodes. Exact citation only.
+func SpecBacklinks(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	loc string,
+) (data_ *SpecBacklinksResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SpecBacklinks",
+		Query:  SpecBacklinks_Operation,
+		Variables: &__SpecBacklinksInput{
+			MemoryRef: memoryRef,
+			Loc:       loc,
+		},
+	}
+
+	data_ = &SpecBacklinksResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SpecCorpusState.
+const SpecCorpusState_Operation = `
+query SpecCorpusState ($ref: ID!) {
+	memory(ref: $ref) {
+		id
+		urn
+		corpusState
+		corpusMintedAt
+	}
+}
+`
+
+// The corpus state of one memory — `spec describe` reads it.
+func SpecCorpusState(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *SpecCorpusStateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SpecCorpusState",
+		Query:  SpecCorpusState_Operation,
+		Variables: &__SpecCorpusStateInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &SpecCorpusStateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SpecUnresolvedReferences.
+const SpecUnresolvedReferences_Operation = `
+query SpecUnresolvedReferences ($memoryRef: ID!) {
+	specUnresolvedReferences(memoryRef: $memoryRef) {
+		kind
+		field
+		reason
+		sourceLoc
+		sourceNodeId
+		targetLoc
+		text
+	}
+}
+`
+
+// #1449 — references that do not reach a written spec. Minting refuses while
+// any remain.
+func SpecUnresolvedReferences(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+) (data_ *SpecUnresolvedReferencesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SpecUnresolvedReferences",
+		Query:  SpecUnresolvedReferences_Operation,
+		Variables: &__SpecUnresolvedReferencesInput{
+			MemoryRef: memoryRef,
+		},
+	}
+
+	data_ = &SpecUnresolvedReferencesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
