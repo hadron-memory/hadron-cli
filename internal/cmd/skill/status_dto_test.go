@@ -67,3 +67,20 @@ func TestStatusDTOHasNoNilSlices(t *testing.T) {
 	check(t, "emptyStatusDTO", emptyStatusDTO("/root", "claudeSkill", nil,
 		[]statusUnreadableDTO{}, []statusUnreadableDTO{}))
 }
+
+func TestStatusDetailShowsServerErrorBesideCurrentClass(t *testing.T) {
+	current := "current"
+	entry := statusEntryDTO{
+		Class: &current,
+		Findings: []statusFindingDTO{{
+			Severity: "error",
+			Message:  "The description has 1083 characters; the host caps it at 1024.",
+		}},
+	}
+	if got := classCell(entry); got != "current" {
+		t.Fatalf("class = %q; the server's class must stay unchanged", got)
+	}
+	if got := detailCell(entry); got != entry.Findings[0].Message {
+		t.Fatalf("detail = %q; want the server's reason verbatim", got)
+	}
+}

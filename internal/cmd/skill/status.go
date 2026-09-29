@@ -122,6 +122,10 @@ DETAIL cell says why; in --json the class key is PRESENT and null, never
 omitted, so "the server returned no class" stays distinguishable from "this
 client never asked".
 
+An ERROR finding appears verbatim in DETAIL even when CLASS is current:
+current means the installed file matches its node, not that the node can be
+exported again. The CLASS remains the server's word.
+
 Selection is deliberately memory-wide: there is no --node here, because a
 status over one node cannot answer "is my skill set fresh?" — the orphan and
 collision classes are properties of a SET. Use skill lint --node to judge a
@@ -766,12 +770,17 @@ func classCell(e statusEntryDTO) string {
 }
 
 func detailCell(e statusEntryDTO) string {
-	switch {
-	case e.ParseFailure:
+	if e.ParseFailure {
 		return "file does not parse"
-	case e.MovedFrom != "":
-		return "was " + e.MovedFrom
-	default:
-		return ""
 	}
+	parts := []string{}
+	if e.MovedFrom != "" {
+		parts = append(parts, "was "+e.MovedFrom)
+	}
+	for _, finding := range e.Findings {
+		if finding.Severity == skilldoc.SevError {
+			parts = append(parts, finding.Message)
+		}
+	}
+	return strings.Join(parts, "; ")
 }
