@@ -13179,11 +13179,11 @@ func (v *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState) GetLastSeen
 
 // MarkOwnTeamChatReadResponse is returned by MarkOwnTeamChatRead on success.
 type MarkOwnTeamChatReadResponse struct {
-	// #1353 internal pilot: explicitly advance the cursor owned by one exact,
+	// #1353: explicitly advance the cursor owned by one exact,
 	// caller-owned live Worker session on one readable registered Channel.
-	// Shares the MCP mark-read gate; unlike advanceChannelReadState this door is
-	// operator+App pilot-gated and session-pinned. Monotonic; a seq beyond the
-	// captured Channel watermark is refused.
+	// Shares the MCP mark-read helper; unlike advanceChannelReadState this door
+	// requires that session. Monotonic; a seq beyond the captured Channel
+	// watermark is refused.
 	MarkOwnTeamChatRead *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState `json:"markOwnTeamChatRead"`
 }
 
@@ -23492,14 +23492,10 @@ func (v *TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageI
 
 // TeamAttentionResponse is returned by TeamAttention on success.
 type TeamAttentionResponse struct {
-	// #1353 internal pilot: compact attention for this operator's LIVE Workers.
-	// The signed token is a pure poll watermark and never changes read state.
-	// Omit since for all current unread. since:"now" is refused: discarding a
-	// backlog requires the separate preview + confirmed switchover.
-	//
-	// A router must adopt the returned token only after EVERY listed nudge was
-	// accepted. On any partial failure retain the prior token; retries can
-	// duplicate a nudge but cannot silently lose one.
+	// #1353 v1 attention query, retired by #1384. This field always returns
+	// UPGRADE_REQUIRED; use teamAttentionPage for bounded polling. Pass an
+	// existing v1 since token to teamAttentionPage to carry its watermark
+	// forward. Neither operation changes read state.
 	TeamAttention *TeamAttentionTeamAttentionTeamAttentionResult `json:"teamAttention"`
 }
 
@@ -40386,9 +40382,9 @@ mutation MarkOwnTeamChatRead ($appRef: ID!, $sessionRef: ID!, $channelRef: ID!, 
 `
 
 // `hadron team chat mark-read`: advance the bound worker's own cursor. The
-// GraphQL twin of hadron_team_chat_mark_read (same server helper, same pilot
-// gate, pinned to one caller-owned live session) — deliberately NOT the wider
-// advanceChannelReadState, which is neither pilot-gated nor session-pinned.
+// GraphQL twin of hadron_team_chat_mark_read (same server helper, pinned to
+// one caller-owned live session) — deliberately NOT the wider
+// advanceChannelReadState, which is not pinned to one session.
 func MarkOwnTeamChatRead(
 	ctx_ context.Context,
 	client_ graphql.Client,
