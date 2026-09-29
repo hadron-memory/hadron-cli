@@ -103,7 +103,7 @@ no server provenance; pass --app explicitly in that case.`,
 				}
 				return resp.TeamAttentionPage, nil
 			})
-			if missingAttentionPageField(err, "teamAttentionPage") {
+			if api.IsGraphQLValidationFor(err, "teamAttentionPage") {
 				legacy, legacyErr := gen.TeamAttention(ctx, client, scope.Ref, optStr(since))
 				if legacyErr != nil {
 					return api.MapError(legacyErr)
@@ -154,12 +154,6 @@ no server provenance; pass --app explicitly in that case.`,
 	cmd.Flags().StringVar(&since, "since", "", "the token the previous successful poll returned")
 	cmd.AddCommand(newCmdAttentionSwitchover(f))
 	return cmd
-}
-
-// A server before #1384 has no paged field. Only that exact schema refusal
-// falls back to the old operation; an auth or token error must remain an error.
-func missingAttentionPageField(err error, field string) bool {
-	return err != nil && strings.Contains(err.Error(), "Cannot query field \""+field+"\" on type \"Query\"")
 }
 
 func legacyAttentionDTO(app string, p *gen.TeamAttentionTeamAttentionTeamAttentionResult) attentionDTO {
@@ -437,7 +431,7 @@ func newCmdSwitchoverPreview(f *cmdutil.Factory) *cobra.Command {
 				}
 				return resp.TeamAttentionPreviewPage, nil
 			})
-			if missingAttentionPageField(err, "teamAttentionPreviewPage") {
+			if api.IsGraphQLValidationFor(err, "teamAttentionPreviewPage") {
 				legacy, legacyErr := gen.TeamAttentionSwitchoverPreview(ctx, client, scope.Ref)
 				if legacyErr != nil {
 					return api.MapError(legacyErr)
@@ -461,14 +455,18 @@ func newCmdSwitchoverPreview(f *cmdutil.Factory) *cobra.Command {
 						return err
 					}
 				} else {
-					t := output.NewTable(w, "WORKER", "CHANNEL", "FIRST UNREAD", "THROUGH", "UNREAD", "MENTIONS")
+					t := output.NewTable(w, "WORKER", "CHANNEL", "CURSOR", "FIRST UNREAD", "THROUGH", "UNREAD", "MENTIONS")
 					for _, wk := range dto.Workers {
 						for _, c := range wk.Channels {
+							cursor := "-"
+							if c.FromSeq != nil {
+								cursor = fmt.Sprintf("#%d", *c.FromSeq)
+							}
 							first := "-"
 							if c.FirstUnreadSeq != nil {
 								first = fmt.Sprintf("#%d", *c.FirstUnreadSeq)
 							}
-							t.Row(wk.Name, c.Name, first, fmt.Sprintf("#%d", c.ThroughSeq),
+							t.Row(wk.Name, c.Name, cursor, first, fmt.Sprintf("#%d", c.ThroughSeq),
 								fmt.Sprint(c.Unread), fmt.Sprint(c.UnreadMentions))
 						}
 					}

@@ -134,6 +134,50 @@ func TestTeamAttentionFallsBackOnlyWhenPagedFieldIsMissing(t *testing.T) {
 	}
 }
 
+func TestTeamAttentionHTTP400ValidationFallsBackForPollAndPreview(t *testing.T) {
+	teamGitDir(t)
+	var ops []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		ops = append(ops, body.OperationName)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "TeamAttentionPage":
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(missingFieldJSON("teamAttentionPage")))
+		case "TeamAttentionPreviewPage":
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(missingFieldJSON("teamAttentionPreviewPage")))
+		case "TeamAttention":
+			_, _ = w.Write([]byte(legacyAttentionJSON))
+		case "TeamAttentionSwitchoverPreview":
+			_, _ = w.Write([]byte(legacySwitchoverPreviewJSON))
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+		}
+	}))
+	defer srv.Close()
+	for _, command := range [][]string{
+		{"team", "attention"},
+		{"team", "attention", "switchover", "preview"},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(command, "--app", "acme.com:eng-team", "--json", "--server", srv.URL))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", command, err)
+		}
+	}
+	if want := []string{"TeamAttentionPage", "TeamAttention", "TeamAttentionPreviewPage", "TeamAttentionSwitchoverPreview"}; !reflect.DeepEqual(ops, want) {
+		t.Fatalf("HTTP 400 fallback calls = %v, want %v", ops, want)
+	}
+}
+
 func TestTeamAttentionPollPassesTheTokenThroughAndNeverSendsAnEmptySince(t *testing.T) {
 	teamGitDir(t)
 	srv, calls := attnServer(t, map[string]string{"TeamAttentionPage": attentionJSON})
@@ -344,6 +388,23 @@ func TestTeamAttentionSwitchoverPreviewFallsBackOnlyWhenPagedFieldIsMissing(t *t
 	}
 	if !strings.Contains(out.String(), `"proof": "old-proof"`) || !strings.Contains(out.String(), `"fromSeq": 0`) {
 		t.Fatalf("legacy preview was lost: %s", out.String())
+	}
+}
+
+func TestTeamAttentionLegacyPreviewShowsExactCursor(t *testing.T) {
+	teamGitDir(t)
+	srv, _ := attnServer(t, map[string]string{
+		"TeamAttentionPreviewPage":       missingFieldJSON("teamAttentionPreviewPage"),
+		"TeamAttentionSwitchoverPreview": legacySwitchoverPreviewJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--app", "acme.com:eng-team", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "CURSOR") || !strings.Contains(out.String(), "#0") || !strings.Contains(out.String(), "#1878") {
+		t.Fatalf("legacy cursor not displayed: %s", out.String())
 	}
 }
 
