@@ -264,9 +264,10 @@ func TestSpecEditDryRunReportsItsRevision(t *testing.T) {
 	if !strings.Contains(text, "--expected-revision 7") || !strings.Contains(text, "--expected-node-id sp1") || !strings.Contains(text, "--expected-proposal-hash "+dto.ProposalHash) {
 		t.Errorf("the dry run must name all values needed to save exactly this proposal:\n%s", text)
 	}
-	if !strings.Contains(text, "your proposed edit is not applied") ||
-		!strings.Contains(text, "server may still record out-of-band drift") {
-		t.Errorf("the later-save instruction must distinguish a rejected edit from possible drift reconciliation:\n%s", text)
+	if !strings.Contains(text, "A pre-write refusal writes nothing") ||
+		!strings.Contains(text, "on a server-reported write-time conflict") ||
+		!strings.Contains(text, "your proposed edit is not applied but the server may record out-of-band drift") {
+		t.Errorf("the later-save instruction must distinguish pre-write refusal from possible server reconciliation:\n%s", text)
 	}
 }
 

@@ -1325,9 +1325,10 @@ Conventions:
   replace an approved proposal. To save a proposal approved in an EARLIER turn,
   pass **`--expected-node-id ID --expected-revision N --expected-proposal-hash HASH`**
   from the same dry run. If the node, revision, or proposal changed, the save
-  refuses with exit **5** and does not apply the proposed edit. A write-time
-  `NODE_WRITE_CONFLICT` also exits **5** and may leave a server-recorded revision
-  for out-of-band drift, but does not apply the proposed edit. The CLI keeps
+  refuses with exit **5** and does not apply the proposed edit. A pre-write
+  refusal writes nothing. A server-reported write-time `NODE_WRITE_CONFLICT`
+  also exits **5** and may leave a server-recorded revision for out-of-band
+  drift, but does not apply the proposed edit. The CLI keeps
   the proposed text in a named file when the file can be created; a file-save
   failure is reported without claiming the proposal was kept.
   Either way: re-read, reconcile, and get renewed approval before saving. A

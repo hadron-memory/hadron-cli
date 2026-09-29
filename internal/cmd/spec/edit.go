@@ -265,13 +265,13 @@ the server, and a replacement at the same citation cannot receive the write.
 To save a proposal previewed and APPROVED earlier (another turn or process),
 pass ALL THREE values the dry run reported: --expected-revision N,
 --expected-node-id ID and --expected-proposal-hash HASH. If the node, revision
-or proposed write changed, your proposed edit is not applied (exit 5). The
-server may still record out-of-band drift as a revision before refusing it.
-If the server reports a write-time conflict, the proposed text is saved to a
-file when possible. A failed file save is reported explicitly. Re-read,
-reconcile, and get the proposal approved again. A server that cannot guard a
-save (predating hadron-server#1339 or #1352) is refused, never written to
-unguarded.
+or proposed write changed, your proposed edit is not applied (exit 5). A
+pre-write refusal writes nothing. On a server-reported write-time conflict,
+the server may record out-of-band drift as a revision while refusing your edit;
+your proposed text is saved to a file when possible. A failed file save is
+reported explicitly. Re-read, reconcile, and get the proposal approved again.
+A server that cannot guard a save (predating hadron-server#1339 or #1352) is
+refused, never written to unguarded.
 
 Editing the body alone ARMS the abstract-stale marker: the abstract was
 fingerprinted against the old content, so every later read flags it as a
@@ -761,7 +761,7 @@ func countLines(s string) int {
 // revisionLine tells a dry-run reader how to save EXACTLY what they reviewed:
 // the immutable node ID and revision must both match on the later run.
 func revisionLine(rev int, id, hash string) string {
-	return fmt.Sprintf("based on node %s at revision %d: to save exactly this proposal later, add --expected-node-id %s --expected-revision %d --expected-proposal-hash %s — your proposed edit is not applied if the node, revision or proposed write changed after this preview; the server may still record out-of-band drift as a revision.", id, rev, id, rev, hash)
+	return fmt.Sprintf("based on node %s at revision %d: to save exactly this proposal later, add --expected-node-id %s --expected-revision %d --expected-proposal-hash %s — a changed node, revision or proposal is refused. A pre-write refusal writes nothing; on a server-reported write-time conflict, your proposed edit is not applied but the server may record out-of-band drift as a revision.", id, rev, id, rev, hash)
 }
 
 // conflictRefusal is the NODE_WRITE_CONFLICT answer (cli#738): the proposed
