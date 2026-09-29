@@ -1285,7 +1285,7 @@ func TestAppFlagOnListingsPrintsScopeNote(t *testing.T) {
 		"Agents": `{"data":{"agents":{"total":1,"items":[{"id":"agt1","urn":"hrn:agent:acme.com:iris","name":"Iris",
 			"description":null,"type":"ASSISTANT","visibility":"ORGANIZATION","organizationId":"o1",
 			"surfaces":[],"systemMemoryId":null,"systemPrompt":null,"aiProvider":null,"aiModel":null,
-			"hasAiApiKey":false,"personaRole":null,"personaPrompt":null,"createdAt":"2026-08-11T00:00:00Z"}]}}}`,
+			"hasAiApiKey":false,"personaRole":null,"createdAt":"2026-08-11T00:00:00Z"}]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

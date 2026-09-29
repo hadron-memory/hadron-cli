@@ -1547,7 +1547,7 @@ shared role template (updateWorker, hadron-server#1010).
 
 Until this verb the override could only be set at CASTING time, which fixed
 a casting's individuality at the one moment nobody yet knows what makes it
-individual. Neither escape hatch covered it: the role agent's personaPrompt
+individual. Neither escape hatch covered it: the role agent's systemPrompt
 is SHARED by every casting of that role, so editing it reaches everyone;
 and re-casting is barred by WORKER_IN_USE once a worker has done work —
 precisely the workers with an identity worth recording.

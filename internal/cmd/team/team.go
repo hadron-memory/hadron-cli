@@ -1,7 +1,7 @@
 // Package team implements `hadron team ...` — the team-coordination
 // surface (#369, re-keyed to the Worker model in #428 / hadron-server#974).
-// A persona is pure DRESSING on an Agent (personaRole + a {{name}}-templated
-// personaPrompt — no behavior forks on "is a persona"); the named identity
+// An Agent carries personaRole metadata and a {{name}}-templated systemPrompt;
+// the named identity
 // ("Iris") is a WORKER, the casting of an installed Agent into an App
 // (cor:dmo:050:11).
 //
@@ -49,10 +49,10 @@ from ` + "`hadron team --help`" + ` alone (#402).
 
   1. hadron agent create --org <org> --name backend-engineer \
        --persona-role backend-engineer \
-       --persona-prompt 'You are {{name}}, a backend engineer ...'
-       The ROLE AGENT, born with its persona dressing: a role plus an
-       identity prompt TEMPLATE ({{name}}/{{role}} are bound at casting
-       time; refine later with ` + "`agent update`" + `). The dressing is reusable —
+       --system-prompt 'You are {{name}}, the {{role}} ...'
+       The ROLE AGENT, born with role metadata and a shared prompt
+       TEMPLATE ({{name}}/{{role}} bind at casting time; refine later with
+       ` + "`agent update`" + `). The template is reusable —
        one backend-engineer agent can be cast into many Apps, under many
        names.
 

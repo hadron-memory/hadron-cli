@@ -16,12 +16,9 @@ fragment AgentFields on Agent {
   aiProvider
   aiModel
   hasAiApiKey
-  # The persona DRESSING (#428 / hadron-server#974): personaRole is pure
-  # metadata, personaPrompt a {{name}}/{{role}} TEMPLATE bound at casting time
-  # (Worker.prompt returns the bound result). The named identity never lives
-  # here — it is a Worker.
+  # The persona role is metadata. systemPrompt is the shared template with
+  # {{name}}/{{role}} bound when a Worker is cast or its prompt is resolved.
   personaRole
-  personaPrompt
   createdAt
 }
 
@@ -93,12 +90,8 @@ mutation CreateAgent(
   $systemMemoryId: String
   # @genqlient(omitempty: true)
   $surfaces: [String!]
-  # The persona dressing rides create too (#428 review): a role agent is
-  # usually born dressed, so the bootstrap is one command, not create+update.
   # @genqlient(omitempty: true)
   $personaRole: String
-  # @genqlient(omitempty: true)
-  $personaPrompt: String
 ) {
   createAgent(
     name: $name
@@ -110,7 +103,6 @@ mutation CreateAgent(
     systemMemoryId: $systemMemoryId
     surfaces: $surfaces
     personaRole: $personaRole
-    personaPrompt: $personaPrompt
   ) {
     ...AgentFields
   }
@@ -138,14 +130,10 @@ mutation UpdateAgent(
   $surfaces: [String!]
   # @genqlient(omitempty: true)
   $urn: String
-  # The persona dressing rides the ordinary agent update since #428 (the
-  # `team persona` group is gone — the named identity is a Worker). omitempty:
-  # an unset flag is OMITTED (preserve); an explicit null would CLEAR the
-  # column (CLAUDE.md wire-semantics gotcha).
+  # An unset role is omitted and preserved; the shared prompt follows the
+  # same rule via systemPrompt above.
   # @genqlient(omitempty: true)
   $personaRole: String
-  # @genqlient(omitempty: true)
-  $personaPrompt: String
 ) {
   updateAgent(
     ref: $ref
@@ -158,7 +146,6 @@ mutation UpdateAgent(
     surfaces: $surfaces
     urn: $urn
     personaRole: $personaRole
-    personaPrompt: $personaPrompt
   ) {
     ...AgentFields
   }

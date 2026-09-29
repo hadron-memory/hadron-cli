@@ -611,15 +611,14 @@ type AgentFields struct {
 	OrganizationId *string         `json:"organizationId"`
 	Surfaces       []string        `json:"surfaces"`
 	SystemMemoryId *string         `json:"systemMemoryId"`
-	SystemPrompt   *string         `json:"systemPrompt"`
-	AiProvider     *string         `json:"aiProvider"`
-	AiModel        *string         `json:"aiModel"`
-	HasAiApiKey    bool            `json:"hasAiApiKey"`
+	// Templated Agent prompt. {{name}}/{{role}} bind to the Agent in chats or the named Worker in briefings.
+	SystemPrompt *string `json:"systemPrompt"`
+	AiProvider   *string `json:"aiProvider"`
+	AiModel      *string `json:"aiModel"`
+	HasAiApiKey  bool    `json:"hasAiApiKey"`
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
-	// Persona identity TEMPLATE ('You are {{name}}, ...'); {{name}}/{{role}} are bound at casting time (Worker.prompt returns the bound result).
-	PersonaPrompt *string `json:"personaPrompt"`
-	CreatedAt     string  `json:"createdAt"`
+	CreatedAt   string  `json:"createdAt"`
 }
 
 // GetId returns AgentFields.Id, and is useful for accessing the field via an interface.
@@ -663,9 +662,6 @@ func (v *AgentFields) GetHasAiApiKey() bool { return v.HasAiApiKey }
 
 // GetPersonaRole returns AgentFields.PersonaRole, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetPersonaRole() *string { return v.PersonaRole }
-
-// GetPersonaPrompt returns AgentFields.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *AgentFields) GetPersonaPrompt() *string { return v.PersonaPrompt }
 
 // GetCreatedAt returns AgentFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetCreatedAt() string { return v.CreatedAt }
@@ -1531,11 +1527,6 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetHasAiApiKey() bool { return v.Agen
 // GetPersonaRole returns AgentsAgentsAgentsPageItemsAgent.PersonaRole, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
 
-// GetPersonaPrompt returns AgentsAgentsAgentsPageItemsAgent.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *AgentsAgentsAgentsPageItemsAgent) GetPersonaPrompt() *string {
-	return v.AgentFields.PersonaPrompt
-}
-
 // GetCreatedAt returns AgentsAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -1593,8 +1584,6 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
-	PersonaPrompt *string `json:"personaPrompt"`
-
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -1623,7 +1612,6 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
-	retval.PersonaPrompt = v.AgentFields.PersonaPrompt
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -3683,7 +3671,7 @@ type CastWorkerPreviewCastWorkerPreview struct {
 	// reviewable BEFORE the name is permanent. Null when the agent carries no
 	// template and no override was given.
 	Prompt *string `json:"prompt"`
-	// Whether the agent's personaPrompt binds {{name}} — a nameless template silently produces workers whose prompt never names them. Null when the agent has no template.
+	// Whether the agent's systemPrompt binds {{name}} — a nameless template silently produces workers whose prompt never names them. Null when the agent has no template.
 	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
 }
 
@@ -5034,9 +5022,6 @@ func (v *CreateAgentCreateAgent) GetHasAiApiKey() bool { return v.AgentFields.Ha
 // GetPersonaRole returns CreateAgentCreateAgent.PersonaRole, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
 
-// GetPersonaPrompt returns CreateAgentCreateAgent.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *CreateAgentCreateAgent) GetPersonaPrompt() *string { return v.AgentFields.PersonaPrompt }
-
 // GetCreatedAt returns CreateAgentCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -5094,8 +5079,6 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
-	PersonaPrompt *string `json:"personaPrompt"`
-
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -5124,7 +5107,6 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
-	retval.PersonaPrompt = v.AgentFields.PersonaPrompt
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -5137,8 +5119,8 @@ type CreateAgentResponse struct {
 	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
 	// (org XOR user).
 	//
-	// personaRole / personaPrompt are the persona dressing (cor:agt:020:01) —
-	// the reusable role plus the '{{name}}'-templated identity prompt. The NAMED
+	// personaRole and systemPrompt are the persona dressing (cor:agt:020:01) —
+	// the reusable role plus the '{{name}}'-templated prompt. The NAMED
 	// identity is a Worker, cast with castWorker; names never live on agents.
 	//
 	// orgId accepts the org's ID or URN.
@@ -9201,8 +9183,8 @@ func (v *CreateTeamChatMessageResponse) GetCreateTeamChatMessage() *CreateTeamCh
 // A role definition (#960): the roles:<role> node in the Team Agent's system
 // memory. #1050: it carries no name register — a role is a definition, not an
 // allocation pool.
-// The persona prompt template is NOT here — with the Worker model (#974) it
-// lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
+// The prompt template is NOT here — with the Worker model (#974) it
+// lives on the role-agent (personaRole + systemPrompt); roleAgent
 // points at it.
 type CreateTeamRoleCreateTeamRole struct {
 	TeamRoleFields `json:"-"`
@@ -10732,9 +10714,6 @@ func (v *GetAgentAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey
 // GetPersonaRole returns GetAgentAgent.PersonaRole, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
 
-// GetPersonaPrompt returns GetAgentAgent.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *GetAgentAgent) GetPersonaPrompt() *string { return v.AgentFields.PersonaPrompt }
-
 // GetCreatedAt returns GetAgentAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -10792,8 +10771,6 @@ type __premarshalGetAgentAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
-	PersonaPrompt *string `json:"personaPrompt"`
-
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -10822,7 +10799,6 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
-	retval.PersonaPrompt = v.AgentFields.PersonaPrompt
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -17846,11 +17822,6 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetPersonaRole() *string 
 	return v.AgentFields.PersonaRole
 }
 
-// GetPersonaPrompt returns PublicAgentsPublicAgentsAgentsPageItemsAgent.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetPersonaPrompt() *string {
-	return v.AgentFields.PersonaPrompt
-}
-
 // GetCreatedAt returns PublicAgentsPublicAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -17910,8 +17881,6 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
-	PersonaPrompt *string `json:"personaPrompt"`
-
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -17940,7 +17909,6 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
-	retval.PersonaPrompt = v.AgentFields.PersonaPrompt
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -24055,7 +24023,7 @@ type TeamRoleFields struct {
 	// Runs Query.agent's own read gate and masks to null on deny (the #552
 	// posture), like Worker.agent.
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
-	// Whether the role-agent's personaPrompt binds {{name}} — the check that
+	// Whether the role-agent's systemPrompt binds {{name}} — the check that
 	// finds templates which silently produce nameless workers (role-agents
 	// authored before any guard existed). Null when no single role-agent
 	// resolves. Computed even when roleAgent itself is masked: it discloses one
@@ -24146,8 +24114,8 @@ func (v *TeamRolesTeamRolesTeamRolesPage) GetItems() []*TeamRolesTeamRolesTeamRo
 // A role definition (#960): the roles:<role> node in the Team Agent's system
 // memory. #1050: it carries no name register — a role is a definition, not an
 // allocation pool.
-// The persona prompt template is NOT here — with the Worker model (#974) it
-// lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
+// The prompt template is NOT here — with the Worker model (#974) it
+// lives on the role-agent (personaRole + systemPrompt); roleAgent
 // points at it.
 type TeamRolesTeamRolesTeamRolesPageItemsTeamRole struct {
 	TeamRoleFields `json:"-"`
@@ -25305,9 +25273,9 @@ func (v *UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload)
 type UpdateAgentResponse struct {
 	// Update an Agent.
 	//
-	// urn renames the slug (org-owned agents only). personaRole / personaPrompt
-	// are the persona dressing (cor:agt:020:01); explicit null or blank clears,
-	// omitted preserves. Worker castings referencing this agent are unaffected —
+	// urn renames the slug (org-owned agents only). personaRole is normalized
+	// (explicit null or blank clears, omitted preserves). Worker castings
+	// referencing this agent are unaffected —
 	// the named identity lives on the Worker.
 	//
 	// Accepts the entity's ID or URN.
@@ -25614,9 +25582,6 @@ func (v *UpdateAgentUpdateAgent) GetHasAiApiKey() bool { return v.AgentFields.Ha
 // GetPersonaRole returns UpdateAgentUpdateAgent.PersonaRole, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
 
-// GetPersonaPrompt returns UpdateAgentUpdateAgent.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *UpdateAgentUpdateAgent) GetPersonaPrompt() *string { return v.AgentFields.PersonaPrompt }
-
 // GetCreatedAt returns UpdateAgentUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -25674,8 +25639,6 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
-	PersonaPrompt *string `json:"personaPrompt"`
-
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -25704,7 +25667,6 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
-	retval.PersonaPrompt = v.AgentFields.PersonaPrompt
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -29687,8 +29649,8 @@ func (v *UpdateTeamRoleMetaResponse) GetUpdateTeamRole() *UpdateTeamRoleMetaUpda
 // A role definition (#960): the roles:<role> node in the Team Agent's system
 // memory. #1050: it carries no name register — a role is a definition, not an
 // allocation pool.
-// The persona prompt template is NOT here — with the Worker model (#974) it
-// lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
+// The prompt template is NOT here — with the Worker model (#974) it
+// lives on the role-agent (personaRole + systemPrompt); roleAgent
 // points at it.
 type UpdateTeamRoleMetaUpdateTeamRole struct {
 	TeamRoleFields `json:"-"`
@@ -30106,7 +30068,7 @@ type UpdateWorkerResponse struct {
 	// `promptOverride` is the per-worker escape hatch (cor:agt:020:01), but it
 	// could only be set at CASTING time — fixing a casting's individuality at the
 	// one moment nobody yet knows what makes it individual. The role agent's
-	// `personaPrompt` cannot stand in (it is SHARED by every casting of that
+	// `systemPrompt` cannot stand in (it is SHARED by every casting of that
 	// role), and re-casting is barred by `WORKER_IN_USE` for any worker that has
 	// done work — precisely the ones with an identity to record.
 	//
@@ -30582,7 +30544,7 @@ type WorkerFields struct {
 	Name string `json:"name"`
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
-	// The worker's boot prompt, resolved: the agent's personaPrompt template
+	// The worker's boot prompt, resolved: the agent's systemPrompt template
 	// with {{name}}/{{role}} bound, then promptOverride appended as its own
 	// paragraph. Null when the agent carries no template and the worker no
 	// override.
@@ -31853,7 +31815,6 @@ type __CreateAgentInput struct {
 	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
 	Surfaces       []string         `json:"surfaces,omitempty"`
 	PersonaRole    *string          `json:"personaRole,omitempty"`
-	PersonaPrompt  *string          `json:"personaPrompt,omitempty"`
 }
 
 // GetName returns __CreateAgentInput.Name, and is useful for accessing the field via an interface.
@@ -31882,9 +31843,6 @@ func (v *__CreateAgentInput) GetSurfaces() []string { return v.Surfaces }
 
 // GetPersonaRole returns __CreateAgentInput.PersonaRole, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
-
-// GetPersonaPrompt returns __CreateAgentInput.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *__CreateAgentInput) GetPersonaPrompt() *string { return v.PersonaPrompt }
 
 // __CreateAgentScheduleInput is used internally by genqlient
 type __CreateAgentScheduleInput struct {
@@ -34028,7 +33986,6 @@ type __UpdateAgentInput struct {
 	Surfaces       []string         `json:"surfaces,omitempty"`
 	Urn            *string          `json:"urn,omitempty"`
 	PersonaRole    *string          `json:"personaRole,omitempty"`
-	PersonaPrompt  *string          `json:"personaPrompt,omitempty"`
 }
 
 // GetRef returns __UpdateAgentInput.Ref, and is useful for accessing the field via an interface.
@@ -34060,9 +34017,6 @@ func (v *__UpdateAgentInput) GetUrn() *string { return v.Urn }
 
 // GetPersonaRole returns __UpdateAgentInput.PersonaRole, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
-
-// GetPersonaPrompt returns __UpdateAgentInput.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *__UpdateAgentInput) GetPersonaPrompt() *string { return v.PersonaPrompt }
 
 // __UpdateAgentScheduleInput is used internally by genqlient
 type __UpdateAgentScheduleInput struct {
@@ -35079,7 +35033,6 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
-	personaPrompt
 	createdAt
 }
 `
@@ -36356,8 +36309,8 @@ func ConnectionGrants(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $personaPrompt: String) {
-	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, personaPrompt: $personaPrompt) {
+mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $personaRole: String) {
+	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole) {
 		... AgentFields
 	}
 }
@@ -36376,7 +36329,6 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
-	personaPrompt
 	createdAt
 }
 `
@@ -36393,7 +36345,6 @@ func CreateAgent(
 	systemMemoryId *string,
 	surfaces []string,
 	personaRole *string,
-	personaPrompt *string,
 ) (data_ *CreateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateAgent",
@@ -36408,7 +36359,6 @@ func CreateAgent(
 			SystemMemoryId: systemMemoryId,
 			Surfaces:       surfaces,
 			PersonaRole:    personaRole,
-			PersonaPrompt:  personaPrompt,
 		},
 	}
 
@@ -39321,7 +39271,6 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
-	personaPrompt
 	createdAt
 }
 `
@@ -41908,7 +41857,6 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
-	personaPrompt
 	createdAt
 }
 `
@@ -44475,8 +44423,8 @@ func UninstallAgentFromApp(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $personaPrompt: String) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, personaPrompt: $personaPrompt) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole) {
 		... AgentFields
 	}
 }
@@ -44495,7 +44443,6 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
-	personaPrompt
 	createdAt
 }
 `
@@ -44513,7 +44460,6 @@ func UpdateAgent(
 	surfaces []string,
 	urn *string,
 	personaRole *string,
-	personaPrompt *string,
 ) (data_ *UpdateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateAgent",
@@ -44529,7 +44475,6 @@ func UpdateAgent(
 			Surfaces:       surfaces,
 			Urn:            urn,
 			PersonaRole:    personaRole,
-			PersonaPrompt:  personaPrompt,
 		},
 	}
 
@@ -46365,7 +46310,7 @@ fragment WorkerFields on Worker {
 //
 // promptOverride could only be set at CASTING time, which fixed a casting's
 // individuality at the one moment nobody yet knows what makes it individual.
-// Neither escape hatch covered it: the role agent's personaPrompt is SHARED by
+// Neither escape hatch covered it: the role agent's systemPrompt is SHARED by
 // every casting of that role, and re-casting is barred by WORKER_IN_USE for any
 // worker that has done work — precisely the ones with an identity to record.
 //

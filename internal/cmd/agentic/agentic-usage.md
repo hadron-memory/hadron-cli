@@ -308,7 +308,7 @@ hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--trai
 hadron ai-config list [--app <ref>] [--agent <id>] [--with-endpoints] | get <id> | endpoints <provider> | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--endpoint <url>] [--api-key -] [--file <path>] | update <id> [--endpoint <url|"">] ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
-hadron agent list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>|--persona-prompt-file <path>] | update <id> [<field flags>] | rm <id> --yes
+hadron agent list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
@@ -1562,14 +1562,16 @@ Conventions:
   `status` (`installed`/`failed`/`unknown`), `error` on the latter two, and the
   server-resolved `appId`/`appUrn` on success only. Optional
   `--type`/`--visibility`/`--description`/`--system-prompt`/
-  `--system-memory`/`--surface` (repeatable). The two long-text prompts also
-  take a file or stdin: `--persona-prompt-file <path>` / `--system-prompt-file <path>`,
-  or `--persona-prompt -` / `--system-prompt -` to read stdin (each prompt inline
-  and its `-file` are mutually exclusive, and only one prompt may read stdin; a
-  prompt read with `-` is for a PIPE and is refused, exit 2, from an interactive
-  terminal, per #648). Prefer
-  these for a persona template — it is the longest text the CLI takes and is dense with
-  backticks and `{{name}}` braces that inline shell quoting mangles. `agent update <ref> [<field flags>]`
+  `--system-memory`/`--surface` (repeatable). The shared `systemPrompt` is the
+  Agent prompt and the Worker `{{name}}`/`{{role}}` template. It accepts
+  `--system-prompt-file <path>` for multiline text or `--system-prompt -` from
+  piped stdin; inline and file flags are mutually exclusive. A terminal read
+  with `-` is refused (exit 2, #648). Prefer a file for templates containing
+  backticks, shell syntax, and braces. The retired `--persona-prompt` and
+  `--persona-prompt-file` flags fail locally with exit 2 and point to the
+  system-prompt flags, before any server request. Agent `--json` no longer
+  emits `personaPrompt`: the server removed that field, and `systemPrompt`
+  now contains the shared template. `agent update <ref> [<field flags>]`
   changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`
   requires `--yes`. `<ref>` is an agent ID **or** a fully-qualified URN
   (`hrn:agent:acme.com:support-bot`) — no need to resolve an ID first. Memory-attach, AI-config wiring, and app-wiring land next.
@@ -1593,13 +1595,12 @@ Conventions:
   worker is the NAMED CASTING of an installed agent into the App
   (`cor:dmo:050:11`): "Iris" is the backend-engineer agent cast into the
   eng-team App, re-driven across many sessions by the same or a different
-  human. The agent carries the reusable persona DRESSING — `personaRole` plus
-  a `personaPrompt` TEMPLATE with `{{name}}`/`{{role}}` placeholders, set at
-  `agent create` or edited via `agent update`
-  (`--persona-role`/`--persona-prompt`, or `--persona-prompt-file <path>` /
-  `--persona-prompt -` for the multi-line template); the name lives on the
-  Worker, never the agent. Commands take the worker's name (resolved within
-  the App from `--app`, the App context, or the binding), its URN, or its
+  human. The agent carries `personaRole` metadata plus one shared
+  `systemPrompt` TEMPLATE with `{{name}}`/`{{role}}` placeholders, set at
+  `agent create` or edited via `agent update` (`--persona-role` and
+  `--system-prompt` or `--system-prompt-file <path>` / `--system-prompt -`);
+  the name lives on the Worker, never the agent. Commands take the worker's
+  name (resolved within the App from `--app`, the App context, or the binding), its URN, or its
   id. A NAME with no App scope at all — outside a worktree, no `--app`, no
   App context — refuses **exit 4** naming the remedy (`#464`); before that it
   leaked the raw wire error, which named neither what you typed nor the fix.
@@ -1754,7 +1755,7 @@ Conventions:
   the individuality layered over the SHARED role template (#452,
   `updateWorker`). Until it existed the override could only be set at cast
   time, and neither escape hatch covered a change of mind: the role agent's
-  `personaPrompt` is shared by every casting of that role, and re-casting is
+  `systemPrompt` is shared by every casting of that role, and re-casting is
   barred by `WORKER_IN_USE` once a worker has done work. Scope is that ONE
   field — a name is permanent per App (`cor:agt:020:02`) and role/agent define
   the casting.

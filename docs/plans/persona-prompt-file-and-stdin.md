@@ -1,5 +1,12 @@
 # `--persona-prompt-file` / stdin for the CLI's longest text field (#541)
 
+> **Historical command names.** Server #1438 and CLI #771 retired
+> `personaPrompt` and its flags. The file/stdin handling described here
+> survives as `--system-prompt-file` and `--system-prompt -`; see
+> [agent-prompt-cutover-771.md](agent-prompt-cutover-771.md). The old examples
+> below document the original #541 change and must not be run as current CLI
+> instructions.
+
 Design-as-built for hadron-cli#541.
 
 ## The footgun

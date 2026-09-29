@@ -1,7 +1,7 @@
 # `hadron team` — workers and sessions (Worker model, #428 / hadron-server#974).
 #
-# A persona is pure DRESSING on an Agent (personaRole + a {{name}}-templated
-# personaPrompt — metadata, edited via `agent update`). The named identity
+# An Agent carries personaRole metadata and a shared {{name}}-templated
+# systemPrompt, edited via `agent update`. The named identity
 # ("Iris") is the WORKER: the casting of an installed Agent into an App
 # (cor:dmo:050:11, cor:agt:020:01). A worker IS addressable — hrn:worker:<root>:<app-slug>:<slug>
 # (#991) — but the URN keys on a DERIVED, permanent slug, never on the name:
@@ -38,7 +38,7 @@ fragment WorkerFields on Worker {
   agentId
   name
   role
-  # The resolved boot briefing: the agent's personaPrompt template with
+  # The resolved boot briefing: the agent's systemPrompt template with
   # {{name}}/{{role}} bound, then promptOverride appended. Printed on cast and
   # surfaced by `worker get` — it is what a session driver adopts.
   prompt
@@ -909,7 +909,7 @@ mutation DeleteTeamRole(
 #
 # promptOverride could only be set at CASTING time, which fixed a casting's
 # individuality at the one moment nobody yet knows what makes it individual.
-# Neither escape hatch covered it: the role agent's personaPrompt is SHARED by
+# Neither escape hatch covered it: the role agent's systemPrompt is SHARED by
 # every casting of that role, and re-casting is barred by WORKER_IN_USE for any
 # worker that has done work — precisely the ones with an identity to record.
 #

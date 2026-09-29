@@ -136,11 +136,6 @@ type Agent {
   orgGrants: [AgentOrgGrant!]!
   organizationId: String
 
-  """
-  Persona identity TEMPLATE ('You are {{name}}, ...'); {{name}}/{{role}} are bound at casting time (Worker.prompt returns the bound result).
-  """
-  personaPrompt: String
-
   """Persona role - free string with conventions ('backend-engineer')."""
   personaRole: String
   properties: JSON
@@ -151,6 +146,10 @@ type Agent {
   registerDefaults: RegisterDefaults!
   surfaces: [String!]!
   systemMemoryId: String
+
+  """
+  Templated Agent prompt. {{name}}/{{role}} bind to the Agent in chats or the named Worker in briefings.
+  """
   systemPrompt: String
   type: AgentType!
   urn: String!
@@ -1268,7 +1267,7 @@ type CastWorkerPreview {
   agentName: String!
 
   """
-  Whether the agent's personaPrompt binds {{name}} — a nameless template silently produces workers whose prompt never names them. Null when the agent has no template.
+  Whether the agent's systemPrompt binds {{name}} — a nameless template silently produces workers whose prompt never names them. Null when the agent has no template.
   """
   hasNamePlaceholder: Boolean
 
@@ -3690,13 +3689,13 @@ type Mutation {
   v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
   (org XOR user).
   
-  personaRole / personaPrompt are the persona dressing (cor:agt:020:01) —
-  the reusable role plus the '{{name}}'-templated identity prompt. The NAMED
+  personaRole and systemPrompt are the persona dressing (cor:agt:020:01) —
+  the reusable role plus the '{{name}}'-templated prompt. The NAMED
   identity is a Worker, cast with castWorker; names never live on agents.
   
   orgId accepts the org's ID or URN.
   """
-  createAgent(description: String, name: String!, orgId: ID, personaPrompt: String, personaRole: String, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, visibility: AgentVisibility): Agent!
+  createAgent(description: String, name: String!, orgId: ID, personaRole: String, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, visibility: AgentVisibility): Agent!
 
   """
   Subscribe an organization to a PUBLIC Agent without creating an App.
@@ -5441,14 +5440,14 @@ type Mutation {
   """
   Update an Agent.
   
-  urn renames the slug (org-owned agents only). personaRole / personaPrompt
-  are the persona dressing (cor:agt:020:01); explicit null or blank clears,
-  omitted preserves. Worker castings referencing this agent are unaffected —
+  urn renames the slug (org-owned agents only). personaRole is normalized
+  (explicit null or blank clears, omitted preserves). Worker castings
+  referencing this agent are unaffected —
   the named identity lives on the Worker.
   
   Accepts the entity's ID or URN.
   """
-  updateAgent(description: String, listedOnMarketplace: Boolean, name: String, personaPrompt: String, personaRole: String, ref: ID!, registerDefaults: RegisterDefaultsInput, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, visibility: AgentVisibility): Agent!
+  updateAgent(description: String, listedOnMarketplace: Boolean, name: String, personaRole: String, ref: ID!, registerDefaults: RegisterDefaultsInput, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, visibility: AgentVisibility): Agent!
 
   """
   Update an Agent's AI provider config. Key is encrypted at rest.
@@ -5915,7 +5914,7 @@ type Mutation {
   `promptOverride` is the per-worker escape hatch (cor:agt:020:01), but it
   could only be set at CASTING time — fixing a casting's individuality at the
   one moment nobody yet knows what makes it individual. The role agent's
-  `personaPrompt` cannot stand in (it is SHARED by every casting of that
+  `systemPrompt` cannot stand in (it is SHARED by every casting of that
   role), and re-casting is barred by `WORKER_IN_USE` for any worker that has
   done work — precisely the ones with an identity to record.
   
@@ -9506,6 +9505,11 @@ type SkillPlanEntry {
   nodeId: String!
 
   """
+  Why an enabled source is out of export in STATUS or EXPORT, or null when this category does not apply. Separate from the planned filesystem action.
+  """
+  outOfExportReason: String
+
+  """
   True when the file exists and does not parse. Reported identically by status and export.
   """
   parseFailure: Boolean!
@@ -9886,15 +9890,15 @@ type TeamCollectionsPayload {
 A role definition (#960): the roles:<role> node in the Team Agent's system
 memory. #1050: it carries no name register — a role is a definition, not an
 allocation pool.
-The persona prompt template is NOT here — with the Worker model (#974) it
-lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
+The prompt template is NOT here — with the Worker model (#974) it
+lives on the role-agent (personaRole + systemPrompt); roleAgent
 points at it.
 """
 type TeamRole {
   description: String
 
   """
-  Whether the role-agent's personaPrompt binds {{name}} — the check that
+  Whether the role-agent's systemPrompt binds {{name}} — the check that
   finds templates which silently produce nameless workers (role-agents
   authored before any guard existed). Null when no single role-agent
   resolves. Computed even when roleAgent itself is masked: it discloses one
@@ -10553,7 +10557,7 @@ type Worker {
   portalUrl: String
 
   """
-  The worker's boot prompt, resolved: the agent's personaPrompt template
+  The worker's boot prompt, resolved: the agent's systemPrompt template
   with {{name}}/{{role}} bound, then promptOverride appended as its own
   paragraph. Null when the agent carries no template and the worker no
   override.
