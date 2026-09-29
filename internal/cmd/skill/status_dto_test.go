@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -82,5 +83,38 @@ func TestStatusDetailShowsServerErrorBesideCurrentClass(t *testing.T) {
 	}
 	if got := detailCell(entry); got != entry.Findings[0].Message {
 		t.Fatalf("detail = %q; want the server's reason verbatim", got)
+	}
+}
+
+func TestStatusUsesServerOutOfExportReasonWithoutChangingClass(t *testing.T) {
+	current := "current"
+	reason := "description has 1083 characters; the host caps it at 1024"
+	plan := &gen.SkillPlanSkillPlan{Entries: []*gen.SkillPlanSkillPlanEntriesSkillPlanEntry{{
+		Urn: "hrn:node:example.com:demo:tasks:a", NodeId: "n1", Name: "a",
+		Class: &current, OutOfExportReason: &reason,
+		Findings: []*gen.SkillPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding{{
+			Severity: "error", Message: reason,
+		}, {
+			Severity: "error", Message: "name collides with another skill",
+		}},
+	}}}
+	dto := toStatusDTO("/root", "claudeSkill", plan, []statusUnreadableDTO{}, []statusUnreadableDTO{})
+	row := dto.Entries[0]
+	if got := classCell(row); got != current {
+		t.Fatalf("class = %q, want %q", got, current)
+	}
+	if got := detailCell(row); got != reason+"; name collides with another skill" {
+		t.Fatalf("detail = %q, want the server-owned reason once and the separate collision", got)
+	}
+	data, err := json.Marshal(row)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(data, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if fields["outOfExportReason"] != reason {
+		t.Fatalf("outOfExportReason = %v, want %q", fields["outOfExportReason"], reason)
 	}
 }

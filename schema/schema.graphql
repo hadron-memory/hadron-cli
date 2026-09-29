@@ -9506,6 +9506,11 @@ type SkillPlanEntry {
   nodeId: String!
 
   """
+  Why an enabled source is out of export in STATUS or EXPORT, or null when this category does not apply. Separate from the planned filesystem action.
+  """
+  outOfExportReason: String
+
+  """
   True when the file exists and does not parse. Reported identically by status and export.
   """
   parseFailure: Boolean!

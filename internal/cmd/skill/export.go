@@ -125,12 +125,23 @@ type exportUnrecognizedDTO struct {
 	Findings []statusFindingDTO `json:"findings"`
 }
 
+// exportOutOfExportDTO carries the server's source judgment separately from
+// the file action. One node can appear for more than one host.
+type exportOutOfExportDTO struct {
+	Host   string `json:"host"`
+	Node   string `json:"node"`
+	NodeID string `json:"nodeId"`
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
+}
+
 // exportDTO is the whole report. Every slice is initialised, so an empty
 // field renders as [] and never as null.
 type exportDTO struct {
 	DryRun                  bool                    `json:"dryRun"`
 	Hosts                   []exportHostDTO         `json:"hosts"`
 	Unrecognized            []exportUnrecognizedDTO `json:"unrecognized"`
+	OutOfExport             []exportOutOfExportDTO  `json:"outOfExport"`
 	SelectedNodes           []string                `json:"selectedNodes,omitempty"`
 	OrphanAssessmentSkipped bool                    `json:"orphanAssessmentSkipped,omitempty"`
 	Selections              []exportSelectionDTO    `json:"selections,omitempty"`
@@ -187,6 +198,12 @@ What it does per skill, per host:
   skipped  already current, or nothing to do (the reason says which)
   refused  the file was edited by hand, or two skills claim one name
   failed   the item could not be done; every other item still runs
+
+Every run ends with "Out of export — not written": the server's source-level
+reason for each excluded skill, including one whose installed file is current
+or locally edited. This is separate from the planned file action and appears
+as outOfExport in --json. An existing file is left alone; --prune acts only on
+orphans, never on an out-of-export source.
 
 A removal deletes SKILL.md and then the directory only if it is empty: other
 files in a skill directory are kept and listed.
@@ -252,7 +269,7 @@ the full report when any item was refused or failed. A run that cannot start
 				forcePtr = &force
 			}
 
-			dto := exportDTO{DryRun: opts.dryRun, Hosts: []exportHostDTO{}, Unrecognized: []exportUnrecognizedDTO{}}
+			dto := exportDTO{DryRun: opts.dryRun, Hosts: []exportHostDTO{}, Unrecognized: []exportUnrecognizedDTO{}, OutOfExport: []exportOutOfExportDTO{}}
 			if len(selected) > 0 {
 				dto.SelectedNodes = selected
 				dto.OrphanAssessmentSkipped = true
@@ -303,6 +320,9 @@ the full report when any item was refused or failed. A run that cannot start
 				ioStarted = true
 				if p != nil && unrecognized == nil {
 					unrecognized = p.Unrecognized
+				}
+				if p != nil {
+					dto.OutOfExport = append(dto.OutOfExport, outOfExportItems(h.Key, p)...)
 				}
 				for _, sr := range selectionResults {
 					if sr == nil {
@@ -1066,6 +1086,20 @@ func toUnrecognizedDTO(in []*gen.SkillExportPlanSkillPlanUnrecognized) []exportU
 	return out
 }
 
+func outOfExportItems(host string, plan *gen.SkillExportPlanSkillPlan) []exportOutOfExportDTO {
+	out := []exportOutOfExportDTO{}
+	for _, entry := range plan.Entries {
+		if entry == nil || entry.OutOfExportReason == nil {
+			continue
+		}
+		out = append(out, exportOutOfExportDTO{
+			Host: host, Node: entry.Urn, NodeID: entry.NodeId, Name: entry.Name,
+			Reason: *entry.OutOfExportReason,
+		})
+	}
+	return out
+}
+
 // exportHasFailures is the exit-code rule: any refused or failed item, or a
 // host that could not be written, exits 5 AFTER the full report.
 func exportHasFailures(dto exportDTO) bool {
@@ -1201,6 +1235,14 @@ func renderExport(w io.Writer, dto exportDTO) error {
 	}
 	if !dto.DryRun {
 		if _, err := fmt.Fprintln(w, "\nHosts load skills when a session starts: restart a running session to pick up changes."); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprintf(w, "\nOut of export — not written (%d):\n", len(dto.OutOfExport)); err != nil {
+		return err
+	}
+	for _, item := range dto.OutOfExport {
+		if _, err := fmt.Fprintf(w, "  %s (%s; %s): %s\n", cmp(item.Name, item.Node), item.Node, item.Host, item.Reason); err != nil {
 			return err
 		}
 	}
