@@ -13179,11 +13179,11 @@ func (v *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState) GetLastSeen
 
 // MarkOwnTeamChatReadResponse is returned by MarkOwnTeamChatRead on success.
 type MarkOwnTeamChatReadResponse struct {
-	// #1353 internal pilot: explicitly advance the cursor owned by one exact,
+	// #1353: explicitly advance the cursor owned by one exact,
 	// caller-owned live Worker session on one readable registered Channel.
-	// Shares the MCP mark-read gate; unlike advanceChannelReadState this door is
-	// operator+App pilot-gated and session-pinned. Monotonic; a seq beyond the
-	// captured Channel watermark is refused.
+	// Shares the MCP mark-read helper; unlike advanceChannelReadState this door
+	// requires that session. Monotonic; a seq beyond the captured Channel
+	// watermark is refused.
 	MarkOwnTeamChatRead *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState `json:"markOwnTeamChatRead"`
 }
 
