@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -101,13 +102,41 @@ func setTeamBindingServer(t *testing.T, server string) {
 	}
 }
 
-const attentionJSON = `{"data":{"teamAttention":{"token":"tok-2","workers":[
-	{"worker":"wkr1","name":"Iris","urn":"hrn:worker:acme.com:eng-team:iris","live":true,"channels":[
+const attentionJSON = `{"data":{"teamAttentionPage":{"scanComplete":true,"nextPage":null,"adoptableSince":"tok-2","items":[
+	{"worker":"wkr1","workerName":"Iris","workerUrn":"hrn:worker:acme.com:eng-team:iris",
+	 "channel":"ch1","channelName":"team","unread":3,"unreadMentions":1,"firstUnreadSeq":41,"lastSeq":43}]}}}`
+
+const legacyAttentionJSON = `{"data":{"teamAttention":{"token":"old-token","workers":[
+	{"worker":"wkr1","name":"Iris","urn":null,"live":true,"channels":[
 		{"channel":"ch1","name":"team","unread":3,"unreadMentions":1,"firstUnreadSeq":41,"lastSeq":43}]}]}}}`
+
+func missingFieldJSON(field string) string {
+	return `{"errors":[{"message":"Cannot query field \"` + field + `\" on type \"Query\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+}
+
+func TestTeamAttentionFallsBackOnlyWhenPagedFieldIsMissing(t *testing.T) {
+	teamGitDir(t)
+	srv, calls := attnServer(t, map[string]string{
+		"TeamAttentionPage": missingFieldJSON("teamAttentionPage"),
+		"TeamAttention":     legacyAttentionJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "--app", "acme.com:eng-team", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := opsOf(*calls); !reflect.DeepEqual(got, []string{"TeamAttentionPage", "TeamAttention"}) {
+		t.Fatalf("fallback calls = %v", got)
+	}
+	if !strings.Contains(out.String(), `"token": "old-token"`) {
+		t.Fatalf("legacy result was lost: %s", out.String())
+	}
+}
 
 func TestTeamAttentionPollPassesTheTokenThroughAndNeverSendsAnEmptySince(t *testing.T) {
 	teamGitDir(t)
-	srv, calls := attnServer(t, map[string]string{"TeamAttention": attentionJSON})
+	srv, calls := attnServer(t, map[string]string{"TeamAttentionPage": attentionJSON})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "attention", "--app", "acme.com:eng-team", "--json", "--server", srv.URL})
@@ -159,6 +188,55 @@ func TestTeamAttentionPollPassesTheTokenThroughAndNeverSendsAnEmptySince(t *test
 	}
 }
 
+func TestTeamAttentionDrainsPagesBeforeReturningAnAdoptableToken(t *testing.T) {
+	teamGitDir(t)
+	calls := []attnCall{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string         `json:"operationName"`
+			Variables     map[string]any `json:"variables"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		calls = append(calls, attnCall{Op: body.OperationName, Vars: body.Variables})
+		w.Header().Set("Content-Type", "application/json")
+		if len(calls) == 1 {
+			_, _ = w.Write([]byte(`{"data":{"teamAttentionPage":{"scanComplete":false,"nextPage":"page-two","adoptableSince":null,"items":[{"worker":"w1","workerName":"Ada","workerUrn":null,"channel":"c1","channelName":"team","unread":2,"unreadMentions":1,"firstUnreadSeq":4,"lastSeq":8}]}}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"teamAttentionPage":{"scanComplete":true,"nextPage":null,"adoptableSince":"final-token","items":[{"worker":"w2","workerName":"Jonas","workerUrn":null,"channel":"c1","channelName":"team","unread":1,"unreadMentions":0,"firstUnreadSeq":7,"lastSeq":8}]}}}`))
+	}))
+	defer srv.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "--app", "acme.com:eng-team", "--since", "old-token", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 2 || calls[0].Vars["since"] != "old-token" || calls[1].Vars["page"] != "page-two" {
+		t.Fatalf("paged call sequence = %+v", calls)
+	}
+	if _, ok := calls[0].Vars["page"]; ok {
+		t.Errorf("first pull sent page: %+v", calls[0].Vars)
+	}
+	if _, ok := calls[1].Vars["since"]; ok {
+		t.Errorf("continuation resent since: %+v", calls[1].Vars)
+	}
+	var dto struct {
+		Token   string `json:"token"`
+		Workers []struct {
+			Name string `json:"name"`
+		} `json:"workers"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if dto.Token != "final-token" || len(dto.Workers) != 2 || dto.Workers[0].Name != "Ada" || dto.Workers[1].Name != "Jonas" {
+		t.Fatalf("incomplete or reordered report: %+v", dto)
+	}
+}
+
 // An EMPTY --since is refused before any request: it is nearly always an unset
 // shell variable, and answering the no-token question instead would re-nudge
 // every worker's whole backlog.
@@ -180,7 +258,7 @@ func TestTeamAttentionRefusesAnEmptySince(t *testing.T) {
 func TestTeamAttentionEmptyListRendersAsAnArray(t *testing.T) {
 	teamGitDir(t)
 	srv, _ := attnServer(t, map[string]string{
-		"TeamAttention": `{"data":{"teamAttention":{"token":"tok-3","workers":[]}}}`,
+		"TeamAttentionPage": `{"data":{"teamAttentionPage":{"scanComplete":true,"nextPage":null,"adoptableSince":"tok-3","items":[]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -193,8 +271,8 @@ func TestTeamAttentionEmptyListRendersAsAnArray(t *testing.T) {
 	}
 }
 
-// The pilot gate and the token/proof refusals exit per the documented
-// contract, not the generic 1.
+// Attention token/page/proof refusals exit per the documented contract.
+// FEATURE_NOT_AVAILABLE remains mapped for an older server during rollout.
 func TestTeamAttentionRefusalsMapToExitCodes(t *testing.T) {
 	for _, tc := range []struct {
 		code string
@@ -202,12 +280,14 @@ func TestTeamAttentionRefusalsMapToExitCodes(t *testing.T) {
 	}{
 		{"FEATURE_NOT_AVAILABLE", exitcode.Forbidden},
 		{"INVALID_ATTENTION_TOKEN", exitcode.Usage},
+		{"INVALID_ATTENTION_PAGE", exitcode.Usage},
 		{"SWITCHOVER_CONFIRMATION_REQUIRED", exitcode.Usage},
 		{"ATTENTION_TOKEN_STALE", exitcode.Conflict},
+		{"TEAM_ATTENTION_STALE_PAGE", exitcode.Conflict},
 	} {
 		t.Run(tc.code, func(t *testing.T) {
 			teamGitDir(t)
-			srv, _ := attnServer(t, map[string]string{"TeamAttention": gqlErrorJSON(tc.code)})
+			srv, _ := attnServer(t, map[string]string{"TeamAttentionPage": gqlErrorJSON(tc.code)})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"team", "attention", "--app", "acme.com:eng-team", "--since", "x", "--server", srv.URL})
@@ -222,7 +302,7 @@ func TestTeamAttentionRefusalsMapToExitCodes(t *testing.T) {
 // worktree's session, even from a bound worktree.
 func TestTeamAttentionNeverSendsTheWorkerSession(t *testing.T) {
 	dir := teamGitDir(t)
-	srv, calls := attnServer(t, map[string]string{"TeamAttention": attentionJSON})
+	srv, calls := attnServer(t, map[string]string{"TeamAttentionPage": attentionJSON})
 	bound := strings.Replace(bindingFixture, `"startedAt"`, `"server":"`+srv.URL+`","startedAt"`, 1)
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bound), 0o600); err != nil {
 		t.Fatal(err)
@@ -241,33 +321,70 @@ func TestTeamAttentionNeverSendsTheWorkerSession(t *testing.T) {
 	}
 }
 
-const switchoverPreviewJSON = `{"data":{"teamAttentionSwitchoverPreview":{"proof":"prf-1","expiresAt":"2026-09-25T20:40:00Z","workers":[
-	{"worker":"wkr1","name":"Iris","urn":null,"channels":[
-		{"channel":"ch1","name":"team","fromSeq":0,"throughSeq":1878,"unread":1878,"unreadMentions":12}]}]}}}`
+const switchoverPreviewJSON = `{"data":{"teamAttentionPreviewPage":{"scanComplete":true,"nextPage":null,"proof":"prf-1","expiresAt":"2026-09-25T20:40:00Z","items":[
+	{"worker":"wkr1","workerName":"Iris","workerUrn":null,"channel":"ch1","channelName":"team","firstUnreadSeq":1,"lastSeq":1878,"unread":1878,"unreadMentions":12}]}}}`
+
+const legacySwitchoverPreviewJSON = `{"data":{"teamAttentionSwitchoverPreview":{"proof":"old-proof","expiresAt":"2026-09-25T20:40:00Z","workers":[
+	{"worker":"wkr1","name":"Iris","urn":null,"channels":[{"channel":"ch1","name":"team","fromSeq":0,"throughSeq":1878,"unread":1878,"unreadMentions":12}]}]}}}`
+
+func TestTeamAttentionSwitchoverPreviewFallsBackOnlyWhenPagedFieldIsMissing(t *testing.T) {
+	teamGitDir(t)
+	srv, calls := attnServer(t, map[string]string{
+		"TeamAttentionPreviewPage":       missingFieldJSON("teamAttentionPreviewPage"),
+		"TeamAttentionSwitchoverPreview": legacySwitchoverPreviewJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--app", "acme.com:eng-team", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := opsOf(*calls); !reflect.DeepEqual(got, []string{"TeamAttentionPreviewPage", "TeamAttentionSwitchoverPreview"}) {
+		t.Fatalf("fallback calls = %v", got)
+	}
+	if !strings.Contains(out.String(), `"proof": "old-proof"`) || !strings.Contains(out.String(), `"fromSeq": 0`) {
+		t.Fatalf("legacy preview was lost: %s", out.String())
+	}
+}
 
 func TestTeamAttentionSwitchoverPreviewIsReadOnlyAndPrintsTheApplyCommand(t *testing.T) {
 	teamGitDir(t)
-	srv, calls := attnServer(t, map[string]string{"TeamAttentionSwitchoverPreview": switchoverPreviewJSON})
+	srv, calls := attnServer(t, map[string]string{"TeamAttentionPreviewPage": switchoverPreviewJSON})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--app", "acme.com:eng-team", "--server", srv.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(*calls) != 1 || (*calls)[0].Op != "TeamAttentionSwitchoverPreview" {
+	if len(*calls) != 1 || (*calls)[0].Op != "TeamAttentionPreviewPage" {
 		t.Fatalf("preview is ONE read, got %+v", *calls)
 	}
-	for _, want := range []string{"#0", "#1878", "Nothing has been written", "switchover apply --app hrn:app:acme.com:eng-team --server " + srv.URL + " --proof prf-1"} {
+	for _, want := range []string{"#1", "#1878", "Nothing has been written", "switchover apply --app hrn:app:acme.com:eng-team --server " + srv.URL + " --proof prf-1"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("preview output missing %q:\n%s", want, out.String())
 		}
 	}
 }
 
+func TestTeamAttentionPagedPreviewDoesNotInventAnExactCursor(t *testing.T) {
+	teamGitDir(t)
+	srv, _ := attnServer(t, map[string]string{"TeamAttentionPreviewPage": switchoverPreviewJSON})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--app", "acme.com:eng-team", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if strings.Contains(got, `"fromSeq"`) || !strings.Contains(got, `"firstUnreadSeq": 1`) || !strings.Contains(got, `"proof": "prf-1"`) {
+		t.Fatalf("paged preview should report its actual fields: %s", got)
+	}
+}
+
 func TestTeamAttentionSwitchoverPreviewQuotesOpaqueProof(t *testing.T) {
 	teamGitDir(t)
 	resp := strings.Replace(switchoverPreviewJSON, "prf-1", "p' ; echo wrong", 1)
-	srv, _ := attnServer(t, map[string]string{"TeamAttentionSwitchoverPreview": resp})
+	srv, _ := attnServer(t, map[string]string{"TeamAttentionPreviewPage": resp})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--app", "acme.com:eng-team", "--server", srv.URL})
@@ -451,8 +568,8 @@ func TestTeamChatReadMarksNothingWhenTheRenderFails(t *testing.T) {
 	}
 }
 
-// Outside the pilot the mark is refused FEATURE_NOT_AVAILABLE: silent, and the
-// read still succeeds. Any other failure is a stderr note, never a failure.
+// An older server may refuse the mark with FEATURE_NOT_AVAILABLE: silent, and
+// the read still succeeds. Any other failure is a stderr note, never a failure.
 func TestTeamChatReadMarkFailureNeverFailsTheRead(t *testing.T) {
 	for _, tc := range []struct {
 		code string
@@ -673,7 +790,7 @@ func TestTeamChatMarkReadRefusals(t *testing.T) {
 			t.Errorf("exit = %d, want %d", got, exitcode.Usage)
 		}
 	})
-	t.Run("pilot gate", func(t *testing.T) {
+	t.Run("legacy server refusal", func(t *testing.T) {
 		writeTeamBinding(t)
 		srv, _ := attnServer(t, map[string]string{"MarkOwnTeamChatRead": gqlErrorJSON("FEATURE_NOT_AVAILABLE")})
 		setTeamBindingServer(t, srv.URL)
@@ -738,7 +855,7 @@ func TestTeamChatMarkReadReceiptNamesItsScope(t *testing.T) {
 // one it never received.
 func TestTeamAttentionFailsWhenTheTokenCannotBeWritten(t *testing.T) {
 	teamGitDir(t)
-	srv, _ := attnServer(t, map[string]string{"TeamAttention": attentionJSON})
+	srv, _ := attnServer(t, map[string]string{"TeamAttentionPage": attentionJSON})
 	f, _ := testFactory(t)
 	f.IOStreams.Out = failOnWrite{substr: "token:"} // everything lands except the token line
 	root := NewRootCmd(f)
@@ -813,7 +930,7 @@ func TestTeamAttentionReceiptsFailWhenTheyCannotBeWritten(t *testing.T) {
 		responses  map[string]string
 		args       []string
 	}{
-		{"switchover preview", "app:", map[string]string{"TeamAttentionSwitchoverPreview": switchoverPreviewJSON},
+		{"switchover preview", "app:", map[string]string{"TeamAttentionPreviewPage": switchoverPreviewJSON},
 			[]string{"team", "attention", "switchover", "preview", "--app", "acme.com:eng-team"}},
 		{"switchover apply", "Switchover applied", map[string]string{
 			"ConfirmTeamAttentionSwitchover": `{"data":{"confirmTeamAttentionSwitchover":{"applied":true,"workersAdvanced":1,"channelsAdvanced":1}}}`},
@@ -855,8 +972,8 @@ func TestTeamAttentionRefusesABindingFromAnotherServer(t *testing.T) {
 				t.Fatal(err)
 			}
 			srv, calls := attnServer(t, map[string]string{
-				"TeamAttention":                  attentionJSON,
-				"TeamAttentionSwitchoverPreview": switchoverPreviewJSON,
+				"TeamAttentionPage":              attentionJSON,
+				"TeamAttentionPreviewPage":       switchoverPreviewJSON,
 				"ConfirmTeamAttentionSwitchover": `{"data":{"confirmTeamAttentionSwitchover":{"applied":true,"workersAdvanced":1,"channelsAdvanced":1}}}`,
 			})
 			f, _ := testFactory(t)
@@ -881,7 +998,7 @@ func TestTeamAttentionRefusesABindingFromAnotherServer(t *testing.T) {
 
 func TestTeamAttentionRefusesABindingWithoutServer(t *testing.T) {
 	writeTeamBinding(t) // The old binding format has no server field.
-	srv, calls := attnServer(t, map[string]string{"TeamAttentionSwitchoverPreview": switchoverPreviewJSON})
+	srv, calls := attnServer(t, map[string]string{"TeamAttentionPreviewPage": switchoverPreviewJSON})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "attention", "switchover", "preview", "--server", srv.URL})
@@ -895,7 +1012,7 @@ func TestTeamAttentionRefusesABindingWithoutServer(t *testing.T) {
 
 func TestTeamAttentionRefusesConfiguredAppAfterServerOverride(t *testing.T) {
 	teamGitDir(t)
-	srv, calls := attnServer(t, map[string]string{"TeamAttentionSwitchoverPreview": switchoverPreviewJSON})
+	srv, calls := attnServer(t, map[string]string{"TeamAttentionPreviewPage": switchoverPreviewJSON})
 	f, _ := testFactory(t)
 	dir := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -939,8 +1056,8 @@ func TestTeamAttentionAcceptsConfiguredURNForBoundApp(t *testing.T) {
 	writeTeamBinding(t)
 	f, _ := testFactory(t)
 	srv, calls := attnServer(t, map[string]string{
-		"TeamAppIdentity":                teamAppIdentityJSON,
-		"TeamAttentionSwitchoverPreview": switchoverPreviewJSON,
+		"TeamAppIdentity":          teamAppIdentityJSON,
+		"TeamAttentionPreviewPage": switchoverPreviewJSON,
 	})
 	setTeamBindingServer(t, srv.URL)
 	dir := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron")
@@ -955,7 +1072,7 @@ func TestTeamAttentionAcceptsConfiguredURNForBoundApp(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("configured URN resolves to the bound App: %v", err)
 	}
-	if got := opsOf(*calls); len(got) != 2 || got[0] != "TeamAppIdentity" || got[1] != "TeamAttentionSwitchoverPreview" {
+	if got := opsOf(*calls); len(got) != 2 || got[0] != "TeamAppIdentity" || got[1] != "TeamAttentionPreviewPage" {
 		t.Errorf("identity must be checked before the preview: %v", got)
 	}
 }

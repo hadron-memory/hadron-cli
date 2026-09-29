@@ -8177,6 +8177,25 @@ type Query {
   teamAttention(appRef: ID!, since: String): TeamAttentionResult!
 
   """
+  #1384 paged (v2) attention poll — the bounded successor to teamAttention
+  (v1 answers UPGRADE_REQUIRED). Each call decrypts at most scanLimit rows
+  and emits at most limit Worker/Channel pairs; continue with page while
+  nextPage is present. The final page alone carries adoptableSince — adopt
+  it only after EVERY listed nudge was accepted; on any partial failure
+  retain the prior watermark and restart the scan (duplicates, never loss).
+  An existing v1 since token starts a scan, carrying the watermark forward.
+  Never changes read state.
+  """
+  teamAttentionPage(appRef: ID!, limit: Int, page: String, scanLimit: Int, since: String): TeamAttentionPage!
+
+  """
+  #1384 paged switchover preview — same bounded scan as teamAttentionPage,
+  full-backlog accounting. The apply proof exists ONLY on the final page of
+  a completed preview; confirmTeamAttentionSwitchover (apply) is unchanged.
+  """
+  teamAttentionPreviewPage(appRef: ID!, limit: Int, page: String, scanLimit: Int): TeamAttentionPreviewPage!
+
+  """
   Preview the explicit baseline switchover for the operator's current live
   Workers. Read-only: inspect the exact cursors, heads and unread counts,
   then pass proof to confirmTeamAttentionSwitchover within ten minutes.
@@ -8992,12 +9011,37 @@ type SearchReplaceResult {
   """Nodes with at least one replacement."""
   nodesChanged: Int!
 
-  """Nodes the selection resolved to (after auth + prefix filtering)."""
+  """Selected nodes whose requested text fields were actually inspected."""
   nodesScanned: Int!
+
+  """
+  Unique authorized nodes selected before bulk-write protections are applied.
+  """
+  nodesSelected: Int!
+
+  """Selected nodes protected from inspection and replacement."""
+  nodesSkipped: Int!
 
   """Per-node breakdown; only nodes with at least one match are listed."""
   results: [SearchReplaceNodeResult!]!
+
+  """
+  Mutually exclusive skip reasons. Governance takes precedence over Channel
+  address protection, so a node carrying both signals counts once as governed.
+  """
+  skipCounts: SearchReplaceSkipCounts!
   totalReplacements: Int!
+}
+
+"""
+Mutually exclusive reasons selected nodes were protected from bulk replacement.
+"""
+type SearchReplaceSkipCounts {
+  """Governed nodes of any kind. This is not a spec-only count."""
+  governed: Int!
+
+  """Nodes at or below a Channel address."""
+  protectedAddress: Int!
 }
 
 """
@@ -9503,7 +9547,7 @@ input SkillPlanInput {
   memories: [String!]
 
   """
-  Persisted Scope ID for a narrowed EXPORT. Membership is resolved afresh for each call.
+  Persisted Scope ID for a narrowed EXPORT. Omit for unscoped export; explicit null refuses. Membership is resolved afresh for each call.
   """
   scopeRef: ID
 }
@@ -9662,6 +9706,58 @@ type TeamAttentionChannel {
   name: String!
   unread: Int!
   unreadMentions: Int!
+}
+
+type TeamAttentionPage {
+  """
+  FINAL PAGE ONLY: a since-watermark token (same shape v1 issued) to adopt
+  after every listed nudge was accepted. Never present while scanComplete
+  is false.
+  """
+  adoptableSince: String
+  items: [TeamAttentionPageItem!]!
+
+  """Continuation for the next pull; null on the final page."""
+  nextPage: String
+
+  """
+  False while any Channel is unfinished or queued items remain undelivered.
+  """
+  scanComplete: Boolean!
+}
+
+"""
+#1384 paged (v2): one bounded slice of an attention scan. Counts are exact
+for the captured (seen, head] range of the issuing scan only, and items are
+emitted solely from Channels that scan has exhausted.
+"""
+type TeamAttentionPageItem {
+  channel: ID!
+  channelName: String!
+  firstUnreadSeq: Int
+  lastRelevantSeq: Int
+
+  """The frozen Channel head this item's counts are exact for."""
+  lastSeq: Int!
+  unread: Int!
+  unreadMentions: Int!
+  worker: ID!
+  workerName: String!
+  workerUrn: String
+}
+
+type TeamAttentionPreviewPage {
+  expiresAt: DateTime
+  items: [TeamAttentionPageItem!]!
+  nextPage: String
+
+  """
+  FINAL PAGE ONLY: the short-lived switchover proof (frozen heads). An
+  incomplete preview never carries one, so a partial preview can never
+  silently discard an unscanned backlog.
+  """
+  proof: String
+  scanComplete: Boolean!
 }
 
 type TeamAttentionResult {

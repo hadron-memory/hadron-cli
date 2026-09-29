@@ -413,16 +413,15 @@ past the end of the chat) reads a window rather than a prefix and records
 nothing. Reading a chat that is EMPTY still counts as
 having read it.
 
-YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). Where the server
-has the team-attention pilot enabled for you and the binding records this
-server, a read that records the watermark above also marks the bound worker's
+YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). When the binding
+records this server, a read that records the watermark above also marks the bound worker's
 messages read ON THE SERVER, through the same seq — which is what stops a
 team-chat router nudging you
 about messages you have seen. It happens only AFTER the messages were
 printed, so a read that fails partway marks nothing. A --mentions/--mentions-me,
 --before or windowed read marks nothing; use ` + "`team chat mark-read --through <seq>`" + `
-for those. Outside the pilot this step is silently skipped; if it fails inside
-it, a note on stderr says so and the read still succeeds.
+for those. An older server that still refuses attention skips the mark; other
+mark failures produce a note on stderr and the read still succeeds.
 
 --json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
 alias for readers written against ` + "`hadron chat read`" + `, the retired academy
