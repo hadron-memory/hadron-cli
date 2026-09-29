@@ -120,6 +120,10 @@ type specDTO struct {
 	NodeType  string   `json:"nodeType"`
 	Tags      []string `json:"tags"`
 	UpdatedAt string   `json:"updatedAt"`
+	// Placeholder marks a reserved, unwritten spec in a DRAFT corpus
+	// (hadron-server#1450). omitempty: only a draft holds placeholders, so
+	// every other listing's shape is untouched.
+	Placeholder bool `json:"placeholder,omitempty"`
 }
 
 // tagsOrEmpty normalizes a node's tags for a DTO: a nil slice marshals to
@@ -158,6 +162,9 @@ type specDetailDTO struct {
 	Edges     []specEdgeDTO    `json:"edges"`
 	Lint      []lintFindingDTO `json:"lint"`
 	UpdatedAt string           `json:"updatedAt"`
+	// Placeholder: see specDTO. A placeholder's lint is the single
+	// `placeholder` finding — an unwritten spec is not a malformed one.
+	Placeholder bool `json:"placeholder,omitempty"`
 }
 
 // specBodyDTO is the --json shape for `spec get --body-only`: just the
@@ -766,13 +773,13 @@ func writeSpecTable(w io.Writer, specs []specDTO) error {
 	if !spansMemories(specs) {
 		t := output.NewTable(w, "CITATION", "NAME")
 		for _, s := range specs {
-			t.Row(s.Citation, s.Name)
+			t.Row(s.Citation, placeholderLabel(s))
 		}
 		return t.Flush()
 	}
 	t := output.NewTable(w, "CITATION", "MEMORY", "NAME")
 	for _, s := range specs {
-		t.Row(s.Citation, memoryLabel(s), s.Name)
+		t.Row(s.Citation, memoryLabel(s), placeholderLabel(s))
 	}
 	return t.Flush()
 }
@@ -1305,6 +1312,9 @@ type specNode struct {
 	// already select it, so this costs nothing on the wire.
 	UpdatedAt string
 	OutEdges  []specEdge
+	// InDraft says the node's corpus is a DRAFT (hadron-server#1447), where a
+	// citation is not yet permanent — only lint's advice reads it.
+	InDraft bool
 }
 
 func nodeFromGQL(n *gen.GetNodeNode) specNode {
