@@ -613,3 +613,138 @@ func TestSpecMintJSONOnTTYShowsReportOnStderr(t *testing.T) {
 		t.Errorf("the report must be on stderr before the prompt: %q", e)
 	}
 }
+
+// ── slice 2: draft awareness in lint / list / get ──
+
+const draftStateJSON = `{"data":{"memory":{"id":"mem1","urn":"micromentor.org:platform-specs","corpusState":"DRAFT","corpusMintedAt":null}}}`
+const mintedStateJSON = `{"data":{"memory":{"id":"mem1","urn":"micromentor.org:platform-specs","corpusState":"MINTED","corpusMintedAt":null}}}`
+
+func placeholderScanJSON(locs map[string]bool) string {
+	var hits []string
+	for loc, ph := range locs {
+		b := "false"
+		if ph {
+			b = "true"
+		}
+		hits = append(hits, `{"node":{"loc":"`+loc+`","isPlaceholder":`+b+`}}`)
+	}
+	return `{"data":{"findNodes":{"hits":[` + strings.Join(hits, ",") + `]}}}`
+}
+
+// In a draft, a placeholder is reported once as `placeholder` — not linted as
+// a malformed spec (this one is untagged, which would be a tag-spec ERROR) —
+// and an unresolved reference is a warning at the citing spec, in scope only.
+func TestSpecLintDraftReportsPlaceholdersAndUnresolved(t *testing.T) {
+	const written, placeholder = "msg:010:02", "msg:010:03"
+	responses := map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList(written, `["spec","p1"]`) + `,` + specNodeList(placeholder, `[]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			specBatchNode(written) + `,` + specBatchNodeWithTags(placeholder, `[]`) + `]}}}`,
+		"Memories":            memListMicromentorJSON,
+		"GetMemory":           memGetVectorEnabledJSON,
+		"SpecCorpusState":     draftStateJSON,
+		"SpecPlaceholderScan": placeholderScanJSON(map[string]bool{written: false, placeholder: true}),
+		"SpecUnresolvedReferences": `{"data":{"specUnresolvedReferences":[` +
+			`{"kind":"URN","field":"content","reason":"MISSING","sourceLoc":"` + written + `","sourceNodeId":"n1","targetLoc":"msg:010:09","text":"x"},` +
+			`{"kind":"EDGE","field":"edge","reason":"PLACEHOLDER","sourceLoc":"zzz:out:of:scope","sourceNodeId":"n2","targetLoc":"` + placeholder + `","text":"cites"}]}}`,
+	}
+	gql := fakeGraphQL(t, responses)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("warnings only must exit 0, got %v\n%s", err, out.String())
+	}
+	var findings []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &findings); err != nil {
+		t.Fatalf("--json: %v (%q)", err, out.String())
+	}
+	var sawPlaceholder, sawUnresolved bool
+	for _, fnd := range findings {
+		switch {
+		case fnd["citation"] == placeholder && fnd["rule"] == "placeholder" && fnd["severity"] == "warning":
+			sawPlaceholder = true
+		case fnd["citation"] == placeholder:
+			t.Errorf("a placeholder must not be linted as a spec: %v", fnd)
+		case fnd["rule"] == "unresolved-reference" && fnd["citation"] == written && fnd["severity"] == "warning":
+			sawUnresolved = true
+		case fnd["citation"] == "zzz:out:of:scope":
+			t.Errorf("an unresolved reference from outside the linted scope must not be reported: %v", fnd)
+		}
+	}
+	if !sawPlaceholder || !sawUnresolved {
+		t.Errorf("want one placeholder and one in-scope unresolved-reference warning, got %s", out.String())
+	}
+
+	// --strict escalates them like any warning.
+	f, _ = testFactory(t)
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--strict", "--server", gql.URL})
+	if got := exitCodeFor(root.Execute()); got != exitcode.Conflict {
+		t.Errorf("--strict must fail on the draft warnings, got %d", got)
+	}
+}
+
+// A minted corpus holds no placeholders: after the one state read, neither
+// the placeholder scan nor the reference scan is sent.
+func TestSpecLintMintedCorpusSkipsTheDraftScans(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			specBatchNode("msg:010:02") + `]}}}`,
+		"Memories":        memListMicromentorJSON,
+		"GetMemory":       memGetVectorEnabledJSON,
+		"SpecCorpusState": mintedStateJSON,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("lint: %v", err)
+	}
+	for _, op := range []string{"SpecPlaceholderScan", "SpecUnresolvedReferences"} {
+		if _, sent := captured[op]; sent {
+			t.Errorf("a minted corpus must not be scanned with %s", op)
+		}
+	}
+}
+
+func TestSpecListMarksPlaceholdersInADraft(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"FindNodes":           `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec"]`) + `,` + specNodeList("msg:010:03", `["spec"]`) + `]}}`,
+		"Memories":            memListMicromentorJSON,
+		"SpecCorpusState":     draftStateJSON,
+		"SpecPlaceholderScan": placeholderScanJSON(map[string]bool{"msg:010:02": false, "msg:010:03": true}),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "list", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var specs []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &specs); err != nil {
+		t.Fatalf("--json: %v (%q)", err, out.String())
+	}
+	for _, s := range specs {
+		want := s["citation"] == "msg:010:03"
+		if (s["placeholder"] == true) != want {
+			t.Errorf("placeholder marking wrong for %v", s)
+		}
+		if !want {
+			if _, present := s["placeholder"]; present {
+				t.Errorf("a written spec must not carry the key at all (omitempty): %v", s)
+			}
+		}
+	}
+
+	f, out = testFactory(t)
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"spec", "list", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if !strings.Contains(out.String(), "[placeholder]") {
+		t.Errorf("the table must mark the placeholder: %q", out.String())
+	}
+}

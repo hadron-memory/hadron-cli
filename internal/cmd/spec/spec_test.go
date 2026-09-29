@@ -431,7 +431,7 @@ func TestTagsOrEmpty(t *testing.T) {
 
 // A role-only spec can have no tags; detail output still promises [] (#312).
 func TestSpecDetailFromNodeEmptyTags(t *testing.T) {
-	dto := specDetailFromNode(&gen.GetNodeNode{Loc: "msg:010:02", Name: "W2", NodeType: "info"}, false, nil, "")
+	dto := specDetailFromNode(&gen.GetNodeNode{Loc: "msg:010:02", Name: "W2", NodeType: "info"}, false, nil, "", draftInfo{})
 	if dto.Tags == nil {
 		t.Error("detail DTO tags must never be nil (renders as null)")
 	}

@@ -1546,7 +1546,14 @@ Conventions:
   goes to stderr before the prompt and stdout carries only the final
   document. On a MINTED corpus every one of these draft commands
   refuses SPEC_CORPUS_NOT_DRAFT, exit 5, and an encrypted corpus refuses the
-  scanning ones (SPEC_CORPUS_ENCRYPTED_UNSUPPORTED, exit 5); a mint racing a new blocker
+  scanning ones (SPEC_CORPUS_ENCRYPTED_UNSUPPORTED, exit 5). In a draft the
+  READ commands know it too: `spec list` / `spec get` mark a reserved spec
+  `"placeholder": true` (omitted otherwise; `[placeholder]` in the table), a
+  placeholder's lint is the single `placeholder` warning, and `spec lint`
+  reports each `placeholder` and each in-scope `unresolved-reference` as a
+  WARNING at the citing spec (`--strict` escalates them; `spec mint` is the
+  gate) — a minted corpus or an older server costs one state read and is
+  otherwise untouched; a mint racing a new blocker
   (SPEC_CORPUS_MINT_BLOCKED) or a write in flight (SPEC_CORPUS_BUSY,
   retryable) is exit 5 too.
 - `ai-config list` lists the masked AI configs *resolvable* in an App's chat

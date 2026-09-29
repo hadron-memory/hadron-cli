@@ -23412,6 +23412,82 @@ var AllSpecMintFindingKind = []SpecMintFindingKind{
 	SpecMintFindingKindUnresolvedReference,
 }
 
+// SpecPlaceholderScanFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
+// The GraphQL type's documentation follows.
+//
+// Envelope for findNodes (cor:api:090) — the unified node list + search field
+// (it replaced the removed nodes + nodeSearch queries). hits carry per-hit score + vector metadata;
+// passages carry chunk-granularity results; reason/degraded surface no-index /
+// reduced-fidelity outcomes.
+type SpecPlaceholderScanFindNodesFindNodesResult struct {
+	Hits []*SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHit `json:"hits"`
+}
+
+// GetHits returns SpecPlaceholderScanFindNodesFindNodesResult.Hits, and is useful for accessing the field via an interface.
+func (v *SpecPlaceholderScanFindNodesFindNodesResult) GetHits() []*SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHit {
+	return v.Hits
+}
+
+// SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHit includes the requested fields of the GraphQL type NodeHit.
+// The GraphQL type's documentation follows.
+//
+// A scored node hit (cor:api:090:04). score is null for an unscored filtered list (no query).
+type SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHit struct {
+	Node *SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHitNode `json:"node"`
+}
+
+// GetNode returns SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHit.Node, and is useful for accessing the field via an interface.
+func (v *SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHit) GetNode() *SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHitNode {
+	return v.Node
+}
+
+// SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
+type SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHitNode struct {
+	Loc string `json:"loc"`
+	// #1450 — true for a RESERVED spec citation that has no spec written yet (a
+	// placeholder in a draft corpus, created by reserveSpecCitation). Set only by
+	// the server, never inferred from an empty body; writing real content through
+	// updateSpecNode clears it. Minting refuses while any remain.
+	IsPlaceholder bool `json:"isPlaceholder"`
+}
+
+// GetLoc returns SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHitNode.Loc, and is useful for accessing the field via an interface.
+func (v *SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHitNode) GetLoc() string { return v.Loc }
+
+// GetIsPlaceholder returns SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHitNode.IsPlaceholder, and is useful for accessing the field via an interface.
+func (v *SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHitNode) GetIsPlaceholder() bool {
+	return v.IsPlaceholder
+}
+
+// SpecPlaceholderScanResponse is returned by SpecPlaceholderScan on success.
+type SpecPlaceholderScanResponse struct {
+	// Unified node search (cor:api:090) — the single node list + retrieval
+	// surface (it replaced the removed `nodes` filter/list and `nodeSearch`
+	// rank queries in PR3). Omit `query` for a filtered list in deterministic
+	// order (subsumes `nodes`); pass `query` to rank by `mode`
+	// (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
+	// (`(a OR b) AND c`, quoted phrases, NOT/-) — operator words are
+	// UPPERCASE-ONLY, so natural phrases like 'not sure' search literally —
+	// and `fields` as a ranking weight-mask. Malformed boolean syntax
+	// (unmatched parenthesis, unterminated quote) DEGRADES to a literal phrase
+	// search flagged `degraded: 'literal_fallback'` instead of erroring; only
+	// mode: regex fails loudly on bad syntax. `filter` is the structured, AND-combined filter context
+	// (SYSTEM memory class excluded by default; explicit wins). Returns a
+	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
+	//
+	// orgId (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgId returns an empty envelope
+	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
+	// this is the canonical "the caller's runnable task nodes in one org" query
+	// (there is no separate myTasks surface — a task is simply an isRunnable node).
+	FindNodes *SpecPlaceholderScanFindNodesFindNodesResult `json:"findNodes"`
+}
+
+// GetFindNodes returns SpecPlaceholderScanResponse.FindNodes, and is useful for accessing the field via an interface.
+func (v *SpecPlaceholderScanResponse) GetFindNodes() *SpecPlaceholderScanFindNodesFindNodesResult {
+	return v.FindNodes
+}
+
 // #1449 — how a spec corpus reference was found.
 type SpecReferenceKind string
 
@@ -34634,6 +34710,26 @@ type __SpecCorpusStateInput struct {
 // GetRef returns __SpecCorpusStateInput.Ref, and is useful for accessing the field via an interface.
 func (v *__SpecCorpusStateInput) GetRef() string { return v.Ref }
 
+// __SpecPlaceholderScanInput is used internally by genqlient
+type __SpecPlaceholderScanInput struct {
+	Filter *NodeFilter `json:"filter,omitempty"`
+	Sort   NodeSort    `json:"sort"`
+	Limit  int         `json:"limit"`
+	Offset int         `json:"offset"`
+}
+
+// GetFilter returns __SpecPlaceholderScanInput.Filter, and is useful for accessing the field via an interface.
+func (v *__SpecPlaceholderScanInput) GetFilter() *NodeFilter { return v.Filter }
+
+// GetSort returns __SpecPlaceholderScanInput.Sort, and is useful for accessing the field via an interface.
+func (v *__SpecPlaceholderScanInput) GetSort() NodeSort { return v.Sort }
+
+// GetLimit returns __SpecPlaceholderScanInput.Limit, and is useful for accessing the field via an interface.
+func (v *__SpecPlaceholderScanInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __SpecPlaceholderScanInput.Offset, and is useful for accessing the field via an interface.
+func (v *__SpecPlaceholderScanInput) GetOffset() int { return v.Offset }
+
 // __SpecUnresolvedReferencesInput is used internally by genqlient
 type __SpecUnresolvedReferencesInput struct {
 	MemoryRef string `json:"memoryRef"`
@@ -44776,6 +44872,54 @@ func SpecCorpusState(
 	}
 
 	data_ = &SpecCorpusStateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SpecPlaceholderScan.
+const SpecPlaceholderScan_Operation = `
+query SpecPlaceholderScan ($filter: NodeFilter!, $sort: NodeSort!, $limit: Int!, $offset: Int!) {
+	findNodes(filter: $filter, sort: $sort, limit: $limit, offset: $offset) {
+		hits {
+			node {
+				loc
+				isPlaceholder
+			}
+		}
+	}
+}
+`
+
+// #1450 — which specs in a DRAFT corpus are placeholders. A separate, minimal
+// scan run only for a draft, so the shared node projections don't select
+// isPlaceholder: an older server would reject every spec read over it.
+func SpecPlaceholderScan(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *NodeFilter,
+	sort NodeSort,
+	limit int,
+	offset int,
+) (data_ *SpecPlaceholderScanResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SpecPlaceholderScan",
+		Query:  SpecPlaceholderScan_Operation,
+		Variables: &__SpecPlaceholderScanInput{
+			Filter: filter,
+			Sort:   sort,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &SpecPlaceholderScanResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
