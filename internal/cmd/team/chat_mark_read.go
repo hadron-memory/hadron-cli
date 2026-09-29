@@ -27,9 +27,9 @@ type markReadDTO struct {
 
 // newCmdTeamChatMarkRead is the CLI twin of hadron_team_chat_mark_read
 // (hadron-server#1353): it calls markOwnTeamChatRead, which shares the MCP
-// tool's server helper and gate — pilot-gated per operator+App, pinned to one
-// caller-owned live worker session. Deliberately NOT advanceChannelReadState,
-// the wider legacy door that is neither (Ada/Dara, team chat #1885/#1889).
+// tool's server helper and is pinned to one caller-owned live worker session.
+// Deliberately NOT advanceChannelReadState, the wider legacy door that does
+// not pin the mark to one session (Ada/Dara, team chat #1885/#1889).
 func newCmdTeamChatMarkRead(f *cmdutil.Factory) *cobra.Command {
 	var through int
 	var channel string
@@ -47,8 +47,7 @@ where it already is), and a seq beyond the Channel's latest message is refused
 
 Needs a worker session binding (` + "`hadron team session start`" + `) that records
 this server: the cursor belongs to the bound worker, and the server accepts
-only your own live session. An internal pilot: outside it this exits 8 (not enabled for this operator and
-App).`,
+only your own live session.`,
 		Example: `  hadron team chat mark-read --through 1878`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -147,9 +146,9 @@ App).`,
 // markDeliveredRead is `team chat read`'s server-side half (#1353): after a
 // read has been delivered, advance the bound worker's own cursor on the App's
 // team chat through `through`. Best-effort — it never fails a read that
-// succeeded. Outside the pilot the server refuses FEATURE_NOT_AVAILABLE,
-// which is the ordinary case and silent; any other failure is a stderr note,
-// because it means a team-chat router may nudge about these messages again.
+// succeeded. An older server may refuse FEATURE_NOT_AVAILABLE; that is silent
+// for compatibility. Any other failure is a stderr note, because it means a
+// team-chat router may nudge about these messages again.
 func markDeliveredRead(ctx context.Context, f *cmdutil.Factory, client graphql.Client, appRef string, b *binding, through int) {
 	if b == nil || b.SessionID == "" || b.Server == "" || !bindingServerMatches(f, b) {
 		return // no verified deployment for this session: never advance a cursor
