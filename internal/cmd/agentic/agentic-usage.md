@@ -2295,11 +2295,12 @@ Conventions:
   unfired. Warning, never refusal; NOT suppressed by `--json`, since stderr
   leaves the stdout contract untouched. The `--json` shapes are unchanged
   and the reads issue no extra call under `--json`.
-  **Team attention** (hadron-server#1353, an INTERNAL PILOT gated per
-  operator+App — outside it every command below exits **8**,
-  `FEATURE_NOT_AVAILABLE`). `team attention [--since <token>]` is what a
+  **Team attention** (hadron-server#1353/#1384). `team attention [--since <token>]` is what a
   team-chat ROUTER polls: which of YOUR live workers have relevant unread chat,
-  with no message bodies and no read-state change. `--json`:
+  with no message bodies and no read-state change. It drains the server's
+  bounded pages before printing any result; a partial scan yields no token
+  and exits with an error. On an older server without the paged field, it
+  uses the legacy query. `--json`:
   `{app, token, workers:[{worker, name, urn, live, channels:[{channel, name,
   unread, unreadMentions, firstUnreadSeq, lastSeq}]}]}` (`workers` is `[]` when
   idle). Pass the returned `token` as the next `--since` **only after every
@@ -2307,8 +2308,9 @@ Conventions:
   may duplicate a nudge but cannot lose one. The CLI never stores the token. An
   empty `--since` is refused (exit 2 — usually an unset variable); `--since now`
   is refused by the server (exit 2): discarding a backlog is the explicit
-  **`attention switchover preview`** (read-only; prints each worker's
-  from/through seqs and a short-lived `proof`) then **`attention switchover
+  **`attention switchover preview`** (read-only; drains every preview page
+  before printing the short-lived `proof`; reports each worker's first unread
+  and through seqs) then **`attention switchover
   apply --proof <proof>`** (prompts on a TTY, `--yes` otherwise; atomic; a
   stale proof exits **5** — preview again). A token or proof the server did not
   sign for this operator+App exits 2; a token overtaken by a moved watermark
@@ -2317,14 +2319,15 @@ Conventions:
   server is refused (exit 2): App ids are not unique across deployments. An
   explicit `--app` still works.
   **A bound worker's `chat read` now marks its messages read on the server**,
-  under the pilot, which is what stops the router nudging it. It happens only
+  which is what stops the router nudging it. It happens only
   AFTER the messages were printed, for exactly the reads that record the
   binding's watermark (unfiltered, contiguous, not `--before`, own App, and a
   binding that records this server — a `--limit` page included), through the
   highest seq shown: the read itself carries no session, so a read that fails
   partway marks nothing (a
-  duplicate nudge, never a lost message). Outside the pilot the step is silently
-  skipped; a failure inside it is a stderr note, never a failed read. For the
+  duplicate nudge, never a lost message). An older server that refuses the
+  mark skips it silently; other mark failures produce a stderr note, never a
+  failed read. For the
   reads that don't count, **`chat mark-read --through <seq> [--channel <ref>]`**
   advances the bound worker's cursor explicitly
   (`--channel` defaults to the App's team chat; an EMPTY `--channel` is refused,

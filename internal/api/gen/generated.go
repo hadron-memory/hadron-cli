@@ -21289,7 +21289,7 @@ func (v *SearchReplaceInNodesResponse) GetSearchReplaceInNodes() *SearchReplaceI
 
 // SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult includes the requested fields of the GraphQL type SearchReplaceResult.
 type SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult struct {
-	// Nodes the selection resolved to (after auth + prefix filtering).
+	// Selected nodes whose requested text fields were actually inspected.
 	NodesScanned int `json:"nodesScanned"`
 	// Nodes with at least one replacement.
 	NodesChanged      int `json:"nodesChanged"`
@@ -22636,7 +22636,7 @@ type SkillPlanInput struct {
 	Intent SkillPlanIntent `json:"intent"`
 	// Memory refs for LINT/STATUS only. EXPORT refuses this field, even an empty list.
 	Memories []string `json:"memories,omitempty"`
-	// Persisted Scope ID for a narrowed EXPORT. Membership is resolved afresh for each call.
+	// Persisted Scope ID for a narrowed EXPORT. Omit for unscoped export; explicit null refuses. Membership is resolved afresh for each call.
 	ScopeRef *string `json:"scopeRef,omitempty"`
 }
 
@@ -23272,6 +23272,223 @@ type TeamAppIdentityResponse struct {
 
 // GetApp returns TeamAppIdentityResponse.App, and is useful for accessing the field via an interface.
 func (v *TeamAppIdentityResponse) GetApp() *TeamAppIdentityApp { return v.App }
+
+// TeamAttentionPageResponse is returned by TeamAttentionPage on success.
+type TeamAttentionPageResponse struct {
+	// #1384 paged (v2) attention poll — the bounded successor to teamAttention
+	// (v1 answers UPGRADE_REQUIRED). Each call decrypts at most scanLimit rows
+	// and emits at most limit Worker/Channel pairs; continue with page while
+	// nextPage is present. The final page alone carries adoptableSince — adopt
+	// it only after EVERY listed nudge was accepted; on any partial failure
+	// retain the prior watermark and restart the scan (duplicates, never loss).
+	// An existing v1 since token starts a scan, carrying the watermark forward.
+	// Never changes read state.
+	TeamAttentionPage *TeamAttentionPageTeamAttentionPage `json:"teamAttentionPage"`
+}
+
+// GetTeamAttentionPage returns TeamAttentionPageResponse.TeamAttentionPage, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageResponse) GetTeamAttentionPage() *TeamAttentionPageTeamAttentionPage {
+	return v.TeamAttentionPage
+}
+
+// TeamAttentionPageTeamAttentionPage includes the requested fields of the GraphQL type TeamAttentionPage.
+type TeamAttentionPageTeamAttentionPage struct {
+	// False while any Channel is unfinished or queued items remain undelivered.
+	ScanComplete bool `json:"scanComplete"`
+	// Continuation for the next pull; null on the final page.
+	NextPage *string `json:"nextPage"`
+	// FINAL PAGE ONLY: a since-watermark token (same shape v1 issued) to adopt
+	// after every listed nudge was accepted. Never present while scanComplete
+	// is false.
+	AdoptableSince *string                                                         `json:"adoptableSince"`
+	Items          []*TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem `json:"items"`
+}
+
+// GetScanComplete returns TeamAttentionPageTeamAttentionPage.ScanComplete, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPage) GetScanComplete() bool { return v.ScanComplete }
+
+// GetNextPage returns TeamAttentionPageTeamAttentionPage.NextPage, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPage) GetNextPage() *string { return v.NextPage }
+
+// GetAdoptableSince returns TeamAttentionPageTeamAttentionPage.AdoptableSince, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPage) GetAdoptableSince() *string { return v.AdoptableSince }
+
+// GetItems returns TeamAttentionPageTeamAttentionPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPage) GetItems() []*TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem {
+	return v.Items
+}
+
+// TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem includes the requested fields of the GraphQL type TeamAttentionPageItem.
+// The GraphQL type's documentation follows.
+//
+// #1384 paged (v2): one bounded slice of an attention scan. Counts are exact
+// for the captured (seen, head] range of the issuing scan only, and items are
+// emitted solely from Channels that scan has exhausted.
+type TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem struct {
+	Worker         string  `json:"worker"`
+	WorkerName     string  `json:"workerName"`
+	WorkerUrn      *string `json:"workerUrn"`
+	Channel        string  `json:"channel"`
+	ChannelName    string  `json:"channelName"`
+	Unread         int     `json:"unread"`
+	UnreadMentions int     `json:"unreadMentions"`
+	FirstUnreadSeq *int    `json:"firstUnreadSeq"`
+	// The frozen Channel head this item's counts are exact for.
+	LastSeq int `json:"lastSeq"`
+}
+
+// GetWorker returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.Worker, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetWorker() string {
+	return v.Worker
+}
+
+// GetWorkerName returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.WorkerName, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetWorkerName() string {
+	return v.WorkerName
+}
+
+// GetWorkerUrn returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.WorkerUrn, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetWorkerUrn() *string {
+	return v.WorkerUrn
+}
+
+// GetChannel returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.Channel, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetChannel() string {
+	return v.Channel
+}
+
+// GetChannelName returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.ChannelName, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetChannelName() string {
+	return v.ChannelName
+}
+
+// GetUnread returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.Unread, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetUnread() int {
+	return v.Unread
+}
+
+// GetUnreadMentions returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.UnreadMentions, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetUnreadMentions() int {
+	return v.UnreadMentions
+}
+
+// GetFirstUnreadSeq returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.FirstUnreadSeq, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetFirstUnreadSeq() *int {
+	return v.FirstUnreadSeq
+}
+
+// GetLastSeq returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.LastSeq, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetLastSeq() int {
+	return v.LastSeq
+}
+
+// TeamAttentionPreviewPageResponse is returned by TeamAttentionPreviewPage on success.
+type TeamAttentionPreviewPageResponse struct {
+	// #1384 paged switchover preview — same bounded scan as teamAttentionPage,
+	// full-backlog accounting. The apply proof exists ONLY on the final page of
+	// a completed preview; confirmTeamAttentionSwitchover (apply) is unchanged.
+	TeamAttentionPreviewPage *TeamAttentionPreviewPageTeamAttentionPreviewPage `json:"teamAttentionPreviewPage"`
+}
+
+// GetTeamAttentionPreviewPage returns TeamAttentionPreviewPageResponse.TeamAttentionPreviewPage, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageResponse) GetTeamAttentionPreviewPage() *TeamAttentionPreviewPageTeamAttentionPreviewPage {
+	return v.TeamAttentionPreviewPage
+}
+
+// TeamAttentionPreviewPageTeamAttentionPreviewPage includes the requested fields of the GraphQL type TeamAttentionPreviewPage.
+type TeamAttentionPreviewPageTeamAttentionPreviewPage struct {
+	ScanComplete bool    `json:"scanComplete"`
+	NextPage     *string `json:"nextPage"`
+	// FINAL PAGE ONLY: the short-lived switchover proof (frozen heads). An
+	// incomplete preview never carries one, so a partial preview can never
+	// silently discard an unscanned backlog.
+	Proof     *string                                                                       `json:"proof"`
+	ExpiresAt *string                                                                       `json:"expiresAt"`
+	Items     []*TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem `json:"items"`
+}
+
+// GetScanComplete returns TeamAttentionPreviewPageTeamAttentionPreviewPage.ScanComplete, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPage) GetScanComplete() bool {
+	return v.ScanComplete
+}
+
+// GetNextPage returns TeamAttentionPreviewPageTeamAttentionPreviewPage.NextPage, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPage) GetNextPage() *string { return v.NextPage }
+
+// GetProof returns TeamAttentionPreviewPageTeamAttentionPreviewPage.Proof, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPage) GetProof() *string { return v.Proof }
+
+// GetExpiresAt returns TeamAttentionPreviewPageTeamAttentionPreviewPage.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPage) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetItems returns TeamAttentionPreviewPageTeamAttentionPreviewPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPage) GetItems() []*TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem {
+	return v.Items
+}
+
+// TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem includes the requested fields of the GraphQL type TeamAttentionPageItem.
+// The GraphQL type's documentation follows.
+//
+// #1384 paged (v2): one bounded slice of an attention scan. Counts are exact
+// for the captured (seen, head] range of the issuing scan only, and items are
+// emitted solely from Channels that scan has exhausted.
+type TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem struct {
+	Worker         string  `json:"worker"`
+	WorkerName     string  `json:"workerName"`
+	WorkerUrn      *string `json:"workerUrn"`
+	Channel        string  `json:"channel"`
+	ChannelName    string  `json:"channelName"`
+	Unread         int     `json:"unread"`
+	UnreadMentions int     `json:"unreadMentions"`
+	FirstUnreadSeq *int    `json:"firstUnreadSeq"`
+	// The frozen Channel head this item's counts are exact for.
+	LastSeq int `json:"lastSeq"`
+}
+
+// GetWorker returns TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem.Worker, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem) GetWorker() string {
+	return v.Worker
+}
+
+// GetWorkerName returns TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem.WorkerName, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem) GetWorkerName() string {
+	return v.WorkerName
+}
+
+// GetWorkerUrn returns TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem.WorkerUrn, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem) GetWorkerUrn() *string {
+	return v.WorkerUrn
+}
+
+// GetChannel returns TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem.Channel, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem) GetChannel() string {
+	return v.Channel
+}
+
+// GetChannelName returns TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem.ChannelName, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem) GetChannelName() string {
+	return v.ChannelName
+}
+
+// GetUnread returns TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem.Unread, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem) GetUnread() int {
+	return v.Unread
+}
+
+// GetUnreadMentions returns TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem.UnreadMentions, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem) GetUnreadMentions() int {
+	return v.UnreadMentions
+}
+
+// GetFirstUnreadSeq returns TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem.FirstUnreadSeq, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem) GetFirstUnreadSeq() *int {
+	return v.FirstUnreadSeq
+}
+
+// GetLastSeq returns TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem.LastSeq, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPreviewPageTeamAttentionPreviewPageItemsTeamAttentionPageItem) GetLastSeq() int {
+	return v.LastSeq
+}
 
 // TeamAttentionResponse is returned by TeamAttention on success.
 type TeamAttentionResponse struct {
@@ -33599,6 +33816,34 @@ func (v *__TeamAttentionInput) GetAppRef() string { return v.AppRef }
 // GetSince returns __TeamAttentionInput.Since, and is useful for accessing the field via an interface.
 func (v *__TeamAttentionInput) GetSince() *string { return v.Since }
 
+// __TeamAttentionPageInput is used internally by genqlient
+type __TeamAttentionPageInput struct {
+	AppRef string  `json:"appRef"`
+	Since  *string `json:"since,omitempty"`
+	Page   *string `json:"page,omitempty"`
+}
+
+// GetAppRef returns __TeamAttentionPageInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamAttentionPageInput) GetAppRef() string { return v.AppRef }
+
+// GetSince returns __TeamAttentionPageInput.Since, and is useful for accessing the field via an interface.
+func (v *__TeamAttentionPageInput) GetSince() *string { return v.Since }
+
+// GetPage returns __TeamAttentionPageInput.Page, and is useful for accessing the field via an interface.
+func (v *__TeamAttentionPageInput) GetPage() *string { return v.Page }
+
+// __TeamAttentionPreviewPageInput is used internally by genqlient
+type __TeamAttentionPreviewPageInput struct {
+	AppRef string  `json:"appRef"`
+	Page   *string `json:"page,omitempty"`
+}
+
+// GetAppRef returns __TeamAttentionPreviewPageInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamAttentionPreviewPageInput) GetAppRef() string { return v.AppRef }
+
+// GetPage returns __TeamAttentionPreviewPageInput.Page, and is useful for accessing the field via an interface.
+func (v *__TeamAttentionPreviewPageInput) GetPage() *string { return v.Page }
+
 // __TeamAttentionSwitchoverPreviewInput is used internally by genqlient
 type __TeamAttentionSwitchoverPreviewInput struct {
 	AppRef string `json:"appRef"`
@@ -43555,12 +43800,8 @@ query TeamAttention ($appRef: ID!, $since: String) {
 }
 `
 
-// ── #1353 team attention (hadron-server#1362; internal pilot) ────────────────
-// `hadron team attention`: which of the caller's LIVE workers have relevant
-// unread chat since the token. Bodies are never returned, and the query never
-// changes read state. The CLI passes the token through and NEVER stores it: a
-// router adopts it only after every listed nudge was accepted, so a stored
-// token would be the lost-nudge bug the contract exists to close.
+// Compatibility with a server that has not deployed #1384 yet. The paged
+// query is attempted first; this one is used only when its field is absent.
 func TeamAttention(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -43577,6 +43818,116 @@ func TeamAttention(
 	}
 
 	data_ = &TeamAttentionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamAttentionPage.
+const TeamAttentionPage_Operation = `
+query TeamAttentionPage ($appRef: ID!, $since: String, $page: String) {
+	teamAttentionPage(appRef: $appRef, since: $since, page: $page) {
+		scanComplete
+		nextPage
+		adoptableSince
+		items {
+			worker
+			workerName
+			workerUrn
+			channel
+			channelName
+			unread
+			unreadMentions
+			firstUnreadSeq
+			lastSeq
+		}
+	}
+}
+`
+
+// ── #1384 bounded team attention ────────────────────────────────────────────
+// Drain every page before reporting a candidate since-token. Intermediate
+// pages carry no adoptable token, so a router cannot accidentally skip unread
+// work by accepting an incomplete scan. Bodies are never returned and the
+// query never changes read state. The CLI never stores the final token: the
+// router adopts it only after every listed nudge was accepted.
+func TeamAttentionPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	since *string,
+	page *string,
+) (data_ *TeamAttentionPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamAttentionPage",
+		Query:  TeamAttentionPage_Operation,
+		Variables: &__TeamAttentionPageInput{
+			AppRef: appRef,
+			Since:  since,
+			Page:   page,
+		},
+	}
+
+	data_ = &TeamAttentionPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamAttentionPreviewPage.
+const TeamAttentionPreviewPage_Operation = `
+query TeamAttentionPreviewPage ($appRef: ID!, $page: String) {
+	teamAttentionPreviewPage(appRef: $appRef, page: $page) {
+		scanComplete
+		nextPage
+		proof
+		expiresAt
+		items {
+			worker
+			workerName
+			workerUrn
+			channel
+			channelName
+			unread
+			unreadMentions
+			firstUnreadSeq
+			lastSeq
+		}
+	}
+}
+`
+
+// The read-only half of the one-time switchover, also bounded. Only the last
+// page carries the short-lived proof; never expose a partial preview as
+// apply-ready.
+func TeamAttentionPreviewPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	page *string,
+) (data_ *TeamAttentionPreviewPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamAttentionPreviewPage",
+		Query:  TeamAttentionPreviewPage_Operation,
+		Variables: &__TeamAttentionPreviewPageInput{
+			AppRef: appRef,
+			Page:   page,
+		},
+	}
+
+	data_ = &TeamAttentionPreviewPageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -43611,8 +43962,7 @@ query TeamAttentionSwitchoverPreview ($appRef: ID!) {
 }
 `
 
-// The read-only half of the one-time switchover: exact cursors and heads, plus
-// a short-lived proof binding them.
+// The old read-only preview remains usable before #1384 is deployed.
 func TeamAttentionSwitchoverPreview(
 	ctx_ context.Context,
 	client_ graphql.Client,

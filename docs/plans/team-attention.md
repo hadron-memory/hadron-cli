@@ -1,5 +1,32 @@
 # Design as built: team attention, switchover and own mark-read (#1353)
 
+## 2026-09-29 update: bounded attention and gate removal
+
+The original implementation and review history below describe the #1362
+pilot as it was shipped. Holger later rejected the operator/App allowlist:
+it was never requested and must be removed. Server #1421 removes it while
+retaining normal authentication and App ownership checks. Do not configure
+`TEAM_ATTENTION_PILOT_USER_IDS` or `TEAM_ATTENTION_PILOT_APP_IDS` for rollout.
+
+Server #1428 adds `teamAttentionPage` and `teamAttentionPreviewPage` to bound
+the worker/Channel scan. The CLI calls these operations first and drains all
+pages. It prints no report, since token, or switchover proof until a complete
+scan arrives. `TEAM_ATTENTION_STALE_PAGE` exits 5 (restart the poll), and
+`INVALID_ATTENTION_PAGE` exits 2. When the paged field is absent on an older
+server, only that exact GraphQL validation error triggers the legacy query.
+Other errors, including authorization failures, are returned unchanged.
+
+The paged preview exposes `firstUnreadSeq` and the frozen `lastSeq`, not the
+old exact `fromSeq`; the CLI leaves `fromSeq` out of v2 JSON and preserves it
+only on the legacy fallback. The output still uses the established worker and
+Channel grouping, with `[]` for an empty list. CLI and server can deploy in
+either order, but once #1428 replaces the old attention query, an old CLI
+receives `UPGRADE_REQUIRED`; deploy the paged CLI before relying on its poll.
+
+The sections below remain as the historical design and review record for the
+initial #1362 slice. Their pilot descriptions do not govern the current
+rollout.
+
 > **Status: built.** Written 2026-09-25/26 by Jonas. It was developed against
 > the hadron-server#1362 candidate (`2ece06ab` through `383cc20`). #1362 merged
 > as `19835fb`, and the snapshot re-exported from that merge commit is

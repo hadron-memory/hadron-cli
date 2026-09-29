@@ -843,24 +843,22 @@ func codeForExtension(code string) int {
 	// fell into with CHANNEL_DELETED (also an enum member, also never a code).
 	case code == "FORBIDDEN" || code == "CHANNEL_HOST_NOT_WRITABLE":
 		return exitcode.Forbidden
-	// #1353 team attention (hadron-server#1362, an internal pilot). Every
-	// code here is a real extensions.code thrown by teamAttention.ts's fail().
+	// Team attention errors from the legacy and paged server operations.
 	//
-	// FEATURE_NOT_AVAILABLE is the pilot gate: this operator+App is not on the
-	// allowlist. It is a "not for you" refusal, so 8 — not 7, which promises
-	// the server never answered.
+	// An older server may still carry the operator+App pilot allowlist.
+	// Its FEATURE_NOT_AVAILABLE response is a refusal (8), not an outage (7).
 	case code == "FEATURE_NOT_AVAILABLE":
 		return exitcode.Forbidden
 	// A token or proof the server did not sign for this operator+App, and a
 	// mark-read past the Channel head: arguments the caller can fix. (Its
 	// siblings SWITCHOVER_CONFIRMATION_REQUIRED — since "now" is refused — and
 	// TEAM_ATTENTION_SCOPE_TOO_LARGE already exit 2 by the suffix rule above.)
-	case code == "INVALID_ATTENTION_TOKEN" || code == "INVALID_SWITCHOVER_PROOF" ||
+	case code == "INVALID_ATTENTION_TOKEN" || code == "INVALID_ATTENTION_PAGE" || code == "INVALID_SWITCHOVER_PROOF" ||
 		code == "SEQ_BEYOND_WATERMARK":
 		return exitcode.Usage
 	// State moved under a valid token or proof: poll again without --since,
 	// or preview the switchover again.
-	case code == "ATTENTION_TOKEN_STALE" || code == "SWITCHOVER_PROOF_STALE":
+	case code == "ATTENTION_TOKEN_STALE" || code == "TEAM_ATTENTION_STALE_PAGE" || code == "SWITCHOVER_PROOF_STALE":
 		return exitcode.Conflict
 	default:
 		return exitcode.Error

@@ -929,12 +929,39 @@ mutation UpdateWorker($workerRef: ID!, $promptOverride: String) {
   }
 }
 
-# ── #1353 team attention (hadron-server#1362; internal pilot) ────────────────
-# `hadron team attention`: which of the caller's LIVE workers have relevant
-# unread chat since the token. Bodies are never returned, and the query never
-# changes read state. The CLI passes the token through and NEVER stores it: a
-# router adopts it only after every listed nudge was accepted, so a stored
-# token would be the lost-nudge bug the contract exists to close.
+# ── #1384 bounded team attention ────────────────────────────────────────────
+# Drain every page before reporting a candidate since-token. Intermediate
+# pages carry no adoptable token, so a router cannot accidentally skip unread
+# work by accepting an incomplete scan. Bodies are never returned and the
+# query never changes read state. The CLI never stores the final token: the
+# router adopts it only after every listed nudge was accepted.
+query TeamAttentionPage(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $since: String
+  # @genqlient(omitempty: true)
+  $page: String
+) {
+  teamAttentionPage(appRef: $appRef, since: $since, page: $page) {
+    scanComplete
+    nextPage
+    adoptableSince
+    items {
+      worker
+      workerName
+      workerUrn
+      channel
+      channelName
+      unread
+      unreadMentions
+      firstUnreadSeq
+      lastSeq
+    }
+  }
+}
+
+# Compatibility with a server that has not deployed #1384 yet. The paged
+# query is attempted first; this one is used only when its field is absent.
 query TeamAttention(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -959,8 +986,34 @@ query TeamAttention(
   }
 }
 
-# The read-only half of the one-time switchover: exact cursors and heads, plus
-# a short-lived proof binding them.
+# The read-only half of the one-time switchover, also bounded. Only the last
+# page carries the short-lived proof; never expose a partial preview as
+# apply-ready.
+query TeamAttentionPreviewPage(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $page: String
+) {
+  teamAttentionPreviewPage(appRef: $appRef, page: $page) {
+    scanComplete
+    nextPage
+    proof
+    expiresAt
+    items {
+      worker
+      workerName
+      workerUrn
+      channel
+      channelName
+      unread
+      unreadMentions
+      firstUnreadSeq
+      lastSeq
+    }
+  }
+}
+
+# The old read-only preview remains usable before #1384 is deployed.
 query TeamAttentionSwitchoverPreview($appRef: ID!) {
   teamAttentionSwitchoverPreview(appRef: $appRef) {
     proof

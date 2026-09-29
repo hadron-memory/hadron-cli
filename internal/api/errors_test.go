@@ -81,10 +81,12 @@ func TestMapError(t *testing.T) {
 		// #1353 team attention (hadron-server#1362).
 		{"attention pilot gate", gqlErr("FEATURE_NOT_AVAILABLE"), exitcode.Forbidden},
 		{"attention token invalid", gqlErr("INVALID_ATTENTION_TOKEN"), exitcode.Usage},
+		{"attention page invalid", gqlErr("INVALID_ATTENTION_PAGE"), exitcode.Usage},
 		{"switchover proof invalid", gqlErr("INVALID_SWITCHOVER_PROOF"), exitcode.Usage},
 		{"since now refused", gqlErr("SWITCHOVER_CONFIRMATION_REQUIRED"), exitcode.Usage},
 		{"mark-read past the head", gqlErr("SEQ_BEYOND_WATERMARK"), exitcode.Usage},
 		{"attention token stale", gqlErr("ATTENTION_TOKEN_STALE"), exitcode.Conflict},
+		{"attention page stale", gqlErr("TEAM_ATTENTION_STALE_PAGE"), exitcode.Conflict},
 		{"switchover proof stale", gqlErr("SWITCHOVER_PROOF_STALE"), exitcode.Conflict},
 		// These two ride the existing _REQUIRED / _TOO_LARGE suffix rules.
 		{"attention scope too large", gqlErr("TEAM_ATTENTION_SCOPE_TOO_LARGE"), exitcode.Usage},

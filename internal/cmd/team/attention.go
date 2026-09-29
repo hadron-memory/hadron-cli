@@ -16,16 +16,9 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// `hadron team attention` is the CLI side of hadron-server#1353's team-chat
-// router support (server#1362): a router polls one cheap query — "which of my
-// workers have relevant unread chat since my last poll?" — and nudges each
-// listed worker to read for itself. The worker's own read then marks the
-// messages read (see `team chat read` and `team chat mark-read`).
-//
-// The server feature is an INTERNAL PILOT, gated per operator+App; outside it
-// every command here refuses FEATURE_NOT_AVAILABLE (exit 8). The CLI does not
-// pre-flight that: GraphQL serverInfo carries no capability list, and the call
-// itself is the cheapest honest probe.
+// `hadron team attention` drains the server's bounded #1384 attention pages
+// before returning a candidate token. A router nudges listed workers to read
+// their own chat; the CLI never stores or adopts that token.
 
 // attentionChannelDTO / attentionWorkerDTO / attentionDTO are the stable
 // --json shape of `team attention`.
@@ -64,7 +57,9 @@ worker's own read marks the messages read.
 
 "Relevant" comes from each worker's register row for the Channel — WATCH or
 BOTH, mention-only or everything — and a worker's own posts never count.
-Only live workers are listed.
+Only live workers are listed. The server scans in bounded pages; this command
+drains them before printing a report or a token. An incomplete scan is an
+error, never a partial result a router could adopt.
 
 THE TOKEN. Every poll returns an opaque, server-signed token. Pass it back as
 --since on the next poll and a worker is listed only for relevant unread
@@ -79,9 +74,8 @@ that reason.
 --since now is refused. Discarding an existing backlog is a separate,
 explicitly confirmed step: ` + "`hadron team attention switchover`" + `.
 
-An internal pilot: outside it this exits 8 (not enabled for this operator
-and App). A configured App context without a matching server-bound worker
-session has no server provenance; pass --app explicitly in that case.`,
+A configured App context without a matching server-bound worker session has
+no server provenance; pass --app explicitly in that case.`,
 		Example: `  hadron team attention --json
   hadron team attention --since "$TOKEN" --json`,
 		Args: cobra.NoArgs,
@@ -102,20 +96,26 @@ session has no server provenance; pass --app explicitly in that case.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.TeamAttention(ctx, client, scope.Ref, optStr(since))
+			dto, err := collectAttention(scope.Ref, optStr(since), func(since, page *string) (*gen.TeamAttentionPageTeamAttentionPage, error) {
+				resp, err := gen.TeamAttentionPage(ctx, client, scope.Ref, since, page)
+				if err != nil {
+					return nil, err
+				}
+				return resp.TeamAttentionPage, nil
+			})
+			if api.IsGraphQLValidationFor(err, "teamAttentionPage") {
+				legacy, legacyErr := gen.TeamAttention(ctx, client, scope.Ref, optStr(since))
+				if legacyErr != nil {
+					return api.MapError(legacyErr)
+				}
+				if legacy == nil || legacy.TeamAttention == nil {
+					return exitcode.Newf(exitcode.Error, "teamAttention returned no result")
+				}
+				dto = legacyAttentionDTO(scope.Ref, legacy.TeamAttention)
+				err = nil
+			}
 			if err != nil {
 				return api.MapError(err)
-			}
-			dto := attentionDTO{App: scope.Ref, Token: resp.TeamAttention.Token, Workers: []attentionWorkerDTO{}}
-			for _, w := range resp.TeamAttention.Workers {
-				wd := attentionWorkerDTO{Worker: w.Worker, Name: w.Name, URN: w.Urn, Live: w.Live, Channels: []attentionChannelDTO{}}
-				for _, c := range w.Channels {
-					wd.Channels = append(wd.Channels, attentionChannelDTO{
-						Channel: c.Channel, Name: c.Name, Unread: c.Unread, UnreadMentions: c.UnreadMentions,
-						FirstUnreadSeq: c.FirstUnreadSeq, LastSeq: c.LastSeq,
-					})
-				}
-				dto.Workers = append(dto.Workers, wd)
 			}
 			// Every write is CHECKED (PR #732, @codex P2): a poll whose token
 			// line is lost to a closed pipe must fail, so the caller keeps the
@@ -154,6 +154,86 @@ session has no server provenance; pass --app explicitly in that case.`,
 	cmd.Flags().StringVar(&since, "since", "", "the token the previous successful poll returned")
 	cmd.AddCommand(newCmdAttentionSwitchover(f))
 	return cmd
+}
+
+func legacyAttentionDTO(app string, p *gen.TeamAttentionTeamAttentionTeamAttentionResult) attentionDTO {
+	dto := attentionDTO{App: app, Workers: []attentionWorkerDTO{}}
+	dto.Token = p.Token
+	for _, w := range p.Workers {
+		if w == nil {
+			continue
+		}
+		row := attentionWorkerDTO{Worker: w.Worker, Name: w.Name, URN: w.Urn, Live: w.Live, Channels: []attentionChannelDTO{}}
+		for _, c := range w.Channels {
+			if c != nil {
+				row.Channels = append(row.Channels, attentionChannelDTO{
+					Channel: c.Channel, Name: c.Name, Unread: c.Unread,
+					UnreadMentions: c.UnreadMentions, FirstUnreadSeq: c.FirstUnreadSeq, LastSeq: c.LastSeq,
+				})
+			}
+		}
+		dto.Workers = append(dto.Workers, row)
+	}
+	return dto
+}
+
+// collectAttention turns a complete server scan into the stable v1-shaped
+// report. No partial page can carry an adoptable token or escape as output.
+func collectAttention(app string, since *string, fetch func(since, page *string) (*gen.TeamAttentionPageTeamAttentionPage, error)) (attentionDTO, error) {
+	dto := attentionDTO{App: app, Workers: []attentionWorkerDTO{}}
+	workerIndex := map[string]int{}
+	seenPairs := map[string]bool{}
+	seenPages := map[string]bool{}
+	var page *string
+	for {
+		p, err := fetch(since, page)
+		if err != nil {
+			return attentionDTO{}, err
+		}
+		if p == nil {
+			return attentionDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPage returned no result")
+		}
+		for _, item := range p.Items {
+			if item == nil {
+				return attentionDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPage returned a null item")
+			}
+			pair := item.Worker + "\x00" + item.Channel
+			if seenPairs[pair] {
+				return attentionDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPage repeated worker/channel %s/%s", item.Worker, item.Channel)
+			}
+			seenPairs[pair] = true
+			i, ok := workerIndex[item.Worker]
+			if !ok {
+				i = len(dto.Workers)
+				workerIndex[item.Worker] = i
+				dto.Workers = append(dto.Workers, attentionWorkerDTO{
+					Worker: item.Worker, Name: item.WorkerName, URN: item.WorkerUrn,
+					Live: true, Channels: []attentionChannelDTO{},
+				})
+			}
+			dto.Workers[i].Channels = append(dto.Workers[i].Channels, attentionChannelDTO{
+				Channel: item.Channel, Name: item.ChannelName, Unread: item.Unread,
+				UnreadMentions: item.UnreadMentions, FirstUnreadSeq: item.FirstUnreadSeq,
+				LastSeq: item.LastSeq,
+			})
+		}
+		if p.ScanComplete {
+			if p.NextPage != nil || p.AdoptableSince == nil || *p.AdoptableSince == "" {
+				return attentionDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPage completed without exactly one adoptable token")
+			}
+			dto.Token = *p.AdoptableSince
+			return dto, nil
+		}
+		if p.NextPage == nil || *p.NextPage == "" || p.AdoptableSince != nil {
+			return attentionDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPage returned an incomplete scan without a continuation")
+		}
+		if seenPages[*p.NextPage] {
+			return attentionDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPage repeated a continuation")
+		}
+		seenPages[*p.NextPage] = true
+		page = p.NextPage
+		since = nil // a continuation carries the original since watermark
+	}
 }
 
 // attentionScope refuses ambient App scopes that cannot be tied to the current
@@ -200,7 +280,8 @@ func attentionScope(ctx context.Context, f *cmdutil.Factory) (appScope, error) {
 type switchoverChannelDTO struct {
 	Channel        string `json:"channel"`
 	Name           string `json:"name"`
-	FromSeq        int    `json:"fromSeq"`
+	FromSeq        *int   `json:"fromSeq,omitempty"`
+	FirstUnreadSeq *int   `json:"firstUnreadSeq"`
 	ThroughSeq     int    `json:"throughSeq"`
 	Unread         int    `json:"unread"`
 	UnreadMentions int    `json:"unreadMentions"`
@@ -225,6 +306,85 @@ type switchoverResultDTO struct {
 	Applied          bool   `json:"applied"`
 	WorkersAdvanced  int    `json:"workersAdvanced"`
 	ChannelsAdvanced int    `json:"channelsAdvanced"`
+}
+
+func legacyAttentionPreviewDTO(app string, p *gen.TeamAttentionSwitchoverPreviewTeamAttentionSwitchoverPreview) switchoverPreviewDTO {
+	dto := switchoverPreviewDTO{App: app, Workers: []switchoverWorkerDTO{}}
+	dto.Proof, dto.ExpiresAt = p.Proof, p.ExpiresAt
+	for _, w := range p.Workers {
+		if w == nil {
+			continue
+		}
+		row := switchoverWorkerDTO{Worker: w.Worker, Name: w.Name, URN: w.Urn, Channels: []switchoverChannelDTO{}}
+		for _, c := range w.Channels {
+			if c != nil {
+				row.Channels = append(row.Channels, switchoverChannelDTO{
+					Channel: c.Channel, Name: c.Name, FromSeq: &c.FromSeq, ThroughSeq: c.ThroughSeq,
+					Unread: c.Unread, UnreadMentions: c.UnreadMentions,
+				})
+			}
+		}
+		dto.Workers = append(dto.Workers, row)
+	}
+	return dto
+}
+
+// collectAttentionPreview withholds the proof until the complete bounded
+// preview has arrived. The server's v2 item exposes first-unread and frozen
+// head, not the old exact fromSeq, so the CLI does not invent that value.
+func collectAttentionPreview(app string, fetch func(page *string) (*gen.TeamAttentionPreviewPageTeamAttentionPreviewPage, error)) (switchoverPreviewDTO, error) {
+	dto := switchoverPreviewDTO{App: app, Workers: []switchoverWorkerDTO{}}
+	workerIndex := map[string]int{}
+	seenPairs := map[string]bool{}
+	seenPages := map[string]bool{}
+	var page *string
+	for {
+		p, err := fetch(page)
+		if err != nil {
+			return switchoverPreviewDTO{}, err
+		}
+		if p == nil {
+			return switchoverPreviewDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPreviewPage returned no result")
+		}
+		for _, item := range p.Items {
+			if item == nil {
+				return switchoverPreviewDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPreviewPage returned a null item")
+			}
+			pair := item.Worker + "\x00" + item.Channel
+			if seenPairs[pair] {
+				return switchoverPreviewDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPreviewPage repeated worker/channel %s/%s", item.Worker, item.Channel)
+			}
+			seenPairs[pair] = true
+			i, ok := workerIndex[item.Worker]
+			if !ok {
+				i = len(dto.Workers)
+				workerIndex[item.Worker] = i
+				dto.Workers = append(dto.Workers, switchoverWorkerDTO{
+					Worker: item.Worker, Name: item.WorkerName, URN: item.WorkerUrn,
+					Channels: []switchoverChannelDTO{},
+				})
+			}
+			dto.Workers[i].Channels = append(dto.Workers[i].Channels, switchoverChannelDTO{
+				Channel: item.Channel, Name: item.ChannelName, FirstUnreadSeq: item.FirstUnreadSeq,
+				ThroughSeq: item.LastSeq, Unread: item.Unread, UnreadMentions: item.UnreadMentions,
+			})
+		}
+		if p.ScanComplete {
+			if p.NextPage != nil || p.Proof == nil || *p.Proof == "" || p.ExpiresAt == nil || *p.ExpiresAt == "" {
+				return switchoverPreviewDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPreviewPage completed without exactly one proof and expiry")
+			}
+			dto.Proof, dto.ExpiresAt = *p.Proof, *p.ExpiresAt
+			return dto, nil
+		}
+		if p.NextPage == nil || *p.NextPage == "" || p.Proof != nil {
+			return switchoverPreviewDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPreviewPage returned an incomplete scan without a continuation")
+		}
+		if seenPages[*p.NextPage] {
+			return switchoverPreviewDTO{}, exitcode.Newf(exitcode.Error, "teamAttentionPreviewPage repeated a continuation")
+		}
+		seenPages[*p.NextPage] = true
+		page = p.NextPage
+	}
 }
 
 func newCmdAttentionSwitchover(f *cmdutil.Factory) *cobra.Command {
@@ -264,22 +424,28 @@ func newCmdSwitchoverPreview(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.TeamAttentionSwitchoverPreview(ctx, client, scope.Ref)
+			p, err := collectAttentionPreview(scope.Ref, func(page *string) (*gen.TeamAttentionPreviewPageTeamAttentionPreviewPage, error) {
+				resp, err := gen.TeamAttentionPreviewPage(ctx, client, scope.Ref, page)
+				if err != nil {
+					return nil, err
+				}
+				return resp.TeamAttentionPreviewPage, nil
+			})
+			if api.IsGraphQLValidationFor(err, "teamAttentionPreviewPage") {
+				legacy, legacyErr := gen.TeamAttentionSwitchoverPreview(ctx, client, scope.Ref)
+				if legacyErr != nil {
+					return api.MapError(legacyErr)
+				}
+				if legacy == nil || legacy.TeamAttentionSwitchoverPreview == nil {
+					return exitcode.Newf(exitcode.Error, "teamAttentionSwitchoverPreview returned no result")
+				}
+				p = legacyAttentionPreviewDTO(scope.Ref, legacy.TeamAttentionSwitchoverPreview)
+				err = nil
+			}
 			if err != nil {
 				return api.MapError(err)
 			}
-			p := resp.TeamAttentionSwitchoverPreview
-			dto := switchoverPreviewDTO{App: scope.Ref, Proof: p.Proof, ExpiresAt: p.ExpiresAt, Workers: []switchoverWorkerDTO{}}
-			for _, w := range p.Workers {
-				wd := switchoverWorkerDTO{Worker: w.Worker, Name: w.Name, URN: w.Urn, Channels: []switchoverChannelDTO{}}
-				for _, c := range w.Channels {
-					wd.Channels = append(wd.Channels, switchoverChannelDTO{
-						Channel: c.Channel, Name: c.Name, FromSeq: c.FromSeq, ThroughSeq: c.ThroughSeq,
-						Unread: c.Unread, UnreadMentions: c.UnreadMentions,
-					})
-				}
-				dto.Workers = append(dto.Workers, wd)
-			}
+			dto := p
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "app: %s (%s)\n", scope.Ref, scope.Source); err != nil {
 					return err
@@ -289,10 +455,18 @@ func newCmdSwitchoverPreview(f *cmdutil.Factory) *cobra.Command {
 						return err
 					}
 				} else {
-					t := output.NewTable(w, "WORKER", "CHANNEL", "FROM", "THROUGH", "UNREAD", "MENTIONS")
+					t := output.NewTable(w, "WORKER", "CHANNEL", "CURSOR", "FIRST UNREAD", "THROUGH", "UNREAD", "MENTIONS")
 					for _, wk := range dto.Workers {
 						for _, c := range wk.Channels {
-							t.Row(wk.Name, c.Name, fmt.Sprintf("#%d", c.FromSeq), fmt.Sprintf("#%d", c.ThroughSeq),
+							cursor := "-"
+							if c.FromSeq != nil {
+								cursor = fmt.Sprintf("#%d", *c.FromSeq)
+							}
+							first := "-"
+							if c.FirstUnreadSeq != nil {
+								first = fmt.Sprintf("#%d", *c.FirstUnreadSeq)
+							}
+							t.Row(wk.Name, c.Name, cursor, first, fmt.Sprintf("#%d", c.ThroughSeq),
 								fmt.Sprint(c.Unread), fmt.Sprint(c.UnreadMentions))
 						}
 					}
