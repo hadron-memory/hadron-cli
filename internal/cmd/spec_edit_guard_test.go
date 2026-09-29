@@ -12,8 +12,9 @@ import (
 )
 
 // cli#738 — `spec edit` saves are GUARDED: the write carries the revision the
-// proposal was computed against as expectedRevision, and the server refuses —
-// writing nothing — if the spec has changed since. No unguarded path exists.
+// proposal was computed against as expectedRevision, and the server refuses
+// the proposed edit if the spec has changed since. It may record drift while
+// refusing. No unguarded path exists.
 
 // guardMocks is editMocks as a queue: the spec is stored at revision 7 with a
 // Mustache body, and the write answer is chosen per test.
@@ -191,7 +192,7 @@ func TestSpecEditRejectsContentFileChangedAfterPreview(t *testing.T) {
 }
 
 // The server's NODE_WRITE_CONFLICT (someone saved between our read and our
-// write): exit 5, nothing written, NO unguarded retry, and the proposal is
+// write): exit 5, proposal not applied, NO unguarded retry, and the proposal is
 // KEPT in a file — it may exist only in an editor buffer or piped stdin.
 func TestSpecEditConflictKeepsTheProposalAndDoesNotRetry(t *testing.T) {
 	conflict := `{"errors":[{"message":"Node at loc \"msg:010:02\" changed since it was read — re-read and retry.","extensions":{"code":"NODE_WRITE_CONFLICT"}}]}`
@@ -201,6 +202,11 @@ func TestSpecEditConflictKeepsTheProposalAndDoesNotRetry(t *testing.T) {
 	}
 	if n := len(captured["UpdateSpecNode"]); n != 1 {
 		t.Errorf("exactly one guarded attempt, never an unguarded retry; got %d writes", n)
+	}
+	if !strings.Contains(err.Error(), "your proposed edit was not applied") ||
+		!strings.Contains(err.Error(), "server may have recorded out-of-band drift") ||
+		strings.Contains(err.Error(), "nothing was written") {
+		t.Errorf("conflict must distinguish the rejected proposal from possible server reconciliation: %v", err)
 	}
 	m := regexp.MustCompile(`saved at (\S+?\.md)`).FindStringSubmatch(err.Error())
 	if m == nil {
@@ -225,6 +231,11 @@ func TestSpecEditConflictReportsUnpreservedProposal(t *testing.T) {
 	}
 	if err == nil || !strings.Contains(err.Error(), "could not be saved") || strings.Contains(err.Error(), "is kept") {
 		t.Errorf("a failed spill must report that no saved copy exists, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "your proposed edit was not applied") ||
+		!strings.Contains(err.Error(), "server may have recorded out-of-band drift") ||
+		strings.Contains(err.Error(), "nothing was written") {
+		t.Errorf("failed spill must distinguish the rejected proposal from possible server reconciliation: %v", err)
 	}
 }
 
@@ -252,6 +263,10 @@ func TestSpecEditDryRunReportsItsRevision(t *testing.T) {
 	}
 	if !strings.Contains(text, "--expected-revision 7") || !strings.Contains(text, "--expected-node-id sp1") || !strings.Contains(text, "--expected-proposal-hash "+dto.ProposalHash) {
 		t.Errorf("the dry run must name all values needed to save exactly this proposal:\n%s", text)
+	}
+	if !strings.Contains(text, "your proposed edit is not applied") ||
+		!strings.Contains(text, "server may still record out-of-band drift") {
+		t.Errorf("the later-save instruction must distinguish a rejected edit from possible drift reconciliation:\n%s", text)
 	}
 }
 
