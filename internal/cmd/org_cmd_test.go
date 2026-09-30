@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"encoding/json"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 const orgJSON = `{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":true,
@@ -526,10 +529,42 @@ func TestOrgInviteShow(t *testing.T) {
 			t.Errorf("public show must not emit invitation field %s: %s", private, out)
 		}
 	}
-	for _, private := range []string{"...InvitationFields", "email", "organizationId", "senderUserId", "policy", "roles"} {
-		if strings.Contains(gen.GetInvitation_Operation, private) {
-			t.Errorf("public query selects private field %s: %s", private, gen.GetInvitation_Operation)
+}
+
+func TestOrgInviteShowSelectsOnlyPublicFields(t *testing.T) {
+	doc, err := parser.ParseQuery(&ast.Source{Name: "GetInvitation", Input: gen.GetInvitation_Operation})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Operations) != 1 || len(doc.Fragments) != 0 {
+		t.Fatalf("public lookup must have one operation and no fragments: %s", gen.GetInvitation_Operation)
+	}
+	var paths []string
+	var walk func(ast.SelectionSet, string)
+	walk = func(selections ast.SelectionSet, prefix string) {
+		for _, selection := range selections {
+			field, ok := selection.(*ast.Field)
+			if !ok {
+				t.Fatalf("public lookup must select fields directly, got %T", selection)
+			}
+			if field.Alias != field.Name || len(field.Directives) != 0 {
+				t.Fatalf("public lookup must not alias or conditionally select %s", field.Name)
+			}
+			path := prefix + field.Name
+			paths = append(paths, path)
+			walk(field.SelectionSet, path+".")
 		}
+	}
+	walk(doc.Operations[0].SelectionSet, "")
+	sort.Strings(paths)
+	want := []string{
+		"invitation", "invitation.activationCount", "invitation.expiresAt",
+		"invitation.maxActivations", "invitation.memberRole", "invitation.organization",
+		"invitation.organization.name", "invitation.sender", "invitation.sender.githubUsername",
+		"invitation.sender.name",
+	}
+	if !reflect.DeepEqual(paths, want) {
+		t.Errorf("public lookup field paths = %v, want %v", paths, want)
 	}
 }
 
