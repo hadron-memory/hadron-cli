@@ -901,9 +901,14 @@ Conventions:
   eleventh class; read the two together and never `class` alone. In the table
   that row's CLASS cell is `—` (no class returned) with the reason in DETAIL;
   in `--json` the `class` key is present and **null**, never omitted, so
-  "the server returned no class" stays distinguishable from "not asked for". A file that PARSES and carries no
-  Hadron header is somebody else's skill: never listed, moved or removed. A
-  file that does NOT parse is reported either way — attributed to its node when
+  "the server returned no class" stays distinguishable from "not asked for".
+  A STATUS row also carries `outOfExportReason` (string or null) from the server.
+  When present, DETAIL prints that reason verbatim even beside `current`;
+  CLASS still describes the installed file's drift, not source eligibility.
+  The CLI does not derive this reason from findings, an action, or a missing
+  body. A file that PARSES and carries no Hadron header is somebody else's
+  skill: never listed, moved or removed. A file that does NOT parse is reported
+  either way — attributed to its node when
   the provenance header below the broken frontmatter is still readable, and
   otherwise listed locally under `unparseable` (never sent, since an
   unidentifiable file must not be claimed as an orphan). An unreadable file is
@@ -941,13 +946,18 @@ Conventions:
   file**; export writes that body byte for byte (atomically) and reports what
   actually happened on disk. `--json` is `{dryRun, hosts:[{host, root,
   failure, scanned, judged, written, moved, removed, skipped, refused, failed,
-  orphaned, pruned, unreadable, unparseable}], unrecognized:[…]}`; every list
+  orphaned, pruned, unreadable, unparseable}], unrecognized:[…],
+  outOfExport:[{host, node, nodeId, name, reason}]}`; every list
   is `[]` when empty. An item is `{node, nodeId, name, reasons, kept}`, and
   `moved` items add `from`. Each reason is `{code, message, origin}`:
   `origin: "server"` is the planner's reason VERBATIM (a drift class or lint
   rule), `origin: "client"` an I/O fact about this machine (`root-is-link`,
   `skill-dir-is-link`, `io-error`, `directory-kept`, …). `unrecognized` lists
   nodes whose `exports` names no host, ONCE, attributed to no host.
+  `outOfExport` is the server's source-level exclusion for each host plan,
+  independent of its file action. The human report ends with "Out of export —
+  not written (N)" and prints each name, node, host and verbatim reason;
+  an existing file is left in place, and `--prune` still acts only on orphans.
   Selected runs add `selectedNodes` and `orphanAssessmentSkipped: true`, plus
   `selections` when named tasks have no host entries. An unavailable ref is
   reported once, host-free, with no node id; a known task with no declaration

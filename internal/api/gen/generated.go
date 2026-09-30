@@ -21792,6 +21792,8 @@ type SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry st
 	Class *string `json:"class"`
 	// True when the file exists and does not parse. Reported identically by status and export.
 	ParseFailure bool `json:"parseFailure"`
+	// Why an enabled source is out of export in STATUS or EXPORT, or null when this category does not apply. Separate from the planned filesystem action.
+	OutOfExportReason *string `json:"outOfExportReason"`
 	// Source directory selected for a MOVE or REMOVE action; also reported for the renamed class.
 	MovedFrom *string `json:"movedFrom"`
 	// Present only for EXPORT, only for a class whose action writes, and only
@@ -21827,6 +21829,11 @@ func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntr
 // GetParseFailure returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.ParseFailure, and is useful for accessing the field via an interface.
 func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry) GetParseFailure() bool {
 	return v.ParseFailure
+}
+
+// GetOutOfExportReason returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.OutOfExportReason, and is useful for accessing the field via an interface.
+func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry) GetOutOfExportReason() *string {
+	return v.OutOfExportReason
 }
 
 // GetMovedFrom returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanEntriesSkillPlanEntry.MovedFrom, and is useful for accessing the field via an interface.
@@ -22292,6 +22299,8 @@ type SkillExportPlanSkillPlanEntriesSkillPlanEntry struct {
 	Class *string `json:"class"`
 	// True when the file exists and does not parse. Reported identically by status and export.
 	ParseFailure bool `json:"parseFailure"`
+	// Why an enabled source is out of export in STATUS or EXPORT, or null when this category does not apply. Separate from the planned filesystem action.
+	OutOfExportReason *string `json:"outOfExportReason"`
 	// Source directory selected for a MOVE or REMOVE action; also reported for the renamed class.
 	MovedFrom *string `json:"movedFrom"`
 	// Present only for EXPORT, only for a class whose action writes, and only
@@ -22318,6 +22327,11 @@ func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetClass() *string { ret
 
 // GetParseFailure returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.ParseFailure, and is useful for accessing the field via an interface.
 func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetParseFailure() bool { return v.ParseFailure }
+
+// GetOutOfExportReason returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.OutOfExportReason, and is useful for accessing the field via an interface.
+func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetOutOfExportReason() *string {
+	return v.OutOfExportReason
+}
 
 // GetMovedFrom returns SkillExportPlanSkillPlanEntriesSkillPlanEntry.MovedFrom, and is useful for accessing the field via an interface.
 func (v *SkillExportPlanSkillPlanEntriesSkillPlanEntry) GetMovedFrom() *string { return v.MovedFrom }
@@ -22708,6 +22722,8 @@ type SkillPlanSkillPlanEntriesSkillPlanEntry struct {
 	Class *string `json:"class"`
 	// True when the file exists and does not parse. Reported identically by status and export.
 	ParseFailure bool `json:"parseFailure"`
+	// Why an enabled source is out of export in STATUS or EXPORT, or null when this category does not apply. Separate from the planned filesystem action.
+	OutOfExportReason *string `json:"outOfExportReason"`
 	// Source directory selected for a MOVE or REMOVE action; also reported for the renamed class.
 	MovedFrom *string                                                        `json:"movedFrom"`
 	Findings  []*SkillPlanSkillPlanEntriesSkillPlanEntryFindingsSkillFinding `json:"findings"`
@@ -22727,6 +22743,11 @@ func (v *SkillPlanSkillPlanEntriesSkillPlanEntry) GetClass() *string { return v.
 
 // GetParseFailure returns SkillPlanSkillPlanEntriesSkillPlanEntry.ParseFailure, and is useful for accessing the field via an interface.
 func (v *SkillPlanSkillPlanEntriesSkillPlanEntry) GetParseFailure() bool { return v.ParseFailure }
+
+// GetOutOfExportReason returns SkillPlanSkillPlanEntriesSkillPlanEntry.OutOfExportReason, and is useful for accessing the field via an interface.
+func (v *SkillPlanSkillPlanEntriesSkillPlanEntry) GetOutOfExportReason() *string {
+	return v.OutOfExportReason
+}
 
 // GetMovedFrom returns SkillPlanSkillPlanEntriesSkillPlanEntry.MovedFrom, and is useful for accessing the field via an interface.
 func (v *SkillPlanSkillPlanEntriesSkillPlanEntry) GetMovedFrom() *string { return v.MovedFrom }
@@ -43223,6 +43244,7 @@ query SelectedSkillFilePlan ($input: SelectedSkillFilePlanInput!) {
 			name
 			class
 			parseFailure
+			outOfExportReason
 			movedFrom
 			renderedBody
 			exportPlan {
@@ -43341,6 +43363,7 @@ query SkillExportPlan ($input: SkillPlanInput!) {
 			name
 			class
 			parseFailure
+			outOfExportReason
 			movedFrom
 			renderedBody
 			exportPlan {
@@ -43433,6 +43456,7 @@ query SkillPlan ($input: SkillPlanInput!) {
 			name
 			class
 			parseFailure
+			outOfExportReason
 			movedFrom
 			findings {
 				rule

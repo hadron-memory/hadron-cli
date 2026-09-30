@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,6 +29,54 @@ func home(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return h
+}
+
+func TestExportReportsServerOutOfExportReasonAndKeepsCurrentFile(t *testing.T) {
+	h := home(t)
+	root := filepath.Join(h, ".claude", "skills")
+	file := filepath.Join(root, "demo", "SKILL.md")
+	body, err := skilldoc.Render("id-demo", "demo", "hrn:node:example.com:demo:tasks:demo", "description", "content")
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, file, body)
+	reason := "description has 1083 characters; the host caps it at 1024"
+	e := entry("demo", gen.SkillExportActionSkip, "", "")
+	e.OutOfExportReason = &reason
+	localEditReason := "description has 1090 characters; the host caps it at 1024"
+	locallyEdited := entry("edited", gen.SkillExportActionRefuse, "", "")
+	locallyEdited.OutOfExportReason = &localEditReason
+	p := &fakePlan{entries: []*gen.SkillExportPlanSkillPlanEntriesSkillPlanEntry{
+		e, locallyEdited, entry("ordinary-current", gen.SkillExportActionSkip, "", ""),
+	}}
+	hd, plan, err := exportHost(h, skilldoc.HostClaudeSkill, p.fn, exportOpts{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(file); err != nil || string(got) != body {
+		t.Fatalf("current file changed: %q, %v", got, err)
+	}
+	if len(hd.Skipped) != 2 || len(hd.Refused) != 1 {
+		t.Fatalf("skipped = %+v, refused = %+v", hd.Skipped, hd.Refused)
+	}
+	dto := exportDTO{Hosts: []exportHostDTO{hd}, OutOfExport: outOfExportItems(skilldoc.HostClaudeSkill, plan)}
+	var text strings.Builder
+	if err := renderExport(&text, dto); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(text.String(), "Out of export — not written (2):") ||
+		!strings.Contains(text.String(), "demo ("+e.Urn+"; claudeSkill): "+reason) ||
+		!strings.Contains(text.String(), "edited ("+locallyEdited.Urn+"; claudeSkill): "+localEditReason) ||
+		strings.Contains(text.String(), "ordinary-current ("+p.entries[2].Urn+"; claudeSkill):") {
+		t.Fatalf("missing server report in export output:\n%s", text.String())
+	}
+	data, err := json.Marshal(dto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"outOfExport":[{`) || !strings.Contains(string(data), `"reason":"`+reason+`"`) {
+		t.Fatalf("--json did not carry the server reason: %s", data)
+	}
 }
 
 func mkdir(t *testing.T, p string) {
@@ -434,9 +483,16 @@ func TestExportDTOHasNoNilSlices(t *testing.T) {
 	}
 	hd, _, _ := exportHost(h, skilldoc.HostClaudeSkill, p.fn, exportOpts{})
 	blocked, _, _ := exportHost(h, "noSuchHost", p.fn, exportOpts{})
-	dto := exportDTO{Hosts: []exportHostDTO{hd, blocked, newExportHost("x", "")}, Unrecognized: toUnrecognizedDTO(
+	dto := exportDTO{Hosts: []exportHostDTO{hd, blocked, newExportHost("x", "")}, OutOfExport: []exportOutOfExportDTO{}, Unrecognized: toUnrecognizedDTO(
 		[]*gen.SkillExportPlanSkillPlanUnrecognized{{Urn: "u", KeyCount: 1}})}
 	walk("exportDTO", reflect.ValueOf(dto))
+	data, err := json.Marshal(dto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"outOfExport":[]`) {
+		t.Fatalf("empty outOfExport must render as []: %s", data)
+	}
 	if blocked.Failure == nil || blocked.Failure.Code != reasonHostNoRoot {
 		t.Errorf("a host with no root row must fail its items (P07): %+v", blocked.Failure)
 	}

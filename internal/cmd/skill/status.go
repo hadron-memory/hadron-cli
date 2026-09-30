@@ -38,13 +38,14 @@ type statusFindingDTO = lintFindingDTO
 // ParseFailure — two fields disagreeing about the same file. Null is what the
 // server said, so null is what a parsing agent gets.
 type statusEntryDTO struct {
-	Node         string             `json:"node"`
-	NodeID       string             `json:"nodeId"`
-	Name         string             `json:"name"`
-	Class        *string            `json:"class"`
-	ParseFailure bool               `json:"parseFailure"`
-	MovedFrom    string             `json:"movedFrom,omitempty"`
-	Findings     []statusFindingDTO `json:"findings"`
+	Node              string             `json:"node"`
+	NodeID            string             `json:"nodeId"`
+	Name              string             `json:"name"`
+	Class             *string            `json:"class"`
+	ParseFailure      bool               `json:"parseFailure"`
+	OutOfExportReason *string            `json:"outOfExportReason"`
+	MovedFrom         string             `json:"movedFrom,omitempty"`
+	Findings          []statusFindingDTO `json:"findings"`
 }
 
 // statusOrphanDTO is a file on disk that paired with no declared node.
@@ -121,6 +122,10 @@ from the ten classes. Its CLASS cell shows "—" (no class was returned) and the
 DETAIL cell says why; in --json the class key is PRESENT and null, never
 omitted, so "the server returned no class" stays distinguishable from "this
 client never asked".
+
+The server's out-of-export reason appears verbatim in DETAIL even when CLASS
+is current: current means the installed file matches its node, not that the
+source can be exported again. The CLASS remains the server's word.
 
 Selection is deliberately memory-wide: there is no --node here, because a
 status over one node cannot answer "is my skill set fresh?" — the orphan and
@@ -640,12 +645,13 @@ func toStatusDTO(root, host string, plan *gen.SkillPlanSkillPlan, unreadable, un
 			continue
 		}
 		row := statusEntryDTO{
-			Node:         e.Urn,
-			NodeID:       e.NodeId,
-			Name:         e.Name,
-			Class:        e.Class,
-			ParseFailure: e.ParseFailure,
-			Findings:     []statusFindingDTO{},
+			Node:              e.Urn,
+			NodeID:            e.NodeId,
+			Name:              e.Name,
+			Class:             e.Class,
+			ParseFailure:      e.ParseFailure,
+			OutOfExportReason: e.OutOfExportReason,
+			Findings:          []statusFindingDTO{},
 		}
 		if e.MovedFrom != nil {
 			row.MovedFrom = *e.MovedFrom
@@ -766,12 +772,27 @@ func classCell(e statusEntryDTO) string {
 }
 
 func detailCell(e statusEntryDTO) string {
-	switch {
-	case e.ParseFailure:
-		return "file does not parse"
-	case e.MovedFrom != "":
-		return "was " + e.MovedFrom
-	default:
-		return ""
+	parts := []string{}
+	if e.ParseFailure {
+		parts = append(parts, "file does not parse")
 	}
+	if e.MovedFrom != "" {
+		parts = append(parts, "was "+e.MovedFrom)
+	}
+	if e.OutOfExportReason != nil {
+		parts = append(parts, *e.OutOfExportReason)
+	}
+	for _, finding := range e.Findings {
+		if finding.Severity != skilldoc.SevError {
+			continue
+		}
+		// The server joins source errors into outOfExportReason. Keep other
+		// errors (such as a name collision) visible without repeating those
+		// already present in that reason.
+		if e.OutOfExportReason != nil && strings.Contains("; "+*e.OutOfExportReason+"; ", "; "+finding.Message+"; ") {
+			continue
+		}
+		parts = append(parts, finding.Message)
+	}
+	return strings.Join(parts, "; ")
 }

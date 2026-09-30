@@ -117,7 +117,8 @@ func adaptSelectedPlan(p *selectedPlan) *gen.SkillExportPlanSkillPlan {
 		}
 		item := &legacyEntry{
 			Urn: e.Urn, NodeId: e.NodeId, Name: e.Name, Class: e.Class,
-			ParseFailure: e.ParseFailure, MovedFrom: e.MovedFrom, RenderedBody: e.RenderedBody,
+			ParseFailure: e.ParseFailure, OutOfExportReason: e.OutOfExportReason,
+			MovedFrom: e.MovedFrom, RenderedBody: e.RenderedBody,
 		}
 		if e.ExportPlan != nil {
 			item.ExportPlan = &legacyEntryPlan{
