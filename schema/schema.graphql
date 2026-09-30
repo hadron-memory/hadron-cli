@@ -374,6 +374,20 @@ enum AiConfigTestKeySource {
   SAVED
 }
 
+"""#1417: what one provider knob in the effective params did on the call."""
+type AiConfigTestKnob {
+  """Why it was not sent, or the adapter's own warning text."""
+  detail: String
+
+  """The params key, e.g. temperature."""
+  param: String!
+
+  """
+  SENT (carried to the provider, no adapter warning) | ADJUSTED (sent, but the adapter changed the value, e.g. clamped to its range) | DROPPED (the adapter removed it, e.g. temperature on a reasoning model) | NOT_SENT (the platform does not forward it; see detail)
+  """
+  state: String!
+}
+
 """#1378: where a tested value came from."""
 enum AiConfigTestValueSource {
   OVERRIDE
@@ -525,7 +539,7 @@ input AiServiceConfigTestOverride {
   model: String
 
   """
-  Edited params to test instead of the saved ones (#1413): validated exactly as a save validates them, including the params.baseUrl refusal, against the effective provider — before anything outbound. Used for the call, never stored. Omitted = the saved params; null = the edit clears them (the provider defaults). On the wire the probe exercises the effective provider/model/endpoint/key and (hard-capped at 16, per #1378's original ceiling pending a cost ruling) maxTokens, like its one-word prompt; the platform's request contract does not yet forward the other knobs (temperature, reasoningEffort, …) on any path, so they are validated and reported, not transmitted.
+  Edited params to test instead of the saved ones (#1413): validated exactly as a save validates them, including the params.baseUrl refusal, against the effective provider — before anything outbound. Used for the call, never stored. Omitted = the saved params; null = the edit clears them (the provider defaults). On the wire the probe exercises the effective provider/model/endpoint/key and (hard-capped at 16, per #1378's original ceiling pending a cost ruling) maxTokens, like its one-word prompt; the other knobs go through the same mapping every run uses (#1417): temperature, OpenAI reasoningEffort, Anthropic effort and Anthropic thinking (sent as adaptive on Claude 4.6 and newer models; not sent to older ones, which reject adaptive) are sent, and maxTokens is an output ceiling (min of the config's and the probe's cap); unrecognised keys are accepted but not forwarded. A write, or an edit under test, is refused a value outside a provider's known range (Anthropic and Bedrock temperature at most 1); a saved row is not re-judged. knobs on the result reports what each one did.
   """
   params: JSON
   provider: String
@@ -543,6 +557,11 @@ type AiServiceConfigTestResult {
   """
   endpoint: String
   error: AiServiceConfigTestError
+
+  """
+  #1417: what each provider knob in the effective params did on the call. Empty unless the call completed (a failed call's adapter warnings are unknown), or when the params carry none. maxTokens is listed as the ceiling it set (ADJUSTED when the probe's cap is lower); toolCalling (a gate) is not a provider knob and is not listed.
+  """
+  knobs: [AiConfigTestKnob!]!
   latencyMs: Int!
   model: String!
   ok: Boolean!
@@ -1497,6 +1516,14 @@ type ConnectionGrantsPage {
 enum ContentValidator {
   AGENT
   PLATFORM
+}
+
+"""
+#1447 — a spec corpus's lifecycle state. DRAFT becomes MINTED once, one-way.
+"""
+enum CorpusState {
+  DRAFT
+  MINTED
 }
 
 input CreateAgentScheduleInput {
@@ -2745,6 +2772,20 @@ type Memory {
   memory with no rules yet reads as the empty config (id null, no rules).
   """
   config: MemoryConfig
+
+  """
+  #1448 — when this corpus was minted (draft → minted). Null if it was never a draft.
+  """
+  corpusMintedAt: DateTime
+
+  """
+  #1447/#1448 — whether this memory is a DRAFT spec corpus or MINTED. In a
+  draft corpus spec citations are not yet permanent: specs can be moved,
+  renumbered and deleted, and a move records no URN alias. Chosen only at
+  creation (createMemory draftCorpus); minting is one-way. Every memory
+  created without asking for draft is MINTED.
+  """
+  corpusState: CorpusState!
   createdAt: DateTime!
 
   """
@@ -3182,6 +3223,20 @@ enum MemoryMemberRole {
   writer
 }
 
+type MemoryOwnerTransferPreview {
+  applied: Boolean!
+  blockers: [MemoryTransferBlocker!]!
+  canApply: Boolean!
+  currentClass: MemoryClass!
+  dependents: [MemoryTransferDependent!]!
+  fromOwner: ID!
+  memoryId: ID!
+  newUrn: String!
+  oldUrn: String!
+  targetClass: MemoryClass!
+  toOwner: ID!
+}
+
 type MemoryProvisioning {
   appMemory: AppMemoryKind!
 }
@@ -3238,6 +3293,24 @@ type MemorySubscription {
   memory: Memory!
   organization: Organization!
   role: Role!
+}
+
+type MemoryTransferBlocker {
+  code: String!
+  message: String!
+}
+
+type MemoryTransferDependent {
+  count: Int!
+  handling: MemoryTransferHandling!
+  kind: String!
+}
+
+enum MemoryTransferHandling {
+  CARRY
+  CREATE
+  REFUSE
+  REMOVE
 }
 
 """One health check the validator runs (#819)."""
@@ -3918,6 +3991,14 @@ type Mutation {
     """Free-form structured metadata bag (client-defined JSON). Null = unset."""
     data: JSON
     description: String
+
+    """
+    #1447/#1448 — create this memory as a DRAFT spec corpus, whose spec
+    citations stay changeable until the corpus is minted. This is the only
+    way to get a draft corpus: an existing memory can never be switched into
+    draft. Omitted or false creates an ordinary (minted) memory.
+    """
+    draftCorpus: Boolean
     embeddingSource: EmbeddingSource
     heroUrl: String
     homeUrl: String
@@ -4869,6 +4950,20 @@ type Mutation {
   mintActionTickets(input: MintActionTicketsInput!): Int!
 
   """
+  #1448 — mint a DRAFT spec corpus: once, one-way, for the whole corpus.
+  After minting, citations are permanent (moves record URN aliases again) and
+  no placeholder can be reserved. Refuses SPEC_CORPUS_MINT_BLOCKED while any
+  blocker remains: a placeholder, an unresolved reference, a structural lint
+  error over the citation-shaped nodes (nodetype-info, tag-spec,
+  serialization-leak, duplicate-loc), or a stale abstract once
+  staleAbstractsBlock is true. dryRun returns the full report without
+  minting. Owner or org ADMIN only. memoryRef accepts the ID or URN. A real
+  run holds every write to the corpus off while it checks and flips, and
+  refuses SPEC_CORPUS_BUSY (retryable) if a write is already in flight.
+  """
+  mintSpecCorpus(dryRun: Boolean, memoryRef: ID!): SpecCorpusMintReport!
+
+  """
   Relocate a node (#564). 'sourceRef' is the node's PK or fully-qualified
   URN. The destination is EITHER 'targetUrn' (the node's new full URN — new
   memory and/or loc) OR 'targetMemoryRef' (a memory ID/URN; the node keeps
@@ -5119,6 +5214,17 @@ type Mutation {
   ): Boolean!
 
   """
+  #1449 — renumber a spec in a DRAFT spec corpus: move it and its subtree
+  from fromLoc to toLoc (no URN alias in a draft), then rewrite every node
+  URN in the corpus that cites the moved specs, each as a normal edit. Bare
+  text citations (labels, names) are reported in textCitations, not
+  rewritten. dryRun returns the plan and writes nothing. The move is atomic;
+  each rewrite is a separate guarded edit, and one that fails is reported
+  FAILED without undoing the move.
+  """
+  renumberSpec(dryRun: Boolean, fromLoc: String!, memoryRef: ID!, toLoc: String!): SpecRenumberResult!
+
+  """
   #949 — re-own an Agent's class=system memory to the Agent's own owner
   (org XOR user) and re-derive its URN as '<agent-urn>-system'.
   
@@ -5146,6 +5252,17 @@ type Mutation {
   refusal rather than an unknown-field error.
   """
   replaceSubtree(edges: [EdgeInput!]!, memoryId: String!, nodes: [NodeInput!]!, ownerRepo: String!): Int! @deprecated(reason: "Retired (#454): every authorized call refuses with REPLACE_SUBTREE_RETIRED and writes nothing. Use the canonical node write mutations.")
+
+  """
+  #1450 — reserve a citation in a DRAFT spec corpus as a placeholder: a spec
+  node at loc (role spec, nodeType info) marked isPlaceholder, so links can
+  point at it and the placeholders left are the corpus's to-do list. Writing
+  real content through updateSpecNode turns it into a real spec at the same
+  citation. Refuses SPEC_CORPUS_NOT_DRAFT in a minted memory, where a
+  citation is permanent once written, and NodeLocConflictError at a live loc.
+  memoryRef accepts the memory's ID or URN.
+  """
+  reserveSpecCitation(loc: String!, memoryRef: ID!, name: String): Node!
   restoreAsset(assetId: ID!): Asset!
 
   """
@@ -5287,6 +5404,11 @@ type Mutation {
   searchReplaceInNodes(input: SearchReplaceInNodesInput!): SearchReplaceResult!
 
   """
+  Governed bulk replacement inside one draft spec corpus, with exact preview binding.
+  """
+  searchReplaceInSpecNodes(input: SpecSearchReplaceInput!): SearchReplaceResult!
+
+  """
   Process a user message (saves message, builds context, returns next prompt)
   """
   sendChatMessage(chatId: String!, userMessage: String!): ChatPromptResult!
@@ -5401,6 +5523,18 @@ type Mutation {
   """
   testAiServiceConfig(id: ID!, override: AiServiceConfigTestOverride): AiServiceConfigTestResult!
   testExchangeConnection(id: ID!): Boolean!
+
+  """
+  Transfer a free-standing Memory to exactly one new owner. dryRun previews
+  the new URN and dependent handling without writing; apply recomputes under
+  lock and can pin the preview with expectedNewUrn. A class change across
+  user/org ownership must be explicit. The caller needs authority on both
+  sides; unreadable source memories are concealed as not found. Group members
+  block transfer by default; resetGroupMembers explicitly revokes every old
+  membership inside the transfer transaction. A group destination then adds
+  the caller as its first owner-member.
+  """
+  transferMemoryOwnership(dryRun: Boolean = false, expectedNewUrn: String, memoryRef: ID!, orgRef: ID, resetGroupMembers: Boolean = false, targetClass: MemoryClass, userRef: ID): MemoryOwnerTransferPreview!
 
   """
   Run an entry node now (MANUAL trigger) — same launch gate + kernel as a schedule.
@@ -6017,6 +6151,14 @@ type Node {
   id: ID!
   incomingEdges: [Edge!]!
   isLink: Boolean!
+
+  """
+  #1450 — true for a RESERVED spec citation that has no spec written yet (a
+  placeholder in a draft corpus, created by reserveSpecCitation). Set only by
+  the server, never inferred from an empty body; writing real content through
+  updateSpecNode clears it. Minting refuses while any remain.
+  """
+  isPlaceholder: Boolean!
 
   """
   Whether this node can be run as a task (nullable; #513) — it drives the tree
@@ -7994,8 +8136,18 @@ type Query {
   portal chatbot) reference configs by name only — pass the name plus
   the execution context, never credentials.
   
-  Auth: org ADMIN of the effective context org, or platform
-  ADMIN/OWNER (required when no app/agent context is given).
+  Auth: a named App uses its own owner/org ADMIN gate, including strict
+  owner-only access for a user-owned App. A named Agent must be installed
+  in that App. Without an App, an org Agent requires org ADMIN; a host-only
+  context requires platform ADMIN/OWNER. A user-owned Agent is strictly
+  owner-only, including when an App is also named. With no effective org,
+  its owner can decrypt that Agent's own config or a user-owned App's
+  config; a host fallback is unavailable through this query. A user-owned
+  App's owner needs the outer source's own authority to decrypt an installed
+  Agent or org config; its App ownership alone grants only its App config.
+  A HADRON_SERVER fallback can back a server-side call, but only a platform
+  ADMIN/OWNER may receive its plaintext key. Other callers get a typed
+  refusal naming the resolved config and HADRON_SERVER level.
   
   appRef/agentRef accept the entity's ID or URN.
   """
@@ -8162,6 +8314,22 @@ type Query {
   limit: 0 -> count only.
   """
   slackConnections(limit: Int, offset: Int, orgId: ID): SlackConnectionsPage!
+
+  """
+  #1449 — what refers to the spec at loc in a DRAFT spec corpus: node URNs
+  in the corpus text (inside URLs too) plus real edges from corpus nodes.
+  Exact citation, not descendants. Refuses SPEC_CORPUS_NOT_DRAFT for a
+  minted memory. memoryRef accepts the memory's ID or URN.
+  """
+  specBacklinks(loc: String!, memoryRef: ID!): [SpecReference!]!
+
+  """
+  #1449 — references in a DRAFT spec corpus that do not reach a written
+  spec: URNs citing a missing loc or a placeholder, edges to a
+  placeholder or to a deleted spec of the corpus, and pending edges (field pendingEdge) whose target is not
+  a written node yet. Minting refuses while any remain.
+  """
+  specUnresolvedReferences(memoryRef: ID!): [SpecReference!]!
 
   """
   #1353 v1 attention query, retired by #1384. This field always returns
@@ -8734,9 +8902,10 @@ type ResendSendersPage {
 
 """
 036-ai-service-config: privileged resolution result. Carries the
-DECRYPTED key — only returned by resolveAIConfig (org ADMIN of the
-effective context org, or platform ADMIN/OWNER); successor to
-agentAIConfig / appAIConfig.
+DECRYPTED key — only returned by resolveAIConfig. A resolved platform
+credential is decrypted only for platform ADMIN/OWNER; org ADMIN may
+decrypt an authorized tenant-owned config. Successor to agentAIConfig /
+appAIConfig.
 """
 type ResolvedAiConfig {
   """
@@ -9017,6 +9186,11 @@ type SearchReplaceResult {
   """Selected nodes protected from inspection and replacement."""
   nodesSkipped: Int!
 
+  """
+  Opaque exact preview fingerprint on the spec door; null on the generic door.
+  """
+  plan: String
+
   """Per-node breakdown; only nodes with at least one match are listed."""
   results: [SearchReplaceNodeResult!]!
 
@@ -9025,7 +9199,20 @@ type SearchReplaceResult {
   address protection, so a node carrying both signals counts once as governed.
   """
   skipCounts: SearchReplaceSkipCounts!
+
+  """
+  Node-addressed protected selections on the spec door; null on the generic door.
+  """
+  skips: [SearchReplaceSkip!]
   totalReplacements: Int!
+}
+
+type SearchReplaceSkip {
+  governedKinds: [String!]!
+  loc: String!
+  memoryId: ID!
+  nodeId: ID!
+  reason: SearchReplaceSkipReason!
 }
 
 """
@@ -9037,6 +9224,11 @@ type SearchReplaceSkipCounts {
 
   """Nodes at or below a Channel address."""
   protectedAddress: Int!
+}
+
+enum SearchReplaceSkipReason {
+  OTHER_GOVERNED_KIND
+  PROTECTED_ADDRESS
 }
 
 """
@@ -9663,6 +9855,210 @@ type SlackConnectionsPage {
 enum SortDirection {
   asc
   desc
+}
+
+"""
+#1448 — the mint report. blockers must all be gone for a mint to succeed.
+staleAbstracts are listed separately; they block only when
+staleAbstractsBlock is true (once abstract re-affirmation is saved and
+deployed, server#1408). openQuestions never block.
+"""
+type SpecCorpusMintReport {
+  blockers: [SpecMintFinding!]!
+  dryRun: Boolean!
+  memoryId: ID!
+
+  """True when this call minted the corpus."""
+  minted: Boolean!
+  openQuestions: [SpecOpenQuestionGroup!]!
+  staleAbstracts: [SpecMintFinding!]!
+  staleAbstractsBlock: Boolean!
+}
+
+"""
+#1448 — one item in a mint report. loc is where it was found; targetLoc the cited spec, for a reference.
+"""
+type SpecMintFinding {
+  kind: SpecMintFindingKind!
+  loc: String!
+  message: String!
+  rule: String
+  targetLoc: String
+}
+
+"""#1448 — why the mint report lists an item."""
+enum SpecMintFindingKind {
+  """
+  A structural lint error (rule: nodetype-info | tag-spec | serialization-leak | duplicate-loc).
+  """
+  LINT
+
+  """A reserved citation with no spec written yet."""
+  PLACEHOLDER
+
+  """An abstract written for an earlier body."""
+  STALE_ABSTRACT
+
+  """
+  A reference to a spec that does not exist, or to a placeholder (rule: MISSING | PLACEHOLDER).
+  """
+  UNRESOLVED_REFERENCE
+}
+
+"""
+#1448 — one open question in the corpus (report-only, never blocks minting).
+"""
+type SpecOpenQuestion {
+  loc: String!
+  question: String!
+}
+
+"""
+#1448 — open questions grouped by who decides; decider null means unassigned.
+"""
+type SpecOpenQuestionGroup {
+  decider: String
+  questions: [SpecOpenQuestion!]!
+}
+
+"""
+#1449 — one reference to a spec in a draft corpus. For kind URN, field is
+the text field it was found in and text the URN as written; for kind EDGE,
+field is 'edge' and text the edge's relationship name.
+"""
+type SpecReference {
+  """
+  The scanned field; edge for a real edge; pendingEdge for an edge whose target is not a node yet.
+  """
+  field: String!
+  kind: SpecReferenceKind!
+
+  """Set only by specUnresolvedReferences."""
+  reason: SpecReferenceProblem
+  sourceLoc: String!
+  sourceNodeId: ID!
+
+  """
+  The cited loc; for an edge into another memory, the target's node URN; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
+  """
+  targetLoc: String!
+  text: String
+}
+
+"""#1449 — how a spec corpus reference was found."""
+enum SpecReferenceKind {
+  """A real edge from a corpus node."""
+  EDGE
+
+  """
+  A node URN in the corpus text (name, description, abstract or content), including inside a URL.
+  """
+  URN
+}
+
+"""#1449 — why a reference does not reach a written spec."""
+enum SpecReferenceProblem {
+  """No live node at the cited loc."""
+  MISSING
+
+  """
+  The cited node is a placeholder: a reserved citation with no spec written yet.
+  """
+  PLACEHOLDER
+}
+
+"""#1449 — one spec a renumber moves (the spec or a descendant)."""
+type SpecRenumberMove {
+  fromLoc: String!
+  toLoc: String!
+}
+
+"""#1449 — the result (or, with dryRun, the plan) of renumberSpec."""
+type SpecRenumberResult {
+  dryRun: Boolean!
+  moved: [SpecRenumberMove!]!
+  rewrites: [SpecRenumberRewrite!]!
+  textCitations: [SpecTextCitation!]!
+}
+
+"""#1449 — one node whose URN references a renumber rewrites."""
+type SpecRenumberRewrite {
+  """How many URN references were rewritten."""
+  count: Int!
+  error: String
+
+  """The text fields rewritten."""
+  fields: [String!]!
+  loc: String!
+  nodeId: ID!
+  status: SpecRewriteStatus!
+}
+
+"""#1449 — state of one node's reference rewrite in a renumber."""
+enum SpecRewriteStatus {
+  """
+  The rewrite was refused or kept conflicting; error says why. The move itself stands.
+  """
+  FAILED
+
+  """Dry run: this rewrite would be made."""
+  PLANNED
+  REWRITTEN
+
+  """
+  A concurrent edit removed the references (or the node) before the rewrite, so nothing was written.
+  """
+  UNCHANGED
+}
+
+"""
+Replace text in explicit nodes of one DRAFT spec corpus. A dry run returns
+plan; apply must present that exact plan and refuses if any selected row,
+protection, match, or corpus state changed. Minted corpora are never edited
+through this door. Generic replacement keeps its governed-node protections.
+"""
+input SpecSearchReplaceInput {
+  caseInsensitive: Boolean = false
+  dryRun: Boolean = false
+
+  """Required for apply; copied from the exact dry-run response."""
+  expectedPlan: String
+  fields: [SpecTextField!]!
+
+  """Refuse the entire apply when more nodes would change."""
+  maxNodesChanged: Int
+  memoryRef: ID!
+  newText: String!
+  nodeIds: [ID!]!
+  oldText: String!
+  reason: String
+  regex: Boolean = false
+
+  """
+  Literal mode only; matches the CLI's default ASCII word-boundary behavior.
+  """
+  wordBoundary: Boolean = true
+}
+
+"""
+#1449 — a moved citation that appears as bare TEXT (a link label, a node
+name, prose). Reported, never rewritten: it cannot be told apart from other
+characters in prose.
+"""
+type SpecTextCitation {
+  citation: String!
+
+  """A short window of text around the citation."""
+  excerpt: String!
+  field: String!
+  sourceLoc: String!
+  sourceNodeId: ID!
+}
+
+"""Only text fields a spec bulk edit may change."""
+enum SpecTextField {
+  abstract
+  content
 }
 
 """

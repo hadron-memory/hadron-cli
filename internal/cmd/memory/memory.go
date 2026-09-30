@@ -82,6 +82,7 @@ func NewCmdMemory(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdSetActive(f))
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdClone(f))
+	cmd.AddCommand(newCmdTransfer(f))
 	cmd.AddCommand(newCmdExtract(f))
 	cmd.AddCommand(newCmdExport(f))
 	cmd.AddCommand(newCmdMember(f))

@@ -698,8 +698,13 @@ func codeForExtension(code string) int {
 	// a PK and not a fully-qualified URN — an argument the caller can fix.
 	// The CLI pre-checks App refs (cmdutil.CanonicalAppRef, #540), so this
 	// is the mapping for every ref it still forwards unchecked.
+	// Transfer argument refusals can be fixed by choosing a supported class,
+	// source/destination owner, or reset option. CLASS_REQUIRED rides the
+	// _REQUIRED rule below and exits the same way.
 	case code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED" ||
-		code == "AiConfigValidationError" || code == "UnknownAiProviderError":
+		code == "AiConfigValidationError" || code == "UnknownAiProviderError" ||
+		code == "UNSUPPORTED_MEMORY_CLASS" || code == "MEMORY_TRANSFER_MEMBER_RESET_INVALID" ||
+		code == "MEMORY_TRANSFER_USER_TARGET_UNSUPPORTED" || code == "MEMORY_TRANSFER_SAME_OWNER":
 		return exitcode.Usage
 	// The governed-kind refusal (hadron-server#1201, RoleGovernedError): a
 	// write through a door its node's kind does not own, one touching two
@@ -723,7 +728,12 @@ func codeForExtension(code string) int {
 	// api`; the curated commands print the server's message, which says it.
 	case code == "LOC_PROTECTED":
 		return exitcode.Usage
+	// Transfer state refusals require a fresh preview or a change to the
+	// source/destination state; retrying the same apply cannot help.
 	case code == "CONFLICT" || strings.HasPrefix(code, "DUPLICATE_") ||
+		code == "STALE_TRANSFER_PREVIEW" || code == "TARGET_HANDLE_REQUIRED" ||
+		code == "MEMORY_TRANSFER_DEPENDENTS" || code == "MEMORY_TRANSFER_GROUP_OWNER_REQUIRED" ||
+		code == "ENCRYPTED_MEMORY_TRANSFER_UNSUPPORTED" ||
 		strings.HasSuffix(code, "_ALREADY_EXISTS") || strings.HasSuffix(code, "_TAKEN") ||
 		// A drained resource (PERSONA_REGISTER_EXHAUSTED, #935) is a state
 		// conflict: retrying won't help until the state changes.
@@ -864,3 +874,8 @@ func codeForExtension(code string) int {
 		return exitcode.Error
 	}
 }
+
+// ExitCodeForExtension also classifies typed refusal codes carried in a
+// successful transfer preview's blockers, where there is no GraphQL error for
+// MapError to inspect. The preview and apply paths must exit consistently.
+func ExitCodeForExtension(code string) int { return codeForExtension(code) }
