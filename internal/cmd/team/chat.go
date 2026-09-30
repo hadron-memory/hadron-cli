@@ -380,8 +380,9 @@ not to the chat (hadron-server#1121), so on the second page back it reports
 fewer messages than exist and a reader trusting it stops early.
 
 A --before read never advances the watermark below: it skips a middle range.
-A cursorless newest-page read advances it only when that page joins the
-already-read prefix; otherwise earlier messages remain unread.
+A cursorless newest-page read also never advances it, even if the page appears
+complete: the server's count and fetch can race. Use an explicit --since for a
+contiguous forward read, or mark-read after deliberately acknowledging a gap.
 
 --mentions-me keeps only messages mentioning the bound worker;
 --mentions <ref> filters for any staff member or App member (a worker name
@@ -405,8 +406,7 @@ ids, so naming your own team by URN still counts as reading it. The watermark is
 only on a read CONTIGUOUS with what the binding already holds, and only to a
 seq the server actually returned — so a --since ahead of the watermark (or
 past the end of the chat) reads a window rather than a prefix and records
-nothing. Reading a chat that is EMPTY still counts as
-having read it.
+nothing. An explicit --since 0 on an EMPTY chat still records read-through-0.
 
 YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). When the binding
 records this server, a read that records the watermark above also marks the bound worker's
@@ -571,32 +571,23 @@ them "(human)" / "(worker)".`,
 			// This subsumes the unverified-cursor case: `--since 999999` on a
 			// hundred-message chat is not contiguous either, so it cannot mark the
 			// team's next year of messages read on a typo.
-			contiguous := (b == nil) ||
+			// A cursorless newest page is never a read-state checkpoint. Even
+			// an apparently complete tail cannot prove coverage: the server
+			// counts and fetches separately, and posts can land between them.
+			// Explicit --since 0/N is the forward path that can prove a prefix.
+			contiguous := !tailRead && ((b == nil) ||
 				(b.ChatSeenSeq == nil && since == 0) ||
-				(b.ChatSeenSeq != nil && since <= *b.ChatSeenSeq)
-			if tailRead && len(msgs) > 0 {
-				// A tail is a window unless its first returned seq joins the
-				// already-read prefix. Never mark a skipped middle range read.
-				first := msgs[0].Seq
-				for _, m := range msgs[1:] {
-					if m.Seq < first {
-						first = m.Seq
-					}
-				}
-				contiguous = b != nil && ((b.ChatSeenSeq == nil && first == 1) ||
-					(b.ChatSeenSeq != nil && first <= *b.ChatSeenSeq+1))
-			}
+				(b.ChatSeenSeq != nil && since <= *b.ChatSeenSeq))
 			// …and only ever TO a seq the server actually returned, with one
-			// addition: asking from the very beginning and being handed nothing
-			// means the chat is genuinely empty, which is read-through-0 rather
-			// than never-read.
+			// addition: an explicit forward read from the very beginning that
+			// returns nothing proves the chat empty, which is read-through-0.
 			verified, ok := 0, false
 			for _, m := range msgs {
 				if !ok || m.Seq > verified {
 					verified, ok = m.Seq, true
 				}
 			}
-			if !ok && since == 0 {
+			if !ok && !tailRead && since == 0 {
 				ok = true
 			}
 			// Two more conditions, both from the same review, both P1:
@@ -642,10 +633,8 @@ them "(human)" / "(worker)".`,
 				// its-evidence, finding 8), and this is the first surface that
 				// can produce a window whose start looks perfectly contiguous.
 				//
-				// --limit alone is NOT excluded, and that asymmetry is the
-				// point: a bounded FORWARD read from the watermark is a genuine
-				// prefix — seqs 1..30 of a chat, with nothing skipped — so
-				// recording 30 claims exactly what was seen.
+				// --limit with an explicit --since is still a forward prefix.
+				// --limit alone is a cursorless tail, excluded by contiguous.
 				if b == nil || b.SessionID == "" || !ok || !unfiltered || !contiguous || cmd.Flags().Changed("before") ||
 					!bindingServerMatches(f, b) {
 					return false

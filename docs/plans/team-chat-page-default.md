@@ -28,12 +28,15 @@ The bound worker's local watermark and server read cursor advance only after a
 successful render. An unfiltered explicit forward read can advance when it
 starts at or before the existing watermark; a `--before` window cannot.
 
-A cursorless tail can also be a window: if the worker last read through 90 and
-the newest page starts at 101, then 91–100 were never delivered. It advances
-only when the page begins at or before the next seq after the known watermark,
-or when an uninitialized binding receives a page starting at seq 1. An empty
-tail can record a read-through-0. A skipped tail stays visible to the router
-until the worker explicitly walks the gap or uses `team chat mark-read`.
+A cursorless tail is never a read-state checkpoint, even when its first seq
+appears to join the known prefix or its returned count says the page is
+complete. The server counts and fetches in separate queries; posts between
+them can make that apparent completeness stale. This matches the server's
+`findings:newest-chat-page-is-not-a-read-watermark` rule and #1538's final
+read-state gate. The tail stays visible to the router until the worker reads
+explicit forward pages from its cursor or uses `team chat mark-read` to
+acknowledge the gap deliberately. An empty chat records read-through-0 only
+on an explicit `--since 0` forward read.
 
 The Orca attention router from server #1490 polls `team attention`, using its
 own token; it does not call this command. The server's monitor read uses an
@@ -43,7 +46,7 @@ explicit cursor and likewise remains forward.
 
 Command tests pin the wire difference between omitted `sinceSeq` and explicit
 zero, one request for a full default page, `--all` exhaustion, invalid flag
-pairs, JSON cursors, and both contiguous and skipped tail watermarks. The
+pairs, JSON cursors, and the no-mark rule for complete and partial tails. The
 existing backward-page, forward-page, render-failure, scope and server-mark
 tests remain in the suite.
 

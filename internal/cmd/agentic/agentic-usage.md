@@ -2308,9 +2308,9 @@ Conventions:
   newest messages before a cursor, so everything between `--since` and that page
   is unread by construction — the gap is in the MIDDLE, where the
   start-of-read contiguity check cannot see it. A cursorless newest-page read
-  advances only when its first seq joins the binding's already-read prefix;
-  otherwise it remains a window. A bounded `--since` forward read from the
-  watermark is a genuine prefix. The
+  also **never advances it**, even if the page looks complete: the server's
+  count and fetch can race. An explicit bounded `--since` forward read from
+  the watermark is a genuine prefix. The
   commit trailer carries the **app-qualified compound** — `Persona:
   eng-team/Iris` (`cor:agt:020:02/:03`) — because worker names are App-scoped
   and org-ambiguous bare. That App resolution is ambient, so **`chat read`

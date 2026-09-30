@@ -399,9 +399,9 @@ func TestTeamChatReadSinceZeroTakesOneOldestPage(t *testing.T) {
 	}
 }
 
-// A newest-page read is a window unless it touches the worker's known prefix.
-// The read cursor must never jump past messages hidden before that page.
-func TestTeamChatReadTailOnlyMarksContiguousMessages(t *testing.T) {
+// A cursorless newest page never proves a contiguous prefix: the server's
+// count and fetch can race even when the page looks complete (#1538).
+func TestTeamChatReadTailNeverMarksTheWatermark(t *testing.T) {
 	for _, tc := range []struct {
 		name, binding string
 		seqs          []int
@@ -409,8 +409,8 @@ func TestTeamChatReadTailOnlyMarksContiguousMessages(t *testing.T) {
 		want          *int
 	}{
 		{"unseen prefix", bindingWithTeamFixture, []int{401, 402}, 402, nil},
-		{"first page is the prefix", bindingWithTeamFixture, []int{1, 2}, 2, intPtr(2)},
-		{"tail joins prior cursor", bindingChatSeenFixture, []int{91, 92}, 92, intPtr(92)},
+		{"apparently complete page", bindingWithTeamFixture, []int{1, 2}, 2, nil},
+		{"tail appears to join prior cursor", bindingChatSeenFixture, []int{91, 92}, 92, intPtr(90)},
 		{"tail skips prior cursor", bindingChatSeenFixture, []int{101, 102}, 102, intPtr(90)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -529,9 +529,8 @@ func TestTeamChatReadBeforeNeverRecordsTheWatermark(t *testing.T) {
 	}
 }
 
-// …while a bounded FORWARD read still records, because it is a genuine prefix.
-// The positive control: without it, "never record on a bounded read" would pass
-// the test above and silently retire the watermark for --limit too.
+// …while a bounded EXPLICIT FORWARD read still records: it is a genuine prefix.
+// The positive control distinguishes it from a cursorless tail with --limit.
 func TestTeamChatReadLimitStillRecordsTheWatermark(t *testing.T) {
 	dir := teamGitDir(t)
 	path := filepath.Join(dir, "hadron-team-session.json")
@@ -541,7 +540,7 @@ func TestTeamChatReadLimitStillRecordsTheWatermark(t *testing.T) {
 	srv, _ := chatServer(t, teamChatPage(500, 1, 2, 3))
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "chat", "read", "--limit", "3", "--server", srv.URL})
+	root.SetArgs([]string{"team", "chat", "read", "--since", "0", "--limit", "3", "--server", srv.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}

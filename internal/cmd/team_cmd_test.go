@@ -3019,7 +3019,7 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		read(t, map[string]string{
 			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
 			"TeamAppIdentity":  teamAppIdentityJSON,
-		})
+		}, "--since", "0")
 		if got := watermark(t, path); got != 0 {
 			t.Errorf("an empty chat was still read — want recorded 0, got %d", got)
 		}
