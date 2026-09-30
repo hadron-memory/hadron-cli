@@ -137,11 +137,12 @@ Originally planned for slice 2:
   make it a plain edit. The contract remedy is unchanged (its reason — one
   reserved atom per tier — holds in any state).
 - **Parity with the server's mint check.** `testdata/specMint.fixtures.json`
-  is the server's shared fixture, vendored verbatim from `8ae48ba0`;
+  is the server's shared fixture, verified verbatim against merged server
+  `main` at `8a864c52`;
   `TestSpecLintSatisfiesTheServerMintFixture` runs `spec lint` over all 14
   cases. It found a real drift on its first run: `serialization-leak` read a
   CRLF-authored closing fence as not closing (the `\r` made the remainder
   non-blank), so a documented marker inside a CRLF fence was reported as an
   ERROR — pre-existing on `main`, affecting every corpus. Fixed in
   `withoutCode`: fence decisions use the line without its trailing `\r`, the
-  kept text is unchanged. Refresh the fixture from merged server `main`.
+  kept text is unchanged.

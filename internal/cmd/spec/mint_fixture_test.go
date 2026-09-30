@@ -13,9 +13,8 @@ import (
 // CLI's lint over a vendored copy of it.
 //
 // testdata/specMint.fixtures.json is copied VERBATIM from hadron-server
-// `Ella/1448-mint` @ 8ae48ba0 (#1462, unmerged). Refresh it from the merged
-// server main when the #1447 stack lands; a case added there and not here is
-// exactly the drift this test exists to catch.
+// merged hadron-server main @ 8a864c52 (#1462). A case added there and not
+// here is exactly the drift this test exists to catch.
 //
 // duplicate-loc is a cross-node rule, so no single-node case exercises it.
 var mintRules = map[string]bool{"nodetype-info": true, "tag-spec": true, "serialization-leak": true, "duplicate-loc": true}
