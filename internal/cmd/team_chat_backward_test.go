@@ -455,7 +455,7 @@ func TestTeamChatReadAllAndOnePageFlagsDoNotCompose(t *testing.T) {
 			srv, seen := chatServer(t)
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
-			root.SetArgs([]string{"team", "chat", "read", "--all", flag, "2", "--server", srv.URL})
+			root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team", "--all", flag, "2", "--server", srv.URL})
 			if code := exitCodeFor(root.Execute()); code != exitcode.Usage {
 				t.Errorf("--all %s must be a usage error, got %d", flag, code)
 			}
