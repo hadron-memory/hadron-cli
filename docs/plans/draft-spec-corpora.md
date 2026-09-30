@@ -54,11 +54,12 @@ Out, for slice 2 (tracked on cli#777):
   server can never switch a memory into draft — and with `--app/--agent`,
   since `createMemoryInApp` has no such argument. Gated on `Changed`, so an
   explicit `--draft-corpus=false` on an update is refused too, not read as
-  "nothing to do". When unset, `draftCorpus` is omitted (omitempty), so an
-  older server never sees an argument it doesn't know — and `CreateMemory`
-  does **not select** `corpusState`, or an older server would reject every
-  create. The draft path reads the state back with a separate
-  `SpecCorpusState` call and echoes what the server stored.
+  "nothing to do". An ordinary create uses `CreateMemory`, whose document
+  contains no `draftCorpus` argument and selects no `corpusState`, so a
+  pre-#1447 server can still validate it. `CreateMemoryDraft` is a separate
+  operation with `draftCorpus: true`. The draft path reads the state back
+  with `SpecCorpusState` and echoes what the server stored; a follow-up slug
+  or schema update preserves that state in the output.
 - **`spec mint` always checks first.** It sends `dryRun: true`, prints the
   report, and only then — with no blockers — asks. A mint already known to be
   blocked is never offered (review:confirm-prompt-tells-the-truth), and the
@@ -103,8 +104,9 @@ Out, for slice 2 (tracked on cli#777):
 
 ## 5. Evidence
 
-- 24 command tests in `internal/cmd/spec_corpus_cmd_test.go`, against fake
-  servers, plus exit-code table rows in `internal/api/errors_test.go`: variables sent (omitted `name`/`draftCorpus`, `dryRun`), exit codes
+- Command tests in `internal/cmd/spec_corpus_cmd_test.go`, against fake
+  servers, plus exit-code table rows in `internal/api/errors_test.go`: operation
+  choice for old-server compatibility, variables sent (`name`, `dryRun`), exit codes
   per path, `[]` not `null`, the mint call sequence (check-only when blocked,
   declined or non-interactive; check then mint with `--yes`).
-- No live run: the fields don't exist in production until the stack merges.
+- Live behavior awaits independent QA on the reviewable PR head.

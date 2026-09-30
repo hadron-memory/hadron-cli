@@ -107,10 +107,6 @@ it. Without it a memory is an ordinary (minted) one.`,
 					return exitcode.Newf(exitcode.Usage, "--draft-corpus cannot be used with --app/--agent: App-scoped creation takes no draft state. Nothing was written")
 				}
 			}
-			var draftArg *bool
-			if draftCorpus {
-				draftArg = &draftCorpus
-			}
 			// Pure, so a bad slug is a usage error even offline. Gate on
 			// Changed, not slug != "", so an explicit --slug "" is rejected
 			// (empty is invalid) rather than silently treated as "no slug".
@@ -162,6 +158,29 @@ it. Without it a memory is an ordinary (minted) one.`,
 			var tagsArg *[]string
 			if cmd.Flags().Changed("tag") {
 				tagsArg = &tags
+			}
+			// The draft-only operation contains the new draftCorpus argument;
+			// ordinary creates use the older document so pre-#1447 servers can
+			// validate it. Omitting a variable alone does not hide an argument.
+			createFreeStanding := func(orgID *string, memoryClass *gen.MemoryClass) (memoryDTO, error) {
+				if draftCorpus {
+					resp, err := gen.CreateMemoryDraft(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg)
+					if err != nil {
+						return memoryDTO{}, api.MapError(err)
+					}
+					if resp == nil || resp.CreateMemory == nil {
+						return memoryDTO{}, exitcode.Newf(exitcode.Error, "server returned no memory")
+					}
+					return dtoFromMemory(resp.CreateMemory), nil
+				}
+				resp, err := gen.CreateMemory(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg)
+				if err != nil {
+					return memoryDTO{}, api.MapError(err)
+				}
+				if resp == nil || resp.CreateMemory == nil {
+					return memoryDTO{}, exitcode.Newf(exitcode.Error, "server returned no memory")
+				}
+				return dtoFromMemory(resp.CreateMemory), nil
 			}
 
 			var m memoryDTO
@@ -234,14 +253,10 @@ it. Without it a memory is an ordinary (minted) one.`,
 					if class != "" {
 						c = gen.MemoryClass(class)
 					}
-					resp, err := gen.CreateMemory(cmd.Context(), client, nil, name, &c, optional(short), optional(description), tagsArg, visArg, maxRevArg, draftArg)
+					m, err = createFreeStanding(nil, &c)
 					if err != nil {
-						return api.MapError(err)
+						return err
 					}
-					if resp == nil || resp.CreateMemory == nil {
-						return exitcode.Newf(exitcode.Error, "server returned no memory")
-					}
-					m = dtoFromMemory(resp.CreateMemory)
 				default:
 					if org == "" || name == "" {
 						return exitcode.Newf(exitcode.Usage, "creating a free-standing memory requires --org and --name (or --owner-me for a memory you own personally)")
@@ -254,22 +269,24 @@ it. Without it a memory is an ordinary (minted) one.`,
 						c := gen.MemoryClass(class)
 						classArg = &c
 					}
-					resp, err := gen.CreateMemory(cmd.Context(), client, optional(org), name, classArg, optional(short), optional(description), tagsArg, visArg, maxRevArg, draftArg)
+					m, err = createFreeStanding(optional(org), classArg)
 					if err != nil {
-						return api.MapError(err)
+						return err
 					}
-					if resp == nil || resp.CreateMemory == nil {
-						return exitcode.Newf(exitcode.Error, "server returned no memory")
-					}
-					m = dtoFromMemory(resp.CreateMemory)
 				}
 				verb = "created"
 				// Echo the state a --draft-corpus create actually got, read back
 				// rather than assumed. Only on this path: selecting corpusState on
 				// every create would make an older server reject every create.
-				if draftArg != nil {
-					if st, serr := gen.SpecCorpusState(cmd.Context(), client, m.ID); serr == nil && st.Memory != nil {
+				if draftCorpus {
+					if st, serr := gen.SpecCorpusState(cmd.Context(), client, m.ID); serr != nil {
+						if _, werr := fmt.Fprintf(f.IOStreams.ErrOut, "warning: memory %s was created, but its corpus state could not be read: %v\n", m.URN, api.MapError(serr)); werr != nil {
+							return werr
+						}
+					} else if st != nil && st.Memory != nil {
 						m.CorpusState = corpusStateOf(st.Memory.CorpusState)
+					} else if _, werr := fmt.Fprintf(f.IOStreams.ErrOut, "warning: memory %s was created, but the server returned no corpus state\n", m.URN); werr != nil {
+						return werr
 					}
 				}
 				// createMemory/createMemoryInApp take neither a slug (free-standing
@@ -288,7 +305,9 @@ it. Without it a memory is an ordinary (minted) one.`,
 					} else if resp == nil || resp.UpdateMemory == nil {
 						postCreateErr = exitcode.Newf(exitcode.Error, "server returned no memory on the post-create update")
 					} else {
+						state := m.CorpusState
 						m = dtoFromMemory(resp.UpdateMemory)
+						m.CorpusState = state
 					}
 				}
 			} else {

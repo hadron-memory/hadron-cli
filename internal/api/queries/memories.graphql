@@ -101,11 +101,6 @@ mutation CreateMemory(
   # #621 — per-node revision-history cap (min 1). Omitted = server default.
   # @genqlient(omitempty: true)
   $maxRevCount: Int
-  # hadron-server#1447 — create the memory as a DRAFT spec corpus. The only
-  # way to get one: an existing memory can never be switched into draft.
-  # Omitted = an ordinary (minted) memory.
-  # @genqlient(omitempty: true)
-  $draftCorpus: Boolean
 ) {
   createMemory(
     orgId: $orgId
@@ -116,7 +111,50 @@ mutation CreateMemory(
     tags: $tags
     visibility: $visibility
     maxRevCount: $maxRevCount
-    draftCorpus: $draftCorpus
+  ) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    maxRevCount
+    updatedAt
+  }
+}
+
+# Keep the ordinary CreateMemory document free of draftCorpus. GraphQL validates
+# the full document before execution, so omitting a variable value does not
+# make an unknown argument compatible with a pre-#1447 server.
+mutation CreateMemoryDraft(
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  $name: String!
+  # @genqlient(omitempty: true)
+  $memoryClass: MemoryClass
+  # @genqlient(omitempty: true)
+  $shortDescription: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true, bind: "*[]string")
+  $tags: [String!]
+  # @genqlient(omitempty: true)
+  $visibility: MemoryVisibility
+  # @genqlient(omitempty: true)
+  $maxRevCount: Int
+) {
+  createMemory(
+    orgId: $orgId
+    name: $name
+    memoryClass: $memoryClass
+    shortDescription: $shortDescription
+    description: $description
+    tags: $tags
+    visibility: $visibility
+    maxRevCount: $maxRevCount
+    draftCorpus: true
   ) {
     id
     urn

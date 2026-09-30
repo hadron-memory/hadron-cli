@@ -7068,6 +7068,91 @@ func (v *CreateMemoryCreateMemory) GetMaxRevCount() int { return v.MaxRevCount }
 // GetUpdatedAt returns CreateMemoryCreateMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CreateMemoryCreateMemory) GetUpdatedAt() string { return v.UpdatedAt }
 
+// CreateMemoryDraftCreateMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type CreateMemoryDraftCreateMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns CreateMemoryDraftCreateMemory.Id, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftCreateMemory) GetId() string { return v.Id }
+
+// GetUrn returns CreateMemoryDraftCreateMemory.Urn, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftCreateMemory) GetUrn() string { return v.Urn }
+
+// GetName returns CreateMemoryDraftCreateMemory.Name, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftCreateMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns CreateMemoryDraftCreateMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftCreateMemory) GetShortDescription() *string { return v.ShortDescription }
+
+// GetClass returns CreateMemoryDraftCreateMemory.Class, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftCreateMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns CreateMemoryDraftCreateMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftCreateMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetOrganizationId returns CreateMemoryDraftCreateMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftCreateMemory) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetIsEncrypted returns CreateMemoryDraftCreateMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftCreateMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns CreateMemoryDraftCreateMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftCreateMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetUpdatedAt returns CreateMemoryDraftCreateMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftCreateMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateMemoryDraftResponse is returned by CreateMemoryDraft on success.
+type CreateMemoryDraftResponse struct {
+	// Create a memory in an organization. Accepts the entity's ID or URN
+	// for orgId.
+	//
+	// Defaults to knowledge-class with ORGANIZATION visibility. Pass
+	// memoryClass: group + visibility: GROUP for a group-class memory
+	// (023-app-shape US4; the caller is auto-added as the first owner),
+	// or memoryClass: personal | private for an owner-only memory the
+	// caller owns (spec 034 — free-standing, no app/agent; the caller
+	// must be a member of the org container). system- and app-class
+	// memories are NOT created here — they auto-provision via
+	// Agent.systemMemoryId / the App install path.
+	CreateMemory *CreateMemoryDraftCreateMemory `json:"createMemory"`
+}
+
+// GetCreateMemory returns CreateMemoryDraftResponse.CreateMemory, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftResponse) GetCreateMemory() *CreateMemoryDraftCreateMemory {
+	return v.CreateMemory
+}
+
 // CreateMemoryInAppCreateMemoryInAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -32930,6 +33015,42 @@ func (v *__CreateMemoryConfigTemplateInput) GetInput() *CreateMemoryConfigTempla
 	return v.Input
 }
 
+// __CreateMemoryDraftInput is used internally by genqlient
+type __CreateMemoryDraftInput struct {
+	OrgId            *string           `json:"orgId,omitempty"`
+	Name             string            `json:"name"`
+	MemoryClass      *MemoryClass      `json:"memoryClass,omitempty"`
+	ShortDescription *string           `json:"shortDescription,omitempty"`
+	Description      *string           `json:"description,omitempty"`
+	Tags             *[]string         `json:"tags,omitempty"`
+	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
+	MaxRevCount      *int              `json:"maxRevCount,omitempty"`
+}
+
+// GetOrgId returns __CreateMemoryDraftInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetOrgId() *string { return v.OrgId }
+
+// GetName returns __CreateMemoryDraftInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetName() string { return v.Name }
+
+// GetMemoryClass returns __CreateMemoryDraftInput.MemoryClass, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetMemoryClass() *MemoryClass { return v.MemoryClass }
+
+// GetShortDescription returns __CreateMemoryDraftInput.ShortDescription, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetShortDescription() *string { return v.ShortDescription }
+
+// GetDescription returns __CreateMemoryDraftInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetDescription() *string { return v.Description }
+
+// GetTags returns __CreateMemoryDraftInput.Tags, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetTags() *[]string { return v.Tags }
+
+// GetVisibility returns __CreateMemoryDraftInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetMaxRevCount returns __CreateMemoryDraftInput.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetMaxRevCount() *int { return v.MaxRevCount }
+
 // __CreateMemoryInAppInput is used internally by genqlient
 type __CreateMemoryInAppInput struct {
 	AppRef           string      `json:"appRef"`
@@ -32976,7 +33097,6 @@ type __CreateMemoryInput struct {
 	Tags             *[]string         `json:"tags,omitempty"`
 	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
 	MaxRevCount      *int              `json:"maxRevCount,omitempty"`
-	DraftCorpus      *bool             `json:"draftCorpus,omitempty"`
 }
 
 // GetOrgId returns __CreateMemoryInput.OrgId, and is useful for accessing the field via an interface.
@@ -33002,9 +33122,6 @@ func (v *__CreateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visib
 
 // GetMaxRevCount returns __CreateMemoryInput.MaxRevCount, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInput) GetMaxRevCount() *int { return v.MaxRevCount }
-
-// GetDraftCorpus returns __CreateMemoryInput.DraftCorpus, and is useful for accessing the field via an interface.
-func (v *__CreateMemoryInput) GetDraftCorpus() *bool { return v.DraftCorpus }
 
 // __CreateMemoryShareInput is used internally by genqlient
 type __CreateMemoryShareInput struct {
@@ -37928,8 +38045,8 @@ func CreateMcpServer(
 
 // The mutation executed by CreateMemory.
 const CreateMemory_Operation = `
-mutation CreateMemory ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int, $draftCorpus: Boolean) {
-	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, draftCorpus: $draftCorpus) {
+mutation CreateMemory ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int) {
+	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount) {
 		id
 		urn
 		name
@@ -37955,7 +38072,6 @@ func CreateMemory(
 	tags *[]string,
 	visibility *MemoryVisibility,
 	maxRevCount *int,
-	draftCorpus *bool,
 ) (data_ *CreateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateMemory",
@@ -37969,7 +38085,6 @@ func CreateMemory(
 			Tags:             tags,
 			Visibility:       visibility,
 			MaxRevCount:      maxRevCount,
-			DraftCorpus:      draftCorpus,
 		},
 	}
 
@@ -38055,6 +38170,66 @@ func CreateMemoryConfigTemplate(
 	}
 
 	data_ = &CreateMemoryConfigTemplateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateMemoryDraft.
+const CreateMemoryDraft_Operation = `
+mutation CreateMemoryDraft ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int) {
+	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, draftCorpus: true) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		maxRevCount
+		updatedAt
+	}
+}
+`
+
+// Keep the ordinary CreateMemory document free of draftCorpus. GraphQL validates
+// the full document before execution, so omitting a variable value does not
+// make an unknown argument compatible with a pre-#1447 server.
+func CreateMemoryDraft(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	name string,
+	memoryClass *MemoryClass,
+	shortDescription *string,
+	description *string,
+	tags *[]string,
+	visibility *MemoryVisibility,
+	maxRevCount *int,
+) (data_ *CreateMemoryDraftResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateMemoryDraft",
+		Query:  CreateMemoryDraft_Operation,
+		Variables: &__CreateMemoryDraftInput{
+			OrgId:            orgId,
+			Name:             name,
+			MemoryClass:      memoryClass,
+			ShortDescription: shortDescription,
+			Description:      description,
+			Tags:             tags,
+			Visibility:       visibility,
+			MaxRevCount:      maxRevCount,
+		},
+	}
+
+	data_ = &CreateMemoryDraftResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
