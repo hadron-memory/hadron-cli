@@ -550,6 +550,12 @@ replacement over the cap is rejected.`,
 				}
 				return api.MapError(err)
 			}
+			// A response with no node and no error is not a write this command
+			// can vouch for — the check api.UpdateSpecNode made, kept now that
+			// the edit reads the payload itself (@codex on #781).
+			if resp == nil || resp.UpdateSpecNode == nil {
+				return exitcode.Newf(exitcode.Error, "updateSpecNode returned no node for %s — the write can't be confirmed; check with `hadron spec get %s`", node.Loc, node.Loc)
+			}
 			if !proposal.reaffirm {
 				return render()
 			}
@@ -557,15 +563,14 @@ replacement over the cap is rejected.`,
 			// stored body is the one this command knows: the new body, or the
 			// raw body it read. The server fingerprints the stored body, so the
 			// two hashes must agree for the re-affirmation to have landed.
+			// THIS RELIES ON THE GUARD (@Bob on #781): an unguarded write could
+			// store a body someone else wrote in between, and must not reuse
+			// this derivation.
 			storedBody := curBody
 			if proposal.bodyChanged() {
 				storedBody = newBody
 			}
-			var stored *string
-			if resp != nil && resp.UpdateSpecNode != nil {
-				stored = resp.UpdateSpecNode.AbstractOriginHash
-			}
-			outcome := reaffirmOutcome(stored, storedBody)
+			outcome := reaffirmOutcome(resp.UpdateSpecNode.AbstractOriginHash, storedBody)
 			result.AbstractVerification = &outcome
 			if err := render(); err != nil {
 				return err

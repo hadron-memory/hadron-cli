@@ -4713,3 +4713,35 @@ func TestSpecEditBodyOnlyReportsNoVerification(t *testing.T) {
 		t.Errorf("no re-affirmation, no verification: %s", out.String())
 	}
 }
+
+// A response with no node and no error is no confirmed write (@codex on #781):
+// exit 1, never a success — with or without a re-affirmation.
+func TestSpecEditNullUpdateNodeIsNotASuccess(t *testing.T) {
+	for _, extra := range [][]string{{"--abstract-still-accurate"}, {"--content", "-"}} {
+		m := editMocks()
+		m["UpdateSpecNode"] = `{"data":{"updateSpecNode":null}}`
+		gql, _ := captureGraphQL(t, m)
+		f, out := testFactory(t)
+		f.IOStreams.In = strings.NewReader("# rewritten body\n")
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--server", gql.URL}, extra...))
+		if got := exitCodeFor(root.Execute()); got != exitcode.Error {
+			t.Errorf("%v: a null updateSpecNode must exit 1, got %d", extra, got)
+		}
+		if strings.Contains(out.String(), "updated") {
+			t.Errorf("%v: must not report an update: %q", extra, out.String())
+		}
+	}
+}
+
+// An EMPTY stored fingerprint is as uninformative as a missing one: it is
+// unverifiable, not a disagreement (pins the clause @Bob's mutation left alive).
+func TestSpecEditReaffirmEmptyStoredHashIsUnverifiable(t *testing.T) {
+	m := editMocks()
+	m["UpdateSpecNode"] = `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z","abstractOriginHash":""}}}`
+	dto, raw, code, _ := runReaffirm(t, m, "--json")
+	if code != exitcode.OK || dto.AbstractVerification == nil || *dto.AbstractVerification != "unverifiable" {
+		t.Errorf("an empty fingerprint must be unverifiable, exit 0; got %s exit %d", raw, code)
+	}
+}
