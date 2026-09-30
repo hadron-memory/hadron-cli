@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 63 unbound
+[Query] 61 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -65,12 +65,10 @@ resolveAIConfig
 secret
 slackConnection
 slackConnections
-specBacklinks  # server spec-link reads; no CLI command in cli#782 scope
-specUnresolvedReferences  # server spec-link audit; no CLI command in cli#782 scope
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
-[Mutation] 92 unbound
+[Mutation] 89 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -115,7 +113,6 @@ joinWaitingList
 leaveApp
 linkGithubApp
 mergeMemories
-mintSpecCorpus  # server spec-corpus administration; no CLI command in cli#782 scope
 processChatResponse
 publishAgentImport
 publishRevision
@@ -127,10 +124,8 @@ removeAgentFromApp
 removeAgentImport
 removeAppMember
 removeMemoryFromAgent
-renumberSpec  # server spec-citation maintenance; no CLI command in cli#782 scope
 repairAgentSystemMemory
 replaceSubtree  # server#1407: deprecated field; authorized calls return REPLACE_SUBTREE_RETIRED without writes
-reserveSpecCitation  # server spec-citation maintenance; no CLI command in cli#782 scope
 restoreRevision
 retryFailedEmbeddings
 revokeAgentOrgGrant
