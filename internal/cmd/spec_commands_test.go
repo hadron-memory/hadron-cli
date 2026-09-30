@@ -4666,6 +4666,14 @@ func TestSpecEditReaffirmNotRefreshedWhenTheServerLeavesItStale(t *testing.T) {
 	if strings.Contains(text, "verification refreshed") || !strings.Contains(text, "NOT refreshed") {
 		t.Errorf("the text must not claim a refresh the server didn't make:\n%s", text)
 	}
+	gql, _ := captureGraphQL(t, editMocksStoring("deadbeef"))
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--abstract-still-accurate", "--server", gql.URL})
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs") {
+		t.Errorf("stale-fingerprint recovery must name the edited memory, got %v", err)
+	}
 }
 
 // No fingerprint in the response proves nothing either way: say so, claim nothing.
@@ -4675,8 +4683,8 @@ func TestSpecEditReaffirmUnverifiableWithoutAStoredHash(t *testing.T) {
 		t.Errorf("want unverifiable, exit 0; got %s exit %d", raw, code)
 	}
 	_, text, _, _ := runReaffirm(t, editMocksStoring(""))
-	if strings.Contains(text, "verification refreshed") {
-		t.Errorf("an unverifiable result must not claim a refresh:\n%s", text)
+	if strings.Contains(text, "verification refreshed") || !strings.Contains(text, "hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs") {
+		t.Errorf("an unverifiable result must name the edited memory without claiming a refresh:\n%s", text)
 	}
 }
 
@@ -4725,8 +4733,12 @@ func TestSpecEditNullUpdateNodeIsNotASuccess(t *testing.T) {
 		f.IOStreams.In = strings.NewReader("# rewritten body\n")
 		root := NewRootCmd(f)
 		root.SetArgs(append([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--server", gql.URL}, extra...))
-		if got := exitCodeFor(root.Execute()); got != exitcode.Error {
+		err := root.Execute()
+		if got := exitCodeFor(err); got != exitcode.Error {
 			t.Errorf("%v: a null updateSpecNode must exit 1, got %d", extra, got)
+		}
+		if err == nil || !strings.Contains(err.Error(), "hadron spec get msg:010:02 -m hrn:mem:micromentor.org:platform-specs") {
+			t.Errorf("%v: recovery must name the edited memory, got %v", extra, err)
 		}
 		if strings.Contains(out.String(), "updated") {
 			t.Errorf("%v: must not report an update: %q", extra, out.String())

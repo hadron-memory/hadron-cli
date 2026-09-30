@@ -380,6 +380,8 @@ replacement over the cap is rejected.`,
 			if err != nil {
 				return err
 			}
+			// Verification hints must target the memory resolved for this edit.
+			checkMemory := cmdutil.CanonicalMemoryRef(memURN)
 			// RAW: the stored body, placeholders intact. Everything below —
 			// the editor buffer, the preview and the write — starts from it.
 			node, err := fetchSpecForEdit(cmd, client, memURN, args[0])
@@ -525,7 +527,7 @@ replacement over the cap is rejected.`,
 			}
 			render := func() error {
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-					return renderEditResult(w, result, curBody, newBody, proposal.armsAbstractStale())
+					return renderEditResult(w, result, curBody, newBody, proposal.armsAbstractStale(), checkMemory)
 				})
 			}
 			if dryRun {
@@ -554,7 +556,7 @@ replacement over the cap is rejected.`,
 			// can vouch for — the check api.UpdateSpecNode made, kept now that
 			// the edit reads the payload itself (@codex on #781).
 			if resp == nil || resp.UpdateSpecNode == nil {
-				return exitcode.Newf(exitcode.Error, "updateSpecNode returned no node for %s — the write can't be confirmed; check with `hadron spec get %s`", node.Loc, node.Loc)
+				return exitcode.Newf(exitcode.Error, "updateSpecNode returned no node for %s — the write can't be confirmed; check with `hadron spec get %s -m %s`", node.Loc, node.Loc, checkMemory)
 			}
 			if !proposal.reaffirm {
 				return render()
@@ -577,8 +579,8 @@ replacement over the cap is rejected.`,
 			}
 			if outcome == reaffirmNotRefreshed {
 				return exitcode.Newf(exitcode.Error,
-					"%s was written, but the server left its abstract fingerprint stale — the re-affirmation did not persist (hadron-server#1408). Check with `hadron spec lint %s`",
-					node.Loc, node.Loc)
+					"%s was written, but the server left its abstract fingerprint stale — the re-affirmation did not persist (hadron-server#1408). Check with `hadron spec lint %s -m %s`",
+					node.Loc, node.Loc, checkMemory)
 			}
 			return nil
 		},
@@ -857,7 +859,7 @@ func unsupportedGuard(err error) bool {
 
 const dryRunDisclaimer = "dry run: nothing was written, and this preview is not an approval. Applying it is a separate `spec edit` run without --dry-run, which recomputes the change against the spec as stored at that moment."
 
-func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string, armsStale bool) error {
+func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string, armsStale bool, checkMemory string) error {
 	verb := "✓ updated"
 	if r.DryRun {
 		verb = "would update"
@@ -882,7 +884,7 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 		case *r.AbstractVerification == reaffirmNotRefreshed:
 			fmt.Fprintln(w, "  abstract: re-affirmation sent, but the server's stored fingerprint does NOT match this body — verification NOT refreshed")
 		default:
-			fmt.Fprintf(w, "  abstract: re-affirmation sent, but the server returned no fingerprint, so a refresh can't be confirmed — check with `hadron spec lint %s`\n", r.Citation)
+			fmt.Fprintf(w, "  abstract: re-affirmation sent, but the server returned no fingerprint, so a refresh can't be confirmed — check with `hadron spec lint %s -m %s`\n", r.Citation, checkMemory)
 		}
 	}
 	// Only nudge about the abstract when the body changed but a kept abstract
