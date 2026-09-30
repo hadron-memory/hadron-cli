@@ -15434,6 +15434,22 @@ type MemorySubscriptionsResponse struct {
 // GetMemory returns MemorySubscriptionsResponse.Memory, and is useful for accessing the field via an interface.
 func (v *MemorySubscriptionsResponse) GetMemory() *MemorySubscriptionsMemory { return v.Memory }
 
+type MemoryTransferHandling string
+
+const (
+	MemoryTransferHandlingCarry  MemoryTransferHandling = "CARRY"
+	MemoryTransferHandlingCreate MemoryTransferHandling = "CREATE"
+	MemoryTransferHandlingRefuse MemoryTransferHandling = "REFUSE"
+	MemoryTransferHandlingRemove MemoryTransferHandling = "REMOVE"
+)
+
+var AllMemoryTransferHandling = []MemoryTransferHandling{
+	MemoryTransferHandlingCarry,
+	MemoryTransferHandlingCreate,
+	MemoryTransferHandlingRefuse,
+	MemoryTransferHandlingRemove,
+}
+
 // One health check the validator runs (#819).
 type MemoryValidationCheck string
 
@@ -25025,6 +25041,132 @@ func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) __premars
 	return &retval, nil
 }
 
+// TransferMemoryOwnershipResponse is returned by TransferMemoryOwnership on success.
+type TransferMemoryOwnershipResponse struct {
+	// Transfer a free-standing Memory to exactly one new owner. dryRun previews
+	// the new URN and dependent handling without writing; apply recomputes under
+	// lock and can pin the preview with expectedNewUrn. A class change across
+	// user/org ownership must be explicit. The caller needs authority on both
+	// sides; unreadable source memories are concealed as not found. Group members
+	// block transfer by default; resetGroupMembers explicitly revokes every old
+	// membership inside the transfer transaction. A group destination then adds
+	// the caller as its first owner-member.
+	TransferMemoryOwnership *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview `json:"transferMemoryOwnership"`
+}
+
+// GetTransferMemoryOwnership returns TransferMemoryOwnershipResponse.TransferMemoryOwnership, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipResponse) GetTransferMemoryOwnership() *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview {
+	return v.TransferMemoryOwnership
+}
+
+// TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview includes the requested fields of the GraphQL type MemoryOwnerTransferPreview.
+type TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview struct {
+	MemoryId     string                                                                                                       `json:"memoryId"`
+	OldUrn       string                                                                                                       `json:"oldUrn"`
+	NewUrn       string                                                                                                       `json:"newUrn"`
+	FromOwner    string                                                                                                       `json:"fromOwner"`
+	ToOwner      string                                                                                                       `json:"toOwner"`
+	CurrentClass MemoryClass                                                                                                  `json:"currentClass"`
+	TargetClass  MemoryClass                                                                                                  `json:"targetClass"`
+	Dependents   []*TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewDependentsMemoryTransferDependent `json:"dependents"`
+	Blockers     []*TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewBlockersMemoryTransferBlocker     `json:"blockers"`
+	CanApply     bool                                                                                                         `json:"canApply"`
+	Applied      bool                                                                                                         `json:"applied"`
+}
+
+// GetMemoryId returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview.MemoryId, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetOldUrn returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview.OldUrn, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview) GetOldUrn() string {
+	return v.OldUrn
+}
+
+// GetNewUrn returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview.NewUrn, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview) GetNewUrn() string {
+	return v.NewUrn
+}
+
+// GetFromOwner returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview.FromOwner, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview) GetFromOwner() string {
+	return v.FromOwner
+}
+
+// GetToOwner returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview.ToOwner, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview) GetToOwner() string {
+	return v.ToOwner
+}
+
+// GetCurrentClass returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview.CurrentClass, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview) GetCurrentClass() MemoryClass {
+	return v.CurrentClass
+}
+
+// GetTargetClass returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview.TargetClass, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview) GetTargetClass() MemoryClass {
+	return v.TargetClass
+}
+
+// GetDependents returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview.Dependents, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview) GetDependents() []*TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewDependentsMemoryTransferDependent {
+	return v.Dependents
+}
+
+// GetBlockers returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview.Blockers, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview) GetBlockers() []*TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewBlockersMemoryTransferBlocker {
+	return v.Blockers
+}
+
+// GetCanApply returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview.CanApply, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview) GetCanApply() bool {
+	return v.CanApply
+}
+
+// GetApplied returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview.Applied, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreview) GetApplied() bool {
+	return v.Applied
+}
+
+// TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewBlockersMemoryTransferBlocker includes the requested fields of the GraphQL type MemoryTransferBlocker.
+type TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewBlockersMemoryTransferBlocker struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// GetCode returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewBlockersMemoryTransferBlocker.Code, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewBlockersMemoryTransferBlocker) GetCode() string {
+	return v.Code
+}
+
+// GetMessage returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewBlockersMemoryTransferBlocker.Message, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewBlockersMemoryTransferBlocker) GetMessage() string {
+	return v.Message
+}
+
+// TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewDependentsMemoryTransferDependent includes the requested fields of the GraphQL type MemoryTransferDependent.
+type TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewDependentsMemoryTransferDependent struct {
+	Kind     string                 `json:"kind"`
+	Count    int                    `json:"count"`
+	Handling MemoryTransferHandling `json:"handling"`
+}
+
+// GetKind returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewDependentsMemoryTransferDependent.Kind, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewDependentsMemoryTransferDependent) GetKind() string {
+	return v.Kind
+}
+
+// GetCount returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewDependentsMemoryTransferDependent.Count, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewDependentsMemoryTransferDependent) GetCount() int {
+	return v.Count
+}
+
+// GetHandling returns TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewDependentsMemoryTransferDependent.Handling, and is useful for accessing the field via an interface.
+func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPreviewDependentsMemoryTransferDependent) GetHandling() MemoryTransferHandling {
+	return v.Handling
+}
+
 type TriggerAppRunInput struct {
 	AiConfigName *string `json:"aiConfigName,omitempty"`
 	// App — ref: PK or fully-qualified URN.
@@ -33974,6 +34116,38 @@ func (v *__TeamWorkItemsLegacyInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __TeamWorkItemsLegacyInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamWorkItemsLegacyInput) GetOffset() *int { return v.Offset }
+
+// __TransferMemoryOwnershipInput is used internally by genqlient
+type __TransferMemoryOwnershipInput struct {
+	MemoryRef         string       `json:"memoryRef"`
+	OrgRef            *string      `json:"orgRef,omitempty"`
+	UserRef           *string      `json:"userRef,omitempty"`
+	TargetClass       *MemoryClass `json:"targetClass,omitempty"`
+	ExpectedNewUrn    *string      `json:"expectedNewUrn,omitempty"`
+	ResetGroupMembers bool         `json:"resetGroupMembers"`
+	DryRun            bool         `json:"dryRun"`
+}
+
+// GetMemoryRef returns __TransferMemoryOwnershipInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__TransferMemoryOwnershipInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetOrgRef returns __TransferMemoryOwnershipInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__TransferMemoryOwnershipInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetUserRef returns __TransferMemoryOwnershipInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__TransferMemoryOwnershipInput) GetUserRef() *string { return v.UserRef }
+
+// GetTargetClass returns __TransferMemoryOwnershipInput.TargetClass, and is useful for accessing the field via an interface.
+func (v *__TransferMemoryOwnershipInput) GetTargetClass() *MemoryClass { return v.TargetClass }
+
+// GetExpectedNewUrn returns __TransferMemoryOwnershipInput.ExpectedNewUrn, and is useful for accessing the field via an interface.
+func (v *__TransferMemoryOwnershipInput) GetExpectedNewUrn() *string { return v.ExpectedNewUrn }
+
+// GetResetGroupMembers returns __TransferMemoryOwnershipInput.ResetGroupMembers, and is useful for accessing the field via an interface.
+func (v *__TransferMemoryOwnershipInput) GetResetGroupMembers() bool { return v.ResetGroupMembers }
+
+// GetDryRun returns __TransferMemoryOwnershipInput.DryRun, and is useful for accessing the field via an interface.
+func (v *__TransferMemoryOwnershipInput) GetDryRun() bool { return v.DryRun }
 
 // __TriggerAppRunInput is used internally by genqlient
 type __TriggerAppRunInput struct {
@@ -44326,6 +44500,72 @@ func TeamWorkItemsLegacy(
 	}
 
 	data_ = &TeamWorkItemsLegacyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TransferMemoryOwnership.
+const TransferMemoryOwnership_Operation = `
+mutation TransferMemoryOwnership ($memoryRef: ID!, $orgRef: ID, $userRef: ID, $targetClass: MemoryClass, $expectedNewUrn: String, $resetGroupMembers: Boolean!, $dryRun: Boolean!) {
+	transferMemoryOwnership(memoryRef: $memoryRef, orgRef: $orgRef, userRef: $userRef, targetClass: $targetClass, expectedNewUrn: $expectedNewUrn, resetGroupMembers: $resetGroupMembers, dryRun: $dryRun) {
+		memoryId
+		oldUrn
+		newUrn
+		fromOwner
+		toOwner
+		currentClass
+		targetClass
+		dependents {
+			kind
+			count
+			handling
+		}
+		blockers {
+			code
+			message
+		}
+		canApply
+		applied
+	}
+}
+`
+
+// Preview and apply use the same operation. Apply pins expectedNewUrn to the
+// preview's newUrn so a changed destination handle cannot silently move the
+// memory to a different address.
+func TransferMemoryOwnership(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	orgRef *string,
+	userRef *string,
+	targetClass *MemoryClass,
+	expectedNewUrn *string,
+	resetGroupMembers bool,
+	dryRun bool,
+) (data_ *TransferMemoryOwnershipResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TransferMemoryOwnership",
+		Query:  TransferMemoryOwnership_Operation,
+		Variables: &__TransferMemoryOwnershipInput{
+			MemoryRef:         memoryRef,
+			OrgRef:            orgRef,
+			UserRef:           userRef,
+			TargetClass:       targetClass,
+			ExpectedNewUrn:    expectedNewUrn,
+			ResetGroupMembers: resetGroupMembers,
+			DryRun:            dryRun,
+		},
+	}
+
+	data_ = &TransferMemoryOwnershipResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

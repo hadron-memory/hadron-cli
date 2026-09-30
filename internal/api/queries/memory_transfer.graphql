@@ -1,0 +1,38 @@
+# Preview and apply use the same operation. Apply pins expectedNewUrn to the
+# preview's newUrn so a changed destination handle cannot silently move the
+# memory to a different address.
+mutation TransferMemoryOwnership(
+  $memoryRef: ID!
+  # @genqlient(omitempty: true)
+  $orgRef: ID
+  # @genqlient(omitempty: true)
+  $userRef: ID
+  # @genqlient(omitempty: true)
+  $targetClass: MemoryClass
+  # @genqlient(omitempty: true)
+  $expectedNewUrn: String
+  $resetGroupMembers: Boolean!
+  $dryRun: Boolean!
+) {
+  transferMemoryOwnership(
+    memoryRef: $memoryRef
+    orgRef: $orgRef
+    userRef: $userRef
+    targetClass: $targetClass
+    expectedNewUrn: $expectedNewUrn
+    resetGroupMembers: $resetGroupMembers
+    dryRun: $dryRun
+  ) {
+    memoryId
+    oldUrn
+    newUrn
+    fromOwner
+    toOwner
+    currentClass
+    targetClass
+    dependents { kind count handling }
+    blockers { code message }
+    canApply
+    applied
+  }
+}

@@ -78,6 +78,16 @@ func TestMapError(t *testing.T) {
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
 		{"channel host not writable", gqlErr("CHANNEL_HOST_NOT_WRITABLE"), exitcode.Forbidden},
 		{"guarded write conflict", gqlErr("NODE_WRITE_CONFLICT"), exitcode.Conflict}, // cli#738
+		{"transfer stale preview", gqlErr("STALE_TRANSFER_PREVIEW"), exitcode.Conflict},
+		{"transfer dependents", gqlErr("MEMORY_TRANSFER_DEPENDENTS"), exitcode.Conflict},
+		{"transfer class required", gqlErr("MEMORY_TRANSFER_CLASS_REQUIRED"), exitcode.Usage},
+		{"transfer user target refused", gqlErr("MEMORY_TRANSFER_USER_TARGET_UNSUPPORTED"), exitcode.Usage},
+		{"transfer unsupported class", gqlErr("UNSUPPORTED_MEMORY_CLASS"), exitcode.Usage},
+		{"transfer invalid member reset", gqlErr("MEMORY_TRANSFER_MEMBER_RESET_INVALID"), exitcode.Usage},
+		{"transfer same owner", gqlErr("MEMORY_TRANSFER_SAME_OWNER"), exitcode.Usage},
+		{"transfer group owner required", gqlErr("MEMORY_TRANSFER_GROUP_OWNER_REQUIRED"), exitcode.Conflict},
+		{"transfer encrypted source", gqlErr("ENCRYPTED_MEMORY_TRANSFER_UNSUPPORTED"), exitcode.Conflict},
+		{"transfer target handle missing", gqlErr("TARGET_HANDLE_REQUIRED"), exitcode.Conflict},
 		// #1353 team attention (hadron-server#1362).
 		{"attention pilot gate", gqlErr("FEATURE_NOT_AVAILABLE"), exitcode.Forbidden},
 		{"attention token invalid", gqlErr("INVALID_ATTENTION_TOKEN"), exitcode.Usage},
