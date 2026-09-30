@@ -1558,7 +1558,14 @@ Conventions:
   <id> --role <OWNER|ADMIN|CONTRIBUTOR|READER>` and `member rm <org-id> --user
   <id>` manage them. `org invite create <email> --org <id> --role <r>` mints an
   invitation whose returned `slug` is the acceptance token — the invitee redeems
-  it with `org invite accept <slug>`; `org invite show <slug>` inspects one.
+  it with `org invite accept <slug>`; `org invite show <slug>` shows only
+  public, slug-holder details: role, activation count/limit, expiry, sender
+  display name/GitHub username, and organization name. It does not return the
+  invitee's email or other identity fields. Its `--json` shape is
+  `{slug, memberRole, maxActivations, activationCount, expiresAt,
+  sender:{name,githubUsername}|null, organization:{name}|null}`; `slug` comes
+  from the argument so it remains usable with `org invite accept`. The create
+  result remains the full invitation for its authorized creator.
 - `agent` manages agents (user- or org-owned; an App runs an agent). `agent list
   [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility
   ORGANIZATION|PERSONAL|PUBLIC]` is the member-scoped view (agents in your

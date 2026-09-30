@@ -2,9 +2,14 @@ package cmd
 
 import (
 	"encoding/json"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 const orgJSON = `{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":true,
@@ -498,7 +503,10 @@ func TestOrgInviteAccept(t *testing.T) {
 
 func TestOrgInviteShow(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetInvitation": `{"data":{"invitation":` + orgInviteJSON + `}}`,
+		// Deliberately include fields an older server can return from its
+		// UserInvitation type. The command must not expose them even if they
+		// appear in a response body; the selected query itself is narrower.
+		"GetInvitation": `{"data":{"invitation":{"id":"inv1","slug":"inv_abc","email":"private@example.com","name":"Private Invitee","organizationId":"org1","memberRole":"CONTRIBUTOR","maxActivations":3,"activationCount":1,"expiresAt":"2026-10-01T00:00:00Z","sender":{"name":"Nora","githubUsername":"nora"},"organization":{"name":"Acme"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -506,13 +514,72 @@ func TestOrgInviteShow(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var dto struct {
-		Slug       string `json:"slug"`
-		MemberRole string `json:"memberRole"`
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("show output is not JSON: %v", err)
 	}
-	_ = json.Unmarshal([]byte(out.String()), &dto)
-	if dto.Slug != "inv_abc" || dto.MemberRole != "CONTRIBUTOR" {
+	if dto["slug"] != "inv_abc" || dto["memberRole"] != "CONTRIBUTOR" || dto["organization"].(map[string]any)["name"] != "Acme" {
 		t.Errorf("show dto: %+v", dto)
+	}
+	if dto["sender"].(map[string]any)["githubUsername"] != "nora" || dto["activationCount"] != float64(1) {
+		t.Errorf("public details lost: %+v", dto)
+	}
+	for _, private := range []string{"id", "email", "name", "githubUsername", "organizationId", "senderUserId", "createdAt", "acceptedAt"} {
+		if _, present := dto[private]; present {
+			t.Errorf("public show must not emit invitation field %s: %s", private, out)
+		}
+	}
+}
+
+func TestOrgInviteShowSelectsOnlyPublicFields(t *testing.T) {
+	doc, err := parser.ParseQuery(&ast.Source{Name: "GetInvitation", Input: gen.GetInvitation_Operation})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Operations) != 1 || len(doc.Fragments) != 0 {
+		t.Fatalf("public lookup must have one operation and no fragments: %s", gen.GetInvitation_Operation)
+	}
+	var paths []string
+	var walk func(ast.SelectionSet, string)
+	walk = func(selections ast.SelectionSet, prefix string) {
+		for _, selection := range selections {
+			field, ok := selection.(*ast.Field)
+			if !ok {
+				t.Fatalf("public lookup must select fields directly, got %T", selection)
+			}
+			if field.Alias != field.Name || len(field.Directives) != 0 {
+				t.Fatalf("public lookup must not alias or conditionally select %s", field.Name)
+			}
+			path := prefix + field.Name
+			paths = append(paths, path)
+			walk(field.SelectionSet, path+".")
+		}
+	}
+	walk(doc.Operations[0].SelectionSet, "")
+	sort.Strings(paths)
+	want := []string{
+		"invitation", "invitation.activationCount", "invitation.expiresAt",
+		"invitation.maxActivations", "invitation.memberRole", "invitation.organization",
+		"invitation.organization.name", "invitation.sender", "invitation.sender.githubUsername",
+		"invitation.sender.name",
+	}
+	if !reflect.DeepEqual(paths, want) {
+		t.Errorf("public lookup field paths = %v, want %v", paths, want)
+	}
+}
+
+func TestOrgInviteShowHandlesMissingSenderAndOrganization(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetInvitation": `{"data":{"invitation":{"memberRole":"READER","maxActivations":null,"activationCount":0,"expiresAt":null,"sender":null,"organization":null}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "invite", "show", "inv_missing", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("show without sender/org: %v", err)
+	}
+	if !strings.Contains(out.String(), "organization: —") || !strings.Contains(out.String(), "sent by: —") || !strings.Contains(out.String(), "accept with: hadron org invite accept inv_missing") {
+		t.Errorf("human invitation preview: %s", out)
 	}
 }
 

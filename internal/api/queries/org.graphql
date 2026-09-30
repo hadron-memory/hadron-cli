@@ -210,9 +210,17 @@ mutation AcceptInvitation($slug: String!) {
   acceptInvitation(slug: $slug)
 }
 
+# Public to the invitation-slug holder. Select only fields shared by the
+# legacy UserInvitation and the sanitized PublicInvitation (#1525), so the
+# command can ship before either server version deploys.
 query GetInvitation($slug: String!) {
   invitation(slug: $slug) {
-    ...InvitationFields
+    memberRole
+    maxActivations
+    activationCount
+    expiresAt
+    sender { name githubUsername }
+    organization { name }
   }
 }
 
