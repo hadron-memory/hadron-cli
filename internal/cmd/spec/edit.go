@@ -38,7 +38,15 @@ type editResultDTO struct {
 	// counted into Changed because the call really does write — a `changed:
 	// false` beside a write would be the DTO lying to the agent parsing it.
 	AbstractReaffirmed bool `json:"abstractReaffirmed"`
-	DryRun             bool `json:"dryRun"`
+	// AbstractVerification is what the SERVER stored for a re-affirmation
+	// (cli#750), read from the write's own response — AbstractReaffirmed only
+	// says one was requested. "refreshed": the stored fingerprint matches the
+	// body this write stored. "not-refreshed": it doesn't — the write
+	// succeeded but left the abstract stale (hadron-server#1408), and the
+	// command exits 1. "unverifiable": the server returned no fingerprint to
+	// check. null: no re-affirmation was written (none requested, or a dry run).
+	AbstractVerification *string `json:"abstractVerification"`
+	DryRun               bool    `json:"dryRun"`
 	// Changes is the proposal itself, one entry per field it writes (cli#737):
 	// the flags above say THAT a field changes, and a reviewer approving an
 	// edit needs to see WHAT. Always a list, `[]` on a no-op. Built from the
@@ -281,6 +289,12 @@ asserts you re-read the abstract and it still describes the spec, and re-sends i
 unchanged so the server re-fingerprints it against the new body. Use it with a
 body edit, or on its own to settle a marker a previous edit left behind.
 
+What is reported is what the server STORED, not what was asked for: the
+command compares the fingerprint the write returns with the body it stored.
+If they disagree, the write succeeded but the abstract is still stale — the
+command says so and exits 1. If the server returns no fingerprint, it says the
+refresh can't be confirmed. A --dry-run only describes the re-affirmation.
+
 It is an assertion, not a formality: the marker is a prompt to check, and
 re-affirming an abstract you have not re-read is the one thing it must not be
 used for. It is refused alongside --abstract/--abstract-file (replacing the
@@ -520,7 +534,8 @@ replacement over the cap is rejected.`,
 			}
 
 			input := proposal.input()
-			if _, err := api.UpdateSpecNode(cmd.Context(), client, &input); err != nil {
+			resp, err := gen.UpdateSpecNode(cmd.Context(), client, &input)
+			if err != nil {
 				if api.HasErrorCode(err, "NODE_WRITE_CONFLICT") {
 					proposalText := assembleEditBuffer(newAbstract, newBody)
 					if proposal.descriptionChanged() {
@@ -535,7 +550,32 @@ replacement over the cap is rejected.`,
 				}
 				return api.MapError(err)
 			}
-			return render()
+			if !proposal.reaffirm {
+				return render()
+			}
+			// The write was guarded by the revision it was built from, so the
+			// stored body is the one this command knows: the new body, or the
+			// raw body it read. The server fingerprints the stored body, so the
+			// two hashes must agree for the re-affirmation to have landed.
+			storedBody := curBody
+			if proposal.bodyChanged() {
+				storedBody = newBody
+			}
+			var stored *string
+			if resp != nil && resp.UpdateSpecNode != nil {
+				stored = resp.UpdateSpecNode.AbstractOriginHash
+			}
+			outcome := reaffirmOutcome(stored, storedBody)
+			result.AbstractVerification = &outcome
+			if err := render(); err != nil {
+				return err
+			}
+			if outcome == reaffirmNotRefreshed {
+				return exitcode.Newf(exitcode.Error,
+					"%s was written, but the server left its abstract fingerprint stale — the re-affirmation did not persist (hadron-server#1408). Check with `hadron spec lint %s`",
+					node.Loc, node.Loc)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
@@ -828,7 +868,17 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 		fmt.Fprintln(w, "  description: updated")
 	}
 	if r.AbstractReaffirmed {
-		fmt.Fprintln(w, "  abstract: unchanged, re-fingerprinted against this body (verification refreshed)")
+		switch {
+		case r.DryRun:
+			fmt.Fprintln(w, "  abstract: unchanged, would be re-sent so the server re-fingerprints it against this body")
+		case r.AbstractVerification == nil:
+		case *r.AbstractVerification == reaffirmRefreshed:
+			fmt.Fprintln(w, "  abstract: unchanged, re-fingerprinted against this body (verification refreshed)")
+		case *r.AbstractVerification == reaffirmNotRefreshed:
+			fmt.Fprintln(w, "  abstract: re-affirmation sent, but the server's stored fingerprint does NOT match this body — verification NOT refreshed")
+		default:
+			fmt.Fprintf(w, "  abstract: re-affirmation sent, but the server returned no fingerprint, so a refresh can't be confirmed — check with `hadron spec lint %s`\n", r.Citation)
+		}
 	}
 	// Only nudge about the abstract when the body changed but a kept abstract
 	// didn't (armsAbstractStale) — now that the abstract is editable here, a
@@ -863,4 +913,26 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 		fmt.Fprintln(w, revisionLine(r.Revision, r.NodeID, r.ProposalHash))
 	}
 	return nil
+}
+
+// The outcomes of a written re-affirmation (cli#750), for
+// editResultDTO.AbstractVerification.
+const (
+	reaffirmRefreshed    = "refreshed"
+	reaffirmNotRefreshed = "not-refreshed"
+	reaffirmUnverifiable = "unverifiable"
+)
+
+// reaffirmOutcome compares the fingerprint the server stored with the body the
+// write stored. A body-less spec has nothing to fingerprint, and a missing
+// fingerprint (the server didn't return one) proves nothing either way, so
+// both are unverifiable rather than a claim in either direction.
+func reaffirmOutcome(stored *string, storedBody string) string {
+	if stored == nil || *stored == "" || storedBody == "" {
+		return reaffirmUnverifiable
+	}
+	if *stored == contentHash(storedBody) {
+		return reaffirmRefreshed
+	}
+	return reaffirmNotRefreshed
 }

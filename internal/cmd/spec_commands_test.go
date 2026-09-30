@@ -3754,6 +3754,20 @@ func editMocks() map[string]string {
 	}
 }
 
+// editMocksStoring is editMocks whose write answers with the fingerprint the
+// server stored — the state `spec edit` now verifies a re-affirmation against
+// (cli#750). "" answers with none (an unverifiable response).
+func editMocksStoring(hash string) map[string]string {
+	m := editMocks()
+	h := "null"
+	if hash != "" {
+		h = `"` + hash + `"`
+	}
+	m["UpdateSpecNode"] = `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"nodeType":"info","tags":["spec","p1","messaging"],"updatedAt":"2026-06-14T00:00:00Z","abstractOriginHash":` + h + `}}}`
+	return m
+}
+
 type editUpdateInput struct {
 	Input struct {
 		ID       string  `json:"id"`
@@ -4411,7 +4425,7 @@ func TestSpecGetPrefixReportsStalenessFromItsRawBodies(t *testing.T) {
 // A body edit plus the assertion must send BOTH fields: the new body, and the
 // stored abstract verbatim. Sending only the body is the bug.
 func TestSpecEditAbstractStillAccurateResendsStoredAbstract(t *testing.T) {
-	gql, captured := captureGraphQL(t, editMocks())
+	gql, captured := captureGraphQL(t, editMocksStoring(specOriginHash("# rewritten body\n")))
 	f, out := testFactory(t)
 	f.IOStreams.In = strings.NewReader("# rewritten body\n")
 	root := NewRootCmd(f)
@@ -4592,7 +4606,7 @@ func TestSpecEditAbstractStillAccurateRefusesAnOverCapAbstract(t *testing.T) {
 // already-current abstract, and this same write serves all three — so the
 // honest statement is that verification was refreshed.
 func TestSpecEditReaffirmWordingIsStateNeutral(t *testing.T) {
-	gql, _ := captureGraphQL(t, editMocks())
+	gql, _ := captureGraphQL(t, editMocksStoring(specOriginHash(cleanSpecDetailContent)))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
@@ -4606,5 +4620,96 @@ func TestSpecEditReaffirmWordingIsStateNeutral(t *testing.T) {
 	}
 	if strings.Contains(s, "abstract-stale cleared") {
 		t.Errorf("must not claim a marker was cleared that may not have been set:\n%s", s)
+	}
+}
+
+// cli#750 — a re-affirmation is reported from what the server STORED, read
+// from the write's own response, never from the request alone.
+
+type editVerificationDTO struct {
+	AbstractReaffirmed   bool    `json:"abstractReaffirmed"`
+	AbstractVerification *string `json:"abstractVerification"`
+}
+
+func runReaffirm(t *testing.T, mocks map[string]string, extra ...string) (editVerificationDTO, string, int, map[string]json.RawMessage) {
+	t.Helper()
+	gql, captured := captureGraphQL(t, mocks)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--abstract-still-accurate", "--server", gql.URL}, extra...))
+	code := exitCodeFor(root.Execute())
+	var dto editVerificationDTO
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	return dto, out.String(), code, captured
+}
+
+// The server's fix (hadron-server#1408/#1410) stores the body's hash: refreshed.
+func TestSpecEditReaffirmRefreshedWhenTheStoredHashMatches(t *testing.T) {
+	dto, _, code, _ := runReaffirm(t, editMocksStoring(specOriginHash(cleanSpecDetailContent)), "--json")
+	if code != exitcode.OK || dto.AbstractVerification == nil || *dto.AbstractVerification != "refreshed" {
+		t.Errorf("want refreshed, exit 0; got %v, exit %d", dto.AbstractVerification, code)
+	}
+}
+
+// The bug: the write succeeds and the server leaves the old fingerprint. The
+// command must say so and exit non-zero — the report is still written.
+func TestSpecEditReaffirmNotRefreshedWhenTheServerLeavesItStale(t *testing.T) {
+	dto, raw, code, _ := runReaffirm(t, editMocksStoring("deadbeef"), "--json")
+	if code != exitcode.Error {
+		t.Errorf("a re-affirmation the server did not persist must exit 1, got %d", code)
+	}
+	if dto.AbstractVerification == nil || *dto.AbstractVerification != "not-refreshed" || !dto.AbstractReaffirmed {
+		t.Errorf("want abstractVerification not-refreshed: %s", raw)
+	}
+
+	_, text, _, _ := runReaffirm(t, editMocksStoring("deadbeef"))
+	if strings.Contains(text, "verification refreshed") || !strings.Contains(text, "NOT refreshed") {
+		t.Errorf("the text must not claim a refresh the server didn't make:\n%s", text)
+	}
+}
+
+// No fingerprint in the response proves nothing either way: say so, claim nothing.
+func TestSpecEditReaffirmUnverifiableWithoutAStoredHash(t *testing.T) {
+	dto, raw, code, _ := runReaffirm(t, editMocksStoring(""), "--json")
+	if code != exitcode.OK || dto.AbstractVerification == nil || *dto.AbstractVerification != "unverifiable" {
+		t.Errorf("want unverifiable, exit 0; got %s exit %d", raw, code)
+	}
+	_, text, _, _ := runReaffirm(t, editMocksStoring(""))
+	if strings.Contains(text, "verification refreshed") {
+		t.Errorf("an unverifiable result must not claim a refresh:\n%s", text)
+	}
+}
+
+// A dry run writes nothing, so it verifies nothing and claims nothing.
+func TestSpecEditReaffirmDryRunClaimsNoRefresh(t *testing.T) {
+	dto, raw, code, captured := runReaffirm(t, editMocksStoring("deadbeef"), "--dry-run", "--json")
+	if code != exitcode.OK {
+		t.Fatalf("dry run: exit %d", code)
+	}
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
+		t.Error("a dry run must not write")
+	}
+	if !dto.AbstractReaffirmed || dto.AbstractVerification != nil || !strings.Contains(raw, `"abstractVerification": null`) {
+		t.Errorf("a dry run proposes a re-affirmation and verifies none: %s", raw)
+	}
+	_, text, _, _ := runReaffirm(t, editMocksStoring("deadbeef"), "--dry-run")
+	if strings.Contains(text, "verification refreshed") || !strings.Contains(text, "would be re-sent") {
+		t.Errorf("a dry run must describe the proposal, not a result:\n%s", text)
+	}
+}
+
+// Without the assertion there is nothing to verify: a body-only edit leaves
+// the field null whatever fingerprint the server returns.
+func TestSpecEditBodyOnlyReportsNoVerification(t *testing.T) {
+	gql, _ := captureGraphQL(t, editMocksStoring("deadbeef"))
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader("# rewritten body\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--content", "-", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("body-only edit: %v", err)
+	}
+	if !strings.Contains(out.String(), `"abstractVerification": null`) {
+		t.Errorf("no re-affirmation, no verification: %s", out.String())
 	}
 }
