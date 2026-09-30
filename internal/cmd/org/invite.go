@@ -3,6 +3,7 @@ package org
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -119,7 +120,12 @@ func newCmdInviteShow(f *cmdutil.Factory) *cobra.Command {
 		Use:     "show <slug>",
 		Aliases: []string{"get"},
 		Short:   "Show an organization invitation",
-		Args:    cobra.ExactArgs(1),
+		Long: `Show the public invitation details available to the slug holder.
+
+The result contains the role, activation limit, expiry, sender display, and
+organization name. It does not expose the invitee's identity. The slug is
+the acceptance token; treat it as a secret.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -132,8 +138,84 @@ func newCmdInviteShow(f *cmdutil.Factory) *cobra.Command {
 			if resp.Invitation == nil {
 				return exitcode.Newf(exitcode.NotFound, "invitation %q not found", args[0])
 			}
-			return emitInvitation(f, invDTOFromFields(resp.Invitation.InvitationFields), "")
+			inv := resp.Invitation
+			dto := publicInvitationDTO{
+				Slug: args[0], MemberRole: string(inv.MemberRole),
+				MaxActivations: inv.MaxActivations, ActivationCount: inv.ActivationCount,
+				ExpiresAt: inv.ExpiresAt,
+			}
+			if inv.Sender != nil {
+				dto.Sender = &publicInvitationSenderDTO{Name: inv.Sender.Name, GithubUsername: inv.Sender.GithubUsername}
+			}
+			if inv.Organization != nil {
+				dto.Organization = &publicInvitationOrganizationDTO{Name: inv.Organization.Name}
+			}
+			return emitPublicInvitation(f, dto)
 		},
+	}
+}
+
+// The public lookup is a different contract from createUserInvitation. It
+// includes only fields valid on both UserInvitation and PublicInvitation, so
+// adding a field here requires checking both server schemas.
+type publicInvitationDTO struct {
+	Slug            string                           `json:"slug"`
+	MemberRole      string                           `json:"memberRole"`
+	MaxActivations  *int                             `json:"maxActivations"`
+	ActivationCount int                              `json:"activationCount"`
+	ExpiresAt       *string                          `json:"expiresAt"`
+	Sender          *publicInvitationSenderDTO       `json:"sender"`
+	Organization    *publicInvitationOrganizationDTO `json:"organization"`
+}
+
+type publicInvitationSenderDTO struct {
+	Name           *string `json:"name"`
+	GithubUsername *string `json:"githubUsername"`
+}
+
+type publicInvitationOrganizationDTO struct {
+	Name string `json:"name"`
+}
+
+func emitPublicInvitation(f *cmdutil.Factory, dto publicInvitationDTO) error {
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		orgName := "—"
+		if dto.Organization != nil {
+			orgName = dto.Organization.Name
+		}
+		max := "—"
+		if dto.MaxActivations != nil {
+			max = fmt.Sprint(*dto.MaxActivations)
+		}
+		_, err := fmt.Fprintf(w,
+			"invitation %s\n  organization: %s\n  sent by: %s\n  role: %s\n  activations: %d / %s\n  expires: %s\n  accept with: hadron org invite accept %s\n",
+			dto.Slug, orgName, publicInviteSenderLabel(dto.Sender), dto.MemberRole,
+			dto.ActivationCount, max, output.Dash(dto.ExpiresAt), dto.Slug)
+		return err
+	})
+}
+
+func publicInviteSenderLabel(sender *publicInvitationSenderDTO) string {
+	if sender == nil {
+		return "—"
+	}
+	name := ""
+	if sender.Name != nil {
+		name = strings.TrimSpace(*sender.Name)
+	}
+	github := ""
+	if sender.GithubUsername != nil {
+		github = strings.TrimSpace(*sender.GithubUsername)
+	}
+	switch {
+	case name != "" && github != "":
+		return name + " (gh:" + github + ")"
+	case name != "":
+		return name
+	case github != "":
+		return "gh:" + github
+	default:
+		return "—"
 	}
 }
 

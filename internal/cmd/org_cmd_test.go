@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 const orgJSON = `{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":true,
@@ -498,7 +500,10 @@ func TestOrgInviteAccept(t *testing.T) {
 
 func TestOrgInviteShow(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetInvitation": `{"data":{"invitation":` + orgInviteJSON + `}}`,
+		// Deliberately include fields an older server can return from its
+		// UserInvitation type. The command must not expose them even if they
+		// appear in a response body; the selected query itself is narrower.
+		"GetInvitation": `{"data":{"invitation":{"id":"inv1","slug":"inv_abc","email":"private@example.com","name":"Private Invitee","organizationId":"org1","memberRole":"CONTRIBUTOR","maxActivations":3,"activationCount":1,"expiresAt":"2026-10-01T00:00:00Z","sender":{"name":"Nora","githubUsername":"nora"},"organization":{"name":"Acme"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -506,13 +511,40 @@ func TestOrgInviteShow(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var dto struct {
-		Slug       string `json:"slug"`
-		MemberRole string `json:"memberRole"`
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("show output is not JSON: %v", err)
 	}
-	_ = json.Unmarshal([]byte(out.String()), &dto)
-	if dto.Slug != "inv_abc" || dto.MemberRole != "CONTRIBUTOR" {
+	if dto["slug"] != "inv_abc" || dto["memberRole"] != "CONTRIBUTOR" || dto["organization"].(map[string]any)["name"] != "Acme" {
 		t.Errorf("show dto: %+v", dto)
+	}
+	if dto["sender"].(map[string]any)["githubUsername"] != "nora" || dto["activationCount"] != float64(1) {
+		t.Errorf("public details lost: %+v", dto)
+	}
+	for _, private := range []string{"id", "email", "name", "githubUsername", "organizationId", "senderUserId", "createdAt", "acceptedAt"} {
+		if _, present := dto[private]; present {
+			t.Errorf("public show must not emit invitation field %s: %s", private, out)
+		}
+	}
+	for _, private := range []string{"...InvitationFields", "email", "organizationId", "senderUserId", "policy", "roles"} {
+		if strings.Contains(gen.GetInvitation_Operation, private) {
+			t.Errorf("public query selects private field %s: %s", private, gen.GetInvitation_Operation)
+		}
+	}
+}
+
+func TestOrgInviteShowHandlesMissingSenderAndOrganization(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetInvitation": `{"data":{"invitation":{"memberRole":"READER","maxActivations":null,"activationCount":0,"expiresAt":null,"sender":null,"organization":null}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "invite", "show", "inv_missing", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("show without sender/org: %v", err)
+	}
+	if !strings.Contains(out.String(), "organization: —") || !strings.Contains(out.String(), "sent by: —") || !strings.Contains(out.String(), "accept with: hadron org invite accept inv_missing") {
+		t.Errorf("human invitation preview: %s", out)
 	}
 }
 
