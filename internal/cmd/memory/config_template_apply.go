@@ -201,9 +201,13 @@ func writeApplyResult(f *cmdutil.Factory, r applyResultDTO) error {
 		if r.Required {
 			kind = "required template"
 		}
-		fmt.Fprintf(w, "%s %s %s (%s, revision %d) to memory %s\n\n", verb, kind, r.Template.Name, r.Template.ID, r.TemplateRevision, r.MemoryID)
+		if _, err := fmt.Fprintf(w, "%s %s %s (%s, revision %d) to memory %s\n\n", verb, kind, r.Template.Name, r.Template.ID, r.TemplateRevision, r.MemoryID); err != nil {
+			return err
+		}
 		if len(r.Entries) == 0 {
-			fmt.Fprintln(w, "The template has no rules; nothing to apply.")
+			if _, err := fmt.Fprintln(w, "The template has no rules; nothing to apply."); err != nil {
+				return err
+			}
 		} else {
 			t := output.NewTable(w, "ROLE", "OUTCOME", "LOCKED")
 			for _, e := range r.Entries {
@@ -214,7 +218,9 @@ func writeApplyResult(f *cmdutil.Factory, r applyResultDTO) error {
 			}
 		}
 		if r.DryRun {
-			fmt.Fprintf(w, "\ndry run: nothing was written. To apply exactly this, rerun without --dry-run and with --expected-revision %d.\n", r.TemplateRevision)
+			if _, err := fmt.Fprintf(w, "\ndry run: nothing was written. To apply exactly this, rerun without --dry-run and with --expected-revision %d.\n", r.TemplateRevision); err != nil {
+				return err
+			}
 		}
 		renderWarnings(f.IOStreams, r.Warnings)
 		return nil
