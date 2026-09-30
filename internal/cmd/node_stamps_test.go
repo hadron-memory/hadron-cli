@@ -117,6 +117,19 @@ func TestNodeGetStaleValidationClaimsNoPass(t *testing.T) {
 	}
 }
 
+func TestNodeGetHumanAuthorshipFallsBackToURN(t *testing.T) {
+	for _, handle := range []string{"null", `""`} {
+		t.Run(handle, func(t *testing.T) {
+			authorship := `{"kind":"HUMAN","authoredAt":"2026-09-28T10:00:00Z","taskRef":null,"taskRevision":null,"human":{"handle":` + handle + `,"urn":"hrn:user:holger"}}`
+			url := stampedServer(t, stampedLive(7, authorship, validation("UNVALIDATED", "", 0)))
+			text := nodeGetOut(t, url, false)
+			if !strings.Contains(text, "authorship: human hrn:user:holger,") || strings.Contains(text, "no public identity") {
+				t.Errorf("public URN must identify a human without a handle:\n%s", text)
+			}
+		})
+	}
+}
+
 func TestNodeGetFailAndErrorStatesAreReported(t *testing.T) {
 	for _, state := range []string{"FAIL", "ERROR"} {
 		url := stampedServer(t, stampedLive(4, taskAuthorship, validation(state, state, 4)))

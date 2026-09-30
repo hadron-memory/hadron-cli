@@ -90,8 +90,10 @@ func renderStamps(w io.Writer, indent string, a *authorshipDTO, v *contentValida
 		fmt.Fprintf(w, "%sauthorship: a task you can't read (redacted by the server), %s\n", indent, a.AuthoredAt)
 	case a.Kind == string(gen.NodeAuthorshipKindTask):
 		fmt.Fprintf(w, "%sauthorship: task %s%s, %s\n", indent, *a.TaskRef, atRevision(a.TaskRevision), a.AuthoredAt)
-	case a.Human != nil && a.Human.Handle != nil:
+	case a.Human != nil && a.Human.Handle != nil && *a.Human.Handle != "":
 		fmt.Fprintf(w, "%sauthorship: human @%s, %s\n", indent, *a.Human.Handle, a.AuthoredAt)
+	case a.Human != nil && a.Human.URN != nil && *a.Human.URN != "":
+		fmt.Fprintf(w, "%sauthorship: human %s, %s\n", indent, *a.Human.URN, a.AuthoredAt)
 	default:
 		fmt.Fprintf(w, "%sauthorship: a human (no public identity), %s\n", indent, a.AuthoredAt)
 	}
