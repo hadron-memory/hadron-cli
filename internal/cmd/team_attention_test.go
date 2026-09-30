@@ -609,6 +609,27 @@ func TestTeamChatReadMarksABoundedPageButNotAFilteredRead(t *testing.T) {
 	}
 }
 
+// A cursorless tail is one page, but may skip an unread prefix. The local
+// watermark and server read state must make the same conservative decision.
+func TestTeamChatReadTailGapDoesNotMarkServerRead(t *testing.T) {
+	writeTeamBinding(t)
+	r := chatReadResponses()
+	r["TeamChatMessages"] = teamChatPage(402, 401, 402)
+	srv, calls := attnServer(t, r)
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--limit", "2", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range *calls {
+		if c.Op == "MarkOwnTeamChatRead" || c.Op == "TeamDefaultChannel" {
+			t.Errorf("unseen 1–400 must not be marked read: %v", opsOf(*calls))
+		}
+	}
+}
+
 // Nothing delivered, nothing marked: a render that fails must not mark the
 // messages it failed to show.
 func TestTeamChatReadMarksNothingWhenTheRenderFails(t *testing.T) {

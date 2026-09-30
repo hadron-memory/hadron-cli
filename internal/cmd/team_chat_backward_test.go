@@ -45,9 +45,10 @@ func teamChatPage(total int, seqs ...int) string {
 // chatVars records the paging arguments of every TeamChatMessages call, in
 // order, so a test can assert what was ASKED rather than only what came back.
 type chatVars struct {
-	SinceSeq  *int `json:"sinceSeq"`
-	BeforeSeq *int `json:"beforeSeq"`
-	Limit     *int `json:"limit"`
+	SinceSeq        *int `json:"sinceSeq"`
+	BeforeSeq       *int `json:"beforeSeq"`
+	Limit           *int `json:"limit"`
+	SinceSeqPresent bool `json:"-"`
 }
 
 // chatServer answers TeamChatMessages from a queue of pages and records the
@@ -58,14 +59,19 @@ func chatServer(t *testing.T, pages ...string) (*httptest.Server, *[]chatVars) {
 	i := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			OperationName string   `json:"operationName"`
-			Variables     chatVars `json:"variables"`
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		w.Header().Set("Content-Type", "application/json")
 		switch body.OperationName {
 		case "TeamChatMessages":
-			*seen = append(*seen, body.Variables)
+			var vars chatVars
+			_ = json.Unmarshal(body.Variables, &vars)
+			var raw map[string]json.RawMessage
+			_ = json.Unmarshal(body.Variables, &raw)
+			_, vars.SinceSeqPresent = raw["sinceSeq"]
+			*seen = append(*seen, vars)
 			if i < len(pages) {
 				_, _ = w.Write([]byte(pages[i]))
 				i++
@@ -106,6 +112,9 @@ func TestTeamChatReadBeforeWalksBackOnePage(t *testing.T) {
 	}
 	if got := (*seen)[0].BeforeSeq; got == nil || *got != 400 {
 		t.Errorf("beforeSeq must ride to the server, got %v", got)
+	}
+	if (*seen)[0].SinceSeqPresent {
+		t.Errorf("--before without --since must omit sinceSeq, got %+v", (*seen)[0])
 	}
 	if got := (*seen)[0].Limit; got == nil || *got != 3 {
 		t.Errorf("--limit must set the page size, got %v", got)
@@ -290,12 +299,44 @@ func TestTeamChatReadBeforeOneIsLegal(t *testing.T) {
 	}
 }
 
-// The unbounded read is UNCHANGED — it still pages to exhaustion — which is
-// what makes #548 additive rather than a break.
-//
-// Two pages of 200 then a short one; three calls, each carrying the previous
-// page's last seq forward and NO beforeSeq.
-func TestTeamChatReadWithoutCursorsStillExhausts(t *testing.T) {
+// A cursorless read must omit sinceSeq to ask the new server for its newest
+// page. A full page is still ONE request; fetching the next page would turn a
+// harmless default read into the historical whole-chat dump (#1536).
+func TestTeamChatReadWithoutCursorTakesOneTailPage(t *testing.T) {
+	full := make([]int, 0, team.TeamChatPageSize)
+	for i := 401; i <= 400+team.TeamChatPageSize; i++ {
+		full = append(full, i)
+	}
+	srv, seen := chatServer(t, teamChatPage(600, full...))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team",
+		"--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(*seen) != 1 {
+		t.Fatalf("default read must take one page, got %d calls", len(*seen))
+	}
+	if (*seen)[0].SinceSeqPresent {
+		t.Errorf("cursorless tail must omit sinceSeq, got %+v", (*seen)[0])
+	}
+	var dto struct {
+		Messages   []struct{ Seq int } `json:"messages"`
+		NextSince  int                 `json:"nextSince"`
+		PrevBefore *int                `json:"prevBefore"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if len(dto.Messages) != team.TeamChatPageSize || dto.NextSince != 600 || dto.PrevBefore == nil || *dto.PrevBefore != 401 {
+		t.Errorf("tail cursors and page: %+v", dto)
+	}
+}
+
+// --all is the only way to walk to exhaustion. It sends an EXPLICIT zero to
+// ask for the oldest page even after the server flips its cursorless default.
+func TestTeamChatReadAllWalksForwardToExhaustion(t *testing.T) {
 	full := make([]int, 0, team.TeamChatPageSize)
 	for i := 1; i <= team.TeamChatPageSize; i++ {
 		full = append(full, i)
@@ -311,12 +352,15 @@ func TestTeamChatReadWithoutCursorsStillExhausts(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team",
-		"--json", "--server", srv.URL})
+		"--all", "--json", "--server", srv.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if len(*seen) != 3 {
-		t.Fatalf("the unbounded read must page to exhaustion, got %d calls", len(*seen))
+		t.Fatalf("--all must page to exhaustion, got %d calls", len(*seen))
+	}
+	if got := (*seen)[0].SinceSeq; got == nil || *got != 0 || !(*seen)[0].SinceSeqPresent {
+		t.Errorf("--all must start with explicit sinceSeq:0, got %+v", (*seen)[0])
 	}
 	for i, v := range *seen {
 		if v.BeforeSeq != nil {
@@ -325,6 +369,100 @@ func TestTeamChatReadWithoutCursorsStillExhausts(t *testing.T) {
 	}
 	if got := (*seen)[1].SinceSeq; got == nil || *got != team.TeamChatPageSize {
 		t.Errorf("the second page must resume at the first page's last seq, got %v", got)
+	}
+}
+
+func TestTeamChatReadSinceZeroTakesOneOldestPage(t *testing.T) {
+	full := make([]int, 0, team.TeamChatPageSize)
+	for i := 1; i <= team.TeamChatPageSize; i++ {
+		full = append(full, i)
+	}
+	srv, seen := chatServer(t, teamChatPage(600, full...))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team",
+		"--since", "0", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(*seen) != 1 || !(*seen)[0].SinceSeqPresent || (*seen)[0].SinceSeq == nil || *(*seen)[0].SinceSeq != 0 {
+		t.Fatalf("--since 0 must request one oldest page, got %+v", *seen)
+	}
+	var dto struct {
+		NextSince int `json:"nextSince"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if dto.NextSince != team.TeamChatPageSize {
+		t.Errorf("nextSince = %d, want %d", dto.NextSince, team.TeamChatPageSize)
+	}
+}
+
+// A newest-page read is a window unless it touches the worker's known prefix.
+// The read cursor must never jump past messages hidden before that page.
+func TestTeamChatReadTailOnlyMarksContiguousMessages(t *testing.T) {
+	for _, tc := range []struct {
+		name, binding string
+		seqs          []int
+		total         int
+		want          *int
+	}{
+		{"unseen prefix", bindingWithTeamFixture, []int{401, 402}, 402, nil},
+		{"first page is the prefix", bindingWithTeamFixture, []int{1, 2}, 2, intPtr(2)},
+		{"tail joins prior cursor", bindingChatSeenFixture, []int{91, 92}, 92, intPtr(92)},
+		{"tail skips prior cursor", bindingChatSeenFixture, []int{101, 102}, 102, intPtr(90)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := teamGitDir(t)
+			path := filepath.Join(dir, "hadron-team-session.json")
+			if err := os.WriteFile(path, []byte(tc.binding), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			srv, seen := chatServer(t, teamChatPage(tc.total, tc.seqs...))
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "chat", "read", "--limit", "2", "--server", srv.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if len(*seen) != 1 || (*seen)[0].SinceSeqPresent {
+				t.Errorf("tail must be a single cursorless request: %+v", *seen)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var bound struct {
+				ChatSeenSeq *int `json:"chatSeenSeq"`
+			}
+			if err := json.Unmarshal(data, &bound); err != nil {
+				t.Fatal(err)
+			}
+			if (bound.ChatSeenSeq == nil) != (tc.want == nil) ||
+				(bound.ChatSeenSeq != nil && *bound.ChatSeenSeq != *tc.want) {
+				t.Errorf("watermark = %v, want %v", bound.ChatSeenSeq, tc.want)
+			}
+		})
+	}
+}
+
+func intPtr(v int) *int { return &v }
+
+func TestTeamChatReadAllAndOnePageFlagsDoNotCompose(t *testing.T) {
+	for _, flag := range []string{"--before", "--limit"} {
+		t.Run(flag, func(t *testing.T) {
+			srv, seen := chatServer(t)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "chat", "read", "--all", flag, "2", "--server", srv.URL})
+			if code := exitCodeFor(root.Execute()); code != exitcode.Usage {
+				t.Errorf("--all %s must be a usage error, got %d", flag, code)
+			}
+			if len(*seen) != 0 {
+				t.Errorf("invalid flag pair reached the server: %+v", *seen)
+			}
+		})
 	}
 }
 
@@ -348,6 +486,9 @@ func TestTeamChatReadLimitAloneBoundsTheRead(t *testing.T) {
 	}
 	if got := (*seen)[0].Limit; got == nil || *got != 2 {
 		t.Errorf("limit: %v", got)
+	}
+	if (*seen)[0].SinceSeqPresent {
+		t.Errorf("--limit without a cursor must use the server tail, got %+v", (*seen)[0])
 	}
 }
 

@@ -313,7 +313,7 @@ hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or t
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
-hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--before <seq>] [--limit <n>] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
+hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
 hadron team attention [--since <token>] (uses --app or the binding)
 hadron team attention switchover preview | apply --proof <proof> [--yes] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
@@ -2273,21 +2273,23 @@ Conventions:
   the filter simply returns every match. `--reply-to` takes the seq readers
   see (the server wires the reply edge; a missing seq is the typed
   TEAM_CHAT_REPLY_NOT_FOUND). `chat read [--since <seq>] [--before <seq>]
-  [--limit <n>] [--mentions-me | --mentions <ref>]` filters on the
+  [--limit <n>] [--all] [--mentions-me | --mentions <ref>]` filters on the
   SERVER-stored mentions (never re-parsed); `--mentions` passes through raw (a
   worker name or id of this App, or a user handle/id — the server resolves it
   against the App's own staff and members only); `nextSince` is the seq
   watermark to pass next turn — with a mentions filter it advances only past
   the returned messages (skipped ones re-scan server-side, free, and are never
   re-delivered).
-  **TWO CURSORS, OPPOSITE DIRECTIONS** (#548): `--since` walks forward and on
-  its own reads to the end; **`--before <seq>` walks BACK**, returning the page
-  immediately before that seq (newest preceding messages, still oldest-first),
-  and `--json` gains **`prevBefore`** — the lowest seq returned — to pass as the
-  next `--before`. That is how an agent walks a long history without asking for
-  all of it at once. **Either `--before` or `--limit` makes the read ONE PAGE**;
-  with neither it pages to exhaustion as before, so this is additive. They
-  compose: `--since 300 --before 340` reads a bounded slice.
+  **ONE PAGE BY DEFAULT** (server #1536, CLI #787): with no cursor, the server
+  returns its newest page (ascending within that page). The CLI omits
+  `sinceSeq` on that request. **`--since 0` is explicit** and starts at the
+  oldest page; `--since N` continues forward one page. Pass `nextSince` to
+  continue. **`--before <seq>` walks BACK**, returning the newest page before
+  that seq, still ascending; `prevBefore` is the lowest returned seq to pass
+  as the next `--before`. The two cursors compose for a bounded slice.
+  `--limit` sizes one page (1–200). Only **`--all`** walks forward to exhaustion,
+  from seq 0 unless `--since` is given; it cannot combine with `--before` or
+  `--limit`. The Orca attention router polls `team attention`, not this command.
   A cursor that could only return nothing is **refused** (exit 2) rather than
   answered: `--limit 0` (the SDL gives it a meaning — count only — so it
   SUCCEEDS and returns an empty page), a negative limit, a limit above the
@@ -2305,8 +2307,10 @@ Conventions:
   **A `--before` read never advances the watermark**, and cannot: it returns the
   newest messages before a cursor, so everything between `--since` and that page
   is unread by construction — the gap is in the MIDDLE, where the
-  start-of-read contiguity check cannot see it. `--limit` alone does not have
-  this problem: a bounded FORWARD read from the watermark is a genuine prefix. The
+  start-of-read contiguity check cannot see it. A cursorless newest-page read
+  advances only when its first seq joins the binding's already-read prefix;
+  otherwise it remains a window. A bounded `--since` forward read from the
+  watermark is a genuine prefix. The
   commit trailer carries the **app-qualified compound** — `Persona:
   eng-team/Iris` (`cor:agt:020:02/:03`) — because worker names are App-scoped
   and org-ambiguous bare. That App resolution is ambient, so **`chat read`

@@ -1,5 +1,10 @@
 # `team chat read` walks backward
 
+> Historical design record for #548. CLI #787 changes the later default to
+> one newest page with explicit `--all`; see
+> [team-chat-page-default.md](team-chat-page-default.md). The cursor and
+> watermark findings below still apply.
+
 Design-as-built for **#548** — the CLI half of `beforeSeq`
 (hadron-server#1116), against the snapshot refreshed in #554.
 

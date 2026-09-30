@@ -1584,7 +1584,7 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 		// trains people to ignore the one that is right, which is the whole
 		// value being built here.
 		fmt.Fprintf(f.IOStreams.ErrOut,
-			"note: this worktree has no record of reading the team chat — `hadron team chat read --since 0` "+
+			"note: this worktree has no contiguous team-chat read cursor — `hadron team chat read --since 0` starts at the oldest page (repeat with nextSince); `hadron team chat read` shows the newest page "+
 				"(a read made through the MCP tools is not visible here)\n")
 		return
 	}
