@@ -252,19 +252,7 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 				return err
 			}
 			scoped := len(nodes)
-			inScope := map[string]bool{}
-			var placeholders []lintFindingDTO
-			written := nodes[:0:0]
-			for _, n := range nodes {
-				inScope[n.Loc] = true
-				if draft.Placeholders[n.Loc] {
-					placeholders = append(placeholders, placeholderFinding(n.Loc))
-					continue
-				}
-				n.InDraft = draft.Draft
-				written = append(written, n)
-			}
-			nodes = written
+			nodes, placeholders, inScope := partitionDraftLintNodes(nodes, draft)
 
 			findings := []lintFindingDTO{}
 			if corpus {
@@ -329,6 +317,25 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 	cmd.Flags().BoolVar(&all, "all", false, "lint every spec in the memory")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	return cmd
+}
+
+// partitionDraftLintNodes keeps unreadable listed nodes in the lint set even
+// when the separate placeholder scan reports the same citation. The failed
+// detail read is an error, not a placeholder warning.
+func partitionDraftLintNodes(nodes []specNode, draft draftInfo) ([]specNode, []lintFindingDTO, map[string]bool) {
+	inScope := map[string]bool{}
+	var placeholders []lintFindingDTO
+	written := make([]specNode, 0, len(nodes))
+	for _, n := range nodes {
+		inScope[n.Loc] = true
+		if !n.Unavailable && draft.Placeholders[n.Loc] {
+			placeholders = append(placeholders, placeholderFinding(n.Loc))
+			continue
+		}
+		n.InDraft = draft.Draft
+		written = append(written, n)
+	}
+	return written, placeholders, inScope
 }
 
 // lintScopeError enforces that exactly one scope selector is used: a positional
