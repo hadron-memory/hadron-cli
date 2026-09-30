@@ -1499,6 +1499,14 @@ enum ContentValidator {
   PLATFORM
 }
 
+"""
+#1447 — a spec corpus's lifecycle state. DRAFT becomes MINTED once, one-way.
+"""
+enum CorpusState {
+  DRAFT
+  MINTED
+}
+
 input CreateAgentScheduleInput {
   """Agent — ref: PK or URN; must be installed in the App."""
   agentRef: String
@@ -2745,6 +2753,15 @@ type Memory {
   memory with no rules yet reads as the empty config (id null, no rules).
   """
   config: MemoryConfig
+
+  """
+  #1447/#1448 — whether this memory is a DRAFT spec corpus or MINTED. In a
+  draft corpus spec citations are not yet permanent: specs can be moved,
+  renumbered and deleted, and a move records no URN alias. Chosen only at
+  creation (createMemory draftCorpus); minting is one-way. Every memory
+  created without asking for draft is MINTED.
+  """
+  corpusState: CorpusState!
   createdAt: DateTime!
 
   """
@@ -3474,7 +3491,7 @@ type Mutation {
   """
   #1334 — copy a template's rules into ONE memory's config. A one-off copy:
   later template edits never reach this memory, and re-applying is explicit.
-
+  
   Needs MANAGE on the memory (else MemoryNotFound) and on the template,
   which exists for you only if you manage its owner (else
   MEMORY_CONFIG_TEMPLATE_NOT_FOUND). The rules are validated as a whole,
@@ -3482,12 +3499,12 @@ type Mutation {
   references (NODE_NOT_FOUND for one you cannot read, NOT_A_TASK), and a
   template rule whose task was deleted refuses the whole apply
   (NODE_ROLE_RULE_REF_BROKEN). All-or-nothing per memory.
-
+  
   When the memory already has a rule for a role, a non-required template
   skips it and a required template replaces it. A LOCKED rule is only
   replaced by a caller with lock authority (see unlockNodeRoleRule);
   otherwise SKIPPED_LOCKED. Rules written by a required template are locked.
-
+  
   expectedTemplateRevision: CONFLICT (with currentRevision) if the template
   changed since you read it. dryRun: the same report with nothing written.
   """
@@ -3918,6 +3935,14 @@ type Mutation {
     """Free-form structured metadata bag (client-defined JSON). Null = unset."""
     data: JSON
     description: String
+
+    """
+    #1447/#1448 — create this memory as a DRAFT spec corpus, whose spec
+    citations stay changeable until the corpus is minted. This is the only
+    way to get a draft corpus: an existing memory can never be switched into
+    draft. Omitted or false creates an ordinary (minted) memory.
+    """
+    draftCorpus: Boolean
     embeddingSource: EmbeddingSource
     heroUrl: String
     homeUrl: String
@@ -5146,6 +5171,17 @@ type Mutation {
   refusal rather than an unknown-field error.
   """
   replaceSubtree(edges: [EdgeInput!]!, memoryId: String!, nodes: [NodeInput!]!, ownerRepo: String!): Int! @deprecated(reason: "Retired (#454): every authorized call refuses with REPLACE_SUBTREE_RETIRED and writes nothing. Use the canonical node write mutations.")
+
+  """
+  #1450 — reserve a citation in a DRAFT spec corpus as a placeholder: a spec
+  node at loc (role spec, nodeType info) marked isPlaceholder, so links can
+  point at it and the placeholders left are the corpus's to-do list. Writing
+  real content through updateSpecNode turns it into a real spec at the same
+  citation. Refuses SPEC_CORPUS_NOT_DRAFT in a minted memory, where a
+  citation is permanent once written, and NodeLocConflictError at a live loc.
+  memoryRef accepts the memory's ID or URN.
+  """
+  reserveSpecCitation(loc: String!, memoryRef: ID!, name: String): Node!
   restoreAsset(assetId: ID!): Asset!
 
   """
@@ -5285,6 +5321,11 @@ type Mutation {
   staleness, and re-embedding. Supports dryRun preview.
   """
   searchReplaceInNodes(input: SearchReplaceInNodesInput!): SearchReplaceResult!
+
+  """
+  Governed bulk replacement inside one draft spec corpus, with exact preview binding.
+  """
+  searchReplaceInSpecNodes(input: SpecSearchReplaceInput!): SearchReplaceResult!
 
   """
   Process a user message (saves message, builds context, returns next prompt)
@@ -6017,6 +6058,14 @@ type Node {
   id: ID!
   incomingEdges: [Edge!]!
   isLink: Boolean!
+
+  """
+  #1450 — true for a RESERVED spec citation that has no spec written yet (a
+  placeholder in a draft corpus, created by reserveSpecCitation). Set only by
+  the server, never inferred from an empty body; writing real content through
+  updateSpecNode clears it. Minting refuses while any remain.
+  """
+  isPlaceholder: Boolean!
 
   """
   Whether this node can be run as a task (nullable; #513) — it drives the tree
@@ -9017,6 +9066,11 @@ type SearchReplaceResult {
   """Selected nodes protected from inspection and replacement."""
   nodesSkipped: Int!
 
+  """
+  Opaque exact preview fingerprint on the spec door; null on the generic door.
+  """
+  plan: String
+
   """Per-node breakdown; only nodes with at least one match are listed."""
   results: [SearchReplaceNodeResult!]!
 
@@ -9025,7 +9079,20 @@ type SearchReplaceResult {
   address protection, so a node carrying both signals counts once as governed.
   """
   skipCounts: SearchReplaceSkipCounts!
+
+  """
+  Node-addressed protected selections on the spec door; null on the generic door.
+  """
+  skips: [SearchReplaceSkip!]
   totalReplacements: Int!
+}
+
+type SearchReplaceSkip {
+  governedKinds: [String!]!
+  loc: String!
+  memoryId: ID!
+  nodeId: ID!
+  reason: SearchReplaceSkipReason!
 }
 
 """
@@ -9037,6 +9104,11 @@ type SearchReplaceSkipCounts {
 
   """Nodes at or below a Channel address."""
   protectedAddress: Int!
+}
+
+enum SearchReplaceSkipReason {
+  OTHER_GOVERNED_KIND
+  PROTECTED_ADDRESS
 }
 
 """
@@ -9663,6 +9735,41 @@ type SlackConnectionsPage {
 enum SortDirection {
   asc
   desc
+}
+
+"""
+Replace text in explicit nodes of one DRAFT spec corpus. A dry run returns
+plan; apply must present that exact plan and refuses if any selected row,
+protection, match, or corpus state changed. Minted corpora are never edited
+through this door. Generic replacement keeps its governed-node protections.
+"""
+input SpecSearchReplaceInput {
+  caseInsensitive: Boolean = false
+  dryRun: Boolean = false
+
+  """Required for apply; copied from the exact dry-run response."""
+  expectedPlan: String
+  fields: [SpecTextField!]!
+
+  """Refuse the entire apply when more nodes would change."""
+  maxNodesChanged: Int
+  memoryRef: ID!
+  newText: String!
+  nodeIds: [ID!]!
+  oldText: String!
+  reason: String
+  regex: Boolean = false
+
+  """
+  Literal mode only; matches the CLI's default ASCII word-boundary behavior.
+  """
+  wordBoundary: Boolean = true
+}
+
+"""Only text fields a spec bulk edit may change."""
+enum SpecTextField {
+  abstract
+  content
 }
 
 """

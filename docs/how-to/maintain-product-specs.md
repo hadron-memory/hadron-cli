@@ -307,6 +307,14 @@ other bulk writes (prompt / `--yes`, `--max-specs N` to cap blast radius), saves
 every change to version history, and re-lints the rewritten specs so a body edit
 that leaves an abstract stale is surfaced immediately.
 
+**Minted corpus vs draft.** In an ordinary (minted) corpus the server's bulk
+replace skips governed specs — every rule-level spec — and the report says how
+many it could not search. In a **draft** corpus (see
+`memory set --draft-corpus`) `spec replace` goes through the governed spec door
+instead: every spec is searched, and the apply is bound to the exact preview.
+If anything changed between the preview and the apply, it is refused and
+nothing is written; run it again.
+
 ## Editing and splitting specs
 
 **A body-only edit arms `abstract-stale`.** The abstract was fingerprinted

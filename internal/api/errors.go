@@ -810,6 +810,23 @@ func codeForExtension(code string) int {
 	// operator's fix, not the caller's — so the generic 1 is the honest code.
 	case code == "MEMORY_CONFIG_TEMPLATE_EXISTS":
 		return exitcode.Conflict
+	// The governed spec door's refusals (hadron-server#1459; cli#777
+	// `spec replace` in a draft corpus):
+	//   - SEARCH_REPLACE_PLAN_STALE: the apply's preview no longer matches —
+	//     a spec, match, protection or the corpus state changed. Zero writes;
+	//     the remedy is a new preview, so a state conflict.
+	//   - SEARCH_REPLACE_NOT_DRAFT / _MIXED_CORPUS: the corpus is minted, or a
+	//     selected spec left it, between the state read and the door — state.
+	//   - SEARCH_REPLACE_MAX_NODES_CHANGED: more specs would change than
+	//     --max-specs allows; the CLI's own pre-check refuses the same
+	//     condition with 2, so the server's must not exit differently.
+	// NO_SELECTION / NO_FIELDS / BAD_LIMIT / PLAN_REQUIRED are not mapped: the
+	// CLI never sends those inputs, so one arriving is a CLI defect, and the
+	// generic 1 is the honest code (review:map-new-server-error-codes).
+	case code == "SEARCH_REPLACE_PLAN_STALE" || code == "SEARCH_REPLACE_NOT_DRAFT" || code == "SEARCH_REPLACE_MIXED_CORPUS":
+		return exitcode.Conflict
+	case code == "SEARCH_REPLACE_MAX_NODES_CHANGED":
+		return exitcode.Usage
 	// #1325 part b's argument refusals, each measured falling through to the
 	// generic 1 on c9fa75a (cli#716 audit):
 	//   - INVALID_NODE_ROLE: a rule key outside the #1322 grammar. Its

@@ -4969,6 +4969,19 @@ var AllContentValidator = []ContentValidator{
 	ContentValidatorPlatform,
 }
 
+// #1447 — a spec corpus's lifecycle state. DRAFT becomes MINTED once, one-way.
+type CorpusState string
+
+const (
+	CorpusStateDraft  CorpusState = "DRAFT"
+	CorpusStateMinted CorpusState = "MINTED"
+)
+
+var AllCorpusState = []CorpusState{
+	CorpusStateDraft,
+	CorpusStateMinted,
+}
+
 // CreateAgentCreateAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
@@ -21344,6 +21357,162 @@ func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearc
 	return v.Matches
 }
 
+// SearchReplaceInSpecNodesResponse is returned by SearchReplaceInSpecNodes on success.
+type SearchReplaceInSpecNodesResponse struct {
+	// Governed bulk replacement inside one draft spec corpus, with exact preview binding.
+	SearchReplaceInSpecNodes *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult `json:"searchReplaceInSpecNodes"`
+}
+
+// GetSearchReplaceInSpecNodes returns SearchReplaceInSpecNodesResponse.SearchReplaceInSpecNodes, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesResponse) GetSearchReplaceInSpecNodes() *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult {
+	return v.SearchReplaceInSpecNodes
+}
+
+// SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult includes the requested fields of the GraphQL type SearchReplaceResult.
+type SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult struct {
+	// Unique authorized nodes selected before bulk-write protections are applied.
+	NodesSelected int `json:"nodesSelected"`
+	// Selected nodes whose requested text fields were actually inspected.
+	NodesScanned int `json:"nodesScanned"`
+	// Selected nodes protected from inspection and replacement.
+	NodesSkipped int `json:"nodesSkipped"`
+	// Nodes with at least one replacement.
+	NodesChanged      int `json:"nodesChanged"`
+	TotalReplacements int `json:"totalReplacements"`
+	// Echoes the request — true means nothing was written.
+	DryRun bool `json:"dryRun"`
+	// Opaque exact preview fingerprint on the spec door; null on the generic door.
+	Plan *string `json:"plan"`
+	// Per-node breakdown; only nodes with at least one match are listed.
+	Results []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult `json:"results"`
+	// Node-addressed protected selections on the spec door; null on the generic door.
+	Skips []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip `json:"skips"`
+}
+
+// GetNodesSelected returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.NodesSelected, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetNodesSelected() int {
+	return v.NodesSelected
+}
+
+// GetNodesScanned returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.NodesScanned, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetNodesScanned() int {
+	return v.NodesScanned
+}
+
+// GetNodesSkipped returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.NodesSkipped, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetNodesSkipped() int {
+	return v.NodesSkipped
+}
+
+// GetNodesChanged returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.NodesChanged, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetNodesChanged() int {
+	return v.NodesChanged
+}
+
+// GetTotalReplacements returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.TotalReplacements, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetTotalReplacements() int {
+	return v.TotalReplacements
+}
+
+// GetDryRun returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.DryRun, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetDryRun() bool {
+	return v.DryRun
+}
+
+// GetPlan returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.Plan, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetPlan() *string {
+	return v.Plan
+}
+
+// GetResults returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.Results, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetResults() []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult {
+	return v.Results
+}
+
+// GetSkips returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.Skips, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetSkips() []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip {
+	return v.Skips
+}
+
+// SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult includes the requested fields of the GraphQL type SearchReplaceNodeResult.
+type SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult struct {
+	NodeId string `json:"nodeId"`
+	Loc    string `json:"loc"`
+	// Total replacements across all searched fields on this node.
+	Replacements int                                                                                                                                `json:"replacements"`
+	Fields       []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult `json:"fields"`
+}
+
+// GetNodeId returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult.NodeId, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetLoc returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult.Loc, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetLoc() string {
+	return v.Loc
+}
+
+// GetReplacements returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult.Replacements, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetReplacements() int {
+	return v.Replacements
+}
+
+// GetFields returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult.Fields, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetFields() []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult {
+	return v.Fields
+}
+
+// SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult includes the requested fields of the GraphQL type SearchReplaceFieldResult.
+type SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult struct {
+	Field   NodeTextField `json:"field"`
+	Matches int           `json:"matches"`
+}
+
+// GetField returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult.Field, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult) GetField() NodeTextField {
+	return v.Field
+}
+
+// GetMatches returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult.Matches, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult) GetMatches() int {
+	return v.Matches
+}
+
+// SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip includes the requested fields of the GraphQL type SearchReplaceSkip.
+type SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip struct {
+	NodeId string                  `json:"nodeId"`
+	Loc    string                  `json:"loc"`
+	Reason SearchReplaceSkipReason `json:"reason"`
+}
+
+// GetNodeId returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip.NodeId, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetLoc returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip.Loc, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip) GetLoc() string {
+	return v.Loc
+}
+
+// GetReason returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip.Reason, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip) GetReason() SearchReplaceSkipReason {
+	return v.Reason
+}
+
+type SearchReplaceSkipReason string
+
+const (
+	SearchReplaceSkipReasonOtherGovernedKind SearchReplaceSkipReason = "OTHER_GOVERNED_KIND"
+	SearchReplaceSkipReasonProtectedAddress  SearchReplaceSkipReason = "PROTECTED_ADDRESS"
+)
+
+var AllSearchReplaceSkipReason = []SearchReplaceSkipReason{
+	SearchReplaceSkipReasonOtherGovernedKind,
+	SearchReplaceSkipReasonProtectedAddress,
+}
+
 // SearchUsersResponse is returned by SearchUsers on success.
 type SearchUsersResponse struct {
 	// Uniform paginated user list (#473) — replaces the admin-only users list
@@ -22843,6 +23012,125 @@ func (v *SoftDeleteAssetSoftDeleteAsset) GetFilename() string { return v.Filenam
 
 // GetDeletedAt returns SoftDeleteAssetSoftDeleteAsset.DeletedAt, and is useful for accessing the field via an interface.
 func (v *SoftDeleteAssetSoftDeleteAsset) GetDeletedAt() *string { return v.DeletedAt }
+
+// SpecCorpusStateMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type SpecCorpusStateMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn string `json:"urn"`
+	// #1447/#1448 — whether this memory is a DRAFT spec corpus or MINTED. In a
+	// draft corpus spec citations are not yet permanent: specs can be moved,
+	// renumbered and deleted, and a move records no URN alias. Chosen only at
+	// creation (createMemory draftCorpus); minting is one-way. Every memory
+	// created without asking for draft is MINTED.
+	CorpusState CorpusState `json:"corpusState"`
+}
+
+// GetId returns SpecCorpusStateMemory.Id, and is useful for accessing the field via an interface.
+func (v *SpecCorpusStateMemory) GetId() string { return v.Id }
+
+// GetUrn returns SpecCorpusStateMemory.Urn, and is useful for accessing the field via an interface.
+func (v *SpecCorpusStateMemory) GetUrn() string { return v.Urn }
+
+// GetCorpusState returns SpecCorpusStateMemory.CorpusState, and is useful for accessing the field via an interface.
+func (v *SpecCorpusStateMemory) GetCorpusState() CorpusState { return v.CorpusState }
+
+// SpecCorpusStateResponse is returned by SpecCorpusState on success.
+type SpecCorpusStateResponse struct {
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Memory *SpecCorpusStateMemory `json:"memory"`
+}
+
+// GetMemory returns SpecCorpusStateResponse.Memory, and is useful for accessing the field via an interface.
+func (v *SpecCorpusStateResponse) GetMemory() *SpecCorpusStateMemory { return v.Memory }
+
+// Replace text in explicit nodes of one DRAFT spec corpus. A dry run returns
+// plan; apply must present that exact plan and refuses if any selected row,
+// protection, match, or corpus state changed. Minted corpora are never edited
+// through this door. Generic replacement keeps its governed-node protections.
+type SpecSearchReplaceInput struct {
+	CaseInsensitive *bool `json:"caseInsensitive"`
+	DryRun          *bool `json:"dryRun"`
+	// Required for apply; copied from the exact dry-run response.
+	ExpectedPlan *string         `json:"expectedPlan"`
+	Fields       []SpecTextField `json:"fields"`
+	// Refuse the entire apply when more nodes would change.
+	MaxNodesChanged *int     `json:"maxNodesChanged"`
+	MemoryRef       string   `json:"memoryRef"`
+	NewText         string   `json:"newText"`
+	NodeIds         []string `json:"nodeIds"`
+	OldText         string   `json:"oldText"`
+	Reason          *string  `json:"reason"`
+	Regex           *bool    `json:"regex"`
+	// Literal mode only; matches the CLI's default ASCII word-boundary behavior.
+	WordBoundary *bool `json:"wordBoundary"`
+}
+
+// GetCaseInsensitive returns SpecSearchReplaceInput.CaseInsensitive, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetCaseInsensitive() *bool { return v.CaseInsensitive }
+
+// GetDryRun returns SpecSearchReplaceInput.DryRun, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetDryRun() *bool { return v.DryRun }
+
+// GetExpectedPlan returns SpecSearchReplaceInput.ExpectedPlan, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetExpectedPlan() *string { return v.ExpectedPlan }
+
+// GetFields returns SpecSearchReplaceInput.Fields, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetFields() []SpecTextField { return v.Fields }
+
+// GetMaxNodesChanged returns SpecSearchReplaceInput.MaxNodesChanged, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetMaxNodesChanged() *int { return v.MaxNodesChanged }
+
+// GetMemoryRef returns SpecSearchReplaceInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetNewText returns SpecSearchReplaceInput.NewText, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetNewText() string { return v.NewText }
+
+// GetNodeIds returns SpecSearchReplaceInput.NodeIds, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetNodeIds() []string { return v.NodeIds }
+
+// GetOldText returns SpecSearchReplaceInput.OldText, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetOldText() string { return v.OldText }
+
+// GetReason returns SpecSearchReplaceInput.Reason, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetReason() *string { return v.Reason }
+
+// GetRegex returns SpecSearchReplaceInput.Regex, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetRegex() *bool { return v.Regex }
+
+// GetWordBoundary returns SpecSearchReplaceInput.WordBoundary, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetWordBoundary() *bool { return v.WordBoundary }
+
+// Only text fields a spec bulk edit may change.
+type SpecTextField string
+
+const (
+	SpecTextFieldAbstract SpecTextField = "abstract"
+	SpecTextFieldContent  SpecTextField = "content"
+)
+
+var AllSpecTextField = []SpecTextField{
+	SpecTextFieldAbstract,
+	SpecTextFieldContent,
+}
 
 // StartImpersonationResponse is returned by StartImpersonation on success.
 type StartImpersonationResponse struct {
@@ -33650,6 +33938,14 @@ type __SearchReplaceInNodesInput struct {
 // GetInput returns __SearchReplaceInNodesInput.Input, and is useful for accessing the field via an interface.
 func (v *__SearchReplaceInNodesInput) GetInput() *SearchReplaceInNodesInput { return v.Input }
 
+// __SearchReplaceInSpecNodesInput is used internally by genqlient
+type __SearchReplaceInSpecNodesInput struct {
+	Input *SpecSearchReplaceInput `json:"input,omitempty"`
+}
+
+// GetInput returns __SearchReplaceInSpecNodesInput.Input, and is useful for accessing the field via an interface.
+func (v *__SearchReplaceInSpecNodesInput) GetInput() *SpecSearchReplaceInput { return v.Input }
+
 // __SearchUsersInput is used internally by genqlient
 type __SearchUsersInput struct {
 	Query  *string `json:"query,omitempty"`
@@ -33717,6 +34013,14 @@ type __SoftDeleteAssetInput struct {
 
 // GetAssetId returns __SoftDeleteAssetInput.AssetId, and is useful for accessing the field via an interface.
 func (v *__SoftDeleteAssetInput) GetAssetId() string { return v.AssetId }
+
+// __SpecCorpusStateInput is used internally by genqlient
+type __SpecCorpusStateInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __SpecCorpusStateInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SpecCorpusStateInput) GetRef() string { return v.Ref }
 
 // __StartImpersonationInput is used internally by genqlient
 type __StartImpersonationInput struct {
@@ -43080,6 +43384,65 @@ func SearchReplaceInNodes(
 	return data_, err_
 }
 
+// The mutation executed by SearchReplaceInSpecNodes.
+const SearchReplaceInSpecNodes_Operation = `
+mutation SearchReplaceInSpecNodes ($input: SpecSearchReplaceInput!) {
+	searchReplaceInSpecNodes(input: $input) {
+		nodesSelected
+		nodesScanned
+		nodesSkipped
+		nodesChanged
+		totalReplacements
+		dryRun
+		plan
+		results {
+			nodeId
+			loc
+			replacements
+			fields {
+				field
+				matches
+			}
+		}
+		skips {
+			nodeId
+			loc
+			reason
+		}
+	}
+}
+`
+
+// hadron-server#1459 (#1294) — governed bulk replacement inside ONE draft spec
+// corpus. A dry run returns `plan`, an opaque fingerprint of the exact preview;
+// an apply must send it back as expectedPlan, and any change to the selected
+// rows, matches, protections or corpus state refuses the whole apply
+// (SEARCH_REPLACE_PLAN_STALE) with zero writes.
+func SearchReplaceInSpecNodes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SpecSearchReplaceInput,
+) (data_ *SearchReplaceInSpecNodesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SearchReplaceInSpecNodes",
+		Query:  SearchReplaceInSpecNodes_Operation,
+		Variables: &__SearchReplaceInSpecNodesInput{
+			Input: input,
+		},
+	}
+
+	data_ = &SearchReplaceInSpecNodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by SearchUsers.
 const SearchUsers_Operation = `
 query SearchUsers ($query: String, $limit: Int, $offset: Int) {
@@ -43510,6 +43873,45 @@ func SoftDeleteAsset(
 	}
 
 	data_ = &SoftDeleteAssetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SpecCorpusState.
+const SpecCorpusState_Operation = `
+query SpecCorpusState ($ref: ID!) {
+	memory(ref: $ref) {
+		id
+		urn
+		corpusState
+	}
+}
+`
+
+// The corpus state of one memory. `spec replace` reads it to choose the door:
+// a DRAFT corpus is rewritten through the governed spec door below; a minted
+// one keeps the generic replace, which skips governed specs.
+func SpecCorpusState(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *SpecCorpusStateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SpecCorpusState",
+		Query:  SpecCorpusState_Operation,
+		Variables: &__SpecCorpusStateInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &SpecCorpusStateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

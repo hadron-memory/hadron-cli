@@ -71,6 +71,10 @@ func TestMapError(t *testing.T) {
 		{"not a task", gqlErr("NOT_A_TASK"), exitcode.Usage},
 		// #1325 part c (cli#716 slice 2).
 		{"template name taken", gqlErr("MEMORY_CONFIG_TEMPLATE_EXISTS"), exitcode.Conflict},
+		{"spec replace plan stale", gqlErr("SEARCH_REPLACE_PLAN_STALE"), exitcode.Conflict},
+		{"spec replace not draft", gqlErr("SEARCH_REPLACE_NOT_DRAFT"), exitcode.Conflict},
+		{"spec replace mixed corpus", gqlErr("SEARCH_REPLACE_MIXED_CORPUS"), exitcode.Conflict},
+		{"spec replace over the limit", gqlErr("SEARCH_REPLACE_MAX_NODES_CHANGED"), exitcode.Usage},
 		{"template not found", gqlErr("MEMORY_CONFIG_TEMPLATE_NOT_FOUND"), exitcode.NotFound},
 		{"no server row: an operator's fix, the generic 1", gqlErr("HADRON_SERVER_NOT_CONFIGURED"), exitcode.Error},
 		// #619 — the permission-denied class. Both reached scripts as the

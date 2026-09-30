@@ -1,0 +1,43 @@
+# hadron-server#1447 — draft spec corpora (cli#777).
+
+# The corpus state of one memory. `spec replace` reads it to choose the door:
+# a DRAFT corpus is rewritten through the governed spec door below; a minted
+# one keeps the generic replace, which skips governed specs.
+query SpecCorpusState($ref: ID!) {
+  memory(ref: $ref) {
+    id
+    urn
+    corpusState
+  }
+}
+
+# hadron-server#1459 (#1294) — governed bulk replacement inside ONE draft spec
+# corpus. A dry run returns `plan`, an opaque fingerprint of the exact preview;
+# an apply must send it back as expectedPlan, and any change to the selected
+# rows, matches, protections or corpus state refuses the whole apply
+# (SEARCH_REPLACE_PLAN_STALE) with zero writes.
+mutation SearchReplaceInSpecNodes($input: SpecSearchReplaceInput!) {
+  searchReplaceInSpecNodes(input: $input) {
+    nodesSelected
+    nodesScanned
+    nodesSkipped
+    nodesChanged
+    totalReplacements
+    dryRun
+    plan
+    results {
+      nodeId
+      loc
+      replacements
+      fields {
+        field
+        matches
+      }
+    }
+    skips {
+      nodeId
+      loc
+      reason
+    }
+  }
+}

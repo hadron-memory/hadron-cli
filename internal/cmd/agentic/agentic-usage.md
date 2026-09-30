@@ -1378,8 +1378,16 @@ Conventions:
   `--word-boundary=false` for substring, `--regex` for a pattern with `$1`
   backrefs), gated like other bulk writes (`--dry-run` previews per-citation
   counts, `--yes` non-interactively, `--max-specs N` caps blast radius) and
-  **re-lints the changed specs** afterward. **It cannot rewrite governed specs**
-  (every rule-level spec, `role: spec`): the server's bulk replace skips them
+  **re-lints the changed specs** afterward. `door` in `--json` says which
+  server path ran. **In a DRAFT corpus** (`door: "spec"`, cli#777,
+  hadron-server#1459) every spec is searched, governed ones included, and the
+  apply sends the preview's exact `plan` back: if any spec, match, protection
+  or the corpus state changed in between, the whole apply is REFUSED with zero
+  writes (`SEARCH_REPLACE_PLAN_STALE`, exit 5 — re-run); specs the door
+  protects are listed in `skipped[]` (`{citation,nodeId,reason}`), and the
+  server enforces `--max-specs` too (exit 2). **In a minted corpus** (`door:
+  "generic"`, `skipped: []`) **it cannot rewrite governed specs** (every
+  rule-level spec, `role: spec`): the server's bulk replace skips them
   (cor:acl:130:02), so the report carries `specsInScope` / `specsGoverned` /
   `specsScanned` and a zero never reads as "not found" (#659) — change those with
   `spec grep` + `spec edit`; `spec register` is advisory/read-only (`--check` reports

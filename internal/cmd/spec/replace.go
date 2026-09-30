@@ -46,6 +46,21 @@ type specReplaceResultDTO struct {
 	// Lint is the post-replace lint of the changed specs — populated only on a
 	// real (non-dry) run. Empty means a clean re-lint.
 	Lint []lintFindingDTO `json:"lint,omitempty"`
+	// Door is which server path did the replace (cli#777): "spec" — the
+	// governed spec door of a DRAFT corpus (hadron-server#1459), which
+	// searches governed specs and binds the apply to the exact preview — or
+	// "generic", which skips them.
+	Door string `json:"door"`
+	// Skipped are the specs the spec door protected from the replace (e.g. a
+	// Channel address), by citation. Always [] on the generic door, whose
+	// skipped specs are counted in SpecsGoverned instead.
+	Skipped []specReplaceSkipDTO `json:"skipped"`
+}
+
+type specReplaceSkipDTO struct {
+	Citation string `json:"citation"`
+	NodeID   string `json:"nodeId"`
+	Reason   string `json:"reason"`
 }
 
 func newCmdReplace(f *cmdutil.Factory) *cobra.Command {
@@ -59,13 +74,20 @@ func newCmdReplace(f *cmdutil.Factory) *cobra.Command {
 		Long: `Search-and-replace a token across every spec's body and abstract in one
 call — the spec-scoped, citation-aware analogue of ` + "`hadron replace text`" + `.
 
-GOVERNED SPECS ARE NOT SEARCHED. The server's bulk replace skips governed nodes
-(cor:acl:130:02), and every rule-level spec is governed (role: spec), so in a
-typical corpus only the untyped index nodes are reachable. The report says how
-many specs were in scope, how many are governed, and how many were searched
-(specsInScope / specsGoverned / specsScanned in --json), so a zero is never
-mistaken for "the text is not there". To change a governed spec, find the text
-with ` + "`hadron spec grep`" + ` and edit it with ` + "`hadron spec edit`" + `.
+IN A DRAFT CORPUS (created with ` + "`memory set --draft-corpus`" + `), every spec is
+searched: the replace goes through the governed spec door (hadron-server#1459),
+and the apply is bound to the exact preview — if any spec, match or protection
+changed in between, it is refused (exit 5) and NOTHING is written; re-run.
+A spec the door protects (e.g. a Channel address) is listed under "skipped".
+
+IN A MINTED CORPUS, GOVERNED SPECS ARE NOT SEARCHED. The server's generic bulk
+replace skips governed nodes (cor:acl:130:02), and every rule-level spec is
+governed (role: spec), so in a typical corpus only the untyped index nodes are
+reachable. The report says how many specs were in scope, how many are
+governed, and how many were searched (specsInScope / specsGoverned /
+specsScanned in --json), so a zero is never mistaken for "the text is not
+there". To change a governed spec, find the text with ` + "`hadron spec grep`" + `
+and edit it with ` + "`hadron spec edit`" + `. --json says which path ran ("door").
 
 Matching is a literal token, and by default it is WORD-BOUNDARY-AWARE: only
 whole-token occurrences are rewritten, so renaming ` + "`h-read-node`" + ` never
@@ -150,12 +172,72 @@ example, leave an abstract out of sync with its content.`,
 					governed++
 				}
 			}
+			// A DRAFT corpus goes through the governed spec door (cli#777,
+			// hadron-server#1459); a minted one, or a server that predates draft
+			// corpora, keeps the generic replace.
+			memRef := cmdutil.CanonicalMemoryRef(memURN)
+			draft, err := specCorpusIsDraft(cmd, client, memRef)
+			if err != nil {
+				return err
+			}
+			door := "generic"
+			if draft {
+				door = "spec"
+			}
 			if len(specIDs) == 0 {
 				fmt.Fprintln(f.IOStreams.ErrOut, "No specs in scope — nothing to replace.")
-				return writeSpecReplaceReport(f, specReplaceResultDTO{DryRun: dryRun, Results: []specReplaceNodeDTO{}})
+				return writeSpecReplaceReport(f, specReplaceResultDTO{DryRun: dryRun, Results: []specReplaceNodeDTO{}, Door: door, Skipped: []specReplaceSkipDTO{}})
+			}
+
+			// The spec door binds the apply to the preview: the plan a dry run
+			// returns is sent back unchanged, with the SAME inputs, and anything
+			// that changed in between refuses the whole apply with zero writes.
+			var plan *string
+			runDraft := func(dry bool) (specReplaceResultDTO, error) {
+				input := gen.SpecSearchReplaceInput{
+					MemoryRef:       memRef,
+					NodeIds:         specIDs,
+					OldText:         pattern,
+					NewText:         replacement,
+					Fields:          specTextFields(fields),
+					CaseInsensitive: &ignoreCase,
+					Regex:           &useRegex,
+					WordBoundary:    &wordBoundary,
+					DryRun:          &dry,
+				}
+				if maxSpecs > 0 {
+					input.MaxNodesChanged = &maxSpecs
+				}
+				if r := strings.TrimSpace(reason); r != "" {
+					input.Reason = &r
+				}
+				if !dry {
+					input.ExpectedPlan = plan
+				}
+				resp, err := gen.SearchReplaceInSpecNodes(cmd.Context(), client, &input)
+				if err != nil {
+					if !dry && api.HasErrorCode(err, "SEARCH_REPLACE_PLAN_STALE") {
+						return specReplaceResultDTO{}, exitcode.Newf(exitcode.Conflict,
+							"the corpus changed since the preview (a spec, a match, a protection or the corpus state), so the replace was refused and NOTHING was written — re-run to preview again")
+					}
+					return specReplaceResultDTO{}, api.MapError(err)
+				}
+				r := resp.SearchReplaceInSpecNodes
+				if r == nil {
+					return specReplaceResultDTO{}, exitcode.Newf(exitcode.Error, "searchReplaceInSpecNodes returned no result")
+				}
+				if dry {
+					plan = r.Plan
+				}
+				dto := specDoorReplaceDTO(r)
+				dto.SpecsInScope, dto.SpecsGoverned = len(specIDs), governed
+				return dto, nil
 			}
 
 			run := func(dry bool) (specReplaceResultDTO, error) {
+				if draft {
+					return runDraft(dry)
+				}
 				input := gen.SearchReplaceInNodesInput{
 					OldText:         oldText,
 					NewText:         replacement,
@@ -174,6 +256,7 @@ example, leave an abstract out of sync with its content.`,
 				}
 				dto := specReplaceDTO(resp.SearchReplaceInNodes)
 				dto.SpecsInScope, dto.SpecsGoverned = len(specIDs), governed
+				dto.Door, dto.Skipped = "generic", []specReplaceSkipDTO{}
 				return dto, nil
 			}
 
@@ -307,6 +390,56 @@ func isWordRune(r rune) bool {
 		(r >= '0' && r <= '9')
 }
 
+// specCorpusIsDraft reports whether the memory is a DRAFT spec corpus. A
+// server that predates draft corpora has no corpusState and reads as not
+// draft: it has no spec door either.
+func specCorpusIsDraft(cmd *cobra.Command, client graphql.Client, memRef string) (bool, error) {
+	st, err := gen.SpecCorpusState(cmd.Context(), client, memRef)
+	switch {
+	case err != nil && api.IsGraphQLValidationFor(err, "corpusState"):
+		return false, nil
+	case err != nil:
+		return false, api.MapError(err)
+	}
+	return st.Memory != nil && st.Memory.CorpusState == gen.CorpusStateDraft, nil
+}
+
+// specTextFields maps the generic door's field enum to the spec door's.
+func specTextFields(fields []gen.NodeTextField) []gen.SpecTextField {
+	out := make([]gen.SpecTextField, 0, len(fields))
+	for _, f := range fields {
+		out = append(out, gen.SpecTextField(f))
+	}
+	return out
+}
+
+// specDoorReplaceDTO folds the spec door's result into the same shape.
+func specDoorReplaceDTO(r *gen.SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) specReplaceResultDTO {
+	dto := specReplaceResultDTO{
+		SpecsScanned: r.NodesScanned, SpecsChanged: r.NodesChanged, TotalReplacements: r.TotalReplacements,
+		DryRun: r.DryRun, Results: []specReplaceNodeDTO{}, Door: "spec", Skipped: []specReplaceSkipDTO{},
+	}
+	for _, n := range r.Results {
+		if n == nil {
+			continue
+		}
+		nd := specReplaceNodeDTO{Citation: n.Loc, NodeID: n.NodeId, Replacements: n.Replacements}
+		for _, fres := range n.Fields {
+			if fres != nil {
+				nd.Fields = append(nd.Fields, specReplaceFieldDTO{Field: string(fres.Field), Matches: fres.Matches})
+			}
+		}
+		dto.Results = append(dto.Results, nd)
+	}
+	for _, s := range r.Skips {
+		if s != nil {
+			dto.Skipped = append(dto.Skipped, specReplaceSkipDTO{Citation: s.Loc, NodeID: s.NodeId, Reason: string(s.Reason)})
+		}
+	}
+	sort.Slice(dto.Results, func(i, j int) bool { return dto.Results[i].Citation < dto.Results[j].Citation })
+	return dto
+}
+
 // specReplaceDTO folds the server result into the citation-keyed shape.
 func specReplaceDTO(r *gen.SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) specReplaceResultDTO {
 	dto := specReplaceResultDTO{
@@ -432,6 +565,17 @@ func isGovernedKind(role *string, isRunnable *bool) bool {
 // are named as the cause, by rule; any remainder is reported as unexplained
 // rather than attributed to a cause the CLI cannot see.
 func renderUnsearchedNote(w io.Writer, dto specReplaceResultDTO) {
+	if dto.Door == "spec" {
+		// The spec door searches governed specs; what it does not search, it
+		// names.
+		if len(dto.Skipped) > 0 {
+			fmt.Fprintf(w, "note: %d spec(s) in scope are protected and were NOT searched:\n", len(dto.Skipped))
+			for _, s := range dto.Skipped {
+				fmt.Fprintf(w, "  %s  (%s)\n", s.Citation, s.Reason)
+			}
+		}
+		return
+	}
 	if dto.SpecsGoverned > 0 {
 		fmt.Fprintf(w, "note: %d of %d spec(s) in scope are governed and were NOT searched — bulk replace skips governed nodes (cor:acl:130:02). "+
 			"Find the text in them with `hadron spec grep`, and change it with `hadron spec edit`.\n",

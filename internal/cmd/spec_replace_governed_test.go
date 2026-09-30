@@ -48,6 +48,11 @@ func TestSpecReplaceUnionsRoleOnlySpecsBeforeDryRunAndNoMatch(t *testing.T) {
 					t.Errorf("decode request: %v", err)
 					return
 				}
+				if resp, ok := unstubbedDefault(req.OperationName); ok {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(resp))
+					return
+				}
 				var resp string
 				switch req.OperationName {
 				case "FindNodes":

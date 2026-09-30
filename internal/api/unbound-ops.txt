@@ -68,7 +68,7 @@ slackConnections
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
-[Mutation] 88 unbound
+[Mutation] 89 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -126,6 +126,7 @@ removeAppMember
 removeMemoryFromAgent
 repairAgentSystemMemory
 replaceSubtree  # server#1407: deprecated field; authorized calls return REPLACE_SUBTREE_RETIRED without writes
+reserveSpecCitation  # server#1452; wired by cli#779 (#777 slice 1, stacked, waiting on server #1453/#1462)
 restoreRevision
 retryFailedEmbeddings
 revokeAgentOrgGrant
