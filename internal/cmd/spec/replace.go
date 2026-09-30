@@ -74,7 +74,7 @@ func newCmdReplace(f *cmdutil.Factory) *cobra.Command {
 		Long: `Search-and-replace a token across every spec's body and abstract in one
 call — the spec-scoped, citation-aware analogue of ` + "`hadron replace text`" + `.
 
-IN A DRAFT CORPUS (created with ` + "`memory set --draft-corpus`" + `), every spec is
+IN A DRAFT CORPUS (server state DRAFT), every spec is
 searched: the replace goes through the governed spec door (hadron-server#1459),
 and the apply is bound to the exact preview — if any spec, match or protection
 changed in between, it is refused (exit 5) and NOTHING is written; re-run.
