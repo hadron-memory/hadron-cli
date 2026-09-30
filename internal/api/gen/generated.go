@@ -16870,6 +16870,64 @@ func (v *MyUserApiKeysResponse) GetMyUserApiKeys() []*MyUserApiKeysMyUserApiKeys
 	return v.MyUserApiKeys
 }
 
+// #1326 — attribution of a content state. taskRef is REDACTED (null) by the
+// server unless the task's memory is independently readable; kind still says
+// TASK, so a redacted task is not mistaken for a human.
+type NodeAuthorshipFields struct {
+	Kind         NodeAuthorshipKind                           `json:"kind"`
+	AuthoredAt   string                                       `json:"authoredAt"`
+	TaskRef      *string                                      `json:"taskRef"`
+	TaskRevision *int                                         `json:"taskRevision"`
+	Human        *NodeAuthorshipFieldsHumanNodeRevisionEditor `json:"human"`
+}
+
+// GetKind returns NodeAuthorshipFields.Kind, and is useful for accessing the field via an interface.
+func (v *NodeAuthorshipFields) GetKind() NodeAuthorshipKind { return v.Kind }
+
+// GetAuthoredAt returns NodeAuthorshipFields.AuthoredAt, and is useful for accessing the field via an interface.
+func (v *NodeAuthorshipFields) GetAuthoredAt() string { return v.AuthoredAt }
+
+// GetTaskRef returns NodeAuthorshipFields.TaskRef, and is useful for accessing the field via an interface.
+func (v *NodeAuthorshipFields) GetTaskRef() *string { return v.TaskRef }
+
+// GetTaskRevision returns NodeAuthorshipFields.TaskRevision, and is useful for accessing the field via an interface.
+func (v *NodeAuthorshipFields) GetTaskRevision() *int { return v.TaskRevision }
+
+// GetHuman returns NodeAuthorshipFields.Human, and is useful for accessing the field via an interface.
+func (v *NodeAuthorshipFields) GetHuman() *NodeAuthorshipFieldsHumanNodeRevisionEditor {
+	return v.Human
+}
+
+// NodeAuthorshipFieldsHumanNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type NodeAuthorshipFieldsHumanNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns NodeAuthorshipFieldsHumanNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *NodeAuthorshipFieldsHumanNodeRevisionEditor) GetHandle() *string { return v.Handle }
+
+// GetUrn returns NodeAuthorshipFieldsHumanNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *NodeAuthorshipFieldsHumanNodeRevisionEditor) GetUrn() *string { return v.Urn }
+
+type NodeAuthorshipKind string
+
+const (
+	NodeAuthorshipKindHuman NodeAuthorshipKind = "HUMAN"
+	NodeAuthorshipKindTask  NodeAuthorshipKind = "TASK"
+)
+
+var AllNodeAuthorshipKind = []NodeAuthorshipKind{
+	NodeAuthorshipKindHuman,
+	NodeAuthorshipKindTask,
+}
+
 // NodeBatchNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
 // The GraphQL type's documentation follows.
 //
@@ -17237,6 +17295,87 @@ type NodeBatchResponse struct {
 // GetNodeBatch returns NodeBatchResponse.NodeBatch, and is useful for accessing the field via an interface.
 func (v *NodeBatchResponse) GetNodeBatch() *NodeBatchNodeBatchNodeBatchResult { return v.NodeBatch }
 
+// #1326 — advisory validation. `state` is for THIS revision: a report made for
+// an older revision reads STALE, and latestReport says which revision it was.
+type NodeContentValidationFields struct {
+	State        NodeContentValidationState                                          `json:"state"`
+	LatestReport *NodeContentValidationFieldsLatestReportNodeContentValidationReport `json:"latestReport"`
+}
+
+// GetState returns NodeContentValidationFields.State, and is useful for accessing the field via an interface.
+func (v *NodeContentValidationFields) GetState() NodeContentValidationState { return v.State }
+
+// GetLatestReport returns NodeContentValidationFields.LatestReport, and is useful for accessing the field via an interface.
+func (v *NodeContentValidationFields) GetLatestReport() *NodeContentValidationFieldsLatestReportNodeContentValidationReport {
+	return v.LatestReport
+}
+
+// NodeContentValidationFieldsLatestReportNodeContentValidationReport includes the requested fields of the GraphQL type NodeContentValidationReport.
+type NodeContentValidationFieldsLatestReportNodeContentValidationReport struct {
+	Outcome                NodeContentValidationOutcome `json:"outcome"`
+	NodeRevision           int                          `json:"nodeRevision"`
+	ReportedAt             string                       `json:"reportedAt"`
+	ValidationTaskRef      *string                      `json:"validationTaskRef"`
+	ValidationTaskRevision *int                         `json:"validationTaskRevision"`
+}
+
+// GetOutcome returns NodeContentValidationFieldsLatestReportNodeContentValidationReport.Outcome, and is useful for accessing the field via an interface.
+func (v *NodeContentValidationFieldsLatestReportNodeContentValidationReport) GetOutcome() NodeContentValidationOutcome {
+	return v.Outcome
+}
+
+// GetNodeRevision returns NodeContentValidationFieldsLatestReportNodeContentValidationReport.NodeRevision, and is useful for accessing the field via an interface.
+func (v *NodeContentValidationFieldsLatestReportNodeContentValidationReport) GetNodeRevision() int {
+	return v.NodeRevision
+}
+
+// GetReportedAt returns NodeContentValidationFieldsLatestReportNodeContentValidationReport.ReportedAt, and is useful for accessing the field via an interface.
+func (v *NodeContentValidationFieldsLatestReportNodeContentValidationReport) GetReportedAt() string {
+	return v.ReportedAt
+}
+
+// GetValidationTaskRef returns NodeContentValidationFieldsLatestReportNodeContentValidationReport.ValidationTaskRef, and is useful for accessing the field via an interface.
+func (v *NodeContentValidationFieldsLatestReportNodeContentValidationReport) GetValidationTaskRef() *string {
+	return v.ValidationTaskRef
+}
+
+// GetValidationTaskRevision returns NodeContentValidationFieldsLatestReportNodeContentValidationReport.ValidationTaskRevision, and is useful for accessing the field via an interface.
+func (v *NodeContentValidationFieldsLatestReportNodeContentValidationReport) GetValidationTaskRevision() *int {
+	return v.ValidationTaskRevision
+}
+
+type NodeContentValidationOutcome string
+
+const (
+	NodeContentValidationOutcomeError NodeContentValidationOutcome = "ERROR"
+	NodeContentValidationOutcomeFail  NodeContentValidationOutcome = "FAIL"
+	NodeContentValidationOutcomePass  NodeContentValidationOutcome = "PASS"
+)
+
+var AllNodeContentValidationOutcome = []NodeContentValidationOutcome{
+	NodeContentValidationOutcomeError,
+	NodeContentValidationOutcomeFail,
+	NodeContentValidationOutcomePass,
+}
+
+type NodeContentValidationState string
+
+const (
+	NodeContentValidationStateError       NodeContentValidationState = "ERROR"
+	NodeContentValidationStateFail        NodeContentValidationState = "FAIL"
+	NodeContentValidationStatePass        NodeContentValidationState = "PASS"
+	NodeContentValidationStateStale       NodeContentValidationState = "STALE"
+	NodeContentValidationStateUnvalidated NodeContentValidationState = "UNVALIDATED"
+)
+
+var AllNodeContentValidationState = []NodeContentValidationState{
+	NodeContentValidationStateError,
+	NodeContentValidationStateFail,
+	NodeContentValidationStatePass,
+	NodeContentValidationStateStale,
+	NodeContentValidationStateUnvalidated,
+}
+
 // Outgoing edge on a node, used in NodeInput.edges
 type NodeEdgeInput struct {
 	Description *string `json:"description"`
@@ -17536,6 +17675,250 @@ func (v *NodeLiveRevisionsResponse) GetNodeBatch() *NodeLiveRevisionsNodeBatchNo
 	return v.NodeBatch
 }
 
+// NodeLiveRevisionsStampedNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type NodeLiveRevisionsStampedNodeBatchNodeBatchResult struct {
+	Truncated   bool                                                         `json:"truncated"`
+	Omitted     []string                                                     `json:"omitted"`
+	Unavailable []string                                                     `json:"unavailable"`
+	Nodes       []*NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetTruncated returns NodeLiveRevisionsStampedNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns NodeLiveRevisionsStampedNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
+
+// GetUnavailable returns NodeLiveRevisionsStampedNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResult) GetUnavailable() []string {
+	return v.Unavailable
+}
+
+// GetNodes returns NodeLiveRevisionsStampedNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResult) GetNodes() []*NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode struct {
+	Id string `json:"id"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int `json:"revision"`
+	// #1326 — attribution of this content state. Null means legacy or unknown. Task identity is redacted unless its memory is independently readable.
+	Authorship *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship `json:"authorship"`
+	// #1326 — advisory validation for this exact revision. A report for an older revision is STALE.
+	ContentValidation *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus `json:"contentValidation"`
+}
+
+// GetId returns NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetRevision returns NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode.Revision, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode) GetRevision() int {
+	return v.Revision
+}
+
+// GetAuthorship returns NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode.Authorship, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode) GetAuthorship() *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship {
+	return v.Authorship
+}
+
+// GetContentValidation returns NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode.ContentValidation, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNode) GetContentValidation() *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus {
+	return v.ContentValidation
+}
+
+// NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship includes the requested fields of the GraphQL type NodeAuthorship.
+type NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship struct {
+	NodeAuthorshipFields `json:"-"`
+}
+
+// GetKind returns NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship.Kind, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship) GetKind() NodeAuthorshipKind {
+	return v.NodeAuthorshipFields.Kind
+}
+
+// GetAuthoredAt returns NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship.AuthoredAt, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship) GetAuthoredAt() string {
+	return v.NodeAuthorshipFields.AuthoredAt
+}
+
+// GetTaskRef returns NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship.TaskRef, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship) GetTaskRef() *string {
+	return v.NodeAuthorshipFields.TaskRef
+}
+
+// GetTaskRevision returns NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship.TaskRevision, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship) GetTaskRevision() *int {
+	return v.NodeAuthorshipFields.TaskRevision
+}
+
+// GetHuman returns NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship.Human, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship) GetHuman() *NodeAuthorshipFieldsHumanNodeRevisionEditor {
+	return v.NodeAuthorshipFields.Human
+}
+
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeAuthorshipFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship struct {
+	Kind NodeAuthorshipKind `json:"kind"`
+
+	AuthoredAt string `json:"authoredAt"`
+
+	TaskRef *string `json:"taskRef"`
+
+	TaskRevision *int `json:"taskRevision"`
+
+	Human *NodeAuthorshipFieldsHumanNodeRevisionEditor `json:"human"`
+}
+
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship) __premarshalJSON() (*__premarshalNodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship, error) {
+	var retval __premarshalNodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeAuthorship
+
+	retval.Kind = v.NodeAuthorshipFields.Kind
+	retval.AuthoredAt = v.NodeAuthorshipFields.AuthoredAt
+	retval.TaskRef = v.NodeAuthorshipFields.TaskRef
+	retval.TaskRevision = v.NodeAuthorshipFields.TaskRevision
+	retval.Human = v.NodeAuthorshipFields.Human
+	return &retval, nil
+}
+
+// NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus includes the requested fields of the GraphQL type NodeContentValidationStatus.
+type NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus struct {
+	NodeContentValidationFields `json:"-"`
+}
+
+// GetState returns NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus.State, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) GetState() NodeContentValidationState {
+	return v.NodeContentValidationFields.State
+}
+
+// GetLatestReport returns NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus.LatestReport, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) GetLatestReport() *NodeContentValidationFieldsLatestReportNodeContentValidationReport {
+	return v.NodeContentValidationFields.LatestReport
+}
+
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeContentValidationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus struct {
+	State NodeContentValidationState `json:"state"`
+
+	LatestReport *NodeContentValidationFieldsLatestReportNodeContentValidationReport `json:"latestReport"`
+}
+
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) __premarshalJSON() (*__premarshalNodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus, error) {
+	var retval __premarshalNodeLiveRevisionsStampedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus
+
+	retval.State = v.NodeContentValidationFields.State
+	retval.LatestReport = v.NodeContentValidationFields.LatestReport
+	return &retval, nil
+}
+
+// NodeLiveRevisionsStampedResponse is returned by NodeLiveRevisionsStamped on success.
+type NodeLiveRevisionsStampedResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	NodeBatch *NodeLiveRevisionsStampedNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns NodeLiveRevisionsStampedResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsStampedResponse) GetNodeBatch() *NodeLiveRevisionsStampedNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
+
 // A node field that mergeNodes can fold from the source into the target.
 type NodeMergeField string
 
@@ -17710,6 +18093,324 @@ type NodeRevisionResponse struct {
 // GetNodeRevision returns NodeRevisionResponse.NodeRevision, and is useful for accessing the field via an interface.
 func (v *NodeRevisionResponse) GetNodeRevision() *NodeRevisionNodeRevision { return v.NodeRevision }
 
+// NodeRevisionStampedNodeRevision includes the requested fields of the GraphQL type NodeRevision.
+type NodeRevisionStampedNodeRevision struct {
+	RevisionFields `json:"-"`
+	Content        *string `json:"content"`
+	// #1326 — attribution of the content captured before the next edit.
+	Authorship *NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship `json:"authorship"`
+	// #1326 — advisory validation at this historical revision.
+	ContentValidation *NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus `json:"contentValidation"`
+}
+
+// GetContent returns NodeRevisionStampedNodeRevision.Content, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetContent() *string { return v.Content }
+
+// GetAuthorship returns NodeRevisionStampedNodeRevision.Authorship, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetAuthorship() *NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship {
+	return v.Authorship
+}
+
+// GetContentValidation returns NodeRevisionStampedNodeRevision.ContentValidation, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetContentValidation() *NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus {
+	return v.ContentValidation
+}
+
+// GetId returns NodeRevisionStampedNodeRevision.Id, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetId() string { return v.RevisionFields.Id }
+
+// GetNodeId returns NodeRevisionStampedNodeRevision.NodeId, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetNodeId() string { return v.RevisionFields.NodeId }
+
+// GetLoc returns NodeRevisionStampedNodeRevision.Loc, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetLoc() string { return v.RevisionFields.Loc }
+
+// GetName returns NodeRevisionStampedNodeRevision.Name, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetName() string { return v.RevisionFields.Name }
+
+// GetDescription returns NodeRevisionStampedNodeRevision.Description, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetDescription() *string {
+	return v.RevisionFields.Description
+}
+
+// GetTags returns NodeRevisionStampedNodeRevision.Tags, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetTags() []string { return v.RevisionFields.Tags }
+
+// GetCreatedAt returns NodeRevisionStampedNodeRevision.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetCreatedAt() string { return v.RevisionFields.CreatedAt }
+
+// GetEditedBy returns NodeRevisionStampedNodeRevision.EditedBy, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetEditedBy() *string { return v.RevisionFields.EditedBy }
+
+// GetEditedByInfo returns NodeRevisionStampedNodeRevision.EditedByInfo, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetEditedByInfo() *string {
+	return v.RevisionFields.EditedByInfo
+}
+
+// GetEditedByUser returns NodeRevisionStampedNodeRevision.EditedByUser, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetEditedByUser() *RevisionFieldsEditedByUserNodeRevisionEditor {
+	return v.RevisionFields.EditedByUser
+}
+
+// GetRevLabel returns NodeRevisionStampedNodeRevision.RevLabel, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetRevLabel() *string { return v.RevisionFields.RevLabel }
+
+// GetChanges returns NodeRevisionStampedNodeRevision.Changes, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevision) GetChanges() []string { return v.RevisionFields.Changes }
+
+func (v *NodeRevisionStampedNodeRevision) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeRevisionStampedNodeRevision
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeRevisionStampedNodeRevision = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RevisionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeRevisionStampedNodeRevision struct {
+	Content *string `json:"content"`
+
+	Authorship *NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship `json:"authorship"`
+
+	ContentValidation *NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus `json:"contentValidation"`
+
+	Id string `json:"id"`
+
+	NodeId string `json:"nodeId"`
+
+	Loc string `json:"loc"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Tags []string `json:"tags"`
+
+	CreatedAt string `json:"createdAt"`
+
+	EditedBy *string `json:"editedBy"`
+
+	EditedByInfo *string `json:"editedByInfo"`
+
+	EditedByUser *RevisionFieldsEditedByUserNodeRevisionEditor `json:"editedByUser"`
+
+	RevLabel *string `json:"revLabel"`
+
+	Changes []string `json:"changes"`
+}
+
+func (v *NodeRevisionStampedNodeRevision) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeRevisionStampedNodeRevision) __premarshalJSON() (*__premarshalNodeRevisionStampedNodeRevision, error) {
+	var retval __premarshalNodeRevisionStampedNodeRevision
+
+	retval.Content = v.Content
+	retval.Authorship = v.Authorship
+	retval.ContentValidation = v.ContentValidation
+	retval.Id = v.RevisionFields.Id
+	retval.NodeId = v.RevisionFields.NodeId
+	retval.Loc = v.RevisionFields.Loc
+	retval.Name = v.RevisionFields.Name
+	retval.Description = v.RevisionFields.Description
+	retval.Tags = v.RevisionFields.Tags
+	retval.CreatedAt = v.RevisionFields.CreatedAt
+	retval.EditedBy = v.RevisionFields.EditedBy
+	retval.EditedByInfo = v.RevisionFields.EditedByInfo
+	retval.EditedByUser = v.RevisionFields.EditedByUser
+	retval.RevLabel = v.RevisionFields.RevLabel
+	retval.Changes = v.RevisionFields.Changes
+	return &retval, nil
+}
+
+// NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship includes the requested fields of the GraphQL type NodeAuthorship.
+type NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship struct {
+	NodeAuthorshipFields `json:"-"`
+}
+
+// GetKind returns NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship.Kind, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship) GetKind() NodeAuthorshipKind {
+	return v.NodeAuthorshipFields.Kind
+}
+
+// GetAuthoredAt returns NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship.AuthoredAt, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship) GetAuthoredAt() string {
+	return v.NodeAuthorshipFields.AuthoredAt
+}
+
+// GetTaskRef returns NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship.TaskRef, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship) GetTaskRef() *string {
+	return v.NodeAuthorshipFields.TaskRef
+}
+
+// GetTaskRevision returns NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship.TaskRevision, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship) GetTaskRevision() *int {
+	return v.NodeAuthorshipFields.TaskRevision
+}
+
+// GetHuman returns NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship.Human, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship) GetHuman() *NodeAuthorshipFieldsHumanNodeRevisionEditor {
+	return v.NodeAuthorshipFields.Human
+}
+
+func (v *NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeAuthorshipFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship struct {
+	Kind NodeAuthorshipKind `json:"kind"`
+
+	AuthoredAt string `json:"authoredAt"`
+
+	TaskRef *string `json:"taskRef"`
+
+	TaskRevision *int `json:"taskRevision"`
+
+	Human *NodeAuthorshipFieldsHumanNodeRevisionEditor `json:"human"`
+}
+
+func (v *NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship) __premarshalJSON() (*__premarshalNodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship, error) {
+	var retval __premarshalNodeRevisionStampedNodeRevisionAuthorshipNodeAuthorship
+
+	retval.Kind = v.NodeAuthorshipFields.Kind
+	retval.AuthoredAt = v.NodeAuthorshipFields.AuthoredAt
+	retval.TaskRef = v.NodeAuthorshipFields.TaskRef
+	retval.TaskRevision = v.NodeAuthorshipFields.TaskRevision
+	retval.Human = v.NodeAuthorshipFields.Human
+	return &retval, nil
+}
+
+// NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus includes the requested fields of the GraphQL type NodeContentValidationStatus.
+type NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus struct {
+	NodeContentValidationFields `json:"-"`
+}
+
+// GetState returns NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus.State, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus) GetState() NodeContentValidationState {
+	return v.NodeContentValidationFields.State
+}
+
+// GetLatestReport returns NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus.LatestReport, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus) GetLatestReport() *NodeContentValidationFieldsLatestReportNodeContentValidationReport {
+	return v.NodeContentValidationFields.LatestReport
+}
+
+func (v *NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeContentValidationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus struct {
+	State NodeContentValidationState `json:"state"`
+
+	LatestReport *NodeContentValidationFieldsLatestReportNodeContentValidationReport `json:"latestReport"`
+}
+
+func (v *NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus) __premarshalJSON() (*__premarshalNodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus, error) {
+	var retval __premarshalNodeRevisionStampedNodeRevisionContentValidationNodeContentValidationStatus
+
+	retval.State = v.NodeContentValidationFields.State
+	retval.LatestReport = v.NodeContentValidationFields.LatestReport
+	return &retval, nil
+}
+
+// NodeRevisionStampedResponse is returned by NodeRevisionStamped on success.
+type NodeRevisionStampedResponse struct {
+	// A single node-revision snapshot by its id (#617 Display).
+	//
+	// Access-gated on the snapshot's node memory (read): null when the revision
+	// does not exist OR the caller cannot read the node's current memory OR the
+	// memory the snapshot was captured in (per-snapshot gating mirrors
+	// nodeRevisions — a moved node keeps its id, so a snapshot may belong to a
+	// memory the caller cannot read). A soft-deleted node is also null (its
+	// history drops out of every read surface). Null, never an error, so there
+	// is no existence disclosure.
+	NodeRevision *NodeRevisionStampedNodeRevision `json:"nodeRevision"`
+}
+
+// GetNodeRevision returns NodeRevisionStampedResponse.NodeRevision, and is useful for accessing the field via an interface.
+func (v *NodeRevisionStampedResponse) GetNodeRevision() *NodeRevisionStampedNodeRevision {
+	return v.NodeRevision
+}
+
 // NodeRevisionsNodeRevisionsNodeRevision includes the requested fields of the GraphQL type NodeRevision.
 type NodeRevisionsNodeRevisionsNodeRevision struct {
 	RevisionFields `json:"-"`
@@ -17854,6 +18555,327 @@ type NodeRevisionsResponse struct {
 
 // GetNodeRevisions returns NodeRevisionsResponse.NodeRevisions, and is useful for accessing the field via an interface.
 func (v *NodeRevisionsResponse) GetNodeRevisions() []*NodeRevisionsNodeRevisionsNodeRevision {
+	return v.NodeRevisions
+}
+
+// NodeRevisionsStampedNodeRevisionsNodeRevision includes the requested fields of the GraphQL type NodeRevision.
+type NodeRevisionsStampedNodeRevisionsNodeRevision struct {
+	RevisionFields `json:"-"`
+	// #1326 — attribution of the content captured before the next edit.
+	Authorship *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship `json:"authorship"`
+	// #1326 — advisory validation at this historical revision.
+	ContentValidation *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus `json:"contentValidation"`
+}
+
+// GetAuthorship returns NodeRevisionsStampedNodeRevisionsNodeRevision.Authorship, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetAuthorship() *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship {
+	return v.Authorship
+}
+
+// GetContentValidation returns NodeRevisionsStampedNodeRevisionsNodeRevision.ContentValidation, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetContentValidation() *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus {
+	return v.ContentValidation
+}
+
+// GetId returns NodeRevisionsStampedNodeRevisionsNodeRevision.Id, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetId() string { return v.RevisionFields.Id }
+
+// GetNodeId returns NodeRevisionsStampedNodeRevisionsNodeRevision.NodeId, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetNodeId() string {
+	return v.RevisionFields.NodeId
+}
+
+// GetLoc returns NodeRevisionsStampedNodeRevisionsNodeRevision.Loc, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetLoc() string { return v.RevisionFields.Loc }
+
+// GetName returns NodeRevisionsStampedNodeRevisionsNodeRevision.Name, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetName() string {
+	return v.RevisionFields.Name
+}
+
+// GetDescription returns NodeRevisionsStampedNodeRevisionsNodeRevision.Description, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetDescription() *string {
+	return v.RevisionFields.Description
+}
+
+// GetTags returns NodeRevisionsStampedNodeRevisionsNodeRevision.Tags, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetTags() []string {
+	return v.RevisionFields.Tags
+}
+
+// GetCreatedAt returns NodeRevisionsStampedNodeRevisionsNodeRevision.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetCreatedAt() string {
+	return v.RevisionFields.CreatedAt
+}
+
+// GetEditedBy returns NodeRevisionsStampedNodeRevisionsNodeRevision.EditedBy, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetEditedBy() *string {
+	return v.RevisionFields.EditedBy
+}
+
+// GetEditedByInfo returns NodeRevisionsStampedNodeRevisionsNodeRevision.EditedByInfo, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetEditedByInfo() *string {
+	return v.RevisionFields.EditedByInfo
+}
+
+// GetEditedByUser returns NodeRevisionsStampedNodeRevisionsNodeRevision.EditedByUser, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetEditedByUser() *RevisionFieldsEditedByUserNodeRevisionEditor {
+	return v.RevisionFields.EditedByUser
+}
+
+// GetRevLabel returns NodeRevisionsStampedNodeRevisionsNodeRevision.RevLabel, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetRevLabel() *string {
+	return v.RevisionFields.RevLabel
+}
+
+// GetChanges returns NodeRevisionsStampedNodeRevisionsNodeRevision.Changes, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetChanges() []string {
+	return v.RevisionFields.Changes
+}
+
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeRevisionsStampedNodeRevisionsNodeRevision
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeRevisionsStampedNodeRevisionsNodeRevision = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RevisionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeRevisionsStampedNodeRevisionsNodeRevision struct {
+	Authorship *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship `json:"authorship"`
+
+	ContentValidation *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus `json:"contentValidation"`
+
+	Id string `json:"id"`
+
+	NodeId string `json:"nodeId"`
+
+	Loc string `json:"loc"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Tags []string `json:"tags"`
+
+	CreatedAt string `json:"createdAt"`
+
+	EditedBy *string `json:"editedBy"`
+
+	EditedByInfo *string `json:"editedByInfo"`
+
+	EditedByUser *RevisionFieldsEditedByUserNodeRevisionEditor `json:"editedByUser"`
+
+	RevLabel *string `json:"revLabel"`
+
+	Changes []string `json:"changes"`
+}
+
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) __premarshalJSON() (*__premarshalNodeRevisionsStampedNodeRevisionsNodeRevision, error) {
+	var retval __premarshalNodeRevisionsStampedNodeRevisionsNodeRevision
+
+	retval.Authorship = v.Authorship
+	retval.ContentValidation = v.ContentValidation
+	retval.Id = v.RevisionFields.Id
+	retval.NodeId = v.RevisionFields.NodeId
+	retval.Loc = v.RevisionFields.Loc
+	retval.Name = v.RevisionFields.Name
+	retval.Description = v.RevisionFields.Description
+	retval.Tags = v.RevisionFields.Tags
+	retval.CreatedAt = v.RevisionFields.CreatedAt
+	retval.EditedBy = v.RevisionFields.EditedBy
+	retval.EditedByInfo = v.RevisionFields.EditedByInfo
+	retval.EditedByUser = v.RevisionFields.EditedByUser
+	retval.RevLabel = v.RevisionFields.RevLabel
+	retval.Changes = v.RevisionFields.Changes
+	return &retval, nil
+}
+
+// NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship includes the requested fields of the GraphQL type NodeAuthorship.
+type NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship struct {
+	NodeAuthorshipFields `json:"-"`
+}
+
+// GetKind returns NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship.Kind, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) GetKind() NodeAuthorshipKind {
+	return v.NodeAuthorshipFields.Kind
+}
+
+// GetAuthoredAt returns NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship.AuthoredAt, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) GetAuthoredAt() string {
+	return v.NodeAuthorshipFields.AuthoredAt
+}
+
+// GetTaskRef returns NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship.TaskRef, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) GetTaskRef() *string {
+	return v.NodeAuthorshipFields.TaskRef
+}
+
+// GetTaskRevision returns NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship.TaskRevision, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) GetTaskRevision() *int {
+	return v.NodeAuthorshipFields.TaskRevision
+}
+
+// GetHuman returns NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship.Human, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) GetHuman() *NodeAuthorshipFieldsHumanNodeRevisionEditor {
+	return v.NodeAuthorshipFields.Human
+}
+
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeAuthorshipFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship struct {
+	Kind NodeAuthorshipKind `json:"kind"`
+
+	AuthoredAt string `json:"authoredAt"`
+
+	TaskRef *string `json:"taskRef"`
+
+	TaskRevision *int `json:"taskRevision"`
+
+	Human *NodeAuthorshipFieldsHumanNodeRevisionEditor `json:"human"`
+}
+
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) __premarshalJSON() (*__premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship, error) {
+	var retval __premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship
+
+	retval.Kind = v.NodeAuthorshipFields.Kind
+	retval.AuthoredAt = v.NodeAuthorshipFields.AuthoredAt
+	retval.TaskRef = v.NodeAuthorshipFields.TaskRef
+	retval.TaskRevision = v.NodeAuthorshipFields.TaskRevision
+	retval.Human = v.NodeAuthorshipFields.Human
+	return &retval, nil
+}
+
+// NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus includes the requested fields of the GraphQL type NodeContentValidationStatus.
+type NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus struct {
+	NodeContentValidationFields `json:"-"`
+}
+
+// GetState returns NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus.State, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus) GetState() NodeContentValidationState {
+	return v.NodeContentValidationFields.State
+}
+
+// GetLatestReport returns NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus.LatestReport, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus) GetLatestReport() *NodeContentValidationFieldsLatestReportNodeContentValidationReport {
+	return v.NodeContentValidationFields.LatestReport
+}
+
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeContentValidationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus struct {
+	State NodeContentValidationState `json:"state"`
+
+	LatestReport *NodeContentValidationFieldsLatestReportNodeContentValidationReport `json:"latestReport"`
+}
+
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus) __premarshalJSON() (*__premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus, error) {
+	var retval __premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus
+
+	retval.State = v.NodeContentValidationFields.State
+	retval.LatestReport = v.NodeContentValidationFields.LatestReport
+	return &retval, nil
+}
+
+// NodeRevisionsStampedResponse is returned by NodeRevisionsStamped on success.
+type NodeRevisionsStampedResponse struct {
+	// Revision history for a node, most recent first.
+	//
+	// Accepts the node's ID or URN. Access-gated on the node's memory: a node
+	// whose memory the caller can't read returns an empty list (no existence
+	// disclosure).
+	NodeRevisions []*NodeRevisionsStampedNodeRevisionsNodeRevision `json:"nodeRevisions"`
+}
+
+// GetNodeRevisions returns NodeRevisionsStampedResponse.NodeRevisions, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedResponse) GetNodeRevisions() []*NodeRevisionsStampedNodeRevisionsNodeRevision {
 	return v.NodeRevisions
 }
 
@@ -35525,6 +36547,22 @@ func (v *__NodeLiveRevisionsInput) GetMemory() *string { return v.Memory }
 // GetLocPrefix returns __NodeLiveRevisionsInput.LocPrefix, and is useful for accessing the field via an interface.
 func (v *__NodeLiveRevisionsInput) GetLocPrefix() *string { return v.LocPrefix }
 
+// __NodeLiveRevisionsStampedInput is used internally by genqlient
+type __NodeLiveRevisionsStampedInput struct {
+	Refs      []string `json:"refs,omitempty"`
+	Memory    *string  `json:"memory,omitempty"`
+	LocPrefix *string  `json:"locPrefix,omitempty"`
+}
+
+// GetRefs returns __NodeLiveRevisionsStampedInput.Refs, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsStampedInput) GetRefs() []string { return v.Refs }
+
+// GetMemory returns __NodeLiveRevisionsStampedInput.Memory, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsStampedInput) GetMemory() *string { return v.Memory }
+
+// GetLocPrefix returns __NodeLiveRevisionsStampedInput.LocPrefix, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsStampedInput) GetLocPrefix() *string { return v.LocPrefix }
+
 // __NodeRevisionInput is used internally by genqlient
 type __NodeRevisionInput struct {
 	RevisionId string `json:"revisionId"`
@@ -35532,6 +36570,14 @@ type __NodeRevisionInput struct {
 
 // GetRevisionId returns __NodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
 func (v *__NodeRevisionInput) GetRevisionId() string { return v.RevisionId }
+
+// __NodeRevisionStampedInput is used internally by genqlient
+type __NodeRevisionStampedInput struct {
+	RevisionId string `json:"revisionId"`
+}
+
+// GetRevisionId returns __NodeRevisionStampedInput.RevisionId, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionStampedInput) GetRevisionId() string { return v.RevisionId }
 
 // __NodeRevisionsInput is used internally by genqlient
 type __NodeRevisionsInput struct {
@@ -35544,6 +36590,18 @@ func (v *__NodeRevisionsInput) GetNodeRef() string { return v.NodeRef }
 
 // GetLimit returns __NodeRevisionsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__NodeRevisionsInput) GetLimit() *int { return v.Limit }
+
+// __NodeRevisionsStampedInput is used internally by genqlient
+type __NodeRevisionsStampedInput struct {
+	NodeRef string `json:"nodeRef"`
+	Limit   *int   `json:"limit,omitempty"`
+}
+
+// GetNodeRef returns __NodeRevisionsStampedInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionsStampedInput) GetNodeRef() string { return v.NodeRef }
+
+// GetLimit returns __NodeRevisionsStampedInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionsStampedInput) GetLimit() *int { return v.Limit }
 
 // __OrgMembersInput is used internally by genqlient
 type __OrgMembersInput struct {
@@ -44309,6 +45367,82 @@ func NodeLiveRevisions(
 	return data_, err_
 }
 
+// The query executed by NodeLiveRevisionsStamped.
+const NodeLiveRevisionsStamped_Operation = `
+query NodeLiveRevisionsStamped ($refs: [ID!], $memory: ID, $locPrefix: String) {
+	nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+		truncated
+		omitted
+		unavailable
+		nodes {
+			id
+			revision
+			authorship {
+				... NodeAuthorshipFields
+			}
+			contentValidation {
+				... NodeContentValidationFields
+			}
+		}
+	}
+}
+fragment NodeAuthorshipFields on NodeAuthorship {
+	kind
+	authoredAt
+	taskRef
+	taskRevision
+	human {
+		handle
+		urn
+	}
+}
+fragment NodeContentValidationFields on NodeContentValidationStatus {
+	state
+	latestReport {
+		outcome
+		nodeRevision
+		reportedAt
+		validationTaskRef
+		validationTaskRevision
+	}
+}
+`
+
+// cli#752 (hadron-server#1326): NodeLiveRevisions plus the server-authored
+// stamps of each node's CURRENT revision — who authored this content state, and
+// the advisory validation for exactly this revision. Read in the same bracket
+// as the revision, so a printed stamp always describes the printed revision.
+// Its own operation, so a server predating the stamps (a GraphQL validation
+// refusal) falls back to NodeLiveRevisions and loses only the stamps.
+func NodeLiveRevisionsStamped(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+	memory *string,
+	locPrefix *string,
+) (data_ *NodeLiveRevisionsStampedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeLiveRevisionsStamped",
+		Query:  NodeLiveRevisionsStamped_Operation,
+		Variables: &__NodeLiveRevisionsStampedInput{
+			Refs:      refs,
+			Memory:    memory,
+			LocPrefix: locPrefix,
+		},
+	}
+
+	data_ = &NodeLiveRevisionsStampedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by NodeRevision.
 const NodeRevision_Operation = `
 query NodeRevision ($revisionId: ID!) {
@@ -44363,6 +45497,84 @@ func NodeRevision(
 	return data_, err_
 }
 
+// The query executed by NodeRevisionStamped.
+const NodeRevisionStamped_Operation = `
+query NodeRevisionStamped ($revisionId: ID!) {
+	nodeRevision(revisionId: $revisionId) {
+		... RevisionFields
+		content
+		authorship {
+			... NodeAuthorshipFields
+		}
+		contentValidation {
+			... NodeContentValidationFields
+		}
+	}
+}
+fragment RevisionFields on NodeRevision {
+	id
+	nodeId
+	loc
+	name
+	description
+	tags
+	createdAt
+	editedBy
+	editedByInfo
+	editedByUser {
+		handle
+		urn
+	}
+	revLabel
+	changes
+}
+fragment NodeAuthorshipFields on NodeAuthorship {
+	kind
+	authoredAt
+	taskRef
+	taskRevision
+	human {
+		handle
+		urn
+	}
+}
+fragment NodeContentValidationFields on NodeContentValidationStatus {
+	state
+	latestReport {
+		outcome
+		nodeRevision
+		reportedAt
+		validationTaskRef
+		validationTaskRevision
+	}
+}
+`
+
+func NodeRevisionStamped(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	revisionId string,
+) (data_ *NodeRevisionStampedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeRevisionStamped",
+		Query:  NodeRevisionStamped_Operation,
+		Variables: &__NodeRevisionStampedInput{
+			RevisionId: revisionId,
+		},
+	}
+
+	data_ = &NodeRevisionStampedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by NodeRevisions.
 const NodeRevisions_Operation = `
 query NodeRevisions ($nodeRef: ID!, $limit: Int) {
@@ -44406,6 +45618,90 @@ func NodeRevisions(
 	}
 
 	data_ = &NodeRevisionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeRevisionsStamped.
+const NodeRevisionsStamped_Operation = `
+query NodeRevisionsStamped ($nodeRef: ID!, $limit: Int) {
+	nodeRevisions(nodeRef: $nodeRef, limit: $limit) {
+		... RevisionFields
+		authorship {
+			... NodeAuthorshipFields
+		}
+		contentValidation {
+			... NodeContentValidationFields
+		}
+	}
+}
+fragment RevisionFields on NodeRevision {
+	id
+	nodeId
+	loc
+	name
+	description
+	tags
+	createdAt
+	editedBy
+	editedByInfo
+	editedByUser {
+		handle
+		urn
+	}
+	revLabel
+	changes
+}
+fragment NodeAuthorshipFields on NodeAuthorship {
+	kind
+	authoredAt
+	taskRef
+	taskRevision
+	human {
+		handle
+		urn
+	}
+}
+fragment NodeContentValidationFields on NodeContentValidationStatus {
+	state
+	latestReport {
+		outcome
+		nodeRevision
+		reportedAt
+		validationTaskRef
+		validationTaskRevision
+	}
+}
+`
+
+// cli#752 (hadron-server#1326): the same reads with each snapshot's own stamps
+// — the authorship of the content it captured, and the validation AT that
+// revision. Historical evidence, shown as the server snapshotted it, never
+// reconstructed from the live node or task. Separate operations so a server
+// predating the stamps falls back to the two above and loses only the stamps.
+func NodeRevisionsStamped(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	limit *int,
+) (data_ *NodeRevisionsStampedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeRevisionsStamped",
+		Query:  NodeRevisionsStamped_Operation,
+		Variables: &__NodeRevisionsStampedInput{
+			NodeRef: nodeRef,
+			Limit:   limit,
+		},
+	}
+
+	data_ = &NodeRevisionsStampedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

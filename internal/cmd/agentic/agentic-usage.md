@@ -761,6 +761,26 @@ Conventions:
   than print content beside a revision from another moment. A revision versions the NODE only: it
   does not version partials or template data the node includes, and it is not
   proof that the content complies with any task.
+- **`node get` carries the server-authored stamps of that same revision**
+  (cli#752, hadron-server#1326), read in the same before/after bracket, so a
+  printed stamp always describes the printed revision:
+  - `authorship` — `{kind: HUMAN|TASK, authoredAt, taskRef, taskRevision,
+    human: {handle, urn}}`. A TASK the server won't let you read is REDACTED:
+    `kind: TASK` with `taskRef: null` ("a task you can't read").
+  - `contentValidation` — `{state, latestReport}`. `state` is for THIS
+    revision: `PASS|FAIL|ERROR` from a report made for it, `STALE` when the
+    latest report was for an older revision (`latestReport.nodeRevision` says
+    which — an old PASS is never shown as current), `UNVALIDATED` when there
+    is none. Advisory only: it blocks nothing and proves no compliance.
+  - **Null convention:** on a server with stamps `contentValidation` is never
+    null, so `contentValidation: null` means the server PREDATES the stamps
+    (human output: `stamps: unknown`) and `authorship: null` then says
+    nothing. On a stamping server `authorship: null` is the server's answer:
+    legacy content, or not recorded.
+  - `node revision list|get` add each SNAPSHOT's own `authorship` and
+    `contentValidation` (the validation at that historical revision, as the
+    server snapshotted it — never reconstructed from the live node), with the
+    same null convention; the list table gains a VALIDATION column.
   - **For one node you already hold**, compare the two yourself — that is what
     `spec citations --stale-abstracts` does, and exposing the field is what
     makes it possible from `node get` at all. **Compare against RAW content**:

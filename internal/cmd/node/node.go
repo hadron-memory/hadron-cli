@@ -78,6 +78,12 @@ type nodeDetailDTO struct {
 	// predates revisions — and must render rather than vanish. It is never
 	// guessed: not 0, and not "current".
 	Revision *int `json:"revision"`
+	// Authorship and ContentValidation are the server-authored stamps of the
+	// SAME revision (hadron-server#1326, cli#752), read in the bracket that
+	// pairs Revision with the content. Both pointers with NO omitempty: see
+	// stamps.go — contentValidation: null means the server predates them.
+	Authorship        *authorshipDTO        `json:"authorship"`
+	ContentValidation *contentValidationDTO `json:"contentValidation"`
 	// Rendered says which body `content` is (#736). true: the single-node
 	// read COMPILED its Mustache {{…}} templates against the node's data, so
 	// placeholders are gone — never edit and write that text back. false: the

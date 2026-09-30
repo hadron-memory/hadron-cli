@@ -209,6 +209,7 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 	} else {
 		fmt.Fprintln(w, "  revision: unknown (the server predates node revisions)")
 	}
+	renderStamps(w, "  ", dto.Authorship, dto.ContentValidation, "this revision")
 	if dto.Data != nil && len(*dto.Data) > 0 {
 		if dataStr := string(*dto.Data); dataStr != "null" {
 			fmt.Fprintf(w, "  data: %s\n", dataStr)
@@ -373,8 +374,11 @@ const (
 // is correctly absent from a read of that moment; every node that IS printed
 // carries the revision of the content printed.
 func readConsistently(cmd *cobra.Command, client graphql.Client, sel revisionSelector, read func() ([]*nodeDetailDTO, error)) error {
+	// Stamp support is learned once and kept across attempts: a server that
+	// refused the stamps once is not asked again (cli#752).
+	stamps := &stampReads{}
 	for attempt := 1; ; attempt++ {
-		before, supportBefore, err := liveRevisions(cmd, client, sel)
+		before, supportBefore, err := liveRevisions(cmd, client, sel, stamps)
 		if err != nil {
 			return err
 		}
@@ -386,7 +390,11 @@ func readConsistently(cmd *cobra.Command, client graphql.Client, sel revisionSel
 		for _, d := range dtos {
 			ids = append(ids, d.ID)
 		}
-		after, supportAfter, err := liveRevisions(cmd, client, revisionSelector{refs: ids})
+		// The stamps printed are the AFTER probe's: the one whose revisions
+		// must equal the before-probe's for the read to be kept, so each
+		// printed stamp describes the printed revision.
+		stamps.byID = map[string]nodeStamps{}
+		after, supportAfter, err := liveRevisions(cmd, client, revisionSelector{refs: ids}, stamps)
 		if err != nil {
 			return err
 		}
@@ -397,6 +405,7 @@ func readConsistently(cmd *cobra.Command, client graphql.Client, sel revisionSel
 		case supportBefore == supportNo && supportAfter == supportNo:
 			return nil
 		case supportBefore == supportYes && supportAfter == supportYes && pairRevisions(dtos, before, after):
+			stamps.apply(dtos)
 			return nil
 		}
 		// A changed revision, a node gone missing, or support that differs
@@ -432,10 +441,52 @@ func pairRevisions(dtos []*nodeDetailDTO, before, after map[string]int) bool {
 // refs go in api.NodeBatchCap-sized calls; a prefix read's byte-cap spillover
 // is re-read by id. Any failure other than the unknown-field refusal,
 // including a null envelope, is the command's error.
-func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelector) (map[string]int, revisionSupport, error) {
+func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelector, stamps *stampReads) (map[string]int, revisionSupport, error) {
 	revs := map[string]int{}
 	var yes, no bool
 	ask := func(refs []string, memory, prefix *string) (*gen.NodeLiveRevisionsNodeBatchNodeBatchResult, error) {
+		// The stamped read first (cli#752). A server that predates the stamps
+		// refuses them by name, and the plain read below still gets the
+		// revisions: losing the stamps must not cost the revision.
+		if !stamps.unsupported {
+			resp, err := gen.NodeLiveRevisionsStamped(cmd.Context(), client, refs, memory, prefix)
+			switch {
+			case err == nil && resp.NodeBatch != nil:
+				yes = true
+				out := &gen.NodeLiveRevisionsNodeBatchNodeBatchResult{
+					Truncated: resp.NodeBatch.Truncated, Omitted: resp.NodeBatch.Omitted, Unavailable: resp.NodeBatch.Unavailable,
+				}
+				for _, n := range resp.NodeBatch.Nodes {
+					if n == nil {
+						continue
+					}
+					revs[n.Id] = n.Revision
+					if stamps.byID != nil {
+						st := nodeStamps{}
+						if n.Authorship != nil {
+							st.authorship = authorshipFrom(&n.Authorship.NodeAuthorshipFields)
+						}
+						if n.ContentValidation != nil {
+							st.validation = contentValidationFrom(&n.ContentValidation.NodeContentValidationFields)
+						}
+						stamps.byID[n.Id] = st
+					}
+				}
+				return out, nil
+			case err == nil:
+				return nil, exitcode.Newf(exitcode.Error, "the server returned no result for the node revision read")
+			case isUnknownFieldErr(err, "authorship") || isUnknownFieldErr(err, "contentValidation") ||
+				isUnknownFieldErr(err, "NodeAuthorship") || isUnknownFieldErr(err, "NodeContentValidationStatus"):
+				stamps.unsupported = true
+			case isUnknownFieldErr(err, "revision") || isUnknownFieldErr(err, "nodeBatch"):
+				// Predates revisions, so predates the stamps too.
+				stamps.unsupported = true
+				no = true
+				return nil, nil
+			default:
+				return nil, api.MapError(err)
+			}
+		}
 		resp, err := gen.NodeLiveRevisions(cmd.Context(), client, refs, memory, prefix)
 		if err != nil {
 			// A server without nodeBatch at all predates revisions too; the
@@ -533,4 +584,32 @@ func fetchNode(cmd *cobra.Command, client graphql.Client, memory, ref string) (*
 		return nil, exitcode.Newf(exitcode.NotFound, "node %q not found", ref)
 	}
 	return resp.Node, nil
+}
+
+// nodeStamps is one node's stamps from a revision probe (cli#752).
+type nodeStamps struct {
+	authorship *authorshipDTO
+	validation *contentValidationDTO
+}
+
+// stampReads carries what the revision probes learned about the stamps:
+// whether the server supports them at all, and — for the probe that is
+// currently collecting (the AFTER probe; byID is nil otherwise) — each
+// node's stamps.
+type stampReads struct {
+	unsupported bool
+	byID        map[string]nodeStamps
+}
+
+// apply sets each DTO's stamps from the after-probe. On a server without them
+// both stay nil: contentValidation: null is the "can't say" answer.
+func (s *stampReads) apply(dtos []*nodeDetailDTO) {
+	if s.unsupported {
+		return
+	}
+	for _, d := range dtos {
+		if st, ok := s.byID[d.ID]; ok {
+			d.Authorship, d.ContentValidation = st.authorship, st.validation
+		}
+	}
 }
