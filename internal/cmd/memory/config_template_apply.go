@@ -61,6 +61,9 @@ The report has one entry per template rule:
   SKIPPED_LOCKED    a required template met a locked rule you have no
                     authority to move; the rule stands
 
+A locked rule refuses every ordinary rule update and rule rm, for every caller;
+rule unlock is the deliberate step before either.
+
 The command previews first. When the preview would REPLACE a rule, it asks
 before applying (a prompt on a terminal; --yes non-interactively), then applies
 exactly the template revision it showed you: a template changed in between is

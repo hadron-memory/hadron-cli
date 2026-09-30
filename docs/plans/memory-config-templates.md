@@ -253,13 +253,14 @@ The steps:
 
 ## 6. Slice 3: `template apply` (hadron-server#1334 slice 1)
 
-> **Status: DRAFT, built against the #1399 candidate `5584741`** (Ada, team
-> chat #2215: build against the posted contract; regenerate and verify from
-> the merge before ready). The snapshot was exported from that head, which sits
-> on server `main` `19835fb`, so it also carries #1362's team-attention
-> operations. Those are cli#732's (Jonas); they are annotated in the
-> unbound-ops baseline rather than wired here. Whichever of cli#732 and this
-> lands second re-exports.
+> **Status: rebased on `main` after cli#732, re-exported from server `main`
+> `84ca0d68`** (a throwaway clone; it contains #1399, merged `fcf71da`). First
+> built against the #1399 candidate `5584741` (Ada, team chat #2215). The
+> re-export also brings #1451's `corpusState`/`draftCorpus`, which nothing here
+> selects. After the rebase, `applyMemoryConfigTemplate` and
+> `unlockNodeRoleRule` are both wired, so the unbound-ops baseline loses both
+> lines and gains none. Updated for Holger's lock ruling: see Exit codes and
+> the lock policy below.
 
 **Surface:** `hadron memory config template apply <templateId> <memoryRef>
 [--dry-run] [--expected-revision <n>] [--yes]` over `applyMemoryConfigTemplate`.
@@ -287,17 +288,31 @@ apply can still be REPLACED unasked. The apply's own report is authoritative
 and is what the command prints.
 
 **Exit codes:**
-- `RULE_LOCKED` → 8. It also reaches slice 1's `rule update|rm`. The caller can
-  see and manage the rule, so nothing is concealed and it is an authority
-  refusal, not 4.
+- `RULE_LOCKED` → **5** on `rule update|rm` (and globally). Holger's lock
+  ruling (2026-09-27, option 2; Eli, team chat #2432) made a locked rule refuse
+  EVERY caller's ordinary update and delete, admins included — the rule's
+  state, not the caller's permission. Both commands add the remedy to the
+  message: `hadron memory config rule unlock <memoryRef> <role>`, or re-apply
+  the template.
+- `RULE_LOCKED` → **8** on `rule unlock` only: there the same code means the
+  caller lacks LOCK AUTHORITY (an org ADMIN/OWNER, or the manager of a
+  personal/private/org-less memory) — a permission. The command maps it
+  itself, where the caller is known.
 - `NODE_ROLE_RULE_REF_BROKEN` → 5. The stored template's task was deleted; the
   fix is `template update`, not the caller's input.
 - Skipped entries are the report, not a failure: exit 0.
 
-**No lock policy is invented.** Eli found that under H3 everyone who can
-manage a config already has lock authority, so `RULE_LOCKED` and
-`SKIPPED_LOCKED` stop nobody today (#2216; a question for Holger on #1334).
-The CLI reports both faithfully, whatever the server decides.
+**The lock policy is the server's, as ruled.** The earlier draft of this
+section followed H3, where everyone who can manage a config had lock authority
+(#2216). Holger's ruling replaced it: a locked rule refuses every ordinary
+edit, and `unlockNodeRoleRule` (hadron-server#1399, merged `fcf71da`) is the
+deliberate step. It is wrapped as `memory config rule unlock <memoryRef>
+<role> [--yes]`: it reads the rule first and sends its revision (exit 5 if it
+changed), asks on a terminal (`--yes` non-interactively) because unlocking is
+the deliberate act, and on an already-unlocked rule notes on stderr that
+nothing changes, without a prompt. Apply keeps its own authority rule: a
+caller WITH lock authority may have a required template replace a locked
+rule; anyone else gets `SKIPPED_LOCKED`.
 
 **Tests** (`internal/cmd/memory_config_template_apply_cmd_test.go`, with a server
 that records every call in order):
@@ -310,7 +325,10 @@ that records every call in order):
   locally;
 - `SKIPPED_LOCKED` exits 0; an empty template gives `entries: []`;
 - server refusals: 4, 4, 5, 5, 4, never followed by an apply;
-- `RULE_LOCKED` exits 8 on `rule update` and `rule rm`;
+- `RULE_LOCKED` exits 5 on `rule update` and `rule rm`, naming `rule unlock`;
+- `rule unlock`: sends the id at the revision just read; refuses without
+  `--yes` non-interactively; exits 8 on `RULE_LOCKED` (no lock authority);
+  an unlocked rule is not prompted for; a declined prompt writes nothing;
 - the dry-run LOCKED column shows the after-state for all four outcomes;
 - on a terminal, `y` applies (pinned) and `n` cancels (exit 6) after only the
   preview.

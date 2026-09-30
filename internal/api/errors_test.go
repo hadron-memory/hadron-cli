@@ -67,7 +67,7 @@ func TestMapError(t *testing.T) {
 		{"duplicate", gqlErr("DUPLICATE_APP_AGENT"), exitcode.Conflict},
 		// #1325 part b (cli#716): each fell through to the generic 1 on c9fa75a.
 		{"node role rule exists", gqlErr("NODE_ROLE_RULE_EXISTS"), exitcode.Conflict},
-		{"rule locked (#1334)", gqlErr("RULE_LOCKED"), exitcode.Forbidden},
+		{"rule locked (#1334)", gqlErr("RULE_LOCKED"), exitcode.Conflict},
 		{"template rule ref broken (#1334)", gqlErr("NODE_ROLE_RULE_REF_BROKEN"), exitcode.Conflict},
 		{"invalid node role", gqlErr("INVALID_NODE_ROLE"), exitcode.Usage},
 		{"not a task", gqlErr("NOT_A_TASK"), exitcode.Usage},

@@ -215,3 +215,22 @@ mutation ApplyMemoryConfigTemplate(
     }
   }
 }
+
+# hadron-server#1334 — the deliberate step before a LOCKED rule (written by a
+# required template) can be edited or removed: a locked rule refuses every
+# ordinary update and delete, for every caller (Holger, 2026-09-27). Needs lock
+# authority; anyone else who manages the memory gets RULE_LOCKED. Unlocking an
+# unlocked rule changes nothing.
+mutation UnlockNodeRoleRule(
+  $ref: ID!
+  $expectedRevision: Int!
+) {
+  unlockNodeRoleRule(ref: $ref, expectedRevision: $expectedRevision) {
+    rule {
+      ...NodeRoleRuleFields
+    }
+    warnings {
+      ...MemoryConfigWarningFields
+    }
+  }
+}

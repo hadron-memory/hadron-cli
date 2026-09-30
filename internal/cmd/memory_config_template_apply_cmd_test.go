@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -245,8 +246,10 @@ func TestTemplateApplyServerRefusals(t *testing.T) {
 	}
 }
 
-// RULE_LOCKED reaches slice 1's `rule update|rm` too: exit 8.
-func TestMemoryConfigRuleLockedIsForbidden(t *testing.T) {
+// Since Holger's 2026-09-27 ruling a LOCKED rule refuses EVERY caller's
+// ordinary update or delete: the rule's state, so exit 5, and the message
+// names the deliberate remedy, `rule unlock`.
+func TestMemoryConfigRuleLockedIsAConflictNamingUnlock(t *testing.T) {
 	locked := gqlError("RULE_LOCKED", `"ruleId":"r1","role":"spec","sourceTemplateId":"t1"`)
 	for name, tc := range map[string]struct {
 		op   string
@@ -260,10 +263,100 @@ func TestMemoryConfigRuleLockedIsForbidden(t *testing.T) {
 				"MemoryConfig": configJSON(ruleJSON("r1", "spec", 1, "NONE", "NONE")),
 				tc.op:          locked,
 			})
-			if _, code := runConfig(t, gql.URL, append([]string{"memory", "config", "rule"}, tc.args...)...); code != exitcode.Forbidden {
-				t.Errorf("exit = %d, want %d", code, exitcode.Forbidden)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"memory", "config", "rule"}, tc.args...), "--server", gql.URL))
+			err := root.Execute()
+			if got := exitCodeFor(err); got != exitcode.Conflict {
+				t.Errorf("exit = %d, want %d", got, exitcode.Conflict)
+			}
+			if err == nil || !strings.Contains(err.Error(), "hadron memory config rule unlock "+configMemoryRef+" spec") {
+				t.Errorf("the refusal must name the unlock command, got %v", err)
 			}
 		})
+	}
+}
+
+// lockedSpecRule is the "spec" rule r1 at revision 3, locked by a required template.
+var lockedSpecRule = strings.Replace(ruleJSON("r1", "spec", 3, "NONE", "NONE"), `"locked":false`, `"locked":true`, 1)
+
+const unlockedResp = `{"data":{"unlockNodeRoleRule":{"rule":` + "%s" + `,"warnings":[]}}}`
+
+func TestMemoryConfigRuleUnlockSendsTheRevisionReadFirst(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MemoryConfig":       configJSON(lockedSpecRule),
+		"UnlockNodeRoleRule": fmt.Sprintf(unlockedResp, ruleJSON("r1", "spec", 4, "NONE", "NONE")),
+	})
+	out, code := runConfig(t, gql.URL, "memory", "config", "rule", "unlock", configMemoryRef, "spec", "--yes", "--json")
+	if code != exitcode.OK {
+		t.Fatalf("unlock --yes: exit %d\n%s", code, out)
+	}
+	v := vars(t, captured["UnlockNodeRoleRule"])
+	if v["ref"] != "r1" || v["expectedRevision"] != float64(3) {
+		t.Errorf("unlock must address the rule by id at the revision just read: %v", v)
+	}
+	if !strings.Contains(out, `"locked": false`) || !strings.Contains(out, `"warnings": []`) {
+		t.Errorf("unexpected result: %s", out)
+	}
+}
+
+// Unlocking is the deliberate step, so a non-interactive caller must say so.
+func TestMemoryConfigRuleUnlockNeedsYesNonInteractively(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MemoryConfig": configJSON(lockedSpecRule),
+	})
+	if _, code := runConfig(t, gql.URL, "memory", "config", "rule", "unlock", configMemoryRef, "spec"); code != exitcode.Usage {
+		t.Errorf("unlock without --yes non-interactively should exit 2, got %d", code)
+	}
+	if _, sent := captured["UnlockNodeRoleRule"]; sent {
+		t.Error("nothing may be unlocked without confirmation")
+	}
+}
+
+// On unlock, RULE_LOCKED means the caller lacks LOCK AUTHORITY — a permission.
+func TestMemoryConfigRuleUnlockWithoutAuthorityIsForbidden(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"MemoryConfig":       configJSON(lockedSpecRule),
+		"UnlockNodeRoleRule": gqlError("RULE_LOCKED", `"ruleId":"r1","role":"spec"`),
+	})
+	if _, code := runConfig(t, gql.URL, "memory", "config", "rule", "unlock", configMemoryRef, "spec", "--yes"); code != exitcode.Forbidden {
+		t.Errorf("unlock without lock authority should exit 8, got %d", code)
+	}
+}
+
+// An unlocked rule: nothing to confirm, so no prompt — and the server, asked
+// anyway, changes nothing. Said on stderr so the caller isn't misled.
+func TestMemoryConfigRuleUnlockOfAnUnlockedRuleDoesNotPrompt(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MemoryConfig":       configJSON(ruleJSON("r1", "spec", 3, "NONE", "NONE")),
+		"UnlockNodeRoleRule": fmt.Sprintf(unlockedResp, ruleJSON("r1", "spec", 3, "NONE", "NONE")),
+	})
+	f, _, errOut := testFactoryTTY(t, "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "config", "rule", "unlock", configMemoryRef, "spec", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("unlocking an unlocked rule: %v", err)
+	}
+	if _, sent := captured["UnlockNodeRoleRule"]; !sent {
+		t.Error("the unlock is still sent")
+	}
+	if strings.Contains(errOut.String(), "(y/N)") || !strings.Contains(errOut.String(), "is not locked") {
+		t.Errorf("no prompt, and a note that nothing changes: %q", errOut.String())
+	}
+}
+
+func TestMemoryConfigRuleUnlockTTYDeclineWritesNothing(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MemoryConfig": configJSON(lockedSpecRule),
+	})
+	f, _, _ := testFactoryTTY(t, "n\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "config", "rule", "unlock", configMemoryRef, "spec", "--server", gql.URL})
+	if got := exitCodeFor(root.Execute()); got != exitcode.Cancelled {
+		t.Errorf("declining should exit 6, got %d", got)
+	}
+	if _, sent := captured["UnlockNodeRoleRule"]; sent {
+		t.Error("a declined unlock must write nothing")
 	}
 }
 

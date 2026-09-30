@@ -2723,6 +2723,453 @@ var AllAppType = []AppType{
 	AppTypeWorkstation,
 }
 
+// ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult includes the requested fields of the GraphQL type MemoryConfigApplyResult.
+type ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult struct {
+	MemoryId string                                                                                                       `json:"memoryId"`
+	Template *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultTemplateNodeRoleRuleSourceTemplate `json:"template"`
+	// The template revision that was applied; pass it back as expectedTemplateRevision to apply exactly what a dry run showed.
+	TemplateRevision int  `json:"templateRevision"`
+	Required         bool `json:"required"`
+	DryRun           bool `json:"dryRun"`
+	// One per template rule, role-ascending.
+	Entries []*ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntry `json:"entries"`
+	// Empty until #1327 adds its visibility warnings.
+	Warnings []*ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning `json:"warnings"`
+}
+
+// GetMemoryId returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult.MemoryId, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetTemplate returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult.Template, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult) GetTemplate() *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultTemplateNodeRoleRuleSourceTemplate {
+	return v.Template
+}
+
+// GetTemplateRevision returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult.TemplateRevision, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult) GetTemplateRevision() int {
+	return v.TemplateRevision
+}
+
+// GetRequired returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult.Required, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult) GetRequired() bool {
+	return v.Required
+}
+
+// GetDryRun returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult.DryRun, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult) GetDryRun() bool {
+	return v.DryRun
+}
+
+// GetEntries returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult.Entries, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult) GetEntries() []*ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntry {
+	return v.Entries
+}
+
+// GetWarnings returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult.Warnings, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult) GetWarnings() []*ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning {
+	return v.Warnings
+}
+
+// ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntry includes the requested fields of the GraphQL type MemoryConfigApplyEntry.
+type ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntry struct {
+	Role    string                   `json:"role"`
+	Outcome MemoryConfigApplyOutcome `json:"outcome"`
+	// The rule in force for this role afterwards. On a dry run, the existing rule, or null for a would-be APPLIED.
+	Rule *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule `json:"rule"`
+}
+
+// GetRole returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntry.Role, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntry) GetRole() string {
+	return v.Role
+}
+
+// GetOutcome returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntry.Outcome, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntry) GetOutcome() MemoryConfigApplyOutcome {
+	return v.Outcome
+}
+
+// GetRule returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntry.Rule, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntry) GetRule() *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule {
+	return v.Rule
+}
+
+// ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule includes the requested fields of the GraphQL type NodeRoleRule.
+// The GraphQL type's documentation follows.
+//
+// #1325 — one node-role rule. Task and description references are stored by
+// node id (they survive moves) and returned as a URN and an id, each with its
+// state. Both are given only when the state is OK; see NodeRoleRuleRefState.
+type ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule struct {
+	NodeRoleRuleFields `json:"-"`
+}
+
+// GetId returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.Id, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetId() string {
+	return v.NodeRoleRuleFields.Id
+}
+
+// GetRole returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.Role, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetRole() string {
+	return v.NodeRoleRuleFields.Role
+}
+
+// GetRevision returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.Revision, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetRevision() int {
+	return v.NodeRoleRuleFields.Revision
+}
+
+// GetEnabled returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.Enabled, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetEnabled() bool {
+	return v.NodeRoleRuleFields.Enabled
+}
+
+// GetStrictSubRoles returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.StrictSubRoles, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetStrictSubRoles() bool {
+	return v.NodeRoleRuleFields.StrictSubRoles
+}
+
+// GetWriters returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.Writers, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetWriters() NodeRoleWriters {
+	return v.NodeRoleRuleFields.Writers
+}
+
+// GetValidateBy returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.ValidateBy, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetValidateBy() *ContentValidator {
+	return v.NodeRoleRuleFields.ValidateBy
+}
+
+// GetAuthorTask returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.AuthorTask, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetAuthorTask() *string {
+	return v.NodeRoleRuleFields.AuthorTask
+}
+
+// GetAuthorTaskId returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.AuthorTaskId, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetAuthorTaskId() *string {
+	return v.NodeRoleRuleFields.AuthorTaskId
+}
+
+// GetAuthorTaskState returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.AuthorTaskState, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetAuthorTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.AuthorTaskState
+}
+
+// GetValidationTask returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.ValidationTask, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetValidationTask() *string {
+	return v.NodeRoleRuleFields.ValidationTask
+}
+
+// GetValidationTaskId returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.ValidationTaskId, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetValidationTaskId() *string {
+	return v.NodeRoleRuleFields.ValidationTaskId
+}
+
+// GetValidationTaskState returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.ValidationTaskState, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetValidationTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.ValidationTaskState
+}
+
+// GetDescriptionNode returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.DescriptionNode, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetDescriptionNode() *string {
+	return v.NodeRoleRuleFields.DescriptionNode
+}
+
+// GetDescriptionNodeId returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.DescriptionNodeId, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetDescriptionNodeId() *string {
+	return v.NodeRoleRuleFields.DescriptionNodeId
+}
+
+// GetDescriptionNodeState returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.DescriptionNodeState, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetDescriptionNodeState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.DescriptionNodeState
+}
+
+// GetLocked returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.Locked, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetLocked() bool {
+	return v.NodeRoleRuleFields.Locked
+}
+
+// GetSourceTemplateId returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.SourceTemplateId, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetSourceTemplateId() *string {
+	return v.NodeRoleRuleFields.SourceTemplateId
+}
+
+// GetSourceTemplate returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.SourceTemplate, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetSourceTemplate() *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate {
+	return v.NodeRoleRuleFields.SourceTemplate
+}
+
+// GetCreatedAt returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetCreatedAt() string {
+	return v.NodeRoleRuleFields.CreatedAt
+}
+
+// GetCreatedBy returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.CreatedBy, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetCreatedBy() *string {
+	return v.NodeRoleRuleFields.CreatedBy
+}
+
+// GetUpdatedAt returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetUpdatedAt() *string {
+	return v.NodeRoleRuleFields.UpdatedAt
+}
+
+// GetUpdatedBy returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) GetUpdatedBy() *string {
+	return v.NodeRoleRuleFields.UpdatedBy
+}
+
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeRoleRuleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule struct {
+	Id string `json:"id"`
+
+	Role string `json:"role"`
+
+	Revision int `json:"revision"`
+
+	Enabled bool `json:"enabled"`
+
+	StrictSubRoles bool `json:"strictSubRoles"`
+
+	Writers NodeRoleWriters `json:"writers"`
+
+	ValidateBy *ContentValidator `json:"validateBy"`
+
+	AuthorTask *string `json:"authorTask"`
+
+	AuthorTaskId *string `json:"authorTaskId"`
+
+	AuthorTaskState NodeRoleRuleRefState `json:"authorTaskState"`
+
+	ValidationTask *string `json:"validationTask"`
+
+	ValidationTaskId *string `json:"validationTaskId"`
+
+	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
+
+	DescriptionNode *string `json:"descriptionNode"`
+
+	DescriptionNodeId *string `json:"descriptionNodeId"`
+
+	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
+
+	Locked bool `json:"locked"`
+
+	SourceTemplateId *string `json:"sourceTemplateId"`
+
+	SourceTemplate *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate `json:"sourceTemplate"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule) __premarshalJSON() (*__premarshalApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule, error) {
+	var retval __premarshalApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultEntriesMemoryConfigApplyEntryRuleNodeRoleRule
+
+	retval.Id = v.NodeRoleRuleFields.Id
+	retval.Role = v.NodeRoleRuleFields.Role
+	retval.Revision = v.NodeRoleRuleFields.Revision
+	retval.Enabled = v.NodeRoleRuleFields.Enabled
+	retval.StrictSubRoles = v.NodeRoleRuleFields.StrictSubRoles
+	retval.Writers = v.NodeRoleRuleFields.Writers
+	retval.ValidateBy = v.NodeRoleRuleFields.ValidateBy
+	retval.AuthorTask = v.NodeRoleRuleFields.AuthorTask
+	retval.AuthorTaskId = v.NodeRoleRuleFields.AuthorTaskId
+	retval.AuthorTaskState = v.NodeRoleRuleFields.AuthorTaskState
+	retval.ValidationTask = v.NodeRoleRuleFields.ValidationTask
+	retval.ValidationTaskId = v.NodeRoleRuleFields.ValidationTaskId
+	retval.ValidationTaskState = v.NodeRoleRuleFields.ValidationTaskState
+	retval.DescriptionNode = v.NodeRoleRuleFields.DescriptionNode
+	retval.DescriptionNodeId = v.NodeRoleRuleFields.DescriptionNodeId
+	retval.DescriptionNodeState = v.NodeRoleRuleFields.DescriptionNodeState
+	retval.Locked = v.NodeRoleRuleFields.Locked
+	retval.SourceTemplateId = v.NodeRoleRuleFields.SourceTemplateId
+	retval.SourceTemplate = v.NodeRoleRuleFields.SourceTemplate
+	retval.CreatedAt = v.NodeRoleRuleFields.CreatedAt
+	retval.CreatedBy = v.NodeRoleRuleFields.CreatedBy
+	retval.UpdatedAt = v.NodeRoleRuleFields.UpdatedAt
+	retval.UpdatedBy = v.NodeRoleRuleFields.UpdatedBy
+	return &retval, nil
+}
+
+// ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultTemplateNodeRoleRuleSourceTemplate includes the requested fields of the GraphQL type NodeRoleRuleSourceTemplate.
+type ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultTemplateNodeRoleRuleSourceTemplate struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	// The template has been deleted; the rule keeps its copy.
+	Deleted bool `json:"deleted"`
+}
+
+// GetId returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultTemplateNodeRoleRuleSourceTemplate.Id, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultTemplateNodeRoleRuleSourceTemplate) GetId() string {
+	return v.Id
+}
+
+// GetName returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultTemplateNodeRoleRuleSourceTemplate.Name, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultTemplateNodeRoleRuleSourceTemplate) GetName() string {
+	return v.Name
+}
+
+// GetDeleted returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultTemplateNodeRoleRuleSourceTemplate.Deleted, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultTemplateNodeRoleRuleSourceTemplate) GetDeleted() bool {
+	return v.Deleted
+}
+
+// ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
+// The GraphQL type's documentation follows.
+//
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+type ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning struct {
+	MemoryConfigWarningFields `json:"-"`
+}
+
+// GetCode returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning.Code, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning) GetCode() string {
+	return v.MemoryConfigWarningFields.Code
+}
+
+// GetRole returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning.Role, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning) GetRole() string {
+	return v.MemoryConfigWarningFields.Role
+}
+
+// GetField returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning.Field, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning) GetField() *string {
+	return v.MemoryConfigWarningFields.Field
+}
+
+// GetTaskUrn returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning.TaskUrn, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning) GetTaskUrn() *string {
+	return v.MemoryConfigWarningFields.TaskUrn
+}
+
+// GetTaskState returns ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning.TaskState, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning) GetTaskState() *NodeRoleRuleRefState {
+	return v.MemoryConfigWarningFields.TaskState
+}
+
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigWarningFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning struct {
+	Code string `json:"code"`
+
+	Role string `json:"role"`
+
+	Field *string `json:"field"`
+
+	TaskUrn *string `json:"taskUrn"`
+
+	TaskState *NodeRoleRuleRefState `json:"taskState"`
+}
+
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning) __premarshalJSON() (*__premarshalApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning, error) {
+	var retval __premarshalApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResultWarningsMemoryConfigWarning
+
+	retval.Code = v.MemoryConfigWarningFields.Code
+	retval.Role = v.MemoryConfigWarningFields.Role
+	retval.Field = v.MemoryConfigWarningFields.Field
+	retval.TaskUrn = v.MemoryConfigWarningFields.TaskUrn
+	retval.TaskState = v.MemoryConfigWarningFields.TaskState
+	return &retval, nil
+}
+
+// ApplyMemoryConfigTemplateResponse is returned by ApplyMemoryConfigTemplate on success.
+type ApplyMemoryConfigTemplateResponse struct {
+	// #1334 — copy a template's rules into ONE memory's config. A one-off copy:
+	// later template edits never reach this memory, and re-applying is explicit.
+	//
+	// Needs MANAGE on the memory (else MemoryNotFound) and on the template,
+	// which exists for you only if you manage its owner (else
+	// MEMORY_CONFIG_TEMPLATE_NOT_FOUND). The rules are validated as a whole,
+	// under a share lock, as createNodeRoleRule validates a new rule's
+	// references (NODE_NOT_FOUND for one you cannot read, NOT_A_TASK), and a
+	// template rule whose task was deleted refuses the whole apply
+	// (NODE_ROLE_RULE_REF_BROKEN). All-or-nothing per memory.
+	//
+	// When the memory already has a rule for a role, a non-required template
+	// skips it and a required template replaces it. A LOCKED rule is only
+	// replaced by a caller with lock authority (see unlockNodeRoleRule);
+	// otherwise SKIPPED_LOCKED. Rules written by a required template are locked.
+	//
+	// expectedTemplateRevision: CONFLICT (with currentRevision) if the template
+	// changed since you read it. dryRun: the same report with nothing written.
+	ApplyMemoryConfigTemplate *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult `json:"applyMemoryConfigTemplate"`
+}
+
+// GetApplyMemoryConfigTemplate returns ApplyMemoryConfigTemplateResponse.ApplyMemoryConfigTemplate, and is useful for accessing the field via an interface.
+func (v *ApplyMemoryConfigTemplateResponse) GetApplyMemoryConfigTemplate() *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult {
+	return v.ApplyMemoryConfigTemplate
+}
+
 // AppsAppsAppsPage includes the requested fields of the GraphQL type AppsPage.
 type AppsAppsAppsPage struct {
 	Total int                         `json:"total"`
@@ -14373,6 +14820,27 @@ var AllMemoryClass = []MemoryClass{
 	MemoryClassPersonal,
 	MemoryClassPrivate,
 	MemoryClassSystem,
+}
+
+// #1334 — what applying a template did (or, on a dry run, would do) for one role.
+type MemoryConfigApplyOutcome string
+
+const (
+	// The memory had no rule for the role; the template's was copied in (locked if the template is required).
+	MemoryConfigApplyOutcomeApplied MemoryConfigApplyOutcome = "APPLIED"
+	// The memory's rule for the role was overwritten by a required template's, and is now locked.
+	MemoryConfigApplyOutcomeReplaced MemoryConfigApplyOutcome = "REPLACED"
+	// The memory already had a rule for the role, and a non-required template never overrides one.
+	MemoryConfigApplyOutcomeSkippedConflict MemoryConfigApplyOutcome = "SKIPPED_CONFLICT"
+	// A required template met a LOCKED rule that you have no authority to move; the rule stands.
+	MemoryConfigApplyOutcomeSkippedLocked MemoryConfigApplyOutcome = "SKIPPED_LOCKED"
+)
+
+var AllMemoryConfigApplyOutcome = []MemoryConfigApplyOutcome{
+	MemoryConfigApplyOutcomeApplied,
+	MemoryConfigApplyOutcomeReplaced,
+	MemoryConfigApplyOutcomeSkippedConflict,
+	MemoryConfigApplyOutcomeSkippedLocked,
 }
 
 // MemoryConfigMemoryConfig includes the requested fields of the GraphQL type MemoryConfig.
@@ -26627,6 +27095,364 @@ func (v *UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload)
 	return v.AppId
 }
 
+// UnlockNodeRoleRuleResponse is returned by UnlockNodeRoleRule on success.
+type UnlockNodeRoleRuleResponse struct {
+	// #1334 — the deliberate step before a rule a required template LOCKED can be
+	// edited or deleted (Holger, 2026-09-27: nobody changes a locked rule through
+	// an ordinary edit). Needs lock authority: an org ADMIN/OWNER of the memory's
+	// org; on a personal/private or org-less memory, its manager. Anyone else who
+	// manages the memory gets RULE_LOCKED. Visible: bumps revision and stamps
+	// updatedBy. Unlocking an unlocked rule changes nothing. expectedRevision as
+	// for updateNodeRoleRule.
+	UnlockNodeRoleRule *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayload `json:"unlockNodeRoleRule"`
+}
+
+// GetUnlockNodeRoleRule returns UnlockNodeRoleRuleResponse.UnlockNodeRoleRule, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleResponse) GetUnlockNodeRoleRule() *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayload {
+	return v.UnlockNodeRoleRule
+}
+
+// UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayload includes the requested fields of the GraphQL type NodeRoleRulePayload.
+type UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayload struct {
+	Rule *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule `json:"rule"`
+	// Empty until #1327 adds its visibility warnings.
+	Warnings []*UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning `json:"warnings"`
+}
+
+// GetRule returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayload.Rule, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayload) GetRule() *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule {
+	return v.Rule
+}
+
+// GetWarnings returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayload.Warnings, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayload) GetWarnings() []*UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning {
+	return v.Warnings
+}
+
+// UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule includes the requested fields of the GraphQL type NodeRoleRule.
+// The GraphQL type's documentation follows.
+//
+// #1325 — one node-role rule. Task and description references are stored by
+// node id (they survive moves) and returned as a URN and an id, each with its
+// state. Both are given only when the state is OK; see NodeRoleRuleRefState.
+type UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule struct {
+	NodeRoleRuleFields `json:"-"`
+}
+
+// GetId returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Id, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetId() string {
+	return v.NodeRoleRuleFields.Id
+}
+
+// GetRole returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Role, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetRole() string {
+	return v.NodeRoleRuleFields.Role
+}
+
+// GetRevision returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Revision, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetRevision() int {
+	return v.NodeRoleRuleFields.Revision
+}
+
+// GetEnabled returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Enabled, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetEnabled() bool {
+	return v.NodeRoleRuleFields.Enabled
+}
+
+// GetStrictSubRoles returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.StrictSubRoles, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetStrictSubRoles() bool {
+	return v.NodeRoleRuleFields.StrictSubRoles
+}
+
+// GetWriters returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Writers, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetWriters() NodeRoleWriters {
+	return v.NodeRoleRuleFields.Writers
+}
+
+// GetValidateBy returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidateBy, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidateBy() *ContentValidator {
+	return v.NodeRoleRuleFields.ValidateBy
+}
+
+// GetAuthorTask returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTask, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTask() *string {
+	return v.NodeRoleRuleFields.AuthorTask
+}
+
+// GetAuthorTaskId returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTaskId, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTaskId() *string {
+	return v.NodeRoleRuleFields.AuthorTaskId
+}
+
+// GetAuthorTaskState returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.AuthorTaskState, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetAuthorTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.AuthorTaskState
+}
+
+// GetValidationTask returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTask, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTask() *string {
+	return v.NodeRoleRuleFields.ValidationTask
+}
+
+// GetValidationTaskId returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTaskId, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTaskId() *string {
+	return v.NodeRoleRuleFields.ValidationTaskId
+}
+
+// GetValidationTaskState returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.ValidationTaskState, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetValidationTaskState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.ValidationTaskState
+}
+
+// GetDescriptionNode returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNode, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNode() *string {
+	return v.NodeRoleRuleFields.DescriptionNode
+}
+
+// GetDescriptionNodeId returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNodeId, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNodeId() *string {
+	return v.NodeRoleRuleFields.DescriptionNodeId
+}
+
+// GetDescriptionNodeState returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.DescriptionNodeState, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetDescriptionNodeState() NodeRoleRuleRefState {
+	return v.NodeRoleRuleFields.DescriptionNodeState
+}
+
+// GetLocked returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.Locked, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetLocked() bool {
+	return v.NodeRoleRuleFields.Locked
+}
+
+// GetSourceTemplateId returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.SourceTemplateId, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetSourceTemplateId() *string {
+	return v.NodeRoleRuleFields.SourceTemplateId
+}
+
+// GetSourceTemplate returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.SourceTemplate, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetSourceTemplate() *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate {
+	return v.NodeRoleRuleFields.SourceTemplate
+}
+
+// GetCreatedAt returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetCreatedAt() string {
+	return v.NodeRoleRuleFields.CreatedAt
+}
+
+// GetCreatedBy returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetCreatedBy() *string {
+	return v.NodeRoleRuleFields.CreatedBy
+}
+
+// GetUpdatedAt returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetUpdatedAt() *string {
+	return v.NodeRoleRuleFields.UpdatedAt
+}
+
+// GetUpdatedBy returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) GetUpdatedBy() *string {
+	return v.NodeRoleRuleFields.UpdatedBy
+}
+
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeRoleRuleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule struct {
+	Id string `json:"id"`
+
+	Role string `json:"role"`
+
+	Revision int `json:"revision"`
+
+	Enabled bool `json:"enabled"`
+
+	StrictSubRoles bool `json:"strictSubRoles"`
+
+	Writers NodeRoleWriters `json:"writers"`
+
+	ValidateBy *ContentValidator `json:"validateBy"`
+
+	AuthorTask *string `json:"authorTask"`
+
+	AuthorTaskId *string `json:"authorTaskId"`
+
+	AuthorTaskState NodeRoleRuleRefState `json:"authorTaskState"`
+
+	ValidationTask *string `json:"validationTask"`
+
+	ValidationTaskId *string `json:"validationTaskId"`
+
+	ValidationTaskState NodeRoleRuleRefState `json:"validationTaskState"`
+
+	DescriptionNode *string `json:"descriptionNode"`
+
+	DescriptionNodeId *string `json:"descriptionNodeId"`
+
+	DescriptionNodeState NodeRoleRuleRefState `json:"descriptionNodeState"`
+
+	Locked bool `json:"locked"`
+
+	SourceTemplateId *string `json:"sourceTemplateId"`
+
+	SourceTemplate *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate `json:"sourceTemplate"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule) __premarshalJSON() (*__premarshalUnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule, error) {
+	var retval __premarshalUnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadRuleNodeRoleRule
+
+	retval.Id = v.NodeRoleRuleFields.Id
+	retval.Role = v.NodeRoleRuleFields.Role
+	retval.Revision = v.NodeRoleRuleFields.Revision
+	retval.Enabled = v.NodeRoleRuleFields.Enabled
+	retval.StrictSubRoles = v.NodeRoleRuleFields.StrictSubRoles
+	retval.Writers = v.NodeRoleRuleFields.Writers
+	retval.ValidateBy = v.NodeRoleRuleFields.ValidateBy
+	retval.AuthorTask = v.NodeRoleRuleFields.AuthorTask
+	retval.AuthorTaskId = v.NodeRoleRuleFields.AuthorTaskId
+	retval.AuthorTaskState = v.NodeRoleRuleFields.AuthorTaskState
+	retval.ValidationTask = v.NodeRoleRuleFields.ValidationTask
+	retval.ValidationTaskId = v.NodeRoleRuleFields.ValidationTaskId
+	retval.ValidationTaskState = v.NodeRoleRuleFields.ValidationTaskState
+	retval.DescriptionNode = v.NodeRoleRuleFields.DescriptionNode
+	retval.DescriptionNodeId = v.NodeRoleRuleFields.DescriptionNodeId
+	retval.DescriptionNodeState = v.NodeRoleRuleFields.DescriptionNodeState
+	retval.Locked = v.NodeRoleRuleFields.Locked
+	retval.SourceTemplateId = v.NodeRoleRuleFields.SourceTemplateId
+	retval.SourceTemplate = v.NodeRoleRuleFields.SourceTemplate
+	retval.CreatedAt = v.NodeRoleRuleFields.CreatedAt
+	retval.CreatedBy = v.NodeRoleRuleFields.CreatedBy
+	retval.UpdatedAt = v.NodeRoleRuleFields.UpdatedAt
+	retval.UpdatedBy = v.NodeRoleRuleFields.UpdatedBy
+	return &retval, nil
+}
+
+// UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning includes the requested fields of the GraphQL type MemoryConfigWarning.
+// The GraphQL type's documentation follows.
+//
+// #1325 — a non-fatal finding about a saved rule. Never changes the mutation's success.
+type UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
+	MemoryConfigWarningFields `json:"-"`
+}
+
+// GetCode returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Code, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetCode() string {
+	return v.MemoryConfigWarningFields.Code
+}
+
+// GetRole returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Role, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetRole() string {
+	return v.MemoryConfigWarningFields.Role
+}
+
+// GetField returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.Field, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetField() *string {
+	return v.MemoryConfigWarningFields.Field
+}
+
+// GetTaskUrn returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.TaskUrn, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetTaskUrn() *string {
+	return v.MemoryConfigWarningFields.TaskUrn
+}
+
+// GetTaskState returns UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning.TaskState, and is useful for accessing the field via an interface.
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) GetTaskState() *NodeRoleRuleRefState {
+	return v.MemoryConfigWarningFields.TaskState
+}
+
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemoryConfigWarningFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning struct {
+	Code string `json:"code"`
+
+	Role string `json:"role"`
+
+	Field *string `json:"field"`
+
+	TaskUrn *string `json:"taskUrn"`
+
+	TaskState *NodeRoleRuleRefState `json:"taskState"`
+}
+
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning) __premarshalJSON() (*__premarshalUnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning, error) {
+	var retval __premarshalUnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryConfigWarning
+
+	retval.Code = v.MemoryConfigWarningFields.Code
+	retval.Role = v.MemoryConfigWarningFields.Role
+	retval.Field = v.MemoryConfigWarningFields.Field
+	retval.TaskUrn = v.MemoryConfigWarningFields.TaskUrn
+	retval.TaskState = v.MemoryConfigWarningFields.TaskState
+	return &retval, nil
+}
+
 // UpdateAgentResponse is returned by UpdateAgent on success.
 type UpdateAgentResponse struct {
 	// Update an Agent.
@@ -32907,6 +33733,28 @@ func (v *__AppRunsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AppRunsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AppRunsInput) GetOffset() *int { return v.Offset }
 
+// __ApplyMemoryConfigTemplateInput is used internally by genqlient
+type __ApplyMemoryConfigTemplateInput struct {
+	TemplateRef              string `json:"templateRef"`
+	MemoryRef                string `json:"memoryRef"`
+	ExpectedTemplateRevision *int   `json:"expectedTemplateRevision,omitempty"`
+	DryRun                   bool   `json:"dryRun"`
+}
+
+// GetTemplateRef returns __ApplyMemoryConfigTemplateInput.TemplateRef, and is useful for accessing the field via an interface.
+func (v *__ApplyMemoryConfigTemplateInput) GetTemplateRef() string { return v.TemplateRef }
+
+// GetMemoryRef returns __ApplyMemoryConfigTemplateInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__ApplyMemoryConfigTemplateInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetExpectedTemplateRevision returns __ApplyMemoryConfigTemplateInput.ExpectedTemplateRevision, and is useful for accessing the field via an interface.
+func (v *__ApplyMemoryConfigTemplateInput) GetExpectedTemplateRevision() *int {
+	return v.ExpectedTemplateRevision
+}
+
+// GetDryRun returns __ApplyMemoryConfigTemplateInput.DryRun, and is useful for accessing the field via an interface.
+func (v *__ApplyMemoryConfigTemplateInput) GetDryRun() bool { return v.DryRun }
+
 // __AppsInput is used internally by genqlient
 type __AppsInput struct {
 	OrgId  *string    `json:"orgId,omitempty"`
@@ -35549,6 +36397,18 @@ func (v *__UninstallAgentFromAppInput) GetAppRef() string { return v.AppRef }
 // GetAgentRef returns __UninstallAgentFromAppInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__UninstallAgentFromAppInput) GetAgentRef() string { return v.AgentRef }
 
+// __UnlockNodeRoleRuleInput is used internally by genqlient
+type __UnlockNodeRoleRuleInput struct {
+	Ref              string `json:"ref"`
+	ExpectedRevision int    `json:"expectedRevision"`
+}
+
+// GetRef returns __UnlockNodeRoleRuleInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UnlockNodeRoleRuleInput) GetRef() string { return v.Ref }
+
+// GetExpectedRevision returns __UnlockNodeRoleRuleInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__UnlockNodeRoleRuleInput) GetExpectedRevision() int { return v.ExpectedRevision }
+
 // __UpdateAgentInput is used internally by genqlient
 type __UpdateAgentInput struct {
 	Ref            string           `json:"ref"`
@@ -36903,6 +37763,108 @@ func AppRuns(
 	}
 
 	data_ = &AppRunsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ApplyMemoryConfigTemplate.
+const ApplyMemoryConfigTemplate_Operation = `
+mutation ApplyMemoryConfigTemplate ($templateRef: ID!, $memoryRef: ID!, $expectedTemplateRevision: Int, $dryRun: Boolean!) {
+	applyMemoryConfigTemplate(templateRef: $templateRef, memoryRef: $memoryRef, expectedTemplateRevision: $expectedTemplateRevision, dryRun: $dryRun) {
+		memoryId
+		template {
+			id
+			name
+			deleted
+		}
+		templateRevision
+		required
+		dryRun
+		entries {
+			role
+			outcome
+			rule {
+				... NodeRoleRuleFields
+			}
+		}
+		warnings {
+			... MemoryConfigWarningFields
+		}
+	}
+}
+fragment NodeRoleRuleFields on NodeRoleRule {
+	id
+	role
+	revision
+	enabled
+	strictSubRoles
+	writers
+	validateBy
+	authorTask
+	authorTaskId
+	authorTaskState
+	validationTask
+	validationTaskId
+	validationTaskState
+	descriptionNode
+	descriptionNodeId
+	descriptionNodeState
+	locked
+	sourceTemplateId
+	sourceTemplate {
+		id
+		name
+		deleted
+	}
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+fragment MemoryConfigWarningFields on MemoryConfigWarning {
+	code
+	role
+	field
+	taskUrn
+	taskState
+}
+`
+
+// #716 slice 3 / server#1334 — copy a template's rules into ONE memory's config.
+// A one-off copy (later template edits never reach the memory). The report has
+// one entry per template rule: APPLIED, SKIPPED_CONFLICT (a non-required
+// template never overrides), REPLACED (a required template overwrote the rule,
+// now locked) or SKIPPED_LOCKED. `template apply` dry-runs first and, when the
+// preview would REPLACE a rule, confirms before applying with the preview's
+// templateRevision as expectedTemplateRevision, so what was shown is what is
+// applied (CONFLICT otherwise).
+func ApplyMemoryConfigTemplate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	templateRef string,
+	memoryRef string,
+	expectedTemplateRevision *int,
+	dryRun bool,
+) (data_ *ApplyMemoryConfigTemplateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ApplyMemoryConfigTemplate",
+		Query:  ApplyMemoryConfigTemplate_Operation,
+		Variables: &__ApplyMemoryConfigTemplateInput{
+			TemplateRef:              templateRef,
+			MemoryRef:                memoryRef,
+			ExpectedTemplateRevision: expectedTemplateRevision,
+			DryRun:                   dryRun,
+		},
+	}
+
+	data_ = &ApplyMemoryConfigTemplateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -46604,6 +47566,88 @@ func UninstallAgentFromApp(
 	}
 
 	data_ = &UninstallAgentFromAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UnlockNodeRoleRule.
+const UnlockNodeRoleRule_Operation = `
+mutation UnlockNodeRoleRule ($ref: ID!, $expectedRevision: Int!) {
+	unlockNodeRoleRule(ref: $ref, expectedRevision: $expectedRevision) {
+		rule {
+			... NodeRoleRuleFields
+		}
+		warnings {
+			... MemoryConfigWarningFields
+		}
+	}
+}
+fragment NodeRoleRuleFields on NodeRoleRule {
+	id
+	role
+	revision
+	enabled
+	strictSubRoles
+	writers
+	validateBy
+	authorTask
+	authorTaskId
+	authorTaskState
+	validationTask
+	validationTaskId
+	validationTaskState
+	descriptionNode
+	descriptionNodeId
+	descriptionNodeState
+	locked
+	sourceTemplateId
+	sourceTemplate {
+		id
+		name
+		deleted
+	}
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+fragment MemoryConfigWarningFields on MemoryConfigWarning {
+	code
+	role
+	field
+	taskUrn
+	taskState
+}
+`
+
+// hadron-server#1334 — the deliberate step before a LOCKED rule (written by a
+// required template) can be edited or removed: a locked rule refuses every
+// ordinary update and delete, for every caller (Holger, 2026-09-27). Needs lock
+// authority; anyone else who manages the memory gets RULE_LOCKED. Unlocking an
+// unlocked rule changes nothing.
+func UnlockNodeRoleRule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	expectedRevision int,
+) (data_ *UnlockNodeRoleRuleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UnlockNodeRoleRule",
+		Query:  UnlockNodeRoleRule_Operation,
+		Variables: &__UnlockNodeRoleRuleInput{
+			Ref:              ref,
+			ExpectedRevision: expectedRevision,
+		},
+	}
+
+	data_ = &UnlockNodeRoleRuleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

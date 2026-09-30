@@ -68,11 +68,10 @@ slackConnections
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
-[Mutation] 88 unbound
+[Mutation] 86 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
-applyMemoryConfigTemplate  # server#1334 template application; CLI wrapper outside cli#748 worklog scope
 beginAssetUpload
 calendarCreateEvent
 calendarDeleteEvent
@@ -145,7 +144,6 @@ syncMemory
 testAiServiceConfig  # server#1378 saved-config provider probe; outside cli#739 endpoint CRUD scope
 testExchangeConnection
 unlinkGithubApp
-unlockNodeRoleRule  # server#1334 locked-rule unlock; CLI wrapper outside cli#748 worklog scope
 updateAgentAIConfig
 updateAgentMemoryRole
 updateApp
