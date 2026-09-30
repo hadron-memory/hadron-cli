@@ -137,7 +137,7 @@ revokeAgentOrgGrant
 revokeAgentSubscription
 revokeAppKey
 saveChatSummary
-searchReplaceInSpecNodes  # server spec maintenance; no CLI command in cli#782 scope
+searchReplaceInSpecNodes  # cli#783: spec replace draft is a separate PR
 sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled

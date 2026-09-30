@@ -23307,7 +23307,7 @@ type SpecBacklinksSpecBacklinksSpecReference struct {
 	Field        string `json:"field"`
 	SourceLoc    string `json:"sourceLoc"`
 	SourceNodeId string `json:"sourceNodeId"`
-	// The cited loc; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
+	// The cited loc; for an edge into another memory, the target's node URN; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
 	TargetLoc string  `json:"targetLoc"`
 	Text      *string `json:"text"`
 }
@@ -23458,7 +23458,7 @@ var AllSpecRewriteStatus = []SpecRewriteStatus{
 type SpecUnresolvedReferencesResponse struct {
 	// #1449 — references in a DRAFT spec corpus that do not reach a written
 	// spec: URNs citing a missing loc or a placeholder, edges to a
-	// placeholder, and pending edges (field pendingEdge) whose target is not
+	// placeholder or to a deleted spec of the corpus, and pending edges (field pendingEdge) whose target is not
 	// a written node yet. Minting refuses while any remain.
 	SpecUnresolvedReferences []*SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference `json:"specUnresolvedReferences"`
 }
@@ -23482,7 +23482,7 @@ type SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference struct {
 	Reason       *SpecReferenceProblem `json:"reason"`
 	SourceLoc    string                `json:"sourceLoc"`
 	SourceNodeId string                `json:"sourceNodeId"`
-	// The cited loc; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
+	// The cited loc; for an edge into another memory, the target's node URN; for a pendingEdge not yet resolved to a node, its target as recorded (a loc, file id or URN).
 	TargetLoc string  `json:"targetLoc"`
 	Text      *string `json:"text"`
 }

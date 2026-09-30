@@ -1,13 +1,11 @@
 # Design as built: draft spec corpora and minting (cli#777, slice 1)
 
-> **Status: built on `Jane/777-draft-corpora` against the UNMERGED
-> hadron-server #1447 stack** — #1451 (draft state), #1452 (placeholders),
-> #1453 (reference scan, renumber), #1462 (mint). The snapshot is exported from
-> #1462's head `8ae48ba0` (`Ella/1448-mint`), a throwaway clone, with
-> `HADRON_SERVER_DIR` set deliberately (#503). **This PR stays a draft until
-> that stack is merged and deployed**: server merges deploy immediately, but a
-> CLI that ships first calls fields production doesn't have. Re-export from the
-> merged server `main` before marking it ready.
+> **Status: reviewable on `Jane/777-draft-corpora`.** The hadron-server #1447
+> stack — #1451 (draft state), #1452 (placeholders), #1453 (reference scan,
+> renumber), #1462 (mint) — has merged. The schema snapshot is exported from
+> merged server `main` at `8a864c52`, using an explicit `HADRON_SERVER_DIR`
+> (#503). Live behavior still needs independent QA confirmation before this
+> CLI slice is ready for a human merge decision.
 >
 > Contract: hadron-server#1447 ([contract comment](https://github.com/hadron-memory/hadron-server/issues/1447#issuecomment-5895948862),
 > [mint rulings](https://github.com/hadron-memory/hadron-server/issues/1447#issuecomment-5898878597)).
