@@ -1403,11 +1403,14 @@ Conventions:
   `--word-boundary=false` for substring, `--regex` for a pattern with `$1`
   backrefs), gated like other bulk writes (`--dry-run` previews per-citation
   counts, `--yes` non-interactively, `--max-specs N` caps blast radius) and
-  **re-lints the changed specs** afterward. **It cannot rewrite governed specs**
-  (every rule-level spec, `role: spec`): the server's bulk replace skips them
-  (cor:acl:130:02), so the report carries `specsInScope` / `specsGoverned` /
-  `specsScanned` and a zero never reads as "not found" (#659) — change those with
-  `spec grep` + `spec edit`; `spec register` is advisory/read-only (`--check` reports
+  **re-lints the changed specs** afterward. In a DRAFT corpus it uses the
+  spec-only server door to rewrite governed specs and binds apply to the exact
+  preview `plan`; a stale plan exits 5 and writes nothing. Draft JSON also
+  reports `specsSkipped` and node-addressed `skips`. In a MINTED corpus the
+  generic bulk door skips governed specs (cor:acl:130:02), so the report
+  carries `specsInScope` / `specsGoverned` / `specsScanned` and a zero never
+  reads as "not found" (#659) — change those with `spec grep` + `spec edit`;
+  `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5; the ledger is the legacy numbering, and specs at any
   other loc are NAMED in `outsideNumbering`, never dropped); `spec lint` is
   STRUCTURAL: since #708 it enforces no content rubric at any loc (no missing
@@ -1520,7 +1523,9 @@ Conventions:
   are not yet permanent; that create echoes the `corpusState` it read back.
   `spec describe` reports `corpusState` (`DRAFT` | `MINTED`, plus `mintedAt`
   for a former draft; a present `null` when the server predates draft
-  corpora and cannot say). In a draft:
+  corpora and cannot say). It also lists reserved placeholder citations and
+  `placeholderCount` separately from the total `specs`; if the older server
+  lacks the placeholder marker, those fields are omitted. In a draft:
   `spec reserve <citation> [--name]` creates a server-marked placeholder spec
   (`{memory,id,loc,name,role,placeholder}`) — write it with `spec edit`;
   `spec renumber <from> <to> [--dry-run]` moves a spec and its subtree and

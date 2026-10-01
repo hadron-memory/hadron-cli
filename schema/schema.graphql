@@ -197,9 +197,15 @@ v1 enforces 1-level imports only.
 """
 type AgentImport {
   createdAt: DateTime!
-  importedAgent: Agent!
+
+  """
+  The dependency Agent when this caller may read its definition; a builder grant alone does not grant that read.
+  """
+  importedAgent: Agent
   importedAgentId: ID!
-  parentAgent: Agent!
+
+  """The parent Agent when this caller may read its definition."""
+  parentAgent: Agent
   parentAgentId: ID!
   position: Int!
   required: Boolean!
@@ -219,13 +225,19 @@ AgentImport edge of an Agent the Org owns. Sibling to AgentSubscription.
 """
 type AgentOrgGrant {
   activatedAt: DateTime
-  agent: Agent!
+
+  """The licensed Agent when this caller may read its definition."""
+  agent: Agent
   agentId: ID!
   createdAt: DateTime!
   expiresAt: DateTime
   isActive: Boolean!
   orgId: ID!
-  organization: Organization!
+
+  """
+  The customer Organization when the caller may read it; a vendor grant alone does not authorize it.
+  """
+  organization: Organization
   revokedAt: DateTime
   revokedBy: ID
 }
@@ -706,8 +718,15 @@ read-only to every App) and per FR-001 it carries NO trainingMode
 column (training mode is per-App, on App.trainingMode).
 """
 type AppAgent {
-  agent: Agent!
-  app: App!
+  """
+  The installed Agent when this caller may read its definition; an installation license alone does not grant that read.
+  """
+  agent: Agent
+
+  """
+  The App when this caller may read it; strict user ownership still applies.
+  """
+  app: App
   createdAt: DateTime!
   createdBy: String
   updatedAt: DateTime
@@ -752,7 +771,10 @@ type AppKeyCreated {
 }
 
 type AppMember {
-  app: App!
+  """
+  The App when the caller may read it; an external App member can still see their membership row.
+  """
+  app: App
   appId: ID!
   createdAt: DateTime!
 
@@ -2036,6 +2058,12 @@ type Edge {
   """
   condition: JSON
   data: JSON
+
+  """
+  Longer gloss carried for API consumers. NOT rendered on agent node reads,
+  whose Related:/Referenced by: lines show the edge name (#721: name is the
+  display label). Put the label you want seen in name (#1057).
+  """
   description: String
   id: ID!
 
@@ -2728,6 +2756,10 @@ type Memory {
   """
   agent: Agent
   anonymousExpiresAt: DateTime
+
+  """
+  The linked App when the caller may read that App; a Memory read alone does not grant it.
+  """
   app: App
 
   """
@@ -2838,6 +2870,10 @@ type Memory {
   """
   myShare: MemoryShare
   name: String!
+
+  """
+  The owning Organization when the caller may read that Organization; a Memory read alone does not grant it.
+  """
   organization: Organization
   organizationId: String
   pendingEdgeCount: Int!
@@ -3291,7 +3327,11 @@ type MemorySubscription {
   createdAt: DateTime!
   id: ID!
   memory: Memory!
-  organization: Organization!
+
+  """
+  The subscriber Organization when the caller may read it; memory access alone does not authorize it.
+  """
+  organization: Organization
   role: Role!
 }
 
@@ -4326,7 +4366,10 @@ type Mutation {
   SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
   SESSION_EXPIRED (encrypted team memory without an active session key),
   TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
-  not locate the Team Agent), APP_UNINSTALLED, FORBIDDEN.
+  not locate the Team Agent), APP_UNINSTALLED, FORBIDDEN (an authenticated
+  caller who is not a participant), UNAUTHENTICATED (no principal at all: no
+  token, an expired or unverifiable one; checked before the App is resolved,
+  so it answers identically whether or not the App exists).
   
   appRef accepts the entity's ID or URN; sessionRef is the session id.
   """
@@ -4960,6 +5003,13 @@ type Mutation {
   minting. Owner or org ADMIN only. memoryRef accepts the ID or URN. A real
   run holds every write to the corpus off while it checks and flips, and
   refuses SPEC_CORPUS_BUSY (retryable) if a write is already in flight.
+  #1468 — a minted spec is then permanent: every path that would remove one
+  from the corpus refuses SPEC_MINTED_PERMANENT, naming the specs (deleteNode
+  soft or hard, a move to another memory or an overwrite of its citation,
+  mergeNodes with deleteSource, extracting with move, a merge or deletion of
+  the whole corpus, git-sync pruning, and account erasure while the owner
+  still holds it). Supersede a spec to replace it; a rename within the corpus
+  still records its URN alias.
   """
   mintSpecCorpus(dryRun: Boolean, memoryRef: ID!): SpecCorpusMintReport!
 
@@ -4971,7 +5021,8 @@ type Mutation {
   keeps its id, so all incoming/outgoing edge references stay valid. Fails
   loudly with NODE_ALREADY_EXISTS if a live node already occupies the
   destination. Requires write access to both the source and destination
-  memories.
+  memories. On a cross-memory move, select Node.moveLinkWarnings to see
+  raw relative content links that now miss or resolve to another node.
   """
   moveNode(sourceRef: ID!, targetMemoryRef: ID, targetUrn: String): Node!
 
@@ -6172,6 +6223,11 @@ type Node {
   loc: String!
   memory: Memory
   memoryId: String!
+
+  """
+  #1392 — warnings from a cross-memory move. Null on other Node reads; [] when a move changes no local content links. Raw content is preserved.
+  """
+  moveLinkWarnings: [NodeMoveLinkWarning!]
   name: String!
 
   """
@@ -6523,6 +6579,24 @@ enum NodeMergeField {
 
   """Union the tag sets (target order first, then new source tags)."""
   TAGS
+}
+
+enum NodeMoveLinkStatus {
+  AMBIGUOUS
+  MISSING
+  RETARGETED
+}
+
+type NodeMoveLinkWarning {
+  nodeId: ID!
+  nodeLoc: String!
+  raw: String!
+
+  """
+  RETARGETED names a different node; AMBIGUOUS has multiple live alias claimants.
+  """
+  status: NodeMoveLinkStatus!
+  target: String!
 }
 
 """
@@ -6996,6 +7070,27 @@ marketplace agents (#782 Codex review).
 """
 input PublicAgentFilter {
   type: AgentType
+}
+
+"""The invite-page view available to anyone holding the invitation slug."""
+type PublicInvitation {
+  activationCount: Int!
+  expiresAt: DateTime
+  maxActivations: Int
+  memberRole: Role!
+  organization: PublicInvitationOrganization
+  sender: PublicInvitationSender
+}
+
+"""Only the organization display name needed on the invite page."""
+type PublicInvitationOrganization {
+  name: String!
+}
+
+"""Only the sender display fields needed on the invite page."""
+type PublicInvitationSender {
+  githubUsername: String
+  name: String
 }
 
 """
@@ -7683,9 +7778,10 @@ type Query {
   impersonationSessions(filter: ImpersonationSessionFilter, limit: Int, offset: Int, orgId: String): ImpersonationSessionList!
 
   """
-  Invitation lookup (public — no auth required, used by invite acceptance page)
+  Invitation lookup (public to the slug holder). Returns only invite-page
+  display fields; accepting the slug still performs its own authorization.
   """
-  invitation(slug: String!): UserInvitation
+  invitation(slug: String!): PublicInvitation
 
   """
   The latest run of an App resolved to a concrete run (#696) — 'current/latest/previous' are queries, never magic run-ids in URN space (cor:urn:010:02). previous: true returns the run before the latest.
@@ -8369,15 +8465,19 @@ type Query {
   Read a team App's chat (#939), seq-ordered ascending, as a uniform
   { items, total } page. sinceSeq is a watermark cursor: only messages with
   seq STRICTLY GREATER than it are returned (pass the last seq you have
-  seen). beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
+  seen). With neither cursor nor offset, the NEWEST page is returned, still
+  ascending. Pass sinceSeq: 0 to start a forward walk at the oldest message.
+  beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
   messages with seq STRICTLY LESS than it are considered, and the NEWEST
   limit of those come back -- the page immediately before the cursor, still
   ascending. The two compose, so passing both reads a bounded slice.
   TeamChatMessagesPage.total counts that cursor range and the mentionsRef
   filter before paging, not the whole team-chat history.
-  offset is IGNORED when beforeSeq is given: a cursor exists precisely
-  because a position is unstable while workers keep posting, and honouring
-  both would put that race back. mentionsRef filters to messages whose stored envelope mentions the
+  An explicit offset retains oldest-first positional paging for existing
+  clients; prefer cursors for new reads. offset is IGNORED when beforeSeq is
+  given: a cursor exists precisely because a position is unstable while
+  workers keep posting, and honouring both would put that race back.
+  mentionsRef filters to messages whose stored envelope mentions the
   referenced worker (a Worker id or name of THIS App, retired included) or
   user (handle/id) — matching runs against the mention tokens extracted at
   write time, never by re-parsing bodies. The ref must name this App's own
@@ -8389,6 +8489,10 @@ type Query {
   Authorization: an AppMember of the App (any role), an org member with
   CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
   App's own key (a pure App-key principal may READ its team chat).
+  Error codes (extensions.code): FORBIDDEN (an authenticated caller who is
+  not a participant), UNAUTHENTICATED (no principal at all; checked before
+  the App is resolved, so it answers identically whether or not the App
+  exists).
   
   appRef and mentionsRef accept the entity's ID or URN.
   """
@@ -10724,15 +10828,21 @@ type User {
   googleId: String
   handle: String
   id: ID!
+
+  """Account metadata, visible to self, platform admins, and co-members."""
   identityProvider: String
   linkedAt: DateTime
   maxReferrals: Int
   name: String
 
   """
-  User-layer action-policy link (cor:acl:040:02, #510) — constrains runs made on the user's behalf. Null = no restriction. Self-authored via updateMyPolicy.
+  User-layer action-policy link (cor:acl:040:02, #510) — constrains runs made on the user's behalf. Null = no restriction, or hidden from viewers without personal-field access. Self-authored via updateMyPolicy.
   """
   policy: JSON
+
+  """
+  Platform roles; an empty list is returned to viewers without personal-field access.
+  """
   roles: [Role!]!
 
   """

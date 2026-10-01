@@ -127,6 +127,21 @@ mutation MintSpecCorpus($memoryRef: ID!, $dryRun: Boolean!) {
 # #1450 — which specs in a DRAFT corpus are placeholders. A separate, minimal
 # scan run only for a draft, so the shared node projections don't select
 # isPlaceholder: an older server would reject every spec read over it.
+# Keep NodeFilter omission semantics even when genqlient discovers this
+# operation before FindNodes during generation.
+# @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.objectType", omitempty: true)
+# @genqlient(for: "NodeFilter.tags", omitempty: true)
+# @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
+# @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
+# @genqlient(for: "NodeFilter.createdBy", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
+# @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
+# @genqlient(for: "NodeFilter.where", omitempty: true)
+# @genqlient(for: "NodeFilter.role", omitempty: true)
 query SpecPlaceholderScan(
   $filter: NodeFilter!
   $sort: NodeSort!
@@ -138,6 +153,41 @@ query SpecPlaceholderScan(
       node {
         loc
         isPlaceholder
+      }
+    }
+  }
+}
+
+# #1294/#1459 — draft-only governed spec replacement. The server binds apply
+# to the exact dry-run plan and reports protected selections explicitly.
+# @genqlient(for: "SpecSearchReplaceInput.expectedPlan", omitempty: true)
+# @genqlient(for: "SpecSearchReplaceInput.maxNodesChanged", omitempty: true)
+# @genqlient(for: "SpecSearchReplaceInput.reason", omitempty: true)
+mutation SearchReplaceInSpecNodes(
+  $input: SpecSearchReplaceInput!
+) {
+  searchReplaceInSpecNodes(input: $input) {
+    nodesSelected
+    nodesScanned
+    nodesSkipped
+    nodesChanged
+    totalReplacements
+    dryRun
+    plan
+    skips {
+      nodeId
+      loc
+      reason
+      governedKinds
+    }
+    results {
+      nodeId
+      loc
+      memoryId
+      replacements
+      fields {
+        field
+        matches
       }
     }
   }

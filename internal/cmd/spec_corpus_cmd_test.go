@@ -381,6 +381,7 @@ func TestSpecDescribeShowsCorpusState(t *testing.T) {
 		"FindNodes": `{"data":{"nodes":[` + specNodeList("cli", `["spec"]`) + `]}}`,
 		"SpecCorpusState": `{"data":{"memory":{"id":"mem1","urn":"hadronmemory.com:platform-specs",` +
 			`"corpusState":"DRAFT","corpusMintedAt":null}}}`,
+		"SpecPlaceholderScan": placeholderScanJSON(map[string]bool{"cli": false}),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -390,6 +391,88 @@ func TestSpecDescribeShowsCorpusState(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"corpusState": "DRAFT"`) {
 		t.Errorf("describe must report the corpus state: %s", out.String())
+	}
+}
+
+func TestSpecDescribeSeparatesDraftPlaceholders(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"Memories":        memListJSON,
+		"GetMemory":       memGetJSON(`null`),
+		"FindNodes":       `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec"]`) + `,` + specNodeList("msg:010:02", `["spec"]`) + `,` + specNodeList("msg:010:03", `["spec"]`) + `]}}`,
+		"SpecCorpusState": draftStateJSON,
+		"SpecPlaceholderScan": placeholderScanJSON(map[string]bool{
+			"msg:010:02": true, "msg:010:03": false, "msg:010:01": true,
+		}),
+	})
+	for _, jsonOutput := range []bool{true, false} {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		args := []string{"spec", "describe", "-m", specMem, "--server", gql.URL}
+		if jsonOutput {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("describe: %v", err)
+		}
+		if jsonOutput {
+			var got struct {
+				Specs            int      `json:"specs"`
+				PlaceholderCount *int     `json:"placeholderCount"`
+				Placeholders     []string `json:"placeholders"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Specs != 3 || got.PlaceholderCount == nil || *got.PlaceholderCount != 2 || strings.Join(got.Placeholders, ",") != "msg:010:01,msg:010:02" {
+				t.Errorf("describe must separate and sort placeholders: %+v", got)
+			}
+		} else if !strings.Contains(out.String(), "placeholders: 2 (msg:010:01, msg:010:02)") {
+			t.Errorf("human describe must list placeholders: %s", out.String())
+		}
+	}
+}
+
+func TestSpecDescribePlaceholderAvailability(t *testing.T) {
+	for _, tc := range []struct {
+		name, state, scan string
+		wantKnown         bool
+	}{
+		{"minted", mintedStateJSON, "", true},
+		{"older placeholder slice", draftStateJSON,
+			`{"errors":[{"message":"Cannot query field \"isPlaceholder\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			responses := map[string]string{
+				"Memories": memListJSON, "GetMemory": memGetJSON(`null`),
+				"FindNodes":       `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec"]`) + `]}}`,
+				"SpecCorpusState": tc.state,
+			}
+			if tc.scan != "" {
+				responses["SpecPlaceholderScan"] = tc.scan
+			}
+			gql := fakeGraphQL(t, responses)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"spec", "describe", "-m", specMem, "--json", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]any
+			if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+				t.Fatal(err)
+			}
+			_, known := got["placeholderCount"]
+			if known != tc.wantKnown {
+				t.Errorf("placeholder availability = %v, want %v: %s", known, tc.wantKnown, out.String())
+			}
+			if tc.wantKnown && (got["placeholderCount"] != float64(0) || len(got["placeholders"].([]any)) != 0) {
+				t.Errorf("minted inventory must report known empty placeholders: %s", out.String())
+			}
+			if tc.wantKnown && !strings.Contains(out.String(), `"placeholders": []`) {
+				t.Errorf("known empty placeholder list must be [], not null: %s", out.String())
+			}
+		})
 	}
 }
 

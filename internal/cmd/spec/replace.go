@@ -31,18 +31,29 @@ type specReplaceNodeDTO struct {
 	Fields       []specReplaceFieldDTO `json:"fields"`
 }
 
+type specReplaceSkipDTO struct {
+	Citation string   `json:"citation"`
+	NodeID   string   `json:"nodeId"`
+	Reason   string   `json:"reason"`
+	Kinds    []string `json:"governedKinds"`
+}
+
 type specReplaceResultDTO struct {
 	// SpecsInScope is how many specs the CLI selected and sent (#659), and
-	// SpecsGoverned how many of those are of a governed kind. The server's bulk
-	// replace SKIPS governed nodes (cor:acl:130:02) without refusing and without
-	// counting them, so SpecsScanned alone reads a skipped corpus as "no match".
+	// SpecsGoverned counts selected governed nodes. The generic door SKIPS
+	// them; the draft spec door can search nodes governed only as specs.
 	SpecsInScope      int                  `json:"specsInScope"`
 	SpecsGoverned     int                  `json:"specsGoverned"`
 	SpecsScanned      int                  `json:"specsScanned"`
+	SpecsSkipped      *int                 `json:"specsSkipped,omitempty"`
 	SpecsChanged      int                  `json:"specsChanged"`
 	TotalReplacements int                  `json:"totalReplacements"`
 	DryRun            bool                 `json:"dryRun"`
 	Results           []specReplaceNodeDTO `json:"results"`
+	// Draft-only preview token and node-addressed protected selections.
+	Plan  *string               `json:"plan,omitempty"`
+	Skips *[]specReplaceSkipDTO `json:"skips,omitempty"`
+	Draft bool                  `json:"-"`
 	// Lint is the post-replace lint of the changed specs — populated only on a
 	// real (non-dry) run. Empty means a clean re-lint.
 	Lint []lintFindingDTO `json:"lint,omitempty"`
@@ -59,13 +70,12 @@ func newCmdReplace(f *cmdutil.Factory) *cobra.Command {
 		Long: `Search-and-replace a token across every spec's body and abstract in one
 call — the spec-scoped, citation-aware analogue of ` + "`hadron replace text`" + `.
 
-GOVERNED SPECS ARE NOT SEARCHED. The server's bulk replace skips governed nodes
-(cor:acl:130:02), and every rule-level spec is governed (role: spec), so in a
-typical corpus only the untyped index nodes are reachable. The report says how
-many specs were in scope, how many are governed, and how many were searched
-(specsInScope / specsGoverned / specsScanned in --json), so a zero is never
-mistaken for "the text is not there". To change a governed spec, find the text
-with ` + "`hadron spec grep`" + ` and edit it with ` + "`hadron spec edit`" + `.
+In a DRAFT corpus, the server's spec-only bulk door may rewrite governed specs
+and binds apply to the exact dry-run plan. A changed plan is refused with no
+writes. In a MINTED corpus, governed specs are NOT searched (cor:acl:130:02);
+find their text with ` + "`hadron spec grep`" + ` and edit with ` + "`hadron spec edit`" + `.
+The report distinguishes searched and skipped specs so zero matches cannot
+be mistaken for a search of the whole scope.
 
 Matching is a literal token, and by default it is WORD-BOUNDARY-AWARE: only
 whole-token occurrences are rewritten, so renaming ` + "`h-read-node`" + ` never
@@ -115,8 +125,6 @@ example, leave an abstract out of sync with its content.`,
 					"refusing to write without --yes in non-interactive mode; pass --dry-run to preview or --yes to apply")
 			}
 
-			oldText, regexFlag := buildReplacePattern(pattern, useRegex, wordBoundary)
-
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -125,12 +133,23 @@ example, leave an abstract out of sync with its content.`,
 			if err != nil {
 				return err
 			}
+			state, err := gen.SpecCorpusState(cmd.Context(), client, memURN)
+			draft := false
+			switch {
+			case err != nil && api.IsGraphQLValidationFor(err, "corpusState"):
+				// Older servers only have the generic, governed-skipping door.
+			case err != nil:
+				return api.MapError(err)
+			case state.Memory != nil:
+				draft = state.Memory.CorpusState == gen.CorpusStateDraft
+			}
 			// Scope the rewrite to the SPEC nodes explicitly: searchReplaceInNodes
 			// with memoryIds would rewrite every live node in the memory (the
 			// register, any non-spec node), but this command is citation-aware. So
 			// list the tag/role union in scope (--prefix narrows here and on
 			// the wire) and pass their ids as nodeIds. Doubles as the id set for
-			// the re-lint below. The server still skips governed nodes (#659).
+			// the re-lint below. The draft door can edit spec-governed nodes;
+			// the minted/older generic door still skips them (#659).
 			var prefixPtr *string
 			if prefix != "" {
 				prefixPtr = &prefix
@@ -155,7 +174,33 @@ example, leave an abstract out of sync with its content.`,
 				return writeSpecReplaceReport(f, specReplaceResultDTO{DryRun: dryRun, Results: []specReplaceNodeDTO{}})
 			}
 
-			run := func(dry bool) (specReplaceResultDTO, error) {
+			run := func(dry bool, expectedPlan *string) (specReplaceResultDTO, error) {
+				if draft {
+					input := gen.SpecSearchReplaceInput{
+						MemoryRef: memURN, NodeIds: specIDs, OldText: pattern,
+						NewText: replacement, Fields: specReplaceFields(fields),
+						CaseInsensitive: &ignoreCase, Regex: &useRegex,
+						WordBoundary: &wordBoundary, DryRun: &dry,
+						ExpectedPlan: expectedPlan,
+					}
+					if maxSpecs > 0 {
+						input.MaxNodesChanged = &maxSpecs
+					}
+					if r := strings.TrimSpace(reason); r != "" {
+						input.Reason = &r
+					}
+					resp, err := gen.SearchReplaceInSpecNodes(cmd.Context(), client, &input)
+					if err != nil {
+						return specReplaceResultDTO{}, api.MapError(err)
+					}
+					if resp.SearchReplaceInSpecNodes == nil {
+						return specReplaceResultDTO{}, exitcode.Newf(exitcode.Error, "draft spec replacement returned no report")
+					}
+					dto := draftSpecReplaceDTO(resp.SearchReplaceInSpecNodes)
+					dto.SpecsInScope, dto.SpecsGoverned = len(specIDs), governed
+					return dto, nil
+				}
+				oldText, regexFlag := buildReplacePattern(pattern, useRegex, wordBoundary)
 				input := gen.SearchReplaceInNodesInput{
 					OldText:         oldText,
 					NewText:         replacement,
@@ -172,6 +217,9 @@ example, leave an abstract out of sync with its content.`,
 				if err != nil {
 					return specReplaceResultDTO{}, api.MapError(err)
 				}
+				if resp.SearchReplaceInNodes == nil {
+					return specReplaceResultDTO{}, exitcode.Newf(exitcode.Error, "spec replacement returned no report")
+				}
 				dto := specReplaceDTO(resp.SearchReplaceInNodes)
 				dto.SpecsInScope, dto.SpecsGoverned = len(specIDs), governed
 				return dto, nil
@@ -179,7 +227,7 @@ example, leave an abstract out of sync with its content.`,
 
 			// Preview-only.
 			if dryRun {
-				dto, err := run(true)
+				dto, err := run(true, nil)
 				if err != nil {
 					return err
 				}
@@ -189,7 +237,7 @@ example, leave an abstract out of sync with its content.`,
 			// Real write. ALWAYS preview first — the affected count is the only
 			// signal of blast radius, and an over-broad scope (a wrong -m, or a
 			// forgotten --prefix) can rewrite the whole corpus in one call.
-			preview, err := run(true)
+			preview, err := run(true, nil)
 			if err != nil {
 				return err
 			}
@@ -207,8 +255,11 @@ example, leave an abstract out of sync with its content.`,
 			}
 			if maxSpecs > 0 && preview.SpecsChanged > maxSpecs {
 				return exitcode.Newf(exitcode.Usage,
-					"refusing to replace across %d spec(s): exceeds --max-specs=%d — narrow the scope with --prefix, or raise --max-specs",
+					"SEARCH_REPLACE_MAX_NODES_CHANGED: refusing to replace across %d spec(s): exceeds --max-specs=%d — narrow the scope with --prefix, or raise --max-specs",
 					preview.SpecsChanged, maxSpecs)
+			}
+			if draft && (preview.Plan == nil || *preview.Plan == "") {
+				return exitcode.Newf(exitcode.Error, "draft spec replacement preview returned no plan; refusing to apply")
 			}
 			if yes {
 				fmt.Fprintf(f.IOStreams.ErrOut, "Replacing %d occurrence(s) across %d spec(s) (--yes)...\n",
@@ -222,7 +273,7 @@ example, leave an abstract out of sync with its content.`,
 				}
 			}
 
-			dto, err := run(false)
+			dto, err := run(false, preview.Plan)
 			if err != nil {
 				return err
 			}
@@ -260,6 +311,14 @@ func parseReplaceFields(field string) ([]gen.NodeTextField, error) {
 	default:
 		return nil, exitcode.Newf(exitcode.Usage, "unknown --field %q (valid: content, abstract, or omit for both)", field)
 	}
+}
+
+func specReplaceFields(fields []gen.NodeTextField) []gen.SpecTextField {
+	out := make([]gen.SpecTextField, 0, len(fields))
+	for _, field := range fields {
+		out = append(out, gen.SpecTextField(strings.ToLower(string(field))))
+	}
+	return out
 }
 
 // buildReplacePattern turns the CLI flags into the (oldText, regex) pair the
@@ -324,6 +383,40 @@ func specReplaceDTO(r *gen.SearchReplaceInNodesSearchReplaceInNodesSearchReplace
 		dto.Results = append(dto.Results, nd)
 	}
 	sort.Slice(dto.Results, func(i, j int) bool { return dto.Results[i].Citation < dto.Results[j].Citation })
+	return dto
+}
+
+func draftSpecReplaceDTO(r *gen.SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) specReplaceResultDTO {
+	dto := specReplaceResultDTO{
+		SpecsScanned: r.NodesScanned, SpecsSkipped: &r.NodesSkipped,
+		SpecsChanged: r.NodesChanged, TotalReplacements: r.TotalReplacements,
+		DryRun: r.DryRun, Plan: r.Plan, Draft: true,
+		Results: []specReplaceNodeDTO{},
+	}
+	skips := []specReplaceSkipDTO{}
+	dto.Skips = &skips
+	for _, n := range r.Results {
+		if n == nil {
+			continue
+		}
+		nd := specReplaceNodeDTO{Citation: n.Loc, NodeID: n.NodeId, Replacements: n.Replacements, Fields: []specReplaceFieldDTO{}}
+		for _, field := range n.Fields {
+			if field != nil {
+				nd.Fields = append(nd.Fields, specReplaceFieldDTO{Field: string(field.Field), Matches: field.Matches})
+			}
+		}
+		dto.Results = append(dto.Results, nd)
+	}
+	for _, skip := range r.Skips {
+		if skip != nil {
+			*dto.Skips = append(*dto.Skips, specReplaceSkipDTO{
+				Citation: skip.Loc, NodeID: skip.NodeId,
+				Reason: string(skip.Reason), Kinds: append([]string{}, skip.GovernedKinds...),
+			})
+		}
+	}
+	sort.Slice(dto.Results, func(i, j int) bool { return dto.Results[i].Citation < dto.Results[j].Citation })
+	sort.Slice(*dto.Skips, func(i, j int) bool { return (*dto.Skips)[i].Citation < (*dto.Skips)[j].Citation })
 	return dto
 }
 
@@ -432,6 +525,26 @@ func isGovernedKind(role *string, isRunnable *bool) bool {
 // are named as the cause, by rule; any remainder is reported as unexplained
 // rather than attributed to a cause the CLI cannot see.
 func renderUnsearchedNote(w io.Writer, dto specReplaceResultDTO) {
+	if dto.Draft {
+		skipped := 0
+		if dto.SpecsSkipped != nil {
+			skipped = *dto.SpecsSkipped
+		}
+		if skipped > 0 {
+			fmt.Fprintf(w, "note: %d of %d spec(s) in scope were protected and NOT searched by the draft spec door.\n", skipped, dto.SpecsInScope)
+			for _, skip := range *dto.Skips {
+				fmt.Fprintf(w, "  %s: %s", skip.Citation, skip.Reason)
+				if len(skip.Kinds) > 0 {
+					fmt.Fprintf(w, " (%s)", strings.Join(skip.Kinds, ", "))
+				}
+				fmt.Fprintln(w)
+			}
+		}
+		if other := dto.SpecsInScope - skipped - dto.SpecsScanned; other > 0 {
+			fmt.Fprintf(w, "note: %d more spec(s) in scope were not searched by the server.\n", other)
+		}
+		return
+	}
 	if dto.SpecsGoverned > 0 {
 		fmt.Fprintf(w, "note: %d of %d spec(s) in scope are governed and were NOT searched — bulk replace skips governed nodes (cor:acl:130:02). "+
 			"Find the text in them with `hadron spec grep`, and change it with `hadron spec edit`.\n",

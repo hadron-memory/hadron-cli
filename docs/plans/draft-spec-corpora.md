@@ -1,11 +1,10 @@
 # Design as built: draft spec corpora and minting (cli#777, slice 1)
 
-> **Status: reviewable on `Jane/777-draft-corpora`.** The hadron-server #1447
-> stack — #1451 (draft state), #1452 (placeholders), #1453 (reference scan,
-> renumber), #1462 (mint) — has merged. The schema snapshot is exported from
-> merged server `main` at `8a864c52`, using an explicit `HADRON_SERVER_DIR`
-> (#503). Live behavior still needs independent QA confirmation before this
-> CLI slice is ready for a human merge decision.
+> **Status:** cli#779 and cli#789 have merged. This plan records those slices
+> and the cli#777 completion slice on top of current CLI main. Server #1459's
+> draft-only spec bulk door has merged. The schema snapshot for this slice was
+> exported from server `origin/main` at `c2a3ec13` through an explicit
+> `HADRON_SERVER_DIR`; `make schema-check` passed against that revision.
 >
 > Contract: hadron-server#1447 ([contract comment](https://github.com/hadron-memory/hadron-server/issues/1447#issuecomment-5895948862),
 > [mint rulings](https://github.com/hadron-memory/hadron-server/issues/1447#issuecomment-5898878597)).
@@ -19,9 +18,9 @@ In (slice 1):
   `spec mint`.
 - The three new server refusals mapped to exits.
 
-Slice 2 (a separate PR stacked on slice 1) — built; see §6. Still out:
-- **`spec replace` in a draft** — needs hadron-server#1459 (Dara's governed
-  bulk replace, scoped to draft), a separate stack.
+Slice 2 shipped through cli#789; see §6. The cli#777 completion slice adds
+draft `spec replace` through merged server#1459 and placeholder inventory to
+`spec describe`; see §7.
 
 Originally planned for slice 2:
 - **Placeholder awareness in `spec lint` / `spec list` / `spec get`.** Needs
@@ -32,8 +31,7 @@ Originally planned for slice 2:
   placeholder nothing links to shows up in the mint report alone.
 - **State-aware lint advice.** Three lint messages say "a citation is never
   renumbered"; in a draft it can be. They need lint to read the corpus state.
-- **`spec replace` in a draft** — needs hadron-server#1459 (Dara's governed
-  bulk replace, scoped to draft), a separate stack.
+- **`spec replace` in a draft** — delivered by the completion slice (§7).
 - **A Go port check against the server's `specMint.fixtures.json`** — the four
   mint-blocking lint rules exist in `spec lint` already; a parity test loading
   a vendored copy of the fixture is a follow-up once the fixture is on `main`.
@@ -49,6 +47,7 @@ Originally planned for slice 2:
 | `spec backlinks <citation>` | `specBacklinks` | yes | exact citation only |
 | `spec unresolved` | `specUnresolvedReferences` | yes | exit 0 either way |
 | `spec mint [--dry-run] [--yes]` | `mintSpecCorpus` | yes | check first; confirm; one-way |
+| `spec replace [--dry-run] [--yes]` | `searchReplaceInSpecNodes` | yes | governed specs, exact preview plan |
 
 ## 3. Decisions
 
@@ -101,7 +100,7 @@ Originally planned for slice 2:
 
 - `memory set` create: `corpusState` (omitempty; `--draft-corpus` creates only).
 - `spec describe`: `corpusState` (always present; `null` = unknown), `mintedAt`
-  (omitempty).
+  (omitempty); `placeholderCount` and sorted `placeholders[]` when known.
 - New DTOs, all slices initialized to `[]`: `reserveDTO`, `backlinksDTO`,
   `unresolvedDTO` (shared `referenceDTO`), `renumberDTO`, `mintDTO`. See
   `agentic-usage.md` for the field lists.
@@ -113,7 +112,8 @@ Originally planned for slice 2:
   choice for old-server compatibility, variables sent (`name`, `dryRun`), exit codes
   per path, `[]` not `null`, the mint call sequence (check-only when blocked,
   declined or non-interactive; check then mint with `--yes`).
-- Live behavior awaits independent QA on the reviewable PR head.
+- The merged slices received independent source review and live QA on their
+  exact PR heads; those receipts are linked from cli#779 and cli#789.
 
 ## 6. Slice 2 — the read commands know about drafts
 
@@ -146,3 +146,24 @@ Originally planned for slice 2:
   ERROR — pre-existing on `main`, affecting every corpus. Fixed in
   `withoutCode`: fence decisions use the line without its trailing `\r`, the
   kept text is unchanged.
+
+## 7. Completion — draft replace and placeholder inventory
+
+- `spec describe` reuses the state and placeholder scan that lint/list/get
+  already use. It reports sorted `placeholders[]` and `placeholderCount`
+  separately from the total `specs`. A minted corpus reports an empty list;
+  when an older server lacks either the state or placeholder marker, those
+  optional fields are absent rather than falsely reporting zero.
+- `spec replace` reads the corpus state before selecting its explicit spec
+  node IDs. A draft uses `searchReplaceInSpecNodes`, passing raw literal text
+  and the server's `wordBoundary` flag. A real run previews, confirms, then
+  supplies that exact opaque `plan` as `expectedPlan`; the server refuses a
+  changed plan with zero writes. `--max-specs` remains a CLI preview gate and
+  is sent as `maxNodesChanged` on both calls, because the limit contributes
+  to the plan fingerprint. The draft result includes the
+  server's searched/skipped counts and node-addressed skip reasons.
+- Minted corpora and servers without `corpusState` retain the generic
+  `searchReplaceInNodes` path and its governed-skip explanation. A draft
+  server without the spec door fails loudly; silently using the generic door
+  there would report governed specs as unsearched and would not fulfill the
+  draft edit contract.

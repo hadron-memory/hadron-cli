@@ -700,6 +700,10 @@ func renderMint(w io.Writer, d mintDTO) error {
 
 // draftInfo is what lint/list/get need to know about a corpus's draft state.
 type draftInfo struct {
+	// State and MintedAt are reported by spec describe even when an older
+	// server cannot scan placeholders. A nil State means it could not say.
+	State    *string
+	MintedAt string
 	// Draft is true only when the server says DRAFT and supports the
 	// placeholder scan. Minted corpora and older server slices take the
 	// generic read path.
@@ -719,7 +723,15 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 		return info, nil
 	case err != nil:
 		return info, api.MapError(err)
-	case st.Memory == nil || st.Memory.CorpusState != gen.CorpusStateDraft:
+	case st.Memory == nil:
+		return info, nil
+	}
+	state := string(st.Memory.CorpusState)
+	info.State = &state
+	if st.Memory.CorpusMintedAt != nil {
+		info.MintedAt = *st.Memory.CorpusMintedAt
+	}
+	if st.Memory.CorpusState != gen.CorpusStateDraft {
 		return info, nil
 	}
 	info.Draft = true
@@ -737,7 +749,9 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 			// Keep the older server's generic read behavior rather than fail
 			// list/get/lint for a draft whose placeholders it cannot report.
 			if api.IsGraphQLValidationFor(err, "isPlaceholder") {
-				return draftInfo{Placeholders: map[string]bool{}}, nil
+				info.Draft = false
+				info.Placeholders = map[string]bool{}
+				return info, nil
 			}
 			return info, api.MapError(err)
 		}
