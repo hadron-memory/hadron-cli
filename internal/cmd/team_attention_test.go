@@ -550,7 +550,7 @@ func TestTeamChatReadMarksTheBoundWorkerReadAfterDelivery(t *testing.T) {
 	setTeamBindingServer(t, srv.URL)
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "chat", "read", "--json", "--server", srv.URL})
+	root.SetArgs([]string{"team", "chat", "read", "--since", "0", "--json", "--server", srv.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -587,7 +587,8 @@ func TestTeamChatReadMarksABoundedPageButNotAFilteredRead(t *testing.T) {
 	for _, tc := range []struct {
 		extra []string
 		mark  bool
-	}{{[]string{"--limit", "5"}, true}, {[]string{"--mentions-me"}, false}, {[]string{"--before", "3"}, false}} {
+	}{{[]string{"--since", "0", "--limit", "5"}, true}, {[]string{"--limit", "5"}, false},
+		{[]string{"--mentions-me"}, false}, {[]string{"--before", "3"}, false}} {
 		t.Run(strings.Join(tc.extra, " "), func(t *testing.T) {
 			writeTeamBinding(t)
 			srv, calls := attnServer(t, chatReadResponses())
@@ -609,6 +610,37 @@ func TestTeamChatReadMarksABoundedPageButNotAFilteredRead(t *testing.T) {
 	}
 }
 
+// A cursorless tail is one page, not a checkpoint, even when it appears to
+// contain the complete chat. Count and fetch can race (#1538).
+func TestTeamChatReadTailNeverMarksServerRead(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		page string
+	}{
+		{"partial tail", teamChatPage(402, 401, 402)},
+		{"apparently complete tail", teamChatPage(2, 1, 2)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			writeTeamBinding(t)
+			r := chatReadResponses()
+			r["TeamChatMessages"] = tc.page
+			srv, calls := attnServer(t, r)
+			setTeamBindingServer(t, srv.URL)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "chat", "read", "--limit", "2", "--json", "--server", srv.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			for _, c := range *calls {
+				if c.Op == "MarkOwnTeamChatRead" || c.Op == "TeamDefaultChannel" {
+					t.Errorf("cursorless tail must not be marked read: %v", opsOf(*calls))
+				}
+			}
+		})
+	}
+}
+
 // Nothing delivered, nothing marked: a render that fails must not mark the
 // messages it failed to show.
 func TestTeamChatReadMarksNothingWhenTheRenderFails(t *testing.T) {
@@ -618,7 +650,7 @@ func TestTeamChatReadMarksNothingWhenTheRenderFails(t *testing.T) {
 	f, _ := testFactory(t)
 	f.IOStreams.Out = failingWriter{}
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "chat", "read", "--server", srv.URL})
+	root.SetArgs([]string{"team", "chat", "read", "--since", "0", "--server", srv.URL})
 	if err := root.Execute(); err == nil {
 		t.Fatal("a failed render must fail the read")
 	}
@@ -644,7 +676,7 @@ func TestTeamChatReadMarkFailureNeverFailsTheRead(t *testing.T) {
 			setTeamBindingServer(t, srv.URL)
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
-			root.SetArgs([]string{"team", "chat", "read", "--json", "--server", srv.URL})
+			root.SetArgs([]string{"team", "chat", "read", "--since", "0", "--json", "--server", srv.URL})
 			if err := root.Execute(); err != nil {
 				t.Fatalf("a failed server mark must not fail the read: %v", err)
 			}
@@ -968,7 +1000,7 @@ func TestTeamChatReadMarksOnlyWhileTheBindingIsStillOurs(t *testing.T) {
 			setTeamBindingServer(t, srv.URL)
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
-			root.SetArgs([]string{"team", "chat", "read", "--app", "capp100000000000000000000", "--json", "--server", srv.URL})
+			root.SetArgs([]string{"team", "chat", "read", "--since", "0", "--app", "capp100000000000000000000", "--json", "--server", srv.URL})
 			if err := root.Execute(); err != nil {
 				t.Fatalf("execute: %v", err)
 			}

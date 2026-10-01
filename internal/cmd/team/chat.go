@@ -354,28 +354,24 @@ const TeamChatPageSize = 200
 
 func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
 	var since, before, limit int
+	var all bool
 	var mentionsMe bool
 	var mentions string
 	cmd := &cobra.Command{
-		Use:     "read [--since <seq>] [--before <seq>] [--limit <n>] [--mentions-me | --mentions <ref>]",
+		Use:     "read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>]",
 		Aliases: []string{"pull"},
-		Short:   "Read the team chat, forwards from a seq or backwards from one",
-		Long: `Read team-chat messages, oldest first by the server-assigned seq. Pass
---since <seq> for only newer messages; the response's nextSince is the seq
-to pass next turn.
+		Short:   "Read one page of team chat, newest page by default",
+		Long: `Read one page of team-chat messages, oldest first within the page.
+With no cursor, the server returns the newest page. Pass --before <seq> to
+walk back, or --since <seq> to walk forward from that seq. The response's
+prevBefore and nextSince are the respective cursors to pass next turn.
 
-TWO CURSORS, IN OPPOSITE DIRECTIONS. --since walks FORWARD and, on its own,
-reads to the end of the chat. --before <seq> walks BACK: it returns the page
-immediately before that seq — the newest messages preceding it, still
-oldest-first — and the response's prevBefore is what to pass next. That is how
-you walk a long history without asking for all of it at once, which on a chat
-with real history is the difference between a read you can hold and one you
-cannot.
+--since 0 explicitly starts at the oldest page. --all opts into walking
+forward to the end, starting at seq 0 unless --since is also given. --all
+cannot be combined with --before or --limit; those name a single page.
 
-EITHER --before OR --limit MAKES THE READ ONE PAGE. With neither, the command
-pages to exhaustion from --since, exactly as it always has. --limit sets how
-big that page is (default 200, the server's cap). They compose, so
-` + "`--since 300 --before 340`" + ` reads a bounded slice in the middle.
+--limit sets the page size (default 200, the server's cap). --since and
+--before compose, so ` + "`--since 300 --before 340`" + ` reads one bounded slice.
 
 prevBefore is NULL when the page came back EMPTY, and that is the ONLY
 end-of-history signal — walk back until you get one. Do not try to compute
@@ -383,10 +379,10 @@ end-of-history signal — walk back until you get one. Do not try to compute
 not to the chat (hadron-server#1121), so on the second page back it reports
 fewer messages than exist and a reader trusting it stops early.
 
-A --before read never advances the watermark below, and cannot: it returns
-the newest messages before a cursor, so everything between --since and that
-page is unread by construction. The gap is in the MIDDLE, where a
-start-of-read check cannot see it.
+A --before read never advances the watermark below: it skips a middle range.
+A cursorless newest-page read also never advances it, even if the page appears
+complete: the server's count and fetch can race. Use an explicit --since for a
+contiguous forward read, or mark-read after deliberately acknowledging a gap.
 
 --mentions-me keeps only messages mentioning the bound worker;
 --mentions <ref> filters for any staff member or App member (a worker name
@@ -399,9 +395,9 @@ which is free and never re-delivers them). Mention tokens carry no
 uniqueness guarantee (hadron-server#979): a token may match more than one
 worker, and the filter simply returns every match.
 
-An UNFILTERED read of the worktree's OWN team App records a WATERMARK on the
-binding (#474), which is what lets ` + "`session log`" + ` tell you how much has
-landed since. Nothing to pass: it is the seq this command just returned.
+An UNFILTERED read of the worktree's OWN team App can record a WATERMARK on
+the binding (#474), which lets ` + "`session log`" + ` count later messages.
+It records only a contiguous prefix the command actually returned.
 Both qualifiers matter — a filtered read skips the messages in between (see
 nextSince above), and another team's seq is not this binding's cursor — so
 those reads deliberately leave the watermark where it was, as does a read
@@ -410,8 +406,7 @@ ids, so naming your own team by URN still counts as reading it. The watermark is
 only on a read CONTIGUOUS with what the binding already holds, and only to a
 seq the server actually returned — so a --since ahead of the watermark (or
 past the end of the chat) reads a window rather than a prefix and records
-nothing. Reading a chat that is EMPTY still counts as
-having read it.
+nothing. An explicit --since 0 on an EMPTY chat still records read-through-0.
 
 YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). When the binding
 records this server, a read that records the watermark above also marks the bound worker's
@@ -429,7 +424,9 @@ dialect, which calls the field ` + "`author`" + ` (#406). Prefer authorName. Unl
 that dialect this output also separates authorUserId from authorWorkerId, so
 a human post and a worker post are tellable apart; the transcript marks
 them "(human)" / "(worker)".`,
-		Example: `  hadron team chat read --since 42
+		Example: `  hadron team chat read
+  hadron team chat read --since 42
+  hadron team chat read --all --since 0
   hadron team chat read --mentions-me --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -455,6 +452,10 @@ them "(human)" / "(worker)".`,
 			switch {
 			case mentionsMe && mentions != "":
 				return exitcode.Newf(exitcode.Usage, "pass --mentions-me or --mentions <ref>, not both")
+			case all && cmd.Flags().Changed("before"):
+				return exitcode.Newf(exitcode.Usage, "--all walks forward; use --before for one backward page")
+			case all && cmd.Flags().Changed("limit"):
+				return exitcode.Newf(exitcode.Usage, "--all walks every page; --limit selects one page")
 			case cmd.Flags().Changed("limit") && limit == 0:
 				return exitcode.Newf(exitcode.Usage,
 					"--limit must be at least 1 (the server reads 0 as \"count only\", which returns an empty page and is indistinguishable from the end of the chat)")
@@ -510,23 +511,11 @@ them "(human)" / "(worker)".`,
 				return err
 			}
 			appRef, appLabel := scope.Ref, lazyAppLabel(ctx, f, scope)
-			// BOUNDED OR EXHAUSTIVE, and exactly one flag decides which
-			// (#548). Either cursor-bound makes this a SINGLE PAGE:
-			//
-			//   --before  the page immediately BEFORE a seq — the backward
-			//             mirror, and the only way to walk history without
-			//             asking for all of it at once;
-			//   --limit   how big a page is.
-			//
-			// Neither: the historical behaviour, unchanged — page forward to
-			// exhaustion from --since. That is what makes this additive rather
-			// than a break, and it is why `--limit` bounds the read instead of
-			// merely sizing a page nobody sees: an exhaustive read has no page
-			// size a caller could observe, so a `--limit` that only tuned it
-			// would be a flag with no effect. A flag whose effect depends on
-			// another flag being present is the shape this repo has already
-			// filed twice; each of these means something on its own.
-			bounded := cmd.Flags().Changed("before") || cmd.Flags().Changed("limit")
+			// A cursorless request must OMIT sinceSeq to receive the server's
+			// newest page. An explicit --since 0 starts at the oldest page;
+			// --all without --since does the same for a full forward walk.
+			sinceGiven := cmd.Flags().Changed("since")
+			tailRead := !sinceGiven && !cmd.Flags().Changed("before") && !all
 			pageSize := TeamChatPageSize
 			if cmd.Flags().Changed("limit") {
 				pageSize = limit
@@ -535,12 +524,16 @@ them "(human)" / "(worker)".`,
 			cursor := since
 			for {
 				size := pageSize
+				var sinceArg *int
+				if !tailRead && (sinceGiven || all) {
+					sinceArg = &cursor
+				}
 				var beforeArg *int
 				if cmd.Flags().Changed("before") {
 					b := before
 					beforeArg = &b
 				}
-				resp, err := gen.TeamChatMessages(ctx, client, appRef, &cursor, mentionsRef, &size, nil, beforeArg)
+				resp, err := gen.TeamChatMessages(ctx, client, appRef, sinceArg, mentionsRef, &size, nil, beforeArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -551,10 +544,7 @@ them "(human)" / "(worker)".`,
 					}
 					msgs = append(msgs, teamChatMessageDTOFromFields(m.TeamChatMessageFields))
 				}
-				// A bounded read is ONE page by definition; looping here would
-				// be the caller's job done wrongly, since only they know which
-				// direction they are walking.
-				if bounded || len(page) < pageSize {
+				if !all || len(page) < pageSize {
 					break
 				}
 				cursor = msgs[len(msgs)-1].Seq
@@ -581,20 +571,23 @@ them "(human)" / "(worker)".`,
 			// This subsumes the unverified-cursor case: `--since 999999` on a
 			// hundred-message chat is not contiguous either, so it cannot mark the
 			// team's next year of messages read on a typo.
-			contiguous := (b == nil) ||
+			// A cursorless newest page is never a read-state checkpoint. Even
+			// an apparently complete tail cannot prove coverage: the server
+			// counts and fetches separately, and posts can land between them.
+			// Explicit --since 0/N is the forward path that can prove a prefix.
+			contiguous := !tailRead && ((b == nil) ||
 				(b.ChatSeenSeq == nil && since == 0) ||
-				(b.ChatSeenSeq != nil && since <= *b.ChatSeenSeq)
+				(b.ChatSeenSeq != nil && since <= *b.ChatSeenSeq))
 			// …and only ever TO a seq the server actually returned, with one
-			// addition: asking from the very beginning and being handed nothing
-			// means the chat is genuinely empty, which is read-through-0 rather
-			// than never-read.
+			// addition: an explicit forward read from the very beginning that
+			// returns nothing proves the chat empty, which is read-through-0.
 			verified, ok := 0, false
 			for _, m := range msgs {
 				if !ok || m.Seq > verified {
 					verified, ok = m.Seq, true
 				}
 			}
-			if !ok && since == 0 {
+			if !ok && !tailRead && since == 0 {
 				ok = true
 			}
 			// Two more conditions, both from the same review, both P1:
@@ -640,10 +633,8 @@ them "(human)" / "(worker)".`,
 				// its-evidence, finding 8), and this is the first surface that
 				// can produce a window whose start looks perfectly contiguous.
 				//
-				// --limit alone is NOT excluded, and that asymmetry is the
-				// point: a bounded FORWARD read from the watermark is a genuine
-				// prefix — seqs 1..30 of a chat, with nothing skipped — so
-				// recording 30 claims exactly what was seen.
+				// --limit with an explicit --since is still a forward prefix.
+				// --limit alone is a cursorless tail, excluded by contiguous.
 				if b == nil || b.SessionID == "" || !ok || !unfiltered || !contiguous || cmd.Flags().Changed("before") ||
 					!bindingServerMatches(f, b) {
 					return false
@@ -731,13 +722,14 @@ them "(human)" / "(worker)".`,
 			return nil
 		},
 	}
-	cmd.Flags().IntVar(&since, "since", 0, "only messages with seq greater than this (0 = whole history)")
+	cmd.Flags().IntVar(&since, "since", 0, "one forward page after this seq (0 = oldest page; add --all for every page)")
 	// "the newest of those" describes WHICH messages, not what order they
 	// print in — the page is still rendered oldest-first like every other read
 	// (@copilot: the first wording said "newest first", which reads as
 	// ordering and contradicts the paragraph above it).
 	cmd.Flags().IntVar(&before, "before", 0, "one page of the messages just before this seq — the newest of those, still printed oldest-first")
-	cmd.Flags().IntVar(&limit, "limit", TeamChatPageSize, "messages per page; giving it makes the read ONE page instead of the whole history")
+	cmd.Flags().IntVar(&limit, "limit", TeamChatPageSize, "messages in this page (1 to 200)")
+	cmd.Flags().BoolVar(&all, "all", false, "walk every page forward (from seq 0, or --since)")
 	cmd.Flags().BoolVar(&mentionsMe, "mentions-me", false, "only messages mentioning the bound worker")
 	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this staff/App member (worker name or id, or user handle)")
 	return cmd

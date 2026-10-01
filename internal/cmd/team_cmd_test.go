@@ -2693,7 +2693,7 @@ func TestTeamChatReadRecordsTheWatermark(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
+	root.SetArgs([]string{"team", "chat", "read", "--since", "0", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2799,7 +2799,7 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 	// binding's own App explicitly is the same read and must still record.
 	t.Run("naming the bound App explicitly still records", func(t *testing.T) {
 		path := bind(t)
-		read(t, oneMessage, "--app", "capp100000000000000000000")
+		read(t, oneMessage, "--since", "0", "--app", "capp100000000000000000000")
 		if got := watermark(t, path); got != 8 {
 			t.Errorf("--app capp100000000000000000000 is the bound App — want watermark 8, got %d", got)
 		}
@@ -2812,7 +2812,7 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 	// always wrong is ignored, which costs more than the case it guards.
 	t.Run("the bound App named by URN still records", func(t *testing.T) {
 		path := bind(t)
-		read(t, oneMessage, "--app", "hrn:app:acme.com:eng-team")
+		read(t, oneMessage, "--since", "0", "--app", "hrn:app:acme.com:eng-team")
 		if got := watermark(t, path); got != 8 {
 			t.Errorf("that URN resolves to capp100000000000000000000, the bound App — want 8, got %d", got)
 		}
@@ -2854,7 +2854,7 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		f, _ := testFactory(t)
 		f.IOStreams.Out = brokenWriter{}
 		root := NewRootCmd(f)
-		root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
+		root.SetArgs([]string{"team", "chat", "read", "--since", "0", "--server", gql.URL})
 		if err := root.Execute(); err == nil {
 			t.Fatal("a failed render must surface as an error")
 		}
@@ -2951,7 +2951,7 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		t.Cleanup(gql.Close)
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
-		root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
+		root.SetArgs([]string{"team", "chat", "read", "--since", "0", "--server", gql.URL})
 		if err := root.Execute(); err != nil {
 			t.Fatalf("chat read: %v", err)
 		}
@@ -3019,7 +3019,7 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		read(t, map[string]string{
 			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
 			"TeamAppIdentity":  teamAppIdentityJSON,
-		})
+		}, "--since", "0")
 		if got := watermark(t, path); got != 0 {
 			t.Errorf("an empty chat was still read — want recorded 0, got %d", got)
 		}
@@ -3107,8 +3107,9 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 		if err := root.Execute(); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
-		if !strings.Contains(errOut.String(), "this worktree has no record of reading the team chat") {
-			t.Errorf("want the never-read note, got %q", errOut.String())
+		if !strings.Contains(errOut.String(), "this worktree has no contiguous team-chat read cursor") ||
+			!strings.Contains(errOut.String(), "--since 0` starts at the oldest page") {
+			t.Errorf("want the no-prefix note and one-page remedy, got %q", errOut.String())
 		}
 		// Claims only what the CLI knows — an MCP-side read is invisible here,
 		// so asserting the worker never read would be a false nudge (seq 102).
