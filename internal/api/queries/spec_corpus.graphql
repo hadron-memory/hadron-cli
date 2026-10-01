@@ -123,3 +123,22 @@ mutation MintSpecCorpus($memoryRef: ID!, $dryRun: Boolean!) {
     }
   }
 }
+
+# #1450 — which specs in a DRAFT corpus are placeholders. A separate, minimal
+# scan run only for a draft, so the shared node projections don't select
+# isPlaceholder: an older server would reject every spec read over it.
+query SpecPlaceholderScan(
+  $filter: NodeFilter!
+  $sort: NodeSort!
+  $limit: Int!
+  $offset: Int!
+) {
+  findNodes(filter: $filter, sort: $sort, limit: $limit, offset: $offset) {
+    hits {
+      node {
+        loc
+        isPlaceholder
+      }
+    }
+  }
+}

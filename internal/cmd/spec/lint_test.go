@@ -1150,7 +1150,7 @@ func TestNearCapAtAnyLocIsNotTierAdvice(t *testing.T) {
 	if msg == "" {
 		t.Fatal("the hard cap binds every spec, so a near-cap abstract must be reported")
 	}
-	if strings.Contains(msg, indexRemedy(Citation{})) || strings.Contains(msg, contractRemedy) {
+	if strings.Contains(msg, indexRemedy(Citation{}, false)) || strings.Contains(msg, contractRemedy) {
 		t.Errorf("tier advice for a loc with no tier: %q", msg)
 	}
 	if !strings.Contains(msg, splitRemedy) {

@@ -96,7 +96,11 @@ one object for a single citation, an array for --prefix.`,
 				// is nil and the comparison stays silent rather than reporting
 				// a template expansion as a changed body.
 				rawBody, _ := rawSpecBody(cmd, client, n.Id)
-				dto := specDetailFromNode(n, !abstractOnly, rawBody, memURN)
+				draft, err := loadDraftInfo(cmd.Context(), client, cmdutil.CanonicalMemoryRef(memURN), n.Loc)
+				if err != nil {
+					return err
+				}
+				dto := specDetailFromNode(n, !abstractOnly, rawBody, memURN, draft)
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					renderSpecDetail(w, memURN, dto)
 					return nil
@@ -138,6 +142,10 @@ one object for a single citation, an array for --prefix.`,
 				fmt.Fprintf(f.IOStreams.ErrOut, "note: %d spec(s) listed but could not be read\n", len(unavailable))
 			}
 
+			draft, err := loadDraftInfo(cmd.Context(), client, cmdutil.CanonicalMemoryRef(memURN), prefix)
+			if err != nil {
+				return err
+			}
 			details := make([]specDetailDTO, 0, len(batched))
 			for _, bn := range batched {
 				if bn == nil {
@@ -147,7 +155,7 @@ one object for a single citation, an array for --prefix.`,
 				// templates. nodeByIDFromBatch reshapes them into the
 				// single-read type and drops that provenance, so it is
 				// restated here — rawness belongs to the QUERY, not the shape.
-				details = append(details, specDetailFromNode(nodeByIDFromBatch(bn), !abstractOnly, bn.Content, memURN))
+				details = append(details, specDetailFromNode(nodeByIDFromBatch(bn), !abstractOnly, bn.Content, memURN, draft))
 			}
 			// Bulk reads don't preserve order across chunks — sort for a
 			// deterministic dump.
@@ -201,27 +209,35 @@ func edgeNameStr(s *string) string {
 //
 // Only the LINT projection sees the raw body. The rendered detail keeps the
 // compiled one, because that is what a reader of `spec get` asked for.
-func specDetailFromNode(n *gen.GetNodeNode, includeContent bool, rawBody *string, memURN string) specDetailDTO {
+func specDetailFromNode(n *gen.GetNodeNode, includeContent bool, rawBody *string, memURN string, draft draftInfo) specDetailDTO {
 	sn := nodeFromGQL(n)
 	if rawBody != nil {
 		sn.Content = rawBody
 		sn.ContentIsRaw = true
 	}
-	findings := lintNode(sn, memURN)
+	sn.InDraft = draft.Draft
+	placeholder := draft.Placeholders[n.Loc]
+	var findings []lintFindingDTO
+	if placeholder {
+		findings = []lintFindingDTO{placeholderFinding(n.Loc)}
+	} else {
+		findings = lintNode(sn, memURN)
+	}
 	if findings == nil {
 		findings = []lintFindingDTO{}
 	}
 	dto := specDetailDTO{
-		Citation:  n.Loc,
-		MemoryID:  n.MemoryId,
-		Name:      n.Name,
-		NodeType:  n.NodeType,
-		Tags:      tagsOrEmpty(n.Tags),
-		Abstract:  n.Abstract,
-		Data:      n.Data,
-		Edges:     []specEdgeDTO{},
-		Lint:      findings,
-		UpdatedAt: n.UpdatedAt,
+		Citation:    n.Loc,
+		MemoryID:    n.MemoryId,
+		Name:        n.Name,
+		NodeType:    n.NodeType,
+		Tags:        tagsOrEmpty(n.Tags),
+		Abstract:    n.Abstract,
+		Data:        n.Data,
+		Edges:       []specEdgeDTO{},
+		Lint:        findings,
+		UpdatedAt:   n.UpdatedAt,
+		Placeholder: placeholder,
 	}
 	if includeContent {
 		dto.Content = n.Content
@@ -288,6 +304,9 @@ func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.G
 // single-citation and --prefix paths so both render identically.
 func renderSpecDetail(w io.Writer, memURN string, d specDetailDTO) {
 	fmt.Fprintln(w, d.Name)
+	if d.Placeholder {
+		fmt.Fprintln(w, "PLACEHOLDER — reserved, not yet written")
+	}
 	fmt.Fprintln(w, specNodeRef(memURN, d.Citation))
 	if len(d.Tags) > 0 {
 		fmt.Fprintf(w, "Tags: %s\n", strings.Join(d.Tags, ", "))
