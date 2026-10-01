@@ -95,7 +95,8 @@ on-subject, cutting one drops a contract. What to do instead depends on the
 TIER. On a rule or flow it is a granularity signal and the fix is a
 supersede-level split. On a product, module or feature the abstract is an INDEX
 of its children, so carrying many subjects is its job and a split is not even
-available — it cannot move the children, because a citation is never renumbered.
+available — it cannot move the children, because a citation is never renumbered
+(in a DRAFT corpus it can, with "spec renumber", but routing is still the fix).
 There, length means the abstract is restating its children instead of routing to
 them, and the fix is to rewrite it as one clause per child.
 
@@ -103,7 +104,13 @@ A spec at any loc owes no parent, contract or index: the legacy tier checks
 (parent-exists, toc-edge, inheritance-edge, index-incomplete) are removed. So is
 the old content rubric (#708): a missing abstract, a missing "what invalidates"
 statement, a missing data.version, an unreplaced scaffold body and the
-placeholder-contract exemption are no longer findings, at any loc.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
+placeholder-contract exemption are no longer findings, at any loc.
+
+In a DRAFT corpus (created with "memory set --draft-corpus"), a reserved
+placeholder is reported once as "placeholder" instead of being linted, and a
+reference to a spec that doesn't exist or is only a placeholder is reported as
+"unresolved-reference" at the citing spec. Both are warnings: "spec mint" is
+the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix cor:api:140 -m hrn:mem:hadronmemory.com:specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
@@ -233,6 +240,20 @@ placeholder-contract exemption are no longer findings, at any loc.`, abstractSof
 				return exitcode.Newf(exitcode.Usage, "specify a <citation>, --prefix <citation>, --product <ppp>, --module <mmm>, or --all")
 			}
 
+			// Draft corpora (hadron-server#1447, cli#777 slice 2). One state read;
+			// only a DRAFT is scanned for placeholders and unresolved references.
+			// A placeholder is a reserved citation, not a malformed spec, so it
+			// is reported once as `placeholder` instead of tripping the rules an
+			// empty body would; the linted set keeps every scoped loc so an
+			// unresolved reference FROM a placeholder is still in scope.
+			memRef := cmdutil.CanonicalMemoryRef(memURN)
+			draft, err := loadDraftInfo(cmd.Context(), client, memRef, "")
+			if err != nil {
+				return err
+			}
+			scoped := len(nodes)
+			nodes, placeholders, inScope := partitionDraftLintNodes(nodes, draft)
+
 			findings := []lintFindingDTO{}
 			if corpus {
 				findings = lintCorpus(nodes, memURN)
@@ -245,6 +266,14 @@ placeholder-contract exemption are no longer findings, at any loc.`, abstractSof
 			// `spec find`; warn once if the memory has no vector index (#42).
 			if vw := vectorIndexWarning(cmd, client, memURN); vw != nil {
 				findings = append(findings, *vw)
+			}
+			findings = append(findings, placeholders...)
+			if draft.Draft {
+				unresolved, err := unresolvedFindings(cmd.Context(), client, memRef, inScope)
+				if err != nil {
+					return err
+				}
+				findings = append(findings, unresolved...)
 			}
 			if strict {
 				for i := range findings {
@@ -264,7 +293,7 @@ placeholder-contract exemption are no longer findings, at any loc.`, abstractSof
 
 			if err := output.Write(f.IOStreams, f.JSON, findings, func(w io.Writer) error {
 				if len(findings) == 0 {
-					fmt.Fprintf(w, "✓ %d spec(s) OK\n", len(nodes))
+					fmt.Fprintf(w, "✓ %d spec(s) OK\n", scoped)
 					return nil
 				}
 				t := output.NewTable(w, "CITATION", "SEVERITY", "RULE", "MESSAGE")
@@ -288,6 +317,25 @@ placeholder-contract exemption are no longer findings, at any loc.`, abstractSof
 	cmd.Flags().BoolVar(&all, "all", false, "lint every spec in the memory")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	return cmd
+}
+
+// partitionDraftLintNodes keeps unreadable listed nodes in the lint set even
+// when the separate placeholder scan reports the same citation. The failed
+// detail read is an error, not a placeholder warning.
+func partitionDraftLintNodes(nodes []specNode, draft draftInfo) ([]specNode, []lintFindingDTO, map[string]bool) {
+	inScope := map[string]bool{}
+	var placeholders []lintFindingDTO
+	written := make([]specNode, 0, len(nodes))
+	for _, n := range nodes {
+		inScope[n.Loc] = true
+		if !n.Unavailable && draft.Placeholders[n.Loc] {
+			placeholders = append(placeholders, placeholderFinding(n.Loc))
+			continue
+		}
+		n.InDraft = draft.Draft
+		written = append(written, n)
+	}
+	return written, placeholders, inScope
 }
 
 // lintScopeError enforces that exactly one scope selector is used: a positional
@@ -380,7 +428,7 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	// ADVISORY soft bound tiers down.
 	if abstractWritten(n.Abstract) {
 		if l := abstractLength(n.Abstract); abstractNearCap(l) {
-			add("abstract-length", sevError, nearCapMessage(l, n.Name, c, err == nil))
+			add("abstract-length", sevError, nearCapMessage(l, n.Name, c, err == nil, n.InDraft))
 		}
 	}
 
@@ -824,7 +872,13 @@ func withoutCode(s string) string {
 	kept := make([]string, len(lines))
 	open, openAt := "", -1
 	for i, line := range lines {
-		indent, trimmed := splitIndent(line)
+		// A CRLF-authored body splits into lines ending in "\r", which the
+		// close check below reads as a non-blank remainder — so every CRLF
+		// fence stayed open and its documented marker was reported (cli#777;
+		// the server's mint check splits on \r?\n, and the shared fixture
+		// pins the case). The fence decisions use the line without it; the
+		// kept text is unchanged.
+		indent, trimmed := splitIndent(strings.TrimSuffix(line, "\r"))
 		switch {
 		case open != "":
 			// A closing fence carries only SPACES OR TABS after its run — not
@@ -990,6 +1044,12 @@ const (
 	// signal and a supersede-level split really is the remedy.
 	splitRemedy = " Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split"
 
+	// splitRemedyDraft is splitRemedy in a DRAFT corpus (hadron-server#1447):
+	// nothing is superseded before minting, so the split is a plain edit —
+	// reserve the new citation, move the second subject there, renumber if the
+	// numbering needs it.
+	splitRemedyDraft = " Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a split. This corpus is a DRAFT, so split it directly: `spec reserve` a citation for the second subject, move that subject there, and `spec renumber` if the numbering needs it — nothing is superseded before minting"
+
 	// A contract is NEITHER. It indexes nothing, so it cannot be told to route;
 	// and a split is not available to it either, because its loc is a RESERVED
 	// atom — `gen`, `000`, `00` — of which there is exactly one per tier, so
@@ -1017,7 +1077,11 @@ const (
 // reproducing each child's own abstract. That is a duplication defect, and it
 // had already begun to drift: `020:09` was edited without its parent. Rewriting
 // to route took it to 1427 with zero citations touched.
-func indexRemedy(c Citation) string {
+//
+// In a DRAFT corpus (hadron-server#1447) a citation is not yet permanent, so
+// the split IS available — `spec renumber` moves children — but routing is
+// still the fix, and the advice says both rather than a false impossibility.
+func indexRemedy(c Citation, draft bool) string {
 	// At level 1 the children CANNOT be named, and saying so is the honest
 	// option (@codex on #609). `ParseCitation` reads a lone atom as a flat
 	// module, so a bare PRODUCT root — whose children are modules — arrives
@@ -1030,11 +1094,15 @@ func indexRemedy(c Citation) string {
 	if c.Level() == 2 {
 		tier, children = "feature", "rules"
 	}
-	return fmt.Sprintf(" Do NOT split and do NOT distill: a %s abstract is an INDEX of its children, so carrying many subjects is its job, and a split cannot move %s — a citation is never renumbered, so it would mean superseding every one of them. At this tier length is a DUPLICATION signal: the abstract is probably restating what its children already say instead of ROUTING to them. Rewrite it as one clause per child naming what that child is, and check none is missing",
-		tier, children)
+	why := fmt.Sprintf("a split cannot move %s — a citation is never renumbered, so it would mean superseding every one of them", children)
+	if draft {
+		why = fmt.Sprintf("this corpus is a DRAFT, so a split could move %s with `spec renumber`, but it would still be the wrong fix", children)
+	}
+	return fmt.Sprintf(" Do NOT split and do NOT distill: a %s abstract is an INDEX of its children, so carrying many subjects is its job, and %s. At this tier length is a DUPLICATION signal: the abstract is probably restating what its children already say instead of ROUTING to them. Rewrite it as one clause per child naming what that child is, and check none is missing",
+		tier, why)
 }
 
-func nearCapMessage(l int, title string, c Citation, legacy bool) string {
+func nearCapMessage(l int, title string, c Citation, legacy, draft bool) string {
 	// One decision, two consequences. The conjunction hint below is SPLIT-SHAPED,
 	// so it must be tied to the remedy actually chosen rather than re-derived
 	// from the tier — deriving it separately is how a contract ended up being
@@ -1045,12 +1113,15 @@ func nearCapMessage(l int, title string, c Citation, legacy bool) string {
 	// citation gets them; any other loc gets the generic split remedy, never
 	// index guidance for a zero-value Citation (@copilot on #710).
 	remedy, splitShaped := splitRemedy, true
+	if draft {
+		remedy = splitRemedyDraft
+	}
 	switch {
 	case !legacy:
 	case c.IsContract():
 		remedy, splitShaped = contractRemedy, false
 	case indexTier(c):
-		remedy, splitShaped = indexRemedy(c), false
+		remedy, splitShaped = indexRemedy(c, draft), false
 	}
 	var msg string
 	switch headroom := abstractHardMax - l; {

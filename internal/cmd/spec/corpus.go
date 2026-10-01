@@ -1,10 +1,12 @@
 package spec
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -692,4 +694,114 @@ func renderMint(w io.Writer, d mintDTO) error {
 		fmt.Fprintln(w, "✓ mintable — run without --dry-run to mint")
 	}
 	return nil
+}
+
+// ── draft awareness for the read commands (cli#777 slice 2) ─────────────
+
+// draftInfo is what lint/list/get need to know about a corpus's draft state.
+type draftInfo struct {
+	// Draft is true only when the server says DRAFT and supports the
+	// placeholder scan. Minted corpora and older server slices take the
+	// generic read path.
+	Draft bool
+	// Placeholders are the locs of reserved, unwritten specs (draft only).
+	Placeholders map[string]bool
+}
+
+// loadDraftInfo reads the corpus state and, for a draft, its placeholders
+// under prefix ("" = the whole corpus). One extra request for a minted corpus
+// or an older server; the placeholder scan runs only for a draft.
+func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix string) (draftInfo, error) {
+	info := draftInfo{Placeholders: map[string]bool{}}
+	st, err := gen.SpecCorpusState(ctx, client, memRef)
+	switch {
+	case err != nil && api.IsGraphQLValidationFor(err, "corpusState"):
+		return info, nil
+	case err != nil:
+		return info, api.MapError(err)
+	case st.Memory == nil || st.Memory.CorpusState != gen.CorpusStateDraft:
+		return info, nil
+	}
+	info.Draft = true
+	var prefixArg *string
+	if prefix != "" {
+		prefixArg = &prefix
+	}
+	filter := newNodeFilter(&memRef, prefixArg, nil)
+	role := api.SpecNodeRole
+	filter.Role = &role
+	for offset := 0; ; offset += nodesPageSize {
+		resp, err := gen.SpecPlaceholderScan(ctx, client, filter, gen.NodeSortLoc, nodesPageSize, offset)
+		if err != nil {
+			// #1451 exposed corpusState before #1452 added isPlaceholder.
+			// Keep the older server's generic read behavior rather than fail
+			// list/get/lint for a draft whose placeholders it cannot report.
+			if api.IsGraphQLValidationFor(err, "isPlaceholder") {
+				return draftInfo{Placeholders: map[string]bool{}}, nil
+			}
+			return info, api.MapError(err)
+		}
+		if resp.FindNodes == nil {
+			return info, nil
+		}
+		for _, h := range resp.FindNodes.Hits {
+			if h != nil && h.Node != nil && h.Node.IsPlaceholder {
+				info.Placeholders[h.Node.Loc] = true
+			}
+		}
+		if len(resp.FindNodes.Hits) < nodesPageSize {
+			return info, nil
+		}
+	}
+}
+
+// unresolvedFindings turns a draft corpus's unresolved references into lint
+// warnings at the citing spec, for the specs in scope. Warnings, not errors:
+// in a draft an open reference is work in progress, and `spec mint` is the
+// gate that refuses it (`--strict` escalates them like any warning).
+func unresolvedFindings(ctx context.Context, client graphql.Client, memRef string, inScope map[string]bool) ([]lintFindingDTO, error) {
+	resp, err := gen.SpecUnresolvedReferences(ctx, client, memRef)
+	if err != nil {
+		// #1453 added this query after draft state and placeholders. Lint
+		// still runs its ordinary rules when this report is unavailable.
+		if api.IsGraphQLValidationFor(err, "specUnresolvedReferences") {
+			return nil, nil
+		}
+		return nil, api.MapError(err)
+	}
+	var out []lintFindingDTO
+	for _, r := range resp.SpecUnresolvedReferences {
+		if r == nil || !inScope[r.SourceLoc] {
+			continue
+		}
+		what := "which has no spec"
+		if r.Reason != nil && *r.Reason == gen.SpecReferenceProblemPlaceholder {
+			what = "which is only a placeholder"
+		}
+		how := "a URN in its " + r.Field
+		switch r.Field {
+		case "edge":
+			how = "an edge"
+		case "pendingEdge":
+			how = "a pending edge"
+		}
+		out = append(out, lintFindingDTO{Citation: r.SourceLoc, Rule: "unresolved-reference", Severity: sevWarning,
+			Message: fmt.Sprintf("refers to %s, %s (%s) — `spec mint` refuses while it remains", r.TargetLoc, what, how)})
+	}
+	return out, nil
+}
+
+// placeholderFinding is the one lint finding a placeholder gets, from `spec
+// lint` and `spec get` alike.
+func placeholderFinding(loc string) lintFindingDTO {
+	return lintFindingDTO{Citation: loc, Rule: "placeholder", Severity: sevWarning,
+		Message: fmt.Sprintf("reserved placeholder, not yet written — write it with `hadron spec edit %s`; `spec mint` refuses while it remains", loc)}
+}
+
+// placeholderLabel is a list row's NAME, marked when the spec is a placeholder.
+func placeholderLabel(s specDTO) string {
+	if s.Placeholder {
+		return s.Name + "  [placeholder]"
+	}
+	return s.Name
 }

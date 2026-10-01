@@ -65,6 +65,15 @@ after merging both spec markers.`,
 				return err
 			}
 
+			// Only a scoped listing can be a draft corpus; an unscoped one
+			// spans memories and marks nothing.
+			draft := draftInfo{}
+			if memoryArg != nil {
+				draft, err = loadDraftInfo(cmd.Context(), client, cmdutil.CanonicalMemoryRef(*memoryArg), prefix)
+				if err != nil {
+					return err
+				}
+			}
 			rawNodes = pageBranch(rawNodes, prefix, limit, offset)
 			specs := make([]specDTO, 0, len(rawNodes))
 			for _, n := range rawNodes {
@@ -72,12 +81,13 @@ after merging both spec markers.`,
 					continue // the server's prefix is character-wise; keep the branch
 				}
 				specs = append(specs, specDTO{
-					Citation:  n.Loc,
-					MemoryID:  n.MemoryId,
-					Name:      n.Name,
-					NodeType:  n.NodeType,
-					Tags:      tagsOrEmpty(n.Tags),
-					UpdatedAt: n.UpdatedAt,
+					Citation:    n.Loc,
+					MemoryID:    n.MemoryId,
+					Name:        n.Name,
+					NodeType:    n.NodeType,
+					Tags:        tagsOrEmpty(n.Tags),
+					UpdatedAt:   n.UpdatedAt,
+					Placeholder: draft.Placeholders[n.Loc],
 				})
 			}
 

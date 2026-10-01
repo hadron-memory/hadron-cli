@@ -181,6 +181,14 @@ func TestSpecLsIncludesRoleOnlyBeforeApplyingLimit(t *testing.T) {
 			t.Errorf("decode request: %v", err)
 			return
 		}
+		// The same defaults the shared fakes answer (unstubbedDefault): an op
+		// this handler doesn't model, like describe/list's corpus-state read,
+		// gets the older-server answer rather than failing the test.
+		if resp, ok := unstubbedDefault(body.OperationName); ok {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(resp))
+			return
+		}
 		if body.OperationName != "FindNodes" {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			return
@@ -231,6 +239,14 @@ func TestSpecLsOldServerFallsBackToCompleteAccessGatedScan(t *testing.T) {
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode request: %v", err)
+			return
+		}
+		// The same defaults the shared fakes answer (unstubbedDefault): an op
+		// this handler doesn't model, like describe/list's corpus-state read,
+		// gets the older-server answer rather than failing the test.
+		if resp, ok := unstubbedDefault(body.OperationName); ok {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(resp))
 			return
 		}
 		if body.OperationName != "FindNodes" || len(body.Variables.Filter.MemoryIds) != 1 || body.Variables.Filter.MemoryIds[0] != specMem {
@@ -286,6 +302,14 @@ func roleOnlySpecScanServer(t *testing.T, loc, content string) (*httptest.Server
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("decode request: %v", err)
+			return
+		}
+		// The same defaults the shared fakes answer (unstubbedDefault): an op
+		// this handler doesn't model, like describe/list's corpus-state read,
+		// gets the older-server answer rather than failing the test.
+		if resp, ok := unstubbedDefault(body.OperationName); ok {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(resp))
 			return
 		}
 		var resp string

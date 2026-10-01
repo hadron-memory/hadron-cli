@@ -19,7 +19,11 @@ In (slice 1):
   `spec mint`.
 - The three new server refusals mapped to exits.
 
-Out, for slice 2 (tracked on cli#777):
+Slice 2 (a separate PR stacked on slice 1) — built; see §6. Still out:
+- **`spec replace` in a draft** — needs hadron-server#1459 (Dara's governed
+  bulk replace, scoped to draft), a separate stack.
+
+Originally planned for slice 2:
 - **Placeholder awareness in `spec lint` / `spec list` / `spec get`.** Needs
   `Node.isPlaceholder` in the shared node projections, which widens the blast
   radius of an old-server mismatch to every `spec` read; kept out of slice 1 on
@@ -110,3 +114,35 @@ Out, for slice 2 (tracked on cli#777):
   per path, `[]` not `null`, the mint call sequence (check-only when blocked,
   declined or non-interactive; check then mint with `--yes`).
 - Live behavior awaits independent QA on the reviewable PR head.
+
+## 6. Slice 2 — the read commands know about drafts
+
+- **One state read, and draft-only scans.** `spec lint`, a scoped `spec list`
+  and `spec get` read `corpusState` once (`loadDraftInfo`). Only for a DRAFT
+  do they scan for placeholders — a separate minimal `SpecPlaceholderScan`
+  (`loc`, `isPlaceholder`), NOT a field added to the shared node projections,
+  which would make an older server reject every `spec` read — and, in lint,
+  read `specUnresolvedReferences`. A minted corpus or an older server costs
+  one read and is otherwise untouched; an unscoped `spec list` (many
+  memories) reads nothing.
+- **A placeholder is not a malformed spec.** Lint reports it once as
+  `placeholder` (warning) and does not run the per-node rules an empty,
+  possibly untagged body would trip; `spec get` gives it that single finding
+  and `"placeholder": true`; `spec list` marks it the same way.
+- **`unresolved-reference` warnings, at the citing spec, in scope only.** A
+  warning, not an error: in a draft an open reference is work in progress,
+  and `spec mint` is the gate. `--strict` escalates it like any warning.
+- **State-aware advice.** The index and split remedies no longer say a split
+  is impossible / supersede-level in a draft: `spec renumber` / `spec reserve`
+  make it a plain edit. The contract remedy is unchanged (its reason — one
+  reserved atom per tier — holds in any state).
+- **Parity with the server's mint check.** `testdata/specMint.fixtures.json`
+  is the server's shared fixture, verified verbatim against merged server
+  `main` at `8a864c52`;
+  `TestSpecLintSatisfiesTheServerMintFixture` runs `spec lint` over all 14
+  cases. It found a real drift on its first run: `serialization-leak` read a
+  CRLF-authored closing fence as not closing (the `\r` made the remainder
+  non-blank), so a documented marker inside a CRLF fence was reported as an
+  ERROR — pre-existing on `main`, affecting every corpus. Fixed in
+  `withoutCode`: fence decisions use the line without its trailing `\r`, the
+  kept text is unchanged.
