@@ -1,8 +1,9 @@
 # How to maintain product specs
 
 `hadron spec` runs a Hadron memory like a legal code: a spec's `loc` **is** its
-citation, numbers are never renumbered (to replace a spec you `supersede` it),
-and `lint` checks a spec's structure (not its content sections, which depend on
+citation, numbers are never renumbered once the corpus is minted (to replace a
+spec you `supersede` it; a brand-new corpus can be built as a draft first, see
+[Building a new corpus as a draft](#building-a-new-corpus-as-a-draft)), and `lint` checks a spec's structure (not its content sections, which depend on
 its type). A loc implies no parent: a spec's edges are the ones it was given.
 
 Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
@@ -58,8 +59,8 @@ product:  <product>:<module>:<feature>:<rule>[:<flow>]   cli:cha:010:01:02
 
 This is a convention, not a rule: nothing refuses or flags a spec at any other
 loc, and a memory no longer has a "scheme". It may mix both forms, or use
-neither (#709). Codes and numbers are still never renumbered; to replace a spec
-you `supersede` it.
+neither (#709). In a minted corpus, codes and numbers are still never
+renumbered; to replace a spec you `supersede` it.
 
 ### See what a memory holds
 
@@ -446,6 +447,35 @@ after a minute, run the
 Once `spec get` shows the edge, rerunning the same `spec supersede` finishes the
 retirement. Don't rerun it *before*: with no edge to find, it mints a second
 replacement.
+
+## Building a new corpus as a draft
+
+A brand-new corpus can be built as a **draft** (hadron-server#1447): its
+citations stay changeable until you mint it, so you can reserve numbers,
+renumber, and fix forward references while the corpus takes shape. Draft is
+chosen only when the memory is created, and minting is one-way.
+
+```sh
+hadron memory set --org acme.com --name "Product specs" --draft-corpus
+hadron spec reserve pas:010:04 -m $M            # a placeholder others can link to
+hadron spec backlinks pas:010:04 -m $M          # what refers to it
+hadron spec renumber pas:010:04 pas:010:02 -m $M --dry-run
+hadron spec unresolved -m $M                    # references with no written spec
+hadron spec mint -m $M --dry-run                # the report: what still blocks
+hadron spec mint -m $M                          # once, for the whole corpus
+```
+
+A renumber rewrites every node URN that names the moved specs, including
+inside portal URLs. A citation written only as text — a link label like
+`[pas:010:04]`, or a spec's own name — is reported, never rewritten: review
+those yourself.
+
+Minting refuses while a placeholder remains, a reference points to a spec that
+doesn't exist, or a structural lint error remains (nodetype-info, tag-spec,
+serialization-leak, duplicate-loc). Stale abstracts and open questions are
+reported; open questions are grouped by the "<Name> decides." at the end of
+each bullet under an "Open Questions" heading. After minting, the rest of this
+guide applies unchanged.
 
 ## Citations in source, and keeping them honest
 

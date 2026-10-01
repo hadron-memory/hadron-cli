@@ -32,6 +32,7 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		maxRevCount int
 		schema      string
 		schemaFile  string
+		draftCorpus bool
 	)
 	cmd := &cobra.Command{
 		Use: "set [<memoryRef>]",
@@ -72,11 +73,19 @@ every node under it, change.
 (#725) — declared collections and typed fields that govern node objectType +
 properties. Pass "" or "null" to clear it. The server validates the schema shape
 and rejects a malformed one. (createMemory takes no schema, so on create it is
-applied in a follow-up update.)`,
+applied in a follow-up update.)
+
+--draft-corpus creates the memory as a DRAFT spec corpus (hadron-server#1447):
+its spec citations stay changeable — reserve, renumber, delete — until the
+corpus is minted with ` + "`hadron spec mint`" + `, one step and one-way. It is
+the only way to get a draft corpus: an existing memory can never be switched
+into draft, so the flag is create-only, and App-scoped creation does not take
+it. Without it a memory is an ordinary (minted) one.`,
 		Example: `  hadron memory set --org acme.com --name "Project KB"
   hadron memory set --org acme.com --name "Hadron PDF Tool" --slug hadrontool-pdf
   hadron memory set --org acme.com --name "Notes" --class personal
   hadron memory set --owner-me --name "Jens" --class personal
+  hadron memory set --org acme.com --name "Product specs" --draft-corpus
   hadron memory set --app hrn:app:acme.com:coach --agent hrn:agent:acme.com:agent --class app --name "Runbook"
   hadron memory set acme.com:project-kb --description "Long-form description"
   hadron memory set acme.com:research --schema-file schema.json`,
@@ -85,6 +94,18 @@ applied in a follow-up update.)`,
 			appScoped := app != "" || agent != ""
 			if (app == "") != (agent == "") {
 				return exitcode.Newf(exitcode.Usage, "--app and --agent must be passed together")
+			}
+			// Refused before any request: draft is chosen only at creation, and
+			// only createMemory takes it (hadron-server#1447). Gated on Changed so
+			// an explicit --draft-corpus=false is refused on update too, rather
+			// than silently read as "nothing to do".
+			if cmd.Flags().Changed("draft-corpus") {
+				if len(args) > 0 {
+					return exitcode.Newf(exitcode.Usage, "--draft-corpus applies only when creating: an existing memory can never be switched into draft. Nothing was written")
+				}
+				if appScoped {
+					return exitcode.Newf(exitcode.Usage, "--draft-corpus cannot be used with --app/--agent: App-scoped creation takes no draft state. Nothing was written")
+				}
 			}
 			// Pure, so a bad slug is a usage error even offline. Gate on
 			// Changed, not slug != "", so an explicit --slug "" is rejected
@@ -137,6 +158,29 @@ applied in a follow-up update.)`,
 			var tagsArg *[]string
 			if cmd.Flags().Changed("tag") {
 				tagsArg = &tags
+			}
+			// The draft-only operation contains the new draftCorpus argument;
+			// ordinary creates use the older document so pre-#1447 servers can
+			// validate it. Omitting a variable alone does not hide an argument.
+			createFreeStanding := func(orgID *string, memoryClass *gen.MemoryClass) (memoryDTO, error) {
+				if draftCorpus {
+					resp, err := gen.CreateMemoryDraft(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg)
+					if err != nil {
+						return memoryDTO{}, api.MapError(err)
+					}
+					if resp == nil || resp.CreateMemory == nil {
+						return memoryDTO{}, exitcode.Newf(exitcode.Error, "server returned no memory")
+					}
+					return dtoFromMemory(resp.CreateMemory), nil
+				}
+				resp, err := gen.CreateMemory(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg)
+				if err != nil {
+					return memoryDTO{}, api.MapError(err)
+				}
+				if resp == nil || resp.CreateMemory == nil {
+					return memoryDTO{}, exitcode.Newf(exitcode.Error, "server returned no memory")
+				}
+				return dtoFromMemory(resp.CreateMemory), nil
 			}
 
 			var m memoryDTO
@@ -209,14 +253,10 @@ applied in a follow-up update.)`,
 					if class != "" {
 						c = gen.MemoryClass(class)
 					}
-					resp, err := gen.CreateMemory(cmd.Context(), client, nil, name, &c, optional(short), optional(description), tagsArg, visArg, maxRevArg)
+					m, err = createFreeStanding(nil, &c)
 					if err != nil {
-						return api.MapError(err)
+						return err
 					}
-					if resp == nil || resp.CreateMemory == nil {
-						return exitcode.Newf(exitcode.Error, "server returned no memory")
-					}
-					m = dtoFromMemory(resp.CreateMemory)
 				default:
 					if org == "" || name == "" {
 						return exitcode.Newf(exitcode.Usage, "creating a free-standing memory requires --org and --name (or --owner-me for a memory you own personally)")
@@ -229,16 +269,26 @@ applied in a follow-up update.)`,
 						c := gen.MemoryClass(class)
 						classArg = &c
 					}
-					resp, err := gen.CreateMemory(cmd.Context(), client, optional(org), name, classArg, optional(short), optional(description), tagsArg, visArg, maxRevArg)
+					m, err = createFreeStanding(optional(org), classArg)
 					if err != nil {
-						return api.MapError(err)
+						return err
 					}
-					if resp == nil || resp.CreateMemory == nil {
-						return exitcode.Newf(exitcode.Error, "server returned no memory")
-					}
-					m = dtoFromMemory(resp.CreateMemory)
 				}
 				verb = "created"
+				// Echo the state a --draft-corpus create actually got, read back
+				// rather than assumed. Only on this path: selecting corpusState on
+				// every create would make an older server reject every create.
+				if draftCorpus {
+					if st, serr := gen.SpecCorpusState(cmd.Context(), client, m.ID); serr != nil {
+						if _, werr := fmt.Fprintf(f.IOStreams.ErrOut, "warning: memory %s was created, but its corpus state could not be read: %v\n", m.URN, api.MapError(serr)); werr != nil {
+							return werr
+						}
+					} else if st != nil && st.Memory != nil {
+						m.CorpusState = corpusStateOf(st.Memory.CorpusState)
+					} else if _, werr := fmt.Fprintf(f.IOStreams.ErrOut, "warning: memory %s was created, but the server returned no corpus state\n", m.URN); werr != nil {
+						return werr
+					}
+				}
 				// createMemory/createMemoryInApp take neither a slug (free-standing
 				// derives it from --name) nor a schema, so apply either in one
 				// follow-up updateMemory. If it fails, the memory still exists under
@@ -255,7 +305,9 @@ applied in a follow-up update.)`,
 					} else if resp == nil || resp.UpdateMemory == nil {
 						postCreateErr = exitcode.Newf(exitcode.Error, "server returned no memory on the post-create update")
 					} else {
+						state := m.CorpusState
 						m = dtoFromMemory(resp.UpdateMemory)
+						m.CorpusState = state
 					}
 				}
 			} else {
@@ -300,8 +352,14 @@ applied in a follow-up update.)`,
 					if m.Visibility != nil && *m.Visibility != "" {
 						vis = *m.Visibility
 					}
-					_, err := fmt.Fprintf(w, "  class: %s   visibility: %s\n", m.Class, vis)
-					return err
+					if _, err := fmt.Fprintf(w, "  class: %s   visibility: %s\n", m.Class, vis); err != nil {
+						return err
+					}
+					if m.CorpusState != nil && *m.CorpusState == string(gen.CorpusStateDraft) {
+						_, err := fmt.Fprintln(w, "  corpus: draft — citations stay changeable until `hadron spec mint`")
+						return err
+					}
+					return nil
 				}
 				return nil
 			}); err != nil {
@@ -327,6 +385,7 @@ applied in a follow-up update.)`,
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (create only)")
+	cmd.Flags().BoolVar(&draftCorpus, "draft-corpus", false, "create the memory as a DRAFT spec corpus, minted later with hadron spec mint (create only; not App-scoped)")
 	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "create a user-owned memory in your own @handle namespace (org-less; class personal|private only; create only)")
 	cmd.Flags().StringVar(&name, "name", "", "memory name")
 	cmd.Flags().StringVar(&class, "class", "", "memory class: knowledge|group|personal|private, or app with --app/--agent (create only; free-standing server default: knowledge)")

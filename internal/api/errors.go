@@ -820,6 +820,25 @@ func codeForExtension(code string) int {
 	// operator's fix, not the caller's — so the generic 1 is the honest code.
 	case code == "MEMORY_CONFIG_TEMPLATE_EXISTS":
 		return exitcode.Conflict
+	// Draft spec corpora (hadron-server#1447; cli#777). All three are the
+	// corpus's STATE refusing the operation, so Conflict:
+	//   - SPEC_CORPUS_NOT_DRAFT: reserve/renumber/backlinks/unresolved on a
+	//     minted corpus. Minting is one-way, so no retry changes it; the remedy
+	//     is a different command (spec new, spec supersede).
+	//   - SPEC_CORPUS_MINT_BLOCKED: a real mint while a blocker remains. `spec
+	//     mint` checks first and exits 5 itself when blocked, so this is the
+	//     race where a blocker appeared between the check and the mint — the
+	//     SAME exit either way, so the contract doesn't depend on who refused.
+	//   - SPEC_CORPUS_BUSY: a write to the corpus was in flight when the mint
+	//     tried to fence it. The server refused (it is not 7, which means the
+	//     answer never arrived); retrying after the write lands succeeds.
+	//   - SPEC_CORPUS_ENCRYPTED_UNSUPPORTED: backlinks/unresolved/renumber/mint
+	//     scan the corpus text, which the server does not do for an encrypted
+	//     memory yet. The memory's state refuses, like NOT_DRAFT; it is not a
+	//     permission (8) and no argument the caller passes changes it.
+	case code == "SPEC_CORPUS_NOT_DRAFT" || code == "SPEC_CORPUS_MINT_BLOCKED" || code == "SPEC_CORPUS_BUSY" ||
+		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED":
+		return exitcode.Conflict
 	// #1325 part b's argument refusals, each measured falling through to the
 	// generic 1 on c9fa75a (cli#716 audit):
 	//   - INVALID_NODE_ROLE: a rule key outside the #1322 grammar. Its

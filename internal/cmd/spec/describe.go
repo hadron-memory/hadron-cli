@@ -44,6 +44,14 @@ type describeDTO struct {
 	// isn't mistaken for policy, and it is never read as one; the stored
 	// value is left in place.
 	RetiredDeclaration string `json:"retiredDeclaration,omitempty"`
+	// CorpusState is DRAFT or MINTED (hadron-server#1447): in a draft,
+	// citations are not yet permanent. A present null means the server
+	// predates draft corpora and cannot say — distinct from an older CLI that
+	// never asked, which omits the key.
+	CorpusState *string `json:"corpusState"`
+	// MintedAt is when a former draft was minted; omitted for a corpus that
+	// was never a draft.
+	MintedAt string `json:"mintedAt,omitempty"`
 }
 
 func newCmdDescribe(f *cmdutil.Factory) *cobra.Command {
@@ -100,6 +108,21 @@ shown as retired and ignored.`,
 			}
 			dto := describeInventory(memURN, locs)
 			dto.RetiredDeclaration = schemeFromData(data)
+			// A server that predates draft corpora has no corpusState; the
+			// inventory is still worth reporting, so the state is left out
+			// rather than failing the whole command.
+			st, err := gen.SpecCorpusState(cmd.Context(), client, memID)
+			switch {
+			case err != nil && api.IsGraphQLValidationFor(err, "corpusState"):
+			case err != nil:
+				return api.MapError(err)
+			case st.Memory != nil:
+				s := string(st.Memory.CorpusState)
+				dto.CorpusState = &s
+				if st.Memory.CorpusMintedAt != nil {
+					dto.MintedAt = *st.Memory.CorpusMintedAt
+				}
+			}
 
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return renderDescribe(w, dto)
@@ -158,6 +181,20 @@ func describeInventory(memURN string, locs []string) describeDTO {
 
 func renderDescribe(w io.Writer, d describeDTO) error {
 	fmt.Fprintf(w, "Spec corpus — %s\n", d.Memory)
+	state := ""
+	if d.CorpusState != nil {
+		state = *d.CorpusState
+	}
+	switch state {
+	case string(gen.CorpusStateDraft):
+		fmt.Fprintln(w, "  state:     DRAFT — citations stay changeable until `hadron spec mint`")
+	case string(gen.CorpusStateMinted):
+		if d.MintedAt != "" {
+			fmt.Fprintf(w, "  state:     MINTED (%s) — citations are permanent\n", d.MintedAt)
+		} else {
+			fmt.Fprintln(w, "  state:     MINTED — citations are permanent")
+		}
+	}
 	if d.Specs == 0 {
 		fmt.Fprintln(w, "  no specs yet — create one with `hadron spec new <loc> --title <title>`")
 	} else {

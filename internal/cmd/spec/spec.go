@@ -46,8 +46,17 @@ Some corpora use a legacy numbering, <module>:<feature>:<rule>:<flow>
 number ledger. "spec new"'s allocation flags, "spec register" and "spec
 extract" work in that numbering; nothing else requires it.
 
-A spec is never renumbered or deleted: to replace one you supersede it.
-These commands encode that on top of the generic node/edge primitives.
+In a minted corpus — every corpus, unless it was created as a draft — a spec
+is never renumbered or deleted: to replace one you supersede it. These
+commands encode that on top of the generic node/edge primitives.
+
+A corpus created with "memory set --draft-corpus" is a DRAFT until it is
+minted: its citations are not yet permanent. "spec reserve" holds a citation
+as a placeholder, "spec renumber" moves a spec and rewrites the references to
+it, "spec backlinks" and "spec unresolved" read the references, and "spec
+mint" ends the draft — once, for the whole corpus, one-way. "spec describe"
+says which state a corpus is in.
+
 Every subcommand takes -m/--memory.`,
 	}
 	cmd.AddCommand(newCmdLs(f))
@@ -67,6 +76,12 @@ Every subcommand takes -m/--memory.`,
 	cmd.AddCommand(newCmdSupersede(f))
 	cmd.AddCommand(newCmdImport(f))
 	cmd.AddCommand(newCmdUse(f))
+	// hadron-server#1447 — draft corpora and minting (cli#777).
+	cmd.AddCommand(newCmdReserve(f))
+	cmd.AddCommand(newCmdRenumber(f))
+	cmd.AddCommand(newCmdBacklinks(f))
+	cmd.AddCommand(newCmdUnresolved(f))
+	cmd.AddCommand(newCmdMint(f))
 	return cmd
 }
 

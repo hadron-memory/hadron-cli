@@ -1,0 +1,125 @@
+# hadron-server#1447 — draft spec corpora and minting (cli#777).
+#
+# A spec corpus is created in DRAFT (createMemory draftCorpus: true) or is
+# MINTED. In a draft, citations are not yet permanent: a citation can be
+# reserved as a placeholder, a spec renumbered (its URN references rewritten),
+# and what refers to a spec read back. Minting is one step for the whole
+# corpus, one-way, and refuses while a blocker remains.
+
+# The corpus state of one memory — `spec describe` reads it.
+query SpecCorpusState($ref: ID!) {
+  memory(ref: $ref) {
+    id
+    urn
+    corpusState
+    corpusMintedAt
+  }
+}
+
+# #1450 — reserve a citation as a placeholder spec. name is optional: the
+# server names an unnamed placeholder itself.
+mutation ReserveSpecCitation(
+  $memoryRef: ID!
+  $loc: String!
+  # @genqlient(omitempty: true)
+  $name: String
+) {
+  reserveSpecCitation(memoryRef: $memoryRef, loc: $loc, name: $name) {
+    id
+    loc
+    name
+    role
+    isPlaceholder
+  }
+}
+
+# #1449 — what refers to the spec at loc: node URNs in the corpus text
+# (inside URLs too) plus real edges from corpus nodes. Exact citation only.
+query SpecBacklinks($memoryRef: ID!, $loc: String!) {
+  specBacklinks(memoryRef: $memoryRef, loc: $loc) {
+    kind
+    field
+    sourceLoc
+    sourceNodeId
+    targetLoc
+    text
+  }
+}
+
+# #1449 — references that do not reach a written spec. Minting refuses while
+# any remain.
+query SpecUnresolvedReferences($memoryRef: ID!) {
+  specUnresolvedReferences(memoryRef: $memoryRef) {
+    kind
+    field
+    reason
+    sourceLoc
+    sourceNodeId
+    targetLoc
+    text
+  }
+}
+
+# #1449 — renumber a spec (and its subtree) and rewrite the URN references to
+# it. dryRun returns the plan and writes nothing.
+mutation RenumberSpec(
+  $memoryRef: ID!
+  $fromLoc: String!
+  $toLoc: String!
+  $dryRun: Boolean!
+) {
+  renumberSpec(memoryRef: $memoryRef, fromLoc: $fromLoc, toLoc: $toLoc, dryRun: $dryRun) {
+    dryRun
+    moved {
+      fromLoc
+      toLoc
+    }
+    rewrites {
+      nodeId
+      loc
+      status
+      fields
+      count
+      error
+    }
+    textCitations {
+      sourceNodeId
+      sourceLoc
+      field
+      citation
+      excerpt
+    }
+  }
+}
+
+# #1448 — mint the corpus. dryRun returns the full report without minting; a
+# real run refuses SPEC_CORPUS_MINT_BLOCKED while a blocker remains.
+mutation MintSpecCorpus($memoryRef: ID!, $dryRun: Boolean!) {
+  mintSpecCorpus(memoryRef: $memoryRef, dryRun: $dryRun) {
+    memoryId
+    dryRun
+    minted
+    staleAbstractsBlock
+    blockers {
+      kind
+      rule
+      loc
+      targetLoc
+      message
+    }
+    staleAbstracts {
+      kind
+      rule
+      loc
+      targetLoc
+      message
+    }
+    openQuestions {
+      decider
+      questions {
+        loc
+        question
+      }
+    }
+  }
+}

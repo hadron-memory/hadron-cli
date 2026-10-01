@@ -37,6 +37,20 @@ type memoryDTO struct {
 	// additive change.
 	ShareRole *string        `json:"shareRole,omitempty"`
 	SharedBy  *accessUserDTO `json:"sharedBy,omitempty"`
+	// CorpusState is DRAFT or MINTED (hadron-server#1447), populated only by
+	// a `memory set --draft-corpus` create, read back after the create.
+	// omitempty like ShareRole, so every other command's shape is untouched.
+	CorpusState *string `json:"corpusState,omitempty"`
+}
+
+// corpusStateOf renders a Memory.corpusState for a DTO; "" (a response
+// that did not select it) stays absent.
+func corpusStateOf(s gen.CorpusState) *string {
+	if s == "" {
+		return nil
+	}
+	v := string(s)
+	return &v
 }
 
 // memoryResult is the common projection selected by memory mutations. The

@@ -125,6 +125,50 @@ mutation CreateMemory(
   }
 }
 
+# Keep the ordinary CreateMemory document free of draftCorpus. GraphQL validates
+# the full document before execution, so omitting a variable value does not
+# make an unknown argument compatible with a pre-#1447 server.
+mutation CreateMemoryDraft(
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  $name: String!
+  # @genqlient(omitempty: true)
+  $memoryClass: MemoryClass
+  # @genqlient(omitempty: true)
+  $shortDescription: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true, bind: "*[]string")
+  $tags: [String!]
+  # @genqlient(omitempty: true)
+  $visibility: MemoryVisibility
+  # @genqlient(omitempty: true)
+  $maxRevCount: Int
+) {
+  createMemory(
+    orgId: $orgId
+    name: $name
+    memoryClass: $memoryClass
+    shortDescription: $shortDescription
+    description: $description
+    tags: $tags
+    visibility: $visibility
+    maxRevCount: $maxRevCount
+    draftCorpus: true
+  ) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    maxRevCount
+    updatedAt
+  }
+}
+
 # Create a new App-scoped app/personal/private memory. The server owns URN
 # composition: app-class URNs are name-derived; personal/private use opaque
 # per-owner identities, so this mutation intentionally has no slug argument.

@@ -71,6 +71,10 @@ func TestMapError(t *testing.T) {
 		{"not a task", gqlErr("NOT_A_TASK"), exitcode.Usage},
 		// #1325 part c (cli#716 slice 2).
 		{"template name taken", gqlErr("MEMORY_CONFIG_TEMPLATE_EXISTS"), exitcode.Conflict},
+		{"spec corpus not draft", gqlErr("SPEC_CORPUS_NOT_DRAFT"), exitcode.Conflict},
+		{"spec corpus mint blocked", gqlErr("SPEC_CORPUS_MINT_BLOCKED"), exitcode.Conflict},
+		{"spec corpus busy", gqlErr("SPEC_CORPUS_BUSY"), exitcode.Conflict},
+		{"spec corpus encrypted", gqlErr("SPEC_CORPUS_ENCRYPTED_UNSUPPORTED"), exitcode.Conflict},
 		{"template not found", gqlErr("MEMORY_CONFIG_TEMPLATE_NOT_FOUND"), exitcode.NotFound},
 		{"no server row: an operator's fix, the generic 1", gqlErr("HADRON_SERVER_NOT_CONFIGURED"), exitcode.Error},
 		// #619 — the permission-denied class. Both reached scripts as the
