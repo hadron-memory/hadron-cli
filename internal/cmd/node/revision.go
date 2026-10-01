@@ -39,10 +39,28 @@ type revisionDTO struct {
 	Changes      []string           `json:"changes"`
 }
 
+// revisionStampedDTO is a snapshot in `revision list|get`: the shared shape
+// plus the snapshot's OWN server-authored stamps (hadron-server#1326,
+// cli#752) — the authorship of the content it captured and the validation at
+// that revision, as the server snapshotted them. Never reconstructed from the
+// live node or task. See stamps.go for the null convention.
+type revisionStampedDTO struct {
+	revisionDTO
+	Authorship        *authorshipDTO        `json:"authorship"`
+	ContentValidation *contentValidationDTO `json:"contentValidation"`
+}
+
 // revisionDetailDTO adds the snapshot's content for single-revision display.
 type revisionDetailDTO struct {
-	revisionDTO
+	revisionStampedDTO
 	Content *string `json:"content"`
+}
+
+// stampsRefused reports a server that predates the stamps (#1326): it
+// refuses the stamped read by name, and the plain read still works.
+func stampsRefused(err error) bool {
+	return isUnknownFieldErr(err, "authorship") || isUnknownFieldErr(err, "contentValidation") ||
+		isUnknownFieldErr(err, "NodeAuthorship") || isUnknownFieldErr(err, "NodeContentValidationStatus")
 }
 
 // restoredNodeDTO is the stable --json shape returned by `revision restore`.
@@ -104,18 +122,36 @@ func newCmdRevisionList(f *cmdutil.Factory) *cobra.Command {
 			if cmd.Flags().Changed("limit") {
 				limitArg = &limit
 			}
-			resp, err := gen.NodeRevisions(cmd.Context(), client, ref, limitArg)
-			if err != nil {
+			dtos := []revisionStampedDTO{}
+			stamped, err := gen.NodeRevisionsStamped(cmd.Context(), client, ref, limitArg)
+			switch {
+			case err == nil:
+				for _, v := range stamped.NodeRevisions {
+					d := revisionStampedDTO{revisionDTO: revisionDTOFrom(v.RevisionFields)}
+					if v.Authorship != nil {
+						d.Authorship = authorshipFrom(&v.Authorship.NodeAuthorshipFields)
+					}
+					if v.ContentValidation != nil {
+						d.ContentValidation = contentValidationFrom(&v.ContentValidation.NodeContentValidationFields)
+					}
+					dtos = append(dtos, d)
+				}
+			case stampsRefused(err):
+				// A server without the stamps: the history, and null stamps.
+				resp, err := gen.NodeRevisions(cmd.Context(), client, ref, limitArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				for _, v := range resp.NodeRevisions {
+					dtos = append(dtos, revisionStampedDTO{revisionDTO: revisionDTOFrom(v.RevisionFields)})
+				}
+			default:
 				return api.MapError(err)
 			}
-			dtos := make([]revisionDTO, 0, len(resp.NodeRevisions))
-			for _, v := range resp.NodeRevisions {
-				dtos = append(dtos, revisionDTOFrom(v.RevisionFields))
-			}
 			return output.Write(f.IOStreams, f.JSON, dtos, func(w io.Writer) error {
-				t := output.NewTable(w, "REVISION-ID", "CREATED", "NAME", "EDITED-BY", "LABEL")
+				t := output.NewTable(w, "REVISION-ID", "CREATED", "NAME", "EDITED-BY", "LABEL", "VALIDATION")
 				for _, d := range dtos {
-					t.Row(d.ID, d.CreatedAt, d.Name, editorDisplay(d), output.Dash(d.RevLabel))
+					t.Row(d.ID, d.CreatedAt, d.Name, editorDisplay(d.revisionDTO), output.Dash(d.RevLabel), validationCell(d.ContentValidation))
 				}
 				return t.Flush()
 			})
@@ -139,18 +175,36 @@ func newCmdRevisionGet(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.NodeRevision(cmd.Context(), client, args[0])
-			if err != nil {
+			var dto revisionDetailDTO
+			found := false
+			stamped, err := gen.NodeRevisionStamped(cmd.Context(), client, args[0])
+			switch {
+			case err == nil:
+				if r := stamped.NodeRevision; r != nil {
+					found = true
+					dto = revisionDetailDTO{revisionStampedDTO: revisionStampedDTO{revisionDTO: revisionDTOFrom(r.RevisionFields)}, Content: r.Content}
+					if r.Authorship != nil {
+						dto.Authorship = authorshipFrom(&r.Authorship.NodeAuthorshipFields)
+					}
+					if r.ContentValidation != nil {
+						dto.ContentValidation = contentValidationFrom(&r.ContentValidation.NodeContentValidationFields)
+					}
+				}
+			case stampsRefused(err):
+				resp, err := gen.NodeRevision(cmd.Context(), client, args[0])
+				if err != nil {
+					return api.MapError(err)
+				}
+				if r := resp.NodeRevision; r != nil {
+					found = true
+					dto = revisionDetailDTO{revisionStampedDTO: revisionStampedDTO{revisionDTO: revisionDTOFrom(r.RevisionFields)}, Content: r.Content}
+				}
+			default:
 				return api.MapError(err)
 			}
-			if resp.NodeRevision == nil {
+			if !found {
 				return exitcode.Newf(exitcode.NotFound,
 					"revision %q not found (or its node is unreadable or soft-deleted)", args[0])
-			}
-			r := resp.NodeRevision
-			dto := revisionDetailDTO{
-				revisionDTO: revisionDTOFrom(r.RevisionFields),
-				Content:     r.Content,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return writeRevisionDetail(w, dto)
@@ -374,10 +428,20 @@ func writeRevisionDetail(w io.Writer, dto revisionDetailDTO) error {
 	if len(dto.Tags) > 0 {
 		fmt.Fprintf(w, "  tags: %v\n", dto.Tags)
 	}
+	renderStamps(w, "  ", dto.Authorship, dto.ContentValidation, "this snapshot's revision")
 	if dto.Content != nil && *dto.Content != "" {
 		fmt.Fprintf(w, "\n%s\n", *dto.Content)
 	}
 	return nil
+}
+
+// validationCell is a history table's VALIDATION column: the snapshot's
+// state, or a dash when the server predates the stamps.
+func validationCell(v *contentValidationDTO) string {
+	if v == nil {
+		return "—"
+	}
+	return v.State
 }
 
 // editorDisplay renders a snapshot's editor for human output: @handle when a

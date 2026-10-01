@@ -29,6 +29,40 @@ query NodeRevision($revisionId: ID!) {
   }
 }
 
+# cli#752 (hadron-server#1326): the same reads with each snapshot's own stamps
+# — the authorship of the content it captured, and the validation AT that
+# revision. Historical evidence, shown as the server snapshotted it, never
+# reconstructed from the live node or task. Separate operations so a server
+# predating the stamps falls back to the two above and loses only the stamps.
+query NodeRevisionsStamped(
+  $nodeRef: ID!
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  nodeRevisions(nodeRef: $nodeRef, limit: $limit) {
+    ...RevisionFields
+    authorship {
+      ...NodeAuthorshipFields
+    }
+    contentValidation {
+      ...NodeContentValidationFields
+    }
+  }
+}
+
+query NodeRevisionStamped($revisionId: ID!) {
+  nodeRevision(revisionId: $revisionId) {
+    ...RevisionFields
+    content
+    authorship {
+      ...NodeAuthorshipFields
+    }
+    contentValidation {
+      ...NodeContentValidationFields
+    }
+  }
+}
+
 # Restore a snapshot. Default snapshots-then-restores (undoable). truncate:true
 # also deletes every snapshot newer than the selected one, which becomes the new
 # baseline (restore+truncate is one atomic transaction). omitempty so an unset

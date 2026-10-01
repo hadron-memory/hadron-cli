@@ -114,6 +114,13 @@ func TestNodeGetBatchReadsRevisionsInCappedCalls(t *testing.T) {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		w.Header().Set("Content-Type", "application/json")
+		// cli#752's stamped probe, answered as a server without stamps: these
+		// tests model the REVISION probe, which the fallback then reaches.
+		if resp, ok := unstubbedDefault(body.OperationName); ok && body.OperationName == "NodeLiveRevisionsStamped" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(resp))
+			return
+		}
 		switch body.OperationName {
 		case "NodeBatch":
 			_, _ = w.Write([]byte(nodeBatchResult(nodes, "")))
@@ -414,6 +421,13 @@ func TestNodeGetSplitProbeIsAChangeNotAnOlderServer(t *testing.T) {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		w.Header().Set("Content-Type", "application/json")
+		// cli#752's stamped probe, answered as a server without stamps: these
+		// tests model the REVISION probe, which the fallback then reaches.
+		if resp, ok := unstubbedDefault(body.OperationName); ok && body.OperationName == "NodeLiveRevisionsStamped" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(resp))
+			return
+		}
 		switch body.OperationName {
 		case "NodeBatch":
 			_, _ = w.Write([]byte(nodeBatchResult(nodes, "")))
@@ -463,6 +477,13 @@ func TestNodeGetSplitInBothProbesIsNotAnOlderServer(t *testing.T) {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		w.Header().Set("Content-Type", "application/json")
+		// cli#752's stamped probe, answered as a server without stamps: these
+		// tests model the REVISION probe, which the fallback then reaches.
+		if resp, ok := unstubbedDefault(body.OperationName); ok && body.OperationName == "NodeLiveRevisionsStamped" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(resp))
+			return
+		}
 		switch body.OperationName {
 		case "NodeBatch":
 			nodes := []string{}

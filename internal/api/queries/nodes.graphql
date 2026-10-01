@@ -1016,3 +1016,61 @@ query NodeLiveRevisions(
     }
   }
 }
+
+# cli#752 (hadron-server#1326): NodeLiveRevisions plus the server-authored
+# stamps of each node's CURRENT revision — who authored this content state, and
+# the advisory validation for exactly this revision. Read in the same bracket
+# as the revision, so a printed stamp always describes the printed revision.
+# Its own operation, so a server predating the stamps (a GraphQL validation
+# refusal) falls back to NodeLiveRevisions and loses only the stamps.
+query NodeLiveRevisionsStamped(
+  # @genqlient(omitempty: true)
+  $refs: [ID!]
+  # @genqlient(omitempty: true)
+  $memory: ID
+  # @genqlient(omitempty: true)
+  $locPrefix: String
+) {
+  nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+    truncated
+    omitted
+    unavailable
+    nodes {
+      id
+      revision
+      authorship {
+        ...NodeAuthorshipFields
+      }
+      contentValidation {
+        ...NodeContentValidationFields
+      }
+    }
+  }
+}
+
+# #1326 — attribution of a content state. taskRef is REDACTED (null) by the
+# server unless the task's memory is independently readable; kind still says
+# TASK, so a redacted task is not mistaken for a human.
+fragment NodeAuthorshipFields on NodeAuthorship {
+  kind
+  authoredAt
+  taskRef
+  taskRevision
+  human {
+    handle
+    urn
+  }
+}
+
+# #1326 — advisory validation. `state` is for THIS revision: a report made for
+# an older revision reads STALE, and latestReport says which revision it was.
+fragment NodeContentValidationFields on NodeContentValidationStatus {
+  state
+  latestReport {
+    outcome
+    nodeRevision
+    reportedAt
+    validationTaskRef
+    validationTaskRevision
+  }
+}
