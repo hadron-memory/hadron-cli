@@ -22,10 +22,8 @@ import (
 )
 
 const (
-	scopeUser   = "user"
-	scopeOrg    = "org"
-	scopeApp    = "app"
-	scopeMemory = "memory"
+	scopeUser = "user"
+	scopeOrg  = "org"
 
 	kindGeneric      = "generic"
 	kindWebFetchAuth = "webfetch-auth"
@@ -87,12 +85,12 @@ func validateOwner(scope, owner string) (string, *string, error) {
 		if owner == "" {
 			return scope, nil, nil
 		}
-	case scopeOrg, scopeApp, scopeMemory:
+	case scopeOrg:
 		if owner == "" {
 			return "", nil, exitcode.Newf(exitcode.Usage, "--owner is required for --scope %s", scope)
 		}
 	default:
-		return "", nil, exitcode.Newf(exitcode.Usage, "--scope must be one of user, org, app, memory")
+		return "", nil, exitcode.Newf(exitcode.Usage, "--scope must be one of user, org")
 	}
 	return scope, &owner, nil
 }

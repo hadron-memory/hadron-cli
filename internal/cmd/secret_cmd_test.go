@@ -56,7 +56,7 @@ func TestSecretCreateWebFetchBearer(t *testing.T) {
 	f, out := testFactory(t)
 	f.IOStreams.In = strings.NewReader("bearer-token\n")
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"secret", "create", "--name", "poll-auth", "--scope", "app", "--owner", "acme.com::monitor",
+	root.SetArgs([]string{"secret", "create", "--name", "poll-auth", "--scope", "org", "--owner", "hrn:org:acme.com",
 		"--kind", "webfetch-auth", "--type", "bearer", "--url-prefix", "https://api.example.test/",
 		"--value-file", "-", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
@@ -71,7 +71,7 @@ func TestSecretCreateWebFetchBearer(t *testing.T) {
 		Value     map[string]string `json:"value"`
 	}
 	_ = json.Unmarshal(captured["CreateSecret"], &vars)
-	if vars.OwnerType != "app" || vars.OwnerRef != "acme.com::monitor" || vars.Kind != "webfetch-auth" {
+	if vars.OwnerType != "org" || vars.OwnerRef != "hrn:org:acme.com" || vars.Kind != "webfetch-auth" {
 		t.Fatalf("unexpected webfetch vars: %+v", vars)
 	}
 	if vars.Metadata["urlPrefix"] != "https://api.example.test/" {
@@ -143,7 +143,7 @@ func TestSecretCreateValidation(t *testing.T) {
 		},
 		{
 			name: "owner required",
-			args: []string{"secret", "create", "--name", "x", "--scope", "app", "--kind", "generic"},
+			args: []string{"secret", "create", "--name", "x", "--scope", "org", "--kind", "generic"},
 			want: "--owner is required",
 		},
 		{
@@ -163,6 +163,52 @@ func TestSecretCreateValidation(t *testing.T) {
 			}
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("error = %v, want contains %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestSecretRemovedOwnerScopesRefusedBeforeRequest(t *testing.T) {
+	for _, command := range []string{"create", "list"} {
+		for _, scope := range []string{"app", "memory"} {
+			t.Run(command+"/"+scope, func(t *testing.T) {
+				gql, captured := captureGraphQL(t, nil)
+				f, _ := testFactory(t)
+				root := NewRootCmd(f)
+				args := []string{"secret", command, "--scope", scope, "--owner", "hrn:" + scope + ":acme.com:monitor"}
+				if command == "create" {
+					args = append(args, "--name", "poll-auth", "--kind", "generic")
+				}
+				root.SetArgs(append(args, "--server", gql.URL))
+				err := root.Execute()
+				if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "user, org") {
+					t.Fatalf("removed %s owner scope must fail locally with the supported set: %v", scope, err)
+				}
+				if len(captured) != 0 {
+					t.Fatalf("removed owner scope reached GraphQL: %v", captured)
+				}
+			})
+		}
+	}
+}
+
+func TestSecretHelpShowsSupportedOwnerScopes(t *testing.T) {
+	for _, command := range []string{"create", "list"} {
+		t.Run(command, func(t *testing.T) {
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			buf := &strings.Builder{}
+			root.SetOut(buf)
+			root.SetArgs([]string{"secret", command, "--help"})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("help: %v", err)
+			}
+			help := buf.String()
+			if !strings.Contains(help, "--scope <user|org>") || !strings.Contains(help, "--scope org --owner hrn:org:acme.com") {
+				t.Fatalf("secret %s help omits supported owner scopes:\n%s", command, help)
+			}
+			if strings.Contains(help, "--scope app") || strings.Contains(help, "--scope memory") || strings.Contains(help, "user|org|app|memory") {
+				t.Fatalf("secret %s help advertises removed owner scopes:\n%s", command, help)
 			}
 		})
 	}
