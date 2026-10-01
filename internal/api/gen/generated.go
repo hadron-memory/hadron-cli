@@ -12515,6 +12515,144 @@ func (v *GetUserUser) __premarshalJSON() (*__premarshalGetUserUser, error) {
 	return &retval, nil
 }
 
+// GetWorkerContinuityResponse is returned by GetWorkerContinuity on success.
+type GetWorkerContinuityResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization: an AppMember of the worker's App (any role), an org member
+	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
+	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
+	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerContinuityWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerContinuityResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityResponse) GetWorker() *GetWorkerContinuityWorker { return v.Worker }
+
+// GetWorkerContinuityWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerContinuityWorker struct {
+	// #1029 — what a fresh binding of this worker inherits from the last one.
+	//
+	// Returned by startSession alongside the boot briefing (binding is briefing,
+	// so binding is handoff) and by the worker read, which is the recovery path
+	// after a context compaction — the reader who has most lost the handoff and
+	// least knows one exists. Working-state field: behind the worker read gate,
+	// masked to null on deny, like prompt/promptOverride/memoryId.
+	Continuity *GetWorkerContinuityWorkerContinuity `json:"continuity"`
+}
+
+// GetContinuity returns GetWorkerContinuityWorker.Continuity, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityWorker) GetContinuity() *GetWorkerContinuityWorkerContinuity {
+	return v.Continuity
+}
+
+// GetWorkerContinuityWorkerContinuity includes the requested fields of the GraphQL type WorkerContinuity.
+// The GraphQL type's documentation follows.
+//
+// #1029 — the continuity a worker carries between stints.
+//
+// Handoffs are ordinary nodes in the worker's working memory, so a client walks
+// the whole sequence through the node surface. This type exists for the ONE
+// handoff that cannot be discovered: the newest, which a fresh session does not
+// know to look for.
+type GetWorkerContinuityWorkerContinuity struct {
+	Status WorkerContinuityStatus `json:"status"`
+	// The newest handoff node, or null when the worker has none. Present even
+	// when status is MISSING — a stale handoff is still the best available
+	// account of where this worker got to, and withholding it helps nobody.
+	Handoff *GetWorkerContinuityWorkerContinuityHandoffNode `json:"handoff"`
+	// The worker's most recent ENDED session, as a SANITIZED projection — the
+	// three facts continuity needs, and deliberately not the Session object.
+	//
+	// The worker read gate that admits this field is WIDER than the session read
+	// gate: an AppMember who is not an org member passes the first and fails the
+	// second. Returning a Session here would hand them another driver's
+	// transcriptPath, host, repo and summary through its field resolvers, which
+	// assume the outer query authorized them (#552 / #983).
+	PreviousSession *GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySession `json:"previousSession"`
+}
+
+// GetStatus returns GetWorkerContinuityWorkerContinuity.Status, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityWorkerContinuity) GetStatus() WorkerContinuityStatus { return v.Status }
+
+// GetHandoff returns GetWorkerContinuityWorkerContinuity.Handoff, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityWorkerContinuity) GetHandoff() *GetWorkerContinuityWorkerContinuityHandoffNode {
+	return v.Handoff
+}
+
+// GetPreviousSession returns GetWorkerContinuityWorkerContinuity.PreviousSession, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityWorkerContinuity) GetPreviousSession() *GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySession {
+	return v.PreviousSession
+}
+
+// GetWorkerContinuityWorkerContinuityHandoffNode includes the requested fields of the GraphQL type Node.
+type GetWorkerContinuityWorkerContinuityHandoffNode struct {
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn       string  `json:"urn"`
+	Loc       string  `json:"loc"`
+	Content   *string `json:"content"`
+	CreatedAt string  `json:"createdAt"`
+}
+
+// GetUrn returns GetWorkerContinuityWorkerContinuityHandoffNode.Urn, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityWorkerContinuityHandoffNode) GetUrn() string { return v.Urn }
+
+// GetLoc returns GetWorkerContinuityWorkerContinuityHandoffNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityWorkerContinuityHandoffNode) GetLoc() string { return v.Loc }
+
+// GetContent returns GetWorkerContinuityWorkerContinuityHandoffNode.Content, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityWorkerContinuityHandoffNode) GetContent() *string { return v.Content }
+
+// GetCreatedAt returns GetWorkerContinuityWorkerContinuityHandoffNode.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityWorkerContinuityHandoffNode) GetCreatedAt() string { return v.CreatedAt }
+
+// GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySession includes the requested fields of the GraphQL type WorkerContinuitySession.
+// The GraphQL type's documentation follows.
+//
+// #1029 — the previous stint, reduced to what a successor needs to know: which
+// session it was, when it ended, and whether the server reaped it. Not a
+// Session, on purpose (see WorkerContinuity.previousSession).
+type GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySession struct {
+	Id      string  `json:"id"`
+	EndedAt *string `json:"endedAt"`
+	// Set when the #930 reaper ended it — nobody closed this stint deliberately.
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+}
+
+// GetId returns GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySession.Id, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySession) GetId() string {
+	return v.Id
+}
+
+// GetEndedAt returns GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySession.EndedAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySession) GetEndedAt() *string {
+	return v.EndedAt
+}
+
+// GetAutoExpiredAt returns GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySession) GetAutoExpiredAt() *string {
+	return v.AutoExpiredAt
+}
+
 // GetWorkerResponse is returned by GetWorker on success.
 type GetWorkerResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -31316,6 +31454,27 @@ func (v *ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryVa
 	return v.Reason
 }
 
+// #1029. MISSING is deliberately not "no handoff": it means the PREVIOUS stint
+// did not write one, while `handoff` may still carry an older record. Silently
+// presenting a stale handoff as current is the failure this distinction exists
+// to prevent.
+type WorkerContinuityStatus string
+
+const (
+	// The previous session wrote the handoff returned here.
+	WorkerContinuityStatusCurrent WorkerContinuityStatus = "CURRENT"
+	// No previous ended session — nothing to inherit, and that is not a gap.
+	WorkerContinuityStatusFirstStint WorkerContinuityStatus = "FIRST_STINT"
+	// The previous session ended, or was auto-expired, without writing one.
+	WorkerContinuityStatusMissing WorkerContinuityStatus = "MISSING"
+)
+
+var AllWorkerContinuityStatus = []WorkerContinuityStatus{
+	WorkerContinuityStatusCurrent,
+	WorkerContinuityStatusFirstStint,
+	WorkerContinuityStatusMissing,
+}
+
 // WorkerFields includes the GraphQL fields of Worker requested by the fragment WorkerFields.
 // The GraphQL type's documentation follows.
 //
@@ -33761,6 +33920,14 @@ type __GetUserInput struct {
 
 // GetRef returns __GetUserInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetUserInput) GetRef() string { return v.Ref }
+
+// __GetWorkerContinuityInput is used internally by genqlient
+type __GetWorkerContinuityInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetWorkerContinuityInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerContinuityInput) GetRef() string { return v.Ref }
 
 // __GetWorkerInput is used internally by genqlient
 type __GetWorkerInput struct {
@@ -41152,6 +41319,57 @@ func GetWorker(
 	}
 
 	data_ = &GetWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetWorkerContinuity.
+const GetWorkerContinuity_Operation = `
+query GetWorkerContinuity ($ref: ID!) {
+	worker(ref: $ref) {
+		continuity {
+			status
+			handoff {
+				urn
+				loc
+				content
+				createdAt
+			}
+			previousSession {
+				id
+				endedAt
+				autoExpiredAt
+			}
+		}
+	}
+}
+`
+
+// #790 / server#1029: the handoff is deliberately a separate operation from
+// GetWorker and Workers. Older servers do not know Worker.continuity and reject
+// a document that selects it before execution, even if a caller ignores the
+// response field. The ordinary worker lookup must still bind on those servers.
+func GetWorkerContinuity(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetWorkerContinuityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerContinuity",
+		Query:  GetWorkerContinuity_Operation,
+		Variables: &__GetWorkerContinuityInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetWorkerContinuityResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

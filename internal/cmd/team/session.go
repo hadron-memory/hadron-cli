@@ -618,7 +618,13 @@ model) and the binding is written under this worktree's git dir so
 ` + "`whoami`" + ` can recover it. The session binds the WORKER (cor:agt:020:03);
 the server stamps the role-agent and the worker's App itself, so every
 worker session is App-bound. On success the worker's resolved boot
-briefing (its prompt) is printed — adopt it.
+briefing (its prompt) is printed — adopt it. The previous stint's
+Worker.continuity is delivered above the briefing: CURRENT includes its
+handoff URN and prose; MISSING names the gap before showing any older
+handoff as history; FIRST_STINT says there is no previous handoff. --json
+adds continuity with the same status, handoff and previousSession fields.
+Null continuity means unavailable, not "no handoff". Older servers without
+Worker.continuity still bind and omit the text quietly.
 
 --as takes three spellings. The worker's NAME resolves within the team App,
 from -m, the persistent --app flag, or the configured App context. Its URN
@@ -1033,6 +1039,25 @@ holds nothing).`,
 					"current holder, and `worker release` gives the name up if that is what you want.)",
 					err, s.Id, w.Name)
 			}
+			// Read the handoff AFTER the bind. With --force, ending the old
+			// worktree session above may be the event that makes its handoff
+			// MISSING, so a pre-bind worker projection could be stale. Keep this
+			// in a separate operation: older servers reject an unknown
+			// Worker.continuity field at document validation time, and must not
+			// lose the ordinary worker lookup or the successful bind (#790).
+			var continuity *sessionStartContinuity
+			continuityResp, continuityErr := gen.GetWorkerContinuity(ctx, client, w.Id)
+			switch {
+			case continuityErr == nil && continuityResp.Worker != nil:
+				continuity = sessionStartContinuityDTO(continuityResp.Worker.Continuity)
+			case continuityErr == nil:
+				fmt.Fprintln(f.IOStreams.ErrOut, "note: worker continuity was unavailable after bind")
+			case api.IsGraphQLValidationFor(continuityErr, "continuity"):
+				// An older server has no field. The bind already succeeded;
+				// omitting this optional projection is its compatibility path.
+			default:
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read worker continuity after bind (%v)\n", api.MapError(continuityErr))
+			}
 			result := struct {
 				Session sessionDTO `json:"session"`
 				// sessionStartWorker, not workerDTO: this response is built from
@@ -1040,6 +1065,10 @@ holds nothing).`,
 				// are omitted rather than reported stale. See its doc.
 				Worker      sessionStartWorker `json:"worker"`
 				BindingPath string             `json:"bindingPath"`
+				// Null means unavailable (old server, masked read, or read
+				// failure), never "no handoff". FIRST_STINT/MISSING carry that
+				// distinction explicitly when the server supports it.
+				Continuity *sessionStartContinuity `json:"continuity"`
 				// TookOver: did this bind displace a driver?
 				//
 				// NULLABLE since #550, for the reason releaseResultDTO's
@@ -1064,7 +1093,7 @@ holds nothing).`,
 				// error — `"yes"` into a bool fails — so the null case is a
 				// defined no-op, not a swallowed error.)
 				TookOver *bool `json:"tookOver"`
-			}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, tookOver(live)}
+			}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, continuity, tookOver(live)}
 			if err := output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				if _, err := fmt.Fprintf(out, "✓ started session %s as %s%s\n  binding: %s\n", s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
 					return err
@@ -1087,6 +1116,11 @@ holds nothing).`,
 				// Absent stays absent, as everywhere else (cor:api:230:01).
 				if w.PortalUrl != nil && *w.PortalUrl != "" {
 					if _, err := fmt.Fprintf(out, "  URL: %s\n", *w.PortalUrl); err != nil {
+						return err
+					}
+				}
+				if continuity != nil {
+					if err := renderSessionStartContinuity(out, continuity); err != nil {
 						return err
 					}
 				}
