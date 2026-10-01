@@ -2057,9 +2057,11 @@ Conventions:
   the server reaped it rather than a person ending it. **`--check` says nothing
   about idleness**: since hadron-server#1114 a developer session has no
   inactivity deadline, so an open session undriven for months is correctly open,
-  and the platform's last-driven instant is not on a session read. **Most of the time, do not end a session at
-  all**: they are meant to be long-lived (hadron-server#1114 removed the idle
-  reaper), so ending is for when the WORK ends, not when a chat session, branch
+  and `active` keeps its open/ended meaning even though the server now exposes
+  per-session `isLive` for the `session start` binding guard. **Most of the
+  time, do not end a session at all**: they are meant to be long-lived
+  (hadron-server#1114 removed the idle reaper), so ending is for when the WORK
+  ends, not when a chat session, branch
   or worktree does. The session binds the
   WORKER (`SessionInput.workerRef`, the worker's id); the server stamps the
   role-agent AND the worker's App itself, so every worker session is
@@ -2128,16 +2130,20 @@ Conventions:
   user id rather than going blank. Casting does NOT hold: a roster staffed
   for other people is unheld until each of them binds, and an App-key
   session holds nothing at all.
-  **One worktree per worker** (#472): binding a worktree that is already bound
-  refuses (exit 5) and picks its remedy by whether that session is still
-  ALIVE — live, it points at `git worktree add -b <new-branch> ../<name>`
+  **One worktree per live worker session** (#472, #791): binding a worktree
+  that is already bound to a live session refuses (exit 5) and points at
+  `git worktree add -b <new-branch> ../<name>`
   (the `-b` matters: the bare `<commit-ish>` form takes an EXISTING ref — a
   fresh name fails `invalid reference`, and a tag or sha silently gives a
   detached HEAD), because
   `--force` replaces the binding without separating two agents from one index
-  and one working tree; ended, `--force` is exactly right. Two agents in one
-  checkout is the hazard: `git add -A` sweeps the other's in-flight edits and
-  `Session.branch` is captured once at bind and never revisited, so the
+  and one working tree. An ended or lapsed binding can be replaced by plain
+  `session start` when the server confirms it is not live. An open lapsed
+  session is not ended by that replacement, leaving its own driver able to
+  write a handoff. If exact liveness is unavailable, the CLI refuses with an
+  unknown-state message rather than calling an open session live. Two agents
+  in one checkout is the hazard: `git add -A` sweeps the other's in-flight
+  edits and `Session.branch` is captured once at bind and never revisited, so the
   provenance a merged PR traces back through goes false silently. The guard
   catches a second BINDING only — a second agent working unbound in the same
   checkout does identical damage and nothing fires.

@@ -69,6 +69,9 @@ func unstubbedDefault(op string) (string, bool) {
 		// `session start`'s separate handoff read (#790). An older server
 		// does not know Worker.continuity; ordinary binds must still work.
 		return `{"errors":[{"message":"Cannot query field \"continuity\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetBoundSessionLiveness":
+		// The optional #791 read against a server predating Session.isLive.
+		return `{"errors":[{"message":"Cannot query field \"isLive\" on type \"Session\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	}
 	return "", false
 }

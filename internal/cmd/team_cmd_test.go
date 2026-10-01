@@ -1332,11 +1332,9 @@ const startedSessionJSON = `{"id":"s-new","agentId":"agt1","workerId":"wkr1",
 	"repo":null,"branch":null,"prNumber":null,"startedAt":"2026-08-11T10:00:00Z","endedAt":null,
 	"host":"mac1","tool":"claude-code","transcriptPath":"/tmp/t.jsonl","llmModel":null}`
 
-// #472: one worktree per worker. The already-bound guard was always right;
-// the remedy was not. Which remedy is correct depends entirely on whether the
-// bound session is still ALIVE — for a live one, --force relabels who gets
-// blamed while leaving two agents on one index, and clears the only signal
-// that anything was wrong.
+// #472/#791: a live local binding points to a separate worktree. For an
+// inactive one, an ordinary start replaces the stale local pointer instead
+// (covered by TestTeamSessionStartRebindsInactiveLocalSessionWithoutForce).
 func TestTeamSessionStartAlreadyBoundPicksTheRemedyByLiveness(t *testing.T) {
 	bind := func(t *testing.T) {
 		t.Helper()
@@ -1348,15 +1346,15 @@ func TestTeamSessionStartAlreadyBoundPicksTheRemedyByLiveness(t *testing.T) {
 
 	for _, tc := range []struct {
 		name           string
-		session        string
+		liveness       string
 		wantContains   []string
 		wantNotContain []string
 	}{
 		{
-			name:    "live session leads with a separate worktree",
-			session: `{"data":{"session":` + startedSessionJSON + `}}`,
+			name:     "live session leads with a separate worktree",
+			liveness: `{"data":{"session":{"id":"s-new","startedAt":"2026-08-11T10:00:00Z","endedAt":null,"isLive":true}}}`,
 			wantContains: []string{
-				"still active",
+				"still live",
 				"git worktree add -b <new-branch> ../<name>",
 				// --force is named only so the reader knows it is the WRONG
 				// tool here, never as the remedy.
@@ -1366,18 +1364,8 @@ func TestTeamSessionStartAlreadyBoundPicksTheRemedyByLiveness(t *testing.T) {
 			wantNotContain: []string{"--force to replace the binding"},
 		},
 		{
-			name:    "an ended session is exactly what --force is for",
-			session: `{"data":{"session":` + endedSessionJSON + `}}`,
-			wantContains: []string{
-				"whose session ended",
-				"--force replaces the abandoned binding",
-			},
-			// The worktree advice would be noise: nobody is driving.
-			wantNotContain: []string{"git worktree add"},
-		},
-		{
-			name:    "unknown liveness leads with the safe remedy, not the convenient one",
-			session: `{"data":{"session":null}}`,
+			name:     "unknown liveness leads with the safe remedy, not the convenient one",
+			liveness: `{"data":{"session":null}}`,
 			wantContains: []string{
 				"could not be checked",
 				"git worktree add -b <new-branch> ../<name>",
@@ -1387,7 +1375,7 @@ func TestTeamSessionStartAlreadyBoundPicksTheRemedyByLiveness(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			bind(t)
-			gql, captured := captureGraphQL(t, map[string]string{"GetTeamSession": tc.session})
+			gql, captured := captureGraphQL(t, map[string]string{"GetBoundSessionLiveness": tc.liveness})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"team", "session", "start", "--as", "Dara", "--server", gql.URL})
@@ -1410,7 +1398,7 @@ func TestTeamSessionStartAlreadyBoundPicksTheRemedyByLiveness(t *testing.T) {
 				t.Error("a refused start must not reach the mutation")
 			}
 			var vars map[string]any
-			_ = json.Unmarshal(captured["GetTeamSession"], &vars)
+			_ = json.Unmarshal(captured["GetBoundSessionLiveness"], &vars)
 			if vars["id"] != "s-new" {
 				t.Errorf("liveness must be checked on the BOUND session, got %v", vars)
 			}
@@ -2351,11 +2339,8 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 		wantMissing string
 		// wantRemedy is the command the line tells the reader to run. Asserted
 		// because a remedy is a POINTER and an unfollowed one is a wrong
-		// answer with a command's authority: the binding is still on disk when
-		// the session has ended, so a plain `session start` hits the
-		// existing-binding guard and refuses (exit 5). @codex caught the
-		// missing --force; a first pass at this table asserted the prose and
-		// not the command, so dropping --force again changed nothing.
+		// answer with a command's authority. #791 lets a plain start replace
+		// an ended binding, so its remedy must not require --force.
 		wantRemedy string
 	}{
 		{
@@ -2368,7 +2353,7 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			name: "ended by someone", session: whoamiCheckSession("2026-09-19T11:00:00Z", ""),
 			wantActive: "false", wantEnded: `"2026-09-19T11:00:00Z"`, wantExpired: "null",
 			wantInLine: "ENDED", wantMissing: "auto-expired",
-			wantRemedy: "session start --force --as Iris",
+			wantRemedy: "session start --as Iris",
 		},
 		{
 			// The SERVER reaped it. Same endedAt, different cause, and the
@@ -2378,7 +2363,7 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			session:    whoamiCheckSession("2026-09-19T11:00:00Z", "2026-09-19T11:00:00Z"),
 			wantActive: "false", wantEnded: `"2026-09-19T11:00:00Z"`, wantExpired: `"2026-09-19T11:00:00Z"`,
 			wantInLine: "auto-expired", wantMissing: "",
-			wantRemedy: "session start --force --as Iris",
+			wantRemedy: "session start --as Iris",
 		},
 	}
 	for _, c := range cases {

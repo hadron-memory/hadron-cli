@@ -4,6 +4,10 @@ Status: **shipped, and deliberately much smaller than the issue as filed.**
 Related: hadron-server#1114 (removed the inactivity reaper — this is what shrank
 the issue), #623 (whoami's *reachability*; this is its *accuracy*), #1036.
 
+> **Current remedy after hadron-cli#791:** a plain `session start --as <worker>`
+> replaces an ended local binding. The `--force` remedy and guard behavior below
+> record this plan as shipped before per-session `Session.isLive` was added.
+
 ## 1. The issue's original defect no longer exists
 
 #484 was filed against a real incident: a worker session auto-expired after
