@@ -11005,6 +11005,67 @@ type GetAppSharedMemoryResponse struct {
 // GetApp returns GetAppSharedMemoryResponse.App, and is useful for accessing the field via an interface.
 func (v *GetAppSharedMemoryResponse) GetApp() *GetAppSharedMemoryApp { return v.App }
 
+// GetBoundSessionLivenessResponse is returned by GetBoundSessionLiveness on success.
+type GetBoundSessionLivenessResponse struct {
+	Session *GetBoundSessionLivenessSession `json:"session"`
+}
+
+// GetSession returns GetBoundSessionLivenessResponse.Session, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionLivenessResponse) GetSession() *GetBoundSessionLivenessSession {
+	return v.Session
+}
+
+// GetBoundSessionLivenessSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type GetBoundSessionLivenessSession struct {
+	Id        string  `json:"id"`
+	StartedAt string  `json:"startedAt"`
+	EndedAt   *string `json:"endedAt"`
+	// hadron-cli#791 / cor:agt:020:11: whether THIS session is live: not ended,
+	// AND driven inside its type's idle window (activity is the latest of
+	// startedAt, the heartbeat updatedAt, and the latest attributed usage
+	// event, capped at endedAt). The same derived predicate as startSession's
+	// WORKER_TAKEN gate and Worker.hasLiveSession, so the three always agree.
+	// An open session that is not live has LAPSED: nobody drove it inside the
+	// window, so another driver may bind its worker; it is not ended, and can
+	// still be ended with a handoff. False for an ended or deleted session.
+	IsLive bool `json:"isLive"`
+}
+
+// GetId returns GetBoundSessionLivenessSession.Id, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionLivenessSession) GetId() string { return v.Id }
+
+// GetStartedAt returns GetBoundSessionLivenessSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionLivenessSession) GetStartedAt() string { return v.StartedAt }
+
+// GetEndedAt returns GetBoundSessionLivenessSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionLivenessSession) GetEndedAt() *string { return v.EndedAt }
+
+// GetIsLive returns GetBoundSessionLivenessSession.IsLive, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionLivenessSession) GetIsLive() bool { return v.IsLive }
+
 // GetChannelChannel includes the requested fields of the GraphQL type Channel.
 // The GraphQL type's documentation follows.
 //
@@ -34167,6 +34228,14 @@ type __GetAppSharedMemoryInput struct {
 // GetAppRef returns __GetAppSharedMemoryInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__GetAppSharedMemoryInput) GetAppRef() string { return v.AppRef }
 
+// __GetBoundSessionLivenessInput is used internally by genqlient
+type __GetBoundSessionLivenessInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __GetBoundSessionLivenessInput.Id, and is useful for accessing the field via an interface.
+func (v *__GetBoundSessionLivenessInput) GetId() string { return v.Id }
+
 // __GetChannelInput is used internally by genqlient
 type __GetChannelInput struct {
 	Ref string `json:"ref"`
@@ -40895,6 +40964,48 @@ func GetAppSharedMemory(
 	}
 
 	data_ = &GetAppSharedMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetBoundSessionLiveness.
+const GetBoundSessionLiveness_Operation = `
+query GetBoundSessionLiveness ($id: ID!) {
+	session(id: $id) {
+		id
+		startedAt
+		endedAt
+		isLive
+	}
+}
+`
+
+// #791: the same-worktree binding guard needs the SERVER'S derived liveness
+// for this exact session, not endedAt (an open session may have lapsed) and not
+// Worker.hasLiveSession (another worktree may be driving a different session).
+// Keep isLive out of GetTeamSession and TeamSessionFields so older servers can
+// still run the ordinary session reads; validation refusal here means unknown.
+func GetBoundSessionLiveness(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *GetBoundSessionLivenessResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetBoundSessionLiveness",
+		Query:  GetBoundSessionLiveness_Operation,
+		Variables: &__GetBoundSessionLivenessInput{
+			Id: id,
+		},
+	}
+
+	data_ = &GetBoundSessionLivenessResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

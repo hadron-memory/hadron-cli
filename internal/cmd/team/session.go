@@ -360,12 +360,13 @@ func describeSession(s *gen.TeamSessionFields) string {
 	return fmt.Sprintf("%s since %s (session %s)", strings.Join(parts, " "), s.StartedAt, s.Id)
 }
 
-// alreadyBoundError refuses a second binding in one worktree, and picks the
-// remedy by whether the bound session is still ALIVE (#472).
+// checkExistingBinding refuses a second binding in one worktree only when the
+// bound session may still be live. An ended or lapsed binding can be replaced
+// by a plain start without ending its old session (#791).
 //
-// The guard itself was always right; the remedy was not. Offering --force for
-// a LIVE binding answers the wrong problem: it replaces the binding and
-// relabels which worker gets blamed, while leaving two agents editing one
+// The live-binding guard remains necessary. Offering --force for a LIVE binding
+// answers the wrong problem: it replaces the binding and relabels which worker
+// gets blamed, while leaving two agents editing one
 // index and one working tree. It is worse than neutral, because afterwards the
 // second agent believes it is correctly bound — the one signal that something
 // was off has been cleared.
@@ -380,7 +381,14 @@ func describeSession(s *gen.TeamSessionFields) string {
 // error — losing the safe worktree remedy at exactly the moment the caller
 // cannot fix the situation any other way. A client that cannot be built is
 // simply unknown liveness, which already leads with that remedy.
-func alreadyBoundError(ctx context.Context, f *cmdutil.Factory, existing *binding) error {
+// The bool reports an open but lapsed binding, for a post-bind note. A false
+// bool with no error means the old session had already ended.
+func checkExistingBinding(ctx context.Context, f *cmdutil.Factory, existing *binding) (bool, error) {
+	// This path can now ADMIT a bind, so it must not read an unrelated server's
+	// colliding session id and treat its liveness as proof about the binding.
+	if err := checkBindingServer(f, existing); err != nil {
+		return false, err
+	}
 	const separate = "give this worker its own checkout:\n" +
 		"    git worktree add -b <new-branch> ../<name>     # new branch\n" +
 		"    git worktree add ../<name> <existing-branch>   # a branch that already exists\n" +
@@ -390,36 +398,44 @@ func alreadyBoundError(ctx context.Context, f *cmdutil.Factory, existing *bindin
 		"so the provenance record goes false with no signal. A merged PR stops tracing back to the work that\n" +
 		"produced it — which is the whole reason the binding exists."
 
-	// One read, only on a path that is already refusing. `session start` has
-	// to know whether the bound session is live to answer at all, and guessing
-	// would pick the wrong remedy half the time.
-	var resp *gen.GetTeamSessionResponse
+	// The guard needs the exact bound session's derived liveness. A different
+	// session of the same Worker can be live while this binding has lapsed, so
+	// Worker.hasLiveSession cannot answer this question. Keep the isLive selection
+	// separate from GetTeamSession: an old server rejects an unknown field before
+	// executing even the fields it does know.
+	var resp *gen.GetBoundSessionLivenessResponse
 	client, err := f.GraphQLClient()
 	if err == nil {
-		resp, err = gen.GetTeamSession(ctx, client, existing.SessionID)
+		resp, err = gen.GetBoundSessionLiveness(ctx, client, existing.SessionID)
+	}
+	if api.IsGraphQLValidationFor(err, "isLive") {
+		// Older servers can prove an ENDED binding inactive with the ordinary
+		// query. An open row cannot prove liveness either way, so fail closed
+		// with an unknown-state explanation rather than calling it live.
+		legacy, legacyErr := gen.GetTeamSession(ctx, client, existing.SessionID)
+		if legacyErr == nil && legacy != nil && legacy.Session != nil && legacy.Session.EndedAt != nil {
+			return false, nil
+		}
 	}
 	switch {
 	case err != nil || resp == nil || resp.Session == nil:
-		// Cannot tell. Lead with the safe remedy rather than the convenient
-		// one: separating the trees is never wrong, and --force is only right
-		// for a binding nobody is driving.
-		return exitcode.Newf(exitcode.Conflict,
-			"this worktree is already bound to worker %s (session %s), and whether that session is still active could not be checked — %s\n"+
+		// Cannot tell. The caller can choose --force if they know this is an
+		// abandoned binding, but an open row alone is never proof of that.
+		return false, exitcode.Newf(exitcode.Conflict,
+			"this worktree is already bound to worker %s (session %s), and whether that session is live could not be checked — %s\n"+
 				"If you are certain the binding is abandoned, --force replaces it; it does NOT separate the working trees.",
 			existing.WorkerName, existing.SessionID, separate)
-	case resp.Session.EndedAt == nil:
+	case resp.Session.IsLive:
 		// LIVE. The worktree is the answer; --force is named only so the
 		// reader knows it is the wrong tool here rather than wondering.
-		return exitcode.Newf(exitcode.Conflict,
-			"this worktree is already bound to worker %s (session %s, started %s and still active) — if another agent is working here, %s\n"+
+		return false, exitcode.Newf(exitcode.Conflict,
+			"this worktree is already bound to worker %s (session %s, started %s and still live) — if another agent is working here, %s\n"+
 				"`--force` replaces the binding WITHOUT separating the working trees; use it only to take over an abandoned binding.",
 			existing.WorkerName, existing.SessionID, resp.Session.StartedAt, separate)
 	default:
-		// Ended: nobody is driving, so replacing the binding is exactly right
-		// and the worktree advice would be noise.
-		return exitcode.Newf(exitcode.Conflict,
-			"this worktree is already bound to worker %s (session %s), whose session ended %s — --force replaces the abandoned binding.",
-			existing.WorkerName, existing.SessionID, *resp.Session.EndedAt)
+		// Ended or lapsed: a normal bind can replace the local pointer. The
+		// lapsed row remains open for its own driver to leave a handoff.
+		return resp.Session.EndedAt == nil, nil
 	}
 }
 
@@ -686,11 +702,12 @@ This command does not refuse on it — it binds, and the server applies the
 same rule atomically and refuses TAKEN or HELD if it must. In ` + "`--json`" + `
 that case is ` + "`tookOver: null`" + `, distinct from ` + "`false`" + `. --force starts
 your session alongside the taken-over one; it does not end another
-driver's session. When this worktree already has a binding, --force
-replaces it — first ending the session that binding names (best-effort),
-so the old binding never leaves a session open. That makes --force the
-remedy for an ABANDONED binding only: it never separates two live agents,
-it just relabels which worker the shared tree is blamed on.
+driver's session. When this worktree already has a binding, a plain start
+replaces an ended or lapsed binding once the server confirms it is not live.
+That leaves an open lapsed session intact for its own driver's handoff.
+--force instead ends the previously bound session (best-effort) before
+replacing its local binding. It never separates two live agents working
+in one tree.
 
 Binding a worker CLAIMS its name for you. Casting one does not: a roster
 staffed by a coordinator is unheld until each person binds their own, and
@@ -705,8 +722,12 @@ holds nothing).`,
 			if err != nil {
 				return err
 			}
+			var lapsedBinding bool
 			if existing != nil && !force {
-				return alreadyBoundError(ctx, f, existing)
+				lapsedBinding, err = checkExistingBinding(ctx, f, existing)
+				if err != nil {
+					return err
+				}
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -721,7 +742,7 @@ holds nothing).`,
 			// because that session may already be ended — or live on another
 			// server, which `session end`'s server guard would catch but a
 			// takeover deliberately steamrolls.
-			if existing != nil {
+			if existing != nil && force {
 				// No handoff: this ends SOMEBODY ELSE'S abandoned session, and a
 				// continuity record is the departing driver's account of their
 				// own work. Composing one on their behalf would put words in
@@ -779,14 +800,13 @@ holds nothing).`,
 			// It is gated on `live != liveNo` and NOT on `force` alone — the
 			// distinction @codex and @copilot both caught, and @codex's reason
 			// is the one that makes it urgent. **--force is not only a takeover
-			// flag**: it is also required to replace an abandoned local worktree
+			// flag**: it also explicitly replaces an abandoned local worktree
 			// binding, and that path has ALREADY ENDED the previous session by
 			// the time it arrives here. Aborting on a narration blip therefore
-			// leaves the old session ended, the local binding intact, and the
-			// caller unable to retry WITHOUT --force (the already-bound guard
-			// refuses that) — a refusal you cannot satisfy by doing what it
-			// implies, which is precisely the #550 shape this whole issue family
-			// exists to remove. Introduced by the PR that removes it.
+			// leaves the old session ended and the local binding intact. A plain
+			// start can replace an ended binding since #791, but the forced path
+			// must still avoid turning a best-effort narration read into a bind
+			// refusal.
 			//
 			// `liveNo` and not `liveYes` is the direction, because degrading
 			// needs POSITIVE evidence that nobody is displaced. `liveUnknown`
@@ -1058,6 +1078,9 @@ holds nothing).`,
 			default:
 				fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read worker continuity after bind (%v)\n", api.MapError(continuityErr))
 			}
+			if lapsedBinding {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: replaced lapsed local binding for session %s; that session remains open for its driver to end with a handoff\n", existing.SessionID)
+			}
 			result := struct {
 				Session sessionDTO `json:"session"`
 				// sessionStartWorker, not workerDTO: this response is built from
@@ -1234,9 +1257,9 @@ func livenessLine(d whoamiDTO) string {
 		ended = *d.EndedAt
 	}
 	if d.AutoExpiredAt != nil {
-		return fmt.Sprintf("ENDED %s — auto-expired by the server, not closed by anyone; rebind with `hadron team session start --force --as %s`", ended, d.WorkerName)
+		return fmt.Sprintf("ENDED %s — auto-expired by the server, not closed by anyone; rebind with `hadron team session start --as %s`", ended, d.WorkerName)
 	}
-	return fmt.Sprintf("ENDED %s — this binding is stale; rebind with `hadron team session start --force --as %s`", ended, d.WorkerName)
+	return fmt.Sprintf("ENDED %s — this binding is stale; rebind with `hadron team session start --as %s`", ended, d.WorkerName)
 }
 
 // livenessResult is what --check learned about the bound session.
@@ -1257,10 +1280,10 @@ type livenessResult struct {
 // file keeps describing a session that is gone.
 //
 // It deliberately reports nothing about IDLENESS. An open session not driven
-// for months is correctly open under #1114, and the platform's derived
-// last-driven instant is not on a session read — so claiming staleness here
-// would be the CLI inventing a signal it cannot see, which is what the
-// withdrawn `reapsAt` ask on #484 was about.
+// for months is correctly open under #1114. Since #791 the server does expose
+// Session.isLive, but this command's stable `active` answer means OPEN, not
+// recently driven. `session start` reads the separate liveness field for its
+// binding guard; `whoami --check` keeps its narrower ended-state contract.
 func checkSessionLiveness(cmd *cobra.Command, f *cmdutil.Factory, b *binding) (livenessResult, error) {
 	// A binding from another deployment describes a session this server has
 	// never heard of, and "not found" would read as "ended". Refuse with the
@@ -1478,8 +1501,10 @@ else here), never "live" — an active session is not necessarily a driven one.
 --check is not a health check for idleness. Since hadron-server#1114 a
 developer session has no inactivity deadline, so an open session that has not
 been driven in months is CORRECTLY open, and nothing here calls it stale. The
-platform computes a last-driven instant but does not expose it on a session
-read, so this command cannot honestly report one.
+server exposes Session.isLive since hadron-server#1547, but this command deliberately
+answers only whether the bound session is open. Its --json ` + "`active`" + ` key
+keeps that stable meaning; use ` + "`session start`" + ` for the exact liveness
+guard when rebinding.
 
 The fallback lists only sessions that are attributed to YOU, worker-bound, and
 still open. The server's session list is deliberately wider than that — it

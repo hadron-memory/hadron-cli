@@ -614,6 +614,20 @@ query GetTeamSession($id: ID!) {
   }
 }
 
+# #791: the same-worktree binding guard needs the SERVER'S derived liveness
+# for this exact session, not endedAt (an open session may have lapsed) and not
+# Worker.hasLiveSession (another worktree may be driving a different session).
+# Keep isLive out of GetTeamSession and TeamSessionFields so older servers can
+# still run the ordinary session reads; validation refusal here means unknown.
+query GetBoundSessionLiveness($id: ID!) {
+  session(id: $id) {
+    id
+    startedAt
+    endedAt
+    isLive
+  }
+}
+
 # workerRef (#974) is the server-side narrowing the taken/last-driven-by check
 # reads: only sessions bound to that Worker (by id), newest first — so the
 # presence check no longer scans the whole list. The plain listing still pages
