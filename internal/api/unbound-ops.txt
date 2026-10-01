@@ -68,7 +68,7 @@ slackConnections
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
-[Mutation] 89 unbound
+[Mutation] 88 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -132,7 +132,6 @@ revokeAgentOrgGrant
 revokeAgentSubscription
 revokeAppKey
 saveChatSummary
-searchReplaceInSpecNodes  # cli#783: spec replace draft is a separate PR
 sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled

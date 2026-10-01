@@ -3165,7 +3165,8 @@ type AuthContextAuthContextUser struct {
 	Email          *string `json:"email"`
 	Handle         *string `json:"handle"`
 	GithubUsername *string `json:"githubUsername"`
-	Roles          []Role  `json:"roles"`
+	// Platform roles; an empty list is returned to viewers without personal-field access.
+	Roles []Role `json:"roles"`
 }
 
 // GetId returns AuthContextAuthContextUser.Id, and is useful for accessing the field via an interface.
@@ -7433,8 +7434,9 @@ func (v *CreateMemoryShareResponse) GetCreateMemoryShare() *CreateMemoryShareCre
 //
 // An organization's subscription to a memory it does not own.
 type CreateMemorySubscriptionCreateMemorySubscription struct {
-	Role         Role                                                          `json:"role"`
-	Activated    bool                                                          `json:"activated"`
+	Role      Role `json:"role"`
+	Activated bool `json:"activated"`
+	// The subscriber Organization when the caller may read it; memory access alone does not authorize it.
 	Organization *CreateMemorySubscriptionCreateMemorySubscriptionOrganization `json:"organization"`
 }
 
@@ -9264,7 +9266,10 @@ type CreateTeamChatMessageResponse struct {
 	// SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
 	// SESSION_EXPIRED (encrypted team memory without an active session key),
 	// TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
-	// not locate the Team Agent), APP_UNINSTALLED, FORBIDDEN.
+	// not locate the Team Agent), APP_UNINSTALLED, FORBIDDEN (an authenticated
+	// caller who is not a participant), UNAUTHENTICATED (no principal at all: no
+	// token, an expired or unverifiable one; checked before the App is resolved,
+	// so it answers identically whether or not the App exists).
 	//
 	// appRef accepts the entity's ID or URN; sessionRef is the session id.
 	CreateTeamChatMessage *CreateTeamChatMessageCreateTeamChatMessage `json:"createTeamChatMessage"`
@@ -11153,74 +11158,78 @@ type GetChannelResponse struct {
 // GetChannel returns GetChannelResponse.Channel, and is useful for accessing the field via an interface.
 func (v *GetChannelResponse) GetChannel() *GetChannelChannel { return v.Channel }
 
-// GetInvitationInvitationUserInvitation includes the requested fields of the GraphQL type UserInvitation.
+// GetInvitationInvitationPublicInvitation includes the requested fields of the GraphQL type PublicInvitation.
 // The GraphQL type's documentation follows.
 //
-// Invitation to join the platform (and optionally an organization)
-type GetInvitationInvitationUserInvitation struct {
-	MemberRole      Role                                               `json:"memberRole"`
-	MaxActivations  *int                                               `json:"maxActivations"`
-	ActivationCount int                                                `json:"activationCount"`
-	ExpiresAt       *string                                            `json:"expiresAt"`
-	Sender          *GetInvitationInvitationUserInvitationSenderUser   `json:"sender"`
-	Organization    *GetInvitationInvitationUserInvitationOrganization `json:"organization"`
+// The invite-page view available to anyone holding the invitation slug.
+type GetInvitationInvitationPublicInvitation struct {
+	MemberRole      Role                                                 `json:"memberRole"`
+	MaxActivations  *int                                                 `json:"maxActivations"`
+	ActivationCount int                                                  `json:"activationCount"`
+	ExpiresAt       *string                                              `json:"expiresAt"`
+	Sender          *GetInvitationInvitationPublicInvitationSender       `json:"sender"`
+	Organization    *GetInvitationInvitationPublicInvitationOrganization `json:"organization"`
 }
 
-// GetMemberRole returns GetInvitationInvitationUserInvitation.MemberRole, and is useful for accessing the field via an interface.
-func (v *GetInvitationInvitationUserInvitation) GetMemberRole() Role { return v.MemberRole }
+// GetMemberRole returns GetInvitationInvitationPublicInvitation.MemberRole, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationPublicInvitation) GetMemberRole() Role { return v.MemberRole }
 
-// GetMaxActivations returns GetInvitationInvitationUserInvitation.MaxActivations, and is useful for accessing the field via an interface.
-func (v *GetInvitationInvitationUserInvitation) GetMaxActivations() *int { return v.MaxActivations }
+// GetMaxActivations returns GetInvitationInvitationPublicInvitation.MaxActivations, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationPublicInvitation) GetMaxActivations() *int { return v.MaxActivations }
 
-// GetActivationCount returns GetInvitationInvitationUserInvitation.ActivationCount, and is useful for accessing the field via an interface.
-func (v *GetInvitationInvitationUserInvitation) GetActivationCount() int { return v.ActivationCount }
+// GetActivationCount returns GetInvitationInvitationPublicInvitation.ActivationCount, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationPublicInvitation) GetActivationCount() int { return v.ActivationCount }
 
-// GetExpiresAt returns GetInvitationInvitationUserInvitation.ExpiresAt, and is useful for accessing the field via an interface.
-func (v *GetInvitationInvitationUserInvitation) GetExpiresAt() *string { return v.ExpiresAt }
+// GetExpiresAt returns GetInvitationInvitationPublicInvitation.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationPublicInvitation) GetExpiresAt() *string { return v.ExpiresAt }
 
-// GetSender returns GetInvitationInvitationUserInvitation.Sender, and is useful for accessing the field via an interface.
-func (v *GetInvitationInvitationUserInvitation) GetSender() *GetInvitationInvitationUserInvitationSenderUser {
+// GetSender returns GetInvitationInvitationPublicInvitation.Sender, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationPublicInvitation) GetSender() *GetInvitationInvitationPublicInvitationSender {
 	return v.Sender
 }
 
-// GetOrganization returns GetInvitationInvitationUserInvitation.Organization, and is useful for accessing the field via an interface.
-func (v *GetInvitationInvitationUserInvitation) GetOrganization() *GetInvitationInvitationUserInvitationOrganization {
+// GetOrganization returns GetInvitationInvitationPublicInvitation.Organization, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationPublicInvitation) GetOrganization() *GetInvitationInvitationPublicInvitationOrganization {
 	return v.Organization
 }
 
-// GetInvitationInvitationUserInvitationOrganization includes the requested fields of the GraphQL type Organization.
+// GetInvitationInvitationPublicInvitationOrganization includes the requested fields of the GraphQL type PublicInvitationOrganization.
 // The GraphQL type's documentation follows.
 //
-// A company or team that owns one or more Hadron memories.
-type GetInvitationInvitationUserInvitationOrganization struct {
+// Only the organization display name needed on the invite page.
+type GetInvitationInvitationPublicInvitationOrganization struct {
 	Name string `json:"name"`
 }
 
-// GetName returns GetInvitationInvitationUserInvitationOrganization.Name, and is useful for accessing the field via an interface.
-func (v *GetInvitationInvitationUserInvitationOrganization) GetName() string { return v.Name }
+// GetName returns GetInvitationInvitationPublicInvitationOrganization.Name, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationPublicInvitationOrganization) GetName() string { return v.Name }
 
-// GetInvitationInvitationUserInvitationSenderUser includes the requested fields of the GraphQL type User.
-type GetInvitationInvitationUserInvitationSenderUser struct {
+// GetInvitationInvitationPublicInvitationSender includes the requested fields of the GraphQL type PublicInvitationSender.
+// The GraphQL type's documentation follows.
+//
+// Only the sender display fields needed on the invite page.
+type GetInvitationInvitationPublicInvitationSender struct {
 	Name           *string `json:"name"`
 	GithubUsername *string `json:"githubUsername"`
 }
 
-// GetName returns GetInvitationInvitationUserInvitationSenderUser.Name, and is useful for accessing the field via an interface.
-func (v *GetInvitationInvitationUserInvitationSenderUser) GetName() *string { return v.Name }
+// GetName returns GetInvitationInvitationPublicInvitationSender.Name, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationPublicInvitationSender) GetName() *string { return v.Name }
 
-// GetGithubUsername returns GetInvitationInvitationUserInvitationSenderUser.GithubUsername, and is useful for accessing the field via an interface.
-func (v *GetInvitationInvitationUserInvitationSenderUser) GetGithubUsername() *string {
+// GetGithubUsername returns GetInvitationInvitationPublicInvitationSender.GithubUsername, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationPublicInvitationSender) GetGithubUsername() *string {
 	return v.GithubUsername
 }
 
 // GetInvitationResponse is returned by GetInvitation on success.
 type GetInvitationResponse struct {
-	// Invitation lookup (public — no auth required, used by invite acceptance page)
-	Invitation *GetInvitationInvitationUserInvitation `json:"invitation"`
+	// Invitation lookup (public to the slug holder). Returns only invite-page
+	// display fields; accepting the slug still performs its own authorization.
+	Invitation *GetInvitationInvitationPublicInvitation `json:"invitation"`
 }
 
 // GetInvitation returns GetInvitationResponse.Invitation, and is useful for accessing the field via an interface.
-func (v *GetInvitationResponse) GetInvitation() *GetInvitationInvitationUserInvitation {
+func (v *GetInvitationResponse) GetInvitation() *GetInvitationInvitationPublicInvitation {
 	return v.Invitation
 }
 
@@ -13027,9 +13036,11 @@ func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayload) GetAp
 // read-only to every App) and per FR-001 it carries NO trainingMode
 // column (training mode is per-App, on App.trainingMode).
 type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent struct {
-	CreatedAt string                                                                         `json:"createdAt"`
-	Agent     *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent `json:"agent"`
-	App       *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp   `json:"app"`
+	CreatedAt string `json:"createdAt"`
+	// The installed Agent when this caller may read its definition; an installation license alone does not grant that read.
+	Agent *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent `json:"agent"`
+	// The App when this caller may read it; strict user ownership still applies.
+	App *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp `json:"app"`
 }
 
 // GetCreatedAt returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent.CreatedAt, and is useful for accessing the field via an interface.
@@ -13725,7 +13736,8 @@ type MeMeUser struct {
 	Email          *string `json:"email"`
 	Handle         *string `json:"handle"`
 	GithubUsername *string `json:"githubUsername"`
-	Roles          []Role  `json:"roles"`
+	// Platform roles; an empty list is returned to viewers without personal-field access.
+	Roles []Role `json:"roles"`
 }
 
 // GetId returns MeMeUser.Id, and is useful for accessing the field via an interface.
@@ -15536,8 +15548,9 @@ func (v *MemorySubscriptionsMemory) GetSubscriptions() []*MemorySubscriptionsMem
 //
 // An organization's subscription to a memory it does not own.
 type MemorySubscriptionsMemorySubscriptionsMemorySubscription struct {
-	Role         Role                                                                  `json:"role"`
-	Activated    bool                                                                  `json:"activated"`
+	Role      Role `json:"role"`
+	Activated bool `json:"activated"`
+	// The subscriber Organization when the caller may read it; memory access alone does not authorize it.
 	Organization *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization `json:"organization"`
 }
 
@@ -16101,6 +16114,13 @@ type MintSpecCorpusResponse struct {
 	// minting. Owner or org ADMIN only. memoryRef accepts the ID or URN. A real
 	// run holds every write to the corpus off while it checks and flips, and
 	// refuses SPEC_CORPUS_BUSY (retryable) if a write is already in flight.
+	// #1468 — a minted spec is then permanent: every path that would remove one
+	// from the corpus refuses SPEC_MINTED_PERMANENT, naming the specs (deleteNode
+	// soft or hard, a move to another memory or an overwrite of its citation,
+	// mergeNodes with deleteSource, extracting with move, a merge or deletion of
+	// the whole corpus, git-sync pruning, and account erasure while the owner
+	// still holds it). Supersede a spec to replace it; a rename within the corpus
+	// still records its URN alias.
 	MintSpecCorpus *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport `json:"mintSpecCorpus"`
 }
 
@@ -16192,7 +16212,8 @@ type MoveNodeResponse struct {
 	// keeps its id, so all incoming/outgoing edge references stay valid. Fails
 	// loudly with NODE_ALREADY_EXISTS if a live node already occupies the
 	// destination. Requires write access to both the source and destination
-	// memories.
+	// memories. On a cross-memory move, select Node.moveLinkWarnings to see
+	// raw relative content links that now miss or resolve to another node.
 	MoveNode *MoveNodeMoveNode `json:"moveNode"`
 }
 
@@ -16576,7 +16597,10 @@ type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge struct {
 	Name *string `json:"name"`
 	// Colon-delimited path within the (source node's) memory — the edge's
 	// identity and the suffix of its URN hrn:edge:<root>:<memory>:<loc>.
-	Loc         string  `json:"loc"`
+	Loc string `json:"loc"`
+	// Longer gloss carried for API consumers. NOT rendered on agent node reads,
+	// whose Related:/Referenced by: lines show the edge name (#721: name is the
+	// display label). Put the label you want seen in name (#1057).
 	Description *string `json:"description"`
 	// If true, this edge can be executed/run (task automation, conversation
 	// transitions). Mirrors Node.isRunnable.
@@ -21906,6 +21930,174 @@ func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearc
 	return v.Matches
 }
 
+// SearchReplaceInSpecNodesResponse is returned by SearchReplaceInSpecNodes on success.
+type SearchReplaceInSpecNodesResponse struct {
+	// Governed bulk replacement inside one draft spec corpus, with exact preview binding.
+	SearchReplaceInSpecNodes *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult `json:"searchReplaceInSpecNodes"`
+}
+
+// GetSearchReplaceInSpecNodes returns SearchReplaceInSpecNodesResponse.SearchReplaceInSpecNodes, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesResponse) GetSearchReplaceInSpecNodes() *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult {
+	return v.SearchReplaceInSpecNodes
+}
+
+// SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult includes the requested fields of the GraphQL type SearchReplaceResult.
+type SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult struct {
+	// Unique authorized nodes selected before bulk-write protections are applied.
+	NodesSelected int `json:"nodesSelected"`
+	// Selected nodes whose requested text fields were actually inspected.
+	NodesScanned int `json:"nodesScanned"`
+	// Selected nodes protected from inspection and replacement.
+	NodesSkipped int `json:"nodesSkipped"`
+	// Nodes with at least one replacement.
+	NodesChanged      int `json:"nodesChanged"`
+	TotalReplacements int `json:"totalReplacements"`
+	// Echoes the request — true means nothing was written.
+	DryRun bool `json:"dryRun"`
+	// Opaque exact preview fingerprint on the spec door; null on the generic door.
+	Plan *string `json:"plan"`
+	// Node-addressed protected selections on the spec door; null on the generic door.
+	Skips []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip `json:"skips"`
+	// Per-node breakdown; only nodes with at least one match are listed.
+	Results []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult `json:"results"`
+}
+
+// GetNodesSelected returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.NodesSelected, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetNodesSelected() int {
+	return v.NodesSelected
+}
+
+// GetNodesScanned returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.NodesScanned, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetNodesScanned() int {
+	return v.NodesScanned
+}
+
+// GetNodesSkipped returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.NodesSkipped, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetNodesSkipped() int {
+	return v.NodesSkipped
+}
+
+// GetNodesChanged returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.NodesChanged, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetNodesChanged() int {
+	return v.NodesChanged
+}
+
+// GetTotalReplacements returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.TotalReplacements, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetTotalReplacements() int {
+	return v.TotalReplacements
+}
+
+// GetDryRun returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.DryRun, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetDryRun() bool {
+	return v.DryRun
+}
+
+// GetPlan returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.Plan, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetPlan() *string {
+	return v.Plan
+}
+
+// GetSkips returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.Skips, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetSkips() []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip {
+	return v.Skips
+}
+
+// GetResults returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult.Results, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult) GetResults() []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult {
+	return v.Results
+}
+
+// SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult includes the requested fields of the GraphQL type SearchReplaceNodeResult.
+type SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult struct {
+	NodeId   string `json:"nodeId"`
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
+	// Total replacements across all searched fields on this node.
+	Replacements int                                                                                                                                `json:"replacements"`
+	Fields       []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult `json:"fields"`
+}
+
+// GetNodeId returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult.NodeId, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetLoc returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult.Loc, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetLoc() string {
+	return v.Loc
+}
+
+// GetMemoryId returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult.MemoryId, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetReplacements returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult.Replacements, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetReplacements() int {
+	return v.Replacements
+}
+
+// GetFields returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult.Fields, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetFields() []*SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult {
+	return v.Fields
+}
+
+// SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult includes the requested fields of the GraphQL type SearchReplaceFieldResult.
+type SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult struct {
+	Field   NodeTextField `json:"field"`
+	Matches int           `json:"matches"`
+}
+
+// GetField returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult.Field, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult) GetField() NodeTextField {
+	return v.Field
+}
+
+// GetMatches returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult.Matches, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult) GetMatches() int {
+	return v.Matches
+}
+
+// SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip includes the requested fields of the GraphQL type SearchReplaceSkip.
+type SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip struct {
+	NodeId        string                  `json:"nodeId"`
+	Loc           string                  `json:"loc"`
+	Reason        SearchReplaceSkipReason `json:"reason"`
+	GovernedKinds []string                `json:"governedKinds"`
+}
+
+// GetNodeId returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip.NodeId, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetLoc returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip.Loc, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip) GetLoc() string {
+	return v.Loc
+}
+
+// GetReason returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip.Reason, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip) GetReason() SearchReplaceSkipReason {
+	return v.Reason
+}
+
+// GetGovernedKinds returns SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip.GovernedKinds, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResultSkipsSearchReplaceSkip) GetGovernedKinds() []string {
+	return v.GovernedKinds
+}
+
+type SearchReplaceSkipReason string
+
+const (
+	SearchReplaceSkipReasonOtherGovernedKind SearchReplaceSkipReason = "OTHER_GOVERNED_KIND"
+	SearchReplaceSkipReasonProtectedAddress  SearchReplaceSkipReason = "PROTECTED_ADDRESS"
+)
+
+var AllSearchReplaceSkipReason = []SearchReplaceSkipReason{
+	SearchReplaceSkipReasonOtherGovernedKind,
+	SearchReplaceSkipReasonProtectedAddress,
+}
+
 // SearchUsersResponse is returned by SearchUsers on success.
 type SearchUsersResponse struct {
 	// Uniform paginated user list (#473) — replaces the admin-only users list
@@ -23676,6 +23868,77 @@ var AllSpecRewriteStatus = []SpecRewriteStatus{
 	SpecRewriteStatusUnchanged,
 }
 
+// Replace text in explicit nodes of one DRAFT spec corpus. A dry run returns
+// plan; apply must present that exact plan and refuses if any selected row,
+// protection, match, or corpus state changed. Minted corpora are never edited
+// through this door. Generic replacement keeps its governed-node protections.
+type SpecSearchReplaceInput struct {
+	CaseInsensitive *bool `json:"caseInsensitive"`
+	DryRun          *bool `json:"dryRun"`
+	// Required for apply; copied from the exact dry-run response.
+	ExpectedPlan *string         `json:"expectedPlan,omitempty"`
+	Fields       []SpecTextField `json:"fields"`
+	// Refuse the entire apply when more nodes would change.
+	MaxNodesChanged *int     `json:"maxNodesChanged,omitempty"`
+	MemoryRef       string   `json:"memoryRef"`
+	NewText         string   `json:"newText"`
+	NodeIds         []string `json:"nodeIds"`
+	OldText         string   `json:"oldText"`
+	Reason          *string  `json:"reason,omitempty"`
+	Regex           *bool    `json:"regex"`
+	// Literal mode only; matches the CLI's default ASCII word-boundary behavior.
+	WordBoundary *bool `json:"wordBoundary"`
+}
+
+// GetCaseInsensitive returns SpecSearchReplaceInput.CaseInsensitive, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetCaseInsensitive() *bool { return v.CaseInsensitive }
+
+// GetDryRun returns SpecSearchReplaceInput.DryRun, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetDryRun() *bool { return v.DryRun }
+
+// GetExpectedPlan returns SpecSearchReplaceInput.ExpectedPlan, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetExpectedPlan() *string { return v.ExpectedPlan }
+
+// GetFields returns SpecSearchReplaceInput.Fields, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetFields() []SpecTextField { return v.Fields }
+
+// GetMaxNodesChanged returns SpecSearchReplaceInput.MaxNodesChanged, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetMaxNodesChanged() *int { return v.MaxNodesChanged }
+
+// GetMemoryRef returns SpecSearchReplaceInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetNewText returns SpecSearchReplaceInput.NewText, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetNewText() string { return v.NewText }
+
+// GetNodeIds returns SpecSearchReplaceInput.NodeIds, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetNodeIds() []string { return v.NodeIds }
+
+// GetOldText returns SpecSearchReplaceInput.OldText, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetOldText() string { return v.OldText }
+
+// GetReason returns SpecSearchReplaceInput.Reason, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetReason() *string { return v.Reason }
+
+// GetRegex returns SpecSearchReplaceInput.Regex, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetRegex() *bool { return v.Regex }
+
+// GetWordBoundary returns SpecSearchReplaceInput.WordBoundary, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetWordBoundary() *bool { return v.WordBoundary }
+
+// Only text fields a spec bulk edit may change.
+type SpecTextField string
+
+const (
+	SpecTextFieldAbstract SpecTextField = "abstract"
+	SpecTextFieldContent  SpecTextField = "content"
+)
+
+var AllSpecTextField = []SpecTextField{
+	SpecTextFieldAbstract,
+	SpecTextFieldContent,
+}
+
 // SpecUnresolvedReferencesResponse is returned by SpecUnresolvedReferences on success.
 type SpecUnresolvedReferencesResponse struct {
 	// #1449 — references in a DRAFT spec corpus that do not reach a written
@@ -24633,15 +24896,19 @@ type TeamChatMessagesResponse struct {
 	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
 	// { items, total } page. sinceSeq is a watermark cursor: only messages with
 	// seq STRICTLY GREATER than it are returned (pass the last seq you have
-	// seen). beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
+	// seen). With neither cursor nor offset, the NEWEST page is returned, still
+	// ascending. Pass sinceSeq: 0 to start a forward walk at the oldest message.
+	// beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
 	// messages with seq STRICTLY LESS than it are considered, and the NEWEST
 	// limit of those come back -- the page immediately before the cursor, still
 	// ascending. The two compose, so passing both reads a bounded slice.
 	// TeamChatMessagesPage.total counts that cursor range and the mentionsRef
 	// filter before paging, not the whole team-chat history.
-	// offset is IGNORED when beforeSeq is given: a cursor exists precisely
-	// because a position is unstable while workers keep posting, and honouring
-	// both would put that race back. mentionsRef filters to messages whose stored envelope mentions the
+	// An explicit offset retains oldest-first positional paging for existing
+	// clients; prefer cursors for new reads. offset is IGNORED when beforeSeq is
+	// given: a cursor exists precisely because a position is unstable while
+	// workers keep posting, and honouring both would put that race back.
+	// mentionsRef filters to messages whose stored envelope mentions the
 	// referenced worker (a Worker id or name of THIS App, retired included) or
 	// user (handle/id) — matching runs against the mention tokens extracted at
 	// write time, never by re-parsing bodies. The ref must name this App's own
@@ -24653,6 +24920,10 @@ type TeamChatMessagesResponse struct {
 	// Authorization: an AppMember of the App (any role), an org member with
 	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
 	// App's own key (a pure App-key principal may READ its team chat).
+	// Error codes (extensions.code): FORBIDDEN (an authenticated caller who is
+	// not a participant), UNAUTHENTICATED (no principal at all; checked before
+	// the App is resolved, so it answers identically whether or not the App
+	// exists).
 	//
 	// appRef and mentionsRef accept the entity's ID or URN.
 	TeamChatMessages *TeamChatMessagesTeamChatMessagesTeamChatMessagesPage `json:"teamChatMessages"`
@@ -28280,8 +28551,9 @@ func (v *UpdateMemorySubscriptionResponse) GetUpdateMemorySubscription() *Update
 //
 // An organization's subscription to a memory it does not own.
 type UpdateMemorySubscriptionUpdateMemorySubscription struct {
-	Role         Role                                                          `json:"role"`
-	Activated    bool                                                          `json:"activated"`
+	Role      Role `json:"role"`
+	Activated bool `json:"activated"`
+	// The subscriber Organization when the caller may read it; memory access alone does not authorize it.
 	Organization *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization `json:"organization"`
 }
 
@@ -31353,12 +31625,14 @@ type UserFields struct {
 	Id string `json:"id"`
 	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
 	// handle; null for a handle-less user (who has no URN).
-	Urn              *string `json:"urn"`
-	Name             *string `json:"name"`
-	Email            *string `json:"email"`
-	Handle           *string `json:"handle"`
-	GithubUsername   *string `json:"githubUsername"`
-	Roles            []Role  `json:"roles"`
+	Urn            *string `json:"urn"`
+	Name           *string `json:"name"`
+	Email          *string `json:"email"`
+	Handle         *string `json:"handle"`
+	GithubUsername *string `json:"githubUsername"`
+	// Platform roles; an empty list is returned to viewers without personal-field access.
+	Roles []Role `json:"roles"`
+	// Account metadata, visible to self, platform admins, and co-members.
 	IdentityProvider *string `json:"identityProvider"`
 	GithubId         *int    `json:"githubId"`
 	ExternalId       *string `json:"externalId"`
@@ -34788,6 +35062,14 @@ type __SearchReplaceInNodesInput struct {
 
 // GetInput returns __SearchReplaceInNodesInput.Input, and is useful for accessing the field via an interface.
 func (v *__SearchReplaceInNodesInput) GetInput() *SearchReplaceInNodesInput { return v.Input }
+
+// __SearchReplaceInSpecNodesInput is used internally by genqlient
+type __SearchReplaceInSpecNodesInput struct {
+	Input *SpecSearchReplaceInput `json:"input,omitempty"`
+}
+
+// GetInput returns __SearchReplaceInSpecNodesInput.Input, and is useful for accessing the field via an interface.
+func (v *__SearchReplaceInSpecNodesInput) GetInput() *SpecSearchReplaceInput { return v.Input }
 
 // __SearchUsersInput is used internally by genqlient
 type __SearchUsersInput struct {
@@ -44576,6 +44858,64 @@ func SearchReplaceInNodes(
 	return data_, err_
 }
 
+// The mutation executed by SearchReplaceInSpecNodes.
+const SearchReplaceInSpecNodes_Operation = `
+mutation SearchReplaceInSpecNodes ($input: SpecSearchReplaceInput!) {
+	searchReplaceInSpecNodes(input: $input) {
+		nodesSelected
+		nodesScanned
+		nodesSkipped
+		nodesChanged
+		totalReplacements
+		dryRun
+		plan
+		skips {
+			nodeId
+			loc
+			reason
+			governedKinds
+		}
+		results {
+			nodeId
+			loc
+			memoryId
+			replacements
+			fields {
+				field
+				matches
+			}
+		}
+	}
+}
+`
+
+// #1294/#1459 — draft-only governed spec replacement. The server binds apply
+// to the exact dry-run plan and reports protected selections explicitly.
+func SearchReplaceInSpecNodes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SpecSearchReplaceInput,
+) (data_ *SearchReplaceInSpecNodesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SearchReplaceInSpecNodes",
+		Query:  SearchReplaceInSpecNodes_Operation,
+		Variables: &__SearchReplaceInSpecNodesInput{
+			Input: input,
+		},
+	}
+
+	data_ = &SearchReplaceInSpecNodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by SearchUsers.
 const SearchUsers_Operation = `
 query SearchUsers ($query: String, $limit: Int, $offset: Int) {
@@ -45118,6 +45458,8 @@ query SpecPlaceholderScan ($filter: NodeFilter!, $sort: NodeSort!, $limit: Int!,
 // #1450 — which specs in a DRAFT corpus are placeholders. A separate, minimal
 // scan run only for a draft, so the shared node projections don't select
 // isPlaceholder: an older server would reject every spec read over it.
+// Keep NodeFilter omission semantics even when genqlient discovers this
+// operation before FindNodes during generation.
 func SpecPlaceholderScan(
 	ctx_ context.Context,
 	client_ graphql.Client,

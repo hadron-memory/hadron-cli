@@ -35,8 +35,9 @@ that server refusal. Legacy numbering and `--new-path` do not take `--role`.
 Spec reads recognize the union of the legacy `spec` tag and the `spec` / dotted
 `spec.*` role family. This includes `list`, `get --prefix`,
 `find --match-exactly`, `grep`, `check-tools` and `replace`; an overlapping node
-appears once. The server's bulk replace still skips governed specs, including
-role-only specs, and reports how many it did not search (#659).
+appears once. In a minted corpus, the generic bulk replace still skips
+governed specs, including role-only specs, and reports how many it did not
+search (#659). A draft corpus uses the spec-only bulk door described below.
 
 `spec lint` accepts either marker; a node with a `spec.*` role needs no `spec`
 tag and gets no missing-tag finding.
@@ -73,6 +74,8 @@ hadron spec describe -m hrn:mem:hadronmemory.com:specs
 - their root segments;
 - the deepest loc;
 - how many specs are in the legacy numbering, and how many are outside it.
+- the corpus state, and a separate count and sorted citation list of reserved
+  placeholders when the server supports their marker.
 
 It classifies nothing. `--declare` is retired: it is refused and writes
 nothing. A scheme a memory's data still carries from it is shown as retired
@@ -308,6 +311,13 @@ other bulk writes (prompt / `--yes`, `--max-specs N` to cap blast radius), saves
 every change to version history, and re-lints the rewritten specs so a body edit
 that leaves an abstract stale is surfaced immediately.
 
+In a **draft** corpus, `spec replace` uses the server's spec-only bulk door and
+can edit governed specs. A real run first previews the exact plan, then applies
+that plan; a concurrent change makes apply refuse with a stale-plan conflict
+and no writes. The dry-run JSON includes the opaque `plan`, searched/skipped
+counts, and node-addressed skip reasons. In a **minted** corpus, the generic
+bulk door still skips governed specs; the report names that shortfall.
+
 ## Editing and splitting specs
 
 **A body-only edit arms `abstract-stale`.** The abstract was fingerprinted
@@ -458,9 +468,11 @@ chosen only when the memory is created, and minting is one-way.
 ```sh
 hadron memory set --org acme.com --name "Product specs" --draft-corpus
 hadron spec reserve pas:010:04 -m $M            # a placeholder others can link to
+hadron spec describe -m $M                     # state and placeholder citations
 hadron spec backlinks pas:010:04 -m $M          # what refers to it
 hadron spec renumber pas:010:04 pas:010:02 -m $M --dry-run
 hadron spec unresolved -m $M                    # references with no written spec
+hadron spec replace old new -m $M --dry-run     # governed specs are editable in draft
 hadron spec mint -m $M --dry-run                # the report: what still blocks
 hadron spec mint -m $M                          # once, for the whole corpus
 ```

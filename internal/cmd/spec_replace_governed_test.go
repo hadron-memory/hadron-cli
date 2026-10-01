@@ -50,6 +50,8 @@ func TestSpecReplaceUnionsRoleOnlySpecsBeforeDryRunAndNoMatch(t *testing.T) {
 				}
 				var resp string
 				switch req.OperationName {
+				case "SpecCorpusState":
+					resp, _ = unstubbedDefault(req.OperationName)
 				case "FindNodes":
 					var vars findNodesVars
 					if err := json.Unmarshal(req.Variables, &vars); err != nil {

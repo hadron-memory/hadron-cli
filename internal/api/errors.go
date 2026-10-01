@@ -765,7 +765,8 @@ func codeForExtension(code string) int {
 	// TEAM_AGENT_NOT_INSTALLED → an installed ref) is a usage error, and so
 	// is an over-limit input the caller can shrink
 	// (TEAM_CHAT_BODY_TOO_LARGE, #939).
-	// A missing required argument (WORKER_NAME_REQUIRED, hadron-server#1050)
+	// A missing required argument (WORKER_NAME_REQUIRED, hadron-server#1050;
+	// SEARCH_REPLACE_PLAN_REQUIRED, server#1459)
 	// is the same shape: the caller fixes it by passing the flag. `worker
 	// cast` refuses this one locally with the remedy, so the mapping is for
 	// the paths that do not — an exit 1 for a plainly-fixable input would
@@ -836,9 +837,19 @@ func codeForExtension(code string) int {
 	//     scan the corpus text, which the server does not do for an encrypted
 	//     memory yet. The memory's state refuses, like NOT_DRAFT; it is not a
 	//     permission (8) and no argument the caller passes changes it.
-	case code == "SPEC_CORPUS_NOT_DRAFT" || code == "SPEC_CORPUS_MINT_BLOCKED" || code == "SPEC_CORPUS_BUSY" ||
+	// Draft spec bulk preview can refuse a minted or mixed selection; apply
+	// refuses a stale exact preview (#1459). All are state conflicts, so
+	// re-preview or choose another corpus rather than retrying blindly.
+	case code == "SEARCH_REPLACE_PLAN_STALE" || code == "SEARCH_REPLACE_NOT_DRAFT" || code == "SEARCH_REPLACE_MIXED_CORPUS" ||
+		code == "SPEC_CORPUS_NOT_DRAFT" || code == "SPEC_CORPUS_MINT_BLOCKED" || code == "SPEC_CORPUS_BUSY" ||
 		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED":
 		return exitcode.Conflict
+	case code == "SEARCH_REPLACE_MAX_NODES_CHANGED":
+		return exitcode.Usage
+	// These are invalid inputs. The CLI validates or constructs them before
+	// calling the draft door; if one arrives anyway, keep its typed category.
+	case code == "SEARCH_REPLACE_NO_SELECTION" || code == "SEARCH_REPLACE_NO_FIELDS" || code == "SEARCH_REPLACE_BAD_LIMIT":
+		return exitcode.Usage
 	// #1325 part b's argument refusals, each measured falling through to the
 	// generic 1 on c9fa75a (cli#716 audit):
 	//   - INVALID_NODE_ROLE: a rule key outside the #1322 grammar. Its

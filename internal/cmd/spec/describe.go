@@ -52,6 +52,10 @@ type describeDTO struct {
 	// MintedAt is when a former draft was minted; omitted for a corpus that
 	// was never a draft.
 	MintedAt string `json:"mintedAt,omitempty"`
+	// Placeholders lists reserved, unwritten citations separately from the
+	// total spec inventory. Omitted when an older server cannot report them.
+	PlaceholderCount *int      `json:"placeholderCount,omitempty"`
+	Placeholders     *[]string `json:"placeholders,omitempty"`
 }
 
 func newCmdDescribe(f *cmdutil.Factory) *cobra.Command {
@@ -63,6 +67,9 @@ func newCmdDescribe(f *cmdutil.Factory) *cobra.Command {
 		Long: `Inventory a memory's spec corpus: how many specs it holds, their root
 segments, the deepest loc, and how many sit in the legacy numbering (which
 "spec new"'s allocation, "spec register" and "spec extract" operate on).
+
+In a draft, reserved placeholder citations are listed separately from the
+total spec count. A minted corpus has none.
 
 Nothing is classified: a spec is valid at any loc, at any depth, and no
 tier is assigned to a depth. A memory no longer has a flat or product-rooted
@@ -108,20 +115,19 @@ shown as retired and ignored.`,
 			}
 			dto := describeInventory(memURN, locs)
 			dto.RetiredDeclaration = schemeFromData(data)
-			// A server that predates draft corpora has no corpusState; the
-			// inventory is still worth reporting, so the state is left out
-			// rather than failing the whole command.
-			st, err := gen.SpecCorpusState(cmd.Context(), client, memID)
-			switch {
-			case err != nil && api.IsGraphQLValidationFor(err, "corpusState"):
-			case err != nil:
-				return api.MapError(err)
-			case st.Memory != nil:
-				s := string(st.Memory.CorpusState)
-				dto.CorpusState = &s
-				if st.Memory.CorpusMintedAt != nil {
-					dto.MintedAt = *st.Memory.CorpusMintedAt
+			info, err := loadDraftInfo(cmd.Context(), client, memID, "")
+			if err != nil {
+				return err
+			}
+			dto.CorpusState, dto.MintedAt = info.State, info.MintedAt
+			if info.State != nil && (*info.State == string(gen.CorpusStateMinted) || info.Draft) {
+				locs := make([]string, 0, len(info.Placeholders))
+				for loc := range info.Placeholders {
+					locs = append(locs, loc)
 				}
+				sort.Strings(locs)
+				count := len(locs)
+				dto.PlaceholderCount, dto.Placeholders = &count, &locs
 			}
 
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -201,6 +207,15 @@ func renderDescribe(w io.Writer, d describeDTO) error {
 		fmt.Fprintf(w, "  specs:     %d  (deepest loc: %d segments)\n", d.Specs, d.MaxDepth)
 		fmt.Fprintf(w, "  roots:     %s\n", strings.Join(d.Roots, ", "))
 		fmt.Fprintf(w, "  numbering: %d in the legacy numbering, %d outside it\n", d.LegacyNumbered, d.OutsideNumbering)
+	}
+	if d.PlaceholderCount != nil {
+		fmt.Fprintf(w, "  placeholders: %d", *d.PlaceholderCount)
+		if d.Placeholders != nil && len(*d.Placeholders) > 0 {
+			fmt.Fprintf(w, " (%s)", strings.Join(*d.Placeholders, ", "))
+		}
+		fmt.Fprintln(w)
+	} else if state == string(gen.CorpusStateDraft) {
+		fmt.Fprintln(w, "  placeholders: unavailable (server does not expose the placeholder marker)")
 	}
 	if d.RetiredDeclaration != "" {
 		fmt.Fprintf(w, "  note:      this memory's data still declares a %q scheme; --declare is retired and nothing reads it\n", d.RetiredDeclaration)
