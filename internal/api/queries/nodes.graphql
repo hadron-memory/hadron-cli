@@ -672,6 +672,11 @@ mutation UpdateSpecNode(
     isRunnable
     role
     updatedAt
+    # cli#750: the fingerprint AS STORED by this write. `spec edit
+    # --abstract-still-accurate` reports a refresh only when it matches the
+    # body the guarded write stored — never from the request alone. Every
+    # live server has had the field since spec 032.
+    abstractOriginHash
   }
 }
 

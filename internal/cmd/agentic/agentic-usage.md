@@ -1366,6 +1366,14 @@ Conventions:
   server re-fingerprints it against the new body. Pass it with a body edit, or
   **alone** to settle a marker an earlier edit left behind — alone it still
   writes, and `--json` reports `abstractReaffirmed: true` with `changed: true`.
+  `abstractReaffirmed` says a re-affirmation was REQUESTED; whether it LANDED
+  is `abstractVerification` (cli#750), read from the write's own response —
+  `refreshed` (the stored fingerprint matches the body the guarded write
+  stored), `not-refreshed` (the write succeeded but the server left the
+  abstract stale, hadron-server#1408 — exit 1, after the full result),
+  `unverifiable` (the server returned no fingerprint; exit 0, and the text
+  claims no refresh), or `null` when nothing was re-affirmed (not requested, or
+  a `--dry-run`, which describes the proposal and verifies nothing).
   It is refused alongside `--abstract`/`--abstract-file` (a replacement is
   re-fingerprinted anyway); on a spec with no abstract, where re-sending an
   empty value would CLEAR the field rather than re-affirm it; and on a LEGACY

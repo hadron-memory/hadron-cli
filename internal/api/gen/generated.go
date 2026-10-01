@@ -30784,6 +30784,8 @@ type UpdateSpecNodeUpdateSpecNode struct {
 	// cannot. Other values are inert unless a caller explicitly filters for them.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
+	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
+	AbstractOriginHash *string `json:"abstractOriginHash"`
 }
 
 // GetId returns UpdateSpecNodeUpdateSpecNode.Id, and is useful for accessing the field via an interface.
@@ -30815,6 +30817,9 @@ func (v *UpdateSpecNodeUpdateSpecNode) GetRole() *string { return v.Role }
 
 // GetUpdatedAt returns UpdateSpecNodeUpdateSpecNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateSpecNodeUpdateSpecNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetAbstractOriginHash returns UpdateSpecNodeUpdateSpecNode.AbstractOriginHash, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeUpdateSpecNode) GetAbstractOriginHash() *string { return v.AbstractOriginHash }
 
 // UpdateTaskNodeResponse is returned by UpdateTaskNode on success.
 type UpdateTaskNodeResponse struct {
@@ -48158,6 +48163,7 @@ mutation UpdateSpecNode ($input: UpdateNodeInput!) {
 		isRunnable
 		role
 		updatedAt
+		abstractOriginHash
 	}
 }
 `
