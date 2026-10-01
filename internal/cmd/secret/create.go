@@ -26,7 +26,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		urlPrefix                string
 	)
 	cmd := &cobra.Command{
-		Use:   "create --name <name> --scope <user|org|app|memory> [--owner <ref>] --kind <generic|webfetch-auth>",
+		Use:   "create --name <name> --scope <user|org> [--owner <ref>] --kind <generic|webfetch-auth>",
 		Short: "Create an owner-scoped encrypted secret",
 		Long: `Create an encrypted secret. The secret value is never accepted as an argv
 flag. Use --value-file - to read stdin, --value-file @path to read a file, or
@@ -39,7 +39,7 @@ For --kind webfetch-auth, pass --type bearer|basic|header and --url-prefix.
 The secret material is the bearer token, basic password, or header value; the
 server derives metadata.type from the payload.`,
 		Example: `  printf '%s' "$TOKEN" | hadron secret create --name github-token --scope user --kind generic --value-file -
-  hadron secret create --name poll-auth --scope app --owner hrn:app:acme.com:monitor \
+  hadron secret create --name poll-auth --scope org --owner hrn:org:acme.com \
     --kind webfetch-auth --type bearer --url-prefix https://api.example.com/`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -77,7 +77,7 @@ server derives metadata.type from the payload.`,
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "secret name (lowercase [a-z0-9-], max 64; required)")
-	cmd.Flags().StringVar(&scope, "scope", "", "owner scope: user, org, app, or memory (required)")
+	cmd.Flags().StringVar(&scope, "scope", "", "owner scope: user or org (required)")
 	cmd.Flags().StringVar(&owner, "owner", "", "owner ID or URN (required except --scope user, where empty means caller)")
 	cmd.Flags().StringVar(&kind, "kind", "", "secret kind: generic or webfetch-auth (required)")
 	cmd.Flags().StringVar(&valueFile, "value-file", "", `read secret material from "-" stdin, "@file", or file path`)

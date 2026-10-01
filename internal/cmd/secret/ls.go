@@ -14,14 +14,14 @@ import (
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var scope, owner string
 	cmd := &cobra.Command{
-		Use:     "list --scope <user|org|app|memory> [--owner <ref>]",
+		Use:     "list --scope <user|org> [--owner <ref>]",
 		Aliases: []string{"ls"},
 		Short:   "List inspectable secret metadata for one owner scope",
 		Long: `List secrets for one owner scope. Output includes only the inspectable
 half — name, kind, metadata, and audit fields. Secret values are never returned
 by the API and never printed by the CLI.`,
 		Example: `  hadron secret list --scope user
-  hadron secret list --scope app --owner hrn:app:acme.com:monitor --json`,
+  hadron secret list --scope org --owner hrn:org:acme.com --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ownerType, ownerRef, err := validateOwner(scope, owner)
@@ -65,7 +65,7 @@ by the API and never printed by the CLI.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&scope, "scope", "", "owner scope: user, org, app, or memory (required)")
+	cmd.Flags().StringVar(&scope, "scope", "", "owner scope: user or org (required)")
 	cmd.Flags().StringVar(&owner, "owner", "", "owner ID or URN (required except --scope user)")
 	_ = cmd.MarkFlagRequired("scope")
 	return cmd
