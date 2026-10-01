@@ -9,11 +9,17 @@
 
 - **The server contract (hadron-server#1352, merged `d8404ad7`).**
   `UpdateNodeInput.expectedRevision` makes a write compare-and-swap on the
-  node's live revision. On a mismatch it refuses atomically with
-  `NODE_WRITE_CONFLICT`, before the revision snapshot, so nothing is written.
+  node's live revision. On an ordinary mismatch it refuses atomically with
+  `NODE_WRITE_CONFLICT`, before the revision snapshot, so the proposed edit
+  is not applied.
   A stale guard is refused even on a no-op write. The governed door
   `updateSpecNode` goes through the same `updateNodeCore`, so the guard applies
   there too (read on server `main`).
+- **Later server contract (hadron-server#1458).** If the guarded write
+  discovers out-of-band drift, the server may commit a reconciliation revision
+  before returning `NODE_WRITE_CONFLICT`. It still refuses the caller's
+  proposed edit, including when the expected revision matches the newly
+  minted revision. The CLI must not claim that nothing was written.
 - **Deployed:** Gil's read-only production probe (team chat #2111) found
   `UpdateNodeInput.expectedRevision` accepted and a made-up control field
   refused.
@@ -43,8 +49,9 @@
    the revision comparison on the ID-targeted write, so the client check is a
    courtesy and never the only gate.
 4. **On a write-time conflict, the proposal is kept.** `NODE_WRITE_CONFLICT`
-   exits 5, and nothing is retried or written. The proposed text (the edit
-   buffer's abstract and body) is spilled to a temp file whose path the
+   exits 5, with no retry and no application of the proposed edit. The server
+   may have recorded out-of-band drift as a revision. The proposed text (the
+   edit buffer's abstract and body) is spilled to a temp file whose path the
    message names, since it may only have existed in `$EDITOR` or piped stdin.
    A failed spill removes any partial file and reports that no saved copy is
    available; it never claims the proposal was kept.

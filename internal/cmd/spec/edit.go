@@ -273,11 +273,12 @@ the server, and a replacement at the same citation cannot receive the write.
 To save a proposal previewed and APPROVED earlier (another turn or process),
 pass ALL THREE values the dry run reported: --expected-revision N,
 --expected-node-id ID and --expected-proposal-hash HASH. If the node, revision
-or proposed write changed, the save is refused (exit 5) and writes nothing.
-If the server reports a write-time
-conflict, the proposed text is saved to a file when possible; a failed save is
-reported explicitly. Re-read, reconcile, and get the proposal approved again. A
-server that cannot guard a save (predating hadron-server#1339 or #1352) is
+or proposed write changed, your proposed edit is not applied (exit 5). A
+pre-write refusal writes nothing. On a server-reported write-time conflict,
+the server may record out-of-band drift as a revision while refusing your edit;
+your proposed text is saved to a file when possible. A failed file save is
+reported explicitly. Re-read, reconcile, and get the proposal approved again.
+A server that cannot guard a save (predating hadron-server#1339 or #1352) is
 refused, never written to unguarded.
 
 Editing the body alone ARMS the abstract-stale marker: the abstract was
@@ -807,22 +808,23 @@ func countLines(s string) int {
 // revisionLine tells a dry-run reader how to save EXACTLY what they reviewed:
 // the immutable node ID and revision must both match on the later run.
 func revisionLine(rev int, id, hash string) string {
-	return fmt.Sprintf("based on node %s at revision %d: to save exactly this proposal later, add --expected-node-id %s --expected-revision %d --expected-proposal-hash %s — the save is refused, writing nothing, if the node, revision or proposed write changed after this preview.", id, rev, id, rev, hash)
+	return fmt.Sprintf("based on node %s at revision %d: to save exactly this proposal later, add --expected-node-id %s --expected-revision %d --expected-proposal-hash %s — a changed node, revision or proposal is refused. A pre-write refusal writes nothing; on a server-reported write-time conflict, your proposed edit is not applied but the server may record out-of-band drift as a revision.", id, rev, id, rev, hash)
 }
 
-// conflictRefusal is the NODE_WRITE_CONFLICT answer (cli#738): nothing was
-// written. It saves the proposal to a file when possible, since it may exist
-// only in an editor buffer or piped stdin. A failed spill is reported plainly;
-// the message must not promise a copy that does not exist.
+// conflictRefusal is the NODE_WRITE_CONFLICT answer (cli#738): the proposed
+// edit was not applied, but the server may have recorded drift. It saves the
+// proposal to a file when possible, since it may exist only in an editor buffer
+// or piped stdin. A failed spill is reported plainly; the message must not
+// promise a copy that does not exist.
 func conflictRefusal(loc string, base int, proposal string) error {
 	path, err := spillEditProposal(proposal)
 	if err != nil {
 		return exitcode.Newf(exitcode.Conflict,
-			"%s changed since revision %d — nothing was written, and the proposed text could not be saved to a file (%v). Do not assume it was kept; recover your proposal from its original input before retrying",
+			"%s changed since revision %d — your proposed edit was not applied, but the server may have recorded out-of-band drift as a revision. The proposed text could not be saved to a file (%v). Do not assume it was kept; recover it from its original input, then re-read the spec, reconcile your proposal, and get it approved again before saving",
 			loc, base, err)
 	}
 	return exitcode.Newf(exitcode.Conflict,
-		"%s changed since revision %d, which this edit was based on — nothing was written, and your proposed text is kept (saved at %s). Re-read the spec, reconcile your proposal with the change, and get it approved again before saving",
+		"%s changed since revision %d, which this edit was based on — your proposed edit was not applied, but the server may have recorded out-of-band drift as a revision. Your proposed text is kept (saved at %s). Re-read the spec, reconcile your proposal with the change, and get it approved again before saving",
 		loc, base, path)
 }
 
