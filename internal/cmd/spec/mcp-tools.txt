@@ -29,6 +29,7 @@ hadron_get_next_node
 hadron_get_node
 hadron_get_nodes
 hadron_get_object
+hadron_get_run
 hadron_get_worker
 hadron_list_apps
 hadron_list_channels
@@ -62,6 +63,7 @@ hadron_start_session
 hadron_store_file
 hadron_sync_graph
 hadron_team_attention
+hadron_team_attention_page
 hadron_team_attention_switchover
 hadron_team_chat_mark_read
 hadron_team_chat_post
