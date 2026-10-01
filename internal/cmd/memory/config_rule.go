@@ -23,6 +23,7 @@ func newCmdConfigRule(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdConfigRuleAdd(f))
 	cmd.AddCommand(newCmdConfigRuleUpdate(f))
 	cmd.AddCommand(newCmdConfigRuleRm(f))
+	cmd.AddCommand(newCmdConfigRuleUnlock(f))
 	return cmd
 }
 
@@ -275,7 +276,7 @@ and cannot be renamed: remove the rule and add it again.`,
 			}
 			dto, err := updateRule(cmd, client, rule, in)
 			if err != nil {
-				return err
+				return lockedRuleHint(err, args[0], rule.Role)
 			}
 			return writeRuleResult(f, "Updated", args[0], dto)
 		},
@@ -362,7 +363,7 @@ sent with the delete, so a rule someone else changed in between is refused
 			}
 			resp, err := gen.DeleteNodeRoleRule(cmd.Context(), client, rule.Id, rule.Revision)
 			if err != nil {
-				return api.MapError(err)
+				return lockedRuleHint(api.MapError(err), args[0], rule.Role)
 			}
 			if !resp.DeleteNodeRoleRule {
 				return exitcode.Newf(exitcode.Error, "the server did not delete the %q rule", rule.Role)
@@ -372,6 +373,85 @@ sent with the delete, so a rule someone else changed in between is refused
 				_, err := fmt.Fprintf(w, "Removed rule %s from memory %s\n", dto.Role, args[0])
 				return err
 			})
+		},
+	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt (required non-interactively)")
+	return cmd
+}
+
+// lockedRuleHint turns RULE_LOCKED on an ordinary update or delete into its
+// remedy. Since Holger's 2026-09-27 ruling a LOCKED rule refuses EVERY caller
+// here, admins included — the rule's state, not the caller's permission — so
+// exit 5, and the way out is the deliberate `rule unlock` (or re-applying the
+// required template). The server's message names the GraphQL mutation; this
+// names the command.
+func lockedRuleHint(err error, memoryRef, role string) error {
+	if !api.HasErrorCode(err, "RULE_LOCKED") {
+		return err
+	}
+	return exitcode.Newf(exitcode.Conflict,
+		"the %q rule is locked: a required template wrote it, and a locked rule refuses every ordinary edit and removal. Unlock it first with `hadron memory config rule unlock %s %s`, or re-apply its template. Nothing was written",
+		role, memoryRef, role)
+}
+
+func newCmdConfigRuleUnlock(f *cmdutil.Factory) *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use:   "unlock <memoryRef> <role>",
+		Short: "Unlock a rule a required template locked, so it can be edited or removed",
+		Long: `Unlock the rule for one role. A rule written by a REQUIRED template
+(` + "`template apply`" + `) is locked: it refuses every ordinary ` + "`rule update`" + ` and
+` + "`rule rm`" + `, for every caller. Unlocking is the deliberate step before either
+(hadron-server#1334). It is visible: it bumps the rule's revision and records
+who did it. Prompts on a terminal; non-interactively --yes is required.
+
+Unlocking needs LOCK AUTHORITY: an org ADMIN/OWNER of the memory's
+organization, or the manager of a personal, private or org-less memory.
+Anyone else who manages the memory is refused (exit 8).
+
+The rule's revision is read first and sent with the unlock, so a rule changed
+in between is refused (exit 5). A role with no rule exits 4 and names the roles
+there are. Unlocking a rule that isn't locked changes nothing.`,
+		Example: `  hadron memory config rule unlock hrn:mem:acme.com:kb spec --yes`,
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			rule, _, err := findRule(cmd, f, args[0], args[1])
+			if err != nil {
+				return err
+			}
+			if !rule.Locked {
+				// Said, not asked: there is nothing to confirm, and the server
+				// would change nothing either.
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: the %q rule is not locked; unlocking changes nothing\n", rule.Role)
+			} else if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf(
+				"Unlock the %q rule in memory %s? A required template locked it; once unlocked it can be edited and removed like any rule.", rule.Role, args[0])); err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.UnlockNodeRoleRule(cmd.Context(), client, rule.Id, rule.Revision)
+			if err != nil {
+				// On unlock, RULE_LOCKED means the caller lacks LOCK AUTHORITY:
+				// a permission, unlike the same code on update/rm.
+				if api.HasErrorCode(err, "RULE_LOCKED") {
+					return exitcode.Newf(exitcode.Forbidden,
+						"you can manage this memory's config but not unlock its locked rules: that needs an org ADMIN/OWNER of the memory's organization (or the manager of a personal, private or org-less memory). Nothing was written")
+				}
+				return api.MapError(err)
+			}
+			p := resp.UnlockNodeRoleRule
+			if p == nil || p.Rule == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned no rule for role %q", rule.Role)
+			}
+			dto := ruleWriteDTO{Rule: dtoFromRule(&p.Rule.NodeRoleRuleFields), Warnings: []configWarningDTO{}}
+			for _, w := range p.Warnings {
+				if w != nil {
+					dto.Warnings = append(dto.Warnings, dtoFromWarning(&w.MemoryConfigWarningFields))
+				}
+			}
+			return writeRuleResult(f, "Unlocked", args[0], dto)
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt (required non-interactively)")

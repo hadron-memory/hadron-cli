@@ -850,6 +850,20 @@ func codeForExtension(code string) int {
 	// calling the draft door; if one arrives anyway, keep its typed category.
 	case code == "SEARCH_REPLACE_NO_SELECTION" || code == "SEARCH_REPLACE_NO_FIELDS" || code == "SEARCH_REPLACE_BAD_LIMIT":
 		return exitcode.Usage
+	// A LOCKED rule (written by a required template; hadron-server#1334,
+	// cli#716 slice 3). Since Holger's 2026-09-27 ruling it refuses EVERY
+	// caller on an ordinary update or delete, admins included, so it is the
+	// rule's STATE — Conflict, remedy `rule unlock` — not a permission.
+	// `rule update|rm` add that remedy to the message. The one place the same
+	// code means "you lack lock authority" is unlockNodeRoleRule itself, and
+	// `rule unlock` maps it to 8 there, where the caller is known.
+	case code == "RULE_LOCKED":
+		return exitcode.Conflict
+	// A template rule whose task was deleted refuses the whole apply
+	// (hadron-server#1334). The STORED template is the problem, not the
+	// caller's input, and the remedy is `template update`, so a state conflict.
+	case code == "NODE_ROLE_RULE_REF_BROKEN":
+		return exitcode.Conflict
 	// #1325 part b's argument refusals, each measured falling through to the
 	// generic 1 on c9fa75a (cli#716 audit):
 	//   - INVALID_NODE_ROLE: a rule key outside the #1322 grammar. Its

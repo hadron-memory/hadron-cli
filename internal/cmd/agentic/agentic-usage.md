@@ -291,7 +291,7 @@ non-zero naming the nodes it already created, each complete with its edges.
 
 ```
 hadron auth login | logout | whoami | status | token create|list|validate|revoke <id>
-hadron memory list [--shared-with-me | [--owned-by-me] [--include-agent-system]] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--draft-corpus] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn hrn:mem:<root>:<slug> | transfer <memoryRef> (--org <ref> | --user <ref>) [--class <c>] [--reset-group-members] [--apply | --yes] | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings] | config get <memoryRef> | config rule add|update <memoryRef> <role> [--author-task <ref>] [--validation-task <ref>] [--description-node <ref>] [--writers all|admin|owner] [--validate-by agent|platform] [--strict-sub-roles[=false]] [--enabled[=false]] | config rule rm <memoryRef> <role> --yes | config template list [--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>] | config template get <templateId> | config template create --file <path> (--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>) | config template update <templateId> --file <path> [--expected-revision <n>] | config template rm <templateId> --yes
+hadron memory list [--shared-with-me | [--owned-by-me] [--include-agent-system]] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--draft-corpus] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn hrn:mem:<root>:<slug> | transfer <memoryRef> (--org <ref> | --user <ref>) [--class <c>] [--reset-group-members] [--apply | --yes] | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings] | config get <memoryRef> | config rule add|update <memoryRef> <role> [--author-task <ref>] [--validation-task <ref>] [--description-node <ref>] [--writers all|admin|owner] [--validate-by agent|platform] [--strict-sub-roles[=false]] [--enabled[=false]] | config rule rm <memoryRef> <role> --yes | config rule unlock <memoryRef> <role> [--yes] | config template list [--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>] | config template get <templateId> | config template create --file <path> (--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>) | config template update <templateId> --file <path> [--expected-revision <n>] | config template rm <templateId> --yes | config template apply <templateId> <memoryRef> [--dry-run] [--expected-revision <n>] [--yes]
 hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... [--raw] | get <loc>... -m <memory> [--raw] | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>] | upload <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>] | rm <asset-ref> [--yes] | restore <asset-ref> | link <asset-ref> --node <new-node-urn> [--name <n>] [--description <d>]
@@ -548,10 +548,17 @@ Conventions:
   - `warnings[]` are non-fatal findings about a saved rule and never change the
     exit code (on the terminal they go to stderr). Today the server returns
     none; visibility warnings arrive with hadron-server#1327.
-  - `locked` and `sourceTemplate` are shown but nothing sets them yet: applying
-    a template (with locked rules and their refusal) is a later slice
-    (hadron-server#1334). No apply command exists.
-- `memory config template list|get|create|update|rm` manages TEMPLATES
+  - `locked` and `sourceTemplate` are set by `template apply` (below): a rule
+    a REQUIRED template wrote is locked, and a locked rule refuses EVERY
+    caller's `rule update`/`rule rm` — exit 5 (`RULE_LOCKED`,
+    hadron-server#1334), the message naming the remedy. `rule unlock
+    <memoryRef> <role> [--yes]` is the deliberate step: it needs LOCK
+    AUTHORITY (org ADMIN/OWNER, or the manager of a personal/private/org-less
+    memory) — exit 8 without it — prompts on a terminal (`--yes` otherwise),
+    sends the rule's revision (exit 5 if it changed), and returns the rule
+    (`{rule,warnings}`, `locked: false`). Unlocking an unlocked rule changes
+    nothing (a stderr note, no prompt).
+- `memory config template list|get|create|update|rm|apply` manages TEMPLATES
   (hadron-server#1325 part c): a reusable rulebook with exactly ONE owner — the
   server (`--owner-server`, platform admins), an organization (`--owner-org`),
   you (`--owner-me`) or an App (`--owner-app`) — that is COPIED into a memory's
@@ -599,6 +606,29 @@ Conventions:
   - `rm` deletes softly — configs it was applied to keep their copies — but no
     command restores a template; it prompts, needs `--yes` non-interactively,
     and sends the revision it read (exit 5 if the template changed meanwhile).
+  - **`apply <templateId> <memoryRef>`** copies a template's rules into ONE
+    memory's config (hadron-server#1334; cli#716 slice 3). It is a one-off
+    copy: later template edits never reach the memory. You must manage both
+    (exit 4 otherwise). `--json` is `{memoryId, template{id,name,deleted},
+    templateRevision, required, dryRun, entries[], warnings[]}`, and each entry
+    is `{role, outcome, rule}`:
+    - `outcome` is `APPLIED` (no rule for the role; copied in),
+      `SKIPPED_CONFLICT` (a non-required template never overrides),
+      `REPLACED` (a required template overwrote the rule, now locked) or
+      `SKIPPED_LOCKED` (a locked rule you cannot move stands);
+    - `rule` is the rule in force afterwards (the `config get` rule shape), or
+      on a dry run the existing one, `null` for a would-be `APPLIED`.
+    It **previews first** (a server-side dry run). When the preview would
+    `REPLACE` a rule it prompts, or needs `--yes` non-interactively (exit 2
+    without). It then applies exactly the previewed `templateRevision`, so a
+    template changed in between exits 5 (`CONFLICT`) instead of being applied
+    unseen. That guards the template; the memory's own rules are re-read by the
+    apply, and the reported result is authoritative. `--dry-run` writes nothing.
+    `--expected-revision <n>` pins the revision yourself (e.g. one approved from
+    a dry run); a non-positive value is exit 2. A template rule whose task was
+    deleted refuses the whole apply, exit 5 (`NODE_ROLE_RULE_REF_BROKEN`: fix
+    the template). Skipped entries are part of the report, not failures (exit
+    0).
 - `memory set` creates when called without a positional argument
   and updates when given one. Free-standing create requires `--org` and
   `--name`. `--owner-me --name <name>` instead creates a user-owned memory with

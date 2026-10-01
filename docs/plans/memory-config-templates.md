@@ -250,3 +250,110 @@ The steps:
    a template you manage and on one id you don't (exit 4). Only the second `get`
    was possible live (see Limit).
 5. Mark ready and re-request reviews on the final head.
+
+## 6. Slice 3: `template apply` (hadron-server#1334 slice 1)
+
+> **Status: rebased on `main` after cli#732, re-exported from server `main`
+> `84ca0d68`** (a throwaway clone; it contains #1399, merged `fcf71da`). First
+> built against the #1399 candidate `5584741` (Ada, team chat #2215). The
+> re-export also brings #1451's `corpusState`/`draftCorpus`, which nothing here
+> selects. After the rebase, `applyMemoryConfigTemplate` and
+> `unlockNodeRoleRule` are both wired, so the unbound-ops baseline loses both
+> lines and gains none. Updated for Holger's lock ruling: see Exit codes and
+> the lock policy below.
+
+**Surface:** `hadron memory config template apply <templateId> <memoryRef>
+[--dry-run] [--expected-revision <n>] [--yes]` over `applyMemoryConfigTemplate`.
+It prints the per-role report (`APPLIED` / `SKIPPED_CONFLICT` / `REPLACED` /
+`SKIPPED_LOCKED`) as a table, or as `--json` `{memoryId, template, templateRevision,
+required, dryRun, entries[{role, outcome, rule}], warnings[]}`. `rule` reuses
+slice 1's rule DTO, and `entries: []` / `warnings: []` are never null.
+The table's LOCKED column is the state **after** applying. On a dry run the
+entry carries the existing rule, whose lock is the before-state, so the cell
+follows the server's documented outcome contract instead: `REPLACED` locks,
+`APPLIED` locks when the template is required, and a skipped rule keeps its
+lock (#747 review, Copilot). `--json` keeps the server's `rule` untouched.
+
+**Preview, then confirm only what overwrites.** The command always dry-runs
+first. `REPLACED` is the one outcome that destroys something (a required
+template overwrites the memory's rule and locks it), so only a preview
+containing it asks: a prompt on a TTY, `--yes` otherwise (exit 2 without).
+The real apply then sends the preview's `templateRevision` as
+`expectedTemplateRevision`, so the template applied is the template shown, and
+a change in between exits 5.
+
+**Limit, stated:** that pins the TEMPLATE. The server has no precondition on
+the memory's config, so a rule created for a role between the preview and the
+apply can still be REPLACED unasked. The apply's own report is authoritative
+and is what the command prints.
+
+**Exit codes:**
+- `RULE_LOCKED` → **5** on `rule update|rm` (and globally). Holger's lock
+  ruling (2026-09-27, option 2; Eli, team chat #2432) made a locked rule refuse
+  EVERY caller's ordinary update and delete, admins included — the rule's
+  state, not the caller's permission. Both commands add the remedy to the
+  message: `hadron memory config rule unlock <memoryRef> <role>`, or re-apply
+  the template.
+- `RULE_LOCKED` → **8** on `rule unlock` only: there the same code means the
+  caller lacks LOCK AUTHORITY (an org ADMIN/OWNER, or the manager of a
+  personal/private/org-less memory) — a permission. The command maps it
+  itself, where the caller is known.
+- `NODE_ROLE_RULE_REF_BROKEN` → 5. The stored template's task was deleted; the
+  fix is `template update`, not the caller's input.
+- Skipped entries are the report, not a failure: exit 0.
+
+**The lock policy is the server's, as ruled.** The earlier draft of this
+section followed H3, where everyone who can manage a config had lock authority
+(#2216). Holger's ruling replaced it: a locked rule refuses every ordinary
+edit, and `unlockNodeRoleRule` (hadron-server#1399, merged `fcf71da`) is the
+deliberate step. It is wrapped as `memory config rule unlock <memoryRef>
+<role> [--yes]`: it reads the rule first and sends its revision (exit 5 if it
+changed), asks on a terminal (`--yes` non-interactively) because unlocking is
+the deliberate act, and on an already-unlocked rule notes on stderr that
+nothing changes, without a prompt. Apply keeps its own authority rule: a
+caller WITH lock authority may have a required template replace a locked
+rule; anyone else gets `SKIPPED_LOCKED`.
+
+**Tests** (`internal/cmd/memory_config_template_apply_cmd_test.go`, with a server
+that records every call in order):
+- a dry run is one call, with no pin;
+- no `REPLACED` means preview then apply, pinned to the previewed revision,
+  with no prompt;
+- `REPLACED` without `--yes` stops after the preview; with `--yes` it applies,
+  pinned;
+- `--expected-revision` pins both calls, and a non-positive one is refused
+  locally;
+- `SKIPPED_LOCKED` exits 0; an empty template gives `entries: []`;
+- server refusals: 4, 4, 5, 5, 4, never followed by an apply;
+- `RULE_LOCKED` exits 5 on `rule update` and `rule rm`, naming `rule unlock`;
+- `rule unlock`: sends the id at the revision just read; refuses without
+  `--yes` non-interactively; exits 8 on `RULE_LOCKED` (no lock authority);
+  an unlocked rule is not prompted for; a declined prompt writes nothing;
+- the dry-run LOCKED column shows the after-state for all four outcomes;
+- on a terminal, `y` applies (pinned) and `n` cancels (exit 6) after only the
+  preview.
+
+**Mutation-checked:** 10 compiling mutants, each killed by its intended test:
+- no confirmation;
+- the apply unpinned;
+- a dry run that applies;
+- no revision validation;
+- `RULE_LOCKED` unmapped, and `NODE_ROLE_RULE_REF_BROKEN` unmapped;
+- `entries: null`;
+- the preview ignoring the pin;
+- a dry-run LOCKED cell showing the before-state, and one ignoring `required`.
+
+Two first attempts did not compile (an unused variable) and were re-run with
+the variable kept referenced.
+
+**Before ready:**
+1. #1399 merged.
+2. Re-export from the merge SHA through a throwaway worktree with its own `tsx`
+   (never a symlinked `node_modules`), `make generate` 6+ times, and a diff
+   check against this candidate.
+3. Every ci.yml build step.
+4. A read-only `template apply --dry-run` on production once the server is
+   deployed: it writes nothing, but it needs a managed template and memory,
+   and this account manages no template, so it may only be possible as a
+   refusal (exit 4).
+5. Mark ready and re-request reviews on the final head.
