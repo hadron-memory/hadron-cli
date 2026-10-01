@@ -1,11 +1,68 @@
 package spec
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	"github.com/Khan/genqlient/graphql"
+	"github.com/vektah/gqlparser/v2/gqlerror"
+
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
+
+type draftReadClient func(*graphql.Request, *graphql.Response) error
+
+func (f draftReadClient) MakeRequest(_ context.Context, req *graphql.Request, resp *graphql.Response) error {
+	return f(req, resp)
+}
+
+func TestDraftReadsFallBackAcrossServerSlices(t *testing.T) {
+	var ops []string
+	client := draftReadClient(func(req *graphql.Request, resp *graphql.Response) error {
+		ops = append(ops, req.OpName)
+		switch req.OpName {
+		case "SpecCorpusState":
+			resp.Data.(*gen.SpecCorpusStateResponse).Memory = &gen.SpecCorpusStateMemory{CorpusState: gen.CorpusStateDraft}
+			return nil
+		case "SpecPlaceholderScan":
+			return gqlerror.List{{Message: `Cannot query field "isPlaceholder" on type "Node".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}
+		case "SpecUnresolvedReferences":
+			return gqlerror.List{{Message: `Cannot query field "specUnresolvedReferences" on type "Query".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}
+		default:
+			t.Fatalf("unexpected operation %s", req.OpName)
+			return nil
+		}
+	})
+	info, err := loadDraftInfo(context.Background(), client, "hrn:mem:example:specs", "")
+	if err != nil || info.Draft || len(info.Placeholders) != 0 {
+		t.Fatalf("pre-#1452 draft should use generic reads: info=%+v err=%v", info, err)
+	}
+	if len(ops) != 2 || ops[0] != "SpecCorpusState" || ops[1] != "SpecPlaceholderScan" {
+		t.Fatalf("unexpected draft-read operations: %v", ops)
+	}
+	findings, err := unresolvedFindings(context.Background(), client, "hrn:mem:example:specs", map[string]bool{"pas:010": true})
+	if err != nil || len(findings) != 0 {
+		t.Fatalf("pre-#1453 lint should keep ordinary findings: findings=%v err=%v", findings, err)
+	}
+}
+
+func TestDraftReadsDoNotHideOtherErrors(t *testing.T) {
+	refusal := gqlerror.List{{Message: `Cannot query field "isPlaceholder" on type "Node".`, Extensions: map[string]any{"code": "FORBIDDEN"}}}
+	client := draftReadClient(func(req *graphql.Request, resp *graphql.Response) error {
+		if req.OpName == "SpecCorpusState" {
+			resp.Data.(*gen.SpecCorpusStateResponse).Memory = &gen.SpecCorpusStateMemory{CorpusState: gen.CorpusStateDraft}
+			return nil
+		}
+		return refusal
+	})
+	if _, err := loadDraftInfo(context.Background(), client, "hrn:mem:example:specs", ""); err == nil {
+		t.Fatal("placeholder scan refusal must propagate")
+	}
+	if _, err := unresolvedFindings(context.Background(), client, "hrn:mem:example:specs", nil); err == nil {
+		t.Fatal("unresolved-reference refusal must propagate")
+	}
+}
 
 // A placeholder's detail carries the marker and ONE lint finding — the rules
 // an empty body would trip are not run on an unwritten spec.

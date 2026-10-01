@@ -700,9 +700,9 @@ func renderMint(w io.Writer, d mintDTO) error {
 
 // draftInfo is what lint/list/get need to know about a corpus's draft state.
 type draftInfo struct {
-	// Draft is true only when the server says DRAFT. A minted corpus, and a
-	// server that predates draft corpora, both read as false: neither can
-	// hold a placeholder.
+	// Draft is true only when the server says DRAFT and supports the
+	// placeholder scan. Minted corpora and older server slices take the
+	// generic read path.
 	Draft bool
 	// Placeholders are the locs of reserved, unwritten specs (draft only).
 	Placeholders map[string]bool
@@ -733,6 +733,12 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 	for offset := 0; ; offset += nodesPageSize {
 		resp, err := gen.SpecPlaceholderScan(ctx, client, filter, gen.NodeSortLoc, nodesPageSize, offset)
 		if err != nil {
+			// #1451 exposed corpusState before #1452 added isPlaceholder.
+			// Keep the older server's generic read behavior rather than fail
+			// list/get/lint for a draft whose placeholders it cannot report.
+			if api.IsGraphQLValidationFor(err, "isPlaceholder") {
+				return draftInfo{Placeholders: map[string]bool{}}, nil
+			}
 			return info, api.MapError(err)
 		}
 		if resp.FindNodes == nil {
@@ -756,6 +762,11 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 func unresolvedFindings(ctx context.Context, client graphql.Client, memRef string, inScope map[string]bool) ([]lintFindingDTO, error) {
 	resp, err := gen.SpecUnresolvedReferences(ctx, client, memRef)
 	if err != nil {
+		// #1453 added this query after draft state and placeholders. Lint
+		// still runs its ordinary rules when this report is unavailable.
+		if api.IsGraphQLValidationFor(err, "specUnresolvedReferences") {
+			return nil, nil
+		}
 		return nil, api.MapError(err)
 	}
 	var out []lintFindingDTO
