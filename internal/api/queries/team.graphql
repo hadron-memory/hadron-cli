@@ -263,6 +263,29 @@ query GetWorker($ref: ID!) {
   }
 }
 
+# #790 / server#1029: the handoff is deliberately a separate operation from
+# GetWorker and Workers. Older servers do not know Worker.continuity and reject
+# a document that selects it before execution, even if a caller ignores the
+# response field. The ordinary worker lookup must still bind on those servers.
+query GetWorkerContinuity($ref: ID!) {
+  worker(ref: $ref) {
+    continuity {
+      status
+      handoff {
+        urn
+        loc
+        content
+        createdAt
+      }
+      previousSession {
+        id
+        endedAt
+        autoExpiredAt
+      }
+    }
+  }
+}
+
 # The ROSTER projection (#459): WorkerFields minus `prompt`.
 #
 # `prompt` is the resolved boot briefing — multi-KB per worker. It is a detail

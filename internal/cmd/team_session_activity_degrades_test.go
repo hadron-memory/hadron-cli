@@ -85,6 +85,9 @@ func abortSessionsGraphQL(t *testing.T, responses map[string]string) (*httptest.
 		}
 		resp, ok := responses[body.OperationName]
 		if !ok {
+			resp, ok = unstubbedDefault(body.OperationName)
+		}
+		if !ok {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}

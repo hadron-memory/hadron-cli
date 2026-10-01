@@ -2019,8 +2019,15 @@ Conventions:
   (repo/branch/host/tool/transcript path/model) server-side, prints the
   worker's boot briefing, and writes a local binding under the worktree's
   git dir (`git rev-parse --git-dir`), which `session whoami` reads back
-  after a context compaction. **`whoami` falls back to the SERVER when there is
-  no binding — and when there is no worktree at all (#623)**, so a lost binding
+  after a context compaction. At bind, `session start` also delivers
+  `Worker.continuity` above the briefing: `CURRENT` includes the previous
+  stint's handoff URN and content; `MISSING` names the missing current
+  handoff before any older one; `FIRST_STINT` says there is no previous
+  handoff. `--json` adds `continuity` with status, handoff and previousSession;
+  `null` means unavailable, not no handoff. An older server without the field
+  still binds and omits the text.
+  **`whoami` falls back to the SERVER when there is no binding — and when
+  there is no worktree at all (#623)**, so a lost binding
   is a cache miss rather than an orphaned session, and a caller with no worktree
   (a non-coding worker, Cowork) can still answer "what am I driving?". `--json`
   carries `"source"`: `worktree` or `server`, plus `candidates[]` (always an
@@ -2091,9 +2098,9 @@ Conventions:
   on the worker's gated working-state fields, so a caller outside that gate
   reads `null` — WITHHELD, not "no" — and `start` binds rather than refusing,
   leaving the same rule to the server's atomic gate. `tookOver` is `null` in
-  that case, distinct from `false`; it is the one `--json` key on this command
-  that is nullable, for the reason `worker release`'s `notified` is — a state
-  the server declines to assert is not the same as one it asserts negatively.
+  that case, distinct from `false`; like `continuity`, it is a nullable
+  `--json` key on this command. A state the server declines to assert is
+  different from one it asserts negatively.
   (`worker release`'s `wasHeld`/`forced` used to be the example here and are
   no longer nullable at all: #1073 gave them definite answers.)
   A `--force` that replaces this
