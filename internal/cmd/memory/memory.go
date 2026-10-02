@@ -105,6 +105,7 @@ func NewCmdMemory(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdEncrypt(f))
 	cmd.AddCommand(newCmdLinkUser(f))
 	cmd.AddCommand(newCmdValidate(f))
+	cmd.AddCommand(newCmdApproveAll(f))
 	cmd.AddCommand(newCmdConfig(f))
 	annotateMemoryRefHelp(cmd)
 	return cmd

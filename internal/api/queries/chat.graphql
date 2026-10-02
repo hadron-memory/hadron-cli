@@ -13,6 +13,8 @@
 # or empty set here would non-deterministically strip omitempty off the struct
 # depending on generation order. Keep these two lists identical.
 # @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.approvalState", omitempty: true)
+# @genqlient(for: "NodeFilter.minted", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "NodeFilter.nodeType", omitempty: true)
 # @genqlient(for: "NodeFilter.objectType", omitempty: true)

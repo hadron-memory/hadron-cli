@@ -210,6 +210,8 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		fmt.Fprintln(w, "  revision: unknown (the server predates node revisions)")
 	}
 	renderStamps(w, "  ", dto.Authorship, dto.ContentValidation, "this revision")
+	renderApprovalStatus(w, "  ", dto.ApprovalStatus)
+	renderMintStatus(w, "  ", dto.MintStatus)
 	if dto.Data != nil && len(*dto.Data) > 0 {
 		if dataStr := string(*dto.Data); dataStr != "null" {
 			fmt.Fprintf(w, "  data: %s\n", dataStr)
@@ -445,6 +447,105 @@ func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelect
 	revs := map[string]int{}
 	var yes, no bool
 	ask := func(refs []string, memory, prefix *string) (*gen.NodeLiveRevisionsNodeBatchNodeBatchResult, error) {
+		if !stamps.mintUnsupported {
+			resp, err := gen.NodeLiveRevisionsMinted(cmd.Context(), client, refs, memory, prefix)
+			switch {
+			case err == nil && resp.NodeBatch != nil:
+				yes = true
+				out := &gen.NodeLiveRevisionsNodeBatchNodeBatchResult{Truncated: resp.NodeBatch.Truncated, Omitted: resp.NodeBatch.Omitted, Unavailable: resp.NodeBatch.Unavailable}
+				for _, n := range resp.NodeBatch.Nodes {
+					if n == nil {
+						continue
+					}
+					revs[n.Id] = n.Revision
+					if stamps.byID != nil {
+						st := nodeStamps{}
+						if n.Authorship != nil {
+							st.authorship = authorshipFrom(&n.Authorship.NodeAuthorshipFields)
+						}
+						if n.ContentValidation != nil {
+							st.validation = contentValidationFrom(&n.ContentValidation.NodeContentValidationFields)
+						}
+						if n.ApprovalStatus != nil {
+							st.approval = approvalStatusFrom(&n.ApprovalStatus.NodeApprovalStatusFields)
+						}
+						if n.MintStatus != nil {
+							st.mint = mintStatusFrom(&n.MintStatus.NodeMintStatusFields)
+						}
+						stamps.byID[n.Id] = st
+					}
+				}
+				return out, nil
+			case err == nil:
+				return nil, exitcode.Newf(exitcode.Error, "the server returned no result for the node mint read")
+			case isUnknownFieldErr(err, "mintStatus") || isUnknownFieldErr(err, "NodeMintStatus"):
+				stamps.mintUnsupported = true
+			case isUnknownFieldErr(err, "approvalStatus") || isUnknownFieldErr(err, "NodeApprovalStatus") || isUnknownFieldErr(err, "NodeApproval"):
+				stamps.mintUnsupported = true
+				stamps.approvalUnsupported = true
+			case isUnknownFieldErr(err, "authorship") || isUnknownFieldErr(err, "contentValidation") || isUnknownFieldErr(err, "NodeAuthorship") || isUnknownFieldErr(err, "NodeContentValidationStatus"):
+				stamps.mintUnsupported = true
+				stamps.approvalUnsupported = true
+				stamps.unsupported = true
+			case isUnknownFieldErr(err, "revision") || isUnknownFieldErr(err, "nodeBatch"):
+				stamps.mintUnsupported = true
+				stamps.approvalUnsupported = true
+				stamps.unsupported = true
+				no = true
+				return nil, nil
+			default:
+				return nil, api.MapError(err)
+			}
+		}
+		// #1591: the approval can be recorded without advancing the node's
+		// revision. Read it with the AFTER probe so the displayed status is
+		// at least as recent as the content whose revision was paired.
+		if !stamps.approvalUnsupported {
+			resp, err := gen.NodeLiveRevisionsApproved(cmd.Context(), client, refs, memory, prefix)
+			switch {
+			case err == nil && resp.NodeBatch != nil:
+				yes = true
+				out := &gen.NodeLiveRevisionsNodeBatchNodeBatchResult{
+					Truncated: resp.NodeBatch.Truncated, Omitted: resp.NodeBatch.Omitted, Unavailable: resp.NodeBatch.Unavailable,
+				}
+				for _, n := range resp.NodeBatch.Nodes {
+					if n == nil {
+						continue
+					}
+					revs[n.Id] = n.Revision
+					if stamps.byID != nil {
+						st := nodeStamps{}
+						if n.Authorship != nil {
+							st.authorship = authorshipFrom(&n.Authorship.NodeAuthorshipFields)
+						}
+						if n.ContentValidation != nil {
+							st.validation = contentValidationFrom(&n.ContentValidation.NodeContentValidationFields)
+						}
+						if n.ApprovalStatus != nil {
+							st.approval = approvalStatusFrom(&n.ApprovalStatus.NodeApprovalStatusFields)
+						}
+						stamps.byID[n.Id] = st
+					}
+				}
+				return out, nil
+			case err == nil:
+				return nil, exitcode.Newf(exitcode.Error, "the server returned no result for the node approval read")
+			case isUnknownFieldErr(err, "approvalStatus") || isUnknownFieldErr(err, "NodeApprovalStatus") ||
+				isUnknownFieldErr(err, "NodeApproval"):
+				stamps.approvalUnsupported = true
+			case isUnknownFieldErr(err, "authorship") || isUnknownFieldErr(err, "contentValidation") ||
+				isUnknownFieldErr(err, "NodeAuthorship") || isUnknownFieldErr(err, "NodeContentValidationStatus"):
+				stamps.approvalUnsupported = true
+				stamps.unsupported = true
+			case isUnknownFieldErr(err, "revision") || isUnknownFieldErr(err, "nodeBatch"):
+				stamps.approvalUnsupported = true
+				stamps.unsupported = true
+				no = true
+				return nil, nil
+			default:
+				return nil, api.MapError(err)
+			}
+		}
 		// The stamped read first (cli#752). A server that predates the stamps
 		// refuses them by name, and the plain read below still gets the
 		// revisions: losing the stamps must not cost the revision.
@@ -590,6 +691,8 @@ func fetchNode(cmd *cobra.Command, client graphql.Client, memory, ref string) (*
 type nodeStamps struct {
 	authorship *authorshipDTO
 	validation *contentValidationDTO
+	approval   *approvalStatusDTO
+	mint       *mintStatusDTO
 }
 
 // stampReads carries what the revision probes learned about the stamps:
@@ -597,8 +700,10 @@ type nodeStamps struct {
 // currently collecting (the AFTER probe; byID is nil otherwise) — each
 // node's stamps.
 type stampReads struct {
-	unsupported bool
-	byID        map[string]nodeStamps
+	unsupported         bool
+	approvalUnsupported bool
+	mintUnsupported     bool
+	byID                map[string]nodeStamps
 }
 
 // apply sets each DTO's stamps from the after-probe. On a server without them
@@ -610,6 +715,8 @@ func (s *stampReads) apply(dtos []*nodeDetailDTO) {
 	for _, d := range dtos {
 		if st, ok := s.byID[d.ID]; ok {
 			d.Authorship, d.ContentValidation = st.authorship, st.validation
+			d.ApprovalStatus = st.approval
+			d.MintStatus = st.mint
 		}
 	}
 }

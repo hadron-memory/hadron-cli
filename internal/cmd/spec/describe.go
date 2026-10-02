@@ -56,6 +56,23 @@ type describeDTO struct {
 	// total spec inventory. Omitted when an older server cannot report them.
 	PlaceholderCount *int      `json:"placeholderCount,omitempty"`
 	Placeholders     *[]string `json:"placeholders,omitempty"`
+	// ApprovalStates counts current-revision statuses for the spec nodes in
+	// this inventory. Null means the server predates approvals.
+	ApprovalStates *approvalCountsDTO `json:"approvalStates"`
+	MintStates     *mintCountsDTO     `json:"mintStates"`
+}
+
+type mintCountsDTO struct {
+	Minted   int `json:"minted"`
+	Unminted int `json:"unminted"`
+	Unknown  int `json:"unknown"`
+}
+
+type approvalCountsDTO struct {
+	Approved    int `json:"approved"`
+	NotApproved int `json:"notApproved"`
+	Superseded  int `json:"superseded"`
+	Unknown     int `json:"unknown"`
 }
 
 func newCmdDescribe(f *cmdutil.Factory) *cobra.Command {
@@ -108,12 +125,52 @@ shown as retired and ignored.`,
 				return err
 			}
 			var locs []string
+			var specIDs []string
 			for _, n := range all {
 				if n != nil && isSpec(n.Tags, n.Role) {
 					locs = append(locs, n.Loc)
+					specIDs = append(specIDs, n.Id)
 				}
 			}
 			dto := describeInventory(memURN, locs)
+			statuses, minted, supported, mintSupported, err := specStatuses(cmd.Context(), client, specIDs)
+			if err != nil {
+				return err
+			}
+			if supported {
+				counts := &approvalCountsDTO{}
+				for _, id := range specIDs {
+					s := statuses[id]
+					if s == nil {
+						counts.Unknown++
+						continue
+					}
+					switch s.State {
+					case string(gen.NodeApprovalStateApproved):
+						counts.Approved++
+					case string(gen.NodeApprovalStateNotApproved):
+						counts.NotApproved++
+					case string(gen.NodeApprovalStateSuperseded):
+						counts.Superseded++
+					default:
+						counts.Unknown++
+					}
+				}
+				dto.ApprovalStates = counts
+			}
+			if mintSupported {
+				counts := &mintCountsDTO{}
+				for _, id := range specIDs {
+					if s := minted[id]; s == nil {
+						counts.Unknown++
+					} else if s.Minted {
+						counts.Minted++
+					} else {
+						counts.Unminted++
+					}
+				}
+				dto.MintStates = counts
+			}
 			dto.RetiredDeclaration = schemeFromData(data)
 			info, err := loadDraftInfo(cmd.Context(), client, memID, "")
 			if err != nil {
@@ -193,12 +250,12 @@ func renderDescribe(w io.Writer, d describeDTO) error {
 	}
 	switch state {
 	case string(gen.CorpusStateDraft):
-		fmt.Fprintln(w, "  state:     DRAFT — citations stay changeable until `hadron spec mint`")
+		fmt.Fprintln(w, "  state:     DRAFT")
 	case string(gen.CorpusStateMinted):
 		if d.MintedAt != "" {
-			fmt.Fprintf(w, "  state:     MINTED (%s) — citations are permanent\n", d.MintedAt)
+			fmt.Fprintf(w, "  state:     MINTED (%s)\n", d.MintedAt)
 		} else {
-			fmt.Fprintln(w, "  state:     MINTED — citations are permanent")
+			fmt.Fprintln(w, "  state:     MINTED")
 		}
 	}
 	if d.Specs == 0 {
@@ -216,6 +273,22 @@ func renderDescribe(w io.Writer, d describeDTO) error {
 		fmt.Fprintln(w)
 	} else if state == string(gen.CorpusStateDraft) {
 		fmt.Fprintln(w, "  placeholders: unavailable (server does not expose the placeholder marker)")
+	}
+	if d.ApprovalStates != nil {
+		a := d.ApprovalStates
+		fmt.Fprintf(w, "  approvals: %d current, %d not approved, %d superseded",
+			a.Approved, a.NotApproved, a.Superseded)
+		if a.Unknown > 0 {
+			fmt.Fprintf(w, ", %d unknown", a.Unknown)
+		}
+		fmt.Fprintln(w)
+	}
+	if d.MintStates != nil {
+		fmt.Fprintf(w, "  mint: %d minted, %d unminted", d.MintStates.Minted, d.MintStates.Unminted)
+		if d.MintStates.Unknown > 0 {
+			fmt.Fprintf(w, ", %d unknown", d.MintStates.Unknown)
+		}
+		fmt.Fprintln(w)
 	}
 	if d.RetiredDeclaration != "" {
 		fmt.Fprintf(w, "  note:      this memory's data still declares a %q scheme; --declare is retired and nothing reads it\n", d.RetiredDeclaration)

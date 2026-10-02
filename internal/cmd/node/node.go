@@ -84,6 +84,10 @@ type nodeDetailDTO struct {
 	// stamps.go — contentValidation: null means the server predates them.
 	Authorship        *authorshipDTO        `json:"authorship"`
 	ContentValidation *contentValidationDTO `json:"contentValidation"`
+	// ApprovalStatus is the server's current-revision approval state (#1591).
+	// A null value means an older server cannot report it.
+	ApprovalStatus *approvalStatusDTO `json:"approvalStatus"`
+	MintStatus     *mintStatusDTO     `json:"mintStatus"`
 	// Rendered says which body `content` is (#736). true: the single-node
 	// read COMPILED its Mustache {{…}} templates against the node's data, so
 	// placeholders are gone — never edit and write that text back. false: the
@@ -156,6 +160,9 @@ func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdExport(f))
 	cmd.AddCommand(newCmdImport(f))
 	cmd.AddCommand(newCmdRevision(f))
+	cmd.AddCommand(newCmdApprove(f))
+	cmd.AddCommand(newCmdVerify(f))
+	cmd.AddCommand(newCmdMint(f))
 	return cmd
 }
 

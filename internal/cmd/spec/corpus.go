@@ -18,13 +18,10 @@ import (
 
 // Draft spec corpora and minting (hadron-server#1447, cli#777).
 //
-// A corpus created with `memory set --draft-corpus` is a DRAFT: its citations
-// are not yet permanent. These commands are the draft's tools — reserve a
-// citation as a placeholder, renumber a spec and have its URN references
-// rewritten, read what refers to a spec — and `spec mint`, which ends the
-// draft: one step for the whole corpus, one-way. Every one of them except mint
-// works only on a draft; the server refuses a minted memory with
-// SPEC_CORPUS_NOT_DRAFT (exit 5).
+// A corpus created with `memory set --draft-corpus` starts DRAFT. These
+// commands reserve citations, renumber unminted specs and rewrite references,
+// inspect references, and mint eligible nodes. The server owns each operation's
+// state checks and refuses incompatible writes with typed errors (exit 5).
 
 const memoryFlagHelp = "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)"
 
@@ -110,8 +107,8 @@ Writing the spec — ` + "`spec edit <citation>`" + ` with real content — turn
 placeholder into a real spec at the same citation. ` + "`spec mint`" + ` refuses while
 any placeholder remains.
 
-Only a draft corpus can reserve (a minted one refuses, exit 5: its citations
-are permanent once written, so create the spec directly with ` + "`spec new`" + `).
+Only a draft corpus can reserve (a minted one refuses, exit 5; create the spec
+directly with ` + "`spec new`" + `).
 A citation that already holds a live node is refused too (exit 5).`,
 		Example: `  hadron spec reserve pas:010:04 -m hrn:mem:micromentor.org:specs-draft
   hadron spec reserve pas:010:04 --name "Vacation mode can end by itself" --json`,
@@ -340,8 +337,8 @@ refused, or keeps conflicting with a concurrent edit, is reported FAILED
 without undoing the move, and the command exits 1 so a script doesn't read a
 clean success. --dry-run shows the plan and writes nothing.
 
-Only a draft corpus can renumber (a minted one refuses, exit 5: its
-citations are permanent — supersede a spec instead).`,
+Renumbering a minted node refuses with NODE_MINTED (exit 5). Supersede that
+spec instead.`,
 		Example: `  hadron spec renumber pas:010:04 pas:010:02 -m hrn:mem:micromentor.org:specs-draft --dry-run
   hadron spec renumber pas:010:04 pas:010:02 --json`,
 		Args: cobra.ExactArgs(2),
@@ -480,7 +477,10 @@ type mintDTO struct {
 	Memory string `json:"memory"`
 	DryRun bool   `json:"dryRun"`
 	// Minted is true only when this call minted the corpus.
-	Minted bool `json:"minted"`
+	Minted      bool      `json:"minted"`
+	MintedCount *int      `json:"mintedCount"`
+	MintLocs    *[]string `json:"mintLocs"`
+	Legacy      bool      `json:"-"`
 	// Blocked is true when a blocker remains, so the corpus can't be minted.
 	Blocked  bool             `json:"blocked"`
 	Blockers []mintFindingDTO `json:"blockers"`
@@ -492,8 +492,9 @@ type mintDTO struct {
 
 func mintDTOFrom(memURN string, r *gen.MintSpecCorpusMintSpecCorpusSpecCorpusMintReport) mintDTO {
 	d := mintDTO{
-		Memory: memURN, DryRun: r.DryRun, Minted: r.Minted, StaleAbstractsBlock: r.StaleAbstractsBlock,
-		Blockers: []mintFindingDTO{}, StaleAbstracts: []mintFindingDTO{}, OpenQuestions: []openQuestionGroupDTO{},
+		Memory: memURN, DryRun: r.DryRun, Minted: r.Minted, Legacy: true,
+		StaleAbstractsBlock: r.StaleAbstractsBlock,
+		Blockers:            []mintFindingDTO{}, StaleAbstracts: []mintFindingDTO{}, OpenQuestions: []openQuestionGroupDTO{},
 	}
 	finding := func(f *gen.MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding) mintFindingDTO {
 		m := mintFindingDTO{Kind: string(f.Kind), Loc: f.Loc, Message: f.Message}
@@ -530,8 +531,47 @@ func mintDTOFrom(memURN string, r *gen.MintSpecCorpusMintSpecCorpusSpecCorpusMin
 		}
 		d.OpenQuestions = append(d.OpenQuestions, grp)
 	}
-	d.Blocked = len(d.Blockers) > 0
+	d.Blocked = len(d.Blockers) > 0 || (d.StaleAbstractsBlock && len(d.StaleAbstracts) > 0)
 	return d
+}
+
+func mintDTOFromNew(memURN string, r *gen.MintMemoryNodesMintMemoryNodesSpecCorpusMintReport) mintDTO {
+	count := r.MintedCount
+	locs := append([]string{}, r.MintLocs...)
+	d := mintDTO{Memory: memURN, DryRun: r.DryRun, Minted: r.Minted,
+		MintedCount: &count, MintLocs: &locs, StaleAbstractsBlock: r.StaleAbstractsBlock,
+		Blockers: []mintFindingDTO{}, StaleAbstracts: []mintFindingDTO{}, OpenQuestions: []openQuestionGroupDTO{}}
+	for _, b := range r.Blockers {
+		if b != nil {
+			d.Blockers = append(d.Blockers, mintFindingDTO{Kind: string(b.Kind), Rule: deref(b.Rule), Loc: b.Loc, TargetLoc: deref(b.TargetLoc), Message: b.Message})
+		}
+	}
+	for _, b := range r.StaleAbstracts {
+		if b != nil {
+			d.StaleAbstracts = append(d.StaleAbstracts, mintFindingDTO{Kind: string(b.Kind), Rule: deref(b.Rule), Loc: b.Loc, TargetLoc: deref(b.TargetLoc), Message: b.Message})
+		}
+	}
+	for _, g := range r.OpenQuestions {
+		if g == nil {
+			continue
+		}
+		group := openQuestionGroupDTO{Decider: deref(g.Decider), Questions: []openQuestionDTO{}}
+		for _, q := range g.Questions {
+			if q != nil {
+				group.Questions = append(group.Questions, openQuestionDTO{Loc: q.Loc, Question: q.Question})
+			}
+		}
+		d.OpenQuestions = append(d.OpenQuestions, group)
+	}
+	d.Blocked = len(d.Blockers) > 0 || (d.StaleAbstractsBlock && len(d.StaleAbstracts) > 0)
+	return d
+}
+
+func deref(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
 }
 
 func newCmdMint(f *cmdutil.Factory) *cobra.Command {
@@ -542,16 +582,16 @@ func newCmdMint(f *cmdutil.Factory) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "mint",
-		Short: "Mint a draft spec corpus: its citations become permanent",
-		Long: `Mint a DRAFT spec corpus: one step for the whole corpus, and ONE-WAY. After
-minting, today's rules apply: citations are permanent, a spec is replaced by
-superseding it, and the corpus can never return to draft.
+		Short: "Mint approved, unminted nodes in a spec corpus",
+		Long: `Mint the approved, unminted nodes in a spec corpus. The report lists
+the nodes this call would mint and any blockers. Minting records a per-node
+state; it does not currently enforce citation permanence.
 
 The command always checks first and prints the mint report:
-  blockers         a placeholder still reserved, a reference to a spec that
-                   doesn't exist or is only a placeholder, or a structural
-                   lint error (nodetype-info, tag-spec, serialization-leak,
-                   duplicate-loc). Any blocker refuses the mint.
+  blockers         a placeholder, unresolved reference, structural lint
+                   error, unapproved current revision, tampered approval,
+                   or a citation into an unminted node in another memory.
+                   Any blocker refuses the mint.
   stale abstracts  an abstract written for an earlier body. Reported; they
                    block only once the server says so (staleAbstractsBlock).
   open questions   grouped by who decides — a bullet under an "Open
@@ -562,7 +602,8 @@ asks for confirmation on a terminal (non-interactively --yes is required),
 then mints. --dry-run prints the report and stops, exiting 5 if blocked.
 
 A write in flight to the corpus makes the server refuse the mint for the
-moment (exit 5); retry. Only the corpus's owner or an org admin can mint.`,
+moment (exit 5); retry. A writer of the memory can mint. Encrypted memories
+are refused until the server supports their mint scan.`,
 		Example: `  hadron spec mint -m hrn:mem:micromentor.org:specs-draft --dry-run
   hadron spec mint -m hrn:mem:micromentor.org:specs-draft --yes --json`,
 		Args: cobra.NoArgs,
@@ -584,14 +625,36 @@ moment (exit 5); retry. Only the corpus's owner or an org admin can mint.`,
 			// Always check first: a mint is irreversible, so the report is shown
 			// before anything is asked, and a mint already known to be blocked is
 			// never offered (review:confirm-prompt-tells-the-truth).
-			check, err := gen.MintSpecCorpus(cmd.Context(), client, memID, true)
+			modernUnsupported := false
+			call := func(dry bool) (mintDTO, error) {
+				if !modernUnsupported {
+					modern, err := gen.MintMemoryNodes(cmd.Context(), client, memID, dry)
+					if err == nil {
+						if modern.MintMemoryNodes == nil {
+							return mintDTO{}, exitcode.Newf(exitcode.Error, "server returned no mint report")
+						}
+						return mintDTOFromNew(memURN, modern.MintMemoryNodes), nil
+					}
+					if !api.IsGraphQLValidationFor(err, "mintMemoryNodes") {
+						return mintDTO{}, api.MapError(err)
+					}
+					modernUnsupported = true
+				}
+				// Older servers expose only the whole-corpus mutation. Its static
+				// document has no PR-2 fields, so this path keeps working there.
+				legacy, err := gen.MintSpecCorpus(cmd.Context(), client, memID, dry)
+				if err != nil {
+					return mintDTO{}, api.MapError(err)
+				}
+				if legacy.MintSpecCorpus == nil {
+					return mintDTO{}, exitcode.Newf(exitcode.Error, "server returned no mint report")
+				}
+				return mintDTOFrom(memURN, legacy.MintSpecCorpus), nil
+			}
+			report, err := call(true)
 			if err != nil {
-				return api.MapError(err)
+				return err
 			}
-			if check.MintSpecCorpus == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no mint report")
-			}
-			report := mintDTOFrom(memURN, check.MintSpecCorpus)
 
 			if dryRun || report.Blocked {
 				if err := writeMint(f, report); err != nil {
@@ -617,22 +680,25 @@ moment (exit 5); retry. Only the corpus's owner or an org admin can mint.`,
 					return err
 				}
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf(
-				"Mint %s? Its citations become permanent and it can never return to draft.", memURN)); err != nil {
+			prompt := fmt.Sprintf("Mint %d approved node(s) in %s?", mintLocCount(report), memURN)
+			if report.Legacy {
+				prompt = fmt.Sprintf("Mint the draft corpus %s? This is one-way and makes its citations permanent.", memURN)
+			}
+			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
 			}
-			resp, err := gen.MintSpecCorpus(cmd.Context(), client, memID, false)
+			minted, err := call(false)
 			if err != nil {
-				return api.MapError(err)
+				return err
 			}
-			if resp.MintSpecCorpus == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no mint report")
-			}
-			minted := mintDTOFrom(memURN, resp.MintSpecCorpus)
 			if f.JSON {
 				return writeMint(f, minted)
 			}
-			_, err = fmt.Fprintf(f.IOStreams.Out, "✓ minted %s — its citations are now permanent\n", memURN)
+			if minted.Legacy {
+				_, err = fmt.Fprintf(f.IOStreams.Out, "✓ minted %s\n", memURN)
+			} else {
+				_, err = fmt.Fprintf(f.IOStreams.Out, "✓ minted %d node(s) in %s\n", *minted.MintedCount, memURN)
+			}
 			return err
 		},
 	}
@@ -650,6 +716,13 @@ func writeMint(f *cmdutil.Factory, d mintDTO) error {
 
 func renderMint(w io.Writer, d mintDTO) error {
 	fmt.Fprintf(w, "Mint report — %s\n", d.Memory)
+	if d.MintLocs != nil {
+		fmt.Fprintf(w, "  eligible nodes: %d", len(*d.MintLocs))
+		if len(*d.MintLocs) > 0 {
+			fmt.Fprintf(w, " (%s)", strings.Join(*d.MintLocs, ", "))
+		}
+		fmt.Fprintln(w)
+	}
 	if len(d.Blockers) == 0 {
 		fmt.Fprintln(w, "  blockers: none")
 	} else {
@@ -687,13 +760,24 @@ func renderMint(w io.Writer, d mintDTO) error {
 	}
 	switch {
 	case d.Minted:
-		fmt.Fprintln(w, "✓ minted")
+		if d.MintedCount != nil {
+			fmt.Fprintf(w, "✓ minted %d node(s)\n", *d.MintedCount)
+		} else {
+			fmt.Fprintln(w, "✓ minted")
+		}
 	case d.Blocked:
 		fmt.Fprintf(w, "✗ not mintable: %d blocker(s) remain\n", len(d.Blockers))
 	case d.DryRun:
 		fmt.Fprintln(w, "✓ mintable — run without --dry-run to mint")
 	}
 	return nil
+}
+
+func mintLocCount(d mintDTO) int {
+	if d.MintLocs == nil {
+		return 0
+	}
+	return len(*d.MintLocs)
 }
 
 // ── draft awareness for the read commands (cli#777 slice 2) ─────────────

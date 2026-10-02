@@ -1,7 +1,7 @@
 # How to maintain product specs
 
 `hadron spec` runs a Hadron memory like a legal code: a spec's `loc` **is** its
-citation, numbers are never renumbered once the corpus is minted (to replace a
+citation. Minted nodes cannot be renumbered through the spec door (to replace a
 spec you `supersede` it; a brand-new corpus can be built as a draft first, see
 [Building a new corpus as a draft](#building-a-new-corpus-as-a-draft)), and `lint` checks a spec's structure (not its content sections, which depend on
 its type). A loc implies no parent: a spec's edges are the ones it was given.
@@ -460,10 +460,10 @@ replacement.
 
 ## Building a new corpus as a draft
 
-A brand-new corpus can be built as a **draft** (hadron-server#1447): its
-citations stay changeable until you mint it, so you can reserve numbers,
-renumber, and fix forward references while the corpus takes shape. Draft is
-chosen only when the memory is created, and minting is one-way.
+A brand-new corpus can be built as a **draft** (hadron-server#1447): reserve
+numbers, renumber unminted nodes, and fix forward references while it takes
+shape. Draft is chosen only when the memory is created. Minting stamps eligible
+nodes individually; it currently does not enforce citation permanence.
 
 ```sh
 hadron memory set --org acme.com --name "Product specs" --draft-corpus
@@ -474,7 +474,7 @@ hadron spec renumber pas:010:04 pas:010:02 -m $M --dry-run
 hadron spec unresolved -m $M                    # references with no written spec
 hadron spec replace old new -m $M --dry-run     # governed specs are editable in draft
 hadron spec mint -m $M --dry-run                # the report: what still blocks
-hadron spec mint -m $M                          # once, for the whole corpus
+hadron spec mint -m $M --yes                    # mint eligible approved nodes
 ```
 
 A renumber rewrites every node URN that names the moved specs, including
@@ -482,9 +482,11 @@ inside portal URLs. A citation written only as text — a link label like
 `[pas:010:04]`, or a spec's own name — is reported, never rewritten: review
 those yourself.
 
-Minting refuses while a placeholder remains, a reference points to a spec that
-doesn't exist, or a structural lint error remains (nodetype-info, tag-spec,
-serialization-leak, duplicate-loc). Stale abstracts and open questions are
+Minting refuses while an unminted node is unapproved, its approved text has
+changed outside the revision system, a placeholder or unresolved reference
+remains, a citation points into an unminted node in another memory, or a
+structural lint error remains (nodetype-info, tag-spec, serialization-leak,
+duplicate-loc). Stale abstracts and open questions are
 reported; open questions are grouped by the "<Name> decides." at the end of
 each bullet under an "Open Questions" heading. After minting, the rest of this
 guide applies unchanged.

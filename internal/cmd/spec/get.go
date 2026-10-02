@@ -101,6 +101,12 @@ one object for a single citation, an array for --prefix.`,
 					return err
 				}
 				dto := specDetailFromNode(n, !abstractOnly, rawBody, memURN, draft)
+				statuses, minted, _, _, err := specStatuses(cmd.Context(), client, []string{n.Id})
+				if err != nil {
+					return err
+				}
+				dto.ApprovalStatus = statuses[n.Id]
+				dto.MintStatus = minted[n.Id]
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					renderSpecDetail(w, memURN, dto)
 					return nil
@@ -146,6 +152,10 @@ one object for a single citation, an array for --prefix.`,
 			if err != nil {
 				return err
 			}
+			statuses, minted, _, _, err := specStatuses(cmd.Context(), client, ids)
+			if err != nil {
+				return err
+			}
 			details := make([]specDetailDTO, 0, len(batched))
 			for _, bn := range batched {
 				if bn == nil {
@@ -155,7 +165,10 @@ one object for a single citation, an array for --prefix.`,
 				// templates. nodeByIDFromBatch reshapes them into the
 				// single-read type and drops that provenance, so it is
 				// restated here — rawness belongs to the QUERY, not the shape.
-				details = append(details, specDetailFromNode(nodeByIDFromBatch(bn), !abstractOnly, bn.Content, memURN, draft))
+				detail := specDetailFromNode(nodeByIDFromBatch(bn), !abstractOnly, bn.Content, memURN, draft)
+				detail.ApprovalStatus = statuses[bn.Id]
+				detail.MintStatus = minted[bn.Id]
+				details = append(details, detail)
 			}
 			// Bulk reads don't preserve order across chunks — sort for a
 			// deterministic dump.
@@ -308,6 +321,8 @@ func renderSpecDetail(w io.Writer, memURN string, d specDetailDTO) {
 		fmt.Fprintln(w, "PLACEHOLDER — reserved, not yet written")
 	}
 	fmt.Fprintln(w, specNodeRef(memURN, d.Citation))
+	renderSpecApproval(w, d.ApprovalStatus)
+	renderSpecMint(w, d.MintStatus)
 	if len(d.Tags) > 0 {
 		fmt.Fprintf(w, "Tags: %s\n", strings.Join(d.Tags, ", "))
 	}

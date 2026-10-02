@@ -124,12 +124,28 @@ mutation MintSpecCorpus($memoryRef: ID!, $dryRun: Boolean!) {
   }
 }
 
+mutation MintMemoryNodes($memoryRef: ID!, $dryRun: Boolean!) {
+  mintMemoryNodes(memoryRef: $memoryRef, dryRun: $dryRun) {
+    memoryId
+    dryRun
+    minted
+    mintedCount
+    mintLocs
+    staleAbstractsBlock
+    blockers { kind rule loc targetLoc message }
+    staleAbstracts { kind rule loc targetLoc message }
+    openQuestions { decider questions { loc question } }
+  }
+}
+
 # #1450 — which specs in a DRAFT corpus are placeholders. A separate, minimal
 # scan run only for a draft, so the shared node projections don't select
 # isPlaceholder: an older server would reject every spec read over it.
 # Keep NodeFilter omission semantics even when genqlient discovers this
 # operation before FindNodes during generation.
 # @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.approvalState", omitempty: true)
+# @genqlient(for: "NodeFilter.minted", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "NodeFilter.nodeType", omitempty: true)
 # @genqlient(for: "NodeFilter.objectType", omitempty: true)

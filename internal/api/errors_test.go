@@ -57,6 +57,10 @@ func TestMapError(t *testing.T) {
 		{"unauthenticated", gqlErr("UNAUTHENTICATED"), exitcode.AuthRequired},
 		{"not found", gqlErr("NOT_FOUND"), exitcode.NotFound},
 		{"node not found", gqlErr("NODE_NOT_FOUND"), exitcode.NotFound},
+		{"approval revision mismatch", gqlErr("REVISION_MISMATCH"), exitcode.Conflict},
+		{"approval placeholder", gqlErr("NODE_IS_PLACEHOLDER"), exitcode.Conflict},
+		{"renumber minted node", gqlErr("NODE_MINTED"), exitcode.Conflict},
+		{"encryption session expired", gqlErr("SESSION_EXPIRED"), exitcode.AuthRequired},
 		{"bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
 		{"urn not qualified", gqlErr("URN_NOT_QUALIFIED"), exitcode.Usage}, // spec 022, #540
 		{"validation", gqlErr("GRAPHQL_VALIDATION_FAILED"), exitcode.Usage},

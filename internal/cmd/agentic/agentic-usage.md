@@ -291,8 +291,8 @@ non-zero naming the nodes it already created, each complete with its edges.
 
 ```
 hadron auth login | logout | whoami | status | token create|list|validate|revoke <id>
-hadron memory list [--shared-with-me | [--owned-by-me] [--include-agent-system]] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--draft-corpus] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn hrn:mem:<root>:<slug> | transfer <memoryRef> (--org <ref> | --user <ref>) [--class <c>] [--reset-group-members] [--apply | --yes] | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings] | config get <memoryRef> | config rule add|update <memoryRef> <role> [--author-task <ref>] [--validation-task <ref>] [--description-node <ref>] [--writers all|admin|owner] [--validate-by agent|platform] [--strict-sub-roles[=false]] [--enabled[=false]] | config rule rm <memoryRef> <role> --yes | config rule unlock <memoryRef> <role> [--yes] | config template list [--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>] | config template get <templateId> | config template create --file <path> (--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>) | config template update <templateId> --file <path> [--expected-revision <n>] | config template rm <templateId> --yes | config template apply <templateId> <memoryRef> [--dry-run] [--expected-revision <n>] [--yes]
-hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... [--raw] | get <loc>... -m <memory> [--raw] | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
+hadron memory list [--shared-with-me | [--owned-by-me] [--include-agent-system]] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--draft-corpus] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn hrn:mem:<root>:<slug> | transfer <memoryRef> (--org <ref> | --user <ref>) [--class <c>] [--reset-group-members] [--apply | --yes] | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | approve-all -m <memory> [--yes] | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings] | config get <memoryRef> | config rule add|update <memoryRef> <role> [--author-task <ref>] [--validation-task <ref>] [--description-node <ref>] [--writers all|admin|owner] [--validate-by agent|platform] [--strict-sub-roles[=false]] [--enabled[=false]] | config rule rm <memoryRef> <role> --yes | config rule unlock <memoryRef> <role> [--yes] | config template list [--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>] | config template get <templateId> | config template create --file <path> (--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>) | config template update <templateId> --file <path> [--expected-revision <n>] | config template rm <templateId> --yes | config template apply <templateId> <memoryRef> [--dry-run] [--expected-revision <n>] [--yes]
+hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... [--raw] | get <loc>... -m <memory> [--raw] | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | approve <node-ref> [-m <memory>] [--revision N] | verify <node-ref> [-m <memory>] | mint -m <memory> [--dry-run] [--yes] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>] | upload <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>] | rm <asset-ref> [--yes] | restore <asset-ref> | link <asset-ref> --node <new-node-urn> [--name <n>] [--description <d>]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
@@ -781,6 +781,17 @@ Conventions:
     `contentValidation` (the validation at that historical revision, as the
     server snapshotted it — never reconstructed from the live node), with the
     same null convention; the list table gains a VALIDATION column.
+  - `approvalStatus` reports APPROVED, NOT_APPROVED or SUPERSEDED for the
+    current revision, with the latest approval record; `mintStatus` reports
+    whether that node is minted and, when known, the minted revision, hash,
+    time and principal. A null status means the server predates that feature.
+    `node approve <ref> [--revision N]` stamps the current revision, with the
+    optional expected revision refusing a changed node (REVISION_MISMATCH,
+    exit 5). `memory approve-all -m <memory> --yes` stamps eligible unminted
+    nodes in bulk. `node verify <ref>` returns INTACT, NOT_APPROVED,
+    SUPERSEDED or TAMPERED; non-INTACT exits 5. `spec get` and `spec list`
+    expose the same statuses, `spec describe` counts them, and `spec list`
+    accepts `--approved|--unapproved` or `--minted|--unminted` filters.
   - **For one node you already hold**, compare the two yourself — that is what
     `spec citations --stale-abstracts` does, and exposing the field is what
     makes it possible from `node get` at all. **Compare against RAW content**:
@@ -1573,15 +1584,15 @@ Conventions:
 
   **These commands do not upsert.** A create against a loc that already holds a
   live node is REFUSED, not overwritten — a written citation is never
-  overwritten (in a minted corpus it is permanent; see draft corpora below). The per-kind
+  overwritten. The per-kind
   doors do not even offer an `upsert` argument, so this is now the server's
   decision rather than a convention each call site keeps. Re-running is not a
   repair: edit with `spec edit`, or supersede. The refusal is a
   NodeLocConflictError, exit 5.
-  **Draft corpora (hadron-server#1447, cli#777).** A corpus created with
-  `memory set --draft-corpus` (create-only and free-standing only; exit 2 on an
-  update or with `--app/--agent`, nothing written) is a DRAFT: its citations
-  are not yet permanent; that create echoes the `corpusState` it read back.
+  **Draft corpora and per-node minting (hadron-server#1447/#1591).** A corpus
+  created with `memory set --draft-corpus` (create-only and free-standing only;
+  exit 2 on an update or with `--app/--agent`, nothing written) starts DRAFT;
+  that create echoes the `corpusState` it read back.
   `spec describe` reports `corpusState` (`DRAFT` | `MINTED`, plus `mintedAt`
   for a former draft; a present `null` when the server predates draft
   corpora and cannot say). It also lists reserved placeholder citations and
@@ -1598,20 +1609,21 @@ Conventions:
   spec (`references[]` of `{kind: URN|EDGE, field, sourceLoc, sourceNodeId,
   targetLoc, text}`, exact citation only); `spec unresolved` lists references
   that reach no written spec (`reason: MISSING|PLACEHOLDER`), exit 0 either
-  way. `spec mint [--dry-run] [--yes]` ends the draft — once, for the whole
-  corpus, ONE-WAY: it always checks first and prints the report
-  (`{memory,dryRun,minted,blocked,blockers[],staleAbstracts[],staleAbstractsBlock,openQuestions[{decider,questions[{loc,question}]}]}`,
-  `decider` "" = unassigned). Blockers are placeholders, unresolved
-  references and four structural lint errors (nodetype-info, tag-spec,
-  serialization-leak, duplicate-loc); stale abstracts block only when
+  way. `spec mint [--dry-run] [--yes]` mints approved, unminted nodes in the corpus. It always checks first and prints the report
+  (`{memory,dryRun,minted,mintedCount,mintLocs[],blocked,blockers[],staleAbstracts[],staleAbstractsBlock,openQuestions[{decider,questions[{loc,question}]}]}`,
+  `decider` "" = unassigned). Blockers include placeholders, unresolved
+  references, structural lint errors, NOT_APPROVED current revisions,
+  TAMPERED approvals, and CITES_UNMINTED cross-memory citations. Stale abstracts block only when
   `staleAbstractsBlock` is true; open questions never block. Blocked → exit 5
   and the real mint is never sent; `--dry-run` stops after the report (exit 5
   if blocked); otherwise it asks on a TTY, and non-interactively REQUIRES
   `--yes` (exit 2); an explicitly blank `-m` is refused (exit 2) rather than
   falling back to the ambient memory. With `--json` on a terminal the report
   goes to stderr before the prompt and stdout carries only the final
-  document. On a MINTED corpus every one of these draft commands
-  refuses SPEC_CORPUS_NOT_DRAFT, exit 5, and an encrypted corpus refuses the
+  document. `node mint -m <memory>` uses the same per-node server gate and
+  report. Minting records state but currently enforces no citation permanence.
+  A minted node cannot be renumbered (NODE_MINTED, exit 5); draft-only
+  reserve and reference operations can refuse SPEC_CORPUS_NOT_DRAFT. An encrypted corpus refuses the
   scanning ones (SPEC_CORPUS_ENCRYPTED_UNSUPPORTED, exit 5). In a draft the
   READ commands know it too: `spec list` / `spec get` mark a reserved spec
   `"placeholder": true` (omitted otherwise; `[placeholder]` in the table), a

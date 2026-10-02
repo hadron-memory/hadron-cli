@@ -11,6 +11,8 @@
 # pointers must therefore be omitted, not sent as null — hence the per-field
 # omitempty annotations mirroring nodes.graphql's NodeInput contract.
 # @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.approvalState", omitempty: true)
+# @genqlient(for: "NodeFilter.minted", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "NodeFilter.nodeType", omitempty: true)
 # @genqlient(for: "NodeFilter.objectType", omitempty: true)

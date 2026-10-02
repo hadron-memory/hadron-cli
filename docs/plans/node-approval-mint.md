@@ -1,22 +1,26 @@
 # Node approvals, verification, and per-node minting in the CLI
 
-> **Status: in progress.** hadron-cli#802 consumes hadron-server#1591. The
-> server's PR 1 contract is recorded on that issue; PR 2 will define the mint
-> fields and report. Update this document to the design as built before the CLI
-> PR is opened.
+> **Status: implemented.** hadron-cli#802 consumes hadron-server#1591
+> through merged server PRs #1592 and #1593. The schema snapshot is exported
+> from server main at `88a0a4b2`.
 
 ## Scope and ordering
 
 The server ships two sequential changes. PR 1 introduces revision approval,
 integrity verification, and status reads. PR 2 introduces per-node minting and
-backfills prior corpus state. The CLI can implement PR 1 against its published
-GraphQL contract while it is under review, but readiness waits for the merged
-server contract and the PR 2 mint shape.
+backfills prior corpus state. The server's mint operation evaluates eligible
+unminted nodes in one memory, refuses when any blocker remains, and records a
+mint stamp for every eligible node together. The new `TAMPERED` blocker means
+an approved node's text changed outside the revision system. Minting does not
+currently enforce citation permanence.
 
 The CLI commands are `node approve <ref>`, `memory approve-all -m <memory>`,
-`node verify <ref>`, and `node mint` / `spec mint` for all unminted nodes of the
-memory. Reads show server status in `node get`, `spec get`, `spec list`, and
-`spec describe`; `spec list` filters by minted and approval state. The server
+`node verify <ref>`, and `node mint -m <memory>` / `spec mint` for approved,
+unminted nodes of the memory. Both mint commands show a dry-run report first
+and require confirmation for a write. Their reports include `mintedCount`,
+`mintLocs`, and typed blockers. Reads show server status in `node get`,
+`spec get`, `spec list`, and `spec describe`; `spec list` filters by minted or
+approval state before paging. The server
 remains the authority for permissions, the current revision, mint blockers,
 and verification verdicts. Client output uses explicit DTOs and typed codes.
 
@@ -43,9 +47,12 @@ states distinct.
 New status fields are read through separate typed operations. An older server
 that rejects those fields should still return the pre-approval node/spec read,
 with approval and mint status reported as unavailable rather than guessed.
-`node get` already brackets content with revision probes and keeps the
-after-probe's stamps; approval status belongs in that same after-probe because
-an approval can arrive without changing the revision.
+`node get` brackets content with revision probes and keeps the after-probe's
+stamps. It tries the mint-aware probe first, then approval-aware, stamped, and
+plain probes. A status change can arrive without advancing the revision, so
+the after-probe supplies both approval and mint status. Spec reads use one
+mint-aware capped batch per window, falling back to approval-only and then
+unknown status on older servers.
 
 Whole-memory reads page to exhaustion. A list filter must be applied by the
 server before pagination; client-side filtering of a capped page would silently

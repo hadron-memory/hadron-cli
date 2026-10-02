@@ -9,6 +9,8 @@
 # pointers must therefore be omitted, not sent as null — same contract as
 # nodes.graphql.
 # @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.approvalState", omitempty: true)
+# @genqlient(for: "NodeFilter.minted", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "NodeFilter.nodeType", omitempty: true)
 # @genqlient(for: "NodeFilter.objectType", omitempty: true)
