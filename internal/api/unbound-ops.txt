@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 61 unbound
+[Query] 62 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -67,6 +67,7 @@ slackConnection
 slackConnections
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
+verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 
 [Mutation] 86 unbound
 acquireEditorLock
