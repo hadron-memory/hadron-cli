@@ -121,9 +121,11 @@ type specDTO struct {
 	// Placeholder marks a reserved, unwritten spec in a DRAFT corpus
 	// (hadron-server#1450). omitempty: only a draft holds placeholders, so
 	// every other listing's shape is untouched.
-	Placeholder    bool             `json:"placeholder,omitempty"`
-	ApprovalStatus *specApprovalDTO `json:"approvalStatus"`
-	MintStatus     *specMintDTO     `json:"mintStatus"`
+	Placeholder bool `json:"placeholder,omitempty"`
+	// `spec find` shares this DTO but does not fetch statuses. Omit unset
+	// fields so adding status to `spec list` does not change find's JSON shape.
+	ApprovalStatus *specApprovalDTO `json:"approvalStatus,omitempty"`
+	MintStatus     *specMintDTO     `json:"mintStatus,omitempty"`
 }
 
 // tagsOrEmpty normalizes a node's tags for a DTO: a nil slice marshals to
