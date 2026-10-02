@@ -77,6 +77,14 @@ func unstubbedDefault(op string) (string, bool) {
 		// stamps (hadron-server#1326): each falls back to its plain read, so
 		// every test that doesn't stub them exercises the fallback.
 		return `{"errors":[{"message":"Cannot query field \"authorship\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "NodeLiveRevisionsApproved":
+		// cli#802's optional status probe against a server that predates
+		// hadron-server#1591. The revision and stamp fallbacks still run.
+		return `{"errors":[{"message":"Cannot query field \"approvalStatus\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "NodeLiveRevisionsMinted":
+		return `{"errors":[{"message":"Cannot query field \"mintStatus\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "MintMemoryNodes":
+		return `{"errors":[{"message":"Cannot query field \"mintMemoryNodes\" on type \"Mutation\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	}
 	return "", false
 }

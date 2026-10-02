@@ -440,6 +440,11 @@ func TestSpecFindJSONEmptyTagsRenderAsList(t *testing.T) {
 	if !strings.Contains(out.String(), `"tags": []`) {
 		t.Errorf("empty tags must render as [], got:\n%s", out.String())
 	}
+	for _, field := range []string{`"approvalStatus"`, `"mintStatus"`} {
+		if strings.Contains(out.String(), field) {
+			t.Errorf("spec find does not fetch %s and must keep its JSON shape: %s", field, out.String())
+		}
+	}
 }
 
 // #708: the only shape rule for a spec address is the generic loc rule. A loc

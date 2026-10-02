@@ -44,6 +44,9 @@ func mintServer(t *testing.T, check, real string) (url string, calls func() []bo
 		switch op {
 		case "Memories":
 			return memListJSON
+		case "MintMemoryNodes":
+			resp, _ := unstubbedDefault(op)
+			return resp
 		case "MintSpecCorpus":
 			var v struct {
 				DryRun bool `json:"dryRun"`
@@ -64,6 +67,48 @@ func mintServer(t *testing.T, check, real string) (url string, calls func() []bo
 		mu.Lock()
 		defer mu.Unlock()
 		return append([]bool(nil), dry...)
+	}
+}
+
+func TestSpecMintModernUsesPerNodeReportWithoutLegacyMutation(t *testing.T) {
+	var calls []bool
+	srv := newVarServer(t, func(op string, raw json.RawMessage) string {
+		switch op {
+		case "Memories":
+			return memListJSON
+		case "MintMemoryNodes":
+			var vars struct {
+				DryRun bool `json:"dryRun"`
+			}
+			_ = json.Unmarshal(raw, &vars)
+			calls = append(calls, vars.DryRun)
+			if vars.DryRun {
+				return `{"data":{"mintMemoryNodes":{"memoryId":"mem1","dryRun":true,"minted":false,"mintedCount":0,"mintLocs":["pas:010:01"],"blockers":[],"staleAbstracts":[],"staleAbstractsBlock":false,"openQuestions":[]}}}`
+			}
+			return `{"data":{"mintMemoryNodes":{"memoryId":"mem1","dryRun":false,"minted":true,"mintedCount":1,"mintLocs":["pas:010:01"],"blockers":[],"staleAbstracts":[],"staleAbstractsBlock":false,"openQuestions":[]}}}`
+		default:
+			t.Errorf("unexpected operation %q", op)
+			return `{}`
+		}
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "mint", "-m", "mem1", "--yes", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if len(calls) != 2 || !calls[0] || calls[1] {
+		t.Errorf("mint calls = %v", calls)
+	}
+	var got struct {
+		MintedCount *int     `json:"mintedCount"`
+		MintLocs    []string `json:"mintLocs"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.MintedCount == nil || *got.MintedCount != 1 || len(got.MintLocs) != 1 || got.MintLocs[0] != "pas:010:01" {
+		t.Errorf("report = %+v", got)
 	}
 }
 
@@ -353,8 +398,8 @@ func TestSpecMintTTYDeclineMintsNothing(t *testing.T) {
 	if c := calls(); len(c) != 1 {
 		t.Errorf("a declined mint must send only the check, got %v", c)
 	}
-	if !strings.Contains(errOut.String(), "can never return to draft") {
-		t.Errorf("the prompt must say the mint is one-way: %q", errOut.String())
+	if !strings.Contains(errOut.String(), "one-way") {
+		t.Errorf("the legacy prompt must state its consequence: %q", errOut.String())
 	}
 }
 
@@ -692,7 +737,7 @@ func TestSpecMintJSONOnTTYShowsReportOnStderr(t *testing.T) {
 		t.Fatalf("stdout must be exactly one JSON document: %v (%q)", err, out.String())
 	}
 	e := errOut.String()
-	if !strings.Contains(e, "Mint report") || strings.Index(e, "Mint report") > strings.Index(e, "can never return to draft") {
+	if !strings.Contains(e, "Mint report") || strings.Index(e, "Mint report") > strings.Index(e, "one-way") {
 		t.Errorf("the report must be on stderr before the prompt: %q", e)
 	}
 }

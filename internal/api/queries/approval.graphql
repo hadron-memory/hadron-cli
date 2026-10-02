@@ -1,0 +1,132 @@
+# hadron-server#1591 PR 1 — current-revision approvals and integrity checks.
+# These operations are separate from the older node reads: a server without
+# approvalStatus must still return node content, revisions and stamps.
+
+fragment NodeApprovalFields on NodeApproval {
+  revision
+  approvedAt
+  approvedBy {
+    handle
+    urn
+  }
+  approvedByInfo
+  hash
+}
+
+fragment NodeApprovalStatusFields on NodeApprovalStatus {
+  state
+  approval {
+    ...NodeApprovalFields
+  }
+}
+
+fragment NodeMintStatusFields on NodeMintStatus {
+  minted
+  mintedAt
+  mintedBy {
+    handle
+    urn
+  }
+  mintedByInfo
+  revision
+  hash
+}
+
+# PR 2 adds mintStatus. Keep a distinct operation so a PR 1 server can still
+# answer NodeLiveRevisionsApproved without losing approval or revisions.
+query NodeLiveRevisionsMinted(
+  # @genqlient(omitempty: true)
+  $refs: [ID!]
+  # @genqlient(omitempty: true)
+  $memory: ID
+  # @genqlient(omitempty: true)
+  $locPrefix: String
+) {
+  nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+    truncated
+    omitted
+    unavailable
+    nodes {
+      id
+      revision
+      authorship { ...NodeAuthorshipFields }
+      contentValidation { ...NodeContentValidationFields }
+      approvalStatus { ...NodeApprovalStatusFields }
+      mintStatus { ...NodeMintStatusFields }
+    }
+  }
+}
+
+# `node get` uses this in its before/after revision bracket. The AFTER result
+# supplies the approval because it may change without advancing the revision.
+# Spec reads can use it in 200-node windows to attach status without N+1 reads.
+query NodeLiveRevisionsApproved(
+  # @genqlient(omitempty: true)
+  $refs: [ID!]
+  # @genqlient(omitempty: true)
+  $memory: ID
+  # @genqlient(omitempty: true)
+  $locPrefix: String
+) {
+  nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+    truncated
+    omitted
+    unavailable
+    nodes {
+      id
+      revision
+      authorship {
+        ...NodeAuthorshipFields
+      }
+      contentValidation {
+        ...NodeContentValidationFields
+      }
+      approvalStatus {
+        ...NodeApprovalStatusFields
+      }
+    }
+  }
+}
+
+mutation ApproveNode($nodeRef: ID!,
+  # @genqlient(omitempty: true)
+  $revision: Int
+) {
+  approveNode(nodeRef: $nodeRef, revision: $revision) {
+    nodeId
+    urn
+    loc
+    approval {
+      ...NodeApprovalFields
+    }
+  }
+}
+
+mutation ApproveMemoryNodes($memoryRef: String!) {
+  approveMemoryNodes(memoryRef: $memoryRef) {
+    approvedCount
+    alreadyApprovedCount
+    skippedPlaceholders
+    approved {
+      nodeId
+      urn
+      loc
+      approval {
+        ...NodeApprovalFields
+      }
+    }
+  }
+}
+
+query VerifyNode($nodeRef: ID!) {
+  verifyNode(nodeRef: $nodeRef) {
+    nodeId
+    urn
+    loc
+    state
+    revision
+    approvedRevision
+    expectedHash
+    actualHash
+  }
+}

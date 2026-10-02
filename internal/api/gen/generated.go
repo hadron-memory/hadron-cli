@@ -2404,7 +2404,12 @@ func (v *AppRunFields) GetFinishedAt() *string { return v.FinishedAt }
 
 // AppRunResponse is returned by AppRun on success.
 type AppRunResponse struct {
-	// One run (cor:agt:010:02). ref is an AppRun ID or an hrn:apprun:<root>:<app>:<run-id> URN (#696).
+	// One run (cor:agt:010:02). ref is an AppRun ID or an
+	// hrn:apprun:<root>:<app>:<run-id> URN (#696). Readable by a platform admin,
+	// a READER of the run's organization, the run's own App key, or a user with a
+	// live App relationship for a run on their behalf or a MANUAL run they
+	// started. A run the caller may not read returns null, exactly like a
+	// missing one (#1577: no existence oracle).
 	AppRun *AppRunAppRun `json:"appRun"`
 }
 
@@ -3168,6 +3173,301 @@ type ApplyMemoryConfigTemplateResponse struct {
 // GetApplyMemoryConfigTemplate returns ApplyMemoryConfigTemplateResponse.ApplyMemoryConfigTemplate, and is useful for accessing the field via an interface.
 func (v *ApplyMemoryConfigTemplateResponse) GetApplyMemoryConfigTemplate() *ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult {
 	return v.ApplyMemoryConfigTemplate
+}
+
+// ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult includes the requested fields of the GraphQL type ApproveMemoryNodesResult.
+// The GraphQL type's documentation follows.
+//
+// #1591 — the outcome of approving every node of a memory.
+type ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult struct {
+	ApprovedCount int `json:"approvedCount"`
+	// Nodes whose current revision was already approved (left unchanged).
+	AlreadyApprovedCount int `json:"alreadyApprovedCount"`
+	// Locs of reserved placeholders, which have no spec to approve yet.
+	SkippedPlaceholders []string `json:"skippedPlaceholders"`
+	// Nodes newly approved by this call, ordered by loc.
+	Approved []*ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt `json:"approved"`
+}
+
+// GetApprovedCount returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult.ApprovedCount, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult) GetApprovedCount() int {
+	return v.ApprovedCount
+}
+
+// GetAlreadyApprovedCount returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult.AlreadyApprovedCount, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult) GetAlreadyApprovedCount() int {
+	return v.AlreadyApprovedCount
+}
+
+// GetSkippedPlaceholders returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult.SkippedPlaceholders, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult) GetSkippedPlaceholders() []string {
+	return v.SkippedPlaceholders
+}
+
+// GetApproved returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult.Approved, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult) GetApproved() []*ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt {
+	return v.Approved
+}
+
+// ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt includes the requested fields of the GraphQL type NodeApprovalReceipt.
+// The GraphQL type's documentation follows.
+//
+// #1591 — a node and its approval, returned by the approve mutations.
+type ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt struct {
+	NodeId   string                                                                                                       `json:"nodeId"`
+	Urn      string                                                                                                       `json:"urn"`
+	Loc      string                                                                                                       `json:"loc"`
+	Approval *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval `json:"approval"`
+}
+
+// GetNodeId returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt.NodeId, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetUrn returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt.Urn, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt) GetUrn() string {
+	return v.Urn
+}
+
+// GetLoc returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt.Loc, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt) GetLoc() string {
+	return v.Loc
+}
+
+// GetApproval returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt.Approval, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceipt) GetApproval() *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval {
+	return v.Approval
+}
+
+// ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval includes the requested fields of the GraphQL type NodeApproval.
+// The GraphQL type's documentation follows.
+//
+// #1591 — one recorded approval of a node revision.
+type ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval struct {
+	NodeApprovalFields `json:"-"`
+}
+
+// GetRevision returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval.Revision, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval) GetRevision() int {
+	return v.NodeApprovalFields.Revision
+}
+
+// GetApprovedAt returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval.ApprovedAt, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval) GetApprovedAt() string {
+	return v.NodeApprovalFields.ApprovedAt
+}
+
+// GetApprovedBy returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval.ApprovedBy, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval) GetApprovedBy() *NodeApprovalFieldsApprovedByNodeRevisionEditor {
+	return v.NodeApprovalFields.ApprovedBy
+}
+
+// GetApprovedByInfo returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval.ApprovedByInfo, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval) GetApprovedByInfo() *string {
+	return v.NodeApprovalFields.ApprovedByInfo
+}
+
+// GetHash returns ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval.Hash, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval) GetHash() string {
+	return v.NodeApprovalFields.Hash
+}
+
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeApprovalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval struct {
+	Revision int `json:"revision"`
+
+	ApprovedAt string `json:"approvedAt"`
+
+	ApprovedBy *NodeApprovalFieldsApprovedByNodeRevisionEditor `json:"approvedBy"`
+
+	ApprovedByInfo *string `json:"approvedByInfo"`
+
+	Hash string `json:"hash"`
+}
+
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval) __premarshalJSON() (*__premarshalApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval, error) {
+	var retval __premarshalApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNodeApprovalReceiptApprovalNodeApproval
+
+	retval.Revision = v.NodeApprovalFields.Revision
+	retval.ApprovedAt = v.NodeApprovalFields.ApprovedAt
+	retval.ApprovedBy = v.NodeApprovalFields.ApprovedBy
+	retval.ApprovedByInfo = v.NodeApprovalFields.ApprovedByInfo
+	retval.Hash = v.NodeApprovalFields.Hash
+	return &retval, nil
+}
+
+// ApproveMemoryNodesResponse is returned by ApproveMemoryNodes on success.
+type ApproveMemoryNodesResponse struct {
+	// #1591 — approve the current revision of every live, unminted node of a memory (ID or fully-qualified URN) that isn't approved yet, in one transaction. Placeholders are skipped and reported.
+	ApproveMemoryNodes *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult `json:"approveMemoryNodes"`
+}
+
+// GetApproveMemoryNodes returns ApproveMemoryNodesResponse.ApproveMemoryNodes, and is useful for accessing the field via an interface.
+func (v *ApproveMemoryNodesResponse) GetApproveMemoryNodes() *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult {
+	return v.ApproveMemoryNodes
+}
+
+// ApproveNodeApproveNodeNodeApprovalReceipt includes the requested fields of the GraphQL type NodeApprovalReceipt.
+// The GraphQL type's documentation follows.
+//
+// #1591 — a node and its approval, returned by the approve mutations.
+type ApproveNodeApproveNodeNodeApprovalReceipt struct {
+	NodeId   string                                                         `json:"nodeId"`
+	Urn      string                                                         `json:"urn"`
+	Loc      string                                                         `json:"loc"`
+	Approval *ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval `json:"approval"`
+}
+
+// GetNodeId returns ApproveNodeApproveNodeNodeApprovalReceipt.NodeId, and is useful for accessing the field via an interface.
+func (v *ApproveNodeApproveNodeNodeApprovalReceipt) GetNodeId() string { return v.NodeId }
+
+// GetUrn returns ApproveNodeApproveNodeNodeApprovalReceipt.Urn, and is useful for accessing the field via an interface.
+func (v *ApproveNodeApproveNodeNodeApprovalReceipt) GetUrn() string { return v.Urn }
+
+// GetLoc returns ApproveNodeApproveNodeNodeApprovalReceipt.Loc, and is useful for accessing the field via an interface.
+func (v *ApproveNodeApproveNodeNodeApprovalReceipt) GetLoc() string { return v.Loc }
+
+// GetApproval returns ApproveNodeApproveNodeNodeApprovalReceipt.Approval, and is useful for accessing the field via an interface.
+func (v *ApproveNodeApproveNodeNodeApprovalReceipt) GetApproval() *ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval {
+	return v.Approval
+}
+
+// ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval includes the requested fields of the GraphQL type NodeApproval.
+// The GraphQL type's documentation follows.
+//
+// #1591 — one recorded approval of a node revision.
+type ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval struct {
+	NodeApprovalFields `json:"-"`
+}
+
+// GetRevision returns ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval.Revision, and is useful for accessing the field via an interface.
+func (v *ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval) GetRevision() int {
+	return v.NodeApprovalFields.Revision
+}
+
+// GetApprovedAt returns ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval.ApprovedAt, and is useful for accessing the field via an interface.
+func (v *ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval) GetApprovedAt() string {
+	return v.NodeApprovalFields.ApprovedAt
+}
+
+// GetApprovedBy returns ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval.ApprovedBy, and is useful for accessing the field via an interface.
+func (v *ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval) GetApprovedBy() *NodeApprovalFieldsApprovedByNodeRevisionEditor {
+	return v.NodeApprovalFields.ApprovedBy
+}
+
+// GetApprovedByInfo returns ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval.ApprovedByInfo, and is useful for accessing the field via an interface.
+func (v *ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval) GetApprovedByInfo() *string {
+	return v.NodeApprovalFields.ApprovedByInfo
+}
+
+// GetHash returns ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval.Hash, and is useful for accessing the field via an interface.
+func (v *ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval) GetHash() string {
+	return v.NodeApprovalFields.Hash
+}
+
+func (v *ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeApprovalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval struct {
+	Revision int `json:"revision"`
+
+	ApprovedAt string `json:"approvedAt"`
+
+	ApprovedBy *NodeApprovalFieldsApprovedByNodeRevisionEditor `json:"approvedBy"`
+
+	ApprovedByInfo *string `json:"approvedByInfo"`
+
+	Hash string `json:"hash"`
+}
+
+func (v *ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval) __premarshalJSON() (*__premarshalApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval, error) {
+	var retval __premarshalApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval
+
+	retval.Revision = v.NodeApprovalFields.Revision
+	retval.ApprovedAt = v.NodeApprovalFields.ApprovedAt
+	retval.ApprovedBy = v.NodeApprovalFields.ApprovedBy
+	retval.ApprovedByInfo = v.NodeApprovalFields.ApprovedByInfo
+	retval.Hash = v.NodeApprovalFields.Hash
+	return &retval, nil
+}
+
+// ApproveNodeResponse is returned by ApproveNode on success.
+type ApproveNodeResponse struct {
+	// #1591 — approve the node's CURRENT revision: record who, when, and the
+	// approval hash of its title/abstract/content. Pass revision to approve only
+	// if it is still the one you read (REVISION_MISMATCH otherwise). Any writer of
+	// the memory may approve, the author included. Idempotent: an approved
+	// revision keeps its existing approval. Refuses NODE_IS_PLACEHOLDER, and
+	// SESSION_EXPIRED on an encrypted memory without its session key.
+	ApproveNode *ApproveNodeApproveNodeNodeApprovalReceipt `json:"approveNode"`
+}
+
+// GetApproveNode returns ApproveNodeResponse.ApproveNode, and is useful for accessing the field via an interface.
+func (v *ApproveNodeResponse) GetApproveNode() *ApproveNodeApproveNodeNodeApprovalReceipt {
+	return v.ApproveNode
 }
 
 // AppsAppsAppsPage includes the requested fields of the GraphQL type AppsPage.
@@ -5417,7 +5717,7 @@ var AllContentValidator = []ContentValidator{
 	ContentValidatorPlatform,
 }
 
-// #1447 — a spec corpus's lifecycle state. DRAFT becomes MINTED once, one-way.
+// #1447 — a spec corpus's state, derived from its nodes since #1591: DRAFT while no live node is minted, MINTED once any is.
 type CorpusState string
 
 const (
@@ -6405,18 +6705,17 @@ type CreateAppResponse struct {
 	// by that Organization and requires org ADMIN; without orgRef, it is owned by
 	// the authenticated User and remains owner-only.
 	//
-	// An org-owned install auto-provisions an AgentOrgGrant for (orgId, agentId).
+	// An org-owned install auto-provisions an AgentOrgGrant only for its own
+	// Agent. A cross-org install requires an existing active grant; subscribe to
+	// a PUBLIC Agent through createAgentOrgGrant before creating the App.
 	// It adds the caller as an AppMember with role 'owner' only when that role is
 	// present in the Agent's installationPolicy and the caller is a User.
 	// Required AgentImports cascade automatically for org-owned Apps; optional
 	// imports cascade only when their id appears in installOptional. Personal
 	// Apps reject dependency cascades in v1.
 	//
-	// 009-install-agent-flow: the cross-org install restriction (FR-009) is
-	// enforced at the portal — the Install affordance is hidden for Agents
-	// not owned by the calling org. The server still auto-provisions grants
-	// on first install (preserved from 008); a hard server-side cross-org
-	// gate is reserved for the marketplace spec.
+	// Selected dependencies must also be licensed before any App is created.
+	// The server enforces this even when a caller bypasses the portal.
 	//
 	// Accepts the entity's ID or URN.
 	CreateApp *CreateAppCreateApp `json:"createApp"`
@@ -16472,6 +16771,205 @@ type MintActionTicketsResponse struct {
 // GetMintActionTickets returns MintActionTicketsResponse.MintActionTickets, and is useful for accessing the field via an interface.
 func (v *MintActionTicketsResponse) GetMintActionTickets() int { return v.MintActionTickets }
 
+// MintMemoryNodesMintMemoryNodesSpecCorpusMintReport includes the requested fields of the GraphQL type SpecCorpusMintReport.
+// The GraphQL type's documentation follows.
+//
+// #1448 — the mint report. blockers must all be gone for a mint to succeed.
+// staleAbstracts are listed separately; they block only when
+// staleAbstractsBlock is true (once abstract re-affirmation is saved and
+// deployed, server#1408). openQuestions never block.
+type MintMemoryNodesMintMemoryNodesSpecCorpusMintReport struct {
+	MemoryId string `json:"memoryId"`
+	DryRun   bool   `json:"dryRun"`
+	// True when this call minted the corpus.
+	Minted bool `json:"minted"`
+	// #1591 — how many nodes this call minted (0 on a dry run or refusal).
+	MintedCount int `json:"mintedCount"`
+	// #1591 — the locs this call minted, or would mint on a dry run, ordered by loc.
+	MintLocs            []string                                                                                `json:"mintLocs"`
+	StaleAbstractsBlock bool                                                                                    `json:"staleAbstractsBlock"`
+	Blockers            []*MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding            `json:"blockers"`
+	StaleAbstracts      []*MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding      `json:"staleAbstracts"`
+	OpenQuestions       []*MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup `json:"openQuestions"`
+}
+
+// GetMemoryId returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReport.MemoryId, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReport) GetMemoryId() string { return v.MemoryId }
+
+// GetDryRun returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReport.DryRun, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReport) GetDryRun() bool { return v.DryRun }
+
+// GetMinted returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReport.Minted, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReport) GetMinted() bool { return v.Minted }
+
+// GetMintedCount returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReport.MintedCount, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReport) GetMintedCount() int {
+	return v.MintedCount
+}
+
+// GetMintLocs returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReport.MintLocs, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReport) GetMintLocs() []string {
+	return v.MintLocs
+}
+
+// GetStaleAbstractsBlock returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReport.StaleAbstractsBlock, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReport) GetStaleAbstractsBlock() bool {
+	return v.StaleAbstractsBlock
+}
+
+// GetBlockers returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReport.Blockers, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReport) GetBlockers() []*MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding {
+	return v.Blockers
+}
+
+// GetStaleAbstracts returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReport.StaleAbstracts, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReport) GetStaleAbstracts() []*MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding {
+	return v.StaleAbstracts
+}
+
+// GetOpenQuestions returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReport.OpenQuestions, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReport) GetOpenQuestions() []*MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup {
+	return v.OpenQuestions
+}
+
+// MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding includes the requested fields of the GraphQL type SpecMintFinding.
+// The GraphQL type's documentation follows.
+//
+// #1448 — one item in a mint report. loc is where it was found; targetLoc the cited spec, for a reference.
+type MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding struct {
+	Kind      SpecMintFindingKind `json:"kind"`
+	Rule      *string             `json:"rule"`
+	Loc       string              `json:"loc"`
+	TargetLoc *string             `json:"targetLoc"`
+	Message   string              `json:"message"`
+}
+
+// GetKind returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding.Kind, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding) GetKind() SpecMintFindingKind {
+	return v.Kind
+}
+
+// GetRule returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding.Rule, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding) GetRule() *string {
+	return v.Rule
+}
+
+// GetLoc returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding.Loc, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding) GetLoc() string {
+	return v.Loc
+}
+
+// GetTargetLoc returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding.TargetLoc, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding) GetTargetLoc() *string {
+	return v.TargetLoc
+}
+
+// GetMessage returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding.Message, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding) GetMessage() string {
+	return v.Message
+}
+
+// MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup includes the requested fields of the GraphQL type SpecOpenQuestionGroup.
+// The GraphQL type's documentation follows.
+//
+// #1448 — open questions grouped by who decides; decider null means unassigned.
+type MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup struct {
+	Decider   *string                                                                                                          `json:"decider"`
+	Questions []*MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion `json:"questions"`
+}
+
+// GetDecider returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup.Decider, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup) GetDecider() *string {
+	return v.Decider
+}
+
+// GetQuestions returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup.Questions, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroup) GetQuestions() []*MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion {
+	return v.Questions
+}
+
+// MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion includes the requested fields of the GraphQL type SpecOpenQuestion.
+// The GraphQL type's documentation follows.
+//
+// #1448 — one open question in the corpus (report-only, never blocks minting).
+type MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion struct {
+	Loc      string `json:"loc"`
+	Question string `json:"question"`
+}
+
+// GetLoc returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion.Loc, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion) GetLoc() string {
+	return v.Loc
+}
+
+// GetQuestion returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion.Question, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportOpenQuestionsSpecOpenQuestionGroupQuestionsSpecOpenQuestion) GetQuestion() string {
+	return v.Question
+}
+
+// MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding includes the requested fields of the GraphQL type SpecMintFinding.
+// The GraphQL type's documentation follows.
+//
+// #1448 — one item in a mint report. loc is where it was found; targetLoc the cited spec, for a reference.
+type MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding struct {
+	Kind      SpecMintFindingKind `json:"kind"`
+	Rule      *string             `json:"rule"`
+	Loc       string              `json:"loc"`
+	TargetLoc *string             `json:"targetLoc"`
+	Message   string              `json:"message"`
+}
+
+// GetKind returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding.Kind, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding) GetKind() SpecMintFindingKind {
+	return v.Kind
+}
+
+// GetRule returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding.Rule, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding) GetRule() *string {
+	return v.Rule
+}
+
+// GetLoc returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding.Loc, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding) GetLoc() string {
+	return v.Loc
+}
+
+// GetTargetLoc returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding.TargetLoc, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding) GetTargetLoc() *string {
+	return v.TargetLoc
+}
+
+// GetMessage returns MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding.Message, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMintFinding) GetMessage() string {
+	return v.Message
+}
+
+// MintMemoryNodesResponse is returned by MintMemoryNodes on success.
+type MintMemoryNodesResponse struct {
+	// #1591 — mint every unminted live node of a memory, at once. Each node is
+	// stamped with its current revision and that revision's approval hash
+	// (Node.mintStatus); a minted node's moves then record URN aliases. Refuses
+	// SPEC_CORPUS_MINT_BLOCKED while any blocker remains among the unminted
+	// nodes: a placeholder, an unresolved reference, a structural lint error over
+	// the citation-shaped nodes (nodetype-info, tag-spec, serialization-leak,
+	// duplicate-loc), a stale abstract once staleAbstractsBlock is true,
+	// NOT_APPROVED (the current revision is not approved), TAMPERED (approved
+	// text changed outside the revision system), or CITES_UNMINTED (an
+	// edge into another memory's node that is not minted). Nodes minted earlier
+	// are not re-checked. dryRun returns the full report without minting. Any
+	// writer of the memory. memoryRef accepts the ID or URN. A real run holds
+	// every write to the memory off while it checks and stamps, and refuses
+	// SPEC_CORPUS_BUSY (retryable) if a write is already in flight. Encrypted
+	// memories are refused (SPEC_CORPUS_ENCRYPTED_UNSUPPORTED). Minting protects
+	// nothing by itself: minted-spec permanence (#1468) is switched off for now.
+	MintMemoryNodes *MintMemoryNodesMintMemoryNodesSpecCorpusMintReport `json:"mintMemoryNodes"`
+}
+
+// GetMintMemoryNodes returns MintMemoryNodesResponse.MintMemoryNodes, and is useful for accessing the field via an interface.
+func (v *MintMemoryNodesResponse) GetMintMemoryNodes() *MintMemoryNodesMintMemoryNodesSpecCorpusMintReport {
+	return v.MintMemoryNodes
+}
+
 // MintSpecCorpusMintSpecCorpusSpecCorpusMintReport includes the requested fields of the GraphQL type SpecCorpusMintReport.
 // The GraphQL type's documentation follows.
 //
@@ -16633,23 +17131,7 @@ func (v *MintSpecCorpusMintSpecCorpusSpecCorpusMintReportStaleAbstractsSpecMintF
 
 // MintSpecCorpusResponse is returned by MintSpecCorpus on success.
 type MintSpecCorpusResponse struct {
-	// #1448 — mint a DRAFT spec corpus: once, one-way, for the whole corpus.
-	// After minting, citations are permanent (moves record URN aliases again) and
-	// no placeholder can be reserved. Refuses SPEC_CORPUS_MINT_BLOCKED while any
-	// blocker remains: a placeholder, an unresolved reference, a structural lint
-	// error over the citation-shaped nodes (nodetype-info, tag-spec,
-	// serialization-leak, duplicate-loc), or a stale abstract once
-	// staleAbstractsBlock is true. dryRun returns the full report without
-	// minting. Owner or org ADMIN only. memoryRef accepts the ID or URN. A real
-	// run holds every write to the corpus off while it checks and flips, and
-	// refuses SPEC_CORPUS_BUSY (retryable) if a write is already in flight.
-	// #1468 — a minted spec is then permanent: every path that would remove one
-	// from the corpus refuses SPEC_MINTED_PERMANENT, naming the specs (deleteNode
-	// soft or hard, a move to another memory or an overwrite of its citation,
-	// mergeNodes with deleteSource, extracting with move, a merge or deletion of
-	// the whole corpus, git-sync pruning, and account erasure while the owner
-	// still holds it). Supersede a spec to replace it; a rename within the corpus
-	// still records its URN alias.
+	// #1448, generalized by #1591 — the same operation as mintMemoryNodes, kept under its original name.
 	MintSpecCorpus *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport `json:"mintSpecCorpus"`
 }
 
@@ -16868,6 +17350,182 @@ type MyUserApiKeysResponse struct {
 // GetMyUserApiKeys returns MyUserApiKeysResponse.MyUserApiKeys, and is useful for accessing the field via an interface.
 func (v *MyUserApiKeysResponse) GetMyUserApiKeys() []*MyUserApiKeysMyUserApiKeysUserApiKey {
 	return v.MyUserApiKeys
+}
+
+// NodeApprovalFields includes the GraphQL fields of NodeApproval requested by the fragment NodeApprovalFields.
+// The GraphQL type's documentation follows.
+//
+// #1591 — one recorded approval of a node revision.
+type NodeApprovalFields struct {
+	// The approved revision number (Node.revision at approval time).
+	Revision   int    `json:"revision"`
+	ApprovedAt string `json:"approvedAt"`
+	// The approving user's public identifiers; null when the approver was not a user (see approvedByInfo).
+	ApprovedBy *NodeApprovalFieldsApprovedByNodeRevisionEditor `json:"approvedBy"`
+	// The approving principal when no user is known, e.g. app:<id>.
+	ApprovedByInfo *string `json:"approvedByInfo"`
+	// Approval hash v1 at approval time: 64 lowercase hex of SHA-256 over the canonical title/abstract/content serialization (src/lib/approvalHash.ts).
+	Hash string `json:"hash"`
+}
+
+// GetRevision returns NodeApprovalFields.Revision, and is useful for accessing the field via an interface.
+func (v *NodeApprovalFields) GetRevision() int { return v.Revision }
+
+// GetApprovedAt returns NodeApprovalFields.ApprovedAt, and is useful for accessing the field via an interface.
+func (v *NodeApprovalFields) GetApprovedAt() string { return v.ApprovedAt }
+
+// GetApprovedBy returns NodeApprovalFields.ApprovedBy, and is useful for accessing the field via an interface.
+func (v *NodeApprovalFields) GetApprovedBy() *NodeApprovalFieldsApprovedByNodeRevisionEditor {
+	return v.ApprovedBy
+}
+
+// GetApprovedByInfo returns NodeApprovalFields.ApprovedByInfo, and is useful for accessing the field via an interface.
+func (v *NodeApprovalFields) GetApprovedByInfo() *string { return v.ApprovedByInfo }
+
+// GetHash returns NodeApprovalFields.Hash, and is useful for accessing the field via an interface.
+func (v *NodeApprovalFields) GetHash() string { return v.Hash }
+
+// NodeApprovalFieldsApprovedByNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type NodeApprovalFieldsApprovedByNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns NodeApprovalFieldsApprovedByNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *NodeApprovalFieldsApprovedByNodeRevisionEditor) GetHandle() *string { return v.Handle }
+
+// GetUrn returns NodeApprovalFieldsApprovedByNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *NodeApprovalFieldsApprovedByNodeRevisionEditor) GetUrn() *string { return v.Urn }
+
+// #1591 — whether a node's current revision is approved.
+type NodeApprovalState string
+
+const (
+	// The current revision is approved.
+	NodeApprovalStateApproved NodeApprovalState = "APPROVED"
+	// Never approved.
+	NodeApprovalStateNotApproved NodeApprovalState = "NOT_APPROVED"
+	// Approved once, edited since: the approval covers an older revision.
+	NodeApprovalStateSuperseded NodeApprovalState = "SUPERSEDED"
+)
+
+var AllNodeApprovalState = []NodeApprovalState{
+	NodeApprovalStateApproved,
+	NodeApprovalStateNotApproved,
+	NodeApprovalStateSuperseded,
+}
+
+// NodeApprovalStatusFields includes the GraphQL fields of NodeApprovalStatus requested by the fragment NodeApprovalStatusFields.
+// The GraphQL type's documentation follows.
+//
+// #1591 — a node's approval state plus its latest approval.
+type NodeApprovalStatusFields struct {
+	State NodeApprovalState `json:"state"`
+	// The latest approval on record; null when NOT_APPROVED.
+	Approval *NodeApprovalStatusFieldsApprovalNodeApproval `json:"approval"`
+}
+
+// GetState returns NodeApprovalStatusFields.State, and is useful for accessing the field via an interface.
+func (v *NodeApprovalStatusFields) GetState() NodeApprovalState { return v.State }
+
+// GetApproval returns NodeApprovalStatusFields.Approval, and is useful for accessing the field via an interface.
+func (v *NodeApprovalStatusFields) GetApproval() *NodeApprovalStatusFieldsApprovalNodeApproval {
+	return v.Approval
+}
+
+// NodeApprovalStatusFieldsApprovalNodeApproval includes the requested fields of the GraphQL type NodeApproval.
+// The GraphQL type's documentation follows.
+//
+// #1591 — one recorded approval of a node revision.
+type NodeApprovalStatusFieldsApprovalNodeApproval struct {
+	NodeApprovalFields `json:"-"`
+}
+
+// GetRevision returns NodeApprovalStatusFieldsApprovalNodeApproval.Revision, and is useful for accessing the field via an interface.
+func (v *NodeApprovalStatusFieldsApprovalNodeApproval) GetRevision() int {
+	return v.NodeApprovalFields.Revision
+}
+
+// GetApprovedAt returns NodeApprovalStatusFieldsApprovalNodeApproval.ApprovedAt, and is useful for accessing the field via an interface.
+func (v *NodeApprovalStatusFieldsApprovalNodeApproval) GetApprovedAt() string {
+	return v.NodeApprovalFields.ApprovedAt
+}
+
+// GetApprovedBy returns NodeApprovalStatusFieldsApprovalNodeApproval.ApprovedBy, and is useful for accessing the field via an interface.
+func (v *NodeApprovalStatusFieldsApprovalNodeApproval) GetApprovedBy() *NodeApprovalFieldsApprovedByNodeRevisionEditor {
+	return v.NodeApprovalFields.ApprovedBy
+}
+
+// GetApprovedByInfo returns NodeApprovalStatusFieldsApprovalNodeApproval.ApprovedByInfo, and is useful for accessing the field via an interface.
+func (v *NodeApprovalStatusFieldsApprovalNodeApproval) GetApprovedByInfo() *string {
+	return v.NodeApprovalFields.ApprovedByInfo
+}
+
+// GetHash returns NodeApprovalStatusFieldsApprovalNodeApproval.Hash, and is useful for accessing the field via an interface.
+func (v *NodeApprovalStatusFieldsApprovalNodeApproval) GetHash() string {
+	return v.NodeApprovalFields.Hash
+}
+
+func (v *NodeApprovalStatusFieldsApprovalNodeApproval) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeApprovalStatusFieldsApprovalNodeApproval
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeApprovalStatusFieldsApprovalNodeApproval = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeApprovalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeApprovalStatusFieldsApprovalNodeApproval struct {
+	Revision int `json:"revision"`
+
+	ApprovedAt string `json:"approvedAt"`
+
+	ApprovedBy *NodeApprovalFieldsApprovedByNodeRevisionEditor `json:"approvedBy"`
+
+	ApprovedByInfo *string `json:"approvedByInfo"`
+
+	Hash string `json:"hash"`
+}
+
+func (v *NodeApprovalStatusFieldsApprovalNodeApproval) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeApprovalStatusFieldsApprovalNodeApproval) __premarshalJSON() (*__premarshalNodeApprovalStatusFieldsApprovalNodeApproval, error) {
+	var retval __premarshalNodeApprovalStatusFieldsApprovalNodeApproval
+
+	retval.Revision = v.NodeApprovalFields.Revision
+	retval.ApprovedAt = v.NodeApprovalFields.ApprovedAt
+	retval.ApprovedBy = v.NodeApprovalFields.ApprovedBy
+	retval.ApprovedByInfo = v.NodeApprovalFields.ApprovedByInfo
+	retval.Hash = v.NodeApprovalFields.Hash
+	return &retval, nil
 }
 
 // #1326 — attribution of a content state. taskRef is REDACTED (null) by the
@@ -17537,7 +18195,9 @@ func (v *NodeExportResponse) GetNodeExport() *NodeExportNodeExportNodeExportResu
 
 // Structured, unscored, AND-combined filter context for findNodes (cor:api:090:02).
 type NodeFilter struct {
-	CreatedBy *string `json:"createdBy,omitempty"`
+	// #1591 — only nodes in this approval state (read from the stored revision; a node changed outside a revisioned writer is reconciled on its next read).
+	ApprovalState *NodeApprovalState `json:"approvalState,omitempty"`
+	CreatedBy     *string            `json:"createdBy,omitempty"`
 	// Include soft-deleted nodes (default false).
 	IncludeDeleted *bool   `json:"includeDeleted,omitempty"`
 	IsRunnable     *bool   `json:"isRunnable,omitempty"`
@@ -17546,7 +18206,9 @@ type NodeFilter struct {
 	MemoryClasses []MemoryClass `json:"memoryClasses,omitempty"`
 	// Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
 	MemoryIds []string `json:"memoryIds,omitempty"`
-	NodeType  *string  `json:"nodeType,omitempty"`
+	// #1591 — only minted (true) or unminted (false) nodes.
+	Minted   *bool   `json:"minted,omitempty"`
+	NodeType *string `json:"nodeType,omitempty"`
 	// #725 — collection facet: only nodes whose objectType equals this (e.g. "competitor").
 	ObjectType *string `json:"objectType,omitempty"`
 	// #1322 — role-family filter. 'spec' matches 'spec' and 'spec.*' on a dot boundary, never 'special' / 'specification'.
@@ -17557,6 +18219,9 @@ type NodeFilter struct {
 	// Structured predicate over the node's properties/data JSONB (#719).
 	Where *gqltypes.NodeWhereInput `json:"where,omitempty"`
 }
+
+// GetApprovalState returns NodeFilter.ApprovalState, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetApprovalState() *NodeApprovalState { return v.ApprovalState }
 
 // GetCreatedBy returns NodeFilter.CreatedBy, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetCreatedBy() *string { return v.CreatedBy }
@@ -17575,6 +18240,9 @@ func (v *NodeFilter) GetMemoryClasses() []MemoryClass { return v.MemoryClasses }
 
 // GetMemoryIds returns NodeFilter.MemoryIds, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetMemoryIds() []string { return v.MemoryIds }
+
+// GetMinted returns NodeFilter.Minted, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetMinted() *bool { return v.Minted }
 
 // GetNodeType returns NodeFilter.NodeType, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetNodeType() *string { return v.NodeType }
@@ -17596,6 +18264,763 @@ func (v *NodeFilter) GetUpdatedBefore() *string { return v.UpdatedBefore }
 
 // GetWhere returns NodeFilter.Where, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetWhere() *gqltypes.NodeWhereInput { return v.Where }
+
+// #1591 — the tamper check's verdict.
+type NodeIntegrityState string
+
+const (
+	// The current revision is approved and its text still hashes to the approval.
+	NodeIntegrityStateIntact NodeIntegrityState = "INTACT"
+	// Never approved: nothing to verify against.
+	NodeIntegrityStateNotApproved NodeIntegrityState = "NOT_APPROVED"
+	// Edited (a new revision) since the last approval. Not a tamper finding.
+	NodeIntegrityStateSuperseded NodeIntegrityState = "SUPERSEDED"
+	// Approved text no longer hashes to its approval: it changed outside the revision system.
+	NodeIntegrityStateTampered NodeIntegrityState = "TAMPERED"
+)
+
+var AllNodeIntegrityState = []NodeIntegrityState{
+	NodeIntegrityStateIntact,
+	NodeIntegrityStateNotApproved,
+	NodeIntegrityStateSuperseded,
+	NodeIntegrityStateTampered,
+}
+
+// NodeLiveRevisionsApprovedNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type NodeLiveRevisionsApprovedNodeBatchNodeBatchResult struct {
+	Truncated   bool                                                          `json:"truncated"`
+	Omitted     []string                                                      `json:"omitted"`
+	Unavailable []string                                                      `json:"unavailable"`
+	Nodes       []*NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetTruncated returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
+
+// GetUnavailable returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResult) GetUnavailable() []string {
+	return v.Unavailable
+}
+
+// GetNodes returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResult) GetNodes() []*NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode struct {
+	Id string `json:"id"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int `json:"revision"`
+	// #1326 — attribution of this content state. Null means legacy or unknown. Task identity is redacted unless its memory is independently readable.
+	Authorship *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship `json:"authorship"`
+	// #1326 — advisory validation for this exact revision. A report for an older revision is STALE.
+	ContentValidation *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus `json:"contentValidation"`
+	// #1591 — whether the current revision is approved, and the latest approval on record.
+	ApprovalStatus *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus `json:"approvalStatus"`
+}
+
+// GetId returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetRevision returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode.Revision, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode) GetRevision() int {
+	return v.Revision
+}
+
+// GetAuthorship returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode.Authorship, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode) GetAuthorship() *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship {
+	return v.Authorship
+}
+
+// GetContentValidation returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode.ContentValidation, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode) GetContentValidation() *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus {
+	return v.ContentValidation
+}
+
+// GetApprovalStatus returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode.ApprovalStatus, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNode) GetApprovalStatus() *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus {
+	return v.ApprovalStatus
+}
+
+// NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus includes the requested fields of the GraphQL type NodeApprovalStatus.
+// The GraphQL type's documentation follows.
+//
+// #1591 — a node's approval state plus its latest approval.
+type NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus struct {
+	NodeApprovalStatusFields `json:"-"`
+}
+
+// GetState returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus.State, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus) GetState() NodeApprovalState {
+	return v.NodeApprovalStatusFields.State
+}
+
+// GetApproval returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus.Approval, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus) GetApproval() *NodeApprovalStatusFieldsApprovalNodeApproval {
+	return v.NodeApprovalStatusFields.Approval
+}
+
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeApprovalStatusFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus struct {
+	State NodeApprovalState `json:"state"`
+
+	Approval *NodeApprovalStatusFieldsApprovalNodeApproval `json:"approval"`
+}
+
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus) __premarshalJSON() (*__premarshalNodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus, error) {
+	var retval __premarshalNodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeApprovalStatus
+
+	retval.State = v.NodeApprovalStatusFields.State
+	retval.Approval = v.NodeApprovalStatusFields.Approval
+	return &retval, nil
+}
+
+// NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship includes the requested fields of the GraphQL type NodeAuthorship.
+type NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship struct {
+	NodeAuthorshipFields `json:"-"`
+}
+
+// GetKind returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship.Kind, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship) GetKind() NodeAuthorshipKind {
+	return v.NodeAuthorshipFields.Kind
+}
+
+// GetAuthoredAt returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship.AuthoredAt, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship) GetAuthoredAt() string {
+	return v.NodeAuthorshipFields.AuthoredAt
+}
+
+// GetTaskRef returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship.TaskRef, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship) GetTaskRef() *string {
+	return v.NodeAuthorshipFields.TaskRef
+}
+
+// GetTaskRevision returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship.TaskRevision, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship) GetTaskRevision() *int {
+	return v.NodeAuthorshipFields.TaskRevision
+}
+
+// GetHuman returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship.Human, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship) GetHuman() *NodeAuthorshipFieldsHumanNodeRevisionEditor {
+	return v.NodeAuthorshipFields.Human
+}
+
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeAuthorshipFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship struct {
+	Kind NodeAuthorshipKind `json:"kind"`
+
+	AuthoredAt string `json:"authoredAt"`
+
+	TaskRef *string `json:"taskRef"`
+
+	TaskRevision *int `json:"taskRevision"`
+
+	Human *NodeAuthorshipFieldsHumanNodeRevisionEditor `json:"human"`
+}
+
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship) __premarshalJSON() (*__premarshalNodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship, error) {
+	var retval __premarshalNodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeAuthorship
+
+	retval.Kind = v.NodeAuthorshipFields.Kind
+	retval.AuthoredAt = v.NodeAuthorshipFields.AuthoredAt
+	retval.TaskRef = v.NodeAuthorshipFields.TaskRef
+	retval.TaskRevision = v.NodeAuthorshipFields.TaskRevision
+	retval.Human = v.NodeAuthorshipFields.Human
+	return &retval, nil
+}
+
+// NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus includes the requested fields of the GraphQL type NodeContentValidationStatus.
+type NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus struct {
+	NodeContentValidationFields `json:"-"`
+}
+
+// GetState returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus.State, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) GetState() NodeContentValidationState {
+	return v.NodeContentValidationFields.State
+}
+
+// GetLatestReport returns NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus.LatestReport, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) GetLatestReport() *NodeContentValidationFieldsLatestReportNodeContentValidationReport {
+	return v.NodeContentValidationFields.LatestReport
+}
+
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeContentValidationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus struct {
+	State NodeContentValidationState `json:"state"`
+
+	LatestReport *NodeContentValidationFieldsLatestReportNodeContentValidationReport `json:"latestReport"`
+}
+
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) __premarshalJSON() (*__premarshalNodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus, error) {
+	var retval __premarshalNodeLiveRevisionsApprovedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus
+
+	retval.State = v.NodeContentValidationFields.State
+	retval.LatestReport = v.NodeContentValidationFields.LatestReport
+	return &retval, nil
+}
+
+// NodeLiveRevisionsApprovedResponse is returned by NodeLiveRevisionsApproved on success.
+type NodeLiveRevisionsApprovedResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	NodeBatch *NodeLiveRevisionsApprovedNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns NodeLiveRevisionsApprovedResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsApprovedResponse) GetNodeBatch() *NodeLiveRevisionsApprovedNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
+
+// NodeLiveRevisionsMintedNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type NodeLiveRevisionsMintedNodeBatchNodeBatchResult struct {
+	Truncated   bool                                                        `json:"truncated"`
+	Omitted     []string                                                    `json:"omitted"`
+	Unavailable []string                                                    `json:"unavailable"`
+	Nodes       []*NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetTruncated returns NodeLiveRevisionsMintedNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns NodeLiveRevisionsMintedNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
+
+// GetUnavailable returns NodeLiveRevisionsMintedNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResult) GetUnavailable() []string {
+	return v.Unavailable
+}
+
+// GetNodes returns NodeLiveRevisionsMintedNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResult) GetNodes() []*NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode struct {
+	Id string `json:"id"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int `json:"revision"`
+	// #1326 — attribution of this content state. Null means legacy or unknown. Task identity is redacted unless its memory is independently readable.
+	Authorship *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship `json:"authorship"`
+	// #1326 — advisory validation for this exact revision. A report for an older revision is STALE.
+	ContentValidation *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus `json:"contentValidation"`
+	// #1591 — whether the current revision is approved, and the latest approval on record.
+	ApprovalStatus *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus `json:"approvalStatus"`
+	// #1591 — whether this node is minted, and the record of it.
+	MintStatus *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus `json:"mintStatus"`
+}
+
+// GetId returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetRevision returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode.Revision, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode) GetRevision() int {
+	return v.Revision
+}
+
+// GetAuthorship returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode.Authorship, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode) GetAuthorship() *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship {
+	return v.Authorship
+}
+
+// GetContentValidation returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode.ContentValidation, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode) GetContentValidation() *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus {
+	return v.ContentValidation
+}
+
+// GetApprovalStatus returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode.ApprovalStatus, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode) GetApprovalStatus() *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus {
+	return v.ApprovalStatus
+}
+
+// GetMintStatus returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode.MintStatus, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNode) GetMintStatus() *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus {
+	return v.MintStatus
+}
+
+// NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus includes the requested fields of the GraphQL type NodeApprovalStatus.
+// The GraphQL type's documentation follows.
+//
+// #1591 — a node's approval state plus its latest approval.
+type NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus struct {
+	NodeApprovalStatusFields `json:"-"`
+}
+
+// GetState returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus.State, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus) GetState() NodeApprovalState {
+	return v.NodeApprovalStatusFields.State
+}
+
+// GetApproval returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus.Approval, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus) GetApproval() *NodeApprovalStatusFieldsApprovalNodeApproval {
+	return v.NodeApprovalStatusFields.Approval
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeApprovalStatusFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus struct {
+	State NodeApprovalState `json:"state"`
+
+	Approval *NodeApprovalStatusFieldsApprovalNodeApproval `json:"approval"`
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus) __premarshalJSON() (*__premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus, error) {
+	var retval __premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeApprovalStatus
+
+	retval.State = v.NodeApprovalStatusFields.State
+	retval.Approval = v.NodeApprovalStatusFields.Approval
+	return &retval, nil
+}
+
+// NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship includes the requested fields of the GraphQL type NodeAuthorship.
+type NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship struct {
+	NodeAuthorshipFields `json:"-"`
+}
+
+// GetKind returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship.Kind, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship) GetKind() NodeAuthorshipKind {
+	return v.NodeAuthorshipFields.Kind
+}
+
+// GetAuthoredAt returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship.AuthoredAt, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship) GetAuthoredAt() string {
+	return v.NodeAuthorshipFields.AuthoredAt
+}
+
+// GetTaskRef returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship.TaskRef, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship) GetTaskRef() *string {
+	return v.NodeAuthorshipFields.TaskRef
+}
+
+// GetTaskRevision returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship.TaskRevision, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship) GetTaskRevision() *int {
+	return v.NodeAuthorshipFields.TaskRevision
+}
+
+// GetHuman returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship.Human, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship) GetHuman() *NodeAuthorshipFieldsHumanNodeRevisionEditor {
+	return v.NodeAuthorshipFields.Human
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeAuthorshipFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship struct {
+	Kind NodeAuthorshipKind `json:"kind"`
+
+	AuthoredAt string `json:"authoredAt"`
+
+	TaskRef *string `json:"taskRef"`
+
+	TaskRevision *int `json:"taskRevision"`
+
+	Human *NodeAuthorshipFieldsHumanNodeRevisionEditor `json:"human"`
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship) __premarshalJSON() (*__premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship, error) {
+	var retval __premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeAuthorship
+
+	retval.Kind = v.NodeAuthorshipFields.Kind
+	retval.AuthoredAt = v.NodeAuthorshipFields.AuthoredAt
+	retval.TaskRef = v.NodeAuthorshipFields.TaskRef
+	retval.TaskRevision = v.NodeAuthorshipFields.TaskRevision
+	retval.Human = v.NodeAuthorshipFields.Human
+	return &retval, nil
+}
+
+// NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus includes the requested fields of the GraphQL type NodeContentValidationStatus.
+type NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus struct {
+	NodeContentValidationFields `json:"-"`
+}
+
+// GetState returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus.State, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) GetState() NodeContentValidationState {
+	return v.NodeContentValidationFields.State
+}
+
+// GetLatestReport returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus.LatestReport, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) GetLatestReport() *NodeContentValidationFieldsLatestReportNodeContentValidationReport {
+	return v.NodeContentValidationFields.LatestReport
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeContentValidationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus struct {
+	State NodeContentValidationState `json:"state"`
+
+	LatestReport *NodeContentValidationFieldsLatestReportNodeContentValidationReport `json:"latestReport"`
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus) __premarshalJSON() (*__premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus, error) {
+	var retval __premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidationNodeContentValidationStatus
+
+	retval.State = v.NodeContentValidationFields.State
+	retval.LatestReport = v.NodeContentValidationFields.LatestReport
+	return &retval, nil
+}
+
+// NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus includes the requested fields of the GraphQL type NodeMintStatus.
+// The GraphQL type's documentation follows.
+//
+// #1591 — whether a node is minted, and the record of it. Minting protects nothing by itself (permanence is off for now).
+type NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus struct {
+	NodeMintStatusFields `json:"-"`
+}
+
+// GetMinted returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus.Minted, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus) GetMinted() bool {
+	return v.NodeMintStatusFields.Minted
+}
+
+// GetMintedAt returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus.MintedAt, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus) GetMintedAt() *string {
+	return v.NodeMintStatusFields.MintedAt
+}
+
+// GetMintedBy returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus.MintedBy, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus) GetMintedBy() *NodeMintStatusFieldsMintedByNodeRevisionEditor {
+	return v.NodeMintStatusFields.MintedBy
+}
+
+// GetMintedByInfo returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus.MintedByInfo, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus) GetMintedByInfo() *string {
+	return v.NodeMintStatusFields.MintedByInfo
+}
+
+// GetRevision returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus.Revision, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus) GetRevision() *int {
+	return v.NodeMintStatusFields.Revision
+}
+
+// GetHash returns NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus.Hash, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus) GetHash() *string {
+	return v.NodeMintStatusFields.Hash
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeMintStatusFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus struct {
+	Minted bool `json:"minted"`
+
+	MintedAt *string `json:"mintedAt"`
+
+	MintedBy *NodeMintStatusFieldsMintedByNodeRevisionEditor `json:"mintedBy"`
+
+	MintedByInfo *string `json:"mintedByInfo"`
+
+	Revision *int `json:"revision"`
+
+	Hash *string `json:"hash"`
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus) __premarshalJSON() (*__premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus, error) {
+	var retval __premarshalNodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus
+
+	retval.Minted = v.NodeMintStatusFields.Minted
+	retval.MintedAt = v.NodeMintStatusFields.MintedAt
+	retval.MintedBy = v.NodeMintStatusFields.MintedBy
+	retval.MintedByInfo = v.NodeMintStatusFields.MintedByInfo
+	retval.Revision = v.NodeMintStatusFields.Revision
+	retval.Hash = v.NodeMintStatusFields.Hash
+	return &retval, nil
+}
+
+// NodeLiveRevisionsMintedResponse is returned by NodeLiveRevisionsMinted on success.
+type NodeLiveRevisionsMintedResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	NodeBatch *NodeLiveRevisionsMintedNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns NodeLiveRevisionsMintedResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *NodeLiveRevisionsMintedResponse) GetNodeBatch() *NodeLiveRevisionsMintedNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
 
 // NodeLiveRevisionsNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
 // The GraphQL type's documentation follows.
@@ -17948,6 +19373,61 @@ var AllNodeMergeField = []NodeMergeField{
 	NodeMergeFieldProperties,
 	NodeMergeFieldTags,
 }
+
+// NodeMintStatusFields includes the GraphQL fields of NodeMintStatus requested by the fragment NodeMintStatusFields.
+// The GraphQL type's documentation follows.
+//
+// #1591 — whether a node is minted, and the record of it. Minting protects nothing by itself (permanence is off for now).
+type NodeMintStatusFields struct {
+	Minted   bool    `json:"minted"`
+	MintedAt *string `json:"mintedAt"`
+	// The minting user's public identifiers; null when not a user (see mintedByInfo).
+	MintedBy *NodeMintStatusFieldsMintedByNodeRevisionEditor `json:"mintedBy"`
+	// The minting principal when no user is known, e.g. app:<id>, or backfill for nodes minted by the #1591 migration.
+	MintedByInfo *string `json:"mintedByInfo"`
+	// The revision that was minted. Null for nodes backfilled as minted, whose minted revision is unknown.
+	Revision *int `json:"revision"`
+	// The approval hash of the minted revision. Null for backfilled nodes, which were never approved.
+	Hash *string `json:"hash"`
+}
+
+// GetMinted returns NodeMintStatusFields.Minted, and is useful for accessing the field via an interface.
+func (v *NodeMintStatusFields) GetMinted() bool { return v.Minted }
+
+// GetMintedAt returns NodeMintStatusFields.MintedAt, and is useful for accessing the field via an interface.
+func (v *NodeMintStatusFields) GetMintedAt() *string { return v.MintedAt }
+
+// GetMintedBy returns NodeMintStatusFields.MintedBy, and is useful for accessing the field via an interface.
+func (v *NodeMintStatusFields) GetMintedBy() *NodeMintStatusFieldsMintedByNodeRevisionEditor {
+	return v.MintedBy
+}
+
+// GetMintedByInfo returns NodeMintStatusFields.MintedByInfo, and is useful for accessing the field via an interface.
+func (v *NodeMintStatusFields) GetMintedByInfo() *string { return v.MintedByInfo }
+
+// GetRevision returns NodeMintStatusFields.Revision, and is useful for accessing the field via an interface.
+func (v *NodeMintStatusFields) GetRevision() *int { return v.Revision }
+
+// GetHash returns NodeMintStatusFields.Hash, and is useful for accessing the field via an interface.
+func (v *NodeMintStatusFields) GetHash() *string { return v.Hash }
+
+// NodeMintStatusFieldsMintedByNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type NodeMintStatusFieldsMintedByNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns NodeMintStatusFieldsMintedByNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *NodeMintStatusFieldsMintedByNodeRevisionEditor) GetHandle() *string { return v.Handle }
+
+// GetUrn returns NodeMintStatusFieldsMintedByNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *NodeMintStatusFieldsMintedByNodeRevisionEditor) GetUrn() *string { return v.Urn }
 
 // NodeRevisionNodeRevision includes the requested fields of the GraphQL type NodeRevision.
 type NodeRevisionNodeRevision struct {
@@ -21322,8 +22802,9 @@ func (v *RenumberSpecRenumberSpecSpecRenumberResultTextCitationsSpecTextCitation
 
 // RenumberSpecResponse is returned by RenumberSpec on success.
 type RenumberSpecResponse struct {
-	// #1449 — renumber a spec in a DRAFT spec corpus: move it and its subtree
-	// from fromLoc to toLoc (no URN alias in a draft), then rewrite every node
+	// #1449 — renumber an UNMINTED spec (#1591: draft rights are per node): move
+	// it and its subtree from fromLoc to toLoc with no URN alias, refusing
+	// NODE_MINTED { locs } if any moved node is minted, then rewrite every node
 	// URN in the corpus that cites the moved specs, each as a normal edit. Bare
 	// text citations (labels, names) are reported in textCitations, not
 	// rewritten. dryRun returns the plan and writes nothing. The move is atomic;
@@ -21380,13 +22861,12 @@ func (v *ReserveSpecCitationReserveSpecCitationNode) GetIsPlaceholder() bool { r
 
 // ReserveSpecCitationResponse is returned by ReserveSpecCitation on success.
 type ReserveSpecCitationResponse struct {
-	// #1450 — reserve a citation in a DRAFT spec corpus as a placeholder: a spec
-	// node at loc (role spec, nodeType info) marked isPlaceholder, so links can
-	// point at it and the placeholders left are the corpus's to-do list. Writing
-	// real content through updateSpecNode turns it into a real spec at the same
-	// citation. Refuses SPEC_CORPUS_NOT_DRAFT in a minted memory, where a
-	// citation is permanent once written, and NodeLocConflictError at a live loc.
-	// memoryRef accepts the memory's ID or URN.
+	// #1450 — reserve a citation as a placeholder, in any memory since #1591: an
+	// unminted spec node at loc (role spec, nodeType info) marked isPlaceholder,
+	// so links can point at it and the placeholders left are the corpus's to-do
+	// list. Writing real content through updateSpecNode turns it into a real spec
+	// at the same citation; minting refuses while a placeholder remains. Refuses
+	// NodeLocConflictError at a live loc. memoryRef accepts the memory's ID or URN.
 	ReserveSpecCitation *ReserveSpecCitationReserveSpecCitationNode `json:"reserveSpecCitation"`
 }
 
@@ -23483,7 +24963,7 @@ func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearc
 
 // SearchReplaceInSpecNodesResponse is returned by SearchReplaceInSpecNodes on success.
 type SearchReplaceInSpecNodesResponse struct {
-	// Governed bulk replacement inside one draft spec corpus, with exact preview binding.
+	// Governed bulk replacement inside one spec corpus, with exact preview binding. Every target must be unminted (#1591); SEARCH_REPLACE_NOT_DRAFT names minted ones.
 	SearchReplaceInSpecNodes *SearchReplaceInSpecNodesSearchReplaceInSpecNodesSearchReplaceResult `json:"searchReplaceInSpecNodes"`
 }
 
@@ -25172,10 +26652,10 @@ func (v *SoftDeleteAssetSoftDeleteAsset) GetDeletedAt() *string { return v.Delet
 
 // SpecBacklinksResponse is returned by SpecBacklinks on success.
 type SpecBacklinksResponse struct {
-	// #1449 — what refers to the spec at loc in a DRAFT spec corpus: node URNs
-	// in the corpus text (inside URLs too) plus real edges from corpus nodes.
-	// Exact citation, not descendants. Refuses SPEC_CORPUS_NOT_DRAFT for a
-	// minted memory. memoryRef accepts the memory's ID or URN.
+	// #1449 — what refers to the spec at loc in a spec corpus (any memory since
+	// #1591): node URNs in the corpus text (inside URLs too) plus real edges from
+	// corpus nodes. Exact citation, not descendants. memoryRef accepts the
+	// memory's ID or URN.
 	SpecBacklinks []*SpecBacklinksSpecBacklinksSpecReference `json:"specBacklinks"`
 }
 
@@ -25236,13 +26716,12 @@ type SpecCorpusStateMemory struct {
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn string `json:"urn"`
-	// #1447/#1448 — whether this memory is a DRAFT spec corpus or MINTED. In a
-	// draft corpus spec citations are not yet permanent: specs can be moved,
-	// renumbered and deleted, and a move records no URN alias. Chosen only at
-	// creation (createMemory draftCorpus); minting is one-way. Every memory
-	// created without asking for draft is MINTED.
+	// #1447/#1448, derived per node since #1591 — DRAFT while none of this
+	// memory's live nodes is minted, MINTED once any is. Draft rights are per
+	// node: an unminted node can be renumbered, moved without a URN alias, and
+	// bulk-replaced, in any memory (see Node.mintStatus).
 	CorpusState CorpusState `json:"corpusState"`
-	// #1448 — when this corpus was minted (draft → minted). Null if it was never a draft.
+	// #1448/#1591 — the latest mint time among this memory's live nodes; null while none is minted.
 	CorpusMintedAt *string `json:"corpusMintedAt"`
 }
 
@@ -25276,20 +26755,29 @@ func (v *SpecCorpusStateResponse) GetMemory() *SpecCorpusStateMemory { return v.
 type SpecMintFindingKind string
 
 const (
+	// #1591 — an edge into another memory's node that is not minted yet (targetLoc is its URN).
+	SpecMintFindingKindCitesUnminted SpecMintFindingKind = "CITES_UNMINTED"
 	// A structural lint error (rule: nodetype-info | tag-spec | serialization-leak | duplicate-loc).
 	SpecMintFindingKindLint SpecMintFindingKind = "LINT"
+	// #1591 — the node's current revision is not approved.
+	SpecMintFindingKindNotApproved SpecMintFindingKind = "NOT_APPROVED"
 	// A reserved citation with no spec written yet.
 	SpecMintFindingKindPlaceholder SpecMintFindingKind = "PLACEHOLDER"
 	// An abstract written for an earlier body.
 	SpecMintFindingKindStaleAbstract SpecMintFindingKind = "STALE_ABSTRACT"
+	// #1591 — the approved revision's text changed outside the revision system, so it no longer matches its approval hash. Re-approve it.
+	SpecMintFindingKindTampered SpecMintFindingKind = "TAMPERED"
 	// A reference to a spec that does not exist, or to a placeholder (rule: MISSING | PLACEHOLDER).
 	SpecMintFindingKindUnresolvedReference SpecMintFindingKind = "UNRESOLVED_REFERENCE"
 )
 
 var AllSpecMintFindingKind = []SpecMintFindingKind{
+	SpecMintFindingKindCitesUnminted,
 	SpecMintFindingKindLint,
+	SpecMintFindingKindNotApproved,
 	SpecMintFindingKindPlaceholder,
 	SpecMintFindingKindStaleAbstract,
+	SpecMintFindingKindTampered,
 	SpecMintFindingKindUnresolvedReference,
 }
 
@@ -25492,7 +26980,7 @@ var AllSpecTextField = []SpecTextField{
 
 // SpecUnresolvedReferencesResponse is returned by SpecUnresolvedReferences on success.
 type SpecUnresolvedReferencesResponse struct {
-	// #1449 — references in a DRAFT spec corpus that do not reach a written
+	// #1449 — references in a spec corpus (any memory since #1591) that do not reach a written
 	// spec: URNs citing a missing loc or a placeholder, edges to a
 	// placeholder or to a deleted spec of the corpus, and pending edges (field pendingEdge) whose target is not
 	// a written node yet. Minting refuses while any remain.
@@ -27379,9 +28867,12 @@ type TeamWorkItemsLegacyResponse struct {
 	// { items, total } page. ref accepts ANY accepted spelling (URL, short form,
 	// canonical) and is matched tool-awarely: with tool 'github' (or none) it is
 	// normalized, so 'https://github.com/o/r/pull/371' and 'o/r#371' return the
-	// same records; with another tool it matches the stored verbatim ref; with
-	// no tool it matches either spelling. sessionRef / tool / kind are equality
-	// filters; kind must be one of pr, issue, commit, branch, repo when given.
+	// same records. An ownerless github ref such as cli#793 matches every
+	// readable canonical ref whose repository ends in cli and number is 793;
+	// it never selects one owner. With another tool ref matches the stored
+	// verbatim spelling; with no tool it matches either. sessionRef / tool / kind
+	// are equality filters; kind must be one of pr, issue, commit, branch, repo
+	// when given.
 	// limit defaults to 50 (cap 200); limit: 0 returns only total.
 	//
 	// Authorization: an AppMember of the App (any role), an org member with
@@ -27552,9 +29043,12 @@ type TeamWorkItemsResponse struct {
 	// { items, total } page. ref accepts ANY accepted spelling (URL, short form,
 	// canonical) and is matched tool-awarely: with tool 'github' (or none) it is
 	// normalized, so 'https://github.com/o/r/pull/371' and 'o/r#371' return the
-	// same records; with another tool it matches the stored verbatim ref; with
-	// no tool it matches either spelling. sessionRef / tool / kind are equality
-	// filters; kind must be one of pr, issue, commit, branch, repo when given.
+	// same records. An ownerless github ref such as cli#793 matches every
+	// readable canonical ref whose repository ends in cli and number is 793;
+	// it never selects one owner. With another tool ref matches the stored
+	// verbatim spelling; with no tool it matches either. sessionRef / tool / kind
+	// are equality filters; kind must be one of pr, issue, commit, branch, repo
+	// when given.
 	// limit defaults to 50 (cap 200); limit: 0 returns only total.
 	//
 	// Authorization: an AppMember of the App (any role), an org member with
@@ -33718,6 +35212,61 @@ func (v *ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryVa
 	return v.Reason
 }
 
+// VerifyNodeResponse is returned by VerifyNode on success.
+type VerifyNodeResponse struct {
+	// #1591 — the tamper check: recompute the node's approval hash from its current title/abstract/content and compare it with the approval on record. A pure read; an encrypted memory needs its session key (SESSION_EXPIRED otherwise).
+	VerifyNode *VerifyNodeVerifyNodeNodeIntegrityCheck `json:"verifyNode"`
+}
+
+// GetVerifyNode returns VerifyNodeResponse.VerifyNode, and is useful for accessing the field via an interface.
+func (v *VerifyNodeResponse) GetVerifyNode() *VerifyNodeVerifyNodeNodeIntegrityCheck {
+	return v.VerifyNode
+}
+
+// VerifyNodeVerifyNodeNodeIntegrityCheck includes the requested fields of the GraphQL type NodeIntegrityCheck.
+// The GraphQL type's documentation follows.
+//
+// #1591 — one node's tamper check.
+type VerifyNodeVerifyNodeNodeIntegrityCheck struct {
+	NodeId string             `json:"nodeId"`
+	Urn    string             `json:"urn"`
+	Loc    string             `json:"loc"`
+	State  NodeIntegrityState `json:"state"`
+	// The current revision.
+	Revision         int  `json:"revision"`
+	ApprovedRevision *int `json:"approvedRevision"`
+	// The approval hash on record.
+	ExpectedHash *string `json:"expectedHash"`
+	// The approval hash recomputed from the current title/abstract/content.
+	ActualHash string `json:"actualHash"`
+}
+
+// GetNodeId returns VerifyNodeVerifyNodeNodeIntegrityCheck.NodeId, and is useful for accessing the field via an interface.
+func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetNodeId() string { return v.NodeId }
+
+// GetUrn returns VerifyNodeVerifyNodeNodeIntegrityCheck.Urn, and is useful for accessing the field via an interface.
+func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetUrn() string { return v.Urn }
+
+// GetLoc returns VerifyNodeVerifyNodeNodeIntegrityCheck.Loc, and is useful for accessing the field via an interface.
+func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetLoc() string { return v.Loc }
+
+// GetState returns VerifyNodeVerifyNodeNodeIntegrityCheck.State, and is useful for accessing the field via an interface.
+func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetState() NodeIntegrityState { return v.State }
+
+// GetRevision returns VerifyNodeVerifyNodeNodeIntegrityCheck.Revision, and is useful for accessing the field via an interface.
+func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetRevision() int { return v.Revision }
+
+// GetApprovedRevision returns VerifyNodeVerifyNodeNodeIntegrityCheck.ApprovedRevision, and is useful for accessing the field via an interface.
+func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetApprovedRevision() *int {
+	return v.ApprovedRevision
+}
+
+// GetExpectedHash returns VerifyNodeVerifyNodeNodeIntegrityCheck.ExpectedHash, and is useful for accessing the field via an interface.
+func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetExpectedHash() *string { return v.ExpectedHash }
+
+// GetActualHash returns VerifyNodeVerifyNodeNodeIntegrityCheck.ActualHash, and is useful for accessing the field via an interface.
+func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetActualHash() string { return v.ActualHash }
+
 // #1029. MISSING is deliberately not "no handoff": it means the PREVIOUS stint
 // did not write one, while `handoff` may still carry an older record. Silently
 // presenting a stale handoff as current is the failure this distinction exists
@@ -34776,6 +36325,26 @@ func (v *__ApplyMemoryConfigTemplateInput) GetExpectedTemplateRevision() *int {
 
 // GetDryRun returns __ApplyMemoryConfigTemplateInput.DryRun, and is useful for accessing the field via an interface.
 func (v *__ApplyMemoryConfigTemplateInput) GetDryRun() bool { return v.DryRun }
+
+// __ApproveMemoryNodesInput is used internally by genqlient
+type __ApproveMemoryNodesInput struct {
+	MemoryRef string `json:"memoryRef"`
+}
+
+// GetMemoryRef returns __ApproveMemoryNodesInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__ApproveMemoryNodesInput) GetMemoryRef() string { return v.MemoryRef }
+
+// __ApproveNodeInput is used internally by genqlient
+type __ApproveNodeInput struct {
+	NodeRef  string `json:"nodeRef"`
+	Revision *int   `json:"revision,omitempty"`
+}
+
+// GetNodeRef returns __ApproveNodeInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__ApproveNodeInput) GetNodeRef() string { return v.NodeRef }
+
+// GetRevision returns __ApproveNodeInput.Revision, and is useful for accessing the field via an interface.
+func (v *__ApproveNodeInput) GetRevision() *int { return v.Revision }
 
 // __AppsInput is used internally by genqlient
 type __AppsInput struct {
@@ -36467,6 +38036,18 @@ type __MintActionTicketsInput struct {
 // GetInput returns __MintActionTicketsInput.Input, and is useful for accessing the field via an interface.
 func (v *__MintActionTicketsInput) GetInput() *MintActionTicketsInput { return v.Input }
 
+// __MintMemoryNodesInput is used internally by genqlient
+type __MintMemoryNodesInput struct {
+	MemoryRef string `json:"memoryRef"`
+	DryRun    bool   `json:"dryRun"`
+}
+
+// GetMemoryRef returns __MintMemoryNodesInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__MintMemoryNodesInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetDryRun returns __MintMemoryNodesInput.DryRun, and is useful for accessing the field via an interface.
+func (v *__MintMemoryNodesInput) GetDryRun() bool { return v.DryRun }
+
 // __MintSpecCorpusInput is used internally by genqlient
 type __MintSpecCorpusInput struct {
 	MemoryRef string `json:"memoryRef"`
@@ -36531,6 +38112,22 @@ type __NodeExportMetaInput struct {
 // GetRef returns __NodeExportMetaInput.Ref, and is useful for accessing the field via an interface.
 func (v *__NodeExportMetaInput) GetRef() string { return v.Ref }
 
+// __NodeLiveRevisionsApprovedInput is used internally by genqlient
+type __NodeLiveRevisionsApprovedInput struct {
+	Refs      []string `json:"refs,omitempty"`
+	Memory    *string  `json:"memory,omitempty"`
+	LocPrefix *string  `json:"locPrefix,omitempty"`
+}
+
+// GetRefs returns __NodeLiveRevisionsApprovedInput.Refs, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsApprovedInput) GetRefs() []string { return v.Refs }
+
+// GetMemory returns __NodeLiveRevisionsApprovedInput.Memory, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsApprovedInput) GetMemory() *string { return v.Memory }
+
+// GetLocPrefix returns __NodeLiveRevisionsApprovedInput.LocPrefix, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsApprovedInput) GetLocPrefix() *string { return v.LocPrefix }
+
 // __NodeLiveRevisionsInput is used internally by genqlient
 type __NodeLiveRevisionsInput struct {
 	Refs      []string `json:"refs,omitempty"`
@@ -36546,6 +38143,22 @@ func (v *__NodeLiveRevisionsInput) GetMemory() *string { return v.Memory }
 
 // GetLocPrefix returns __NodeLiveRevisionsInput.LocPrefix, and is useful for accessing the field via an interface.
 func (v *__NodeLiveRevisionsInput) GetLocPrefix() *string { return v.LocPrefix }
+
+// __NodeLiveRevisionsMintedInput is used internally by genqlient
+type __NodeLiveRevisionsMintedInput struct {
+	Refs      []string `json:"refs,omitempty"`
+	Memory    *string  `json:"memory,omitempty"`
+	LocPrefix *string  `json:"locPrefix,omitempty"`
+}
+
+// GetRefs returns __NodeLiveRevisionsMintedInput.Refs, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsMintedInput) GetRefs() []string { return v.Refs }
+
+// GetMemory returns __NodeLiveRevisionsMintedInput.Memory, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsMintedInput) GetMemory() *string { return v.Memory }
+
+// GetLocPrefix returns __NodeLiveRevisionsMintedInput.LocPrefix, and is useful for accessing the field via an interface.
+func (v *__NodeLiveRevisionsMintedInput) GetLocPrefix() *string { return v.LocPrefix }
 
 // __NodeLiveRevisionsStampedInput is used internally by genqlient
 type __NodeLiveRevisionsStampedInput struct {
@@ -38103,6 +39716,14 @@ func (v *__ValidateMemoryInput) GetMemoryRef() string { return v.MemoryRef }
 // GetLimit returns __ValidateMemoryInput.Limit, and is useful for accessing the field via an interface.
 func (v *__ValidateMemoryInput) GetLimit() *int { return v.Limit }
 
+// __VerifyNodeInput is used internally by genqlient
+type __VerifyNodeInput struct {
+	NodeRef string `json:"nodeRef"`
+}
+
+// GetNodeRef returns __VerifyNodeInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__VerifyNodeInput) GetNodeRef() string { return v.NodeRef }
+
 // __WorkersInput is used internally by genqlient
 type __WorkersInput struct {
 	AppRef         string `json:"appRef"`
@@ -38923,6 +40544,111 @@ func ApplyMemoryConfigTemplate(
 	}
 
 	data_ = &ApplyMemoryConfigTemplateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ApproveMemoryNodes.
+const ApproveMemoryNodes_Operation = `
+mutation ApproveMemoryNodes ($memoryRef: String!) {
+	approveMemoryNodes(memoryRef: $memoryRef) {
+		approvedCount
+		alreadyApprovedCount
+		skippedPlaceholders
+		approved {
+			nodeId
+			urn
+			loc
+			approval {
+				... NodeApprovalFields
+			}
+		}
+	}
+}
+fragment NodeApprovalFields on NodeApproval {
+	revision
+	approvedAt
+	approvedBy {
+		handle
+		urn
+	}
+	approvedByInfo
+	hash
+}
+`
+
+func ApproveMemoryNodes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+) (data_ *ApproveMemoryNodesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ApproveMemoryNodes",
+		Query:  ApproveMemoryNodes_Operation,
+		Variables: &__ApproveMemoryNodesInput{
+			MemoryRef: memoryRef,
+		},
+	}
+
+	data_ = &ApproveMemoryNodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ApproveNode.
+const ApproveNode_Operation = `
+mutation ApproveNode ($nodeRef: ID!, $revision: Int) {
+	approveNode(nodeRef: $nodeRef, revision: $revision) {
+		nodeId
+		urn
+		loc
+		approval {
+			... NodeApprovalFields
+		}
+	}
+}
+fragment NodeApprovalFields on NodeApproval {
+	revision
+	approvedAt
+	approvedBy {
+		handle
+		urn
+	}
+	approvedByInfo
+	hash
+}
+`
+
+func ApproveNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	revision *int,
+) (data_ *ApproveNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ApproveNode",
+		Query:  ApproveNode_Operation,
+		Variables: &__ApproveNodeInput{
+			NodeRef:  nodeRef,
+			Revision: revision,
+		},
+	}
+
+	data_ = &ApproveNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -44961,6 +46687,68 @@ func MintActionTickets(
 	return data_, err_
 }
 
+// The mutation executed by MintMemoryNodes.
+const MintMemoryNodes_Operation = `
+mutation MintMemoryNodes ($memoryRef: ID!, $dryRun: Boolean!) {
+	mintMemoryNodes(memoryRef: $memoryRef, dryRun: $dryRun) {
+		memoryId
+		dryRun
+		minted
+		mintedCount
+		mintLocs
+		staleAbstractsBlock
+		blockers {
+			kind
+			rule
+			loc
+			targetLoc
+			message
+		}
+		staleAbstracts {
+			kind
+			rule
+			loc
+			targetLoc
+			message
+		}
+		openQuestions {
+			decider
+			questions {
+				loc
+				question
+			}
+		}
+	}
+}
+`
+
+func MintMemoryNodes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	dryRun bool,
+) (data_ *MintMemoryNodesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MintMemoryNodes",
+		Query:  MintMemoryNodes_Operation,
+		Variables: &__MintMemoryNodesInput{
+			MemoryRef: memoryRef,
+			DryRun:    dryRun,
+		},
+	}
+
+	data_ = &MintMemoryNodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by MintSpecCorpus.
 const MintSpecCorpus_Operation = `
 mutation MintSpecCorpus ($memoryRef: ID!, $dryRun: Boolean!) {
@@ -45356,6 +47144,203 @@ func NodeLiveRevisions(
 	}
 
 	data_ = &NodeLiveRevisionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeLiveRevisionsApproved.
+const NodeLiveRevisionsApproved_Operation = `
+query NodeLiveRevisionsApproved ($refs: [ID!], $memory: ID, $locPrefix: String) {
+	nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+		truncated
+		omitted
+		unavailable
+		nodes {
+			id
+			revision
+			authorship {
+				... NodeAuthorshipFields
+			}
+			contentValidation {
+				... NodeContentValidationFields
+			}
+			approvalStatus {
+				... NodeApprovalStatusFields
+			}
+		}
+	}
+}
+fragment NodeAuthorshipFields on NodeAuthorship {
+	kind
+	authoredAt
+	taskRef
+	taskRevision
+	human {
+		handle
+		urn
+	}
+}
+fragment NodeContentValidationFields on NodeContentValidationStatus {
+	state
+	latestReport {
+		outcome
+		nodeRevision
+		reportedAt
+		validationTaskRef
+		validationTaskRevision
+	}
+}
+fragment NodeApprovalStatusFields on NodeApprovalStatus {
+	state
+	approval {
+		... NodeApprovalFields
+	}
+}
+fragment NodeApprovalFields on NodeApproval {
+	revision
+	approvedAt
+	approvedBy {
+		handle
+		urn
+	}
+	approvedByInfo
+	hash
+}
+`
+
+// `node get` uses this in its before/after revision bracket. The AFTER result
+// supplies the approval because it may change without advancing the revision.
+// Spec reads can use it in 200-node windows to attach status without N+1 reads.
+func NodeLiveRevisionsApproved(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+	memory *string,
+	locPrefix *string,
+) (data_ *NodeLiveRevisionsApprovedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeLiveRevisionsApproved",
+		Query:  NodeLiveRevisionsApproved_Operation,
+		Variables: &__NodeLiveRevisionsApprovedInput{
+			Refs:      refs,
+			Memory:    memory,
+			LocPrefix: locPrefix,
+		},
+	}
+
+	data_ = &NodeLiveRevisionsApprovedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeLiveRevisionsMinted.
+const NodeLiveRevisionsMinted_Operation = `
+query NodeLiveRevisionsMinted ($refs: [ID!], $memory: ID, $locPrefix: String) {
+	nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+		truncated
+		omitted
+		unavailable
+		nodes {
+			id
+			revision
+			authorship {
+				... NodeAuthorshipFields
+			}
+			contentValidation {
+				... NodeContentValidationFields
+			}
+			approvalStatus {
+				... NodeApprovalStatusFields
+			}
+			mintStatus {
+				... NodeMintStatusFields
+			}
+		}
+	}
+}
+fragment NodeAuthorshipFields on NodeAuthorship {
+	kind
+	authoredAt
+	taskRef
+	taskRevision
+	human {
+		handle
+		urn
+	}
+}
+fragment NodeContentValidationFields on NodeContentValidationStatus {
+	state
+	latestReport {
+		outcome
+		nodeRevision
+		reportedAt
+		validationTaskRef
+		validationTaskRevision
+	}
+}
+fragment NodeApprovalStatusFields on NodeApprovalStatus {
+	state
+	approval {
+		... NodeApprovalFields
+	}
+}
+fragment NodeMintStatusFields on NodeMintStatus {
+	minted
+	mintedAt
+	mintedBy {
+		handle
+		urn
+	}
+	mintedByInfo
+	revision
+	hash
+}
+fragment NodeApprovalFields on NodeApproval {
+	revision
+	approvedAt
+	approvedBy {
+		handle
+		urn
+	}
+	approvedByInfo
+	hash
+}
+`
+
+// PR 2 adds mintStatus. Keep a distinct operation so a PR 1 server can still
+// answer NodeLiveRevisionsApproved without losing approval or revisions.
+func NodeLiveRevisionsMinted(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+	memory *string,
+	locPrefix *string,
+) (data_ *NodeLiveRevisionsMintedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeLiveRevisionsMinted",
+		Query:  NodeLiveRevisionsMinted_Operation,
+		Variables: &__NodeLiveRevisionsMintedInput{
+			Refs:      refs,
+			Memory:    memory,
+			LocPrefix: locPrefix,
+		},
+	}
+
+	data_ = &NodeLiveRevisionsMintedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -50939,6 +52924,47 @@ func ValidateMemory(
 	}
 
 	data_ = &ValidateMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by VerifyNode.
+const VerifyNode_Operation = `
+query VerifyNode ($nodeRef: ID!) {
+	verifyNode(nodeRef: $nodeRef) {
+		nodeId
+		urn
+		loc
+		state
+		revision
+		approvedRevision
+		expectedHash
+		actualHash
+	}
+}
+`
+
+func VerifyNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+) (data_ *VerifyNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "VerifyNode",
+		Query:  VerifyNode_Operation,
+		Variables: &__VerifyNodeInput{
+			NodeRef: nodeRef,
+		},
+	}
+
+	data_ = &VerifyNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

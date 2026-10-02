@@ -46,16 +46,14 @@ Some corpora use a legacy numbering, <module>:<feature>:<rule>:<flow>
 number ledger. "spec new"'s allocation flags, "spec register" and "spec
 extract" work in that numbering; nothing else requires it.
 
-In a minted corpus — every corpus, unless it was created as a draft — a spec
-is never renumbered or deleted: to replace one you supersede it. These
-commands encode that on top of the generic node/edge primitives.
+Mint state is recorded per node. Minted nodes cannot be renumbered by the
+spec door; other citation permanence enforcement is currently off.
 
-A corpus created with "memory set --draft-corpus" is a DRAFT until it is
-minted: its citations are not yet permanent. "spec reserve" holds a citation
-as a placeholder, "spec renumber" moves a spec and rewrites the references to
-it, "spec backlinks" and "spec unresolved" read the references, and "spec
-mint" ends the draft — once, for the whole corpus, one-way. "spec describe"
-says which state a corpus is in.
+A corpus created with "memory set --draft-corpus" starts DRAFT. "spec reserve"
+holds a citation as a placeholder, "spec renumber" moves an unminted spec and
+rewrites references to it, and "spec backlinks" and "spec unresolved" read
+the references. "spec mint" stamps approved, unminted nodes. "spec describe"
+shows the derived corpus state and counts per-node approval and mint status.
 
 Every subcommand takes -m/--memory.`,
 	}
@@ -124,6 +122,10 @@ type specDTO struct {
 	// (hadron-server#1450). omitempty: only a draft holds placeholders, so
 	// every other listing's shape is untouched.
 	Placeholder bool `json:"placeholder,omitempty"`
+	// `spec find` shares this DTO but does not fetch statuses. Omit unset
+	// fields so adding status to `spec list` does not change find's JSON shape.
+	ApprovalStatus *specApprovalDTO `json:"approvalStatus,omitempty"`
+	MintStatus     *specMintDTO     `json:"mintStatus,omitempty"`
 }
 
 // tagsOrEmpty normalizes a node's tags for a DTO: a nil slice marshals to
@@ -164,7 +166,9 @@ type specDetailDTO struct {
 	UpdatedAt string           `json:"updatedAt"`
 	// Placeholder: see specDTO. A placeholder's lint is the single
 	// `placeholder` finding — an unwritten spec is not a malformed one.
-	Placeholder bool `json:"placeholder,omitempty"`
+	Placeholder    bool             `json:"placeholder,omitempty"`
+	ApprovalStatus *specApprovalDTO `json:"approvalStatus"`
+	MintStatus     *specMintDTO     `json:"mintStatus"`
 }
 
 // specBodyDTO is the --json shape for `spec get --body-only`: just the
@@ -1146,6 +1150,37 @@ func scanAllNodesFiltered(ctx context.Context, client graphql.Client, filter *ge
 // isSpec locally. It is slower, but never returns a silently partial corpus.
 func scanAllSpecNodes(ctx context.Context, client graphql.Client, memory, prefix *string) ([]*api.ListNode, error) {
 	nodes, err := collectSpecNodes(memory, prefix, func(filter *gen.NodeFilter) ([]*api.ListNode, error) {
+		return scanAllNodesFiltered(ctx, client, filter)
+	})
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	return nodes, nil
+}
+
+// scanAllSpecNodesWithApproval applies the status constraint to EACH of the
+// two server-side spec marker streams before they page. Filtering a capped
+// merged result client-side would silently omit matches beyond the page cap.
+func scanAllSpecNodesWithApproval(ctx context.Context, client graphql.Client, memory, prefix *string, state gen.NodeApprovalState) ([]*api.ListNode, error) {
+	nodes, err := collectSpecNodes(memory, prefix, func(filter *gen.NodeFilter) ([]*api.ListNode, error) {
+		if filter == nil {
+			filter = &gen.NodeFilter{}
+		}
+		filter.ApprovalState = &state
+		return scanAllNodesFiltered(ctx, client, filter)
+	})
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	return nodes, nil
+}
+
+func scanAllSpecNodesWithMint(ctx context.Context, client graphql.Client, memory, prefix *string, minted bool) ([]*api.ListNode, error) {
+	nodes, err := collectSpecNodes(memory, prefix, func(filter *gen.NodeFilter) ([]*api.ListNode, error) {
+		if filter == nil {
+			filter = &gen.NodeFilter{}
+		}
+		filter.Minted = &minted
 		return scanAllNodesFiltered(ctx, client, filter)
 	})
 	if err != nil {

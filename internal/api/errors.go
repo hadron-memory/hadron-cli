@@ -706,6 +706,10 @@ func codeForExtension(code string) int {
 		code == "UNSUPPORTED_MEMORY_CLASS" || code == "MEMORY_TRANSFER_MEMBER_RESET_INVALID" ||
 		code == "MEMORY_TRANSFER_USER_TARGET_UNSUPPORTED" || code == "MEMORY_TRANSFER_SAME_OWNER":
 		return exitcode.Usage
+	// Approval/verification needs an active encryption session to read the
+	// plaintext that is hashed. Renewing that session is authentication work.
+	case code == "SESSION_EXPIRED":
+		return exitcode.AuthRequired
 	// The governed-kind refusal (hadron-server#1201, RoleGovernedError): a
 	// write through a door its node's kind does not own, one touching two
 	// kinds so no door can make it, or a restore no door performs yet
@@ -821,7 +825,7 @@ func codeForExtension(code string) int {
 	// operator's fix, not the caller's — so the generic 1 is the honest code.
 	case code == "MEMORY_CONFIG_TEMPLATE_EXISTS":
 		return exitcode.Conflict
-	// Draft spec corpora (hadron-server#1447; cli#777). All three are the
+	// Draft spec corpora (hadron-server#1447; cli#777). These are the
 	// corpus's STATE refusing the operation, so Conflict:
 	//   - SPEC_CORPUS_NOT_DRAFT: reserve/renumber/backlinks/unresolved on a
 	//     minted corpus. Minting is one-way, so no retry changes it; the remedy
@@ -842,7 +846,8 @@ func codeForExtension(code string) int {
 	// re-preview or choose another corpus rather than retrying blindly.
 	case code == "SEARCH_REPLACE_PLAN_STALE" || code == "SEARCH_REPLACE_NOT_DRAFT" || code == "SEARCH_REPLACE_MIXED_CORPUS" ||
 		code == "SPEC_CORPUS_NOT_DRAFT" || code == "SPEC_CORPUS_MINT_BLOCKED" || code == "SPEC_CORPUS_BUSY" ||
-		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED":
+		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED" || code == "REVISION_MISMATCH" ||
+		code == "NODE_IS_PLACEHOLDER" || code == "NODE_MINTED":
 		return exitcode.Conflict
 	case code == "SEARCH_REPLACE_MAX_NODES_CHANGED":
 		return exitcode.Usage

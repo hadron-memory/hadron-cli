@@ -996,6 +996,19 @@ enum AppType {
   WORKSTATION
 }
 
+"""#1591 — the outcome of approving every node of a memory."""
+type ApproveMemoryNodesResult {
+  """Nodes whose current revision was already approved (left unchanged)."""
+  alreadyApprovedCount: Int!
+
+  """Nodes newly approved by this call, ordered by loc."""
+  approved: [NodeApprovalReceipt!]!
+  approvedCount: Int!
+
+  """Locs of reserved placeholders, which have no spec to approve yet."""
+  skippedPlaceholders: [String!]!
+}
+
 type AppsPage {
   items: [App!]!
   total: Int!
@@ -1541,7 +1554,7 @@ enum ContentValidator {
 }
 
 """
-#1447 — a spec corpus's lifecycle state. DRAFT becomes MINTED once, one-way.
+#1447 — a spec corpus's state, derived from its nodes since #1591: DRAFT while no live node is minted, MINTED once any is.
 """
 enum CorpusState {
   DRAFT
@@ -2806,16 +2819,15 @@ type Memory {
   config: MemoryConfig
 
   """
-  #1448 — when this corpus was minted (draft → minted). Null if it was never a draft.
+  #1448/#1591 — the latest mint time among this memory's live nodes; null while none is minted.
   """
   corpusMintedAt: DateTime
 
   """
-  #1447/#1448 — whether this memory is a DRAFT spec corpus or MINTED. In a
-  draft corpus spec citations are not yet permanent: specs can be moved,
-  renumbered and deleted, and a move records no URN alias. Chosen only at
-  creation (createMemory draftCorpus); minting is one-way. Every memory
-  created without asking for draft is MINTED.
+  #1447/#1448, derived per node since #1591 — DRAFT while none of this
+  memory's live nodes is minted, MINTED once any is. Draft rights are per
+  node: an unminted node can be renumbered, moved without a URN alias, and
+  bulk-replaced, in any memory (see Node.mintStatus).
   """
   corpusState: CorpusState!
   createdAt: DateTime!
@@ -3225,6 +3237,18 @@ input MemoryFilter {
   visibility: MemoryVisibility
 }
 
+"""#1591 — the tamper check over every live node of a memory."""
+type MemoryIntegrityReport {
+  checked: Int!
+  intact: Int!
+  notApproved: Int!
+
+  """Every node that is not INTACT, ordered by loc."""
+  problems: [NodeIntegrityCheck!]!
+  superseded: Int!
+  tampered: Int!
+}
+
 """
 023-app-shape US4: symmetric team-membership row for group-class
 memory. The "Company Brain" model — multiple users collaboratively
@@ -3607,6 +3631,21 @@ type Mutation {
   applyMemoryConfigTemplate(dryRun: Boolean, expectedTemplateRevision: Int, memoryRef: ID!, templateRef: ID!): MemoryConfigApplyResult!
 
   """
+  #1591 — approve the current revision of every live, unminted node of a memory (ID or fully-qualified URN) that isn't approved yet, in one transaction. Placeholders are skipped and reported.
+  """
+  approveMemoryNodes(memoryRef: String!): ApproveMemoryNodesResult!
+
+  """
+  #1591 — approve the node's CURRENT revision: record who, when, and the
+  approval hash of its title/abstract/content. Pass revision to approve only
+  if it is still the one you read (REVISION_MISMATCH otherwise). Any writer of
+  the memory may approve, the author included. Idempotent: an approved
+  revision keeps its existing approval. Refuses NODE_IS_PLACEHOLDER, and
+  SESSION_EXPIRED on an encrypted memory without its session key.
+  """
+  approveNode(nodeRef: ID!, revision: Int): NodeApprovalReceipt!
+
+  """
   Attach an EXISTING free-standing memory to an App.
   
   Applies only to 'personal'/'private' memories owned by the caller (an
@@ -3869,18 +3908,17 @@ type Mutation {
   by that Organization and requires org ADMIN; without orgRef, it is owned by
   the authenticated User and remains owner-only.
   
-  An org-owned install auto-provisions an AgentOrgGrant for (orgId, agentId).
+  An org-owned install auto-provisions an AgentOrgGrant only for its own
+  Agent. A cross-org install requires an existing active grant; subscribe to
+  a PUBLIC Agent through createAgentOrgGrant before creating the App.
   It adds the caller as an AppMember with role 'owner' only when that role is
   present in the Agent's installationPolicy and the caller is a User.
   Required AgentImports cascade automatically for org-owned Apps; optional
   imports cascade only when their id appears in installOptional. Personal
   Apps reject dependency cascades in v1.
   
-  009-install-agent-flow: the cross-org install restriction (FR-009) is
-  enforced at the portal — the Install affordance is hidden for Agents
-  not owned by the calling org. The server still auto-provisions grants
-  on first install (preserved from 008); a hard server-side cross-org
-  gate is reserved for the marketplace spec.
+  Selected dependencies must also be licensed before any App is created.
+  The server enforces this even when a caller bypasses the portal.
   
   Accepts the entity's ID or URN.
   """
@@ -3888,10 +3926,9 @@ type Mutation {
     """
     The initial Agent installed into this new App. Required as of
     009-install-agent-flow: every new App starts with an installed Agent.
-    For an org-owned App the
-    server accepts any resolvable Agent and auto-provisions an AgentOrgGrant
-    (008 behavior preserved); the portal's install flow restricts the
-    affordance to Agents owned by the caller org. A personal App accepts only
+    For an org-owned App, the server auto-provisions a grant only for an
+    Agent owned by that org; any cross-org Agent needs an existing active
+    AgentOrgGrant. A personal App accepts only
     a PUBLIC Agent or one owned by the caller, and licenses a foreign PUBLIC
     Agent through the owner's AgentSubscription.
     """
@@ -4033,10 +4070,9 @@ type Mutation {
     description: String
 
     """
-    #1447/#1448 — create this memory as a DRAFT spec corpus, whose spec
-    citations stay changeable until the corpus is minted. This is the only
-    way to get a draft corpus: an existing memory can never be switched into
-    draft. Omitted or false creates an ordinary (minted) memory.
+    #1447/#1448 — accepted for compatibility and ignored since #1591: minting
+    is per node, and every new node starts unminted, with draft rights, in
+    any memory.
     """
     draftCorpus: Boolean
     embeddingSource: EmbeddingSource
@@ -4993,23 +5029,27 @@ type Mutation {
   mintActionTickets(input: MintActionTicketsInput!): Int!
 
   """
-  #1448 — mint a DRAFT spec corpus: once, one-way, for the whole corpus.
-  After minting, citations are permanent (moves record URN aliases again) and
-  no placeholder can be reserved. Refuses SPEC_CORPUS_MINT_BLOCKED while any
-  blocker remains: a placeholder, an unresolved reference, a structural lint
-  error over the citation-shaped nodes (nodetype-info, tag-spec,
-  serialization-leak, duplicate-loc), or a stale abstract once
-  staleAbstractsBlock is true. dryRun returns the full report without
-  minting. Owner or org ADMIN only. memoryRef accepts the ID or URN. A real
-  run holds every write to the corpus off while it checks and flips, and
-  refuses SPEC_CORPUS_BUSY (retryable) if a write is already in flight.
-  #1468 — a minted spec is then permanent: every path that would remove one
-  from the corpus refuses SPEC_MINTED_PERMANENT, naming the specs (deleteNode
-  soft or hard, a move to another memory or an overwrite of its citation,
-  mergeNodes with deleteSource, extracting with move, a merge or deletion of
-  the whole corpus, git-sync pruning, and account erasure while the owner
-  still holds it). Supersede a spec to replace it; a rename within the corpus
-  still records its URN alias.
+  #1591 — mint every unminted live node of a memory, at once. Each node is
+  stamped with its current revision and that revision's approval hash
+  (Node.mintStatus); a minted node's moves then record URN aliases. Refuses
+  SPEC_CORPUS_MINT_BLOCKED while any blocker remains among the unminted
+  nodes: a placeholder, an unresolved reference, a structural lint error over
+  the citation-shaped nodes (nodetype-info, tag-spec, serialization-leak,
+  duplicate-loc), a stale abstract once staleAbstractsBlock is true,
+  NOT_APPROVED (the current revision is not approved), TAMPERED (approved
+  text changed outside the revision system), or CITES_UNMINTED (an
+  edge into another memory's node that is not minted). Nodes minted earlier
+  are not re-checked. dryRun returns the full report without minting. Any
+  writer of the memory. memoryRef accepts the ID or URN. A real run holds
+  every write to the memory off while it checks and stamps, and refuses
+  SPEC_CORPUS_BUSY (retryable) if a write is already in flight. Encrypted
+  memories are refused (SPEC_CORPUS_ENCRYPTED_UNSUPPORTED). Minting protects
+  nothing by itself: minted-spec permanence (#1468) is switched off for now.
+  """
+  mintMemoryNodes(dryRun: Boolean, memoryRef: ID!): SpecCorpusMintReport!
+
+  """
+  #1448, generalized by #1591 — the same operation as mintMemoryNodes, kept under its original name.
   """
   mintSpecCorpus(dryRun: Boolean, memoryRef: ID!): SpecCorpusMintReport!
 
@@ -5265,8 +5305,9 @@ type Mutation {
   ): Boolean!
 
   """
-  #1449 — renumber a spec in a DRAFT spec corpus: move it and its subtree
-  from fromLoc to toLoc (no URN alias in a draft), then rewrite every node
+  #1449 — renumber an UNMINTED spec (#1591: draft rights are per node): move
+  it and its subtree from fromLoc to toLoc with no URN alias, refusing
+  NODE_MINTED { locs } if any moved node is minted, then rewrite every node
   URN in the corpus that cites the moved specs, each as a normal edit. Bare
   text citations (labels, names) are reported in textCitations, not
   rewritten. dryRun returns the plan and writes nothing. The move is atomic;
@@ -5305,13 +5346,12 @@ type Mutation {
   replaceSubtree(edges: [EdgeInput!]!, memoryId: String!, nodes: [NodeInput!]!, ownerRepo: String!): Int! @deprecated(reason: "Retired (#454): every authorized call refuses with REPLACE_SUBTREE_RETIRED and writes nothing. Use the canonical node write mutations.")
 
   """
-  #1450 — reserve a citation in a DRAFT spec corpus as a placeholder: a spec
-  node at loc (role spec, nodeType info) marked isPlaceholder, so links can
-  point at it and the placeholders left are the corpus's to-do list. Writing
-  real content through updateSpecNode turns it into a real spec at the same
-  citation. Refuses SPEC_CORPUS_NOT_DRAFT in a minted memory, where a
-  citation is permanent once written, and NodeLocConflictError at a live loc.
-  memoryRef accepts the memory's ID or URN.
+  #1450 — reserve a citation as a placeholder, in any memory since #1591: an
+  unminted spec node at loc (role spec, nodeType info) marked isPlaceholder,
+  so links can point at it and the placeholders left are the corpus's to-do
+  list. Writing real content through updateSpecNode turns it into a real spec
+  at the same citation; minting refuses while a placeholder remains. Refuses
+  NodeLocConflictError at a live loc. memoryRef accepts the memory's ID or URN.
   """
   reserveSpecCitation(loc: String!, memoryRef: ID!, name: String): Node!
   restoreAsset(assetId: ID!): Asset!
@@ -5455,7 +5495,7 @@ type Mutation {
   searchReplaceInNodes(input: SearchReplaceInNodesInput!): SearchReplaceResult!
 
   """
-  Governed bulk replacement inside one draft spec corpus, with exact preview binding.
+  Governed bulk replacement inside one spec corpus, with exact preview binding. Every target must be unminted (#1591); SEARCH_REPLACE_NOT_DRAFT names minted ones.
   """
   searchReplaceInSpecNodes(input: SpecSearchReplaceInput!): SearchReplaceResult!
 
@@ -6131,6 +6171,11 @@ type Node {
   alias: String
 
   """
+  #1591 — whether the current revision is approved, and the latest approval on record.
+  """
+  approvalStatus: NodeApprovalStatus!
+
+  """
   The asset this node references, for a reference node created by
   createAssetReferenceNode or hadron_store_file (its data.asset
   points at one). Null for every ordinary node.
@@ -6224,6 +6269,9 @@ type Node {
   memory: Memory
   memoryId: String!
 
+  """#1591 — whether this node is minted, and the record of it."""
+  mintStatus: NodeMintStatus!
+
   """
   #1392 — warnings from a cross-memory move. Null on other Node reads; [] when a move changes no local content links. Raw content is preserved.
   """
@@ -6296,6 +6344,54 @@ type Node {
   Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
   """
   urn: String!
+}
+
+"""#1591 — one recorded approval of a node revision."""
+type NodeApproval {
+  approvedAt: DateTime!
+
+  """
+  The approving user's public identifiers; null when the approver was not a user (see approvedByInfo).
+  """
+  approvedBy: NodeRevisionEditor
+
+  """The approving principal when no user is known, e.g. app:<id>."""
+  approvedByInfo: String
+
+  """
+  Approval hash v1 at approval time: 64 lowercase hex of SHA-256 over the canonical title/abstract/content serialization (src/lib/approvalHash.ts).
+  """
+  hash: String!
+
+  """The approved revision number (Node.revision at approval time)."""
+  revision: Int!
+}
+
+"""#1591 — a node and its approval, returned by the approve mutations."""
+type NodeApprovalReceipt {
+  approval: NodeApproval!
+  loc: String!
+  nodeId: ID!
+  urn: String!
+}
+
+"""#1591 — whether a node's current revision is approved."""
+enum NodeApprovalState {
+  """The current revision is approved."""
+  APPROVED
+
+  """Never approved."""
+  NOT_APPROVED
+
+  """Approved once, edited since: the approval covers an older revision."""
+  SUPERSEDED
+}
+
+"""#1591 — a node's approval state plus its latest approval."""
+type NodeApprovalStatus {
+  """The latest approval on record; null when NOT_APPROVED."""
+  approval: NodeApproval
+  state: NodeApprovalState!
 }
 
 type NodeAuthorship {
@@ -6443,6 +6539,10 @@ enum NodeField {
 Structured, unscored, AND-combined filter context for findNodes (cor:api:090:02).
 """
 input NodeFilter {
+  """
+  #1591 — only nodes in this approval state (read from the stored revision; a node changed outside a revisioned writer is reconciled on its next read).
+  """
+  approvalState: NodeApprovalState
   createdBy: String
 
   """Include soft-deleted nodes (default false)."""
@@ -6459,6 +6559,9 @@ input NodeFilter {
   Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
   """
   memoryIds: [ID!]
+
+  """#1591 — only minted (true) or unminted (false) nodes."""
+  minted: Boolean
   nodeType: String
 
   """
@@ -6549,6 +6652,42 @@ input NodeInput {
   tags: [String!]
 }
 
+"""#1591 — one node's tamper check."""
+type NodeIntegrityCheck {
+  """The approval hash recomputed from the current title/abstract/content."""
+  actualHash: String!
+  approvedRevision: Int
+
+  """The approval hash on record."""
+  expectedHash: String
+  loc: String!
+  nodeId: ID!
+
+  """The current revision."""
+  revision: Int!
+  state: NodeIntegrityState!
+  urn: String!
+}
+
+"""#1591 — the tamper check's verdict."""
+enum NodeIntegrityState {
+  """
+  The current revision is approved and its text still hashes to the approval.
+  """
+  INTACT
+
+  """Never approved: nothing to verify against."""
+  NOT_APPROVED
+
+  """Edited (a new revision) since the last approval. Not a tamper finding."""
+  SUPERSEDED
+
+  """
+  Approved text no longer hashes to its approval: it changed outside the revision system.
+  """
+  TAMPERED
+}
+
 """A node field that mergeNodes can fold from the source into the target."""
 enum NodeMergeField {
   """
@@ -6579,6 +6718,33 @@ enum NodeMergeField {
 
   """Union the tag sets (target order first, then new source tags)."""
   TAGS
+}
+
+"""
+#1591 — whether a node is minted, and the record of it. Minting protects nothing by itself (permanence is off for now).
+"""
+type NodeMintStatus {
+  """
+  The approval hash of the minted revision. Null for backfilled nodes, which were never approved.
+  """
+  hash: String
+  minted: Boolean!
+  mintedAt: DateTime
+
+  """
+  The minting user's public identifiers; null when not a user (see mintedByInfo).
+  """
+  mintedBy: NodeRevisionEditor
+
+  """
+  The minting principal when no user is known, e.g. app:<id>, or backfill for nodes minted by the #1591 migration.
+  """
+  mintedByInfo: String
+
+  """
+  The revision that was minted. Null for nodes backfilled as minted, whose minted revision is unknown.
+  """
+  revision: Int
 }
 
 enum NodeMoveLinkStatus {
@@ -6629,10 +6795,21 @@ type NodeRevision {
   aiAgent: String
   alias: String
 
+  """#1591 — approval hash v1 recorded when this revision was approved."""
+  approvalHash: String
+
+  """
+  #1591 — when this revision was approved; null unless it was approved before it was edited away.
+  """
+  approvedAt: DateTime
+
   """
   Reserved (#620): User id that approved this revision. No write surface yet.
   """
   approvedBy: String
+
+  """#1591 — the approving principal when no user is known, e.g. app:<id>."""
+  approvedByInfo: String
 
   """
   approvedBy resolved to public identifiers (handle + URN), like editedByUser.
@@ -7265,7 +7442,12 @@ type Query {
   appNodes(appRef: ID!, filter: NodeFilter, limit: Int): [Node!]!
 
   """
-  One run (cor:agt:010:02). ref is an AppRun ID or an hrn:apprun:<root>:<app>:<run-id> URN (#696).
+  One run (cor:agt:010:02). ref is an AppRun ID or an
+  hrn:apprun:<root>:<app>:<run-id> URN (#696). Readable by a platform admin,
+  a READER of the run's organization, the run's own App key, or a user with a
+  live App relationship for a run on their behalf or a MANUAL run they
+  started. A run the caller may not read returns null, exactly like a
+  missing one (#1577: no existence oracle).
   """
   appRun(ref: ID!): AppRun
 
@@ -8412,15 +8594,15 @@ type Query {
   slackConnections(limit: Int, offset: Int, orgId: ID): SlackConnectionsPage!
 
   """
-  #1449 — what refers to the spec at loc in a DRAFT spec corpus: node URNs
-  in the corpus text (inside URLs too) plus real edges from corpus nodes.
-  Exact citation, not descendants. Refuses SPEC_CORPUS_NOT_DRAFT for a
-  minted memory. memoryRef accepts the memory's ID or URN.
+  #1449 — what refers to the spec at loc in a spec corpus (any memory since
+  #1591): node URNs in the corpus text (inside URLs too) plus real edges from
+  corpus nodes. Exact citation, not descendants. memoryRef accepts the
+  memory's ID or URN.
   """
   specBacklinks(loc: String!, memoryRef: ID!): [SpecReference!]!
 
   """
-  #1449 — references in a DRAFT spec corpus that do not reach a written
+  #1449 — references in a spec corpus (any memory since #1591) that do not reach a written
   spec: URNs citing a missing loc or a placeholder, edges to a
   placeholder or to a deleted spec of the corpus, and pending edges (field pendingEdge) whose target is not
   a written node yet. Minting refuses while any remain.
@@ -8518,9 +8700,12 @@ type Query {
   { items, total } page. ref accepts ANY accepted spelling (URL, short form,
   canonical) and is matched tool-awarely: with tool 'github' (or none) it is
   normalized, so 'https://github.com/o/r/pull/371' and 'o/r#371' return the
-  same records; with another tool it matches the stored verbatim ref; with
-  no tool it matches either spelling. sessionRef / tool / kind are equality
-  filters; kind must be one of pr, issue, commit, branch, repo when given.
+  same records. An ownerless github ref such as cli#793 matches every
+  readable canonical ref whose repository ends in cli and number is 793;
+  it never selects one owner. With another tool ref matches the stored
+  verbatim spelling; with no tool it matches either. sessionRef / tool / kind
+  are equality filters; kind must be one of pr, issue, commit, branch, repo
+  when given.
   limit defaults to 50 (cap 200); limit: 0 returns only total.
   
   Authorization: an AppMember of the App (any role), an org member with
@@ -8667,6 +8852,16 @@ type Query {
   truncation. Read gate as the rest of the memory reads.
   """
   validateMemory(limit: Int, memoryRef: ID!): MemoryValidationResult!
+
+  """
+  #1591 — the tamper check over every live node of a memory (ID or fully-qualified URN).
+  """
+  verifyMemoryNodes(memoryRef: String!): MemoryIntegrityReport!
+
+  """
+  #1591 — the tamper check: recompute the node's approval hash from its current title/abstract/content and compare it with the approval on record. A pure read; an encrypted memory needs its session key (SESSION_EXPIRED otherwise).
+  """
+  verifyNode(nodeRef: ID!): NodeIntegrityCheck!
 
   """
   One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -8829,12 +9024,12 @@ enum RegisterRole {
 }
 
 """
-The Channel half of a register view row; the host memory's URN only when YOU may read it.
+The Channel half of a register view row; the host memory's URN only when the viewer may read it.
 """
 type RegisterViewChannel {
   deleted: Boolean!
 
-  """The host memory's id — like the URN, only when YOU may read it."""
+  """The host memory's id — like the URN, only when the viewer may read it."""
   hostMemoryId: ID
   hostMemoryUrn: String
   id: ID!
@@ -8850,15 +9045,17 @@ type RegisterViewChannel {
 """
 One row of an attendee's RESOLVED register (spec 049 §4.3): the winning
 register entry for a Channel (App › organization, Worker › Agent › everyone,
-never unioned), the Channel's watermark, and the CALLER's real standing on
+never unioned), the Channel's watermark, and the ATTENDEE's real standing on
 the host memory — canRead / canPost are the existing gates, the register
-grants nothing. A row the caller cannot act on is returned with its reason,
-never dropped.
+grants nothing. A row the attendee cannot act on is returned with its reason,
+never dropped. Host memory identifiers remain gated for the VIEWER.
 """
 type RegisterViewRow {
   attendeeUrn: String
 
-  """Null when no actor could be evaluated (UNKNOWN_ACTOR in disclosure)."""
+  """
+  False for a Worker without an eligible driver (UNKNOWN_ACTOR); null only when no access subject was supplied.
+  """
   canPost: Boolean
   canRead: Boolean!
   channel: RegisterViewChannel!
@@ -9984,8 +10181,16 @@ type SpecCorpusMintReport {
   dryRun: Boolean!
   memoryId: ID!
 
+  """
+  #1591 — the locs this call minted, or would mint on a dry run, ordered by loc.
+  """
+  mintLocs: [String!]!
+
   """True when this call minted the corpus."""
   minted: Boolean!
+
+  """#1591 — how many nodes this call minted (0 on a dry run or refusal)."""
+  mintedCount: Int!
   openQuestions: [SpecOpenQuestionGroup!]!
   staleAbstracts: [SpecMintFinding!]!
   staleAbstractsBlock: Boolean!
@@ -10005,15 +10210,28 @@ type SpecMintFinding {
 """#1448 — why the mint report lists an item."""
 enum SpecMintFindingKind {
   """
+  #1591 — an edge into another memory's node that is not minted yet (targetLoc is its URN).
+  """
+  CITES_UNMINTED
+
+  """
   A structural lint error (rule: nodetype-info | tag-spec | serialization-leak | duplicate-loc).
   """
   LINT
+
+  """#1591 — the node's current revision is not approved."""
+  NOT_APPROVED
 
   """A reserved citation with no spec written yet."""
   PLACEHOLDER
 
   """An abstract written for an earlier body."""
   STALE_ABSTRACT
+
+  """
+  #1591 — the approved revision's text changed outside the revision system, so it no longer matches its approval hash. Re-approve it.
+  """
+  TAMPERED
 
   """
   A reference to a spec that does not exist, or to a placeholder (rule: MISSING | PLACEHOLDER).
