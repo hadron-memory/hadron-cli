@@ -45,10 +45,12 @@ func teamChatPage(total int, seqs ...int) string {
 // chatVars records the paging arguments of every TeamChatMessages call, in
 // order, so a test can assert what was ASKED rather than only what came back.
 type chatVars struct {
-	SinceSeq        *int `json:"sinceSeq"`
-	BeforeSeq       *int `json:"beforeSeq"`
-	Limit           *int `json:"limit"`
-	SinceSeqPresent bool `json:"-"`
+	SinceSeq        *int   `json:"sinceSeq"`
+	BeforeSeq       *int   `json:"beforeSeq"`
+	Limit           *int   `json:"limit"`
+	SinceSeqPresent bool   `json:"-"`
+	Session         string `json:"-"`
+	Query           string `json:"-"`
 }
 
 // chatServer answers TeamChatMessages from a queue of pages and records the
@@ -61,13 +63,17 @@ func chatServer(t *testing.T, pages ...string) (*httptest.Server, *[]chatVars) {
 		var body struct {
 			OperationName string          `json:"operationName"`
 			Variables     json.RawMessage `json:"variables"`
+			Query         string          `json:"query"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		body.OperationName = legacyChatReadOperation(body.OperationName)
 		w.Header().Set("Content-Type", "application/json")
 		switch body.OperationName {
 		case "TeamChatMessages":
 			var vars chatVars
 			_ = json.Unmarshal(body.Variables, &vars)
+			vars.Session = r.Header.Get("X-Hadron-Session")
+			vars.Query = body.Query
 			var raw map[string]json.RawMessage
 			_ = json.Unmarshal(body.Variables, &raw)
 			_, vars.SinceSeqPresent = raw["sinceSeq"]

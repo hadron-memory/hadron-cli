@@ -1129,3 +1129,32 @@ query TeamChatReadMetadata($appRef: ID!) {
     }
   }
 }
+
+# #817: attribution without pre-delivery acknowledgement. Legacy documents
+# stay separate: omitting a variable cannot hide an unknown schema argument.
+query TeamChatMessagesAttributed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset, beforeSeq: $beforeSeq, advanceReadState: false) {
+    total
+    items {
+      ...TeamChatMessageFields
+    }
+  }
+}
+
+query TeamChatReadHeadAttributed($appRef: ID!) {
+  teamChatMessages(appRef: $appRef, beforeSeq: 2147483647, limit: 1, advanceReadState: false) {
+    items { seq }
+  }
+}

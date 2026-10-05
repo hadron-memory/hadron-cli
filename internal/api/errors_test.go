@@ -829,3 +829,32 @@ func TestOAuthScopeRefusalPrefersReason(t *testing.T) {
 		})
 	}
 }
+
+func TestUnknownChatReadSuppressionArgumentRequiresExactEnvelope(t *testing.T) {
+	message := `Unknown argument "advanceReadState" on field "Query.teamChatMessages".`
+	for _, tc := range []struct {
+		name, message, code string
+		want                bool
+	}{
+		{"exact", message, "GRAPHQL_VALIDATION_FAILED", true},
+		{"uncoded validation", message, "", true},
+		{"business", message, "FORBIDDEN", false},
+		{"other field", strings.ReplaceAll(message, "teamChatMessages", "channelMessages"), "GRAPHQL_VALIDATION_FAILED", false},
+		{"other argument", strings.ReplaceAll(message, "advanceReadState", "beforeSeq"), "GRAPHQL_VALIDATION_FAILED", false},
+		{"mention only", `advanceReadState on Query.teamChatMessages failed`, "GRAPHQL_VALIDATION_FAILED", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: gqlerror.List{{Message: tc.message, Extensions: map[string]any{"code": tc.code}}}}}
+			if got := IsUnknownGraphQLArgument(err, "advanceReadState", "Query.teamChatMessages"); got != tc.want {
+				t.Fatalf("got %v", got)
+			}
+		})
+	}
+	mixed := gqlerror.List{{Message: message, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}, {Message: "denied", Extensions: map[string]any{"code": "FORBIDDEN"}}}
+	if IsUnknownGraphQLArgument(mixed, "advanceReadState", "Query.teamChatMessages") {
+		t.Fatal("mixed refusal retried")
+	}
+	if IsUnknownGraphQLArgument(errors.New(message), "advanceReadState", "Query.teamChatMessages") {
+		t.Fatal("unparsed error retried")
+	}
+}

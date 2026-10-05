@@ -2920,6 +2920,7 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 				OperationName string `json:"operationName"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
+			body.OperationName = legacyChatReadOperation(body.OperationName)
 			// Another agent, mid-FETCH — so only during the chat read itself,
 			// not the post-render server mark (#1353), which runs after the
 			// watermark is written and would otherwise model a later edit.
@@ -3178,6 +3179,7 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 				} `json:"variables"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
+			body.OperationName = legacyChatReadOperation(body.OperationName)
 			w.Header().Set("Content-Type", "application/json")
 			switch {
 			case body.OperationName != "TeamChatMessages":
@@ -3218,6 +3220,7 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 				} `json:"variables"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
+			body.OperationName = legacyChatReadOperation(body.OperationName)
 			w.Header().Set("Content-Type", "application/json")
 			switch {
 			case body.OperationName != "TeamChatMessages":
@@ -3754,6 +3757,7 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 			} `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		body.OperationName = legacyChatReadOperation(body.OperationName)
 		w.Header().Set("Content-Type", "application/json")
 		switch body.OperationName {
 		case "GetWorker":
@@ -3901,6 +3905,7 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 			Variables     json.RawMessage `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		body.OperationName = legacyChatReadOperation(body.OperationName)
 		w.Header().Set("Content-Type", "application/json")
 		switch body.OperationName {
 		case "TeamMemoryApp":
@@ -4853,6 +4858,7 @@ func TestTeamInitReportsWhereTheDeclarationLanded(t *testing.T) {
 			Variables     json.RawMessage `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		body.OperationName = legacyChatReadOperation(body.OperationName)
 		w.Header().Set("Content-Type", "application/json")
 		switch body.OperationName {
 		case "GetMemory":

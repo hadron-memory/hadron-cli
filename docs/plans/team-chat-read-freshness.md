@@ -51,8 +51,9 @@ it cannot prove every intermediate message was included. An unsuccessful cursor
 lookup does not prevent delivery or existing acknowledgement behavior.
 
 Every read adds one bounded chat-head probe and one optional metadata probe;
-an applicable bound Worker adds one cursor lookup. These diagnostic requests carry no session header and never
-mark read. The existing explicit post-delivery mark remains the acknowledgement
+an applicable bound Worker adds one cursor lookup. Metadata/cursor diagnostic requests carry no session header. With #817, the
+chat-head probe carries a verified binding session only alongside explicit
+`advanceReadState:false`; it attributes activity without acknowledging it. The existing explicit post-delivery mark remains the acknowledgement
 path.
 
 ## Validation

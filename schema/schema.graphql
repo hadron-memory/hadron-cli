@@ -8678,7 +8678,21 @@ type Query {
   
   appRef and mentionsRef accept the entity's ID or URN.
   """
-  teamChatMessages(appRef: ID!, beforeSeq: Int, limit: Int, mentionsRef: ID, offset: Int, sinceSeq: Int): TeamChatMessagesPage!
+  teamChatMessages(
+    """
+    Only false suppresses automatic read-cursor advancement. Session
+    attribution, read usage and the eligible owned-session heartbeat remain.
+    Omitted, null and true preserve normal contiguous-page acknowledgement;
+    callers opting out acknowledge explicitly after successful delivery.
+    """
+    advanceReadState: Boolean = true
+    appRef: ID!
+    beforeSeq: Int
+    limit: Int
+    mentionsRef: ID
+    offset: Int
+    sinceSeq: Int
+  ): TeamChatMessagesPage!
 
   """
   An App's role definitions (#960): every roles:<role> node in the Team

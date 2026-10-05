@@ -2450,6 +2450,13 @@ Conventions:
   `beforeSeq` validation refusal explicitly disables comparison (`head: null`);
   other head-probe failures fail the read. Cursor lookup failures leave null.
   Shared connections or edge/backend pools can return two equally stale pages.
+  **Session attribution (#817):** bound reads of the same App/deployment carry
+  the session with `advanceReadState:false`, including the independent head.
+  This retains attribution/liveness while acknowledgement stays after delivery.
+  Metadata diagnostics stay headerless; a changed binding stops subsequent
+  attribution. Older servers retry headerless only for the precise unknown
+  `advanceReadState` argument on `Query.teamChatMessages`, with a note that
+  attribution is unavailable. Other failures are not retried.
   A cursor that could only return nothing is **refused** (exit 2) rather than
   answered: `--limit 0` (the SDL gives it a meaning — count only — so it
   SUCCEEDS and returns an empty page), a negative limit, a limit above the

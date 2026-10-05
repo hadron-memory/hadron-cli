@@ -104,8 +104,8 @@ func TestTeamChatReadDetectsStalePages(t *testing.T) {
 				if c.Op == "MarkOwnTeamChatRead" && tc.stale {
 					t.Fatal("stale page marked read")
 				}
-				if c.Op == "TeamChatReadHead" && c.Session != "" {
-					t.Fatal("baseline attributed before delivery")
+				if c.Op == "TeamChatReadHead" && c.Session == "" {
+					t.Fatal("bound baseline lacks session attribution")
 				}
 			}
 			if tc.stale {
@@ -365,5 +365,17 @@ func TestTeamChatReadHeadFallbackDoesNotMaskUnrelatedRefusals(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Existing fixture pages serve the same selections for attributed reads.
+func legacyChatReadOperation(op string) string {
+	switch op {
+	case "TeamChatReadHeadAttributed":
+		return "TeamChatReadHead"
+	case "TeamChatMessagesAttributed":
+		return "TeamChatMessages"
+	default:
+		return op
 	}
 }

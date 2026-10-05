@@ -27,6 +27,7 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 			OperationName string `json:"operationName"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		body.OperationName = legacyChatReadOperation(body.OperationName)
 		resp, ok := responses[body.OperationName]
 		if !ok {
 			if body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata" {
