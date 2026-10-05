@@ -12,13 +12,18 @@ changed binding or no binding leaves the write headerless. Unreadable binding
 or ambiguous App identity emits one diagnostic per command. A canonical App
 lookup is headerless and the binding is rechecked after its network round trip.
 
-The finite generated-operation list covers node CRUD/move/clone/import/merge,
+The selected GraphQL mutation is parsed structurally. Every root field must
+belong to a finite authored-field list; operation labels, aliases and input
+text cannot opt in. Named/inline root fragments are resolved, with unknown or
+cyclic fragments failing closed. Mixed maintenance mutations stay headerless.
+The list covers node CRUD/move/clone/import/merge,
 node data, edge CRUD, object CRUD, governed spec/task/review node writes,
 search/replace, restore-revision, asset-reference nodes and parent-node
 extraction. Queries, approval/mint maintenance, arbitrary raw API requests,
 session lifecycle and unrelated mutations retain their current contexts.
-Future comment generated operations are added when cli#807's authoritative
-SDL exists. This is an explicit extension seam, not guessed comment support.
+The eight comment fields published at server commit 95d1a9bf (#7014) are
+covered too, independently of cli#807's generated operation labels. No comment
+command or hand-edited schema snapshot is added by this PR.
 
 Destination memory is not treated as an App-ownership check. Server#1658's
 bindSession validates session ownership, endedAt and expiresAt and publishes the
@@ -40,3 +45,14 @@ rebind, and a rebind during canonical App lookup. Query/maintenance/raw API
 controls stay headerless; an authored edge is attributed; a business refusal
 is never retried. Integrated worker+agent/user and revision evidence remains
 an independent QA dependency against the deployed server, not a mocked claim.
+
+## Published comment contract
+
+Diego published createComment, replyToComment, editComment, retractComment,
+resolveCommentThread, reopenCommentThread, hideComment and deleteCommentThread.
+The client hook now keys on the actual selected mutation fields, so Jane's
+adapter inherits attribution even if its generated operation labels differ.
+HTTP policy tests cover all eight fields and aliases, selected operations,
+variables, root fragments, input-text lookalikes, mixed maintenance and malformed
+or cyclic documents. These are request-policy checks against the published SDL,
+not live comment CRUD. Integrated comment behavior belongs to #807/#1606.

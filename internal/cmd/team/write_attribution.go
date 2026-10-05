@@ -9,6 +9,8 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 // AuthoredWriteContext is command-local, never a default session on the
@@ -26,7 +28,7 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 	}
 	return func(ctx context.Context, req *graphql.Request) context.Context {
 		first.Do(func() { initial, _, initialErr = readBinding(ctx) })
-		if req == nil || !authoredWriteOperation(req.OpName) {
+		if !authoredWriteRequest(req) {
 			return ctx
 		}
 		if initialErr != nil {
@@ -83,16 +85,68 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 	}
 }
 
-// Deliberately finite: no blanket mutation attribution, no reads/maintenance,
-// no raw-api inference. #807 adds its authoritative comment operations here.
-func authoredWriteOperation(op string) bool {
-	switch op {
-	case "CreateNode", "CreateSpecNode", "CreateTaskNode", "CreateReviewNode",
-		"UpdateNode", "UpdateSpecNode", "UpdateTaskNode", "UpdateReviewNode",
-		"DeleteNode", "ImportNode", "MoveNode", "CloneNode", "MergeNodes", "UpdateNodeData",
-		"CreateEdge", "UpdateEdge", "DeleteEdge", "SearchReplaceInNodes", "SearchReplaceInSpecNodes",
-		"CreateObject", "UpdateObject", "DeleteObject", "RestoreNodeRevision",
-		"CreateAssetReferenceNode", "ExtractParentNodeToMemory":
+// Inspect the selected mutation structurally, not its operation label or
+// arbitrary input text. #1606's published fields support #807 regardless of
+// its generated operation names. Every root field must be authored; mixed
+// maintenance requests and unresolved/cyclic fragments fail closed.
+func authoredWriteRequest(req *graphql.Request) bool {
+	if req == nil {
+		return false
+	}
+	doc, err := parser.ParseQuery(&ast.Source{Input: req.Query})
+	if err != nil {
+		return false
+	}
+	op := doc.Operations.ForName(req.OpName)
+	if op == nil && req.OpName == "" && len(doc.Operations) == 1 {
+		op = doc.Operations[0]
+	}
+	return op != nil && op.Operation == ast.Mutation && authoredSelections(doc, op.SelectionSet, map[string]bool{})
+}
+func authoredSelections(doc *ast.QueryDocument, selections ast.SelectionSet, visiting map[string]bool) bool {
+	if len(selections) == 0 {
+		return false
+	}
+	for _, selection := range selections {
+		switch s := selection.(type) {
+		case *ast.Field:
+			if !authoredWriteField(s.Name) {
+				return false
+			}
+		case *ast.InlineFragment:
+			if s.TypeCondition != "" && s.TypeCondition != "Mutation" {
+				return false
+			}
+			if !authoredSelections(doc, s.SelectionSet, visiting) {
+				return false
+			}
+		case *ast.FragmentSpread:
+			f := doc.Fragments.ForName(s.Name)
+			if f == nil || f.TypeCondition != "Mutation" || visiting[s.Name] {
+				return false
+			}
+			visiting[s.Name] = true
+			ok := authoredSelections(doc, f.SelectionSet, visiting)
+			delete(visiting, s.Name)
+			if !ok {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+func authoredWriteField(field string) bool {
+	switch field {
+	case "createNode", "createSpecNode", "createTaskNode", "createReviewNode",
+		"updateNode", "updateSpecNode", "updateTaskNode", "updateReviewNode",
+		"deleteNode", "importNode", "moveNode", "cloneNode", "mergeNodes", "updateNodeData",
+		"createEdge", "updateEdge", "deleteEdge", "searchReplaceInNodes", "searchReplaceInSpecNodes",
+		"createObject", "updateObject", "deleteObject", "restoreNodeRevision",
+		"createAssetReferenceNode", "extractParentNodeToMemory",
+		"createComment", "replyToComment", "editComment", "retractComment",
+		"resolveCommentThread", "reopenCommentThread", "hideComment", "deleteCommentThread":
 		return true
 	default:
 		return false
