@@ -11,7 +11,9 @@ post-merge `cor:agt:020:04` propagation (#6641); no spec minted here.
 The CLI attributes primary pages and the independent chat-head probe only when
 its session binding matches the deployment and canonical App and still names
 the same session. It rechecks the local binding before every attributed request.
-The server remains responsible for session ownership and current eligibility.
+The check re-reads session ID, canonical App ID and a nonempty deployment on
+each attributed call; absent deployment provenance stays headerless. The
+server remains responsible for session ownership and current eligibility.
 Unknown App identity degrades to a readable headerless request, without claiming
 attribution. Metadata and cursor diagnostics remain headerless.
 
@@ -44,3 +46,14 @@ queries and headers are observed directly; this is not production usage-row QA.
 Independent server/CLI end-to-end attribution and read-state evidence remain
 review/QA gates. On older production servers the expected behavior is headerless
 fallback, not an attribution claim.
+
+## Step-5 review cycle
+
+Four local P3s addressed: per-request binding checks now cover App/deployment
+as well as session identity; fallback latch and diagnostic are pinned across a
+multi-page walk; out-of-scope tests assert legacy operation names as well as
+empty headers; refusal wording is explicitly pinned to #1633 and Diego's
+real-production validation observation. Missing deployment provenance is
+covered too. No persistence of capability state across commands: one refused
+probe on old servers is an accepted compatibility cost, not a production
+capability cache with stale-lifetime ambiguity.

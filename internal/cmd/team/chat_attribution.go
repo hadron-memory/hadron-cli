@@ -16,18 +16,25 @@ import (
 type chatReadAttribution struct {
 	f           *cmdutil.Factory
 	session     string
+	appID       string
 	unsupported bool
 }
 
 func newChatReadAttribution(ctx context.Context, f *cmdutil.Factory, appRef string, b *binding) *chatReadAttribution {
 	a := &chatReadAttribution{f: f}
-	if b != nil && b.SessionID != "" && bindingServerMatches(f, b) && isBindingsApp(ctx, f, appRef, b.AppID) && bindingIsSession(ctx, b.SessionID) {
+	if b != nil && b.SessionID != "" && b.Server != "" && bindingServerMatches(f, b) && isBindingsApp(ctx, f, appRef, b.AppID) && bindingIsSession(ctx, b.SessionID) {
 		a.session = b.SessionID
+		a.appID = b.AppID
 	}
 	return a
 }
 func (a *chatReadAttribution) enabled(ctx context.Context) bool {
-	return a.session != "" && !a.unsupported && bindingIsSession(ctx, a.session)
+	if a.session == "" || a.unsupported {
+		return false
+	}
+	current, _, err := readBinding(ctx)
+	return err == nil && current != nil && current.SessionID == a.session &&
+		current.AppID == a.appID && current.Server != "" && bindingServerMatches(a.f, current)
 }
 func (a *chatReadAttribution) fallback(err error) bool {
 	if !api.IsUnknownGraphQLArgument(err, "advanceReadState", "Query.teamChatMessages") {

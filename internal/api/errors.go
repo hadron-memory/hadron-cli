@@ -931,6 +931,9 @@ func ExitCodeForExtension(code string) int { return codeForExtension(code) }
 
 // IsUnknownGraphQLArgument permits a compatibility retry only when every
 // parsed error is the specific schema refusal, never a mixed business failure.
+// #817/server#1633 pin gqlgen's unknown-argument wording; Diego also observed
+// that exact envelope on production during the #819 blind review. A wording
+// change fails closed rather than silently dropping session attribution.
 func IsUnknownGraphQLArgument(err error, argument, field string) bool {
 	errs := graphQLErrors(err)
 	if len(errs) == 0 {

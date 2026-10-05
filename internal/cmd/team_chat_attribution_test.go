@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"os"
 	"path/filepath"
@@ -134,7 +135,7 @@ func TestTeamChatReadNeverRetriesOtherAttributionErrors(t *testing.T) {
 }
 
 func TestTeamChatReadOutsideBindingScopeStaysHeaderless(t *testing.T) {
-	for _, kind := range []string{"unbound", "other deployment", "other App", "no session"} {
+	for _, kind := range []string{"unbound", "other deployment", "other App", "no session", "no deployment"} {
 		t.Run(kind, func(t *testing.T) {
 			if kind == "unbound" {
 				teamGitDir(t)
@@ -149,7 +150,7 @@ func TestTeamChatReadOutsideBindingScopeStaysHeaderless(t *testing.T) {
 			if kind == "other deployment" {
 				setTeamBindingServer(t, "https://different.example.test")
 			}
-			if kind != "unbound" && kind != "other deployment" {
+			if kind != "unbound" && kind != "other deployment" && kind != "no deployment" {
 				setTeamBindingServer(t, srv.URL)
 			}
 			if kind == "no session" {
@@ -173,7 +174,7 @@ func TestTeamChatReadOutsideBindingScopeStaysHeaderless(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, c := range *calls {
-				if c.Session != "" {
+				if c.Session != "" || strings.HasSuffix(c.RawOp, "Attributed") {
 					t.Fatalf("out-of-scope attribution %+v", c)
 				}
 			}
@@ -202,5 +203,96 @@ func TestTeamChatReadAllAttributesEveryPageWithoutEarlyMark(t *testing.T) {
 		if p.Session != "s-new" || !strings.Contains(p.Query, "advanceReadState: false") {
 			t.Fatalf("unsafe page %+v", p)
 		}
+	}
+}
+
+func TestTeamChatReadScopeRewriteDuringHeadStopsAttribution(t *testing.T) {
+	for _, field := range []string{"appId", "server"} {
+		t.Run(field, func(t *testing.T) {
+			writeTeamBinding(t)
+			srv, calls := attnServerHook(t, chatReadResponses(), func(op string) {
+				if op == "TeamChatReadHead" {
+					p := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
+					b, err := os.ReadFile(p)
+					if err != nil {
+						t.Fatal(err)
+					}
+					var binding map[string]any
+					if err := json.Unmarshal(b, &binding); err != nil {
+						t.Fatal(err)
+					}
+					if field == "appId" {
+						binding[field] = "capp200000000000000000000"
+					} else {
+						binding[field] = "https://other.example.test"
+					}
+					b, err = json.Marshal(binding)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(p, b, 0600); err != nil {
+						t.Fatal(err)
+					}
+				}
+			})
+			setTeamBindingServer(t, srv.URL)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "chat", "read", "--json", "--server", srv.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			for _, c := range *calls {
+				if c.Op == "TeamChatMessages" && (c.Session != "" || strings.HasSuffix(c.RawOp, "Attributed")) {
+					t.Fatalf("scope changed but old attribution used %+v", c)
+				}
+			}
+		})
+	}
+}
+
+func TestTeamChatReadUnsupportedLatchAndNoteCoverEveryWalkPage(t *testing.T) {
+	writeTeamBinding(t)
+	r := chatReadResponses()
+	seqs := make([]int, 200)
+	for i := range seqs {
+		seqs[i] = i + 1
+	}
+	r["TeamChatReadHeadAttributed"] = missingReadSuppression
+	r["TeamChatReadHead"] = teamReadHeadFixture(teamChatPage(201, 201))
+	pages := []string{teamChatPage(201, seqs...), teamChatPage(201, 201)}
+	page := 0
+	srv, calls := attnServerHook(t, r, func(op string) {
+		if op == "TeamChatMessages" {
+			if page >= len(pages) {
+				t.Fatal("unexpected extra page")
+			}
+			r[op] = pages[page]
+			page++
+		}
+	})
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	var diagnostic strings.Builder
+	f.IOStreams.ErrOut = &diagnostic
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--all", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if page != 2 {
+		t.Fatalf("pages=%d", page)
+	}
+	attempts := 0
+	for _, c := range *calls {
+		if c.RawOp == "TeamChatReadHeadAttributed" {
+			attempts++
+		}
+		if c.Op == "TeamChatMessages" && (c.Session != "" || strings.HasSuffix(c.RawOp, "Attributed")) {
+			t.Fatalf("unsupported mode retried on page %+v", c)
+		}
+	}
+	if attempts != 1 || strings.Count(diagnostic.String(), "session attribution is unavailable") != 1 {
+		t.Fatalf("attempts=%d diagnostic=%s", attempts, diagnostic.String())
 	}
 }
