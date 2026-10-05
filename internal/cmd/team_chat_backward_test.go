@@ -82,6 +82,11 @@ func chatServer(t *testing.T, pages ...string) (*httptest.Server, *[]chatVars) {
 			// letting the loop look bounded.
 			t.Errorf("TeamChatMessages called %d times, only %d pages queued", i+1, len(pages))
 			_, _ = w.Write([]byte(teamChatPage(0)))
+		case "TeamChatReadHead", "TeamChatReadMetadata":
+			_, _ = w.Write([]byte(teamReadHeadFixture(pages...)))
+		case "ChannelReadState":
+			resp, _ := unstubbedDefault(body.OperationName)
+			_, _ = w.Write([]byte(resp))
 		case "TeamAppIdentity":
 			_, _ = w.Write([]byte(teamAppIdentityJSON))
 		case "TeamDefaultChannel", "MarkOwnTeamChatRead":

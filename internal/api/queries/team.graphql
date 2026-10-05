@@ -452,8 +452,9 @@ query TeamChatMessages(
     # Kept, because it is sound in the direction that uses it: the unread-count
     # nudge (`sessionChatNudge`) passes sinceSeq ONLY, where total is the count
     # of everything after the watermark, verified live. `chat read` does not
-    # publish it and does not decide anything with it — an EMPTY page is its
-    # end-of-history signal, and that one cannot be scoped wrong.
+    # publish it and does not decide anything with it. A forward empty/short
+    # page is cross-checked against an independent pre-read head (#801);
+    # otherwise a stale response could forge the exhaustion signal.
     #
     # So the rule for any new caller: total answers "how many match this
     # query", never "how many exist". With beforeSeq those differ.
@@ -1100,6 +1101,31 @@ query TeamDefaultChannel($appRef: ID!) {
     id
     defaultChannel {
       id
+    }
+  }
+}
+
+# Independent, read-only baseline for chat reads (#801). Run BEFORE the page:
+# a post landing after this baseline must not make an otherwise fresh page
+# look stale. lastSeq is an allocator watermark, so compare against an actual
+# surviving message, not the allocator (deletions/rolled-back writes leave gaps).
+query TeamChatReadHead($appRef: ID!) {
+  teamChatMessages(appRef: $appRef, beforeSeq: 2147483647, limit: 1) {
+    items {
+      seq
+    }
+  }
+}
+
+# Optional diagnostic metadata uses the App gate, which is narrower than chat
+# access (App keys and cross-org AppMembers can read chat without reading App).
+# Never combine it with the chat-only head probe or let its refusal fail chat.
+query TeamChatReadMetadata($appRef: ID!) {
+  app(ref: $appRef) {
+    id
+    defaultChannel {
+      id
+      lastSeq
     }
   }
 }

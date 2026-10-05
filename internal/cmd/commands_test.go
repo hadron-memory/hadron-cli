@@ -27,7 +27,11 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 		captured[body.OperationName] = body.Variables
 		resp, ok := responses[body.OperationName]
 		if !ok {
-			resp, ok = unstubbedDefault(body.OperationName)
+			if body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata" {
+				resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
+			} else {
+				resp, ok = unstubbedDefault(body.OperationName)
+			}
 		}
 		if !ok {
 			t.Errorf("unexpected operation %q", body.OperationName)
