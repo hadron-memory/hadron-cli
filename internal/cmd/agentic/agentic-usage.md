@@ -2431,6 +2431,21 @@ Conventions:
   `--limit` sizes one page (1–200). Only **`--all`** walks forward to exhaustion,
   from seq 0 unless `--since` is given; it cannot combine with `--before` or
   `--limit`. The Orca attention router polls `team attention`, not this command.
+  **Freshness (#801):** a separate unfiltered head probe runs before the page.
+  An empty/short unfiltered forward page or a newest page that ends below that
+  baseline is suspected stale: exit 5, messages still rendered, nothing marked
+  read; retry from the original cursor. Full forward pages, mentions filters
+  and backward/bounded windows are not required to reach the head. A `--before`
+  bound above the sampled head selects a newest page and is checked like a tail.
+  Concurrent
+  posts after the probe are allowed. Equal responses can both be stale: this
+  is a discrepancy detector, not a freshness guarantee. JSON adds `readState`
+  (`head`, `allocatedHead`, `readCursor`, `suspectedStale`); text shows the same
+  pre-read cursor/head. `head` is the latest surviving message, `allocatedHead`
+  the allocator watermark (deletions can leave gaps), and `readCursor` is the
+  bound worker's server cursor before this read. A null cursor means unavailable
+  or inapplicable. A failed head probe fails the read; a failed cursor lookup
+  prints a note and leaves the cursor null.
   A cursor that could only return nothing is **refused** (exit 2) rather than
   answered: `--limit 0` (the SDL gives it a meaning — count only — so it
   SUCCEEDS and returns an empty page), a negative limit, a limit above the

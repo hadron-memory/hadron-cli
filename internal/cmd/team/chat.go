@@ -408,6 +408,19 @@ seq the server actually returned — so a --since ahead of the watermark (or
 past the end of the chat) reads a window rather than a prefix and records
 nothing. An explicit --since 0 on an EMPTY chat still records read-through-0.
 
+FRESHNESS (#801). Before reading, a separate unfiltered request samples the
+latest surviving message and the channel allocator watermark. Empty/short
+forward pages and newest pages are checked against that baseline. A discrepancy
+is suspected staleness (exit 5): returned messages remain visible, but nothing
+is marked read. Retry from your original cursor. Posts arriving after the probe
+are not discrepancies. Agreement cannot detect two equally stale responses.
+Filtered and backward windows need not reach the head. A --before bound above
+the sampled head is a newest-page request and is checked like a tail.
+The read-state line (JSON: readState) shows the sampled head, allocatedHead,
+and your server readCursor before this read; a null cursor is unavailable or
+inapplicable, not zero. A head-probe failure fails the read rather than claiming
+quiet. Cursor-read failures are noted, without failing message delivery.
+
 YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). When the binding
 records this server, a read that records the watermark above also marks the bound worker's
 messages read ON THE SERVER, through the same seq — which is what stops a
@@ -520,7 +533,12 @@ them "(human)" / "(worker)".`,
 			if cmd.Flags().Changed("limit") {
 				pageSize = limit
 			}
+			state, err := probeChatReadState(ctx, f, client, appRef, b)
+			if err != nil {
+				return err
+			}
 			msgs := []teamChatMessageDTO{}
+			lastPageCount := 0
 			cursor := since
 			for {
 				size := pageSize
@@ -537,14 +555,19 @@ them "(human)" / "(worker)".`,
 				if err != nil {
 					return api.MapError(err)
 				}
+				if resp.TeamChatMessages == nil {
+					return exitcode.Newf(exitcode.Unavailable, "team chat read returned no page; retry from the original cursor")
+				}
 				page := resp.TeamChatMessages.Items
+				lastPageCount = 0
 				for _, m := range page {
 					if m == nil {
 						continue
 					}
+					lastPageCount++
 					msgs = append(msgs, teamChatMessageDTOFromFields(m.TeamChatMessageFields))
 				}
-				if !all || len(page) < pageSize {
+				if !all || lastPageCount < pageSize {
 					break
 				}
 				cursor = msgs[len(msgs)-1].Seq
@@ -555,6 +578,17 @@ them "(human)" / "(worker)".`,
 					next = m.Seq
 				}
 			}
+			highest := 0
+			for _, m := range msgs {
+				if m.Seq > highest {
+					highest = m.Seq
+				}
+			}
+			// A --before bound above the sampled head is also a newest-page
+			// request (the portable tail idiom used by older CLI versions).
+			beforeGiven := cmd.Flags().Changed("before")
+			newest := tailRead || (beforeGiven && before > state.Head && state.Head > since)
+			state.SuspectedStale = chatPageBehindHead(state.Head, highest, cursor, lastPageCount, pageSize, newest, sinceGiven || all, beforeGiven && !newest, mentionsRef != nil)
 			// The watermark the binding records is NOT `next`. `next` is a PAGING
 			// cursor: it answers "where do I resume", falls back to whatever the
 			// caller passed, and is the right value to hand back on the wire. The
@@ -635,7 +669,7 @@ them "(human)" / "(worker)".`,
 				//
 				// --limit with an explicit --since is still a forward prefix.
 				// --limit alone is a cursorless tail, excluded by contiguous.
-				if b == nil || b.SessionID == "" || !ok || !unfiltered || !contiguous || cmd.Flags().Changed("before") ||
+				if state.SuspectedStale || b == nil || b.SessionID == "" || !ok || !unfiltered || !contiguous || cmd.Flags().Changed("before") ||
 					!bindingServerMatches(f, b) {
 					return false
 				}
@@ -657,7 +691,8 @@ them "(human)" / "(worker)".`,
 			// pages where it matters: total is cursor-scoped under beforeSeq
 			// (hadron-server#1121, measured by @Gil), so a reader adopting it
 			// would conclude it had reached the beginning while messages
-			// remained. An empty page cannot be scoped wrong.
+			// remained. Backward emptiness remains the signal; forward emptiness is also
+			// checked against the independent head because a stale page can forge it.
 			var prevBefore *int
 			for i := range msgs {
 				if prevBefore == nil || msgs[i].Seq < *prevBefore {
@@ -671,8 +706,9 @@ them "(human)" / "(worker)".`,
 				// ADDED, never replacing nextSince: the two answer opposite
 				// questions and a reader walking forward must not have to learn
 				// a new key.
-				PrevBefore *int `json:"prevBefore"`
-			}{msgs, next, prevBefore}
+				PrevBefore *int              `json:"prevBefore"`
+				ReadState  *chatReadStateDTO `json:"readState"`
+			}{msgs, next, prevBefore, state}
 			// AFTER the render, and only if it succeeded (PR #493 review). The
 			// watermark claims the reader has seen these messages; a closed pipe
 			// or a full disk means they have not, and marking them read would
@@ -686,6 +722,13 @@ them "(human)" / "(worker)".`,
 				// the same empty output. The failure hid inside the expected
 				// case, which is what makes this the sharper half of #470.
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
+					return err
+				}
+				cursorLabel := "unavailable (no applicable server read cursor)"
+				if state.ReadCursor != nil {
+					cursorLabel = fmt.Sprintf("#%d", *state.ReadCursor)
+				}
+				if _, err := fmt.Fprintf(w, "read state before this read: cursor %s; channel head #%d (allocated #%d)\n", cursorLabel, state.Head, state.AllocatedHead); err != nil {
 					return err
 				}
 				for _, m := range result.Messages {
@@ -708,6 +751,9 @@ them "(human)" / "(worker)".`,
 				return nil
 			}); err != nil {
 				return err
+			}
+			if state.SuspectedStale {
+				return exitcode.Newf(exitcode.Conflict, "suspected stale team-chat read: page ends at #%d, but the independent pre-read channel head was #%d; nothing marked read — retry from the original cursor", highest, state.Head)
 			}
 			// The bound worker's SERVER read state (hadron-server#1353) moves
 			// only here: after the messages were delivered, and only for a read

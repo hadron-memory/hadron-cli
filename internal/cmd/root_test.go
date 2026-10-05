@@ -29,7 +29,11 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		resp, ok := responses[body.OperationName]
 		if !ok {
-			resp, ok = unstubbedDefault(body.OperationName)
+			if body.OperationName == "TeamChatReadHead" {
+				resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
+			} else {
+				resp, ok = unstubbedDefault(body.OperationName)
+			}
 		}
 		if !ok {
 			t.Errorf("unexpected operation %q", body.OperationName)
@@ -53,6 +57,8 @@ func unstubbedDefault(op string) (string, bool) {
 	// `team chat read`'s best-effort server-side mark after delivery (#1353):
 	// answered as a server OUTSIDE the team-attention pilot, where the mark
 	// is refused and silently skipped. Tests of the mark stub both.
+	case "ChannelReadState":
+		return `{"data":{"channelReadState":null}}`, true
 	case "TeamDefaultChannel":
 		return `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`, true
 	case "MarkOwnTeamChatRead":
