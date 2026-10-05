@@ -24,6 +24,7 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 			Variables     json.RawMessage `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		body.OperationName = legacyChatReadOperation(body.OperationName)
 		captured[body.OperationName] = body.Variables
 		resp, ok := responses[body.OperationName]
 		if !ok {
@@ -57,6 +58,7 @@ func captureGraphQLFunc(t *testing.T, respond func(op string) string) (*httptest
 			Variables     json.RawMessage `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		body.OperationName = legacyChatReadOperation(body.OperationName)
 		captured[body.OperationName] = body.Variables
 		resp := respond(body.OperationName)
 		if resp == "" {

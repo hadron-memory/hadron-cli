@@ -928,3 +928,26 @@ func codeForExtension(code string) int {
 // successful transfer preview's blockers, where there is no GraphQL error for
 // MapError to inspect. The preview and apply paths must exit consistently.
 func ExitCodeForExtension(code string) int { return codeForExtension(code) }
+
+// IsUnknownGraphQLArgument permits a compatibility retry only when every
+// parsed error is the specific schema refusal, never a mixed business failure.
+// #817/server#1633 pin gqlgen's unknown-argument wording; Diego also observed
+// that exact envelope on production during the #819 blind review. A wording
+// change fails closed rather than silently dropping session attribution.
+func IsUnknownGraphQLArgument(err error, argument, field string) bool {
+	errs := graphQLErrors(err)
+	if len(errs) == 0 {
+		return false
+	}
+	prefix := `Unknown argument "` + argument + `" on field "` + field + `".`
+	for _, e := range errs {
+		if e == nil || !strings.HasPrefix(e.Message, prefix) {
+			return false
+		}
+		code := extensionCode(e)
+		if code != "" && code != "GRAPHQL_VALIDATION_FAILED" {
+			return false
+		}
+	}
+	return true
+}

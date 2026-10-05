@@ -14,8 +14,9 @@ type sessionKey struct{}
 // worker session id. It is deliberately per-CALL, never a client default: the
 // header changes server behaviour (a heartbeat, and under hadron-server#1353
 // the bound worker's own read state), so it rides only on the operations that
-// ask for that — `team chat read` and `team chat mark-read` (#1353, Dara on
-// team chat #1889) — and not on every request a bound worktree makes.
+// ask for that, never every request a bound worktree makes. Chat reads use
+// explicit advanceReadState:false (#817/server#1628); only the post-delivery
+// mark may acknowledge what the CLI actually showed.
 // An empty id leaves ctx unchanged.
 func WithSession(ctx context.Context, sessionID string) context.Context {
 	if sessionID == "" {

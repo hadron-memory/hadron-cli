@@ -422,6 +422,15 @@ unavailable or inapplicable, not zero. Optional metadata/cursor failures do not
 deny chat. An old-schema beforeSeq refusal explicitly disables comparison;
 other head-probe failures fail the read. Shared stale sources can still agree.
 
+SESSION ATTRIBUTION (#817). On this binding's App and deployment, head and
+message reads carry the worker session with advanceReadState:false. The server
+attributes activity and maintains liveness but does not acknowledge messages
+before delivery. Metadata diagnostics remain headerless. An older server's
+specific unknown-argument validation refusal retries headerless with a note;
+other failures are not retried. Rebinding stops use of the old session on
+subsequent requests. Explicit post-delivery acknowledgement still follows the
+rules below.
+
 YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). When the binding
 records this server, a read that records the watermark above also marks the bound worker's
 messages read ON THE SERVER, through the same seq — which is what stops a
@@ -534,7 +543,8 @@ them "(human)" / "(worker)".`,
 			if cmd.Flags().Changed("limit") {
 				pageSize = limit
 			}
-			state, err := probeChatReadState(ctx, f, client, appRef, b)
+			attribution := newChatReadAttribution(ctx, f, appRef, b)
+			state, err := probeChatReadState(ctx, f, client, appRef, b, attribution)
 			if err != nil {
 				return err
 			}
@@ -552,7 +562,7 @@ them "(human)" / "(worker)".`,
 					b := before
 					beforeArg = &b
 				}
-				resp, err := gen.TeamChatMessages(ctx, client, appRef, sinceArg, mentionsRef, &size, nil, beforeArg)
+				resp, err := attribution.page(ctx, client, appRef, sinceArg, mentionsRef, &size, beforeArg)
 				if err != nil {
 					return api.MapError(err)
 				}

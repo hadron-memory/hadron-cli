@@ -20,9 +20,9 @@ type chatReadStateDTO struct {
 	SuspectedStale bool `json:"suspectedStale"`
 }
 
-func probeChatReadState(ctx context.Context, f *cmdutil.Factory, client graphql.Client, appRef string, b *binding) (*chatReadStateDTO, error) {
+func probeChatReadState(ctx context.Context, f *cmdutil.Factory, client graphql.Client, appRef string, b *binding, attribution *chatReadAttribution) (*chatReadStateDTO, error) {
 	state := &chatReadStateDTO{}
-	resp, err := gen.TeamChatReadHead(ctx, client, appRef)
+	resp, err := attribution.head(ctx, client, appRef)
 	if err != nil {
 		// Only the known old-schema refusal degrades. Auth, transport and
 		// unrelated validation failures must not become a quiet-channel answer.

@@ -25,6 +25,8 @@ type attnCall struct {
 	Op      string
 	Vars    map[string]any
 	Session string
+	Query   string
+	RawOp   string
 }
 
 // attnServer answers by operation name and records every call in order. An
@@ -44,14 +46,20 @@ func attnServerHook(t *testing.T, responses map[string]string, onOp func(op stri
 		var body struct {
 			OperationName string         `json:"operationName"`
 			Variables     map[string]any `json:"variables"`
+			Query         string         `json:"query"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
+		rawOp := body.OperationName
+		body.OperationName = legacyChatReadOperation(body.OperationName)
 		if onOp != nil {
 			onOp(body.OperationName)
 		}
-		*calls = append(*calls, attnCall{Op: body.OperationName, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session")})
+		*calls = append(*calls, attnCall{Op: body.OperationName, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session"), Query: body.Query, RawOp: rawOp})
 		w.Header().Set("Content-Type", "application/json")
-		resp, ok := responses[body.OperationName]
+		resp, ok := responses[rawOp]
+		if !ok {
+			resp, ok = responses[body.OperationName]
+		}
 		if !ok && (body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata") {
 			resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
 		}
@@ -245,6 +253,7 @@ func TestTeamAttentionDrainsPagesBeforeReturningAnAdoptableToken(t *testing.T) {
 		var body struct {
 			OperationName string         `json:"operationName"`
 			Variables     map[string]any `json:"variables"`
+			Query         string         `json:"query"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Error(err)
@@ -528,8 +537,8 @@ func TestTeamAttentionSwitchoverStaleProofIsAConflict(t *testing.T) {
 
 // ── team chat read marks the bound worker read AFTER delivery ───────────────
 //
-// PR #732, @codex P1: the read itself carries NO session, so the server never
-// marks a page the command has not shown yet. After a successful render, a read
+// PR #732 kept reads headerless to prevent pre-delivery marks. #817 now
+// carries attribution with explicit suppression. After a successful render, a read
 // the binding's watermark rule counts is marked read explicitly, through what it
 // delivered.
 
@@ -564,10 +573,9 @@ func TestTeamChatReadMarksTheBoundWorkerReadAfterDelivery(t *testing.T) {
 	for i, c := range *calls {
 		switch c.Op {
 		case "TeamChatMessages":
-			// The read must NOT carry the session: a header-bound read lets the
-			// server mark a page before this command has shown it.
-			if c.Session != "" {
-				t.Errorf("the read itself must not carry X-Hadron-Session, got %q", c.Session)
+			// Attribution is safe only with explicit suppression (#817).
+			if c.Session != "s-new" || !strings.Contains(c.Query, "advanceReadState: false") {
+				t.Errorf("read attribution lacks suppression: %+v", c)
 			}
 		case "MarkOwnTeamChatRead":
 			mark = &(*calls)[i]
@@ -661,7 +669,7 @@ func TestTeamChatReadMarksNothingWhenTheRenderFails(t *testing.T) {
 		t.Fatal("a failed render must fail the read")
 	}
 	for _, c := range *calls {
-		if c.Op == "MarkOwnTeamChatRead" || c.Session != "" {
+		if c.Op == "MarkOwnTeamChatRead" || (c.Session != "" && !strings.Contains(c.Query, "advanceReadState: false")) {
 			t.Errorf("nothing may be marked read when nothing was shown: %v (session %q)", c.Op, c.Session)
 		}
 	}
