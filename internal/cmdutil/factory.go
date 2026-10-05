@@ -4,6 +4,7 @@
 package cmdutil
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -22,6 +23,10 @@ import (
 type Factory struct {
 	IOStreams  *output.IOStreams
 	HTTPClient *http.Client
+
+	// GraphQLRequestContext decorates individual authenticated generated calls.
+	// The root installs the worktree attribution policy; queries stay unchanged.
+	GraphQLRequestContext func(context.Context, *graphql.Request) context.Context
 
 	// Persistent flag values, bound by the root command.
 	JSON       bool
@@ -157,7 +162,14 @@ func (f *Factory) GraphQLClient() (graphql.Client, error) {
 	if source == auth.SourceNone {
 		return nil, exitcode.Newf(exitcode.AuthRequired, "not signed in to %s — run `hadron auth login` or set %s", server, store.EnvToken)
 	}
-	return api.NewClient(server, token, f.HTTPClient)
+	client, err := api.NewClient(server, token, f.HTTPClient)
+	if err != nil {
+		return nil, err
+	}
+	if f.GraphQLRequestContext != nil {
+		return &requestContextClient{inner: client, context: f.GraphQLRequestContext}, nil
+	}
+	return client, nil
 }
 
 // PublicGraphQLClient returns a client for the server's PUBLIC surface. It
@@ -187,4 +199,15 @@ func (f *Factory) PublicGraphQLClient() (client graphql.Client, authenticated bo
 		return nil, false, err
 	}
 	return c, token != "", nil
+}
+
+// requestContextClient keeps the hook above the existing transport, so bearer,
+// redirect and session-security rules remain identical.
+type requestContextClient struct {
+	inner   graphql.Client
+	context func(context.Context, *graphql.Request) context.Context
+}
+
+func (c *requestContextClient) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
+	return c.inner.MakeRequest(c.context(ctx, req), req, resp)
 }

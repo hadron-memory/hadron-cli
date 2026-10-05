@@ -54,10 +54,15 @@ import (
 )
 
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
+	f.GraphQLRequestContext = teamcmd.AuthoredWriteContext(f)
 	root := &cobra.Command{
-		Use:           "hadron <command> <subcommand>",
-		Short:         "The Hadron platform CLI",
-		Long:          "Work with Hadron memories, nodes, and Apps from the command line.",
+		Use:   "hadron <command> <subcommand>",
+		Short: "The Hadron platform CLI",
+		Long: `Work with Hadron memories, nodes, and Apps from the command line.
+
+In a worker-bound worktree, authored node and edge writes inherit the worker's
+session attribution when the binding's App and deployment are verified.
+Supporting servers record the worker and agent alongside the authenticated user.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		// #393: `--version` and `-v` are what a human reaches for first —
