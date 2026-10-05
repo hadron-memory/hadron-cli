@@ -69,7 +69,7 @@ usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 
-[Mutation] 86 unbound
+[Mutation] 88 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -88,6 +88,7 @@ createResendSender
 createRevision
 createSlackConnection
 deleteChat
+deleteCommentThread  # cli#807 commands slice covers writer operations; admin thread deletion is a later parity slice
 deleteDashboardWidgetPreset
 deleteExchangeConnection
 deleteHomeAssistantInstance
@@ -107,6 +108,7 @@ exchangeMoveMessage
 exchangeReply
 exportNodeToGoogleDoc
 grantCredits
+hideComment  # cli#807 commands slice covers writer operations; admin moderation is a later parity slice
 inviteUser
 joinApp
 joinWaitingList

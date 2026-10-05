@@ -211,6 +211,12 @@ func MapError(err error) error {
 		return exitcode.New(exitcode.AuthRequired, &serverError{msg: msg + " " + ScopeRefusalRemedy(kind), err: err})
 	}
 
+	for _, e := range graphQLErrors(err) {
+		if extensionCode(e) == "ROLE_GOVERNED" && e.Extensions["kind"] == "comment" {
+			return exitcode.New(exitcode.Usage, &serverError{msg: strings.Join(ServerMessages(err), "; ") + " — use `hadron comment` for comment writes", err: err})
+		}
+	}
+
 	var httpErr *graphql.HTTPError
 	if errors.As(err, &httpErr) {
 		// #563: a non-200 that STILL carries a typed GraphQL envelope is
@@ -690,6 +696,13 @@ func DescendantCount(err error) int {
 
 func codeForExtension(code string) int {
 	switch {
+	// Comment operations retain typed permission, input and state refusals.
+	case code == "COMMENT_FORBIDDEN" || code == "COMMENT_NOT_AUTHOR" || code == "COMMENT_ADMIN_REQUIRED" || code == "COMMENT_IMPERSONATION_REFUSED":
+		return exitcode.Forbidden
+	case code == "COMMENT_TARGET_IS_COMMENT" || code == "COMMENT_MEMORY_NOT_COMMENTABLE" || code == "COMMENT_ANCHOR_REVISION_INVALID" || code == "COMMENT_NOT_TOP_LEVEL" || code == "COMMENT_BODY_INVALID" || code == "COMMENT_MOVE_UNCOMMENTABLE" || code == "COMMENT_NOT_APPROVABLE":
+		return exitcode.Usage
+	case code == "COMMENT_OPEN_THREAD_EXISTS" || code == "COMMENT_ANCHOR_REVISION_UNAVAILABLE" || code == "COMMENT_RETRACTED" || code == "COMMENT_HIDDEN" || code == "COMMENT_THREAD_STATE":
+		return exitcode.Conflict
 	case code == "UNAUTHENTICATED":
 		return exitcode.AuthRequired
 	case code == "NOT_FOUND" || strings.HasSuffix(code, "_NOT_FOUND") || code == "AiServiceConfigNotFoundError":

@@ -2849,3 +2849,37 @@ hadron run get <run-id> --json
 # Mint an outbound-comms budget the runs consume
 hadron ticket mint --org acme.com --action comm.outbound --count 100 --note 'digest sends'
 ```
+
+
+## Governed comments (`hadron comment`)
+
+```
+hadron comment create|add <target-ref> --body <text|->|--body-file <path> [-m <memory>] [--quote <text>] [--anchor-revision N]
+hadron comment reply <comment-ref> --body <text|->|--body-file <path> [-m <memory>]
+hadron comment edit <comment-ref> --expected-revision N [-m <memory>] [--body <text|->|--body-file <path>] [--quote <text>]
+hadron comment retract <comment-ref> --expected-revision N [-m <memory>]
+hadron comment resolve <root-ref> --expected-revision N [-m <memory>] [--reopen]
+hadron comment get <comment-ref> [-m <memory>]
+hadron comment list <target-ref> [-m <memory>] [--state OPEN,RESOLVED] [--limit N] [--offset N]
+```
+
+Refs are node IDs, qualified node URNs, or bare locs with `-m`. Create anchors
+to the current target revision unless `--anchor-revision` chooses a retained
+one. Replies to resolved threads remain resolved. Editing preserves omitted
+body/quote; `--quote ""` clears the quote. `--body -` requires piped stdin;
+use `--body-file` interactively. Guarded writes require the comment's own
+observed revision, not its target or anchor revision; conflicts exit 5 and
+are never retried automatically. Retracted/hidden comments retain stubs.
+Authorship is server-derived; bound comment writes use the #821 attribution
+hook. A generic comment node/edge write exits 2 (`ROLE_GOVERNED`) and points to
+this group. Permission/author/admin refusals exit 8; missing or unreadable
+comments/targets exit 4; invalid inputs exit 2; changed thread state, existing
+open thread and unavailable historical anchor exit 5.
+
+JSON uses explicit comment fields including `revision`, public `author`,
+`provenanceUser`, target/anchor metadata, state, nullable body/quote ; list emits `{items, total}` with each thread's root, replies
+array and server replyCount. Human output labels old anchors and stubs.
+`node get` adds an advisory `commentSummary` cue (open/resolved threads and
+comment count); it is null/unavailable on older servers or failed optional
+reads. Feedback changes independently of the target revision. Search plumbing
+waits for server#1608; this slice does not claim comments-only search support.

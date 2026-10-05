@@ -102,7 +102,9 @@ func TestInvalidInputsNeverConnect(t *testing.T) {
 		{"edit", "comments:one", "-m", "hrn:mem:acme.com:kb", "--expected-revision", "1"},
 		{"retract", "comments:one", "-m", "hrn:mem:acme.com:kb", "--expected-revision", "-1"},
 		{"list", "target", "-m", "hrn:mem:acme.com:kb", "--limit", "0"},
+		{"list", "target", "-m", "hrn:mem:acme.com:kb", "--limit", "201"},
 		{"list", "target", "-m", "hrn:mem:acme.com:kb", "--state", "INVALID"},
+		{"list", "target", "-m", "hrn:mem:acme.com:kb", "--state", ""},
 		{"get", "unqualified"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
@@ -188,5 +190,12 @@ func TestTextDoesNotPrintHiddenBodyAndLabelsOldAnchor(t *testing.T) {
 	}
 	if strings.Contains(w.String(), body) || !strings.Contains(w.String(), "hidden") || !strings.Contains(w.String(), "older target text") {
 		t.Fatal(w.String())
+	}
+}
+
+func TestAuthorLabelKeepsIdentityWithoutDisplayFields(t *testing.T) {
+	a := Author{Kind: "WORKER", Worker: &Actor{ID: "w1"}}
+	if got := authorLabel(a); got != "w1 (worker)" {
+		t.Fatal(got)
 	}
 }

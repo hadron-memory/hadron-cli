@@ -5393,6 +5393,1245 @@ type CloneNodeResponse struct {
 // GetCloneNode returns CloneNodeResponse.CloneNode, and is useful for accessing the field via an interface.
 func (v *CloneNodeResponse) GetCloneNode() *CloneNodeCloneNode { return v.CloneNode }
 
+// CommentActorFields includes the GraphQL fields of CommentActorRef requested by the fragment CommentActorFields.
+// The GraphQL type's documentation follows.
+//
+// #1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
+type CommentActorFields struct {
+	Id   string  `json:"id"`
+	Name *string `json:"name"`
+	// Users only.
+	Handle *string `json:"handle"`
+	// Workers, agents and Apps: the canonical URN, when it can be composed.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns CommentActorFields.Id, and is useful for accessing the field via an interface.
+func (v *CommentActorFields) GetId() string { return v.Id }
+
+// GetName returns CommentActorFields.Name, and is useful for accessing the field via an interface.
+func (v *CommentActorFields) GetName() *string { return v.Name }
+
+// GetHandle returns CommentActorFields.Handle, and is useful for accessing the field via an interface.
+func (v *CommentActorFields) GetHandle() *string { return v.Handle }
+
+// GetUrn returns CommentActorFields.Urn, and is useful for accessing the field via an interface.
+func (v *CommentActorFields) GetUrn() *string { return v.Urn }
+
+// #1606 — who a comment is from (cor:dmo:110:03).
+type CommentAuthorKind string
+
+const (
+	// An App key with no user.
+	CommentAuthorKindApp CommentAuthorKind = "APP"
+	// A user wrote it directly.
+	CommentAuthorKindUser CommentAuthorKind = "USER"
+	// An unnamed agent wrote it on a user's behalf (a token or a run).
+	CommentAuthorKindUserAgent CommentAuthorKind = "USER_AGENT"
+	// A named worker wrote it; the user who bound the session is provenance only.
+	CommentAuthorKindWorker CommentAuthorKind = "WORKER"
+)
+
+var AllCommentAuthorKind = []CommentAuthorKind{
+	CommentAuthorKindApp,
+	CommentAuthorKindUser,
+	CommentAuthorKindUserAgent,
+	CommentAuthorKindWorker,
+}
+
+// CommentFields includes the GraphQL fields of Comment requested by the fragment CommentFields.
+// The GraphQL type's documentation follows.
+//
+// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// `comment` in its target's memory, readable by exactly who can read that
+// memory. It is never part of its target's content, never approved or minted,
+// and never authoritative.
+type CommentFields struct {
+	Id  string `json:"id"`
+	Urn string `json:"urn"`
+	// The portal page of the comment node; null when FRONTEND_URL is unset.
+	PortalUrl *string `json:"portalUrl"`
+	// Null for a top-level comment; else the thread's top-level comment.
+	ThreadRootId *string `json:"threadRootId"`
+	IsTopLevel   bool    `json:"isTopLevel"`
+	// The target revision the thread was written against (replies inherit their thread's).
+	AnchorRevision int `json:"anchorRevision"`
+	// The approval hash of the target's title/abstract/content at anchorRevision: 64 lowercase hex.
+	AnchorApprovalHash string `json:"anchorApprovalHash"`
+	// anchorRevision equals the target's current revision. When false, show the comment as about an older revision (cor:dmo:110:01).
+	AnchorIsCurrent bool `json:"anchorIsCurrent"`
+	// Null when retracted or hidden.
+	Quote *string `json:"quote"`
+	// Null when retracted or hidden: the stub shows the state, not the text.
+	Body *string `json:"body"`
+	// Top-level only; null for a reply.
+	State       *CommentThreadState `json:"state"`
+	Retracted   bool                `json:"retracted"`
+	RetractedAt *string             `json:"retractedAt"`
+	Hidden      bool                `json:"hidden"`
+	HiddenAt    *string             `json:"hiddenAt"`
+	ResolvedAt  *string             `json:"resolvedAt"`
+	// The comment's own revision. Pass it as expectedRevision to edit, retract, resolve, reopen or hide.
+	RevSeq    int                                  `json:"revSeq"`
+	CreatedAt string                               `json:"createdAt"`
+	UpdatedAt *string                              `json:"updatedAt"`
+	Target    *CommentFieldsTargetCommentTargetRef `json:"target"`
+	Author    *CommentFieldsAuthorCommentAuthor    `json:"author"`
+	// Worker comments only: the user who bound the worker session, shown as provenance, never as author. Null for other comments, and for callers who cannot write the memory.
+	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
+	ResolvedBy     *CommentFieldsResolvedByCommentActorRef     `json:"resolvedBy"`
+}
+
+// GetId returns CommentFields.Id, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetId() string { return v.Id }
+
+// GetUrn returns CommentFields.Urn, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetUrn() string { return v.Urn }
+
+// GetPortalUrl returns CommentFields.PortalUrl, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetPortalUrl() *string { return v.PortalUrl }
+
+// GetThreadRootId returns CommentFields.ThreadRootId, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetThreadRootId() *string { return v.ThreadRootId }
+
+// GetIsTopLevel returns CommentFields.IsTopLevel, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetIsTopLevel() bool { return v.IsTopLevel }
+
+// GetAnchorRevision returns CommentFields.AnchorRevision, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetAnchorRevision() int { return v.AnchorRevision }
+
+// GetAnchorApprovalHash returns CommentFields.AnchorApprovalHash, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetAnchorApprovalHash() string { return v.AnchorApprovalHash }
+
+// GetAnchorIsCurrent returns CommentFields.AnchorIsCurrent, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetAnchorIsCurrent() bool { return v.AnchorIsCurrent }
+
+// GetQuote returns CommentFields.Quote, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetQuote() *string { return v.Quote }
+
+// GetBody returns CommentFields.Body, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetBody() *string { return v.Body }
+
+// GetState returns CommentFields.State, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetState() *CommentThreadState { return v.State }
+
+// GetRetracted returns CommentFields.Retracted, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetRetracted() bool { return v.Retracted }
+
+// GetRetractedAt returns CommentFields.RetractedAt, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetRetractedAt() *string { return v.RetractedAt }
+
+// GetHidden returns CommentFields.Hidden, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetHidden() bool { return v.Hidden }
+
+// GetHiddenAt returns CommentFields.HiddenAt, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetHiddenAt() *string { return v.HiddenAt }
+
+// GetResolvedAt returns CommentFields.ResolvedAt, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetResolvedAt() *string { return v.ResolvedAt }
+
+// GetRevSeq returns CommentFields.RevSeq, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetRevSeq() int { return v.RevSeq }
+
+// GetCreatedAt returns CommentFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns CommentFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// GetTarget returns CommentFields.Target, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetTarget() *CommentFieldsTargetCommentTargetRef { return v.Target }
+
+// GetAuthor returns CommentFields.Author, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetAuthor() *CommentFieldsAuthorCommentAuthor { return v.Author }
+
+// GetProvenanceUser returns CommentFields.ProvenanceUser, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
+	return v.ProvenanceUser
+}
+
+// GetResolvedBy returns CommentFields.ResolvedBy, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef { return v.ResolvedBy }
+
+// CommentFieldsAuthorCommentAuthor includes the requested fields of the GraphQL type CommentAuthor.
+// The GraphQL type's documentation follows.
+//
+// #1606 — a comment's author. Exactly the refs its kind names are set.
+type CommentFieldsAuthorCommentAuthor struct {
+	Kind CommentAuthorKind `json:"kind"`
+	// WORKER.
+	Worker *CommentFieldsAuthorCommentAuthorWorkerCommentActorRef `json:"worker"`
+	// USER and USER_AGENT.
+	User *CommentFieldsAuthorCommentAuthorUserCommentActorRef `json:"user"`
+	// USER_AGENT; also WORKER, when the worker's agent is recorded.
+	Agent *CommentFieldsAuthorCommentAuthorAgentCommentActorRef `json:"agent"`
+	// APP.
+	App *CommentFieldsAuthorCommentAuthorAppCommentActorRef `json:"app"`
+}
+
+// GetKind returns CommentFieldsAuthorCommentAuthor.Kind, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthor) GetKind() CommentAuthorKind { return v.Kind }
+
+// GetWorker returns CommentFieldsAuthorCommentAuthor.Worker, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthor) GetWorker() *CommentFieldsAuthorCommentAuthorWorkerCommentActorRef {
+	return v.Worker
+}
+
+// GetUser returns CommentFieldsAuthorCommentAuthor.User, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthor) GetUser() *CommentFieldsAuthorCommentAuthorUserCommentActorRef {
+	return v.User
+}
+
+// GetAgent returns CommentFieldsAuthorCommentAuthor.Agent, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthor) GetAgent() *CommentFieldsAuthorCommentAuthorAgentCommentActorRef {
+	return v.Agent
+}
+
+// GetApp returns CommentFieldsAuthorCommentAuthor.App, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthor) GetApp() *CommentFieldsAuthorCommentAuthorAppCommentActorRef {
+	return v.App
+}
+
+// CommentFieldsAuthorCommentAuthorAgentCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
+// The GraphQL type's documentation follows.
+//
+// #1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
+type CommentFieldsAuthorCommentAuthorAgentCommentActorRef struct {
+	CommentActorFields `json:"-"`
+}
+
+// GetId returns CommentFieldsAuthorCommentAuthorAgentCommentActorRef.Id, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorAgentCommentActorRef) GetId() string {
+	return v.CommentActorFields.Id
+}
+
+// GetName returns CommentFieldsAuthorCommentAuthorAgentCommentActorRef.Name, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorAgentCommentActorRef) GetName() *string {
+	return v.CommentActorFields.Name
+}
+
+// GetHandle returns CommentFieldsAuthorCommentAuthorAgentCommentActorRef.Handle, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorAgentCommentActorRef) GetHandle() *string {
+	return v.CommentActorFields.Handle
+}
+
+// GetUrn returns CommentFieldsAuthorCommentAuthorAgentCommentActorRef.Urn, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorAgentCommentActorRef) GetUrn() *string {
+	return v.CommentActorFields.Urn
+}
+
+func (v *CommentFieldsAuthorCommentAuthorAgentCommentActorRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CommentFieldsAuthorCommentAuthorAgentCommentActorRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CommentFieldsAuthorCommentAuthorAgentCommentActorRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentActorFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCommentFieldsAuthorCommentAuthorAgentCommentActorRef struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Handle *string `json:"handle"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *CommentFieldsAuthorCommentAuthorAgentCommentActorRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CommentFieldsAuthorCommentAuthorAgentCommentActorRef) __premarshalJSON() (*__premarshalCommentFieldsAuthorCommentAuthorAgentCommentActorRef, error) {
+	var retval __premarshalCommentFieldsAuthorCommentAuthorAgentCommentActorRef
+
+	retval.Id = v.CommentActorFields.Id
+	retval.Name = v.CommentActorFields.Name
+	retval.Handle = v.CommentActorFields.Handle
+	retval.Urn = v.CommentActorFields.Urn
+	return &retval, nil
+}
+
+// CommentFieldsAuthorCommentAuthorAppCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
+// The GraphQL type's documentation follows.
+//
+// #1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
+type CommentFieldsAuthorCommentAuthorAppCommentActorRef struct {
+	CommentActorFields `json:"-"`
+}
+
+// GetId returns CommentFieldsAuthorCommentAuthorAppCommentActorRef.Id, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorAppCommentActorRef) GetId() string {
+	return v.CommentActorFields.Id
+}
+
+// GetName returns CommentFieldsAuthorCommentAuthorAppCommentActorRef.Name, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorAppCommentActorRef) GetName() *string {
+	return v.CommentActorFields.Name
+}
+
+// GetHandle returns CommentFieldsAuthorCommentAuthorAppCommentActorRef.Handle, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorAppCommentActorRef) GetHandle() *string {
+	return v.CommentActorFields.Handle
+}
+
+// GetUrn returns CommentFieldsAuthorCommentAuthorAppCommentActorRef.Urn, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorAppCommentActorRef) GetUrn() *string {
+	return v.CommentActorFields.Urn
+}
+
+func (v *CommentFieldsAuthorCommentAuthorAppCommentActorRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CommentFieldsAuthorCommentAuthorAppCommentActorRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CommentFieldsAuthorCommentAuthorAppCommentActorRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentActorFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCommentFieldsAuthorCommentAuthorAppCommentActorRef struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Handle *string `json:"handle"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *CommentFieldsAuthorCommentAuthorAppCommentActorRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CommentFieldsAuthorCommentAuthorAppCommentActorRef) __premarshalJSON() (*__premarshalCommentFieldsAuthorCommentAuthorAppCommentActorRef, error) {
+	var retval __premarshalCommentFieldsAuthorCommentAuthorAppCommentActorRef
+
+	retval.Id = v.CommentActorFields.Id
+	retval.Name = v.CommentActorFields.Name
+	retval.Handle = v.CommentActorFields.Handle
+	retval.Urn = v.CommentActorFields.Urn
+	return &retval, nil
+}
+
+// CommentFieldsAuthorCommentAuthorUserCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
+// The GraphQL type's documentation follows.
+//
+// #1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
+type CommentFieldsAuthorCommentAuthorUserCommentActorRef struct {
+	CommentActorFields `json:"-"`
+}
+
+// GetId returns CommentFieldsAuthorCommentAuthorUserCommentActorRef.Id, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorUserCommentActorRef) GetId() string {
+	return v.CommentActorFields.Id
+}
+
+// GetName returns CommentFieldsAuthorCommentAuthorUserCommentActorRef.Name, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorUserCommentActorRef) GetName() *string {
+	return v.CommentActorFields.Name
+}
+
+// GetHandle returns CommentFieldsAuthorCommentAuthorUserCommentActorRef.Handle, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorUserCommentActorRef) GetHandle() *string {
+	return v.CommentActorFields.Handle
+}
+
+// GetUrn returns CommentFieldsAuthorCommentAuthorUserCommentActorRef.Urn, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorUserCommentActorRef) GetUrn() *string {
+	return v.CommentActorFields.Urn
+}
+
+func (v *CommentFieldsAuthorCommentAuthorUserCommentActorRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CommentFieldsAuthorCommentAuthorUserCommentActorRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CommentFieldsAuthorCommentAuthorUserCommentActorRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentActorFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCommentFieldsAuthorCommentAuthorUserCommentActorRef struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Handle *string `json:"handle"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *CommentFieldsAuthorCommentAuthorUserCommentActorRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CommentFieldsAuthorCommentAuthorUserCommentActorRef) __premarshalJSON() (*__premarshalCommentFieldsAuthorCommentAuthorUserCommentActorRef, error) {
+	var retval __premarshalCommentFieldsAuthorCommentAuthorUserCommentActorRef
+
+	retval.Id = v.CommentActorFields.Id
+	retval.Name = v.CommentActorFields.Name
+	retval.Handle = v.CommentActorFields.Handle
+	retval.Urn = v.CommentActorFields.Urn
+	return &retval, nil
+}
+
+// CommentFieldsAuthorCommentAuthorWorkerCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
+// The GraphQL type's documentation follows.
+//
+// #1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
+type CommentFieldsAuthorCommentAuthorWorkerCommentActorRef struct {
+	CommentActorFields `json:"-"`
+}
+
+// GetId returns CommentFieldsAuthorCommentAuthorWorkerCommentActorRef.Id, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorWorkerCommentActorRef) GetId() string {
+	return v.CommentActorFields.Id
+}
+
+// GetName returns CommentFieldsAuthorCommentAuthorWorkerCommentActorRef.Name, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorWorkerCommentActorRef) GetName() *string {
+	return v.CommentActorFields.Name
+}
+
+// GetHandle returns CommentFieldsAuthorCommentAuthorWorkerCommentActorRef.Handle, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorWorkerCommentActorRef) GetHandle() *string {
+	return v.CommentActorFields.Handle
+}
+
+// GetUrn returns CommentFieldsAuthorCommentAuthorWorkerCommentActorRef.Urn, and is useful for accessing the field via an interface.
+func (v *CommentFieldsAuthorCommentAuthorWorkerCommentActorRef) GetUrn() *string {
+	return v.CommentActorFields.Urn
+}
+
+func (v *CommentFieldsAuthorCommentAuthorWorkerCommentActorRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CommentFieldsAuthorCommentAuthorWorkerCommentActorRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CommentFieldsAuthorCommentAuthorWorkerCommentActorRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentActorFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCommentFieldsAuthorCommentAuthorWorkerCommentActorRef struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Handle *string `json:"handle"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *CommentFieldsAuthorCommentAuthorWorkerCommentActorRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CommentFieldsAuthorCommentAuthorWorkerCommentActorRef) __premarshalJSON() (*__premarshalCommentFieldsAuthorCommentAuthorWorkerCommentActorRef, error) {
+	var retval __premarshalCommentFieldsAuthorCommentAuthorWorkerCommentActorRef
+
+	retval.Id = v.CommentActorFields.Id
+	retval.Name = v.CommentActorFields.Name
+	retval.Handle = v.CommentActorFields.Handle
+	retval.Urn = v.CommentActorFields.Urn
+	return &retval, nil
+}
+
+// CommentFieldsProvenanceUserCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
+// The GraphQL type's documentation follows.
+//
+// #1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
+type CommentFieldsProvenanceUserCommentActorRef struct {
+	CommentActorFields `json:"-"`
+}
+
+// GetId returns CommentFieldsProvenanceUserCommentActorRef.Id, and is useful for accessing the field via an interface.
+func (v *CommentFieldsProvenanceUserCommentActorRef) GetId() string { return v.CommentActorFields.Id }
+
+// GetName returns CommentFieldsProvenanceUserCommentActorRef.Name, and is useful for accessing the field via an interface.
+func (v *CommentFieldsProvenanceUserCommentActorRef) GetName() *string {
+	return v.CommentActorFields.Name
+}
+
+// GetHandle returns CommentFieldsProvenanceUserCommentActorRef.Handle, and is useful for accessing the field via an interface.
+func (v *CommentFieldsProvenanceUserCommentActorRef) GetHandle() *string {
+	return v.CommentActorFields.Handle
+}
+
+// GetUrn returns CommentFieldsProvenanceUserCommentActorRef.Urn, and is useful for accessing the field via an interface.
+func (v *CommentFieldsProvenanceUserCommentActorRef) GetUrn() *string {
+	return v.CommentActorFields.Urn
+}
+
+func (v *CommentFieldsProvenanceUserCommentActorRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CommentFieldsProvenanceUserCommentActorRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CommentFieldsProvenanceUserCommentActorRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentActorFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCommentFieldsProvenanceUserCommentActorRef struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Handle *string `json:"handle"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *CommentFieldsProvenanceUserCommentActorRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CommentFieldsProvenanceUserCommentActorRef) __premarshalJSON() (*__premarshalCommentFieldsProvenanceUserCommentActorRef, error) {
+	var retval __premarshalCommentFieldsProvenanceUserCommentActorRef
+
+	retval.Id = v.CommentActorFields.Id
+	retval.Name = v.CommentActorFields.Name
+	retval.Handle = v.CommentActorFields.Handle
+	retval.Urn = v.CommentActorFields.Urn
+	return &retval, nil
+}
+
+// CommentFieldsResolvedByCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
+// The GraphQL type's documentation follows.
+//
+// #1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
+type CommentFieldsResolvedByCommentActorRef struct {
+	CommentActorFields `json:"-"`
+}
+
+// GetId returns CommentFieldsResolvedByCommentActorRef.Id, and is useful for accessing the field via an interface.
+func (v *CommentFieldsResolvedByCommentActorRef) GetId() string { return v.CommentActorFields.Id }
+
+// GetName returns CommentFieldsResolvedByCommentActorRef.Name, and is useful for accessing the field via an interface.
+func (v *CommentFieldsResolvedByCommentActorRef) GetName() *string { return v.CommentActorFields.Name }
+
+// GetHandle returns CommentFieldsResolvedByCommentActorRef.Handle, and is useful for accessing the field via an interface.
+func (v *CommentFieldsResolvedByCommentActorRef) GetHandle() *string {
+	return v.CommentActorFields.Handle
+}
+
+// GetUrn returns CommentFieldsResolvedByCommentActorRef.Urn, and is useful for accessing the field via an interface.
+func (v *CommentFieldsResolvedByCommentActorRef) GetUrn() *string { return v.CommentActorFields.Urn }
+
+func (v *CommentFieldsResolvedByCommentActorRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CommentFieldsResolvedByCommentActorRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CommentFieldsResolvedByCommentActorRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentActorFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCommentFieldsResolvedByCommentActorRef struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Handle *string `json:"handle"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *CommentFieldsResolvedByCommentActorRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CommentFieldsResolvedByCommentActorRef) __premarshalJSON() (*__premarshalCommentFieldsResolvedByCommentActorRef, error) {
+	var retval __premarshalCommentFieldsResolvedByCommentActorRef
+
+	retval.Id = v.CommentActorFields.Id
+	retval.Name = v.CommentActorFields.Name
+	retval.Handle = v.CommentActorFields.Handle
+	retval.Urn = v.CommentActorFields.Urn
+	return &retval, nil
+}
+
+// CommentFieldsTargetCommentTargetRef includes the requested fields of the GraphQL type CommentTargetRef.
+// The GraphQL type's documentation follows.
+//
+// #1606 — the node a comment concerns. Same memory as the comment, so the same read gate.
+type CommentFieldsTargetCommentTargetRef struct {
+	Id       string `json:"id"`
+	Urn      string `json:"urn"`
+	Name     string `json:"name"`
+	NodeType string `json:"nodeType"`
+	// The target's current revision (Node.revision).
+	RevSeq int `json:"revSeq"`
+}
+
+// GetId returns CommentFieldsTargetCommentTargetRef.Id, and is useful for accessing the field via an interface.
+func (v *CommentFieldsTargetCommentTargetRef) GetId() string { return v.Id }
+
+// GetUrn returns CommentFieldsTargetCommentTargetRef.Urn, and is useful for accessing the field via an interface.
+func (v *CommentFieldsTargetCommentTargetRef) GetUrn() string { return v.Urn }
+
+// GetName returns CommentFieldsTargetCommentTargetRef.Name, and is useful for accessing the field via an interface.
+func (v *CommentFieldsTargetCommentTargetRef) GetName() string { return v.Name }
+
+// GetNodeType returns CommentFieldsTargetCommentTargetRef.NodeType, and is useful for accessing the field via an interface.
+func (v *CommentFieldsTargetCommentTargetRef) GetNodeType() string { return v.NodeType }
+
+// GetRevSeq returns CommentFieldsTargetCommentTargetRef.RevSeq, and is useful for accessing the field via an interface.
+func (v *CommentFieldsTargetCommentTargetRef) GetRevSeq() int { return v.RevSeq }
+
+// #1606 — a comment thread's state (cor:dmo:110:05). Top-level comments only.
+type CommentThreadState string
+
+const (
+	CommentThreadStateOpen     CommentThreadState = "OPEN"
+	CommentThreadStateResolved CommentThreadState = "RESOLVED"
+)
+
+var AllCommentThreadState = []CommentThreadState{
+	CommentThreadStateOpen,
+	CommentThreadStateResolved,
+}
+
+// CommentThreadsCommentThreadsCommentThreadPage includes the requested fields of the GraphQL type CommentThreadPage.
+type CommentThreadsCommentThreadsCommentThreadPage struct {
+	Total int `json:"total"`
+	// Newest thread first.
+	Items []*CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread `json:"items"`
+}
+
+// GetTotal returns CommentThreadsCommentThreadsCommentThreadPage.Total, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPage) GetTotal() int { return v.Total }
+
+// GetItems returns CommentThreadsCommentThreadsCommentThreadPage.Items, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPage) GetItems() []*CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread {
+	return v.Items
+}
+
+// CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread includes the requested fields of the GraphQL type CommentThread.
+type CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread struct {
+	Root *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment `json:"root"`
+	// Oldest first.
+	Replies    []*CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment `json:"replies"`
+	ReplyCount int                                                                              `json:"replyCount"`
+}
+
+// GetRoot returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread.Root, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread) GetRoot() *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment {
+	return v.Root
+}
+
+// GetReplies returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread.Replies, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread) GetReplies() []*CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment {
+	return v.Replies
+}
+
+// GetReplyCount returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread.ReplyCount, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread) GetReplyCount() int {
+	return v.ReplyCount
+}
+
+// CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment includes the requested fields of the GraphQL type Comment.
+// The GraphQL type's documentation follows.
+//
+// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// `comment` in its target's memory, readable by exactly who can read that
+// memory. It is never part of its target's content, never approved or minted,
+// and never authoritative.
+type CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment struct {
+	CommentFields `json:"-"`
+}
+
+// GetId returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Id, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetId() string {
+	return v.CommentFields.Id
+}
+
+// GetUrn returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Urn, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetUrn() string {
+	return v.CommentFields.Urn
+}
+
+// GetPortalUrl returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.PortalUrl, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetPortalUrl() *string {
+	return v.CommentFields.PortalUrl
+}
+
+// GetThreadRootId returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.ThreadRootId, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetThreadRootId() *string {
+	return v.CommentFields.ThreadRootId
+}
+
+// GetIsTopLevel returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.IsTopLevel, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetIsTopLevel() bool {
+	return v.CommentFields.IsTopLevel
+}
+
+// GetAnchorRevision returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.AnchorRevision, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetAnchorRevision() int {
+	return v.CommentFields.AnchorRevision
+}
+
+// GetAnchorApprovalHash returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetAnchorApprovalHash() string {
+	return v.CommentFields.AnchorApprovalHash
+}
+
+// GetAnchorIsCurrent returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetAnchorIsCurrent() bool {
+	return v.CommentFields.AnchorIsCurrent
+}
+
+// GetQuote returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Quote, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetQuote() *string {
+	return v.CommentFields.Quote
+}
+
+// GetBody returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Body, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetBody() *string {
+	return v.CommentFields.Body
+}
+
+// GetState returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.State, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetState() *CommentThreadState {
+	return v.CommentFields.State
+}
+
+// GetRetracted returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Retracted, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetRetracted() bool {
+	return v.CommentFields.Retracted
+}
+
+// GetRetractedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.RetractedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetRetractedAt() *string {
+	return v.CommentFields.RetractedAt
+}
+
+// GetHidden returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Hidden, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetHidden() bool {
+	return v.CommentFields.Hidden
+}
+
+// GetHiddenAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.HiddenAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetHiddenAt() *string {
+	return v.CommentFields.HiddenAt
+}
+
+// GetResolvedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.ResolvedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetResolvedAt() *string {
+	return v.CommentFields.ResolvedAt
+}
+
+// GetRevSeq returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.RevSeq, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetRevSeq() int {
+	return v.CommentFields.RevSeq
+}
+
+// GetCreatedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetCreatedAt() string {
+	return v.CommentFields.CreatedAt
+}
+
+// GetUpdatedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetUpdatedAt() *string {
+	return v.CommentFields.UpdatedAt
+}
+
+// GetTarget returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Target, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
+	return v.CommentFields.Target
+}
+
+// GetAuthor returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Author, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetAuthor() *CommentFieldsAuthorCommentAuthor {
+	return v.CommentFields.Author
+}
+
+// GetProvenanceUser returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.ProvenanceUser, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
+	return v.CommentFields.ProvenanceUser
+}
+
+// GetResolvedBy returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.ResolvedBy, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
+	return v.CommentFields.ResolvedBy
+}
+
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	ThreadRootId *string `json:"threadRootId"`
+
+	IsTopLevel bool `json:"isTopLevel"`
+
+	AnchorRevision int `json:"anchorRevision"`
+
+	AnchorApprovalHash string `json:"anchorApprovalHash"`
+
+	AnchorIsCurrent bool `json:"anchorIsCurrent"`
+
+	Quote *string `json:"quote"`
+
+	Body *string `json:"body"`
+
+	State *CommentThreadState `json:"state"`
+
+	Retracted bool `json:"retracted"`
+
+	RetractedAt *string `json:"retractedAt"`
+
+	Hidden bool `json:"hidden"`
+
+	HiddenAt *string `json:"hiddenAt"`
+
+	ResolvedAt *string `json:"resolvedAt"`
+
+	RevSeq int `json:"revSeq"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
+
+	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
+
+	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
+
+	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+}
+
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) __premarshalJSON() (*__premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment, error) {
+	var retval __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment
+
+	retval.Id = v.CommentFields.Id
+	retval.Urn = v.CommentFields.Urn
+	retval.PortalUrl = v.CommentFields.PortalUrl
+	retval.ThreadRootId = v.CommentFields.ThreadRootId
+	retval.IsTopLevel = v.CommentFields.IsTopLevel
+	retval.AnchorRevision = v.CommentFields.AnchorRevision
+	retval.AnchorApprovalHash = v.CommentFields.AnchorApprovalHash
+	retval.AnchorIsCurrent = v.CommentFields.AnchorIsCurrent
+	retval.Quote = v.CommentFields.Quote
+	retval.Body = v.CommentFields.Body
+	retval.State = v.CommentFields.State
+	retval.Retracted = v.CommentFields.Retracted
+	retval.RetractedAt = v.CommentFields.RetractedAt
+	retval.Hidden = v.CommentFields.Hidden
+	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.ResolvedAt = v.CommentFields.ResolvedAt
+	retval.RevSeq = v.CommentFields.RevSeq
+	retval.CreatedAt = v.CommentFields.CreatedAt
+	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.Target = v.CommentFields.Target
+	retval.Author = v.CommentFields.Author
+	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
+	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	return &retval, nil
+}
+
+// CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment includes the requested fields of the GraphQL type Comment.
+// The GraphQL type's documentation follows.
+//
+// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// `comment` in its target's memory, readable by exactly who can read that
+// memory. It is never part of its target's content, never approved or minted,
+// and never authoritative.
+type CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment struct {
+	CommentFields `json:"-"`
+}
+
+// GetId returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Id, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetId() string {
+	return v.CommentFields.Id
+}
+
+// GetUrn returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Urn, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetUrn() string {
+	return v.CommentFields.Urn
+}
+
+// GetPortalUrl returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.PortalUrl, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetPortalUrl() *string {
+	return v.CommentFields.PortalUrl
+}
+
+// GetThreadRootId returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.ThreadRootId, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetThreadRootId() *string {
+	return v.CommentFields.ThreadRootId
+}
+
+// GetIsTopLevel returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.IsTopLevel, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetIsTopLevel() bool {
+	return v.CommentFields.IsTopLevel
+}
+
+// GetAnchorRevision returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.AnchorRevision, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetAnchorRevision() int {
+	return v.CommentFields.AnchorRevision
+}
+
+// GetAnchorApprovalHash returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetAnchorApprovalHash() string {
+	return v.CommentFields.AnchorApprovalHash
+}
+
+// GetAnchorIsCurrent returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetAnchorIsCurrent() bool {
+	return v.CommentFields.AnchorIsCurrent
+}
+
+// GetQuote returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Quote, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetQuote() *string {
+	return v.CommentFields.Quote
+}
+
+// GetBody returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Body, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetBody() *string {
+	return v.CommentFields.Body
+}
+
+// GetState returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.State, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetState() *CommentThreadState {
+	return v.CommentFields.State
+}
+
+// GetRetracted returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Retracted, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetRetracted() bool {
+	return v.CommentFields.Retracted
+}
+
+// GetRetractedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.RetractedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetRetractedAt() *string {
+	return v.CommentFields.RetractedAt
+}
+
+// GetHidden returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Hidden, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetHidden() bool {
+	return v.CommentFields.Hidden
+}
+
+// GetHiddenAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.HiddenAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetHiddenAt() *string {
+	return v.CommentFields.HiddenAt
+}
+
+// GetResolvedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.ResolvedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetResolvedAt() *string {
+	return v.CommentFields.ResolvedAt
+}
+
+// GetRevSeq returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.RevSeq, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetRevSeq() int {
+	return v.CommentFields.RevSeq
+}
+
+// GetCreatedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetCreatedAt() string {
+	return v.CommentFields.CreatedAt
+}
+
+// GetUpdatedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetUpdatedAt() *string {
+	return v.CommentFields.UpdatedAt
+}
+
+// GetTarget returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Target, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
+	return v.CommentFields.Target
+}
+
+// GetAuthor returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Author, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetAuthor() *CommentFieldsAuthorCommentAuthor {
+	return v.CommentFields.Author
+}
+
+// GetProvenanceUser returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.ProvenanceUser, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
+	return v.CommentFields.ProvenanceUser
+}
+
+// GetResolvedBy returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.ResolvedBy, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
+	return v.CommentFields.ResolvedBy
+}
+
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	ThreadRootId *string `json:"threadRootId"`
+
+	IsTopLevel bool `json:"isTopLevel"`
+
+	AnchorRevision int `json:"anchorRevision"`
+
+	AnchorApprovalHash string `json:"anchorApprovalHash"`
+
+	AnchorIsCurrent bool `json:"anchorIsCurrent"`
+
+	Quote *string `json:"quote"`
+
+	Body *string `json:"body"`
+
+	State *CommentThreadState `json:"state"`
+
+	Retracted bool `json:"retracted"`
+
+	RetractedAt *string `json:"retractedAt"`
+
+	Hidden bool `json:"hidden"`
+
+	HiddenAt *string `json:"hiddenAt"`
+
+	ResolvedAt *string `json:"resolvedAt"`
+
+	RevSeq int `json:"revSeq"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
+
+	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
+
+	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
+
+	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+}
+
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) __premarshalJSON() (*__premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment, error) {
+	var retval __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment
+
+	retval.Id = v.CommentFields.Id
+	retval.Urn = v.CommentFields.Urn
+	retval.PortalUrl = v.CommentFields.PortalUrl
+	retval.ThreadRootId = v.CommentFields.ThreadRootId
+	retval.IsTopLevel = v.CommentFields.IsTopLevel
+	retval.AnchorRevision = v.CommentFields.AnchorRevision
+	retval.AnchorApprovalHash = v.CommentFields.AnchorApprovalHash
+	retval.AnchorIsCurrent = v.CommentFields.AnchorIsCurrent
+	retval.Quote = v.CommentFields.Quote
+	retval.Body = v.CommentFields.Body
+	retval.State = v.CommentFields.State
+	retval.Retracted = v.CommentFields.Retracted
+	retval.RetractedAt = v.CommentFields.RetractedAt
+	retval.Hidden = v.CommentFields.Hidden
+	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.ResolvedAt = v.CommentFields.ResolvedAt
+	retval.RevSeq = v.CommentFields.RevSeq
+	retval.CreatedAt = v.CommentFields.CreatedAt
+	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.Target = v.CommentFields.Target
+	retval.Author = v.CommentFields.Author
+	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
+	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	return &retval, nil
+}
+
+// CommentThreadsResponse is returned by CommentThreads on success.
+type CommentThreadsResponse struct {
+	// #1606 — the discussion on a node (ID or URN), newest thread first. Read-gated on the node's memory; an unreadable or missing node is COMMENT_TARGET_NOT_FOUND.
+	CommentThreads *CommentThreadsCommentThreadsCommentThreadPage `json:"commentThreads"`
+}
+
+// GetCommentThreads returns CommentThreadsResponse.CommentThreads, and is useful for accessing the field via an interface.
+func (v *CommentThreadsResponse) GetCommentThreads() *CommentThreadsCommentThreadsCommentThreadPage {
+	return v.CommentThreads
+}
+
 // CompleteAssetUploadCompleteAssetUploadAsset includes the requested fields of the GraphQL type Asset.
 type CompleteAssetUploadCompleteAssetUploadAsset struct {
 	Id string `json:"id"`
@@ -7121,6 +8360,226 @@ type CreateChannelResponse struct {
 // GetCreateChannel returns CreateChannelResponse.CreateChannel, and is useful for accessing the field via an interface.
 func (v *CreateChannelResponse) GetCreateChannel() *CreateChannelCreateChannel {
 	return v.CreateChannel
+}
+
+// CreateCommentCreateComment includes the requested fields of the GraphQL type Comment.
+// The GraphQL type's documentation follows.
+//
+// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// `comment` in its target's memory, readable by exactly who can read that
+// memory. It is never part of its target's content, never approved or minted,
+// and never authoritative.
+type CreateCommentCreateComment struct {
+	CommentFields `json:"-"`
+}
+
+// GetId returns CreateCommentCreateComment.Id, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetId() string { return v.CommentFields.Id }
+
+// GetUrn returns CreateCommentCreateComment.Urn, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetUrn() string { return v.CommentFields.Urn }
+
+// GetPortalUrl returns CreateCommentCreateComment.PortalUrl, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetPortalUrl() *string { return v.CommentFields.PortalUrl }
+
+// GetThreadRootId returns CreateCommentCreateComment.ThreadRootId, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetThreadRootId() *string { return v.CommentFields.ThreadRootId }
+
+// GetIsTopLevel returns CreateCommentCreateComment.IsTopLevel, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetIsTopLevel() bool { return v.CommentFields.IsTopLevel }
+
+// GetAnchorRevision returns CreateCommentCreateComment.AnchorRevision, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
+
+// GetAnchorApprovalHash returns CreateCommentCreateComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetAnchorApprovalHash() string {
+	return v.CommentFields.AnchorApprovalHash
+}
+
+// GetAnchorIsCurrent returns CreateCommentCreateComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetAnchorIsCurrent() bool {
+	return v.CommentFields.AnchorIsCurrent
+}
+
+// GetQuote returns CreateCommentCreateComment.Quote, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetQuote() *string { return v.CommentFields.Quote }
+
+// GetBody returns CreateCommentCreateComment.Body, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetBody() *string { return v.CommentFields.Body }
+
+// GetState returns CreateCommentCreateComment.State, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetState() *CommentThreadState { return v.CommentFields.State }
+
+// GetRetracted returns CreateCommentCreateComment.Retracted, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetRetracted() bool { return v.CommentFields.Retracted }
+
+// GetRetractedAt returns CreateCommentCreateComment.RetractedAt, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetRetractedAt() *string { return v.CommentFields.RetractedAt }
+
+// GetHidden returns CreateCommentCreateComment.Hidden, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetHidden() bool { return v.CommentFields.Hidden }
+
+// GetHiddenAt returns CreateCommentCreateComment.HiddenAt, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetHiddenAt() *string { return v.CommentFields.HiddenAt }
+
+// GetResolvedAt returns CreateCommentCreateComment.ResolvedAt, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetResolvedAt() *string { return v.CommentFields.ResolvedAt }
+
+// GetRevSeq returns CreateCommentCreateComment.RevSeq, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetRevSeq() int { return v.CommentFields.RevSeq }
+
+// GetCreatedAt returns CreateCommentCreateComment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetCreatedAt() string { return v.CommentFields.CreatedAt }
+
+// GetUpdatedAt returns CreateCommentCreateComment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetUpdatedAt() *string { return v.CommentFields.UpdatedAt }
+
+// GetTarget returns CreateCommentCreateComment.Target, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
+	return v.CommentFields.Target
+}
+
+// GetAuthor returns CreateCommentCreateComment.Author, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetAuthor() *CommentFieldsAuthorCommentAuthor {
+	return v.CommentFields.Author
+}
+
+// GetProvenanceUser returns CreateCommentCreateComment.ProvenanceUser, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
+	return v.CommentFields.ProvenanceUser
+}
+
+// GetResolvedBy returns CreateCommentCreateComment.ResolvedBy, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
+	return v.CommentFields.ResolvedBy
+}
+
+func (v *CreateCommentCreateComment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateCommentCreateComment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateCommentCreateComment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateCommentCreateComment struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	ThreadRootId *string `json:"threadRootId"`
+
+	IsTopLevel bool `json:"isTopLevel"`
+
+	AnchorRevision int `json:"anchorRevision"`
+
+	AnchorApprovalHash string `json:"anchorApprovalHash"`
+
+	AnchorIsCurrent bool `json:"anchorIsCurrent"`
+
+	Quote *string `json:"quote"`
+
+	Body *string `json:"body"`
+
+	State *CommentThreadState `json:"state"`
+
+	Retracted bool `json:"retracted"`
+
+	RetractedAt *string `json:"retractedAt"`
+
+	Hidden bool `json:"hidden"`
+
+	HiddenAt *string `json:"hiddenAt"`
+
+	ResolvedAt *string `json:"resolvedAt"`
+
+	RevSeq int `json:"revSeq"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
+
+	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
+
+	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
+
+	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+}
+
+func (v *CreateCommentCreateComment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateCommentCreateComment) __premarshalJSON() (*__premarshalCreateCommentCreateComment, error) {
+	var retval __premarshalCreateCommentCreateComment
+
+	retval.Id = v.CommentFields.Id
+	retval.Urn = v.CommentFields.Urn
+	retval.PortalUrl = v.CommentFields.PortalUrl
+	retval.ThreadRootId = v.CommentFields.ThreadRootId
+	retval.IsTopLevel = v.CommentFields.IsTopLevel
+	retval.AnchorRevision = v.CommentFields.AnchorRevision
+	retval.AnchorApprovalHash = v.CommentFields.AnchorApprovalHash
+	retval.AnchorIsCurrent = v.CommentFields.AnchorIsCurrent
+	retval.Quote = v.CommentFields.Quote
+	retval.Body = v.CommentFields.Body
+	retval.State = v.CommentFields.State
+	retval.Retracted = v.CommentFields.Retracted
+	retval.RetractedAt = v.CommentFields.RetractedAt
+	retval.Hidden = v.CommentFields.Hidden
+	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.ResolvedAt = v.CommentFields.ResolvedAt
+	retval.RevSeq = v.CommentFields.RevSeq
+	retval.CreatedAt = v.CommentFields.CreatedAt
+	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.Target = v.CommentFields.Target
+	retval.Author = v.CommentFields.Author
+	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
+	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	return &retval, nil
+}
+
+// CreateCommentResponse is returned by CreateComment on success.
+type CreateCommentResponse struct {
+	// #1606 — start a thread on a node (cor:dmo:110). Needs write access to the
+	// target's memory. anchorRevision defaults to the target's current revision;
+	// an older one anchors there while its text is still retained. The anchor
+	// hash is computed by the server. Typed refusals: COMMENT_TARGET_NOT_FOUND,
+	// COMMENT_FORBIDDEN, COMMENT_TARGET_IS_COMMENT, COMMENT_MEMORY_NOT_COMMENTABLE,
+	// COMMENT_OPEN_THREAD_EXISTS, COMMENT_ANCHOR_REVISION_INVALID,
+	// COMMENT_ANCHOR_REVISION_UNAVAILABLE, COMMENT_BODY_INVALID,
+	// COMMENT_IMPERSONATION_REFUSED.
+	CreateComment *CreateCommentCreateComment `json:"createComment"`
+}
+
+// GetCreateComment returns CreateCommentResponse.CreateComment, and is useful for accessing the field via an interface.
+func (v *CreateCommentResponse) GetCreateComment() *CreateCommentCreateComment {
+	return v.CreateComment
 }
 
 // CreateConnectionGrantCreateConnectionGrant includes the requested fields of the GraphQL type ConnectionGrant.
@@ -10781,6 +12240,215 @@ type DeleteWorkerResponse struct {
 // GetDeleteWorker returns DeleteWorkerResponse.DeleteWorker, and is useful for accessing the field via an interface.
 func (v *DeleteWorkerResponse) GetDeleteWorker() bool { return v.DeleteWorker }
 
+// EditCommentEditComment includes the requested fields of the GraphQL type Comment.
+// The GraphQL type's documentation follows.
+//
+// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// `comment` in its target's memory, readable by exactly who can read that
+// memory. It is never part of its target's content, never approved or minted,
+// and never authoritative.
+type EditCommentEditComment struct {
+	CommentFields `json:"-"`
+}
+
+// GetId returns EditCommentEditComment.Id, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetId() string { return v.CommentFields.Id }
+
+// GetUrn returns EditCommentEditComment.Urn, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetUrn() string { return v.CommentFields.Urn }
+
+// GetPortalUrl returns EditCommentEditComment.PortalUrl, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetPortalUrl() *string { return v.CommentFields.PortalUrl }
+
+// GetThreadRootId returns EditCommentEditComment.ThreadRootId, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetThreadRootId() *string { return v.CommentFields.ThreadRootId }
+
+// GetIsTopLevel returns EditCommentEditComment.IsTopLevel, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetIsTopLevel() bool { return v.CommentFields.IsTopLevel }
+
+// GetAnchorRevision returns EditCommentEditComment.AnchorRevision, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
+
+// GetAnchorApprovalHash returns EditCommentEditComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetAnchorApprovalHash() string {
+	return v.CommentFields.AnchorApprovalHash
+}
+
+// GetAnchorIsCurrent returns EditCommentEditComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetAnchorIsCurrent() bool { return v.CommentFields.AnchorIsCurrent }
+
+// GetQuote returns EditCommentEditComment.Quote, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetQuote() *string { return v.CommentFields.Quote }
+
+// GetBody returns EditCommentEditComment.Body, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetBody() *string { return v.CommentFields.Body }
+
+// GetState returns EditCommentEditComment.State, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetState() *CommentThreadState { return v.CommentFields.State }
+
+// GetRetracted returns EditCommentEditComment.Retracted, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetRetracted() bool { return v.CommentFields.Retracted }
+
+// GetRetractedAt returns EditCommentEditComment.RetractedAt, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetRetractedAt() *string { return v.CommentFields.RetractedAt }
+
+// GetHidden returns EditCommentEditComment.Hidden, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetHidden() bool { return v.CommentFields.Hidden }
+
+// GetHiddenAt returns EditCommentEditComment.HiddenAt, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetHiddenAt() *string { return v.CommentFields.HiddenAt }
+
+// GetResolvedAt returns EditCommentEditComment.ResolvedAt, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetResolvedAt() *string { return v.CommentFields.ResolvedAt }
+
+// GetRevSeq returns EditCommentEditComment.RevSeq, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetRevSeq() int { return v.CommentFields.RevSeq }
+
+// GetCreatedAt returns EditCommentEditComment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetCreatedAt() string { return v.CommentFields.CreatedAt }
+
+// GetUpdatedAt returns EditCommentEditComment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetUpdatedAt() *string { return v.CommentFields.UpdatedAt }
+
+// GetTarget returns EditCommentEditComment.Target, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
+	return v.CommentFields.Target
+}
+
+// GetAuthor returns EditCommentEditComment.Author, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetAuthor() *CommentFieldsAuthorCommentAuthor {
+	return v.CommentFields.Author
+}
+
+// GetProvenanceUser returns EditCommentEditComment.ProvenanceUser, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
+	return v.CommentFields.ProvenanceUser
+}
+
+// GetResolvedBy returns EditCommentEditComment.ResolvedBy, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
+	return v.CommentFields.ResolvedBy
+}
+
+func (v *EditCommentEditComment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*EditCommentEditComment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.EditCommentEditComment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalEditCommentEditComment struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	ThreadRootId *string `json:"threadRootId"`
+
+	IsTopLevel bool `json:"isTopLevel"`
+
+	AnchorRevision int `json:"anchorRevision"`
+
+	AnchorApprovalHash string `json:"anchorApprovalHash"`
+
+	AnchorIsCurrent bool `json:"anchorIsCurrent"`
+
+	Quote *string `json:"quote"`
+
+	Body *string `json:"body"`
+
+	State *CommentThreadState `json:"state"`
+
+	Retracted bool `json:"retracted"`
+
+	RetractedAt *string `json:"retractedAt"`
+
+	Hidden bool `json:"hidden"`
+
+	HiddenAt *string `json:"hiddenAt"`
+
+	ResolvedAt *string `json:"resolvedAt"`
+
+	RevSeq int `json:"revSeq"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
+
+	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
+
+	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
+
+	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+}
+
+func (v *EditCommentEditComment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *EditCommentEditComment) __premarshalJSON() (*__premarshalEditCommentEditComment, error) {
+	var retval __premarshalEditCommentEditComment
+
+	retval.Id = v.CommentFields.Id
+	retval.Urn = v.CommentFields.Urn
+	retval.PortalUrl = v.CommentFields.PortalUrl
+	retval.ThreadRootId = v.CommentFields.ThreadRootId
+	retval.IsTopLevel = v.CommentFields.IsTopLevel
+	retval.AnchorRevision = v.CommentFields.AnchorRevision
+	retval.AnchorApprovalHash = v.CommentFields.AnchorApprovalHash
+	retval.AnchorIsCurrent = v.CommentFields.AnchorIsCurrent
+	retval.Quote = v.CommentFields.Quote
+	retval.Body = v.CommentFields.Body
+	retval.State = v.CommentFields.State
+	retval.Retracted = v.CommentFields.Retracted
+	retval.RetractedAt = v.CommentFields.RetractedAt
+	retval.Hidden = v.CommentFields.Hidden
+	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.ResolvedAt = v.CommentFields.ResolvedAt
+	retval.RevSeq = v.CommentFields.RevSeq
+	retval.CreatedAt = v.CommentFields.CreatedAt
+	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.Target = v.CommentFields.Target
+	retval.Author = v.CommentFields.Author
+	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
+	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	return &retval, nil
+}
+
+// EditCommentResponse is returned by EditComment on success.
+type EditCommentResponse struct {
+	// #1606 — the author edits a comment's body and/or quote. COMMENT_NOT_AUTHOR otherwise.
+	EditComment *EditCommentEditComment `json:"editComment"`
+}
+
+// GetEditComment returns EditCommentResponse.EditComment, and is useful for accessing the field via an interface.
+func (v *EditCommentResponse) GetEditComment() *EditCommentEditComment { return v.EditComment }
+
 // EffectiveAccessEffectiveAccess includes the requested fields of the GraphQL type EffectiveAccess.
 // The GraphQL type's documentation follows.
 //
@@ -11964,6 +13632,213 @@ type GetChannelResponse struct {
 
 // GetChannel returns GetChannelResponse.Channel, and is useful for accessing the field via an interface.
 func (v *GetChannelResponse) GetChannel() *GetChannelChannel { return v.Channel }
+
+// GetCommentComment includes the requested fields of the GraphQL type Comment.
+// The GraphQL type's documentation follows.
+//
+// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// `comment` in its target's memory, readable by exactly who can read that
+// memory. It is never part of its target's content, never approved or minted,
+// and never authoritative.
+type GetCommentComment struct {
+	CommentFields `json:"-"`
+}
+
+// GetId returns GetCommentComment.Id, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetId() string { return v.CommentFields.Id }
+
+// GetUrn returns GetCommentComment.Urn, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetUrn() string { return v.CommentFields.Urn }
+
+// GetPortalUrl returns GetCommentComment.PortalUrl, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetPortalUrl() *string { return v.CommentFields.PortalUrl }
+
+// GetThreadRootId returns GetCommentComment.ThreadRootId, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetThreadRootId() *string { return v.CommentFields.ThreadRootId }
+
+// GetIsTopLevel returns GetCommentComment.IsTopLevel, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetIsTopLevel() bool { return v.CommentFields.IsTopLevel }
+
+// GetAnchorRevision returns GetCommentComment.AnchorRevision, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
+
+// GetAnchorApprovalHash returns GetCommentComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetAnchorApprovalHash() string { return v.CommentFields.AnchorApprovalHash }
+
+// GetAnchorIsCurrent returns GetCommentComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetAnchorIsCurrent() bool { return v.CommentFields.AnchorIsCurrent }
+
+// GetQuote returns GetCommentComment.Quote, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetQuote() *string { return v.CommentFields.Quote }
+
+// GetBody returns GetCommentComment.Body, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetBody() *string { return v.CommentFields.Body }
+
+// GetState returns GetCommentComment.State, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetState() *CommentThreadState { return v.CommentFields.State }
+
+// GetRetracted returns GetCommentComment.Retracted, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetRetracted() bool { return v.CommentFields.Retracted }
+
+// GetRetractedAt returns GetCommentComment.RetractedAt, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetRetractedAt() *string { return v.CommentFields.RetractedAt }
+
+// GetHidden returns GetCommentComment.Hidden, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetHidden() bool { return v.CommentFields.Hidden }
+
+// GetHiddenAt returns GetCommentComment.HiddenAt, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetHiddenAt() *string { return v.CommentFields.HiddenAt }
+
+// GetResolvedAt returns GetCommentComment.ResolvedAt, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetResolvedAt() *string { return v.CommentFields.ResolvedAt }
+
+// GetRevSeq returns GetCommentComment.RevSeq, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetRevSeq() int { return v.CommentFields.RevSeq }
+
+// GetCreatedAt returns GetCommentComment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetCreatedAt() string { return v.CommentFields.CreatedAt }
+
+// GetUpdatedAt returns GetCommentComment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetUpdatedAt() *string { return v.CommentFields.UpdatedAt }
+
+// GetTarget returns GetCommentComment.Target, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
+	return v.CommentFields.Target
+}
+
+// GetAuthor returns GetCommentComment.Author, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetAuthor() *CommentFieldsAuthorCommentAuthor {
+	return v.CommentFields.Author
+}
+
+// GetProvenanceUser returns GetCommentComment.ProvenanceUser, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
+	return v.CommentFields.ProvenanceUser
+}
+
+// GetResolvedBy returns GetCommentComment.ResolvedBy, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
+	return v.CommentFields.ResolvedBy
+}
+
+func (v *GetCommentComment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetCommentComment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetCommentComment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetCommentComment struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	ThreadRootId *string `json:"threadRootId"`
+
+	IsTopLevel bool `json:"isTopLevel"`
+
+	AnchorRevision int `json:"anchorRevision"`
+
+	AnchorApprovalHash string `json:"anchorApprovalHash"`
+
+	AnchorIsCurrent bool `json:"anchorIsCurrent"`
+
+	Quote *string `json:"quote"`
+
+	Body *string `json:"body"`
+
+	State *CommentThreadState `json:"state"`
+
+	Retracted bool `json:"retracted"`
+
+	RetractedAt *string `json:"retractedAt"`
+
+	Hidden bool `json:"hidden"`
+
+	HiddenAt *string `json:"hiddenAt"`
+
+	ResolvedAt *string `json:"resolvedAt"`
+
+	RevSeq int `json:"revSeq"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
+
+	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
+
+	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
+
+	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+}
+
+func (v *GetCommentComment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetCommentComment) __premarshalJSON() (*__premarshalGetCommentComment, error) {
+	var retval __premarshalGetCommentComment
+
+	retval.Id = v.CommentFields.Id
+	retval.Urn = v.CommentFields.Urn
+	retval.PortalUrl = v.CommentFields.PortalUrl
+	retval.ThreadRootId = v.CommentFields.ThreadRootId
+	retval.IsTopLevel = v.CommentFields.IsTopLevel
+	retval.AnchorRevision = v.CommentFields.AnchorRevision
+	retval.AnchorApprovalHash = v.CommentFields.AnchorApprovalHash
+	retval.AnchorIsCurrent = v.CommentFields.AnchorIsCurrent
+	retval.Quote = v.CommentFields.Quote
+	retval.Body = v.CommentFields.Body
+	retval.State = v.CommentFields.State
+	retval.Retracted = v.CommentFields.Retracted
+	retval.RetractedAt = v.CommentFields.RetractedAt
+	retval.Hidden = v.CommentFields.Hidden
+	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.ResolvedAt = v.CommentFields.ResolvedAt
+	retval.RevSeq = v.CommentFields.RevSeq
+	retval.CreatedAt = v.CommentFields.CreatedAt
+	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.Target = v.CommentFields.Target
+	retval.Author = v.CommentFields.Author
+	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
+	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	return &retval, nil
+}
+
+// GetCommentResponse is returned by GetComment on success.
+type GetCommentResponse struct {
+	// #1606 — one comment by ID or URN; null when missing or unreadable.
+	Comment *GetCommentComment `json:"comment"`
+}
+
+// GetComment returns GetCommentResponse.Comment, and is useful for accessing the field via an interface.
+func (v *GetCommentResponse) GetComment() *GetCommentComment { return v.Comment }
 
 // GetInvitationInvitationPublicInvitation includes the requested fields of the GraphQL type PublicInvitation.
 // The GraphQL type's documentation follows.
@@ -16723,8 +18598,8 @@ type MergeUsersResponse struct {
 	// Consolidate a duplicate account into a surviving user. Source-only
 	// identities and relationships move; duplicate role-bearing relationships
 	// preserve the strongest live entitlement. The source is soft-deleted.
-	// Platform admin, or an org admin/owner when both users are live members
-	// of an organization they administer. The resulting merge is global.
+	// Platform admin only. The resulting merge is global; organization
+	// administration does not authorize account consolidation.
 	MergeUsers *MergeUsersMergeUsersUser `json:"mergeUsers"`
 }
 
@@ -17952,6 +19827,114 @@ type NodeBatchResponse struct {
 
 // GetNodeBatch returns NodeBatchResponse.NodeBatch, and is useful for accessing the field via an interface.
 func (v *NodeBatchResponse) GetNodeBatch() *NodeBatchNodeBatchNodeBatchResult { return v.NodeBatch }
+
+// NodeCommentSummariesNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type NodeCommentSummariesNodeBatchNodeBatchResult struct {
+	Truncated   bool                                                     `json:"truncated"`
+	Omitted     []string                                                 `json:"omitted"`
+	Unavailable []string                                                 `json:"unavailable"`
+	Nodes       []*NodeCommentSummariesNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetTruncated returns NodeCommentSummariesNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *NodeCommentSummariesNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns NodeCommentSummariesNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *NodeCommentSummariesNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
+
+// GetUnavailable returns NodeCommentSummariesNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
+func (v *NodeCommentSummariesNodeBatchNodeBatchResult) GetUnavailable() []string {
+	return v.Unavailable
+}
+
+// GetNodes returns NodeCommentSummariesNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *NodeCommentSummariesNodeBatchNodeBatchResult) GetNodes() []*NodeCommentSummariesNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// NodeCommentSummariesNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type NodeCommentSummariesNodeBatchNodeBatchResultNodesNode struct {
+	Id string `json:"id"`
+	// #1606 — open and resolved discussion on this node (cor:dmo:110:07). Batched per request.
+	CommentSummary *NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary `json:"commentSummary"`
+}
+
+// GetId returns NodeCommentSummariesNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeCommentSummariesNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetCommentSummary returns NodeCommentSummariesNodeBatchNodeBatchResultNodesNode.CommentSummary, and is useful for accessing the field via an interface.
+func (v *NodeCommentSummariesNodeBatchNodeBatchResultNodesNode) GetCommentSummary() *NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary {
+	return v.CommentSummary
+}
+
+// NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary includes the requested fields of the GraphQL type CommentSummary.
+// The GraphQL type's documentation follows.
+//
+// #1606 — the trust cue (cor:dmo:110:07). Counts live threads; zeros on a memory that cannot hold comments.
+type NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary struct {
+	OpenThreads     int `json:"openThreads"`
+	ResolvedThreads int `json:"resolvedThreads"`
+	// Every live comment, top-level and replies, retracted and hidden stubs included.
+	Comments int `json:"comments"`
+}
+
+// GetOpenThreads returns NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary.OpenThreads, and is useful for accessing the field via an interface.
+func (v *NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary) GetOpenThreads() int {
+	return v.OpenThreads
+}
+
+// GetResolvedThreads returns NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary.ResolvedThreads, and is useful for accessing the field via an interface.
+func (v *NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary) GetResolvedThreads() int {
+	return v.ResolvedThreads
+}
+
+// GetComments returns NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary.Comments, and is useful for accessing the field via an interface.
+func (v *NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary) GetComments() int {
+	return v.Comments
+}
+
+// NodeCommentSummariesResponse is returned by NodeCommentSummaries on success.
+type NodeCommentSummariesResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	NodeBatch *NodeCommentSummariesNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns NodeCommentSummariesResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *NodeCommentSummariesResponse) GetNodeBatch() *NodeCommentSummariesNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
 
 // #1326 — advisory validation. `state` is for THIS revision: a report made for
 // an older revision reads STALE, and latestReport says which revision it was.
@@ -22818,6 +24801,462 @@ func (v *RenumberSpecResponse) GetRenumberSpec() *RenumberSpecRenumberSpecSpecRe
 	return v.RenumberSpec
 }
 
+// ReopenCommentThreadReopenCommentThreadComment includes the requested fields of the GraphQL type Comment.
+// The GraphQL type's documentation follows.
+//
+// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// `comment` in its target's memory, readable by exactly who can read that
+// memory. It is never part of its target's content, never approved or minted,
+// and never authoritative.
+type ReopenCommentThreadReopenCommentThreadComment struct {
+	CommentFields `json:"-"`
+}
+
+// GetId returns ReopenCommentThreadReopenCommentThreadComment.Id, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetId() string { return v.CommentFields.Id }
+
+// GetUrn returns ReopenCommentThreadReopenCommentThreadComment.Urn, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetUrn() string { return v.CommentFields.Urn }
+
+// GetPortalUrl returns ReopenCommentThreadReopenCommentThreadComment.PortalUrl, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetPortalUrl() *string {
+	return v.CommentFields.PortalUrl
+}
+
+// GetThreadRootId returns ReopenCommentThreadReopenCommentThreadComment.ThreadRootId, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetThreadRootId() *string {
+	return v.CommentFields.ThreadRootId
+}
+
+// GetIsTopLevel returns ReopenCommentThreadReopenCommentThreadComment.IsTopLevel, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetIsTopLevel() bool {
+	return v.CommentFields.IsTopLevel
+}
+
+// GetAnchorRevision returns ReopenCommentThreadReopenCommentThreadComment.AnchorRevision, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetAnchorRevision() int {
+	return v.CommentFields.AnchorRevision
+}
+
+// GetAnchorApprovalHash returns ReopenCommentThreadReopenCommentThreadComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetAnchorApprovalHash() string {
+	return v.CommentFields.AnchorApprovalHash
+}
+
+// GetAnchorIsCurrent returns ReopenCommentThreadReopenCommentThreadComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetAnchorIsCurrent() bool {
+	return v.CommentFields.AnchorIsCurrent
+}
+
+// GetQuote returns ReopenCommentThreadReopenCommentThreadComment.Quote, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetQuote() *string {
+	return v.CommentFields.Quote
+}
+
+// GetBody returns ReopenCommentThreadReopenCommentThreadComment.Body, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetBody() *string {
+	return v.CommentFields.Body
+}
+
+// GetState returns ReopenCommentThreadReopenCommentThreadComment.State, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetState() *CommentThreadState {
+	return v.CommentFields.State
+}
+
+// GetRetracted returns ReopenCommentThreadReopenCommentThreadComment.Retracted, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetRetracted() bool {
+	return v.CommentFields.Retracted
+}
+
+// GetRetractedAt returns ReopenCommentThreadReopenCommentThreadComment.RetractedAt, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetRetractedAt() *string {
+	return v.CommentFields.RetractedAt
+}
+
+// GetHidden returns ReopenCommentThreadReopenCommentThreadComment.Hidden, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetHidden() bool {
+	return v.CommentFields.Hidden
+}
+
+// GetHiddenAt returns ReopenCommentThreadReopenCommentThreadComment.HiddenAt, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetHiddenAt() *string {
+	return v.CommentFields.HiddenAt
+}
+
+// GetResolvedAt returns ReopenCommentThreadReopenCommentThreadComment.ResolvedAt, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetResolvedAt() *string {
+	return v.CommentFields.ResolvedAt
+}
+
+// GetRevSeq returns ReopenCommentThreadReopenCommentThreadComment.RevSeq, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetRevSeq() int {
+	return v.CommentFields.RevSeq
+}
+
+// GetCreatedAt returns ReopenCommentThreadReopenCommentThreadComment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetCreatedAt() string {
+	return v.CommentFields.CreatedAt
+}
+
+// GetUpdatedAt returns ReopenCommentThreadReopenCommentThreadComment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetUpdatedAt() *string {
+	return v.CommentFields.UpdatedAt
+}
+
+// GetTarget returns ReopenCommentThreadReopenCommentThreadComment.Target, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
+	return v.CommentFields.Target
+}
+
+// GetAuthor returns ReopenCommentThreadReopenCommentThreadComment.Author, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetAuthor() *CommentFieldsAuthorCommentAuthor {
+	return v.CommentFields.Author
+}
+
+// GetProvenanceUser returns ReopenCommentThreadReopenCommentThreadComment.ProvenanceUser, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
+	return v.CommentFields.ProvenanceUser
+}
+
+// GetResolvedBy returns ReopenCommentThreadReopenCommentThreadComment.ResolvedBy, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
+	return v.CommentFields.ResolvedBy
+}
+
+func (v *ReopenCommentThreadReopenCommentThreadComment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ReopenCommentThreadReopenCommentThreadComment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ReopenCommentThreadReopenCommentThreadComment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalReopenCommentThreadReopenCommentThreadComment struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	ThreadRootId *string `json:"threadRootId"`
+
+	IsTopLevel bool `json:"isTopLevel"`
+
+	AnchorRevision int `json:"anchorRevision"`
+
+	AnchorApprovalHash string `json:"anchorApprovalHash"`
+
+	AnchorIsCurrent bool `json:"anchorIsCurrent"`
+
+	Quote *string `json:"quote"`
+
+	Body *string `json:"body"`
+
+	State *CommentThreadState `json:"state"`
+
+	Retracted bool `json:"retracted"`
+
+	RetractedAt *string `json:"retractedAt"`
+
+	Hidden bool `json:"hidden"`
+
+	HiddenAt *string `json:"hiddenAt"`
+
+	ResolvedAt *string `json:"resolvedAt"`
+
+	RevSeq int `json:"revSeq"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
+
+	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
+
+	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
+
+	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+}
+
+func (v *ReopenCommentThreadReopenCommentThreadComment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ReopenCommentThreadReopenCommentThreadComment) __premarshalJSON() (*__premarshalReopenCommentThreadReopenCommentThreadComment, error) {
+	var retval __premarshalReopenCommentThreadReopenCommentThreadComment
+
+	retval.Id = v.CommentFields.Id
+	retval.Urn = v.CommentFields.Urn
+	retval.PortalUrl = v.CommentFields.PortalUrl
+	retval.ThreadRootId = v.CommentFields.ThreadRootId
+	retval.IsTopLevel = v.CommentFields.IsTopLevel
+	retval.AnchorRevision = v.CommentFields.AnchorRevision
+	retval.AnchorApprovalHash = v.CommentFields.AnchorApprovalHash
+	retval.AnchorIsCurrent = v.CommentFields.AnchorIsCurrent
+	retval.Quote = v.CommentFields.Quote
+	retval.Body = v.CommentFields.Body
+	retval.State = v.CommentFields.State
+	retval.Retracted = v.CommentFields.Retracted
+	retval.RetractedAt = v.CommentFields.RetractedAt
+	retval.Hidden = v.CommentFields.Hidden
+	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.ResolvedAt = v.CommentFields.ResolvedAt
+	retval.RevSeq = v.CommentFields.RevSeq
+	retval.CreatedAt = v.CommentFields.CreatedAt
+	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.Target = v.CommentFields.Target
+	retval.Author = v.CommentFields.Author
+	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
+	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	return &retval, nil
+}
+
+// ReopenCommentThreadResponse is returned by ReopenCommentThread on success.
+type ReopenCommentThreadResponse struct {
+	// #1606 — reopen a resolved thread: its author or any writer of the memory.
+	ReopenCommentThread *ReopenCommentThreadReopenCommentThreadComment `json:"reopenCommentThread"`
+}
+
+// GetReopenCommentThread returns ReopenCommentThreadResponse.ReopenCommentThread, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadResponse) GetReopenCommentThread() *ReopenCommentThreadReopenCommentThreadComment {
+	return v.ReopenCommentThread
+}
+
+// ReplyToCommentReplyToComment includes the requested fields of the GraphQL type Comment.
+// The GraphQL type's documentation follows.
+//
+// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// `comment` in its target's memory, readable by exactly who can read that
+// memory. It is never part of its target's content, never approved or minted,
+// and never authoritative.
+type ReplyToCommentReplyToComment struct {
+	CommentFields `json:"-"`
+}
+
+// GetId returns ReplyToCommentReplyToComment.Id, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetId() string { return v.CommentFields.Id }
+
+// GetUrn returns ReplyToCommentReplyToComment.Urn, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetUrn() string { return v.CommentFields.Urn }
+
+// GetPortalUrl returns ReplyToCommentReplyToComment.PortalUrl, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetPortalUrl() *string { return v.CommentFields.PortalUrl }
+
+// GetThreadRootId returns ReplyToCommentReplyToComment.ThreadRootId, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetThreadRootId() *string { return v.CommentFields.ThreadRootId }
+
+// GetIsTopLevel returns ReplyToCommentReplyToComment.IsTopLevel, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetIsTopLevel() bool { return v.CommentFields.IsTopLevel }
+
+// GetAnchorRevision returns ReplyToCommentReplyToComment.AnchorRevision, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
+
+// GetAnchorApprovalHash returns ReplyToCommentReplyToComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetAnchorApprovalHash() string {
+	return v.CommentFields.AnchorApprovalHash
+}
+
+// GetAnchorIsCurrent returns ReplyToCommentReplyToComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetAnchorIsCurrent() bool {
+	return v.CommentFields.AnchorIsCurrent
+}
+
+// GetQuote returns ReplyToCommentReplyToComment.Quote, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetQuote() *string { return v.CommentFields.Quote }
+
+// GetBody returns ReplyToCommentReplyToComment.Body, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetBody() *string { return v.CommentFields.Body }
+
+// GetState returns ReplyToCommentReplyToComment.State, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetState() *CommentThreadState { return v.CommentFields.State }
+
+// GetRetracted returns ReplyToCommentReplyToComment.Retracted, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetRetracted() bool { return v.CommentFields.Retracted }
+
+// GetRetractedAt returns ReplyToCommentReplyToComment.RetractedAt, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetRetractedAt() *string { return v.CommentFields.RetractedAt }
+
+// GetHidden returns ReplyToCommentReplyToComment.Hidden, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetHidden() bool { return v.CommentFields.Hidden }
+
+// GetHiddenAt returns ReplyToCommentReplyToComment.HiddenAt, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetHiddenAt() *string { return v.CommentFields.HiddenAt }
+
+// GetResolvedAt returns ReplyToCommentReplyToComment.ResolvedAt, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetResolvedAt() *string { return v.CommentFields.ResolvedAt }
+
+// GetRevSeq returns ReplyToCommentReplyToComment.RevSeq, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetRevSeq() int { return v.CommentFields.RevSeq }
+
+// GetCreatedAt returns ReplyToCommentReplyToComment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetCreatedAt() string { return v.CommentFields.CreatedAt }
+
+// GetUpdatedAt returns ReplyToCommentReplyToComment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetUpdatedAt() *string { return v.CommentFields.UpdatedAt }
+
+// GetTarget returns ReplyToCommentReplyToComment.Target, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
+	return v.CommentFields.Target
+}
+
+// GetAuthor returns ReplyToCommentReplyToComment.Author, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetAuthor() *CommentFieldsAuthorCommentAuthor {
+	return v.CommentFields.Author
+}
+
+// GetProvenanceUser returns ReplyToCommentReplyToComment.ProvenanceUser, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
+	return v.CommentFields.ProvenanceUser
+}
+
+// GetResolvedBy returns ReplyToCommentReplyToComment.ResolvedBy, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
+	return v.CommentFields.ResolvedBy
+}
+
+func (v *ReplyToCommentReplyToComment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ReplyToCommentReplyToComment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ReplyToCommentReplyToComment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalReplyToCommentReplyToComment struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	ThreadRootId *string `json:"threadRootId"`
+
+	IsTopLevel bool `json:"isTopLevel"`
+
+	AnchorRevision int `json:"anchorRevision"`
+
+	AnchorApprovalHash string `json:"anchorApprovalHash"`
+
+	AnchorIsCurrent bool `json:"anchorIsCurrent"`
+
+	Quote *string `json:"quote"`
+
+	Body *string `json:"body"`
+
+	State *CommentThreadState `json:"state"`
+
+	Retracted bool `json:"retracted"`
+
+	RetractedAt *string `json:"retractedAt"`
+
+	Hidden bool `json:"hidden"`
+
+	HiddenAt *string `json:"hiddenAt"`
+
+	ResolvedAt *string `json:"resolvedAt"`
+
+	RevSeq int `json:"revSeq"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
+
+	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
+
+	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
+
+	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+}
+
+func (v *ReplyToCommentReplyToComment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ReplyToCommentReplyToComment) __premarshalJSON() (*__premarshalReplyToCommentReplyToComment, error) {
+	var retval __premarshalReplyToCommentReplyToComment
+
+	retval.Id = v.CommentFields.Id
+	retval.Urn = v.CommentFields.Urn
+	retval.PortalUrl = v.CommentFields.PortalUrl
+	retval.ThreadRootId = v.CommentFields.ThreadRootId
+	retval.IsTopLevel = v.CommentFields.IsTopLevel
+	retval.AnchorRevision = v.CommentFields.AnchorRevision
+	retval.AnchorApprovalHash = v.CommentFields.AnchorApprovalHash
+	retval.AnchorIsCurrent = v.CommentFields.AnchorIsCurrent
+	retval.Quote = v.CommentFields.Quote
+	retval.Body = v.CommentFields.Body
+	retval.State = v.CommentFields.State
+	retval.Retracted = v.CommentFields.Retracted
+	retval.RetractedAt = v.CommentFields.RetractedAt
+	retval.Hidden = v.CommentFields.Hidden
+	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.ResolvedAt = v.CommentFields.ResolvedAt
+	retval.RevSeq = v.CommentFields.RevSeq
+	retval.CreatedAt = v.CommentFields.CreatedAt
+	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.Target = v.CommentFields.Target
+	retval.Author = v.CommentFields.Author
+	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
+	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	return &retval, nil
+}
+
+// ReplyToCommentResponse is returned by ReplyToComment on success.
+type ReplyToCommentResponse struct {
+	// #1606 — reply in a thread; commentRef may be any comment of it. Allowed on a resolved thread, which stays resolved (Holger, DAB).
+	ReplyToComment *ReplyToCommentReplyToComment `json:"replyToComment"`
+}
+
+// GetReplyToComment returns ReplyToCommentResponse.ReplyToComment, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentResponse) GetReplyToComment() *ReplyToCommentReplyToComment {
+	return v.ReplyToComment
+}
+
 // ReserveSpecCitationReserveSpecCitationNode includes the requested fields of the GraphQL type Node.
 type ReserveSpecCitationReserveSpecCitationNode struct {
 	Id   string `json:"id"`
@@ -23191,6 +25630,249 @@ func (v *ResolveAiServiceConfigsWithEndpointResponse) GetResolveAiServiceConfigs
 	return v.ResolveAiServiceConfigs
 }
 
+// ResolveCommentThreadResolveCommentThreadComment includes the requested fields of the GraphQL type Comment.
+// The GraphQL type's documentation follows.
+//
+// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// `comment` in its target's memory, readable by exactly who can read that
+// memory. It is never part of its target's content, never approved or minted,
+// and never authoritative.
+type ResolveCommentThreadResolveCommentThreadComment struct {
+	CommentFields `json:"-"`
+}
+
+// GetId returns ResolveCommentThreadResolveCommentThreadComment.Id, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetId() string { return v.CommentFields.Id }
+
+// GetUrn returns ResolveCommentThreadResolveCommentThreadComment.Urn, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetUrn() string { return v.CommentFields.Urn }
+
+// GetPortalUrl returns ResolveCommentThreadResolveCommentThreadComment.PortalUrl, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetPortalUrl() *string {
+	return v.CommentFields.PortalUrl
+}
+
+// GetThreadRootId returns ResolveCommentThreadResolveCommentThreadComment.ThreadRootId, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetThreadRootId() *string {
+	return v.CommentFields.ThreadRootId
+}
+
+// GetIsTopLevel returns ResolveCommentThreadResolveCommentThreadComment.IsTopLevel, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetIsTopLevel() bool {
+	return v.CommentFields.IsTopLevel
+}
+
+// GetAnchorRevision returns ResolveCommentThreadResolveCommentThreadComment.AnchorRevision, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetAnchorRevision() int {
+	return v.CommentFields.AnchorRevision
+}
+
+// GetAnchorApprovalHash returns ResolveCommentThreadResolveCommentThreadComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetAnchorApprovalHash() string {
+	return v.CommentFields.AnchorApprovalHash
+}
+
+// GetAnchorIsCurrent returns ResolveCommentThreadResolveCommentThreadComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetAnchorIsCurrent() bool {
+	return v.CommentFields.AnchorIsCurrent
+}
+
+// GetQuote returns ResolveCommentThreadResolveCommentThreadComment.Quote, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetQuote() *string {
+	return v.CommentFields.Quote
+}
+
+// GetBody returns ResolveCommentThreadResolveCommentThreadComment.Body, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetBody() *string {
+	return v.CommentFields.Body
+}
+
+// GetState returns ResolveCommentThreadResolveCommentThreadComment.State, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetState() *CommentThreadState {
+	return v.CommentFields.State
+}
+
+// GetRetracted returns ResolveCommentThreadResolveCommentThreadComment.Retracted, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetRetracted() bool {
+	return v.CommentFields.Retracted
+}
+
+// GetRetractedAt returns ResolveCommentThreadResolveCommentThreadComment.RetractedAt, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetRetractedAt() *string {
+	return v.CommentFields.RetractedAt
+}
+
+// GetHidden returns ResolveCommentThreadResolveCommentThreadComment.Hidden, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetHidden() bool {
+	return v.CommentFields.Hidden
+}
+
+// GetHiddenAt returns ResolveCommentThreadResolveCommentThreadComment.HiddenAt, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetHiddenAt() *string {
+	return v.CommentFields.HiddenAt
+}
+
+// GetResolvedAt returns ResolveCommentThreadResolveCommentThreadComment.ResolvedAt, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetResolvedAt() *string {
+	return v.CommentFields.ResolvedAt
+}
+
+// GetRevSeq returns ResolveCommentThreadResolveCommentThreadComment.RevSeq, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetRevSeq() int {
+	return v.CommentFields.RevSeq
+}
+
+// GetCreatedAt returns ResolveCommentThreadResolveCommentThreadComment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetCreatedAt() string {
+	return v.CommentFields.CreatedAt
+}
+
+// GetUpdatedAt returns ResolveCommentThreadResolveCommentThreadComment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetUpdatedAt() *string {
+	return v.CommentFields.UpdatedAt
+}
+
+// GetTarget returns ResolveCommentThreadResolveCommentThreadComment.Target, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
+	return v.CommentFields.Target
+}
+
+// GetAuthor returns ResolveCommentThreadResolveCommentThreadComment.Author, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetAuthor() *CommentFieldsAuthorCommentAuthor {
+	return v.CommentFields.Author
+}
+
+// GetProvenanceUser returns ResolveCommentThreadResolveCommentThreadComment.ProvenanceUser, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
+	return v.CommentFields.ProvenanceUser
+}
+
+// GetResolvedBy returns ResolveCommentThreadResolveCommentThreadComment.ResolvedBy, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
+	return v.CommentFields.ResolvedBy
+}
+
+func (v *ResolveCommentThreadResolveCommentThreadComment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ResolveCommentThreadResolveCommentThreadComment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ResolveCommentThreadResolveCommentThreadComment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalResolveCommentThreadResolveCommentThreadComment struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	ThreadRootId *string `json:"threadRootId"`
+
+	IsTopLevel bool `json:"isTopLevel"`
+
+	AnchorRevision int `json:"anchorRevision"`
+
+	AnchorApprovalHash string `json:"anchorApprovalHash"`
+
+	AnchorIsCurrent bool `json:"anchorIsCurrent"`
+
+	Quote *string `json:"quote"`
+
+	Body *string `json:"body"`
+
+	State *CommentThreadState `json:"state"`
+
+	Retracted bool `json:"retracted"`
+
+	RetractedAt *string `json:"retractedAt"`
+
+	Hidden bool `json:"hidden"`
+
+	HiddenAt *string `json:"hiddenAt"`
+
+	ResolvedAt *string `json:"resolvedAt"`
+
+	RevSeq int `json:"revSeq"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
+
+	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
+
+	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
+
+	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+}
+
+func (v *ResolveCommentThreadResolveCommentThreadComment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ResolveCommentThreadResolveCommentThreadComment) __premarshalJSON() (*__premarshalResolveCommentThreadResolveCommentThreadComment, error) {
+	var retval __premarshalResolveCommentThreadResolveCommentThreadComment
+
+	retval.Id = v.CommentFields.Id
+	retval.Urn = v.CommentFields.Urn
+	retval.PortalUrl = v.CommentFields.PortalUrl
+	retval.ThreadRootId = v.CommentFields.ThreadRootId
+	retval.IsTopLevel = v.CommentFields.IsTopLevel
+	retval.AnchorRevision = v.CommentFields.AnchorRevision
+	retval.AnchorApprovalHash = v.CommentFields.AnchorApprovalHash
+	retval.AnchorIsCurrent = v.CommentFields.AnchorIsCurrent
+	retval.Quote = v.CommentFields.Quote
+	retval.Body = v.CommentFields.Body
+	retval.State = v.CommentFields.State
+	retval.Retracted = v.CommentFields.Retracted
+	retval.RetractedAt = v.CommentFields.RetractedAt
+	retval.Hidden = v.CommentFields.Hidden
+	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.ResolvedAt = v.CommentFields.ResolvedAt
+	retval.RevSeq = v.CommentFields.RevSeq
+	retval.CreatedAt = v.CommentFields.CreatedAt
+	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.Target = v.CommentFields.Target
+	retval.Author = v.CommentFields.Author
+	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
+	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	return &retval, nil
+}
+
+// ResolveCommentThreadResponse is returned by ResolveCommentThread on success.
+type ResolveCommentThreadResponse struct {
+	// #1606 — resolve a thread: its author or any writer of the memory. commentRef is the top-level comment; returns it.
+	ResolveCommentThread *ResolveCommentThreadResolveCommentThreadComment `json:"resolveCommentThread"`
+}
+
+// GetResolveCommentThread returns ResolveCommentThreadResponse.ResolveCommentThread, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResponse) GetResolveCommentThread() *ResolveCommentThreadResolveCommentThreadComment {
+	return v.ResolveCommentThread
+}
+
 // ResolveUrnResolveUrnUrnResolution includes the requested fields of the GraphQL type UrnResolution.
 // The GraphQL type's documentation follows.
 //
@@ -23539,6 +26221,219 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
 	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
+// RetractCommentResponse is returned by RetractComment on success.
+type RetractCommentResponse struct {
+	// #1606 — the author retracts a comment, leaving a stub (cor:dmo:110:05).
+	RetractComment *RetractCommentRetractComment `json:"retractComment"`
+}
+
+// GetRetractComment returns RetractCommentResponse.RetractComment, and is useful for accessing the field via an interface.
+func (v *RetractCommentResponse) GetRetractComment() *RetractCommentRetractComment {
+	return v.RetractComment
+}
+
+// RetractCommentRetractComment includes the requested fields of the GraphQL type Comment.
+// The GraphQL type's documentation follows.
+//
+// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// `comment` in its target's memory, readable by exactly who can read that
+// memory. It is never part of its target's content, never approved or minted,
+// and never authoritative.
+type RetractCommentRetractComment struct {
+	CommentFields `json:"-"`
+}
+
+// GetId returns RetractCommentRetractComment.Id, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetId() string { return v.CommentFields.Id }
+
+// GetUrn returns RetractCommentRetractComment.Urn, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetUrn() string { return v.CommentFields.Urn }
+
+// GetPortalUrl returns RetractCommentRetractComment.PortalUrl, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetPortalUrl() *string { return v.CommentFields.PortalUrl }
+
+// GetThreadRootId returns RetractCommentRetractComment.ThreadRootId, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetThreadRootId() *string { return v.CommentFields.ThreadRootId }
+
+// GetIsTopLevel returns RetractCommentRetractComment.IsTopLevel, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetIsTopLevel() bool { return v.CommentFields.IsTopLevel }
+
+// GetAnchorRevision returns RetractCommentRetractComment.AnchorRevision, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
+
+// GetAnchorApprovalHash returns RetractCommentRetractComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetAnchorApprovalHash() string {
+	return v.CommentFields.AnchorApprovalHash
+}
+
+// GetAnchorIsCurrent returns RetractCommentRetractComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetAnchorIsCurrent() bool {
+	return v.CommentFields.AnchorIsCurrent
+}
+
+// GetQuote returns RetractCommentRetractComment.Quote, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetQuote() *string { return v.CommentFields.Quote }
+
+// GetBody returns RetractCommentRetractComment.Body, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetBody() *string { return v.CommentFields.Body }
+
+// GetState returns RetractCommentRetractComment.State, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetState() *CommentThreadState { return v.CommentFields.State }
+
+// GetRetracted returns RetractCommentRetractComment.Retracted, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetRetracted() bool { return v.CommentFields.Retracted }
+
+// GetRetractedAt returns RetractCommentRetractComment.RetractedAt, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetRetractedAt() *string { return v.CommentFields.RetractedAt }
+
+// GetHidden returns RetractCommentRetractComment.Hidden, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetHidden() bool { return v.CommentFields.Hidden }
+
+// GetHiddenAt returns RetractCommentRetractComment.HiddenAt, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetHiddenAt() *string { return v.CommentFields.HiddenAt }
+
+// GetResolvedAt returns RetractCommentRetractComment.ResolvedAt, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetResolvedAt() *string { return v.CommentFields.ResolvedAt }
+
+// GetRevSeq returns RetractCommentRetractComment.RevSeq, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetRevSeq() int { return v.CommentFields.RevSeq }
+
+// GetCreatedAt returns RetractCommentRetractComment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetCreatedAt() string { return v.CommentFields.CreatedAt }
+
+// GetUpdatedAt returns RetractCommentRetractComment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetUpdatedAt() *string { return v.CommentFields.UpdatedAt }
+
+// GetTarget returns RetractCommentRetractComment.Target, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
+	return v.CommentFields.Target
+}
+
+// GetAuthor returns RetractCommentRetractComment.Author, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetAuthor() *CommentFieldsAuthorCommentAuthor {
+	return v.CommentFields.Author
+}
+
+// GetProvenanceUser returns RetractCommentRetractComment.ProvenanceUser, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
+	return v.CommentFields.ProvenanceUser
+}
+
+// GetResolvedBy returns RetractCommentRetractComment.ResolvedBy, and is useful for accessing the field via an interface.
+func (v *RetractCommentRetractComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
+	return v.CommentFields.ResolvedBy
+}
+
+func (v *RetractCommentRetractComment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RetractCommentRetractComment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RetractCommentRetractComment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRetractCommentRetractComment struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	ThreadRootId *string `json:"threadRootId"`
+
+	IsTopLevel bool `json:"isTopLevel"`
+
+	AnchorRevision int `json:"anchorRevision"`
+
+	AnchorApprovalHash string `json:"anchorApprovalHash"`
+
+	AnchorIsCurrent bool `json:"anchorIsCurrent"`
+
+	Quote *string `json:"quote"`
+
+	Body *string `json:"body"`
+
+	State *CommentThreadState `json:"state"`
+
+	Retracted bool `json:"retracted"`
+
+	RetractedAt *string `json:"retractedAt"`
+
+	Hidden bool `json:"hidden"`
+
+	HiddenAt *string `json:"hiddenAt"`
+
+	ResolvedAt *string `json:"resolvedAt"`
+
+	RevSeq int `json:"revSeq"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
+
+	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
+
+	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
+
+	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+}
+
+func (v *RetractCommentRetractComment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RetractCommentRetractComment) __premarshalJSON() (*__premarshalRetractCommentRetractComment, error) {
+	var retval __premarshalRetractCommentRetractComment
+
+	retval.Id = v.CommentFields.Id
+	retval.Urn = v.CommentFields.Urn
+	retval.PortalUrl = v.CommentFields.PortalUrl
+	retval.ThreadRootId = v.CommentFields.ThreadRootId
+	retval.IsTopLevel = v.CommentFields.IsTopLevel
+	retval.AnchorRevision = v.CommentFields.AnchorRevision
+	retval.AnchorApprovalHash = v.CommentFields.AnchorApprovalHash
+	retval.AnchorIsCurrent = v.CommentFields.AnchorIsCurrent
+	retval.Quote = v.CommentFields.Quote
+	retval.Body = v.CommentFields.Body
+	retval.State = v.CommentFields.State
+	retval.Retracted = v.CommentFields.Retracted
+	retval.RetractedAt = v.CommentFields.RetractedAt
+	retval.Hidden = v.CommentFields.Hidden
+	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.ResolvedAt = v.CommentFields.ResolvedAt
+	retval.RevSeq = v.CommentFields.RevSeq
+	retval.CreatedAt = v.CommentFields.CreatedAt
+	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.Target = v.CommentFields.Target
+	retval.Author = v.CommentFields.Author
+	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
+	retval.ResolvedBy = v.CommentFields.ResolvedBy
 	return &retval, nil
 }
 
@@ -36992,6 +39887,26 @@ func (v *__CloneNodeInput) GetTargetUrn() *string { return v.TargetUrn }
 // GetTargetMemoryRef returns __CloneNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
 func (v *__CloneNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
 
+// __CommentThreadsInput is used internally by genqlient
+type __CommentThreadsInput struct {
+	Target string               `json:"target"`
+	State  []CommentThreadState `json:"state,omitempty"`
+	Limit  int                  `json:"limit"`
+	Offset int                  `json:"offset"`
+}
+
+// GetTarget returns __CommentThreadsInput.Target, and is useful for accessing the field via an interface.
+func (v *__CommentThreadsInput) GetTarget() string { return v.Target }
+
+// GetState returns __CommentThreadsInput.State, and is useful for accessing the field via an interface.
+func (v *__CommentThreadsInput) GetState() []CommentThreadState { return v.State }
+
+// GetLimit returns __CommentThreadsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__CommentThreadsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __CommentThreadsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__CommentThreadsInput) GetOffset() int { return v.Offset }
+
 // __CompleteAssetUploadInput is used internally by genqlient
 type __CompleteAssetUploadInput struct {
 	UploadId string `json:"uploadId"`
@@ -37237,6 +40152,26 @@ func (v *__CreateChannelMessageInput) GetReplyToSeq() *int { return v.ReplyToSeq
 
 // GetSessionRef returns __CreateChannelMessageInput.SessionRef, and is useful for accessing the field via an interface.
 func (v *__CreateChannelMessageInput) GetSessionRef() *string { return v.SessionRef }
+
+// __CreateCommentInput is used internally by genqlient
+type __CreateCommentInput struct {
+	Target string  `json:"target"`
+	Body   string  `json:"body"`
+	Quote  *string `json:"quote,omitempty"`
+	Anchor *int    `json:"anchor,omitempty"`
+}
+
+// GetTarget returns __CreateCommentInput.Target, and is useful for accessing the field via an interface.
+func (v *__CreateCommentInput) GetTarget() string { return v.Target }
+
+// GetBody returns __CreateCommentInput.Body, and is useful for accessing the field via an interface.
+func (v *__CreateCommentInput) GetBody() string { return v.Body }
+
+// GetQuote returns __CreateCommentInput.Quote, and is useful for accessing the field via an interface.
+func (v *__CreateCommentInput) GetQuote() *string { return v.Quote }
+
+// GetAnchor returns __CreateCommentInput.Anchor, and is useful for accessing the field via an interface.
+func (v *__CreateCommentInput) GetAnchor() *int { return v.Anchor }
 
 // __CreateConnectionGrantInput is used internally by genqlient
 type __CreateConnectionGrantInput struct {
@@ -37926,6 +40861,26 @@ type __DeleteWorkerInput struct {
 // GetWorkerRef returns __DeleteWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__DeleteWorkerInput) GetWorkerRef() string { return v.WorkerRef }
 
+// __EditCommentInput is used internally by genqlient
+type __EditCommentInput struct {
+	Ref      string  `json:"ref"`
+	Body     *string `json:"body,omitempty"`
+	Quote    *string `json:"quote,omitempty"`
+	Expected int     `json:"expected"`
+}
+
+// GetRef returns __EditCommentInput.Ref, and is useful for accessing the field via an interface.
+func (v *__EditCommentInput) GetRef() string { return v.Ref }
+
+// GetBody returns __EditCommentInput.Body, and is useful for accessing the field via an interface.
+func (v *__EditCommentInput) GetBody() *string { return v.Body }
+
+// GetQuote returns __EditCommentInput.Quote, and is useful for accessing the field via an interface.
+func (v *__EditCommentInput) GetQuote() *string { return v.Quote }
+
+// GetExpected returns __EditCommentInput.Expected, and is useful for accessing the field via an interface.
+func (v *__EditCommentInput) GetExpected() int { return v.Expected }
+
 // __EffectiveAccessInput is used internally by genqlient
 type __EffectiveAccessInput struct {
 	User     string `json:"user"`
@@ -38085,6 +41040,14 @@ type __GetChannelInput struct {
 
 // GetRef returns __GetChannelInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetChannelInput) GetRef() string { return v.Ref }
+
+// __GetCommentInput is used internally by genqlient
+type __GetCommentInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetCommentInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetCommentInput) GetRef() string { return v.Ref }
 
 // __GetInvitationInput is used internally by genqlient
 type __GetInvitationInput struct {
@@ -38490,6 +41453,14 @@ func (v *__NodeBatchInput) GetMemory() *string { return v.Memory }
 // GetLocPrefix returns __NodeBatchInput.LocPrefix, and is useful for accessing the field via an interface.
 func (v *__NodeBatchInput) GetLocPrefix() *string { return v.LocPrefix }
 
+// __NodeCommentSummariesInput is used internally by genqlient
+type __NodeCommentSummariesInput struct {
+	Refs []string `json:"refs"`
+}
+
+// GetRefs returns __NodeCommentSummariesInput.Refs, and is useful for accessing the field via an interface.
+func (v *__NodeCommentSummariesInput) GetRefs() []string { return v.Refs }
+
 // __NodeExportInput is used internally by genqlient
 type __NodeExportInput struct {
 	Id     string           `json:"id"`
@@ -38830,6 +41801,30 @@ func (v *__RenumberSpecInput) GetToLoc() string { return v.ToLoc }
 // GetDryRun returns __RenumberSpecInput.DryRun, and is useful for accessing the field via an interface.
 func (v *__RenumberSpecInput) GetDryRun() bool { return v.DryRun }
 
+// __ReopenCommentThreadInput is used internally by genqlient
+type __ReopenCommentThreadInput struct {
+	Ref      string `json:"ref"`
+	Expected int    `json:"expected"`
+}
+
+// GetRef returns __ReopenCommentThreadInput.Ref, and is useful for accessing the field via an interface.
+func (v *__ReopenCommentThreadInput) GetRef() string { return v.Ref }
+
+// GetExpected returns __ReopenCommentThreadInput.Expected, and is useful for accessing the field via an interface.
+func (v *__ReopenCommentThreadInput) GetExpected() int { return v.Expected }
+
+// __ReplyToCommentInput is used internally by genqlient
+type __ReplyToCommentInput struct {
+	Ref  string `json:"ref"`
+	Body string `json:"body"`
+}
+
+// GetRef returns __ReplyToCommentInput.Ref, and is useful for accessing the field via an interface.
+func (v *__ReplyToCommentInput) GetRef() string { return v.Ref }
+
+// GetBody returns __ReplyToCommentInput.Body, and is useful for accessing the field via an interface.
+func (v *__ReplyToCommentInput) GetBody() string { return v.Body }
+
 // __ReserveSpecCitationInput is used internally by genqlient
 type __ReserveSpecCitationInput struct {
 	MemoryRef string  `json:"memoryRef"`
@@ -38870,6 +41865,18 @@ func (v *__ResolveAiServiceConfigsWithEndpointInput) GetAppRef() *string { retur
 // GetAgentRef returns __ResolveAiServiceConfigsWithEndpointInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__ResolveAiServiceConfigsWithEndpointInput) GetAgentRef() *string { return v.AgentRef }
 
+// __ResolveCommentThreadInput is used internally by genqlient
+type __ResolveCommentThreadInput struct {
+	Ref      string `json:"ref"`
+	Expected int    `json:"expected"`
+}
+
+// GetRef returns __ResolveCommentThreadInput.Ref, and is useful for accessing the field via an interface.
+func (v *__ResolveCommentThreadInput) GetRef() string { return v.Ref }
+
+// GetExpected returns __ResolveCommentThreadInput.Expected, and is useful for accessing the field via an interface.
+func (v *__ResolveCommentThreadInput) GetExpected() int { return v.Expected }
+
 // __ResolveUrnInput is used internally by genqlient
 type __ResolveUrnInput struct {
 	Urn string `json:"urn"`
@@ -38905,6 +41912,18 @@ type __RetireWorkerInput struct {
 
 // GetWorkerRef returns __RetireWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__RetireWorkerInput) GetWorkerRef() string { return v.WorkerRef }
+
+// __RetractCommentInput is used internally by genqlient
+type __RetractCommentInput struct {
+	Ref      string `json:"ref"`
+	Expected int    `json:"expected"`
+}
+
+// GetRef returns __RetractCommentInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RetractCommentInput) GetRef() string { return v.Ref }
+
+// GetExpected returns __RetractCommentInput.Expected, and is useful for accessing the field via an interface.
+func (v *__RetractCommentInput) GetExpected() int { return v.Expected }
 
 // __RevokeConnectionGrantInput is used internally by genqlient
 type __RevokeConnectionGrantInput struct {
@@ -41941,6 +44960,110 @@ func CloneNode(
 	return data_, err_
 }
 
+// The query executed by CommentThreads.
+const CommentThreads_Operation = `
+query CommentThreads ($target: ID!, $state: [CommentThreadState!], $limit: Int!, $offset: Int!) {
+	commentThreads(targetRef: $target, state: $state, limit: $limit, offset: $offset) {
+		total
+		items {
+			root {
+				... CommentFields
+			}
+			replies {
+				... CommentFields
+			}
+			replyCount
+		}
+	}
+}
+fragment CommentFields on Comment {
+	id
+	urn
+	portalUrl
+	threadRootId
+	isTopLevel
+	anchorRevision
+	anchorApprovalHash
+	anchorIsCurrent
+	quote
+	body
+	state
+	retracted
+	retractedAt
+	hidden
+	hiddenAt
+	resolvedAt
+	revSeq
+	createdAt
+	updatedAt
+	target {
+		id
+		urn
+		name
+		nodeType
+		revSeq
+	}
+	author {
+		kind
+		worker {
+			... CommentActorFields
+		}
+		user {
+			... CommentActorFields
+		}
+		agent {
+			... CommentActorFields
+		}
+		app {
+			... CommentActorFields
+		}
+	}
+	provenanceUser {
+		... CommentActorFields
+	}
+	resolvedBy {
+		... CommentActorFields
+	}
+}
+fragment CommentActorFields on CommentActorRef {
+	id
+	name
+	handle
+	urn
+}
+`
+
+func CommentThreads(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	target string,
+	state []CommentThreadState,
+	limit int,
+	offset int,
+) (data_ *CommentThreadsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CommentThreads",
+		Query:  CommentThreads_Operation,
+		Variables: &__CommentThreadsInput{
+			Target: target,
+			State:  state,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &CommentThreadsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CompleteAssetUpload.
 const CompleteAssetUpload_Operation = `
 mutation CompleteAssetUpload ($uploadId: ID!) {
@@ -42595,6 +45718,101 @@ func CreateChannelMessage(
 	}
 
 	data_ = &CreateChannelMessageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateComment.
+const CreateComment_Operation = `
+mutation CreateComment ($target: ID!, $body: String!, $quote: String, $anchor: Int) {
+	createComment(targetRef: $target, body: $body, quote: $quote, anchorRevision: $anchor) {
+		... CommentFields
+	}
+}
+fragment CommentFields on Comment {
+	id
+	urn
+	portalUrl
+	threadRootId
+	isTopLevel
+	anchorRevision
+	anchorApprovalHash
+	anchorIsCurrent
+	quote
+	body
+	state
+	retracted
+	retractedAt
+	hidden
+	hiddenAt
+	resolvedAt
+	revSeq
+	createdAt
+	updatedAt
+	target {
+		id
+		urn
+		name
+		nodeType
+		revSeq
+	}
+	author {
+		kind
+		worker {
+			... CommentActorFields
+		}
+		user {
+			... CommentActorFields
+		}
+		agent {
+			... CommentActorFields
+		}
+		app {
+			... CommentActorFields
+		}
+	}
+	provenanceUser {
+		... CommentActorFields
+	}
+	resolvedBy {
+		... CommentActorFields
+	}
+}
+fragment CommentActorFields on CommentActorRef {
+	id
+	name
+	handle
+	urn
+}
+`
+
+func CreateComment(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	target string,
+	body string,
+	quote *string,
+	anchor *int,
+) (data_ *CreateCommentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateComment",
+		Query:  CreateComment_Operation,
+		Variables: &__CreateCommentInput{
+			Target: target,
+			Body:   body,
+			Quote:  quote,
+			Anchor: anchor,
+		},
+	}
+
+	data_ = &CreateCommentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -44724,6 +47942,101 @@ func DeleteWorker(
 	return data_, err_
 }
 
+// The mutation executed by EditComment.
+const EditComment_Operation = `
+mutation EditComment ($ref: ID!, $body: String, $quote: String, $expected: Int!) {
+	editComment(commentRef: $ref, body: $body, quote: $quote, expectedRevision: $expected) {
+		... CommentFields
+	}
+}
+fragment CommentFields on Comment {
+	id
+	urn
+	portalUrl
+	threadRootId
+	isTopLevel
+	anchorRevision
+	anchorApprovalHash
+	anchorIsCurrent
+	quote
+	body
+	state
+	retracted
+	retractedAt
+	hidden
+	hiddenAt
+	resolvedAt
+	revSeq
+	createdAt
+	updatedAt
+	target {
+		id
+		urn
+		name
+		nodeType
+		revSeq
+	}
+	author {
+		kind
+		worker {
+			... CommentActorFields
+		}
+		user {
+			... CommentActorFields
+		}
+		agent {
+			... CommentActorFields
+		}
+		app {
+			... CommentActorFields
+		}
+	}
+	provenanceUser {
+		... CommentActorFields
+	}
+	resolvedBy {
+		... CommentActorFields
+	}
+}
+fragment CommentActorFields on CommentActorRef {
+	id
+	name
+	handle
+	urn
+}
+`
+
+func EditComment(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	body *string,
+	quote *string,
+	expected int,
+) (data_ *EditCommentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EditComment",
+		Query:  EditComment_Operation,
+		Variables: &__EditCommentInput{
+			Ref:      ref,
+			Body:     body,
+			Quote:    quote,
+			Expected: expected,
+		},
+	}
+
+	data_ = &EditCommentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by EffectiveAccess.
 const EffectiveAccess_Operation = `
 query EffectiveAccess ($user: ID!, $resource: ID!) {
@@ -45269,6 +48582,95 @@ func GetChannel(
 	}
 
 	data_ = &GetChannelResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetComment.
+const GetComment_Operation = `
+query GetComment ($ref: ID!) {
+	comment(ref: $ref) {
+		... CommentFields
+	}
+}
+fragment CommentFields on Comment {
+	id
+	urn
+	portalUrl
+	threadRootId
+	isTopLevel
+	anchorRevision
+	anchorApprovalHash
+	anchorIsCurrent
+	quote
+	body
+	state
+	retracted
+	retractedAt
+	hidden
+	hiddenAt
+	resolvedAt
+	revSeq
+	createdAt
+	updatedAt
+	target {
+		id
+		urn
+		name
+		nodeType
+		revSeq
+	}
+	author {
+		kind
+		worker {
+			... CommentActorFields
+		}
+		user {
+			... CommentActorFields
+		}
+		agent {
+			... CommentActorFields
+		}
+		app {
+			... CommentActorFields
+		}
+	}
+	provenanceUser {
+		... CommentActorFields
+	}
+	resolvedBy {
+		... CommentActorFields
+	}
+}
+fragment CommentActorFields on CommentActorRef {
+	id
+	name
+	handle
+	urn
+}
+`
+
+func GetComment(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetCommentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetComment",
+		Query:  GetComment_Operation,
+		Variables: &__GetCommentInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetCommentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -47460,6 +50862,51 @@ func NodeBatch(
 	return data_, err_
 }
 
+// The query executed by NodeCommentSummaries.
+const NodeCommentSummaries_Operation = `
+query NodeCommentSummaries ($refs: [ID!]!) {
+	nodeBatch(refs: $refs) {
+		truncated
+		omitted
+		unavailable
+		nodes {
+			id
+			commentSummary {
+				openThreads
+				resolvedThreads
+				comments
+			}
+		}
+	}
+}
+`
+
+// Optional diagnostic projection for node get; kept separate for older servers.
+func NodeCommentSummaries(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+) (data_ *NodeCommentSummariesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeCommentSummaries",
+		Query:  NodeCommentSummaries_Operation,
+		Variables: &__NodeCommentSummariesInput{
+			Refs: refs,
+		},
+	}
+
+	data_ = &NodeCommentSummariesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by NodeExport.
 const NodeExport_Operation = `
 query NodeExport ($id: ID!, $format: NodeExportFormat!) {
@@ -48850,6 +52297,188 @@ func RenumberSpec(
 	return data_, err_
 }
 
+// The mutation executed by ReopenCommentThread.
+const ReopenCommentThread_Operation = `
+mutation ReopenCommentThread ($ref: ID!, $expected: Int!) {
+	reopenCommentThread(commentRef: $ref, expectedRevision: $expected) {
+		... CommentFields
+	}
+}
+fragment CommentFields on Comment {
+	id
+	urn
+	portalUrl
+	threadRootId
+	isTopLevel
+	anchorRevision
+	anchorApprovalHash
+	anchorIsCurrent
+	quote
+	body
+	state
+	retracted
+	retractedAt
+	hidden
+	hiddenAt
+	resolvedAt
+	revSeq
+	createdAt
+	updatedAt
+	target {
+		id
+		urn
+		name
+		nodeType
+		revSeq
+	}
+	author {
+		kind
+		worker {
+			... CommentActorFields
+		}
+		user {
+			... CommentActorFields
+		}
+		agent {
+			... CommentActorFields
+		}
+		app {
+			... CommentActorFields
+		}
+	}
+	provenanceUser {
+		... CommentActorFields
+	}
+	resolvedBy {
+		... CommentActorFields
+	}
+}
+fragment CommentActorFields on CommentActorRef {
+	id
+	name
+	handle
+	urn
+}
+`
+
+func ReopenCommentThread(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	expected int,
+) (data_ *ReopenCommentThreadResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ReopenCommentThread",
+		Query:  ReopenCommentThread_Operation,
+		Variables: &__ReopenCommentThreadInput{
+			Ref:      ref,
+			Expected: expected,
+		},
+	}
+
+	data_ = &ReopenCommentThreadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ReplyToComment.
+const ReplyToComment_Operation = `
+mutation ReplyToComment ($ref: ID!, $body: String!) {
+	replyToComment(commentRef: $ref, body: $body) {
+		... CommentFields
+	}
+}
+fragment CommentFields on Comment {
+	id
+	urn
+	portalUrl
+	threadRootId
+	isTopLevel
+	anchorRevision
+	anchorApprovalHash
+	anchorIsCurrent
+	quote
+	body
+	state
+	retracted
+	retractedAt
+	hidden
+	hiddenAt
+	resolvedAt
+	revSeq
+	createdAt
+	updatedAt
+	target {
+		id
+		urn
+		name
+		nodeType
+		revSeq
+	}
+	author {
+		kind
+		worker {
+			... CommentActorFields
+		}
+		user {
+			... CommentActorFields
+		}
+		agent {
+			... CommentActorFields
+		}
+		app {
+			... CommentActorFields
+		}
+	}
+	provenanceUser {
+		... CommentActorFields
+	}
+	resolvedBy {
+		... CommentActorFields
+	}
+}
+fragment CommentActorFields on CommentActorRef {
+	id
+	name
+	handle
+	urn
+}
+`
+
+func ReplyToComment(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	body string,
+) (data_ *ReplyToCommentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ReplyToComment",
+		Query:  ReplyToComment_Operation,
+		Variables: &__ReplyToCommentInput{
+			Ref:  ref,
+			Body: body,
+		},
+	}
+
+	data_ = &ReplyToCommentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ReserveSpecCitation.
 const ReserveSpecCitation_Operation = `
 mutation ReserveSpecCitation ($memoryRef: ID!, $loc: String!, $name: String) {
@@ -48982,6 +52611,97 @@ func ResolveAiServiceConfigsWithEndpoint(
 	}
 
 	data_ = &ResolveAiServiceConfigsWithEndpointResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ResolveCommentThread.
+const ResolveCommentThread_Operation = `
+mutation ResolveCommentThread ($ref: ID!, $expected: Int!) {
+	resolveCommentThread(commentRef: $ref, expectedRevision: $expected) {
+		... CommentFields
+	}
+}
+fragment CommentFields on Comment {
+	id
+	urn
+	portalUrl
+	threadRootId
+	isTopLevel
+	anchorRevision
+	anchorApprovalHash
+	anchorIsCurrent
+	quote
+	body
+	state
+	retracted
+	retractedAt
+	hidden
+	hiddenAt
+	resolvedAt
+	revSeq
+	createdAt
+	updatedAt
+	target {
+		id
+		urn
+		name
+		nodeType
+		revSeq
+	}
+	author {
+		kind
+		worker {
+			... CommentActorFields
+		}
+		user {
+			... CommentActorFields
+		}
+		agent {
+			... CommentActorFields
+		}
+		app {
+			... CommentActorFields
+		}
+	}
+	provenanceUser {
+		... CommentActorFields
+	}
+	resolvedBy {
+		... CommentActorFields
+	}
+}
+fragment CommentActorFields on CommentActorRef {
+	id
+	name
+	handle
+	urn
+}
+`
+
+func ResolveCommentThread(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	expected int,
+) (data_ *ResolveCommentThreadResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ResolveCommentThread",
+		Query:  ResolveCommentThread_Operation,
+		Variables: &__ResolveCommentThreadInput{
+			Ref:      ref,
+			Expected: expected,
+		},
+	}
+
+	data_ = &ResolveCommentThreadResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -49159,6 +52879,97 @@ func RetireWorker(
 	}
 
 	data_ = &RetireWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RetractComment.
+const RetractComment_Operation = `
+mutation RetractComment ($ref: ID!, $expected: Int!) {
+	retractComment(commentRef: $ref, expectedRevision: $expected) {
+		... CommentFields
+	}
+}
+fragment CommentFields on Comment {
+	id
+	urn
+	portalUrl
+	threadRootId
+	isTopLevel
+	anchorRevision
+	anchorApprovalHash
+	anchorIsCurrent
+	quote
+	body
+	state
+	retracted
+	retractedAt
+	hidden
+	hiddenAt
+	resolvedAt
+	revSeq
+	createdAt
+	updatedAt
+	target {
+		id
+		urn
+		name
+		nodeType
+		revSeq
+	}
+	author {
+		kind
+		worker {
+			... CommentActorFields
+		}
+		user {
+			... CommentActorFields
+		}
+		agent {
+			... CommentActorFields
+		}
+		app {
+			... CommentActorFields
+		}
+	}
+	provenanceUser {
+		... CommentActorFields
+	}
+	resolvedBy {
+		... CommentActorFields
+	}
+}
+fragment CommentActorFields on CommentActorRef {
+	id
+	name
+	handle
+	urn
+}
+`
+
+func RetractComment(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	expected int,
+) (data_ *RetractCommentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RetractComment",
+		Query:  RetractComment_Operation,
+		Variables: &__RetractCommentInput{
+			Ref:      ref,
+			Expected: expected,
+		},
+	}
+
+	data_ = &RetractCommentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

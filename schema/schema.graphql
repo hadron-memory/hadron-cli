@@ -75,6 +75,19 @@ type ActionTicketsPage {
   total: Int!
 }
 
+"""
+#1610 — public identity of a Worker or Agent that wrote a node: never the full object, whose own read gate this does not pass.
+"""
+type ActorRef {
+  id: ID!
+  name: String!
+
+  """
+  The canonical hrn:worker:/hrn:agent: URN. Null when it cannot be composed.
+  """
+  urn: String
+}
+
 type AddMemoryMemberPayload {
   memoryMember: MemoryMember!
 }
@@ -1007,6 +1020,11 @@ type ApproveMemoryNodesResult {
 
   """Locs of reserved placeholders, which have no spec to approve yet."""
   skippedPlaceholders: [String!]!
+
+  """
+  #1607 — unminted nodes of this memory with open discussion: a warning, never a blocker (cor:dmo:110:07). Ordered by loc.
+  """
+  unresolvedFeedback: [UnresolvedFeedback!]!
 }
 
 type AppsPage {
@@ -1507,6 +1525,169 @@ type ChatStartResult {
   stageName: String
   systemMessage: String!
   tools: JSON
+}
+
+"""
+#1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+`comment` in its target's memory, readable by exactly who can read that
+memory. It is never part of its target's content, never approved or minted,
+and never authoritative.
+"""
+type Comment {
+  """
+  The approval hash of the target's title/abstract/content at anchorRevision: 64 lowercase hex.
+  """
+  anchorApprovalHash: String!
+
+  """
+  anchorRevision equals the target's current revision. When false, show the comment as about an older revision (cor:dmo:110:01).
+  """
+  anchorIsCurrent: Boolean!
+
+  """
+  The target revision the thread was written against (replies inherit their thread's).
+  """
+  anchorRevision: Int!
+  author: CommentAuthor!
+
+  """Null when retracted or hidden: the stub shows the state, not the text."""
+  body: String
+  createdAt: DateTime!
+  hidden: Boolean!
+  hiddenAt: DateTime
+  id: ID!
+  isTopLevel: Boolean!
+
+  """The portal page of the comment node; null when FRONTEND_URL is unset."""
+  portalUrl: String
+
+  """
+  Worker comments only: the user who bound the worker session, shown as provenance, never as author. Null for other comments, and for callers who cannot write the memory.
+  """
+  provenanceUser: CommentActorRef
+
+  """Null when retracted or hidden."""
+  quote: String
+  resolvedAt: DateTime
+  resolvedBy: CommentActorRef
+  retracted: Boolean!
+  retractedAt: DateTime
+
+  """
+  The comment's own revision. Pass it as expectedRevision to edit, retract, resolve, reopen or hide.
+  """
+  revSeq: Int!
+
+  """Top-level only; null for a reply."""
+  state: CommentThreadState
+  target: CommentTargetRef!
+
+  """Null for a top-level comment; else the thread's top-level comment."""
+  threadRootId: ID
+  updatedAt: DateTime
+  urn: String!
+
+  """
+  Whether the caller is this comment's author (the edit/retract right). Computed with the same author key the server enforces.
+  """
+  viewerIsAuthor: Boolean!
+}
+
+"""
+#1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
+"""
+type CommentActorRef {
+  """Users only."""
+  handle: String
+  id: ID!
+  name: String
+
+  """Workers, agents and Apps: the canonical URN, when it can be composed."""
+  urn: String
+}
+
+"""#1606 — a comment's author. Exactly the refs its kind names are set."""
+type CommentAuthor {
+  """USER_AGENT; also WORKER, when the worker's agent is recorded."""
+  agent: CommentActorRef
+
+  """APP."""
+  app: CommentActorRef
+  kind: CommentAuthorKind!
+
+  """USER and USER_AGENT."""
+  user: CommentActorRef
+
+  """WORKER."""
+  worker: CommentActorRef
+}
+
+"""#1606 — who a comment is from (cor:dmo:110:03)."""
+enum CommentAuthorKind {
+  """An App key with no user."""
+  APP
+
+  """A user wrote it directly."""
+  USER
+
+  """An unnamed agent wrote it on a user's behalf (a token or a run)."""
+  USER_AGENT
+
+  """
+  A named worker wrote it; the user who bound the session is provenance only.
+  """
+  WORKER
+}
+
+"""
+#1606 — the trust cue (cor:dmo:110:07). Counts live threads; zeros on a memory that cannot hold comments.
+"""
+type CommentSummary {
+  """
+  Every live comment, top-level and replies, retracted and hidden stubs included.
+  """
+  comments: Int!
+  openThreads: Int!
+  resolvedThreads: Int!
+
+  """
+  The caller's own open, live top-level thread on this node, if any: one per author (cor:dmo:110:05).
+  """
+  viewerOpenThreadId: ID
+}
+
+"""
+#1606 — the node a comment concerns. Same memory as the comment, so the same read gate.
+"""
+type CommentTargetRef {
+  id: ID!
+  name: String!
+  nodeType: String!
+
+  """The target's current revision (Node.revision)."""
+  revSeq: Int!
+  urn: String!
+}
+
+type CommentThread {
+  """Oldest first."""
+  replies: [Comment!]!
+  replyCount: Int!
+  root: Comment!
+}
+
+type CommentThreadPage {
+  """Newest thread first."""
+  items: [CommentThread!]!
+  total: Int!
+}
+
+"""
+#1606 — a comment thread's state (cor:dmo:110:05). Top-level comments only.
+"""
+enum CommentThreadState {
+  OPEN
+  RESOLVED
 }
 
 input CompleteAssetUploadInput {
@@ -4012,6 +4193,18 @@ type Mutation {
   createChannelMessage(body: String!, channelRef: ID!, replyToSeq: Int, sessionRef: ID): TeamChatMessage!
 
   """
+  #1606 — start a thread on a node (cor:dmo:110). Needs write access to the
+  target's memory. anchorRevision defaults to the target's current revision;
+  an older one anchors there while its text is still retained. The anchor
+  hash is computed by the server. Typed refusals: COMMENT_TARGET_NOT_FOUND,
+  COMMENT_FORBIDDEN, COMMENT_TARGET_IS_COMMENT, COMMENT_MEMORY_NOT_COMMENTABLE,
+  COMMENT_OPEN_THREAD_EXISTS, COMMENT_ANCHOR_REVISION_INVALID,
+  COMMENT_ANCHOR_REVISION_UNAVAILABLE, COMMENT_BODY_INVALID,
+  COMMENT_IMPERSONATION_REFUSED.
+  """
+  createComment(anchorRevision: Int, body: String!, quote: String, targetRef: ID!): Comment!
+
+  """
   Grant an App install scoped access to a connection you OWN. scopes must be a
   subset of {mail.read, mail.send, calendar.freebusy, calendar.read, drive.read};
   expiresAt (ISO-8601) is optional and must be in the future. appRef is a PK or
@@ -4489,6 +4682,11 @@ type Mutation {
   deleteChat(chatId: String!): Boolean!
 
   """
+  #1606 — a memory admin deletes a whole thread (soft: gone from every read, limit and check; history kept). commentRef may be any comment of it.
+  """
+  deleteCommentThread(commentRef: ID!, reason: String!): Boolean!
+
+  """
   #806 — delete one of the caller's presets. Placements already seeded from it
   keep their config (apply copies; there is no live link). A preset the caller
   does not own is indistinguishable from one that does not exist (NOT_FOUND).
@@ -4710,6 +4908,11 @@ type Mutation {
   """
   deleteWorker(workerRef: ID!): Boolean!
 
+  """
+  #1606 — the author edits a comment's body and/or quote. COMMENT_NOT_AUTHOR otherwise.
+  """
+  editComment(body: String, commentRef: ID!, expectedRevision: Int!, quote: String): Comment!
+
   """Set the categories (color labels) on a message. Owner-only."""
   emailCategorizeMessage(categories: [String!]!, connectionRef: ID!, messageId: ID!): Boolean!
 
@@ -4878,6 +5081,9 @@ type Mutation {
   """
   grantCredits(input: GrantCreditsInput!): CreditLedgerEntry!
 
+  """#1606 — a memory admin hides an abusive comment, leaving a stub."""
+  hideComment(commentRef: ID!, expectedRevision: Int!, reason: String!): Comment!
+
   """
   Import external content into a node (#457, sync v1). Source: exactly one
   of 'url' (server-fetched inline, SSRF-guarded, Readability-extracted,
@@ -5018,8 +5224,8 @@ type Mutation {
   Consolidate a duplicate account into a surviving user. Source-only
   identities and relationships move; duplicate role-bearing relationships
   preserve the strongest live entitlement. The source is soft-deleted.
-  Platform admin, or an org admin/owner when both users are live members
-  of an organization they administer. The resulting merge is global.
+  Platform admin only. The resulting merge is global; organization
+  administration does not authorize account consolidation.
   """
   mergeUsers(input: MergeUsersInput!): User!
 
@@ -5317,6 +5523,11 @@ type Mutation {
   renumberSpec(dryRun: Boolean, fromLoc: String!, memoryRef: ID!, toLoc: String!): SpecRenumberResult!
 
   """
+  #1606 — reopen a resolved thread: its author or any writer of the memory.
+  """
+  reopenCommentThread(commentRef: ID!, expectedRevision: Int!): Comment!
+
+  """
   #949 — re-own an Agent's class=system memory to the Agent's own owner
   (org XOR user) and re-derive its URN as '<agent-urn>-system'.
   
@@ -5346,6 +5557,11 @@ type Mutation {
   replaceSubtree(edges: [EdgeInput!]!, memoryId: String!, nodes: [NodeInput!]!, ownerRepo: String!): Int! @deprecated(reason: "Retired (#454): every authorized call refuses with REPLACE_SUBTREE_RETIRED and writes nothing. Use the canonical node write mutations.")
 
   """
+  #1606 — reply in a thread; commentRef may be any comment of it. Allowed on a resolved thread, which stays resolved (Holger, DAB).
+  """
+  replyToComment(body: String!, commentRef: ID!): Comment!
+
+  """
   #1450 — reserve a citation as a placeholder, in any memory since #1591: an
   unminted spec node at loc (role spec, nodeType info) marked isPlaceholder,
   so links can point at it and the placeholders left are the corpus's to-do
@@ -5354,6 +5570,11 @@ type Mutation {
   NodeLocConflictError at a live loc. memoryRef accepts the memory's ID or URN.
   """
   reserveSpecCitation(loc: String!, memoryRef: ID!, name: String): Node!
+
+  """
+  #1606 — resolve a thread: its author or any writer of the memory. commentRef is the top-level comment; returns it.
+  """
+  resolveCommentThread(commentRef: ID!, expectedRevision: Int!): Comment!
   restoreAsset(assetId: ID!): Asset!
 
   """
@@ -5390,6 +5611,11 @@ type Mutation {
   or its URN (#991).
   """
   retireWorker(workerRef: ID!): Worker!
+
+  """
+  #1606 — the author retracts a comment, leaving a stub (cor:dmo:110:05).
+  """
+  retractComment(commentRef: ID!, expectedRevision: Int!): Comment!
 
   """
   #882 — re-drive every FAILED embed in a memory (the operator recovery
@@ -6192,6 +6418,11 @@ type Node {
   #1326 — attribution of this content state. Null means legacy or unknown. Task identity is redacted unless its memory is independently readable.
   """
   authorship: NodeAuthorship
+
+  """
+  #1606 — open and resolved discussion on this node (cor:dmo:110:07). Batched per request.
+  """
+  commentSummary: CommentSummary!
   content: String
 
   """
@@ -6199,6 +6430,16 @@ type Node {
   """
   contentValidation: NodeContentValidationStatus!
   createdAt: DateTime!
+
+  """
+  #1610 — the Agent behind this node's creation: a worker's role agent, an agent session, or a headless App run. Null when no agent was behind it.
+  """
+  createdByAgent: ActorRef
+
+  """
+  #1610 — the Worker that created this node, when it was written in a worker session. The user is createdBy. Null for a write with no worker behind it, and for nodes written before #1610.
+  """
+  createdByWorker: ActorRef
   data: JSON
   description: String
 
@@ -6339,6 +6580,16 @@ type Node {
   tags: [String!]!
   tokens: Int
   updatedAt: DateTime!
+
+  """
+  #1610 — the Agent behind the last authored edit; cleared like updatedByWorker.
+  """
+  updatedByAgent: ActorRef
+
+  """
+  #1610 — the Worker behind the last authored edit. A later edit with no worker behind it clears it, so it always describes the same edit as updatedAt.
+  """
+  updatedByWorker: ActorRef
 
   """
   Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
@@ -6839,6 +7090,9 @@ type NodeRevision {
   """
   editedBy: String
 
+  """#1610 — the Agent behind the edit this snapshot records."""
+  editedByAgent: ActorRef
+
   """
   What is known about the editor when no User id is available (#620):
   'github:<login>' / 'email:<addr>' / 'user:<id>' identity strings, or
@@ -6855,6 +7109,11 @@ type NodeRevision {
   identifiers only (#617).
   """
   editedByUser: NodeRevisionEditor
+
+  """
+  #1610 — the Worker behind the edit this snapshot records, beside editedBy (the user).
+  """
+  editedByWorker: ActorRef
   id: ID!
   isLink: Boolean
   isRunnable: Boolean
@@ -7633,6 +7892,14 @@ type Query {
       so paging can skip the sibling. See #992 for the underlying gap.
   """
   chatHistory(beforeSeq: Int, chatId: String!, limit: Int): [ChatMessage!]!
+
+  """#1606 — one comment by ID or URN; null when missing or unreadable."""
+  comment(ref: ID!): Comment
+
+  """
+  #1606 — the discussion on a node (ID or URN), newest thread first. Read-gated on the node's memory; an unreadable or missing node is COMMENT_TARGET_NOT_FOUND.
+  """
+  commentThreads(limit: Int = 50, offset: Int = 0, state: [CommentThreadState!], targetRef: ID!): CommentThreadPage!
 
   """
   One connection grant the caller created, by ID; null if not theirs (no existence oracle).
@@ -9677,6 +9944,17 @@ type Session {
   """
   isLive: Boolean!
   language: String
+
+  """
+  #1617: the LAST instant this session still reads live unless something
+  drives it first: its last activity plus its type's idle window. The
+  predicate is inclusive, so the session is live AT this instant and lapsed
+  after it; an instant in the past means it has already LAPSED. Any
+  attributed read, post or mark-read through a live session renews it.
+  Derived from the same computation as isLive, so the two always agree.
+  Null for an ended or deleted session.
+  """
+  lapsesAt: DateTime
   llmModel: String
   memoryId: String
   outcome: Float
@@ -10208,6 +10486,11 @@ type SpecCorpusMintReport {
   openQuestions: [SpecOpenQuestionGroup!]!
   staleAbstracts: [SpecMintFinding!]!
   staleAbstractsBlock: Boolean!
+
+  """
+  #1607 — nodes in mintLocs with open discussion: a WARNING, never a blocker (cor:dmo:110:07). Ordered by loc.
+  """
+  unresolvedFeedback: [UnresolvedFeedback!]!
 }
 
 """
@@ -10765,6 +11048,16 @@ they persist as orphans on the now-removed AppAgent edge.
 type UninstallAgentFromAppPayload {
   agentId: ID!
   appId: ID!
+}
+
+"""
+#1607 — a node with open feedback, reported as a WARNING by mint and approval reports, never a blocker (cor:dmo:110:07).
+"""
+type UnresolvedFeedback {
+  loc: String!
+  nodeId: ID!
+  openThreads: Int!
+  urn: String!
 }
 
 input UpdateAgentScheduleInput {

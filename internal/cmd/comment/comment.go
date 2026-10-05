@@ -1,5 +1,5 @@
 // Package comment implements the command layer for governed comment operations.
-// Its generated GraphQL adapter is pending the server #1606 schema export.
+// All transport calls use the generated server comment operations.
 package comment
 
 import (
@@ -106,12 +106,15 @@ func readCmd(f *cmdutil.Factory, connect Connect, list bool) *cobra.Command {
 	if list {
 		cmd.Aliases = []string{"ls"}
 		cmd.Flags().StringSliceVar(&states, "state", nil, "OPEN or RESOLVED (comma-separated)")
-		cmd.Flags().IntVar(&limit, "limit", 50, "threads in this page")
+		cmd.Flags().IntVar(&limit, "limit", 50, "threads in this page (1 to 200)")
 		cmd.Flags().IntVar(&offset, "offset", 0, "threads to skip")
 	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		if list && (limit < 1 || offset < 0) {
-			return exitcode.Newf(exitcode.Usage, "--limit must be positive and --offset nonnegative")
+		if list && cmd.Flags().Changed("state") && len(states) == 0 {
+			return exitcode.Newf(exitcode.Usage, "--state must name OPEN or RESOLVED; omit it to read all states")
+		}
+		if list && (limit < 1 || limit > 200 || offset < 0) {
+			return exitcode.Newf(exitcode.Usage, "--limit must be 1 to 200 and --offset nonnegative")
 		}
 		for _, state := range states {
 			if state != "OPEN" && state != "RESOLVED" {
@@ -171,7 +174,7 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 	var memory, body, bodyFile, quote string
 	var expected, anchor int
 	var reopen bool
-	cmd := &cobra.Command{Use: verb + " <node-ref>", Short: verb + " a comment", Args: cobra.ExactArgs(1)}
+	cmd := &cobra.Command{Use: verb + " <node-ref>", Short: map[string]string{"create": "Start a comment thread on a target", "reply": "Reply within a comment thread", "edit": "Edit your comment body or quote", "retract": "Retract your comment, leaving a stub", "resolve": "Resolve or reopen a top-level thread"}[verb], Args: cobra.ExactArgs(1)}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory for a bare loc")
 	text := verb == "create" || verb == "reply" || verb == "edit"
 	guarded := verb == "edit" || verb == "retract" || verb == "resolve"
@@ -193,7 +196,10 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 	if verb == "resolve" {
 		cmd.Flags().BoolVar(&reopen, "reopen", false, "reopen a resolved root instead")
 	}
-	cmd.Long = "Use the comment's own revision for --expected-revision, not its target or anchor revision. The server decides authorship, permission and thread state. Refused writes are not retried."
+	cmd.Long = "The server decides authorship, permission and thread state. Refused writes are not retried. Use --body-file for a Markdown document, or --body - for a pipe."
+	if guarded {
+		cmd.Long += " Use the comment's own revision for --expected-revision, not its target or anchor revision."
+	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		changed := cmd.Flags().Changed
 		if guarded && (!changed("expected-revision") || expected < 1) {
@@ -285,6 +291,11 @@ func render(w io.Writer, c Comment) error {
 	if _, err := fmt.Fprintf(w, "%s — %s; author %s; revision %d; on target revision %d (%s)\n", c.URN, state, authorLabel(c.Author), c.Revision, c.AnchorRevision, freshness); err != nil {
 		return err
 	}
+	if c.Author.Kind == "WORKER" && c.ProvenanceUser != nil {
+		if _, err := fmt.Fprintf(w, "  session bound by %s (provenance)\n", actorLabel(c.ProvenanceUser)); err != nil {
+			return err
+		}
+	}
 	if c.Hidden || c.Retracted {
 		return nil
 	}
@@ -300,28 +311,29 @@ func render(w io.Writer, c Comment) error {
 	return nil
 }
 
-func authorLabel(a Author) string {
-	label := func(ref *Actor) string {
-		if ref == nil {
-			return "unknown"
-		}
-		if ref.Name != nil && *ref.Name != "" {
-			return *ref.Name
-		}
-		if ref.Handle != nil && *ref.Handle != "" {
-			return "@" + *ref.Handle
-		}
-		return ref.ID
+func actorLabel(ref *Actor) string {
+	if ref == nil {
+		return "unknown"
 	}
+	if ref.Name != nil && *ref.Name != "" {
+		return *ref.Name
+	}
+	if ref.Handle != nil && *ref.Handle != "" {
+		return "@" + *ref.Handle
+	}
+	return ref.ID
+}
+
+func authorLabel(a Author) string {
 	switch a.Kind {
 	case "WORKER":
-		return label(a.Worker) + " (worker)"
+		return actorLabel(a.Worker) + " (worker)"
 	case "USER_AGENT":
-		return label(a.User) + " / " + label(a.Agent) + " (user + agent)"
+		return actorLabel(a.User) + " / " + actorLabel(a.Agent) + " (user + agent)"
 	case "APP":
-		return label(a.App) + " (App)"
+		return actorLabel(a.App) + " (App)"
 	case "USER":
-		return label(a.User) + " (user)"
+		return actorLabel(a.User) + " (user)"
 	default:
 		return "unknown"
 	}
