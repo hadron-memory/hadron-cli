@@ -52,7 +52,7 @@ func attnServerHook(t *testing.T, responses map[string]string, onOp func(op stri
 		*calls = append(*calls, attnCall{Op: body.OperationName, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session")})
 		w.Header().Set("Content-Type", "application/json")
 		resp, ok := responses[body.OperationName]
-		if !ok && body.OperationName == "TeamChatReadHead" {
+		if !ok && (body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata") {
 			resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
 		}
 		if !ok && body.OperationName == "ChannelReadState" {

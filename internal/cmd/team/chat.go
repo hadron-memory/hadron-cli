@@ -409,17 +409,18 @@ past the end of the chat) reads a window rather than a prefix and records
 nothing. An explicit --since 0 on an EMPTY chat still records read-through-0.
 
 FRESHNESS (#801). Before reading, a separate unfiltered request samples the
-latest surviving message and the channel allocator watermark. Empty/short
+latest surviving message; optional metadata samples the allocator watermark. Empty/short
 forward pages and newest pages are checked against that baseline. A discrepancy
-is suspected staleness (exit 5): returned messages remain visible, but nothing
+is suspected incomplete/stale delivery (exit 5): returned messages remain visible, but nothing
 is marked read. Retry from your original cursor. Posts arriving after the probe
 are not discrepancies. Agreement cannot detect two equally stale responses.
 Filtered and backward windows need not reach the head. A --before bound above
-the sampled head is a newest-page request and is checked like a tail.
+the sampled head is a newest-page request when the head also exceeds --since.
 The read-state line (JSON: readState) shows the sampled head, allocatedHead,
-and your server readCursor before this read; a null cursor is unavailable or
-inapplicable, not zero. A head-probe failure fails the read rather than claiming
-quiet. Cursor-read failures are noted, without failing message delivery.
+and your default-Channel server readCursor before this read. Null values mean
+unavailable or inapplicable, not zero. Optional metadata/cursor failures do not
+deny chat. An old-schema beforeSeq refusal explicitly disables comparison;
+other head-probe failures fail the read. Shared stale sources can still agree.
 
 YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). When the binding
 records this server, a read that records the watermark above also marks the bound worker's
@@ -587,8 +588,11 @@ them "(human)" / "(worker)".`,
 			// A --before bound above the sampled head is also a newest-page
 			// request (the portable tail idiom used by older CLI versions).
 			beforeGiven := cmd.Flags().Changed("before")
-			newest := tailRead || (beforeGiven && before > state.Head && state.Head > since)
-			state.SuspectedStale = chatPageBehindHead(state.Head, highest, cursor, lastPageCount, pageSize, newest, sinceGiven || all, beforeGiven && !newest, mentionsRef != nil)
+			if state.Head != nil {
+				head := *state.Head
+				newest := tailRead || (beforeGiven && before > head && head > since)
+				state.SuspectedStale = chatPageBehindHead(head, highest, cursor, lastPageCount, pageSize, newest, sinceGiven || all, beforeGiven && !newest, mentionsRef != nil)
+			}
 			// The watermark the binding records is NOT `next`. `next` is a PAGING
 			// cursor: it answers "where do I resume", falls back to whatever the
 			// caller passed, and is the right value to hand back on the wire. The
@@ -724,11 +728,18 @@ them "(human)" / "(worker)".`,
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 					return err
 				}
-				cursorLabel := "unavailable (no applicable server read cursor)"
+				cursorLabel := "unavailable or inapplicable"
 				if state.ReadCursor != nil {
 					cursorLabel = fmt.Sprintf("#%d", *state.ReadCursor)
 				}
-				if _, err := fmt.Fprintf(w, "read state before this read: cursor %s; channel head #%d (allocated #%d)\n", cursorLabel, state.Head, state.AllocatedHead); err != nil {
+				headLabel, allocatedLabel := "unavailable", "unavailable"
+				if state.Head != nil {
+					headLabel = fmt.Sprintf("#%d", *state.Head)
+				}
+				if state.AllocatedHead != nil {
+					allocatedLabel = fmt.Sprintf("#%d", *state.AllocatedHead)
+				}
+				if _, err := fmt.Fprintf(w, "read state before this read: cursor %s; channel head %s (allocated %s)\n", cursorLabel, headLabel, allocatedLabel); err != nil {
 					return err
 				}
 				for _, m := range result.Messages {
@@ -753,7 +764,7 @@ them "(human)" / "(worker)".`,
 				return err
 			}
 			if state.SuspectedStale {
-				return exitcode.Newf(exitcode.Conflict, "suspected stale team-chat read: page ends at #%d, but the independent pre-read channel head was #%d; nothing marked read — retry from the original cursor", highest, state.Head)
+				return exitcode.Newf(exitcode.Conflict, "suspected stale team-chat read: page ends at #%d, but the independent pre-read channel head was #%d; nothing marked read — retry from the original cursor", highest, *state.Head)
 			}
 			// The bound worker's SERVER read state (hadron-server#1353) moves
 			// only here: after the messages were delivered, and only for a read

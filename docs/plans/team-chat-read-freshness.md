@@ -7,18 +7,23 @@ layer remains the server lane of #801.
 
 ## Read sequence and output
 
-1. A distinct `TeamChatReadHead` operation samples the default Channel ID,
-   allocator `lastSeq`, and the latest surviving message with an unfiltered
-   backward `limit: 1` query. The explicit upper bound works on servers predating
-   cursorless newest-page defaults. A failed probe fails the command.
-2. For a binding on this deployment and canonical App ID, `ChannelReadState`
-   samples the bound Worker's server cursor. A missing row means cursor zero;
-   a failed lookup prints a note and leaves the cursor unknown. Another App,
-   another deployment, or no Worker binding leaves it inapplicable/null.
+1. A distinct chat-only `TeamChatReadHead` operation samples the latest
+   surviving message using an unfiltered backward `limit: 1` query. Only a
+   parsed old-schema validation refusal naming `beforeSeq` degrades to an
+   explicit unavailable comparison (`head: null`). Other probe failures fail
+   the command.
+2. Separate best-effort `TeamChatReadMetadata` samples the default Channel ID
+   and allocator `lastSeq`. Its stricter App access gate never denies readable
+   chat: unavailable metadata leaves allocator/cursor null with a note.
+   For a binding on this deployment and canonical App ID, `ChannelReadState`
+   samples the bound Worker's default-Channel server cursor. This follows the
+   existing acknowledgement channel; it does not establish which Channel a
+   future server routing change might serve. Missing state means zero; a failed
+   lookup leaves the cursor null with a note.
 3. The requested page(s) are read without attaching a session. Empty/short
    unfiltered forward pages and newest pages must reach a surviving message
    already observed by the baseline. A `--before` bound above that head is also
-   a newest-page request. Filtered pages and genuine backward/bounded windows
+   a newest-page request when the head is also greater than `--since`. Filtered pages and genuine backward/bounded windows
    have no such obligation; full forward pages may legitimately have more ahead.
 4. Output retains `messages`, `nextSince`, and `prevBefore`. It adds `readState`
    with `head`, `allocatedHead`, `readCursor`, and `suspectedStale`. Text prints
@@ -36,15 +41,17 @@ read-state, or lifecycle rule; no platform spec citation is proposed.
 
 ## Limits
 
-Two requests can both be stale and agree. A message deleted between the baseline
+Two requests can both be stale and agree, including when a reused connection
+or shared edge/backend pool sends both to the same stale source. No nonce or
+transport workaround is asserted to solve the still-undetermined origin. A message deleted between the baseline
 and page can produce a suspected discrepancy; retry is the remedy, and the
 wording does not claim a diagnosed stale origin. Posts after the baseline do
 not make a fresh response look stale. The diagnostic only compares the head;
 it cannot prove every intermediate message was included. An unsuccessful cursor
 lookup does not prevent delivery or existing acknowledgement behavior.
 
-Every read adds one bounded head probe and, for an applicable bound Worker,
-one cursor lookup. These diagnostic requests carry no session header and never
+Every read adds one bounded chat-head probe and one optional metadata probe;
+an applicable bound Worker adds one cursor lookup. These diagnostic requests carry no session header and never
 mark read. The existing explicit post-delivery mark remains the acknowledgement
 path.
 
@@ -63,3 +70,9 @@ head/allocator values and the inherited Worker cursor; it is not a reproduction
 of the transient production incident. Author checks: full Go suite, race-enabled
 chat-read tests, build, generated-client freshness, unbound-operation baseline,
 and golangci-lint.
+
+Review regressions cover readable App-key/cross-org chat with forbidden metadata,
+unknown allocator values, wrong-App cursor guards, nil head/page responses, and
+old-schema degradation without masking unrelated schema or authorization failures.
+`--limit 0` is refused before any API call; the conditional review finding is
+unreachable through this command. Race tests check handler safety, not freshness.

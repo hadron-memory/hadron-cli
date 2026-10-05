@@ -2928,7 +2928,7 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			resp, ok := oneMessage[body.OperationName]
-			if !ok && body.OperationName == "TeamChatReadHead" {
+			if !ok && (body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata") {
 				resp, ok = teamReadHeadFixture(oneMessage["TeamChatMessages"]), true
 			}
 			if !ok {

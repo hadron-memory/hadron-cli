@@ -27,7 +27,7 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 		captured[body.OperationName] = body.Variables
 		resp, ok := responses[body.OperationName]
 		if !ok {
-			if body.OperationName == "TeamChatReadHead" {
+			if body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata" {
 				resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
 			} else {
 				resp, ok = unstubbedDefault(body.OperationName)

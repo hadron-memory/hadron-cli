@@ -29,7 +29,7 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		resp, ok := responses[body.OperationName]
 		if !ok {
-			if body.OperationName == "TeamChatReadHead" {
+			if body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata" {
 				resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
 			} else {
 				resp, ok = unstubbedDefault(body.OperationName)

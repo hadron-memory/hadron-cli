@@ -1110,16 +1110,22 @@ query TeamDefaultChannel($appRef: ID!) {
 # look stale. lastSeq is an allocator watermark, so compare against an actual
 # surviving message, not the allocator (deletions/rolled-back writes leave gaps).
 query TeamChatReadHead($appRef: ID!) {
+  teamChatMessages(appRef: $appRef, beforeSeq: 2147483647, limit: 1) {
+    items {
+      seq
+    }
+  }
+}
+
+# Optional diagnostic metadata uses the App gate, which is narrower than chat
+# access (App keys and cross-org AppMembers can read chat without reading App).
+# Never combine it with the chat-only head probe or let its refusal fail chat.
+query TeamChatReadMetadata($appRef: ID!) {
   app(ref: $appRef) {
     id
     defaultChannel {
       id
       lastSeq
-    }
-  }
-  teamChatMessages(appRef: $appRef, beforeSeq: 2147483647, limit: 1) {
-    items {
-      seq
     }
   }
 }

@@ -147,7 +147,7 @@ func TestTeamChatReadCursorIsServerStateAndAllocatorGapsAreAllowed(t *testing.T)
 	writeTeamBinding(t)
 	r := chatReadResponses()
 	// The allocator is beyond the latest surviving message, legitimately.
-	r["TeamChatReadHead"] = strings.Replace(teamReadHeadFixture(teamChatPage(2, 2)), `"lastSeq":2`, `"lastSeq":20`, 1)
+	r["TeamChatReadMetadata"] = strings.Replace(teamReadHeadFixture(teamChatPage(2, 2)), `"lastSeq":2`, `"lastSeq":20`, 1)
 	r["ChannelReadState"] = `{"data":{"channelReadState":{"channelId":"ch1","lastSeenSeq":17,"updatedAt":"2026-10-05T00:00:00Z"}}}`
 	srv, _ := attnServer(t, r)
 	setTeamBindingServer(t, srv.URL)
@@ -212,6 +212,156 @@ func TestTeamChatReadOriginalIncidents(t *testing.T) {
 			for _, c := range *calls {
 				if c.Op == "MarkOwnTeamChatRead" {
 					t.Fatal("incident marked read")
+				}
+			}
+		})
+	}
+}
+
+func TestTeamChatReadOptionalMetadataNeverDeniesReadableChat(t *testing.T) {
+	for _, tc := range []struct {
+		name, metadata, token string
+		bound                 bool
+	}{
+		{"App key forbidden App field", gqlErrorJSON("FORBIDDEN"), "hdr_app_test", false},
+		{"cross org AppMember forbidden App field", gqlErrorJSON("FORBIDDEN"), "hdr_user_test", true},
+		{"hidden App metadata", `{"data":{"app":null}}`, "hdr_user_test", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.bound {
+				writeTeamBinding(t)
+			} else {
+				teamGitDir(t)
+			}
+			r := chatReadResponses()
+			r["TeamChatReadMetadata"] = tc.metadata
+			srv, calls := attnServer(t, r)
+			if tc.bound {
+				setTeamBindingServer(t, srv.URL)
+			}
+			f, out := testFactory(t)
+			t.Setenv("HADRON_TOKEN", tc.token)
+			var notes strings.Builder
+			f.IOStreams.ErrOut = &notes
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team", "--json", "--server", srv.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("readable chat denied: %v", err)
+			}
+			var dto struct {
+				Messages  []json.RawMessage `json:"messages"`
+				ReadState struct {
+					Head      *int `json:"head"`
+					Allocated *int `json:"allocatedHead"`
+					Cursor    *int `json:"readCursor"`
+				} `json:"readState"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+				t.Fatal(err)
+			}
+			if len(dto.Messages) != 2 || dto.ReadState.Head == nil || *dto.ReadState.Head != 2 || dto.ReadState.Allocated != nil || dto.ReadState.Cursor != nil {
+				t.Fatalf("state forged or chat missing: %s", out.String())
+			}
+			if !strings.Contains(notes.String(), "metadata unavailable") {
+				t.Fatalf("missing diagnostic: %s", notes.String())
+			}
+			for _, c := range *calls {
+				if c.Op == "ChannelReadState" || c.Op == "MarkOwnTeamChatRead" {
+					t.Fatalf("optional metadata failure leaked into bookkeeping: %+v", *calls)
+				}
+			}
+		})
+	}
+}
+
+func TestTeamChatReadOtherAppNeverReadsBindingCursor(t *testing.T) {
+	writeTeamBinding(t)
+	r := chatReadResponses()
+	r["TeamChatReadMetadata"] = strings.Replace(teamReadHeadFixture(teamChatPage(2, 2)), `"id":"capp100000000000000000000"`, `"id":"other-app"`, 1)
+	srv, calls := attnServer(t, r)
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range *calls {
+		if c.Op == "ChannelReadState" {
+			t.Fatal("read another App's cursor using this binding")
+		}
+	}
+	if !strings.Contains(out.String(), `"readCursor": null`) {
+		t.Fatalf("inapplicable cursor forged: %s", out.String())
+	}
+}
+
+func TestTeamChatReadMissingPagesDoNotRenderOrMark(t *testing.T) {
+	for _, op := range []string{"TeamChatReadHead", "TeamChatMessages"} {
+		t.Run(op, func(t *testing.T) {
+			writeTeamBinding(t)
+			r := chatReadResponses()
+			r[op] = `{"data":{"teamChatMessages":null}}`
+			srv, calls := attnServer(t, r)
+			setTeamBindingServer(t, srv.URL)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "chat", "read", "--since", "0", "--json", "--server", srv.URL})
+			if got := exitCodeFor(root.Execute()); got != 7 {
+				t.Fatalf("nil page exit=%d", got)
+			}
+			if out.Len() != 0 {
+				t.Fatalf("nil page rendered: %s", out.String())
+			}
+			for _, c := range *calls {
+				if c.Op == "MarkOwnTeamChatRead" {
+					t.Fatal("nil page marked read")
+				}
+			}
+		})
+	}
+}
+
+func TestTeamChatReadOldServerHeadComparisonIsExplicitlyUnavailable(t *testing.T) {
+	teamGitDir(t)
+	r := chatReadResponses()
+	r["TeamChatReadHead"] = `{"errors":[{"message":"Unknown argument \"beforeSeq\" on field \"Query.teamChatMessages\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	srv, _ := attnServer(t, r)
+	f, out := testFactory(t)
+	var notes strings.Builder
+	f.IOStreams.ErrOut = &notes
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team", "--since", "0", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("old supported forward read failed: %v", err)
+	}
+	if !strings.Contains(out.String(), `"head": null`) || !strings.Contains(out.String(), `"seq": 2`) || !strings.Contains(notes.String(), "freshness comparison unavailable") {
+		t.Fatalf("out=%s notes=%s", out.String(), notes.String())
+	}
+}
+
+func TestTeamChatReadHeadFallbackDoesNotMaskUnrelatedRefusals(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		code       int
+	}{
+		{"unrelated schema refusal", `{"errors":[{"message":"Unknown argument \"other\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, 2},
+		{"business refusal naming beforeSeq", `{"errors":[{"message":"Unknown argument \"beforeSeq\".","extensions":{"code":"FORBIDDEN"}}]}`, 8},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			teamGitDir(t)
+			r := chatReadResponses()
+			r["TeamChatReadHead"] = tc.body
+			srv, calls := attnServer(t, r)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team", "--json", "--server", srv.URL})
+			if got := exitCodeFor(root.Execute()); got != tc.code {
+				t.Fatalf("exit=%d want=%d", got, tc.code)
+			}
+			for _, c := range *calls {
+				if c.Op == "TeamChatMessages" {
+					t.Fatal("head refusal masked by fallback")
 				}
 			}
 		})

@@ -28124,59 +28124,8 @@ func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	return &retval, nil
 }
 
-// TeamChatReadHeadApp includes the requested fields of the GraphQL type App.
-// The GraphQL type's documentation follows.
-//
-// A runtime caller identity owned by exactly one Organization or User. It owns
-// long-lived App Keys and installs Agents through the AppAgent N:M join: one
-// App may install many Agents, and one Agent may be installed in many Apps.
-// The singular agentId / agent fields below are soft-deprecated convenience
-// reads of the first install, not a direct foreign key.
-type TeamChatReadHeadApp struct {
-	Id string `json:"id"`
-	// Spec 049 Phase 4: the App's default Channel — the row its team chat became (null until provisioned).
-	DefaultChannel *TeamChatReadHeadAppDefaultChannel `json:"defaultChannel"`
-}
-
-// GetId returns TeamChatReadHeadApp.Id, and is useful for accessing the field via an interface.
-func (v *TeamChatReadHeadApp) GetId() string { return v.Id }
-
-// GetDefaultChannel returns TeamChatReadHeadApp.DefaultChannel, and is useful for accessing the field via an interface.
-func (v *TeamChatReadHeadApp) GetDefaultChannel() *TeamChatReadHeadAppDefaultChannel {
-	return v.DefaultChannel
-}
-
-// TeamChatReadHeadAppDefaultChannel includes the requested fields of the GraphQL type Channel.
-// The GraphQL type's documentation follows.
-//
-// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
-// hosted in ONE memory at ONE reserved address, server-ordered and
-// server-attributed — a platform entity, created one-to-one with its chat root.
-// Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
-// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
-// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
-type TeamChatReadHeadAppDefaultChannel struct {
-	Id string `json:"id"`
-	// Highest seq the allocator has issued — a watermark, not a count.
-	LastSeq int `json:"lastSeq"`
-}
-
-// GetId returns TeamChatReadHeadAppDefaultChannel.Id, and is useful for accessing the field via an interface.
-func (v *TeamChatReadHeadAppDefaultChannel) GetId() string { return v.Id }
-
-// GetLastSeq returns TeamChatReadHeadAppDefaultChannel.LastSeq, and is useful for accessing the field via an interface.
-func (v *TeamChatReadHeadAppDefaultChannel) GetLastSeq() int { return v.LastSeq }
-
 // TeamChatReadHeadResponse is returned by TeamChatReadHead on success.
 type TeamChatReadHeadResponse struct {
-	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
-	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
-	// list).
-	//
-	// 'ref' accepts the entity's ID or URN.
-	App *TeamChatReadHeadApp `json:"app"`
 	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
 	// { items, total } page. sinceSeq is a watermark cursor: only messages with
 	// seq STRICTLY GREATER than it are returned (pass the last seq you have
@@ -28213,9 +28162,6 @@ type TeamChatReadHeadResponse struct {
 	TeamChatMessages *TeamChatReadHeadTeamChatMessagesTeamChatMessagesPage `json:"teamChatMessages"`
 }
 
-// GetApp returns TeamChatReadHeadResponse.App, and is useful for accessing the field via an interface.
-func (v *TeamChatReadHeadResponse) GetApp() *TeamChatReadHeadApp { return v.App }
-
 // GetTeamChatMessages returns TeamChatReadHeadResponse.TeamChatMessages, and is useful for accessing the field via an interface.
 func (v *TeamChatReadHeadResponse) GetTeamChatMessages() *TeamChatReadHeadTeamChatMessagesTeamChatMessagesPage {
 	return v.TeamChatMessages
@@ -28249,6 +28195,64 @@ type TeamChatReadHeadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage st
 func (v *TeamChatReadHeadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
 	return v.Seq
 }
+
+// TeamChatReadMetadataApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type TeamChatReadMetadataApp struct {
+	Id string `json:"id"`
+	// Spec 049 Phase 4: the App's default Channel — the row its team chat became (null until provisioned).
+	DefaultChannel *TeamChatReadMetadataAppDefaultChannel `json:"defaultChannel"`
+}
+
+// GetId returns TeamChatReadMetadataApp.Id, and is useful for accessing the field via an interface.
+func (v *TeamChatReadMetadataApp) GetId() string { return v.Id }
+
+// GetDefaultChannel returns TeamChatReadMetadataApp.DefaultChannel, and is useful for accessing the field via an interface.
+func (v *TeamChatReadMetadataApp) GetDefaultChannel() *TeamChatReadMetadataAppDefaultChannel {
+	return v.DefaultChannel
+}
+
+// TeamChatReadMetadataAppDefaultChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type TeamChatReadMetadataAppDefaultChannel struct {
+	Id string `json:"id"`
+	// Highest seq the allocator has issued — a watermark, not a count.
+	LastSeq int `json:"lastSeq"`
+}
+
+// GetId returns TeamChatReadMetadataAppDefaultChannel.Id, and is useful for accessing the field via an interface.
+func (v *TeamChatReadMetadataAppDefaultChannel) GetId() string { return v.Id }
+
+// GetLastSeq returns TeamChatReadMetadataAppDefaultChannel.LastSeq, and is useful for accessing the field via an interface.
+func (v *TeamChatReadMetadataAppDefaultChannel) GetLastSeq() int { return v.LastSeq }
+
+// TeamChatReadMetadataResponse is returned by TeamChatReadMetadata on success.
+type TeamChatReadMetadataResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *TeamChatReadMetadataApp `json:"app"`
+}
+
+// GetApp returns TeamChatReadMetadataResponse.App, and is useful for accessing the field via an interface.
+func (v *TeamChatReadMetadataResponse) GetApp() *TeamChatReadMetadataApp { return v.App }
 
 // TeamDefaultChannelApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
@@ -39029,6 +39033,14 @@ type __TeamChatReadHeadInput struct {
 
 // GetAppRef returns __TeamChatReadHeadInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamChatReadHeadInput) GetAppRef() string { return v.AppRef }
+
+// __TeamChatReadMetadataInput is used internally by genqlient
+type __TeamChatReadMetadataInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamChatReadMetadataInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatReadMetadataInput) GetAppRef() string { return v.AppRef }
 
 // __TeamDefaultChannelInput is used internally by genqlient
 type __TeamDefaultChannelInput struct {
@@ -50499,13 +50511,6 @@ func TeamChatMessages(
 // The query executed by TeamChatReadHead.
 const TeamChatReadHead_Operation = `
 query TeamChatReadHead ($appRef: ID!) {
-	app(ref: $appRef) {
-		id
-		defaultChannel {
-			id
-			lastSeq
-		}
-	}
 	teamChatMessages(appRef: $appRef, beforeSeq: 2147483647, limit: 1) {
 		items {
 			seq
@@ -50532,6 +50537,47 @@ func TeamChatReadHead(
 	}
 
 	data_ = &TeamChatReadHeadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamChatReadMetadata.
+const TeamChatReadMetadata_Operation = `
+query TeamChatReadMetadata ($appRef: ID!) {
+	app(ref: $appRef) {
+		id
+		defaultChannel {
+			id
+			lastSeq
+		}
+	}
+}
+`
+
+// Optional diagnostic metadata uses the App gate, which is narrower than chat
+// access (App keys and cross-org AppMembers can read chat without reading App).
+// Never combine it with the chat-only head probe or let its refusal fail chat.
+func TeamChatReadMetadata(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamChatReadMetadataResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamChatReadMetadata",
+		Query:  TeamChatReadMetadata_Operation,
+		Variables: &__TeamChatReadMetadataInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamChatReadMetadataResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
