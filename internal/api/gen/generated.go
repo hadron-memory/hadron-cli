@@ -5418,7 +5418,7 @@ func (v *CommentActorFields) GetHandle() *string { return v.Handle }
 // GetUrn returns CommentActorFields.Urn, and is useful for accessing the field via an interface.
 func (v *CommentActorFields) GetUrn() *string { return v.Urn }
 
-// #1606 — who a comment is from (cor:dmo:110:03).
+// #1606 — who a comment is from (hrn:node:hadronmemory.com:specs:cor:dmo:110:03).
 type CommentAuthorKind string
 
 const (
@@ -5442,7 +5442,7 @@ var AllCommentAuthorKind = []CommentAuthorKind{
 // CommentFields includes the GraphQL fields of Comment requested by the fragment CommentFields.
 // The GraphQL type's documentation follows.
 //
-// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
 // `comment` in its target's memory, readable by exactly who can read that
 // memory. It is never part of its target's content, never approved or minted,
 // and never authoritative.
@@ -5458,7 +5458,7 @@ type CommentFields struct {
 	AnchorRevision int `json:"anchorRevision"`
 	// The approval hash of the target's title/abstract/content at anchorRevision: 64 lowercase hex.
 	AnchorApprovalHash string `json:"anchorApprovalHash"`
-	// anchorRevision equals the target's current revision. When false, show the comment as about an older revision (cor:dmo:110:01).
+	// anchorRevision equals the target's current revision. When false, show the comment as about an older revision (hrn:node:hadronmemory.com:specs:cor:dmo:110:01).
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
 	// Null when retracted or hidden.
 	Quote *string `json:"quote"`
@@ -5563,7 +5563,7 @@ type CommentFieldsAuthorCommentAuthor struct {
 	Worker *CommentFieldsAuthorCommentAuthorWorkerCommentActorRef `json:"worker"`
 	// USER and USER_AGENT.
 	User *CommentFieldsAuthorCommentAuthorUserCommentActorRef `json:"user"`
-	// USER_AGENT; also WORKER, when the worker's agent is recorded.
+	// USER_AGENT only.
 	Agent *CommentFieldsAuthorCommentAuthorAgentCommentActorRef `json:"agent"`
 	// APP.
 	App *CommentFieldsAuthorCommentAuthorAppCommentActorRef `json:"app"`
@@ -6098,7 +6098,7 @@ func (v *CommentFieldsTargetCommentTargetRef) GetNodeType() string { return v.No
 // GetRevSeq returns CommentFieldsTargetCommentTargetRef.RevSeq, and is useful for accessing the field via an interface.
 func (v *CommentFieldsTargetCommentTargetRef) GetRevSeq() int { return v.RevSeq }
 
-// #1606 — a comment thread's state (cor:dmo:110:05). Top-level comments only.
+// #1606 — a comment thread's state (hrn:node:hadronmemory.com:specs:cor:dmo:110:05). Top-level comments only.
 type CommentThreadState string
 
 const (
@@ -6129,9 +6129,10 @@ func (v *CommentThreadsCommentThreadsCommentThreadPage) GetItems() []*CommentThr
 // CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread includes the requested fields of the GraphQL type CommentThread.
 type CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread struct {
 	Root *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment `json:"root"`
-	// Oldest first.
-	Replies    []*CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment `json:"replies"`
-	ReplyCount int                                                                              `json:"replyCount"`
+	// Oldest first; at most the first 200.
+	Replies []*CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment `json:"replies"`
+	// Every live reply, including any beyond the returned 200.
+	ReplyCount int `json:"replyCount"`
 }
 
 // GetRoot returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread.Root, and is useful for accessing the field via an interface.
@@ -6152,7 +6153,7 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThread) GetRep
 // CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
-// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
 // `comment` in its target's memory, readable by exactly who can read that
 // memory. It is never part of its target's content, never approved or minted,
 // and never authoritative.
@@ -6388,7 +6389,7 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesC
 // CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
-// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
 // `comment` in its target's memory, readable by exactly who can read that
 // memory. It is never part of its target's content, never approved or minted,
 // and never authoritative.
@@ -8365,7 +8366,7 @@ func (v *CreateChannelResponse) GetCreateChannel() *CreateChannelCreateChannel {
 // CreateCommentCreateComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
-// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
 // `comment` in its target's memory, readable by exactly who can read that
 // memory. It is never part of its target's content, never approved or minted,
 // and never authoritative.
@@ -8566,7 +8567,7 @@ func (v *CreateCommentCreateComment) __premarshalJSON() (*__premarshalCreateComm
 
 // CreateCommentResponse is returned by CreateComment on success.
 type CreateCommentResponse struct {
-	// #1606 — start a thread on a node (cor:dmo:110). Needs write access to the
+	// #1606 — start a thread on a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). Needs write access to the
 	// target's memory. anchorRevision defaults to the target's current revision;
 	// an older one anchors there while its text is still retained. The anchor
 	// hash is computed by the server. Typed refusals: COMMENT_TARGET_NOT_FOUND,
@@ -12243,7 +12244,7 @@ func (v *DeleteWorkerResponse) GetDeleteWorker() bool { return v.DeleteWorker }
 // EditCommentEditComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
-// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
 // `comment` in its target's memory, readable by exactly who can read that
 // memory. It is never part of its target's content, never approved or minted,
 // and never authoritative.
@@ -13636,7 +13637,7 @@ func (v *GetChannelResponse) GetChannel() *GetChannelChannel { return v.Channel 
 // GetCommentComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
-// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
 // `comment` in its target's memory, readable by exactly who can read that
 // memory. It is never part of its target's content, never approved or minted,
 // and never authoritative.
@@ -19868,7 +19869,7 @@ func (v *NodeCommentSummariesNodeBatchNodeBatchResult) GetNodes() []*NodeComment
 // NodeCommentSummariesNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
 type NodeCommentSummariesNodeBatchNodeBatchResultNodesNode struct {
 	Id string `json:"id"`
-	// #1606 — open and resolved discussion on this node (cor:dmo:110:07). Batched per request.
+	// #1606 — open and resolved discussion on this node (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Batched per request.
 	CommentSummary *NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary `json:"commentSummary"`
 }
 
@@ -19883,7 +19884,7 @@ func (v *NodeCommentSummariesNodeBatchNodeBatchResultNodesNode) GetCommentSummar
 // NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary includes the requested fields of the GraphQL type CommentSummary.
 // The GraphQL type's documentation follows.
 //
-// #1606 — the trust cue (cor:dmo:110:07). Counts live threads; zeros on a memory that cannot hold comments.
+// #1606 — the trust cue (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Counts live threads; zeros on a memory that cannot hold comments.
 type NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary struct {
 	OpenThreads     int `json:"openThreads"`
 	ResolvedThreads int `json:"resolvedThreads"`
@@ -24804,7 +24805,7 @@ func (v *RenumberSpecResponse) GetRenumberSpec() *RenumberSpecRenumberSpecSpecRe
 // ReopenCommentThreadReopenCommentThreadComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
-// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
 // `comment` in its target's memory, readable by exactly who can read that
 // memory. It is never part of its target's content, never approved or minted,
 // and never authoritative.
@@ -25047,7 +25048,7 @@ func (v *ReopenCommentThreadResponse) GetReopenCommentThread() *ReopenCommentThr
 // ReplyToCommentReplyToComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
-// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
 // `comment` in its target's memory, readable by exactly who can read that
 // memory. It is never part of its target's content, never approved or minted,
 // and never authoritative.
@@ -25633,7 +25634,7 @@ func (v *ResolveAiServiceConfigsWithEndpointResponse) GetResolveAiServiceConfigs
 // ResolveCommentThreadResolveCommentThreadComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
-// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
 // `comment` in its target's memory, readable by exactly who can read that
 // memory. It is never part of its target's content, never approved or minted,
 // and never authoritative.
@@ -26226,7 +26227,7 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 
 // RetractCommentResponse is returned by RetractComment on success.
 type RetractCommentResponse struct {
-	// #1606 — the author retracts a comment, leaving a stub (cor:dmo:110:05).
+	// #1606 — the author retracts a comment, leaving a stub (hrn:node:hadronmemory.com:specs:cor:dmo:110:05).
 	RetractComment *RetractCommentRetractComment `json:"retractComment"`
 }
 
@@ -26238,7 +26239,7 @@ func (v *RetractCommentResponse) GetRetractComment() *RetractCommentRetractComme
 // RetractCommentRetractComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
-// #1606 — feedback about a node (cor:dmo:110). A comment is a node of type
+// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
 // `comment` in its target's memory, readable by exactly who can read that
 // memory. It is never part of its target's content, never approved or minted,
 // and never authoritative.

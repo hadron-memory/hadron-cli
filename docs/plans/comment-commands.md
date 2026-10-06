@@ -33,7 +33,11 @@ explicitly annotated gaps in unbound-ops for later parity work.
 The schema snapshot was exported from Diego's explicitly selected
 `95d1a9bf` worktree via the repo exporter, using its installed tsx directly
 (the host's pnpm 11 attempted dependency auto-install instead of running the
-export). Server PR #1663 at `63513268` has the same SDL. No snapshot or generated
+export). Server PR #1663 at `63513268` had the same SDL. After its merge, the snapshot
+and generated client were refreshed from explicitly selected server main
+`c2686749`. The final contract returns at most the oldest 200 replies per
+thread; JSON retains the exact replyCount and human output flags truncation.
+Reply pagination is a server follow-up, not implemented by this client. No snapshot or generated
 client is hand-edited. GraphQL operations use shared comment/actor fragments.
 Optional create quote/anchor, edit body/quote and list state use omitempty;
 captured raw-variable maps pin omission separately from empty strings.
@@ -78,9 +82,10 @@ an advisory snapshot outside the revision-consistent body bracket.
   Stack, forwarder and captured credentials were removed afterward.
 
 Author evidence is not independent QA or readiness. The PR remains draft until
-server #1663/#1658 and CLI #822 settle; then revalidate the exported snapshot and
-attribution policy, obtain named cross-family review and independent QA via Xan,
-and check CI. GitHub Actions is degraded as of the author run (#7041); failed or
-unexecuted CI cannot be treated as product failure or green evidence.
+CLI #822 settles; server #1663/#1658 have merged and the snapshot has been
+revalidated at `c2686749`. Obtain named cross-family review and independent QA
+via Xan, then check CI. The Actions incident hold was lifted at team #7076;
+failed or unexecuted CI is not green evidence. Earlier live author evidence
+remains pinned to `63513268`, not the merged server revision.
 
 No spec citation is minted: this is a client implementation of existing rules.

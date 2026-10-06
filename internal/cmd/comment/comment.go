@@ -159,6 +159,11 @@ func readCmd(f *cmdutil.Factory, connect Connect, list bool) *cobra.Command {
 				if err := render(w, thread.Root); err != nil {
 					return err
 				}
+				if thread.ReplyCount > len(thread.Replies) {
+					if _, err := fmt.Fprintf(w, "Replies: %d (showing the oldest %d; later replies are not available through this API)\n", thread.ReplyCount, len(thread.Replies)); err != nil {
+						return err
+					}
+				}
 				for _, reply := range thread.Replies {
 					if err := render(w, reply); err != nil {
 						return err
