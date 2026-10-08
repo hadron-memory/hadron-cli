@@ -1488,7 +1488,8 @@ Conventions:
   STRUCTURAL: since #708 it enforces no content rubric at any loc (no missing
   abstract, "what invalidates", `data.version`, scaffold-body or
   placeholder-contract finding), because the sections a spec needs depend on
-  its type — `specs:tasks:validate-spec` checks those. It takes `--product`/`--module`/`--all`,
+  its type — each corpus's own authoring framework (its review checks and
+  review tasks) checks those. It takes `--product`/`--module`/`--all`,
   warns (rule `abstract-length`) when a rule-tier abstract
   runs past ~1600 characters — a ceiling, not a target: retrieval is flat
   across ~700-1700 chars, and off-topic sentences dilute the embedding far
@@ -1589,18 +1590,22 @@ Conventions:
   decision rather than a convention each call site keeps. Re-running is not a
   repair: edit with `spec edit`, or supersede. The refusal is a
   NodeLocConflictError, exit 5.
-  **Draft corpora and per-node minting (hadron-server#1447/#1591).** A corpus
-  created with `memory set --draft-corpus` (create-only and free-standing only;
-  exit 2 on an update or with `--app/--agent`, nothing written) starts DRAFT;
-  that create echoes the `corpusState` it read back.
+  **Draft corpora and per-node minting (hadron-server#1447/#1591).** Draft
+  rights are PER NODE since hadron-server#1591: every new node starts unminted,
+  with draft rights, in any memory, until its first mint; `corpusState` is
+  derived (DRAFT while no live node is minted). `memory set --draft-corpus` is
+  accepted for compatibility and ignored by the server (still create-only and
+  free-standing only; exit 2 on an update or with `--app/--agent`, nothing
+  written); a create echoes the `corpusState` it read back.
   `spec describe` reports `corpusState` (`DRAFT` | `MINTED`, plus `mintedAt`
   for a former draft; a present `null` when the server predates draft
   corpora and cannot say). It also lists reserved placeholder citations and
   `placeholderCount` separately from the total `specs`; if the older server
-  lacks the placeholder marker, those fields are omitted. In a draft:
+  lacks the placeholder marker, those fields are omitted. In any memory:
   `spec reserve <citation> [--name]` creates a server-marked placeholder spec
   (`{memory,id,loc,name,role,placeholder}`) — write it with `spec edit`;
-  `spec renumber <from> <to> [--dry-run]` moves a spec and its subtree and
+  `spec renumber <from> <to> [--dry-run]` moves an unminted spec and its
+  subtree (a minted node in it refuses `NODE_MINTED`, exit 5) and
   rewrites every node URN in the corpus naming them
   (`{memory,from,to,dryRun,moved[],rewrites[],textCitations[],failed}`) —
   a citation written only as TEXT (a link label, a name) is reported in

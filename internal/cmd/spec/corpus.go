@@ -97,19 +97,19 @@ func newCmdReserve(f *cmdutil.Factory) *cobra.Command {
 	var memory, name string
 	cmd := &cobra.Command{
 		Use:   "reserve <citation>",
-		Short: "Reserve a citation in a draft corpus as a placeholder spec",
-		Long: `Reserve a citation in a DRAFT spec corpus: the server creates a placeholder
-spec at <citation>, marked as a placeholder by the server (not by an empty
-body). Other specs can link to it now, so ` + "`spec backlinks`" + ` sees those links,
-and the placeholders still left are the corpus's to-do list.
+		Short: "Reserve a citation as a placeholder spec",
+		Long: `Reserve a citation in any spec corpus: the server creates an unminted
+placeholder spec at <citation>, marked as a placeholder by the server (not by
+an empty body). Draft rights are per node (hadron-server#1591): every new node
+starts unminted, in any memory, until its first mint. Other specs can link
+to the placeholder now, so ` + "`spec backlinks`" + ` sees those links, and the
+placeholders still left are the corpus's to-do list.
 
 Writing the spec — ` + "`spec edit <citation>`" + ` with real content — turns the
 placeholder into a real spec at the same citation. ` + "`spec mint`" + ` refuses while
 any placeholder remains.
 
-Only a draft corpus can reserve (a minted one refuses, exit 5; create the spec
-directly with ` + "`spec new`" + `).
-A citation that already holds a live node is refused too (exit 5).`,
+A citation that already holds a live node is refused (exit 5).`,
 		Example: `  hadron spec reserve pas:010:04 -m hrn:mem:micromentor.org:specs-draft
   hadron spec reserve pas:010:04 --name "Vacation mode can end by itself" --json`,
 		Args: cobra.ExactArgs(1),
@@ -169,8 +169,8 @@ func newCmdBacklinks(f *cmdutil.Factory) *cobra.Command {
 	var memory string
 	cmd := &cobra.Command{
 		Use:   "backlinks <citation>",
-		Short: "List what refers to a spec in a draft corpus",
-		Long: `List what refers to the spec at <citation> in a DRAFT spec corpus: every node
+		Short: "List what refers to a spec in a corpus",
+		Long: `List what refers to the spec at <citation> in a spec corpus: every node
 URN in the corpus text that names it — in a name, description, abstract or
 body, inside a URL too — and every real edge from a corpus node to it.
 
@@ -178,7 +178,7 @@ The citation is matched exactly; references to its descendants are not
 included. A citation written only as bare text (a link label like
 "[pas:010:01]") is not a reference and is not listed.
 
-Only a draft corpus answers (a minted one refuses, exit 5).`,
+Any memory answers, minted or not (hadron-server#1591).`,
 		Example: `  hadron spec backlinks pas:010:01 -m hrn:mem:micromentor.org:specs-draft
   hadron spec backlinks pas:010:01 --json`,
 		Args: cobra.ExactArgs(1),
@@ -229,8 +229,8 @@ func newCmdUnresolved(f *cmdutil.Factory) *cobra.Command {
 	var memory string
 	cmd := &cobra.Command{
 		Use:   "unresolved",
-		Short: "List references in a draft corpus that don't reach a written spec",
-		Long: `List the references in a DRAFT spec corpus that don't reach a written spec:
+		Short: "List references in a corpus that don't reach a written spec",
+		Long: `List the references in a spec corpus that don't reach a written spec:
 a node URN or edge naming a citation with no spec (MISSING), or one that is
 only a placeholder (PLACEHOLDER), and pending edges whose target isn't a
 written node yet.
@@ -239,7 +239,7 @@ These are the corpus's open references. ` + "`spec mint`" + ` refuses while any 
 this lists them on their own. It exits 0 either way — listing them is not a
 failure; ` + "`spec mint --dry-run`" + ` is the gate.
 
-Only a draft corpus answers (a minted one refuses, exit 5).`,
+Any memory answers, minted or not (hadron-server#1591).`,
 		Example: `  hadron spec unresolved -m hrn:mem:micromentor.org:specs-draft
   hadron spec unresolved --json`,
 		Args: cobra.NoArgs,
@@ -321,12 +321,13 @@ func newCmdRenumber(f *cmdutil.Factory) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "renumber <from-citation> <to-citation>",
-		Short: "Renumber a spec in a draft corpus and rewrite the references to it",
-		Long: `Renumber a spec in a DRAFT spec corpus: move the spec at <from-citation>,
+		Short: "Renumber an unminted spec and rewrite the references to it",
+		Long: `Renumber an UNMINTED spec, in any memory: move the spec at <from-citation>,
 and its subtree, to <to-citation>, then rewrite every node URN in the corpus
 that names one of the moved specs. Each rewrite is a normal edit with revision
-history. A draft records no URN alias for the old citation — nothing outside a
-draft may cite it yet.
+history. Draft rights are per node (hadron-server#1591): a node is a draft
+until its first mint, so the move records no URN alias for the old citation —
+nothing may cite an unminted spec as permanent yet.
 
 A citation that appears only as TEXT — a link label like "[pas:010:01]", a
 node's name, prose — can't be told apart from other characters, so it is
@@ -337,8 +338,8 @@ refused, or keeps conflicting with a concurrent edit, is reported FAILED
 without undoing the move, and the command exits 1 so a script doesn't read a
 clean success. --dry-run shows the plan and writes nothing.
 
-Renumbering a minted node refuses with NODE_MINTED (exit 5). Supersede that
-spec instead.`,
+If any node in the moved subtree is minted, the renumber refuses with
+NODE_MINTED (exit 5). Supersede that spec instead.`,
 		Example: `  hadron spec renumber pas:010:04 pas:010:02 -m hrn:mem:micromentor.org:specs-draft --dry-run
   hadron spec renumber pas:010:04 pas:010:02 --json`,
 		Args: cobra.ExactArgs(2),

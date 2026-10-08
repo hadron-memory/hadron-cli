@@ -75,17 +75,15 @@ properties. Pass "" or "null" to clear it. The server validates the schema shape
 and rejects a malformed one. (createMemory takes no schema, so on create it is
 applied in a follow-up update.)
 
---draft-corpus creates the memory as a DRAFT spec corpus (hadron-server#1447):
-its spec citations stay changeable — reserve, renumber, delete — until the
-corpus is minted with ` + "`hadron spec mint`" + `, one step and one-way. It is
-the only way to get a draft corpus: an existing memory can never be switched
-into draft, so the flag is create-only, and App-scoped creation does not take
-it. Without it a memory is an ordinary (minted) one.`,
+--draft-corpus is accepted for compatibility and has no effect: since
+hadron-server#1591 draft rights are per node, not per corpus. Every new node
+starts unminted, with draft rights (reserve, renumber, delete), in any memory,
+until its first mint with ` + "`hadron spec mint`" + `. The flag is still
+create-only and is refused with --app/--agent.`,
 		Example: `  hadron memory set --org acme.com --name "Project KB"
   hadron memory set --org acme.com --name "Hadron PDF Tool" --slug hadrontool-pdf
   hadron memory set --org acme.com --name "Notes" --class personal
   hadron memory set --owner-me --name "Jens" --class personal
-  hadron memory set --org acme.com --name "Product specs" --draft-corpus
   hadron memory set --app hrn:app:acme.com:coach --agent hrn:agent:acme.com:agent --class app --name "Runbook"
   hadron memory set acme.com:project-kb --description "Long-form description"
   hadron memory set acme.com:research --schema-file schema.json`,
@@ -385,7 +383,7 @@ it. Without it a memory is an ordinary (minted) one.`,
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (create only)")
-	cmd.Flags().BoolVar(&draftCorpus, "draft-corpus", false, "create the memory as a DRAFT spec corpus, minted later with hadron spec mint (create only; not App-scoped)")
+	cmd.Flags().BoolVar(&draftCorpus, "draft-corpus", false, "ignored since hadron-server#1591 (draft rights are per node); accepted for compatibility (create only; not App-scoped)")
 	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "create a user-owned memory in your own @handle namespace (org-less; class personal|private only; create only)")
 	cmd.Flags().StringVar(&name, "name", "", "memory name")
 	cmd.Flags().StringVar(&class, "class", "", "memory class: knowledge|group|personal|private, or app with --app/--agent (create only; free-standing server default: knowledge)")
