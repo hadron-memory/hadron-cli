@@ -177,11 +177,39 @@ func newCmdExport(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export [--node <ref>...]",
 		Short: "Write individual skill files for enabled tasks you can read",
-		Long: `By default, write every enabled skill declaration you can read, for
-every known host, into your user-level skills directories:
+		Long: `Install Hadron tasks as skills for Claude and Codex. By default, write every
+enabled skill declaration you can read, for every known host, into your
+user-level skills directories:
 
-  claudeSkill  ~/.claude/skills/<name>/SKILL.md
-  codexSkill   ~/.agents/skills/<name>/SKILL.md
+  Claude (claudeSkill)  ~/.claude/skills/<name>/SKILL.md
+  Codex  (codexSkill)   ~/.agents/skills/<name>/SKILL.md
+
+EXPORT ONE TASK. Name it with --node; preview first, then write:
+
+  hadron skill export --node <task-urn> --dry-run
+  hadron skill export --node <task-urn>
+
+Each application is reported separately. A task is installed for an
+application only if the task is ENABLED for it: selecting a task with --node
+does not enable it for a new application. When it is not, the report says
+"not enabled for Codex, so no Codex skill was installed" (or Claude), and
+nothing for that application changes.
+
+ENABLING A TASK FOR AN APPLICATION. A task is enabled for an application by
+its properties.exports.<host> entry (claudeSkill or codexSkill) carrying
+name, description and "enable": true (see "hadron skill --help"). You need
+write access to the task's memory. To add one:
+
+  hadron node get <task-urn> --json     # copy its "properties" object
+  # edit it: add exports.codexSkill = {"name": "...", "description": "...",
+  #          "enable": true}, keeping every other key, and save as props.json
+  hadron node update <task-urn> --properties-file props.json
+  hadron skill lint --node <task-urn>   # check the declaration
+  hadron skill export --node <task-urn>
+
+--properties-file REPLACES the whole properties object, so start from the
+current one. Restart Claude or Codex only after the report shows a skill was
+written, moved or removed; an unchanged report needs no restart.
 
 This is the only hadron skill command that writes into your skills
 directories ("hadron skill plugin" builds bundles elsewhere, under --out).
@@ -1134,7 +1162,7 @@ func renderExport(w io.Writer, dto exportDTO) error {
 		}
 	}
 	for _, h := range dto.Hosts {
-		if _, err := fmt.Fprintf(w, "\n%s → %s\n", h.Host, cmp(h.Root, "(no directory)")); err != nil {
+		if _, err := fmt.Fprintf(w, "\n%s → %s\n", hostTitle(h.Host), cmp(h.Root, "(no directory)")); err != nil {
 			return err
 		}
 		if h.Failure != nil {
@@ -1210,15 +1238,34 @@ func renderExport(w io.Writer, dto exportDTO) error {
 		}
 	}
 	if len(dto.Selections) > 0 {
-		if _, err := fmt.Fprintln(w, "\nSelected tasks without a host entry:"); err != nil {
+		if _, err := fmt.Fprintln(w, "\nSelected tasks with nothing installed:"); err != nil {
 			return err
 		}
+		notEnabled := ""
 		for _, s := range dto.Selections {
+			// cli#825: a task not configured for an application is not
+			// "already up to date"; say so in the user's terms.
+			if s.Reason.Code == reasonHostNotDeclared && s.Host != "" {
+				app := hostName(s.Host)
+				if _, err := fmt.Fprintf(w, "  %s: not enabled for %s, so no %s skill was installed (its installed files, if any, are unchanged)\n", s.Ref, app, app); err != nil {
+					return err
+				}
+				if notEnabled == "" {
+					notEnabled = s.Ref
+				}
+				continue
+			}
 			where := s.Host
 			if where == "" {
 				where = "all hosts"
 			}
 			if _, err := fmt.Fprintf(w, "  %s (%s): %s — %s\n", s.Ref, where, strings.ToLower(s.Action), reasonText([]exportReasonDTO{s.Reason})); err != nil {
+				return err
+			}
+		}
+		if notEnabled != "" {
+			if _, err := fmt.Fprintf(w, "  Next: enable the task for that application (see \"hadron skill export --help\",\n"+
+				"  ENABLING A TASK FOR AN APPLICATION), then run: hadron skill export --node %s\n", notEnabled); err != nil {
 				return err
 			}
 		}
@@ -1233,8 +1280,8 @@ func renderExport(w io.Writer, dto exportDTO) error {
 			}
 		}
 	}
-	if !dto.DryRun {
-		if _, err := fmt.Fprintln(w, "\nHosts load skills when a session starts: restart a running session to pick up changes."); err != nil {
+	if !dto.DryRun && exportChangedFiles(dto) {
+		if _, err := fmt.Fprintln(w, "\nHosts load skills when a session starts: restart a running Claude or Codex session to pick up these changes."); err != nil {
 			return err
 		}
 	}
@@ -1247,6 +1294,41 @@ func renderExport(w io.Writer, dto exportDTO) error {
 		}
 	}
 	return nil
+}
+
+// reasonHostNotDeclared is the server's selection reason for a named task
+// that declares no export for a host (properties.exports.<host> absent).
+const reasonHostNotDeclared = "host-not-declared"
+
+// hostName is a host key's familiar application name, for human output only;
+// --json keeps the key.
+func hostName(key string) string {
+	switch key {
+	case skilldoc.HostClaudeSkill:
+		return "Claude"
+	case skilldoc.HostCodexSkill:
+		return "Codex"
+	}
+	return key
+}
+
+// hostTitle labels a host section: the application, then its key.
+func hostTitle(key string) string {
+	if n := hostName(key); n != key {
+		return n + " (" + key + ")"
+	}
+	return key
+}
+
+// exportChangedFiles reports whether the run changed anything on disk, so the
+// restart hint is printed only when a restart would pick something up.
+func exportChangedFiles(dto exportDTO) bool {
+	for _, h := range dto.Hosts {
+		if len(h.Written)+len(h.Moved)+len(h.Removed)+len(h.Pruned) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func reasonText(rs []exportReasonDTO) string {
