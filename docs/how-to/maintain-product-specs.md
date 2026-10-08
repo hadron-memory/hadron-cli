@@ -188,7 +188,8 @@ hadron spec new -m hrn:mem:micromentor.org:platform-specs --module msg --feature
 `spec new` scaffolds a legacy-numbered rule with the sections below. **`lint`
 enforces none of them** (#708): the sections a spec needs depend on its type,
 so no one rubric fits every spec. Use the sections your spec type calls for
-(`specs:tasks:validate-spec` checks them); this scaffold is a starting point,
+(the corpus's authoring framework checks them — for the Hadron platform
+corpus, `hrn:mem:hadronmemory.com:specs-engineer-system`); this scaffold is a starting point,
 and the two *optional* sections are deleted when they add nothing.
 
 1. **Definition** — one line: what this spec governs.
@@ -460,13 +461,16 @@ replacement.
 
 ## Building a new corpus as a draft
 
-A brand-new corpus can be built as a **draft** (hadron-server#1447): reserve
-numbers, renumber unminted nodes, and fix forward references while it takes
-shape. Draft is chosen only when the memory is created. Minting stamps eligible
-nodes individually; it currently does not enforce citation permanence.
+A corpus can be built as a **draft** (hadron-server#1447): reserve numbers,
+renumber unminted nodes, and fix forward references while it takes shape.
+Since hadron-server#1591 draft rights are **per node**, not per corpus: every
+new node starts unminted, in any memory, until its first mint, so no special
+memory is needed (`memory set --draft-corpus` is accepted but ignored).
+Minting stamps eligible nodes individually; it currently does not enforce
+citation permanence.
 
 ```sh
-hadron memory set --org acme.com --name "Product specs" --draft-corpus
+hadron memory set --org acme.com --name "Product specs"
 hadron spec reserve pas:010:04 -m $M            # a placeholder others can link to
 hadron spec describe -m $M                     # state and placeholder citations
 hadron spec backlinks pas:010:04 -m $M          # what refers to it

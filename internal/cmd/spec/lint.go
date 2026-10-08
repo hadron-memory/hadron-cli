@@ -66,8 +66,10 @@ func newCmdLint(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Check specs' structure and stability rules",
 		Long: fmt.Sprintf(`Validate one spec, a subtree, a product, a module, or the whole
 corpus against the structural and stability rules. Lint is structural: it
-does not check a spec's content sections, which depend on the spec's type
-(specs:tasks:validate-spec does that).
+does not check a spec's content sections, which depend on the spec's type.
+Content checks live in each corpus's own authoring framework — its review
+checks and review tasks (for the Hadron platform corpus,
+hrn:mem:hadronmemory.com:specs-engineer-system).
 Names may be human-readable; they need not start with the citation.
 
 Scope is one of: a single <citation> argument, --prefix <citation> (that
@@ -96,7 +98,7 @@ TIER. On a rule or flow it is a granularity signal and the fix is a
 supersede-level split. On a product, module or feature the abstract is an INDEX
 of its children, so carrying many subjects is its job and a split is not even
 available — it cannot move the children, because a citation is never renumbered
-(in a DRAFT corpus it can, with "spec renumber", but routing is still the fix).
+(an unminted one can, with "spec renumber", but routing is still the fix).
 There, length means the abstract is restating its children instead of routing to
 them, and the fix is to rewrite it as one clause per child.
 
@@ -106,7 +108,7 @@ the old content rubric (#708): a missing abstract, a missing "what invalidates"
 statement, a missing data.version, an unreplaced scaffold body and the
 placeholder-contract exemption are no longer findings, at any loc.
 
-In a DRAFT corpus (created with "memory set --draft-corpus"), a reserved
+In a DRAFT corpus (one with no minted node yet — hadron-server#1591), a reserved
 placeholder is reported once as "placeholder" instead of being linted, and a
 reference to a spec that doesn't exist or is only a placeholder is reported as
 "unresolved-reference" at the citing spec. Both are warnings: "spec mint" is
@@ -480,9 +482,9 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 	// scaffold-body check, at any loc or depth — the sections a spec needs
 	// differ by its type, so no one rule is right, and a spec written the
 	// sanctioned way (specs:tasks:write-spec) failed it. Type-specific checks
-	// return with spec roles (cli#684); until then specs:tasks:validate-spec
-	// does them. What stays is structural: every check above, and the soft
-	// abstract-length advisory below, unchanged.
+	// return with spec roles (cli#684); until then each corpus's authoring
+	// framework does them (cli#812). What stays is structural: every check
+	// above, and the soft abstract-length advisory below, unchanged.
 	if abstractWritten(n.Abstract) {
 		if l := abstractLength(n.Abstract); l > abstractSoftMax && !abstractNearCap(l) {
 			// The SOFT range only. The near-cap finding is raised earlier, above
