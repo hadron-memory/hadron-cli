@@ -622,6 +622,48 @@ func TestRenderExportHumanTable(t *testing.T) {
 	}
 }
 
+// cli#825: a selected task not configured for an application is reported in
+// the user's terms, with a next step, and an unchanged run prints no restart
+// hint; hosts are labelled by application name.
+func TestRenderExportNotEnabledForHost(t *testing.T) {
+	ref := "hrn:node:x:m:tasks:a"
+	dto := exportDTO{
+		Hosts:                   []exportHostDTO{newExportHost("claudeSkill", "/r"), newExportHost("codexSkill", "/c")},
+		OrphanAssessmentSkipped: true,
+		Selections: []exportSelectionDTO{{Ref: ref, NodeID: "n1", Host: "codexSkill", Action: "SKIP",
+			Reason: exportReasonDTO{Code: reasonHostNotDeclared, Message: "This task has no declaration for this host; its installed files are unchanged."}}},
+	}
+	var out strings.Builder
+	if err := renderExport(&out, dto); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for _, want := range []string{
+		"Claude (claudeSkill) → /r",
+		"Codex (codexSkill) → /c",
+		ref + ": not enabled for Codex, so no Codex skill was installed",
+		"ENABLING A TASK FOR AN APPLICATION",
+		"hadron skill export --node " + ref,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "restart") {
+		t.Errorf("restart hint printed for an unchanged run:\n%s", got)
+	}
+
+	h := newExportHost("codexSkill", "/c")
+	h.Written = []exportItemDTO{{Node: ref, Name: "a", Reasons: []exportReasonDTO{}, Kept: []string{}}}
+	out.Reset()
+	if err := renderExport(&out, exportDTO{Hosts: []exportHostDTO{h}}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "restart a running Claude or Codex session") {
+		t.Errorf("restart hint missing after a write:\n%s", out.String())
+	}
+}
+
 // Codex P1 (#692): a SKILL.md this command did not write is never replaced.
 // The walk leaves a foreign file invisible on purpose, so the planner cannot
 // know about it and may plan a WRITE onto that name. The writer refuses it,

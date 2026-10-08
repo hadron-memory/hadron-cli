@@ -167,13 +167,55 @@ func newCmdPlugin(f *cmdutil.Factory) *cobra.Command {
 		Use:   "plugin --out <dir>",
 		Short: "Build an installable plugin of every enabled task you can read",
 		Long: `Build a plugin: one installable unit carrying the skill for every enabled
-task you can read, one artifact per host, written under --out.
+task you can read, one artifact per host, written under --out. Use it to
+install or UPDATE a set of Hadron skills for Claude or Codex. (To keep
+individual skill files in ~/.claude/skills or ~/.agents/skills current in
+place, with stale-skill detection, use "hadron skill export" instead.)
 
-  claudeSkill  <out>/<name>/        a Claude plugin, which is also a one-plugin
-                                    marketplace: install it with
-                                      claude plugin marketplace add <out>/<name>
-                                      claude plugin install <name>@<name>
-  codexSkill   <out>/<name>-codex/  skill folders: copy them into ~/.agents/skills
+PICK WHAT TO INCLUDE. Without --scope, every enabled task you can read is
+included, from every memory you can read (customer and personal ones too). To
+include only one set — say, your Hadron platform tasks — pass --scope with a
+scope that lists those memories. "hadron scope list" shows the scopes you
+have; "hadron scope explain <scope>" shows which memories one covers.
+
+CHECK BEFORE INSTALLING. Run with --dry-run first and read the report: every
+task is listed as included, skipped, refused or failed. Install only after a
+run that exits 0. On exit 5 some items were refused or failed and are missing
+from the artifact; the report says why.
+
+UPDATE CODEX SKILLS (~/.agents/skills). Build OUTSIDE any skills directory
+(this command refuses one), then copy each skill folder in:
+
+  hadron skill plugin --out ~/plugins --scope <scope> --dry-run
+  hadron skill plugin --out ~/plugins --scope <scope>
+  mkdir -p ~/.agents/skills
+  for d in ~/plugins/hadron-codex/*/; do cp -R "${d%/}" ~/.agents/skills/; done
+
+The Codex artifact is <out>/<name>-codex/ (hadron-codex by default), one
+folder per skill. Copying overwrites the files of skills with the same name
+and leaves every other skill in ~/.agents/skills alone. It does NOT remove
+skills an earlier build installed that this one no longer has, or files a
+skill folder no longer ships. Before rebuilding, save the old list
+(ls ~/plugins/hadron-codex > old.txt), compare it with the new one, and remove
+only the dropped folders from ~/.agents/skills, by name. Never delete the whole
+skills directory: it holds skills from other sources. Restart Codex afterwards.
+
+UPDATE THE CLAUDE PLUGIN. Rebuild to the same --out and --name, then:
+
+  claude plugin marketplace add ~/plugins/hadron     # first install only
+  claude plugin install hadron@hadron                # first install only
+  claude plugin marketplace update hadron
+  claude plugin update hadron@hadron
+
+The plugin version is a hash of its content, so any changed build is picked
+up as a new version. Restart Claude to load the update.
+
+ARTIFACTS:
+
+  Claude (claudeSkill)  <out>/<name>/        a Claude plugin, which is also a
+                                             one-plugin marketplace (above)
+  Codex  (codexSkill)   <out>/<name>-codex/  skill folders: copy them into
+                                             ~/.agents/skills (above)
 
 With --zip, each artifact is also zipped beside it (<name>.zip,
 <name>-codex.zip). Upload the Claude zip to Cowork or your organization's
