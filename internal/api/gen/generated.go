@@ -4447,7 +4447,8 @@ func (v *CastWorkerPreviewCastWorkerPreview) GetHasNamePlaceholder() *bool {
 type CastWorkerPreviewResponse struct {
 	// Dry-run castWorker (#964): run the cast's exact resolution — same
 	// arguments, same typed refusals (WORKER_AGENT_NOT_FOUND / _AMBIGUOUS /
-	// _NOT_INSTALLED, WORKER_NAME_REQUIRED, WORKER_NAME_TAKEN, APP_UNINSTALLED),
+	// _NOT_INSTALLED, WORKER_NAME_REQUIRED, WORKER_NAME_TAKEN,
+	// WORKER_NAME_CONFUSABLE, APP_UNINSTALLED),
 	// same MINT gate — up to but not
 	// including the writes, and return what would be created. A Query, not a
 	// dryRun flag: casting a name is the one irreversible act in the team
@@ -4487,6 +4488,10 @@ type CastWorkerResponse struct {
 	// identifier nobody picked. The workers_app_name_uniq constraint IS the
 	// arbiter. Names are unique per App, case-insensitively, FOREVER (two Apps
 	// may each have an Iris; retirement and uninstall never free a name).
+	// #1677: NFKC-normalized Unicode 16 UTS #39 skeletons (original-case and
+	// caseless) must also be distinct within the App, including retired workers. A collision refuses
+	// WORKER_NAME_CONFUSABLE and names the existing worker; the chosen display
+	// spelling is preserved. Existing workers are not renamed or invalidated.
 	//
 	// A worker-scoped working memory is provisioned in the App's container
 	// (Worker.memoryId; best-effort — a failed provision leaves it null for
@@ -4496,7 +4501,7 @@ type CastWorkerResponse struct {
 	// AppMember of the App whose role is not 'reader', or the owner of a
 	// user-owned App. Pure App-key principals are denied.
 	//
-	// Error codes (extensions.code): WORKER_NAME_TAKEN,
+	// Error codes (extensions.code): WORKER_NAME_TAKEN, WORKER_NAME_CONFUSABLE,
 	// WORKER_NAME_REQUIRED, WORKER_AGENT_NOT_INSTALLED,
 	// WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS, APP_UNINSTALLED.
 	//
@@ -18601,6 +18606,11 @@ type MergeUsersResponse struct {
 	// preserve the strongest live entitlement. The source is soft-deleted.
 	// Platform admin only. The resulting merge is global; organization
 	// administration does not authorize account consolidation.
+	// Refused with MERGE_USER_IN_OPEN_ALARMS (extension alarmCount; never the
+	// alarms, tasks or Apps, which the caller may not be able to read) while
+	// either account is named in the owner chain of an unacknowledged agent-task
+	// alarm, whose sealed chain cannot follow a merge yet (#1715). Acknowledge
+	// the alarms, then merge.
 	MergeUsers *MergeUsersMergeUsersUser `json:"mergeUsers"`
 }
 
@@ -19937,6 +19947,24 @@ func (v *NodeCommentSummariesResponse) GetNodeBatch() *NodeCommentSummariesNodeB
 	return v.NodeBatch
 }
 
+// #1608 — which kinds of node a search or list returns (hrn:node:hadronmemory.com:specs:cor:dmo:110:08).
+type NodeContentScope string
+
+const (
+	// Content and comments; every comment hit is still a comment (see Node.asComment).
+	NodeContentScopeAll NodeContentScope = "ALL"
+	// Comments only, never content: feedback, not verified fact about its target.
+	NodeContentScopeComments NodeContentScope = "COMMENTS"
+	// Content only, never comments. The default.
+	NodeContentScopeContent NodeContentScope = "CONTENT"
+)
+
+var AllNodeContentScope = []NodeContentScope{
+	NodeContentScopeAll,
+	NodeContentScopeComments,
+	NodeContentScopeContent,
+}
+
 // #1326 — advisory validation. `state` is for THIS revision: a report made for
 // an older revision reads STALE, and latestReport says which revision it was.
 type NodeContentValidationFields struct {
@@ -20181,7 +20209,12 @@ func (v *NodeExportResponse) GetNodeExport() *NodeExportNodeExportNodeExportResu
 type NodeFilter struct {
 	// #1591 — only nodes in this approval state (read from the stored revision; a node changed outside a revisioned writer is reconciled on its next read).
 	ApprovalState *NodeApprovalState `json:"approvalState,omitempty"`
-	CreatedBy     *string            `json:"createdBy,omitempty"`
+	// #1608 — content, comments or both (hrn:node:hadronmemory.com:specs:cor:dmo:110:08).
+	// Default CONTENT. Applied by the server before ranking, pagination and
+	// limits in every mode (keyword, regex, vector, hybrid and filter-only), so a
+	// COMMENTS search finds every matching comment the caller may read.
+	ContentScope *NodeContentScope `json:"contentScope,omitempty"`
+	CreatedBy    *string           `json:"createdBy,omitempty"`
 	// Include soft-deleted nodes (default false).
 	IncludeDeleted *bool   `json:"includeDeleted,omitempty"`
 	IsRunnable     *bool   `json:"isRunnable,omitempty"`
@@ -20191,7 +20224,8 @@ type NodeFilter struct {
 	// Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
 	MemoryIds []string `json:"memoryIds,omitempty"`
 	// #1591 — only minted (true) or unminted (false) nodes.
-	Minted   *bool   `json:"minted,omitempty"`
+	Minted *bool `json:"minted,omitempty"`
+	// An explicit 'comment' with no contentScope searches comments (as COMMENTS).
 	NodeType *string `json:"nodeType,omitempty"`
 	// #725 — collection facet: only nodes whose objectType equals this (e.g. "competitor").
 	ObjectType *string `json:"objectType,omitempty"`
@@ -20206,6 +20240,9 @@ type NodeFilter struct {
 
 // GetApprovalState returns NodeFilter.ApprovalState, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetApprovalState() *NodeApprovalState { return v.ApprovalState }
+
+// GetContentScope returns NodeFilter.ContentScope, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetContentScope() *NodeContentScope { return v.ContentScope }
 
 // GetCreatedBy returns NodeFilter.CreatedBy, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetCreatedBy() *string { return v.CreatedBy }
@@ -31845,11 +31882,15 @@ func (v *TeamSessionFieldsWorker) GetRole() *string { return v.Role }
 type TeamSessionsResponse struct {
 	// Sessions VISIBLE to the caller, newest first — not only the caller's own.
 	// The scope is authorization-derived (`sessionScopeFilter`): a platform
-	// ADMIN/OWNER sees every session, an App key sees its own App's, and an
+	// ADMIN/OWNER sees sessions in its audience, an App key sees its own App's, and an
 	// ordinary user sees those of Apps in any org they belong to **plus** every
-	// session attributed to them (the self branch is identity-scoped, so it does
+	// session of their user-owned Apps and every session attributed to them
+	// (these identity-scoped branches do
 	// not apply through impersonation). So a client must not present these as "my
 	// activity" — many rows may be attributed to other users or Apps.
+	// Sessions bound to personal/private memories additionally require that
+	// memory's strict owner, with no admin or impersonation override. A pure App
+	// key may also read only the session it is itself bound to.
 	//
 	// Unfiltered, this is also the GENERAL row of every `type`, worker-bound or
 	// not (#1034), so it is equally not a list of worker sessions.

@@ -100,6 +100,7 @@ func NewCmdSearch(f *cmdutil.Factory) *cobra.Command {
 
 		withProperties bool
 		withData       bool
+		commentsOnly   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "search <query>",
@@ -114,6 +115,10 @@ fragments).
 
 -m/--memory scopes to a memory (ID or fully-qualified URN); repeat it to
 search several. Omit for everything you can access.
+
+--comments-only searches feedback comments instead of content nodes. The server
+filters before ranking and pagination in every mode. Other filters still narrow
+the results; comment hits are feedback, not verified facts about their targets.
 
 Each hit carries a score plus the node's description and abstract (--json),
 so results are assessable without a follow-up 'node get' per hit. --long
@@ -132,6 +137,7 @@ searches the wrong column and returns a silent zero. --sort-property takes the
 same "field" key and the same default, and overrides relevance.
 --object-type filters the objectType collection facet.`,
 		Example: `  hadron search "how do users report a bad actor" -m hrn:mem:micromentor.org:mmdata
+  hadron search "needs clarification" --comments-only --mode keyword --json
   hadron search "rate limiting" -m hrn:mem:acme.com:kb -m hrn:mem:acme.com:ops --mode keyword --json
   hadron search "(auth OR login) AND token" --mode keyword --prefix findings:
   hadron search 'reportUser|contentConcern' --mode regex --limit 30
@@ -169,6 +175,11 @@ same "field" key and the same default, and overrides relevance.
 
 			var filter gen.NodeFilter
 			var filterSet bool
+			if commentsOnly {
+				kind := gen.NodeContentScopeComments
+				filter.ContentScope = &kind
+				filterSet = true
+			}
 			if len(memories) > 0 {
 				filter.MemoryIds = memories
 				filterSet = true
@@ -322,6 +333,11 @@ same "field" key and the same default, and overrides relevance.
 			}
 
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+				if commentsOnly {
+					if _, err := fmt.Fprintln(w, "Feedback comments (not verified target content):"); err != nil {
+						return err
+					}
+				}
 				// The scope header precedes the hits in BOTH layouts: it
 				// changes what the result list means, so it cannot be a
 				// footnote only the table branch prints.
@@ -361,6 +377,7 @@ same "field" key and the same default, and overrides relevance.
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset")
 	cmd.Flags().BoolVarP(&long, "long", "l", false, "per-hit block output including description/abstract")
 	cmd.Flags().BoolVar(&withProperties, "with-properties", false, "include each hit's properties JSONB in the output")
+	cmd.Flags().BoolVar(&commentsOnly, "comments-only", false, "search feedback comments instead of content nodes (all ranking modes)")
 	cmd.Flags().BoolVar(&withData, "with-data", false, "include each hit's data JSONB in the output")
 	return cmd
 }

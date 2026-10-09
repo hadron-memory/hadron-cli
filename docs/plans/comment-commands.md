@@ -4,7 +4,7 @@ Adds `hadron comment` for governed feedback beside a target node. The commands
 implement the server contract at
 `hrn:node:hadronmemory.com:hadron-server:design:comment-nodes-contract` and
 `cor:dmo:110:04–05`, including DAB (resolved-thread replies do not reopen).
-Search remains a separate slice waiting on server #1608.
+`search --comments-only` implements the merged server #1608 search filter.
 
 ## Commands and write semantics
 
@@ -35,7 +35,8 @@ The schema snapshot was exported from Diego's explicitly selected
 (the host's pnpm 11 attempted dependency auto-install instead of running the
 export). Server PR #1663 at `63513268` had the same SDL. After its merge, the snapshot
 and generated client were refreshed from explicitly selected server main
-`c2686749`. The final contract returns at most the oldest 200 replies per
+`c2686749`, then `601970717c3fc1c2fc0227d427895241581ce34d` for search.
+The final contract returns at most the oldest 200 replies per
 thread; JSON retains the exact replyCount and human output flags truncation.
 Reply pagination is a server follow-up, not implemented by this client. No snapshot or generated
 client is hand-edited. GraphQL operations use shared comment/actor fragments.
@@ -81,11 +82,36 @@ an advisory snapshot outside the revision-consistent body bracket.
   disposable worker binding proved worker author and binding-user provenance.
   Stack, forwarder and captured credentials were removed afterward.
 
-Author evidence is not independent QA or readiness. The PR remains draft until
-CLI #822 settles; server #1663/#1658 have merged and the snapshot has been
-revalidated at `c2686749`. Obtain named cross-family review and independent QA
+Author evidence is not independent QA or readiness. CLI #822 is merged; this
+branch is rebased onto main with its structural
+attribution policy unchanged. The PR remains draft for the sprint-2 blind
+review protocol. Server #1663/#1658/#1674/#1679 have merged and the snapshot
+has been refreshed from selected main `60197071`. Obtain named cross-family
+review and independent QA
 via Xan, then check CI. The Actions incident hold was lifted at team #7076;
 failed or unexecuted CI is not green evidence. Earlier live author evidence
 remains pinned to `63513268`, not the merged server revision.
 
 No spec citation is minted: this is a client implementation of existing rules.
+
+## Comments-only search
+
+`hadron search <query> --comments-only` sends `NodeFilter.contentScope=COMMENTS`.
+The server filters before ranking, limits and pagination in hybrid, keyword,
+vector and regex modes; the CLI never fetches content then filters a page.
+Memory, prefix, tags, type, object-type and JSON predicates remain AND-combined
+server filters. The default omits contentScope, preserving the server default
+CONTENT (or its explicit nodeType=comment inference). `--comments-only=false`
+also omits it. `--scope` retains its separate stored-memory-lens meaning.
+
+Human output labels comments-only results as feedback, not verified target
+content. JSON retains the existing search hit DTO with nodeType=comment; no
+new target metadata projection is added. Use `comment get` for the complete
+comment/target/author contract. Older servers refuse the explicit COMMENTS
+input, while ordinary searches omit it and keep the same operation document.
+All operations using the shared NodeFilter annotate the new field omitempty.
+
+Author tests capture COMMENTS and composed filters/page arguments for every
+ranking mode, JSON comment identity, the human label and absent-key behavior
+with no flag, another filter, explicit --type comment and false. No new
+platform spec: this client flag implements the existing server contract.
