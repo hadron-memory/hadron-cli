@@ -2208,6 +2208,17 @@ Conventions:
   user id rather than going blank. Casting does NOT hold: a roster staffed
   for other people is unheld until each of them binds, and an App-key
   session holds nothing at all.
+  **Authored writes (#821):** node/edge/object and governed node mutations
+  carry the worktree worker session only with recorded matching deployment
+  and unchanged worker/session/App binding. An ambient App context, if present,
+  must resolve to that App. Destination-memory access remains server-authorized;
+  writing another authorized memory does not imply another author. Queries,
+  approval/mint maintenance and raw `api` calls keep their existing contexts.
+  Rebinds or missing provenance leave subsequent writes headerless. The server
+  validates principal ownership and ignores ended/expired session headers.
+  No write is replayed for attribution. Worker/agent stamping requires server
+  #1658; older servers already accept the header without those new fields.
+
   **One worktree per live worker session** (#472, #791): binding a worktree
   that is already bound to a live session refuses (exit 5) and points at
   `git worktree add -b <new-branch> ../<name>`
