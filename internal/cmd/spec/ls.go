@@ -104,6 +104,10 @@ after merging both spec markers.`,
 				if err != nil {
 					return err
 				}
+				if draft.Missing {
+					return exitcode.Newf(exitcode.NotFound,
+						"no memory found for %q — expected a memory id or a URN: hrn:mem:<root>:<slug>", memory)
+				}
 			}
 			rawNodes = pageBranch(rawNodes, prefix, limit, offset)
 			ids := make([]string, 0, len(rawNodes))
