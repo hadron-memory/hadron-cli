@@ -55,6 +55,8 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 // Anything else unstubbed is still an error.
 func unstubbedDefault(op string) (string, bool) {
 	switch op {
+	case "NodeCommentSummaries":
+		return missingFieldJSON("commentSummary"), true
 	// `team chat read`'s best-effort server-side mark after delivery (#1353):
 	// answered as a server OUTSIDE the team-attention pilot, where the mark
 	// is refused and silently skipped. Tests of the mark stub both.

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/build"
 	accesscmd "github.com/hadron-memory/hadron-cli/internal/cmd/access"
 	agentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/agent"
@@ -24,6 +25,7 @@ import (
 	channelcmd "github.com/hadron-memory/hadron-cli/internal/cmd/channel"
 	chatcmd "github.com/hadron-memory/hadron-cli/internal/cmd/chat"
 	codingcmd "github.com/hadron-memory/hadron-cli/internal/cmd/coding"
+	commentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/comment"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
@@ -93,6 +95,7 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.AddCommand(assetcmd.NewCmdAsset(f))
 	root.AddCommand(searchcmd.NewCmdSearch(f))
 	root.AddCommand(edgecmd.NewCmdEdge(f))
+	root.AddCommand(commentcmd.NewCmd(f, commentcmd.ConnectGraphQL(f)))
 	root.AddCommand(taskcmd.NewCmdTask(f))
 	root.AddCommand(chatcmd.NewCmdChat(f))
 	root.AddCommand(channelcmd.NewCmdChannel(f))
@@ -267,9 +270,12 @@ func renderError(f *cmdutil.Factory, err error) int {
 	code := exitCodeFor(err)
 
 	if !errors.Is(err, exitcode.ErrSilent) {
-		envelope := map[string]any{
-			"error": map[string]any{"code": code, "message": err.Error()},
+		failure := map[string]any{"code": code, "message": err.Error()}
+		details := api.CommentRecoveryDetails(err)
+		if details != nil {
+			failure["extensions"] = details
 		}
+		envelope := map[string]any{"error": failure}
 		switch {
 		case f.JSON && !f.IOStreams.Wrote():
 			// If STDOUT ITSELF is broken — a full filesystem behind a
@@ -288,7 +294,13 @@ func renderError(f *cmdutil.Factory, err error) int {
 			// Payload already in flight; keep stdout a single valid document.
 			_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
 		default:
-			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", err.Error())
+			message := err.Error()
+			for _, key := range []string{"currentRevision", "threadId", "class"} {
+				if value, ok := details[key]; ok {
+					message += fmt.Sprintf(" (%s: %v)", key, value)
+				}
+			}
+			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", message)
 		}
 	}
 	return code

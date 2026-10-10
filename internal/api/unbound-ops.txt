@@ -5,10 +5,15 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 62 unbound
+[Query] 69 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
+agentTask  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
+agentTaskStallSchedule  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
+agentTaskTree  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
+agentTasks  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
+agentTeamEvents  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 aiModelPrice
 aiModelPrices
 aiServiceConfigs
@@ -65,21 +70,27 @@ resolveAIConfig
 secret
 slackConnection
 slackConnections
+teamAvailability  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
+teamSpecSchema  # cli#811 team-from-JSON consumer, outside cli#807 comments/search
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 
-[Mutation] 86 unbound
+[Mutation] 99 unbound
+acknowledgeAlarm  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
+assignAgentTask  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 beginAssetUpload
 calendarCreateEvent
 calendarDeleteEvent
 calendarRespondToEvent
 calendarUpdateEvent
+cancelAgentTask  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 clearAgentAIConfig
 createAgentOrgGrant
+createAgentTask  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 createAppKey
 createAppUser
 createDashboardWidgetPreset
@@ -88,6 +99,7 @@ createResendSender
 createRevision
 createSlackConnection
 deleteChat
+deleteCommentThread  # cli#807 commands slice covers writer operations; admin thread deletion is a later parity slice
 deleteDashboardWidgetPreset
 deleteExchangeConnection
 deleteHomeAssistantInstance
@@ -106,7 +118,9 @@ ensureAppMember
 exchangeMoveMessage
 exchangeReply
 exportNodeToGoogleDoc
+finishAgentTask  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 grantCredits
+hideComment  # cli#807 commands slice covers writer operations; admin moderation is a later parity slice
 inviteUser
 joinApp
 joinWaitingList
@@ -117,6 +131,8 @@ processChatResponse
 publishAgentImport
 publishRevision
 pushMemoryToGit
+reassignAgentTask  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
+recordAgentTaskProgress  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 recordUsage
 regenerateAppKey
 releaseEditorLock
@@ -135,11 +151,15 @@ saveChatSummary
 sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled
+setAgentTaskStallSchedule  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 setAiModelPrice
 setDashboardWidgets
 setMemorySourceToken
+setModelFamilyAvailability  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 setQuotaLimit
+setWorkerAvailability  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 startAgentSession
+startAgentTask  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 startChat
 syncMemory
 testAiServiceConfig  # server#1378 saved-config provider probe; outside cli#739 endpoint CRUD scope

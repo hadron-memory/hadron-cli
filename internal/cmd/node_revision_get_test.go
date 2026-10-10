@@ -116,7 +116,7 @@ func TestNodeGetBatchReadsRevisionsInCappedCalls(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// cli#752's stamped probe, answered as a server without stamps: these
 		// tests model the REVISION probe, which the fallback then reaches.
-		if resp, ok := unstubbedDefault(body.OperationName); ok && (body.OperationName == "NodeLiveRevisionsStamped" || body.OperationName == "NodeLiveRevisionsApproved" || body.OperationName == "NodeLiveRevisionsMinted") {
+		if resp, ok := unstubbedDefault(body.OperationName); ok && (body.OperationName == "NodeLiveRevisionsStamped" || body.OperationName == "NodeLiveRevisionsApproved" || body.OperationName == "NodeLiveRevisionsMinted" || body.OperationName == "NodeCommentSummaries") {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(resp))
 			return
@@ -423,7 +423,7 @@ func TestNodeGetSplitProbeIsAChangeNotAnOlderServer(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// cli#752's stamped probe, answered as a server without stamps: these
 		// tests model the REVISION probe, which the fallback then reaches.
-		if resp, ok := unstubbedDefault(body.OperationName); ok && (body.OperationName == "NodeLiveRevisionsStamped" || body.OperationName == "NodeLiveRevisionsApproved" || body.OperationName == "NodeLiveRevisionsMinted") {
+		if resp, ok := unstubbedDefault(body.OperationName); ok && (body.OperationName == "NodeLiveRevisionsStamped" || body.OperationName == "NodeLiveRevisionsApproved" || body.OperationName == "NodeLiveRevisionsMinted" || body.OperationName == "NodeCommentSummaries") {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(resp))
 			return
@@ -479,7 +479,7 @@ func TestNodeGetSplitInBothProbesIsNotAnOlderServer(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		// cli#752's stamped probe, answered as a server without stamps: these
 		// tests model the REVISION probe, which the fallback then reaches.
-		if resp, ok := unstubbedDefault(body.OperationName); ok && (body.OperationName == "NodeLiveRevisionsStamped" || body.OperationName == "NodeLiveRevisionsApproved" || body.OperationName == "NodeLiveRevisionsMinted") {
+		if resp, ok := unstubbedDefault(body.OperationName); ok && (body.OperationName == "NodeLiveRevisionsStamped" || body.OperationName == "NodeLiveRevisionsApproved" || body.OperationName == "NodeLiveRevisionsMinted" || body.OperationName == "NodeCommentSummaries") {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(resp))
 			return
