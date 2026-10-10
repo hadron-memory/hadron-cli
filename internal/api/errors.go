@@ -80,6 +80,30 @@ func ServerMessage(err error) string {
 	return ""
 }
 
+// CommentRecoveryDetails returns the bounded recovery fields published by
+// comment refusals. Keep unrelated or arbitrary extensions out of curated output.
+func CommentRecoveryDetails(err error) map[string]any {
+	for _, e := range graphQLErrors(err) {
+		code := extensionCode(e)
+		if !strings.HasPrefix(code, "COMMENT_") && code != "NODE_WRITE_CONFLICT" {
+			continue
+		}
+		details := map[string]any{"code": code}
+		for _, key := range []string{"currentRevision", "threadId", "class"} {
+			if value, ok := e.Extensions[key]; ok {
+				switch value.(type) {
+				case nil, string, int, int64, float64, json.Number:
+					details[key] = value
+				}
+			}
+		}
+		if len(details) > 1 {
+			return details
+		}
+	}
+	return nil
+}
+
 // hasStructuredEnvelope reports whether a GraphQL error list looks like one the
 // SERVER composed, rather than one genqlient synthesised from a body it could
 // not parse.
@@ -699,7 +723,7 @@ func codeForExtension(code string) int {
 	// Comment operations retain typed permission, input and state refusals.
 	case code == "COMMENT_FORBIDDEN" || code == "COMMENT_NOT_AUTHOR" || code == "COMMENT_ADMIN_REQUIRED" || code == "COMMENT_IMPERSONATION_REFUSED":
 		return exitcode.Forbidden
-	case code == "COMMENT_TARGET_IS_COMMENT" || code == "COMMENT_MEMORY_NOT_COMMENTABLE" || code == "COMMENT_ANCHOR_REVISION_INVALID" || code == "COMMENT_NOT_TOP_LEVEL" || code == "COMMENT_BODY_INVALID" || code == "COMMENT_MOVE_UNCOMMENTABLE" || code == "COMMENT_NOT_APPROVABLE":
+	case code == "COMMENT_TARGET_IS_COMMENT" || code == "COMMENT_MEMORY_NOT_COMMENTABLE" || code == "COMMENT_ANCHOR_REVISION_INVALID" || code == "COMMENT_NOT_TOP_LEVEL" || code == "COMMENT_BODY_INVALID" || code == "COMMENT_MOVE_UNCOMMENTABLE" || code == "COMMENT_MERGE_FOLDS_THREADS" || code == "COMMENT_NOT_APPROVABLE":
 		return exitcode.Usage
 	case code == "COMMENT_OPEN_THREAD_EXISTS" || code == "COMMENT_ANCHOR_REVISION_UNAVAILABLE" || code == "COMMENT_RETRACTED" || code == "COMMENT_HIDDEN" || code == "COMMENT_THREAD_STATE":
 		return exitcode.Conflict

@@ -118,7 +118,8 @@ search several. Omit for everything you can access.
 
 --comments-only searches feedback comments instead of content nodes. The server
 filters before ranking and pagination in every mode. Other filters still narrow
-the results; comment hits are feedback, not verified facts about their targets.
+the results; --type must be comment if supplied. Comment hits are feedback,
+not verified facts about their targets.
 
 Each hit carries a score plus the node's description and abstract (--json),
 so results are assessable without a follow-up 'node get' per hit. --long
@@ -149,6 +150,9 @@ same "field" key and the same default, and overrides relevance.
 			query := args[0]
 			if strings.TrimSpace(query) == "" {
 				return exitcode.Newf(exitcode.Usage, "query must not be empty")
+			}
+			if commentsOnly && nodeType != "" && nodeType != "comment" {
+				return exitcode.Newf(exitcode.Usage, "--comments-only cannot be combined with --type %q; omit --type or use --type comment", nodeType)
 			}
 			modeArg, err := parseMode(mode)
 			if err != nil {

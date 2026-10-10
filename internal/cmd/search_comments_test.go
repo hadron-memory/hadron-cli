@@ -14,7 +14,7 @@ func TestSearchCommentsOnlyWireAndOutput(t *testing.T) {
 				gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": response})
 				f, out := testFactory(t)
 				root := NewRootCmd(f)
-				args := []string{"search", "feedback", "--comments-only", "--mode", mode, "-m", "acme.com::kb", "--prefix", "comments:", "--tag", "review", "--limit", "7", "--offset", "3", "--server", gql.URL}
+				args := []string{"search", "feedback", "--comments-only", "--mode", mode, "-m", "hrn:mem:acme.com:kb", "--prefix", "comments:", "--tag", "review", "--limit", "7", "--offset", "3", "--server", gql.URL}
 				if asJSON {
 					args = append(args, "--json")
 				}
@@ -31,7 +31,7 @@ func TestSearchCommentsOnlyWireAndOutput(t *testing.T) {
 				if err := json.Unmarshal(captured["SearchNodes"], &vars); err != nil {
 					t.Fatal(err)
 				}
-				for key, want := range map[string]string{"contentScope": `"COMMENTS"`, "memoryIds": `["acme.com::kb"]`, "locPrefix": `"comments:"`, "tags": `["review"]`} {
+				for key, want := range map[string]string{"contentScope": `"COMMENTS"`, "memoryIds": `["hrn:mem:acme.com:kb"]`, "locPrefix": `"comments:"`, "tags": `["review"]`} {
 					if string(vars.Filter[key]) != want {
 						t.Errorf("filter.%s = %s, want %s", key, vars.Filter[key], want)
 					}
@@ -60,7 +60,7 @@ func TestSearchCommentsOnlyWireAndOutput(t *testing.T) {
 }
 
 func TestSearchUnflaggedOmitsContentScope(t *testing.T) {
-	for _, flags := range [][]string{nil, {"-m", "acme.com::kb"}, {"--type", "comment"}, {"--comments-only=false", "--tag", "review"}} {
+	for _, flags := range [][]string{nil, {"-m", "hrn:mem:acme.com:kb"}, {"--type", "comment"}, {"--comments-only=false", "--tag", "review"}} {
 		gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchEnvelope})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
@@ -82,5 +82,15 @@ func TestSearchUnflaggedOmitsContentScope(t *testing.T) {
 				t.Fatalf("unflagged search sent contentScope %s", value)
 			}
 		}
+	}
+}
+
+func TestSearchCommentsOnlyRejectsConflictingTypeBeforeConnection(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"search", "q", "--comments-only", "--type", "info", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "--comments-only cannot be combined with --type") {
+		t.Fatalf("unexpected refusal: %v", err)
 	}
 }

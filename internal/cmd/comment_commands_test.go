@@ -28,6 +28,11 @@ func TestCommentGeneratedMutationVariablesAndAttribution(t *testing.T) {
 				t.Fatal("omitted anchor sent")
 			}
 		}},
+		{"create empty quote", "CreateComment", []string{"create", "--body", "new", "--quote", ""}, func(t *testing.T, v map[string]json.RawMessage) {
+			if _, ok := v["quote"]; ok {
+				t.Fatal("empty create quote must be omitted")
+			}
+		}},
 		{"create explicit", "CreateComment", []string{"create", "--body", "new", "--quote", "text", "--anchor-revision", "2"}, func(t *testing.T, v map[string]json.RawMessage) {
 			if string(v["quote"]) != `"text"` || string(v["anchor"]) != "2" {
 				t.Fatal(v)
@@ -152,7 +157,7 @@ func TestCommentThreadFixtureAndHeaderlessReads(t *testing.T) {
 	}
 }
 func TestCommentTypedRefusalsNeverRetry(t *testing.T) {
-	cases := map[string]int{"COMMENT_NOT_FOUND": 4, "COMMENT_TARGET_NOT_FOUND": 4, "COMMENT_FORBIDDEN": 8, "COMMENT_NOT_AUTHOR": 8, "COMMENT_ADMIN_REQUIRED": 8, "COMMENT_IMPERSONATION_REFUSED": 8, "COMMENT_TARGET_IS_COMMENT": 2, "COMMENT_MEMORY_NOT_COMMENTABLE": 2, "COMMENT_ANCHOR_REVISION_INVALID": 2, "COMMENT_NOT_TOP_LEVEL": 2, "COMMENT_BODY_INVALID": 2, "COMMENT_MOVE_UNCOMMENTABLE": 2, "COMMENT_NOT_APPROVABLE": 2, "COMMENT_OPEN_THREAD_EXISTS": 5, "COMMENT_ANCHOR_REVISION_UNAVAILABLE": 5, "COMMENT_RETRACTED": 5, "COMMENT_HIDDEN": 5, "COMMENT_THREAD_STATE": 5, "NODE_WRITE_CONFLICT": 5, "ROLE_GOVERNED": 2}
+	cases := map[string]int{"COMMENT_NOT_FOUND": 4, "COMMENT_TARGET_NOT_FOUND": 4, "COMMENT_FORBIDDEN": 8, "COMMENT_NOT_AUTHOR": 8, "COMMENT_ADMIN_REQUIRED": 8, "COMMENT_IMPERSONATION_REFUSED": 8, "COMMENT_TARGET_IS_COMMENT": 2, "COMMENT_MEMORY_NOT_COMMENTABLE": 2, "COMMENT_ANCHOR_REVISION_INVALID": 2, "COMMENT_NOT_TOP_LEVEL": 2, "COMMENT_BODY_INVALID": 2, "COMMENT_MOVE_UNCOMMENTABLE": 2, "COMMENT_MERGE_FOLDS_THREADS": 2, "COMMENT_NOT_APPROVABLE": 2, "COMMENT_OPEN_THREAD_EXISTS": 5, "COMMENT_ANCHOR_REVISION_UNAVAILABLE": 5, "COMMENT_RETRACTED": 5, "COMMENT_HIDDEN": 5, "COMMENT_THREAD_STATE": 5, "NODE_WRITE_CONFLICT": 5, "ROLE_GOVERNED": 2}
 	for code, want := range cases {
 		t.Run(code, func(t *testing.T) {
 			calls := 0
@@ -213,5 +218,82 @@ func TestNodeGetCommentCueAndOldServer(t *testing.T) {
 				t.Fatal(out.String())
 			}
 		})
+	}
+}
+
+func TestCommentRecoveryDetailsReachRenderedOutput(t *testing.T) {
+	for _, tc := range []struct {
+		code, key string
+		value     any
+		wantExit  int
+	}{
+		{"NODE_WRITE_CONFLICT", "currentRevision", float64(7), 5},
+		{"COMMENT_OPEN_THREAD_EXISTS", "threadId", "existing-thread", 5},
+		{"COMMENT_MEMORY_NOT_COMMENTABLE", "class", "PRIVATE", 2},
+	} {
+		for _, asJSON := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%t", tc.code, asJSON), func(t *testing.T) {
+				response, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": "refused", "extensions": map[string]any{"code": tc.code, tc.key: tc.value, "unrelated": "must not be forwarded"}}}})
+				gql := fakeGraphQL(t, map[string]string{"EditComment": string(response)})
+				f, out := testFactory(t)
+				stderr := &strings.Builder{}
+				f.IOStreams.ErrOut = stderr
+				root := NewRootCmd(f)
+				args := []string{"comment", "edit", "hrn:node:acme.com:kb:comments:c1", "--body", "new", "--expected-revision", "2", "--server", gql.URL}
+				if asJSON {
+					args = append(args, "--json")
+				}
+				root.SetArgs(args)
+				err := root.Execute()
+				if err == nil {
+					t.Fatal("refusal succeeded")
+				}
+				if code := renderFailure(f, args, err); code != tc.wantExit {
+					t.Fatalf("exit=%d", code)
+				}
+				if asJSON {
+					var envelope struct {
+						Error struct {
+							Code       int            `json:"code"`
+							Extensions map[string]any `json:"extensions"`
+						} `json:"error"`
+					}
+					if err := json.Unmarshal([]byte(out.String()), &envelope); err != nil {
+						t.Fatal(err)
+					}
+					if envelope.Error.Extensions[tc.key] != tc.value || envelope.Error.Extensions["code"] != tc.code {
+						t.Fatalf("recovery lost: %s", out.String())
+					}
+					if _, ok := envelope.Error.Extensions["unrelated"]; ok {
+						t.Fatal("arbitrary extension leaked")
+					}
+				} else {
+					if !strings.Contains(stderr.String(), fmt.Sprintf("%s: %v", tc.key, tc.value)) {
+						t.Fatalf("recovery lost: %s", stderr.String())
+					}
+					if strings.Contains(stderr.String(), "unrelated") {
+						t.Fatal("arbitrary extension leaked")
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestCommentHelpUsesTheAddressedEntity(t *testing.T) {
+	for _, verb := range []string{"get", "reply", "edit", "retract", "resolve", "create", "list"} {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"comment", verb, "--help"})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		label := "<comment-ref>"
+		if verb == "create" || verb == "list" {
+			label = "<target-ref>"
+		}
+		if !strings.Contains(out.String(), verb+" "+label) || strings.Contains(out.String(), "<node-ref>") {
+			t.Fatalf("wrong help for %s: %s", verb, out.String())
+		}
 	}
 }

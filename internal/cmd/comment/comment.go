@@ -101,7 +101,11 @@ func readCmd(f *cmdutil.Factory, connect Connect, list bool) *cobra.Command {
 	if list {
 		verb = "list"
 	}
-	cmd := &cobra.Command{Use: verb + " <node-ref>", Short: map[bool]string{true: "List threads anchored to a target", false: "Read one comment, including a hidden or retracted stub"}[list], Args: cobra.ExactArgs(1)}
+	refLabel := "<comment-ref>"
+	if list {
+		refLabel = "<target-ref>"
+	}
+	cmd := &cobra.Command{Use: verb + " " + refLabel, Short: map[bool]string{true: "List threads anchored to a target", false: "Read one comment, including a hidden or retracted stub"}[list], Args: cobra.ExactArgs(1)}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory for a bare loc")
 	if list {
 		cmd.Aliases = []string{"ls"}
@@ -179,7 +183,11 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 	var memory, body, bodyFile, quote string
 	var expected, anchor int
 	var reopen bool
-	cmd := &cobra.Command{Use: verb + " <node-ref>", Short: map[string]string{"create": "Start a comment thread on a target", "reply": "Reply within a comment thread", "edit": "Edit your comment body or quote", "retract": "Retract your comment, leaving a stub", "resolve": "Resolve or reopen a top-level thread"}[verb], Args: cobra.ExactArgs(1)}
+	refLabel := "<comment-ref>"
+	if verb == "create" {
+		refLabel = "<target-ref>"
+	}
+	cmd := &cobra.Command{Use: verb + " " + refLabel, Short: map[string]string{"create": "Start a comment thread on a target", "reply": "Reply within a comment thread", "edit": "Edit your comment body or quote", "retract": "Retract your comment, leaving a stub", "resolve": "Resolve or reopen a top-level thread"}[verb], Args: cobra.ExactArgs(1)}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory for a bare loc")
 	text := verb == "create" || verb == "reply" || verb == "edit"
 	guarded := verb == "edit" || verb == "retract" || verb == "resolve"
@@ -189,7 +197,7 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 		cmd.MarkFlagsMutuallyExclusive("body", "body-file")
 	}
 	if verb == "create" || verb == "edit" {
-		cmd.Flags().StringVar(&quote, "quote", "", "plain-text quote (empty clears on edit)")
+		cmd.Flags().StringVar(&quote, "quote", "", "plain-text quote (empty is omitted on create, clears on edit)")
 	}
 	if verb == "create" {
 		cmd.Aliases = []string{"add"}
@@ -239,7 +247,7 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 				bp = &value
 			}
 		}
-		if (verb == "create" || verb == "edit") && changed("quote") {
+		if (verb == "edit" || verb == "create" && quote != "") && changed("quote") {
 			qp = &quote
 		}
 		if verb == "edit" && bp == nil && qp == nil {

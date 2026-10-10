@@ -2208,7 +2208,7 @@ Conventions:
   user id rather than going blank. Casting does NOT hold: a roster staffed
   for other people is unheld until each of them binds, and an App-key
   session holds nothing at all.
-  **Authored writes (#821):** node/edge/object and governed node mutations
+  **Authored writes (#822):** node/edge/object and governed node mutations
   carry the worktree worker session only with recorded matching deployment
   and unchanged worker/session/App binding. An ambient App context, if present,
   must resolve to that App. Destination-memory access remains server-authorized;
@@ -2866,11 +2866,11 @@ hadron comment list <target-ref> [-m <memory>] [--state OPEN,RESOLVED] [--limit 
 Refs are node IDs, qualified node URNs, or bare locs with `-m`. Create anchors
 to the current target revision unless `--anchor-revision` chooses a retained
 one. Replies to resolved threads remain resolved. Editing preserves omitted
-body/quote; `--quote ""` clears the quote. `--body -` requires piped stdin;
+body/quote; `--quote ""` clears the quote on edit and is omitted on create. `--body -` requires piped stdin;
 use `--body-file` interactively. Guarded writes require the comment's own
 observed revision, not its target or anchor revision; conflicts exit 5 and
 are never retried automatically. Retracted/hidden comments retain stubs.
-Authorship is server-derived; bound comment writes use the #821 attribution
+Authorship is server-derived; bound comment writes use the #822 attribution
 hook. A generic comment node/edge write exits 2 (`ROLE_GOVERNED`) and points to
 this group. Permission/author/admin refusals exit 8; missing or unreadable
 comments/targets exit 4; invalid inputs exit 2; changed thread state, existing
@@ -2884,8 +2884,15 @@ comment count); it is null/unavailable on older servers or failed optional
 reads. Feedback changes independently of the target revision.
 `search <query> --comments-only` searches feedback via the server's
 `NodeFilter.contentScope=COMMENTS`, before ranking and pagination in every mode.
-Other filters still narrow the results. Without the flag, contentScope is omitted
+Other filters still narrow the results; a non-comment `--type` with this flag
+is refused (exit 2) before connecting. Without the flag, contentScope is omitted
 and the server default applies (CONTENT, or COMMENTS for explicit `--type comment`).
 Search JSON keeps its existing hit DTO, including `nodeType: "comment"`; human
 comments-only output labels the results as feedback, not verified target content.
 Older servers without this filter refuse the opt-in; ordinary searches omit it.
+
+Comment refusals expose their bounded recovery details on curated output:
+`error.extensions` in JSON retains `code` and any supplied `currentRevision`,
+`threadId` or `class`; human errors label those values. Other extension fields
+are not forwarded. `COMMENT_MERGE_FOLDS_THREADS` exits 2: the caller must
+resolve the anchored-thread conflict before merging, rather than retry blind.

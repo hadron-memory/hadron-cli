@@ -45,10 +45,10 @@ captured raw-variable maps pin omission separately from empty strings.
 
 `Service` is the command/testing seam; its production implementation calls only
 genqlient operations. Root registration uses the ordinary factory client.
-Authored writes inherit Jonas's #822 command-local binding guard; this branch
-adds the six generated comment mutation labels to its finite policy. Queries
-remain headerless. The pending structural policy update from Jonas will replace
-that label extension before final readiness. Destination memory gates stay
+Authored writes inherit Jonas's merged #822 command-local binding guard and
+structural mutation-field policy unchanged. All six writer comment fields
+(and hide/delete for parity) already belong to that policy, independent of
+generated operation labels. Queries remain headerless. Destination memory gates stay
 server-owned. The CLI does not select the portal-only viewer-author/open-thread
 fields because its reads do not carry the worker actor.
 
@@ -100,7 +100,8 @@ No spec citation is minted: this is a client implementation of existing rules.
 The server filters before ranking, limits and pagination in hybrid, keyword,
 vector and regex modes; the CLI never fetches content then filters a page.
 Memory, prefix, tags, type, object-type and JSON predicates remain AND-combined
-server filters. The default omits contentScope, preserving the server default
+server filters. With --comments-only, a non-comment --type is refused before
+connection (exit 2), because it cannot match a comment. The default omits contentScope, preserving the server default
 CONTENT (or its explicit nodeType=comment inference). `--comments-only=false`
 also omits it. `--scope` retains its separate stored-memory-lens meaning.
 
@@ -115,3 +116,26 @@ Author tests capture COMMENTS and composed filters/page arguments for every
 ranking mode, JSON comment identity, the human label and absent-key behavior
 with no flag, another filter, explicit --type comment and false. No new
 platform spec: this client flag implements the existing server contract.
+
+## Cycle-1 review corrections
+
+COMMENT_MERGE_FOLDS_THREADS is mapped to Usage (2), with root-command and
+API-map tests. The generic formatter previously dropped recoverable extension
+values; it now forwards only code/currentRevision/threadId/class from comment
+refusals (including NODE_WRITE_CONFLICT), as error.extensions in JSON and
+labeled values in human errors. Rendered-output tests exercise the production
+failure path and assert unrelated extensions remain absent.
+
+Comment-addressed help names comment-ref; create/list name target-ref. Empty
+quote on create is omitted; edit still forwards empty as a clear. JSON search
+continues to use nodeType=comment as its existing feedback identity signal;
+its scope object retains its separate memory-lens meaning. No new scope field
+is invented for COMMENTS. This is documented, and empty search results carry
+no per-hit identity (the caller knows its explicitly requested filter).
+
+Remaining review follow-ups recorded in the PR cycle disposition: read-path
+exit-7 wording, additional truncation/terminal-stdin/requeue tests, node-get
+feedback shape/cost, and schema-refresh bundling practice. Hidden-state/API
+replacement and revision behavior are assigned as CLI #836 after #823 merges
+(Marco team #7838), with its merge depending on server #1727. This head keeps
+the reviewed merged-server contract; no hide/retract removal is folded into it.
