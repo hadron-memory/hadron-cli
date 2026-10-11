@@ -725,7 +725,7 @@ func codeForExtension(code string) int {
 		return exitcode.Forbidden
 	case code == "COMMENT_TARGET_IS_COMMENT" || code == "COMMENT_MEMORY_NOT_COMMENTABLE" || code == "COMMENT_ANCHOR_REVISION_INVALID" || code == "COMMENT_NOT_TOP_LEVEL" || code == "COMMENT_BODY_INVALID" || code == "COMMENT_MOVE_UNCOMMENTABLE" || code == "COMMENT_MERGE_FOLDS_THREADS" || code == "COMMENT_NOT_APPROVABLE":
 		return exitcode.Usage
-	case code == "COMMENT_OPEN_THREAD_EXISTS" || code == "COMMENT_ANCHOR_REVISION_UNAVAILABLE" || code == "COMMENT_RETRACTED" || code == "COMMENT_HIDDEN" || code == "COMMENT_THREAD_STATE":
+	case code == "COMMENT_OPEN_THREAD_EXISTS" || code == "COMMENT_ANCHOR_REVISION_UNAVAILABLE" || code == "COMMENT_DELETED" || code == "COMMENT_THREAD_STATE":
 		return exitcode.Conflict
 	case code == "UNAUTHENTICATED":
 		return exitcode.AuthRequired

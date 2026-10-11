@@ -52,7 +52,7 @@ func TestCommentGeneratedMutationVariablesAndAttribution(t *testing.T) {
 				t.Fatal("omitted quote sent")
 			}
 		}},
-		{"retract", "RetractComment", []string{"retract", "--expected-revision", "4"}, nil},
+		{"delete", "DeleteComment", []string{"delete", "--yes", "--expected-revision", "4"}, nil},
 		{"resolve", "ResolveCommentThread", []string{"resolve", "--expected-revision", "4"}, nil},
 		{"reopen", "ReopenCommentThread", []string{"resolve", "--reopen", "--expected-revision", "4"}, nil},
 	} {
@@ -92,7 +92,7 @@ func TestCommentGeneratedMutationVariablesAndAttribution(t *testing.T) {
 			if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 				t.Fatal(err)
 			}
-			if dto["revision"] != float64(4) || dto["anchorRevision"] != float64(2) || calls != 1 {
+			if dto["revSeq"] != float64(4) || dto["anchorRevision"] != float64(2) || calls != 1 {
 				t.Fatalf("dto=%s calls=%d", out.String(), calls)
 			}
 		})
@@ -144,20 +144,20 @@ func TestCommentThreadFixtureAndHeaderlessReads(t *testing.T) {
 				Author         struct{ Kind string }
 			}
 			Replies []struct {
-				Body      *string
-				Retracted bool
+				Body    *string
+				Deleted bool
 			}
 		}
 	}
 	if err = json.Unmarshal([]byte(out.String()), &dto); err != nil {
 		t.Fatal(err)
 	}
-	if len(dto.Items) != 1 || dto.Items[0].Root.State != "RESOLVED" || dto.Items[0].Root.Author.Kind != "WORKER" || !dto.Items[0].Replies[0].Retracted || dto.Items[0].Replies[0].Body != nil {
+	if len(dto.Items) != 1 || dto.Items[0].Root.State != "RESOLVED" || dto.Items[0].Root.Author.Kind != "WORKER" || !dto.Items[0].Replies[0].Deleted || dto.Items[0].Replies[0].Body != nil {
 		t.Fatal(out.String())
 	}
 }
 func TestCommentTypedRefusalsNeverRetry(t *testing.T) {
-	cases := map[string]int{"COMMENT_NOT_FOUND": 4, "COMMENT_TARGET_NOT_FOUND": 4, "COMMENT_FORBIDDEN": 8, "COMMENT_NOT_AUTHOR": 8, "COMMENT_ADMIN_REQUIRED": 8, "COMMENT_IMPERSONATION_REFUSED": 8, "COMMENT_TARGET_IS_COMMENT": 2, "COMMENT_MEMORY_NOT_COMMENTABLE": 2, "COMMENT_ANCHOR_REVISION_INVALID": 2, "COMMENT_NOT_TOP_LEVEL": 2, "COMMENT_BODY_INVALID": 2, "COMMENT_MOVE_UNCOMMENTABLE": 2, "COMMENT_MERGE_FOLDS_THREADS": 2, "COMMENT_NOT_APPROVABLE": 2, "COMMENT_OPEN_THREAD_EXISTS": 5, "COMMENT_ANCHOR_REVISION_UNAVAILABLE": 5, "COMMENT_RETRACTED": 5, "COMMENT_HIDDEN": 5, "COMMENT_THREAD_STATE": 5, "NODE_WRITE_CONFLICT": 5, "ROLE_GOVERNED": 2}
+	cases := map[string]int{"COMMENT_NOT_FOUND": 4, "COMMENT_TARGET_NOT_FOUND": 4, "COMMENT_FORBIDDEN": 8, "COMMENT_NOT_AUTHOR": 8, "COMMENT_ADMIN_REQUIRED": 8, "COMMENT_IMPERSONATION_REFUSED": 8, "COMMENT_TARGET_IS_COMMENT": 2, "COMMENT_MEMORY_NOT_COMMENTABLE": 2, "COMMENT_ANCHOR_REVISION_INVALID": 2, "COMMENT_NOT_TOP_LEVEL": 2, "COMMENT_BODY_INVALID": 2, "COMMENT_MOVE_UNCOMMENTABLE": 2, "COMMENT_MERGE_FOLDS_THREADS": 2, "COMMENT_NOT_APPROVABLE": 2, "COMMENT_OPEN_THREAD_EXISTS": 5, "COMMENT_ANCHOR_REVISION_UNAVAILABLE": 5, "COMMENT_DELETED": 5, "COMMENT_THREAD_STATE": 5, "NODE_WRITE_CONFLICT": 5, "ROLE_GOVERNED": 2}
 	for code, want := range cases {
 		t.Run(code, func(t *testing.T) {
 			calls := 0
@@ -281,7 +281,7 @@ func TestCommentRecoveryDetailsReachRenderedOutput(t *testing.T) {
 }
 
 func TestCommentHelpUsesTheAddressedEntity(t *testing.T) {
-	for _, verb := range []string{"get", "reply", "edit", "retract", "resolve", "create", "list"} {
+	for _, verb := range []string{"get", "reply", "edit", "delete", "resolve", "create", "list"} {
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"comment", verb, "--help"})

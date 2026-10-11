@@ -63,9 +63,9 @@ func (c *capture) Edit(_ context.Context, r string, b, q *string, v int) (Commen
 	c.revision = v
 	return Comment{}, c.err
 }
-func (c *capture) Retract(_ context.Context, r string, v int) (Comment, error) {
+func (c *capture) Delete(_ context.Context, r string, v int) (Comment, error) {
 	c.calls++
-	c.verb = "retract"
+	c.verb = "delete"
 	c.ref = r
 	c.revision = v
 	return Comment{}, c.err
@@ -100,7 +100,7 @@ func TestInvalidInputsNeverConnect(t *testing.T) {
 		{"create", "target", "-m", "hrn:mem:acme.com:kb", "--body", "x", "--anchor-revision", "0"},
 		{"edit", "comments:one", "-m", "hrn:mem:acme.com:kb", "--body", "x"},
 		{"edit", "comments:one", "-m", "hrn:mem:acme.com:kb", "--expected-revision", "1"},
-		{"retract", "comments:one", "-m", "hrn:mem:acme.com:kb", "--expected-revision", "-1"},
+		{"delete", "comments:one", "-m", "hrn:mem:acme.com:kb", "--expected-revision", "-1"},
 		{"list", "target", "-m", "hrn:mem:acme.com:kb", "--limit", "0"},
 		{"list", "target", "-m", "hrn:mem:acme.com:kb", "--limit", "201"},
 		{"list", "target", "-m", "hrn:mem:acme.com:kb", "--state", "INVALID"},
@@ -137,10 +137,13 @@ func TestCreatePipeAndExplicitAnchor(t *testing.T) {
 	}
 }
 func TestConflictIsReturnedWithoutReadOrRetry(t *testing.T) {
-	for _, verb := range []string{"edit", "retract", "resolve"} {
+	for _, verb := range []string{"edit", "delete", "resolve"} {
 		t.Run(verb, func(t *testing.T) {
 			c := &capture{err: exitcode.Newf(exitcode.Conflict, "NODE_WRITE_CONFLICT")}
 			args := []string{verb, "comments:one", "-m", "hrn:mem:acme.com:kb", "--expected-revision", "2"}
+			if verb == "delete" {
+				args = append(args, "--yes")
+			}
 			if verb == "edit" {
 				args = append(args, "--body", "new")
 			}
@@ -152,7 +155,7 @@ func TestConflictIsReturnedWithoutReadOrRetry(t *testing.T) {
 	}
 }
 func TestListPageAndStubJSON(t *testing.T) {
-	c := &capture{page: Page{Items: []Thread{{Root: Comment{Retracted: true, Revision: 4}, ReplyCount: 0}}, Total: 8}}
+	c := &capture{page: Page{Items: []Thread{{Root: Comment{Deleted: true, RevSeq: 4}, ReplyCount: 0}}, Total: 8}}
 	out, _, err := execute(t, c, "list", "target", "-m", "hrn:mem:acme.com:kb", "--state", "OPEN,RESOLVED", "--limit", "2", "--offset", "3")
 	if err != nil {
 		t.Fatal(err)
@@ -181,14 +184,14 @@ func TestEmptyListIsArrayAndMissingCommentIsNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-func TestTextDoesNotPrintHiddenBodyAndLabelsOldAnchor(t *testing.T) {
+func TestTextDoesNotPrintDeletedBodyAndLabelsOldAnchor(t *testing.T) {
 	var w strings.Builder
 	body := "not for display"
-	c := Comment{URN: "hrn:node:acme.com:kb:comments:one", Body: &body, Hidden: true, Revision: 3, AnchorRevision: 1, AnchorIsCurrent: false}
+	c := Comment{URN: "hrn:node:acme.com:kb:comments:one", Body: &body, Deleted: true, RevSeq: 3, AnchorRevision: 1, AnchorIsCurrent: false}
 	if err := render(&w, c); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(w.String(), body) || !strings.Contains(w.String(), "hidden") || !strings.Contains(w.String(), "older target text") {
+	if strings.Contains(w.String(), body) || !strings.Contains(w.String(), "deleted") || !strings.Contains(w.String(), "older target text") {
 		t.Fatal(w.String())
 	}
 }
@@ -197,5 +200,13 @@ func TestAuthorLabelKeepsIdentityWithoutDisplayFields(t *testing.T) {
 	a := Author{Kind: "WORKER", Worker: &Actor{ID: "w1"}}
 	if got := authorLabel(a); got != "w1 (worker)" {
 		t.Fatal(got)
+	}
+}
+
+func TestDeleteWithoutConfirmationNeverConnects(t *testing.T) {
+	c := &capture{}
+	_, connections, err := execute(t, c, "delete", "comments:one", "-m", "hrn:mem:acme.com:kb", "--expected-revision", "4")
+	if exitcode.FromError(err) != exitcode.Usage || connections != 0 || c.calls != 0 {
+		t.Fatalf("err=%v connects=%d calls=%d", err, connections, c.calls)
 	}
 }

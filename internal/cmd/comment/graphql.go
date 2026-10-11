@@ -95,15 +95,15 @@ func (s *graphqlService) Edit(ctx context.Context, ref string, body, quote *stri
 	}
 	return fromFields(r.EditComment.CommentFields), nil
 }
-func (s *graphqlService) Retract(ctx context.Context, ref string, expected int) (Comment, error) {
-	r, err := gen.RetractComment(ctx, s.client, ref, expected)
+func (s *graphqlService) Delete(ctx context.Context, ref string, expected int) (Comment, error) {
+	r, err := gen.DeleteComment(ctx, s.client, ref, expected)
 	if err != nil {
 		return Comment{}, api.MapError(err)
 	}
-	if r == nil || r.RetractComment == nil {
+	if r == nil || r.DeleteComment == nil {
 		return Comment{}, missingResult()
 	}
-	return fromFields(r.RetractComment.CommentFields), nil
+	return fromFields(r.DeleteComment.CommentFields), nil
 }
 func (s *graphqlService) Resolve(ctx context.Context, ref string, expected int, reopen bool) (Comment, error) {
 	if reopen {
@@ -129,7 +129,7 @@ func actor(a gen.CommentActorFields) *Actor {
 	return &Actor{ID: a.Id, Name: a.Name, Handle: a.Handle, URN: a.Urn}
 }
 func fromFields(c gen.CommentFields) Comment {
-	out := Comment{ID: c.Id, URN: c.Urn, PortalURL: c.PortalUrl, ThreadRootID: c.ThreadRootId, IsTopLevel: c.IsTopLevel, AnchorRevision: c.AnchorRevision, AnchorApprovalHash: c.AnchorApprovalHash, AnchorIsCurrent: c.AnchorIsCurrent, Quote: c.Quote, Body: c.Body, Retracted: c.Retracted, RetractedAt: c.RetractedAt, Hidden: c.Hidden, HiddenAt: c.HiddenAt, ResolvedAt: c.ResolvedAt, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt, Revision: c.RevSeq}
+	out := Comment{ID: c.Id, URN: c.Urn, PortalURL: c.PortalUrl, ThreadRootID: c.ThreadRootId, IsTopLevel: c.IsTopLevel, AnchorRevision: c.AnchorRevision, AnchorApprovalHash: c.AnchorApprovalHash, AnchorIsCurrent: c.AnchorIsCurrent, Quote: c.Quote, Body: c.Body, Deleted: c.Deleted, DeletedAt: c.DeletedAt, EditedAt: c.EditedAt, ResolvedAt: c.ResolvedAt, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt, RevSeq: c.RevSeq}
 	if c.State != nil {
 		state := string(*c.State)
 		out.State = &state
@@ -154,6 +154,12 @@ func fromFields(c gen.CommentFields) Comment {
 	}
 	if c.ProvenanceUser != nil {
 		out.ProvenanceUser = actor(c.ProvenanceUser.CommentActorFields)
+	}
+	if c.DeletedBy != nil {
+		out.DeletedBy = actor(c.DeletedBy.CommentActorFields)
+	}
+	if c.EditedBy != nil {
+		out.EditedBy = actor(c.EditedBy.CommentActorFields)
 	}
 	if c.ResolvedBy != nil {
 		out.ResolvedBy = actor(c.ResolvedBy.CommentActorFields)

@@ -1,11 +1,13 @@
 fragment CommentActorFields on CommentActorRef { id name handle urn }
 fragment CommentFields on Comment {
   id urn portalUrl threadRootId isTopLevel anchorRevision anchorApprovalHash anchorIsCurrent
-  quote body state retracted retractedAt hidden hiddenAt resolvedAt revSeq createdAt updatedAt
+  quote body state deleted deletedAt resolvedAt revSeq createdAt updatedAt editedAt
   target { id urn name nodeType revSeq }
   author { kind worker { ...CommentActorFields } user { ...CommentActorFields } agent { ...CommentActorFields } app { ...CommentActorFields } }
   provenanceUser { ...CommentActorFields }
   resolvedBy { ...CommentActorFields }
+  deletedBy { ...CommentActorFields }
+  editedBy { ...CommentActorFields }
 }
 query CommentThreads($target: ID!, 
  # @genqlient(omitempty: true)
@@ -42,10 +44,10 @@ mutation EditComment($ref: ID!,
 ) {
  editComment(commentRef: $ref, body: $body, quote: $quote, expectedRevision: $expected) { ...CommentFields }
 }
-mutation RetractComment($ref: ID!,
+mutation DeleteComment($ref: ID!,
  $expected: Int!
 ) {
- retractComment(commentRef: $ref, expectedRevision: $expected) { ...CommentFields }
+ deleteComment(commentRef: $ref, expectedRevision: $expected) { ...CommentFields }
 }
 mutation ResolveCommentThread($ref: ID!,
  $expected: Int!
