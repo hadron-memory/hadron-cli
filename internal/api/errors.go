@@ -104,6 +104,26 @@ func CommentRecoveryDetails(err error) map[string]any {
 	return nil
 }
 
+// reportingError scopes preservation of any server refusal code to this operation.
+type reportingError struct{ error }
+
+func (e *reportingError) Unwrap() error       { return e.error }
+func MapWorkerReportingError(err error) error { return &reportingError{MapError(err)} }
+
+// WorkerReportingDetails preserves the server's refusal code without forwarding
+// arbitrary extension payloads. The numeric CLI exit code remains separate.
+func WorkerReportingDetails(err error) map[string]any {
+	var operation *reportingError
+	scoped := errors.As(err, &operation)
+	for _, e := range graphQLErrors(err) {
+		code := extensionCode(e)
+		if code != "" && (scoped || strings.HasPrefix(code, "WORKER_REPORTS_TO_")) {
+			return map[string]any{"code": code}
+		}
+	}
+	return nil
+}
+
 // hasStructuredEnvelope reports whether a GraphQL error list looks like one the
 // SERVER composed, rather than one genqlient synthesised from a body it could
 // not parse.
@@ -815,6 +835,14 @@ func codeForExtension(code string) int {
 	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
 		strings.HasSuffix(code, "_TOO_LARGE") || strings.HasSuffix(code, "_REQUIRED"):
 		return exitcode.Usage
+	// Invalid reporting inputs must be changed by the caller.
+	case code == "WORKER_REPORTS_TO_SELF" || code == "WORKER_REPORTS_TO_CYCLE" || code == "WORKER_REPORTS_TO_OTHER_APP":
+		return exitcode.Usage
+	// A retired target or existing reporting claim requires a state change.
+	case code == "WORKER_REPORTS_TO_RETIRED" || code == "WORKER_REPORTS_TO_HELD":
+		return exitcode.Conflict
+	case code == "WORKER_REPORTS_TO_FORBIDDEN":
+		return exitcode.Forbidden
 	// #428/#432: a worker with history refuses deletion, a retired worker
 	// refuses new sessions/authorship, and a taken worker refuses binding
 	// without force (hadron-server#940, the atomic takeover gate) — state

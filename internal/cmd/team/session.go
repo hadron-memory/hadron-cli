@@ -66,7 +66,10 @@ holds nothing), so it has nothing to release.`,
 
 // sessionDTO is the stable --json shape for a session.
 type sessionDTO struct {
-	ID string `json:"id"`
+	ReportsTo        *workerRefDTO `json:"reportsTo"`
+	ReportsToRetired bool          `json:"reportsToRetired"`
+	ReportingKnown   bool          `json:"reportingKnown"`
+	ID               string        `json:"id"`
 	// AgentID is the role-agent driving the session; with workerId set it is
 	// the agent behind the casting (stamped server-side, cor:agt:020:03).
 	AgentID    *string `json:"agentId"`
@@ -135,7 +138,7 @@ func sessionDTOFromFields(s gen.TeamSessionFields, fallbackName *string) session
 		// carries it, so absent stays absent rather than being inferred.
 		role = s.Worker.Role
 	}
-	return sessionDTO{
+	dto := sessionDTO{
 		ID: s.Id, AgentID: s.AgentId, WorkerID: s.WorkerId, WorkerName: name, WorkerRole: role,
 		UserID: s.UserId,
 		Type:   s.Type, Repo: s.Repo, Branch: s.Branch, PRNumber: s.PrNumber,
@@ -143,6 +146,14 @@ func sessionDTOFromFields(s gen.TeamSessionFields, fallbackName *string) session
 		Host: s.Host, Tool: s.Tool,
 		TranscriptPath: s.TranscriptPath, LLMModel: s.LlmModel, Active: s.EndedAt == nil,
 	}
+	if s.Worker != nil {
+		dto.ReportingKnown = s.Worker.ReportsTo != nil || workingStateVisible(s.Worker.HasLiveSession)
+		dto.ReportsToRetired = s.Worker.ReportsToRetired
+		if s.Worker.ReportsTo != nil {
+			dto.ReportsTo = reportingRef(s.Worker.ReportsTo.WorkerReportingRefFields)
+		}
+	}
+	return dto
 }
 
 const sessionPageSize = 200
@@ -623,7 +634,7 @@ func heldRefusal(name, ref, holder string, heldAt *string) error {
 }
 
 func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
-	var as, repo, branch, transcript, host, tool, model, teamMemory string
+	var as, repo, branch, transcript, host, tool, model, teamMemory, reportsTo string
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "start --as <worker> [--transcript <path>] [--tool <t>] [--force]",
@@ -709,6 +720,10 @@ That leaves an open lapsed session intact for its own driver's handoff.
 replacing its local binding. It never separates two live agents working
 in one tree.
 
+--reports-to optionally names the worker this worker reports to (name, URN or
+id). The server sets it at bind; omit the flag to preserve the existing relation.
+The relation lives on the worker and survives session changes.
+
 Binding a worker CLAIMS its name for you. Casting one does not: a roster
 staffed by a coordinator is unheld until each person binds their own, and
 an APP-KEY session claims nothing at all (an App key is not a person and
@@ -718,6 +733,9 @@ holds nothing).`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			if cmd.Flags().Changed("reports-to") && strings.TrimSpace(reportsTo) == "" {
+				return exitcode.Newf(exitcode.Usage, "--reports-to must name a worker; omit it to preserve the relation")
+			}
 			existing, _, err := readBinding(ctx)
 			if err != nil {
 				return err
@@ -913,6 +931,7 @@ holds nothing).`,
 			}
 			input := &gen.SessionInput{
 				Id:             newSessionID(),
+				ReportsTo:      optStr(reportsTo),
 				WorkerRef:      &w.Id,
 				AppRef:         appRefArg,
 				Repo:           optStr(repo),
@@ -1194,6 +1213,7 @@ holds nothing).`,
 	cmd.Flags().StringVar(&host, "host", "", "machine identifier (defaults to this hostname)")
 	cmd.Flags().StringVar(&tool, "tool", "", "driving tool, e.g. claude-code or codex")
 	cmd.Flags().StringVar(&model, "model", "", "LLM model driving the session")
+	cmd.Flags().StringVar(&reportsTo, "reports-to", "", "worker to report to at bind (name, URN or id); omit to preserve")
 	cmd.Flags().StringVarP(&teamMemory, "memory", "m", "", "explicit team memory (optional since #399 — the worker's App is recorded as the worklog home; -m also cross-checks the App at start)")
 	_ = cmd.MarkFlagRequired("as")
 	return cmd
@@ -1216,6 +1236,9 @@ holds nothing).`,
 // single answer, so the session fields stay empty rather than naming an
 // arbitrary one, and Candidates carries them all.
 type whoamiDTO struct {
+	ReportsTo        *workerRefDTO `json:"reportsTo"`
+	ReportsToRetired bool          `json:"reportsToRetired"`
+	ReportingKnown   bool          `json:"reportingKnown"`
 	*binding
 	BindingPath string       `json:"bindingPath"`
 	Source      string       `json:"source"`
@@ -1413,6 +1436,9 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 		// would. This REPORTS; it does not re-create the binding — whoami is a
 		// read, and rebinding is `session start`'s to do.
 		s := mine[0]
+		dto.ReportsTo = s.ReportsTo
+		dto.ReportsToRetired = s.ReportsToRetired
+		dto.ReportingKnown = s.ReportingKnown
 		dto.binding = &binding{
 			SessionID: s.ID, WorkerID: strOrEmpty(s.WorkerID), WorkerName: strOrEmpty(s.WorkerName),
 			WorkerRole: strOrEmpty(s.WorkerRole), StartedAt: s.StartedAt,
@@ -1432,6 +1458,7 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 			s := mine[0]
 			fmt.Fprintf(w, "%s%s\n  worker session: %s (started %s)\n  worker: %s\n",
 				strOrEmpty(s.WorkerName), roleSuffix(s.WorkerRole), s.ID, s.StartedAt, strOrEmpty(s.WorkerID))
+			fmt.Fprintf(w, "  reports to: %s\n", reportsToLabel(s.ReportsTo, s.ReportsToRetired, s.ReportingKnown))
 			if r := strOrEmpty(s.Repo); r != "" {
 				fmt.Fprintf(w, "  repo: %s\n", r)
 			}
@@ -1441,9 +1468,9 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 			// once, measured. Seventeen detail blocks is not a list anyone can
 			// pick from, and picking is the whole purpose here.
 			fmt.Fprintf(w, "%d open worker sessions are yours; none is bound here, so pick one by SESSION.\n\n", len(mine))
-			t := output.NewTable(w, "WORKER", "ROLE", "REPO", "STARTED", "SESSION")
+			t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "REPO", "STARTED", "SESSION")
 			for _, s := range mine {
-				t.Row(dash(s.WorkerName), dash(s.WorkerRole), dash(s.Repo), s.StartedAt, s.ID)
+				t.Row(dash(s.WorkerName), dash(s.WorkerRole), reportsToLabel(s.ReportsTo, s.ReportsToRetired, s.ReportingKnown), dash(s.Repo), s.StartedAt, s.ID)
 			}
 			if err := t.Flush(); err != nil {
 				return err
@@ -1489,8 +1516,10 @@ left a session open with its only local handle gone.
 the fallback did.
 
 --check ASKS THE SERVER whether the bound session is still open (#484). The
-default stays local and fast, because this is the compaction-recovery read and
-most callers want the name, not a round trip. Use --check when the binding may
+binding identity remains available locally for compaction recovery. The default
+also reads the worker's CURRENT reports-to relation (best effort, at most five
+seconds); failed or masked reads show ? (unavailable), not nobody. It never
+caches that relation in the binding. Use --check when the binding may
 have outlived what it describes — a session can be ended from ANOTHER worktree
 or machine with ` + "`session end --session <id>`" + `, which does not clear this
 worktree's file. It reports "ended" and, when the server reaped it rather than
@@ -1547,6 +1576,7 @@ binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
 				result.EndedAt = live.endedAt
 				result.AutoExpiredAt = live.autoExpiredAt
 			}
+			loadReporting(cmd.Context(), f, b, &result)
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				if b.WorkerID == "" {
 					// A binding written by a pre-Worker CLI: the session id is
@@ -1555,6 +1585,7 @@ binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
 					fmt.Fprintf(w, "(binding predates the Worker model — end it with `hadron team session end` and start a new worker session)\n")
 				}
 				fmt.Fprintf(w, "%s%s\n  worker session: %s (started %s)\n  worker: %s\n", b.WorkerName, roleSuffix(optStr(b.WorkerRole)), b.SessionID, b.StartedAt, b.WorkerID)
+				fmt.Fprintf(w, "  reports to: %s\n", reportsToLabel(result.ReportsTo, result.ReportsToRetired, result.ReportingKnown))
 				if b.AppID != "" {
 					fmt.Fprintf(w, "  app: %s (the worklog home — `session log` needs no -m)\n", b.AppID)
 				}

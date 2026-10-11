@@ -150,7 +150,7 @@ func TestTeamWorkerListColumnOrderPutsTheReadableFactsFirst(t *testing.T) {
 	if header == "" {
 		t.Fatalf("no header row in:\n%s", out)
 	}
-	want := []string{"WORKER", "ROLE", "HELD BY", "LAST DRIVEN", "RETIRED", "URN", "ID"}
+	want := []string{"WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST DRIVEN", "RETIRED", "URN", "ID"}
 	// Split on the table's column padding, not on whitespace: two of these
 	// headers contain a space, and strings.Fields would silently turn a
 	// seven-column header into a nine-item list that no longer lines up with

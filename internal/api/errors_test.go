@@ -54,6 +54,12 @@ func TestMapError(t *testing.T) {
 		want int
 	}{
 		{"nil", nil, exitcode.OK},
+		{"reports to self", gqlErr("WORKER_REPORTS_TO_SELF"), exitcode.Usage},
+		{"reports to other app", gqlErr("WORKER_REPORTS_TO_OTHER_APP"), exitcode.Usage},
+		{"reports to cycle", gqlErr("WORKER_REPORTS_TO_CYCLE"), exitcode.Usage},
+		{"reports to retired", gqlErr("WORKER_REPORTS_TO_RETIRED"), exitcode.Conflict},
+		{"reports to held", gqlErr("WORKER_REPORTS_TO_HELD"), exitcode.Conflict},
+		{"reports to forbidden", gqlErr("WORKER_REPORTS_TO_FORBIDDEN"), exitcode.Forbidden},
 		{"comment deleted", gqlErr("COMMENT_DELETED"), exitcode.Conflict},
 		{"comment merge folds threads", gqlErr("COMMENT_MERGE_FOLDS_THREADS"), exitcode.Usage},
 		{"unauthenticated", gqlErr("UNAUTHENTICATED"), exitcode.AuthRequired},
