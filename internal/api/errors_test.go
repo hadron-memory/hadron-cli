@@ -54,6 +54,7 @@ func TestMapError(t *testing.T) {
 		want int
 	}{
 		{"nil", nil, exitcode.OK},
+		{"comment merge folds threads", gqlErr("COMMENT_MERGE_FOLDS_THREADS"), exitcode.Usage},
 		{"unauthenticated", gqlErr("UNAUTHENTICATED"), exitcode.AuthRequired},
 		{"not found", gqlErr("NOT_FOUND"), exitcode.NotFound},
 		{"node not found", gqlErr("NODE_NOT_FOUND"), exitcode.NotFound},

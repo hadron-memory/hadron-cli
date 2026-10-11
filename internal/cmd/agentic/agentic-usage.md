@@ -298,7 +298,7 @@ hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--li
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--session <id>] [--reply-to <seq|loc>]
 hadron channel list [--owner-app <ref>] [-m <memory>] | get <id|address> | create <name> -m <memory> --loc <loc> [--description <d>] | update <id|address> [--name <n>] [--description <d>] | rm <id|address> [--yes] | read <id|address> [--since <seq>] [--before <seq>] [--limit N] [--offset N] [--mentions <ref>] | post <id|address> <body|-> (--session <id> | --as-me) [--reply-to <seq>] | mark-read <id|address> --attendee <ref> --seq N [--owner-app <ref>] | read-state <id|address> --attendee <ref> [--owner-app <ref>] | register list [--channel <ref>] [--attendee <ref>] [--owner <ref>] [--org <id>] [--limit N] [--offset N] | register add --channel <ref> --owner <ref> (--attendee <ref> | --all-attendees) [--role both|post|watch] [--mention-only] [--description <d>] | register set <entry-id> (--role <r> | --mention-only[=false] | --description <d>)... | register rm <entry-id> [--yes]   # post REQUIRES --session or --as-me (the server records the human silently otherwise); read --since is strictly-greater and the output reports nextSince; a ref is the Channel id OR its address (chatRootUrn, printed by list); chatRootUrn is NULL for some Channels — the id always works.
-hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--limit N] [--offset N] [-l|--long] [--json]
+hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--comments-only] [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
 hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> [--dry-run] [--expected-revision N --expected-node-id ID --expected-proposal-hash HASH] | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> [--to <loc>] | import spec-kit|code | reserve <citation> [--name <name>] | renumber <from> <to> [--dry-run] | backlinks <citation> | unresolved | mint [--dry-run] [--yes]
@@ -2208,7 +2208,7 @@ Conventions:
   user id rather than going blank. Casting does NOT hold: a roster staffed
   for other people is unheld until each of them binds, and an App-key
   session holds nothing at all.
-  **Authored writes (#821):** node/edge/object and governed node mutations
+  **Authored writes (#822):** node/edge/object and governed node mutations
   carry the worktree worker session only with recorded matching deployment
   and unchanged worker/session/App binding. An ambient App context, if present,
   must resolve to that App. Destination-memory access remains server-authorized;
@@ -2849,3 +2849,50 @@ hadron run get <run-id> --json
 # Mint an outbound-comms budget the runs consume
 hadron ticket mint --org acme.com --action comm.outbound --count 100 --note 'digest sends'
 ```
+
+
+## Governed comments (`hadron comment`)
+
+```
+hadron comment create|add <target-ref> --body <text|->|--body-file <path> [-m <memory>] [--quote <text>] [--anchor-revision N]
+hadron comment reply <comment-ref> --body <text|->|--body-file <path> [-m <memory>]
+hadron comment edit <comment-ref> --expected-revision N [-m <memory>] [--body <text|->|--body-file <path>] [--quote <text>]
+hadron comment retract <comment-ref> --expected-revision N [-m <memory>]
+hadron comment resolve <root-ref> --expected-revision N [-m <memory>] [--reopen]
+hadron comment get <comment-ref> [-m <memory>]
+hadron comment list <target-ref> [-m <memory>] [--state OPEN,RESOLVED] [--limit N] [--offset N]
+```
+
+Refs are node IDs, qualified node URNs, or bare locs with `-m`. Create anchors
+to the current target revision unless `--anchor-revision` chooses a retained
+one. Replies to resolved threads remain resolved. Editing preserves omitted
+body/quote; `--quote ""` clears the quote on edit and is omitted on create. `--body -` requires piped stdin;
+use `--body-file` interactively. Guarded writes require the comment's own
+observed revision, not its target or anchor revision; conflicts exit 5 and
+are never retried automatically. Retracted/hidden comments retain stubs.
+Authorship is server-derived; bound comment writes use the #822 attribution
+hook. A generic comment node/edge write exits 2 (`ROLE_GOVERNED`) and points to
+this group. Permission/author/admin refusals exit 8; missing or unreadable
+comments/targets exit 4; invalid inputs exit 2; changed thread state, existing
+open thread and unavailable historical anchor exit 5.
+
+JSON uses explicit comment fields including `revision`, public `author`,
+`provenanceUser`, target/anchor metadata, state, nullable body/quote ; list emits `{items, total}` with each thread's root, replies
+array and server replyCount. Human output labels old anchors and stubs.
+`node get` adds an advisory `commentSummary` cue (open/resolved threads and
+comment count); it is null/unavailable on older servers or failed optional
+reads. Feedback changes independently of the target revision.
+`search <query> --comments-only` searches feedback via the server's
+`NodeFilter.contentScope=COMMENTS`, before ranking and pagination in every mode.
+Other filters still narrow the results; a non-comment `--type` with this flag
+is refused (exit 2) before connecting. Without the flag, contentScope is omitted
+and the server default applies (CONTENT, or COMMENTS for explicit `--type comment`).
+Search JSON keeps its existing hit DTO, including `nodeType: "comment"`; human
+comments-only output labels the results as feedback, not verified target content.
+Older servers without this filter refuse the opt-in; ordinary searches omit it.
+
+Comment refusals expose their bounded recovery details on curated output:
+`error.extensions` in JSON retains `code` and any supplied `currentRevision`,
+`threadId` or `class`; human errors label those values. Other extension fields
+are not forwarded. `COMMENT_MERGE_FOLDS_THREADS` exits 2: the caller must
+resolve the anchored-thread conflict before merging, rather than retry blind.

@@ -1,0 +1,67 @@
+fragment CommentActorFields on CommentActorRef { id name handle urn }
+fragment CommentFields on Comment {
+  id urn portalUrl threadRootId isTopLevel anchorRevision anchorApprovalHash anchorIsCurrent
+  quote body state retracted retractedAt hidden hiddenAt resolvedAt revSeq createdAt updatedAt
+  target { id urn name nodeType revSeq }
+  author { kind worker { ...CommentActorFields } user { ...CommentActorFields } agent { ...CommentActorFields } app { ...CommentActorFields } }
+  provenanceUser { ...CommentActorFields }
+  resolvedBy { ...CommentActorFields }
+}
+query CommentThreads($target: ID!, 
+ # @genqlient(omitempty: true)
+ $state: [CommentThreadState!],
+ $limit: Int!,
+ $offset: Int!
+) {
+ commentThreads(targetRef: $target, state: $state, limit: $limit, offset: $offset) {
+  total items { root { ...CommentFields } replies { ...CommentFields } replyCount }
+ }
+}
+query GetComment($ref: ID!
+) { comment(ref: $ref) { ...CommentFields } }
+mutation CreateComment($target: ID!,
+ $body: String!, 
+ # @genqlient(omitempty: true)
+ $quote: String,
+ # @genqlient(omitempty: true)
+ $anchor: Int
+) {
+ createComment(targetRef: $target, body: $body, quote: $quote, anchorRevision: $anchor) { ...CommentFields }
+}
+mutation ReplyToComment($ref: ID!,
+ $body: String!
+) {
+ replyToComment(commentRef: $ref, body: $body) { ...CommentFields }
+}
+mutation EditComment($ref: ID!, 
+ # @genqlient(omitempty: true)
+ $body: String,
+ # @genqlient(omitempty: true)
+ $quote: String,
+ $expected: Int!
+) {
+ editComment(commentRef: $ref, body: $body, quote: $quote, expectedRevision: $expected) { ...CommentFields }
+}
+mutation RetractComment($ref: ID!,
+ $expected: Int!
+) {
+ retractComment(commentRef: $ref, expectedRevision: $expected) { ...CommentFields }
+}
+mutation ResolveCommentThread($ref: ID!,
+ $expected: Int!
+) {
+ resolveCommentThread(commentRef: $ref, expectedRevision: $expected) { ...CommentFields }
+}
+mutation ReopenCommentThread($ref: ID!,
+ $expected: Int!
+) {
+ reopenCommentThread(commentRef: $ref, expectedRevision: $expected) { ...CommentFields }
+}
+
+# Optional diagnostic projection for node get; kept separate for older servers.
+query NodeCommentSummaries($refs: [ID!]!) {
+ nodeBatch(refs: $refs) {
+  truncated omitted unavailable
+  nodes { id commentSummary { openThreads resolvedThreads comments } }
+ }
+}

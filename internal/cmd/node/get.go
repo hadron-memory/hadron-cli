@@ -32,7 +32,7 @@ is rejected, since the same loc can exist in several memories.
 Pass SEVERAL refs to read them together. They are sent as one batched read —
 the server takes a URN as happily as an id, so nothing is resolved first — and a
 ref that is missing or unreadable is reported under "unavailable" rather than
-failing the whole read. Up to 200 nodes that is a single request; beyond the
+failing the whole read. Up to 200 nodes that is a single content request; beyond the
 server's cap the set is split into as few requests as the cap allows.
 
 --prefix <loc> -m <memory> reads a whole subtree — every node whose loc starts
@@ -45,6 +45,10 @@ With one ref the output is the node object, unchanged. With several refs, or
 with --prefix, it is {nodes, unavailable}. "unavailable" names refs that are
 missing OR not readable by you — the server reports those identically — and any
 unavailable ref exits 4, so a partial read is never mistaken for a complete one.
+
+Feedback counts are read separately as an optional advisory snapshot. The JSON
+commentSummary is null (text: unavailable) on older servers or failed reads,
+never a guessed zero. Feedback can change without advancing the target revision.
 
 A malformed ref is a different thing and fails the whole call with exit 2, so a
 typo never hides among the denials.
@@ -115,6 +119,7 @@ templates the two bodies are identical.`,
 				if err != nil {
 					return err
 				}
+				loadCommentSummaries(cmd.Context(), f, client, []*nodeDetailDTO{&dto})
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					return renderNodeDetail(w, dto)
 				})
@@ -147,6 +152,11 @@ templates the two bodies are identical.`,
 			if err != nil {
 				return err
 			}
+			ptrs := make([]*nodeDetailDTO, len(dto.Nodes))
+			for i := range dto.Nodes {
+				ptrs[i] = &dto.Nodes[i]
+			}
+			loadCommentSummaries(cmd.Context(), f, client, ptrs)
 			return emitNodeBatch(f, dto)
 		},
 	}
@@ -208,6 +218,11 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		fmt.Fprintf(w, "  revision: %d\n", *dto.Revision)
 	} else {
 		fmt.Fprintln(w, "  revision: unknown (the server predates node revisions)")
+	}
+	if dto.CommentSummary != nil {
+		fmt.Fprintf(w, "  feedback: %d comments; %d open threads; %d resolved threads\n", dto.CommentSummary.Comments, dto.CommentSummary.OpenThreads, dto.CommentSummary.ResolvedThreads)
+	} else {
+		fmt.Fprintln(w, "  feedback: unavailable")
 	}
 	renderStamps(w, "  ", dto.Authorship, dto.ContentValidation, "this revision")
 	renderApprovalStatus(w, "  ", dto.ApprovalStatus)
