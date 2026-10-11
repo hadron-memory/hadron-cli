@@ -16,7 +16,9 @@ type sessionKey struct{}
 // the bound worker's own read state), so it rides only on the operations that
 // ask for that, never every request a bound worktree makes. Chat reads use
 // explicit advanceReadState:false (#817/server#1628); only the post-delivery
-// mark may acknowledge what the CLI actually showed.
+// mark may acknowledge what the CLI actually showed. Authored node/edge
+// writes opt in through the command-local #821 hook; queries and maintenance
+// operations keep their existing contexts.
 // An empty id leaves ctx unchanged.
 func WithSession(ctx context.Context, sessionID string) context.Context {
 	if sessionID == "" {
