@@ -332,7 +332,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 	cmd.Flags().StringVar(&name, "name", "", "new node name")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `new content ("-" reads stdin)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read new content from a file")
-	cmd.Flags().StringVar(&nodeType, "type", "", "new node type")
+	cmd.Flags().StringVar(&nodeType, "type", "", "new node type (comments cannot be retyped; use hadron comment edit)")
 	cmd.Flags().StringVar(&objectType, "object-type", "", `new structured-storage collection (#725; "" clears → ordinary node; omit to preserve)`)
 	// NOT the same word as `memory member --role` / `memory share --role`, which
 	// are MEMBERSHIP roles on a person. This is Node.role — what the node is FOR

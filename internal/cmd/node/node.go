@@ -69,7 +69,14 @@ type nodeDTO struct {
 }
 
 // nodeDetailDTO extends the list shape for single-node output.
+type commentSummaryDTO struct {
+	OpenThreads     int `json:"openThreads"`
+	ResolvedThreads int `json:"resolvedThreads"`
+	Comments        int `json:"comments"`
+}
+
 type nodeDetailDTO struct {
+	CommentSummary *commentSummaryDTO `json:"commentSummary"`
 	nodeDTO
 	// Revision is the node's live revision (#1323, hadron-server#1339):
 	// creation is 1, and each committed authoring change advances it.

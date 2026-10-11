@@ -75,6 +75,19 @@ type ActionTicketsPage {
   total: Int!
 }
 
+"""
+#1610 — public identity of a Worker or Agent that wrote a node: never the full object, whose own read gate this does not pass.
+"""
+type ActorRef {
+  id: ID!
+  name: String!
+
+  """
+  The canonical hrn:worker:/hrn:agent: URN. Null when it cannot be composed.
+  """
+  urn: String
+}
+
 type AddMemoryMemberPayload {
   memoryMember: MemoryMember!
 }
@@ -98,7 +111,7 @@ type Agent {
   appAgents: [AppAgent!]!
 
   """
-  Adoption count. #551: the agent owning-org members' view (0 otherwise).
+  Adoption count. #551: the owning tenant's view (0 otherwise): the owning org's members, or for a user-owned agent its owner (#1693).
   """
   appCount: Int!
 
@@ -289,6 +302,249 @@ type AgentSubscription {
   revokedBy: ID
   user: User
   userId: ID!
+}
+
+"""
+One piece of work a team App has assigned, or wants assigned
+(cor:agt:050:01). The platform records who holds it, since when and how it
+ended; it never reads what the work is. Readable by the App's participants,
+workers acting through their sessions included (cor:agt:050:21).
+"""
+type AgentTask {
+  appId: ID!
+  assignedAt: DateTime
+  assignedBy: AgentTaskParty
+
+  """Null while the task is queued."""
+  assignee: AgentTaskParty
+  cancelledAt: DateTime
+
+  """
+  Whether finishing asks the assignee to end its worker session
+  (cor:agt:050:10). Set by whoever assigns; stored only in this release,
+  carried out by the host-operations slice.
+  """
+  closeSessionWhenDone: Boolean!
+  createdAt: DateTime!
+  createdBy: AgentTaskParty
+  description: String
+  finishedAt: DateTime
+  id: ID!
+  owner: AgentTaskParty!
+
+  """Null for a root task."""
+  parentTaskId: ID
+
+  """Derived (cor:agt:050:03): pending with no assignee. Never stored."""
+  queued: Boolean!
+  requirements: AgentTaskRequirements
+
+  """Set only on a finished task."""
+  result: AgentTaskResult
+
+  """Opaque origin reference (an issue URL, a node URN). Not interpreted."""
+  source: String
+  startBy: DateTime
+  startedAt: DateTime
+  status: AgentTaskStatus!
+  tags: [String!]!
+  title: String!
+  updatedAt: DateTime
+
+  """
+  Derived (cor:agt:050:04): started with at least one pending or started child task. Never stored.
+  """
+  waitingOnChildren: Boolean!
+}
+
+"""
+A task's owner, assignee or audit actor, as a sanitized projection: the
+Worker's name and URN, or the person's handle. Never the User object, so a
+task never exposes another person's account fields.
+"""
+type AgentTaskParty {
+  id: ID!
+  kind: AgentTaskPartyKind!
+
+  """The Worker's name, or the person's handle."""
+  name: String
+
+  """The Worker's URN; null for a person."""
+  urn: String
+}
+
+"""
+Names exactly one task party: a worker of the task's App (its id, URN or
+name), or a person who participates in the App (their user id or handle).
+"""
+input AgentTaskPartyInput {
+  user: String
+  worker: String
+}
+
+"""Whether a task party is a team Worker or a person."""
+enum AgentTaskPartyKind {
+  USER
+  WORKER
+}
+
+"""
+What the platform's matcher must respect when it chooses an assignee (plan design:agent-tasks section 3.1; consumed by T3).
+"""
+type AgentTaskRequirements {
+  excludeWorkerIds: [ID!]
+  familyIn: [String!]
+  familyNotIn: [String!]
+  role: String
+}
+
+input AgentTaskRequirementsInput {
+  """Workers of this App (id, URN or name) the matcher must not pick."""
+  excludeWorkers: [String!]
+
+  """
+  Model families the assignee must run as. Give this or familyNotIn, not both.
+  """
+  familyIn: [String!]
+  familyNotIn: [String!]
+  role: String
+}
+
+"""A finished task's result (cor:agt:050:01)."""
+type AgentTaskResult {
+  """A URL or a node URN."""
+  evidence: String
+
+  """One word: succeeded, failed, or a word the team chooses."""
+  outcome: String!
+  summary: String
+}
+
+input AgentTaskResultInput {
+  evidence: String
+
+  """
+  One word (letters, digits, underscore, hyphen or dot; up to 64 characters), e.g. succeeded or failed. It is copied into the event stream, which never holds free text.
+  """
+  outcome: String!
+  summary: String
+}
+
+"""
+#1706 — an App's effective stall windows, in minutes (cor:agt:050:14–:17).
+Tunables, not contract: the platform defaults are 15, 60, 20 and 30.
+"""
+type AgentTaskStallSchedule {
+  appId: ID!
+
+  """Couldn't be assigned (cor:agt:050:17)."""
+  assignmentMinutes: Int!
+
+  """No progress (cor:agt:050:15). Also the escalation step for that alarm."""
+  noProgressMinutes: Int!
+
+  """
+  Not started (cor:agt:050:14): counted from the assignment when the task has no later start-by time.
+  """
+  notStartedMinutes: Int!
+
+  """Owner didn't react to a finished child task (cor:agt:050:16)."""
+  ownerReactionMinutes: Int!
+
+  """
+  When the App last changed them; null while every window is the default.
+  """
+  updatedAt: DateTime
+}
+
+"""
+An omitted field keeps its value; null returns it to the platform default. Each is 1 to 10080 minutes.
+"""
+input AgentTaskStallScheduleInput {
+  assignmentMinutes: Int
+  noProgressMinutes: Int
+  notStartedMinutes: Int
+  ownerReactionMinutes: Int
+}
+
+"""
+An agent task's status (cor:agt:050:02). FINISHED and CANCELLED are the end states.
+"""
+enum AgentTaskStatus {
+  CANCELLED
+  FINISHED
+  PENDING
+  STARTED
+}
+
+"""
+#1706 — one owner in an alarm's chain, and when the alarm wakes them
+(cor:agt:050:19). The nearest owner is woken when the alarm is raised; owner
+i falls due i windows later, and is woken only while the alarm is
+unacknowledged (cor:agt:050:20). This is the platform's record that the owner
+is due a wake-up; delivering it is the heartbeat slice's.
+"""
+type AgentTeamAlarmSchedule {
+  """The owner's position in the chain, 0 for the nearest."""
+  chainIndex: Int!
+  dueAt: DateTime!
+  owner: AgentTaskParty
+
+  """
+  Null until woken; stays null on an alarm acknowledged before it fell due.
+  """
+  wokenAt: DateTime
+}
+
+"""
+One append-only record of something that happened in a team App's task work
+(cor:agt:050:11). Never changed or removed; an alarm's acknowledgement is the
+one thing added later. payload carries ids, counts and outcome words only,
+never message or description text.
+"""
+type AgentTeamEvent {
+  acknowledgedAt: DateTime
+  acknowledgedBy: AgentTaskParty
+
+  """
+  Who acted: the Worker when the request was bound to a worker session, else the person.
+  """
+  actor: AgentTaskParty
+  appId: ID!
+
+  """Alarms only: the owner chain when the alarm was raised, nearest first."""
+  chain: JSON
+  createdAt: DateTime!
+
+  """
+  #1706 — stall alarms only: when the stall episode began (cor:agt:050:13),
+  the instant of the move that began the condition. One alarm per task,
+  rule and episodeStart.
+  """
+  episodeStart: DateTime
+  id: ID!
+  payload: JSON!
+
+  """ALARM for an alarm; null for an ordinary event."""
+  severity: AgentTeamEventSeverity
+
+  """The worker the event concerns, e.g. a new assignee."""
+  subjectWorker: AgentTaskParty
+  taskId: ID
+
+  """
+  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable; availability.changed.
+  """
+  type: String!
+
+  """
+  #1706 — alarms only: who the alarm wakes and when, nearest owner first (cor:agt:050:19). Null for an ordinary event.
+  """
+  wakes: [AgentTeamAlarmSchedule!]
+}
+
+enum AgentTeamEventSeverity {
+  ALARM
 }
 
 enum AgentType {
@@ -619,6 +875,13 @@ type App {
   clients keep working; do not build new multi-Agent logic on it.
   """
   agentId: ID
+
+  """
+  Ruling DY-3: whether startAgentSession stamps a hard expiry by default.
+  False means this App's agent sessions have no hard expiry unless the call
+  passes sessionTimeoutSeconds (still capped by the App's ceiling).
+  """
+  agentSessionsExpire: Boolean!
   agentTools: [String!]!
 
   """
@@ -680,6 +943,14 @@ type App {
   """
   policy: JSON
   role: AppMembershipRole!
+
+  """
+  Ruling DY-5: days without activity after which a lapsed worker session of
+  this App is DORMANT. No agent act (post, read, mark-read) resumes a dormant
+  session; only an explicit rebind by its human holder brings the worker
+  back, and the router stops routing it. Default 90.
+  """
+  sessionDormancyDays: Int!
   sessionTimeoutSeconds: Int!
 
   """
@@ -1007,6 +1278,11 @@ type ApproveMemoryNodesResult {
 
   """Locs of reserved placeholders, which have no spec to approve yet."""
   skippedPlaceholders: [String!]!
+
+  """
+  #1607 — unminted nodes of this memory with open discussion: a warning, never a blocker (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Ordered by loc.
+  """
+  unresolvedFeedback: [UnresolvedFeedback!]!
 }
 
 type AppsPage {
@@ -1175,6 +1451,41 @@ type AuthContext {
   hdr_user_ key), null for App keys.
   """
   user: User
+}
+
+"""
+Why a worker or a model family is unavailable for work (cor:agt:060:02; held was dropped, team chat #7449).
+"""
+enum AvailabilityReason {
+  HOST_DOWN
+  OTHER
+  OUT_OF_TOKENS
+  STALLED
+}
+
+"""Who set a worker's availability (cor:agt:060:08)."""
+enum AvailabilitySetter {
+  """Whoever manages the App."""
+  APP_MANAGER
+
+  """The person holding the worker's name."""
+  HOLDER
+
+  """A host that registered the worker (the host-operations slice)."""
+  HOST
+
+  """
+  The stall rule (cor:agt:060:07): an alarm marked it, or its next activity cleared it.
+  """
+  STALL_RULE
+
+  """The worker itself; only ever to unavailable."""
+  WORKER
+}
+
+enum AvailabilityState {
+  AVAILABLE
+  UNAVAILABLE
 }
 
 input BeginAssetUploadInput {
@@ -1509,6 +1820,173 @@ type ChatStartResult {
   tools: JSON
 }
 
+"""
+#1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
+`comment` in its target's memory, readable by exactly who can read that
+memory. It is never part of its target's content, never approved or minted,
+and never authoritative.
+"""
+type Comment {
+  """
+  The approval hash of the target's title/abstract/content at anchorRevision: 64 lowercase hex.
+  """
+  anchorApprovalHash: String!
+
+  """
+  anchorRevision equals the target's current revision. When false, show the comment as about an older revision (hrn:node:hadronmemory.com:specs:cor:dmo:110:01).
+  """
+  anchorIsCurrent: Boolean!
+
+  """
+  The target revision the thread was written against (replies inherit their thread's).
+  """
+  anchorRevision: Int!
+  author: CommentAuthor!
+
+  """Null when retracted or hidden: the stub shows the state, not the text."""
+  body: String
+  createdAt: DateTime!
+  hidden: Boolean!
+  hiddenAt: DateTime
+  id: ID!
+  isTopLevel: Boolean!
+
+  """The portal page of the comment node; null when FRONTEND_URL is unset."""
+  portalUrl: String
+
+  """
+  Worker comments only: the user who bound the worker session, shown as provenance, never as author. Null for other comments, and for callers who cannot write the memory.
+  """
+  provenanceUser: CommentActorRef
+
+  """Null when retracted or hidden."""
+  quote: String
+  resolvedAt: DateTime
+  resolvedBy: CommentActorRef
+  retracted: Boolean!
+  retractedAt: DateTime
+
+  """
+  The comment's own revision. Pass it as expectedRevision to edit, retract, resolve, reopen or hide.
+  """
+  revSeq: Int!
+
+  """Top-level only; null for a reply."""
+  state: CommentThreadState
+  target: CommentTargetRef!
+
+  """Null for a top-level comment; else the thread's top-level comment."""
+  threadRootId: ID
+  updatedAt: DateTime
+  urn: String!
+
+  """
+  Whether the caller is this comment's author (the edit/retract right). Computed with the same author key the server enforces.
+  """
+  viewerIsAuthor: Boolean!
+}
+
+"""
+#1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
+"""
+type CommentActorRef {
+  """Users only."""
+  handle: String
+  id: ID!
+  name: String
+
+  """Workers, agents and Apps: the canonical URN, when it can be composed."""
+  urn: String
+}
+
+"""#1606 — a comment's author. Exactly the refs its kind names are set."""
+type CommentAuthor {
+  """USER_AGENT only."""
+  agent: CommentActorRef
+
+  """APP."""
+  app: CommentActorRef
+  kind: CommentAuthorKind!
+
+  """USER and USER_AGENT."""
+  user: CommentActorRef
+
+  """WORKER."""
+  worker: CommentActorRef
+}
+
+"""
+#1606 — who a comment is from (hrn:node:hadronmemory.com:specs:cor:dmo:110:03).
+"""
+enum CommentAuthorKind {
+  """An App key with no user."""
+  APP
+
+  """A user wrote it directly."""
+  USER
+
+  """An unnamed agent wrote it on a user's behalf (a token or a run)."""
+  USER_AGENT
+
+  """
+  A named worker wrote it; the user who bound the session is provenance only.
+  """
+  WORKER
+}
+
+"""
+#1606 — the trust cue (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Counts live threads; zeros on a memory that cannot hold comments.
+"""
+type CommentSummary {
+  """
+  Every live comment, top-level and replies, retracted and hidden stubs included.
+  """
+  comments: Int!
+  openThreads: Int!
+  resolvedThreads: Int!
+
+  """
+  The caller's own open, live top-level thread on this node, if any: one per author (hrn:node:hadronmemory.com:specs:cor:dmo:110:05).
+  """
+  viewerOpenThreadId: ID
+}
+
+"""
+#1606 — the node a comment concerns. Same memory as the comment, so the same read gate.
+"""
+type CommentTargetRef {
+  id: ID!
+  name: String!
+  nodeType: String!
+
+  """The target's current revision (Node.revision)."""
+  revSeq: Int!
+  urn: String!
+}
+
+type CommentThread {
+  """Oldest first; at most the first 200."""
+  replies: [Comment!]!
+
+  """Every live reply, including any beyond the returned 200."""
+  replyCount: Int!
+  root: Comment!
+}
+
+type CommentThreadPage {
+  """Newest thread first."""
+  items: [CommentThread!]!
+  total: Int!
+}
+
+"""
+#1606 — a comment thread's state (hrn:node:hadronmemory.com:specs:cor:dmo:110:05). Top-level comments only.
+"""
+enum CommentThreadState {
+  OPEN
+  RESOLVED
+}
+
 input CompleteAssetUploadInput {
   uploadId: ID!
 }
@@ -1604,6 +2082,37 @@ input CreateAgentScheduleInput {
   """
   scopeRef: ID
   timezone: String
+}
+
+"""
+createAgentTask input. A ROOT task names appRef; any App participant may
+create one (cor:agt:050:06). A CHILD task names parentTaskId; only the
+parent's assignee may create one, and it owns it (cor:agt:050:07).
+"""
+input CreateAgentTaskInput {
+  """
+  The team App (id or URN). Required for a root task; for a child task it is taken from the parent and, if given, must match.
+  """
+  appRef: ID
+
+  """Omit to leave the task queued."""
+  assignee: AgentTaskPartyInput
+
+  """Defaults to true (cor:agt:050:10)."""
+  closeSessionWhenDone: Boolean
+  description: String
+
+  """
+  Defaults to the creator. Naming someone else is accepted only from whoever
+  manages the App, and never for a child task (TASK_CHILD_OWNER_MISMATCH).
+  """
+  owner: AgentTaskPartyInput
+  parentTaskId: ID
+  requirements: AgentTaskRequirementsInput
+  source: String
+  startBy: DateTime
+  tags: [String!]
+  title: String!
 }
 
 input CreateAgentWebhookInput {
@@ -2425,6 +2934,11 @@ type GraphNode {
 
   """Non-null — mirrors Node.nodeType (NOT NULL, defaults to 'info')."""
   nodeType: String!
+
+  """
+  #1606 — how many open discussion threads this node has: the node-list trust cue (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Batched per request.
+  """
+  openThreads: Int!
 
   """
   Sibling sort order in the tree view (nullable; #513). Small scalar — kept in the slim projection.
@@ -3521,8 +4035,36 @@ input MintActionTicketsInput {
   orgRef: String!
 }
 
+"""
+#1706 — one model family's availability for work in one App (cor:agt:060:03). A family with no record is available.
+"""
+type ModelFamilyAvailability {
+  appId: ID!
+
+  """The model family, e.g. claude or codex (cor:agt:060:04)."""
+  family: String!
+
+  """Unavailable and not lapsed."""
+  inEffect: Boolean!
+  reason: AvailabilityReason
+  setAt: DateTime!
+  setBy: AgentTaskParty
+  state: AvailabilityState!
+  until: DateTime
+}
+
 type Mutation {
   acceptInvitation(slug: String!): Boolean!
+
+  """
+  #1706 — acknowledge an alarm (cor:agt:050:20): it stops waking higher
+  owners; the stall episode goes on until the task moves. Any owner in the
+  alarm's chain, and nobody else (Proposed); the time is the server's.
+  Refusals: ALARM_NOT_FOUND (also for an App you do not participate in),
+  NOT_AN_ALARM, ALARM_NOT_IN_CHAIN, ALARM_ALREADY_ACKNOWLEDGED (the first
+  stands), SESSION_NOT_BOUND, APP_UNINSTALLED.
+  """
+  acknowledgeAlarm(eventId: ID!): AgentTeamEvent!
 
   """
   Acquire (or renew) the editor lock for an Agent's system memory.
@@ -3646,6 +4188,15 @@ type Mutation {
   approveNode(nodeRef: ID!, revision: Int): NodeApprovalReceipt!
 
   """
+  #1705 — assign a queued task (pending, no assignee): the task's owner or
+  whoever manages the App (cor:agt:050:09). closeSessionWhenDone, when
+  given, replaces the task's value. Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
+  TASK_ENDED, TASK_INVALID_TRANSITION (already assigned: use
+  reassignAgentTask), TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
+  """
+  assignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, taskId: ID!): AgentTask!
+
+  """
   Attach an EXISTING free-standing memory to an App.
   
   Applies only to 'personal'/'private' memories owned by the caller (an
@@ -3701,6 +4252,13 @@ type Mutation {
   calendarUpdateEvent(attendees: [String!], calendarId: String, connectionRef: ID!, description: String, end: CalendarEventTimeInput, eventId: ID!, idempotencyKey: String, location: String, notifyAttendees: Boolean, start: CalendarEventTimeInput, title: String): CalendarEvent!
 
   """
+  #1705 — cancel a pending or started task: its owner, or whoever manages
+  the App (cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
+  TASK_ENDED, SESSION_NOT_BOUND, APP_UNINSTALLED.
+  """
+  cancelAgentTask(taskId: ID!): AgentTask!
+
+  """
   The kill switch manual handle: PENDING/RUNNING to CANCELLED (cor:agt:010:02).
   """
   cancelAppRun(id: ID!): AppRun!
@@ -3727,6 +4285,10 @@ type Mutation {
   identifier nobody picked. The workers_app_name_uniq constraint IS the
   arbiter. Names are unique per App, case-insensitively, FOREVER (two Apps
   may each have an Iris; retirement and uninstall never free a name).
+  #1677: NFKC-normalized Unicode 16 UTS #39 skeletons (original-case and
+  caseless) must also be distinct within the App, including retired workers. A collision refuses
+  WORKER_NAME_CONFUSABLE and names the existing worker; the chosen display
+  spelling is preserved. Existing workers are not renamed or invalidated.
   
   A worker-scoped working memory is provisioned in the App's container
   (Worker.memoryId; best-effort — a failed provision leaves it null for
@@ -3736,7 +4298,7 @@ type Mutation {
   AppMember of the App whose role is not 'reader', or the owner of a
   user-owned App. Pure App-key principals are denied.
   
-  Error codes (extensions.code): WORKER_NAME_TAKEN,
+  Error codes (extensions.code): WORKER_NAME_TAKEN, WORKER_NAME_CONFUSABLE,
   WORKER_NAME_REQUIRED, WORKER_AGENT_NOT_INSTALLED,
   WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS, APP_UNINSTALLED.
   
@@ -3856,6 +4418,22 @@ type Mutation {
   """
   createAgentOrgGrant(agentRef: ID!, orgRef: ID!): AgentOrgGrant!
   createAgentSchedule(input: CreateAgentScheduleInput!): AgentSchedule!
+
+  """
+  #1705 — create an agent task (cor:agt:050:06 root, :07 child). Writes
+  task.created, and task.assigned when an assignee is named. A worker acts
+  through its session (X-Hadron-Session); a person acts as themselves.
+  Typed refusals: TASK_NOT_FOUND (a parent the caller cannot read, or in
+  another App), TASK_NOT_ASSIGNEE, TASK_ENDED, TASK_CHILD_OWNER_MISMATCH,
+  TASK_NOT_OWNER (another owner named by someone who does not manage the
+  App), TASK_OWNER_INVALID, TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND,
+  APP_NOT_FOUND (an App that does not exist or that you do not participate
+  in, alike), APP_UNINSTALLED, FORBIDDEN (impersonation), BAD_USER_INPUT.
+  "Whoever manages the App" is strict (cor:acl:010:01): a user-owned App's
+  owner, or the org's ADMINs and OWNERs. Every write re-checks the caller's
+  participation and the App's state inside its transaction.
+  """
+  createAgentTask(input: CreateAgentTaskInput!): AgentTask!
 
   """
   Create a webhook trigger — returns the URL path + platform token ONCE (D-2026-05-02).
@@ -4010,6 +4588,18 @@ type Mutation {
   but not post into is FORBIDDEN.
   """
   createChannelMessage(body: String!, channelRef: ID!, replyToSeq: Int, sessionRef: ID): TeamChatMessage!
+
+  """
+  #1606 — start a thread on a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). Needs write access to the
+  target's memory. anchorRevision defaults to the target's current revision;
+  an older one anchors there while its text is still retained. The anchor
+  hash is computed by the server. Typed refusals: COMMENT_TARGET_NOT_FOUND,
+  COMMENT_FORBIDDEN, COMMENT_TARGET_IS_COMMENT, COMMENT_MEMORY_NOT_COMMENTABLE,
+  COMMENT_OPEN_THREAD_EXISTS, COMMENT_ANCHOR_REVISION_INVALID,
+  COMMENT_ANCHOR_REVISION_UNAVAILABLE, COMMENT_BODY_INVALID,
+  COMMENT_IMPERSONATION_REFUSED.
+  """
+  createComment(anchorRevision: Int, body: String!, quote: String, targetRef: ID!): Comment!
 
   """
   Grant an App install scoped access to a connection you OWN. scopes must be a
@@ -4489,6 +5079,11 @@ type Mutation {
   deleteChat(chatId: String!): Boolean!
 
   """
+  #1606 — a memory admin deletes a whole thread (soft: gone from every read, limit and check; history kept). commentRef may be any comment of it.
+  """
+  deleteCommentThread(commentRef: ID!, reason: String!): Boolean!
+
+  """
   #806 — delete one of the caller's presets. Placements already seeded from it
   keep their config (apply copies; there is no live link). A preset the caller
   does not own is indistinguishable from one that does not exist (NOT_FOUND).
@@ -4710,6 +5305,11 @@ type Mutation {
   """
   deleteWorker(workerRef: ID!): Boolean!
 
+  """
+  #1606 — the author edits a comment's body and/or quote. COMMENT_NOT_AUTHOR otherwise.
+  """
+  editComment(body: String, commentRef: ID!, expectedRevision: Int!, quote: String): Comment!
+
   """Set the categories (color labels) on a message. Owner-only."""
   emailCategorizeMessage(categories: [String!]!, connectionRef: ID!, messageId: ID!): Boolean!
 
@@ -4874,9 +5474,19 @@ type Mutation {
   extractParentNodeToMemory(move: Boolean = false, parentRef: ID!, targetUrn: String!): Memory!
 
   """
+  #1705 — finish a started task with its result: its assignee only
+  (cor:agt:050:08). A pending task is refused: start it first. Refusals as
+  startAgentTask, plus BAD_USER_INPUT for an outcome that is not one word.
+  """
+  finishAgentTask(result: AgentTaskResultInput!, taskId: ID!): AgentTask!
+
+  """
   Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN ONLY (self-grant risk); processor top-ups land here later.
   """
   grantCredits(input: GrantCreditsInput!): CreditLedgerEntry!
+
+  """#1606 — a memory admin hides an abusive comment, leaving a stub."""
+  hideComment(commentRef: ID!, expectedRevision: Int!, reason: String!): Comment!
 
   """
   Import external content into a node (#457, sync v1). Source: exactly one
@@ -4998,7 +5608,26 @@ type Mutation {
   selects which fields); source nodes with no counterpart move over with
   their loc unchanged. Edges follow. The source memory ends up empty;
   'deleteSourceMem: true' then deletes it. v1 rejects encrypted source or
-  target memories and system/app classes.
+  target memories and system/app classes. An address the merge would move
+  a node or a carried comment into, but which the target holds with a
+  SOFT-DELETED node, refuses MERGE_TARGET_LOC_TOMBSTONED (the tombstone
+  still owns the address; up to 25 locs named, with the full count). A
+  tombstone present when the merge starts refuses before any batch commits;
+  one that appears mid-merge refuses the batch it hits, and batches already
+  committed stay committed (re-running completes the merge). Hard-delete the
+  tombstone, or recreate a node there so it folds, then re-run.
+  
+  The merge commits in batches, and is resumable. A refusal raised after
+  some batches committed (#1686) says so: it carries
+  extensions.partialMerge { applied, relocated, folded, edgesMoved,
+  edgesDropped, remainingSourceNodes, sourceIntact, remedy } and keeps its
+  own code, or is MERGE_PARTIALLY_APPLIED (with causeCode) when the cause
+  was untyped. The source memory is never deleted by a refused merge;
+  resolve the blocker and re-run the same merge to finish it. A failure
+  after the merge completed (re-indexing or reading back the target)
+  carries partialMerge too, with remainingSourceNodes 0 and sourceIntact
+  false when deleteSourceMem had removed the source. A refusal with no
+  partialMerge applied nothing.
   """
   mergeMemories(input: MergeMemoriesInput!): Memory!
 
@@ -5018,8 +5647,13 @@ type Mutation {
   Consolidate a duplicate account into a surviving user. Source-only
   identities and relationships move; duplicate role-bearing relationships
   preserve the strongest live entitlement. The source is soft-deleted.
-  Platform admin, or an org admin/owner when both users are live members
-  of an organization they administer. The resulting merge is global.
+  Platform admin only. The resulting merge is global; organization
+  administration does not authorize account consolidation.
+  Refused with MERGE_USER_IN_OPEN_ALARMS (extension alarmCount; never the
+  alarms, tasks or Apps, which the caller may not be able to read) while
+  either account is named in the owner chain of an unacknowledged agent-task
+  alarm, whose sealed chain cannot follow a merge yet (#1715). Acknowledge
+  the alarms, then merge.
   """
   mergeUsers(input: MergeUsersInput!): User!
 
@@ -5098,6 +5732,21 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   pushMemoryToGit(id: ID!): Boolean!
+
+  """
+  #1705 — move a task to another assignee: the task's owner, or whoever
+  manages the App (cor:agt:050:09). A started task stays started; the former
+  assignee can no longer move it. Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
+  TASK_ENDED, TASK_INVALID_TRANSITION (no assignee yet, or the same one),
+  TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
+  """
+  reassignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, taskId: ID!): AgentTask!
+
+  """
+  #1705 — record progress on a started task: its assignee only
+  (cor:agt:050:08). Carries no text. Refusals as startAgentTask.
+  """
+  recordAgentTaskProgress(taskId: ID!): AgentTask!
 
   """
   Record an externally visible work milestone into the team App's worklog
@@ -5317,6 +5966,11 @@ type Mutation {
   renumberSpec(dryRun: Boolean, fromLoc: String!, memoryRef: ID!, toLoc: String!): SpecRenumberResult!
 
   """
+  #1606 — reopen a resolved thread: its author or any writer of the memory.
+  """
+  reopenCommentThread(commentRef: ID!, expectedRevision: Int!): Comment!
+
+  """
   #949 — re-own an Agent's class=system memory to the Agent's own owner
   (org XOR user) and re-derive its URN as '<agent-urn>-system'.
   
@@ -5346,6 +6000,11 @@ type Mutation {
   replaceSubtree(edges: [EdgeInput!]!, memoryId: String!, nodes: [NodeInput!]!, ownerRepo: String!): Int! @deprecated(reason: "Retired (#454): every authorized call refuses with REPLACE_SUBTREE_RETIRED and writes nothing. Use the canonical node write mutations.")
 
   """
+  #1606 — reply in a thread; commentRef may be any comment of it. Allowed on a resolved thread, which stays resolved (Holger, DAB).
+  """
+  replyToComment(body: String!, commentRef: ID!): Comment!
+
+  """
   #1450 — reserve a citation as a placeholder, in any memory since #1591: an
   unminted spec node at loc (role spec, nodeType info) marked isPlaceholder,
   so links can point at it and the placeholders left are the corpus's to-do
@@ -5354,6 +6013,11 @@ type Mutation {
   NodeLocConflictError at a live loc. memoryRef accepts the memory's ID or URN.
   """
   reserveSpecCitation(loc: String!, memoryRef: ID!, name: String): Node!
+
+  """
+  #1606 — resolve a thread: its author or any writer of the memory. commentRef is the top-level comment; returns it.
+  """
+  resolveCommentThread(commentRef: ID!, expectedRevision: Int!): Comment!
   restoreAsset(assetId: ID!): Asset!
 
   """
@@ -5390,6 +6054,11 @@ type Mutation {
   or its URN (#991).
   """
   retireWorker(workerRef: ID!): Worker!
+
+  """
+  #1606 — the author retracts a comment, leaving a stub (hrn:node:hadronmemory.com:specs:cor:dmo:110:05).
+  """
+  retractComment(commentRef: ID!, expectedRevision: Int!): Comment!
 
   """
   #882 — re-drive every FAILED embed in a memory (the operator recovery
@@ -5507,6 +6176,13 @@ type Mutation {
   setAgentAssetUploadEnabled(input: SetAgentAssetUploadEnabledInput!): App!
 
   """
+  #1706 — set an App's stall windows: whoever manages the App. Refusals:
+  APP_NOT_FOUND, APP_MANAGER_REQUIRED, BAD_USER_INPUT, SESSION_NOT_BOUND,
+  APP_UNINSTALLED.
+  """
+  setAgentTaskStallSchedule(appRef: ID!, input: AgentTaskStallScheduleInput!): AgentTaskStallSchedule!
+
+  """
   Append an effective-dated provider rate row (spec 046). PLATFORM ADMIN - org admins must never set the prices they are billed at.
   """
   setAiModelPrice(input: SetAiModelPriceInput!): AiModelPrice!
@@ -5527,9 +6203,26 @@ type Mutation {
   setMemorySourceToken(expiresAt: String, id: ID!, token: String!): Memory!
 
   """
+  #1706 — set a model family's availability for work in an App
+  (cor:agt:060:09): whoever manages the App only. Writes availability.changed.
+  Refusals: APP_NOT_FOUND, AVAILABILITY_NOT_PERMITTED, BAD_USER_INPUT,
+  SESSION_NOT_BOUND, APP_UNINSTALLED.
+  """
+  setModelFamilyAvailability(input: SetModelFamilyAvailabilityInput!): ModelFamilyAvailability!
+
+  """
   Set the stored (enforced) quota limit for a scope x action (#510) - the operator dial that previously required psql. Org-ADMIN.
   """
   setQuotaLimit(input: SetQuotaLimitInput!): QuotaCounter!
+
+  """
+  #1706 — set a worker's availability for work (cor:agt:060:08): the worker
+  itself, acting through its session, and only to UNAVAILABLE; the person
+  holding its name; or whoever manages the App. Writes availability.changed.
+  Refusals: WORKER_NOT_FOUND, AVAILABILITY_NOT_PERMITTED, WORKER_RETIRED,
+  BAD_USER_INPUT, SESSION_NOT_BOUND, APP_UNINSTALLED.
+  """
+  setWorkerAvailability(input: SetWorkerAvailabilityInput!): WorkerAvailability!
   softDeleteAsset(assetId: ID!): Asset!
 
   """
@@ -5540,6 +6233,13 @@ type Mutation {
   (or will become) encrypted.
   """
   startAgentSession(agentId: ID!, dataKey: String, externalUserId: String, sessionTimeoutSeconds: Int): Session!
+
+  """
+  #1705 — start a pending task: its assignee only (cor:agt:050:08).
+  Refusals: TASK_NOT_FOUND, TASK_NOT_ASSIGNEE, TASK_ENDED,
+  TASK_INVALID_TRANSITION, SESSION_NOT_BOUND, APP_UNINSTALLED.
+  """
+  startAgentTask(taskId: ID!): AgentTask!
 
   """
   Start an AGENT CHAT (creates chat nodes, loads conversation, returns
@@ -5727,6 +6427,8 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   updateApp(
+    """Ruling DY-3: see App.agentSessionsExpire."""
+    agentSessionsExpire: Boolean
     agentTools: [String!]
 
     """
@@ -5744,6 +6446,11 @@ type Mutation {
     name: String
     ref: ID!
     role: AppMembershipRole
+
+    """
+    Ruling DY-5: the dormancy threshold in days (a positive integer). See App.sessionDormancyDays.
+    """
+    sessionDormancyDays: Int
     sessionTimeoutSeconds: Int
     surfaces: [String!]
     systemPrompt: String
@@ -6176,6 +6883,11 @@ type Node {
   approvalStatus: NodeApprovalStatus!
 
   """
+  #1608 — this node AS a comment (author, target, anchor revision, thread) when its nodeType is 'comment'; null for content. Lets a search hit render as feedback, never as content of its target (hrn:node:hadronmemory.com:specs:cor:dmo:110:08).
+  """
+  asComment: Comment
+
+  """
   The asset this node references, for a reference node created by
   createAssetReferenceNode or hadron_store_file (its data.asset
   points at one). Null for every ordinary node.
@@ -6192,6 +6904,11 @@ type Node {
   #1326 — attribution of this content state. Null means legacy or unknown. Task identity is redacted unless its memory is independently readable.
   """
   authorship: NodeAuthorship
+
+  """
+  #1606 — open and resolved discussion on this node (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Batched per request.
+  """
+  commentSummary: CommentSummary!
   content: String
 
   """
@@ -6199,6 +6916,16 @@ type Node {
   """
   contentValidation: NodeContentValidationStatus!
   createdAt: DateTime!
+
+  """
+  #1610 — the Agent behind this node's creation: a worker's role agent, an agent session, or a headless App run. Null when no agent was behind it.
+  """
+  createdByAgent: ActorRef
+
+  """
+  #1610 — the Worker that created this node, when it was written in a worker session. The user is createdBy. Null for a write with no worker behind it, and for nodes written before #1610.
+  """
+  createdByWorker: ActorRef
   data: JSON
   description: String
 
@@ -6341,6 +7068,16 @@ type Node {
   updatedAt: DateTime!
 
   """
+  #1610 — the Agent behind the last authored edit; cleared like updatedByWorker.
+  """
+  updatedByAgent: ActorRef
+
+  """
+  #1610 — the Worker behind the last authored edit. A later authored edit with no worker behind it clears it, so it always describes the last authored edit (not the updatedAt clock, which operational writes also advance).
+  """
+  updatedByWorker: ActorRef
+
+  """
   Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
   """
   urn: String!
@@ -6425,6 +7162,24 @@ type NodeBatchResult {
   omitted: [ID!]!
   truncated: Boolean!
   unavailable: [ID!]!
+}
+
+"""
+#1608 — which kinds of node a search or list returns (hrn:node:hadronmemory.com:specs:cor:dmo:110:08).
+"""
+enum NodeContentScope {
+  """
+  Content and comments; every comment hit is still a comment (see Node.asComment).
+  """
+  ALL
+
+  """
+  Comments only, never content: feedback, not verified fact about its target.
+  """
+  COMMENTS
+
+  """Content only, never comments. The default."""
+  CONTENT
 }
 
 enum NodeContentValidationOutcome {
@@ -6543,6 +7298,14 @@ input NodeFilter {
   #1591 — only nodes in this approval state (read from the stored revision; a node changed outside a revisioned writer is reconciled on its next read).
   """
   approvalState: NodeApprovalState
+
+  """
+  #1608 — content, comments or both (hrn:node:hadronmemory.com:specs:cor:dmo:110:08).
+  Default CONTENT. Applied by the server before ranking, pagination and
+  limits in every mode (keyword, regex, vector, hybrid and filter-only), so a
+  COMMENTS search finds every matching comment the caller may read.
+  """
+  contentScope: NodeContentScope
   createdBy: String
 
   """Include soft-deleted nodes (default false)."""
@@ -6562,6 +7325,10 @@ input NodeFilter {
 
   """#1591 — only minted (true) or unminted (false) nodes."""
   minted: Boolean
+
+  """
+  An explicit 'comment' with no contentScope searches comments (as COMMENTS).
+  """
   nodeType: String
 
   """
@@ -6839,6 +7606,9 @@ type NodeRevision {
   """
   editedBy: String
 
+  """#1610 — the Agent behind the edit this snapshot records."""
+  editedByAgent: ActorRef
+
   """
   What is known about the editor when no User id is available (#620):
   'github:<login>' / 'email:<addr>' / 'user:<id>' identity strings, or
@@ -6855,6 +7625,11 @@ type NodeRevision {
   identifiers only (#617).
   """
   editedByUser: NodeRevisionEditor
+
+  """
+  #1610 — the Worker behind the edit this snapshot records, beside editedBy (the user).
+  """
+  editedByWorker: ActorRef
   id: ID!
   isLink: Boolean
   isRunnable: Boolean
@@ -7344,6 +8119,55 @@ type Query {
   Accepts the entity's ID or URN.
   """
   agentSubscriptions(agentRef: ID!): [AgentSubscription!]!
+
+  """
+  #1705 — one agent task, or null when it does not exist or the caller may
+  not read it (no existence oracle). Readers: the App's participants, workers
+  acting through their sessions included (cor:agt:050:21).
+  """
+  agentTask(id: ID!): AgentTask
+
+  """
+  #1706 — an App's effective stall windows (cor:agt:050:14–:17). Readers:
+  the App's task audience (cor:agt:050:21).
+  """
+  agentTaskStallSchedule(appRef: ID!): AgentTaskStallSchedule!
+
+  """
+  #1705 — a task and every task below it, the root first, then by depth and
+  creation. Null when the root is missing or unreadable. Bounded at 1000 rows.
+  """
+  agentTaskTree(root: ID!): [AgentTask!]
+
+  """
+  #1705 — a team App's agent tasks, newest first. Filters combine with AND;
+  owner / assignee name a party of the App (a ref naming nobody matches
+  nothing). queued: pending with no assignee. limit defaults to 50 (cap 200).
+  Readers: the App's participants (cor:agt:050:21); a pure App key is refused.
+  An App you do not participate in answers APP_NOT_FOUND, exactly like an
+  absent one.
+  """
+  agentTasks(appRef: ID!, assignee: AgentTaskPartyInput, limit: Int, offset: Int, owner: AgentTaskPartyInput, parentTaskId: ID, queued: Boolean, rootsOnly: Boolean, status: [AgentTaskStatus!], tag: String): [AgentTask!]!
+
+  """
+  #1705 — a team App's event stream (cor:agt:050:11), in (createdAt, id)
+  order. To read the next page pass after: the id of the last event you
+  read; the cursor is the (createdAt, id) pair, so events sharing a
+  timestamp are never skipped. since is a coarse time filter (strictly
+  after), not a continuation. limit defaults to 50 (cap 200).
+  """
+  agentTeamEvents(
+    """
+    The id of the last event read: the page continues strictly after it. An id that is not an event of this App is refused BAD_USER_INPUT.
+    """
+    after: ID
+    alarmsOnly: Boolean
+    appRef: ID!
+    limit: Int
+    since: DateTime
+    taskId: ID
+    types: [String!]
+  ): [AgentTeamEvent!]!
   agentWebhooks(appRef: String!, limit: Int, offset: Int): AgentWebhooksPage!
 
   """
@@ -7552,7 +8376,8 @@ type Query {
   """
   Dry-run castWorker (#964): run the cast's exact resolution — same
   arguments, same typed refusals (WORKER_AGENT_NOT_FOUND / _AMBIGUOUS /
-  _NOT_INSTALLED, WORKER_NAME_REQUIRED, WORKER_NAME_TAKEN, APP_UNINSTALLED),
+  _NOT_INSTALLED, WORKER_NAME_REQUIRED, WORKER_NAME_TAKEN,
+  WORKER_NAME_CONFUSABLE, APP_UNINSTALLED),
   same MINT gate — up to but not
   including the writes, and return what would be created. A Query, not a
   dryRun flag: casting a name is the one irreversible act in the team
@@ -7633,6 +8458,14 @@ type Query {
       so paging can skip the sibling. See #992 for the underlying gap.
   """
   chatHistory(beforeSeq: Int, chatId: String!, limit: Int): [ChatMessage!]!
+
+  """#1606 — one comment by ID or URN; null when missing or unreadable."""
+  comment(ref: ID!): Comment
+
+  """
+  #1606 — the discussion on a node (ID or URN), newest thread first. Read-gated on the node's memory; an unreadable or missing node is COMMENT_TARGET_NOT_FOUND.
+  """
+  commentThreads(limit: Int = 50, offset: Int = 0, state: [CommentThreadState!], targetRef: ID!): CommentThreadPage!
 
   """
   One connection grant the caller created, by ID; null if not theirs (no existence oracle).
@@ -8543,11 +9376,15 @@ type Query {
   """
   Sessions VISIBLE to the caller, newest first — not only the caller's own.
   The scope is authorization-derived (`sessionScopeFilter`): a platform
-  ADMIN/OWNER sees every session, an App key sees its own App's, and an
+  ADMIN/OWNER sees sessions in its audience, an App key sees its own App's, and an
   ordinary user sees those of Apps in any org they belong to **plus** every
-  session attributed to them (the self branch is identity-scoped, so it does
+  session of their user-owned Apps and every session attributed to them
+  (these identity-scoped branches do
   not apply through impersonation). So a client must not present these as "my
   activity" — many rows may be attributed to other users or Apps.
+  Sessions bound to personal/private memories additionally require that
+  memory's strict owner, with no admin or impersonation override. A pure App
+  key may also read only the session it is itself bound to.
   
   Unfiltered, this is also the GENERAL row of every `type`, worker-bound or
   not (#1034), so it is equally not a list of worker sessions.
@@ -8644,6 +9481,13 @@ type Query {
   teamAttentionSwitchoverPreview(appRef: ID!): TeamAttentionSwitchoverPreview!
 
   """
+  #1706 — every worker and model-family availability record in an App
+  (cor:agt:060:02 / :03), each with whether it is in effect now. Readers: the
+  App's task audience (interim until cor:agt:060:02's read question is ruled).
+  """
+  teamAvailability(appRef: ID!): TeamAvailability!
+
+  """
   Read a team App's chat (#939), seq-ordered ascending, as a uniform
   { items, total } page. sinceSeq is a watermark cursor: only messages with
   seq STRICTLY GREATER than it are returned (pass the last seq you have
@@ -8707,6 +9551,11 @@ type Query {
   system memory without an active session key refuses SESSION_EXPIRED.
   """
   teamRoles(appRef: ID!, limit: Int, offset: Int, teamAgentRef: ID): TeamRolesPage!
+
+  """
+  Declarative team JSON Schema (2020-12). apiVersion is the full identifier hadron.dev/team/v1alpha1; HTTP discovery uses /schemas/team/v1alpha1.json. CLIENT_INPUT additionally permits file parts for clients to inline; the server accepts SERVER only.
+  """
+  teamSpecSchema(apiVersion: String!, form: TeamSpecForm = SERVER): String!
 
   """
   Read a team App's worklog (#947) — the provenance query: which sessions
@@ -9677,6 +10526,17 @@ type Session {
   """
   isLive: Boolean!
   language: String
+
+  """
+  #1617: the LAST instant this session still reads live unless something
+  drives it first: its last activity plus its type's idle window. The
+  predicate is inclusive, so the session is live AT this instant and lapsed
+  after it; an instant in the past means it has already LAPSED. Any
+  attributed read, post or mark-read through a live session renews it.
+  Derived from the same computation as isLive, so the two always agree.
+  Null for an ended or deleted session.
+  """
+  lapsesAt: DateTime
   llmModel: String
   memoryId: String
   outcome: Float
@@ -9845,6 +10705,16 @@ input SetAiModelPriceInput {
   tier: Int
 }
 
+input SetModelFamilyAvailabilityInput {
+  appRef: ID!
+
+  """A lowercase token, e.g. claude or codex."""
+  family: String!
+  reason: AvailabilityReason
+  state: AvailabilityState!
+  until: DateTime
+}
+
 input SetQuotaLimitInput {
   """run.execute, llm.tokens, sms.send, or email.send."""
   action: String!
@@ -9861,6 +10731,20 @@ input SetQuotaLimitInput {
 
   """Org - ref: PK or URN."""
   orgRef: String!
+}
+
+input SetWorkerAvailabilityInput {
+  appRef: ID
+
+  """Required when UNAVAILABLE; refused when AVAILABLE."""
+  reason: AvailabilityReason
+  state: AvailabilityState!
+
+  """Optional, UNAVAILABLE only, in the future."""
+  until: DateTime
+
+  """The worker: its id or URN, or its name together with appRef."""
+  worker: String!
 }
 
 """
@@ -10208,6 +11092,11 @@ type SpecCorpusMintReport {
   openQuestions: [SpecOpenQuestionGroup!]!
   staleAbstracts: [SpecMintFinding!]!
   staleAbstractsBlock: Boolean!
+
+  """
+  #1607 — nodes in mintLocs with open discussion: a WARNING, never a blocker (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Ordered by loc.
+  """
+  unresolvedFeedback: [UnresolvedFeedback!]!
 }
 
 """
@@ -10555,6 +11444,12 @@ type TeamAttentionWorker {
   worker: ID!
 }
 
+"""#1706 — every availability record in one App."""
+type TeamAvailability {
+  families: [ModelFamilyAvailability!]!
+  workers: [WorkerAvailability!]!
+}
+
 """
 One message in a team App's chat (#939, Worker envelope since #974). Exactly
 one of authorUserId / authorWorkerId is set: a human post carries the user, a
@@ -10691,6 +11586,11 @@ type TeamRolesPage {
   total: Int!
 }
 
+enum TeamSpecForm {
+  CLIENT_INPUT
+  SERVER
+}
+
 """
 One team-worklog record (#947) — an externally visible work milestone (a PR
 opened, a branch pushed, an issue closed), append-only. The worklog is the
@@ -10765,6 +11665,16 @@ they persist as orphans on the now-removed AppAgent edge.
 type UninstallAgentFromAppPayload {
   agentId: ID!
   appId: ID!
+}
+
+"""
+#1607 — a node with open feedback, reported as a WARNING by mint and approval reports, never a blocker (hrn:node:hadronmemory.com:specs:cor:dmo:110:07).
+"""
+type UnresolvedFeedback {
+  loc: String!
+  nodeId: ID!
+  openThreads: Int!
+  urn: String!
 }
 
 input UpdateAgentScheduleInput {
@@ -11362,6 +12272,36 @@ type Worker {
   shape this arity requires.
   """
   urn: String
+}
+
+"""
+#1706 — one worker's availability for work (cor:agt:060:02). A worker with
+no record is available.
+"""
+type WorkerAvailability {
+  """
+  Whether this record makes the worker unavailable right now: unavailable,
+  not lapsed, and (for STALLED) the worker has not acted since it was set
+  (cor:agt:060:07).
+  """
+  inEffect: Boolean!
+
+  """Set exactly when unavailable."""
+  reason: AvailabilityReason
+  setAt: DateTime!
+  setBy: AvailabilitySetter!
+
+  """
+  Who acted, when a worker or a person set it; null when the stall rule did.
+  """
+  setByParty: AgentTaskParty
+  state: AvailabilityState!
+
+  """
+  When an unavailable record lapses. A passed until reads as available (interim, until ruled).
+  """
+  until: DateTime
+  worker: AgentTaskParty!
 }
 
 """

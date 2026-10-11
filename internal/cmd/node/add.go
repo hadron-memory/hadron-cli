@@ -165,7 +165,7 @@ schema and rejects a violation.`,
 	cmd.Flags().StringVar(&name, "name", "", "node name (required)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `node content ("-" reads stdin)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read node content from a file")
-	cmd.Flags().StringVar(&nodeType, "type", "", "node type (defaults to the server default)")
+	cmd.Flags().StringVar(&nodeType, "type", "", "node type (defaults to the server default; comments use hadron comment create)")
 	cmd.Flags().StringVar(&objectType, "object-type", "", "collection this node belongs to (#725; e.g. competitor), orthogonal to --type")
 	cmd.Flags().StringVar(&description, "description", "", "one-line description")
 	cmd.Flags().StringVar(&abstract, "abstract", "", "paragraph-length summary")
