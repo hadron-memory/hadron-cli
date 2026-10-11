@@ -795,6 +795,9 @@ type draftInfo struct {
 	Draft bool
 	// Placeholders are the locs of reserved, unwritten specs (draft only).
 	Placeholders map[string]bool
+	// Missing: the server answered but no memory exists (or is readable) at
+	// the ref — a fully-qualified -m is never looked up otherwise (#799).
+	Missing bool
 }
 
 // loadDraftInfo reads the corpus state and, for a draft, its placeholders
@@ -809,6 +812,7 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 	case err != nil:
 		return info, api.MapError(err)
 	case st.Memory == nil:
+		info.Missing = true
 		return info, nil
 	}
 	state := string(st.Memory.CorpusState)

@@ -876,3 +876,42 @@ func TestSpecListMarksPlaceholdersInADraft(t *testing.T) {
 		t.Errorf("the table must mark the placeholder: %q", out.String())
 	}
 }
+
+// A -m naming no memory must not read as an empty corpus (#799).
+func TestSpecListMissingMemoryIsNotFound(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"FindNodes":       `{"data":{"nodes":[]}}`,
+		"Memories":        memListMicromentorJSON,
+		"SpecCorpusState": `{"data":{"memory":null}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "list", "-m", "hrn:mem:mentor-co:does-not-exist", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("want not-found error, got nil")
+	}
+	if got := exitCodeFor(err); got != exitcode.NotFound {
+		t.Errorf("exit code = %d, want %d (%v)", got, exitcode.NotFound, err)
+	}
+}
+
+// Control for the not-found case: an existing memory with no specs is still an
+// empty list and exit 0 (#799).
+func TestSpecListExistingEmptyMemoryIsEmpty(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"FindNodes":           `{"data":{"nodes":[]}}`,
+		"Memories":            memListMicromentorJSON,
+		"SpecCorpusState":     draftStateJSON,
+		"SpecPlaceholderScan": placeholderScanJSON(map[string]bool{}),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "list", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if got := strings.TrimSpace(out.String()); got != "[]" {
+		t.Errorf("output = %q, want []", got)
+	}
+}
