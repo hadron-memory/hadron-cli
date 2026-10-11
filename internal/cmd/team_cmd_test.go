@@ -2314,6 +2314,7 @@ func bindWhoami(t *testing.T, responses map[string]string, args ...string) (*cob
 		[]byte(bindingWithTeamFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	responses["WorkerReporting"] = `{"data":{"worker":null}}`
 	gql, _ := captureGraphQL(t, responses)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2479,7 +2480,7 @@ func TestTeamSessionWhoamiDefaultDoesNotCheck(t *testing.T) {
 		[]byte(bindingWithTeamFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	gql, captured := captureGraphQL(t, map[string]string{"GetTeamSession": whoamiCheckSession("", "")})
+	gql, captured := captureGraphQL(t, map[string]string{"GetTeamSession": whoamiCheckSession("", ""), "WorkerReporting": `{"data":{"worker":null}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "whoami", "--json", "--server", gql.URL})
@@ -2487,7 +2488,7 @@ func TestTeamSessionWhoamiDefaultDoesNotCheck(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	if _, ok := captured["GetTeamSession"]; ok {
-		t.Error("the default read must stay local — no round trip")
+		t.Error("the default must not check session liveness (reporting is a separate worker read)")
 	}
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {

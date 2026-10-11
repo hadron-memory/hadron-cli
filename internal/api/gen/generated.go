@@ -4259,6 +4259,14 @@ func (v *CastWorkerCastWorker) GetAgentId() string { return v.WorkerFields.Agent
 // GetName returns CastWorkerCastWorker.Name, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetName() string { return v.WorkerFields.Name }
 
+// GetReportsTo returns CastWorkerCastWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns CastWorkerCastWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
+
 // GetRole returns CastWorkerCastWorker.Role, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -4338,6 +4346,10 @@ type __premarshalCastWorkerCastWorker struct {
 
 	Name string `json:"name"`
 
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -4383,6 +4395,8 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
 	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
@@ -15837,6 +15851,14 @@ func (v *GetWorkerWorker) GetAgentId() string { return v.WorkerFields.AgentId }
 // GetName returns GetWorkerWorker.Name, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetName() string { return v.WorkerFields.Name }
 
+// GetReportsTo returns GetWorkerWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns GetWorkerWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
+
 // GetRole returns GetWorkerWorker.Role, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -15916,6 +15938,10 @@ type __premarshalGetWorkerWorker struct {
 
 	Name string `json:"name"`
 
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -15961,6 +15987,8 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
 	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
@@ -24861,6 +24889,16 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetName() string 
 	return v.WorkerFields.Name
 }
 
+// GetReportsTo returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetReportsToRetired() bool {
+	return v.WorkerFields.ReportsToRetired
+}
+
 // GetRole returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Role, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetRole() *string {
 	return v.WorkerFields.Role
@@ -24966,6 +25004,10 @@ type __premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker struct {
 
 	Name string `json:"name"`
 
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -25011,6 +25053,8 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) __premarshalJSON(
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
 	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
@@ -26582,6 +26626,14 @@ func (v *RetireWorkerRetireWorker) GetAgentId() string { return v.WorkerFields.A
 // GetName returns RetireWorkerRetireWorker.Name, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetName() string { return v.WorkerFields.Name }
 
+// GetReportsTo returns RetireWorkerRetireWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns RetireWorkerRetireWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
+
 // GetRole returns RetireWorkerRetireWorker.Role, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -26661,6 +26713,10 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	Name string `json:"name"`
 
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -26706,6 +26762,8 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
 	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
@@ -29176,6 +29234,243 @@ func (v *SessionInput) GetType() *string { return v.Type }
 
 // GetWorkerRef returns SessionInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetWorkerRef() *string { return v.WorkerRef }
+
+// SetWorkerReportsToResponse is returned by SetWorkerReportsTo on success.
+type SetWorkerReportsToResponse struct {
+	// #1726 — set, hand over or clear (reportsTo: null) who a worker reports to:
+	// a non-retired worker of the same App, never itself, never a cycle
+	// (WORKER_REPORTS_TO_SELF / _OTHER_APP / _RETIRED / _CYCLE; WORKER_RETIRED
+	// for a retired worker). Allowed for whoever manages the App, and for the
+	// worker it reports to now (handing over or clearing is its agreement). A
+	// worker that reports to nobody may also be claimed by a worker for itself
+	// when one person holds both, or placed under any worker by its own holder
+	// (interim, pending a ruling). WORKER_REPORTS_TO_FORBIDDEN otherwise. A worker acts through its bound
+	// session, with a person behind the request. Each change is a
+	// `worker.reports-to` team event; setting the current value changes nothing.
+	SetWorkerReportsTo *SetWorkerReportsToSetWorkerReportsToWorker `json:"setWorkerReportsTo"`
+}
+
+// GetSetWorkerReportsTo returns SetWorkerReportsToResponse.SetWorkerReportsTo, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToResponse) GetSetWorkerReportsTo() *SetWorkerReportsToSetWorkerReportsToWorker {
+	return v.SetWorkerReportsTo
+}
+
+// SetWorkerReportsToSetWorkerReportsToWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type SetWorkerReportsToSetWorkerReportsToWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns SetWorkerReportsToSetWorkerReportsToWorker.Id, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns SetWorkerReportsToSetWorkerReportsToWorker.Urn, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetPortalUrl returns SetWorkerReportsToSetWorkerReportsToWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetPortalUrl() *string {
+	return v.WorkerFields.PortalUrl
+}
+
+// GetSlug returns SetWorkerReportsToSetWorkerReportsToWorker.Slug, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetSlug() string { return v.WorkerFields.Slug }
+
+// GetAppId returns SetWorkerReportsToSetWorkerReportsToWorker.AppId, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns SetWorkerReportsToSetWorkerReportsToWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetAgentId() string {
+	return v.WorkerFields.AgentId
+}
+
+// GetName returns SetWorkerReportsToSetWorkerReportsToWorker.Name, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetReportsTo returns SetWorkerReportsToSetWorkerReportsToWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns SetWorkerReportsToSetWorkerReportsToWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetReportsToRetired() bool {
+	return v.WorkerFields.ReportsToRetired
+}
+
+// GetRole returns SetWorkerReportsToSetWorkerReportsToWorker.Role, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns SetWorkerReportsToSetWorkerReportsToWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetPrompt() *string {
+	return v.WorkerFields.Prompt
+}
+
+// GetPromptOverride returns SetWorkerReportsToSetWorkerReportsToWorker.PromptOverride, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetPromptOverride() *string {
+	return v.WorkerFields.PromptOverride
+}
+
+// GetRepos returns SetWorkerReportsToSetWorkerReportsToWorker.Repos, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
+// GetMemoryId returns SetWorkerReportsToSetWorkerReportsToWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetMemoryId() *string {
+	return v.WorkerFields.MemoryId
+}
+
+// GetHeldByUserId returns SetWorkerReportsToSetWorkerReportsToWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetHeldByUserId() *string {
+	return v.WorkerFields.HeldByUserId
+}
+
+// GetHeldAt returns SetWorkerReportsToSetWorkerReportsToWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetHeldAt() *string {
+	return v.WorkerFields.HeldAt
+}
+
+// GetHasLiveSession returns SetWorkerReportsToSetWorkerReportsToWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetHasLiveSession() *bool {
+	return v.WorkerFields.HasLiveSession
+}
+
+// GetLastActiveAt returns SetWorkerReportsToSetWorkerReportsToWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetLastActiveAt() *string {
+	return v.WorkerFields.LastActiveAt
+}
+
+// GetRetiredAt returns SetWorkerReportsToSetWorkerReportsToWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetRetiredAt() *string {
+	return v.WorkerFields.RetiredAt
+}
+
+// GetRetiredBy returns SetWorkerReportsToSetWorkerReportsToWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetRetiredBy() *string {
+	return v.WorkerFields.RetiredBy
+}
+
+// GetCreatedAt returns SetWorkerReportsToSetWorkerReportsToWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetCreatedAt() string {
+	return v.WorkerFields.CreatedAt
+}
+
+// GetCreatedBy returns SetWorkerReportsToSetWorkerReportsToWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetCreatedBy() *string {
+	return v.WorkerFields.CreatedBy
+}
+
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetWorkerReportsToSetWorkerReportsToWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetWorkerReportsToSetWorkerReportsToWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetWorkerReportsToSetWorkerReportsToWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	PromptOverride *string `json:"promptOverride"`
+
+	Repos []string `json:"repos"`
+
+	MemoryId *string `json:"memoryId"`
+
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__premarshalSetWorkerReportsToSetWorkerReportsToWorker, error) {
+	var retval __premarshalSetWorkerReportsToSetWorkerReportsToWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
+	retval.Slug = v.WorkerFields.Slug
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Repos = v.WorkerFields.Repos
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
 
 // A client-side filesystem action planned by the server. It does not claim that I/O occurred.
 type SkillExportAction string
@@ -32134,6 +32429,39 @@ type TeamSessionFieldsWorker struct {
 	Name string `json:"name"`
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
+	// hadron-cli#487 — whether anyone is DRIVING this name right now.
+	//
+	// Not availability: availability is the HOLD above (`cor:agt:020:09`), and an
+	// ended or idle session never frees a name. This says only whether someone is
+	// mid-stint, which is the question a coordinator asks about a name already
+	// theirs. Conflating the two is the CLI bug this field exists for.
+	//
+	// #1114 — COMPUTED, never stored. It is "the session has not ended AND it was
+	// driven inside its type's idle window", not "a row is open". Nothing ends a
+	// session for inactivity any more, because silence is not evidence of
+	// abandonment — an agent used once a year is not abandoned in month two — so
+	// an open row proves only that nobody closed it. Deriving the answer at read
+	// time says exactly what the evidence supports; the previous design expressed
+	// the same judgement by ENDING the session, which wrote a guess into the
+	// record as a fact and destroyed the handoff that stint had not written yet.
+	//
+	// A worker that reads false is not gone: its session is untouched, and it
+	// reads true again the moment it is driven.
+	//
+	// Uses the SAME predicate startSession refuses WORKER_TAKEN on
+	// (`cor:agt:020:11`) — a reader must not be told a worker is busy that a
+	// binder can take, and since #1114 that is load-bearing rather than tidy:
+	// with nothing ending abandoned sessions, an `endedAt IS NULL` gate would
+	// refuse a bind forever and leave force as the only route.
+	//
+	// Nullable BECAUSE of the read gate, not because the answer is unknown: this
+	// is a working-state field like heldByUserId, masked to null on deny rather
+	// than answering false, which would state a fact the server never computed.
+	HasLiveSession *bool `json:"hasLiveSession"`
+	// #1726 — the Worker named by reportsToWorkerId; masked likewise.
+	ReportsTo *TeamSessionFieldsWorkerReportsToWorker `json:"reportsTo"`
+	// #1726 — true when this worker reports to a worker that has since retired (a stale claim nothing clears automatically).
+	ReportsToRetired bool `json:"reportsToRetired"`
 }
 
 // GetId returns TeamSessionFieldsWorker.Id, and is useful for accessing the field via an interface.
@@ -32144,6 +32472,94 @@ func (v *TeamSessionFieldsWorker) GetName() string { return v.Name }
 
 // GetRole returns TeamSessionFieldsWorker.Role, and is useful for accessing the field via an interface.
 func (v *TeamSessionFieldsWorker) GetRole() *string { return v.Role }
+
+// GetHasLiveSession returns TeamSessionFieldsWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *TeamSessionFieldsWorker) GetHasLiveSession() *bool { return v.HasLiveSession }
+
+// GetReportsTo returns TeamSessionFieldsWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *TeamSessionFieldsWorker) GetReportsTo() *TeamSessionFieldsWorkerReportsToWorker {
+	return v.ReportsTo
+}
+
+// GetReportsToRetired returns TeamSessionFieldsWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *TeamSessionFieldsWorker) GetReportsToRetired() bool { return v.ReportsToRetired }
+
+// TeamSessionFieldsWorkerReportsToWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type TeamSessionFieldsWorkerReportsToWorker struct {
+	WorkerReportingRefFields `json:"-"`
+}
+
+// GetId returns TeamSessionFieldsWorkerReportsToWorker.Id, and is useful for accessing the field via an interface.
+func (v *TeamSessionFieldsWorkerReportsToWorker) GetId() string { return v.WorkerReportingRefFields.Id }
+
+// GetName returns TeamSessionFieldsWorkerReportsToWorker.Name, and is useful for accessing the field via an interface.
+func (v *TeamSessionFieldsWorkerReportsToWorker) GetName() string {
+	return v.WorkerReportingRefFields.Name
+}
+
+// GetUrn returns TeamSessionFieldsWorkerReportsToWorker.Urn, and is useful for accessing the field via an interface.
+func (v *TeamSessionFieldsWorkerReportsToWorker) GetUrn() *string {
+	return v.WorkerReportingRefFields.Urn
+}
+
+func (v *TeamSessionFieldsWorkerReportsToWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamSessionFieldsWorkerReportsToWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamSessionFieldsWorkerReportsToWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerReportingRefFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamSessionFieldsWorkerReportsToWorker struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *TeamSessionFieldsWorkerReportsToWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamSessionFieldsWorkerReportsToWorker) __premarshalJSON() (*__premarshalTeamSessionFieldsWorkerReportsToWorker, error) {
+	var retval __premarshalTeamSessionFieldsWorkerReportsToWorker
+
+	retval.Id = v.WorkerReportingRefFields.Id
+	retval.Name = v.WorkerReportingRefFields.Name
+	retval.Urn = v.WorkerReportingRefFields.Urn
+	return &retval, nil
+}
 
 // TeamSessionsResponse is returned by TeamSessions on success.
 type TeamSessionsResponse struct {
@@ -38431,6 +38847,14 @@ func (v *UpdateWorkerUpdateWorker) GetAgentId() string { return v.WorkerFields.A
 // GetName returns UpdateWorkerUpdateWorker.Name, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerUpdateWorker) GetName() string { return v.WorkerFields.Name }
 
+// GetReportsTo returns UpdateWorkerUpdateWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns UpdateWorkerUpdateWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
+
 // GetRole returns UpdateWorkerUpdateWorker.Role, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerUpdateWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -38510,6 +38934,10 @@ type __premarshalUpdateWorkerUpdateWorker struct {
 
 	Name string `json:"name"`
 
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -38555,6 +38983,8 @@ func (v *UpdateWorkerUpdateWorker) __premarshalJSON() (*__premarshalUpdateWorker
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
 	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
@@ -38928,6 +39358,10 @@ type WorkerFields struct {
 	AgentId string `json:"agentId"`
 	// The worker's name ('Iris') — the identity every surface renders.
 	Name string `json:"name"`
+	// #1726 — the Worker named by reportsToWorkerId; masked likewise.
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+	// #1726 — true when this worker reports to a worker that has since retired (a stale claim nothing clears automatically).
+	ReportsToRetired bool `json:"reportsToRetired"`
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
 	// The worker's boot prompt, resolved: the agent's systemPrompt template
@@ -39044,6 +39478,12 @@ func (v *WorkerFields) GetAgentId() string { return v.AgentId }
 // GetName returns WorkerFields.Name, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetName() string { return v.Name }
 
+// GetReportsTo returns WorkerFields.ReportsTo, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetReportsTo() *WorkerFieldsReportsToWorker { return v.ReportsTo }
+
+// GetReportsToRetired returns WorkerFields.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetReportsToRetired() bool { return v.ReportsToRetired }
+
 // GetRole returns WorkerFields.Role, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetRole() *string { return v.Role }
 
@@ -39082,6 +39522,272 @@ func (v *WorkerFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetCreatedBy returns WorkerFields.CreatedBy, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// WorkerFieldsReportsToWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkerFieldsReportsToWorker struct {
+	WorkerReportingRefFields `json:"-"`
+}
+
+// GetId returns WorkerFieldsReportsToWorker.Id, and is useful for accessing the field via an interface.
+func (v *WorkerFieldsReportsToWorker) GetId() string { return v.WorkerReportingRefFields.Id }
+
+// GetName returns WorkerFieldsReportsToWorker.Name, and is useful for accessing the field via an interface.
+func (v *WorkerFieldsReportsToWorker) GetName() string { return v.WorkerReportingRefFields.Name }
+
+// GetUrn returns WorkerFieldsReportsToWorker.Urn, and is useful for accessing the field via an interface.
+func (v *WorkerFieldsReportsToWorker) GetUrn() *string { return v.WorkerReportingRefFields.Urn }
+
+func (v *WorkerFieldsReportsToWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkerFieldsReportsToWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkerFieldsReportsToWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerReportingRefFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkerFieldsReportsToWorker struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *WorkerFieldsReportsToWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkerFieldsReportsToWorker) __premarshalJSON() (*__premarshalWorkerFieldsReportsToWorker, error) {
+	var retval __premarshalWorkerFieldsReportsToWorker
+
+	retval.Id = v.WorkerReportingRefFields.Id
+	retval.Name = v.WorkerReportingRefFields.Name
+	retval.Urn = v.WorkerReportingRefFields.Urn
+	return &retval, nil
+}
+
+// WorkerReportingRefFields includes the GraphQL fields of Worker requested by the fragment WorkerReportingRefFields.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkerReportingRefFields struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns WorkerReportingRefFields.Id, and is useful for accessing the field via an interface.
+func (v *WorkerReportingRefFields) GetId() string { return v.Id }
+
+// GetName returns WorkerReportingRefFields.Name, and is useful for accessing the field via an interface.
+func (v *WorkerReportingRefFields) GetName() string { return v.Name }
+
+// GetUrn returns WorkerReportingRefFields.Urn, and is useful for accessing the field via an interface.
+func (v *WorkerReportingRefFields) GetUrn() *string { return v.Urn }
+
+// WorkerReportingResponse is returned by WorkerReporting on success.
+type WorkerReportingResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization: an AppMember of the worker's App (any role), an org member
+	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
+	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
+	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *WorkerReportingWorker `json:"worker"`
+}
+
+// GetWorker returns WorkerReportingResponse.Worker, and is useful for accessing the field via an interface.
+func (v *WorkerReportingResponse) GetWorker() *WorkerReportingWorker { return v.Worker }
+
+// WorkerReportingWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkerReportingWorker struct {
+	Id string `json:"id"`
+	// hadron-cli#487 — whether anyone is DRIVING this name right now.
+	//
+	// Not availability: availability is the HOLD above (`cor:agt:020:09`), and an
+	// ended or idle session never frees a name. This says only whether someone is
+	// mid-stint, which is the question a coordinator asks about a name already
+	// theirs. Conflating the two is the CLI bug this field exists for.
+	//
+	// #1114 — COMPUTED, never stored. It is "the session has not ended AND it was
+	// driven inside its type's idle window", not "a row is open". Nothing ends a
+	// session for inactivity any more, because silence is not evidence of
+	// abandonment — an agent used once a year is not abandoned in month two — so
+	// an open row proves only that nobody closed it. Deriving the answer at read
+	// time says exactly what the evidence supports; the previous design expressed
+	// the same judgement by ENDING the session, which wrote a guess into the
+	// record as a fact and destroyed the handoff that stint had not written yet.
+	//
+	// A worker that reads false is not gone: its session is untouched, and it
+	// reads true again the moment it is driven.
+	//
+	// Uses the SAME predicate startSession refuses WORKER_TAKEN on
+	// (`cor:agt:020:11`) — a reader must not be told a worker is busy that a
+	// binder can take, and since #1114 that is load-bearing rather than tidy:
+	// with nothing ending abandoned sessions, an `endedAt IS NULL` gate would
+	// refuse a bind forever and leave force as the only route.
+	//
+	// Nullable BECAUSE of the read gate, not because the answer is unknown: this
+	// is a working-state field like heldByUserId, masked to null on deny rather
+	// than answering false, which would state a fact the server never computed.
+	HasLiveSession *bool `json:"hasLiveSession"`
+	// #1726 — the Worker named by reportsToWorkerId; masked likewise.
+	ReportsTo *WorkerReportingWorkerReportsToWorker `json:"reportsTo"`
+	// #1726 — true when this worker reports to a worker that has since retired (a stale claim nothing clears automatically).
+	ReportsToRetired bool `json:"reportsToRetired"`
+}
+
+// GetId returns WorkerReportingWorker.Id, and is useful for accessing the field via an interface.
+func (v *WorkerReportingWorker) GetId() string { return v.Id }
+
+// GetHasLiveSession returns WorkerReportingWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *WorkerReportingWorker) GetHasLiveSession() *bool { return v.HasLiveSession }
+
+// GetReportsTo returns WorkerReportingWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *WorkerReportingWorker) GetReportsTo() *WorkerReportingWorkerReportsToWorker {
+	return v.ReportsTo
+}
+
+// GetReportsToRetired returns WorkerReportingWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *WorkerReportingWorker) GetReportsToRetired() bool { return v.ReportsToRetired }
+
+// WorkerReportingWorkerReportsToWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkerReportingWorkerReportsToWorker struct {
+	WorkerReportingRefFields `json:"-"`
+}
+
+// GetId returns WorkerReportingWorkerReportsToWorker.Id, and is useful for accessing the field via an interface.
+func (v *WorkerReportingWorkerReportsToWorker) GetId() string { return v.WorkerReportingRefFields.Id }
+
+// GetName returns WorkerReportingWorkerReportsToWorker.Name, and is useful for accessing the field via an interface.
+func (v *WorkerReportingWorkerReportsToWorker) GetName() string {
+	return v.WorkerReportingRefFields.Name
+}
+
+// GetUrn returns WorkerReportingWorkerReportsToWorker.Urn, and is useful for accessing the field via an interface.
+func (v *WorkerReportingWorkerReportsToWorker) GetUrn() *string {
+	return v.WorkerReportingRefFields.Urn
+}
+
+func (v *WorkerReportingWorkerReportsToWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkerReportingWorkerReportsToWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkerReportingWorkerReportsToWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerReportingRefFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkerReportingWorkerReportsToWorker struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *WorkerReportingWorkerReportsToWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkerReportingWorkerReportsToWorker) __premarshalJSON() (*__premarshalWorkerReportingWorkerReportsToWorker, error) {
+	var retval __premarshalWorkerReportingWorkerReportsToWorker
+
+	retval.Id = v.WorkerReportingRefFields.Id
+	retval.Name = v.WorkerReportingRefFields.Name
+	retval.Urn = v.WorkerReportingRefFields.Urn
+	return &retval, nil
+}
 
 // The ROSTER projection (#459): WorkerFields minus `prompt`.
 //
@@ -39125,6 +39831,10 @@ type WorkerRosterFields struct {
 	AgentId string `json:"agentId"`
 	// The worker's name ('Iris') — the identity every surface renders.
 	Name string `json:"name"`
+	// #1726 — the Worker named by reportsToWorkerId; masked likewise.
+	ReportsTo *WorkerRosterFieldsReportsToWorker `json:"reportsTo"`
+	// #1726 — true when this worker reports to a worker that has since retired (a stale claim nothing clears automatically).
+	ReportsToRetired bool `json:"reportsToRetired"`
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
 	// Per-worker individuality layered over the agent's template prompt.
@@ -39236,6 +39946,12 @@ func (v *WorkerRosterFields) GetAgentId() string { return v.AgentId }
 // GetName returns WorkerRosterFields.Name, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetName() string { return v.Name }
 
+// GetReportsTo returns WorkerRosterFields.ReportsTo, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetReportsTo() *WorkerRosterFieldsReportsToWorker { return v.ReportsTo }
+
+// GetReportsToRetired returns WorkerRosterFields.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetReportsToRetired() bool { return v.ReportsToRetired }
+
 // GetRole returns WorkerRosterFields.Role, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetRole() *string { return v.Role }
 
@@ -39271,6 +39987,79 @@ func (v *WorkerRosterFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetCreatedBy returns WorkerRosterFields.CreatedBy, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// WorkerRosterFieldsReportsToWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkerRosterFieldsReportsToWorker struct {
+	WorkerReportingRefFields `json:"-"`
+}
+
+// GetId returns WorkerRosterFieldsReportsToWorker.Id, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFieldsReportsToWorker) GetId() string { return v.WorkerReportingRefFields.Id }
+
+// GetName returns WorkerRosterFieldsReportsToWorker.Name, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFieldsReportsToWorker) GetName() string { return v.WorkerReportingRefFields.Name }
+
+// GetUrn returns WorkerRosterFieldsReportsToWorker.Urn, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFieldsReportsToWorker) GetUrn() *string { return v.WorkerReportingRefFields.Urn }
+
+func (v *WorkerRosterFieldsReportsToWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkerRosterFieldsReportsToWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkerRosterFieldsReportsToWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerReportingRefFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkerRosterFieldsReportsToWorker struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *WorkerRosterFieldsReportsToWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkerRosterFieldsReportsToWorker) __premarshalJSON() (*__premarshalWorkerRosterFieldsReportsToWorker, error) {
+	var retval __premarshalWorkerRosterFieldsReportsToWorker
+
+	retval.Id = v.WorkerReportingRefFields.Id
+	retval.Name = v.WorkerReportingRefFields.Name
+	retval.Urn = v.WorkerReportingRefFields.Urn
+	return &retval, nil
+}
 
 // WorkersResponse is returned by Workers on success.
 type WorkersResponse struct {
@@ -39357,6 +40146,16 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetAgentId() string {
 // GetName returns WorkersRosterWorkersWorkersPageItemsWorker.Name, and is useful for accessing the field via an interface.
 func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetName() string {
 	return v.WorkerRosterFields.Name
+}
+
+// GetReportsTo returns WorkersRosterWorkersWorkersPageItemsWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetReportsTo() *WorkerRosterFieldsReportsToWorker {
+	return v.WorkerRosterFields.ReportsTo
+}
+
+// GetReportsToRetired returns WorkersRosterWorkersWorkersPageItemsWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetReportsToRetired() bool {
+	return v.WorkerRosterFields.ReportsToRetired
 }
 
 // GetRole returns WorkersRosterWorkersWorkersPageItemsWorker.Role, and is useful for accessing the field via an interface.
@@ -39459,6 +40258,10 @@ type __premarshalWorkersRosterWorkersWorkersPageItemsWorker struct {
 
 	Name string `json:"name"`
 
+	ReportsTo *WorkerRosterFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
 	Role *string `json:"role"`
 
 	PromptOverride *string `json:"promptOverride"`
@@ -39502,6 +40305,8 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) __premarshalJSON() (*__prem
 	retval.AppId = v.WorkerRosterFields.AppId
 	retval.AgentId = v.WorkerRosterFields.AgentId
 	retval.Name = v.WorkerRosterFields.Name
+	retval.ReportsTo = v.WorkerRosterFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerRosterFields.ReportsToRetired
 	retval.Role = v.WorkerRosterFields.Role
 	retval.PromptOverride = v.WorkerRosterFields.PromptOverride
 	retval.Repos = v.WorkerRosterFields.Repos
@@ -39567,6 +40372,16 @@ func (v *WorkersWorkersWorkersPageItemsWorker) GetAgentId() string { return v.Wo
 
 // GetName returns WorkersWorkersWorkersPageItemsWorker.Name, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetReportsTo returns WorkersWorkersWorkersPageItemsWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns WorkersWorkersWorkersPageItemsWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetReportsToRetired() bool {
+	return v.WorkerFields.ReportsToRetired
+}
 
 // GetRole returns WorkersWorkersWorkersPageItemsWorker.Role, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetRole() *string { return v.WorkerFields.Role }
@@ -39661,6 +40476,10 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	Name string `json:"name"`
 
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -39706,6 +40525,8 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
 	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
@@ -42434,6 +43255,18 @@ type __SelectedSkillFilePlanInput struct {
 // GetInput returns __SelectedSkillFilePlanInput.Input, and is useful for accessing the field via an interface.
 func (v *__SelectedSkillFilePlanInput) GetInput() *SelectedSkillFilePlanInput { return v.Input }
 
+// __SetWorkerReportsToInput is used internally by genqlient
+type __SetWorkerReportsToInput struct {
+	WorkerRef string  `json:"workerRef"`
+	ReportsTo *string `json:"reportsTo"`
+}
+
+// GetWorkerRef returns __SetWorkerReportsToInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__SetWorkerReportsToInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetReportsTo returns __SetWorkerReportsToInput.ReportsTo, and is useful for accessing the field via an interface.
+func (v *__SetWorkerReportsToInput) GetReportsTo() *string { return v.ReportsTo }
+
 // __SkillExportPlanInput is used internally by genqlient
 type __SkillExportPlanInput struct {
 	Input *SkillPlanInput `json:"input,omitempty"`
@@ -43501,6 +44334,14 @@ type __VerifyNodeInput struct {
 
 // GetNodeRef returns __VerifyNodeInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__VerifyNodeInput) GetNodeRef() string { return v.NodeRef }
+
+// __WorkerReportingInput is used internally by genqlient
+type __WorkerReportingInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __WorkerReportingInput.Ref, and is useful for accessing the field via an interface.
+func (v *__WorkerReportingInput) GetRef() string { return v.Ref }
 
 // __WorkersInput is used internally by genqlient
 type __WorkersInput struct {
@@ -44787,6 +45628,10 @@ fragment WorkerFields on Worker {
 	appId
 	agentId
 	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
 	role
 	prompt
 	promptOverride
@@ -44800,6 +45645,11 @@ fragment WorkerFields on Worker {
 	retiredBy
 	createdAt
 	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 
@@ -48568,6 +49418,11 @@ fragment TeamSessionFields on Session {
 		id
 		name
 		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
 	}
 	userId
 	type
@@ -48581,6 +49436,11 @@ fragment TeamSessionFields on Session {
 	tool
 	transcriptPath
 	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 
@@ -49693,6 +50553,11 @@ fragment TeamSessionFields on Session {
 		id
 		name
 		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
 	}
 	userId
 	type
@@ -49706,6 +50571,11 @@ fragment TeamSessionFields on Session {
 	tool
 	transcriptPath
 	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 
@@ -49804,6 +50674,10 @@ fragment WorkerFields on Worker {
 	appId
 	agentId
 	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
 	role
 	prompt
 	promptOverride
@@ -49817,6 +50691,11 @@ fragment WorkerFields on Worker {
 	retiredBy
 	createdAt
 	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 
@@ -52507,6 +53386,10 @@ fragment WorkerFields on Worker {
 	appId
 	agentId
 	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
 	role
 	prompt
 	promptOverride
@@ -52520,6 +53403,11 @@ fragment WorkerFields on Worker {
 	retiredBy
 	createdAt
 	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 
@@ -53286,6 +54174,10 @@ fragment WorkerFields on Worker {
 	appId
 	agentId
 	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
 	role
 	prompt
 	promptOverride
@@ -53299,6 +54191,11 @@ fragment WorkerFields on Worker {
 	retiredBy
 	createdAt
 	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 
@@ -54128,6 +55025,74 @@ func ServerInfo(
 	return data_, err_
 }
 
+// The mutation executed by SetWorkerReportsTo.
+const SetWorkerReportsTo_Operation = `
+mutation SetWorkerReportsTo ($workerRef: ID!, $reportsTo: ID) {
+	setWorkerReportsTo(workerRef: $workerRef, reportsTo: $reportsTo) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	urn
+	portalUrl
+	slug
+	appId
+	agentId
+	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
+	role
+	prompt
+	promptOverride
+	repos
+	memoryId
+	heldByUserId
+	heldAt
+	hasLiveSession
+	lastActiveAt
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+`
+
+// Clear intentionally sends null; do not add omitempty to reportsTo.
+func SetWorkerReportsTo(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	reportsTo *string,
+) (data_ *SetWorkerReportsToResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetWorkerReportsTo",
+		Query:  SetWorkerReportsTo_Operation,
+		Variables: &__SetWorkerReportsToInput{
+			WorkerRef: workerRef,
+			ReportsTo: reportsTo,
+		},
+	}
+
+	data_ = &SetWorkerReportsToResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by SkillExportPlan.
 const SkillExportPlan_Operation = `
 query SkillExportPlan ($input: SkillPlanInput!) {
@@ -54571,6 +55536,11 @@ fragment TeamSessionFields on Session {
 		id
 		name
 		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
 	}
 	userId
 	type
@@ -54584,6 +55554,11 @@ fragment TeamSessionFields on Session {
 	tool
 	transcriptPath
 	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 
@@ -55300,6 +56275,11 @@ fragment TeamSessionFields on Session {
 		id
 		name
 		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
 	}
 	userId
 	type
@@ -55313,6 +56293,11 @@ fragment TeamSessionFields on Session {
 	tool
 	transcriptPath
 	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 
@@ -57474,6 +58459,11 @@ fragment TeamSessionFields on Session {
 		id
 		name
 		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
 	}
 	userId
 	type
@@ -57487,6 +58477,11 @@ fragment TeamSessionFields on Session {
 	tool
 	transcriptPath
 	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 
@@ -57600,6 +58595,10 @@ fragment WorkerFields on Worker {
 	appId
 	agentId
 	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
 	role
 	prompt
 	promptOverride
@@ -57613,6 +58612,11 @@ fragment WorkerFields on Worker {
 	retiredBy
 	createdAt
 	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 
@@ -57766,6 +58770,51 @@ func VerifyNode(
 	return data_, err_
 }
 
+// The query executed by WorkerReporting.
+const WorkerReporting_Operation = `
+query WorkerReporting ($ref: ID!) {
+	worker(ref: $ref) {
+		id
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
+	}
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+`
+
+// Current worker relation, never cached in the worktree session binding.
+func WorkerReporting(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *WorkerReportingResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WorkerReporting",
+		Query:  WorkerReporting_Operation,
+		Variables: &__WorkerReportingInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &WorkerReportingResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by Workers.
 const Workers_Operation = `
 query Workers ($appRef: ID!, $includeRetired: Boolean, $limit: Int, $offset: Int) {
@@ -57784,6 +58833,10 @@ fragment WorkerFields on Worker {
 	appId
 	agentId
 	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
 	role
 	prompt
 	promptOverride
@@ -57797,6 +58850,11 @@ fragment WorkerFields on Worker {
 	retiredBy
 	createdAt
 	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 
@@ -57852,6 +58910,10 @@ fragment WorkerRosterFields on Worker {
 	appId
 	agentId
 	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
 	role
 	promptOverride
 	repos
@@ -57864,6 +58926,11 @@ fragment WorkerRosterFields on Worker {
 	retiredBy
 	createdAt
 	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
 }
 `
 

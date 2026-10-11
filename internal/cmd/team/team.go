@@ -101,8 +101,37 @@ and ` + "`hadron app agent list <app>`" + ` (the installed cast pool).`,
 }
 
 // workerDTO is the stable --json shape for a worker.
+type workerRefDTO struct {
+	ID   string  `json:"id"`
+	Name string  `json:"name"`
+	URN  *string `json:"urn"`
+}
+
+func reportingRef(w gen.WorkerReportingRefFields) *workerRefDTO {
+	return &workerRefDTO{ID: w.Id, Name: w.Name, URN: w.Urn}
+}
+
+func reportsToLabel(ref *workerRefDTO, retired bool, known bool) string {
+	if !known {
+		return "? (unavailable)"
+	}
+	if ref == nil {
+		return "-"
+	}
+	label := ref.Name
+	if label == "" {
+		label = ref.ID
+	}
+	if retired {
+		label += " (retired)"
+	}
+	return label
+}
+
 type workerDTO struct {
-	ID string `json:"id"`
+	ReportsTo        *workerRefDTO `json:"reportsTo"`
+	ReportsToRetired bool          `json:"reportsToRetired"`
+	ID               string        `json:"id"`
 	// URN is the worker's address (#991), keyed on the permanent derived
 	// slug. Null when the App's URN predates the flat grammar-v2 arity it
 	// needs, so consumers must tolerate its absence.
@@ -171,7 +200,7 @@ type workerDTO struct {
 }
 
 func workerDTOFromFields(w gen.WorkerFields) workerDTO {
-	return workerDTO{
+	dto := workerDTO{
 		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
 		Name: w.Name, Role: w.Role,
 		Prompt: w.Prompt, PromptOverride: w.PromptOverride,
@@ -182,6 +211,11 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
 		Retired: w.RetiredAt != nil,
 	}
+	if w.ReportsTo != nil {
+		dto.ReportsTo = reportingRef(w.ReportsTo.WorkerReportingRefFields)
+	}
+	dto.ReportsToRetired = w.ReportsToRetired
+	return dto
 }
 
 // workerRosterDTO is the stable --json shape of `worker list` (#459): every
@@ -192,8 +226,10 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 // answer that looks like an answer, which is worse than an honest absence.
 // `worker get` is the prompt surface, as the shipped task nodes already say.
 type workerRosterDTO struct {
-	ID  string  `json:"id"`
-	URN *string `json:"urn"`
+	ReportsTo        *workerRefDTO `json:"reportsTo"`
+	ReportsToRetired bool          `json:"reportsToRetired"`
+	ID               string        `json:"id"`
+	URN              *string       `json:"urn"`
 	// PortalURL is the server-built link that opens this worker
 	// (cor:api:230:01). Null is a defined answer — no usable web origin on the
 	// deployment, or no URN to build one from — and it stays null: the CLI
@@ -227,7 +263,7 @@ type workerRosterDTO struct {
 }
 
 func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
-	return workerRosterDTO{
+	dto := workerRosterDTO{
 		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
 		Name: w.Name, Role: w.Role, PromptOverride: w.PromptOverride,
 		Repos:          nonNilRepos(w.Repos),
@@ -240,6 +276,11 @@ func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
 		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
 		Retired: w.RetiredAt != nil,
 	}
+	if w.ReportsTo != nil {
+		dto.ReportsTo = reportingRef(w.ReportsTo.WorkerReportingRefFields)
+	}
+	dto.ReportsToRetired = w.ReportsToRetired
+	return dto
 }
 
 const workerPageSize = 200

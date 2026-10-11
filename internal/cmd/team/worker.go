@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 
@@ -44,6 +45,7 @@ worker in scripts.`,
 	cmd.AddCommand(newCmdWorkerList(f))
 	cmd.AddCommand(newCmdWorkerGet(f))
 	cmd.AddCommand(newCmdWorkerUpdate(f))
+	cmd.AddCommand(newCmdWorkerSetReportsTo(f))
 	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))
@@ -295,6 +297,11 @@ landed on AND where that came from (#458) — the same bare command in two
 worktrees bound to different teams lists different staff, and without the
 scope line the two outputs look identical.
 
+REPORTS TO is the persisted worker relation, including on unbound workers.
+Rows group by the target worker id. An unset relation shows -, a retired target
+is marked (retired), and a masked relation shows ? (unavailable). Session ending
+or quiet time never clears it.
+
 Retired workers are hidden unless --include-retired — their names stay
 bound to them forever, so the retired list is also the reserved-name list.
 
@@ -359,6 +366,16 @@ reads as MORE idle than it was, never less.`,
 				}
 				workers = append(workers, dto)
 			}
+			sort.SliceStable(workers, func(i, j int) bool {
+				a, b := workers[i].ReportsTo, workers[j].ReportsTo
+				if a == nil {
+					return b != nil
+				}
+				if b == nil {
+					return false
+				}
+				return a.ID < b.ID
+			})
 			return output.Write(f.IOStreams, f.JSON, workers, func(w io.Writer) error {
 				// Whose staff, and why this App — the scope line runs BEFORE the
 				// table and on an empty staff too, which is exactly the moment
@@ -399,13 +416,13 @@ reads as MORE idle than it was, never less.`,
 					return describeHolder(ctx, client, id)
 				})
 				now := time.Now()
-				t := output.NewTable(w, "WORKER", "ROLE", "HELD BY", "LAST DRIVEN", "RETIRED", "URN", "ID")
+				t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST DRIVEN", "RETIRED", "URN", "ID")
 				for _, wk := range workers {
 					retired := "—"
 					if wk.RetiredAt != nil {
 						retired = *wk.RetiredAt
 					}
-					t.Row(wk.Name, dash(wk.Role),
+					t.Row(wk.Name, dash(wk.Role), reportsToLabel(wk.ReportsTo, wk.ReportsToRetired, wk.ReportsTo != nil || workingStateVisible(wk.HasLiveSession)),
 						renderHeldBy(wk.HeldByUserID, wk.HasLiveSession, selfID, label),
 						renderLastDriven(wk.HasLiveSession, wk.LastActiveAt, now),
 						retired, dash(wk.URN), wk.ID)
@@ -459,6 +476,7 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 				// might have been the wrong one.
 				fmt.Fprintf(out, "%s%s\n  worker: %s\n  app: %s\n  agent: %s\n",
 					dto.Name, roleSuffix(dto.Role), dto.ID, describeApp(cmd.Context(), f, dto.AppID), dto.AgentID)
+				fmt.Fprintf(out, "  reports to: %s\n", reportsToLabel(dto.ReportsTo, dto.ReportsToRetired, dto.ReportsTo != nil || workingStateVisible(dto.HasLiveSession)))
 				if dto.URN != nil && *dto.URN != "" {
 					fmt.Fprintf(out, "  urn: %s\n", *dto.URN)
 				}

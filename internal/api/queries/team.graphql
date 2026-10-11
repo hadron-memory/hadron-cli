@@ -16,6 +16,8 @@
 # retired-worker refusal — but that is this client's choice, not the surface's
 # contract.
 
+fragment WorkerReportingRefFields on Worker { id name urn }
+
 fragment WorkerFields on Worker {
   id
   # The address (#991): derived from the App's URN plus the permanent slug,
@@ -37,6 +39,8 @@ fragment WorkerFields on Worker {
   appId
   agentId
   name
+  reportsTo { ...WorkerReportingRefFields }
+  reportsToRetired
   role
   # The resolved boot briefing: the agent's systemPrompt template with
   # {{name}}/{{role}} bound, then promptOverride appended. Printed on cast and
@@ -313,6 +317,8 @@ fragment WorkerRosterFields on Worker {
   appId
   agentId
   name
+  reportsTo { ...WorkerReportingRefFields }
+  reportsToRetired
   role
   promptOverride
   # Carried on the roster too, so the mismatch warning can name the worker the
@@ -501,6 +507,9 @@ fragment TeamSessionFields on Session {
     id
     name
     role
+    hasLiveSession
+    reportsTo { ...WorkerReportingRefFields }
+    reportsToRetired
   }
   userId
   type
@@ -1161,4 +1170,13 @@ query TeamChatReadHeadAttributed($appRef: ID!) {
   teamChatMessages(appRef: $appRef, beforeSeq: 2147483647, limit: 1, advanceReadState: false) {
     items { seq }
   }
+}
+
+# Clear intentionally sends null; do not add omitempty to reportsTo.
+mutation SetWorkerReportsTo($workerRef: ID!, $reportsTo: ID) {
+ setWorkerReportsTo(workerRef: $workerRef, reportsTo: $reportsTo) { ...WorkerFields }
+}
+# Current worker relation, never cached in the worktree session binding.
+query WorkerReporting($ref: ID!) {
+ worker(ref: $ref) { id hasLiveSession reportsTo { ...WorkerReportingRefFields } reportsToRetired }
 }
