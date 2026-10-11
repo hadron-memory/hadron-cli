@@ -272,6 +272,9 @@ func renderError(f *cmdutil.Factory, err error) int {
 	if !errors.Is(err, exitcode.ErrSilent) {
 		failure := map[string]any{"code": code, "message": err.Error()}
 		details := api.CommentRecoveryDetails(err)
+		if details == nil {
+			details = api.WorkerReportingDetails(err)
+		}
 		if details != nil {
 			failure["extensions"] = details
 		}
@@ -295,6 +298,9 @@ func renderError(f *cmdutil.Factory, err error) int {
 			_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
 		default:
 			message := err.Error()
+			if reporting := api.WorkerReportingDetails(err); reporting != nil {
+				message += fmt.Sprintf(" (server code: %v)", reporting["code"])
+			}
 			for _, key := range []string{"currentRevision", "threadId", "class"} {
 				if value, ok := details[key]; ok {
 					message += fmt.Sprintf(" (%s: %v)", key, value)

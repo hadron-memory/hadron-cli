@@ -310,9 +310,9 @@ hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <or
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
 hadron agent list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
-hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
+hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | set-reports-to <worker> (<target> | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
-hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
+hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
 hadron team attention [--since <token>] (uses --app or the binding)
 hadron team attention switchover preview | apply --proof <proof> [--yes] (uses --app or the binding)
@@ -2120,8 +2120,11 @@ Conventions:
   `sessionId` empty rather than guessing. **`git worktree remove` deletes the
   binding and does NOT end the session**; recover the id with `whoami` and end it
   with `session end --session <id>`. **`whoami --check` asks the server whether
-  the bound session is still open (#484)** — the default stays local and costs no
-  round trip, which matters because this is the compaction-recovery read. Use it
+  the bound session is still open (#484)**. Binding identity stays available
+  locally for compaction recovery. The default now also makes a best-effort
+  worker read for its CURRENT reporting relation; a failed, masked or unavailable
+  read reports `reportingKnown: false` / `? (unavailable)`, preserving recovery
+  without pretending the worker reports to nobody. Use it
   when the binding may have outlived what it describes: `session end --session
   <id>` ends a session from ANYWHERE and clears only the binding of the worktree
   it ran in, so every other worktree keeps describing a session that is gone.
@@ -2902,3 +2905,30 @@ Comment refusals expose their bounded recovery details on curated output:
 `threadId` or `class`; human errors label those values. Other extension fields
 are not forwarded. `COMMENT_MERGE_FOLDS_THREADS` exits 2: the caller must
 resolve the anchored-thread conflict before merging, rather than retry blind.
+
+
+## Worker reporting relationships
+
+`hadron team session start --as <worker> [--reports-to <target>]` can set the
+worker's reporting relation in the bind. The target is a worker name, URN or id.
+Omitting the flag omits reportsTo (preserves the relation); an empty value exits 2.
+The relation lives on the worker and survives session ending and rebinding.
+
+`hadron team worker set-reports-to <worker> <target>` sets or hands it over;
+`hadron team worker set-reports-to <worker> --clear` sends explicit null.
+The server decides who may set, hand over or clear it; this CLI does not infer
+permission or retry refusals. Bound setter requests carry the worker session.
+WORKER_REPORTS_TO_SELF/CYCLE/OTHER_APP exit 2; RETIRED/HELD exit 5;
+FORBIDDEN exits 8; missing/unreadable workers exit 4. The server's own refusal
+message is retained, with the WORKER_REPORTS_TO_* code in error.extensions.code
+under --json and a server code label in human errors.
+
+Worker get/list JSON adds `reportsTo: {id, name, urn} | null` and
+`reportsToRetired: bool`. Null can be masked; hasLiveSession distinguishes
+unavailable working state from a permitted unset relation. Human output shows
+the target name, `(retired)` when flagged, `-` when unset, and `? (unavailable)`
+when masked. Roster rows are grouped by target id, keeping unbound workers.
+Session whoami and session rows add the same fields plus `reportingKnown`;
+whoami reads the current worker relation, never a cached bind-time value.
+With several fallback candidates each row shows its relation; there is no single
+selected relation. No client enforcement, alarm routing or human target is added.
