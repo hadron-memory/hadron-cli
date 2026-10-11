@@ -106,7 +106,7 @@ after merging both spec markers.`,
 				}
 				if draft.Missing {
 					return exitcode.Newf(exitcode.NotFound,
-						"no memory found for %q — expected a memory id or a URN: hrn:mem:<root>:<slug>", memory)
+						"no memory found for %q — expected a memory id or a URN: hrn:mem:<root>:<slug>", ref)
 				}
 			}
 			rawNodes = pageBranch(rawNodes, prefix, limit, offset)

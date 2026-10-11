@@ -895,3 +895,23 @@ func TestSpecListMissingMemoryIsNotFound(t *testing.T) {
 		t.Errorf("exit code = %d, want %d (%v)", got, exitcode.NotFound, err)
 	}
 }
+
+// Control for the not-found case: an existing memory with no specs is still an
+// empty list and exit 0 (#799).
+func TestSpecListExistingEmptyMemoryIsEmpty(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"FindNodes":           `{"data":{"nodes":[]}}`,
+		"Memories":            memListMicromentorJSON,
+		"SpecCorpusState":     draftStateJSON,
+		"SpecPlaceholderScan": placeholderScanJSON(map[string]bool{}),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "list", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if got := strings.TrimSpace(out.String()); got != "[]" {
+		t.Errorf("output = %q, want []", got)
+	}
+}
