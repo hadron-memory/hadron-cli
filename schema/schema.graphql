@@ -306,9 +306,9 @@ type AgentSubscription {
 
 """
 One piece of work a team App has assigned, or wants assigned
-(cor:agt:050:01). The platform records who holds it, since when and how it
+(hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
 ended; it never reads what the work is. Readable by the App's participants,
-workers acting through their sessions included (cor:agt:050:21).
+workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 """
 type AgentTask {
   appId: ID!
@@ -321,7 +321,7 @@ type AgentTask {
 
   """
   Whether finishing asks the assignee to end its worker session
-  (cor:agt:050:10). Set by whoever assigns; stored only in this release,
+  (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns; stored only in this release,
   carried out by the host-operations slice.
   """
   closeSessionWhenDone: Boolean!
@@ -335,7 +335,9 @@ type AgentTask {
   """Null for a root task."""
   parentTaskId: ID
 
-  """Derived (cor:agt:050:03): pending with no assignee. Never stored."""
+  """
+  Derived (hrn:node:hadronmemory.com:specs:cor:agt:050:03): pending with no assignee. Never stored.
+  """
   queued: Boolean!
   requirements: AgentTaskRequirements
 
@@ -352,7 +354,7 @@ type AgentTask {
   updatedAt: DateTime
 
   """
-  Derived (cor:agt:050:04): started with at least one pending or started child task. Never stored.
+  Derived (hrn:node:hadronmemory.com:specs:cor:agt:050:04): started with at least one pending or started child task. Never stored.
   """
   waitingOnChildren: Boolean!
 }
@@ -410,7 +412,9 @@ input AgentTaskRequirementsInput {
   role: String
 }
 
-"""A finished task's result (cor:agt:050:01)."""
+"""
+A finished task's result (hrn:node:hadronmemory.com:specs:cor:agt:050:01).
+"""
 type AgentTaskResult {
   """A URL or a node URN."""
   evidence: String
@@ -431,24 +435,28 @@ input AgentTaskResultInput {
 }
 
 """
-#1706 — an App's effective stall windows, in minutes (cor:agt:050:14–:17).
+#1706 — an App's effective stall windows, in minutes (hrn:node:hadronmemory.com:specs:cor:agt:050:14–:17).
 Tunables, not contract: the platform defaults are 15, 60, 20 and 30.
 """
 type AgentTaskStallSchedule {
   appId: ID!
 
-  """Couldn't be assigned (cor:agt:050:17)."""
+  """Couldn't be assigned (hrn:node:hadronmemory.com:specs:cor:agt:050:17)."""
   assignmentMinutes: Int!
 
-  """No progress (cor:agt:050:15). Also the escalation step for that alarm."""
+  """
+  No progress (hrn:node:hadronmemory.com:specs:cor:agt:050:15). Also the escalation step for that alarm.
+  """
   noProgressMinutes: Int!
 
   """
-  Not started (cor:agt:050:14): counted from the assignment when the task has no later start-by time.
+  Not started (hrn:node:hadronmemory.com:specs:cor:agt:050:14): counted from the assignment when the task has no later start-by time.
   """
   notStartedMinutes: Int!
 
-  """Owner didn't react to a finished child task (cor:agt:050:16)."""
+  """
+  Owner didn't react to a finished child task (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+  """
   ownerReactionMinutes: Int!
 
   """
@@ -468,7 +476,7 @@ input AgentTaskStallScheduleInput {
 }
 
 """
-An agent task's status (cor:agt:050:02). FINISHED and CANCELLED are the end states.
+An agent task's status (hrn:node:hadronmemory.com:specs:cor:agt:050:02). FINISHED and CANCELLED are the end states.
 """
 enum AgentTaskStatus {
   CANCELLED
@@ -479,9 +487,9 @@ enum AgentTaskStatus {
 
 """
 #1706 — one owner in an alarm's chain, and when the alarm wakes them
-(cor:agt:050:19). The nearest owner is woken when the alarm is raised; owner
+(hrn:node:hadronmemory.com:specs:cor:agt:050:19). The nearest owner is woken when the alarm is raised; owner
 i falls due i windows later, and is woken only while the alarm is
-unacknowledged (cor:agt:050:20). This is the platform's record that the owner
+unacknowledged (hrn:node:hadronmemory.com:specs:cor:agt:050:20). This is the platform's record that the owner
 is due a wake-up; delivering it is the heartbeat slice's.
 """
 type AgentTeamAlarmSchedule {
@@ -498,7 +506,7 @@ type AgentTeamAlarmSchedule {
 
 """
 One append-only record of something that happened in a team App's task work
-(cor:agt:050:11). Never changed or removed; an alarm's acknowledgement is the
+(hrn:node:hadronmemory.com:specs:cor:agt:050:11). Never changed or removed; an alarm's acknowledgement is the
 one thing added later. payload carries ids, counts and outcome words only,
 never message or description text.
 """
@@ -517,7 +525,7 @@ type AgentTeamEvent {
   createdAt: DateTime!
 
   """
-  #1706 — stall alarms only: when the stall episode began (cor:agt:050:13),
+  #1706 — stall alarms only: when the stall episode began (hrn:node:hadronmemory.com:specs:cor:agt:050:13),
   the instant of the move that began the condition. One alarm per task,
   rule and episodeStart.
   """
@@ -533,12 +541,12 @@ type AgentTeamEvent {
   taskId: ID
 
   """
-  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable; availability.changed.
+  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable; availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost.
   """
   type: String!
 
   """
-  #1706 — alarms only: who the alarm wakes and when, nearest owner first (cor:agt:050:19). Null for an ordinary event.
+  #1706 — alarms only: who the alarm wakes and when, nearest owner first (hrn:node:hadronmemory.com:specs:cor:agt:050:19). Null for an ordinary event.
   """
   wakes: [AgentTeamAlarmSchedule!]
 }
@@ -855,6 +863,18 @@ type AiServiceConfigTestUsed {
 type AiServiceConfigsPage {
   items: [AiServiceConfig!]!
   total: Int!
+}
+
+input AmendDecisionInput {
+  addParts: [DecisionPartInput!]
+  blocks: [DecisionRefInput!]
+  context: String
+  followUps: [DecisionRefInput!]
+  parts: [DecisionPartPatchInput!]
+  sources: [DecisionRefInput!]
+  tier: DecisionTier
+  title: String
+  urgency: DecisionUrgency
 }
 
 """
@@ -1276,6 +1296,14 @@ type ApproveMemoryNodesResult {
   approved: [NodeApprovalReceipt!]!
   approvedCount: Int!
 
+  """
+  #1641 — decisions and decision logs in this memory, which bulk approval never approves: a decision is approved individually by one of its deciders.
+  """
+  skippedDecisionCount: Int!
+
+  """#1641 — the first 50 of those, by loc."""
+  skippedDecisions: [String!]!
+
   """Locs of reserved placeholders, which have no spec to approve yet."""
   skippedPlaceholders: [String!]!
 
@@ -1288,6 +1316,30 @@ type ApproveMemoryNodesResult {
 type AppsPage {
   items: [App!]!
   total: Int!
+}
+
+input AskDecisionInput {
+  authorizes: Boolean
+  blocks: [DecisionRefInput!]
+  context: String
+
+  """
+  Narrows the log's default deciders; never widens past its eligible set.
+  """
+  deciders: [ID!]
+  followUps: [DecisionRefInput!]
+
+  """The authorization a grant decision carries (authorizes: true only)."""
+  grant: JSON
+  parts: [DecisionPartInput!]!
+  sources: [DecisionRefInput!]
+
+  """
+  Default APPROVED; SIGNED when authorizes is true (APPROVED is then refused: DECISION_TIER_TOO_LOW).
+  """
+  tier: DecisionTier
+  title: String!
+  urgency: DecisionUrgency
 }
 
 type Asset {
@@ -1453,8 +1505,14 @@ type AuthContext {
   user: User
 }
 
+enum AutomationTriggerKind {
+  MANUAL
+  SCHEDULE
+  WEBHOOK
+}
+
 """
-Why a worker or a model family is unavailable for work (cor:agt:060:02; held was dropped, team chat #7449).
+Why a worker or a model family is unavailable for work (hrn:node:hadronmemory.com:specs:cor:agt:060:02; held was dropped, team chat #7449).
 """
 enum AvailabilityReason {
   HOST_DOWN
@@ -1463,7 +1521,9 @@ enum AvailabilityReason {
   STALLED
 }
 
-"""Who set a worker's availability (cor:agt:060:08)."""
+"""
+Who set a worker's availability (hrn:node:hadronmemory.com:specs:cor:agt:060:08).
+"""
 enum AvailabilitySetter {
   """Whoever manages the App."""
   APP_MANAGER
@@ -1475,7 +1535,7 @@ enum AvailabilitySetter {
   HOST
 
   """
-  The stall rule (cor:agt:060:07): an alarm marked it, or its next activity cleared it.
+  The stall rule (hrn:node:hadronmemory.com:specs:cor:agt:060:07): an alarm marked it, or its next activity cleared it.
   """
   STALL_RULE
 
@@ -1843,11 +1903,26 @@ type Comment {
   anchorRevision: Int!
   author: CommentAuthor!
 
-  """Null when retracted or hidden: the stub shows the state, not the text."""
+  """Null when deleted: the stub shows the state, not the text."""
   body: String
   createdAt: DateTime!
-  hidden: Boolean!
-  hiddenAt: DateTime
+
+  """
+  #1721 — deleted with deleteComment. A deleted comment is shown only as a stub with no text, kept while it has live replies (hrn:node:hadronmemory.com:specs:cor:dmo:110:05).
+  """
+  deleted: Boolean!
+  deletedAt: DateTime
+
+  """Who deleted it: its author, or a memory manager."""
+  deletedBy: CommentActorRef
+
+  """
+  When the body or quote was last edited; null when it never was. Only an edit sets it (hrn:node:hadronmemory.com:specs:cor:dmo:110:12).
+  """
+  editedAt: DateTime
+
+  """Who last edited the body or quote; null when it never was."""
+  editedBy: CommentActorRef
   id: ID!
   isTopLevel: Boolean!
 
@@ -1859,15 +1934,13 @@ type Comment {
   """
   provenanceUser: CommentActorRef
 
-  """Null when retracted or hidden."""
+  """Null when deleted."""
   quote: String
   resolvedAt: DateTime
   resolvedBy: CommentActorRef
-  retracted: Boolean!
-  retractedAt: DateTime
 
   """
-  The comment's own revision. Pass it as expectedRevision to edit, retract, resolve, reopen or hide.
+  The comment's write counter. Pass it as expectedRevision to edit, delete, resolve or reopen. A comment keeps no revision history, so there are no earlier revisions to read.
   """
   revSeq: Int!
 
@@ -1877,11 +1950,15 @@ type Comment {
 
   """Null for a top-level comment; else the thread's top-level comment."""
   threadRootId: ID
+
+  """
+  When the comment row last changed: an edit, or a delete that leaves a stub. Resolve and reopen never change it. To show a comment as edited, use editedAt.
+  """
   updatedAt: DateTime
   urn: String!
 
   """
-  Whether the caller is this comment's author (the edit/retract right). Computed with the same author key the server enforces.
+  Whether the caller is this comment's author (the edit and delete right). Computed with the same author key the server enforces.
   """
   viewerIsAuthor: Boolean!
 }
@@ -1938,9 +2015,7 @@ enum CommentAuthorKind {
 #1606 — the trust cue (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Counts live threads; zeros on a memory that cannot hold comments.
 """
 type CommentSummary {
-  """
-  Every live comment, top-level and replies, retracted and hidden stubs included.
-  """
+  """Every live comment, top-level and replies, deleted stubs included."""
   comments: Int!
   openThreads: Int!
   resolvedThreads: Int!
@@ -2086,8 +2161,8 @@ input CreateAgentScheduleInput {
 
 """
 createAgentTask input. A ROOT task names appRef; any App participant may
-create one (cor:agt:050:06). A CHILD task names parentTaskId; only the
-parent's assignee may create one, and it owns it (cor:agt:050:07).
+create one (hrn:node:hadronmemory.com:specs:cor:agt:050:06). A CHILD task names parentTaskId; only the
+parent's assignee may create one, and it owns it (hrn:node:hadronmemory.com:specs:cor:agt:050:07).
 """
 input CreateAgentTaskInput {
   """
@@ -2098,7 +2173,7 @@ input CreateAgentTaskInput {
   """Omit to leave the task queued."""
   assignee: AgentTaskPartyInput
 
-  """Defaults to true (cor:agt:050:10)."""
+  """Defaults to true (hrn:node:hadronmemory.com:specs:cor:agt:050:10)."""
   closeSessionWhenDone: Boolean
   description: String
 
@@ -2488,6 +2563,377 @@ makes that shape unrepresentable, so no client needs to sniff the format.
 Output-only today: date-valued arguments remain String.
 """
 scalar DateTime
+
+"""
+#1641 — a human decision: a governed node (role decision) under a decision log, written only by the
+decision operations. Its content is rendered from this structured payload, so an approval covers
+exactly what was asked and answered. Plan: hrn:node:hadronmemory.com:hadron-server:design:decision-nodes.
+"""
+type Decision {
+  """When the last part was answered; null while any part is open."""
+  answeredAt: DateTime
+
+  """Migrated history that is never usable as an authorization."""
+  archival: Boolean!
+  askedAt: DateTime
+  askedBy: DecisionActor!
+  authorizes: Boolean!
+
+  """What is waiting on this decision."""
+  blocks: [DecisionRef!]!
+
+  """Permanent: DA, DB, … issued in sequence by its log, never reused."""
+  code: String!
+  context: String
+  deciderIds: [ID!]!
+  deciders: [CommentActorRef!]!
+  evidence: DecisionEvidence!
+
+  """Spec citations the ruling must reach."""
+  followUps: [DecisionRef!]!
+  id: ID!
+
+  """
+  Account merges the stored user ids follow: the record keeps the merged-away id (#1715).
+  """
+  identityMerges: [DecisionIdentityMerge!]!
+  logId: ID
+  n: Int!
+  node: Node
+  parts: [DecisionPart!]!
+
+  """
+  The decision's own page, where its card renders. Copy it; never build it.
+  """
+  portalUrl: String
+
+  """The node's current revision: the expectedRevision of the next change."""
+  revSeq: Int!
+  sources: [DecisionRef!]!
+
+  """DERIVED on every read. Rely on a ruling only while it is DECIDED."""
+  state: DecisionState!
+  tier: DecisionTier!
+  title: String!
+  urgency: DecisionUrgency!
+  urn: String!
+
+  """
+  True when the caller is a decider, including through an account merged into theirs (#1715).
+  """
+  viewerIsDecider: Boolean!
+  withdrawn: DecisionWithdrawal
+}
+
+"""
+#1641 — an authenticated actor: taken from the principal, never supplied by a client. Public projections only (#552).
+"""
+type DecisionActor {
+  app: CommentActorRef
+  appId: ID
+  user: CommentActorRef
+  userId: ID
+  worker: CommentActorRef
+  workerId: ID
+}
+
+type DecisionAnswer {
+  at: DateTime!
+
+  """The decider whose credential recorded it."""
+  byUserId: ID!
+
+  """
+  An imported answer's recorded speaker (a claim, never rendered as the authenticated answerer).
+  """
+  claimedBy: String
+  freeform: Boolean!
+
+  """The chosen option; null for a free-text answer."""
+  key: String
+  reason: String
+  recordedByUserId: ID
+
+  """Where the answer was given (a claim)."""
+  source: DecisionRef
+  text: String
+  via: DecisionAnswerVia!
+}
+
+"""
+#1641 — where an answer was given, as the answering caller states it (a claim).
+"""
+enum DecisionAnswerVia {
+  CHAT_RECORDED
+  CLI
+  IMPORT
+  MCP
+  PORTAL
+}
+
+type DecisionApprovalEvidence {
+  approvedAt: DateTime!
+  by: CommentActorRef
+
+  """
+  Whether the approver is one of the decision's deciders (only then does it count).
+  """
+  byDecider: Boolean!
+  byUserId: ID
+
+  """
+  INTACT, TAMPERED, SUPERSEDED or NOT_APPROVED: the approval hash checked against the live text.
+  """
+  integrity: String!
+
+  """The revision approved."""
+  revision: Int!
+}
+
+type DecisionEvidence {
+  """The latest approval on record, whoever gave it."""
+  approval: DecisionApprovalEvidence
+}
+
+"""
+#1715 — an account merge that a user id stored in a decision or a log follows.
+Stored ids are never rewritten by mergeUsers, because they are part of the
+authenticated record: the record still names fromUserId, and that account now
+acts as toUserId. A chain of merges is listed link by link, oldest first.
+"""
+type DecisionIdentityMerge {
+  from: CommentActorRef
+  fromUserId: ID!
+  mergedAt: DateTime!
+  to: CommentActorRef
+  toUserId: ID!
+}
+
+"""#1641 — a decision log's settings (never a decision, never approved)."""
+type DecisionLog {
+  defaultDeciderIds: [ID!]!
+
+  """Who decides a decision asked without naming deciders."""
+  defaultDeciders: [CommentActorRef!]!
+  eligibleDeciderIds: [ID!]!
+
+  """
+  Who else a decision may name as a decider. A decision's deciders are narrowed from these, never widened.
+  """
+  eligibleDeciders: [CommentActorRef!]!
+  id: ID!
+
+  """
+  Account merges the stored user ids follow: the record keeps the merged-away id (#1715).
+  """
+  identityMerges: [DecisionIdentityMerge!]!
+
+  """How many codes have been issued (withdrawn and purged ones included)."""
+  lastCode: Int!
+  loc: String!
+  name: String!
+  portalUrl: String
+
+  """Codes are this prefix plus letters: D → DA, DB, …"""
+  prefix: String!
+  purges: [DecisionPurge!]!
+  revSeq: Int!
+  urn: String!
+}
+
+input DecisionNoRecommendationInput {
+  reason: String!
+}
+
+type DecisionOption {
+  cost: String
+
+  """The option id an answer names."""
+  key: String!
+  label: String!
+  meaning: String
+}
+
+input DecisionOptionInput {
+  cost: String
+  key: String!
+  label: String!
+  meaning: String
+}
+
+type DecisionPage {
+  items: [Decision!]!
+
+  """Matching decisions before paging."""
+  total: Int!
+}
+
+type DecisionPart {
+  answer: DecisionAnswer
+
+  """
+  Earlier answers to this part, oldest first: a re-answer appends, never replaces quietly.
+  """
+  answerHistory: [DecisionAnswer!]!
+
+  """The citation of this part, e.g. DU-1."""
+  citation: String!
+
+  """Permanent within the decision; amendments add parts, never renumber."""
+  n: Int!
+  noRecommendationReason: String
+  options: [DecisionOption!]!
+  question: String!
+
+  """
+  Null when the asker deliberately gave none (see noRecommendationReason). Never pre-selected.
+  """
+  recommendation: DecisionRecommendation
+}
+
+"""
+#1641 — one part of a decision. Give options or yesno, and a recommendation or noRecommendation.
+"""
+input DecisionPartInput {
+  noRecommendation: DecisionNoRecommendationInput
+  options: [DecisionOptionInput!]
+  question: String!
+  recommendation: DecisionRecommendationInput
+  yesno: Boolean
+}
+
+"""
+#1641 — a change to an existing part (by its permanent number). Omitted fields are unchanged; answers never change here.
+"""
+input DecisionPartPatchInput {
+  n: Int!
+  noRecommendation: DecisionNoRecommendationInput
+  options: [DecisionOptionInput!]
+  question: String
+  recommendation: DecisionRecommendationInput
+  yesno: Boolean
+}
+
+type DecisionPurge {
+  at: DateTime!
+  by: CommentActorRef
+  byUserId: ID!
+  code: String!
+
+  """sha256 of the purged decision's rendered content."""
+  contentHash: String!
+  reason: String!
+}
+
+type DecisionRecommendation {
+  """A relayed recommendation's original author, as a claim."""
+  attributedTo: String
+
+  """Who recorded the recommendation (authenticated)."""
+  by: DecisionActor!
+  key: String!
+  reason: String
+}
+
+input DecisionRecommendationInput {
+  """Relaying someone else's recommendation: who (recorded as a claim)."""
+  attributedTo: String
+  key: String!
+  reason: String
+}
+
+"""
+#1641 — a reference: exactly one of an external ref (hadron-server#1640, team:6783), a node id or URN, or a spec citation.
+"""
+type DecisionRef {
+  node: String
+  ref: String
+  spec: String
+}
+
+input DecisionRefInput {
+  node: String
+  ref: String
+  spec: String
+}
+
+"""
+#1641 — list order. PORTAL_DEFAULT: urgent first, then open before answered, then newest ask. CODE: code order.
+"""
+enum DecisionSort {
+  CODE
+  PORTAL_DEFAULT
+}
+
+"""
+#1641 — a decision's derived state (hrn:node:hadronmemory.com:hadron-server:design:decision-nodes §6.3). Computed by the one evaluation on every read, never stored. Precedence: TAMPERED, UNVERIFIABLE, WITHDRAWN, SUPERSEDED, STALE, DECIDED, ANSWERED_UNCONFIRMED, OPEN.
+"""
+enum DecisionState {
+  """
+  Every part is answered; the tier's evidence (a decider's approval, or later a signature) is missing at the current revision.
+  """
+  ANSWERED_UNCONFIRMED
+
+  """
+  Answered, and the tier's evidence by a decider is intact at the current revision. The only state a ruling may be relied on in.
+  """
+  DECIDED
+
+  """Not every part is answered."""
+  OPEN
+
+  """
+  Evidence exists, but for an earlier revision: the decision changed after it was approved.
+  """
+  STALE
+  SUPERSEDED
+
+  """
+  The rendered content, the structured payload and the approval hash disagree: changed outside the decision operations.
+  """
+  TAMPERED
+
+  """
+  Written by a codec or renderer this server does not know, so it cannot be verified (fail closed).
+  """
+  UNVERIFIABLE
+  WITHDRAWN
+}
+
+"""
+#1641 — the assurance a decision's answer needs. APPROVED: a decider's approval. SIGNED: a decider's passkey signature (#1614; not available yet, so a SIGNED decision stays ANSWERED_UNCONFIRMED).
+"""
+enum DecisionTier {
+  APPROVED
+  SIGNED
+}
+
+enum DecisionUrgency {
+  NORMAL
+  URGENT
+}
+
+"""#1641 — verifyDecision: the one evaluation's findings."""
+type DecisionVerification {
+  approvalByDecider: Boolean!
+  approvalIntegrity: String!
+  approvedRevision: Int
+  codec: String
+
+  """
+  NO_BLOCK, BLOCK_INVALID, UNKNOWN_CODEC, UNKNOWN_RENDERER, RENDER_MISMATCH, DATA_MISMATCH, APPROVAL_HASH_MISMATCH.
+  """
+  findings: [String!]!
+  renderer: String
+  revision: Int!
+  state: DecisionState!
+}
+
+type DecisionWithdrawal {
+  at: DateTime!
+  by: DecisionActor!
+  reason: String!
+}
 
 """
 Return shape for deleteMemoryShare. Both fields are RESOLVED primary
@@ -4036,12 +4482,14 @@ input MintActionTicketsInput {
 }
 
 """
-#1706 — one model family's availability for work in one App (cor:agt:060:03). A family with no record is available.
+#1706 — one model family's availability for work in one App (hrn:node:hadronmemory.com:specs:cor:agt:060:03). A family with no record is available.
 """
 type ModelFamilyAvailability {
   appId: ID!
 
-  """The model family, e.g. claude or codex (cor:agt:060:04)."""
+  """
+  The model family, e.g. claude or codex (hrn:node:hadronmemory.com:specs:cor:agt:060:04).
+  """
   family: String!
 
   """Unavailable and not lapsed."""
@@ -4057,7 +4505,7 @@ type Mutation {
   acceptInvitation(slug: String!): Boolean!
 
   """
-  #1706 — acknowledge an alarm (cor:agt:050:20): it stops waking higher
+  #1706 — acknowledge an alarm (hrn:node:hadronmemory.com:specs:cor:agt:050:20): it stops waking higher
   owners; the stall episode goes on until the task moves. Any owner in the
   alarm's chain, and nobody else (Proposed); the time is the server's.
   Refusals: ALARM_NOT_FOUND (also for an App you do not participate in),
@@ -4151,6 +4599,13 @@ type Mutation {
   advanceChannelReadState(appRef: ID, attendeeRef: ID!, channelRef: ID!, seq: Int!): ChannelReadState!
 
   """
+  #1641 — amend a decision. Before any answer, any writer; after one, a decider only. Urgency is a
+  decider's to change; lowering the tier is a decider's, before an answer, never when it authorizes.
+  Refusals: NODE_WRITE_CONFLICT, DECISION_PART_RENUMBER, DECISION_ANSWER_IMMUTABLE, DECISION_NOT_DECIDER.
+  """
+  amendDecision(expectedRevision: Int!, input: AmendDecisionInput!, reason: String!, ref: ID!): Decision!
+
+  """
   #1334 — copy a template's rules into ONE memory's config. A one-off copy:
   later template edits never reach this memory, and re-applying is explicit.
   
@@ -4188,8 +4643,15 @@ type Mutation {
   approveNode(nodeRef: ID!, revision: Int): NodeApprovalReceipt!
 
   """
+  #1641 — ask a decision in a log: the server issues the next code (DA, DB, …) and renders the
+  content. Any writer of the log's memory, agents included. Refusals: DECISION_INVALID (with JSON
+  pointers), DECISION_RECOMMENDATION_MISSING, DECISION_TIER_TOO_LOW, DECISION_DECIDER_NOT_ELIGIBLE.
+  """
+  askDecision(input: AskDecisionInput!, logRef: ID!): Decision!
+
+  """
   #1705 — assign a queued task (pending, no assignee): the task's owner or
-  whoever manages the App (cor:agt:050:09). closeSessionWhenDone, when
+  whoever manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:09). closeSessionWhenDone, when
   given, replaces the task's value. Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
   TASK_ENDED, TASK_INVALID_TRANSITION (already assigned: use
   reassignAgentTask), TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
@@ -4253,7 +4715,7 @@ type Mutation {
 
   """
   #1705 — cancel a pending or started task: its owner, or whoever manages
-  the App (cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
+  the App (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
   TASK_ENDED, SESSION_NOT_BOUND, APP_UNINSTALLED.
   """
   cancelAgentTask(taskId: ID!): AgentTask!
@@ -4420,7 +4882,7 @@ type Mutation {
   createAgentSchedule(input: CreateAgentScheduleInput!): AgentSchedule!
 
   """
-  #1705 — create an agent task (cor:agt:050:06 root, :07 child). Writes
+  #1705 — create an agent task (hrn:node:hadronmemory.com:specs:cor:agt:050:06 root, :07 child). Writes
   task.created, and task.assigned when an assignee is named. A worker acts
   through its session (X-Hadron-Session); a person acts as themselves.
   Typed refusals: TASK_NOT_FOUND (a parent the caller cannot read, or in
@@ -4429,9 +4891,11 @@ type Mutation {
   App), TASK_OWNER_INVALID, TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND,
   APP_NOT_FOUND (an App that does not exist or that you do not participate
   in, alike), APP_UNINSTALLED, FORBIDDEN (impersonation), BAD_USER_INPUT.
-  "Whoever manages the App" is strict (cor:acl:010:01): a user-owned App's
-  owner, or the org's ADMINs and OWNERs. Every write re-checks the caller's
-  participation and the App's state inside its transaction.
+  "Whoever manages the App" (hrn:node:hadronmemory.com:specs:cor:acl:010:01, as ruled 2026-10-10, #1731): a
+  user-owned App's owner, any owner-role member of the App, the org's ADMINs
+  and OWNERs, and platform admins (for an org-owned App). Every write
+  re-checks the caller's participation and the App's state inside its
+  transaction.
   """
   createAgentTask(input: CreateAgentTaskInput!): AgentTask!
 
@@ -4617,6 +5081,16 @@ type Mutation {
   authenticated user.
   """
   createDashboardWidgetPreset(config: JSON!, name: String!, type: DashboardWidgetType!): DashboardWidgetPreset!
+
+  """
+  #1641 — create a decision log at loc in a memory: needs management rights on the memory, or the
+  owner role in the App the memory belongs to (Holger's ruling, team chat #7790). Refused
+  in an encrypted memory (DECISION_LOG_ENCRYPTED), a git-mirrored one (DECISION_LOG_MIRRORED), a
+  system memory (DECISION_LOG_SYSTEM_MEMORY), an anonymous one (DECISION_LOG_ANONYMOUS_MEMORY), at an
+  occupied loc (DECISION_LOG_EXISTS), or inside a decision's subtree. Deciders are user ids, each able
+  to read the memory (DECISION_DECIDER_NOT_ELIGIBLE).
+  """
+  createDecisionLog(defaultDeciders: [ID!]!, eligibleDeciders: [ID!], loc: String!, memoryRef: ID!, name: String, prefix: String): DecisionLog!
   createEdge(condition: JSON, data: JSON, description: String, isRunnable: Boolean, loc: String, name: String, priority: Int, sourceRef: ID!, targetRef: ID!): Edge!
 
   """
@@ -5079,7 +5553,12 @@ type Mutation {
   deleteChat(chatId: String!): Boolean!
 
   """
-  #1606 — a memory admin deletes a whole thread (soft: gone from every read, limit and check; history kept). commentRef may be any comment of it.
+  #1721 — delete one comment: its author (with write access), or anyone who may delete others' comments (the memory's manager, or a platform admin outside personal and private memories). A top-level comment with live replies stays as a deleted stub with no text; any other comment is soft-deleted and gone from every read, and a stub goes with its last live reply (hrn:node:hadronmemory.com:specs:cor:dmo:110:05). Returns the comment as deleted. COMMENT_NOT_AUTHOR for a writer who is not the author; COMMENT_DELETED for a stub.
+  """
+  deleteComment(commentRef: ID!, expectedRevision: Int!): Comment!
+
+  """
+  #1606 — a memory admin deletes a whole thread (soft: gone from every read, limit and check; the rows stay for audit, with no revision history, #1721). commentRef may be any comment of it.
   """
   deleteCommentThread(commentRef: ID!, reason: String!): Boolean!
 
@@ -5475,7 +5954,7 @@ type Mutation {
 
   """
   #1705 — finish a started task with its result: its assignee only
-  (cor:agt:050:08). A pending task is refused: start it first. Refusals as
+  (hrn:node:hadronmemory.com:specs:cor:agt:050:08). A pending task is refused: start it first. Refusals as
   startAgentTask, plus BAD_USER_INPUT for an outcome that is not one word.
   """
   finishAgentTask(result: AgentTaskResultInput!, taskId: ID!): AgentTask!
@@ -5484,9 +5963,6 @@ type Mutation {
   Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN ONLY (self-grant risk); processor top-ups land here later.
   """
   grantCredits(input: GrantCreditsInput!): CreditLedgerEntry!
-
-  """#1606 — a memory admin hides an abusive comment, leaving a stub."""
-  hideComment(commentRef: ID!, expectedRevision: Int!, reason: String!): Comment!
 
   """
   Import external content into a node (#457, sync v1). Source: exactly one
@@ -5541,21 +6017,23 @@ type Mutation {
   so this works for B2C / consumer / therapy use cases where the
   end-user is not in the App's operator org.
   
-  Role defaults to the first value in the Agent's
-  installationPolicy.memberRoles (the conventional "guest" or "owner"
-  slot). Idempotent — if the user is already an AppMember of the App,
-  the existing row is returned.
+  #1714: self-join is closed by default. It is open only when the App's
+  primary Agent declares installation_policy.selfJoinRole, which must be
+  one of its memberRoles and is never "owner"; the joiner gets that role.
+  Promotion to owner or any privileged role is ensureAppMember, by an App
+  manager. Idempotent — if the user is already an AppMember of the App,
+  the existing row is returned, before the gate is consulted.
   
   Error codes (GraphQLError extensions.code, Error.name style):
     - UNAUTHENTICATED — no logged-in user in context.
     - AppNotFoundError — the App does not exist or is soft-deleted.
     - AppUninstalledError — the App is in the spec-021 soft-uninstall
       lifecycle phase.
-    - OrphanAppError — the App has no installed Agents (so there's
-      no Agent.installationPolicy to consult).
-    - NoMemberRolesError — the primary Agent's
-      installation_policy.memberRoles is empty, so joinApp can't
-      pick a default role.
+    - SelfJoinNotAllowedError — the App's Agent has not opted into
+      self-service joining (including an App with no installed Agent).
+      Checked before capacity, so it reveals nothing about maxMembers.
+    - OrphanAppError — the App lost its installed Agents while the
+      join was in flight.
     - MaxMembersExceededError — the Agent's maxMembers limit is hit.
     - InvalidRoleError — the picked default role isn't accepted by
       the Agent's policy (rare; would indicate a policy update
@@ -5649,10 +6127,15 @@ type Mutation {
   preserve the strongest live entitlement. The source is soft-deleted.
   Platform admin only. The resulting merge is global; organization
   administration does not authorize account consolidation.
+  
+  Records the merge (#1715). User ids stored inside decisions and decision
+  logs are never rewritten, since they are authenticated; readers follow
+  them to the surviving account, so it is the asker or decider they name.
+  
   Refused with MERGE_USER_IN_OPEN_ALARMS (extension alarmCount; never the
   alarms, tasks or Apps, which the caller may not be able to read) while
   either account is named in the owner chain of an unacknowledged agent-task
-  alarm, whose sealed chain cannot follow a merge yet (#1715). Acknowledge
+  alarm, whose sealed chain cannot follow a merge yet. Acknowledge
   the alarms, then merge.
   """
   mergeUsers(input: MergeUsersInput!): User!
@@ -5727,6 +6210,11 @@ type Mutation {
   publishRevision(agentId: ID!, revisionLoc: String!, versionLabel: String): RevisionResult!
 
   """
+  #1641 — a platform admin hard-deletes a decision that was never answered, recorded on its log (DECISION_ANSWERED otherwise). The code stays consumed.
+  """
+  purgeUnansweredDecision(reason: String!, ref: ID!): Boolean!
+
+  """
   Push all nodes in a memory to its configured git repo.
   
   Accepts the entity's ID or URN.
@@ -5734,8 +6222,13 @@ type Mutation {
   pushMemoryToGit(id: ID!): Boolean!
 
   """
+  #1719: rebind a trigger to its reviewed graph. expectedHash must match previewAutomation; edits since preview refuse adoption.
+  """
+  reAdoptAutomation(expectedHash: String!, triggerKind: AutomationTriggerKind!, triggerRef: String!): Boolean!
+
+  """
   #1705 — move a task to another assignee: the task's owner, or whoever
-  manages the App (cor:agt:050:09). A started task stays started; the former
+  manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:09). A started task stays started; the former
   assignee can no longer move it. Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
   TASK_ENDED, TASK_INVALID_TRANSITION (no assignee yet, or the same one),
   TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
@@ -5744,7 +6237,7 @@ type Mutation {
 
   """
   #1705 — record progress on a started task: its assignee only
-  (cor:agt:050:08). Carries no text. Refusals as startAgentTask.
+  (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Carries no text. Refusals as startAgentTask.
   """
   recordAgentTaskProgress(taskId: ID!): AgentTask!
 
@@ -6051,14 +6544,10 @@ type Mutation {
   and refuses new session bindings; the row and its name reservation
   survive. Idempotent — retiring an already-retired worker returns it
   unchanged. Same authorization as castWorker. workerRef is the worker's id
-  or its URN (#991).
+  or its URN (#991). Retiring clears the worker's own reportsTo (#1726);
+  workers that report to it keep theirs and read reportsToRetired.
   """
   retireWorker(workerRef: ID!): Worker!
-
-  """
-  #1606 — the author retracts a comment, leaving a stub (hrn:node:hadronmemory.com:specs:cor:dmo:110:05).
-  """
-  retractComment(commentRef: ID!, expectedRevision: Int!): Comment!
 
   """
   #882 — re-drive every FAILED embed in a memory (the operator recovery
@@ -6196,6 +6685,11 @@ type Mutation {
   setDashboardWidgets(widgets: [DashboardWidgetInput!]!): [DashboardWidget!]!
 
   """
+  #1641 — replace a log's default (and, when given, other eligible) deciders, as an audited revision of the log. Existing decisions keep theirs. Needs management rights on the memory, or the owner role in its App.
+  """
+  setDecisionLogDeciders(defaultDeciders: [ID!]!, eligibleDeciders: [ID!], expectedRevision: Int!, logRef: ID!, reason: String!): DecisionLog!
+
+  """
   Set encrypted source token for non-GitHub-App repos.
   
   Accepts the entity's ID or URN.
@@ -6204,7 +6698,7 @@ type Mutation {
 
   """
   #1706 — set a model family's availability for work in an App
-  (cor:agt:060:09): whoever manages the App only. Writes availability.changed.
+  (hrn:node:hadronmemory.com:specs:cor:agt:060:09): whoever manages the App only. Writes availability.changed.
   Refusals: APP_NOT_FOUND, AVAILABILITY_NOT_PERMITTED, BAD_USER_INPUT,
   SESSION_NOT_BOUND, APP_UNINSTALLED.
   """
@@ -6216,13 +6710,27 @@ type Mutation {
   setQuotaLimit(input: SetQuotaLimitInput!): QuotaCounter!
 
   """
-  #1706 — set a worker's availability for work (cor:agt:060:08): the worker
+  #1706 — set a worker's availability for work (hrn:node:hadronmemory.com:specs:cor:agt:060:08): the worker
   itself, acting through its session, and only to UNAVAILABLE; the person
   holding its name; or whoever manages the App. Writes availability.changed.
   Refusals: WORKER_NOT_FOUND, AVAILABILITY_NOT_PERMITTED, WORKER_RETIRED,
   BAD_USER_INPUT, SESSION_NOT_BOUND, APP_UNINSTALLED.
   """
   setWorkerAvailability(input: SetWorkerAvailabilityInput!): WorkerAvailability!
+
+  """
+  #1726 — set, hand over or clear (reportsTo: null) who a worker reports to:
+  a non-retired worker of the same App, never itself, never a cycle
+  (WORKER_REPORTS_TO_SELF / _OTHER_APP / _RETIRED / _CYCLE; WORKER_RETIRED
+  for a retired worker). Allowed for whoever manages the App, and for the
+  worker it reports to now (handing over or clearing is its agreement). A
+  worker that reports to nobody may also be claimed by a worker for itself
+  when one person holds both, or placed under any worker by its own holder
+  (interim, pending a ruling). WORKER_REPORTS_TO_FORBIDDEN otherwise. A worker acts through its bound
+  session, with a person behind the request. Each change is a
+  `worker.reports-to` team event; setting the current value changes nothing.
+  """
+  setWorkerReportsTo(reportsTo: ID, workerRef: ID!): Worker!
   softDeleteAsset(assetId: ID!): Asset!
 
   """
@@ -6235,7 +6743,7 @@ type Mutation {
   startAgentSession(agentId: ID!, dataKey: String, externalUserId: String, sessionTimeoutSeconds: Int): Session!
 
   """
-  #1705 — start a pending task: its assignee only (cor:agt:050:08).
+  #1705 — start a pending task: its assignee only (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
   Refusals: TASK_NOT_FOUND, TASK_NOT_ASSIGNEE, TASK_ENDED,
   TASK_INVALID_TRANSITION, SESSION_NOT_BOUND, APP_UNINSTALLED.
   """
@@ -6862,6 +7370,11 @@ type Mutation {
   Same authorization as castWorker. workerRef is the worker's id or URN (#991).
   """
   updateWorker(promptOverride: String, workerRef: ID!): Worker!
+
+  """
+  #1641 — withdraw a decision (terminal; the code stays consumed): the asker or a decider, a decider once answered. DECIDED ones are superseded instead (DECISION_ANSWERED_DECIDED).
+  """
+  withdrawDecision(expectedRevision: Int!, reason: String!, ref: ID!): Decision!
 }
 
 type Node {
@@ -8123,13 +8636,13 @@ type Query {
   """
   #1705 — one agent task, or null when it does not exist or the caller may
   not read it (no existence oracle). Readers: the App's participants, workers
-  acting through their sessions included (cor:agt:050:21).
+  acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
   """
   agentTask(id: ID!): AgentTask
 
   """
-  #1706 — an App's effective stall windows (cor:agt:050:14–:17). Readers:
-  the App's task audience (cor:agt:050:21).
+  #1706 — an App's effective stall windows (hrn:node:hadronmemory.com:specs:cor:agt:050:14–:17). Readers:
+  the App's task audience (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
   """
   agentTaskStallSchedule(appRef: ID!): AgentTaskStallSchedule!
 
@@ -8143,14 +8656,14 @@ type Query {
   #1705 — a team App's agent tasks, newest first. Filters combine with AND;
   owner / assignee name a party of the App (a ref naming nobody matches
   nothing). queued: pending with no assignee. limit defaults to 50 (cap 200).
-  Readers: the App's participants (cor:agt:050:21); a pure App key is refused.
+  Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21); a pure App key is refused.
   An App you do not participate in answers APP_NOT_FOUND, exactly like an
   absent one.
   """
   agentTasks(appRef: ID!, assignee: AgentTaskPartyInput, limit: Int, offset: Int, owner: AgentTaskPartyInput, parentTaskId: ID, queued: Boolean, rootsOnly: Boolean, status: [AgentTaskStatus!], tag: String): [AgentTask!]!
 
   """
-  #1705 — a team App's event stream (cor:agt:050:11), in (createdAt, id)
+  #1705 — a team App's event stream (hrn:node:hadronmemory.com:specs:cor:agt:050:11), in (createdAt, id)
   order. To read the next page pass after: the id of the last event you
   read; the cursor is the (createdAt, id) pair, so events sharing a
   timestamp are never skipped. since is a coarse time filter (strictly
@@ -8506,6 +9019,23 @@ type Query {
   #772 — the caller's placed dashboard widgets, ordered by position. Empty for a non-user (App-key) caller.
   """
   dashboardWidgets: [DashboardWidget!]!
+
+  """
+  #1641 — one decision by ref (ID or URN), or by code (DU, or a citation DU-1) within logRef. Null when missing or unreadable.
+  """
+  decision(code: String, logRef: ID, ref: ID): Decision
+
+  """
+  #1641 — a decision log's settings by ID or URN; null when missing or unreadable.
+  """
+  decisionLog(ref: ID!): DecisionLog
+
+  """
+  #1641 — the decisions of one log (logRef), or with awaitingMe the OPEN decisions the caller
+  decides across every memory they can read. State is derived for every candidate BEFORE the
+  filters, sort and paging; a list above 5000 candidates refuses (DECISION_LOG_TOO_LARGE_FOR_FILTER).
+  """
+  decisions(authorizes: Boolean, awaitingMe: Boolean, limit: Int = 50, logRef: ID, offset: Int = 0, sort: DecisionSort = PORTAL_DEFAULT, state: [DecisionState!], tier: DecisionTier, urgency: [DecisionUrgency!]): DecisionPage!
 
   """File metadata by id. Grant scope: drive.read."""
   driveFile(connectionRef: ID!, fileId: ID!): DriveFile!
@@ -9132,6 +9662,11 @@ type Query {
   organizations(filter: OrganizationFilter, limit: Int, offset: Int): OrganizationsPage!
 
   """
+  #1719: review exact automation graph bytes and digest. triggerRef is the trigger row ID; MANUAL uses the origin AppRun ID. Only its run-as user or the manager of an App-only trigger may preview.
+  """
+  previewAutomation(triggerKind: AutomationTriggerKind!, triggerRef: String!): JSON!
+
+  """
   One action grant by ID - visible to the grantee or an admin of its org; null otherwise (no existence oracle).
   """
   principalGrant(ref: ID!): PrincipalGrant
@@ -9482,8 +10017,8 @@ type Query {
 
   """
   #1706 — every worker and model-family availability record in an App
-  (cor:agt:060:02 / :03), each with whether it is in effect now. Readers: the
-  App's task audience (interim until cor:agt:060:02's read question is ruled).
+  (hrn:node:hadronmemory.com:specs:cor:agt:060:02 / :03), each with whether it is in effect now. Readers: the
+  App's task audience (interim until hrn:node:hadronmemory.com:specs:cor:agt:060:02's read question is ruled).
   """
   teamAvailability(appRef: ID!): TeamAvailability!
 
@@ -9551,6 +10086,14 @@ type Query {
   system memory without an active session key refuses SESSION_EXPIRED.
   """
   teamRoles(appRef: ID!, limit: Int, offset: Int, teamAgentRef: ID): TeamRolesPage!
+
+  """
+  #1707 — every worker's derived state in an App (plan design:agent-tasks
+  §7.4), computed server-side so the CLI and portal render one answer. Plan-
+  derived, not a spec (hrn:node:hadronmemory.com:specs:cor:agt:050 leaves the roster out of scope). Readers:
+  the App's task audience (hrn:node:hadronmemory.com:specs:cor:agt:050:21). Retired workers are left out.
+  """
+  teamRoster(appRef: ID!): TeamRoster!
 
   """
   Declarative team JSON Schema (2020-12). apiVersion is the full identifier hadron.dev/team/v1alpha1; HTTP discovery uses /schemas/team/v1alpha1.json. CLIENT_INPUT additionally permits file parts for clients to inline; the server accepts SERVER only.
@@ -9715,6 +10258,11 @@ type Query {
   truncation. Read gate as the rest of the memory reads.
   """
   validateMemory(limit: Int, memoryRef: ID!): MemoryValidationResult!
+
+  """
+  #1641 — re-render a decision from its payload and check it against its content, data and approval: the findings behind its state.
+  """
+  verifyDecision(ref: ID!): DecisionVerification!
 
   """
   #1591 — the tamper check over every live node of a memory (ID or fully-qualified URN).
@@ -10509,6 +11057,14 @@ type Session {
   events: [UsageEvent!]!
   expiresAt: DateTime
 
+  """
+  #1707 — the model family this session runs as (hrn:node:hadronmemory.com:specs:cor:agt:060:04): given at
+  start, or derived from llmModel then tool; null when it could not be
+  classified. A bound worker's family is its newest open session's. A matching
+  input only, never an authorization input: it is self-declared.
+  """
+  family: String
+
   """#928: machine identifier the session ran on."""
   host: String
   id: ID!
@@ -10612,6 +11168,16 @@ input SessionInput {
   customerId: String
 
   """
+  #1707 / hrn:node:hadronmemory.com:specs:cor:agt:060:04: the model family this session runs as, e.g.
+  claude, codex or glm (a lowercase token). Omitted: derived from llmModel
+  first, then tool — tool alone never classifies claude-code, since GLM runs
+  inside it too — and a session nothing classifies gets no family, so its
+  worker is not matched to queued tasks until one is given. A matching input,
+  never an authorization input.
+  """
+  family: String
+
+  """
   #940: take over a worker whose binding would otherwise refuse WORKER_TAKEN.
   Only meaningful with workerRef. Clients must surface the WORKER_TAKEN
   payload (who last drove it, when) before retrying with force - that IS the
@@ -10632,6 +11198,16 @@ input SessionInput {
   prNumber: Int
   prevSessionId: String
   repo: String
+
+  """
+  #1726 — the worker this bind's worker reports to: an id, URN or name of a
+  worker in the session's App. Sets it in the same step as the bind (a spawn
+  brief), only when the worker reports to nobody or already to this one;
+  naming a different worker is refused (WORKER_REPORTS_TO_HELD) unless the
+  caller manages the App, and refuses the bind with it. Omitted leaves the
+  value unchanged. Needs workerRef and a person behind the request.
+  """
+  reportsTo: String
   tool: String
 
   """#928 coding-session provenance."""
@@ -11586,6 +12162,129 @@ type TeamRolesPage {
   total: Int!
 }
 
+"""#1707 — the team roster of one App."""
+type TeamRoster {
+  appId: ID!
+  asOf: DateTime!
+  workers: [TeamRosterEntry!]!
+}
+
+"""#1707 — one worker on the team roster."""
+type TeamRosterEntry {
+  """YOUR_MOVE: unacknowledged alarms it has been woken on."""
+  alarms: [ID!]!
+
+  """
+  Bound: has an open session, live or quiet. Going quiet never unbinds; ending the session does.
+  """
+  bound: Boolean!
+
+  """
+  The binding's model family: its newest open session's (hrn:node:hadronmemory.com:specs:cor:agt:060:04), kept while the session is quiet. Null when unbound or none was reported.
+  """
+  family: String
+
+  """The families it is free for work as now; empty when not free."""
+  freeFamilies: [String!]!
+
+  """Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05)."""
+  freeForWork: Boolean!
+  lastActiveAt: DateTime
+
+  """
+  When it was last assigned a task; the matcher picks the least recent (hrn:node:hadronmemory.com:specs:cor:agt:060:06).
+  """
+  lastAssignedAt: DateTime
+
+  """
+  Families a live host registration can launch it as (hrn:node:hadronmemory.com:specs:cor:agt:070:01).
+  """
+  launchableFamilies: [String!]!
+
+  """
+  Has a live session (hrn:node:hadronmemory.com:specs:cor:agt:020:11). Until the host-operations slice, the matcher assigns only to a worker with one.
+  """
+  liveSession: Boolean!
+
+  """Pending tasks it is the assignee of."""
+  pendingTasks: [ID!]!
+
+  """
+  #1726 — the worker it reports to; group by this for the team's structure. Read it with lastActiveAt: nothing clears a claim automatically.
+  """
+  reportsTo: AgentTaskParty
+
+  """
+  #1726 — it reports to a worker that has since retired (retirement leaves the claim; the roster flags it).
+  """
+  reportsToRetired: Boolean!
+  role: String
+
+  """Started tasks it is the assignee of."""
+  startedTasks: [ID!]!
+  state: TeamRosterState!
+
+  """
+  Families it could run as that are unavailable in the App now (hrn:node:hadronmemory.com:specs:cor:agt:060:03).
+  """
+  unavailableFamilies: [String!]!
+
+  """Set when its own availability record makes it unavailable now."""
+  unavailableReason: AvailabilityReason
+  unavailableUntil: DateTime
+
+  """YOUR_MOVE: a finished child it hasn't reacted to."""
+  unreactedChildTask: ID
+
+  """WAITING: the open children of its started tasks."""
+  waitingOn: [ID!]!
+
+  """WAITING: when the oldest of those was created."""
+  waitingSince: DateTime
+  worker: AgentTaskParty!
+}
+
+"""
+#1707 — a worker's derived state on the team roster (plan
+design:agent-tasks §7.4). Plan-derived, not a spec. A worker can be in
+several at once; it is shown in the first that holds, in this order.
+"""
+enum TeamRosterState {
+  """The assignee of a pending task."""
+  ASSIGNED_NOT_STARTED
+
+  """
+  Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05), including an unbound worker a live host can launch and a bound worker whose session is quiet, which the matcher leaves alone until the host-operations slice (see liveSession).
+  """
+  AVAILABLE
+
+  """Unbound, and no live host registration lists it."""
+  NOT_LAUNCHABLE
+
+  """
+  Bound, but its session reported no model family, so it can't be matched until one is given (hrn:node:hadronmemory.com:specs:cor:agt:060:04).
+  """
+  NO_FAMILY
+
+  """
+  Its own availability record, or every model family it can run as, says unavailable now (hrn:node:hadronmemory.com:specs:cor:agt:060:01); a stall mark included (hrn:node:hadronmemory.com:specs:cor:agt:060:07).
+  """
+  UNAVAILABLE
+
+  """
+  The assignee of a started task with open children (hrn:node:hadronmemory.com:specs:cor:agt:050:04).
+  """
+  WAITING
+
+  """The assignee of a started task."""
+  WORKING
+
+  """
+  Woken on an unacknowledged alarm (hrn:node:hadronmemory.com:specs:cor:agt:050:19), or a child of a task it is the assignee of finished after it last moved (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+  """
+  YOUR_MOVE
+}
+
 enum TeamSpecForm {
   CLIENT_INPUT
   SERVER
@@ -12122,6 +12821,16 @@ type Worker {
   createdBy: String
 
   """
+  #1707 — the model family of this worker's binding (hrn:node:hadronmemory.com:specs:cor:agt:060:04):
+  its newest open session's family. It follows the binding, not activity: a
+  quiet session keeps it, and it is cleared when the session ends or replaced
+  by a newer bind. Null when unbound, when the binding reported none, or on
+  the same read gate as hasLiveSession. A matching input, never an
+  authorization input.
+  """
+  family: String
+
+  """
   hadron-cli#487 — whether anyone is DRIVING this name right now.
   
   Not availability: availability is the HOLD above (`cor:agt:020:09`), and an
@@ -12227,6 +12936,23 @@ type Worker {
   """Per-worker individuality layered over the agent's template prompt."""
   promptOverride: String
 
+  """#1726 — the Worker named by reportsToWorkerId; masked likewise."""
+  reportsTo: Worker
+
+  """
+  #1726 — true when this worker reports to a worker that has since retired (a stale claim nothing clears automatically).
+  """
+  reportsToRetired: Boolean!
+
+  """
+  #1726 — the one Worker this worker reports to: a non-retired Worker of the
+  same App, never itself, never a cycle. Null reports to nobody. A property of
+  the casting, not of a session, so binding or ending a session leaves it
+  alone. Changed with setWorkerReportsTo (or reportsTo at startSession); every
+  change is a `worker.reports-to` team event. Masked on deny, like heldByUserId.
+  """
+  reportsToWorkerId: ID
+
   """
   #1024 — the repo affinity of this worker's ROLE, resolved so a client that
   already holds the worker needs no second round-trip to teamRoles. The CLI
@@ -12275,14 +13001,14 @@ type Worker {
 }
 
 """
-#1706 — one worker's availability for work (cor:agt:060:02). A worker with
+#1706 — one worker's availability for work (hrn:node:hadronmemory.com:specs:cor:agt:060:02). A worker with
 no record is available.
 """
 type WorkerAvailability {
   """
   Whether this record makes the worker unavailable right now: unavailable,
   not lapsed, and (for STALLED) the worker has not acted since it was set
-  (cor:agt:060:07).
+  (hrn:node:hadronmemory.com:specs:cor:agt:060:07).
   """
   inEffect: Boolean!
 

@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 69 unbound
+[Query] 75 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -33,6 +33,9 @@ creditLedgerEntries
 dashboardWidgetData
 dashboardWidgetPresets
 dashboardWidgets
+decision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
+decisionLog  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
+decisions  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 driveFile
 driveFileExport
 driveFiles
@@ -61,6 +64,7 @@ myApp
 myChats
 nextNode
 nodeUsage  # deprecated by server #986 — never wrap it; usageEvents(loc:) is the migration target
+previewAutomation  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 principalGrant
 quotaCounters
 renderRunNode
@@ -71,16 +75,20 @@ secret
 slackConnection
 slackConnections
 teamAvailability  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
+teamRoster  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 teamSpecSchema  # cli#811 team-from-JSON consumer, outside cli#807 comments/search
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
+verifyDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 
-[Mutation] 99 unbound
+[Mutation] 106 unbound
 acknowledgeAlarm  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
+amendDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
+askDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 assignAgentTask  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 beginAssetUpload
 calendarCreateEvent
@@ -94,6 +102,7 @@ createAgentTask  # server#1706/#1707 agent-task and availability surfaces; separ
 createAppKey
 createAppUser
 createDashboardWidgetPreset
+createDecisionLog  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 createHomeAssistantInstance
 createResendSender
 createRevision
@@ -120,7 +129,6 @@ exchangeReply
 exportNodeToGoogleDoc
 finishAgentTask  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 grantCredits
-hideComment  # cli#807 commands slice covers writer operations; admin moderation is a later parity slice
 inviteUser
 joinApp
 joinWaitingList
@@ -130,7 +138,9 @@ mergeMemories
 processChatResponse
 publishAgentImport
 publishRevision
+purgeUnansweredDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 pushMemoryToGit
+reAdoptAutomation  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 reassignAgentTask  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 recordAgentTaskProgress  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 recordUsage
@@ -154,10 +164,12 @@ setAgentAssetUploadEnabled
 setAgentTaskStallSchedule  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 setAiModelPrice
 setDashboardWidgets
+setDecisionLogDeciders  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 setMemorySourceToken
 setModelFamilyAvailability  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 setQuotaLimit
 setWorkerAvailability  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
+setWorkerReportsTo  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 startAgentSession
 startAgentTask  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 startChat
@@ -176,3 +188,4 @@ updateNodeProperties
 updateOrgGithubApp
 updateResendSender
 updateSecret
+withdrawDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration

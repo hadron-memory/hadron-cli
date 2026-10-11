@@ -1,5 +1,5 @@
 {
-  "description": "hadron-server #1606 comment-node conformance fixture (contract hrn:node:hadronmemory.com:hadron-server:design:comment-nodes-contract §7). authorKeys: the author key and CommentAuthor.kind derived from each principal shape; anchorHash: the anchor approval hash of a target revision (approval hash v1 over title/abstract/content, see approvalHash.fixture.json); errors: every typed refusal code with its extension keys; thread: a resolved thread with a retracted reply, as commentThreads returns it.",
+  "description": "hadron-server #1606 comment-node conformance fixture (contract hrn:node:hadronmemory.com:hadron-server:design:comment-nodes-contract \u00a77). authorKeys: the author key and CommentAuthor.kind derived from each principal shape; anchorHash: the anchor approval hash of a target revision (approval hash v1 over title/abstract/content, see approvalHash.fixture.json); errors: every typed refusal code with its extension keys; thread: a resolved thread with a deleted reply, as commentThreads returns it.",
   "version": "comment-v1",
   "authorKeys": [
     {
@@ -124,11 +124,7 @@
       "extensions": []
     },
     {
-      "code": "COMMENT_RETRACTED",
-      "extensions": []
-    },
-    {
-      "code": "COMMENT_HIDDEN",
+      "code": "COMMENT_DELETED",
       "extensions": []
     },
     {
@@ -197,8 +193,7 @@
       "state": "RESOLVED",
       "body": "Is 30 days still right after the audit?",
       "quote": "kept for 30 days",
-      "retracted": false,
-      "hidden": false,
+      "deleted": false,
       "author": {
         "kind": "WORKER",
         "worker": {
@@ -220,8 +215,7 @@
         "anchorRevision": 4,
         "body": null,
         "quote": null,
-        "retracted": true,
-        "hidden": false,
+        "deleted": true,
         "author": {
           "kind": "USER"
         }
@@ -231,8 +225,7 @@
         "state": null,
         "anchorRevision": 4,
         "body": "Yes; resolved in revision 6.",
-        "retracted": false,
-        "hidden": false,
+        "deleted": false,
         "author": {
           "kind": "USER_AGENT"
         }

@@ -145,8 +145,8 @@ func authoredWriteField(field string) bool {
 		"createEdge", "updateEdge", "deleteEdge", "searchReplaceInNodes", "searchReplaceInSpecNodes",
 		"createObject", "updateObject", "deleteObject", "restoreNodeRevision",
 		"createAssetReferenceNode", "extractParentNodeToMemory",
-		"createComment", "replyToComment", "editComment", "retractComment",
-		"resolveCommentThread", "reopenCommentThread", "hideComment", "deleteCommentThread":
+		"createComment", "replyToComment", "editComment", "deleteComment",
+		"resolveCommentThread", "reopenCommentThread", "deleteCommentThread":
 		return true
 	default:
 		return false

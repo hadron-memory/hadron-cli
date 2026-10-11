@@ -17,12 +17,14 @@ implement the server contract at
   including a resolved thread, without a client-side state refusal or reopen.
 - `comment edit <comment> --expected-revision N [--body text|--body-file path]
   [--quote text]` preserves omitted fields; explicit empty quote clears it.
-- `comment retract <comment> --expected-revision N` leaves a stub/history.
+- `comment delete <comment> --expected-revision N [--yes]` calls deleteComment; the author
+  or memory manager may delete. The server retains a text-less root stub only
+  while live replies exist; other comments are soft-deleted. No hide/retract aliases.
 - `comment resolve <root> --expected-revision N [--reopen]` changes thread state.
 
 References use the shared node grammar: node id, qualified URN, or bare loc with
 `-m`. Piped `--body -` is allowed; interactive stdin is refused. Validation runs
-before connection/auth. Expected revisions are the comment's observed revision,
+before connection/auth. Expected revisions are the comment's observed write counter (revSeq),
 not its target or anchor. No read-then-overwrite, blind write retry or inferred
 authorization is introduced. Generic comment-node refusals point to the governed
 group. The assigned writer operations are covered; admin hide/delete remain
@@ -36,6 +38,10 @@ The schema snapshot was exported from Diego's explicitly selected
 export). Server PR #1663 at `63513268` had the same SDL. After its merge, the snapshot
 and generated client were refreshed from explicitly selected server main
 `c2686749`, then `601970717c3fc1c2fc0227d427895241581ce34d` for search.
+CLI #836 refreshes the complete snapshot from explicitly selected server main
+`f92be386de726d5e08c70395d8694f374d7b2ae4` (#1727 merged). New unrelated
+unbound operations are annotated for separate parity work; newly added
+SessionInput.reportsTo stays omitted on existing session-start calls.
 The final contract returns at most the oldest 200 replies per
 thread; JSON retains the exact replyCount and human output flags truncation.
 Reply pagination is a server follow-up, not implemented by this client. No snapshot or generated
@@ -54,7 +60,10 @@ fields because its reads do not carry the worker actor.
 
 JSON is explicit command-local DTOs, not generated structs. It retains comment
 and target identities, public author refs, binding-user provenance, anchor/hash,
-state, revision, nullable body/quote and timestamps. Empty thread/reply slices
+state, revSeq (current write counter), nullable body/quote and timestamps.
+Deletion exposes deleted/deletedAt/deletedBy. Last-edit metadata is editedAt/editedBy,
+which resolve/reopen never set. There is no comment history or comment revision
+output; target/anchor revisions remain distinct. Empty thread/reply slices
 are arrays. Human output labels author, stubs and an older target revision.
 Every published COMMENT_* refusal is assigned a deliberate exit category and
 root-command tested. A missing mutation result exits 7 with an unknown-outcome
@@ -135,7 +144,8 @@ no per-hit identity (the caller knows its explicitly requested filter).
 
 Remaining review follow-ups recorded in the PR cycle disposition: read-path
 exit-7 wording, additional truncation/terminal-stdin/requeue tests, node-get
-feedback shape/cost, and schema-refresh bundling practice. Hidden-state/API
-replacement and revision behavior are assigned as CLI #836 after #823 merges
-(Marco team #7838), with its merge depending on server #1727. This head keeps
-the reviewed merged-server contract; no hide/retract removal is folded into it.
+feedback shape/cost, and schema-refresh bundling practice. The API replacement is implemented by CLI #836 after #823 merged, against
+server main f92be386 (#1727 merged). The earlier lifecycle receipt above remains
+historical; current deletion/history behavior requires independent QA at the
+new frozen head. COMMENT_DELETED replaces the removed hidden/retracted refusals
+and maps to Conflict (5); current counter and refusal tests verify no blind retry.

@@ -48,11 +48,13 @@ an independent QA dependency against the deployed server, not a mocked claim.
 
 ## Published comment contract
 
-Diego published createComment, replyToComment, editComment, retractComment,
-resolveCommentThread, reopenCommentThread, hideComment and deleteCommentThread.
+Current server main (#1727) exposes createComment, replyToComment, editComment,
+deleteComment, resolveCommentThread, reopenCommentThread and deleteCommentThread.
+The old retractComment/hideComment fields were removed without aliases; CLI #836
+updates the structural attribution field set to the replacement.
 The client hook now keys on the actual selected mutation fields, so Jane's
 adapter inherits attribution even if its generated operation labels differ.
-HTTP policy tests cover all eight fields and aliases, selected operations,
+HTTP policy tests cover all seven current fields and aliases, selected operations,
 variables, root fragments, input-text lookalikes, mixed maintenance and malformed
 or cyclic documents. These are request-policy checks against the published SDL,
 not live comment CRUD. Integrated comment behavior belongs to #807/#1606.
