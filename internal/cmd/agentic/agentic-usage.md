@@ -2857,7 +2857,7 @@ hadron ticket mint --org acme.com --action comm.outbound --count 100 --note 'dig
 hadron comment create|add <target-ref> --body <text|->|--body-file <path> [-m <memory>] [--quote <text>] [--anchor-revision N]
 hadron comment reply <comment-ref> --body <text|->|--body-file <path> [-m <memory>]
 hadron comment edit <comment-ref> --expected-revision N [-m <memory>] [--body <text|->|--body-file <path>] [--quote <text>]
-hadron comment retract <comment-ref> --expected-revision N [-m <memory>]
+hadron comment delete <comment-ref> --expected-revision N [-m <memory>] [--yes]
 hadron comment resolve <root-ref> --expected-revision N [-m <memory>] [--reopen]
 hadron comment get <comment-ref> [-m <memory>]
 hadron comment list <target-ref> [-m <memory>] [--state OPEN,RESOLVED] [--limit N] [--offset N]
@@ -2868,17 +2868,23 @@ to the current target revision unless `--anchor-revision` chooses a retained
 one. Replies to resolved threads remain resolved. Editing preserves omitted
 body/quote; `--quote ""` clears the quote on edit and is omitted on create. `--body -` requires piped stdin;
 use `--body-file` interactively. Guarded writes require the comment's own
-observed revision, not its target or anchor revision; conflicts exit 5 and
-are never retried automatically. Retracted/hidden comments retain stubs.
+observed write counter (`revSeq`), not its target or anchor revision; conflicts
+exit 5 and are never retried automatically. Delete is available to the author
+or a memory manager. Deletion prompts on a terminal and requires `--yes`
+non-interactively. A deleted root remains a text-less stub only while live
+replies exist; the server removes it with its last live reply. There are no
+hide/retract aliases and comments keep no revision history.
 Authorship is server-derived; bound comment writes use the #822 attribution
 hook. A generic comment node/edge write exits 2 (`ROLE_GOVERNED`) and points to
 this group. Permission/author/admin refusals exit 8; missing or unreadable
 comments/targets exit 4; invalid inputs exit 2; changed thread state, existing
 open thread and unavailable historical anchor exit 5.
 
-JSON uses explicit comment fields including `revision`, public `author`,
+JSON uses explicit comment fields including `revSeq` (the current write counter), public `author`,
 `provenanceUser`, target/anchor metadata, state, nullable body/quote ; list emits `{items, total}` with each thread's root, replies
-array and server replyCount. Human output labels old anchors and stubs.
+array and server replyCount. `deleted`/`deletedAt`/`deletedBy` describe deletion;
+`editedAt`/`editedBy` describe the last body or quote edit (resolve/reopen do
+not set them). Human output labels old anchors, stubs and the last edit.
 `node get` adds an advisory `commentSummary` cue (open/resolved threads and
 comment count); it is null/unavailable on older servers or failed optional
 reads. Feedback changes independently of the target revision.

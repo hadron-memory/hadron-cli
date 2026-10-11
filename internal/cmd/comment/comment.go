@@ -50,17 +50,18 @@ type Comment struct {
 	Quote              *string `json:"quote"`
 	Body               *string `json:"body"`
 	State              *string `json:"state"`
-	Retracted          bool    `json:"retracted"`
-	RetractedAt        *string `json:"retractedAt"`
-	Hidden             bool    `json:"hidden"`
-	HiddenAt           *string `json:"hiddenAt"`
+	Deleted            bool    `json:"deleted"`
+	DeletedAt          *string `json:"deletedAt"`
+	DeletedBy          *Actor  `json:"deletedBy"`
+	EditedAt           *string `json:"editedAt"`
+	EditedBy           *Actor  `json:"editedBy"`
 	ResolvedAt         *string `json:"resolvedAt"`
 	ResolvedBy         *Actor  `json:"resolvedBy"`
 	Author             Author  `json:"author"`
 	ProvenanceUser     *Actor  `json:"provenanceUser"`
 	CreatedAt          string  `json:"createdAt"`
 	UpdatedAt          *string `json:"updatedAt"`
-	Revision           int     `json:"revision"`
+	RevSeq             int     `json:"revSeq"`
 }
 type Thread struct {
 	Root       Comment   `json:"root"`
@@ -80,7 +81,7 @@ type Service interface {
 	Create(context.Context, string, string, *string, *int) (Comment, error)
 	Reply(context.Context, string, string) (Comment, error)
 	Edit(context.Context, string, *string, *string, int) (Comment, error)
-	Retract(context.Context, string, int) (Comment, error)
+	Delete(context.Context, string, int) (Comment, error)
 	Resolve(context.Context, string, int, bool) (Comment, error)
 }
 type Connect func(context.Context) (Service, error)
@@ -88,7 +89,7 @@ type Connect func(context.Context) (Service, error)
 func NewCmd(f *cmdutil.Factory, connect Connect) *cobra.Command {
 	cmd := &cobra.Command{Use: "comment <command>", Short: "Read and write feedback beside a node", Long: "Comments use governed operations and anchor to a target revision. Generic node writes cannot create or edit comments. Use a node URN, a node id, or a bare loc with -m/--memory."}
 	cmd.AddCommand(readCmd(f, connect, false), readCmd(f, connect, true))
-	for _, verb := range []string{"create", "reply", "edit", "retract", "resolve"} {
+	for _, verb := range []string{"create", "reply", "edit", "delete", "resolve"} {
 		cmd.AddCommand(writeCmd(f, connect, verb))
 	}
 	return cmd
@@ -105,7 +106,7 @@ func readCmd(f *cmdutil.Factory, connect Connect, list bool) *cobra.Command {
 	if list {
 		refLabel = "<target-ref>"
 	}
-	cmd := &cobra.Command{Use: verb + " " + refLabel, Short: map[bool]string{true: "List threads anchored to a target", false: "Read one comment, including a hidden or retracted stub"}[list], Args: cobra.ExactArgs(1)}
+	cmd := &cobra.Command{Use: verb + " " + refLabel, Short: map[bool]string{true: "List threads anchored to a target", false: "Read one comment, including a deleted stub"}[list], Args: cobra.ExactArgs(1)}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory for a bare loc")
 	if list {
 		cmd.Aliases = []string{"ls"}
@@ -182,15 +183,18 @@ func readCmd(f *cmdutil.Factory, connect Connect, list bool) *cobra.Command {
 func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 	var memory, body, bodyFile, quote string
 	var expected, anchor int
-	var reopen bool
+	var reopen, yes bool
 	refLabel := "<comment-ref>"
 	if verb == "create" {
 		refLabel = "<target-ref>"
 	}
-	cmd := &cobra.Command{Use: verb + " " + refLabel, Short: map[string]string{"create": "Start a comment thread on a target", "reply": "Reply within a comment thread", "edit": "Edit your comment body or quote", "retract": "Retract your comment, leaving a stub", "resolve": "Resolve or reopen a top-level thread"}[verb], Args: cobra.ExactArgs(1)}
+	cmd := &cobra.Command{Use: verb + " " + refLabel, Short: map[string]string{"create": "Start a comment thread on a target", "reply": "Reply within a comment thread", "edit": "Edit your comment body or quote", "delete": "Delete a comment (author or memory manager)", "resolve": "Resolve or reopen a top-level thread"}[verb], Args: cobra.ExactArgs(1)}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory for a bare loc")
 	text := verb == "create" || verb == "reply" || verb == "edit"
-	guarded := verb == "edit" || verb == "retract" || verb == "resolve"
+	guarded := verb == "edit" || verb == "delete" || verb == "resolve"
+	if verb == "delete" {
+		cmd.Flags().BoolVar(&yes, "yes", false, "skip deletion confirmation")
+	}
 	if text {
 		cmd.Flags().StringVar(&body, "body", "", "Markdown body, or - for piped stdin")
 		cmd.Flags().StringVar(&bodyFile, "body-file", "", "read Markdown from a file")
@@ -204,19 +208,25 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 		cmd.Flags().IntVar(&anchor, "anchor-revision", 0, "anchor to a specific readable target revision; omit for current")
 	}
 	if guarded {
-		cmd.Flags().IntVar(&expected, "expected-revision", 0, "comment revision observed by the caller (required)")
+		cmd.Flags().IntVar(&expected, "expected-revision", 0, "comment write counter (revSeq) observed by the caller (required)")
 	}
 	if verb == "resolve" {
 		cmd.Flags().BoolVar(&reopen, "reopen", false, "reopen a resolved root instead")
 	}
-	cmd.Long = "The server decides authorship, permission and thread state. Refused writes are not retried. Use --body-file for a Markdown document, or --body - for a pipe."
+	cmd.Long = "The server decides authorship, permission and thread state. Refused writes are not retried."
+	if text {
+		cmd.Long += " Use --body-file for a Markdown document, or --body - for a pipe."
+	}
+	if verb == "delete" {
+		cmd.Long += " The author or a memory manager may delete. Text is removed; a root stub remains only while live replies exist. Comments have no revision history. Deletion prompts on a terminal; pass --yes non-interactively."
+	}
 	if guarded {
-		cmd.Long += " Use the comment's own revision for --expected-revision, not its target or anchor revision."
+		cmd.Long += " Use the comment's write counter (revSeq) for --expected-revision, not its target or anchor revision."
 	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		changed := cmd.Flags().Changed
 		if guarded && (!changed("expected-revision") || expected < 1) {
-			return exitcode.Newf(exitcode.Usage, "--expected-revision must name the positive comment revision you read")
+			return exitcode.Newf(exitcode.Usage, "--expected-revision must name the positive comment write counter you read")
 		}
 		if verb == "create" && changed("anchor-revision") && anchor < 1 {
 			return exitcode.Newf(exitcode.Usage, "--anchor-revision must be positive")
@@ -260,6 +270,11 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if verb == "delete" {
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Delete comment "+ref+"? Its text is removed; a root stub remains only while live replies exist."); err != nil {
+				return err
+			}
+		}
 		svc, err := connect(cmd.Context())
 		if err != nil {
 			return err
@@ -272,8 +287,8 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 			c, err = svc.Reply(cmd.Context(), ref, *bp)
 		case "edit":
 			c, err = svc.Edit(cmd.Context(), ref, bp, qp, expected)
-		case "retract":
-			c, err = svc.Retract(cmd.Context(), ref, expected)
+		case "delete":
+			c, err = svc.Delete(cmd.Context(), ref, expected)
 		case "resolve":
 			c, err = svc.Resolve(cmd.Context(), ref, expected, reopen)
 		}
@@ -292,16 +307,14 @@ func render(w io.Writer, c Comment) error {
 	if c.State != nil {
 		state = *c.State
 	}
-	if c.Hidden {
-		state = "hidden"
-	} else if c.Retracted {
-		state = "retracted"
+	if c.Deleted {
+		state = "deleted"
 	}
 	freshness := "current"
 	if !c.AnchorIsCurrent {
 		freshness = "older target text"
 	}
-	if _, err := fmt.Fprintf(w, "%s — %s; author %s; revision %d; on target revision %d (%s)\n", c.URN, state, authorLabel(c.Author), c.Revision, c.AnchorRevision, freshness); err != nil {
+	if _, err := fmt.Fprintf(w, "%s — %s; author %s; write counter %d; on target revision %d (%s)\n", c.URN, state, authorLabel(c.Author), c.RevSeq, c.AnchorRevision, freshness); err != nil {
 		return err
 	}
 	if c.Author.Kind == "WORKER" && c.ProvenanceUser != nil {
@@ -309,8 +322,13 @@ func render(w io.Writer, c Comment) error {
 			return err
 		}
 	}
-	if c.Hidden || c.Retracted {
+	if c.Deleted {
 		return nil
+	}
+	if c.EditedAt != nil {
+		if _, err := fmt.Fprintf(w, "Edited: %s by %s\n", *c.EditedAt, actorLabel(c.EditedBy)); err != nil {
+			return err
+		}
 	}
 	if c.Quote != nil {
 		if _, err := fmt.Fprintf(w, "Quote: %s\n", *c.Quote); err != nil {

@@ -7,17 +7,16 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
-// Fields/arguments come from Diego's authoritative #1606 SDL at 95d1a9bf.
+// Fields/arguments come from server main f92be386 (#1727 merged).
 // Operation labels and aliases deliberately differ from generated conventions.
 func TestAuthoredCommentFieldsUseTheSharedBindingPolicy(t *testing.T) {
 	for _, field := range []string{
 		`createComment(targetRef:"n1",body:"body"){id}`,
 		`replyToComment(commentRef:"c1",body:"reply"){id}`,
 		`editComment(commentRef:"c1",body:"edit",expectedRevision:1){id}`,
-		`retractComment(commentRef:"c1",expectedRevision:1){id}`,
+		`deleteComment(commentRef:"c1",expectedRevision:1){id}`,
 		`resolveCommentThread(commentRef:"c1",expectedRevision:1){id}`,
 		`reopenCommentThread(commentRef:"c1",expectedRevision:1){id}`,
-		`hideComment(commentRef:"c1",reason:"reason",expectedRevision:1){id}`,
 		`deleteCommentThread(commentRef:"c1",reason:"reason")`,
 	} {
 		t.Run(field, func(t *testing.T) {

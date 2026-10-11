@@ -5465,26 +5465,32 @@ type CommentFields struct {
 	AnchorApprovalHash string `json:"anchorApprovalHash"`
 	// anchorRevision equals the target's current revision. When false, show the comment as about an older revision (hrn:node:hadronmemory.com:specs:cor:dmo:110:01).
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
-	// Null when retracted or hidden.
+	// Null when deleted.
 	Quote *string `json:"quote"`
-	// Null when retracted or hidden: the stub shows the state, not the text.
+	// Null when deleted: the stub shows the state, not the text.
 	Body *string `json:"body"`
 	// Top-level only; null for a reply.
-	State       *CommentThreadState `json:"state"`
-	Retracted   bool                `json:"retracted"`
-	RetractedAt *string             `json:"retractedAt"`
-	Hidden      bool                `json:"hidden"`
-	HiddenAt    *string             `json:"hiddenAt"`
-	ResolvedAt  *string             `json:"resolvedAt"`
-	// The comment's own revision. Pass it as expectedRevision to edit, retract, resolve, reopen or hide.
-	RevSeq    int                                  `json:"revSeq"`
-	CreatedAt string                               `json:"createdAt"`
-	UpdatedAt *string                              `json:"updatedAt"`
-	Target    *CommentFieldsTargetCommentTargetRef `json:"target"`
-	Author    *CommentFieldsAuthorCommentAuthor    `json:"author"`
+	State *CommentThreadState `json:"state"`
+	// #1721 — deleted with deleteComment. A deleted comment is shown only as a stub with no text, kept while it has live replies (hrn:node:hadronmemory.com:specs:cor:dmo:110:05).
+	Deleted    bool    `json:"deleted"`
+	DeletedAt  *string `json:"deletedAt"`
+	ResolvedAt *string `json:"resolvedAt"`
+	// The comment's write counter. Pass it as expectedRevision to edit, delete, resolve or reopen. A comment keeps no revision history, so there are no earlier revisions to read.
+	RevSeq    int    `json:"revSeq"`
+	CreatedAt string `json:"createdAt"`
+	// When the comment row last changed: an edit, or a delete that leaves a stub. Resolve and reopen never change it. To show a comment as edited, use editedAt.
+	UpdatedAt *string `json:"updatedAt"`
+	// When the body or quote was last edited; null when it never was. Only an edit sets it (hrn:node:hadronmemory.com:specs:cor:dmo:110:12).
+	EditedAt *string                              `json:"editedAt"`
+	Target   *CommentFieldsTargetCommentTargetRef `json:"target"`
+	Author   *CommentFieldsAuthorCommentAuthor    `json:"author"`
 	// Worker comments only: the user who bound the worker session, shown as provenance, never as author. Null for other comments, and for callers who cannot write the memory.
 	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
 	ResolvedBy     *CommentFieldsResolvedByCommentActorRef     `json:"resolvedBy"`
+	// Who deleted it: its author, or a memory manager.
+	DeletedBy *CommentFieldsDeletedByCommentActorRef `json:"deletedBy"`
+	// Who last edited the body or quote; null when it never was.
+	EditedBy *CommentFieldsEditedByCommentActorRef `json:"editedBy"`
 }
 
 // GetId returns CommentFields.Id, and is useful for accessing the field via an interface.
@@ -5520,17 +5526,11 @@ func (v *CommentFields) GetBody() *string { return v.Body }
 // GetState returns CommentFields.State, and is useful for accessing the field via an interface.
 func (v *CommentFields) GetState() *CommentThreadState { return v.State }
 
-// GetRetracted returns CommentFields.Retracted, and is useful for accessing the field via an interface.
-func (v *CommentFields) GetRetracted() bool { return v.Retracted }
+// GetDeleted returns CommentFields.Deleted, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetDeleted() bool { return v.Deleted }
 
-// GetRetractedAt returns CommentFields.RetractedAt, and is useful for accessing the field via an interface.
-func (v *CommentFields) GetRetractedAt() *string { return v.RetractedAt }
-
-// GetHidden returns CommentFields.Hidden, and is useful for accessing the field via an interface.
-func (v *CommentFields) GetHidden() bool { return v.Hidden }
-
-// GetHiddenAt returns CommentFields.HiddenAt, and is useful for accessing the field via an interface.
-func (v *CommentFields) GetHiddenAt() *string { return v.HiddenAt }
+// GetDeletedAt returns CommentFields.DeletedAt, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetDeletedAt() *string { return v.DeletedAt }
 
 // GetResolvedAt returns CommentFields.ResolvedAt, and is useful for accessing the field via an interface.
 func (v *CommentFields) GetResolvedAt() *string { return v.ResolvedAt }
@@ -5543,6 +5543,9 @@ func (v *CommentFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetUpdatedAt returns CommentFields.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CommentFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// GetEditedAt returns CommentFields.EditedAt, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetEditedAt() *string { return v.EditedAt }
 
 // GetTarget returns CommentFields.Target, and is useful for accessing the field via an interface.
 func (v *CommentFields) GetTarget() *CommentFieldsTargetCommentTargetRef { return v.Target }
@@ -5557,6 +5560,12 @@ func (v *CommentFields) GetProvenanceUser() *CommentFieldsProvenanceUserCommentA
 
 // GetResolvedBy returns CommentFields.ResolvedBy, and is useful for accessing the field via an interface.
 func (v *CommentFields) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef { return v.ResolvedBy }
+
+// GetDeletedBy returns CommentFields.DeletedBy, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetDeletedBy() *CommentFieldsDeletedByCommentActorRef { return v.DeletedBy }
+
+// GetEditedBy returns CommentFields.EditedBy, and is useful for accessing the field via an interface.
+func (v *CommentFields) GetEditedBy() *CommentFieldsEditedByCommentActorRef { return v.EditedBy }
 
 // CommentFieldsAuthorCommentAuthor includes the requested fields of the GraphQL type CommentAuthor.
 // The GraphQL type's documentation follows.
@@ -5921,6 +5930,156 @@ func (v *CommentFieldsAuthorCommentAuthorWorkerCommentActorRef) __premarshalJSON
 	return &retval, nil
 }
 
+// CommentFieldsDeletedByCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
+// The GraphQL type's documentation follows.
+//
+// #1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
+type CommentFieldsDeletedByCommentActorRef struct {
+	CommentActorFields `json:"-"`
+}
+
+// GetId returns CommentFieldsDeletedByCommentActorRef.Id, and is useful for accessing the field via an interface.
+func (v *CommentFieldsDeletedByCommentActorRef) GetId() string { return v.CommentActorFields.Id }
+
+// GetName returns CommentFieldsDeletedByCommentActorRef.Name, and is useful for accessing the field via an interface.
+func (v *CommentFieldsDeletedByCommentActorRef) GetName() *string { return v.CommentActorFields.Name }
+
+// GetHandle returns CommentFieldsDeletedByCommentActorRef.Handle, and is useful for accessing the field via an interface.
+func (v *CommentFieldsDeletedByCommentActorRef) GetHandle() *string {
+	return v.CommentActorFields.Handle
+}
+
+// GetUrn returns CommentFieldsDeletedByCommentActorRef.Urn, and is useful for accessing the field via an interface.
+func (v *CommentFieldsDeletedByCommentActorRef) GetUrn() *string { return v.CommentActorFields.Urn }
+
+func (v *CommentFieldsDeletedByCommentActorRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CommentFieldsDeletedByCommentActorRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CommentFieldsDeletedByCommentActorRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentActorFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCommentFieldsDeletedByCommentActorRef struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Handle *string `json:"handle"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *CommentFieldsDeletedByCommentActorRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CommentFieldsDeletedByCommentActorRef) __premarshalJSON() (*__premarshalCommentFieldsDeletedByCommentActorRef, error) {
+	var retval __premarshalCommentFieldsDeletedByCommentActorRef
+
+	retval.Id = v.CommentActorFields.Id
+	retval.Name = v.CommentActorFields.Name
+	retval.Handle = v.CommentActorFields.Handle
+	retval.Urn = v.CommentActorFields.Urn
+	return &retval, nil
+}
+
+// CommentFieldsEditedByCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
+// The GraphQL type's documentation follows.
+//
+// #1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
+type CommentFieldsEditedByCommentActorRef struct {
+	CommentActorFields `json:"-"`
+}
+
+// GetId returns CommentFieldsEditedByCommentActorRef.Id, and is useful for accessing the field via an interface.
+func (v *CommentFieldsEditedByCommentActorRef) GetId() string { return v.CommentActorFields.Id }
+
+// GetName returns CommentFieldsEditedByCommentActorRef.Name, and is useful for accessing the field via an interface.
+func (v *CommentFieldsEditedByCommentActorRef) GetName() *string { return v.CommentActorFields.Name }
+
+// GetHandle returns CommentFieldsEditedByCommentActorRef.Handle, and is useful for accessing the field via an interface.
+func (v *CommentFieldsEditedByCommentActorRef) GetHandle() *string {
+	return v.CommentActorFields.Handle
+}
+
+// GetUrn returns CommentFieldsEditedByCommentActorRef.Urn, and is useful for accessing the field via an interface.
+func (v *CommentFieldsEditedByCommentActorRef) GetUrn() *string { return v.CommentActorFields.Urn }
+
+func (v *CommentFieldsEditedByCommentActorRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CommentFieldsEditedByCommentActorRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CommentFieldsEditedByCommentActorRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentActorFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCommentFieldsEditedByCommentActorRef struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Handle *string `json:"handle"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *CommentFieldsEditedByCommentActorRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CommentFieldsEditedByCommentActorRef) __premarshalJSON() (*__premarshalCommentFieldsEditedByCommentActorRef, error) {
+	var retval __premarshalCommentFieldsEditedByCommentActorRef
+
+	retval.Id = v.CommentActorFields.Id
+	retval.Name = v.CommentActorFields.Name
+	retval.Handle = v.CommentActorFields.Handle
+	retval.Urn = v.CommentActorFields.Urn
+	return &retval, nil
+}
+
 // CommentFieldsProvenanceUserCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
 // The GraphQL type's documentation follows.
 //
@@ -6221,24 +6380,14 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesC
 	return v.CommentFields.State
 }
 
-// GetRetracted returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Retracted, and is useful for accessing the field via an interface.
-func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetRetracted() bool {
-	return v.CommentFields.Retracted
+// GetDeleted returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Deleted, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetDeleted() bool {
+	return v.CommentFields.Deleted
 }
 
-// GetRetractedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.RetractedAt, and is useful for accessing the field via an interface.
-func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetRetractedAt() *string {
-	return v.CommentFields.RetractedAt
-}
-
-// GetHidden returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Hidden, and is useful for accessing the field via an interface.
-func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetHidden() bool {
-	return v.CommentFields.Hidden
-}
-
-// GetHiddenAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.HiddenAt, and is useful for accessing the field via an interface.
-func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetHiddenAt() *string {
-	return v.CommentFields.HiddenAt
+// GetDeletedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.DeletedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetDeletedAt() *string {
+	return v.CommentFields.DeletedAt
 }
 
 // GetResolvedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.ResolvedAt, and is useful for accessing the field via an interface.
@@ -6261,6 +6410,11 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesC
 	return v.CommentFields.UpdatedAt
 }
 
+// GetEditedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.EditedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetEditedAt() *string {
+	return v.CommentFields.EditedAt
+}
+
 // GetTarget returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.Target, and is useful for accessing the field via an interface.
 func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
 	return v.CommentFields.Target
@@ -6279,6 +6433,16 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesC
 // GetResolvedBy returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.ResolvedBy, and is useful for accessing the field via an interface.
 func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
 	return v.CommentFields.ResolvedBy
+}
+
+// GetDeletedBy returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.DeletedBy, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetDeletedBy() *CommentFieldsDeletedByCommentActorRef {
+	return v.CommentFields.DeletedBy
+}
+
+// GetEditedBy returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.EditedBy, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetEditedBy() *CommentFieldsEditedByCommentActorRef {
+	return v.CommentFields.EditedBy
 }
 
 func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) UnmarshalJSON(b []byte) error {
@@ -6329,13 +6493,9 @@ type __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThread
 
 	State *CommentThreadState `json:"state"`
 
-	Retracted bool `json:"retracted"`
+	Deleted bool `json:"deleted"`
 
-	RetractedAt *string `json:"retractedAt"`
-
-	Hidden bool `json:"hidden"`
-
-	HiddenAt *string `json:"hiddenAt"`
+	DeletedAt *string `json:"deletedAt"`
 
 	ResolvedAt *string `json:"resolvedAt"`
 
@@ -6345,6 +6505,8 @@ type __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThread
 
 	UpdatedAt *string `json:"updatedAt"`
 
+	EditedAt *string `json:"editedAt"`
+
 	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
 
 	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
@@ -6352,6 +6514,10 @@ type __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThread
 	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
 
 	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+
+	DeletedBy *CommentFieldsDeletedByCommentActorRef `json:"deletedBy"`
+
+	EditedBy *CommentFieldsEditedByCommentActorRef `json:"editedBy"`
 }
 
 func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) MarshalJSON() ([]byte, error) {
@@ -6376,18 +6542,19 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesC
 	retval.Quote = v.CommentFields.Quote
 	retval.Body = v.CommentFields.Body
 	retval.State = v.CommentFields.State
-	retval.Retracted = v.CommentFields.Retracted
-	retval.RetractedAt = v.CommentFields.RetractedAt
-	retval.Hidden = v.CommentFields.Hidden
-	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.Deleted = v.CommentFields.Deleted
+	retval.DeletedAt = v.CommentFields.DeletedAt
 	retval.ResolvedAt = v.CommentFields.ResolvedAt
 	retval.RevSeq = v.CommentFields.RevSeq
 	retval.CreatedAt = v.CommentFields.CreatedAt
 	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.EditedAt = v.CommentFields.EditedAt
 	retval.Target = v.CommentFields.Target
 	retval.Author = v.CommentFields.Author
 	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
 	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	retval.DeletedBy = v.CommentFields.DeletedBy
+	retval.EditedBy = v.CommentFields.EditedBy
 	return &retval, nil
 }
 
@@ -6457,24 +6624,14 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComm
 	return v.CommentFields.State
 }
 
-// GetRetracted returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Retracted, and is useful for accessing the field via an interface.
-func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetRetracted() bool {
-	return v.CommentFields.Retracted
+// GetDeleted returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Deleted, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetDeleted() bool {
+	return v.CommentFields.Deleted
 }
 
-// GetRetractedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.RetractedAt, and is useful for accessing the field via an interface.
-func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetRetractedAt() *string {
-	return v.CommentFields.RetractedAt
-}
-
-// GetHidden returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Hidden, and is useful for accessing the field via an interface.
-func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetHidden() bool {
-	return v.CommentFields.Hidden
-}
-
-// GetHiddenAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.HiddenAt, and is useful for accessing the field via an interface.
-func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetHiddenAt() *string {
-	return v.CommentFields.HiddenAt
+// GetDeletedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.DeletedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetDeletedAt() *string {
+	return v.CommentFields.DeletedAt
 }
 
 // GetResolvedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.ResolvedAt, and is useful for accessing the field via an interface.
@@ -6497,6 +6654,11 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComm
 	return v.CommentFields.UpdatedAt
 }
 
+// GetEditedAt returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.EditedAt, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetEditedAt() *string {
+	return v.CommentFields.EditedAt
+}
+
 // GetTarget returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.Target, and is useful for accessing the field via an interface.
 func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
 	return v.CommentFields.Target
@@ -6515,6 +6677,16 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComm
 // GetResolvedBy returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.ResolvedBy, and is useful for accessing the field via an interface.
 func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
 	return v.CommentFields.ResolvedBy
+}
+
+// GetDeletedBy returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.DeletedBy, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetDeletedBy() *CommentFieldsDeletedByCommentActorRef {
+	return v.CommentFields.DeletedBy
+}
+
+// GetEditedBy returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.EditedBy, and is useful for accessing the field via an interface.
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetEditedBy() *CommentFieldsEditedByCommentActorRef {
+	return v.CommentFields.EditedBy
 }
 
 func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) UnmarshalJSON(b []byte) error {
@@ -6565,13 +6737,9 @@ type __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThread
 
 	State *CommentThreadState `json:"state"`
 
-	Retracted bool `json:"retracted"`
+	Deleted bool `json:"deleted"`
 
-	RetractedAt *string `json:"retractedAt"`
-
-	Hidden bool `json:"hidden"`
-
-	HiddenAt *string `json:"hiddenAt"`
+	DeletedAt *string `json:"deletedAt"`
 
 	ResolvedAt *string `json:"resolvedAt"`
 
@@ -6581,6 +6749,8 @@ type __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThread
 
 	UpdatedAt *string `json:"updatedAt"`
 
+	EditedAt *string `json:"editedAt"`
+
 	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
 
 	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
@@ -6588,6 +6758,10 @@ type __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThread
 	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
 
 	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+
+	DeletedBy *CommentFieldsDeletedByCommentActorRef `json:"deletedBy"`
+
+	EditedBy *CommentFieldsEditedByCommentActorRef `json:"editedBy"`
 }
 
 func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) MarshalJSON() ([]byte, error) {
@@ -6612,18 +6786,19 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComm
 	retval.Quote = v.CommentFields.Quote
 	retval.Body = v.CommentFields.Body
 	retval.State = v.CommentFields.State
-	retval.Retracted = v.CommentFields.Retracted
-	retval.RetractedAt = v.CommentFields.RetractedAt
-	retval.Hidden = v.CommentFields.Hidden
-	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.Deleted = v.CommentFields.Deleted
+	retval.DeletedAt = v.CommentFields.DeletedAt
 	retval.ResolvedAt = v.CommentFields.ResolvedAt
 	retval.RevSeq = v.CommentFields.RevSeq
 	retval.CreatedAt = v.CommentFields.CreatedAt
 	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.EditedAt = v.CommentFields.EditedAt
 	retval.Target = v.CommentFields.Target
 	retval.Author = v.CommentFields.Author
 	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
 	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	retval.DeletedBy = v.CommentFields.DeletedBy
+	retval.EditedBy = v.CommentFields.EditedBy
 	return &retval, nil
 }
 
@@ -8416,17 +8591,11 @@ func (v *CreateCommentCreateComment) GetBody() *string { return v.CommentFields.
 // GetState returns CreateCommentCreateComment.State, and is useful for accessing the field via an interface.
 func (v *CreateCommentCreateComment) GetState() *CommentThreadState { return v.CommentFields.State }
 
-// GetRetracted returns CreateCommentCreateComment.Retracted, and is useful for accessing the field via an interface.
-func (v *CreateCommentCreateComment) GetRetracted() bool { return v.CommentFields.Retracted }
+// GetDeleted returns CreateCommentCreateComment.Deleted, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetDeleted() bool { return v.CommentFields.Deleted }
 
-// GetRetractedAt returns CreateCommentCreateComment.RetractedAt, and is useful for accessing the field via an interface.
-func (v *CreateCommentCreateComment) GetRetractedAt() *string { return v.CommentFields.RetractedAt }
-
-// GetHidden returns CreateCommentCreateComment.Hidden, and is useful for accessing the field via an interface.
-func (v *CreateCommentCreateComment) GetHidden() bool { return v.CommentFields.Hidden }
-
-// GetHiddenAt returns CreateCommentCreateComment.HiddenAt, and is useful for accessing the field via an interface.
-func (v *CreateCommentCreateComment) GetHiddenAt() *string { return v.CommentFields.HiddenAt }
+// GetDeletedAt returns CreateCommentCreateComment.DeletedAt, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetDeletedAt() *string { return v.CommentFields.DeletedAt }
 
 // GetResolvedAt returns CreateCommentCreateComment.ResolvedAt, and is useful for accessing the field via an interface.
 func (v *CreateCommentCreateComment) GetResolvedAt() *string { return v.CommentFields.ResolvedAt }
@@ -8439,6 +8608,9 @@ func (v *CreateCommentCreateComment) GetCreatedAt() string { return v.CommentFie
 
 // GetUpdatedAt returns CreateCommentCreateComment.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CreateCommentCreateComment) GetUpdatedAt() *string { return v.CommentFields.UpdatedAt }
+
+// GetEditedAt returns CreateCommentCreateComment.EditedAt, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetEditedAt() *string { return v.CommentFields.EditedAt }
 
 // GetTarget returns CreateCommentCreateComment.Target, and is useful for accessing the field via an interface.
 func (v *CreateCommentCreateComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
@@ -8458,6 +8630,16 @@ func (v *CreateCommentCreateComment) GetProvenanceUser() *CommentFieldsProvenanc
 // GetResolvedBy returns CreateCommentCreateComment.ResolvedBy, and is useful for accessing the field via an interface.
 func (v *CreateCommentCreateComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
 	return v.CommentFields.ResolvedBy
+}
+
+// GetDeletedBy returns CreateCommentCreateComment.DeletedBy, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetDeletedBy() *CommentFieldsDeletedByCommentActorRef {
+	return v.CommentFields.DeletedBy
+}
+
+// GetEditedBy returns CreateCommentCreateComment.EditedBy, and is useful for accessing the field via an interface.
+func (v *CreateCommentCreateComment) GetEditedBy() *CommentFieldsEditedByCommentActorRef {
+	return v.CommentFields.EditedBy
 }
 
 func (v *CreateCommentCreateComment) UnmarshalJSON(b []byte) error {
@@ -8508,13 +8690,9 @@ type __premarshalCreateCommentCreateComment struct {
 
 	State *CommentThreadState `json:"state"`
 
-	Retracted bool `json:"retracted"`
+	Deleted bool `json:"deleted"`
 
-	RetractedAt *string `json:"retractedAt"`
-
-	Hidden bool `json:"hidden"`
-
-	HiddenAt *string `json:"hiddenAt"`
+	DeletedAt *string `json:"deletedAt"`
 
 	ResolvedAt *string `json:"resolvedAt"`
 
@@ -8524,6 +8702,8 @@ type __premarshalCreateCommentCreateComment struct {
 
 	UpdatedAt *string `json:"updatedAt"`
 
+	EditedAt *string `json:"editedAt"`
+
 	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
 
 	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
@@ -8531,6 +8711,10 @@ type __premarshalCreateCommentCreateComment struct {
 	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
 
 	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+
+	DeletedBy *CommentFieldsDeletedByCommentActorRef `json:"deletedBy"`
+
+	EditedBy *CommentFieldsEditedByCommentActorRef `json:"editedBy"`
 }
 
 func (v *CreateCommentCreateComment) MarshalJSON() ([]byte, error) {
@@ -8555,18 +8739,19 @@ func (v *CreateCommentCreateComment) __premarshalJSON() (*__premarshalCreateComm
 	retval.Quote = v.CommentFields.Quote
 	retval.Body = v.CommentFields.Body
 	retval.State = v.CommentFields.State
-	retval.Retracted = v.CommentFields.Retracted
-	retval.RetractedAt = v.CommentFields.RetractedAt
-	retval.Hidden = v.CommentFields.Hidden
-	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.Deleted = v.CommentFields.Deleted
+	retval.DeletedAt = v.CommentFields.DeletedAt
 	retval.ResolvedAt = v.CommentFields.ResolvedAt
 	retval.RevSeq = v.CommentFields.RevSeq
 	retval.CreatedAt = v.CommentFields.CreatedAt
 	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.EditedAt = v.CommentFields.EditedAt
 	retval.Target = v.CommentFields.Target
 	retval.Author = v.CommentFields.Author
 	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
 	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	retval.DeletedBy = v.CommentFields.DeletedBy
+	retval.EditedBy = v.CommentFields.EditedBy
 	return &retval, nil
 }
 
@@ -11977,6 +12162,229 @@ type DeleteChannelResponse struct {
 // GetDeleteChannel returns DeleteChannelResponse.DeleteChannel, and is useful for accessing the field via an interface.
 func (v *DeleteChannelResponse) GetDeleteChannel() bool { return v.DeleteChannel }
 
+// DeleteCommentDeleteComment includes the requested fields of the GraphQL type Comment.
+// The GraphQL type's documentation follows.
+//
+// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
+// `comment` in its target's memory, readable by exactly who can read that
+// memory. It is never part of its target's content, never approved or minted,
+// and never authoritative.
+type DeleteCommentDeleteComment struct {
+	CommentFields `json:"-"`
+}
+
+// GetId returns DeleteCommentDeleteComment.Id, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetId() string { return v.CommentFields.Id }
+
+// GetUrn returns DeleteCommentDeleteComment.Urn, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetUrn() string { return v.CommentFields.Urn }
+
+// GetPortalUrl returns DeleteCommentDeleteComment.PortalUrl, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetPortalUrl() *string { return v.CommentFields.PortalUrl }
+
+// GetThreadRootId returns DeleteCommentDeleteComment.ThreadRootId, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetThreadRootId() *string { return v.CommentFields.ThreadRootId }
+
+// GetIsTopLevel returns DeleteCommentDeleteComment.IsTopLevel, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetIsTopLevel() bool { return v.CommentFields.IsTopLevel }
+
+// GetAnchorRevision returns DeleteCommentDeleteComment.AnchorRevision, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
+
+// GetAnchorApprovalHash returns DeleteCommentDeleteComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetAnchorApprovalHash() string {
+	return v.CommentFields.AnchorApprovalHash
+}
+
+// GetAnchorIsCurrent returns DeleteCommentDeleteComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetAnchorIsCurrent() bool {
+	return v.CommentFields.AnchorIsCurrent
+}
+
+// GetQuote returns DeleteCommentDeleteComment.Quote, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetQuote() *string { return v.CommentFields.Quote }
+
+// GetBody returns DeleteCommentDeleteComment.Body, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetBody() *string { return v.CommentFields.Body }
+
+// GetState returns DeleteCommentDeleteComment.State, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetState() *CommentThreadState { return v.CommentFields.State }
+
+// GetDeleted returns DeleteCommentDeleteComment.Deleted, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetDeleted() bool { return v.CommentFields.Deleted }
+
+// GetDeletedAt returns DeleteCommentDeleteComment.DeletedAt, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetDeletedAt() *string { return v.CommentFields.DeletedAt }
+
+// GetResolvedAt returns DeleteCommentDeleteComment.ResolvedAt, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetResolvedAt() *string { return v.CommentFields.ResolvedAt }
+
+// GetRevSeq returns DeleteCommentDeleteComment.RevSeq, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetRevSeq() int { return v.CommentFields.RevSeq }
+
+// GetCreatedAt returns DeleteCommentDeleteComment.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetCreatedAt() string { return v.CommentFields.CreatedAt }
+
+// GetUpdatedAt returns DeleteCommentDeleteComment.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetUpdatedAt() *string { return v.CommentFields.UpdatedAt }
+
+// GetEditedAt returns DeleteCommentDeleteComment.EditedAt, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetEditedAt() *string { return v.CommentFields.EditedAt }
+
+// GetTarget returns DeleteCommentDeleteComment.Target, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
+	return v.CommentFields.Target
+}
+
+// GetAuthor returns DeleteCommentDeleteComment.Author, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetAuthor() *CommentFieldsAuthorCommentAuthor {
+	return v.CommentFields.Author
+}
+
+// GetProvenanceUser returns DeleteCommentDeleteComment.ProvenanceUser, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
+	return v.CommentFields.ProvenanceUser
+}
+
+// GetResolvedBy returns DeleteCommentDeleteComment.ResolvedBy, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
+	return v.CommentFields.ResolvedBy
+}
+
+// GetDeletedBy returns DeleteCommentDeleteComment.DeletedBy, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetDeletedBy() *CommentFieldsDeletedByCommentActorRef {
+	return v.CommentFields.DeletedBy
+}
+
+// GetEditedBy returns DeleteCommentDeleteComment.EditedBy, and is useful for accessing the field via an interface.
+func (v *DeleteCommentDeleteComment) GetEditedBy() *CommentFieldsEditedByCommentActorRef {
+	return v.CommentFields.EditedBy
+}
+
+func (v *DeleteCommentDeleteComment) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DeleteCommentDeleteComment
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DeleteCommentDeleteComment = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CommentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDeleteCommentDeleteComment struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	ThreadRootId *string `json:"threadRootId"`
+
+	IsTopLevel bool `json:"isTopLevel"`
+
+	AnchorRevision int `json:"anchorRevision"`
+
+	AnchorApprovalHash string `json:"anchorApprovalHash"`
+
+	AnchorIsCurrent bool `json:"anchorIsCurrent"`
+
+	Quote *string `json:"quote"`
+
+	Body *string `json:"body"`
+
+	State *CommentThreadState `json:"state"`
+
+	Deleted bool `json:"deleted"`
+
+	DeletedAt *string `json:"deletedAt"`
+
+	ResolvedAt *string `json:"resolvedAt"`
+
+	RevSeq int `json:"revSeq"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	EditedAt *string `json:"editedAt"`
+
+	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
+
+	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
+
+	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
+
+	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+
+	DeletedBy *CommentFieldsDeletedByCommentActorRef `json:"deletedBy"`
+
+	EditedBy *CommentFieldsEditedByCommentActorRef `json:"editedBy"`
+}
+
+func (v *DeleteCommentDeleteComment) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DeleteCommentDeleteComment) __premarshalJSON() (*__premarshalDeleteCommentDeleteComment, error) {
+	var retval __premarshalDeleteCommentDeleteComment
+
+	retval.Id = v.CommentFields.Id
+	retval.Urn = v.CommentFields.Urn
+	retval.PortalUrl = v.CommentFields.PortalUrl
+	retval.ThreadRootId = v.CommentFields.ThreadRootId
+	retval.IsTopLevel = v.CommentFields.IsTopLevel
+	retval.AnchorRevision = v.CommentFields.AnchorRevision
+	retval.AnchorApprovalHash = v.CommentFields.AnchorApprovalHash
+	retval.AnchorIsCurrent = v.CommentFields.AnchorIsCurrent
+	retval.Quote = v.CommentFields.Quote
+	retval.Body = v.CommentFields.Body
+	retval.State = v.CommentFields.State
+	retval.Deleted = v.CommentFields.Deleted
+	retval.DeletedAt = v.CommentFields.DeletedAt
+	retval.ResolvedAt = v.CommentFields.ResolvedAt
+	retval.RevSeq = v.CommentFields.RevSeq
+	retval.CreatedAt = v.CommentFields.CreatedAt
+	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.EditedAt = v.CommentFields.EditedAt
+	retval.Target = v.CommentFields.Target
+	retval.Author = v.CommentFields.Author
+	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
+	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	retval.DeletedBy = v.CommentFields.DeletedBy
+	retval.EditedBy = v.CommentFields.EditedBy
+	return &retval, nil
+}
+
+// DeleteCommentResponse is returned by DeleteComment on success.
+type DeleteCommentResponse struct {
+	// #1721 — delete one comment: its author (with write access), or anyone who may delete others' comments (the memory's manager, or a platform admin outside personal and private memories). A top-level comment with live replies stays as a deleted stub with no text; any other comment is soft-deleted and gone from every read, and a stub goes with its last live reply (hrn:node:hadronmemory.com:specs:cor:dmo:110:05). Returns the comment as deleted. COMMENT_NOT_AUTHOR for a writer who is not the author; COMMENT_DELETED for a stub.
+	DeleteComment *DeleteCommentDeleteComment `json:"deleteComment"`
+}
+
+// GetDeleteComment returns DeleteCommentResponse.DeleteComment, and is useful for accessing the field via an interface.
+func (v *DeleteCommentResponse) GetDeleteComment() *DeleteCommentDeleteComment {
+	return v.DeleteComment
+}
+
 // DeleteEdgeResponse is returned by DeleteEdge on success.
 type DeleteEdgeResponse struct {
 	DeleteEdge bool `json:"deleteEdge"`
@@ -12292,17 +12700,11 @@ func (v *EditCommentEditComment) GetBody() *string { return v.CommentFields.Body
 // GetState returns EditCommentEditComment.State, and is useful for accessing the field via an interface.
 func (v *EditCommentEditComment) GetState() *CommentThreadState { return v.CommentFields.State }
 
-// GetRetracted returns EditCommentEditComment.Retracted, and is useful for accessing the field via an interface.
-func (v *EditCommentEditComment) GetRetracted() bool { return v.CommentFields.Retracted }
+// GetDeleted returns EditCommentEditComment.Deleted, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetDeleted() bool { return v.CommentFields.Deleted }
 
-// GetRetractedAt returns EditCommentEditComment.RetractedAt, and is useful for accessing the field via an interface.
-func (v *EditCommentEditComment) GetRetractedAt() *string { return v.CommentFields.RetractedAt }
-
-// GetHidden returns EditCommentEditComment.Hidden, and is useful for accessing the field via an interface.
-func (v *EditCommentEditComment) GetHidden() bool { return v.CommentFields.Hidden }
-
-// GetHiddenAt returns EditCommentEditComment.HiddenAt, and is useful for accessing the field via an interface.
-func (v *EditCommentEditComment) GetHiddenAt() *string { return v.CommentFields.HiddenAt }
+// GetDeletedAt returns EditCommentEditComment.DeletedAt, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetDeletedAt() *string { return v.CommentFields.DeletedAt }
 
 // GetResolvedAt returns EditCommentEditComment.ResolvedAt, and is useful for accessing the field via an interface.
 func (v *EditCommentEditComment) GetResolvedAt() *string { return v.CommentFields.ResolvedAt }
@@ -12315,6 +12717,9 @@ func (v *EditCommentEditComment) GetCreatedAt() string { return v.CommentFields.
 
 // GetUpdatedAt returns EditCommentEditComment.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *EditCommentEditComment) GetUpdatedAt() *string { return v.CommentFields.UpdatedAt }
+
+// GetEditedAt returns EditCommentEditComment.EditedAt, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetEditedAt() *string { return v.CommentFields.EditedAt }
 
 // GetTarget returns EditCommentEditComment.Target, and is useful for accessing the field via an interface.
 func (v *EditCommentEditComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
@@ -12334,6 +12739,16 @@ func (v *EditCommentEditComment) GetProvenanceUser() *CommentFieldsProvenanceUse
 // GetResolvedBy returns EditCommentEditComment.ResolvedBy, and is useful for accessing the field via an interface.
 func (v *EditCommentEditComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
 	return v.CommentFields.ResolvedBy
+}
+
+// GetDeletedBy returns EditCommentEditComment.DeletedBy, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetDeletedBy() *CommentFieldsDeletedByCommentActorRef {
+	return v.CommentFields.DeletedBy
+}
+
+// GetEditedBy returns EditCommentEditComment.EditedBy, and is useful for accessing the field via an interface.
+func (v *EditCommentEditComment) GetEditedBy() *CommentFieldsEditedByCommentActorRef {
+	return v.CommentFields.EditedBy
 }
 
 func (v *EditCommentEditComment) UnmarshalJSON(b []byte) error {
@@ -12384,13 +12799,9 @@ type __premarshalEditCommentEditComment struct {
 
 	State *CommentThreadState `json:"state"`
 
-	Retracted bool `json:"retracted"`
+	Deleted bool `json:"deleted"`
 
-	RetractedAt *string `json:"retractedAt"`
-
-	Hidden bool `json:"hidden"`
-
-	HiddenAt *string `json:"hiddenAt"`
+	DeletedAt *string `json:"deletedAt"`
 
 	ResolvedAt *string `json:"resolvedAt"`
 
@@ -12400,6 +12811,8 @@ type __premarshalEditCommentEditComment struct {
 
 	UpdatedAt *string `json:"updatedAt"`
 
+	EditedAt *string `json:"editedAt"`
+
 	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
 
 	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
@@ -12407,6 +12820,10 @@ type __premarshalEditCommentEditComment struct {
 	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
 
 	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+
+	DeletedBy *CommentFieldsDeletedByCommentActorRef `json:"deletedBy"`
+
+	EditedBy *CommentFieldsEditedByCommentActorRef `json:"editedBy"`
 }
 
 func (v *EditCommentEditComment) MarshalJSON() ([]byte, error) {
@@ -12431,18 +12848,19 @@ func (v *EditCommentEditComment) __premarshalJSON() (*__premarshalEditCommentEdi
 	retval.Quote = v.CommentFields.Quote
 	retval.Body = v.CommentFields.Body
 	retval.State = v.CommentFields.State
-	retval.Retracted = v.CommentFields.Retracted
-	retval.RetractedAt = v.CommentFields.RetractedAt
-	retval.Hidden = v.CommentFields.Hidden
-	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.Deleted = v.CommentFields.Deleted
+	retval.DeletedAt = v.CommentFields.DeletedAt
 	retval.ResolvedAt = v.CommentFields.ResolvedAt
 	retval.RevSeq = v.CommentFields.RevSeq
 	retval.CreatedAt = v.CommentFields.CreatedAt
 	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.EditedAt = v.CommentFields.EditedAt
 	retval.Target = v.CommentFields.Target
 	retval.Author = v.CommentFields.Author
 	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
 	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	retval.DeletedBy = v.CommentFields.DeletedBy
+	retval.EditedBy = v.CommentFields.EditedBy
 	return &retval, nil
 }
 
@@ -13683,17 +14101,11 @@ func (v *GetCommentComment) GetBody() *string { return v.CommentFields.Body }
 // GetState returns GetCommentComment.State, and is useful for accessing the field via an interface.
 func (v *GetCommentComment) GetState() *CommentThreadState { return v.CommentFields.State }
 
-// GetRetracted returns GetCommentComment.Retracted, and is useful for accessing the field via an interface.
-func (v *GetCommentComment) GetRetracted() bool { return v.CommentFields.Retracted }
+// GetDeleted returns GetCommentComment.Deleted, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetDeleted() bool { return v.CommentFields.Deleted }
 
-// GetRetractedAt returns GetCommentComment.RetractedAt, and is useful for accessing the field via an interface.
-func (v *GetCommentComment) GetRetractedAt() *string { return v.CommentFields.RetractedAt }
-
-// GetHidden returns GetCommentComment.Hidden, and is useful for accessing the field via an interface.
-func (v *GetCommentComment) GetHidden() bool { return v.CommentFields.Hidden }
-
-// GetHiddenAt returns GetCommentComment.HiddenAt, and is useful for accessing the field via an interface.
-func (v *GetCommentComment) GetHiddenAt() *string { return v.CommentFields.HiddenAt }
+// GetDeletedAt returns GetCommentComment.DeletedAt, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetDeletedAt() *string { return v.CommentFields.DeletedAt }
 
 // GetResolvedAt returns GetCommentComment.ResolvedAt, and is useful for accessing the field via an interface.
 func (v *GetCommentComment) GetResolvedAt() *string { return v.CommentFields.ResolvedAt }
@@ -13706,6 +14118,9 @@ func (v *GetCommentComment) GetCreatedAt() string { return v.CommentFields.Creat
 
 // GetUpdatedAt returns GetCommentComment.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *GetCommentComment) GetUpdatedAt() *string { return v.CommentFields.UpdatedAt }
+
+// GetEditedAt returns GetCommentComment.EditedAt, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetEditedAt() *string { return v.CommentFields.EditedAt }
 
 // GetTarget returns GetCommentComment.Target, and is useful for accessing the field via an interface.
 func (v *GetCommentComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
@@ -13725,6 +14140,16 @@ func (v *GetCommentComment) GetProvenanceUser() *CommentFieldsProvenanceUserComm
 // GetResolvedBy returns GetCommentComment.ResolvedBy, and is useful for accessing the field via an interface.
 func (v *GetCommentComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
 	return v.CommentFields.ResolvedBy
+}
+
+// GetDeletedBy returns GetCommentComment.DeletedBy, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetDeletedBy() *CommentFieldsDeletedByCommentActorRef {
+	return v.CommentFields.DeletedBy
+}
+
+// GetEditedBy returns GetCommentComment.EditedBy, and is useful for accessing the field via an interface.
+func (v *GetCommentComment) GetEditedBy() *CommentFieldsEditedByCommentActorRef {
+	return v.CommentFields.EditedBy
 }
 
 func (v *GetCommentComment) UnmarshalJSON(b []byte) error {
@@ -13775,13 +14200,9 @@ type __premarshalGetCommentComment struct {
 
 	State *CommentThreadState `json:"state"`
 
-	Retracted bool `json:"retracted"`
+	Deleted bool `json:"deleted"`
 
-	RetractedAt *string `json:"retractedAt"`
-
-	Hidden bool `json:"hidden"`
-
-	HiddenAt *string `json:"hiddenAt"`
+	DeletedAt *string `json:"deletedAt"`
 
 	ResolvedAt *string `json:"resolvedAt"`
 
@@ -13791,6 +14212,8 @@ type __premarshalGetCommentComment struct {
 
 	UpdatedAt *string `json:"updatedAt"`
 
+	EditedAt *string `json:"editedAt"`
+
 	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
 
 	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
@@ -13798,6 +14221,10 @@ type __premarshalGetCommentComment struct {
 	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
 
 	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+
+	DeletedBy *CommentFieldsDeletedByCommentActorRef `json:"deletedBy"`
+
+	EditedBy *CommentFieldsEditedByCommentActorRef `json:"editedBy"`
 }
 
 func (v *GetCommentComment) MarshalJSON() ([]byte, error) {
@@ -13822,18 +14249,19 @@ func (v *GetCommentComment) __premarshalJSON() (*__premarshalGetCommentComment, 
 	retval.Quote = v.CommentFields.Quote
 	retval.Body = v.CommentFields.Body
 	retval.State = v.CommentFields.State
-	retval.Retracted = v.CommentFields.Retracted
-	retval.RetractedAt = v.CommentFields.RetractedAt
-	retval.Hidden = v.CommentFields.Hidden
-	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.Deleted = v.CommentFields.Deleted
+	retval.DeletedAt = v.CommentFields.DeletedAt
 	retval.ResolvedAt = v.CommentFields.ResolvedAt
 	retval.RevSeq = v.CommentFields.RevSeq
 	retval.CreatedAt = v.CommentFields.CreatedAt
 	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.EditedAt = v.CommentFields.EditedAt
 	retval.Target = v.CommentFields.Target
 	retval.Author = v.CommentFields.Author
 	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
 	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	retval.DeletedBy = v.CommentFields.DeletedBy
+	retval.EditedBy = v.CommentFields.EditedBy
 	return &retval, nil
 }
 
@@ -18606,10 +19034,15 @@ type MergeUsersResponse struct {
 	// preserve the strongest live entitlement. The source is soft-deleted.
 	// Platform admin only. The resulting merge is global; organization
 	// administration does not authorize account consolidation.
+	//
+	// Records the merge (#1715). User ids stored inside decisions and decision
+	// logs are never rewritten, since they are authenticated; readers follow
+	// them to the surviving account, so it is the asker or decider they name.
+	//
 	// Refused with MERGE_USER_IN_OPEN_ALARMS (extension alarmCount; never the
 	// alarms, tasks or Apps, which the caller may not be able to read) while
 	// either account is named in the owner chain of an unacknowledged agent-task
-	// alarm, whose sealed chain cannot follow a merge yet (#1715). Acknowledge
+	// alarm, whose sealed chain cannot follow a merge yet. Acknowledge
 	// the alarms, then merge.
 	MergeUsers *MergeUsersMergeUsersUser `json:"mergeUsers"`
 }
@@ -19898,7 +20331,7 @@ func (v *NodeCommentSummariesNodeBatchNodeBatchResultNodesNode) GetCommentSummar
 type NodeCommentSummariesNodeBatchNodeBatchResultNodesNodeCommentSummary struct {
 	OpenThreads     int `json:"openThreads"`
 	ResolvedThreads int `json:"resolvedThreads"`
-	// Every live comment, top-level and replies, retracted and hidden stubs included.
+	// Every live comment, top-level and replies, deleted stubs included.
 	Comments int `json:"comments"`
 }
 
@@ -24901,24 +25334,14 @@ func (v *ReopenCommentThreadReopenCommentThreadComment) GetState() *CommentThrea
 	return v.CommentFields.State
 }
 
-// GetRetracted returns ReopenCommentThreadReopenCommentThreadComment.Retracted, and is useful for accessing the field via an interface.
-func (v *ReopenCommentThreadReopenCommentThreadComment) GetRetracted() bool {
-	return v.CommentFields.Retracted
+// GetDeleted returns ReopenCommentThreadReopenCommentThreadComment.Deleted, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetDeleted() bool {
+	return v.CommentFields.Deleted
 }
 
-// GetRetractedAt returns ReopenCommentThreadReopenCommentThreadComment.RetractedAt, and is useful for accessing the field via an interface.
-func (v *ReopenCommentThreadReopenCommentThreadComment) GetRetractedAt() *string {
-	return v.CommentFields.RetractedAt
-}
-
-// GetHidden returns ReopenCommentThreadReopenCommentThreadComment.Hidden, and is useful for accessing the field via an interface.
-func (v *ReopenCommentThreadReopenCommentThreadComment) GetHidden() bool {
-	return v.CommentFields.Hidden
-}
-
-// GetHiddenAt returns ReopenCommentThreadReopenCommentThreadComment.HiddenAt, and is useful for accessing the field via an interface.
-func (v *ReopenCommentThreadReopenCommentThreadComment) GetHiddenAt() *string {
-	return v.CommentFields.HiddenAt
+// GetDeletedAt returns ReopenCommentThreadReopenCommentThreadComment.DeletedAt, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetDeletedAt() *string {
+	return v.CommentFields.DeletedAt
 }
 
 // GetResolvedAt returns ReopenCommentThreadReopenCommentThreadComment.ResolvedAt, and is useful for accessing the field via an interface.
@@ -24941,6 +25364,11 @@ func (v *ReopenCommentThreadReopenCommentThreadComment) GetUpdatedAt() *string {
 	return v.CommentFields.UpdatedAt
 }
 
+// GetEditedAt returns ReopenCommentThreadReopenCommentThreadComment.EditedAt, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetEditedAt() *string {
+	return v.CommentFields.EditedAt
+}
+
 // GetTarget returns ReopenCommentThreadReopenCommentThreadComment.Target, and is useful for accessing the field via an interface.
 func (v *ReopenCommentThreadReopenCommentThreadComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
 	return v.CommentFields.Target
@@ -24959,6 +25387,16 @@ func (v *ReopenCommentThreadReopenCommentThreadComment) GetProvenanceUser() *Com
 // GetResolvedBy returns ReopenCommentThreadReopenCommentThreadComment.ResolvedBy, and is useful for accessing the field via an interface.
 func (v *ReopenCommentThreadReopenCommentThreadComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
 	return v.CommentFields.ResolvedBy
+}
+
+// GetDeletedBy returns ReopenCommentThreadReopenCommentThreadComment.DeletedBy, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetDeletedBy() *CommentFieldsDeletedByCommentActorRef {
+	return v.CommentFields.DeletedBy
+}
+
+// GetEditedBy returns ReopenCommentThreadReopenCommentThreadComment.EditedBy, and is useful for accessing the field via an interface.
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetEditedBy() *CommentFieldsEditedByCommentActorRef {
+	return v.CommentFields.EditedBy
 }
 
 func (v *ReopenCommentThreadReopenCommentThreadComment) UnmarshalJSON(b []byte) error {
@@ -25009,13 +25447,9 @@ type __premarshalReopenCommentThreadReopenCommentThreadComment struct {
 
 	State *CommentThreadState `json:"state"`
 
-	Retracted bool `json:"retracted"`
+	Deleted bool `json:"deleted"`
 
-	RetractedAt *string `json:"retractedAt"`
-
-	Hidden bool `json:"hidden"`
-
-	HiddenAt *string `json:"hiddenAt"`
+	DeletedAt *string `json:"deletedAt"`
 
 	ResolvedAt *string `json:"resolvedAt"`
 
@@ -25025,6 +25459,8 @@ type __premarshalReopenCommentThreadReopenCommentThreadComment struct {
 
 	UpdatedAt *string `json:"updatedAt"`
 
+	EditedAt *string `json:"editedAt"`
+
 	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
 
 	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
@@ -25032,6 +25468,10 @@ type __premarshalReopenCommentThreadReopenCommentThreadComment struct {
 	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
 
 	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+
+	DeletedBy *CommentFieldsDeletedByCommentActorRef `json:"deletedBy"`
+
+	EditedBy *CommentFieldsEditedByCommentActorRef `json:"editedBy"`
 }
 
 func (v *ReopenCommentThreadReopenCommentThreadComment) MarshalJSON() ([]byte, error) {
@@ -25056,18 +25496,19 @@ func (v *ReopenCommentThreadReopenCommentThreadComment) __premarshalJSON() (*__p
 	retval.Quote = v.CommentFields.Quote
 	retval.Body = v.CommentFields.Body
 	retval.State = v.CommentFields.State
-	retval.Retracted = v.CommentFields.Retracted
-	retval.RetractedAt = v.CommentFields.RetractedAt
-	retval.Hidden = v.CommentFields.Hidden
-	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.Deleted = v.CommentFields.Deleted
+	retval.DeletedAt = v.CommentFields.DeletedAt
 	retval.ResolvedAt = v.CommentFields.ResolvedAt
 	retval.RevSeq = v.CommentFields.RevSeq
 	retval.CreatedAt = v.CommentFields.CreatedAt
 	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.EditedAt = v.CommentFields.EditedAt
 	retval.Target = v.CommentFields.Target
 	retval.Author = v.CommentFields.Author
 	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
 	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	retval.DeletedBy = v.CommentFields.DeletedBy
+	retval.EditedBy = v.CommentFields.EditedBy
 	return &retval, nil
 }
 
@@ -25130,17 +25571,11 @@ func (v *ReplyToCommentReplyToComment) GetBody() *string { return v.CommentField
 // GetState returns ReplyToCommentReplyToComment.State, and is useful for accessing the field via an interface.
 func (v *ReplyToCommentReplyToComment) GetState() *CommentThreadState { return v.CommentFields.State }
 
-// GetRetracted returns ReplyToCommentReplyToComment.Retracted, and is useful for accessing the field via an interface.
-func (v *ReplyToCommentReplyToComment) GetRetracted() bool { return v.CommentFields.Retracted }
+// GetDeleted returns ReplyToCommentReplyToComment.Deleted, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetDeleted() bool { return v.CommentFields.Deleted }
 
-// GetRetractedAt returns ReplyToCommentReplyToComment.RetractedAt, and is useful for accessing the field via an interface.
-func (v *ReplyToCommentReplyToComment) GetRetractedAt() *string { return v.CommentFields.RetractedAt }
-
-// GetHidden returns ReplyToCommentReplyToComment.Hidden, and is useful for accessing the field via an interface.
-func (v *ReplyToCommentReplyToComment) GetHidden() bool { return v.CommentFields.Hidden }
-
-// GetHiddenAt returns ReplyToCommentReplyToComment.HiddenAt, and is useful for accessing the field via an interface.
-func (v *ReplyToCommentReplyToComment) GetHiddenAt() *string { return v.CommentFields.HiddenAt }
+// GetDeletedAt returns ReplyToCommentReplyToComment.DeletedAt, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetDeletedAt() *string { return v.CommentFields.DeletedAt }
 
 // GetResolvedAt returns ReplyToCommentReplyToComment.ResolvedAt, and is useful for accessing the field via an interface.
 func (v *ReplyToCommentReplyToComment) GetResolvedAt() *string { return v.CommentFields.ResolvedAt }
@@ -25153,6 +25588,9 @@ func (v *ReplyToCommentReplyToComment) GetCreatedAt() string { return v.CommentF
 
 // GetUpdatedAt returns ReplyToCommentReplyToComment.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *ReplyToCommentReplyToComment) GetUpdatedAt() *string { return v.CommentFields.UpdatedAt }
+
+// GetEditedAt returns ReplyToCommentReplyToComment.EditedAt, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetEditedAt() *string { return v.CommentFields.EditedAt }
 
 // GetTarget returns ReplyToCommentReplyToComment.Target, and is useful for accessing the field via an interface.
 func (v *ReplyToCommentReplyToComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
@@ -25172,6 +25610,16 @@ func (v *ReplyToCommentReplyToComment) GetProvenanceUser() *CommentFieldsProvena
 // GetResolvedBy returns ReplyToCommentReplyToComment.ResolvedBy, and is useful for accessing the field via an interface.
 func (v *ReplyToCommentReplyToComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
 	return v.CommentFields.ResolvedBy
+}
+
+// GetDeletedBy returns ReplyToCommentReplyToComment.DeletedBy, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetDeletedBy() *CommentFieldsDeletedByCommentActorRef {
+	return v.CommentFields.DeletedBy
+}
+
+// GetEditedBy returns ReplyToCommentReplyToComment.EditedBy, and is useful for accessing the field via an interface.
+func (v *ReplyToCommentReplyToComment) GetEditedBy() *CommentFieldsEditedByCommentActorRef {
+	return v.CommentFields.EditedBy
 }
 
 func (v *ReplyToCommentReplyToComment) UnmarshalJSON(b []byte) error {
@@ -25222,13 +25670,9 @@ type __premarshalReplyToCommentReplyToComment struct {
 
 	State *CommentThreadState `json:"state"`
 
-	Retracted bool `json:"retracted"`
+	Deleted bool `json:"deleted"`
 
-	RetractedAt *string `json:"retractedAt"`
-
-	Hidden bool `json:"hidden"`
-
-	HiddenAt *string `json:"hiddenAt"`
+	DeletedAt *string `json:"deletedAt"`
 
 	ResolvedAt *string `json:"resolvedAt"`
 
@@ -25238,6 +25682,8 @@ type __premarshalReplyToCommentReplyToComment struct {
 
 	UpdatedAt *string `json:"updatedAt"`
 
+	EditedAt *string `json:"editedAt"`
+
 	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
 
 	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
@@ -25245,6 +25691,10 @@ type __premarshalReplyToCommentReplyToComment struct {
 	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
 
 	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+
+	DeletedBy *CommentFieldsDeletedByCommentActorRef `json:"deletedBy"`
+
+	EditedBy *CommentFieldsEditedByCommentActorRef `json:"editedBy"`
 }
 
 func (v *ReplyToCommentReplyToComment) MarshalJSON() ([]byte, error) {
@@ -25269,18 +25719,19 @@ func (v *ReplyToCommentReplyToComment) __premarshalJSON() (*__premarshalReplyToC
 	retval.Quote = v.CommentFields.Quote
 	retval.Body = v.CommentFields.Body
 	retval.State = v.CommentFields.State
-	retval.Retracted = v.CommentFields.Retracted
-	retval.RetractedAt = v.CommentFields.RetractedAt
-	retval.Hidden = v.CommentFields.Hidden
-	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.Deleted = v.CommentFields.Deleted
+	retval.DeletedAt = v.CommentFields.DeletedAt
 	retval.ResolvedAt = v.CommentFields.ResolvedAt
 	retval.RevSeq = v.CommentFields.RevSeq
 	retval.CreatedAt = v.CommentFields.CreatedAt
 	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.EditedAt = v.CommentFields.EditedAt
 	retval.Target = v.CommentFields.Target
 	retval.Author = v.CommentFields.Author
 	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
 	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	retval.DeletedBy = v.CommentFields.DeletedBy
+	retval.EditedBy = v.CommentFields.EditedBy
 	return &retval, nil
 }
 
@@ -25730,24 +26181,14 @@ func (v *ResolveCommentThreadResolveCommentThreadComment) GetState() *CommentThr
 	return v.CommentFields.State
 }
 
-// GetRetracted returns ResolveCommentThreadResolveCommentThreadComment.Retracted, and is useful for accessing the field via an interface.
-func (v *ResolveCommentThreadResolveCommentThreadComment) GetRetracted() bool {
-	return v.CommentFields.Retracted
+// GetDeleted returns ResolveCommentThreadResolveCommentThreadComment.Deleted, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetDeleted() bool {
+	return v.CommentFields.Deleted
 }
 
-// GetRetractedAt returns ResolveCommentThreadResolveCommentThreadComment.RetractedAt, and is useful for accessing the field via an interface.
-func (v *ResolveCommentThreadResolveCommentThreadComment) GetRetractedAt() *string {
-	return v.CommentFields.RetractedAt
-}
-
-// GetHidden returns ResolveCommentThreadResolveCommentThreadComment.Hidden, and is useful for accessing the field via an interface.
-func (v *ResolveCommentThreadResolveCommentThreadComment) GetHidden() bool {
-	return v.CommentFields.Hidden
-}
-
-// GetHiddenAt returns ResolveCommentThreadResolveCommentThreadComment.HiddenAt, and is useful for accessing the field via an interface.
-func (v *ResolveCommentThreadResolveCommentThreadComment) GetHiddenAt() *string {
-	return v.CommentFields.HiddenAt
+// GetDeletedAt returns ResolveCommentThreadResolveCommentThreadComment.DeletedAt, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetDeletedAt() *string {
+	return v.CommentFields.DeletedAt
 }
 
 // GetResolvedAt returns ResolveCommentThreadResolveCommentThreadComment.ResolvedAt, and is useful for accessing the field via an interface.
@@ -25770,6 +26211,11 @@ func (v *ResolveCommentThreadResolveCommentThreadComment) GetUpdatedAt() *string
 	return v.CommentFields.UpdatedAt
 }
 
+// GetEditedAt returns ResolveCommentThreadResolveCommentThreadComment.EditedAt, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetEditedAt() *string {
+	return v.CommentFields.EditedAt
+}
+
 // GetTarget returns ResolveCommentThreadResolveCommentThreadComment.Target, and is useful for accessing the field via an interface.
 func (v *ResolveCommentThreadResolveCommentThreadComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
 	return v.CommentFields.Target
@@ -25788,6 +26234,16 @@ func (v *ResolveCommentThreadResolveCommentThreadComment) GetProvenanceUser() *C
 // GetResolvedBy returns ResolveCommentThreadResolveCommentThreadComment.ResolvedBy, and is useful for accessing the field via an interface.
 func (v *ResolveCommentThreadResolveCommentThreadComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
 	return v.CommentFields.ResolvedBy
+}
+
+// GetDeletedBy returns ResolveCommentThreadResolveCommentThreadComment.DeletedBy, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetDeletedBy() *CommentFieldsDeletedByCommentActorRef {
+	return v.CommentFields.DeletedBy
+}
+
+// GetEditedBy returns ResolveCommentThreadResolveCommentThreadComment.EditedBy, and is useful for accessing the field via an interface.
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetEditedBy() *CommentFieldsEditedByCommentActorRef {
+	return v.CommentFields.EditedBy
 }
 
 func (v *ResolveCommentThreadResolveCommentThreadComment) UnmarshalJSON(b []byte) error {
@@ -25838,13 +26294,9 @@ type __premarshalResolveCommentThreadResolveCommentThreadComment struct {
 
 	State *CommentThreadState `json:"state"`
 
-	Retracted bool `json:"retracted"`
+	Deleted bool `json:"deleted"`
 
-	RetractedAt *string `json:"retractedAt"`
-
-	Hidden bool `json:"hidden"`
-
-	HiddenAt *string `json:"hiddenAt"`
+	DeletedAt *string `json:"deletedAt"`
 
 	ResolvedAt *string `json:"resolvedAt"`
 
@@ -25854,6 +26306,8 @@ type __premarshalResolveCommentThreadResolveCommentThreadComment struct {
 
 	UpdatedAt *string `json:"updatedAt"`
 
+	EditedAt *string `json:"editedAt"`
+
 	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
 
 	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
@@ -25861,6 +26315,10 @@ type __premarshalResolveCommentThreadResolveCommentThreadComment struct {
 	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
 
 	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
+
+	DeletedBy *CommentFieldsDeletedByCommentActorRef `json:"deletedBy"`
+
+	EditedBy *CommentFieldsEditedByCommentActorRef `json:"editedBy"`
 }
 
 func (v *ResolveCommentThreadResolveCommentThreadComment) MarshalJSON() ([]byte, error) {
@@ -25885,18 +26343,19 @@ func (v *ResolveCommentThreadResolveCommentThreadComment) __premarshalJSON() (*_
 	retval.Quote = v.CommentFields.Quote
 	retval.Body = v.CommentFields.Body
 	retval.State = v.CommentFields.State
-	retval.Retracted = v.CommentFields.Retracted
-	retval.RetractedAt = v.CommentFields.RetractedAt
-	retval.Hidden = v.CommentFields.Hidden
-	retval.HiddenAt = v.CommentFields.HiddenAt
+	retval.Deleted = v.CommentFields.Deleted
+	retval.DeletedAt = v.CommentFields.DeletedAt
 	retval.ResolvedAt = v.CommentFields.ResolvedAt
 	retval.RevSeq = v.CommentFields.RevSeq
 	retval.CreatedAt = v.CommentFields.CreatedAt
 	retval.UpdatedAt = v.CommentFields.UpdatedAt
+	retval.EditedAt = v.CommentFields.EditedAt
 	retval.Target = v.CommentFields.Target
 	retval.Author = v.CommentFields.Author
 	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
 	retval.ResolvedBy = v.CommentFields.ResolvedBy
+	retval.DeletedBy = v.CommentFields.DeletedBy
+	retval.EditedBy = v.CommentFields.EditedBy
 	return &retval, nil
 }
 
@@ -26080,7 +26539,8 @@ type RetireWorkerResponse struct {
 	// and refuses new session bindings; the row and its name reservation
 	// survive. Idempotent — retiring an already-retired worker returns it
 	// unchanged. Same authorization as castWorker. workerRef is the worker's id
-	// or its URN (#991).
+	// or its URN (#991). Retiring clears the worker's own reportsTo (#1726);
+	// workers that report to it keep theirs and read reportsToRetired.
 	RetireWorker *RetireWorkerRetireWorker `json:"retireWorker"`
 }
 
@@ -26259,219 +26719,6 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
 	retval.CreatedBy = v.WorkerFields.CreatedBy
-	return &retval, nil
-}
-
-// RetractCommentResponse is returned by RetractComment on success.
-type RetractCommentResponse struct {
-	// #1606 — the author retracts a comment, leaving a stub (hrn:node:hadronmemory.com:specs:cor:dmo:110:05).
-	RetractComment *RetractCommentRetractComment `json:"retractComment"`
-}
-
-// GetRetractComment returns RetractCommentResponse.RetractComment, and is useful for accessing the field via an interface.
-func (v *RetractCommentResponse) GetRetractComment() *RetractCommentRetractComment {
-	return v.RetractComment
-}
-
-// RetractCommentRetractComment includes the requested fields of the GraphQL type Comment.
-// The GraphQL type's documentation follows.
-//
-// #1606 — feedback about a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). A comment is a node of type
-// `comment` in its target's memory, readable by exactly who can read that
-// memory. It is never part of its target's content, never approved or minted,
-// and never authoritative.
-type RetractCommentRetractComment struct {
-	CommentFields `json:"-"`
-}
-
-// GetId returns RetractCommentRetractComment.Id, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetId() string { return v.CommentFields.Id }
-
-// GetUrn returns RetractCommentRetractComment.Urn, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetUrn() string { return v.CommentFields.Urn }
-
-// GetPortalUrl returns RetractCommentRetractComment.PortalUrl, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetPortalUrl() *string { return v.CommentFields.PortalUrl }
-
-// GetThreadRootId returns RetractCommentRetractComment.ThreadRootId, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetThreadRootId() *string { return v.CommentFields.ThreadRootId }
-
-// GetIsTopLevel returns RetractCommentRetractComment.IsTopLevel, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetIsTopLevel() bool { return v.CommentFields.IsTopLevel }
-
-// GetAnchorRevision returns RetractCommentRetractComment.AnchorRevision, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
-
-// GetAnchorApprovalHash returns RetractCommentRetractComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetAnchorApprovalHash() string {
-	return v.CommentFields.AnchorApprovalHash
-}
-
-// GetAnchorIsCurrent returns RetractCommentRetractComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetAnchorIsCurrent() bool {
-	return v.CommentFields.AnchorIsCurrent
-}
-
-// GetQuote returns RetractCommentRetractComment.Quote, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetQuote() *string { return v.CommentFields.Quote }
-
-// GetBody returns RetractCommentRetractComment.Body, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetBody() *string { return v.CommentFields.Body }
-
-// GetState returns RetractCommentRetractComment.State, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetState() *CommentThreadState { return v.CommentFields.State }
-
-// GetRetracted returns RetractCommentRetractComment.Retracted, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetRetracted() bool { return v.CommentFields.Retracted }
-
-// GetRetractedAt returns RetractCommentRetractComment.RetractedAt, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetRetractedAt() *string { return v.CommentFields.RetractedAt }
-
-// GetHidden returns RetractCommentRetractComment.Hidden, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetHidden() bool { return v.CommentFields.Hidden }
-
-// GetHiddenAt returns RetractCommentRetractComment.HiddenAt, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetHiddenAt() *string { return v.CommentFields.HiddenAt }
-
-// GetResolvedAt returns RetractCommentRetractComment.ResolvedAt, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetResolvedAt() *string { return v.CommentFields.ResolvedAt }
-
-// GetRevSeq returns RetractCommentRetractComment.RevSeq, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetRevSeq() int { return v.CommentFields.RevSeq }
-
-// GetCreatedAt returns RetractCommentRetractComment.CreatedAt, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetCreatedAt() string { return v.CommentFields.CreatedAt }
-
-// GetUpdatedAt returns RetractCommentRetractComment.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetUpdatedAt() *string { return v.CommentFields.UpdatedAt }
-
-// GetTarget returns RetractCommentRetractComment.Target, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetTarget() *CommentFieldsTargetCommentTargetRef {
-	return v.CommentFields.Target
-}
-
-// GetAuthor returns RetractCommentRetractComment.Author, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetAuthor() *CommentFieldsAuthorCommentAuthor {
-	return v.CommentFields.Author
-}
-
-// GetProvenanceUser returns RetractCommentRetractComment.ProvenanceUser, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetProvenanceUser() *CommentFieldsProvenanceUserCommentActorRef {
-	return v.CommentFields.ProvenanceUser
-}
-
-// GetResolvedBy returns RetractCommentRetractComment.ResolvedBy, and is useful for accessing the field via an interface.
-func (v *RetractCommentRetractComment) GetResolvedBy() *CommentFieldsResolvedByCommentActorRef {
-	return v.CommentFields.ResolvedBy
-}
-
-func (v *RetractCommentRetractComment) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*RetractCommentRetractComment
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.RetractCommentRetractComment = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.CommentFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalRetractCommentRetractComment struct {
-	Id string `json:"id"`
-
-	Urn string `json:"urn"`
-
-	PortalUrl *string `json:"portalUrl"`
-
-	ThreadRootId *string `json:"threadRootId"`
-
-	IsTopLevel bool `json:"isTopLevel"`
-
-	AnchorRevision int `json:"anchorRevision"`
-
-	AnchorApprovalHash string `json:"anchorApprovalHash"`
-
-	AnchorIsCurrent bool `json:"anchorIsCurrent"`
-
-	Quote *string `json:"quote"`
-
-	Body *string `json:"body"`
-
-	State *CommentThreadState `json:"state"`
-
-	Retracted bool `json:"retracted"`
-
-	RetractedAt *string `json:"retractedAt"`
-
-	Hidden bool `json:"hidden"`
-
-	HiddenAt *string `json:"hiddenAt"`
-
-	ResolvedAt *string `json:"resolvedAt"`
-
-	RevSeq int `json:"revSeq"`
-
-	CreatedAt string `json:"createdAt"`
-
-	UpdatedAt *string `json:"updatedAt"`
-
-	Target *CommentFieldsTargetCommentTargetRef `json:"target"`
-
-	Author *CommentFieldsAuthorCommentAuthor `json:"author"`
-
-	ProvenanceUser *CommentFieldsProvenanceUserCommentActorRef `json:"provenanceUser"`
-
-	ResolvedBy *CommentFieldsResolvedByCommentActorRef `json:"resolvedBy"`
-}
-
-func (v *RetractCommentRetractComment) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *RetractCommentRetractComment) __premarshalJSON() (*__premarshalRetractCommentRetractComment, error) {
-	var retval __premarshalRetractCommentRetractComment
-
-	retval.Id = v.CommentFields.Id
-	retval.Urn = v.CommentFields.Urn
-	retval.PortalUrl = v.CommentFields.PortalUrl
-	retval.ThreadRootId = v.CommentFields.ThreadRootId
-	retval.IsTopLevel = v.CommentFields.IsTopLevel
-	retval.AnchorRevision = v.CommentFields.AnchorRevision
-	retval.AnchorApprovalHash = v.CommentFields.AnchorApprovalHash
-	retval.AnchorIsCurrent = v.CommentFields.AnchorIsCurrent
-	retval.Quote = v.CommentFields.Quote
-	retval.Body = v.CommentFields.Body
-	retval.State = v.CommentFields.State
-	retval.Retracted = v.CommentFields.Retracted
-	retval.RetractedAt = v.CommentFields.RetractedAt
-	retval.Hidden = v.CommentFields.Hidden
-	retval.HiddenAt = v.CommentFields.HiddenAt
-	retval.ResolvedAt = v.CommentFields.ResolvedAt
-	retval.RevSeq = v.CommentFields.RevSeq
-	retval.CreatedAt = v.CommentFields.CreatedAt
-	retval.UpdatedAt = v.CommentFields.UpdatedAt
-	retval.Target = v.CommentFields.Target
-	retval.Author = v.CommentFields.Author
-	retval.ProvenanceUser = v.CommentFields.ProvenanceUser
-	retval.ResolvedBy = v.CommentFields.ResolvedBy
 	return &retval, nil
 }
 
@@ -28800,6 +29047,13 @@ type SessionInput struct {
 	AppRef     *string `json:"appRef,omitempty"`
 	Branch     *string `json:"branch,omitempty"`
 	CustomerId *string `json:"customerId,omitempty"`
+	// #1707 / hrn:node:hadronmemory.com:specs:cor:agt:060:04: the model family this session runs as, e.g.
+	// claude, codex or glm (a lowercase token). Omitted: derived from llmModel
+	// first, then tool — tool alone never classifies claude-code, since GLM runs
+	// inside it too — and a session nothing classifies gets no family, so its
+	// worker is not matched to queued tasks until one is given. A matching input,
+	// never an authorization input.
+	Family *string `json:"family,omitempty"`
 	// #940: take over a worker whose binding would otherwise refuse WORKER_TAKEN.
 	// Only meaningful with workerRef. Clients must surface the WORKER_TAKEN
 	// payload (who last drove it, when) before retrying with force - that IS the
@@ -28816,7 +29070,14 @@ type SessionInput struct {
 	PrNumber      *int    `json:"prNumber,omitempty"`
 	PrevSessionId *string `json:"prevSessionId,omitempty"`
 	Repo          *string `json:"repo,omitempty"`
-	Tool          *string `json:"tool,omitempty"`
+	// #1726 — the worker this bind's worker reports to: an id, URN or name of a
+	// worker in the session's App. Sets it in the same step as the bind (a spawn
+	// brief), only when the worker reports to nobody or already to this one;
+	// naming a different worker is refused (WORKER_REPORTS_TO_HELD) unless the
+	// caller manages the App, and refuses the bind with it. Omitted leaves the
+	// value unchanged. Needs workerRef and a person behind the request.
+	ReportsTo *string `json:"reportsTo,omitempty"`
+	Tool      *string `json:"tool,omitempty"`
 	// #928 coding-session provenance.
 	TranscriptPath *string `json:"transcriptPath,omitempty"`
 	Type           *string `json:"type,omitempty"`
@@ -28868,6 +29129,9 @@ func (v *SessionInput) GetBranch() *string { return v.Branch }
 // GetCustomerId returns SessionInput.CustomerId, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetCustomerId() *string { return v.CustomerId }
 
+// GetFamily returns SessionInput.Family, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetFamily() *string { return v.Family }
+
 // GetForce returns SessionInput.Force, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetForce() *bool { return v.Force }
 
@@ -28897,6 +29161,9 @@ func (v *SessionInput) GetPrevSessionId() *string { return v.PrevSessionId }
 
 // GetRepo returns SessionInput.Repo, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetRepo() *string { return v.Repo }
+
+// GetReportsTo returns SessionInput.ReportsTo, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetReportsTo() *string { return v.ReportsTo }
 
 // GetTool returns SessionInput.Tool, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetTool() *string { return v.Tool }
@@ -40739,6 +41006,18 @@ type __DeleteChannelInput struct {
 // GetRef returns __DeleteChannelInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteChannelInput) GetRef() string { return v.Ref }
 
+// __DeleteCommentInput is used internally by genqlient
+type __DeleteCommentInput struct {
+	Ref      string `json:"ref"`
+	Expected int    `json:"expected"`
+}
+
+// GetRef returns __DeleteCommentInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteCommentInput) GetRef() string { return v.Ref }
+
+// GetExpected returns __DeleteCommentInput.Expected, and is useful for accessing the field via an interface.
+func (v *__DeleteCommentInput) GetExpected() int { return v.Expected }
+
 // __DeleteEdgeInput is used internally by genqlient
 type __DeleteEdgeInput struct {
 	EdgeId string `json:"edgeId"`
@@ -41954,18 +42233,6 @@ type __RetireWorkerInput struct {
 
 // GetWorkerRef returns __RetireWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__RetireWorkerInput) GetWorkerRef() string { return v.WorkerRef }
-
-// __RetractCommentInput is used internally by genqlient
-type __RetractCommentInput struct {
-	Ref      string `json:"ref"`
-	Expected int    `json:"expected"`
-}
-
-// GetRef returns __RetractCommentInput.Ref, and is useful for accessing the field via an interface.
-func (v *__RetractCommentInput) GetRef() string { return v.Ref }
-
-// GetExpected returns __RetractCommentInput.Expected, and is useful for accessing the field via an interface.
-func (v *__RetractCommentInput) GetExpected() int { return v.Expected }
 
 // __RevokeConnectionGrantInput is used internally by genqlient
 type __RevokeConnectionGrantInput struct {
@@ -45030,14 +45297,13 @@ fragment CommentFields on Comment {
 	quote
 	body
 	state
-	retracted
-	retractedAt
-	hidden
-	hiddenAt
+	deleted
+	deletedAt
 	resolvedAt
 	revSeq
 	createdAt
 	updatedAt
+	editedAt
 	target {
 		id
 		urn
@@ -45064,6 +45330,12 @@ fragment CommentFields on Comment {
 		... CommentActorFields
 	}
 	resolvedBy {
+		... CommentActorFields
+	}
+	deletedBy {
+		... CommentActorFields
+	}
+	editedBy {
 		... CommentActorFields
 	}
 }
@@ -45790,14 +46062,13 @@ fragment CommentFields on Comment {
 	quote
 	body
 	state
-	retracted
-	retractedAt
-	hidden
-	hiddenAt
+	deleted
+	deletedAt
 	resolvedAt
 	revSeq
 	createdAt
 	updatedAt
+	editedAt
 	target {
 		id
 		urn
@@ -45824,6 +46095,12 @@ fragment CommentFields on Comment {
 		... CommentActorFields
 	}
 	resolvedBy {
+		... CommentActorFields
+	}
+	deletedBy {
+		... CommentActorFields
+	}
+	editedBy {
 		... CommentActorFields
 	}
 }
@@ -47418,6 +47695,102 @@ func DeleteChannel(
 	return data_, err_
 }
 
+// The mutation executed by DeleteComment.
+const DeleteComment_Operation = `
+mutation DeleteComment ($ref: ID!, $expected: Int!) {
+	deleteComment(commentRef: $ref, expectedRevision: $expected) {
+		... CommentFields
+	}
+}
+fragment CommentFields on Comment {
+	id
+	urn
+	portalUrl
+	threadRootId
+	isTopLevel
+	anchorRevision
+	anchorApprovalHash
+	anchorIsCurrent
+	quote
+	body
+	state
+	deleted
+	deletedAt
+	resolvedAt
+	revSeq
+	createdAt
+	updatedAt
+	editedAt
+	target {
+		id
+		urn
+		name
+		nodeType
+		revSeq
+	}
+	author {
+		kind
+		worker {
+			... CommentActorFields
+		}
+		user {
+			... CommentActorFields
+		}
+		agent {
+			... CommentActorFields
+		}
+		app {
+			... CommentActorFields
+		}
+	}
+	provenanceUser {
+		... CommentActorFields
+	}
+	resolvedBy {
+		... CommentActorFields
+	}
+	deletedBy {
+		... CommentActorFields
+	}
+	editedBy {
+		... CommentActorFields
+	}
+}
+fragment CommentActorFields on CommentActorRef {
+	id
+	name
+	handle
+	urn
+}
+`
+
+func DeleteComment(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	expected int,
+) (data_ *DeleteCommentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteComment",
+		Query:  DeleteComment_Operation,
+		Variables: &__DeleteCommentInput{
+			Ref:      ref,
+			Expected: expected,
+		},
+	}
+
+	data_ = &DeleteCommentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteEdge.
 const DeleteEdge_Operation = `
 mutation DeleteEdge ($edgeId: ID!) {
@@ -48003,14 +48376,13 @@ fragment CommentFields on Comment {
 	quote
 	body
 	state
-	retracted
-	retractedAt
-	hidden
-	hiddenAt
+	deleted
+	deletedAt
 	resolvedAt
 	revSeq
 	createdAt
 	updatedAt
+	editedAt
 	target {
 		id
 		urn
@@ -48037,6 +48409,12 @@ fragment CommentFields on Comment {
 		... CommentActorFields
 	}
 	resolvedBy {
+		... CommentActorFields
+	}
+	deletedBy {
+		... CommentActorFields
+	}
+	editedBy {
 		... CommentActorFields
 	}
 }
@@ -48654,14 +49032,13 @@ fragment CommentFields on Comment {
 	quote
 	body
 	state
-	retracted
-	retractedAt
-	hidden
-	hiddenAt
+	deleted
+	deletedAt
 	resolvedAt
 	revSeq
 	createdAt
 	updatedAt
+	editedAt
 	target {
 		id
 		urn
@@ -48688,6 +49065,12 @@ fragment CommentFields on Comment {
 		... CommentActorFields
 	}
 	resolvedBy {
+		... CommentActorFields
+	}
+	deletedBy {
+		... CommentActorFields
+	}
+	editedBy {
 		... CommentActorFields
 	}
 }
@@ -52358,14 +52741,13 @@ fragment CommentFields on Comment {
 	quote
 	body
 	state
-	retracted
-	retractedAt
-	hidden
-	hiddenAt
+	deleted
+	deletedAt
 	resolvedAt
 	revSeq
 	createdAt
 	updatedAt
+	editedAt
 	target {
 		id
 		urn
@@ -52392,6 +52774,12 @@ fragment CommentFields on Comment {
 		... CommentActorFields
 	}
 	resolvedBy {
+		... CommentActorFields
+	}
+	deletedBy {
+		... CommentActorFields
+	}
+	editedBy {
 		... CommentActorFields
 	}
 }
@@ -52449,14 +52837,13 @@ fragment CommentFields on Comment {
 	quote
 	body
 	state
-	retracted
-	retractedAt
-	hidden
-	hiddenAt
+	deleted
+	deletedAt
 	resolvedAt
 	revSeq
 	createdAt
 	updatedAt
+	editedAt
 	target {
 		id
 		urn
@@ -52483,6 +52870,12 @@ fragment CommentFields on Comment {
 		... CommentActorFields
 	}
 	resolvedBy {
+		... CommentActorFields
+	}
+	deletedBy {
+		... CommentActorFields
+	}
+	editedBy {
 		... CommentActorFields
 	}
 }
@@ -52683,14 +53076,13 @@ fragment CommentFields on Comment {
 	quote
 	body
 	state
-	retracted
-	retractedAt
-	hidden
-	hiddenAt
+	deleted
+	deletedAt
 	resolvedAt
 	revSeq
 	createdAt
 	updatedAt
+	editedAt
 	target {
 		id
 		urn
@@ -52717,6 +53109,12 @@ fragment CommentFields on Comment {
 		... CommentActorFields
 	}
 	resolvedBy {
+		... CommentActorFields
+	}
+	deletedBy {
+		... CommentActorFields
+	}
+	editedBy {
 		... CommentActorFields
 	}
 }
@@ -52921,97 +53319,6 @@ func RetireWorker(
 	}
 
 	data_ = &RetireWorkerResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The mutation executed by RetractComment.
-const RetractComment_Operation = `
-mutation RetractComment ($ref: ID!, $expected: Int!) {
-	retractComment(commentRef: $ref, expectedRevision: $expected) {
-		... CommentFields
-	}
-}
-fragment CommentFields on Comment {
-	id
-	urn
-	portalUrl
-	threadRootId
-	isTopLevel
-	anchorRevision
-	anchorApprovalHash
-	anchorIsCurrent
-	quote
-	body
-	state
-	retracted
-	retractedAt
-	hidden
-	hiddenAt
-	resolvedAt
-	revSeq
-	createdAt
-	updatedAt
-	target {
-		id
-		urn
-		name
-		nodeType
-		revSeq
-	}
-	author {
-		kind
-		worker {
-			... CommentActorFields
-		}
-		user {
-			... CommentActorFields
-		}
-		agent {
-			... CommentActorFields
-		}
-		app {
-			... CommentActorFields
-		}
-	}
-	provenanceUser {
-		... CommentActorFields
-	}
-	resolvedBy {
-		... CommentActorFields
-	}
-}
-fragment CommentActorFields on CommentActorRef {
-	id
-	name
-	handle
-	urn
-}
-`
-
-func RetractComment(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	ref string,
-	expected int,
-) (data_ *RetractCommentResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "RetractComment",
-		Query:  RetractComment_Operation,
-		Variables: &__RetractCommentInput{
-			Ref:      ref,
-			Expected: expected,
-		},
-	}
-
-	data_ = &RetractCommentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -54286,12 +54593,14 @@ fragment TeamSessionFields on Session {
 // appRef (#943) arrived with a schema refresh, and a refreshed input field does
 // NOT inherit the surrounding omitempty — without this line every session start
 // would newly put `"appRef": null` on the wire.
+// Schema refresh (#836): absence must preserve the persisted relation (#835).
 // workerRef (#974 / cor:agt:020:03) binds the session to the Worker by ID —
 // Session.agentId is stamped server-side from the casting, so the CLI no
 // longer resolves an agent. Same refresh rule as appRef above.
 // force (#940 / hadron-cli#432) is the informed-takeover override: a worker
 // with an ACTIVE session refuses WORKER_TAKEN atomically unless force rides
 // along. Sent only on --force, so the override stays explicit.
+// Schema refresh (#836): no family flag means omit, letting server classification run.
 // plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
 // the refreshed field still needs its omitempty line (the #139 trap).
 func StartTeamSession(

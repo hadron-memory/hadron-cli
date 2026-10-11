@@ -540,6 +540,8 @@ fragment TeamSessionFields on Session {
 # @genqlient(for: "SessionInput.prNumber", omitempty: true)
 # @genqlient(for: "SessionInput.prevSessionId", omitempty: true)
 # @genqlient(for: "SessionInput.repo", omitempty: true)
+# Schema refresh (#836): absence must preserve the persisted relation (#835).
+# @genqlient(for: "SessionInput.reportsTo", omitempty: true)
 # @genqlient(for: "SessionInput.tool", omitempty: true)
 # @genqlient(for: "SessionInput.transcriptPath", omitempty: true)
 # @genqlient(for: "SessionInput.type", omitempty: true)
@@ -551,6 +553,8 @@ fragment TeamSessionFields on Session {
 # with an ACTIVE session refuses WORKER_TAKEN atomically unless force rides
 # along. Sent only on --force, so the override stays explicit.
 # @genqlient(for: "SessionInput.force", omitempty: true)
+# Schema refresh (#836): no family flag means omit, letting server classification run.
+# @genqlient(for: "SessionInput.family", omitempty: true)
 # plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
 # the refreshed field still needs its omitempty line (the #139 trap).
 # @genqlient(for: "SessionInput.plan", omitempty: true)
