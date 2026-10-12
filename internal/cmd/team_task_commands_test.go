@@ -104,25 +104,36 @@ const availabilityJSON = `{"workers":[
 	 "until":null,"setAt":"2026-10-12T00:00:00Z",
 	 "setBy":{"id":"u1","kind":"USER","name":"holger","urn":null},"inEffect":true}]}`
 
+// One worker record, as setWorkerAvailability returns it (not the team
+// envelope availabilityJSON spells).
+const workerAvailabilityRecordJSON = `{"worker":{"id":"wkr2","kind":"WORKER","name":"Rufus","urn":"hrn:worker:acme.com:eng:rufus"},
+	"state":"UNAVAILABLE","reason":"OUT_OF_TOKENS","until":"2026-10-13T00:00:00Z",
+	"setAt":"2026-10-12T04:00:00Z","setByParty":{"id":"wkr1","kind":"WORKER","name":"Iris","urn":"hrn:worker:acme.com:eng:iris"},
+	"inEffect":true}`
+
 // taskResponses is the standard server for a bound worktree: the binding's
 // App answers every task-surface operation.
 func taskResponses() map[string]string {
 	return map[string]string{
-		"AgentTaskCreate":       `{"data":{"createAgentTask":` + taskFieldsJSON + `}}`,
-		"AgentTaskAssign":       `{"data":{"assignAgentTask":` + startedTaskFieldsJSON + `}}`,
-		"AgentTaskReassign":     `{"data":{"reassignAgentTask":` + startedTaskFieldsJSON + `}}`,
-		"AgentTaskStart":        `{"data":{"startAgentTask":` + startedTaskFieldsJSON + `}}`,
-		"AgentTaskProgress":     `{"data":{"recordAgentTaskProgress":` + startedTaskFieldsJSON + `}}`,
-		"AgentTaskFinish":       `{"data":{"finishAgentTask":` + finishedTaskFieldsJSON + `}}`,
-		"AgentTaskCancel":       `{"data":{"cancelAgentTask":` + finishedTaskFieldsJSON + `}}`,
-		"AgentTaskGet":          `{"data":{"agentTask":` + taskFieldsJSON + `}}`,
-		"AgentTaskList":         `{"data":{"agentTasks":[` + taskFieldsJSON + `]}}`,
-		"AgentTaskTree":         `{"data":{"agentTaskTree":[` + taskFieldsJSON + `]}}`,
-		"AgentTeamEvents":       `{"data":{"agentTeamEvents":[` + eventFieldsJSON + `]}}`,
-		"AlarmAcknowledge":      `{"data":{"acknowledgeAlarm":` + ackedAlarmEventFieldsJSON + `}}`,
-		"TeamRoster":            `{"data":{"teamRoster":` + rosterJSON + `}}`,
-		"TeamAvailability":      `{"data":{"teamAvailability":` + availabilityJSON + `}}`,
-		"WorkerAvailabilitySet": `{"data":{"setWorkerAvailability":` + availabilityJSON + `}}`,
+		"AgentTaskCreate":            `{"data":{"createAgentTask":` + taskFieldsJSON + `}}`,
+		"AgentTaskAssign":            `{"data":{"assignAgentTask":` + startedTaskFieldsJSON + `}}`,
+		"AgentTaskReassign":          `{"data":{"reassignAgentTask":` + startedTaskFieldsJSON + `}}`,
+		"AgentTaskStart":             `{"data":{"startAgentTask":` + startedTaskFieldsJSON + `}}`,
+		"AgentTaskProgress":          `{"data":{"recordAgentTaskProgress":` + startedTaskFieldsJSON + `}}`,
+		"AgentTaskFinish":            `{"data":{"finishAgentTask":` + finishedTaskFieldsJSON + `}}`,
+		"AgentTaskCancel":            `{"data":{"cancelAgentTask":` + finishedTaskFieldsJSON + `}}`,
+		"AgentTaskGet":               `{"data":{"agentTask":` + taskFieldsJSON + `}}`,
+		"AgentTaskList":              `{"data":{"agentTasks":[` + taskFieldsJSON + `]}}`,
+		"AgentTaskTree":              `{"data":{"agentTaskTree":[` + taskFieldsJSON + `]}}`,
+		"AgentTeamEvents":            `{"data":{"agentTeamEvents":[` + eventFieldsJSON + `]}}`,
+		"AlarmAcknowledge":           `{"data":{"acknowledgeAlarm":` + ackedAlarmEventFieldsJSON + `}}`,
+		"TeamRoster":                 `{"data":{"teamRoster":` + rosterJSON + `}}`,
+		"TeamAvailability":           `{"data":{"teamAvailability":` + availabilityJSON + `}}`,
+		"WorkerAvailabilitySet":      `{"data":{"setWorkerAvailability":` + workerAvailabilityRecordJSON + `}}`,
+		"ModelFamilyAvailabilitySet": `{"data":{"setModelFamilyAvailability":{"appId":"capp100000000000000000000","family":"codex","state":"AVAILABLE","reason":null,"until":null,"setAt":"2026-10-12T00:00:00Z","setBy":{"id":"wkr1","kind":"WORKER","name":"Iris","urn":"hrn:worker:acme.com:eng:iris"},"inEffect":false}}}`,
+		// The scope line's decorating read (#470): best-effort, answered
+		// happily here and refused in the degradation test below.
+		"TeamAppIdentity": teamAppIdentityJSON,
 	}
 }
 
@@ -564,6 +575,9 @@ func TestTeamAlarmAckAttributedAndRendered(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !strings.Contains(out, "✓ acknowledged alarm evt2") {
+		t.Fatalf("receipt %q", out)
+	}
 	for _, c := range *calls {
 		if c.Op == "AlarmAcknowledge" {
 			if c.Vars["eventId"] != "evt2" {
@@ -576,9 +590,6 @@ func TestTeamAlarmAckAttributedAndRendered(t *testing.T) {
 		}
 	}
 	t.Fatal("no AlarmAcknowledge call")
-	if !strings.Contains(out, "✓ acknowledged alarm evt2") {
-		t.Fatalf("receipt %q", out)
-	}
 }
 
 // ---- availability ---------------------------------------------------------
@@ -693,4 +704,27 @@ func TestTeamAvailabilitySetFamilySendsInput(t *testing.T) {
 		}
 	}
 	t.Fatal("no ModelFamilyAvailabilitySet call")
+}
+
+func TestTeamTaskListScopeLineDegradesToTheRef(t *testing.T) {
+	// The scope line decorates, never gates (#470): a server that cannot
+	// answer the App-identity read still gets its task list, with the raw
+	// ref standing in for the readable label.
+	responses := taskResponses()
+	responses["TeamAppIdentity"] = gqlErrorJSON("INTERNAL_SERVER_ERROR")
+	calls, out, err := runTeamTask(t, responses, "team", "task", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range *calls {
+		if c.Op == "AgentTaskList" && c.Session != "" {
+			t.Fatalf("read attributed: %q", c.Session)
+		}
+	}
+	if !strings.Contains(out, "app: capp100000000000000000000") {
+		t.Fatalf("degraded scope line missing the ref: %q", out)
+	}
+	if !strings.Contains(out, "Fix the flaky CI build") {
+		t.Fatalf("rows lost to the decoration failure: %q", out)
+	}
 }
