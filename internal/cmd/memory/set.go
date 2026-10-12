@@ -53,7 +53,7 @@ requires --app, --agent, --class, and --name.
 
 --owner-me creates a user-owned memory with no org: it is owned by you in
 your own @handle namespace, so its URN roots on your handle
-(hrn:mem:<handle>:<slug>) rather than an org domain. This path is owner-only
+(hrn:mem:<handle>:<slug>) rather than an org name. This path is owner-only
 — it accepts --class personal or private (defaulting to personal), while the
 org-shared knowledge/group classes still require --org. The server derives
 the handle and bare URN; it is never constructed client-side.
