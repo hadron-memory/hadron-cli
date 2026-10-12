@@ -1188,9 +1188,11 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 
 // AgentTaskAssignResponse is returned by AgentTaskAssign on success.
 type AgentTaskAssignResponse struct {
-	// #1705 — assign a queued task (pending, no assignee): the task's owner or
-	// whoever manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:09). closeSessionWhenDone, when
-	// given, replaces the task's value. Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
+	// #1705 — assign a task with no assignee — a queued task (pending) or a BACKLOG task: the
+	// task's owner, a worker the owner reports to, or whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09). closeSessionWhenDone, when
+	// given, replaces the task's value. Assigning a BACKLOG task moves it to
+	// pending (hrn:node:hadronmemory.com:specs:cor:agt:050:02, #1754). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (already assigned: use
 	// reassignAgentTask), TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
 	AssignAgentTask *AgentTaskAssignAssignAgentTask `json:"assignAgentTask"`
@@ -1415,9 +1417,10 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 
 // AgentTaskCancelResponse is returned by AgentTaskCancel on success.
 type AgentTaskCancelResponse struct {
-	// #1705 — cancel a pending or started task: its owner, or whoever manages
-	// the App (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
-	// TASK_ENDED, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #1705 — cancel a pending, started or backlog task: its owner, a worker the owner reports
+	// to, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:09; a backlog task directly,
+	// Holger team chat #8150). Refusals:
+	// TASK_NOT_FOUND, TASK_NOT_OWNER, TASK_ENDED, SESSION_NOT_BOUND, APP_UNINSTALLED.
 	CancelAgentTask *AgentTaskCancelCancelAgentTask `json:"cancelAgentTask"`
 }
 
@@ -1643,23 +1646,34 @@ type AgentTaskCreateResponse struct {
 	// #1705 — create an agent task (hrn:node:hadronmemory.com:specs:cor:agt:050:06 root, :07 child). Writes
 	// task.created, and task.assigned when an assignee is named. A worker acts
 	// through its session (X-Hadron-Session); a person acts as themselves.
+	// A root task's creator may name its owner at creation — any participating
+	// worker or person (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01, ruled 2026-10-11).
 	// Typed refusals: TASK_NOT_FOUND (a parent the caller cannot read, or in
 	// another App), TASK_NOT_ASSIGNEE, TASK_ENDED, TASK_CHILD_OWNER_MISMATCH,
-	// TASK_NOT_OWNER (another owner named by someone who does not manage the
-	// App), TASK_OWNER_INVALID, TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND,
+	// TASK_OWNER_INVALID, TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND,
 	// APP_NOT_FOUND (an App that does not exist or that you do not participate
 	// in, alike), APP_UNINSTALLED, FORBIDDEN (impersonation), BAD_USER_INPUT.
-	// "Whoever manages the App" (hrn:node:hadronmemory.com:specs:cor:acl:010:01, as ruled 2026-10-10, #1731): a
-	// user-owned App's owner, any owner-role member of the App, the org's ADMINs
-	// and OWNERs, and platform admins (for an org-owned App). Every write
-	// re-checks the caller's participation and the App's state inside its
-	// transaction.
+	// Every write re-checks the caller's participation and the App's state
+	// inside its transaction.
 	CreateAgentTask *AgentTaskCreateCreateAgentTask `json:"createAgentTask"`
 }
 
 // GetCreateAgentTask returns AgentTaskCreateResponse.CreateAgentTask, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateResponse) GetCreateAgentTask() *AgentTaskCreateCreateAgentTask {
 	return v.CreateAgentTask
+}
+
+// The statuses a task may be CREATED in (#1754, hrn:node:hadronmemory.com:specs:cor:agt:050:02): every other status is reached by a move.
+type AgentTaskCreateStatus string
+
+const (
+	AgentTaskCreateStatusBacklog AgentTaskCreateStatus = "BACKLOG"
+	AgentTaskCreateStatusPending AgentTaskCreateStatus = "PENDING"
+)
+
+var AllAgentTaskCreateStatus = []AgentTaskCreateStatus{
+	AgentTaskCreateStatusBacklog,
+	AgentTaskCreateStatusPending,
 }
 
 // AgentTaskFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskFields.
@@ -3604,9 +3618,12 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 }
 
 // An agent task's status (hrn:node:hadronmemory.com:specs:cor:agt:050:02). FINISHED and CANCELLED are the end states.
+// BACKLOG (#1754) is parked: no assignee, never matched, never waited on, no alarms; assigning it or making it
+// ready moves it to PENDING.
 type AgentTaskStatus string
 
 const (
+	AgentTaskStatusBacklog   AgentTaskStatus = "BACKLOG"
 	AgentTaskStatusCancelled AgentTaskStatus = "CANCELLED"
 	AgentTaskStatusFinished  AgentTaskStatus = "FINISHED"
 	AgentTaskStatusPending   AgentTaskStatus = "PENDING"
@@ -3614,6 +3631,7 @@ const (
 )
 
 var AllAgentTaskStatus = []AgentTaskStatus{
+	AgentTaskStatusBacklog,
 	AgentTaskStatusCancelled,
 	AgentTaskStatusFinished,
 	AgentTaskStatusPending,
@@ -5680,8 +5698,9 @@ func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) __premarshalJSON() (*__
 type AlarmAcknowledgeResponse struct {
 	// #1706 — acknowledge an alarm (hrn:node:hadronmemory.com:specs:cor:agt:050:20): it stops waking higher
 	// owners; the stall episode goes on until the task moves. Any owner in the
-	// alarm's chain, and nobody else (Proposed); the time is the server's.
-	// Refusals: ALARM_NOT_FOUND (also for an App you do not participate in),
+	// alarm's chain, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:24), and nobody
+	// else; the time is the server's.
+	// Refusals: ALARM_NOT_FOUND (also for an App you cannot read),
 	// NOT_AN_ALARM, ALARM_NOT_IN_CHAIN, ALARM_ALREADY_ACKNOWLEDGED (the first
 	// stands), SESSION_NOT_BOUND, APP_UNINSTALLED.
 	AcknowledgeAlarm *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent `json:"acknowledgeAlarm"`
@@ -8396,7 +8415,8 @@ func (v *ChannelMemoryMemory) GetName() string { return v.Name }
 // The GraphQL type's documentation follows.
 //
 // One message in a team App's chat (#939, Worker envelope since #974). Exactly
-// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
 // worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
 // driving sessionId. mentions holds the lowercased tokens extracted
 // server-side at write time (the '@worker-name / @handle' format, stored
@@ -8475,7 +8495,8 @@ func (v *ChannelMessagesChannelMessagesTeamChatMessagesPage) GetItems() []*Chann
 // The GraphQL type's documentation follows.
 //
 // One message in a team App's chat (#939, Worker envelope since #974). Exactly
-// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
 // worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
 // driving sessionId. mentions holds the lowercased tokens extracted
 // server-side at write time (the '@worker-name / @handle' format, stored
@@ -11304,15 +11325,21 @@ type CreateAgentTaskInput struct {
 	// Defaults to true (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
 	CloseSessionWhenDone *bool   `json:"closeSessionWhenDone"`
 	Description          *string `json:"description"`
-	// Defaults to the creator. Naming someone else is accepted only from whoever
-	// manages the App, and never for a child task (TASK_CHILD_OWNER_MISMATCH).
+	// Defaults to the creator. A root task's creator may name any other
+	// participating worker or person as owner (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01);
+	// a ref outside the App's participants is TASK_OWNER_INVALID. Never for a
+	// child task, whose owner is its parent's assignee (TASK_CHILD_OWNER_MISMATCH).
 	Owner        *AgentTaskPartyInput        `json:"owner,omitempty"`
 	ParentTaskId *string                     `json:"parentTaskId"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
 	Source       *string                     `json:"source"`
 	StartBy      *string                     `json:"startBy"`
-	Tags         []string                    `json:"tags"`
-	Title        string                      `json:"title"`
+	// #1754 — PENDING (the default) or BACKLOG
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:02). A BACKLOG task is parked: it takes no assignee (BAD_USER_INPUT),
+	// never enters the queue, and is moved to pending by assigning it or making it ready.
+	Status *AgentTaskCreateStatus `json:"status"`
+	Tags   []string               `json:"tags"`
+	Title  string                 `json:"title"`
 }
 
 // GetAppRef returns CreateAgentTaskInput.AppRef, and is useful for accessing the field via an interface.
@@ -11341,6 +11368,9 @@ func (v *CreateAgentTaskInput) GetSource() *string { return v.Source }
 
 // GetStartBy returns CreateAgentTaskInput.StartBy, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetStartBy() *string { return v.StartBy }
+
+// GetStatus returns CreateAgentTaskInput.Status, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetStatus() *AgentTaskCreateStatus { return v.Status }
 
 // GetTags returns CreateAgentTaskInput.Tags, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetTags() []string { return v.Tags }
@@ -12157,7 +12187,8 @@ func (v *CreateChannelInput) GetName() string { return v.Name }
 // The GraphQL type's documentation follows.
 //
 // One message in a team App's chat (#939, Worker envelope since #974). Exactly
-// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
 // worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
 // driving sessionId. mentions holds the lowercased tokens extracted
 // server-side at write time (the '@worker-name / @handle' format, stored
@@ -15281,7 +15312,8 @@ func (v *CreateTaskNodeResponse) GetCreateTaskNode() *CreateTaskNodeCreateTaskNo
 // The GraphQL type's documentation follows.
 //
 // One message in a team App's chat (#939, Worker envelope since #974). Exactly
-// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
 // worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
 // driving sessionId. mentions holds the lowercased tokens extracted
 // server-side at write time (the '@worker-name / @handle' format, stored
@@ -20201,8 +20233,10 @@ func (v *LinkMemoryToUserLinkMemoryToUserMemory) GetUpdatedAt() string { return 
 // LinkMemoryToUserResponse is returned by LinkMemoryToUser on success.
 type LinkMemoryToUserResponse struct {
 	// Link this App's live plaintext anonymous memory to a real user.
-	// Providing dataKey claims private ownership and encrypts the enumerated live
-	// nodes with the link; remaining fields and history complete in bounded passes. After a committed claim,
+	// Providing x-hadron-operation-key in the request header claims private
+	// ownership and encrypts live nodes; remaining fields and history complete
+	// in bounded passes. Only one key-consuming operation may use the header
+	// per request; a second is BAD_UNLOCK_INPUT. After a committed claim,
 	// interrupted completion allows the strict owner or owning App key to call
 	// encryptMemory with the existing key. A registered holding cannot be linked again.
 	//
@@ -35738,7 +35772,8 @@ func (v *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailabilityWorkerAgentTas
 // The GraphQL type's documentation follows.
 //
 // One message in a team App's chat (#939, Worker envelope since #974). Exactly
-// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
 // worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
 // driving sessionId. mentions holds the lowercased tokens extracted
 // server-side at write time (the '@worker-name / @handle' format, stored
@@ -35857,7 +35892,8 @@ func (v *TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPage) GetItem
 // The GraphQL type's documentation follows.
 //
 // One message in a team App's chat (#939, Worker envelope since #974). Exactly
-// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
 // worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
 // driving sessionId. mentions holds the lowercased tokens extracted
 // server-side at write time (the '@worker-name / @handle' format, stored
@@ -36051,7 +36087,8 @@ func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPage) GetItems() []*Tea
 // The GraphQL type's documentation follows.
 //
 // One message in a team App's chat (#939, Worker envelope since #974). Exactly
-// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
 // worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
 // driving sessionId. mentions holds the lowercased tokens extracted
 // server-side at write time (the '@worker-name / @handle' format, stored
@@ -36238,7 +36275,8 @@ func (v *TeamChatReadHeadAttributedTeamChatMessagesTeamChatMessagesPage) GetItem
 // The GraphQL type's documentation follows.
 //
 // One message in a team App's chat (#939, Worker envelope since #974). Exactly
-// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
 // worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
 // driving sessionId. mentions holds the lowercased tokens extracted
 // server-side at write time (the '@worker-name / @handle' format, stored
@@ -36310,7 +36348,8 @@ func (v *TeamChatReadHeadTeamChatMessagesTeamChatMessagesPage) GetItems() []*Tea
 // The GraphQL type's documentation follows.
 //
 // One message in a team App's chat (#939, Worker envelope since #974). Exactly
-// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
 // worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
 // driving sessionId. mentions holds the lowercased tokens extracted
 // server-side at write time (the '@worker-name / @handle' format, stored
@@ -40818,6 +40857,9 @@ func (v *UpdateMemoryUpdateMemory) GetUpdatedAt() string { return v.UpdatedAt }
 
 // UpdateMyProfileResponse is returned by UpdateMyProfile on success.
 type UpdateMyProfileResponse struct {
+	// Update display name and handle. A supplied email must match the existing
+	// address (ignoring case and surrounding whitespace); it is not rewritten
+	// or cleared by this call.
 	UpdateMyProfile *UpdateMyProfileUpdateMyProfileUser `json:"updateMyProfile"`
 }
 
