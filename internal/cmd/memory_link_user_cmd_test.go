@@ -1,7 +1,12 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -247,5 +252,221 @@ func TestMemoryLinkUserRejectsBlankStdinDataKey(t *testing.T) {
 	}
 	if _, called := captured["LinkMemoryToUser"]; called {
 		t.Error("a blank data key must be rejected BEFORE the promotion runs")
+	}
+}
+
+// ---- #846: the data key moves to the x-hadron-operation-key header ----
+//
+// hadron-server#1817 (first #1796 slice) supplies the key per request through
+// the header and deprecates the dataKey argument; the removal slice deletes
+// the argument, which breaks EVERY document still naming it — even to omit
+// it, even for a plaintext promotion. So the CLI's assertions here are about
+// where key material may appear at all: this one request's header, and
+// nowhere else.
+
+// linkUserDataKey is a well-formed operation key: canonical base64 for exactly
+// 32 bytes, the shape hadron-server's requestOperationKey parser demands
+// (43 base64 characters plus one '=').
+var linkUserDataKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 32))
+
+// capturedLinkUserRequest records one GraphQL request the fake saw, in arrival
+// order: the operation, the RAW body (document + variables — the non-leakage
+// assertions must read the document, not just variables), and the
+// x-hadron-operation-key header.
+type capturedLinkUserRequest struct {
+	Op    string
+	Body  string
+	OpKey string
+}
+
+// captureLinkUserGraphQL is captureGraphQL for the link-user wire contract:
+// ordered, with headers and raw bodies, because #846 asserts WHERE the key
+// rides (this request's header) and where it must never appear (any body, any
+// other request — before or after).
+func captureLinkUserGraphQL(t *testing.T, responses map[string]string) (*httptest.Server, *[]capturedLinkUserRequest) {
+	t.Helper()
+	var reqs []capturedLinkUserRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		var envelope struct {
+			OperationName string `json:"operationName"`
+		}
+		_ = json.Unmarshal(body, &envelope)
+		reqs = append(reqs, capturedLinkUserRequest{
+			Op:    envelope.OperationName,
+			Body:  string(body),
+			OpKey: r.Header.Get("X-Hadron-Operation-Key"),
+		})
+		resp, ok := responses[envelope.OperationName]
+		if !ok {
+			t.Errorf("unexpected operation %q", envelope.OperationName)
+			resp = `{"errors":[{"message":"unexpected operation"}]}`
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(resp))
+	}))
+	t.Cleanup(server.Close)
+	return server, &reqs
+}
+
+// The ONE place the key may appear is the promotion request's header: the
+// document and variables must not name dataKey at all (naming it, even
+// omitted, is what the removal slice breaks), the key value must be in no
+// body, and the GetMemory pre-read must go out clean — the header is per-call,
+// never a client default.
+func TestMemoryLinkUserDataKeyRidesTheHeaderNotTheBody(t *testing.T) {
+	gql, reqs := captureLinkUserGraphQL(t, linkUserFakes(linkedEncryptedMemoryJSON))
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader(linkUserDataKey + "\n") // piped, trimmed
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "link-user", "acme.com::anon-7f3",
+		"--external-user", "u1", "--data-key", "-", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	var promotion, preRead *capturedLinkUserRequest
+	for i := range *reqs {
+		switch (*reqs)[i].Op {
+		case "LinkMemoryToUser":
+			promotion = &(*reqs)[i]
+		case "GetMemory":
+			preRead = &(*reqs)[i]
+		}
+	}
+	if promotion == nil {
+		t.Fatal("LinkMemoryToUser was never called")
+	}
+	if promotion.OpKey != linkUserDataKey {
+		t.Errorf("x-hadron-operation-key = %q on the promotion, want the trimmed key", promotion.OpKey)
+	}
+	if strings.Contains(promotion.Body, "dataKey") {
+		t.Errorf("the promotion document must not name dataKey (the removal slice breaks every document that does):\n%s", promotion.Body)
+	}
+	if strings.Contains(promotion.Body, linkUserDataKey) {
+		t.Errorf("the key leaked into the promotion request body:\n%s", promotion.Body)
+	}
+	if preRead != nil {
+		// The pre-read runs BEFORE the promotion; a per-call header means it
+		// must not carry the key in either spelling.
+		if preRead.OpKey != "" {
+			t.Errorf("the GetMemory pre-read must not carry the operation key, got %q", preRead.OpKey)
+		}
+		if strings.Contains(preRead.Body, linkUserDataKey) {
+			t.Errorf("the key leaked into the pre-read body:\n%s", preRead.Body)
+		}
+	}
+}
+
+// A plaintext promotion names no key anywhere: no header on ANY request, and
+// no dataKey in ANY document — the removal must not break plaintext callers
+// "even plaintext ones" (issue #846, on why naming the argument is itself the
+// breakage).
+func TestMemoryLinkUserPlaintextNamesNoKeyAnywhere(t *testing.T) {
+	gql, reqs := captureLinkUserGraphQL(t, linkUserFakes(linkedMemoryJSON))
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "link-user", "acme.com::anon-7f3",
+		"--external-user", "u1", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	for _, r := range *reqs {
+		if r.OpKey != "" {
+			t.Errorf("%s carried x-hadron-operation-key %q", r.Op, r.OpKey)
+		}
+		if strings.Contains(r.Body, "dataKey") {
+			t.Errorf("%s still names dataKey:\n%s", r.Op, r.Body)
+		}
+	}
+}
+
+// A malformed key is refused LOCALLY, before any request — including the
+// GetMemory pre-read. The server's header parser demands canonical base64 for
+// exactly 32 bytes and answers anything else BAD_UNLOCK_INPUT; saying that
+// client-side is the same refusal, one round-trip earlier, and without
+// echoing the value.
+func TestMemoryLinkUserRejectsMalformedDataKey(t *testing.T) {
+	// Decodes to the same 32 bytes as the all-'A' key but is not the canonical
+	// spelling: the final character's low bits are discarded padding.
+	nonCanonical := strings.Repeat("A", 42) + "B="
+	// URL-safe base64 uses '-'/'_' where the header demands '+'/'/'.
+	urlSafe := base64.URLEncoding.EncodeToString(bytes.Repeat([]byte{0xfb}, 32))
+	for _, tc := range []struct{ name, key string }{
+		{"not base64", "not a key!"},
+		{"too short (decodes to 8 bytes)", base64.StdEncoding.EncodeToString([]byte("12345678"))},
+		{"missing padding", strings.Repeat("A", 43)},
+		{"non-canonical spelling", nonCanonical},
+		{"url-safe alphabet", urlSafe},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, reqs := captureLinkUserGraphQL(t, linkUserFakes(linkedEncryptedMemoryJSON))
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"memory", "link-user", "acme.com::anon-7f3",
+				"--external-user", "u1", "--data-key", tc.key, "--yes", "--json", "--server", gql.URL})
+			err := root.Execute()
+			if err == nil {
+				t.Fatalf("a malformed key (%s) must be refused", tc.name)
+			}
+			if got := exitCodeFor(err); got != exitcode.Usage {
+				t.Errorf("exit code = %d, want %d (Usage)", got, exitcode.Usage)
+			}
+			if strings.Contains(err.Error(), tc.key) {
+				t.Errorf("the refusal must not echo the key value: %v", err)
+			}
+			if len(*reqs) != 0 {
+				t.Errorf("a malformed key must be refused BEFORE any request; the server saw %d", len(*reqs))
+			}
+		})
+	}
+}
+
+// net/http strips Authorization and cookies on a cross-host redirect but
+// FORWARDS custom headers — the real hazard in moving the key into
+// x-hadron-operation-key (Ralion's §10 pre-read, chat #9428). A key-bearing
+// promotion that gets 307'd to another host must be refused before the
+// replay: the second host must never see the header. The key-free pre-read
+// may still follow the redirect.
+func TestMemoryLinkUserKeyDoesNotFollowACrossHostRedirect(t *testing.T) {
+	var otherHeaders, otherBodies []string
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		otherHeaders = append(otherHeaders, r.Header.Get("X-Hadron-Operation-Key"))
+		body, _ := io.ReadAll(r.Body)
+		otherBodies = append(otherBodies, string(body))
+		resp := `{"data":{"memory":null}}`
+		if strings.Contains(string(body), "linkMemoryToUser") {
+			resp = `{"data":{"linkMemoryToUser":` + linkedEncryptedMemoryJSON + `}}`
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(resp))
+	}))
+	t.Cleanup(other.Close)
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, other.URL+"/graphql", http.StatusTemporaryRedirect)
+	}))
+	t.Cleanup(origin.Close)
+
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader(linkUserDataKey + "\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "link-user", "acme.com::anon-7f3",
+		"--external-user", "u1", "--data-key", "-", "--yes", "--json", "--server", origin.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("the key-bearing promotion must be refused rather than replayed to another host")
+	}
+	for i, h := range otherHeaders {
+		if h != "" {
+			t.Errorf("request %d reached the second host carrying x-hadron-operation-key", i)
+		}
+	}
+	for i, b := range otherBodies {
+		if strings.Contains(b, linkUserDataKey) {
+			t.Errorf("request %d reached the second host with the key in its body", i)
+		}
 	}
 }
