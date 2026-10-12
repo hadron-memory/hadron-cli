@@ -7,6 +7,9 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -726,5 +729,187 @@ func TestTeamTaskListScopeLineDegradesToTheRef(t *testing.T) {
 	}
 	if !strings.Contains(out, "Fix the flaky CI build") {
 		t.Fatalf("rows lost to the decoration failure: %q", out)
+	}
+}
+
+// ---- cycle 1 (Diego #9094, confirmed live by Colin #9102) ------------------
+
+// writeCountingWriter fails from the nth Write on — the earlier writes stand
+// in for the render lines that precede the table whose Flush error the P3-2
+// test proves is no longer discarded.
+type writeCountingWriter struct{ failFrom, writes int }
+
+func (w *writeCountingWriter) Write(p []byte) (int, error) {
+	w.writes++
+	if w.writes >= w.failFrom {
+		return 0, errors.New("write failed late")
+	}
+	return len(p), nil
+}
+
+func TestTeamAvailabilityGetFlushErrorPropagates(t *testing.T) {
+	// Diego P3-2: the availability tables discarded their Flush errors, so a
+	// broken pipe could report success. The app line (write 1) and the first
+	// table's header (write 2) succeed; the failure lands inside the tables,
+	// where the discarded error used to vanish.
+	writeTeamBinding(t)
+	srv, _ := attnServer(t, taskResponses())
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	f.IOStreams.Out = &writeCountingWriter{failFrom: 3}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "availability", "get", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "write failed late") {
+		t.Fatalf("flush error discarded: %v", err)
+	}
+}
+
+func TestTeamEventsLimitValidated(t *testing.T) {
+	// Diego P2-2: --limit 0 panicked on the empty page (0==0 indexed -1);
+	// --limit 201 silently clamped to 200 server-side and suppressed the
+	// continuation hint. Both refuse loudly now, naming the cap.
+	for _, bad := range []string{"0", "-1", "201", "9999"} {
+		t.Run(bad, func(t *testing.T) {
+			_, _, err := runTeamTask(t, taskResponses(), "team", "events", "--limit", bad)
+			if err == nil || !strings.Contains(err.Error(), "200") {
+				t.Fatalf("--limit %s accepted: %v", bad, err)
+			}
+		})
+	}
+}
+
+func TestTeamTaskListLimitValidated(t *testing.T) {
+	for _, bad := range []string{"0", "201"} {
+		t.Run(bad, func(t *testing.T) {
+			_, _, err := runTeamTask(t, taskResponses(), "team", "task", "list", "--limit", bad)
+			if err == nil || !strings.Contains(err.Error(), "200") {
+				t.Fatalf("--limit %s accepted: %v", bad, err)
+			}
+		})
+	}
+}
+
+func TestTeamEventsFullPageAtTheCapStillHints(t *testing.T) {
+	// The hint must compare against the EFFECTIVE page size, not the raw
+	// flag: exactly 200 events at the cap name the next cursor.
+	responses := taskResponses()
+	many := strings.Repeat(`{"id":"x","appId":"a","taskId":null,"type":"task.created","severity":null,"createdAt":"2026-10-12T00:00:00Z","actor":null,"subjectWorker":null,"payload":{},"acknowledgedAt":null,"acknowledgedBy":null,"episodeStart":null,"chain":null,"wakes":null},`, 199)
+	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + many[:len(many)-1] + `]}}`
+	_, out, err := runTeamTask(t, responses, "team", "events", "--limit", "200")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "continue with --after") {
+		t.Fatalf("full-at-cap page carried no continuation hint: %q", out)
+	}
+}
+
+// alarmPagingServer answers the tree's alarm reads page-aware: the first
+// AgentTeamEvents (no after) returns a FULL page of acknowledged, unrelated
+// alarms; every continuation returns the one OPEN alarm on task1. The
+// one-page implementation Diego's P2-1 names never sees the open alarm.
+func alarmPagingServer(t *testing.T) (*httptest.Server, *[]attnCall) {
+	t.Helper()
+	calls := &[]attnCall{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string         `json:"operationName"`
+			Variables     map[string]any `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		*calls = append(*calls, attnCall{Op: body.OperationName, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session")})
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "AgentTaskTree":
+			_, _ = w.Write([]byte(`{"data":{"agentTaskTree":[` + taskFieldsJSON + `]}}`))
+		case "AgentTeamEvents":
+			if body.Variables["after"] == nil {
+				page := strings.TrimSuffix(strings.Repeat(ackedAlarmRow+",", 200), ",")
+				_, _ = w.Write([]byte(`{"data":{"agentTeamEvents":[` + page + `]}}`))
+			} else {
+				_, _ = w.Write([]byte(`{"data":{"agentTeamEvents":[` + alarmEventFieldsJSON + `]}}`))
+			}
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected operation"}]}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, calls
+}
+
+const ackedAlarmRow = `{"id":"acked-a","appId":"capp100000000000000000000","taskId":"task9",
+	"type":"stall.no-progress","severity":"ALARM","createdAt":"2026-10-01T00:00:00Z",
+	"actor":null,"subjectWorker":null,"payload":{},"acknowledgedAt":"2026-10-01T01:00:00Z",
+	"acknowledgedBy":null,"episodeStart":null,"chain":null,"wakes":null}`
+
+func TestTeamTaskTreePaginatesAlarmPages(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := alarmPagingServer(t)
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "task", "tree", "task1", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	rendered := out.String()
+	pages := 0
+	var continuation any
+	for _, c := range *calls {
+		if c.Op == "AgentTeamEvents" {
+			pages++
+			continuation = c.Vars["after"]
+		}
+	}
+	if pages < 2 {
+		t.Fatalf("alarms read stopped at page 1 (%d AgentTeamEvents calls) — the open alarm on page 2 was never seen", pages)
+	}
+	if continuation == nil {
+		t.Fatal("continuation page carried no after cursor")
+	}
+	if !strings.Contains(rendered, "1 open alarm") {
+		t.Fatalf("render %q", rendered)
+	}
+}
+
+func TestTeamAvailabilitySetWorkerUrnWithoutApp(t *testing.T) {
+	// Diego P3-1: a worker id or URN needs no App — the server takes it
+	// self-sufficient — but the implementation demanded scope regardless.
+	srv, calls := attnServer(t, taskResponses())
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "availability", "set",
+		"--worker", "hrn:worker:acme.com:eng:rufus",
+		"--state", "unavailable", "--reason", "STALLED",
+		"--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range *calls {
+		if c.Op == "WorkerAvailabilitySet" {
+			input, _ := c.Vars["input"].(map[string]any)
+			if input == nil || input["appRef"] != nil {
+				t.Fatalf("appRef %v — a URN names its worker without one", c.Vars["input"])
+			}
+			return
+		}
+	}
+	t.Fatal("no WorkerAvailabilitySet call")
+}
+
+func TestTeamAvailabilitySetWorkerNameStillNeedsTheApp(t *testing.T) {
+	// The strictness control beside P3-1: a NAME is ambiguous without the
+	// App, and widening the URN path must not widen this one.
+	srv, _ := attnServer(t, taskResponses())
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "availability", "set",
+		"--worker", "Rufus", "--state", "unavailable", "--reason", "STALLED",
+		"--server", srv.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "--app") {
+		t.Fatalf("bare name without an App accepted: %v", err)
 	}
 }
