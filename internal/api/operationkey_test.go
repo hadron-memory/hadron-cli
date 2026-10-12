@@ -179,22 +179,52 @@ func TestOperationKeyRequestIsNotSentOverCleartextHTTP(t *testing.T) {
 // gets. Status, GraphQL envelope and codes survive; only the key's spellings
 // (URL-encoded included — Xavier P3-7) are replaced.
 func TestOperationKeyEchoRedactedAtEveryStatus(t *testing.T) {
-	escaped := url.QueryEscape(testOperationKey)
+	// A key whose base64 contains '+' and '/', so the exact value, its
+	// query-escaped form (%2B/%2F/%3D) and its path-escaped form (%2F only)
+	// are three distinct spellings. The assertion below DEMANDS that: a key
+	// of letters and '=' alone would make the path-escaped row the exact-key
+	// row in disguise and pin nothing.
+	key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0xfb, 0xff, 0x00, 0xef}, 8))
+	escaped := url.QueryEscape(key)
+	pathEscaped := url.PathEscape(key)
+	if escaped == key || pathEscaped == key || pathEscaped == escaped {
+		t.Fatalf("the test key's spellings must be pairwise distinct: key=%q query=%q path=%q", key, escaped, pathEscaped)
+	}
+	// Lower-hex spellings built HERE by hand, not via the production
+	// lowercasePercentHex — a mutant that breaks that function must not break
+	// this test's expectation along with it. Base64 only ever escapes to
+	// %2B/%2F/%3D triplets, so swapping each triplet's case is exactly the
+	// transformation.
+	lowerQueryHex := strings.NewReplacer("%2B", "%2b", "%2F", "%2f", "%3D", "%3d").Replace(escaped)
+	lowerPathHex := strings.ReplaceAll(pathEscaped, "%2F", "%2f")
+	spellings := []string{key, escaped, pathEscaped, lowerQueryHex, lowerPathHex}
+	// Ralion's cycle-1 mutants R6 (lower-hex) and R7 (path-escape) survived
+	// the first table: the spellings were redacted by the code but pinned by
+	// no test. Every row checks every spelling, so any survivor leaks.
 	for _, tc := range []struct {
 		name   string
 		status int
-		body   string
+		echo   string
 	}{
-		{"200 errors envelope echoing the key", 200, `{"errors":[{"message":"bad key ` + testOperationKey + ` supplied"}]}`},
-		{"400 non-envelope JSON echoing the key", 400, `{"error":"rejected ` + testOperationKey + `"}`},
-		{"404 proxy page echoing the key", 404, `<html>404 Not Found: ` + testOperationKey + `</html>`},
-		{"502 page echoing the key url-encoded", 502, `<html>502: saw key ` + escaped + ` in the request</html>`},
+		{"200 errors envelope echoing the key", 200, key},
+		{"400 non-envelope JSON echoing the key", 400, key},
+		{"404 proxy page echoing the key", 404, key},
+		{"502 page echoing the key query-escaped", 502, escaped},
+		{"502 page echoing the key path-escaped (R7)", 502, pathEscaped},
+		{"502 page echoing the key lower-hex query-escaped (R6)", 502, lowerQueryHex},
+		{"502 page echoing the key lower-hex path-escaped", 502, lowerPathHex},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			// A 200 must carry a GraphQL errors envelope to reach the message
+			// join; the other statuses echo a page the way a proxy would.
+			body := `<html>502: saw key ` + tc.echo + ` in the request</html>`
+			if tc.status == 200 {
+				body = `{"errors":[{"message":"bad key ` + tc.echo + ` supplied"}]}`
+			}
 			c, err := NewClient("https://srv.example", "", &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 				return &http.Response{
 					StatusCode: tc.status,
-					Body:       io.NopCloser(strings.NewReader(tc.body)),
+					Body:       io.NopCloser(strings.NewReader(body)),
 					Header:     http.Header{"Content-Type": []string{"application/json"}},
 					Request:    r,
 				}, nil
@@ -202,13 +232,13 @@ func TestOperationKeyEchoRedactedAtEveryStatus(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ctx := WithOperationKey(context.Background(), testOperationKey)
+			ctx := WithOperationKey(context.Background(), key)
 			var data map[string]any
 			err = c.MakeRequest(ctx, &graphql.Request{Query: "mutation X { x }", OpName: "X"}, &graphql.Response{Data: &data})
 			if err == nil {
 				t.Fatalf("the %d response must surface as an error", tc.status)
 			}
-			for _, leaked := range []string{testOperationKey, escaped} {
+			for _, leaked := range spellings {
 				if strings.Contains(err.Error(), leaked) {
 					t.Errorf("the error leaked the operation key (spelling %q): %v", leaked, err)
 				}

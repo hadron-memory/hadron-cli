@@ -73,7 +73,30 @@ in one head:
   `dataKey`'s deprecation was deliberately NOT taken: the response guard
   covers stripped headers, old servers and future channel defects alike,
   while a preflight costs a round trip and reads a schema detail the guard
-  does not depend on.
+  does not depend on. Eden ruled the preflight out for this slice and tracked
+  it as hadron-cli#849, to revisit before the #1796 removal slice releases.
+
+## Cycle 2 (message accuracy, mutant survivors, version statement)
+
+Ralion's cycle-1 delta (#9484) found the guard's message promising a recovery
+that cannot work, and two unpinned redaction spellings:
+
+- **The message no longer claims `memory encrypt` can recover the memory** —
+  verified against server main: a plaintext promotion leaves `class='app'`
+  with `user_id` NULL; `'private'` is the only encryptable class (spec 041),
+  and re-running link-user is refused because `anonymousExpiresAt` is gone.
+  The error now states the true outcome (registered, plaintext, App-scoped,
+  irreversible, no CLI recovery) and carries the memory id and re-minted URN
+  (Ralion P3).
+- **The lowercase-hex and path-escaped spellings are pinned** (Ralion's
+  surviving mutants R6/R7): the redaction table now runs on a key whose
+  exact, query-escaped, path-escaped and lower-hex spellings are pairwise
+  distinct (asserted, so a weaker key cannot silently weaken the pin), with
+  the lower-hex expectations built in the test rather than via the production
+  helper.
+- **The minimum server version is stated** where a caller would look: the
+  command's help and `agentic-usage.md` now say `--data-key` needs
+  hadron-server#1817 or newer (server main `1cedfa2e` on).
 - **Redaction at every status** (Diego P2 = Ralion's amended P2 = Xavier
   P2-1): genqlient embeds the whole raw body of a non-200 non-envelope
   response in its printed error, and a 200 errors envelope renders through
