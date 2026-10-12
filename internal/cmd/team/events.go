@@ -10,6 +10,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -53,6 +54,11 @@ the exact --after that continues it.
 			ctx := cmd.Context()
 			if limit < 1 || limit > teamEventPageCap {
 				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", teamEventPageCap, limit)
+			}
+			if since != "" {
+				if _, err := time.Parse(time.RFC3339, since); err != nil {
+					return exitcode.Newf(exitcode.Usage, "--since takes an RFC 3339 timestamp, e.g. 2026-10-12T00:00:00Z, got %q", since)
+				}
 			}
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {

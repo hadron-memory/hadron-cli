@@ -11,7 +11,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -71,12 +73,19 @@ func parseTaskPartyFlag(flag, value string) (*gen.AgentTaskPartyInput, error) {
 }
 
 // taskRefArg validates the one positional task id every task-id verb takes.
+// The TRIMMED form is both validated and returned (cycle 2, Xylon P3-1): a
+// pasted id with surrounding whitespace used to be sent verbatim and fail as
+// NOT_FOUND for a reason the caller never typed.
 func taskRefArg(args []string) (string, error) {
 	if len(args) != 1 || strings.TrimSpace(args[0]) == "" {
 		return "", exitcode.Newf(exitcode.Usage, "pass the task id shown by `team task list`/`get`")
 	}
-	return args[0], nil
+	return strings.TrimSpace(args[0]), nil
 }
+
+// taskOutcomeRe is the one-word outcome contract (cor:agt:050:01): the
+// event stream copies it verbatim, so it excludes everything else.
+var taskOutcomeRe = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`)
 
 // writeTaskReceipt prints the one-line mutation receipt plus the assignee,
 // when there is one.
@@ -120,6 +129,11 @@ By default finishing asks the assignee to end its worker session
 			title := strings.TrimSpace(args[0])
 			if title == "" {
 				return exitcode.Newf(exitcode.Usage, "the title is empty")
+			}
+			if startBy != "" {
+				if _, err := time.Parse(time.RFC3339, startBy); err != nil {
+					return exitcode.Newf(exitcode.Usage, "--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z, got %q", startBy)
+				}
 			}
 			if familyIn != "" && familyNotIn != "" {
 				return exitcode.Newf(exitcode.Usage, "--family-in and --family-not-in: give one, not both")
@@ -230,9 +244,10 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 
 --assignee is required (worker:<id, URN or name> or user:<id or handle>).
 --close-session/--no-close-session replace the task's close-when-done choice
-(cor:agt:050:10); with neither, the task keeps its current value. The server
-refuses a queued task to reassign and an assigned one to assign
-(TASK_INVALID_TRANSITION).`,
+(cor:agt:050:10); with neither, the task keeps its current value. Spell the
+choice as one of the two flags: ` + "`--close-session=false`" + ` is indistinguishable from absence here and also means "keep the current
+value". The server refuses a queued task to reassign and an assigned one to
+assign (TASK_INVALID_TRANSITION).`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -390,8 +405,12 @@ state.`,
 			if strings.TrimSpace(outcome) == "" {
 				return exitcode.Newf(exitcode.Usage, "--outcome is required — one word, e.g. succeeded or failed")
 			}
-			if strings.ContainsAny(outcome, " \t") {
-				return exitcode.Newf(exitcode.Usage, "--outcome is one word, got %q", outcome)
+			// The advertised charset, enforced (cycle 2, Xylon P3-2): the
+			// help and the server's own input doc promise letters, digits,
+			// underscore, hyphen or dot up to 64 characters — the event
+			// stream never holds free text, so neither does this word.
+			if !taskOutcomeRe.MatchString(outcome) {
+				return exitcode.Newf(exitcode.Usage, "--outcome is one word of letters, digits, underscore, hyphen or dot (up to 64 characters), got %q", outcome)
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {

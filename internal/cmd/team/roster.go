@@ -62,8 +62,15 @@ and a state is a fact about now, not a judgement.`,
 				if w == nil {
 					continue
 				}
+				// Guarded like every sibling (cycle 2, Xylon P2-1): a null
+				// worker entry renders an empty party rather than panicking —
+				// this was the diff's one unguarded party dereference.
+				worker := taskPartyDTO{}
+				if party := partyDTO(w.Worker); party != nil {
+					worker = *party
+				}
 				dto.Workers = append(dto.Workers, rosterEntryDTO{
-					Worker:              *partyDTO(w.Worker),
+					Worker:              worker,
 					State:               string(w.State),
 					Role:                w.Role,
 					Bound:               w.Bound,

@@ -200,6 +200,9 @@ func teamEventDTOFrom(e *gen.AgentTeamEventFields) teamEventDTO {
 		dto.Chain = *e.Chain
 	}
 	for _, w := range e.Wakes {
+		if w == nil {
+			continue
+		}
 		wake := alarmWakeDTO{
 			ChainIndex: w.ChainIndex,
 			DueAt:      w.DueAt,

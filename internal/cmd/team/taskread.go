@@ -22,6 +22,11 @@ import (
 // taskStatusDoc is the one help-text spelling of the status set.
 const taskStatusDoc = "PENDING, STARTED, FINISHED or CANCELLED (cor:agt:050:02)"
 
+// alarmPageLimit bounds the tree's alarm paging even against a server that
+// advances: 100 pages at the 200 cap is twenty thousand alarm events, past
+// which a render wants a specialist tool, not a wider loop.
+const alarmPageLimit = 100
+
 // taskStatuses mirrors AgentTaskStatus; validated client-side so a typo is a
 // usage error, not an empty server result.
 var taskStatuses = map[string]bool{
@@ -211,6 +216,9 @@ filters by tag. --limit/--offset page (server default 50, cap 200).`,
 			if limit < 1 || limit > teamEventPageCap {
 				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", teamEventPageCap, limit)
 			}
+			if offset < 0 {
+				return exitcode.Newf(exitcode.Usage, "--offset takes a non-negative page offset, got %d", offset)
+			}
 			for _, s := range statuses {
 				if !taskStatuses[strings.ToUpper(s)] {
 					return exitcode.Newf(exitcode.Usage, "--status takes %s, got %q", taskStatusDoc, s)
@@ -344,7 +352,13 @@ alarm facts are the server's.`,
 			if appID != "" {
 				var after *string
 				alarmPageSize := teamEventPageCap
-				for {
+				// Non-advancement safeguard (cycle 2, Xylon P3-4): a server
+				// that repeats the same full page for every cursor would loop
+				// forever. A repeated last id, or an absurd page count, stops
+				// the walk with a stderr note — the counts render possibly
+				// incomplete rather than never arriving.
+				prevLast := ""
+				for page := 0; ; page++ {
 					events, err := gen.AgentTeamEvents(ctx, client, appID, after, boolPtr(true), &alarmPageSize, nil, nil, nil)
 					if err != nil {
 						return api.MapError(err)
@@ -363,6 +377,12 @@ alarm facts are the server's.`,
 					if pageSize < alarmPageSize || last == "" {
 						break
 					}
+					if last == prevLast || page >= alarmPageLimit {
+						fmt.Fprintf(f.IOStreams.ErrOut,
+							"note: alarm paging stopped at %s without exhausting the stream; open-alarm counts may be incomplete\n", last)
+						break
+					}
+					prevLast = last
 					after = &last
 				}
 			}
@@ -381,7 +401,13 @@ alarm facts are the server's.`,
 			// The server returns the whole chain root-first but flat; the
 			// parent/child shape is this render's. An orphan (its parent row
 			// outside the chain) renders at the top level rather than
-			// silently dropping a task the read did return.
+			// silently dropping a task the read did return. A CYCLE (A under
+			// B under A — corrupt parent links, nothing the healthy server
+			// mints, but nothing this render may ASSUME either) leaves roots
+			// empty; the fallback then renders every row flat, and the
+			// visited set stops the walk from chasing the loop forever
+			// (cycle 2, Xylon P2-3: the empty-roots case used to render
+			// NOTHING at exit 0 — the #470-class sin in this very render).
 			children := map[string][]*taskDTO{}
 			roots := []*taskDTO{}
 			for i := range tasks {
@@ -395,9 +421,19 @@ alarm facts are the server's.`,
 					roots = append(roots, &tasks[i])
 				}
 			}
+			if len(roots) == 0 && len(tasks) > 0 {
+				for i := range tasks {
+					roots = append(roots, &tasks[i])
+				}
+			}
 			return output.Write(f.IOStreams, f.JSON, tasks, func(w io.Writer) error {
+				visited := map[string]bool{}
 				var draw func(*taskDTO, int) error
 				draw = func(task *taskDTO, depth int) error {
+					if visited[task.ID] {
+						return nil
+					}
+					visited[task.ID] = true
 					if err := renderTreeNode(w, task, depth); err != nil {
 						return err
 					}

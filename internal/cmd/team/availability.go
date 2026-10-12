@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/spf13/cobra"
@@ -211,6 +212,11 @@ future) bounds an unavailable record.`,
 				}
 			} else if reasonIn == nil {
 				return exitcode.Newf(exitcode.Usage, "an unavailable record needs --reason (HOST_DOWN, OTHER, OUT_OF_TOKENS or STALLED)")
+			}
+			if until != "" {
+				if _, err := time.Parse(time.RFC3339, until); err != nil {
+					return exitcode.Newf(exitcode.Usage, "--until takes an RFC 3339 timestamp, e.g. 2026-10-13T00:00:00Z, got %q", until)
+				}
 			}
 			// No worktree and no App context is a LEGITIMATE caller here: a
 			// worker id or URN names itself (below), so readBinding's

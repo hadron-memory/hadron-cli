@@ -179,6 +179,39 @@ Both P3s taken too:
 Diego's non-blocking note — task-create help still describing the
 pre-#1792 owner rule — is a help fold for when #1792 lands, not this head.
 
+## Cycle 2 (Xylon local seat #9250, routed by Ada #9261)
+
+All three P2s fixed failing-test-first (red at `e35b4ed`):
+
+- **P2-1** — the roster's null-worker entry was the diff's one unguarded
+  party dereference (panic); guarded like every sibling, and the wakes
+  loop nil-checks its entries like the other generated lists.
+- **P2-2** — the claimed guards are pinned now: orphan rows render
+  top-level, null/empty reads answer NotFound (exit 4), `create --parent`
+  sends appRef nil with no ambient scope, blank ack args and multi-word
+  outcomes refuse, and every scoped render (events, roster, availability)
+  names its scope — not only task list's.
+- **P2-3** — a cyclic or self-parented chain rendered NOTHING at exit 0.
+  Empty roots now fall back to rendering every row flat, and the walk
+  carries a visited set so a cycle cannot loop it either. (The healthy
+  server mints no cycles; the render no longer assumes that.)
+
+P3s taken: trimmed task refs (P3-1), the advertised outcome charset
+enforced (P3-2), RFC 3339 validation for `--since`/`--until`/`--start-by`
+and a non-negative `--offset` (P3-3), and a non-advancement safeguard on
+the alarm paging — repeated cursor or 100 pages stops with a stderr note
+(P3-4). The `--close-session=false` spelling caveat is in the help (P3-8).
+
+Dispositions on the rest: **P3-5** — appRef rides along whenever ambient
+scope resolves (the server accepts URN+appRef and cross-checks the App);
+a 32-hex worker NAME is a theoretical collision with the id shape the
+refusal names both spellings for — left, with the ambiguity documented
+here. **P3-6** — a stale session answers SESSION_EXPIRED (exit 3,
+already mapped) or the middleware's local binding checks refuse before
+dispatch; SESSION_NOT_BOUND (exit 2) covers the worker-required writes.
+**P3-7** — the two presentational derivations are disclosed above rather
+than re-widened.
+
 ## What this does not do (and where it lives instead)
 
 - Backlog/park verbs (`parkAgentTask`, `makeAgentTaskReady`) are still in
