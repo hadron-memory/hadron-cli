@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -169,6 +170,53 @@ func TestOperationKeyRequestIsNotSentOverCleartextHTTP(t *testing.T) {
 // A gateway that echoes the request (headers included) in its 502 page must
 // not turn the error path into the leak path: the bounded snippet gatewayError
 // keeps for diagnostics is redacted (#846, §10 pre-read).
+//
+// #847 cycle 0 (Diego P2, Ralion's amended P2, Xavier P2-1) widened this from
+// 5xx-only: genqlient embeds the WHOLE raw body of any non-200 non-envelope
+// response in its printed error, and a 200 errors envelope renders through
+// MapError's message join — so a body that echoes the key reaches the user at
+// EVERY status unless the doer scrubs each response a key-bearing request
+// gets. Status, GraphQL envelope and codes survive; only the key's spellings
+// (URL-encoded included — Xavier P3-7) are replaced.
+func TestOperationKeyEchoRedactedAtEveryStatus(t *testing.T) {
+	escaped := url.QueryEscape(testOperationKey)
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{"200 errors envelope echoing the key", 200, `{"errors":[{"message":"bad key ` + testOperationKey + ` supplied"}]}`},
+		{"400 non-envelope JSON echoing the key", 400, `{"error":"rejected ` + testOperationKey + `"}`},
+		{"404 proxy page echoing the key", 404, `<html>404 Not Found: ` + testOperationKey + `</html>`},
+		{"502 page echoing the key url-encoded", 502, `<html>502: saw key ` + escaped + ` in the request</html>`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := NewClient("https://srv.example", "", &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: tc.status,
+					Body:       io.NopCloser(strings.NewReader(tc.body)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Request:    r,
+				}, nil
+			})})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx := WithOperationKey(context.Background(), testOperationKey)
+			var data map[string]any
+			err = c.MakeRequest(ctx, &graphql.Request{Query: "mutation X { x }", OpName: "X"}, &graphql.Response{Data: &data})
+			if err == nil {
+				t.Fatalf("the %d response must surface as an error", tc.status)
+			}
+			for _, leaked := range []string{testOperationKey, escaped} {
+				if strings.Contains(err.Error(), leaked) {
+					t.Errorf("the error leaked the operation key (spelling %q): %v", leaked, err)
+				}
+			}
+		})
+	}
+}
+
 func TestGatewaySnippetRedactsOperationKey(t *testing.T) {
 	key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{9}, 32))
 	page := "<html>502 Bad Gateway: saw key " + key + " from upstream</html>"

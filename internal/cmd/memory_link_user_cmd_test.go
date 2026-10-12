@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -433,13 +435,18 @@ func TestMemoryLinkUserRejectsMalformedDataKey(t *testing.T) {
 // promotion that gets 307'd to another host must be refused before the
 // replay: the second host must never see the header. The key-free pre-read
 // may still follow the redirect.
+//
+// The second host answers the pre-read with a REAL memory fixture and the
+// refusal is asserted as api.ErrRedirectPolicy (#847 cycle 0, Xavier P3-4):
+// a future refactor that aborts on a null pre-read would otherwise pass this
+// test vacuously — no promotion request, no cross-host key, green.
 func TestMemoryLinkUserKeyDoesNotFollowACrossHostRedirect(t *testing.T) {
 	var otherHeaders, otherBodies []string
 	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		otherHeaders = append(otherHeaders, r.Header.Get("X-Hadron-Operation-Key"))
 		body, _ := io.ReadAll(r.Body)
 		otherBodies = append(otherBodies, string(body))
-		resp := `{"data":{"memory":null}}`
+		resp := `{"data":{"memory":` + anonMemoryJSON + `}}`
 		if strings.Contains(string(body), "linkMemoryToUser") {
 			resp = `{"data":{"linkMemoryToUser":` + linkedEncryptedMemoryJSON + `}}`
 		}
@@ -461,6 +468,9 @@ func TestMemoryLinkUserKeyDoesNotFollowACrossHostRedirect(t *testing.T) {
 	if err == nil {
 		t.Fatal("the key-bearing promotion must be refused rather than replayed to another host")
 	}
+	if !errors.Is(err, api.ErrRedirectPolicy) {
+		t.Errorf("the refusal must be the redirect policy (got %v); a network failure would pass this test for the wrong reason", err)
+	}
 	for i, h := range otherHeaders {
 		if h != "" {
 			t.Errorf("request %d reached the second host carrying x-hadron-operation-key", i)
@@ -470,5 +480,42 @@ func TestMemoryLinkUserKeyDoesNotFollowACrossHostRedirect(t *testing.T) {
 		if strings.Contains(b, linkUserDataKey) {
 			t.Errorf("request %d reached the second host with the key in its body", i)
 		}
+	}
+}
+
+// #847 cycle 0 (Xavier P1 = Ralion's §10 P2): a header fails silently where
+// an argument failed loudly. A pre-#1817 server or a header-stripping proxy
+// ignores x-hadron-operation-key, the document legitimately omits dataKey,
+// and the IRREVERSIBLE promotion completes unencrypted while the caller
+// asked for encryption — exiting 0 with success output. A supplied key plus
+// isEncrypted=false in the response must be a loud non-zero failure that
+// states plainly what did and did not happen. It cannot false-alarm on a
+// #1817+ server: there, a key-supplied promotion either lands encrypted or
+// the request itself errors (BAD_UNLOCK_INPUT / WRONG_KEY).
+func TestMemoryLinkUserUnappliedKeyFailsLoudly(t *testing.T) {
+	gql, _ := captureLinkUserGraphQL(t, linkUserFakes(linkedMemoryJSON)) // isEncrypted:false
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader(linkUserDataKey + "\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "link-user", "acme.com::anon-7f3",
+		"--external-user", "u1", "--data-key", "-", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a promotion that ignored the supplied key must fail loudly, not exit 0")
+	}
+	if got := exitCodeFor(err); got == 0 {
+		t.Errorf("exit code = 0, want non-zero")
+	}
+	if strings.Contains(out.String(), "✓ linked") {
+		t.Errorf("no success output may be written before the failure, got:\n%s", out.String())
+	}
+	msg := err.Error()
+	// The message must be honest about both halves: the promotion DID happen
+	// (irreversibly), the encryption did not.
+	if !strings.Contains(msg, "unencrypted") || !strings.Contains(msg, "irreversible") {
+		t.Errorf("the message must state the promotion completed unencrypted and is irreversible, got %q", msg)
+	}
+	if strings.Contains(msg, linkUserDataKey) {
+		t.Errorf("the failure must not echo the key: %v", err)
 	}
 }
