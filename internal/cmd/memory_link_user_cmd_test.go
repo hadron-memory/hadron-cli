@@ -515,6 +515,18 @@ func TestMemoryLinkUserUnappliedKeyFailsLoudly(t *testing.T) {
 	if !strings.Contains(msg, "unencrypted") || !strings.Contains(msg, "irreversible") {
 		t.Errorf("the message must state the promotion completed unencrypted and is irreversible, got %q", msg)
 	}
+	// It must anchor the victim: the memory id and the re-minted URN (Ralion
+	// cycle-1 P3) — the operator who has to handle it needs the address.
+	if !strings.Contains(msg, "mem1") || !strings.Contains(msg, "hrn:mem:acme.com:k3f9x2") {
+		t.Errorf("the message must name the memory id and the new URN, got %q", msg)
+	}
+	// And it must NOT promise a recovery that cannot work (Ralion cycle-1
+	// P2): a plaintext promotion leaves the memory class='app' with a null
+	// user — the only encryptable class is 'private' (spec 041) — and
+	// re-running link-user is refused because anonymousExpiresAt is gone.
+	if strings.Contains(msg, "memory encrypt") || strings.Contains(msg, "encrypt it with") {
+		t.Errorf("the message must not claim memory encrypt can recover this, got %q", msg)
+	}
 	if strings.Contains(msg, linkUserDataKey) {
 		t.Errorf("the failure must not echo the key: %v", err)
 	}
