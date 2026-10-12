@@ -797,3 +797,32 @@ func TestProfileSetHelpCarriesTheSentence(t *testing.T) {
 		t.Fatalf("help lacks the ruled sentence:\n%s", out.String())
 	}
 }
+
+// #845 cycle 1 (Eden ruling #9311, Diego P3 #9307): the issue exists
+// because the help lied, so no line may keep the unqualified promise — the
+// Short line restricts it to name/handle, and the nothing-to-update remedy
+// stops suggesting the flag that refuses.
+func TestProfileSetShortAndRemedyDropTheEmailPromise(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"profile", "set", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	help := out.String()
+	for _, line := range strings.Split(help, "\n") {
+		if strings.HasPrefix(line, "  Update your own profile (only the fields you pass change)") {
+			t.Fatalf("the Short line still makes the unqualified promise:\n%s", help)
+		}
+	}
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"profile", "set", "--server", "http://127.0.0.1:1"})
+	err := root2.Execute()
+	if err == nil || strings.Contains(err.Error(), "--email") {
+		t.Fatalf("nothing-to-update remedy still suggests --email: %v", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "--name") || !strings.Contains(err.Error(), "--handle") {
+		t.Fatalf("remedy lost the working flags: %v", err)
+	}
+}
