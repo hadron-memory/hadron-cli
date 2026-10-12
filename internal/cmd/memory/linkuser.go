@@ -56,7 +56,12 @@ transaction: every node's content, abstract, and data are rewritten as
 ciphertext and the memory lands private and owned by that user. Like
 ` + "`hadron memory encrypt`" + `, this is ONE-WAY — there is no decrypt command — so
 keep the key. Pass it on stdin with ` + "`--data-key -`" + ` to keep it out of shell
-history.
+history. The key must be canonical base64 for exactly 32 bytes (43 characters
+plus '='), is sent once in the x-hadron-operation-key request header — never in
+the request body, where logging would capture it — and is refused locally
+before any request when malformed. The key channel needs a server that
+supports the operation-key header: hadron-server#1817 or newer (server main
+1cedfa2e on).
 
 Because the promotion is irreversible, this prompts on a terminal and requires
 --yes when run non-interactively.`,
@@ -105,6 +110,14 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 				if err != nil {
 					return err
 				}
+				// Refuse a malformed key BEFORE any request — the pre-read
+				// included. The server's operation-key parser demands
+				// canonical base64 for exactly 32 bytes and answers anything
+				// else BAD_UNLOCK_INPUT; the same refusal, one round-trip
+				// earlier, without the value in the message.
+				if err := api.ValidateOperationKey(k); err != nil {
+					return err
+				}
 				key = &k
 			}
 
@@ -120,7 +133,15 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 				previousURN = resp.Memory.Urn
 			}
 
-			resp, err := gen.LinkMemoryToUser(cmd.Context(), client, memRef, externalUser, key)
+			// The key rides the per-request x-hadron-operation-key header,
+			// never the GraphQL body (#846, cor:sec:040:04). WithOperationKey
+			// is per-call, so the pre-read above went out clean and no later
+			// request inherits it.
+			promoteCtx := cmd.Context()
+			if key != nil {
+				promoteCtx = api.WithOperationKey(promoteCtx, *key)
+			}
+			resp, err := gen.LinkMemoryToUser(promoteCtx, client, memRef, externalUser)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -128,6 +149,25 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 			// returns null without an error; guard the deref anyway.
 			if resp == nil || resp.LinkMemoryToUser == nil {
 				return exitcode.Newf(exitcode.Error, "link returned no memory")
+			}
+			// A header fails silently where an argument failed loudly (#847
+			// cycle 0, Xavier P1 / Ralion's §10 P2): a pre-#1817 server or a
+			// header-stripping proxy ignores x-hadron-operation-key, the
+			// document legitimately omits dataKey, and this IRREVERSIBLE
+			// promotion completes unencrypted while the caller asked for
+			// encryption. Refuse loudly, stating the true outcome and nothing
+			// it cannot deliver: the memory is registered, plaintext and
+			// App-scoped; encryptMemory only takes class 'private' (spec 041)
+			// and a re-run is refused (anonymousExpiresAt is gone), so there
+			// is no CLI recovery — only the operator can address it. This
+			// cannot false-alarm on a #1817+ server: there, a key-supplied
+			// promotion either lands encrypted or the request itself errors
+			// (BAD_UNLOCK_INPUT / WRONG_KEY).
+			if key != nil && !resp.LinkMemoryToUser.IsEncrypted {
+				return exitcode.Newf(exitcode.Error,
+					"the promotion completed unencrypted — a data key was supplied but the server did not apply it (an older server or a proxy may have dropped the operation-key header; --data-key needs a server from hadron-server#1817 on). "+
+						"The promotion is irreversible: memory %s (%s) is now registered, plaintext and App-scoped; it cannot be re-linked or encrypted from here — only the operator can address it",
+					resp.LinkMemoryToUser.Id, resp.LinkMemoryToUser.Urn)
 			}
 			dto := linkUserDTO{
 				Memory:      dtoFromMemory(resp.LinkMemoryToUser),

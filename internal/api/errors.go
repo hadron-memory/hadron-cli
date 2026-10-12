@@ -763,6 +763,18 @@ func codeForExtension(code string) int {
 		code == "UNSUPPORTED_MEMORY_CLASS" || code == "MEMORY_TRANSFER_MEMBER_RESET_INVALID" ||
 		code == "MEMORY_TRANSFER_USER_TARGET_UNSUPPORTED" || code == "MEMORY_TRANSFER_SAME_OWNER":
 		return exitcode.Usage
+	// Key supply the server refused (hadron-server#1817): BAD_UNLOCK_INPUT is
+	// a malformed, channel-mismatched, or already-consumed operation key;
+	// WRONG_KEY is a key that fails verification against an existing one. The
+	// caller fixes the VALUE, the same shape as BAD_USER_INPUT — not a server
+	// fault (1). Neither message ever echoes the key. The CLI pre-validates
+	// the header shape (#846), so these arriving here means the server
+	// disagreed about something the client could not check. Sweep at the gate
+	// (#847 cycle 0): link-user is the only shipped surface that can draw
+	// these codes — UnlockMemory/passphrase live in generated code no CLI
+	// command calls.
+	case code == "BAD_UNLOCK_INPUT" || code == "WRONG_KEY":
+		return exitcode.Usage
 	// Approval/verification needs an active encryption session to read the
 	// plaintext that is hashed. Renewing that session is authentication work.
 	case code == "SESSION_EXPIRED":
