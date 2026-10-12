@@ -148,6 +148,37 @@ One pre-existing flake observed under load
 isolation and in three consecutive full runs; unrelated surface, reported
 here for honesty, not fixed here.
 
+## Cycle 1 (Diego blind #9094, confirmed live by Colin's QA #9102)
+
+Two P2s, both fixed failing-test-first:
+
+- **P2-1 — tree alarm pagination.** The tree read one default page of alarm
+  events (50, not even the cap) and joined whatever it held: an established
+  team's LATER open alarms never rendered (QA: 49 shown of 205). Now paged to
+  exhaustion with the `after` cursor at the 200 cap; the regression test
+  stages a full first page of acknowledged alarms with the open alarm on
+  page two, and pins the continuation cursor.
+- **P2-2 — events `--limit`.** `--limit 0` panicked (an empty page hit the
+  `len(events)-1` hint index); `--limit >200` was clamped silently
+  server-side, which also suppressed the continuation hint. `--limit` now
+  validates to 1–200 with a refusal naming the cap (events AND task list),
+  and the hint compares against the effective size with a nonempty guard.
+  The at-cap test pins a full 200-row page still naming the next cursor.
+
+Both P3s taken too:
+
+- **P3-1** — a worker id/URN now sets availability with no App (appRef
+  omitted, matching the server's own input doc); a NAME still demands one,
+  refused with the remedy. The self-sufficient spellings are the worker URN
+  (`hrn:worker:` — the same prefix `resolveWorker` dispatches on) and the
+  32-hex row id.
+- **P3-2** — the availability tables' Flush errors propagate; a
+  failing-writer test proves a mid-table broken pipe no longer reports
+  success.
+
+Diego's non-blocking note — task-create help still describing the
+pre-#1792 owner rule — is a help fold for when #1792 lands, not this head.
+
 ## What this does not do (and where it lives instead)
 
 - Backlog/park verbs (`parkAgentTask`, `makeAgentTaskReady`) are still in

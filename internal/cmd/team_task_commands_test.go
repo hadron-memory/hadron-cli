@@ -794,7 +794,7 @@ func TestTeamEventsFullPageAtTheCapStillHints(t *testing.T) {
 	// The hint must compare against the EFFECTIVE page size, not the raw
 	// flag: exactly 200 events at the cap name the next cursor.
 	responses := taskResponses()
-	many := strings.Repeat(`{"id":"x","appId":"a","taskId":null,"type":"task.created","severity":null,"createdAt":"2026-10-12T00:00:00Z","actor":null,"subjectWorker":null,"payload":{},"acknowledgedAt":null,"acknowledgedBy":null,"episodeStart":null,"chain":null,"wakes":null},`, 199)
+	many := strings.Repeat(`{"id":"x","appId":"a","taskId":null,"type":"task.created","severity":null,"createdAt":"2026-10-12T00:00:00Z","actor":null,"subjectWorker":null,"payload":{},"acknowledgedAt":null,"acknowledgedBy":null,"episodeStart":null,"chain":null,"wakes":null},`, 200)
 	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + many[:len(many)-1] + `]}}`
 	_, out, err := runTeamTask(t, responses, "team", "events", "--limit", "200")
 	if err != nil {

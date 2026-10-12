@@ -6,9 +6,11 @@ package team
 // one record (an authored write when a session is bound).
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -116,25 +118,47 @@ func newCmdTeamAvailabilityGet(f *cmdutil.Factory) *cobra.Command {
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 					return err
 				}
-				renderAvailabilityTable(w, dto)
-				return nil
+				return renderAvailabilityTable(w, dto)
 			})
 		},
 	}
 	return cmd
 }
 
-func renderAvailabilityTable(w io.Writer, dto teamAvailabilityDTO) {
+// renderAvailabilityTable renders both halves. Flush errors propagate
+// (cycle 1, Diego P3-2): a broken pipe mid-table must not report success.
+func renderAvailabilityTable(w io.Writer, dto teamAvailabilityDTO) error {
 	workers := output.NewTable(w, "WORKER", "STATE", "REASON", "UNTIL", "IN EFFECT")
 	for _, e := range dto.Workers {
 		workers.Row(partyCell(&e.Worker), e.State, strOr(e.Reason), strOr(e.Until), yesNo(e.InEffect))
 	}
-	_ = workers.Flush()
+	if err := workers.Flush(); err != nil {
+		return err
+	}
 	families := output.NewTable(w, "FAMILY", "STATE", "REASON", "UNTIL", "IN EFFECT")
 	for _, e := range dto.Families {
 		families.Row(e.Family, e.State, strOr(e.Reason), strOr(e.Until), yesNo(e.InEffect))
 	}
-	_ = families.Flush()
+	return families.Flush()
+}
+
+// workerRefIsSelfSufficient answers whether a --worker value names its
+// worker with no App scope: a worker URN (hrn:worker:…, the #991 shape
+// resolveWorker dispatches on first) or the row id's 32-hex form. A bare
+// NAME is App-scoped (cor:agt:020:02) and needs the App.
+func workerRefIsSelfSufficient(ref string) bool {
+	if strings.HasPrefix(strings.ToLower(ref), "hrn:worker:") {
+		return true
+	}
+	if len(ref) != 32 {
+		return false
+	}
+	for _, r := range ref {
+		if !strings.ContainsRune("0123456789abcdef", unicode.ToLower(r)) {
+			return false
+		}
+	}
+	return true
 }
 
 func yesNo(b bool) string {
@@ -152,11 +176,12 @@ func newCmdTeamAvailabilitySet(f *cmdutil.Factory) *cobra.Command {
 		Use:   "set (--worker <ref> | --family <token>) --state <available|unavailable>",
 		Short: "Set a worker's or a family's availability",
 		Long: `Set one availability record. --worker takes the worker's id, URN or
-name (a name needs the App — --app, a context, or a worktree binding);
---family takes the family token (e.g. claude, codex) and always needs the
-App. --state is available or unavailable; --reason (HOST_DOWN, OTHER,
-OUT_OF_TOKENS, STALLED) is required with unavailable and refused with
-available; --until (RFC 3339, in the future) bounds an unavailable record.`,
+name: an id or URN names its worker on its own, while a NAME needs the App
+(--app, a context, or a worktree binding). --family takes the family token
+(e.g. claude, codex) and always needs the App. --state is available or
+unavailable; --reason (HOST_DOWN, OTHER, OUT_OF_TOKENS, STALLED) is required
+with unavailable and refused with available; --until (RFC 3339, in the
+future) bounds an unavailable record.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if workerRef == "" && family == "" {
@@ -187,13 +212,31 @@ available; --until (RFC 3339, in the future) bounds an unavailable record.`,
 			} else if reasonIn == nil {
 				return exitcode.Newf(exitcode.Usage, "an unavailable record needs --reason (HOST_DOWN, OTHER, OUT_OF_TOKENS or STALLED)")
 			}
-			b, err := readBindingOrNilWithApp(ctx, f)
-			if err != nil {
+			// No worktree and no App context is a LEGITIMATE caller here: a
+			// worker id or URN names itself (below), so readBinding's
+			// "not inside a git worktree" is not the actionable message the
+			// way readBindingOrNilWithApp treats it for the chat commands.
+			b, _, err := readBinding(ctx)
+			if err != nil && !errors.Is(err, errNoWorktree) {
 				return err
 			}
-			scope, err := resolveTeamAppScope(ctx, f, b)
 			if err != nil {
+				b = nil
+			}
+			// The App: a family record always names one; a worker record
+			// sends it when it resolves (a NAME needs it — names are
+			// App-scoped) and omits it for the self-sufficient spellings,
+			// exactly the split the server's input documents (cycle 1,
+			// Diego P3-1: the URN path demanded scope the help never
+			// promised).
+			var appRef *string
+			if scope, err := resolveTeamAppScope(ctx, f, b); err == nil {
+				appRef = &scope.Ref
+			} else if family != "" {
 				return err
+			} else if !workerRefIsSelfSufficient(workerRef) {
+				return exitcode.Newf(exitcode.Usage,
+					"a worker NAME needs the App — pass --app, set an App context, or bind a worker session (a worker id or URN names itself), got %q", workerRef)
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -201,7 +244,7 @@ available; --until (RFC 3339, in the future) bounds an unavailable record.`,
 			}
 			if workerRef != "" {
 				input := gen.SetWorkerAvailabilityInput{
-					AppRef: &scope.Ref,
+					AppRef: appRef,
 					Worker: workerRef,
 					State:  st,
 					Reason: reasonIn,
@@ -217,7 +260,7 @@ available; --until (RFC 3339, in the future) bounds an unavailable record.`,
 				})
 			}
 			input := gen.SetModelFamilyAvailabilityInput{
-				AppRef: scope.Ref,
+				AppRef: *appRef,
 				Family: family,
 				State:  st,
 				Reason: reasonIn,

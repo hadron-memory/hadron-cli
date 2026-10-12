@@ -8,6 +8,7 @@ package team
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -19,7 +20,13 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-const teamEventsDefaultLimit = 50
+const (
+	teamEventsDefaultLimit = 50
+	// teamEventPageCap is the server's clampListTake ceiling; a larger
+	// --limit would be silently clamped, so the CLI refuses it instead and
+	// names the boundary (cycle 1, Diego P2-2).
+	teamEventPageCap = 200
+)
 
 func newCmdTeamEvents(f *cmdutil.Factory) *cobra.Command {
 	var alarms bool
@@ -40,9 +47,13 @@ with --since (strictly after an RFC 3339 time) and page FORWARD with --after
 <the last event id you read>. When a page comes back full, the receipt names
 the exact --after that continues it.
 
---alarms keeps alarm events only; --task and --type filter further.`,
+--alarms keeps alarm events only; --task and --type filter further.
+--limit takes 1 to ` + strconv.Itoa(teamEventPageCap) + ` — the server's page cap; above it the request is clamped silently, so the CLI refuses it instead.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			if limit < 1 || limit > teamEventPageCap {
+				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", teamEventPageCap, limit)
+			}
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
 				return err
@@ -92,8 +103,12 @@ the exact --after that continues it.
 					return err
 				}
 				// A full page means more may follow. Name the exact cursor
-				// rather than letting a long history look complete.
-				if len(events) == limit {
+				// rather than letting a long history look complete. The
+				// nonempty guard is load-bearing: an empty page at --limit 0
+				// used to index -1 here (cycle 1, Diego P2-2) — 0 now refuses
+				// at the gate, and this comparison can no longer trip on a
+				// page the server emptied.
+				if len(events) > 0 && len(events) == limit {
 					last := events[len(events)-1].ID
 					_, err := fmt.Fprintf(w, "page full at %d events — continue with --after %s\n", len(events), last)
 					return err

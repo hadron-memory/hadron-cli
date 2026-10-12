@@ -208,6 +208,9 @@ combine with AND: --status (repeatable, ` + taskStatusDoc + `), --assignee and
 filters by tag. --limit/--offset page (server default 50, cap 200).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			if limit < 1 || limit > teamEventPageCap {
+				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", teamEventPageCap, limit)
+			}
 			for _, s := range statuses {
 				if !taskStatuses[strings.ToUpper(s)] {
 					return exitcode.Newf(exitcode.Usage, "--status takes %s, got %q", taskStatusDoc, s)
@@ -325,8 +328,11 @@ alarm facts are the server's.`,
 			if len(resp.AgentTaskTree) == 0 {
 				return exitcode.Newf(exitcode.NotFound, "task %s not found", rootId)
 			}
-			// Open alarms: the App's alarm events not yet acknowledged, keyed
-			// by task. One bounded read — the server caps unfiltered pages.
+			// Open alarms: the App's alarm events not yet acknowledged,
+			// keyed by task. Paged to exhaustion with the after cursor —
+			// one bounded read stopped at the first page and silently
+			// missed every later alarm, open ones included (cycle 1,
+			// Diego P2-1; a team with 205 alarms rendered 49 open).
 			alarmsByTask := map[string]int{}
 			appID := ""
 			for _, t := range resp.AgentTaskTree {
@@ -336,14 +342,28 @@ alarm facts are the server's.`,
 				}
 			}
 			if appID != "" {
-				events, err := gen.AgentTeamEvents(ctx, client, appID, nil, boolPtr(true), nil, nil, nil, nil)
-				if err != nil {
-					return api.MapError(err)
-				}
-				for _, e := range events.AgentTeamEvents {
-					if e != nil && e.Severity != nil && e.AcknowledgedAt == nil && e.TaskId != nil {
-						alarmsByTask[*e.TaskId]++
+				var after *string
+				alarmPageSize := teamEventPageCap
+				for {
+					events, err := gen.AgentTeamEvents(ctx, client, appID, after, boolPtr(true), &alarmPageSize, nil, nil, nil)
+					if err != nil {
+						return api.MapError(err)
 					}
+					pageSize := len(events.AgentTeamEvents)
+					last := ""
+					for _, e := range events.AgentTeamEvents {
+						if e == nil {
+							continue
+						}
+						last = e.Id
+						if e.Severity != nil && e.AcknowledgedAt == nil && e.TaskId != nil {
+							alarmsByTask[*e.TaskId]++
+						}
+					}
+					if pageSize < alarmPageSize || last == "" {
+						break
+					}
+					after = &last
 				}
 			}
 			tasks := []taskDTO{}
