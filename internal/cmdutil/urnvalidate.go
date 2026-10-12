@@ -33,10 +33,11 @@ func ValidateURNSlug(flag, slug string) error {
 }
 
 // ValidateOrgSlug checks an organization slug supplied on a create/rename flag.
-// An org root must be a bare, dotted domain (no scheme prefix or colon) that
-// also satisfies the shared slug rules — the shared urn-lib owns the policy
-// (grammar-v2 / #692), so the CLI fails fast with the same rule the server
-// enforces rather than surfacing a less actionable server error.
+// An org root must be bare (no scheme prefix or colon), satisfy the shared slug
+// rules, and be neither reserved (hrn/urn) nor ID-shaped; dotted and undotted
+// names are both allowed (cli#839, hadron-server#1733). The shared urn-lib owns
+// the policy, so the CLI fails fast with the same rule the server enforces
+// rather than surfacing a less actionable server error.
 func ValidateOrgSlug(flag, slug string) error {
 	if err := urn.ValidateOrgSlug(slug); err != nil {
 		return urnUsageError(flag, slug, err)
@@ -45,9 +46,8 @@ func ValidateOrgSlug(flag, slug string) error {
 }
 
 // ValidateUserHandle checks a user handle supplied on a create/rename flag. A
-// handle is a slug that must additionally be dot-free, so it stays disjoint from
-// dotted org roots in the shared principal pool (#692). The shared urn-lib owns
-// the policy.
+// handle follows the same root policy as an org (not reserved, not ID-shaped)
+// and must additionally be dot-free (#692). The shared urn-lib owns the policy.
 func ValidateUserHandle(flag, handle string) error {
 	if err := urn.ValidateUserHandle(handle); err != nil {
 		return urnUsageError(flag, handle, err)

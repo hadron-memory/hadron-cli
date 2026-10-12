@@ -125,7 +125,7 @@ const memoryRefToken = "<memoryRef>"
 // matching, so both schemes work everywhere. memoryRefFormsAreAccepted
 // pins every form named here against the parser.
 const memoryRefHelp = `<memoryRef> identifies the memory. It accepts the memory's id, or any of the
-URN spellings below, where <root> is an organization domain or a user handle
+URN spellings below, where <root> is an organization name or a user handle
 (a memory created with --owner-me lives under your own handle):
 
   hrn:mem:<root>:<slug>       canonical

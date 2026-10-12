@@ -43,7 +43,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "organization display name (required)")
-	cmd.Flags().StringVar(&urn, "urn", "", "organization URN (e.g. acme.com) (required)")
+	cmd.Flags().StringVar(&urn, "urn", "", "organization URN: a lowercase slug, dotted or not (e.g. acme.com or acme) (required)")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("urn")
 	return cmd

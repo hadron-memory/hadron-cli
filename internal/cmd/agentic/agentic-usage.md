@@ -349,13 +349,15 @@ Conventions:
     rejected; `@` is rejected).
   - **slug flags** (`memory set --slug`, `app install --urn`) — the atom rule
     plus **lowercase-only** and reserved-word rejection.
-  - **org roots** (`org create/update --urn`) — stricter still: a **bare, dotted,
-    lowercase domain** (no scheme prefix or colon), e.g. `acme.com`. So `acme`
-    (not dotted), `Acme.com` (uppercase), and `hrn:org:acme.com` (prefixed) are
-    all rejected.
-  - **user handle** (`profile set --handle`) — a lowercase slug that must be
-    **dot-free** and not a reserved word (so `has.dot` is rejected). An empty
-    `--handle` defers to the server.
+  - **org roots** (`org create/update --urn`) — a **bare, lowercase slug** (no
+    scheme prefix or colon), dotted or not: `acme.com` and `acme` are both
+    accepted. `Acme.com` (uppercase), `hrn:org:acme.com` (prefixed), the
+    reserved words `hrn` and `urn`, and an ID-shaped name (32 hex characters, or
+    a 25-character cuid such as `c` plus 24 lowercase letters/digits) are all
+    rejected, the last with `root-id-shaped`.
+  - **user handle** (`profile set --handle`) — the same root rule, and it must
+    also be **dot-free** (so `has.dot` is rejected). An empty `--handle` defers
+    to the server.
   - `agent update --urn` also accepts the spec-047 user-author form
     `@handle:slug`.
 - **URN grammar: the CLI emits flat grammar-v2, and accepts every spelling.**

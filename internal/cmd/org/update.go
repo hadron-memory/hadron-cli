@@ -66,7 +66,7 @@ catalogue, --marketplace=false to unlist it.`,
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "new display name")
-	cmd.Flags().StringVar(&urn, "urn", "", "new URN")
+	cmd.Flags().StringVar(&urn, "urn", "", "new URN: a lowercase slug, dotted or not (e.g. acme.com or acme)")
 	cmd.Flags().BoolVar(&marketplace, "marketplace", false, "list this org on the marketplace catalogue: --marketplace to list, --marketplace=false to unlist (advertisement, not access)")
 	return cmd
 }

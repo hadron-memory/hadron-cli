@@ -56,14 +56,19 @@ func TestOrgCreateRejectsInvalidURN(t *testing.T) {
 	}
 }
 
-// #262: an org --urn is validated against the shared urn-lib org-slug rule — it
-// must be a bare, dotted, lowercase domain (no scheme prefix / colon), matching
-// what the server enforces. Rejected BEFORE the mutation: the fake server would
-// answer create/update if reached, so asserting neither op is called proves the
-// rejection is client-side (not a later network error).
+// #262: an org --urn is validated against the shared urn-lib org-slug rule — a
+// bare, lowercase slug (no scheme prefix / colon) that is neither reserved nor
+// ID-shaped, matching what the server enforces. Rejected BEFORE the mutation:
+// the fake server would answer create/update if reached, so asserting neither op
+// is called proves the rejection is client-side (not a later network error).
 func TestOrgURNValidatedAsOrgSlug(t *testing.T) {
-	// non-dotted, scheme-prefixed, colon, and uppercase all fail.
-	for _, bad := range []string{"acme", "hrn:org:acme.com", "acme:com", "Acme.com"} {
+	// scheme-prefixed, colon, uppercase, reserved and ID-shaped (cli#839) all fail.
+	for _, bad := range []string{
+		"hrn:org:acme.com", "acme:com", "Acme.com",
+		"hrn", "urn",
+		"0123456789abcdef0123456789abcdef", // a 32-hex id
+		"cabcdefghijklmnopqrstuvwx",        // a cuid
+	} {
 		for _, argv := range [][]string{
 			{"org", "create", "--name", "X", "--urn", bad},
 			{"org", "update", "org1", "--urn", bad},
@@ -83,6 +88,36 @@ func TestOrgURNValidatedAsOrgSlug(t *testing.T) {
 					t.Errorf("invalid org --urn %q must be rejected before %s (%v)", bad, op, argv[:2])
 				}
 			}
+		}
+	}
+}
+
+// cli#839: an org name may be undotted (Holger's ruling, hadron-server#1733), so
+// both create and update send an undotted --urn on to the server instead of
+// refusing it client-side.
+func TestOrgURNAcceptsUndottedName(t *testing.T) {
+	for _, argv := range [][]string{
+		{"org", "create", "--name", "Acme", "--urn", "acme"},
+		{"org", "update", "org1", "--urn", "acme"},
+	} {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"CreateOrganization": `{"data":{"createOrganization":` + orgJSON + `}}`,
+			"UpdateOrganization": `{"data":{"updateOrganization":` + orgJSON + `}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(argv, "--server", gql.URL))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("org --urn acme should be accepted (%v): %v", argv[:2], err)
+		}
+		op := "CreateOrganization"
+		if argv[1] == "update" {
+			op = "UpdateOrganization"
+		}
+		var vars map[string]any
+		_ = json.Unmarshal(captured[op], &vars)
+		if vars["urn"] != "acme" {
+			t.Errorf("%s vars: %v, want urn acme", op, vars)
 		}
 	}
 }
