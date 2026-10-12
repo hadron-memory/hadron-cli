@@ -122,11 +122,13 @@ the parent (an --app that disagrees is refused by the server).
 takes no assignee (the server refuses the combination), never enters the
 queue, is never matched or waited on, and raises no alarms; assigning it
 (` + "`task assign`" + `) or making it ready (` + "`task ready`" + `) moves it to PENDING. The
-default is pending, so the flag only ever says backlog.
+default is pending, so the flag is only needed to say backlog — but
+pending is accepted for explicitness.
 
 --owner defaults to you; a root task's creator may name any other
-participating worker or person (#1757, cor:agt:050:01), and never for a
-child task. Requirements (--require-role,
+participating worker or person (#1757, cor:agt:050:01). For a child task
+the owner is the parent's assignee — naming a different owner is refused
+(TASK_CHILD_OWNER_MISMATCH). Requirements (--require-role,
 --family-in/--family-not-in, --exclude-worker) constrain the matcher.
 --start-by takes an RFC 3339 timestamp.
 
@@ -149,8 +151,12 @@ By default finishing asks the assignee to end its worker session
 			}
 			// The two create-time statuses (cor:agt:050:02); every other
 			// status is reached by a move, so the flag cannot spell them.
+			// PRESENCE, not value: an explicit --status "" (a script's
+			// --status "$VAR" with an unset VAR) is a supplied value outside
+			// the two, refused here rather than silently queued — the
+			// an-empty-flag-is-not-an-absent-flag rule (cycle 0, Anne P2-1).
 			var createStatus *gen.AgentTaskCreateStatus
-			if status != "" {
+			if cmd.Flags().Changed("status") {
 				switch strings.ToLower(status) {
 				case "backlog":
 					s := gen.AgentTaskCreateStatusBacklog

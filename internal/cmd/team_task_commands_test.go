@@ -305,8 +305,14 @@ func TestTeamTaskLifecycleVerbsAttributed(t *testing.T) {
 // outside the two create-time statuses is a local usage error before any
 // request.
 func TestTeamTaskCreateStatusFlag(t *testing.T) {
-	t.Run("backlog reaches the input", func(t *testing.T) {
-		calls, out, err := runTeamTask(t, taskResponses(),
+	t.Run("backlog reaches the input and lands parked", func(t *testing.T) {
+		// The acceptance's strongest observable: the created task comes back
+		// BACKLOG and never queued. Asserting the request alone (as the first
+		// draft did) would pass even if the server ignored the status — a
+		// queued PENDING response must FAIL here (Xylon P2-1 / Anne P2-2).
+		responses := taskResponses()
+		responses["AgentTaskCreate"] = `{"data":{"createAgentTask":` + backlogTaskFieldsJSON + `}}`
+		calls, out, err := runTeamTask(t, responses,
 			"team", "task", "create", "Fix the flaky CI build", "--status", "backlog")
 		if err != nil {
 			t.Fatal(err)
@@ -327,8 +333,11 @@ func TestTeamTaskCreateStatusFlag(t *testing.T) {
 		if input["status"] != "BACKLOG" {
 			t.Fatalf("input.status = %v, want BACKLOG", input["status"])
 		}
-		if !strings.Contains(out, "✓ created task task1") {
-			t.Fatalf("receipt %q", out)
+		if !strings.Contains(out, "✓ created task task1 (BACKLOG)") {
+			t.Fatalf("receipt should report the parked status, got %q", out)
+		}
+		if strings.Contains(out, "queued:") {
+			t.Fatalf("a parked task must not be reported queued, got %q", out)
 		}
 	})
 	t.Run("explicit pending reaches the input", func(t *testing.T) {
@@ -357,6 +366,13 @@ func TestTeamTaskCreateStatusFlag(t *testing.T) {
 		for i := range *calls {
 			if (*calls)[i].Op == "AgentTaskCreate" {
 				input, _ := (*calls)[i].Vars["input"].(map[string]any)
+				// The generated input marshals an unset optional as explicit
+				// null (this struct's convention for every unset optional —
+				// no omitempty on status), and the server's
+				// normalizeCreateStatus reads null and omitted identically
+				// (verified on the resolver). So the honest pin is "no
+				// STATUS VALUE claimed", not "key absent": present-and-null
+				// and absent are both the server default.
 				if status, present := input["status"]; present && status != nil {
 					t.Fatalf("input.status = %v — unset --status must not claim a status", status)
 				}
@@ -457,6 +473,44 @@ func TestTeamTaskParkInvalidTransitionIsConflict(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not pending") {
 		t.Fatalf("the server's message should surface, got %v", err)
+	}
+}
+
+// The acceptance's refusal matrix, at the command level (cycle 0, Xylon
+// P2-2 / Anne P2-2): each typed refusal exits through its documented code,
+// with the server's message and no success receipt.
+func TestTeamTaskBacklogRefusalMatrix(t *testing.T) {
+	cases := []struct {
+		name  string
+		argv  []string
+		op    string
+		code  string
+		want  int
+		msgIn string
+	}{
+		{"ready invalid transition", []string{"team", "task", "ready", "task1"}, "AgentTaskReady", "TASK_INVALID_TRANSITION", exitcode.Conflict, "not backlog"},
+		{"ready not owner", []string{"team", "task", "ready", "task1"}, "AgentTaskReady", "TASK_NOT_OWNER", exitcode.Forbidden, "not the owner"},
+		{"ready missing task", []string{"team", "task", "ready", "task1"}, "AgentTaskReady", "TASK_NOT_FOUND", exitcode.NotFound, "no such task"},
+		{"create invalid owner", []string{"team", "task", "create", "T", "--owner", "worker:ghost"}, "AgentTaskCreate", "TASK_OWNER_INVALID", exitcode.Usage, "not a participant"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, out, err := runTeamTask(t, map[string]string{
+				tc.op: `{"errors":[{"message":"` + tc.msgIn + `.","extensions":{"code":"` + tc.code + `"}}]}`,
+			}, tc.argv...)
+			if err == nil {
+				t.Fatalf("the %s refusal must surface", tc.code)
+			}
+			if got := exitCodeFor(err); got != tc.want {
+				t.Fatalf("exit code = %d, want %d (%s)", got, tc.want, tc.code)
+			}
+			if !strings.Contains(err.Error(), tc.msgIn) {
+				t.Fatalf("the server's message should surface, got %v", err)
+			}
+			if strings.Contains(out, "✓") {
+				t.Fatalf("no success receipt may precede a refusal, got %q", out)
+			}
+		})
 	}
 }
 
