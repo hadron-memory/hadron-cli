@@ -56,6 +56,14 @@ enum AccessSource {
   PUBLIC_VISIBILITY
 }
 
+type AcknowledgeWakesResult {
+  """Wakes that moved the delivery record."""
+  acknowledged: Int!
+
+  """Repeats: already delivered, counted nowhere twice."""
+  unchanged: Int!
+}
+
 """One consumable ticket in the org ledger (cor:acl:050:04 tier 2)."""
 type ActionTicket {
   action: String!
@@ -1045,6 +1053,24 @@ input AppFilter {
   ownedByMe: Boolean
 }
 
+"""
+#1747 — a narrow, named permission held by one worker (hrn:node:hadronmemory.com:specs:cor:agt:080:24).
+"""
+type AppGrant {
+  app: App!
+  grantedAt: DateTime!
+  id: ID!
+  name: AppGrantName!
+  revokedAt: DateTime
+  worker: Worker!
+}
+
+"""#1747 — the closed list of named App grants."""
+enum AppGrantName {
+  """Subscribe and unsubscribe OTHER workers of the App, at any cadence."""
+  TICKER_SUBSCRIBE_WORKERS
+}
+
 type AppKey {
   appId: String!
   createdAt: DateTime!
@@ -1053,12 +1079,26 @@ type AppKey {
   label: String
   lastUsedAt: DateTime
   revokedAt: DateTime
+
+  """
+  #1749 — the scopes this key holds now (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Whoever manages the App only.
+  """
+  scopes: [AppKeyScope!]!
 }
 
 """Returned once at creation — the raw key is never stored"""
 type AppKeyCreated {
   key: AppKey!
   rawKey: String!
+}
+
+"""
+#1749 — a scope an App key holds. A closed list; today only attention:deliver.
+"""
+type AppKeyScope {
+  grantedAt: DateTime!
+  grantedBy: ID!
+  scope: String!
 }
 
 type AppMember {
@@ -1276,6 +1316,28 @@ enum AppRunTriggerKind {
 type AppRunsPage {
   items: [AppRun!]!
   total: Int!
+}
+
+"""
+#1747 — an App ticker settings (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
+"""
+type AppTickerSettings {
+  dailyWakeBudget: Int!
+
+  """True when the budget is derived from the roster rather than set."""
+  dailyWakeBudgetDerived: Boolean!
+  liveCap: Int!
+  minCadenceSeconds: Int!
+  selfSubscribeCadenceSeconds: Int!
+}
+
+input AppTickerSettingsInput {
+  """Return to the derived budget."""
+  clearWakeDailyBudget: Boolean
+  liveCap: Int
+  minCadenceSeconds: Int
+  selfSubscribeCadenceSeconds: Int
+  wakeDailyBudget: Int
 }
 
 enum AppType {
@@ -2958,6 +3020,11 @@ type DeleteTeamRolePayload {
   role: String!
 }
 
+type DormantWithheld {
+  mentions: Int!
+  worker: Worker!
+}
+
 """Text representation a drive export can request."""
 enum DriveExportFormat {
   HTML
@@ -3010,6 +3077,70 @@ type DriveFilePage {
 
   """Cursor for the next page; null on the last page."""
   nextPageToken: String
+}
+
+type DueChannel {
+  channel: Channel!
+  fromSeq: Int!
+  latestMentionSeq: Int
+  throughSeq: Int!
+}
+
+"""
+One merged wake: every reason, one seq range per channel. A wake never moves a read position.
+"""
+type DueWake {
+  """
+  Carried, never an exclusion (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
+  """
+  availability: DueWakeAvailability
+  channels: [DueChannel!]!
+
+  """
+  Hand this back to acknowledgeWakes after delivering. Bound to the requester; good for 15 minutes.
+  """
+  proof: String!
+  reasons: [WakeReason!]!
+  unread: Int!
+  unreadMentions: Int!
+  worker: Worker!
+}
+
+type DueWakeAvailability {
+  reason: String
+  setAt: DateTime!
+  state: String!
+  until: DateTime
+}
+
+"""
+#1748 — one page of due wakes. Counts and ranges only (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
+"""
+type DueWakePage {
+  """
+  Dormant workers with relevant mentions, and how many: withheld, never dropped silently.
+  """
+  dormant: [DormantWithheld!]!
+  pageInfo: DueWakePageInfo!
+  status: DueWakeStatus!
+  wakes: [DueWake!]!
+
+  """Wakes held back by the daily budget; each stays due."""
+  withheld: Int!
+}
+
+type DueWakePageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+}
+
+enum DueWakeStatus {
+  OK
+
+  """
+  The App's daily wake budget is spent; the withheld wakes stay due (hrn:node:hadronmemory.com:specs:cor:agt:080:15).
+  """
+  WAKE_BUDGET_EXHAUSTED
 }
 
 type Edge {
@@ -3319,6 +3450,12 @@ type GlobalSearchResult {
   operates over this bounded, fully-ranked list.
   """
   total: Int!
+}
+
+"""#1747 — whether the team-chat post for a grant use went out."""
+enum GrantAnnouncement {
+  FAILED
+  POSTED
 }
 
 input GrantCreditsInput {
@@ -4423,6 +4560,14 @@ enum MemoryVisibility {
   PUBLIC
 }
 
+"""
+#1747 — whether a mention wakes a worker at once. There is no ON_TICK mode.
+"""
+enum MentionWake {
+  IMMEDIATE
+  OFF
+}
+
 input MergeMemoriesInput {
   """Delete the (now-empty) source memory after a successful merge."""
   deleteSourceMem: Boolean = false
@@ -4454,6 +4599,11 @@ input MergeNodesInput {
 }
 
 input MergeUsersInput {
+  """
+  Single-use dual-login proof from beginMergeUsersConsent, approved by both accounts. Required at execution; absent refuses MERGE_CONSENT_REQUIRED.
+  """
+  consentProof: String
+
   """
   Source user — ID, bare handle, or fully-qualified user URN. Folded into 'target' and soft-deleted.
   """
@@ -4513,6 +4663,11 @@ type Mutation {
   stands), SESSION_NOT_BOUND, APP_UNINSTALLED.
   """
   acknowledgeAlarm(eventId: ID!): AgentTeamEvent!
+
+  """
+  #1748 — record that wakes were delivered (hrn:node:hadronmemory.com:specs:cor:agt:080:16). Never moves a read position.
+  """
+  acknowledgeWakes(proofs: [String!]!): AcknowledgeWakesResult!
 
   """
   Acquire (or renew) the editor lock for an Agent's system memory.
@@ -4633,6 +4788,11 @@ type Mutation {
   approveMemoryNodes(memoryRef: String!): ApproveMemoryNodesResult!
 
   """
+  Each account approves with its own JWT from a verified login at or after consent creation (millisecond resolution). API keys, Apps, impersonation and any session-bound caller cannot approve. Source and target name the exact ordered pair. No admin substitute.
+  """
+  approveMergeUsersConsent(proof: String!, source: String!, target: String!): Boolean!
+
+  """
   #1591 — approve the node's CURRENT revision: record who, when, and the
   approval hash of its title/abstract/content. Pass revision to approve only
   if it is still the one you read (REVISION_MISMATCH otherwise). Any writer of
@@ -4680,6 +4840,11 @@ type Mutation {
   beginAssetUpload during the deprecation window.
   """
   beginAssetUploadV2(input: BeginAssetUploadV2Input!): BeginAssetUploadResult!
+
+  """
+  A platform admin using an unbound user JWT begins an exact ordered-pair, full-consolidation consent, valid for 15 minutes; API keys, Apps, impersonation and session-bound callers refuse FORBIDDEN. Returns its opaque proof once.
+  """
+  beginMergeUsersConsent(source: String!, target: String!): UserMergeConsentRequest!
 
   """
   Create an event. calendarId defaults to the primary calendar. Owner-only.
@@ -5501,6 +5666,14 @@ type Mutation {
   createTeamRole(appRef: ID!, description: String, role: String!, teamAgentRef: ID): TeamRole!
 
   """
+  #1747 — create a ticker in an App (hrn:node:hadronmemory.com:specs:cor:agt:080:01, :18). Any App participant, or a
+  session bound to a worker of the App, up to the App live-ticker cap. The owner is the
+  caller, never an argument. Refusals: TICKER_NAME_TAKEN, TICKER_CADENCE_OUT_OF_RANGE,
+  TICKER_LIMIT_REACHED, TICKER_QUIET_HOURS_INVALID, APP_NOT_FOUND, APP_UNINSTALLED.
+  """
+  createTicker(appRef: String!, input: TickerInput!): Ticker!
+
+  """
   025-oauth-for-mcp FR-004: mint a new user-scoped API key for the
   calling User. Returns the raw key exactly once (the server stores
   only the SHA-256 hash). Rejected with UNAUTHENTICATED for AppKey-
@@ -5748,6 +5921,11 @@ type Mutation {
   deleteTeamRole(appRef: ID!, role: String!, teamAgentRef: ID): DeleteTeamRolePayload!
 
   """
+  #1747 — delete a ticker. Its live subscriptions end with reason TICKER_DELETED; its name may be reused, its slug never.
+  """
+  deleteTicker(ref: String!): Boolean!
+
+  """
   Delete a user account (self-serve account deletion, Apple 5.1.1(v) /
   GDPR erasure posture). Requires a user credential (JWT or hdr_user key);
   App-key callers are rejected.
@@ -5820,9 +5998,11 @@ type Mutation {
   Convert a plaintext PRIVATE memory to encrypted (spec 041, caller-held
   keys). Exactly one of dataKey (base64, 32 bytes) / passphrase (scrypt-
   derived; salt + params stored on the memory, the key itself never).
-  Owner or org-App-key. All node content/abstract/data is re-written as
-  ciphertext in one transaction. One-way without the key: the server
-  cannot recover the content.
+  First encryption requires the strict owner. The owning App key may only
+  complete already-encrypted private memory using its existing dataKey and
+  matching verifier; impersonation and sibling Apps grant no authority. Live and
+  historical node fields are converted in bounded locked passes. One-way
+  without the key: the server cannot recover the content.
   
   Accepts the entity's ID or URN.
   """
@@ -5960,6 +6140,18 @@ type Mutation {
   finishAgentTask(result: AgentTaskResultInput!, taskId: ID!): AgentTask!
 
   """
+  #1747 — give a worker a named App grant (hrn:node:hadronmemory.com:specs:cor:agt:080:24). Whoever manages the App only. Idempotent.
+  """
+  grantApp(appRef: String!, name: AppGrantName!, workerRef: String!): AppGrant!
+
+  """
+  #1749 — give an App key a scope (hrn:node:hadronmemory.com:specs:cor:aut:010:04). Only whoever manages the App, as
+  themselves: never an App key, a worker's session or an impersonation. Granting a scope the key holds changes nothing.
+  A new key, and a rotated one, holds none. Unknown scope: BAD_USER_INPUT.
+  """
+  grantAppKeyScope(id: ID!, scope: String!): AppKey!
+
+  """
   Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN ONLY (self-grant risk); processor top-ups land here later.
   """
   grantCredits(input: GrantCreditsInput!): CreditLedgerEntry!
@@ -6062,9 +6254,11 @@ type Mutation {
   linkGithubApp(installationId: Int!, orgId: ID!): Organization!
 
   """
-  Link an anonymous memory to a real user (converts session memory
-  ownership). Providing dataKey encrypts the memory in place atomically
-  with the link.
+  Link this App's live plaintext anonymous memory to a real user.
+  Providing dataKey claims private ownership and encrypts the enumerated live
+  nodes with the link; remaining fields and history complete in bounded passes. After a committed claim,
+  interrupted completion allows the strict owner or owning App key to call
+  encryptMemory with the existing key. A registered holding cannot be linked again.
   
   Accepts the entity's ID or URN.
   """
@@ -6125,8 +6319,13 @@ type Mutation {
   Consolidate a duplicate account into a surviving user. Source-only
   identities and relationships move; duplicate role-bearing relationships
   preserve the strongest live entitlement. The source is soft-deleted.
-  Platform admin only. The resulting merge is global; organization
-  administration does not authorize account consolidation.
+  Platform admin with an unbound user JWT only; API keys, Apps, impersonation
+  and session-bound callers refuse FORBIDDEN. The resulting merge is global;
+  organization administration does not authorize account consolidation. Both accounts must
+  approve the exact ordered pair after fresh login, within 15 minutes.
+  The proof is single-use, consumed atomically before transfers, and recorded
+  with the merge. Invalid or missing proof refuses MERGE_CONSENT_REQUIRED.
+  There is no administrator substitute or recovery path.
   
   Records the merge (#1715). User ids stored inside decisions and decision
   logs are never rewritten, since they are authenticated; readers follow
@@ -6289,7 +6488,13 @@ type Mutation {
     tool: String!
   ): TeamWorkItem!
 
-  """Record a usage event"""
+  """
+  Record a usage event. A supplied session is attributed only when owned
+  by the caller (no admin or impersonation bypass). Missing, deleted or
+  unowned session references are recorded without session attribution.
+  Owned ended, expired or idle sessions accept late attribution without
+  counting it as activity. The existing READER role gate still applies.
+  """
   recordUsage(event: UsageEventInput!): Boolean!
 
   """
@@ -6589,8 +6794,18 @@ type Mutation {
     userRef: String
   ): AgentSubscription!
 
+  """
+  #1747 — revoke a grant. Whoever manages the App only. Takes effect at the grantee next call.
+  """
+  revokeAppGrant(appRef: String!, name: AppGrantName!, workerRef: String!): AppGrant!
+
   """AppKey is keyed by raw ID — no urn column. Stays ID-only."""
   revokeAppKey(id: ID!): Boolean!
+
+  """
+  #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing.
+  """
+  revokeAppKeyScope(id: ID!, scope: String!): AppKey!
 
   """Revoke a connection grant you created (soft delete). Owner-only."""
   revokeConnectionGrant(ref: ID!): Boolean!
@@ -6677,6 +6892,12 @@ type Mutation {
   setAiModelPrice(input: SetAiModelPriceInput!): AiModelPrice!
 
   """
+  #1747 — change an App ticker settings (hrn:node:hadronmemory.com:specs:cor:agt:080:05, :19). Whoever manages the App only.
+  Refusals: TICKER_SETTINGS_OUT_OF_RANGE, TICKER_SETTINGS_CONFLICT (a floor above a live ticker cadence).
+  """
+  setAppTickerSettings(appRef: String!, input: AppTickerSettingsInput!): AppTickerSettings!
+
+  """
   #772 — replace the caller's entire dashboard widget selection. Grid position
   is the array order; each widget's span (1-12) and rowSpan (1-4) are required
   and clamped server-side. Covers both create and update (the layout is always
@@ -6731,6 +6952,12 @@ type Mutation {
   `worker.reports-to` team event; setting the current value changes nothing.
   """
   setWorkerReportsTo(reportsTo: ID, workerRef: ID!): Worker!
+
+  """
+  #1747 — change a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03, :21): the worker itself, its holder, or whoever manages
+  the App, in either direction. Never the may-subscribe-workers grant.
+  """
+  setWorkerWakeSettings(input: WorkerWakeSettingsInput!, workerRef: String!): WorkerWakeSettings!
   softDeleteAsset(assetId: ID!): Asset!
 
   """
@@ -6805,6 +7032,15 @@ type Mutation {
   stopImpersonation(id: ID): ImpersonationSession!
 
   """
+  #1747 — subscribe a worker to a ticker (hrn:node:hadronmemory.com:specs:cor:agt:080:20, :25). Its holder and whoever manages
+  the App, to any ticker; the worker itself only at or slower than the App self-subscription cadence
+  (SUBSCRIBE_CADENCE_NEEDS_HOLDER); a worker holding the may-subscribe-workers grant, with a person
+  behind the call, for OTHER workers only. Idempotent for a live subscription. A grant use is announced
+  to the team chat, best-effort: announcement says POSTED or FAILED, and the subscription stands either way.
+  """
+  subscribeWorker(tickerRef: String!, workerRef: String!): SubscribeResult!
+
+  """
   Trigger an on-demand sync for one memory (org ADMIN or CONTRIBUTOR).
   
   Accepts the entity's ID or URN.
@@ -6869,6 +7105,11 @@ type Mutation {
   for updateNodeRoleRule.
   """
   unlockNodeRoleRule(expectedRevision: Int, ref: ID!): NodeRoleRulePayload!
+
+  """
+  #1747 — end a worker subscription. The same callers as subscribeWorker, and the worker itself, always.
+  """
+  unsubscribeWorker(tickerRef: String!, workerRef: String!): SubscribeResult!
 
   """
   Update an Agent.
@@ -7346,6 +7587,11 @@ type Mutation {
   outright rather than by implementing it.
   """
   updateTeamRole(appRef: ID!, description: String, repos: [String!], role: String!, teamAgentRef: ID): TeamRole!
+
+  """
+  #1747 — change a ticker. Its owner, the holder of its owning worker, or whoever manages the App. The slug never changes.
+  """
+  updateTicker(input: TickerPatch!, ref: String!): Ticker!
   updateUserRoles(roles: [Role!]!, userId: ID!): User!
 
   """
@@ -8808,6 +9054,11 @@ type Query {
   appRuns(appRef: String, limit: Int, offset: Int, orgRef: String, parentRunId: ID, sortBy: AppRunSortField, sortDir: SortDirection, status: AppRunStatus @deprecated(reason: "Use statuses (#836) - a single value cannot express PENDING-or-RUNNING."), statuses: [AppRunStatus!]): AppRunsPage!
 
   """
+  #1747 — an App's ticker settings: the cadence floor, the default self-subscription cadence, the live-ticker cap and the daily wake budget (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
+  """
+  appTickerSettings(appRef: String!): AppTickerSettings!
+
+  """
   Uniform paginated app list (#473) — replaces the org-ADMIN apps(orgId!)
   and the member myApps. Scope: Apps in the caller's member orgs (App
   doesn't carry a userId, so org membership is the routing); platform
@@ -9071,6 +9322,11 @@ type Query {
     query: String
     top: Int
   ): DriveFilePage!
+
+  """
+  #1748 — the wakes due now (hrn:node:hadronmemory.com:specs:cor:agt:080:08). Counts and seq ranges only; reads nothing it does not return.
+  """
+  dueWakes(after: String, appRef: String!, first: Int, workerRefs: [String!]): DueWakePage!
 
   """
   The uniform single-edge read (#473) — edges are first-class, loc-addressed
@@ -9992,7 +10248,9 @@ type Query {
   """
   #1384 paged (v2) attention poll — the bounded successor to teamAttention
   (v1 answers UPGRADE_REQUIRED). Each call decrypts at most scanLimit rows
-  and emits at most limit Worker/Channel pairs; continue with page while
+  (encrypted Channels), counts plaintext Channels with bounded SQL
+  aggregates (#1779: a window of 200 seqs per scanLimit unit per Channel
+  visit, 400 per call), and emits at most limit Worker/Channel pairs; continue with page while
   nextPage is present. The final page alone carries adoptableSince — adopt
   it only after EVERY listed nudge was accepted; on any partial failure
   retain the prior watermark and restart the scan (duplicates, never loss).
@@ -10146,6 +10404,16 @@ type Query {
   ): TeamWorkItemsPage!
 
   """
+  #1747 — one ticker by id or hrn:ticker: URN; null when it does not exist or the caller may not reach it.
+  """
+  ticker(ref: String!): Ticker
+
+  """
+  #1747 — the live tickers of an App the caller participates in. An App the caller cannot reach reads as APP_NOT_FOUND (hrn:node:hadronmemory.com:specs:cor:agt:080:18).
+  """
+  tickers(appRef: String!): [Ticker!]!
+
+  """
   #796 — read/write activity counts, bucketed by time.
   
   Default scope is the caller's OWN events across everything they touched;
@@ -10293,6 +10561,11 @@ type Query {
   reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
   """
   worker(appRef: ID, ref: ID!): Worker
+
+  """
+  #1747 — one worker's wake settings (defaults when it has none), readable by the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
+  """
+  workerWakeSettings(workerRef: String!): WorkerWakeSettings!
 
   """
   A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
@@ -11883,6 +12156,14 @@ type StartImpersonationResult {
   token: String!
 }
 
+type SubscribeResult {
+  """
+  Set only when the call used the grant: whether the team-chat post went out.
+  """
+  announcement: GrantAnnouncement
+  subscription: TickerSubscription!
+}
+
 enum SubscriptionType {
   READ_ONLY
   READ_WRITE
@@ -12346,6 +12627,115 @@ type TeamWorkItemsPage {
   total: Int!
 }
 
+"""
+#1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
+computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
+"""
+type Ticker {
+  anchorAt: DateTime!
+  app: App!
+  cadenceSeconds: Int!
+
+  """
+  The channels named, limited to those the reader can read. Empty means every channel the subscriber watches.
+  """
+  channels: [Channel!]!
+  createdAt: DateTime!
+  enabled: Boolean!
+  id: ID!
+
+  """
+  The moment of the current tick; null when none has fired or it cannot tick.
+  """
+  lastTickAt: DateTime
+  name: String!
+
+  """
+  The next moment this ticker ticks, quiet hours skipped; null when disabled.
+  """
+  nextTickAt: DateTime
+  owner: ActorRef
+
+  """A timezone and weekly windows; null when none."""
+  quietHours: JSON
+  relevance: TickerRelevance!
+
+  """Permanent: a re-created name gets a new slug (engineering-2)."""
+  slug: String!
+
+  """Live subscriptions."""
+  subscribers(after: String, first: Int): TickerSubscriptionPage!
+  updatedAt: DateTime
+
+  """The canonical URN. Null when it cannot be composed."""
+  urn: String
+}
+
+input TickerInput {
+  """Tick counting starts here. Defaults to now."""
+  anchorAt: DateTime
+  cadenceSeconds: Int!
+  channelIds: [ID!]
+  enabled: Boolean
+  name: String!
+  quietHours: JSON
+  relevance: TickerRelevance
+}
+
+"""
+Absent fields are unchanged. Use clearQuietHours / clearChannels to remove those.
+"""
+input TickerPatch {
+  anchorAt: DateTime
+  cadenceSeconds: Int
+  channelIds: [ID!]
+  clearChannels: Boolean
+  clearQuietHours: Boolean
+  enabled: Boolean
+  name: String
+  quietHours: JSON
+  relevance: TickerRelevance
+}
+
+"""
+#1747 — how a ticker relevance narrows what can make a subscriber due (hrn:node:hadronmemory.com:specs:cor:agt:080:01).
+"""
+enum TickerRelevance {
+  ALL
+  MENTIONS
+}
+
+"""
+#1747 — a worker subscription to one ticker (hrn:node:hadronmemory.com:specs:cor:agt:080:02).
+"""
+type TickerSubscription {
+  createdAt: DateTime!
+
+  """Who subscribed the worker."""
+  createdBy: ActorRef
+  endedAt: DateTime
+  endedReason: TickerSubscriptionEndReason
+  id: ID!
+  ticker: Ticker!
+
+  """True when made through the may-subscribe-workers grant."""
+  viaGrant: Boolean!
+  worker: Worker!
+}
+
+"""#1747 — why a subscription ended. Never dormancy."""
+enum TickerSubscriptionEndReason {
+  TICKER_DELETED
+  UNSUBSCRIBED
+  WORKER_RETIRED
+}
+
+type TickerSubscriptionPage {
+  endCursor: String
+  hasNextPage: Boolean!
+  items: [TickerSubscription!]!
+}
+
 input TriggerAppRunInput {
   aiConfigName: String
 
@@ -12775,9 +13165,24 @@ type UserInvitation {
   slug: String!
 }
 
+type UserMergeConsentRequest {
+  expiresAt: DateTime!
+  proof: String!
+}
+
 type UsersPage {
   items: [User!]!
   total: Int!
+}
+
+enum WakeKind {
+  MENTION
+  TICK
+}
+
+type WakeReason {
+  kind: WakeKind!
+  ticker: Ticker
 }
 
 """
@@ -13089,6 +13494,33 @@ enum WorkerContinuityStatus {
 
   """The previous session ended, or was auto-expired, without writing one."""
   MISSING
+}
+
+"""
+#1747 — a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
+"""
+type WorkerWakeSettings {
+  """
+  None of the worker's sessions has had activity within the App's dormancy period (hrn:node:hadronmemory.com:specs:cor:agt:080:07). A dormant worker is never woken.
+  """
+  dormant: Boolean!
+
+  """The fastest live subscription on an enabled ticker; null when none."""
+  effectiveCadenceSeconds: Int
+  mentions: MentionWake!
+
+  """A pause belongs to the worker, not to a session."""
+  pausedUntil: DateTime
+
+  """Live subscriptions."""
+  subscriptions: [TickerSubscription!]!
+  worker: Worker!
+}
+
+input WorkerWakeSettingsInput {
+  clearPause: Boolean
+  mentions: MentionWake
+  pausedUntil: DateTime
 }
 
 type WorkersPage {

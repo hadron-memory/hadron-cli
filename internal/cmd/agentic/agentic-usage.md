@@ -316,6 +316,11 @@ hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branc
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
 hadron team attention [--since <token>] (uses --app or the binding)
 hadron team attention switchover preview | apply --proof <proof> [--yes] (uses --app or the binding)
+hadron team task create <title> [--description <d>] [--assignee <party>] [--owner <party>] [--parent <id>] [--start-by <iso>] [--tag <t>]… [--source <s>] [--require-role <r>] [--family-in|--family-not-in <a,b>] [--exclude-worker <w>]… [--no-close-session] (uses --app or the binding) | assign|reassign <taskId> --assignee <party> [--close-session|--no-close-session] | start|progress|cancel <taskId> | finish <taskId> --outcome <word> [--summary <s>] [--evidence <url>] | get <taskId> | list [--status <s>]… [--assignee <party>] [--owner <party>] [--tag <t>] [--queued] [--roots-only] [--parent <id>] [--limit N] [--offset N] (uses --app or the binding) | tree <rootTaskId>   # a party is worker:<id|urn|name> or user:<id|handle>; writes are the bound worker's when a session is bound
+hadron team roster (uses --app or the binding)   # states are plan-derived, rendered as the server derives them
+hadron team events [--alarms] [--since <iso>] [--after <eventId>] [--task <id>] [--type <t>]… [--limit N] (uses --app or the binding)   # oldest-first; --after pages forward
+hadron team alarm ack <eventId>   # stops the alarm waking higher owners (cor:agt:050:20)
+hadron team availability get | set (--worker <ref> | --family <token>) --state <available|unavailable> [--reason HOST_DOWN|OTHER|OUT_OF_TOKENS|STALLED] [--until <iso>] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron server-info

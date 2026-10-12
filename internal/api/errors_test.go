@@ -177,6 +177,24 @@ func TestMapError(t *testing.T) {
 		// not taken.
 		{"held", gqlErr("WORKER_HELD"), exitcode.Conflict},
 		{"taken", gqlErr("WORKER_TAKEN"), exitcode.Conflict},
+		// The agent-task surface (hadron-cli#830): permission refusals are 8,
+		// state transitions the caller must wait out are 5, fixable inputs
+		// are 2, and the no-binding refusal names the caller's own fix.
+		{"task not owner", gqlErr("TASK_NOT_OWNER"), exitcode.Forbidden},
+		{"task not assignee", gqlErr("TASK_NOT_ASSIGNEE"), exitcode.Forbidden},
+		{"alarm not in chain", gqlErr("ALARM_NOT_IN_CHAIN"), exitcode.Forbidden},
+		{"availability not permitted", gqlErr("AVAILABILITY_NOT_PERMITTED"), exitcode.Forbidden},
+		{"task invalid transition", gqlErr("TASK_INVALID_TRANSITION"), exitcode.Conflict},
+		{"task ended", gqlErr("TASK_ENDED"), exitcode.Conflict},
+		{"alarm already acknowledged", gqlErr("ALARM_ALREADY_ACKNOWLEDGED"), exitcode.Conflict},
+		{"app uninstalled", gqlErr("APP_UNINSTALLED"), exitcode.Conflict},
+		{"task owner invalid", gqlErr("TASK_OWNER_INVALID"), exitcode.Usage},
+		{"task assignee invalid", gqlErr("TASK_ASSIGNEE_INVALID"), exitcode.Usage},
+		{"task child owner mismatch", gqlErr("TASK_CHILD_OWNER_MISMATCH"), exitcode.Usage},
+		{"not an alarm", gqlErr("NOT_AN_ALARM"), exitcode.Usage},
+		{"session not bound", gqlErr("SESSION_NOT_BOUND"), exitcode.Usage},
+		{"task not found", gqlErr("TASK_NOT_FOUND"), exitcode.NotFound},
+		{"alarm not found", gqlErr("ALARM_NOT_FOUND"), exitcode.NotFound},
 		// hadron-cli#522 / hadron-server#1084: the hold is not what the caller
 		// asserted, so the release they described is not the one that would
 		// happen. A state conflict like its neighbours, and it needs the

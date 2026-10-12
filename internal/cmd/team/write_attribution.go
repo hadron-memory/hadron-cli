@@ -146,7 +146,15 @@ func authoredWriteField(field string) bool {
 		"createObject", "updateObject", "deleteObject", "restoreNodeRevision",
 		"createAssetReferenceNode", "extractParentNodeToMemory",
 		"createComment", "replyToComment", "editComment", "deleteComment",
-		"resolveCommentThread", "reopenCommentThread", "deleteCommentThread", "setWorkerReportsTo":
+		"resolveCommentThread", "reopenCommentThread", "deleteCommentThread", "setWorkerReportsTo",
+		// The agent-task surface (hadron-cli#830 over server #1705/#1706):
+		// these mutations carry no sessionRef argument, so the bound
+		// worktree's session rides the X-Hadron-Session header — the worker
+		// is the actor when one is bound, the person otherwise.
+		"createAgentTask", "assignAgentTask", "reassignAgentTask",
+		"startAgentTask", "recordAgentTaskProgress", "finishAgentTask",
+		"cancelAgentTask", "acknowledgeAlarm",
+		"setWorkerAvailability", "setModelFamilyAvailability":
 		return true
 	default:
 		return false

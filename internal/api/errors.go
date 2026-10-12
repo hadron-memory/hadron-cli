@@ -867,6 +867,40 @@ func codeForExtension(code string) int {
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
 		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE":
 		return exitcode.Conflict
+	// The agent-task surface (hadron-cli#830 over server #1705/#1706). Who
+	// may move a task or set availability is the server's rule
+	// (cor:agt:050:08/:09, cor:agt:060:08/:09, cor:agt:050:20), so a
+	// not-owner / not-assignee / not-in-the-alarm-chain / not-permitted
+	// refusal is a permission one, not a usage one — the caller cannot fix
+	// it by rewording the argument.
+	case code == "TASK_NOT_OWNER" || code == "TASK_NOT_ASSIGNEE" ||
+		code == "ALARM_NOT_IN_CHAIN" || code == "AVAILABILITY_NOT_PERMITTED":
+		return exitcode.Forbidden
+	// A lifecycle move the task's current state forbids — assigning an
+	// already-assigned task, starting a finished one, acknowledging an alarm
+	// whose first acknowledgement already stands. The state must change
+	// before the same call can succeed, like every other Conflict here.
+	case code == "TASK_INVALID_TRANSITION" || code == "TASK_ENDED" ||
+		code == "ALARM_ALREADY_ACKNOWLEDGED":
+		return exitcode.Conflict
+	// A party ref that names nobody valid (TASK_OWNER_INVALID /
+	// TASK_ASSIGNEE_INVALID), an owner on a child task (the rule forbids it,
+	// the caller drops the flag), or an eventId that is not an alarm — all
+	// inputs the caller fixes. NOT_AN_ALARM is spelled without the _NOT_FOUND
+	// shape because the event EXISTS; only its kind is wrong.
+	case code == "TASK_OWNER_INVALID" || code == "TASK_ASSIGNEE_INVALID" ||
+		code == "TASK_CHILD_OWNER_MISMATCH" || code == "NOT_AN_ALARM":
+		return exitcode.Usage
+	// A write into an App that is uninstalled: the App's state, not the
+	// caller's argument — Conflict, like WORKER_RETIRED above.
+	case code == "APP_UNINSTALLED":
+		return exitcode.Conflict
+	// An operation that requires a bound worker session, called without one.
+	// The caller is AUTHENTICATED (a plain FORBIDDEN or 3 would misname it);
+	// the fix is their own next command — `team session start --as <worker>` —
+	// the same shape as WORKER_NAME_REQUIRED's "pass the flag".
+	case code == "SESSION_NOT_BOUND":
+		return exitcode.Usage
 	// An already-existing role is a state conflict (TEAM_ROLE_EXISTS is
 	// spelled without the _ALREADY_ the suffix rule matches).
 	//
