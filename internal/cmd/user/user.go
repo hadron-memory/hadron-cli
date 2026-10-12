@@ -280,14 +280,31 @@ func NewCmdProfile(f *cmdutil.Factory) *cobra.Command {
 func newCmdProfileSet(f *cmdutil.Factory) *cobra.Command {
 	var name, email, handle string
 	cmd := &cobra.Command{
-		Use:     "set [--name <n>] [--email <e>] [--handle <h>]",
-		Short:   "Update your own profile (only the fields you pass change)",
+		Use:   "set [--name <n>] [--handle <h>]",
+		Short: "Update your own profile — name and handle (email changes are not supported)",
+		Long: `Update your own profile — only the fields you pass change.
+
+--email is accepted and REFUSED, before any request:
+Changing your email address is not supported here.
+(#844, hadron-server#1801 compat: the server stopped serving email changes
+through profile updates — they need verification — and clearing is a change
+too. The flag stays so scripts fail loudly instead of silently; no recovery
+flow exists.)
+`,
 		Example: `  hadron profile set --name "Alice A" --handle alice`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
 			if !changed("name") && !changed("email") && !changed("handle") {
-				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one of --name, --email, or --handle")
+				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one of --name or --handle")
+			}
+			// #844 (Eden ruling, team chat #9290): refuse email LOCALLY,
+			// before any request, with the portal's verbatim sentence
+			// (hadron-portal#1079) — clearing included, since that is a
+			// change too, and the whole call refuses (no partial send of
+			// sibling flags).
+			if changed("email") {
+				return exitcode.Newf(exitcode.Usage, "Changing your email address is not supported here.")
 			}
 			// Validate a non-empty handle against the shared urn-lib rule (#692)
 			// so a bad handle fails fast with a clear message; an empty value
@@ -302,18 +319,17 @@ func newCmdProfileSet(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			// Send only the fields the caller set, so an unset flag leaves the
-			// field unchanged (an explicit --email "" is still sent, to clear it).
-			var namePtr, emailPtr, handlePtr *string
+			// field unchanged. Email never reaches this call: the refusal
+			// above returns first (#844), so the wire carries name/handle
+			// alone.
+			var namePtr, handlePtr *string
 			if changed("name") {
 				namePtr = &name
-			}
-			if changed("email") {
-				emailPtr = &email
 			}
 			if changed("handle") {
 				handlePtr = &handle
 			}
-			resp, err := gen.UpdateMyProfile(cmd.Context(), client, namePtr, emailPtr, handlePtr)
+			resp, err := gen.UpdateMyProfile(cmd.Context(), client, namePtr, nil, handlePtr)
 			if err != nil {
 				return api.MapError(err)
 			}
