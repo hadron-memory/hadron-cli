@@ -732,3 +732,68 @@ func TestUserSetRolesHumanOutputSaysUnknownNotNone(t *testing.T) {
 		t.Errorf("unknown prior roles must not render as 'none': %q", got)
 	}
 }
+
+// #844 (hadron-server#1801 compat, Eden ruling team-chat #9290): email
+// changes are no longer served by updateMyProfile — the server refuses a
+// CHANGED value (BAD_USER_INPUT) — so the CLI refuses LOCALLY, before any
+// request, with the portal's verbatim sentence (hadron-portal#1079). The
+// flag STAYS so scripts fail loudly; clearing (--email "") is a change too.
+func TestProfileSetEmailRefusedLocally(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		argv []string
+	}{
+		{"changed email", []string{"--email", "new@example.com"}},
+		{"explicit clear", []string{"--email", ""}},
+		{"whole call refuses with a sibling flag", []string{"--name", "Alice A", "--email", "new@example.com"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"UpdateMyProfile": `{"data":{"updateMyProfile":` + uUserJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append([]string{"profile", "set", "--server", gql.URL}, tc.argv...))
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), "Changing your email address is not supported here.") {
+				t.Fatalf("expected the ruled refusal, got %v", err)
+			}
+			if exitOf(err) != 2 {
+				t.Fatalf("expected usage exit 2, got %d", exitOf(err))
+			}
+			// The strongest assertion a client-side refusal can make: nothing
+			// reached the server (Xavier's gate comment).
+			if _, called := captured["UpdateMyProfile"]; called {
+				t.Fatalf("%v must be refused before UpdateMyProfile is called", tc.argv)
+			}
+		})
+	}
+}
+
+// The siblings keep working: the refusal is scoped to email alone.
+func TestProfileSetSiblingsUnchanged(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateMyProfile": `{"data":{"updateMyProfile":` + uUserJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"profile", "set", "--name", "Alice A", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, called := captured["UpdateMyProfile"]; !called {
+		t.Fatal("name-only update must still send UpdateMyProfile")
+	}
+}
+
+func TestProfileSetHelpCarriesTheSentence(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"profile", "set", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Changing your email address is not supported here.") {
+		t.Fatalf("help lacks the ruled sentence:\n%s", out.String())
+	}
+}
