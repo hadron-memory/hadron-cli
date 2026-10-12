@@ -124,6 +124,25 @@ mutation AgentTaskCancel($taskId: ID!) {
   }
 }
 
+# #1754 (cor:agt:050:02): a pending task with no assignee is parked — BACKLOG
+# takes no assignee, never enters the queue, is never matched or waited on,
+# and raises no alarms. Whoever may assign a task may park it
+# (cor:agt:050:09). TASK_INVALID_TRANSITION when not pending or assigned.
+mutation AgentTaskPark($taskId: ID!) {
+  parkAgentTask(taskId: $taskId) {
+    ...AgentTaskFields
+  }
+}
+
+# The way out of BACKLOG: the task becomes PENDING and enters the queue.
+# Whoever may assign a task may make it ready. TASK_INVALID_TRANSITION when
+# not backlog.
+mutation AgentTaskReady($taskId: ID!) {
+  makeAgentTaskReady(taskId: $taskId) {
+    ...AgentTaskFields
+  }
+}
+
 query AgentTaskGet($id: ID!) {
   agentTask(id: $id) {
     ...AgentTaskFields

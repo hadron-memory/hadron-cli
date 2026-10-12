@@ -2825,6 +2825,229 @@ func (v *AgentTaskListResponse) GetAgentTasks() []*AgentTaskListAgentTasksAgentT
 	return v.AgentTasks
 }
 
+// AgentTaskParkParkAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskParkParkAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetId returns AgentTaskParkParkAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetAppId returns AgentTaskParkParkAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
+
+// GetTitle returns AgentTaskParkParkAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetTitle() string { return v.AgentTaskFields.Title }
+
+// GetDescription returns AgentTaskParkParkAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetDescription() *string { return v.AgentTaskFields.Description }
+
+// GetStatus returns AgentTaskParkParkAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetStatus() AgentTaskStatus { return v.AgentTaskFields.Status }
+
+// GetQueued returns AgentTaskParkParkAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetQueued() bool { return v.AgentTaskFields.Queued }
+
+// GetWaitingOnChildren returns AgentTaskParkParkAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskParkParkAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskParkParkAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskParkParkAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskParkParkAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskParkParkAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetParentTaskId() *string { return v.AgentTaskFields.ParentTaskId }
+
+// GetTags returns AgentTaskParkParkAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetTags() []string { return v.AgentTaskFields.Tags }
+
+// GetSource returns AgentTaskParkParkAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
+
+// GetStartBy returns AgentTaskParkParkAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
+
+// GetCreatedAt returns AgentTaskParkParkAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
+
+// GetUpdatedAt returns AgentTaskParkParkAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetUpdatedAt() *string { return v.AgentTaskFields.UpdatedAt }
+
+// GetStartedAt returns AgentTaskParkParkAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetStartedAt() *string { return v.AgentTaskFields.StartedAt }
+
+// GetFinishedAt returns AgentTaskParkParkAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetFinishedAt() *string { return v.AgentTaskFields.FinishedAt }
+
+// GetCancelledAt returns AgentTaskParkParkAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetCancelledAt() *string { return v.AgentTaskFields.CancelledAt }
+
+// GetCloseSessionWhenDone returns AgentTaskParkParkAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskParkParkAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskParkParkAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+func (v *AgentTaskParkParkAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskParkParkAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskParkParkAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskParkParkAgentTask struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+}
+
+func (v *AgentTaskParkParkAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskParkParkAgentTask, error) {
+	var retval __premarshalAgentTaskParkParkAgentTask
+
+	retval.Id = v.AgentTaskFields.Id
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	return &retval, nil
+}
+
+// AgentTaskParkResponse is returned by AgentTaskPark on success.
+type AgentTaskParkResponse struct {
+	// #1754 — park a queued task in the backlog (hrn:node:hadronmemory.com:specs:cor:agt:050:02): pending
+	// with no assignee becomes BACKLOG — unassigned, never matched, never waited
+	// on, no alarms. Whoever may assign a task may park it: its owner, a worker
+	// the owner reports to, or whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
+	// TASK_ENDED, TASK_INVALID_TRANSITION (not pending, or an assignee),
+	// SESSION_NOT_BOUND, APP_UNINSTALLED.
+	ParkAgentTask *AgentTaskParkParkAgentTask `json:"parkAgentTask"`
+}
+
+// GetParkAgentTask returns AgentTaskParkResponse.ParkAgentTask, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkResponse) GetParkAgentTask() *AgentTaskParkParkAgentTask {
+	return v.ParkAgentTask
+}
+
 // One sanitized task party (never a User object). name is the Worker's name
 // or the person's handle; urn is set for workers only.
 type AgentTaskPartyFields struct {
@@ -3120,6 +3343,248 @@ type AgentTaskProgressResponse struct {
 // GetRecordAgentTaskProgress returns AgentTaskProgressResponse.RecordAgentTaskProgress, and is useful for accessing the field via an interface.
 func (v *AgentTaskProgressResponse) GetRecordAgentTaskProgress() *AgentTaskProgressRecordAgentTaskProgressAgentTask {
 	return v.RecordAgentTaskProgress
+}
+
+// AgentTaskReadyMakeAgentTaskReadyAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskReadyMakeAgentTaskReadyAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetId returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetAppId returns AgentTaskReadyMakeAgentTaskReadyAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
+
+// GetTitle returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetTitle() string { return v.AgentTaskFields.Title }
+
+// GetDescription returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetQueued() bool { return v.AgentTaskFields.Queued }
+
+// GetWaitingOnChildren returns AgentTaskReadyMakeAgentTaskReadyAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskReadyMakeAgentTaskReadyAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetTags() []string { return v.AgentTaskFields.Tags }
+
+// GetSource returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetStartBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetCreatedAt returns AgentTaskReadyMakeAgentTaskReadyAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskReadyMakeAgentTaskReadyAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskReadyMakeAgentTaskReadyAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskReadyMakeAgentTaskReadyAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskReadyMakeAgentTaskReadyAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskReadyMakeAgentTaskReadyAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskReadyMakeAgentTaskReadyAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskReadyMakeAgentTaskReadyAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+}
+
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask, error) {
+	var retval __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask
+
+	retval.Id = v.AgentTaskFields.Id
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	return &retval, nil
+}
+
+// AgentTaskReadyResponse is returned by AgentTaskReady on success.
+type AgentTaskReadyResponse struct {
+	// #1754 — make a backlog task ready to be worked
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:02): BACKLOG becomes PENDING and the task enters
+	// the queue. Whoever may assign a task may make it ready: its owner, a worker
+	// the owner reports to, or whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
+	// TASK_ENDED, TASK_INVALID_TRANSITION (not backlog), SESSION_NOT_BOUND, APP_UNINSTALLED.
+	MakeAgentTaskReady *AgentTaskReadyMakeAgentTaskReadyAgentTask `json:"makeAgentTaskReady"`
+}
+
+// GetMakeAgentTaskReady returns AgentTaskReadyResponse.MakeAgentTaskReady, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyResponse) GetMakeAgentTaskReady() *AgentTaskReadyMakeAgentTaskReadyAgentTask {
+	return v.MakeAgentTaskReady
 }
 
 // AgentTaskReassignReassignAgentTask includes the requested fields of the GraphQL type AgentTask.
@@ -45736,6 +46201,14 @@ func (v *__AgentTaskListInput) GetStatus() []AgentTaskStatus { return v.Status }
 // GetTag returns __AgentTaskListInput.Tag, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListInput) GetTag() *string { return v.Tag }
 
+// __AgentTaskParkInput is used internally by genqlient
+type __AgentTaskParkInput struct {
+	TaskId string `json:"taskId"`
+}
+
+// GetTaskId returns __AgentTaskParkInput.TaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskParkInput) GetTaskId() string { return v.TaskId }
+
 // __AgentTaskProgressInput is used internally by genqlient
 type __AgentTaskProgressInput struct {
 	TaskId string `json:"taskId"`
@@ -45743,6 +46216,14 @@ type __AgentTaskProgressInput struct {
 
 // GetTaskId returns __AgentTaskProgressInput.TaskId, and is useful for accessing the field via an interface.
 func (v *__AgentTaskProgressInput) GetTaskId() string { return v.TaskId }
+
+// __AgentTaskReadyInput is used internally by genqlient
+type __AgentTaskReadyInput struct {
+	TaskId string `json:"taskId"`
+}
+
+// GetTaskId returns __AgentTaskReadyInput.TaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskReadyInput) GetTaskId() string { return v.TaskId }
 
 // __AgentTaskReassignInput is used internally by genqlient
 type __AgentTaskReassignInput struct {
@@ -50418,6 +50899,92 @@ func AgentTaskList(
 	return data_, err_
 }
 
+// The mutation executed by AgentTaskPark.
+const AgentTaskPark_Operation = `
+mutation AgentTaskPark ($taskId: ID!) {
+	parkAgentTask(taskId: $taskId) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	id
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		role
+		familyIn
+		familyNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// #1754 (cor:agt:050:02): a pending task with no assignee is parked — BACKLOG
+// takes no assignee, never enters the queue, is never matched or waited on,
+// and raises no alarms. Whoever may assign a task may park it
+// (cor:agt:050:09). TASK_INVALID_TRANSITION when not pending or assigned.
+func AgentTaskPark(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskId string,
+) (data_ *AgentTaskParkResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskPark",
+		Query:  AgentTaskPark_Operation,
+		Variables: &__AgentTaskParkInput{
+			TaskId: taskId,
+		},
+	}
+
+	data_ = &AgentTaskParkResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AgentTaskProgress.
 const AgentTaskProgress_Operation = `
 mutation AgentTaskProgress ($taskId: ID!) {
@@ -50489,6 +51056,91 @@ func AgentTaskProgress(
 	}
 
 	data_ = &AgentTaskProgressResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AgentTaskReady.
+const AgentTaskReady_Operation = `
+mutation AgentTaskReady ($taskId: ID!) {
+	makeAgentTaskReady(taskId: $taskId) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	id
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		role
+		familyIn
+		familyNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// The way out of BACKLOG: the task becomes PENDING and enters the queue.
+// Whoever may assign a task may make it ready. TASK_INVALID_TRANSITION when
+// not backlog.
+func AgentTaskReady(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskId string,
+) (data_ *AgentTaskReadyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskReady",
+		Query:  AgentTaskReady_Operation,
+		Variables: &__AgentTaskReadyInput{
+			TaskId: taskId,
+		},
+	}
+
+	data_ = &AgentTaskReadyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

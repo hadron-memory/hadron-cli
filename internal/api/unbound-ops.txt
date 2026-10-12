@@ -81,7 +81,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 111 unbound
+[Mutation] 109 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -135,9 +135,7 @@ joinApp
 joinWaitingList
 leaveApp
 linkGithubApp
-makeAgentTaskReady  # cli#851 BACKLOG lifecycle (server #1754); parity tracked
 mergeMemories
-parkAgentTask  # cli#851 BACKLOG lifecycle (server #1754); parity tracked
 processChatResponse
 publishAgentImport
 publishRevision
