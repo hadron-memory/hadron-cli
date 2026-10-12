@@ -371,12 +371,34 @@ func TestTeamTaskCreateStatusFlag(t *testing.T) {
 		if err == nil {
 			t.Fatal("an unknown --status value must be refused")
 		}
+		if got := exitCodeFor(err); got != exitcode.Usage {
+			t.Fatalf("exit code = %d, want %d (Usage)", got, exitcode.Usage)
+		}
 		if !strings.Contains(err.Error(), "backlog") || !strings.Contains(err.Error(), "pending") {
 			t.Fatalf("the refusal should name the two create-time statuses, got %v", err)
 		}
 		for i := range *calls {
 			if (*calls)[i].Op == "AgentTaskCreate" {
 				t.Fatal("an invalid --status must be refused BEFORE the mutation")
+			}
+		}
+	})
+	// An EXPLICIT empty --status is a supplied value outside backlog|pending —
+	// the an-empty-flag-is-not-an-absent-flag rule. `--status "$VAR"` with an
+	// unset VAR must fail loudly, not quietly create a queued task the caller
+	// meant to park (Anne cycle-0 P2-1).
+	t.Run("an explicit empty status is refused", func(t *testing.T) {
+		calls, _, err := runTeamTask(t, taskResponses(),
+			"team", "task", "create", "Fix the flaky CI build", "--status", "")
+		if err == nil {
+			t.Fatal("an explicitly empty --status must be refused, not read as omission")
+		}
+		if got := exitCodeFor(err); got != exitcode.Usage {
+			t.Fatalf("exit code = %d, want %d (Usage)", got, exitcode.Usage)
+		}
+		for i := range *calls {
+			if (*calls)[i].Op == "AgentTaskCreate" {
+				t.Fatal("an empty --status must be refused BEFORE the mutation — a script's parked create must not silently queue")
 			}
 		}
 	})
