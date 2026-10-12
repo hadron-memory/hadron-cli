@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/orca/.local/bin/worker-auto-shed"
+          }
+        ]
+      }
+    ]
+  }
+}

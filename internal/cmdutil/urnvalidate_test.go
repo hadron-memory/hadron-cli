@@ -217,3 +217,30 @@ func TestCanonicalizeURNRejectsIllegalHandleNamespace(t *testing.T) {
 		})
 	}
 }
+
+// cli#839: org roots may be undotted; ID-shaped and reserved roots are refused
+// with the lib's reason, and a user handle gets the same root policy.
+func TestValidateOrgSlugAndHandleRootPolicy(t *testing.T) {
+	for _, ok := range []string{"acme", "acme.com", "flow-lab"} {
+		if err := ValidateOrgSlug("--urn", ok); err != nil {
+			t.Errorf("ValidateOrgSlug(%q) = %v, want nil", ok, err)
+		}
+	}
+	refused := map[string]string{
+		"0123456789abcdef0123456789abcdef": "root-id-shaped",
+		"cabcdefghijklmnopqrstuvwx":        "root-id-shaped",
+		"hrn":                              "reserved-word-slug",
+		"urn":                              "reserved-word-slug",
+	}
+	for in, reason := range refused {
+		for name, validate := range map[string]func(string, string) error{
+			"ValidateOrgSlug":    ValidateOrgSlug,
+			"ValidateUserHandle": ValidateUserHandle,
+		} {
+			err := validate("--flag", in)
+			if err == nil || !strings.Contains(err.Error(), reason) {
+				t.Errorf("%s(%q) = %v, want a %s refusal", name, in, err, reason)
+			}
+		}
+	}
+}
