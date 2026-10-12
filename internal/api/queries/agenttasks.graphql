@@ -1,0 +1,346 @@
+# `hadron team task|roster|events|alarm|availability` — the Task Management
+# epic's CLI slice T4 (hadron-cli#830, server #1705/#1706/#1707). Every
+# operation below is a THIN caller over a server-owned gate; the CLI composes
+# no task state and derives nothing the server doesn't hand back.
+#
+# Attribution: the write mutations carry no sessionRef argument — the server
+# takes the actor from the X-Hadron-Session header (api.WithSession), which
+# the authored-write middleware adds for exactly the root fields listed in
+# authoredWriteField (internal/cmd/team/write_attribution.go). A person with
+# no worktree binding writes as themselves over plain GraphQL.
+
+# One sanitized task party (never a User object). name is the Worker's name
+# or the person's handle; urn is set for workers only.
+fragment AgentTaskPartyFields on AgentTaskParty {
+  id
+  kind
+  name
+  urn
+}
+
+fragment AgentTaskFields on AgentTask {
+  id
+  appId
+  title
+  description
+  status
+  queued
+  waitingOnChildren
+  owner {
+    ...AgentTaskPartyFields
+  }
+  assignee {
+    ...AgentTaskPartyFields
+  }
+  assignedBy {
+    ...AgentTaskPartyFields
+  }
+  createdBy {
+    ...AgentTaskPartyFields
+  }
+  parentTaskId
+  tags
+  source
+  startBy
+  createdAt
+  updatedAt
+  startedAt
+  finishedAt
+  cancelledAt
+  closeSessionWhenDone
+  requirements {
+    role
+    familyIn
+    familyNotIn
+    excludeWorkerIds
+  }
+  result {
+    outcome
+    summary
+    evidence
+  }
+}
+
+# createAgentTask takes one input object; appRef is required for a root task
+# and inherited from the parent for a child. Optional party/requirements
+# inputs are omitempty so a nil pointer is OMITTED (preserve/default), never
+# sent as null — the wire-semantics rule from CLAUDE.md.
+mutation AgentTaskCreate(
+  $input: CreateAgentTaskInput!
+) {
+  createAgentTask(input: $input) {
+    ...AgentTaskFields
+  }
+}
+
+# assign/reassign take closeSessionWhenDone as an OPTIONAL argument that
+# replaces the task's value only when given — omitempty is load-bearing.
+mutation AgentTaskAssign(
+  $taskId: ID!
+  $assignee: AgentTaskPartyInput!
+  # @genqlient(omitempty: true)
+  $closeSessionWhenDone: Boolean
+) {
+  assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskReassign(
+  $taskId: ID!
+  $assignee: AgentTaskPartyInput!
+  # @genqlient(omitempty: true)
+  $closeSessionWhenDone: Boolean
+) {
+  reassignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskStart($taskId: ID!) {
+  startAgentTask(taskId: $taskId) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskProgress($taskId: ID!) {
+  recordAgentTaskProgress(taskId: $taskId) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskFinish(
+  $taskId: ID!
+  $result: AgentTaskResultInput!
+) {
+  finishAgentTask(taskId: $taskId, result: $result) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskCancel($taskId: ID!) {
+  cancelAgentTask(taskId: $taskId) {
+    ...AgentTaskFields
+  }
+}
+
+query AgentTaskGet($id: ID!) {
+  agentTask(id: $id) {
+    ...AgentTaskFields
+  }
+}
+
+# Plain list read; paging is limit/offset against a bounded result. The
+# filters map 1:1 onto `team task list` flags.
+query AgentTaskList(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $assignee: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $owner: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $parentTaskId: ID
+  # @genqlient(omitempty: true)
+  $queued: Boolean
+  # @genqlient(omitempty: true)
+  $rootsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $status: [AgentTaskStatus!]
+  # @genqlient(omitempty: true)
+  $tag: String
+) {
+  agentTasks(
+    appRef: $appRef
+    assignee: $assignee
+    limit: $limit
+    offset: $offset
+    owner: $owner
+    parentTaskId: $parentTaskId
+    queued: $queued
+    rootsOnly: $rootsOnly
+    status: $status
+    tag: $tag
+  ) {
+    ...AgentTaskFields
+  }
+}
+
+query AgentTaskTree($root: ID!) {
+  agentTaskTree(root: $root) {
+    ...AgentTaskFields
+  }
+}
+
+# The team's append-only event stream. `after` continues strictly past an
+# event id; alarmsOnly is `team events --alarms` and the alarm leg of
+# `team task tree`.
+fragment AgentTeamEventFields on AgentTeamEvent {
+  id
+  appId
+  taskId
+  type
+  severity
+  createdAt
+  actor {
+    ...AgentTaskPartyFields
+  }
+  subjectWorker {
+    ...AgentTaskPartyFields
+  }
+  payload
+  acknowledgedAt
+  acknowledgedBy {
+    ...AgentTaskPartyFields
+  }
+  episodeStart
+  chain
+  wakes {
+    chainIndex
+    dueAt
+    owner {
+      ...AgentTaskPartyFields
+    }
+    wokenAt
+  }
+}
+
+query AgentTeamEvents(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $after: ID
+  # @genqlient(omitempty: true)
+  $alarmsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $since: DateTime
+  # @genqlient(omitempty: true)
+  $taskId: ID
+  # @genqlient(omitempty: true)
+  $types: [String!]
+) {
+  agentTeamEvents(
+    appRef: $appRef
+    after: $after
+    alarmsOnly: $alarmsOnly
+    limit: $limit
+    since: $since
+    taskId: $taskId
+    types: $types
+  ) {
+    ...AgentTeamEventFields
+  }
+}
+
+mutation AlarmAcknowledge($eventId: ID!) {
+  acknowledgeAlarm(eventId: $eventId) {
+    ...AgentTeamEventFields
+  }
+}
+
+# The server-derived roster (#1707). Rendered, never re-derived client-side;
+# the states are plan-derived (cor:agt:050 Out Of Scope), which the command's
+# help text says out loud.
+query TeamRoster($appRef: ID!) {
+  teamRoster(appRef: $appRef) {
+    appId
+    asOf
+    workers {
+      worker {
+        ...AgentTaskPartyFields
+      }
+      state
+      role
+      bound
+      liveSession
+      family
+      freeForWork
+      freeFamilies
+      launchableFamilies
+      unavailableFamilies
+      unavailableReason
+      unavailableUntil
+      lastActiveAt
+      lastAssignedAt
+      pendingTasks
+      startedTasks
+      waitingOn
+      waitingSince
+      unreactedChildTask
+      alarms
+      reportsTo {
+        ...AgentTaskPartyFields
+      }
+      reportsToRetired
+    }
+  }
+}
+
+# Every worker and model-family availability record in an App (#1706) —
+# `team availability get` renders both halves from this one read.
+query TeamAvailability($appRef: ID!) {
+  teamAvailability(appRef: $appRef) {
+    workers {
+      worker {
+        ...AgentTaskPartyFields
+      }
+      state
+      reason
+      until
+      setAt
+      setByParty {
+        ...AgentTaskPartyFields
+      }
+      inEffect
+    }
+    families {
+      appId
+      family
+      state
+      reason
+      until
+      setAt
+      # The family record names its actor directly (setBy is the party);
+      # only the worker record splits it into the enum + setByParty.
+      setBy {
+        ...AgentTaskPartyFields
+      }
+      inEffect
+    }
+  }
+}
+
+mutation WorkerAvailabilitySet($input: SetWorkerAvailabilityInput!) {
+  setWorkerAvailability(input: $input) {
+    worker {
+      ...AgentTaskPartyFields
+    }
+    state
+    reason
+    until
+    setAt
+    setByParty {
+      ...AgentTaskPartyFields
+    }
+    inEffect
+  }
+}
+
+mutation ModelFamilyAvailabilitySet($input: SetModelFamilyAvailabilityInput!) {
+  setModelFamilyAvailability(input: $input) {
+    appId
+    family
+    state
+    reason
+    until
+    setAt
+    setBy {
+      ...AgentTaskPartyFields
+    }
+    inEffect
+  }
+}
