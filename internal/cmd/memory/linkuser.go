@@ -148,6 +148,20 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 			if resp == nil || resp.LinkMemoryToUser == nil {
 				return exitcode.Newf(exitcode.Error, "link returned no memory")
 			}
+			// A header fails silently where an argument failed loudly (#847
+			// cycle 0, Xavier P1 / Ralion's §10 P2): a pre-#1817 server or a
+			// header-stripping proxy ignores x-hadron-operation-key, the
+			// document legitimately omits dataKey, and this IRREVERSIBLE
+			// promotion completes unencrypted while the caller asked for
+			// encryption. Refuse loudly, stating both halves honestly. This
+			// cannot false-alarm on a #1817+ server: there, a key-supplied
+			// promotion either lands encrypted or the request itself errors
+			// (BAD_UNLOCK_INPUT / WRONG_KEY).
+			if key != nil && !resp.LinkMemoryToUser.IsEncrypted {
+				return exitcode.Newf(exitcode.Error,
+					"the promotion completed unencrypted — a data key was supplied but the server did not apply it (an older server or a proxy may have dropped the operation-key header). "+
+						"The promotion is irreversible: verify the memory's state; hadron memory encrypt can still encrypt it with the same key")
+			}
 			dto := linkUserDTO{
 				Memory:      dtoFromMemory(resp.LinkMemoryToUser),
 				PreviousURN: previousURN,

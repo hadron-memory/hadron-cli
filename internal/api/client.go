@@ -180,16 +180,45 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 		req.Header.Set(OperationKeyHeader, key)
 	}
 	resp, err := d.inner.Do(req)
-	if err != nil || resp.StatusCode < 500 {
+	if err != nil {
 		return resp, err
 	}
-	return classifyGatewayResponse(resp, requestSecrets(req))
+	secrets := requestSecrets(req)
+	if len(secrets) == 0 {
+		if resp.StatusCode < 500 {
+			return resp, nil
+		}
+		return classifyGatewayResponse(resp)
+	}
+	// A key rode this request (#847 cycle 0: Diego P2, Ralion's amended P2,
+	// Xavier P2-1): the response body is untrusted diagnostics at EVERY
+	// status, not just the gateway 5xx class. genqlient embeds the whole raw
+	// body of a non-200 non-envelope response in its printed error, and a 200
+	// errors envelope renders through MapError's message join — so read the
+	// body once, scrub every spelling of the key, and only then let it be
+	// parsed, classified or echoed. Status, GraphQL envelope and codes
+	// survive; only the key's spellings are replaced.
+	body, readErr := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if readErr != nil {
+		// An unreadable body cannot be proved clean, and headers arrived, so
+		// the request certainly reached the server — a lost answer, not a
+		// refusal.
+		return nil, &gatewayError{status: resp.StatusCode, body: nil}
+	}
+	body = redactSecrets(body, secrets)
+	if resp.StatusCode >= 500 && !hasGraphQLErrorsEnvelope(body) {
+		return nil, &gatewayError{status: resp.StatusCode, body: body}
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	resp.ContentLength = int64(len(body))
+	return resp, nil
 }
 
 // requestSecrets lists values an error rendering must never echo back: the
 // per-call operation key (#846). A misbehaving edge that replays the request —
-// headers included — in its error page would otherwise put the key inside
-// gatewayError's bounded body snippet.
+// headers included — in its error page would otherwise put the key inside any
+// body-derived diagnostic.
 func requestSecrets(req *http.Request) []string {
 	var secrets []string
 	for _, s := range []string{operationKeyFrom(req.Context()), req.Header.Get(OperationKeyHeader)} {
@@ -321,7 +350,10 @@ func selectionHasSessionRef(selections ast.SelectionSet) bool {
 // (`transportStatus`), which has always classified an HTML 502 correctly. That
 // divergence is what hid the bug: the same question was answered two ways, and
 // only the answer nobody tested was wrong.
-func classifyGatewayResponse(resp *http.Response, secrets []string) (*http.Response, error) {
+// classifyGatewayResponse runs only for responses with NO secret riding the
+// request; key-bearing responses are read and redacted whole in bearerDoer.Do
+// before this point.
+func classifyGatewayResponse(resp *http.Response) (*http.Response, error) {
 	// Read in full rather than up to a cap. genqlient's own error path does
 	// io.ReadAll with no limit, so this adds no exposure — while a cap would
 	// add a failure mode, truncating a large but legitimate errors[] into
@@ -334,10 +366,6 @@ func classifyGatewayResponse(resp *http.Response, secrets []string) (*http.Respo
 		// committed. That is a lost answer, not a refusal.
 		return nil, &gatewayError{status: resp.StatusCode, body: nil}
 	}
-	// A gateway that echoes the request (headers included) must not turn the
-	// error path into the leak path: scrub the operation key out of any
-	// rendering of this body (#846).
-	body = redactSecrets(body, secrets)
 	if hasGraphQLErrorsEnvelope(body) {
 		// The API's own opinion, however bad the status. Hand the response
 		// back intact — genqlient parses it and the extension-code mapping in
@@ -348,16 +376,52 @@ func classifyGatewayResponse(resp *http.Response, secrets []string) (*http.Respo
 	return nil, &gatewayError{status: resp.StatusCode, body: body}
 }
 
-// redactSecrets replaces every occurrence of each secret with a placeholder.
-// Rendered error bodies are diagnostics, never a channel for credentials.
+// redactSecrets replaces every occurrence of each secret — and of its
+// URL-encoded spellings, whose percent-triplets an echoing gateway can render
+// in either hex case — with a placeholder. Rendered error bodies are
+// diagnostics, never a channel for credentials.
 func redactSecrets(body []byte, secrets []string) []byte {
 	for _, s := range secrets {
-		if s == "" {
-			continue
+		for _, spelling := range secretSpellings(s) {
+			body = bytes.ReplaceAll(body, []byte(spelling), []byte("[redacted]"))
 		}
-		body = bytes.ReplaceAll(body, []byte(s), []byte("[redacted]"))
 	}
 	return body
+}
+
+// secretSpellings lists the encodings of secret an echoing intermediary could
+// reasonably put in a body: the exact value, the query- and path-escaped
+// forms, and the lower-case-hex variants of those escapes. Bounded on
+// purpose: hostile encodings are uncountable, and the value is never legit
+// body content in any spelling.
+func secretSpellings(secret string) []string {
+	spellings := []string{secret}
+	for _, esc := range []func(string) string{url.QueryEscape, url.PathEscape} {
+		e := esc(secret)
+		if e != secret && e != "" {
+			spellings = append(spellings, e, lowercasePercentHex(e))
+		}
+	}
+	return spellings
+}
+
+// lowercasePercentHex lowercases only the hexadecimal digits of
+// percent-triplets; the surrounding base64 is case-significant and must not
+// change.
+func lowercasePercentHex(s string) string {
+	b := []byte(s)
+	for i := 0; i+2 < len(b); i++ {
+		if b[i] != '%' {
+			continue
+		}
+		for j := i + 1; j <= i+2; j++ {
+			if b[j] >= 'A' && b[j] <= 'F' {
+				b[j] += 'a' - 'A'
+			}
+		}
+		i += 2
+	}
+	return string(b)
 }
 
 // gatewayError is a 5xx whose body was not a GraphQL envelope — the edge, not

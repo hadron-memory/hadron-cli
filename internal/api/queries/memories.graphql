@@ -381,11 +381,12 @@ mutation EncryptMemory($memoryId: ID!, $dataKey: String!) {
 #
 # The data key NEVER appears here. It is supplied per request through the
 # x-hadron-operation-key header (hadron-server#1817, the first #1796 slice for
-# cor:sec:040:04: "a key is never a field on a query or a mutation") — the
-# command sets it with api.WithOperationKey, which also refuses a non-canonical
-# key before any request. This document must not name dataKey at all, even to
-# omit it: the removal slice deletes the argument, which breaks every document
-# that names it.
+# cor:sec:040:04: "a key is never a field on a query or a mutation"). The
+# command carries it with api.WithOperationKey (a per-call context marker; it
+# performs NO validation) and refuses a non-canonical key client-side with
+# api.ValidateOperationKey, before any request. This document must not name
+# dataKey at all, even to omit it: the removal slice deletes the argument,
+# which breaks every document that names it.
 mutation LinkMemoryToUser(
   $memoryId: ID!
   $externalUserId: String!

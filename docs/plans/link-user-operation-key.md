@@ -54,7 +54,36 @@ key to whatever host it names — on both of `NewClient`'s policies (the
 token-bearing one allows cross-host hops precisely because it trusts Go to
 drop `Authorization`, which does not apply here). Key-bearing requests now
 refuse cross-host and insecure hops, on the initial URL too, including the
-no-token client path.
+no-token client path. The cleartext refusal shares the token rules'
+carve-outs (`schemeIsSecure`): https, an http **loopback** host, or
+`HADRON_ALLOW_HTTP=1` for a trusted self-hosted server.
+
+## Cycle 1 (review findings on the frozen head)
+
+Cycle 0 (#9452/#9457/#9458/#9466) found two defects and doc gaps, all fixed
+in one head:
+
+- **The silent downgrade** (Xavier P1 = Ralion's §10 P2): a pre-#1817 server
+  or a header-stripping proxy ignores the header, the document legitimately
+  omits `dataKey`, and the irreversible promotion completed UNENCRYPTED with
+  exit 0. `linkuser.go` now fails loudly when a key was supplied and the
+  response reports `isEncrypted: false` — a guard that cannot false-alarm on
+  a #1817+ server, where a key-supplied promotion either lands encrypted or
+  the request itself errors. Ralion's recommended preflight introspection of
+  `dataKey`'s deprecation was deliberately NOT taken: the response guard
+  covers stripped headers, old servers and future channel defects alike,
+  while a preflight costs a round trip and reads a schema detail the guard
+  does not depend on.
+- **Redaction at every status** (Diego P2 = Ralion's amended P2 = Xavier
+  P2-1): genqlient embeds the whole raw body of a non-200 non-envelope
+  response in its printed error, and a 200 errors envelope renders through
+  MapError's message join — so the 5xx-only gateway snippet scrub was not
+  enough. The doer now reads and redacts every response to a key-bearing
+  request (status, envelope and codes preserved), including URL-encoded
+  spellings of the key in both hex cases.
+- Doc accuracy (Xavier P2-2): the operation comment no longer claims
+  `WithOperationKey` validates — `ValidateOperationKey` is the refusing
+  function, called at the command layer before any request.
 
 ## Contract notes
 

@@ -769,7 +769,10 @@ func codeForExtension(code string) int {
 	// caller fixes the VALUE, the same shape as BAD_USER_INPUT — not a server
 	// fault (1). Neither message ever echoes the key. The CLI pre-validates
 	// the header shape (#846), so these arriving here means the server
-	// disagreed about something the client could not check.
+	// disagreed about something the client could not check. Sweep at the gate
+	// (#847 cycle 0): link-user is the only shipped surface that can draw
+	// these codes — UnlockMemory/passphrase live in generated code no CLI
+	// command calls.
 	case code == "BAD_UNLOCK_INPUT" || code == "WRONG_KEY":
 		return exitcode.Usage
 	// Approval/verification needs an active encryption session to read the
