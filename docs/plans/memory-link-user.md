@@ -45,8 +45,12 @@ second authorization surface the mutation does not require.
 **`--data-key` reuses the `memory encrypt` shape.** Same flag name, same `-`
 means stdin, same one-way warning, and the confirmation happens BEFORE the key
 is read because `--data-key -` consumes the stdin the prompt is answered on.
-`dataKey` carries `omitempty`, so omitting it sends no field rather than an
-explicit null.
+~~`dataKey` carries `omitempty`, so omitting it sends no field rather than an
+explicit null.~~ Superseded by #846 (cor:sec:040:04): the key now rides the
+per-request `x-hadron-operation-key` header and the operation document does
+not name `dataKey` at all — see [link-user-operation-key.md](link-user-operation-key.md).
+The `omitempty` shape still applies to `memory encrypt`, which keeps its
+argument until the #1259-dependent slice.
 
 **`--data-key` presence, not value.** The flag is detected with
 `cmd.Flags().Changed("data-key")`, never `dataKey != ""`. Testing the value
