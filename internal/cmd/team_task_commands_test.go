@@ -913,3 +913,241 @@ func TestTeamAvailabilitySetWorkerNameStillNeedsTheApp(t *testing.T) {
 		t.Fatalf("bare name without an App accepted: %v", err)
 	}
 }
+
+// ---- cycle 2 (Xylon local seat #9250, routed by Ada #9261) ----------------
+
+func TestTeamRosterNullWorkerEntryDoesNotPanic(t *testing.T) {
+	// P2-1: the roster's *partyDTO(w.Worker) was the diff's only unguarded
+	// party dereference — a null worker entry panicked where every sibling
+	// falls back to an empty party.
+	responses := taskResponses()
+	responses["TeamRoster"] = `{"data":{"teamRoster":{"appId":"capp100000000000000000000","asOf":"2026-10-12T04:00:00Z","workers":[
+		{"worker":null,"state":"AVAILABLE","role":null,"bound":false,"liveSession":false,"family":null,
+		 "freeForWork":true,"freeFamilies":[],"launchableFamilies":[],"unavailableFamilies":[],
+		 "unavailableReason":null,"unavailableUntil":null,"lastActiveAt":null,"lastAssignedAt":null,
+		 "pendingTasks":[],"startedTasks":[],"waitingOn":[],"waitingSince":null,"unreactedChildTask":null,
+		 "alarms":[],"reportsTo":null,"reportsToRetired":false}]}}}`
+	_, out, err := runTeamTask(t, responses, "team", "roster")
+	if err != nil {
+		t.Fatalf("null worker entry: %v", err)
+	}
+	if !strings.Contains(out, "AVAILABLE") {
+		t.Fatalf("render %q", out)
+	}
+}
+
+func TestTeamEventsNullWakeEntryDoesNotPanic(t *testing.T) {
+	// P2-1's sibling: a null wakes[] entry hit the unguarded loop.
+	responses := taskResponses()
+	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + alarmEventFieldsJSON + `]}}`
+	_, _, err := runTeamTask(t, responses, "team", "events", "--alarms", "--json")
+	if err != nil {
+		t.Fatalf("null wake entry: %v", err)
+	}
+}
+
+func TestTeamTaskTreeOrphanRendersTopLevel(t *testing.T) {
+	// P2-2: the orphan branch was claimed and pinned by nothing — delete it
+	// and rows whose parent sits outside the chain silently vanished.
+	orphan := strings.Replace(taskFieldsJSON, `"parentTaskId":null`, `"parentTaskId":"gone-parent"`, 1)
+	responses := taskResponses()
+	responses["AgentTaskTree"] = `{"data":{"agentTaskTree":[` + orphan + `]}}`
+	_, out, err := runTeamTask(t, responses, "team", "task", "tree", "task1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "task1") {
+		t.Fatalf("orphan row vanished: %q", out)
+	}
+}
+
+func TestTeamTaskTreeCycleRendersNotNothing(t *testing.T) {
+	// P2-3: two rows parenting each other left roots empty and the command
+	// succeeded with ZERO output — the #470-class sin, in the very render
+	// whose stated intent is that nothing a read returned may vanish.
+	a := strings.Replace(taskFieldsJSON, `"parentTaskId":null`, `"parentTaskId":"taskB"`, 1)
+	b := strings.Replace(strings.Replace(taskFieldsJSON, `"id":"task1"`, `"id":"taskB"`, 1), `"parentTaskId":null`, `"parentTaskId":"task1"`, 1)
+	responses := taskResponses()
+	responses["AgentTaskTree"] = `{"data":{"agentTaskTree":[` + a + `,` + b + `]}}`
+	_, out, err := runTeamTask(t, responses, "team", "task", "tree", "task1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "task1") || !strings.Contains(out, "taskB") {
+		t.Fatalf("cycle rendered nothing: %q", out)
+	}
+}
+
+func TestTeamTaskGetNullAnswersNotFound(t *testing.T) {
+	// P2-2: the nil-answer guard was pinned by nothing.
+	responses := taskResponses()
+	responses["AgentTaskGet"] = `{"data":{"agentTask":null}}`
+	_, _, err := runTeamTask(t, responses, "team", "task", "get", "task1")
+	if err == nil || exitOf(err) != 4 {
+		t.Fatalf("null read: %v (exit %d)", err, exitOf(err))
+	}
+}
+
+func TestTeamTaskTreeEmptyAnswersNotFound(t *testing.T) {
+	responses := taskResponses()
+	responses["AgentTaskTree"] = `{"data":{"agentTaskTree":[]}}`
+	_, _, err := runTeamTask(t, responses, "team", "task", "tree", "task1")
+	if err == nil || exitOf(err) != 4 {
+		t.Fatalf("empty tree: %v (exit %d)", err, exitOf(err))
+	}
+}
+
+func TestTeamTaskCreateParentTakesAppFromParent(t *testing.T) {
+	// P2-2: the no-scope --parent branch (appRef omitted, the server takes it
+	// from the parent) was claimed in the plan and pinned by nothing.
+	srv, calls := attnServer(t, taskResponses())
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "task", "create", "Child work",
+		"--parent", "task1", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range *calls {
+		if c.Op == "AgentTaskCreate" {
+			input, _ := c.Vars["input"].(map[string]any)
+			if input == nil || input["appRef"] != nil {
+				t.Fatalf("appRef %v — the parent names the App", c.Vars["input"])
+			}
+			if input["parentTaskId"] != "task1" {
+				t.Fatalf("parentTaskId %v", input["parentTaskId"])
+			}
+			return
+		}
+	}
+	t.Fatal("no AgentTaskCreate call")
+}
+
+func TestTeamAlarmAckBlankArgRefused(t *testing.T) {
+	_, _, err := runTeamTask(t, taskResponses(), "team", "alarm", "ack", "  ")
+	if err == nil || !strings.Contains(err.Error(), "alarm event id") {
+		t.Fatalf("blank arg accepted: %v", err)
+	}
+}
+
+func TestTeamTaskFinishCharsetEnforced(t *testing.T) {
+	// P3-2: the help advertised letters/digits/underscore/hyphen/dot; the
+	// check refused only spaces.
+	for _, bad := range []string{"two words", "a\nb", "a;b", "ok!"} {
+		_, _, err := runTeamTask(t, taskResponses(), "team", "task", "finish", "task1", "--outcome", bad)
+		if err == nil {
+			t.Fatalf("outcome %q accepted", bad)
+		}
+	}
+}
+
+func TestTeamTaskRefIsTrimmed(t *testing.T) {
+	// P3-1: taskRefArg validated the TRIMMED form but sent the raw one.
+	calls, _, err := runTeamTask(t, taskResponses(), "team", "task", "get", " task1 ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range *calls {
+		if c.Op == "AgentTaskGet" {
+			if c.Vars["id"] != "task1" {
+				t.Fatalf("id %q sent untrimmed", c.Vars["id"])
+			}
+			return
+		}
+	}
+	t.Fatal("no AgentTaskGet call")
+}
+
+func TestTeamEventsSinceValidatedRFC3339(t *testing.T) {
+	// P3-3: --since/--until/--start-by were sent unvalidated, against the
+	// PR's own local-refusal stance for --status/--limit/--state.
+	_, _, err := runTeamTask(t, taskResponses(), "team", "events", "--since", "yesterday")
+	if err == nil || !strings.Contains(err.Error(), "RFC 3339") {
+		t.Fatalf("--since yesterday accepted: %v", err)
+	}
+}
+
+func TestTeamAvailabilityUntilValidatedRFC3339(t *testing.T) {
+	_, _, err := runTeamTask(t, taskResponses(), "team", "availability", "set",
+		"--worker", "wkr2", "--state", "unavailable", "--reason", "OTHER", "--until", "tomorrow")
+	if err == nil || !strings.Contains(err.Error(), "RFC 3339") {
+		t.Fatalf("--until tomorrow accepted: %v", err)
+	}
+}
+
+func TestTeamTaskCreateStartByValidatedRFC3339(t *testing.T) {
+	_, _, err := runTeamTask(t, taskResponses(), "team", "task", "create", "T", "--start-by", "soon")
+	if err == nil || !strings.Contains(err.Error(), "RFC 3339") {
+		t.Fatalf("--start-by soon accepted: %v", err)
+	}
+}
+
+func TestTeamTaskListOffsetValidated(t *testing.T) {
+	_, _, err := runTeamTask(t, taskResponses(), "team", "task", "list", "--offset", "-5")
+	if err == nil || !strings.Contains(err.Error(), "--offset") {
+		t.Fatalf("negative offset accepted: %v", err)
+	}
+}
+
+func TestTeamTaskTreeAlarmPagingStallsLoudly(t *testing.T) {
+	// P3-4: a server repeating the same full page for every after cursor
+	// made the pagination loop forever. It must stop, say so on stderr, and
+	// still render.
+	writeTeamBinding(t)
+	pages := 0
+	calls := &[]attnCall{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string         `json:"operationName"`
+			Variables     map[string]any `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		*calls = append(*calls, attnCall{Op: body.OperationName, Vars: body.Variables})
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "AgentTaskTree":
+			_, _ = w.Write([]byte(`{"data":{"agentTaskTree":[` + taskFieldsJSON + `]}}`))
+		case "AgentTeamEvents":
+			pages++
+			page := strings.TrimSuffix(strings.Repeat(ackedAlarmRow+",", 200), ",")
+			_, _ = w.Write([]byte(`{"data":{"agentTeamEvents":[` + page + `]}}`))
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected operation"}]}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "task", "tree", "task1", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if pages > 3 {
+		t.Fatalf("paging did not stop on a repeated cursor: %d pages", pages)
+	}
+	if !strings.Contains(out.String(), "task1") {
+		t.Fatalf("render lost to the stall: %q", out.String())
+	}
+}
+
+func TestTeamEventsRosterAvailabilityScopeLines(t *testing.T) {
+	// P2-2's last unpinned claim: EVERY scoped render names its scope, not
+	// only task list's.
+	for _, argv := range [][]string{
+		{"team", "events"},
+		{"team", "roster"},
+		{"team", "availability", "get"},
+	} {
+		t.Run(strings.Join(argv, " "), func(t *testing.T) {
+			_, out, err := runTeamTask(t, taskResponses(), argv...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out, "app: hrn:app:acme.com:eng-team") {
+				t.Fatalf("no scope line: %q", out)
+			}
+		})
+	}
+}
