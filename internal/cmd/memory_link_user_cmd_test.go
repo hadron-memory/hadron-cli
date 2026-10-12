@@ -87,7 +87,7 @@ func TestMemoryLinkUser(t *testing.T) {
 func TestMemoryLinkUserWithDataKey(t *testing.T) {
 	gql, captured := captureGraphQL(t, linkUserFakes(linkedEncryptedMemoryJSON))
 	f, out := testFactory(t)
-	f.IOStreams.In = strings.NewReader("super-secret-data-key\n") // piped key, trimmed
+	f.IOStreams.In = strings.NewReader(linkUserDataKey + "\n") // piped key, trimmed
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"memory", "link-user", "acme.com::anon-7f3",
 		"--external-user", "u1", "--data-key", "-", "--yes", "--json", "--server", gql.URL})
@@ -98,8 +98,10 @@ func TestMemoryLinkUserWithDataKey(t *testing.T) {
 	if err := json.Unmarshal(captured["LinkMemoryToUser"], &vars); err != nil {
 		t.Fatalf("captured vars not JSON: %v", err)
 	}
-	if vars["dataKey"] != "super-secret-data-key" {
-		t.Errorf("dataKey = %v, want the stdin key trimmed", vars["dataKey"])
+	// #846: the key never rides the variables — header only (the header
+	// assertion lives in TestMemoryLinkUserDataKeyRidesTheHeaderNotTheBody).
+	if _, present := vars["dataKey"]; present {
+		t.Errorf("dataKey must not be sent as a GraphQL variable, got %v", vars["dataKey"])
 	}
 	var dto struct {
 		Memory    struct{ Class string } `json:"memory"`

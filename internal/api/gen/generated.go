@@ -47468,9 +47468,8 @@ func (v *__InstallAgentIntoAppInput) GetTrainingMode() *bool { return v.Training
 
 // __LinkMemoryToUserInput is used internally by genqlient
 type __LinkMemoryToUserInput struct {
-	MemoryId       string  `json:"memoryId"`
-	ExternalUserId string  `json:"externalUserId"`
-	DataKey        *string `json:"dataKey,omitempty"`
+	MemoryId       string `json:"memoryId"`
+	ExternalUserId string `json:"externalUserId"`
 }
 
 // GetMemoryId returns __LinkMemoryToUserInput.MemoryId, and is useful for accessing the field via an interface.
@@ -47478,9 +47477,6 @@ func (v *__LinkMemoryToUserInput) GetMemoryId() string { return v.MemoryId }
 
 // GetExternalUserId returns __LinkMemoryToUserInput.ExternalUserId, and is useful for accessing the field via an interface.
 func (v *__LinkMemoryToUserInput) GetExternalUserId() string { return v.ExternalUserId }
-
-// GetDataKey returns __LinkMemoryToUserInput.DataKey, and is useful for accessing the field via an interface.
-func (v *__LinkMemoryToUserInput) GetDataKey() *string { return v.DataKey }
 
 // __MarkOwnTeamChatReadInput is used internally by genqlient
 type __MarkOwnTeamChatReadInput struct {
@@ -57068,8 +57064,8 @@ func InstallAgentIntoApp(
 
 // The mutation executed by LinkMemoryToUser.
 const LinkMemoryToUser_Operation = `
-mutation LinkMemoryToUser ($memoryId: ID!, $externalUserId: String!, $dataKey: String) {
-	linkMemoryToUser(memoryId: $memoryId, externalUserId: $externalUserId, dataKey: $dataKey) {
+mutation LinkMemoryToUser ($memoryId: ID!, $externalUserId: String!) {
+	linkMemoryToUser(memoryId: $memoryId, externalUserId: $externalUserId) {
 		id
 		urn
 		name
@@ -57096,14 +57092,21 @@ mutation LinkMemoryToUser ($memoryId: ID!, $externalUserId: String!, $dataKey: S
 //
 // Two side effects the caller must see, hence selecting urn and isEncrypted:
 // the memory's URN is RE-MINTED as a fresh flat v2 urn (the old one stops
-// resolving), and passing dataKey encrypts every node in place and lands the
-// memory as class='private' owned by that user.
+// resolving), and encrypting the promotion lands the memory as class='private'
+// owned by that user.
+//
+// The data key NEVER appears here. It is supplied per request through the
+// x-hadron-operation-key header (hadron-server#1817, the first #1796 slice for
+// cor:sec:040:04: "a key is never a field on a query or a mutation") — the
+// command sets it with api.WithOperationKey, which also refuses a non-canonical
+// key before any request. This document must not name dataKey at all, even to
+// omit it: the removal slice deletes the argument, which breaks every document
+// that names it.
 func LinkMemoryToUser(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	memoryId string,
 	externalUserId string,
-	dataKey *string,
 ) (data_ *LinkMemoryToUserResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "LinkMemoryToUser",
@@ -57111,7 +57114,6 @@ func LinkMemoryToUser(
 		Variables: &__LinkMemoryToUserInput{
 			MemoryId:       memoryId,
 			ExternalUserId: externalUserId,
-			DataKey:        dataKey,
 		},
 	}
 
