@@ -417,7 +417,15 @@ Conventions:
   `{memory, previousUrn, encrypted}` so both are visible), and its anonymous TTL
   is cleared so it is no longer garbage-collected. Adding `--data-key -`
   encrypts every node in the same transaction and lands the memory `private` and
-  owned by that user — ONE-WAY, like `memory encrypt`. Gated: pass `--yes`
+  owned by that user — ONE-WAY, like `memory encrypt`. The key must be canonical
+  base64 for exactly 32 bytes (43 characters plus `=`) and is sent once in the
+  `x-hadron-operation-key` request header, never in the request body or its
+  variables; a malformed or empty value is refused locally (exit 2) before any
+  request, without echoing the value. The key channel needs a server with the
+  operation-key header (hadron-server#1817, server main `1cedfa2e` on); on an
+  older server a supplied key makes the command fail loudly (exit 1) with the
+  memory's id and new URN rather than complete a plaintext promotion silently.
+  Gated: pass `--yes`
   non-interactively.
 - `hadron asset` is the file surface (spec 006 / cor:dmo:060:10). An asset is
   bytes held by a memory, as opposed to a node's text; listing and download are
