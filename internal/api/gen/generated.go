@@ -8146,6 +8146,8 @@ const (
 	AvailabilitySetterHost AvailabilitySetter = "HOST"
 	// #1766 — the platform, recording that an until passed (hrn:node:hadronmemory.com:specs:cor:agt:060:02): the record is then AVAILABLE, set at the instant it lapsed.
 	AvailabilitySetterLapse AvailabilitySetter = "LAPSE"
+	// #1759 — the worker it reports to directly, clearing a mark the stall rule set (hrn:node:hadronmemory.com:specs:cor:agt:060:11): only to AVAILABLE.
+	AvailabilitySetterReportsTo AvailabilitySetter = "REPORTS_TO"
 	// The stall rule (hrn:node:hadronmemory.com:specs:cor:agt:060:07): an alarm marked it, or its next activity cleared it.
 	AvailabilitySetterStallRule AvailabilitySetter = "STALL_RULE"
 	// The worker itself; only ever to unavailable.
@@ -8157,6 +8159,7 @@ var AllAvailabilitySetter = []AvailabilitySetter{
 	AvailabilitySetterHolder,
 	AvailabilitySetterHost,
 	AvailabilitySetterLapse,
+	AvailabilitySetterReportsTo,
 	AvailabilitySetterStallRule,
 	AvailabilitySetterWorker,
 }
@@ -9702,8 +9705,8 @@ type CommentFields struct {
 	IsTopLevel   bool    `json:"isTopLevel"`
 	// The target revision the thread was written against (replies inherit their thread's).
 	AnchorRevision int `json:"anchorRevision"`
-	// The approval hash of the target's title/abstract/content at anchorRevision: 64 lowercase hex.
-	AnchorApprovalHash string `json:"anchorApprovalHash"`
+	// The target fingerprint at anchorRevision: 64 lowercase hex, or null for encrypted targets (hrn:node:hadronmemory.com:specs:cor:dmo:110:01).
+	AnchorApprovalHash *string `json:"anchorApprovalHash"`
 	// anchorRevision equals the target's current revision. When false, show the comment as about an older revision (hrn:node:hadronmemory.com:specs:cor:dmo:110:01).
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
 	// Null when deleted.
@@ -9753,7 +9756,7 @@ func (v *CommentFields) GetIsTopLevel() bool { return v.IsTopLevel }
 func (v *CommentFields) GetAnchorRevision() int { return v.AnchorRevision }
 
 // GetAnchorApprovalHash returns CommentFields.AnchorApprovalHash, and is useful for accessing the field via an interface.
-func (v *CommentFields) GetAnchorApprovalHash() string { return v.AnchorApprovalHash }
+func (v *CommentFields) GetAnchorApprovalHash() *string { return v.AnchorApprovalHash }
 
 // GetAnchorIsCurrent returns CommentFields.AnchorIsCurrent, and is useful for accessing the field via an interface.
 func (v *CommentFields) GetAnchorIsCurrent() bool { return v.AnchorIsCurrent }
@@ -10597,7 +10600,7 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesC
 }
 
 // GetAnchorApprovalHash returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
-func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetAnchorApprovalHash() string {
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRepliesComment) GetAnchorApprovalHash() *string {
 	return v.CommentFields.AnchorApprovalHash
 }
 
@@ -10724,7 +10727,7 @@ type __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThread
 
 	AnchorRevision int `json:"anchorRevision"`
 
-	AnchorApprovalHash string `json:"anchorApprovalHash"`
+	AnchorApprovalHash *string `json:"anchorApprovalHash"`
 
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
 
@@ -10841,7 +10844,7 @@ func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComm
 }
 
 // GetAnchorApprovalHash returns CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
-func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetAnchorApprovalHash() string {
+func (v *CommentThreadsCommentThreadsCommentThreadPageItemsCommentThreadRootComment) GetAnchorApprovalHash() *string {
 	return v.CommentFields.AnchorApprovalHash
 }
 
@@ -10968,7 +10971,7 @@ type __premarshalCommentThreadsCommentThreadsCommentThreadPageItemsCommentThread
 
 	AnchorRevision int `json:"anchorRevision"`
 
-	AnchorApprovalHash string `json:"anchorApprovalHash"`
+	AnchorApprovalHash *string `json:"anchorApprovalHash"`
 
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
 
@@ -12879,7 +12882,7 @@ func (v *CreateCommentCreateComment) GetIsTopLevel() bool { return v.CommentFiel
 func (v *CreateCommentCreateComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
 
 // GetAnchorApprovalHash returns CreateCommentCreateComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
-func (v *CreateCommentCreateComment) GetAnchorApprovalHash() string {
+func (v *CreateCommentCreateComment) GetAnchorApprovalHash() *string {
 	return v.CommentFields.AnchorApprovalHash
 }
 
@@ -12986,7 +12989,7 @@ type __premarshalCreateCommentCreateComment struct {
 
 	AnchorRevision int `json:"anchorRevision"`
 
-	AnchorApprovalHash string `json:"anchorApprovalHash"`
+	AnchorApprovalHash *string `json:"anchorApprovalHash"`
 
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
 
@@ -16499,7 +16502,7 @@ func (v *DeleteCommentDeleteComment) GetIsTopLevel() bool { return v.CommentFiel
 func (v *DeleteCommentDeleteComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
 
 // GetAnchorApprovalHash returns DeleteCommentDeleteComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
-func (v *DeleteCommentDeleteComment) GetAnchorApprovalHash() string {
+func (v *DeleteCommentDeleteComment) GetAnchorApprovalHash() *string {
 	return v.CommentFields.AnchorApprovalHash
 }
 
@@ -16606,7 +16609,7 @@ type __premarshalDeleteCommentDeleteComment struct {
 
 	AnchorRevision int `json:"anchorRevision"`
 
-	AnchorApprovalHash string `json:"anchorApprovalHash"`
+	AnchorApprovalHash *string `json:"anchorApprovalHash"`
 
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
 
@@ -16991,7 +16994,7 @@ func (v *EditCommentEditComment) GetIsTopLevel() bool { return v.CommentFields.I
 func (v *EditCommentEditComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
 
 // GetAnchorApprovalHash returns EditCommentEditComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
-func (v *EditCommentEditComment) GetAnchorApprovalHash() string {
+func (v *EditCommentEditComment) GetAnchorApprovalHash() *string {
 	return v.CommentFields.AnchorApprovalHash
 }
 
@@ -17096,7 +17099,7 @@ type __premarshalEditCommentEditComment struct {
 
 	AnchorRevision int `json:"anchorRevision"`
 
-	AnchorApprovalHash string `json:"anchorApprovalHash"`
+	AnchorApprovalHash *string `json:"anchorApprovalHash"`
 
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
 
@@ -18396,7 +18399,9 @@ func (v *GetCommentComment) GetIsTopLevel() bool { return v.CommentFields.IsTopL
 func (v *GetCommentComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
 
 // GetAnchorApprovalHash returns GetCommentComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
-func (v *GetCommentComment) GetAnchorApprovalHash() string { return v.CommentFields.AnchorApprovalHash }
+func (v *GetCommentComment) GetAnchorApprovalHash() *string {
+	return v.CommentFields.AnchorApprovalHash
+}
 
 // GetAnchorIsCurrent returns GetCommentComment.AnchorIsCurrent, and is useful for accessing the field via an interface.
 func (v *GetCommentComment) GetAnchorIsCurrent() bool { return v.CommentFields.AnchorIsCurrent }
@@ -18499,7 +18504,7 @@ type __premarshalGetCommentComment struct {
 
 	AnchorRevision int `json:"anchorRevision"`
 
-	AnchorApprovalHash string `json:"anchorApprovalHash"`
+	AnchorApprovalHash *string `json:"anchorApprovalHash"`
 
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
 
@@ -29805,7 +29810,7 @@ func (v *ReopenCommentThreadReopenCommentThreadComment) GetAnchorRevision() int 
 }
 
 // GetAnchorApprovalHash returns ReopenCommentThreadReopenCommentThreadComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
-func (v *ReopenCommentThreadReopenCommentThreadComment) GetAnchorApprovalHash() string {
+func (v *ReopenCommentThreadReopenCommentThreadComment) GetAnchorApprovalHash() *string {
 	return v.CommentFields.AnchorApprovalHash
 }
 
@@ -29932,7 +29937,7 @@ type __premarshalReopenCommentThreadReopenCommentThreadComment struct {
 
 	AnchorRevision int `json:"anchorRevision"`
 
-	AnchorApprovalHash string `json:"anchorApprovalHash"`
+	AnchorApprovalHash *string `json:"anchorApprovalHash"`
 
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
 
@@ -30048,7 +30053,7 @@ func (v *ReplyToCommentReplyToComment) GetIsTopLevel() bool { return v.CommentFi
 func (v *ReplyToCommentReplyToComment) GetAnchorRevision() int { return v.CommentFields.AnchorRevision }
 
 // GetAnchorApprovalHash returns ReplyToCommentReplyToComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
-func (v *ReplyToCommentReplyToComment) GetAnchorApprovalHash() string {
+func (v *ReplyToCommentReplyToComment) GetAnchorApprovalHash() *string {
 	return v.CommentFields.AnchorApprovalHash
 }
 
@@ -30155,7 +30160,7 @@ type __premarshalReplyToCommentReplyToComment struct {
 
 	AnchorRevision int `json:"anchorRevision"`
 
-	AnchorApprovalHash string `json:"anchorApprovalHash"`
+	AnchorApprovalHash *string `json:"anchorApprovalHash"`
 
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
 
@@ -30652,7 +30657,7 @@ func (v *ResolveCommentThreadResolveCommentThreadComment) GetAnchorRevision() in
 }
 
 // GetAnchorApprovalHash returns ResolveCommentThreadResolveCommentThreadComment.AnchorApprovalHash, and is useful for accessing the field via an interface.
-func (v *ResolveCommentThreadResolveCommentThreadComment) GetAnchorApprovalHash() string {
+func (v *ResolveCommentThreadResolveCommentThreadComment) GetAnchorApprovalHash() *string {
 	return v.CommentFields.AnchorApprovalHash
 }
 
@@ -30779,7 +30784,7 @@ type __premarshalResolveCommentThreadResolveCommentThreadComment struct {
 
 	AnchorRevision int `json:"anchorRevision"`
 
-	AnchorApprovalHash string `json:"anchorApprovalHash"`
+	AnchorApprovalHash *string `json:"anchorApprovalHash"`
 
 	AnchorIsCurrent bool `json:"anchorIsCurrent"`
 
