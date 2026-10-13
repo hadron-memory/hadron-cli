@@ -6,6 +6,7 @@ package team
 // an authored write the middleware attributes when a session is bound.
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
@@ -103,7 +104,7 @@ the exact --after that continues it.
 					if e.TaskID != nil {
 						task = *e.TaskID
 					}
-					t.Row(e.ID, e.CreatedAt, e.Type, partyCell(e.Actor), task, ack)
+					t.Row(e.ID, e.CreatedAt, e.Type, eventActorCell(e), task, ack)
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -130,6 +131,27 @@ the exact --after that continues it.
 	cmd.Flags().StringSliceVar(&types, "type", nil, "event type filter, repeatable (e.g. task.created)")
 	cmd.Flags().IntVar(&limit, "limit", teamEventsDefaultLimit, "page size (server cap 200)")
 	return cmd
+}
+
+// eventActorCell renders who made an event. A lapse (#858 over server
+// #1851, cor:agt:060:02) is written by the platform, so its actor is null —
+// the payload's setBy "lapse" and lapsedAt say what happened, and the cell
+// says it rather than the bare "—" an unnamed platform change shows. Any
+// other event, or a payload that is not an object, renders as before.
+func eventActorCell(e teamEventDTO) string {
+	if e.Actor == nil && e.Type == "availability.changed" {
+		var p struct {
+			SetBy    string `json:"setBy"`
+			LapsedAt string `json:"lapsedAt"`
+		}
+		if json.Unmarshal(e.Payload, &p) == nil && p.SetBy == "lapse" {
+			if p.LapsedAt == "" {
+				return "lapse"
+			}
+			return "lapse at " + p.LapsedAt
+		}
+	}
+	return partyCell(e.Actor)
 }
 
 // ---- alarm ack ------------------------------------------------------------

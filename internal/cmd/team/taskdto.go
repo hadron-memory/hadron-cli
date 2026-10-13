@@ -270,6 +270,7 @@ type workerAvailabilityDTO struct {
 	Reason     *string       `json:"reason"`
 	Until      *string       `json:"until"`
 	SetAt      string        `json:"setAt"`
+	SetBy      string        `json:"setBy"`
 	SetByParty *taskPartyDTO `json:"setByParty"`
 	InEffect   bool          `json:"inEffect"`
 }

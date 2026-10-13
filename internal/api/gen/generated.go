@@ -8134,6 +8134,33 @@ var AllAvailabilityReason = []AvailabilityReason{
 	AvailabilityReasonStalled,
 }
 
+// Who set a worker's availability (hrn:node:hadronmemory.com:specs:cor:agt:060:08).
+type AvailabilitySetter string
+
+const (
+	// Whoever manages the App.
+	AvailabilitySetterAppManager AvailabilitySetter = "APP_MANAGER"
+	// The person holding the worker's name.
+	AvailabilitySetterHolder AvailabilitySetter = "HOLDER"
+	// A host that registered the worker (the host-operations slice).
+	AvailabilitySetterHost AvailabilitySetter = "HOST"
+	// #1766 — the platform, recording that an until passed (hrn:node:hadronmemory.com:specs:cor:agt:060:02): the record is then AVAILABLE, set at the instant it lapsed.
+	AvailabilitySetterLapse AvailabilitySetter = "LAPSE"
+	// The stall rule (hrn:node:hadronmemory.com:specs:cor:agt:060:07): an alarm marked it, or its next activity cleared it.
+	AvailabilitySetterStallRule AvailabilitySetter = "STALL_RULE"
+	// The worker itself; only ever to unavailable.
+	AvailabilitySetterWorker AvailabilitySetter = "WORKER"
+)
+
+var AllAvailabilitySetter = []AvailabilitySetter{
+	AvailabilitySetterAppManager,
+	AvailabilitySetterHolder,
+	AvailabilitySetterHost,
+	AvailabilitySetterLapse,
+	AvailabilitySetterStallRule,
+	AvailabilitySetterWorker,
+}
+
 type AvailabilityState string
 
 const (
@@ -36027,8 +36054,9 @@ type TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability struct {
 	// Set exactly when unavailable.
 	Reason *AvailabilityReason `json:"reason"`
 	// When an unavailable record lapses. A passed until reads as available at once; within a minute the record is rewritten to AVAILABLE, set by LAPSE, and one availability.changed event records it (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
-	Until *string `json:"until"`
-	SetAt string  `json:"setAt"`
+	Until *string            `json:"until"`
+	SetAt string             `json:"setAt"`
+	SetBy AvailabilitySetter `json:"setBy"`
 	// Who acted, when a worker or a person set it; null when the stall rule or a lapse did.
 	SetByParty *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailabilitySetByPartyAgentTaskParty `json:"setByParty"`
 	// Whether this record makes the worker unavailable right now: unavailable,
@@ -36059,6 +36087,11 @@ func (v *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability) GetUntil() *
 
 // GetSetAt returns TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability.SetAt, and is useful for accessing the field via an interface.
 func (v *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability) GetSetAt() string { return v.SetAt }
+
+// GetSetBy returns TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability.SetBy, and is useful for accessing the field via an interface.
+func (v *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability) GetSetBy() AvailabilitySetter {
+	return v.SetBy
+}
 
 // GetSetByParty returns TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability.SetByParty, and is useful for accessing the field via an interface.
 func (v *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability) GetSetByParty() *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailabilitySetByPartyAgentTaskParty {
@@ -44571,8 +44604,9 @@ type WorkerAvailabilitySetSetWorkerAvailability struct {
 	// Set exactly when unavailable.
 	Reason *AvailabilityReason `json:"reason"`
 	// When an unavailable record lapses. A passed until reads as available at once; within a minute the record is rewritten to AVAILABLE, set by LAPSE, and one availability.changed event records it (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
-	Until *string `json:"until"`
-	SetAt string  `json:"setAt"`
+	Until *string            `json:"until"`
+	SetAt string             `json:"setAt"`
+	SetBy AvailabilitySetter `json:"setBy"`
 	// Who acted, when a worker or a person set it; null when the stall rule or a lapse did.
 	SetByParty *WorkerAvailabilitySetSetWorkerAvailabilitySetByPartyAgentTaskParty `json:"setByParty"`
 	// Whether this record makes the worker unavailable right now: unavailable,
@@ -44597,6 +44631,9 @@ func (v *WorkerAvailabilitySetSetWorkerAvailability) GetUntil() *string { return
 
 // GetSetAt returns WorkerAvailabilitySetSetWorkerAvailability.SetAt, and is useful for accessing the field via an interface.
 func (v *WorkerAvailabilitySetSetWorkerAvailability) GetSetAt() string { return v.SetAt }
+
+// GetSetBy returns WorkerAvailabilitySetSetWorkerAvailability.SetBy, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetSetWorkerAvailability) GetSetBy() AvailabilitySetter { return v.SetBy }
 
 // GetSetByParty returns WorkerAvailabilitySetSetWorkerAvailability.SetByParty, and is useful for accessing the field via an interface.
 func (v *WorkerAvailabilitySetSetWorkerAvailability) GetSetByParty() *WorkerAvailabilitySetSetWorkerAvailabilitySetByPartyAgentTaskParty {
@@ -62830,6 +62867,7 @@ query TeamAvailability ($appRef: ID!) {
 			reason
 			until
 			setAt
+			setBy
 			setByParty {
 				... AgentTaskPartyFields
 			}
@@ -65847,6 +65885,7 @@ mutation WorkerAvailabilitySet ($input: SetWorkerAvailabilityInput!) {
 		reason
 		until
 		setAt
+		setBy
 		setByParty {
 			... AgentTaskPartyFields
 		}

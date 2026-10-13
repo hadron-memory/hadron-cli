@@ -46,7 +46,10 @@ unavailable), the person holding its name, or whoever manages the App
 (cor:agt:060:08). Setting a FAMILY's is whoever manages the App
 (cor:agt:060:09). A reason is required when unavailable and refused when
 available; --until (RFC 3339, future) is an unavailable-only bound — a
-passed until already reads as available.`,
+passed until reads as available at once, and within a minute the server
+records the lapse: the record becomes available, set by LAPSE (setBy in
+--json), which ` + "`get`" + ` shows as "AVAILABLE (lapsed at <time>)" and
+` + "`team events`" + ` as an availability.changed by "lapse at <time>".`,
 	}
 	cmd.AddCommand(newCmdTeamAvailabilityGet(f))
 	cmd.AddCommand(newCmdTeamAvailabilitySet(f))
@@ -59,7 +62,7 @@ func newCmdTeamAvailabilityGet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Show every worker's and family's availability",
-		Long:  `Render the App's availability records — every worker and every model family, with state, reason, until and whether each is in effect now.`,
+		Long:  `Render the App's availability records — every worker and every model family, with state, reason, until and whether each is in effect now. A worker record whose until passed reads "AVAILABLE (lapsed at <time>)" once the server records the lapse (setBy LAPSE in --json).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			b, err := readBindingOrNilWithApp(ctx, f)
@@ -94,6 +97,7 @@ func newCmdTeamAvailabilityGet(f *cmdutil.Factory) *cobra.Command {
 					Reason:     reasonPtr(w.Reason),
 					Until:      w.Until,
 					SetAt:      w.SetAt,
+					SetBy:      string(w.SetBy),
 					SetByParty: partyDTO(w.SetByParty),
 					InEffect:   w.InEffect,
 				})
@@ -131,7 +135,7 @@ func newCmdTeamAvailabilityGet(f *cmdutil.Factory) *cobra.Command {
 func renderAvailabilityTable(w io.Writer, dto teamAvailabilityDTO) error {
 	workers := output.NewTable(w, "WORKER", "STATE", "REASON", "UNTIL", "IN EFFECT")
 	for _, e := range dto.Workers {
-		workers.Row(partyCell(&e.Worker), e.State, strOr(e.Reason), strOr(e.Until), yesNo(e.InEffect))
+		workers.Row(partyCell(&e.Worker), workerStateCell(e), strOr(e.Reason), strOr(e.Until), yesNo(e.InEffect))
 	}
 	if err := workers.Flush(); err != nil {
 		return err
@@ -141,6 +145,18 @@ func renderAvailabilityTable(w io.Writer, dto teamAvailabilityDTO) error {
 		families.Row(e.Family, e.State, strOr(e.Reason), strOr(e.Until), yesNo(e.InEffect))
 	}
 	return families.Flush()
+}
+
+// workerStateCell renders a worker record's state. A record the platform
+// rewrote when its until passed (#858 over server #1851, cor:agt:060:02) is
+// AVAILABLE set by LAPSE, its until cleared and its setAt the instant it
+// lapsed, so the lapse is said here or the row would read as an unexplained
+// change. Any other setter, and any server without LAPSE, renders as before.
+func workerStateCell(e workerAvailabilityDTO) string {
+	if e.SetBy == string(gen.AvailabilitySetterLapse) {
+		return fmt.Sprintf("%s (lapsed at %s)", e.State, e.SetAt)
+	}
+	return e.State
 }
 
 // workerRefIsSelfSufficient answers whether a --worker value names its
@@ -311,6 +327,7 @@ func workerAvailabilityDTOFrom(r gen.WorkerAvailabilitySetSetWorkerAvailability)
 		Reason:     reasonPtr(r.Reason),
 		Until:      r.Until,
 		SetAt:      r.SetAt,
+		SetBy:      string(r.SetBy),
 		SetByParty: partyDTO(r.SetByParty),
 		InEffect:   r.InEffect,
 	}
