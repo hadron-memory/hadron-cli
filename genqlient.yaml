@@ -37,3 +37,7 @@ bindings:
     type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.NodeWhereCast
   SortDirection:
     type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.SortDirection
+  # Three-state per field (omitted keeps, null restores the default) — see
+  # gqltypes.AgentTaskStallScheduleInput (#864).
+  AgentTaskStallScheduleInput:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.AgentTaskStallScheduleInput

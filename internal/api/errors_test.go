@@ -891,4 +891,3 @@ func TestUnknownChatReadSuppressionArgumentRequiresExactEnvelope(t *testing.T) {
 		t.Fatal("unparsed error retried")
 	}
 }
-

@@ -3861,6 +3861,46 @@ func (v *AgentTaskResultInput) GetOutcome() string { return v.Outcome }
 // GetSummary returns AgentTaskResultInput.Summary, and is useful for accessing the field via an interface.
 func (v *AgentTaskResultInput) GetSummary() *string { return v.Summary }
 
+// An App's stall schedule (#864 over server #1706/#1707, #1863): the four
+// stall windows (cor:agt:050:14–:17) and the host-registration lapse count
+// (cor:agt:070:01). `team stall-schedule get` and `set` render it.
+type AgentTaskStallScheduleFields struct {
+	AppId string `json:"appId"`
+	// Couldn't be assigned (hrn:node:hadronmemory.com:specs:cor:agt:050:17).
+	AssignmentMinutes int `json:"assignmentMinutes"`
+	// Not started (hrn:node:hadronmemory.com:specs:cor:agt:050:14): counted from the assignment when the task has no later start-by time.
+	NotStartedMinutes int `json:"notStartedMinutes"`
+	// No progress (hrn:node:hadronmemory.com:specs:cor:agt:050:15). Also the escalation step for that alarm.
+	NoProgressMinutes int `json:"noProgressMinutes"`
+	// Owner didn't react to a finished or cancelled child task (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+	OwnerReactionMinutes int `json:"ownerReactionMinutes"`
+	// #1763 — how many of a host's own check-in intervals may pass without a refresh before its registration in this App lapses (hrn:node:hadronmemory.com:specs:cor:agt:070:01): 2 to 10, default 3.
+	HostLapseCheckIns int `json:"hostLapseCheckIns"`
+	// When the App last changed them; null while every window is the default.
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+// GetAppId returns AgentTaskStallScheduleFields.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskStallScheduleFields) GetAppId() string { return v.AppId }
+
+// GetAssignmentMinutes returns AgentTaskStallScheduleFields.AssignmentMinutes, and is useful for accessing the field via an interface.
+func (v *AgentTaskStallScheduleFields) GetAssignmentMinutes() int { return v.AssignmentMinutes }
+
+// GetNotStartedMinutes returns AgentTaskStallScheduleFields.NotStartedMinutes, and is useful for accessing the field via an interface.
+func (v *AgentTaskStallScheduleFields) GetNotStartedMinutes() int { return v.NotStartedMinutes }
+
+// GetNoProgressMinutes returns AgentTaskStallScheduleFields.NoProgressMinutes, and is useful for accessing the field via an interface.
+func (v *AgentTaskStallScheduleFields) GetNoProgressMinutes() int { return v.NoProgressMinutes }
+
+// GetOwnerReactionMinutes returns AgentTaskStallScheduleFields.OwnerReactionMinutes, and is useful for accessing the field via an interface.
+func (v *AgentTaskStallScheduleFields) GetOwnerReactionMinutes() int { return v.OwnerReactionMinutes }
+
+// GetHostLapseCheckIns returns AgentTaskStallScheduleFields.HostLapseCheckIns, and is useful for accessing the field via an interface.
+func (v *AgentTaskStallScheduleFields) GetHostLapseCheckIns() int { return v.HostLapseCheckIns }
+
+// GetUpdatedAt returns AgentTaskStallScheduleFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskStallScheduleFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
 // AgentTaskStartResponse is returned by AgentTaskStart on success.
 type AgentTaskStartResponse struct {
 	// #1705 — start a pending task: its assignee only (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
@@ -38039,6 +38079,244 @@ func (v *TeamSessionsSessionsSession) __premarshalJSON() (*__premarshalTeamSessi
 	return &retval, nil
 }
 
+// TeamStallScheduleAgentTaskStallSchedule includes the requested fields of the GraphQL type AgentTaskStallSchedule.
+// The GraphQL type's documentation follows.
+//
+// #1706 — an App's effective stall windows, in minutes (hrn:node:hadronmemory.com:specs:cor:agt:050:14–:17).
+// Tunables, not contract: the platform defaults are 15, 60, 20 and 30.
+type TeamStallScheduleAgentTaskStallSchedule struct {
+	AgentTaskStallScheduleFields `json:"-"`
+}
+
+// GetAppId returns TeamStallScheduleAgentTaskStallSchedule.AppId, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleAgentTaskStallSchedule) GetAppId() string {
+	return v.AgentTaskStallScheduleFields.AppId
+}
+
+// GetAssignmentMinutes returns TeamStallScheduleAgentTaskStallSchedule.AssignmentMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleAgentTaskStallSchedule) GetAssignmentMinutes() int {
+	return v.AgentTaskStallScheduleFields.AssignmentMinutes
+}
+
+// GetNotStartedMinutes returns TeamStallScheduleAgentTaskStallSchedule.NotStartedMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleAgentTaskStallSchedule) GetNotStartedMinutes() int {
+	return v.AgentTaskStallScheduleFields.NotStartedMinutes
+}
+
+// GetNoProgressMinutes returns TeamStallScheduleAgentTaskStallSchedule.NoProgressMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleAgentTaskStallSchedule) GetNoProgressMinutes() int {
+	return v.AgentTaskStallScheduleFields.NoProgressMinutes
+}
+
+// GetOwnerReactionMinutes returns TeamStallScheduleAgentTaskStallSchedule.OwnerReactionMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleAgentTaskStallSchedule) GetOwnerReactionMinutes() int {
+	return v.AgentTaskStallScheduleFields.OwnerReactionMinutes
+}
+
+// GetHostLapseCheckIns returns TeamStallScheduleAgentTaskStallSchedule.HostLapseCheckIns, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleAgentTaskStallSchedule) GetHostLapseCheckIns() int {
+	return v.AgentTaskStallScheduleFields.HostLapseCheckIns
+}
+
+// GetUpdatedAt returns TeamStallScheduleAgentTaskStallSchedule.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleAgentTaskStallSchedule) GetUpdatedAt() *string {
+	return v.AgentTaskStallScheduleFields.UpdatedAt
+}
+
+func (v *TeamStallScheduleAgentTaskStallSchedule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamStallScheduleAgentTaskStallSchedule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamStallScheduleAgentTaskStallSchedule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskStallScheduleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamStallScheduleAgentTaskStallSchedule struct {
+	AppId string `json:"appId"`
+
+	AssignmentMinutes int `json:"assignmentMinutes"`
+
+	NotStartedMinutes int `json:"notStartedMinutes"`
+
+	NoProgressMinutes int `json:"noProgressMinutes"`
+
+	OwnerReactionMinutes int `json:"ownerReactionMinutes"`
+
+	HostLapseCheckIns int `json:"hostLapseCheckIns"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *TeamStallScheduleAgentTaskStallSchedule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamStallScheduleAgentTaskStallSchedule) __premarshalJSON() (*__premarshalTeamStallScheduleAgentTaskStallSchedule, error) {
+	var retval __premarshalTeamStallScheduleAgentTaskStallSchedule
+
+	retval.AppId = v.AgentTaskStallScheduleFields.AppId
+	retval.AssignmentMinutes = v.AgentTaskStallScheduleFields.AssignmentMinutes
+	retval.NotStartedMinutes = v.AgentTaskStallScheduleFields.NotStartedMinutes
+	retval.NoProgressMinutes = v.AgentTaskStallScheduleFields.NoProgressMinutes
+	retval.OwnerReactionMinutes = v.AgentTaskStallScheduleFields.OwnerReactionMinutes
+	retval.HostLapseCheckIns = v.AgentTaskStallScheduleFields.HostLapseCheckIns
+	retval.UpdatedAt = v.AgentTaskStallScheduleFields.UpdatedAt
+	return &retval, nil
+}
+
+// TeamStallScheduleResponse is returned by TeamStallSchedule on success.
+type TeamStallScheduleResponse struct {
+	// #1706 — an App's effective stall windows (hrn:node:hadronmemory.com:specs:cor:agt:050:14–:17), and (#1763) its
+	// host-registration lapse (hrn:node:hadronmemory.com:specs:cor:agt:070:01). Readers:
+	// the App's task audience (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+	AgentTaskStallSchedule *TeamStallScheduleAgentTaskStallSchedule `json:"agentTaskStallSchedule"`
+}
+
+// GetAgentTaskStallSchedule returns TeamStallScheduleResponse.AgentTaskStallSchedule, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleResponse) GetAgentTaskStallSchedule() *TeamStallScheduleAgentTaskStallSchedule {
+	return v.AgentTaskStallSchedule
+}
+
+// TeamStallScheduleSetResponse is returned by TeamStallScheduleSet on success.
+type TeamStallScheduleSetResponse struct {
+	// #1706 — set an App's stall windows, and (#1763) its host-registration lapse: whoever manages the App. Refusals:
+	// APP_NOT_FOUND, APP_MANAGER_REQUIRED, BAD_USER_INPUT, SESSION_NOT_BOUND,
+	// APP_UNINSTALLED.
+	SetAgentTaskStallSchedule *TeamStallScheduleSetSetAgentTaskStallSchedule `json:"setAgentTaskStallSchedule"`
+}
+
+// GetSetAgentTaskStallSchedule returns TeamStallScheduleSetResponse.SetAgentTaskStallSchedule, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetResponse) GetSetAgentTaskStallSchedule() *TeamStallScheduleSetSetAgentTaskStallSchedule {
+	return v.SetAgentTaskStallSchedule
+}
+
+// TeamStallScheduleSetSetAgentTaskStallSchedule includes the requested fields of the GraphQL type AgentTaskStallSchedule.
+// The GraphQL type's documentation follows.
+//
+// #1706 — an App's effective stall windows, in minutes (hrn:node:hadronmemory.com:specs:cor:agt:050:14–:17).
+// Tunables, not contract: the platform defaults are 15, 60, 20 and 30.
+type TeamStallScheduleSetSetAgentTaskStallSchedule struct {
+	AgentTaskStallScheduleFields `json:"-"`
+}
+
+// GetAppId returns TeamStallScheduleSetSetAgentTaskStallSchedule.AppId, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) GetAppId() string {
+	return v.AgentTaskStallScheduleFields.AppId
+}
+
+// GetAssignmentMinutes returns TeamStallScheduleSetSetAgentTaskStallSchedule.AssignmentMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) GetAssignmentMinutes() int {
+	return v.AgentTaskStallScheduleFields.AssignmentMinutes
+}
+
+// GetNotStartedMinutes returns TeamStallScheduleSetSetAgentTaskStallSchedule.NotStartedMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) GetNotStartedMinutes() int {
+	return v.AgentTaskStallScheduleFields.NotStartedMinutes
+}
+
+// GetNoProgressMinutes returns TeamStallScheduleSetSetAgentTaskStallSchedule.NoProgressMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) GetNoProgressMinutes() int {
+	return v.AgentTaskStallScheduleFields.NoProgressMinutes
+}
+
+// GetOwnerReactionMinutes returns TeamStallScheduleSetSetAgentTaskStallSchedule.OwnerReactionMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) GetOwnerReactionMinutes() int {
+	return v.AgentTaskStallScheduleFields.OwnerReactionMinutes
+}
+
+// GetHostLapseCheckIns returns TeamStallScheduleSetSetAgentTaskStallSchedule.HostLapseCheckIns, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) GetHostLapseCheckIns() int {
+	return v.AgentTaskStallScheduleFields.HostLapseCheckIns
+}
+
+// GetUpdatedAt returns TeamStallScheduleSetSetAgentTaskStallSchedule.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) GetUpdatedAt() *string {
+	return v.AgentTaskStallScheduleFields.UpdatedAt
+}
+
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamStallScheduleSetSetAgentTaskStallSchedule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamStallScheduleSetSetAgentTaskStallSchedule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskStallScheduleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamStallScheduleSetSetAgentTaskStallSchedule struct {
+	AppId string `json:"appId"`
+
+	AssignmentMinutes int `json:"assignmentMinutes"`
+
+	NotStartedMinutes int `json:"notStartedMinutes"`
+
+	NoProgressMinutes int `json:"noProgressMinutes"`
+
+	OwnerReactionMinutes int `json:"ownerReactionMinutes"`
+
+	HostLapseCheckIns int `json:"hostLapseCheckIns"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) __premarshalJSON() (*__premarshalTeamStallScheduleSetSetAgentTaskStallSchedule, error) {
+	var retval __premarshalTeamStallScheduleSetSetAgentTaskStallSchedule
+
+	retval.AppId = v.AgentTaskStallScheduleFields.AppId
+	retval.AssignmentMinutes = v.AgentTaskStallScheduleFields.AssignmentMinutes
+	retval.NotStartedMinutes = v.AgentTaskStallScheduleFields.NotStartedMinutes
+	retval.NoProgressMinutes = v.AgentTaskStallScheduleFields.NoProgressMinutes
+	retval.OwnerReactionMinutes = v.AgentTaskStallScheduleFields.OwnerReactionMinutes
+	retval.HostLapseCheckIns = v.AgentTaskStallScheduleFields.HostLapseCheckIns
+	retval.UpdatedAt = v.AgentTaskStallScheduleFields.UpdatedAt
+	return &retval, nil
+}
+
 // ── Worklog (#947) — the dedicated operations. The CLI previously composed
 // worklog records itself and wrote them through the generic object surface,
 // which put the record shape in two places; the server owns it (hadron-cli#396).
@@ -49291,6 +49569,28 @@ func (v *__TeamSessionsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __TeamSessionsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamSessionsInput) GetOffset() *int { return v.Offset }
+
+// __TeamStallScheduleInput is used internally by genqlient
+type __TeamStallScheduleInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamStallScheduleInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamStallScheduleInput) GetAppRef() string { return v.AppRef }
+
+// __TeamStallScheduleSetInput is used internally by genqlient
+type __TeamStallScheduleSetInput struct {
+	AppRef string                                `json:"appRef"`
+	Input  *gqltypes.AgentTaskStallScheduleInput `json:"input,omitempty"`
+}
+
+// GetAppRef returns __TeamStallScheduleSetInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamStallScheduleSetInput) GetAppRef() string { return v.AppRef }
+
+// GetInput returns __TeamStallScheduleSetInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamStallScheduleSetInput) GetInput() *gqltypes.AgentTaskStallScheduleInput {
+	return v.Input
+}
 
 // __TeamWorkItemsInput is used internally by genqlient
 type __TeamWorkItemsInput struct {
@@ -63434,6 +63734,96 @@ func TeamSessions(
 	}
 
 	data_ = &TeamSessionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamStallSchedule.
+const TeamStallSchedule_Operation = `
+query TeamStallSchedule ($appRef: ID!) {
+	agentTaskStallSchedule(appRef: $appRef) {
+		... AgentTaskStallScheduleFields
+	}
+}
+fragment AgentTaskStallScheduleFields on AgentTaskStallSchedule {
+	appId
+	assignmentMinutes
+	notStartedMinutes
+	noProgressMinutes
+	ownerReactionMinutes
+	hostLapseCheckIns
+	updatedAt
+}
+`
+
+func TeamStallSchedule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamStallScheduleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamStallSchedule",
+		Query:  TeamStallSchedule_Operation,
+		Variables: &__TeamStallScheduleInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamStallScheduleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamStallScheduleSet.
+const TeamStallScheduleSet_Operation = `
+mutation TeamStallScheduleSet ($appRef: ID!, $input: AgentTaskStallScheduleInput!) {
+	setAgentTaskStallSchedule(appRef: $appRef, input: $input) {
+		... AgentTaskStallScheduleFields
+	}
+}
+fragment AgentTaskStallScheduleFields on AgentTaskStallSchedule {
+	appId
+	assignmentMinutes
+	notStartedMinutes
+	noProgressMinutes
+	ownerReactionMinutes
+	hostLapseCheckIns
+	updatedAt
+}
+`
+
+// The input is bound to gqltypes.AgentTaskStallScheduleInput: an omitted field
+// keeps its value, an explicit null returns it to the platform default.
+func TeamStallScheduleSet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	input *gqltypes.AgentTaskStallScheduleInput,
+) (data_ *TeamStallScheduleSetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamStallScheduleSet",
+		Query:  TeamStallScheduleSet_Operation,
+		Variables: &__TeamStallScheduleSetInput{
+			AppRef: appRef,
+			Input:  input,
+		},
+	}
+
+	data_ = &TeamStallScheduleSetResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
