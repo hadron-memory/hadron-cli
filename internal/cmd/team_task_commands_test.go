@@ -677,6 +677,67 @@ func TestTeamTaskListStatusValidated(t *testing.T) {
 	}
 }
 
+// Taylor's QA report (#10099, confirmed at the source in #10113): BACKLOG is
+// one of cor:agt:050:02's five statuses and the server's filter passes the
+// list straight through, but the client-side allow-list predated it — after
+// parking a task you could not find it again by status from the CLI. Both
+// spellings are accepted, like every other status.
+func TestTeamTaskListStatusBacklog(t *testing.T) {
+	for _, spelling := range []string{"BACKLOG", "backlog"} {
+		t.Run(spelling, func(t *testing.T) {
+			calls, _, err := runTeamTask(t, taskResponses(),
+				"team", "task", "list", "--status", spelling)
+			if err != nil {
+				t.Fatalf("BACKLOG must be a filterable status, got %v", err)
+			}
+			for _, c := range *calls {
+				if c.Op == "AgentTaskList" {
+					if st, _ := c.Vars["status"].([]any); len(st) != 1 || st[0] != "BACKLOG" {
+						t.Fatalf("status %v, want [BACKLOG]", c.Vars["status"])
+					}
+					return
+				}
+			}
+			t.Fatal("no AgentTaskList call")
+		})
+	}
+}
+
+// The refusal for junk statuses must now name all FIVE statuses — the doc
+// string is the caller's only spelling of the filter's vocabulary.
+func TestTeamTaskListStatusRefusalNamesBacklog(t *testing.T) {
+	_, _, err := runTeamTask(t, taskResponses(), "team", "task", "list", "--status", "WOKE")
+	if err == nil {
+		t.Fatal("a junk status must still be refused")
+	}
+	if got := exitCodeFor(err); got != exitcode.Usage {
+		t.Fatalf("exit code = %d, want %d (Usage)", got, exitcode.Usage)
+	}
+	for _, want := range []string{"PENDING", "BACKLOG"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("the refusal should name %s among the five statuses, got %v", want, err)
+		}
+	}
+}
+
+// cancel's authority is mayDirectTask's three arms — its owner, a worker the
+// owner reports to, or whoever manages the App — matching park/ready and the
+// server; the old help dropped the reports-to arm (Taylor's #10099 item 2).
+func TestTeamTaskCancelHelpStatesAllAuthorityArms(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "task", "cancel", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for _, want := range []string{"owner", "reports to", "manages the App"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("cancel --help should name the %s authority arm, got:\n%s", want, got)
+		}
+	}
+}
+
 func TestTeamTaskListNeedsAnApp(t *testing.T) {
 	// No binding, no --app: the loud refusal naming the remedies.
 	srv, _ := attnServer(t, taskResponses())
