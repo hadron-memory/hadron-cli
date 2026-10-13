@@ -197,8 +197,10 @@ func newCmdTeamAvailabilitySet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Set one availability record. --worker takes the worker's id, URN or
 name: an id or URN names its worker on its own, while a NAME needs the App
 (--app, a context, or a worktree binding). --family takes the family token
-(e.g. claude, codex) and always needs the App. --state is available or
-unavailable; --reason (HOST_DOWN, OTHER, OUT_OF_TOKENS, STALLED) is required
+(e.g. claude, codex) and always needs the App; a family record is the App
+manager's write, always made as the person and never as a bound worktree's
+worker (the server never counts a worker as managing the App). --state is
+available or unavailable; --reason (HOST_DOWN, OTHER, OUT_OF_TOKENS, STALLED) is required
 with unavailable and refused with available; --until (RFC 3339, in the
 future) bounds an unavailable record.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
