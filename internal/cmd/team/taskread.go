@@ -20,7 +20,7 @@ import (
 )
 
 // taskStatusDoc is the one help-text spelling of the status set.
-const taskStatusDoc = "PENDING, STARTED, FINISHED or CANCELLED (cor:agt:050:02)"
+const taskStatusDoc = "PENDING, BACKLOG, STARTED, FINISHED or CANCELLED (cor:agt:050:02)"
 
 // alarmPageLimit bounds the tree's alarm paging even against a server that
 // advances: 100 pages at the 200 cap is twenty thousand alarm events, past
@@ -31,6 +31,7 @@ const alarmPageLimit = 100
 // usage error, not an empty server result.
 var taskStatuses = map[string]bool{
 	"PENDING":   true,
+	"BACKLOG":   true,
 	"STARTED":   true,
 	"FINISHED":  true,
 	"CANCELLED": true,

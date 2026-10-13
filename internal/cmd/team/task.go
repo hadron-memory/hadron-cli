@@ -403,7 +403,7 @@ task.progress to the event stream.`,
 
 func newCmdTeamTaskCancel(f *cmdutil.Factory) *cobra.Command {
 	return newSimpleTaskMutation(f, "cancel", "Cancel a task",
-		"Cancel the task: its owner or whoever manages the App (cor:agt:050:09). CANCELLED is an end state.",
+		"Cancel the task: its owner, a worker the owner reports to, or whoever manages the App (cor:agt:050:09).\nCANCELLED is an end state.",
 		func(ctx context.Context, client graphql.Client, taskId string) (taskDTO, error) {
 			resp, err := gen.AgentTaskCancel(ctx, client, taskId)
 			if err != nil {
