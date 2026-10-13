@@ -46,10 +46,12 @@ unavailable), the person holding its name, or whoever manages the App
 (cor:agt:060:08). Setting a FAMILY's is whoever manages the App
 (cor:agt:060:09). A reason is required when unavailable and refused when
 available; --until (RFC 3339, future) is an unavailable-only bound — a
-passed until reads as available at once, and within a minute the server
-records the lapse: the record becomes available, set by LAPSE (setBy in
---json), which ` + "`get`" + ` shows as "AVAILABLE (lapsed at <time>)" and
-` + "`team events`" + ` as an availability.changed by "lapse at <time>".`,
+passed until reads as available at once. Then, for a WORKER record, within
+a minute the server records the lapse: the record becomes available, set by
+LAPSE (setBy in --json), which ` + "`get`" + ` shows as "AVAILABLE (lapsed
+at <time>)" and ` + "`team events`" + ` as an availability.changed by "lapse at
+<time>"; a family record is never rewritten, and its passed until only
+reads as available.`,
 	}
 	cmd.AddCommand(newCmdTeamAvailabilityGet(f))
 	cmd.AddCommand(newCmdTeamAvailabilitySet(f))
