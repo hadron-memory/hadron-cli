@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -27,6 +28,10 @@ type attnCall struct {
 	Session string
 	Query   string
 	RawOp   string
+	// RawVars is the request's `variables` exactly as sent — for a test that
+	// must see the wire bytes, not a decode of them (an explicit null vs an
+	// omitted key survives a decode, but key order and encoding do not).
+	RawVars json.RawMessage
 }
 
 // attnServer answers by operation name and records every call in order. An
@@ -48,13 +53,18 @@ func attnServerHook(t *testing.T, responses map[string]string, onOp func(op stri
 			Variables     map[string]any `json:"variables"`
 			Query         string         `json:"query"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		var rawBody struct {
+			Variables json.RawMessage `json:"variables"`
+		}
+		_ = json.Unmarshal(raw, &rawBody)
 		rawOp := body.OperationName
 		body.OperationName = legacyChatReadOperation(body.OperationName)
 		if onOp != nil {
 			onOp(body.OperationName)
 		}
-		*calls = append(*calls, attnCall{Op: body.OperationName, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session"), Query: body.Query, RawOp: rawOp})
+		*calls = append(*calls, attnCall{Op: body.OperationName, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session"), Query: body.Query, RawOp: rawOp, RawVars: rawBody.Variables})
 		w.Header().Set("Content-Type", "application/json")
 		resp, ok := responses[rawOp]
 		if !ok {
