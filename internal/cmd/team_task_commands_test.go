@@ -115,7 +115,7 @@ const rosterJSON = `{"appId":"capp100000000000000000000","asOf":"2026-10-12T04:0
 const availabilityJSON = `{"workers":[
 	{"worker":{"id":"wkr2","kind":"WORKER","name":"Rufus","urn":"hrn:worker:acme.com:eng:rufus"},
 	 "state":"UNAVAILABLE","reason":"OUT_OF_TOKENS","until":"2026-10-13T00:00:00Z",
-	 "setAt":"2026-10-12T00:00:00Z","setByParty":{"id":"wkr2","kind":"WORKER","name":"Rufus","urn":"hrn:worker:acme.com:eng:rufus"},
+	 "setAt":"2026-10-12T00:00:00Z","setBy":"WORKER","setByParty":{"id":"wkr2","kind":"WORKER","name":"Rufus","urn":"hrn:worker:acme.com:eng:rufus"},
 	 "inEffect":true}],
 	"families":[
 	{"appId":"capp100000000000000000000","family":"codex","state":"UNAVAILABLE","reason":"HOST_DOWN",
@@ -126,7 +126,7 @@ const availabilityJSON = `{"workers":[
 // envelope availabilityJSON spells).
 const workerAvailabilityRecordJSON = `{"worker":{"id":"wkr2","kind":"WORKER","name":"Rufus","urn":"hrn:worker:acme.com:eng:rufus"},
 	"state":"UNAVAILABLE","reason":"OUT_OF_TOKENS","until":"2026-10-13T00:00:00Z",
-	"setAt":"2026-10-12T04:00:00Z","setByParty":{"id":"wkr1","kind":"WORKER","name":"Iris","urn":"hrn:worker:acme.com:eng:iris"},
+	"setAt":"2026-10-12T04:00:00Z","setBy":"APP_MANAGER","setByParty":{"id":"wkr1","kind":"WORKER","name":"Iris","urn":"hrn:worker:acme.com:eng:iris"},
 	"inEffect":true}`
 
 // taskResponses is the standard server for a bound worktree: the binding's

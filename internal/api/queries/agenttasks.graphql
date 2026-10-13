@@ -311,6 +311,9 @@ query TeamAvailability($appRef: ID!) {
       reason
       until
       setAt
+      # The setter class; LAPSE (#1766) when the platform recorded a passed
+      # until, which `team availability get` renders as a lapse (#858).
+      setBy
       setByParty {
         ...AgentTaskPartyFields
       }
@@ -342,6 +345,7 @@ mutation WorkerAvailabilitySet($input: SetWorkerAvailabilityInput!) {
     reason
     until
     setAt
+    setBy
     setByParty {
       ...AgentTaskPartyFields
     }

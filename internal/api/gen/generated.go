@@ -8134,6 +8134,33 @@ var AllAvailabilityReason = []AvailabilityReason{
 	AvailabilityReasonStalled,
 }
 
+// Who set a worker's availability (hrn:node:hadronmemory.com:specs:cor:agt:060:08).
+type AvailabilitySetter string
+
+const (
+	// Whoever manages the App.
+	AvailabilitySetterAppManager AvailabilitySetter = "APP_MANAGER"
+	// The person holding the worker's name.
+	AvailabilitySetterHolder AvailabilitySetter = "HOLDER"
+	// A host that registered the worker (the host-operations slice).
+	AvailabilitySetterHost AvailabilitySetter = "HOST"
+	// #1766 — the platform, recording that an until passed (hrn:node:hadronmemory.com:specs:cor:agt:060:02): the record is then AVAILABLE, set at the instant it lapsed.
+	AvailabilitySetterLapse AvailabilitySetter = "LAPSE"
+	// The stall rule (hrn:node:hadronmemory.com:specs:cor:agt:060:07): an alarm marked it, or its next activity cleared it.
+	AvailabilitySetterStallRule AvailabilitySetter = "STALL_RULE"
+	// The worker itself; only ever to unavailable.
+	AvailabilitySetterWorker AvailabilitySetter = "WORKER"
+)
+
+var AllAvailabilitySetter = []AvailabilitySetter{
+	AvailabilitySetterAppManager,
+	AvailabilitySetterHolder,
+	AvailabilitySetterHost,
+	AvailabilitySetterLapse,
+	AvailabilitySetterStallRule,
+	AvailabilitySetterWorker,
+}
+
 type AvailabilityState string
 
 const (
@@ -24177,6 +24204,8 @@ type NodeApprovalState string
 const (
 	// The current revision is approved.
 	NodeApprovalStateApproved NodeApprovalState = "APPROVED"
+	// Approval is not applicable in an encrypted memory.
+	NodeApprovalStateNotApplicable NodeApprovalState = "NOT_APPLICABLE"
 	// Never approved.
 	NodeApprovalStateNotApproved NodeApprovalState = "NOT_APPROVED"
 	// Approved once, edited since: the approval covers an older revision.
@@ -24185,6 +24214,7 @@ const (
 
 var AllNodeApprovalState = []NodeApprovalState{
 	NodeApprovalStateApproved,
+	NodeApprovalStateNotApplicable,
 	NodeApprovalStateNotApproved,
 	NodeApprovalStateSuperseded,
 }
@@ -24195,7 +24225,7 @@ var AllNodeApprovalState = []NodeApprovalState{
 // #1591 — a node's approval state plus its latest approval.
 type NodeApprovalStatusFields struct {
 	State NodeApprovalState `json:"state"`
-	// The latest approval on record; null when NOT_APPROVED.
+	// The latest approval on record; null when NOT_APPROVED or NOT_APPLICABLE.
 	Approval *NodeApprovalStatusFieldsApprovalNodeApproval `json:"approval"`
 }
 
@@ -25801,7 +25831,7 @@ func (v *NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeContentValidati
 // NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus includes the requested fields of the GraphQL type NodeMintStatus.
 // The GraphQL type's documentation follows.
 //
-// #1591 — whether a node is minted, and the record of it. Minting protects nothing by itself (permanence is off for now).
+// #1591 — whether a node is minted, and the record of it. Encrypted memories read not-minted with all record fields null; not-applicable is distinguished by approvalStatus. Minting protects nothing by itself (permanence is off for now).
 type NodeLiveRevisionsMintedNodeBatchNodeBatchResultNodesNodeMintStatus struct {
 	NodeMintStatusFields `json:"-"`
 }
@@ -26280,7 +26310,7 @@ var AllNodeMergeField = []NodeMergeField{
 // NodeMintStatusFields includes the GraphQL fields of NodeMintStatus requested by the fragment NodeMintStatusFields.
 // The GraphQL type's documentation follows.
 //
-// #1591 — whether a node is minted, and the record of it. Minting protects nothing by itself (permanence is off for now).
+// #1591 — whether a node is minted, and the record of it. Encrypted memories read not-minted with all record fields null; not-applicable is distinguished by approvalStatus. Minting protects nothing by itself (permanence is off for now).
 type NodeMintStatusFields struct {
 	Minted   bool    `json:"minted"`
 	MintedAt *string `json:"mintedAt"`
@@ -36023,10 +36053,11 @@ type TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability struct {
 	State  AvailabilityState                                                              `json:"state"`
 	// Set exactly when unavailable.
 	Reason *AvailabilityReason `json:"reason"`
-	// When an unavailable record lapses. A passed until reads as available (interim, until ruled).
-	Until *string `json:"until"`
-	SetAt string  `json:"setAt"`
-	// Who acted, when a worker or a person set it; null when the stall rule did.
+	// When an unavailable record lapses. A passed until reads as available at once; within a minute the record is rewritten to AVAILABLE, set by LAPSE, and one availability.changed event records it (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
+	Until *string            `json:"until"`
+	SetAt string             `json:"setAt"`
+	SetBy AvailabilitySetter `json:"setBy"`
+	// Who acted, when a worker or a person set it; null when the stall rule or a lapse did.
 	SetByParty *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailabilitySetByPartyAgentTaskParty `json:"setByParty"`
 	// Whether this record makes the worker unavailable right now: unavailable,
 	// not lapsed, and (for STALLED) the worker has not acted since it was set
@@ -36056,6 +36087,11 @@ func (v *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability) GetUntil() *
 
 // GetSetAt returns TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability.SetAt, and is useful for accessing the field via an interface.
 func (v *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability) GetSetAt() string { return v.SetAt }
+
+// GetSetBy returns TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability.SetBy, and is useful for accessing the field via an interface.
+func (v *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability) GetSetBy() AvailabilitySetter {
+	return v.SetBy
+}
 
 // GetSetByParty returns TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability.SetByParty, and is useful for accessing the field via an interface.
 func (v *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailability) GetSetByParty() *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailabilitySetByPartyAgentTaskParty {
@@ -37211,7 +37247,7 @@ const (
 	TeamRosterStateWaiting TeamRosterState = "WAITING"
 	// The assignee of a started task.
 	TeamRosterStateWorking TeamRosterState = "WORKING"
-	// Woken on an unacknowledged alarm (hrn:node:hadronmemory.com:specs:cor:agt:050:19), or a child of a task it is the assignee of finished after it last moved (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+	// Woken on an unacknowledged alarm (hrn:node:hadronmemory.com:specs:cor:agt:050:19), or a child task it owns finished or was cancelled after it last acted (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
 	TeamRosterStateYourMove TeamRosterState = "YOUR_MOVE"
 )
 
@@ -37283,7 +37319,7 @@ type TeamRosterTeamRosterWorkersTeamRosterEntry struct {
 	WaitingOn []string `json:"waitingOn"`
 	// WAITING: when the oldest of those was created.
 	WaitingSince *string `json:"waitingSince"`
-	// YOUR_MOVE: a finished child it hasn't reacted to.
+	// YOUR_MOVE: a finished or cancelled child it hasn't reacted to.
 	UnreactedChildTask *string `json:"unreactedChildTask"`
 	// YOUR_MOVE: unacknowledged alarms it has been woken on.
 	Alarms []string `json:"alarms"`
@@ -44567,10 +44603,11 @@ type WorkerAvailabilitySetSetWorkerAvailability struct {
 	State  AvailabilityState                                               `json:"state"`
 	// Set exactly when unavailable.
 	Reason *AvailabilityReason `json:"reason"`
-	// When an unavailable record lapses. A passed until reads as available (interim, until ruled).
-	Until *string `json:"until"`
-	SetAt string  `json:"setAt"`
-	// Who acted, when a worker or a person set it; null when the stall rule did.
+	// When an unavailable record lapses. A passed until reads as available at once; within a minute the record is rewritten to AVAILABLE, set by LAPSE, and one availability.changed event records it (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
+	Until *string            `json:"until"`
+	SetAt string             `json:"setAt"`
+	SetBy AvailabilitySetter `json:"setBy"`
+	// Who acted, when a worker or a person set it; null when the stall rule or a lapse did.
 	SetByParty *WorkerAvailabilitySetSetWorkerAvailabilitySetByPartyAgentTaskParty `json:"setByParty"`
 	// Whether this record makes the worker unavailable right now: unavailable,
 	// not lapsed, and (for STALLED) the worker has not acted since it was set
@@ -44594,6 +44631,9 @@ func (v *WorkerAvailabilitySetSetWorkerAvailability) GetUntil() *string { return
 
 // GetSetAt returns WorkerAvailabilitySetSetWorkerAvailability.SetAt, and is useful for accessing the field via an interface.
 func (v *WorkerAvailabilitySetSetWorkerAvailability) GetSetAt() string { return v.SetAt }
+
+// GetSetBy returns WorkerAvailabilitySetSetWorkerAvailability.SetBy, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetSetWorkerAvailability) GetSetBy() AvailabilitySetter { return v.SetBy }
 
 // GetSetByParty returns WorkerAvailabilitySetSetWorkerAvailability.SetByParty, and is useful for accessing the field via an interface.
 func (v *WorkerAvailabilitySetSetWorkerAvailability) GetSetByParty() *WorkerAvailabilitySetSetWorkerAvailabilitySetByPartyAgentTaskParty {
@@ -62827,6 +62867,7 @@ query TeamAvailability ($appRef: ID!) {
 			reason
 			until
 			setAt
+			setBy
 			setByParty {
 				... AgentTaskPartyFields
 			}
@@ -65844,6 +65885,7 @@ mutation WorkerAvailabilitySet ($input: SetWorkerAvailabilityInput!) {
 		reason
 		until
 		setAt
+		setBy
 		setByParty {
 			... AgentTaskPartyFields
 		}
