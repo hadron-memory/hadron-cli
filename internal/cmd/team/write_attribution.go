@@ -153,7 +153,8 @@ func authoredWriteField(field string) bool {
 		// is the actor when one is bound, the person otherwise.
 		"createAgentTask", "assignAgentTask", "reassignAgentTask",
 		"startAgentTask", "recordAgentTaskProgress", "finishAgentTask",
-		"cancelAgentTask", "acknowledgeAlarm",
+		"cancelAgentTask", "parkAgentTask", "makeAgentTaskReady",
+		"acknowledgeAlarm",
 		"setWorkerAvailability", "setModelFamilyAvailability":
 		return true
 	default:

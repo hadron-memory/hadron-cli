@@ -30,8 +30,8 @@ func newCmdTeamTask(f *cmdutil.Factory) *cobra.Command {
 		Use:   "task <command>",
 		Short: "A team App's agent tasks",
 		Long: `Create, carry and finish the team App's agent tasks — the server owns the
-lifecycle (cor:agt:050:02: PENDING → STARTED → FINISHED/CANCELLED), matching
-and every gate. These commands are thin callers.
+lifecycle (cor:agt:050:02: BACKLOG ⇄ PENDING → STARTED → FINISHED/CANCELLED),
+matching and every gate. These commands are thin callers.
 
 With a worktree worker-session binding, writes are made by the bound WORKER
 (the server records the session); without one, by you. Task ids come from
@@ -48,6 +48,8 @@ words, so a bare value is ambiguous and refused rather than guessed.`,
 	cmd.AddCommand(newCmdTeamTaskProgress(f))
 	cmd.AddCommand(newCmdTeamTaskFinish(f))
 	cmd.AddCommand(newCmdTeamTaskCancel(f))
+	cmd.AddCommand(newCmdTeamTaskPark(f))
+	cmd.AddCommand(newCmdTeamTaskReady(f))
 	cmd.AddCommand(newCmdTeamTaskGet(f))
 	cmd.AddCommand(newCmdTeamTaskList(f))
 	cmd.AddCommand(newCmdTeamTaskTree(f))
@@ -103,7 +105,7 @@ func writeTaskReceipt(w io.Writer, verb string, task taskDTO) error {
 // ---- create ---------------------------------------------------------------
 
 func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
-	var description, owner, assignee, parent, source, startBy string
+	var description, owner, assignee, parent, source, startBy, status string
 	var tags []string
 	var requireRole, familyIn, familyNotIn string
 	var excludeWorkers []string
@@ -116,8 +118,17 @@ QUEUED (pending, no assignee) for the platform's matcher; naming an assignee
 puts it in their queue. --parent makes a child task and takes the App from
 the parent (an --app that disagrees is refused by the server).
 
---owner defaults to you; naming someone else is accepted only from whoever
-manages the App, and never for a child task. Requirements (--require-role,
+--status parks the task instead of queueing it (cor:agt:050:02): BACKLOG
+takes no assignee (the server refuses the combination), never enters the
+queue, is never matched or waited on, and raises no alarms; assigning it
+(` + "`task assign`" + `) or making it ready (` + "`task ready`" + `) moves it to PENDING. The
+default is pending, so the flag is only needed to say backlog — but
+pending is accepted for explicitness.
+
+--owner defaults to you; a root task's creator may name any other
+participating worker or person (#1757, cor:agt:050:01). For a child task
+the owner is the parent's assignee — naming a different owner is refused
+(TASK_CHILD_OWNER_MISMATCH). Requirements (--require-role,
 --family-in/--family-not-in, --exclude-worker) constrain the matcher.
 --start-by takes an RFC 3339 timestamp.
 
@@ -138,12 +149,32 @@ By default finishing asks the assignee to end its worker session
 			if familyIn != "" && familyNotIn != "" {
 				return exitcode.Newf(exitcode.Usage, "--family-in and --family-not-in: give one, not both")
 			}
+			// The two create-time statuses (cor:agt:050:02); every other
+			// status is reached by a move, so the flag cannot spell them.
+			// PRESENCE, not value: an explicit --status "" (a script's
+			// --status "$VAR" with an unset VAR) is a supplied value outside
+			// the two, refused here rather than silently queued — the
+			// an-empty-flag-is-not-an-absent-flag rule (cycle 0, Anne P2-1).
+			var createStatus *gen.AgentTaskCreateStatus
+			if cmd.Flags().Changed("status") {
+				switch strings.ToLower(status) {
+				case "backlog":
+					s := gen.AgentTaskCreateStatusBacklog
+					createStatus = &s
+				case "pending":
+					s := gen.AgentTaskCreateStatusPending
+					createStatus = &s
+				default:
+					return exitcode.Newf(exitcode.Usage, "--status is backlog or pending at creation (every other status is reached by a move), got %q", status)
+				}
+			}
 			input := gen.CreateAgentTaskInput{
 				Title:        title,
 				Description:  optStr(description),
 				ParentTaskId: optStr(parent),
 				Source:       optStr(source),
 				StartBy:      optStr(startBy),
+				Status:       createStatus,
 				Tags:         tags,
 			}
 			if noCloseSession {
@@ -228,6 +259,7 @@ By default finishing asks the assignee to end its worker session
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families to exclude")
 	cmd.Flags().StringSliceVar(&excludeWorkers, "exclude-worker", nil, "worker the matcher must not pick (repeatable)")
+	cmd.Flags().StringVar(&status, "status", "", "create-time status: backlog (parked) or pending (the default)")
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "do not ask the assignee to end its session when it finishes")
 	return cmd
 }
@@ -381,6 +413,49 @@ func newCmdTeamTaskCancel(f *cmdutil.Factory) *cobra.Command {
 		},
 		func(w io.Writer, task taskDTO) error {
 			return writeTaskReceipt(w, "cancelled", task)
+		})
+}
+
+// ---- park / ready (the BACKLOG moves, #1754 / cor:agt:050:02) --------------
+
+func newCmdTeamTaskPark(f *cmdutil.Factory) *cobra.Command {
+	return newSimpleTaskMutation(f, "park", "Park a queued task (BACKLOG)",
+		`Park the task: a pending task with no assignee becomes BACKLOG —
+unassigned, never matched, never waited on, no alarms (cor:agt:050:02).
+Whoever may assign a task may park it: its owner, a worker the owner
+reports to, or whoever manages the App (cor:agt:050:09). Make it ready
+(`+"`team task ready`"+`) — or assign it — to move it back to PENDING.`,
+		func(ctx context.Context, client graphql.Client, taskId string) (taskDTO, error) {
+			resp, err := gen.AgentTaskPark(ctx, client, taskId)
+			if err != nil {
+				return taskDTO{}, err
+			}
+			return taskDTOFrom(resp.ParkAgentTask.AgentTaskFields), nil
+		},
+		func(w io.Writer, task taskDTO) error {
+			return writeTaskReceipt(w, "parked", task)
+		})
+}
+
+func newCmdTeamTaskReady(f *cmdutil.Factory) *cobra.Command {
+	return newSimpleTaskMutation(f, "ready", "Make a backlog task ready to work",
+		`Make the backlog task ready: BACKLOG becomes PENDING and the task
+enters the queue for the matcher (cor:agt:050:02). Whoever may assign a
+task may make it ready: its owner, a worker the owner reports to, or
+whoever manages the App (cor:agt:050:09).`,
+		func(ctx context.Context, client graphql.Client, taskId string) (taskDTO, error) {
+			resp, err := gen.AgentTaskReady(ctx, client, taskId)
+			if err != nil {
+				return taskDTO{}, err
+			}
+			return taskDTOFrom(resp.MakeAgentTaskReady.AgentTaskFields), nil
+		},
+		func(w io.Writer, task taskDTO) error {
+			_, err := fmt.Fprintf(w, "✓ made task %s ready (%s)\n", task.ID, task.Status)
+			if err == nil && task.Queued {
+				_, err = fmt.Fprintln(w, "  queued: no assignee — the platform's matcher picks one")
+			}
+			return err
 		})
 }
 

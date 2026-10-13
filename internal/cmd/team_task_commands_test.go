@@ -12,6 +12,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // ---- shared fixtures -------------------------------------------------------
@@ -41,6 +43,19 @@ const startedTaskFieldsJSON = `{"id":"task1","appId":"capp100000000000000000000"
 	"parentTaskId":null,"tags":[],"source":null,"startBy":null,
 	"createdAt":"2026-10-12T00:00:00Z","updatedAt":"2026-10-12T01:00:00Z",
 	"startedAt":"2026-10-12T01:00:00Z","finishedAt":null,"cancelledAt":null,
+	"closeSessionWhenDone":true,"requirements":null,"result":null}`
+
+// backlogTaskFieldsJSON is the #1754 parked state: BACKLOG, unassigned, not
+// queued — never matched, never waited on, no alarms.
+const backlogTaskFieldsJSON = `{"id":"task1","appId":"capp100000000000000000000",
+	"title":"Fix the flaky CI build","description":null,
+	"status":"BACKLOG","queued":false,"waitingOnChildren":false,
+	"owner":{"id":"wkr1","kind":"WORKER","name":"Iris","urn":"hrn:worker:acme.com:eng:iris"},
+	"assignee":null,"assignedBy":null,
+	"createdBy":{"id":"u1","kind":"USER","name":"holger","urn":null},
+	"parentTaskId":null,"tags":[],"source":null,"startBy":null,
+	"createdAt":"2026-10-12T00:00:00Z","updatedAt":"2026-10-12T00:30:00Z",
+	"startedAt":null,"finishedAt":null,"cancelledAt":null,
 	"closeSessionWhenDone":true,"requirements":null,"result":null}`
 
 const finishedTaskFieldsJSON = `{"id":"task1","appId":"capp100000000000000000000",
@@ -125,6 +140,8 @@ func taskResponses() map[string]string {
 		"AgentTaskProgress":          `{"data":{"recordAgentTaskProgress":` + startedTaskFieldsJSON + `}}`,
 		"AgentTaskFinish":            `{"data":{"finishAgentTask":` + finishedTaskFieldsJSON + `}}`,
 		"AgentTaskCancel":            `{"data":{"cancelAgentTask":` + finishedTaskFieldsJSON + `}}`,
+		"AgentTaskPark":              `{"data":{"parkAgentTask":` + backlogTaskFieldsJSON + `}}`,
+		"AgentTaskReady":             `{"data":{"makeAgentTaskReady":` + taskFieldsJSON + `}}`,
 		"AgentTaskGet":               `{"data":{"agentTask":` + taskFieldsJSON + `}}`,
 		"AgentTaskList":              `{"data":{"agentTasks":[` + taskFieldsJSON + `]}}`,
 		"AgentTaskTree":              `{"data":{"agentTaskTree":[` + taskFieldsJSON + `]}}`,
@@ -273,6 +290,226 @@ func TestTeamTaskLifecycleVerbsAttributed(t *testing.T) {
 				}
 			}
 			t.Fatalf("no %s call", tc.op)
+		})
+	}
+}
+
+// ---- #851: the BACKLOG lifecycle (server #1754, cor:agt:050:02) -----------
+//
+// Red-first per the CHECKED gate's acceptance: `team task park` and
+// `team task ready` were unknown commands and `--status` an unknown flag on
+// main when these landed.
+
+// --status reaches the create input; absent means the server's default
+// (PENDING — normalizeCreateStatus reads nil/null and omitted alike); a value
+// outside the two create-time statuses is a local usage error before any
+// request.
+func TestTeamTaskCreateStatusFlag(t *testing.T) {
+	t.Run("backlog reaches the input and lands parked", func(t *testing.T) {
+		// The acceptance's strongest observable: the created task comes back
+		// BACKLOG and never queued. Asserting the request alone (as the first
+		// draft did) would pass even if the server ignored the status — a
+		// queued PENDING response must FAIL here (Xylon P2-1 / Anne P2-2).
+		responses := taskResponses()
+		responses["AgentTaskCreate"] = `{"data":{"createAgentTask":` + backlogTaskFieldsJSON + `}}`
+		calls, out, err := runTeamTask(t, responses,
+			"team", "task", "create", "Fix the flaky CI build", "--status", "backlog")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var create *attnCall
+		for i := range *calls {
+			if (*calls)[i].Op == "AgentTaskCreate" {
+				create = &(*calls)[i]
+			}
+		}
+		if create == nil {
+			t.Fatal("no AgentTaskCreate call")
+		}
+		input, _ := create.Vars["input"].(map[string]any)
+		if input == nil {
+			t.Fatal("no input variable")
+		}
+		if input["status"] != "BACKLOG" {
+			t.Fatalf("input.status = %v, want BACKLOG", input["status"])
+		}
+		if !strings.Contains(out, "✓ created task task1 (BACKLOG)") {
+			t.Fatalf("receipt should report the parked status, got %q", out)
+		}
+		if strings.Contains(out, "queued:") {
+			t.Fatalf("a parked task must not be reported queued, got %q", out)
+		}
+	})
+	t.Run("explicit pending reaches the input", func(t *testing.T) {
+		calls, _, err := runTeamTask(t, taskResponses(),
+			"team", "task", "create", "Fix the flaky CI build", "--status", "pending")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range *calls {
+			if (*calls)[i].Op == "AgentTaskCreate" {
+				input, _ := (*calls)[i].Vars["input"].(map[string]any)
+				if input["status"] != "PENDING" {
+					t.Fatalf("input.status = %v, want PENDING", input["status"])
+				}
+				return
+			}
+		}
+		t.Fatal("no AgentTaskCreate call")
+	})
+	t.Run("no flag means the server default", func(t *testing.T) {
+		calls, _, err := runTeamTask(t, taskResponses(),
+			"team", "task", "create", "Fix the flaky CI build")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range *calls {
+			if (*calls)[i].Op == "AgentTaskCreate" {
+				input, _ := (*calls)[i].Vars["input"].(map[string]any)
+				// The generated input marshals an unset optional as explicit
+				// null (this struct's convention for every unset optional —
+				// no omitempty on status), and the server's
+				// normalizeCreateStatus reads null and omitted identically
+				// (verified on the resolver). So the honest pin is "no
+				// STATUS VALUE claimed", not "key absent": present-and-null
+				// and absent are both the server default.
+				if status, present := input["status"]; present && status != nil {
+					t.Fatalf("input.status = %v — unset --status must not claim a status", status)
+				}
+				return
+			}
+		}
+		t.Fatal("no AgentTaskCreate call")
+	})
+	t.Run("an unknown status is refused locally", func(t *testing.T) {
+		calls, _, err := runTeamTask(t, taskResponses(),
+			"team", "task", "create", "Fix the flaky CI build", "--status", "someday")
+		if err == nil {
+			t.Fatal("an unknown --status value must be refused")
+		}
+		if got := exitCodeFor(err); got != exitcode.Usage {
+			t.Fatalf("exit code = %d, want %d (Usage)", got, exitcode.Usage)
+		}
+		if !strings.Contains(err.Error(), "backlog") || !strings.Contains(err.Error(), "pending") {
+			t.Fatalf("the refusal should name the two create-time statuses, got %v", err)
+		}
+		for i := range *calls {
+			if (*calls)[i].Op == "AgentTaskCreate" {
+				t.Fatal("an invalid --status must be refused BEFORE the mutation")
+			}
+		}
+	})
+	// An EXPLICIT empty --status is a supplied value outside backlog|pending —
+	// the an-empty-flag-is-not-an-absent-flag rule. `--status "$VAR"` with an
+	// unset VAR must fail loudly, not quietly create a queued task the caller
+	// meant to park (Anne cycle-0 P2-1).
+	t.Run("an explicit empty status is refused", func(t *testing.T) {
+		calls, _, err := runTeamTask(t, taskResponses(),
+			"team", "task", "create", "Fix the flaky CI build", "--status", "")
+		if err == nil {
+			t.Fatal("an explicitly empty --status must be refused, not read as omission")
+		}
+		if got := exitCodeFor(err); got != exitcode.Usage {
+			t.Fatalf("exit code = %d, want %d (Usage)", got, exitcode.Usage)
+		}
+		for i := range *calls {
+			if (*calls)[i].Op == "AgentTaskCreate" {
+				t.Fatal("an empty --status must be refused BEFORE the mutation — a script's parked create must not silently queue")
+			}
+		}
+	})
+}
+
+// park and ready are attributed lifecycle verbs like their siblings: one
+// mutation, the bound session's header, the task receipt.
+func TestTeamTaskParkAndReadyAttributed(t *testing.T) {
+	cases := []struct {
+		argv []string
+		op   string
+		rece string
+	}{
+		{[]string{"team", "task", "park", "task1"}, "AgentTaskPark", "✓ parked task task1 (BACKLOG)"},
+		{[]string{"team", "task", "ready", "task1"}, "AgentTaskReady", "✓ made task task1 ready (PENDING)"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.op, func(t *testing.T) {
+			calls, out, err := runTeamTask(t, taskResponses(), tc.argv...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := range *calls {
+				c := (*calls)[i]
+				if c.Op != tc.op {
+					continue
+				}
+				if c.Session != "s-new" {
+					t.Fatalf("not attributed: %q", c.Session)
+				}
+				if c.Vars["taskId"] != "task1" {
+					t.Fatalf("taskId %v", c.Vars["taskId"])
+				}
+				if !strings.Contains(out, tc.rece) {
+					t.Fatalf("receipt %q (want %q)", out, tc.rece)
+				}
+				return
+			}
+			t.Fatalf("no %s call", tc.op)
+		})
+	}
+}
+
+// The typed transitions hold through the existing mappings: parking a task
+// that is not pending-unassigned is TASK_INVALID_TRANSITION (exit 5), never
+// the generic 1.
+func TestTeamTaskParkInvalidTransitionIsConflict(t *testing.T) {
+	_, _, err := runTeamTask(t, map[string]string{
+		"AgentTaskPark": `{"errors":[{"message":"Task is not pending or has an assignee.","extensions":{"code":"TASK_INVALID_TRANSITION"}}]}`,
+	}, "team", "task", "park", "task1")
+	if err == nil {
+		t.Fatal("the server's transition refusal must surface")
+	}
+	if got := exitCodeFor(err); got != exitcode.Conflict {
+		t.Fatalf("exit code = %d, want %d (Conflict)", got, exitcode.Conflict)
+	}
+	if !strings.Contains(err.Error(), "not pending") {
+		t.Fatalf("the server's message should surface, got %v", err)
+	}
+}
+
+// The acceptance's refusal matrix, at the command level (cycle 0, Xylon
+// P2-2 / Anne P2-2): each typed refusal exits through its documented code,
+// with the server's message and no success receipt.
+func TestTeamTaskBacklogRefusalMatrix(t *testing.T) {
+	cases := []struct {
+		name  string
+		argv  []string
+		op    string
+		code  string
+		want  int
+		msgIn string
+	}{
+		{"ready invalid transition", []string{"team", "task", "ready", "task1"}, "AgentTaskReady", "TASK_INVALID_TRANSITION", exitcode.Conflict, "not backlog"},
+		{"ready not owner", []string{"team", "task", "ready", "task1"}, "AgentTaskReady", "TASK_NOT_OWNER", exitcode.Forbidden, "not the owner"},
+		{"ready missing task", []string{"team", "task", "ready", "task1"}, "AgentTaskReady", "TASK_NOT_FOUND", exitcode.NotFound, "no such task"},
+		{"create invalid owner", []string{"team", "task", "create", "T", "--owner", "worker:ghost"}, "AgentTaskCreate", "TASK_OWNER_INVALID", exitcode.Usage, "not a participant"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, out, err := runTeamTask(t, map[string]string{
+				tc.op: `{"errors":[{"message":"` + tc.msgIn + `.","extensions":{"code":"` + tc.code + `"}}]}`,
+			}, tc.argv...)
+			if err == nil {
+				t.Fatalf("the %s refusal must surface", tc.code)
+			}
+			if got := exitCodeFor(err); got != tc.want {
+				t.Fatalf("exit code = %d, want %d (%s)", got, tc.want, tc.code)
+			}
+			if !strings.Contains(err.Error(), tc.msgIn) {
+				t.Fatalf("the server's message should surface, got %v", err)
+			}
+			if strings.Contains(out, "✓") {
+				t.Fatalf("no success receipt may precede a refusal, got %q", out)
+			}
 		})
 	}
 }
