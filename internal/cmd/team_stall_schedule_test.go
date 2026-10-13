@@ -144,18 +144,54 @@ func TestTeamStallScheduleSetDefaultSendsNull(t *testing.T) {
 	}
 }
 
-// The raw request text, not just the decoded map: an explicit null must be on
-// the wire as `null`, and an unset field must be absent (not null).
+// The request bytes as sent, not a re-marshal of their decode: the explicit
+// null must be on the wire as `null`, and an unset field must be absent (not
+// null). The input is a bound struct, so its keys go out in field order.
 func TestTeamStallScheduleSetWireShape(t *testing.T) {
 	calls, _, err := runTeamTask(t, stallResponses(), "team", "stall-schedule", "set",
 		"--owner-reaction-minutes", "default", "--not-started-minutes", "45")
 	if err != nil {
 		t.Fatal(err)
 	}
-	in := stallSetInput(t, calls)
-	raw, _ := json.Marshal(in)
-	if string(raw) != `{"notStartedMinutes":45,"ownerReactionMinutes":null}` {
-		t.Fatalf("wire input %s", raw)
+	for _, c := range *calls {
+		if c.Op != "TeamStallScheduleSet" {
+			continue
+		}
+		var vars map[string]json.RawMessage
+		if err := json.Unmarshal(c.RawVars, &vars); err != nil {
+			t.Fatalf("raw variables %s: %v", c.RawVars, err)
+		}
+		if got := string(vars["input"]); got != `{"notStartedMinutes":45,"ownerReactionMinutes":null}` {
+			t.Fatalf("wire input %s", got)
+		}
+		return
+	}
+	t.Fatal("no TeamStallScheduleSet call")
+}
+
+// set renders through the same DTO as get; its --json is pinned on its own.
+func TestTeamStallScheduleSetJSON(t *testing.T) {
+	_, out, err := runTeamTask(t, stallResponses(), "team", "stall-schedule", "set", "--host-lapse-check-ins", "5", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out)
+	}
+	want := map[string]any{"appId": "capp100000000000000000000", "assignmentMinutes": 30.0,
+		"notStartedMinutes": 60.0, "noProgressMinutes": 120.0, "ownerReactionMinutes": 240.0,
+		"hostLapseCheckIns": 5.0, "updatedAt": "2026-10-13T20:00:00Z"}
+	if len(got) != len(want) {
+		t.Fatalf("keys %v, want %v", got, want)
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Fatalf("%s = %v, want %v\n%s", k, got[k], v, out)
+		}
+	}
+	if strings.Contains(out, "✓") {
+		t.Fatalf("--json output carries the human receipt:\n%s", out)
 	}
 }
 
@@ -237,9 +273,19 @@ func TestTeamStallScheduleSetNotAttributedToWorker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The witness is required: a run that never sent the mutation must not
+	// pass as "no session was sent".
+	seen := false
 	for _, c := range *calls {
-		if c.Op == "TeamStallScheduleSet" && c.Session != "" {
+		if c.Op != "TeamStallScheduleSet" {
+			continue
+		}
+		seen = true
+		if c.Session != "" {
 			t.Fatalf("stall-schedule set carried worker session %q; the server refuses a worker actor APP_MANAGER_REQUIRED", c.Session)
 		}
+	}
+	if !seen {
+		t.Fatal("no TeamStallScheduleSet call observed")
 	}
 }
