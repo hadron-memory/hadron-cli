@@ -844,6 +844,12 @@ func codeForExtension(code string) int {
 	// cast` refuses this one locally with the remedy, so the mapping is for
 	// the paths that do not — an exit 1 for a plainly-fixable input would
 	// read as a server fault.
+	// APP_MANAGER_REQUIRED (#864, server setAgentTaskStallSchedule) names a
+	// permission, not a missing argument: only whoever manages the App may
+	// set its stall schedule. It must be matched before the _REQUIRED suffix
+	// rule below, which would read it as a usage error.
+	case code == "APP_MANAGER_REQUIRED":
+		return exitcode.Forbidden
 	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
 		strings.HasSuffix(code, "_TOO_LARGE") || strings.HasSuffix(code, "_REQUIRED"):
 		return exitcode.Usage

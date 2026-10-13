@@ -367,3 +367,30 @@ mutation ModelFamilyAvailabilitySet($input: SetModelFamilyAvailabilityInput!) {
     inEffect
   }
 }
+
+# An App's stall schedule (#864 over server #1706/#1707, #1863): the four
+# stall windows (cor:agt:050:14–:17) and the host-registration lapse count
+# (cor:agt:070:01). `team stall-schedule get` and `set` render it.
+fragment AgentTaskStallScheduleFields on AgentTaskStallSchedule {
+  appId
+  assignmentMinutes
+  notStartedMinutes
+  noProgressMinutes
+  ownerReactionMinutes
+  hostLapseCheckIns
+  updatedAt
+}
+
+query TeamStallSchedule($appRef: ID!) {
+  agentTaskStallSchedule(appRef: $appRef) {
+    ...AgentTaskStallScheduleFields
+  }
+}
+
+# The input is bound to gqltypes.AgentTaskStallScheduleInput: an omitted field
+# keeps its value, an explicit null returns it to the platform default.
+mutation TeamStallScheduleSet($appRef: ID!, $input: AgentTaskStallScheduleInput!) {
+  setAgentTaskStallSchedule(appRef: $appRef, input: $input) {
+    ...AgentTaskStallScheduleFields
+  }
+}

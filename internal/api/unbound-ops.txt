@@ -9,7 +9,6 @@
 agentAIConfig
 agentAssets
 agentSubscriptions
-agentTaskStallSchedule  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 aiModelPrice
 aiModelPrices
 aiServiceConfigs
@@ -70,6 +69,7 @@ resendSender
 resendSenders
 resolveAIConfig
 secret
+signingRequest  # server#1632 node signing requests; CLI parity is hadron-cli#865
 slackConnection
 slackConnections
 teamSpecSchema  # cli#811 team-from-JSON consumer, outside cli#807 comments/search
@@ -81,7 +81,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 109 unbound
+[Mutation] 110 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -151,6 +151,7 @@ removeAppMember
 removeMemoryFromAgent
 repairAgentSystemMemory
 replaceSubtree  # server#1407: deprecated field; authorized calls return REPLACE_SUBTREE_RETIRED without writes
+requestNodeSignature  # server#1632 node signing requests; CLI parity is hadron-cli#865
 restoreRevision
 retryFailedEmbeddings
 revokeAgentOrgGrant
@@ -162,7 +163,6 @@ saveChatSummary
 sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled
-setAgentTaskStallSchedule  # server#1706/#1707 agent-task and availability surfaces; separate CLI parity work, outside cli#807 comments/search
 setAiModelPrice
 setAppTickerSettings  # server ticker settings (named-heartbeats epic, in flight); CLI parity follows the surface settling
 setDashboardWidgets
@@ -191,3 +191,4 @@ updateResendSender
 updateSecret
 updateTicker  # server ticker (named-heartbeats epic, in flight); CLI parity follows the surface settling
 withdrawDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
+withdrawSigningRequest  # server#1632 node signing requests; CLI parity is hadron-cli#865
