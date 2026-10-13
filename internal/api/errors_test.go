@@ -60,6 +60,9 @@ func TestMapError(t *testing.T) {
 		{"reports to retired", gqlErr("WORKER_REPORTS_TO_RETIRED"), exitcode.Conflict},
 		{"reports to held", gqlErr("WORKER_REPORTS_TO_HELD"), exitcode.Conflict},
 		{"reports to forbidden", gqlErr("WORKER_REPORTS_TO_FORBIDDEN"), exitcode.Forbidden},
+		// #864: only whoever manages the App sets its stall schedule — a
+		// permission refusal, which must not ride the _REQUIRED → Usage rule.
+		{"app manager required", gqlErr("APP_MANAGER_REQUIRED"), exitcode.Forbidden},
 		{"comment deleted", gqlErr("COMMENT_DELETED"), exitcode.Conflict},
 		{"comment merge folds threads", gqlErr("COMMENT_MERGE_FOLDS_THREADS"), exitcode.Usage},
 		{"unauthenticated", gqlErr("UNAUTHENTICATED"), exitcode.AuthRequired},
@@ -888,3 +891,4 @@ func TestUnknownChatReadSuppressionArgumentRequiresExactEnvelope(t *testing.T) {
 		t.Fatal("unparsed error retried")
 	}
 }
+
