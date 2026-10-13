@@ -335,6 +335,11 @@ type AgentTask {
   closeSessionWhenDone: Boolean!
   createdAt: DateTime!
   createdBy: AgentTaskParty
+
+  """
+  The headless run that created the task (hrn:node:hadronmemory.com:specs:cor:agt:050:06); then createdBy is null.
+  """
+  createdByRunId: ID
   description: String
   finishedAt: DateTime
   id: ID!
@@ -471,7 +476,7 @@ type AgentTaskStallSchedule {
   notStartedMinutes: Int!
 
   """
-  Owner didn't react to a finished child task (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+  Owner didn't react to a finished or cancelled child task (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
   """
   ownerReactionMinutes: Int!
 
@@ -537,6 +542,11 @@ type AgentTeamEvent {
   Who acted: the Worker when the request was bound to a worker session, else the person.
   """
   actor: AgentTaskParty
+
+  """
+  #1833 — the headless run that acted, when a run made this event (actor is then null: a run is never a person or a worker). Null otherwise. Matches AgentTask.createdByRunId for the task a run created.
+  """
+  actorRunId: ID
   appId: ID!
 
   """Alarms only: the owner chain when the alarm was raised, nearest first."""
@@ -1606,6 +1616,11 @@ enum AvailabilitySetter {
 
   """A host that registered the worker (the host-operations slice)."""
   HOST
+
+  """
+  #1766 — the platform, recording that an until passed (hrn:node:hadronmemory.com:specs:cor:agt:060:02): the record is then AVAILABLE, set at the instant it lapsed.
+  """
+  LAPSE
 
   """
   The stall rule (hrn:node:hadronmemory.com:specs:cor:agt:060:07): an alarm marked it, or its next activity cleared it.
@@ -7932,6 +7947,9 @@ enum NodeApprovalState {
   """The current revision is approved."""
   APPROVED
 
+  """Approval is not applicable in an encrypted memory."""
+  NOT_APPLICABLE
+
   """Never approved."""
   NOT_APPROVED
 
@@ -7941,7 +7959,9 @@ enum NodeApprovalState {
 
 """#1591 — a node's approval state plus its latest approval."""
 type NodeApprovalStatus {
-  """The latest approval on record; null when NOT_APPROVED."""
+  """
+  The latest approval on record; null when NOT_APPROVED or NOT_APPLICABLE.
+  """
   approval: NodeApproval
   state: NodeApprovalState!
 }
@@ -8303,7 +8323,7 @@ enum NodeMergeField {
 }
 
 """
-#1591 — whether a node is minted, and the record of it. Minting protects nothing by itself (permanence is off for now).
+#1591 — whether a node is minted, and the record of it. Encrypted memories read not-minted with all record fields null; not-applicable is distinguished by approvalStatus. Minting protects nothing by itself (permanence is off for now).
 """
 type NodeMintStatus {
   """
@@ -12576,7 +12596,7 @@ type TeamRosterEntry {
   unavailableReason: AvailabilityReason
   unavailableUntil: DateTime
 
-  """YOUR_MOVE: a finished child it hasn't reacted to."""
+  """YOUR_MOVE: a finished or cancelled child it hasn't reacted to."""
   unreactedChildTask: ID
 
   """WAITING: the open children of its started tasks."""
@@ -12623,7 +12643,7 @@ enum TeamRosterState {
   WORKING
 
   """
-  Woken on an unacknowledged alarm (hrn:node:hadronmemory.com:specs:cor:agt:050:19), or a child of a task it is the assignee of finished after it last moved (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+  Woken on an unacknowledged alarm (hrn:node:hadronmemory.com:specs:cor:agt:050:19), or a child task it owns finished or was cancelled after it last acted (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
   """
   YOUR_MOVE
 }
@@ -13485,13 +13505,13 @@ type WorkerAvailability {
   setBy: AvailabilitySetter!
 
   """
-  Who acted, when a worker or a person set it; null when the stall rule did.
+  Who acted, when a worker or a person set it; null when the stall rule or a lapse did.
   """
   setByParty: AgentTaskParty
   state: AvailabilityState!
 
   """
-  When an unavailable record lapses. A passed until reads as available (interim, until ruled).
+  When an unavailable record lapses. A passed until reads as available at once; within a minute the record is rewritten to AVAILABLE, set by LAPSE, and one availability.changed event records it (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
   """
   until: DateTime
   worker: AgentTaskParty!
