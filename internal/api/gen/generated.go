@@ -16498,7 +16498,11 @@ func (v *CreateUserInvitationResponse) GetCreateUserInvitation() *CreateUserInvi
 
 // DeleteAgentResponse is returned by DeleteAgent on success.
 type DeleteAgentResponse struct {
-	// Soft-delete an Agent.
+	// Soft-delete an Agent and its owned system memory. Refuses while a live
+	// App install or live parent Agent import references it. AgentMemoryItem
+	// attachments do not block deletion.
+	//
+	// See hrn:node:hadronmemory.com:specs:cor:dmo:050:14.
 	//
 	// Accepts the entity's ID or URN.
 	DeleteAgent bool `json:"deleteAgent"`
@@ -19562,6 +19566,160 @@ func (v *GetScopeScope) __premarshalJSON() (*__premarshalGetScopeScope, error) {
 	retval.CreatedAt = v.ScopeFields.CreatedAt
 	retval.UpdatedAt = v.ScopeFields.UpdatedAt
 	retval.Memories = v.ScopeMemories.Memories
+	return &retval, nil
+}
+
+// GetSigningRequestResponse is returned by GetSigningRequest on success.
+type GetSigningRequestResponse struct {
+	// #1632 — one signing request; null when unknown or when its node is not readable to the caller.
+	SigningRequest *GetSigningRequestSigningRequest `json:"signingRequest"`
+}
+
+// GetSigningRequest returns GetSigningRequestResponse.SigningRequest, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestResponse) GetSigningRequest() *GetSigningRequestSigningRequest {
+	return v.SigningRequest
+}
+
+// GetSigningRequestSigningRequest includes the requested fields of the GraphQL type SigningRequest.
+// The GraphQL type's documentation follows.
+//
+// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — a request for a person to sign one node's content, pinned at creation.
+type GetSigningRequestSigningRequest struct {
+	SigningRequestFields `json:"-"`
+}
+
+// GetId returns GetSigningRequestSigningRequest.Id, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetId() string { return v.SigningRequestFields.Id }
+
+// GetNodeId returns GetSigningRequestSigningRequest.NodeId, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetNodeId() string { return v.SigningRequestFields.NodeId }
+
+// GetNodeUrn returns GetSigningRequestSigningRequest.NodeUrn, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetNodeUrn() *string { return v.SigningRequestFields.NodeUrn }
+
+// GetRevision returns GetSigningRequestSigningRequest.Revision, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetRevision() int { return v.SigningRequestFields.Revision }
+
+// GetApprovalHash returns GetSigningRequestSigningRequest.ApprovalHash, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetApprovalHash() string {
+	return v.SigningRequestFields.ApprovalHash
+}
+
+// GetPayloadVersion returns GetSigningRequestSigningRequest.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetPayloadVersion() string {
+	return v.SigningRequestFields.PayloadVersion
+}
+
+// GetState returns GetSigningRequestSigningRequest.State, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetState() SigningRequestState {
+	return v.SigningRequestFields.State
+}
+
+// GetCreatedAt returns GetSigningRequestSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetCreatedAt() string {
+	return v.SigningRequestFields.CreatedAt
+}
+
+// GetExpiresAt returns GetSigningRequestSigningRequest.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetExpiresAt() string {
+	return v.SigningRequestFields.ExpiresAt
+}
+
+// GetEndedAt returns GetSigningRequestSigningRequest.EndedAt, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetEndedAt() *string { return v.SigningRequestFields.EndedAt }
+
+// GetNamedSigner returns GetSigningRequestSigningRequest.NamedSigner, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetNamedSigner() *SigningRequestFieldsNamedSignerNodeRevisionEditor {
+	return v.SigningRequestFields.NamedSigner
+}
+
+// GetRequestedBy returns GetSigningRequestSigningRequest.RequestedBy, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetRequestedBy() *SigningRequestFieldsRequestedBySigningRequester {
+	return v.SigningRequestFields.RequestedBy
+}
+
+// GetSignature returns GetSigningRequestSigningRequest.Signature, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetSignature() *SigningRequestFieldsSignatureNodeSignature {
+	return v.SigningRequestFields.Signature
+}
+
+func (v *GetSigningRequestSigningRequest) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetSigningRequestSigningRequest
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetSigningRequestSigningRequest = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SigningRequestFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetSigningRequestSigningRequest struct {
+	Id string `json:"id"`
+
+	NodeId string `json:"nodeId"`
+
+	NodeUrn *string `json:"nodeUrn"`
+
+	Revision int `json:"revision"`
+
+	ApprovalHash string `json:"approvalHash"`
+
+	PayloadVersion string `json:"payloadVersion"`
+
+	State SigningRequestState `json:"state"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ExpiresAt string `json:"expiresAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	NamedSigner *SigningRequestFieldsNamedSignerNodeRevisionEditor `json:"namedSigner"`
+
+	RequestedBy *SigningRequestFieldsRequestedBySigningRequester `json:"requestedBy"`
+
+	Signature *SigningRequestFieldsSignatureNodeSignature `json:"signature"`
+}
+
+func (v *GetSigningRequestSigningRequest) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetSigningRequestSigningRequest) __premarshalJSON() (*__premarshalGetSigningRequestSigningRequest, error) {
+	var retval __premarshalGetSigningRequestSigningRequest
+
+	retval.Id = v.SigningRequestFields.Id
+	retval.NodeId = v.SigningRequestFields.NodeId
+	retval.NodeUrn = v.SigningRequestFields.NodeUrn
+	retval.Revision = v.SigningRequestFields.Revision
+	retval.ApprovalHash = v.SigningRequestFields.ApprovalHash
+	retval.PayloadVersion = v.SigningRequestFields.PayloadVersion
+	retval.State = v.SigningRequestFields.State
+	retval.CreatedAt = v.SigningRequestFields.CreatedAt
+	retval.ExpiresAt = v.SigningRequestFields.ExpiresAt
+	retval.EndedAt = v.SigningRequestFields.EndedAt
+	retval.NamedSigner = v.SigningRequestFields.NamedSigner
+	retval.RequestedBy = v.SigningRequestFields.RequestedBy
+	retval.Signature = v.SigningRequestFields.Signature
 	return &retval, nil
 }
 
@@ -28327,6 +28485,545 @@ var AllNodeRoleWriters = []NodeRoleWriters{
 	NodeRoleWritersOwner,
 }
 
+// NodeSignatureFields includes the GraphQL fields of NodeSignature requested by the fragment NodeSignatureFields.
+// The GraphQL type's documentation follows.
+//
+// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:06, hrn:node:hadronmemory.com:specs:cor:dmo:130:07) — one signature on a node. Only the passkey's label is ever shown.
+type NodeSignatureFields struct {
+	Id    string         `json:"id"`
+	State SignatureState `json:"state"`
+	// The revision it was made on.
+	Revision     int    `json:"revision"`
+	VerifiedAt   string `json:"verifiedAt"`
+	PasskeyLabel string `json:"passkeyLabel"`
+	// When the signer's passkey was revoked, if it was; the signature keeps its state.
+	PasskeyRevokedAt *string                                      `json:"passkeyRevokedAt"`
+	PayloadVersion   string                                       `json:"payloadVersion"`
+	SigningRequestId string                                       `json:"signingRequestId"`
+	Signer           *NodeSignatureFieldsSignerNodeRevisionEditor `json:"signer"`
+}
+
+// GetId returns NodeSignatureFields.Id, and is useful for accessing the field via an interface.
+func (v *NodeSignatureFields) GetId() string { return v.Id }
+
+// GetState returns NodeSignatureFields.State, and is useful for accessing the field via an interface.
+func (v *NodeSignatureFields) GetState() SignatureState { return v.State }
+
+// GetRevision returns NodeSignatureFields.Revision, and is useful for accessing the field via an interface.
+func (v *NodeSignatureFields) GetRevision() int { return v.Revision }
+
+// GetVerifiedAt returns NodeSignatureFields.VerifiedAt, and is useful for accessing the field via an interface.
+func (v *NodeSignatureFields) GetVerifiedAt() string { return v.VerifiedAt }
+
+// GetPasskeyLabel returns NodeSignatureFields.PasskeyLabel, and is useful for accessing the field via an interface.
+func (v *NodeSignatureFields) GetPasskeyLabel() string { return v.PasskeyLabel }
+
+// GetPasskeyRevokedAt returns NodeSignatureFields.PasskeyRevokedAt, and is useful for accessing the field via an interface.
+func (v *NodeSignatureFields) GetPasskeyRevokedAt() *string { return v.PasskeyRevokedAt }
+
+// GetPayloadVersion returns NodeSignatureFields.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *NodeSignatureFields) GetPayloadVersion() string { return v.PayloadVersion }
+
+// GetSigningRequestId returns NodeSignatureFields.SigningRequestId, and is useful for accessing the field via an interface.
+func (v *NodeSignatureFields) GetSigningRequestId() string { return v.SigningRequestId }
+
+// GetSigner returns NodeSignatureFields.Signer, and is useful for accessing the field via an interface.
+func (v *NodeSignatureFields) GetSigner() *NodeSignatureFieldsSignerNodeRevisionEditor {
+	return v.Signer
+}
+
+// NodeSignatureFieldsSignerNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type NodeSignatureFieldsSignerNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns NodeSignatureFieldsSignerNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *NodeSignatureFieldsSignerNodeRevisionEditor) GetHandle() *string { return v.Handle }
+
+// GetUrn returns NodeSignatureFieldsSignerNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *NodeSignatureFieldsSignerNodeRevisionEditor) GetUrn() *string { return v.Urn }
+
+// NodeSignatureStatusFields includes the GraphQL fields of NodeSignatureStatus requested by the fragment NodeSignatureStatusFields.
+// The GraphQL type's documentation follows.
+//
+// #1632 — a node's signatures.
+type NodeSignatureStatusFields struct {
+	// CURRENT if any signature is current, else the best of PENDING, EARLIER, CANCELLED; NOT_APPLICABLE on an encrypted node; null with no signatures.
+	State *SignatureState `json:"state"`
+	// Records that fail re-verification: reported, never listed as signatures.
+	IntegrityProblems int `json:"integrityProblems"`
+	// Current signers first, then newest first.
+	Signatures []*NodeSignatureStatusFieldsSignaturesNodeSignature `json:"signatures"`
+}
+
+// GetState returns NodeSignatureStatusFields.State, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFields) GetState() *SignatureState { return v.State }
+
+// GetIntegrityProblems returns NodeSignatureStatusFields.IntegrityProblems, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFields) GetIntegrityProblems() int { return v.IntegrityProblems }
+
+// GetSignatures returns NodeSignatureStatusFields.Signatures, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFields) GetSignatures() []*NodeSignatureStatusFieldsSignaturesNodeSignature {
+	return v.Signatures
+}
+
+// NodeSignatureStatusFieldsSignaturesNodeSignature includes the requested fields of the GraphQL type NodeSignature.
+// The GraphQL type's documentation follows.
+//
+// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:06, hrn:node:hadronmemory.com:specs:cor:dmo:130:07) — one signature on a node. Only the passkey's label is ever shown.
+type NodeSignatureStatusFieldsSignaturesNodeSignature struct {
+	NodeSignatureFields `json:"-"`
+}
+
+// GetId returns NodeSignatureStatusFieldsSignaturesNodeSignature.Id, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) GetId() string {
+	return v.NodeSignatureFields.Id
+}
+
+// GetState returns NodeSignatureStatusFieldsSignaturesNodeSignature.State, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) GetState() SignatureState {
+	return v.NodeSignatureFields.State
+}
+
+// GetRevision returns NodeSignatureStatusFieldsSignaturesNodeSignature.Revision, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) GetRevision() int {
+	return v.NodeSignatureFields.Revision
+}
+
+// GetVerifiedAt returns NodeSignatureStatusFieldsSignaturesNodeSignature.VerifiedAt, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) GetVerifiedAt() string {
+	return v.NodeSignatureFields.VerifiedAt
+}
+
+// GetPasskeyLabel returns NodeSignatureStatusFieldsSignaturesNodeSignature.PasskeyLabel, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) GetPasskeyLabel() string {
+	return v.NodeSignatureFields.PasskeyLabel
+}
+
+// GetPasskeyRevokedAt returns NodeSignatureStatusFieldsSignaturesNodeSignature.PasskeyRevokedAt, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) GetPasskeyRevokedAt() *string {
+	return v.NodeSignatureFields.PasskeyRevokedAt
+}
+
+// GetPayloadVersion returns NodeSignatureStatusFieldsSignaturesNodeSignature.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) GetPayloadVersion() string {
+	return v.NodeSignatureFields.PayloadVersion
+}
+
+// GetSigningRequestId returns NodeSignatureStatusFieldsSignaturesNodeSignature.SigningRequestId, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) GetSigningRequestId() string {
+	return v.NodeSignatureFields.SigningRequestId
+}
+
+// GetSigner returns NodeSignatureStatusFieldsSignaturesNodeSignature.Signer, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) GetSigner() *NodeSignatureFieldsSignerNodeRevisionEditor {
+	return v.NodeSignatureFields.Signer
+}
+
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeSignatureStatusFieldsSignaturesNodeSignature
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeSignatureStatusFieldsSignaturesNodeSignature = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeSignatureFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeSignatureStatusFieldsSignaturesNodeSignature struct {
+	Id string `json:"id"`
+
+	State SignatureState `json:"state"`
+
+	Revision int `json:"revision"`
+
+	VerifiedAt string `json:"verifiedAt"`
+
+	PasskeyLabel string `json:"passkeyLabel"`
+
+	PasskeyRevokedAt *string `json:"passkeyRevokedAt"`
+
+	PayloadVersion string `json:"payloadVersion"`
+
+	SigningRequestId string `json:"signingRequestId"`
+
+	Signer *NodeSignatureFieldsSignerNodeRevisionEditor `json:"signer"`
+}
+
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeSignatureStatusFieldsSignaturesNodeSignature) __premarshalJSON() (*__premarshalNodeSignatureStatusFieldsSignaturesNodeSignature, error) {
+	var retval __premarshalNodeSignatureStatusFieldsSignaturesNodeSignature
+
+	retval.Id = v.NodeSignatureFields.Id
+	retval.State = v.NodeSignatureFields.State
+	retval.Revision = v.NodeSignatureFields.Revision
+	retval.VerifiedAt = v.NodeSignatureFields.VerifiedAt
+	retval.PasskeyLabel = v.NodeSignatureFields.PasskeyLabel
+	retval.PasskeyRevokedAt = v.NodeSignatureFields.PasskeyRevokedAt
+	retval.PayloadVersion = v.NodeSignatureFields.PayloadVersion
+	retval.SigningRequestId = v.NodeSignatureFields.SigningRequestId
+	retval.Signer = v.NodeSignatureFields.Signer
+	return &retval, nil
+}
+
+// NodeSignatureStatusNode includes the requested fields of the GraphQL type Node.
+type NodeSignatureStatusNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+	Loc string `json:"loc"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int `json:"revision"`
+	// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:06) — the node's signatures and their derived states, current signers first. Batch-loaded on list and search reads. An encrypted node reads NOT_APPLICABLE and lists none.
+	SignatureStatus *NodeSignatureStatusNodeSignatureStatus `json:"signatureStatus"`
+}
+
+// GetId returns NodeSignatureStatusNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusNode) GetId() string { return v.Id }
+
+// GetUrn returns NodeSignatureStatusNode.Urn, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusNode) GetUrn() string { return v.Urn }
+
+// GetLoc returns NodeSignatureStatusNode.Loc, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusNode) GetLoc() string { return v.Loc }
+
+// GetRevision returns NodeSignatureStatusNode.Revision, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusNode) GetRevision() int { return v.Revision }
+
+// GetSignatureStatus returns NodeSignatureStatusNode.SignatureStatus, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusNode) GetSignatureStatus() *NodeSignatureStatusNodeSignatureStatus {
+	return v.SignatureStatus
+}
+
+// NodeSignatureStatusNodeSignatureStatus includes the requested fields of the GraphQL type NodeSignatureStatus.
+// The GraphQL type's documentation follows.
+//
+// #1632 — a node's signatures.
+type NodeSignatureStatusNodeSignatureStatus struct {
+	NodeSignatureStatusFields `json:"-"`
+}
+
+// GetState returns NodeSignatureStatusNodeSignatureStatus.State, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusNodeSignatureStatus) GetState() *SignatureState {
+	return v.NodeSignatureStatusFields.State
+}
+
+// GetIntegrityProblems returns NodeSignatureStatusNodeSignatureStatus.IntegrityProblems, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusNodeSignatureStatus) GetIntegrityProblems() int {
+	return v.NodeSignatureStatusFields.IntegrityProblems
+}
+
+// GetSignatures returns NodeSignatureStatusNodeSignatureStatus.Signatures, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusNodeSignatureStatus) GetSignatures() []*NodeSignatureStatusFieldsSignaturesNodeSignature {
+	return v.NodeSignatureStatusFields.Signatures
+}
+
+func (v *NodeSignatureStatusNodeSignatureStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeSignatureStatusNodeSignatureStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeSignatureStatusNodeSignatureStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeSignatureStatusFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeSignatureStatusNodeSignatureStatus struct {
+	State *SignatureState `json:"state"`
+
+	IntegrityProblems int `json:"integrityProblems"`
+
+	Signatures []*NodeSignatureStatusFieldsSignaturesNodeSignature `json:"signatures"`
+}
+
+func (v *NodeSignatureStatusNodeSignatureStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeSignatureStatusNodeSignatureStatus) __premarshalJSON() (*__premarshalNodeSignatureStatusNodeSignatureStatus, error) {
+	var retval __premarshalNodeSignatureStatusNodeSignatureStatus
+
+	retval.State = v.NodeSignatureStatusFields.State
+	retval.IntegrityProblems = v.NodeSignatureStatusFields.IntegrityProblems
+	retval.Signatures = v.NodeSignatureStatusFields.Signatures
+	return &retval, nil
+}
+
+// NodeSignatureStatusResponse is returned by NodeSignatureStatus on success.
+type NodeSignatureStatusResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a readable memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
+	// resolve. Access: the caller's readable-memory set (same gate the old
+	// queries used); denied and missing are both null.
+	Node *NodeSignatureStatusNode `json:"node"`
+}
+
+// GetNode returns NodeSignatureStatusResponse.Node, and is useful for accessing the field via an interface.
+func (v *NodeSignatureStatusResponse) GetNode() *NodeSignatureStatusNode { return v.Node }
+
+// NodeSigningRequestsNode includes the requested fields of the GraphQL type Node.
+type NodeSigningRequestsNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+	Loc string `json:"loc"`
+	// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — the node's signing requests, newest first, including ended ones (#10019). state filters on the effective state (an open request past its deadline is EXPIRED). first: 1–100, default 20.
+	SigningRequests []*NodeSigningRequestsNodeSigningRequestsSigningRequest `json:"signingRequests"`
+}
+
+// GetId returns NodeSigningRequestsNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNode) GetId() string { return v.Id }
+
+// GetUrn returns NodeSigningRequestsNode.Urn, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNode) GetUrn() string { return v.Urn }
+
+// GetLoc returns NodeSigningRequestsNode.Loc, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNode) GetLoc() string { return v.Loc }
+
+// GetSigningRequests returns NodeSigningRequestsNode.SigningRequests, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNode) GetSigningRequests() []*NodeSigningRequestsNodeSigningRequestsSigningRequest {
+	return v.SigningRequests
+}
+
+// NodeSigningRequestsNodeSigningRequestsSigningRequest includes the requested fields of the GraphQL type SigningRequest.
+// The GraphQL type's documentation follows.
+//
+// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — a request for a person to sign one node's content, pinned at creation.
+type NodeSigningRequestsNodeSigningRequestsSigningRequest struct {
+	SigningRequestFields `json:"-"`
+}
+
+// GetId returns NodeSigningRequestsNodeSigningRequestsSigningRequest.Id, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetId() string {
+	return v.SigningRequestFields.Id
+}
+
+// GetNodeId returns NodeSigningRequestsNodeSigningRequestsSigningRequest.NodeId, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetNodeId() string {
+	return v.SigningRequestFields.NodeId
+}
+
+// GetNodeUrn returns NodeSigningRequestsNodeSigningRequestsSigningRequest.NodeUrn, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetNodeUrn() *string {
+	return v.SigningRequestFields.NodeUrn
+}
+
+// GetRevision returns NodeSigningRequestsNodeSigningRequestsSigningRequest.Revision, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetRevision() int {
+	return v.SigningRequestFields.Revision
+}
+
+// GetApprovalHash returns NodeSigningRequestsNodeSigningRequestsSigningRequest.ApprovalHash, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetApprovalHash() string {
+	return v.SigningRequestFields.ApprovalHash
+}
+
+// GetPayloadVersion returns NodeSigningRequestsNodeSigningRequestsSigningRequest.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetPayloadVersion() string {
+	return v.SigningRequestFields.PayloadVersion
+}
+
+// GetState returns NodeSigningRequestsNodeSigningRequestsSigningRequest.State, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetState() SigningRequestState {
+	return v.SigningRequestFields.State
+}
+
+// GetCreatedAt returns NodeSigningRequestsNodeSigningRequestsSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetCreatedAt() string {
+	return v.SigningRequestFields.CreatedAt
+}
+
+// GetExpiresAt returns NodeSigningRequestsNodeSigningRequestsSigningRequest.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetExpiresAt() string {
+	return v.SigningRequestFields.ExpiresAt
+}
+
+// GetEndedAt returns NodeSigningRequestsNodeSigningRequestsSigningRequest.EndedAt, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetEndedAt() *string {
+	return v.SigningRequestFields.EndedAt
+}
+
+// GetNamedSigner returns NodeSigningRequestsNodeSigningRequestsSigningRequest.NamedSigner, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetNamedSigner() *SigningRequestFieldsNamedSignerNodeRevisionEditor {
+	return v.SigningRequestFields.NamedSigner
+}
+
+// GetRequestedBy returns NodeSigningRequestsNodeSigningRequestsSigningRequest.RequestedBy, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetRequestedBy() *SigningRequestFieldsRequestedBySigningRequester {
+	return v.SigningRequestFields.RequestedBy
+}
+
+// GetSignature returns NodeSigningRequestsNodeSigningRequestsSigningRequest.Signature, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) GetSignature() *SigningRequestFieldsSignatureNodeSignature {
+	return v.SigningRequestFields.Signature
+}
+
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeSigningRequestsNodeSigningRequestsSigningRequest
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeSigningRequestsNodeSigningRequestsSigningRequest = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SigningRequestFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeSigningRequestsNodeSigningRequestsSigningRequest struct {
+	Id string `json:"id"`
+
+	NodeId string `json:"nodeId"`
+
+	NodeUrn *string `json:"nodeUrn"`
+
+	Revision int `json:"revision"`
+
+	ApprovalHash string `json:"approvalHash"`
+
+	PayloadVersion string `json:"payloadVersion"`
+
+	State SigningRequestState `json:"state"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ExpiresAt string `json:"expiresAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	NamedSigner *SigningRequestFieldsNamedSignerNodeRevisionEditor `json:"namedSigner"`
+
+	RequestedBy *SigningRequestFieldsRequestedBySigningRequester `json:"requestedBy"`
+
+	Signature *SigningRequestFieldsSignatureNodeSignature `json:"signature"`
+}
+
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeSigningRequestsNodeSigningRequestsSigningRequest) __premarshalJSON() (*__premarshalNodeSigningRequestsNodeSigningRequestsSigningRequest, error) {
+	var retval __premarshalNodeSigningRequestsNodeSigningRequestsSigningRequest
+
+	retval.Id = v.SigningRequestFields.Id
+	retval.NodeId = v.SigningRequestFields.NodeId
+	retval.NodeUrn = v.SigningRequestFields.NodeUrn
+	retval.Revision = v.SigningRequestFields.Revision
+	retval.ApprovalHash = v.SigningRequestFields.ApprovalHash
+	retval.PayloadVersion = v.SigningRequestFields.PayloadVersion
+	retval.State = v.SigningRequestFields.State
+	retval.CreatedAt = v.SigningRequestFields.CreatedAt
+	retval.ExpiresAt = v.SigningRequestFields.ExpiresAt
+	retval.EndedAt = v.SigningRequestFields.EndedAt
+	retval.NamedSigner = v.SigningRequestFields.NamedSigner
+	retval.RequestedBy = v.SigningRequestFields.RequestedBy
+	retval.Signature = v.SigningRequestFields.Signature
+	return &retval, nil
+}
+
+// NodeSigningRequestsResponse is returned by NodeSigningRequests on success.
+type NodeSigningRequestsResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a readable memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
+	// resolve. Access: the caller's readable-memory set (same gate the old
+	// queries used); denied and missing are both null.
+	Node *NodeSigningRequestsNode `json:"node"`
+}
+
+// GetNode returns NodeSigningRequestsResponse.Node, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsResponse) GetNode() *NodeSigningRequestsNode { return v.Node }
+
 // Result ordering for findNodes. Default relevance; the rest suppress scoring (browse order).
 type NodeSort string
 
@@ -31104,6 +31801,170 @@ type ReplyToCommentResponse struct {
 // GetReplyToComment returns ReplyToCommentResponse.ReplyToComment, and is useful for accessing the field via an interface.
 func (v *ReplyToCommentResponse) GetReplyToComment() *ReplyToCommentReplyToComment {
 	return v.ReplyToComment
+}
+
+// RequestNodeSignatureRequestNodeSignatureSigningRequest includes the requested fields of the GraphQL type SigningRequest.
+// The GraphQL type's documentation follows.
+//
+// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — a request for a person to sign one node's content, pinned at creation.
+type RequestNodeSignatureRequestNodeSignatureSigningRequest struct {
+	SigningRequestFields `json:"-"`
+}
+
+// GetId returns RequestNodeSignatureRequestNodeSignatureSigningRequest.Id, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetId() string {
+	return v.SigningRequestFields.Id
+}
+
+// GetNodeId returns RequestNodeSignatureRequestNodeSignatureSigningRequest.NodeId, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetNodeId() string {
+	return v.SigningRequestFields.NodeId
+}
+
+// GetNodeUrn returns RequestNodeSignatureRequestNodeSignatureSigningRequest.NodeUrn, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetNodeUrn() *string {
+	return v.SigningRequestFields.NodeUrn
+}
+
+// GetRevision returns RequestNodeSignatureRequestNodeSignatureSigningRequest.Revision, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetRevision() int {
+	return v.SigningRequestFields.Revision
+}
+
+// GetApprovalHash returns RequestNodeSignatureRequestNodeSignatureSigningRequest.ApprovalHash, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetApprovalHash() string {
+	return v.SigningRequestFields.ApprovalHash
+}
+
+// GetPayloadVersion returns RequestNodeSignatureRequestNodeSignatureSigningRequest.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetPayloadVersion() string {
+	return v.SigningRequestFields.PayloadVersion
+}
+
+// GetState returns RequestNodeSignatureRequestNodeSignatureSigningRequest.State, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetState() SigningRequestState {
+	return v.SigningRequestFields.State
+}
+
+// GetCreatedAt returns RequestNodeSignatureRequestNodeSignatureSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetCreatedAt() string {
+	return v.SigningRequestFields.CreatedAt
+}
+
+// GetExpiresAt returns RequestNodeSignatureRequestNodeSignatureSigningRequest.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetExpiresAt() string {
+	return v.SigningRequestFields.ExpiresAt
+}
+
+// GetEndedAt returns RequestNodeSignatureRequestNodeSignatureSigningRequest.EndedAt, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetEndedAt() *string {
+	return v.SigningRequestFields.EndedAt
+}
+
+// GetNamedSigner returns RequestNodeSignatureRequestNodeSignatureSigningRequest.NamedSigner, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetNamedSigner() *SigningRequestFieldsNamedSignerNodeRevisionEditor {
+	return v.SigningRequestFields.NamedSigner
+}
+
+// GetRequestedBy returns RequestNodeSignatureRequestNodeSignatureSigningRequest.RequestedBy, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetRequestedBy() *SigningRequestFieldsRequestedBySigningRequester {
+	return v.SigningRequestFields.RequestedBy
+}
+
+// GetSignature returns RequestNodeSignatureRequestNodeSignatureSigningRequest.Signature, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetSignature() *SigningRequestFieldsSignatureNodeSignature {
+	return v.SigningRequestFields.Signature
+}
+
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RequestNodeSignatureRequestNodeSignatureSigningRequest
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RequestNodeSignatureRequestNodeSignatureSigningRequest = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SigningRequestFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRequestNodeSignatureRequestNodeSignatureSigningRequest struct {
+	Id string `json:"id"`
+
+	NodeId string `json:"nodeId"`
+
+	NodeUrn *string `json:"nodeUrn"`
+
+	Revision int `json:"revision"`
+
+	ApprovalHash string `json:"approvalHash"`
+
+	PayloadVersion string `json:"payloadVersion"`
+
+	State SigningRequestState `json:"state"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ExpiresAt string `json:"expiresAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	NamedSigner *SigningRequestFieldsNamedSignerNodeRevisionEditor `json:"namedSigner"`
+
+	RequestedBy *SigningRequestFieldsRequestedBySigningRequester `json:"requestedBy"`
+
+	Signature *SigningRequestFieldsSignatureNodeSignature `json:"signature"`
+}
+
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) __premarshalJSON() (*__premarshalRequestNodeSignatureRequestNodeSignatureSigningRequest, error) {
+	var retval __premarshalRequestNodeSignatureRequestNodeSignatureSigningRequest
+
+	retval.Id = v.SigningRequestFields.Id
+	retval.NodeId = v.SigningRequestFields.NodeId
+	retval.NodeUrn = v.SigningRequestFields.NodeUrn
+	retval.Revision = v.SigningRequestFields.Revision
+	retval.ApprovalHash = v.SigningRequestFields.ApprovalHash
+	retval.PayloadVersion = v.SigningRequestFields.PayloadVersion
+	retval.State = v.SigningRequestFields.State
+	retval.CreatedAt = v.SigningRequestFields.CreatedAt
+	retval.ExpiresAt = v.SigningRequestFields.ExpiresAt
+	retval.EndedAt = v.SigningRequestFields.EndedAt
+	retval.NamedSigner = v.SigningRequestFields.NamedSigner
+	retval.RequestedBy = v.SigningRequestFields.RequestedBy
+	retval.Signature = v.SigningRequestFields.Signature
+	return &retval, nil
+}
+
+// RequestNodeSignatureResponse is returned by RequestNodeSignature on success.
+type RequestNodeSignatureResponse struct {
+	// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — ask for a node's current content to be signed. Any reader of the node may ask, agents included; agents never sign. expectedRevision, when given, must still be current (REVISION_MISMATCH). signerRef names one signer (a user id); omitted, any writer of the memory may sign. Refusals: NODE_NOT_FOUND, ENCRYPTED_MEMORY_NOT_APPLICABLE, and (hrn:node:hadronmemory.com:specs:cor:dmo:130:02, Holger #10430) COMMENT_NOT_SIGNABLE, NODE_IS_PLACEHOLDER, REVISION_MISMATCH, SIGNER_NOT_FOUND. No call takes an assertion: the signer signs on the server-hosted ceremony page (S2b-2).
+	RequestNodeSignature *RequestNodeSignatureRequestNodeSignatureSigningRequest `json:"requestNodeSignature"`
+}
+
+// GetRequestNodeSignature returns RequestNodeSignatureResponse.RequestNodeSignature, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureResponse) GetRequestNodeSignature() *RequestNodeSignatureRequestNodeSignatureSigningRequest {
+	return v.RequestNodeSignature
 }
 
 // ReserveSpecCitationReserveSpecCitationNode includes the requested fields of the GraphQL type Node.
@@ -34931,6 +35792,294 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 	retval.CreatedAt = v.WorkerFields.CreatedAt
 	retval.CreatedBy = v.WorkerFields.CreatedBy
 	return &retval, nil
+}
+
+// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:04) — a signature's state, derived on every read. An invalid record is never a signature: it is counted in NodeSignatureStatus.integrityProblems instead.
+type SignatureState string
+
+const (
+	// Made by a first passkey revoked inside its window; never counts.
+	SignatureStateCancelled SignatureState = "CANCELLED"
+	// Verifies, and the title/abstract/content has not changed since it was made.
+	SignatureStateCurrent SignatureState = "CURRENT"
+	// Verifies, but the content changed since; restoring the old text never makes it current again.
+	SignatureStateEarlier SignatureState = "EARLIER"
+	// The node left an encrypted memory it carried this signature into; never counts again. (Derivation lands with E2.)
+	SignatureStateEndedEncryptedMemory SignatureState = "ENDED_ENCRYPTED_MEMORY"
+	// The node is in an encrypted memory, where signing does not apply.
+	SignatureStateNotApplicable SignatureState = "NOT_APPLICABLE"
+	// Made by a first passkey still in its cooling-off window; never counts until the window ends normally.
+	SignatureStatePending SignatureState = "PENDING"
+)
+
+var AllSignatureState = []SignatureState{
+	SignatureStateCancelled,
+	SignatureStateCurrent,
+	SignatureStateEarlier,
+	SignatureStateEndedEncryptedMemory,
+	SignatureStateNotApplicable,
+	SignatureStatePending,
+}
+
+// SigningRequestFields includes the GraphQL fields of SigningRequest requested by the fragment SigningRequestFields.
+// The GraphQL type's documentation follows.
+//
+// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — a request for a person to sign one node's content, pinned at creation.
+type SigningRequestFields struct {
+	// 128 bits of randomness.
+	Id      string  `json:"id"`
+	NodeId  string  `json:"nodeId"`
+	NodeUrn *string `json:"nodeUrn"`
+	// The revision pinned at creation.
+	Revision int `json:"revision"`
+	// The approval hash v1 of the pinned content (64 lowercase hex).
+	ApprovalHash string `json:"approvalHash"`
+	// The signature payload version the signer signs: hadron-signature-v1 until S2b-2's v3.
+	PayloadVersion string `json:"payloadVersion"`
+	// The effective state.
+	State     SigningRequestState `json:"state"`
+	CreatedAt string              `json:"createdAt"`
+	ExpiresAt string              `json:"expiresAt"`
+	// Null while OPEN. EXPIRED ends at expiresAt; every other end at the moment it happened (DB clock).
+	EndedAt *string `json:"endedAt"`
+	// Null: any writer of the node's memory may sign.
+	NamedSigner *SigningRequestFieldsNamedSignerNodeRevisionEditor `json:"namedSigner"`
+	RequestedBy *SigningRequestFieldsRequestedBySigningRequester   `json:"requestedBy"`
+	// The signature that completed it; null unless COMPLETED (and when the record does not verify).
+	Signature *SigningRequestFieldsSignatureNodeSignature `json:"signature"`
+}
+
+// GetId returns SigningRequestFields.Id, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetId() string { return v.Id }
+
+// GetNodeId returns SigningRequestFields.NodeId, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetNodeId() string { return v.NodeId }
+
+// GetNodeUrn returns SigningRequestFields.NodeUrn, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetNodeUrn() *string { return v.NodeUrn }
+
+// GetRevision returns SigningRequestFields.Revision, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetRevision() int { return v.Revision }
+
+// GetApprovalHash returns SigningRequestFields.ApprovalHash, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetApprovalHash() string { return v.ApprovalHash }
+
+// GetPayloadVersion returns SigningRequestFields.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetPayloadVersion() string { return v.PayloadVersion }
+
+// GetState returns SigningRequestFields.State, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetState() SigningRequestState { return v.State }
+
+// GetCreatedAt returns SigningRequestFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetExpiresAt returns SigningRequestFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetExpiresAt() string { return v.ExpiresAt }
+
+// GetEndedAt returns SigningRequestFields.EndedAt, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetEndedAt() *string { return v.EndedAt }
+
+// GetNamedSigner returns SigningRequestFields.NamedSigner, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetNamedSigner() *SigningRequestFieldsNamedSignerNodeRevisionEditor {
+	return v.NamedSigner
+}
+
+// GetRequestedBy returns SigningRequestFields.RequestedBy, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetRequestedBy() *SigningRequestFieldsRequestedBySigningRequester {
+	return v.RequestedBy
+}
+
+// GetSignature returns SigningRequestFields.Signature, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetSignature() *SigningRequestFieldsSignatureNodeSignature {
+	return v.Signature
+}
+
+// SigningRequestFieldsNamedSignerNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type SigningRequestFieldsNamedSignerNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns SigningRequestFieldsNamedSignerNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsNamedSignerNodeRevisionEditor) GetHandle() *string { return v.Handle }
+
+// GetUrn returns SigningRequestFieldsNamedSignerNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsNamedSignerNodeRevisionEditor) GetUrn() *string { return v.Urn }
+
+// SigningRequestFieldsRequestedBySigningRequester includes the requested fields of the GraphQL type SigningRequester.
+// The GraphQL type's documentation follows.
+//
+// #1632 — who asked for a signature. The requester account is userId, else appId (#10397).
+type SigningRequestFieldsRequestedBySigningRequester struct {
+	UserId *string `json:"userId"`
+	// Set only when an App key itself asked.
+	AppId *string `json:"appId"`
+	// The Worker whose session made the request, when one did.
+	WorkerId  *string `json:"workerId"`
+	SessionId *string `json:"sessionId"`
+}
+
+// GetUserId returns SigningRequestFieldsRequestedBySigningRequester.UserId, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsRequestedBySigningRequester) GetUserId() *string { return v.UserId }
+
+// GetAppId returns SigningRequestFieldsRequestedBySigningRequester.AppId, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsRequestedBySigningRequester) GetAppId() *string { return v.AppId }
+
+// GetWorkerId returns SigningRequestFieldsRequestedBySigningRequester.WorkerId, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsRequestedBySigningRequester) GetWorkerId() *string { return v.WorkerId }
+
+// GetSessionId returns SigningRequestFieldsRequestedBySigningRequester.SessionId, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsRequestedBySigningRequester) GetSessionId() *string { return v.SessionId }
+
+// SigningRequestFieldsSignatureNodeSignature includes the requested fields of the GraphQL type NodeSignature.
+// The GraphQL type's documentation follows.
+//
+// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:06, hrn:node:hadronmemory.com:specs:cor:dmo:130:07) — one signature on a node. Only the passkey's label is ever shown.
+type SigningRequestFieldsSignatureNodeSignature struct {
+	NodeSignatureFields `json:"-"`
+}
+
+// GetId returns SigningRequestFieldsSignatureNodeSignature.Id, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsSignatureNodeSignature) GetId() string { return v.NodeSignatureFields.Id }
+
+// GetState returns SigningRequestFieldsSignatureNodeSignature.State, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsSignatureNodeSignature) GetState() SignatureState {
+	return v.NodeSignatureFields.State
+}
+
+// GetRevision returns SigningRequestFieldsSignatureNodeSignature.Revision, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsSignatureNodeSignature) GetRevision() int {
+	return v.NodeSignatureFields.Revision
+}
+
+// GetVerifiedAt returns SigningRequestFieldsSignatureNodeSignature.VerifiedAt, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsSignatureNodeSignature) GetVerifiedAt() string {
+	return v.NodeSignatureFields.VerifiedAt
+}
+
+// GetPasskeyLabel returns SigningRequestFieldsSignatureNodeSignature.PasskeyLabel, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsSignatureNodeSignature) GetPasskeyLabel() string {
+	return v.NodeSignatureFields.PasskeyLabel
+}
+
+// GetPasskeyRevokedAt returns SigningRequestFieldsSignatureNodeSignature.PasskeyRevokedAt, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsSignatureNodeSignature) GetPasskeyRevokedAt() *string {
+	return v.NodeSignatureFields.PasskeyRevokedAt
+}
+
+// GetPayloadVersion returns SigningRequestFieldsSignatureNodeSignature.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsSignatureNodeSignature) GetPayloadVersion() string {
+	return v.NodeSignatureFields.PayloadVersion
+}
+
+// GetSigningRequestId returns SigningRequestFieldsSignatureNodeSignature.SigningRequestId, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsSignatureNodeSignature) GetSigningRequestId() string {
+	return v.NodeSignatureFields.SigningRequestId
+}
+
+// GetSigner returns SigningRequestFieldsSignatureNodeSignature.Signer, and is useful for accessing the field via an interface.
+func (v *SigningRequestFieldsSignatureNodeSignature) GetSigner() *NodeSignatureFieldsSignerNodeRevisionEditor {
+	return v.NodeSignatureFields.Signer
+}
+
+func (v *SigningRequestFieldsSignatureNodeSignature) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SigningRequestFieldsSignatureNodeSignature
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SigningRequestFieldsSignatureNodeSignature = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.NodeSignatureFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSigningRequestFieldsSignatureNodeSignature struct {
+	Id string `json:"id"`
+
+	State SignatureState `json:"state"`
+
+	Revision int `json:"revision"`
+
+	VerifiedAt string `json:"verifiedAt"`
+
+	PasskeyLabel string `json:"passkeyLabel"`
+
+	PasskeyRevokedAt *string `json:"passkeyRevokedAt"`
+
+	PayloadVersion string `json:"payloadVersion"`
+
+	SigningRequestId string `json:"signingRequestId"`
+
+	Signer *NodeSignatureFieldsSignerNodeRevisionEditor `json:"signer"`
+}
+
+func (v *SigningRequestFieldsSignatureNodeSignature) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SigningRequestFieldsSignatureNodeSignature) __premarshalJSON() (*__premarshalSigningRequestFieldsSignatureNodeSignature, error) {
+	var retval __premarshalSigningRequestFieldsSignatureNodeSignature
+
+	retval.Id = v.NodeSignatureFields.Id
+	retval.State = v.NodeSignatureFields.State
+	retval.Revision = v.NodeSignatureFields.Revision
+	retval.VerifiedAt = v.NodeSignatureFields.VerifiedAt
+	retval.PasskeyLabel = v.NodeSignatureFields.PasskeyLabel
+	retval.PasskeyRevokedAt = v.NodeSignatureFields.PasskeyRevokedAt
+	retval.PayloadVersion = v.NodeSignatureFields.PayloadVersion
+	retval.SigningRequestId = v.NodeSignatureFields.SigningRequestId
+	retval.Signer = v.NodeSignatureFields.Signer
+	return &retval, nil
+}
+
+// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — a signing request: open, then ends exactly once.
+type SigningRequestState string
+
+const (
+	// A signature was verified and recorded.
+	SigningRequestStateCompleted SigningRequestState = "COMPLETED"
+	// The eligible signer turned it down.
+	SigningRequestStateDeclined SigningRequestState = "DECLINED"
+	// Its lifetime passed (SIGNING_REQUEST_TTL_SECONDS, default 24h); endedAt is the deadline.
+	SigningRequestStateExpired SigningRequestState = "EXPIRED"
+	SigningRequestStateOpen    SigningRequestState = "OPEN"
+	// The node's title, abstract or content changed, or it entered an encrypted memory.
+	SigningRequestStateStale SigningRequestState = "STALE"
+	// The requester account withdrew it.
+	SigningRequestStateWithdrawn SigningRequestState = "WITHDRAWN"
+)
+
+var AllSigningRequestState = []SigningRequestState{
+	SigningRequestStateCompleted,
+	SigningRequestStateDeclined,
+	SigningRequestStateExpired,
+	SigningRequestStateOpen,
+	SigningRequestStateStale,
+	SigningRequestStateWithdrawn,
 }
 
 // A client-side filesystem action planned by the server. It does not claim that I/O occurred.
@@ -45776,6 +46925,170 @@ func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetExpectedHash() *string { ret
 // GetActualHash returns VerifyNodeVerifyNodeNodeIntegrityCheck.ActualHash, and is useful for accessing the field via an interface.
 func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetActualHash() string { return v.ActualHash }
 
+// WithdrawSigningRequestResponse is returned by WithdrawSigningRequest on success.
+type WithdrawSigningRequestResponse struct {
+	// #1632 — withdraw an open signing request. Only the requester account, from any of its sessions (#10397). Refusals (hrn:node:hadronmemory.com:specs:cor:dmo:130:03, Holger #10430): SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
+	WithdrawSigningRequest *WithdrawSigningRequestWithdrawSigningRequest `json:"withdrawSigningRequest"`
+}
+
+// GetWithdrawSigningRequest returns WithdrawSigningRequestResponse.WithdrawSigningRequest, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestResponse) GetWithdrawSigningRequest() *WithdrawSigningRequestWithdrawSigningRequest {
+	return v.WithdrawSigningRequest
+}
+
+// WithdrawSigningRequestWithdrawSigningRequest includes the requested fields of the GraphQL type SigningRequest.
+// The GraphQL type's documentation follows.
+//
+// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — a request for a person to sign one node's content, pinned at creation.
+type WithdrawSigningRequestWithdrawSigningRequest struct {
+	SigningRequestFields `json:"-"`
+}
+
+// GetId returns WithdrawSigningRequestWithdrawSigningRequest.Id, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetId() string {
+	return v.SigningRequestFields.Id
+}
+
+// GetNodeId returns WithdrawSigningRequestWithdrawSigningRequest.NodeId, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetNodeId() string {
+	return v.SigningRequestFields.NodeId
+}
+
+// GetNodeUrn returns WithdrawSigningRequestWithdrawSigningRequest.NodeUrn, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetNodeUrn() *string {
+	return v.SigningRequestFields.NodeUrn
+}
+
+// GetRevision returns WithdrawSigningRequestWithdrawSigningRequest.Revision, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetRevision() int {
+	return v.SigningRequestFields.Revision
+}
+
+// GetApprovalHash returns WithdrawSigningRequestWithdrawSigningRequest.ApprovalHash, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetApprovalHash() string {
+	return v.SigningRequestFields.ApprovalHash
+}
+
+// GetPayloadVersion returns WithdrawSigningRequestWithdrawSigningRequest.PayloadVersion, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetPayloadVersion() string {
+	return v.SigningRequestFields.PayloadVersion
+}
+
+// GetState returns WithdrawSigningRequestWithdrawSigningRequest.State, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetState() SigningRequestState {
+	return v.SigningRequestFields.State
+}
+
+// GetCreatedAt returns WithdrawSigningRequestWithdrawSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetCreatedAt() string {
+	return v.SigningRequestFields.CreatedAt
+}
+
+// GetExpiresAt returns WithdrawSigningRequestWithdrawSigningRequest.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetExpiresAt() string {
+	return v.SigningRequestFields.ExpiresAt
+}
+
+// GetEndedAt returns WithdrawSigningRequestWithdrawSigningRequest.EndedAt, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetEndedAt() *string {
+	return v.SigningRequestFields.EndedAt
+}
+
+// GetNamedSigner returns WithdrawSigningRequestWithdrawSigningRequest.NamedSigner, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetNamedSigner() *SigningRequestFieldsNamedSignerNodeRevisionEditor {
+	return v.SigningRequestFields.NamedSigner
+}
+
+// GetRequestedBy returns WithdrawSigningRequestWithdrawSigningRequest.RequestedBy, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetRequestedBy() *SigningRequestFieldsRequestedBySigningRequester {
+	return v.SigningRequestFields.RequestedBy
+}
+
+// GetSignature returns WithdrawSigningRequestWithdrawSigningRequest.Signature, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetSignature() *SigningRequestFieldsSignatureNodeSignature {
+	return v.SigningRequestFields.Signature
+}
+
+func (v *WithdrawSigningRequestWithdrawSigningRequest) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WithdrawSigningRequestWithdrawSigningRequest
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WithdrawSigningRequestWithdrawSigningRequest = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SigningRequestFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWithdrawSigningRequestWithdrawSigningRequest struct {
+	Id string `json:"id"`
+
+	NodeId string `json:"nodeId"`
+
+	NodeUrn *string `json:"nodeUrn"`
+
+	Revision int `json:"revision"`
+
+	ApprovalHash string `json:"approvalHash"`
+
+	PayloadVersion string `json:"payloadVersion"`
+
+	State SigningRequestState `json:"state"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ExpiresAt string `json:"expiresAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	NamedSigner *SigningRequestFieldsNamedSignerNodeRevisionEditor `json:"namedSigner"`
+
+	RequestedBy *SigningRequestFieldsRequestedBySigningRequester `json:"requestedBy"`
+
+	Signature *SigningRequestFieldsSignatureNodeSignature `json:"signature"`
+}
+
+func (v *WithdrawSigningRequestWithdrawSigningRequest) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WithdrawSigningRequestWithdrawSigningRequest) __premarshalJSON() (*__premarshalWithdrawSigningRequestWithdrawSigningRequest, error) {
+	var retval __premarshalWithdrawSigningRequestWithdrawSigningRequest
+
+	retval.Id = v.SigningRequestFields.Id
+	retval.NodeId = v.SigningRequestFields.NodeId
+	retval.NodeUrn = v.SigningRequestFields.NodeUrn
+	retval.Revision = v.SigningRequestFields.Revision
+	retval.ApprovalHash = v.SigningRequestFields.ApprovalHash
+	retval.PayloadVersion = v.SigningRequestFields.PayloadVersion
+	retval.State = v.SigningRequestFields.State
+	retval.CreatedAt = v.SigningRequestFields.CreatedAt
+	retval.ExpiresAt = v.SigningRequestFields.ExpiresAt
+	retval.EndedAt = v.SigningRequestFields.EndedAt
+	retval.NamedSigner = v.SigningRequestFields.NamedSigner
+	retval.RequestedBy = v.SigningRequestFields.RequestedBy
+	retval.Signature = v.SigningRequestFields.Signature
+	return &retval, nil
+}
+
 // WorkerAvailabilitySetResponse is returned by WorkerAvailabilitySet on success.
 type WorkerAvailabilitySetResponse struct {
 	// #1706 — set a worker's availability for work (hrn:node:hadronmemory.com:specs:cor:agt:060:08): the worker
@@ -49155,6 +50468,14 @@ type __GetScopeInput struct {
 // GetRef returns __GetScopeInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetScopeInput) GetRef() string { return v.Ref }
 
+// __GetSigningRequestInput is used internally by genqlient
+type __GetSigningRequestInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __GetSigningRequestInput.Id, and is useful for accessing the field via an interface.
+func (v *__GetSigningRequestInput) GetId() string { return v.Id }
+
 // __GetSpecNodeForEditInput is used internally by genqlient
 type __GetSpecNodeForEditInput struct {
 	Ref string `json:"ref"`
@@ -49693,6 +51014,30 @@ func (v *__NodeRevisionsStampedInput) GetNodeRef() string { return v.NodeRef }
 // GetLimit returns __NodeRevisionsStampedInput.Limit, and is useful for accessing the field via an interface.
 func (v *__NodeRevisionsStampedInput) GetLimit() *int { return v.Limit }
 
+// __NodeSignatureStatusInput is used internally by genqlient
+type __NodeSignatureStatusInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __NodeSignatureStatusInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodeSignatureStatusInput) GetRef() string { return v.Ref }
+
+// __NodeSigningRequestsInput is used internally by genqlient
+type __NodeSigningRequestsInput struct {
+	Ref   string               `json:"ref"`
+	State *SigningRequestState `json:"state,omitempty"`
+	First *int                 `json:"first,omitempty"`
+}
+
+// GetRef returns __NodeSigningRequestsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodeSigningRequestsInput) GetRef() string { return v.Ref }
+
+// GetState returns __NodeSigningRequestsInput.State, and is useful for accessing the field via an interface.
+func (v *__NodeSigningRequestsInput) GetState() *SigningRequestState { return v.State }
+
+// GetFirst returns __NodeSigningRequestsInput.First, and is useful for accessing the field via an interface.
+func (v *__NodeSigningRequestsInput) GetFirst() *int { return v.First }
+
 // __OrgMembersInput is used internally by genqlient
 type __OrgMembersInput struct {
 	Ref string `json:"ref"`
@@ -49932,6 +51277,22 @@ func (v *__ReplyToCommentInput) GetRef() string { return v.Ref }
 
 // GetBody returns __ReplyToCommentInput.Body, and is useful for accessing the field via an interface.
 func (v *__ReplyToCommentInput) GetBody() string { return v.Body }
+
+// __RequestNodeSignatureInput is used internally by genqlient
+type __RequestNodeSignatureInput struct {
+	NodeRef          string  `json:"nodeRef"`
+	ExpectedRevision *int    `json:"expectedRevision,omitempty"`
+	SignerRef        *string `json:"signerRef,omitempty"`
+}
+
+// GetNodeRef returns __RequestNodeSignatureInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__RequestNodeSignatureInput) GetNodeRef() string { return v.NodeRef }
+
+// GetExpectedRevision returns __RequestNodeSignatureInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__RequestNodeSignatureInput) GetExpectedRevision() *int { return v.ExpectedRevision }
+
+// GetSignerRef returns __RequestNodeSignatureInput.SignerRef, and is useful for accessing the field via an interface.
+func (v *__RequestNodeSignatureInput) GetSignerRef() *string { return v.SignerRef }
 
 // __ReserveSpecCitationInput is used internally by genqlient
 type __ReserveSpecCitationInput struct {
@@ -51350,6 +52711,14 @@ type __VerifyNodeInput struct {
 
 // GetNodeRef returns __VerifyNodeInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__VerifyNodeInput) GetNodeRef() string { return v.NodeRef }
+
+// __WithdrawSigningRequestInput is used internally by genqlient
+type __WithdrawSigningRequestInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __WithdrawSigningRequestInput.Id, and is useful for accessing the field via an interface.
+func (v *__WithdrawSigningRequestInput) GetId() string { return v.Id }
 
 // __WorkerAvailabilitySetInput is used internally by genqlient
 type __WorkerAvailabilitySetInput struct {
@@ -58628,6 +59997,79 @@ func GetScope(
 	return data_, err_
 }
 
+// The query executed by GetSigningRequest.
+const GetSigningRequest_Operation = `
+query GetSigningRequest ($id: ID!) {
+	signingRequest(id: $id) {
+		... SigningRequestFields
+	}
+}
+fragment SigningRequestFields on SigningRequest {
+	id
+	nodeId
+	nodeUrn
+	revision
+	approvalHash
+	payloadVersion
+	state
+	createdAt
+	expiresAt
+	endedAt
+	namedSigner {
+		handle
+		urn
+	}
+	requestedBy {
+		userId
+		appId
+		workerId
+		sessionId
+	}
+	signature {
+		... NodeSignatureFields
+	}
+}
+fragment NodeSignatureFields on NodeSignature {
+	id
+	state
+	revision
+	verifiedAt
+	passkeyLabel
+	passkeyRevokedAt
+	payloadVersion
+	signingRequestId
+	signer {
+		handle
+		urn
+	}
+}
+`
+
+func GetSigningRequest(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *GetSigningRequestResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetSigningRequest",
+		Query:  GetSigningRequest_Operation,
+		Variables: &__GetSigningRequestInput{
+			Id: id,
+		},
+	}
+
+	data_ = &GetSigningRequestResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetSpecNodeForEdit.
 const GetSpecNodeForEdit_Operation = `
 query GetSpecNodeForEdit ($ref: ID!) {
@@ -61378,6 +62820,149 @@ func NodeRevisionsStamped(
 	return data_, err_
 }
 
+// The query executed by NodeSignatureStatus.
+const NodeSignatureStatus_Operation = `
+query NodeSignatureStatus ($ref: ID!) {
+	node(ref: $ref) {
+		id
+		urn
+		loc
+		revision
+		signatureStatus {
+			... NodeSignatureStatusFields
+		}
+	}
+}
+fragment NodeSignatureStatusFields on NodeSignatureStatus {
+	state
+	integrityProblems
+	signatures {
+		... NodeSignatureFields
+	}
+}
+fragment NodeSignatureFields on NodeSignature {
+	id
+	state
+	revision
+	verifiedAt
+	passkeyLabel
+	passkeyRevokedAt
+	payloadVersion
+	signingRequestId
+	signer {
+		handle
+		urn
+	}
+}
+`
+
+func NodeSignatureStatus(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *NodeSignatureStatusResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeSignatureStatus",
+		Query:  NodeSignatureStatus_Operation,
+		Variables: &__NodeSignatureStatusInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &NodeSignatureStatusResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeSigningRequests.
+const NodeSigningRequests_Operation = `
+query NodeSigningRequests ($ref: ID!, $state: SigningRequestState, $first: Int) {
+	node(ref: $ref) {
+		id
+		urn
+		loc
+		signingRequests(state: $state, first: $first) {
+			... SigningRequestFields
+		}
+	}
+}
+fragment SigningRequestFields on SigningRequest {
+	id
+	nodeId
+	nodeUrn
+	revision
+	approvalHash
+	payloadVersion
+	state
+	createdAt
+	expiresAt
+	endedAt
+	namedSigner {
+		handle
+		urn
+	}
+	requestedBy {
+		userId
+		appId
+		workerId
+		sessionId
+	}
+	signature {
+		... NodeSignatureFields
+	}
+}
+fragment NodeSignatureFields on NodeSignature {
+	id
+	state
+	revision
+	verifiedAt
+	passkeyLabel
+	passkeyRevokedAt
+	payloadVersion
+	signingRequestId
+	signer {
+		handle
+		urn
+	}
+}
+`
+
+func NodeSigningRequests(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	state *SigningRequestState,
+	first *int,
+) (data_ *NodeSigningRequestsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeSigningRequests",
+		Query:  NodeSigningRequests_Operation,
+		Variables: &__NodeSigningRequestsInput{
+			Ref:   ref,
+			State: state,
+			First: first,
+		},
+	}
+
+	data_ = &NodeSigningRequestsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by OrgMembers.
 const OrgMembers_Operation = `
 query OrgMembers ($ref: ID!) {
@@ -62270,6 +63855,83 @@ func ReplyToComment(
 	}
 
 	data_ = &ReplyToCommentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RequestNodeSignature.
+const RequestNodeSignature_Operation = `
+mutation RequestNodeSignature ($nodeRef: ID!, $expectedRevision: Int, $signerRef: ID) {
+	requestNodeSignature(nodeRef: $nodeRef, expectedRevision: $expectedRevision, signerRef: $signerRef) {
+		... SigningRequestFields
+	}
+}
+fragment SigningRequestFields on SigningRequest {
+	id
+	nodeId
+	nodeUrn
+	revision
+	approvalHash
+	payloadVersion
+	state
+	createdAt
+	expiresAt
+	endedAt
+	namedSigner {
+		handle
+		urn
+	}
+	requestedBy {
+		userId
+		appId
+		workerId
+		sessionId
+	}
+	signature {
+		... NodeSignatureFields
+	}
+}
+fragment NodeSignatureFields on NodeSignature {
+	id
+	state
+	revision
+	verifiedAt
+	passkeyLabel
+	passkeyRevokedAt
+	payloadVersion
+	signingRequestId
+	signer {
+		handle
+		urn
+	}
+}
+`
+
+func RequestNodeSignature(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	expectedRevision *int,
+	signerRef *string,
+) (data_ *RequestNodeSignatureResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RequestNodeSignature",
+		Query:  RequestNodeSignature_Operation,
+		Variables: &__RequestNodeSignatureInput{
+			NodeRef:          nodeRef,
+			ExpectedRevision: expectedRevision,
+			SignerRef:        signerRef,
+		},
+	}
+
+	data_ = &RequestNodeSignatureResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -67515,6 +69177,79 @@ func VerifyNode(
 	}
 
 	data_ = &VerifyNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by WithdrawSigningRequest.
+const WithdrawSigningRequest_Operation = `
+mutation WithdrawSigningRequest ($id: ID!) {
+	withdrawSigningRequest(id: $id) {
+		... SigningRequestFields
+	}
+}
+fragment SigningRequestFields on SigningRequest {
+	id
+	nodeId
+	nodeUrn
+	revision
+	approvalHash
+	payloadVersion
+	state
+	createdAt
+	expiresAt
+	endedAt
+	namedSigner {
+		handle
+		urn
+	}
+	requestedBy {
+		userId
+		appId
+		workerId
+		sessionId
+	}
+	signature {
+		... NodeSignatureFields
+	}
+}
+fragment NodeSignatureFields on NodeSignature {
+	id
+	state
+	revision
+	verifiedAt
+	passkeyLabel
+	passkeyRevokedAt
+	payloadVersion
+	signingRequestId
+	signer {
+		handle
+		urn
+	}
+}
+`
+
+func WithdrawSigningRequest(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *WithdrawSigningRequestResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WithdrawSigningRequest",
+		Query:  WithdrawSigningRequest_Operation,
+		Variables: &__WithdrawSigningRequestInput{
+			Id: id,
+		},
+	}
+
+	data_ = &WithdrawSigningRequestResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
