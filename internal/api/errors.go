@@ -894,6 +894,19 @@ func codeForExtension(code string) int {
 	case code == "TASK_NOT_OWNER" || code == "TASK_NOT_ASSIGNEE" ||
 		code == "ALARM_NOT_IN_CHAIN" || code == "AVAILABILITY_NOT_PERMITTED":
 		return exitcode.Forbidden
+	// Host operations (hadron-cli#871 over server #1876, cor:agt:070:03/:05).
+	// Who may issue a worktree operation is the server's rule — a
+	// permission. A type outside the closed set, a type in it that is not
+	// issued yet, and a missing, extra or malformed argument are all inputs
+	// the caller changes. A key already operating as another host is the
+	// key's state: revoke host:operate first (cor:agt:070:04).
+	case code == "HOST_OPERATION_NOT_PERMITTED":
+		return exitcode.Forbidden
+	case code == "HOST_OPERATION_TYPE_UNKNOWN" || code == "HOST_OPERATION_NOT_ISSUABLE" ||
+		code == "BAD_HOST_OPERATION_ARGS":
+		return exitcode.Usage
+	case code == "APP_KEY_SCOPE_HOST_CONFLICT":
+		return exitcode.Conflict
 	// A lifecycle move the task's current state forbids — assigning an
 	// already-assigned task, starting a finished one, acknowledging an alarm
 	// whose first acknowledgement already stands. The state must change

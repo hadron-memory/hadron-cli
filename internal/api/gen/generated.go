@@ -4384,7 +4384,7 @@ type AgentTeamEventFields struct {
 	Id     string  `json:"id"`
 	AppId  string  `json:"appId"`
 	TaskId *string `json:"taskId"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable; availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost.
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable; availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -6316,6 +6316,55 @@ type AppFilter struct {
 
 // GetOwnedByMe returns AppFilter.OwnedByMe, and is useful for accessing the field via an interface.
 func (v *AppFilter) GetOwnedByMe() *bool { return v.OwnedByMe }
+
+// The key's id, label and scopes only — never its preview or any key material.
+type AppKeyScopesFields struct {
+	Id        string  `json:"id"`
+	AppId     string  `json:"appId"`
+	Label     *string `json:"label"`
+	RevokedAt *string `json:"revokedAt"`
+	// #1749 — the scopes this key holds now (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Whoever manages the App only.
+	Scopes []*AppKeyScopesFieldsScopesAppKeyScope `json:"scopes"`
+}
+
+// GetId returns AppKeyScopesFields.Id, and is useful for accessing the field via an interface.
+func (v *AppKeyScopesFields) GetId() string { return v.Id }
+
+// GetAppId returns AppKeyScopesFields.AppId, and is useful for accessing the field via an interface.
+func (v *AppKeyScopesFields) GetAppId() string { return v.AppId }
+
+// GetLabel returns AppKeyScopesFields.Label, and is useful for accessing the field via an interface.
+func (v *AppKeyScopesFields) GetLabel() *string { return v.Label }
+
+// GetRevokedAt returns AppKeyScopesFields.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AppKeyScopesFields) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetScopes returns AppKeyScopesFields.Scopes, and is useful for accessing the field via an interface.
+func (v *AppKeyScopesFields) GetScopes() []*AppKeyScopesFieldsScopesAppKeyScope { return v.Scopes }
+
+// AppKeyScopesFieldsScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
+// The GraphQL type's documentation follows.
+//
+// #1749 — a scope an App key holds. A closed list: attention:deliver, and (#1709) host:operate.
+type AppKeyScopesFieldsScopesAppKeyScope struct {
+	Scope string `json:"scope"`
+	// #1709 — the one host a host:operate scope is bound to (hrn:node:hadronmemory.com:specs:cor:agt:070:04); null for every other scope.
+	HostId    *string `json:"hostId"`
+	GrantedAt string  `json:"grantedAt"`
+	GrantedBy string  `json:"grantedBy"`
+}
+
+// GetScope returns AppKeyScopesFieldsScopesAppKeyScope.Scope, and is useful for accessing the field via an interface.
+func (v *AppKeyScopesFieldsScopesAppKeyScope) GetScope() string { return v.Scope }
+
+// GetHostId returns AppKeyScopesFieldsScopesAppKeyScope.HostId, and is useful for accessing the field via an interface.
+func (v *AppKeyScopesFieldsScopesAppKeyScope) GetHostId() *string { return v.HostId }
+
+// GetGrantedAt returns AppKeyScopesFieldsScopesAppKeyScope.GrantedAt, and is useful for accessing the field via an interface.
+func (v *AppKeyScopesFieldsScopesAppKeyScope) GetGrantedAt() string { return v.GrantedAt }
+
+// GetGrantedBy returns AppKeyScopesFieldsScopesAppKeyScope.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AppKeyScopesFieldsScopesAppKeyScope) GetGrantedBy() string { return v.GrantedBy }
 
 // AppRunAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
@@ -20345,6 +20394,559 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	return &retval, nil
 }
 
+// GrantAppKeyScopeGrantAppKeyScopeAppKey includes the requested fields of the GraphQL type AppKey.
+type GrantAppKeyScopeGrantAppKeyScopeAppKey struct {
+	AppKeyScopesFields `json:"-"`
+}
+
+// GetId returns GrantAppKeyScopeGrantAppKeyScopeAppKey.Id, and is useful for accessing the field via an interface.
+func (v *GrantAppKeyScopeGrantAppKeyScopeAppKey) GetId() string { return v.AppKeyScopesFields.Id }
+
+// GetAppId returns GrantAppKeyScopeGrantAppKeyScopeAppKey.AppId, and is useful for accessing the field via an interface.
+func (v *GrantAppKeyScopeGrantAppKeyScopeAppKey) GetAppId() string { return v.AppKeyScopesFields.AppId }
+
+// GetLabel returns GrantAppKeyScopeGrantAppKeyScopeAppKey.Label, and is useful for accessing the field via an interface.
+func (v *GrantAppKeyScopeGrantAppKeyScopeAppKey) GetLabel() *string {
+	return v.AppKeyScopesFields.Label
+}
+
+// GetRevokedAt returns GrantAppKeyScopeGrantAppKeyScopeAppKey.RevokedAt, and is useful for accessing the field via an interface.
+func (v *GrantAppKeyScopeGrantAppKeyScopeAppKey) GetRevokedAt() *string {
+	return v.AppKeyScopesFields.RevokedAt
+}
+
+// GetScopes returns GrantAppKeyScopeGrantAppKeyScopeAppKey.Scopes, and is useful for accessing the field via an interface.
+func (v *GrantAppKeyScopeGrantAppKeyScopeAppKey) GetScopes() []*AppKeyScopesFieldsScopesAppKeyScope {
+	return v.AppKeyScopesFields.Scopes
+}
+
+func (v *GrantAppKeyScopeGrantAppKeyScopeAppKey) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GrantAppKeyScopeGrantAppKeyScopeAppKey
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GrantAppKeyScopeGrantAppKeyScopeAppKey = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppKeyScopesFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGrantAppKeyScopeGrantAppKeyScopeAppKey struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Label *string `json:"label"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	Scopes []*AppKeyScopesFieldsScopesAppKeyScope `json:"scopes"`
+}
+
+func (v *GrantAppKeyScopeGrantAppKeyScopeAppKey) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GrantAppKeyScopeGrantAppKeyScopeAppKey) __premarshalJSON() (*__premarshalGrantAppKeyScopeGrantAppKeyScopeAppKey, error) {
+	var retval __premarshalGrantAppKeyScopeGrantAppKeyScopeAppKey
+
+	retval.Id = v.AppKeyScopesFields.Id
+	retval.AppId = v.AppKeyScopesFields.AppId
+	retval.Label = v.AppKeyScopesFields.Label
+	retval.RevokedAt = v.AppKeyScopesFields.RevokedAt
+	retval.Scopes = v.AppKeyScopesFields.Scopes
+	return &retval, nil
+}
+
+// GrantAppKeyScopeResponse is returned by GrantAppKeyScope on success.
+type GrantAppKeyScopeResponse struct {
+	// #1749 — give an App key a scope (hrn:node:hadronmemory.com:specs:cor:aut:010:04). Only whoever manages the App, as
+	// themselves: never an App key, a worker's session or an impersonation. Granting a scope the key holds changes nothing.
+	// A new key, and a rotated one, holds none. Unknown scope: BAD_USER_INPUT.
+	// #1709: host:operate is granted for ONE host, named by hostId (hrn:node:hadronmemory.com:specs:cor:agt:070:04), and
+	// hostId is refused for any other scope. A key already operating as another host is refused
+	// APP_KEY_SCOPE_HOST_CONFLICT: revoke host:operate first.
+	GrantAppKeyScope *GrantAppKeyScopeGrantAppKeyScopeAppKey `json:"grantAppKeyScope"`
+}
+
+// GetGrantAppKeyScope returns GrantAppKeyScopeResponse.GrantAppKeyScope, and is useful for accessing the field via an interface.
+func (v *GrantAppKeyScopeResponse) GetGrantAppKeyScope() *GrantAppKeyScopeGrantAppKeyScopeAppKey {
+	return v.GrantAppKeyScope
+}
+
+// HostOperationFields includes the GraphQL fields of HostOperation requested by the fragment HostOperationFields.
+// The GraphQL type's documentation follows.
+//
+// #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove; args are its typed arguments (ids and name
+// tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName, label}; worker.start
+// {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end {workerId,
+// sessionId}; worktree.remove {workerId, worktree}. The per-type arguments are #1709's design, Proposed.
+type HostOperationFields struct {
+	Id               string                     `json:"id"`
+	AppId            string                     `json:"appId"`
+	HostId           string                     `json:"hostId"`
+	Type             string                     `json:"type"`
+	Args             json.RawMessage            `json:"args"`
+	WorkerId         string                     `json:"workerId"`
+	Worker           *HostOperationFieldsWorker `json:"worker"`
+	Status           HostOperationStatus        `json:"status"`
+	IssuedBy         HostOperationIssuer        `json:"issuedBy"`
+	IssuedByUserId   *string                    `json:"issuedByUserId"`
+	IssuedByWorkerId *string                    `json:"issuedByWorkerId"`
+	IssuedAt         string                     `json:"issuedAt"`
+	CollectedAt      *string                    `json:"collectedAt"`
+	FinishedAt       *string                    `json:"finishedAt"`
+	// A success's typed result: {worktree} for worktree.create.
+	Result *json.RawMessage `json:"result"`
+	// Why it failed, as the host said it.
+	FailureReason *string `json:"failureReason"`
+}
+
+// GetId returns HostOperationFields.Id, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetId() string { return v.Id }
+
+// GetAppId returns HostOperationFields.AppId, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetAppId() string { return v.AppId }
+
+// GetHostId returns HostOperationFields.HostId, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetHostId() string { return v.HostId }
+
+// GetType returns HostOperationFields.Type, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetType() string { return v.Type }
+
+// GetArgs returns HostOperationFields.Args, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetArgs() json.RawMessage { return v.Args }
+
+// GetWorkerId returns HostOperationFields.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetWorkerId() string { return v.WorkerId }
+
+// GetWorker returns HostOperationFields.Worker, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetWorker() *HostOperationFieldsWorker { return v.Worker }
+
+// GetStatus returns HostOperationFields.Status, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetStatus() HostOperationStatus { return v.Status }
+
+// GetIssuedBy returns HostOperationFields.IssuedBy, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetIssuedBy() HostOperationIssuer { return v.IssuedBy }
+
+// GetIssuedByUserId returns HostOperationFields.IssuedByUserId, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetIssuedByUserId() *string { return v.IssuedByUserId }
+
+// GetIssuedByWorkerId returns HostOperationFields.IssuedByWorkerId, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetIssuedByWorkerId() *string { return v.IssuedByWorkerId }
+
+// GetIssuedAt returns HostOperationFields.IssuedAt, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetIssuedAt() string { return v.IssuedAt }
+
+// GetCollectedAt returns HostOperationFields.CollectedAt, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetCollectedAt() *string { return v.CollectedAt }
+
+// GetFinishedAt returns HostOperationFields.FinishedAt, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetFinishedAt() *string { return v.FinishedAt }
+
+// GetResult returns HostOperationFields.Result, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetResult() *json.RawMessage { return v.Result }
+
+// GetFailureReason returns HostOperationFields.FailureReason, and is useful for accessing the field via an interface.
+func (v *HostOperationFields) GetFailureReason() *string { return v.FailureReason }
+
+// HostOperationFieldsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostOperationFieldsWorker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetId returns HostOperationFieldsWorker.Id, and is useful for accessing the field via an interface.
+func (v *HostOperationFieldsWorker) GetId() string { return v.Id }
+
+// GetName returns HostOperationFieldsWorker.Name, and is useful for accessing the field via an interface.
+func (v *HostOperationFieldsWorker) GetName() string { return v.Name }
+
+// #1709 — who issued a host operation.
+type HostOperationIssuer string
+
+const (
+	HostOperationIssuerPlatform HostOperationIssuer = "PLATFORM"
+	HostOperationIssuerUser     HostOperationIssuer = "USER"
+	HostOperationIssuerWorker   HostOperationIssuer = "WORKER"
+)
+
+var AllHostOperationIssuer = []HostOperationIssuer{
+	HostOperationIssuerPlatform,
+	HostOperationIssuerUser,
+	HostOperationIssuerWorker,
+}
+
+// #1709 — a host operation's status (hrn:node:hadronmemory.com:specs:cor:agt:070:02; COLLECTED is #1709's, Proposed).
+type HostOperationStatus string
+
+const (
+	HostOperationStatusCollected HostOperationStatus = "COLLECTED"
+	HostOperationStatusFailed    HostOperationStatus = "FAILED"
+	HostOperationStatusIssued    HostOperationStatus = "ISSUED"
+	HostOperationStatusSucceeded HostOperationStatus = "SUCCEEDED"
+)
+
+var AllHostOperationStatus = []HostOperationStatus{
+	HostOperationStatusCollected,
+	HostOperationStatusFailed,
+	HostOperationStatusIssued,
+	HostOperationStatusSucceeded,
+}
+
+// HostOperationsHostOperationsHostOperationPage includes the requested fields of the GraphQL type HostOperationPage.
+type HostOperationsHostOperationsHostOperationPage struct {
+	Items       []*HostOperationsHostOperationsHostOperationPageItemsHostOperation `json:"items"`
+	HasNextPage bool                                                               `json:"hasNextPage"`
+	// Pass as after for the next page.
+	EndCursor *string `json:"endCursor"`
+}
+
+// GetItems returns HostOperationsHostOperationsHostOperationPage.Items, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPage) GetItems() []*HostOperationsHostOperationsHostOperationPageItemsHostOperation {
+	return v.Items
+}
+
+// GetHasNextPage returns HostOperationsHostOperationsHostOperationPage.HasNextPage, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPage) GetHasNextPage() bool { return v.HasNextPage }
+
+// GetEndCursor returns HostOperationsHostOperationsHostOperationPage.EndCursor, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPage) GetEndCursor() *string { return v.EndCursor }
+
+// HostOperationsHostOperationsHostOperationPageItemsHostOperation includes the requested fields of the GraphQL type HostOperation.
+// The GraphQL type's documentation follows.
+//
+// #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove; args are its typed arguments (ids and name
+// tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName, label}; worker.start
+// {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end {workerId,
+// sessionId}; worktree.remove {workerId, worktree}. The per-type arguments are #1709's design, Proposed.
+type HostOperationsHostOperationsHostOperationPageItemsHostOperation struct {
+	HostOperationFields `json:"-"`
+}
+
+// GetId returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.Id, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetId() string {
+	return v.HostOperationFields.Id
+}
+
+// GetAppId returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.AppId, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetAppId() string {
+	return v.HostOperationFields.AppId
+}
+
+// GetHostId returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.HostId, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetHostId() string {
+	return v.HostOperationFields.HostId
+}
+
+// GetType returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.Type, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetType() string {
+	return v.HostOperationFields.Type
+}
+
+// GetArgs returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.Args, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetArgs() json.RawMessage {
+	return v.HostOperationFields.Args
+}
+
+// GetWorkerId returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetWorkerId() string {
+	return v.HostOperationFields.WorkerId
+}
+
+// GetWorker returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.Worker, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetWorker() *HostOperationFieldsWorker {
+	return v.HostOperationFields.Worker
+}
+
+// GetStatus returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.Status, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetStatus() HostOperationStatus {
+	return v.HostOperationFields.Status
+}
+
+// GetIssuedBy returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.IssuedBy, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetIssuedBy() HostOperationIssuer {
+	return v.HostOperationFields.IssuedBy
+}
+
+// GetIssuedByUserId returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.IssuedByUserId, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetIssuedByUserId() *string {
+	return v.HostOperationFields.IssuedByUserId
+}
+
+// GetIssuedByWorkerId returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.IssuedByWorkerId, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetIssuedByWorkerId() *string {
+	return v.HostOperationFields.IssuedByWorkerId
+}
+
+// GetIssuedAt returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.IssuedAt, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetIssuedAt() string {
+	return v.HostOperationFields.IssuedAt
+}
+
+// GetCollectedAt returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.CollectedAt, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetCollectedAt() *string {
+	return v.HostOperationFields.CollectedAt
+}
+
+// GetFinishedAt returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.FinishedAt, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetFinishedAt() *string {
+	return v.HostOperationFields.FinishedAt
+}
+
+// GetResult returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.Result, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetResult() *json.RawMessage {
+	return v.HostOperationFields.Result
+}
+
+// GetFailureReason returns HostOperationsHostOperationsHostOperationPageItemsHostOperation.FailureReason, and is useful for accessing the field via an interface.
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) GetFailureReason() *string {
+	return v.HostOperationFields.FailureReason
+}
+
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*HostOperationsHostOperationsHostOperationPageItemsHostOperation
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.HostOperationsHostOperationsHostOperationPageItemsHostOperation = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostOperationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalHostOperationsHostOperationsHostOperationPageItemsHostOperation struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	HostId string `json:"hostId"`
+
+	Type string `json:"type"`
+
+	Args json.RawMessage `json:"args"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostOperationFieldsWorker `json:"worker"`
+
+	Status HostOperationStatus `json:"status"`
+
+	IssuedBy HostOperationIssuer `json:"issuedBy"`
+
+	IssuedByUserId *string `json:"issuedByUserId"`
+
+	IssuedByWorkerId *string `json:"issuedByWorkerId"`
+
+	IssuedAt string `json:"issuedAt"`
+
+	CollectedAt *string `json:"collectedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	Result *json.RawMessage `json:"result"`
+
+	FailureReason *string `json:"failureReason"`
+}
+
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) __premarshalJSON() (*__premarshalHostOperationsHostOperationsHostOperationPageItemsHostOperation, error) {
+	var retval __premarshalHostOperationsHostOperationsHostOperationPageItemsHostOperation
+
+	retval.Id = v.HostOperationFields.Id
+	retval.AppId = v.HostOperationFields.AppId
+	retval.HostId = v.HostOperationFields.HostId
+	retval.Type = v.HostOperationFields.Type
+	retval.Args = v.HostOperationFields.Args
+	retval.WorkerId = v.HostOperationFields.WorkerId
+	retval.Worker = v.HostOperationFields.Worker
+	retval.Status = v.HostOperationFields.Status
+	retval.IssuedBy = v.HostOperationFields.IssuedBy
+	retval.IssuedByUserId = v.HostOperationFields.IssuedByUserId
+	retval.IssuedByWorkerId = v.HostOperationFields.IssuedByWorkerId
+	retval.IssuedAt = v.HostOperationFields.IssuedAt
+	retval.CollectedAt = v.HostOperationFields.CollectedAt
+	retval.FinishedAt = v.HostOperationFields.FinishedAt
+	retval.Result = v.HostOperationFields.Result
+	retval.FailureReason = v.HostOperationFields.FailureReason
+	return &retval, nil
+}
+
+// HostOperationsResponse is returned by HostOperations on success.
+type HostOperationsResponse struct {
+	// #1709 — the App's host operations, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:02). Whoever reads the App's tasks and events. after: the endCursor of the previous page.
+	HostOperations *HostOperationsHostOperationsHostOperationPage `json:"hostOperations"`
+}
+
+// GetHostOperations returns HostOperationsResponse.HostOperations, and is useful for accessing the field via an interface.
+func (v *HostOperationsResponse) GetHostOperations() *HostOperationsHostOperationsHostOperationPage {
+	return v.HostOperations
+}
+
+// HostRegistrationsHostRegistrationsHostRegistration includes the requested fields of the GraphQL type HostRegistration.
+// The GraphQL type's documentation follows.
+//
+// #1709 — a host's registration (hrn:node:hadronmemory.com:specs:cor:agt:070:01).
+type HostRegistrationsHostRegistrationsHostRegistration struct {
+	// The host's id within its App: the one its key's host:operate scope names.
+	HostId              string `json:"hostId"`
+	Label               string `json:"label"`
+	PollIntervalSeconds int    `json:"pollIntervalSeconds"`
+	RegisteredAt        string `json:"registeredAt"`
+	RefreshedAt         string `json:"refreshedAt"`
+	// Refreshed within the App's lapse count of its poll intervals, now.
+	Live    bool                                                                               `json:"live"`
+	Workers []*HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker `json:"workers"`
+}
+
+// GetHostId returns HostRegistrationsHostRegistrationsHostRegistration.HostId, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistration) GetHostId() string { return v.HostId }
+
+// GetLabel returns HostRegistrationsHostRegistrationsHostRegistration.Label, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistration) GetLabel() string { return v.Label }
+
+// GetPollIntervalSeconds returns HostRegistrationsHostRegistrationsHostRegistration.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistration) GetPollIntervalSeconds() int {
+	return v.PollIntervalSeconds
+}
+
+// GetRegisteredAt returns HostRegistrationsHostRegistrationsHostRegistration.RegisteredAt, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistration) GetRegisteredAt() string {
+	return v.RegisteredAt
+}
+
+// GetRefreshedAt returns HostRegistrationsHostRegistrationsHostRegistration.RefreshedAt, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistration) GetRefreshedAt() string {
+	return v.RefreshedAt
+}
+
+// GetLive returns HostRegistrationsHostRegistrationsHostRegistration.Live, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistration) GetLive() bool { return v.Live }
+
+// GetWorkers returns HostRegistrationsHostRegistrationsHostRegistration.Workers, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistration) GetWorkers() []*HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker {
+	return v.Workers
+}
+
+// HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker includes the requested fields of the GraphQL type HostRegistrationWorker.
+// The GraphQL type's documentation follows.
+//
+// #1709 — a worker a host can launch: the family it would run as, and its existing worktrees there.
+type HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker struct {
+	WorkerId  string                                                                                 `json:"workerId"`
+	Worker    *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker `json:"worker"`
+	Family    string                                                                                 `json:"family"`
+	Worktrees []string                                                                               `json:"worktrees"`
+}
+
+// GetWorkerId returns HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetWorker returns HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker.Worker, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker) GetWorker() *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker {
+	return v.Worker
+}
+
+// GetFamily returns HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker.Family, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker) GetFamily() string {
+	return v.Family
+}
+
+// GetWorktrees returns HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker.Worktrees, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorker) GetWorktrees() []string {
+	return v.Worktrees
+}
+
+// HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetId returns HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker.Id, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker) GetId() string {
+	return v.Id
+}
+
+// GetName returns HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker.Name, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker) GetName() string {
+	return v.Name
+}
+
+// HostRegistrationsResponse is returned by HostRegistrations on success.
+type HostRegistrationsResponse struct {
+	// #1709 — the App's host registrations, liveness derived now (hrn:node:hadronmemory.com:specs:cor:agt:070:01). Whoever reads the App's tasks and events, the App's own key included.
+	HostRegistrations []*HostRegistrationsHostRegistrationsHostRegistration `json:"hostRegistrations"`
+}
+
+// GetHostRegistrations returns HostRegistrationsResponse.HostRegistrations, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsResponse) GetHostRegistrations() []*HostRegistrationsHostRegistrationsHostRegistration {
+	return v.HostRegistrations
+}
+
 // ImportNodeImportNodeImportNodeResult includes the requested fields of the GraphQL type ImportNodeResult.
 type ImportNodeImportNodeImportNodeResult struct {
 	Status ImportNodeStatus `json:"status"`
@@ -20698,6 +21300,224 @@ func (v *InvitationFields) GetAcceptedAt() *string { return v.AcceptedAt }
 
 // GetCreatedAt returns InvitationFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *InvitationFields) GetCreatedAt() string { return v.CreatedAt }
+
+type IssueHostOperationInput struct {
+	AppRef string `json:"appRef"`
+	// The type's arguments, without workerId (taken from worker).
+	Args *json.RawMessage `json:"args"`
+	// The registered host to run it.
+	HostId string `json:"hostId"`
+	// One of the closed set; see HostOperation.
+	Type string `json:"type"`
+	// The worker it is for: its id, URN or name within the App.
+	Worker string `json:"worker"`
+}
+
+// GetAppRef returns IssueHostOperationInput.AppRef, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInput) GetAppRef() string { return v.AppRef }
+
+// GetArgs returns IssueHostOperationInput.Args, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInput) GetArgs() *json.RawMessage { return v.Args }
+
+// GetHostId returns IssueHostOperationInput.HostId, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInput) GetHostId() string { return v.HostId }
+
+// GetType returns IssueHostOperationInput.Type, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInput) GetType() string { return v.Type }
+
+// GetWorker returns IssueHostOperationInput.Worker, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInput) GetWorker() string { return v.Worker }
+
+// IssueHostOperationIssueHostOperation includes the requested fields of the GraphQL type HostOperation.
+// The GraphQL type's documentation follows.
+//
+// #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove; args are its typed arguments (ids and name
+// tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName, label}; worker.start
+// {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end {workerId,
+// sessionId}; worktree.remove {workerId, worktree}. The per-type arguments are #1709's design, Proposed.
+type IssueHostOperationIssueHostOperation struct {
+	HostOperationFields `json:"-"`
+}
+
+// GetId returns IssueHostOperationIssueHostOperation.Id, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetId() string { return v.HostOperationFields.Id }
+
+// GetAppId returns IssueHostOperationIssueHostOperation.AppId, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetAppId() string { return v.HostOperationFields.AppId }
+
+// GetHostId returns IssueHostOperationIssueHostOperation.HostId, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetHostId() string {
+	return v.HostOperationFields.HostId
+}
+
+// GetType returns IssueHostOperationIssueHostOperation.Type, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetType() string { return v.HostOperationFields.Type }
+
+// GetArgs returns IssueHostOperationIssueHostOperation.Args, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetArgs() json.RawMessage {
+	return v.HostOperationFields.Args
+}
+
+// GetWorkerId returns IssueHostOperationIssueHostOperation.WorkerId, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetWorkerId() string {
+	return v.HostOperationFields.WorkerId
+}
+
+// GetWorker returns IssueHostOperationIssueHostOperation.Worker, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetWorker() *HostOperationFieldsWorker {
+	return v.HostOperationFields.Worker
+}
+
+// GetStatus returns IssueHostOperationIssueHostOperation.Status, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetStatus() HostOperationStatus {
+	return v.HostOperationFields.Status
+}
+
+// GetIssuedBy returns IssueHostOperationIssueHostOperation.IssuedBy, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetIssuedBy() HostOperationIssuer {
+	return v.HostOperationFields.IssuedBy
+}
+
+// GetIssuedByUserId returns IssueHostOperationIssueHostOperation.IssuedByUserId, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetIssuedByUserId() *string {
+	return v.HostOperationFields.IssuedByUserId
+}
+
+// GetIssuedByWorkerId returns IssueHostOperationIssueHostOperation.IssuedByWorkerId, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetIssuedByWorkerId() *string {
+	return v.HostOperationFields.IssuedByWorkerId
+}
+
+// GetIssuedAt returns IssueHostOperationIssueHostOperation.IssuedAt, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetIssuedAt() string {
+	return v.HostOperationFields.IssuedAt
+}
+
+// GetCollectedAt returns IssueHostOperationIssueHostOperation.CollectedAt, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetCollectedAt() *string {
+	return v.HostOperationFields.CollectedAt
+}
+
+// GetFinishedAt returns IssueHostOperationIssueHostOperation.FinishedAt, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetFinishedAt() *string {
+	return v.HostOperationFields.FinishedAt
+}
+
+// GetResult returns IssueHostOperationIssueHostOperation.Result, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetResult() *json.RawMessage {
+	return v.HostOperationFields.Result
+}
+
+// GetFailureReason returns IssueHostOperationIssueHostOperation.FailureReason, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationIssueHostOperation) GetFailureReason() *string {
+	return v.HostOperationFields.FailureReason
+}
+
+func (v *IssueHostOperationIssueHostOperation) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*IssueHostOperationIssueHostOperation
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.IssueHostOperationIssueHostOperation = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostOperationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalIssueHostOperationIssueHostOperation struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	HostId string `json:"hostId"`
+
+	Type string `json:"type"`
+
+	Args json.RawMessage `json:"args"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostOperationFieldsWorker `json:"worker"`
+
+	Status HostOperationStatus `json:"status"`
+
+	IssuedBy HostOperationIssuer `json:"issuedBy"`
+
+	IssuedByUserId *string `json:"issuedByUserId"`
+
+	IssuedByWorkerId *string `json:"issuedByWorkerId"`
+
+	IssuedAt string `json:"issuedAt"`
+
+	CollectedAt *string `json:"collectedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	Result *json.RawMessage `json:"result"`
+
+	FailureReason *string `json:"failureReason"`
+}
+
+func (v *IssueHostOperationIssueHostOperation) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *IssueHostOperationIssueHostOperation) __premarshalJSON() (*__premarshalIssueHostOperationIssueHostOperation, error) {
+	var retval __premarshalIssueHostOperationIssueHostOperation
+
+	retval.Id = v.HostOperationFields.Id
+	retval.AppId = v.HostOperationFields.AppId
+	retval.HostId = v.HostOperationFields.HostId
+	retval.Type = v.HostOperationFields.Type
+	retval.Args = v.HostOperationFields.Args
+	retval.WorkerId = v.HostOperationFields.WorkerId
+	retval.Worker = v.HostOperationFields.Worker
+	retval.Status = v.HostOperationFields.Status
+	retval.IssuedBy = v.HostOperationFields.IssuedBy
+	retval.IssuedByUserId = v.HostOperationFields.IssuedByUserId
+	retval.IssuedByWorkerId = v.HostOperationFields.IssuedByWorkerId
+	retval.IssuedAt = v.HostOperationFields.IssuedAt
+	retval.CollectedAt = v.HostOperationFields.CollectedAt
+	retval.FinishedAt = v.HostOperationFields.FinishedAt
+	retval.Result = v.HostOperationFields.Result
+	retval.FailureReason = v.HostOperationFields.FailureReason
+	return &retval, nil
+}
+
+// IssueHostOperationResponse is returned by IssueHostOperation on success.
+type IssueHostOperationResponse struct {
+	// #1709 — issue an operation to one of the App's registered hosts (hrn:node:hadronmemory.com:specs:cor:agt:070:05).
+	// A type outside the closed set is HOST_OPERATION_TYPE_UNKNOWN (hrn:node:hadronmemory.com:specs:cor:agt:070:03), a
+	// missing, extra or malformed argument BAD_HOST_OPERATION_ARGS. Issued today: worktree.create and worktree.remove, by
+	// the worker's holder, the worker it reports to, or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED).
+	// worker.start and worker.end ship with #1709's next slices, and worker.deliver with a host delivery path:
+	// HOST_OPERATION_NOT_ISSUABLE until then. An unregistered host is HOST_NOT_FOUND.
+	IssueHostOperation *IssueHostOperationIssueHostOperation `json:"issueHostOperation"`
+}
+
+// GetIssueHostOperation returns IssueHostOperationResponse.IssueHostOperation, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationResponse) GetIssueHostOperation() *IssueHostOperationIssueHostOperation {
+	return v.IssueHostOperation
+}
 
 // LinkMemoryToUserLinkMemoryToUserMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -31362,6 +32182,101 @@ func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetHandle() *string { ret
 
 // GetUrn returns RevisionFieldsEditedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
 func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetUrn() *string { return v.Urn }
+
+// RevokeAppKeyScopeResponse is returned by RevokeAppKeyScope on success.
+type RevokeAppKeyScopeResponse struct {
+	// #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing.
+	RevokeAppKeyScope *RevokeAppKeyScopeRevokeAppKeyScopeAppKey `json:"revokeAppKeyScope"`
+}
+
+// GetRevokeAppKeyScope returns RevokeAppKeyScopeResponse.RevokeAppKeyScope, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeResponse) GetRevokeAppKeyScope() *RevokeAppKeyScopeRevokeAppKeyScopeAppKey {
+	return v.RevokeAppKeyScope
+}
+
+// RevokeAppKeyScopeRevokeAppKeyScopeAppKey includes the requested fields of the GraphQL type AppKey.
+type RevokeAppKeyScopeRevokeAppKeyScopeAppKey struct {
+	AppKeyScopesFields `json:"-"`
+}
+
+// GetId returns RevokeAppKeyScopeRevokeAppKeyScopeAppKey.Id, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) GetId() string { return v.AppKeyScopesFields.Id }
+
+// GetAppId returns RevokeAppKeyScopeRevokeAppKeyScopeAppKey.AppId, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) GetAppId() string {
+	return v.AppKeyScopesFields.AppId
+}
+
+// GetLabel returns RevokeAppKeyScopeRevokeAppKeyScopeAppKey.Label, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) GetLabel() *string {
+	return v.AppKeyScopesFields.Label
+}
+
+// GetRevokedAt returns RevokeAppKeyScopeRevokeAppKeyScopeAppKey.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) GetRevokedAt() *string {
+	return v.AppKeyScopesFields.RevokedAt
+}
+
+// GetScopes returns RevokeAppKeyScopeRevokeAppKeyScopeAppKey.Scopes, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) GetScopes() []*AppKeyScopesFieldsScopesAppKeyScope {
+	return v.AppKeyScopesFields.Scopes
+}
+
+func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RevokeAppKeyScopeRevokeAppKeyScopeAppKey
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RevokeAppKeyScopeRevokeAppKeyScopeAppKey = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppKeyScopesFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRevokeAppKeyScopeRevokeAppKeyScopeAppKey struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Label *string `json:"label"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	Scopes []*AppKeyScopesFieldsScopesAppKeyScope `json:"scopes"`
+}
+
+func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) __premarshalJSON() (*__premarshalRevokeAppKeyScopeRevokeAppKeyScopeAppKey, error) {
+	var retval __premarshalRevokeAppKeyScopeRevokeAppKeyScopeAppKey
+
+	retval.Id = v.AppKeyScopesFields.Id
+	retval.AppId = v.AppKeyScopesFields.AppId
+	retval.Label = v.AppKeyScopesFields.Label
+	retval.RevokedAt = v.AppKeyScopesFields.RevokedAt
+	retval.Scopes = v.AppKeyScopesFields.Scopes
+	return &retval, nil
+}
 
 // RevokeConnectionGrantResponse is returned by RevokeConnectionGrant on success.
 type RevokeConnectionGrantResponse struct {
@@ -48288,6 +49203,58 @@ type __GetWorkerInput struct {
 // GetRef returns __GetWorkerInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerInput) GetRef() string { return v.Ref }
 
+// __GrantAppKeyScopeInput is used internally by genqlient
+type __GrantAppKeyScopeInput struct {
+	Id     string  `json:"id"`
+	Scope  string  `json:"scope"`
+	HostId *string `json:"hostId,omitempty"`
+}
+
+// GetId returns __GrantAppKeyScopeInput.Id, and is useful for accessing the field via an interface.
+func (v *__GrantAppKeyScopeInput) GetId() string { return v.Id }
+
+// GetScope returns __GrantAppKeyScopeInput.Scope, and is useful for accessing the field via an interface.
+func (v *__GrantAppKeyScopeInput) GetScope() string { return v.Scope }
+
+// GetHostId returns __GrantAppKeyScopeInput.HostId, and is useful for accessing the field via an interface.
+func (v *__GrantAppKeyScopeInput) GetHostId() *string { return v.HostId }
+
+// __HostOperationsInput is used internally by genqlient
+type __HostOperationsInput struct {
+	AppRef string               `json:"appRef"`
+	HostId *string              `json:"hostId,omitempty"`
+	Status *HostOperationStatus `json:"status,omitempty"`
+	Worker *string              `json:"worker,omitempty"`
+	First  *int                 `json:"first,omitempty"`
+	After  *string              `json:"after,omitempty"`
+}
+
+// GetAppRef returns __HostOperationsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostOperationsInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostOperationsInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostOperationsInput) GetHostId() *string { return v.HostId }
+
+// GetStatus returns __HostOperationsInput.Status, and is useful for accessing the field via an interface.
+func (v *__HostOperationsInput) GetStatus() *HostOperationStatus { return v.Status }
+
+// GetWorker returns __HostOperationsInput.Worker, and is useful for accessing the field via an interface.
+func (v *__HostOperationsInput) GetWorker() *string { return v.Worker }
+
+// GetFirst returns __HostOperationsInput.First, and is useful for accessing the field via an interface.
+func (v *__HostOperationsInput) GetFirst() *int { return v.First }
+
+// GetAfter returns __HostOperationsInput.After, and is useful for accessing the field via an interface.
+func (v *__HostOperationsInput) GetAfter() *string { return v.After }
+
+// __HostRegistrationsInput is used internally by genqlient
+type __HostRegistrationsInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __HostRegistrationsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostRegistrationsInput) GetAppRef() string { return v.AppRef }
+
 // __ImportNodeInput is used internally by genqlient
 type __ImportNodeInput struct {
 	Input *ImportNodeInput `json:"input,omitempty"`
@@ -48311,6 +49278,14 @@ func (v *__InstallAgentIntoAppInput) GetAgentRef() string { return v.AgentRef }
 
 // GetTrainingMode returns __InstallAgentIntoAppInput.TrainingMode, and is useful for accessing the field via an interface.
 func (v *__InstallAgentIntoAppInput) GetTrainingMode() *bool { return v.TrainingMode }
+
+// __IssueHostOperationInput is used internally by genqlient
+type __IssueHostOperationInput struct {
+	Input *IssueHostOperationInput `json:"input,omitempty"`
+}
+
+// GetInput returns __IssueHostOperationInput.Input, and is useful for accessing the field via an interface.
+func (v *__IssueHostOperationInput) GetInput() *IssueHostOperationInput { return v.Input }
 
 // __LinkMemoryToUserInput is used internally by genqlient
 type __LinkMemoryToUserInput struct {
@@ -49045,6 +50020,18 @@ type __RetireWorkerInput struct {
 
 // GetWorkerRef returns __RetireWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__RetireWorkerInput) GetWorkerRef() string { return v.WorkerRef }
+
+// __RevokeAppKeyScopeInput is used internally by genqlient
+type __RevokeAppKeyScopeInput struct {
+	Id    string `json:"id"`
+	Scope string `json:"scope"`
+}
+
+// GetId returns __RevokeAppKeyScopeInput.Id, and is useful for accessing the field via an interface.
+func (v *__RevokeAppKeyScopeInput) GetId() string { return v.Id }
+
+// GetScope returns __RevokeAppKeyScopeInput.Scope, and is useful for accessing the field via an interface.
+func (v *__RevokeAppKeyScopeInput) GetScope() string { return v.Scope }
 
 // __RevokeConnectionGrantInput is used internally by genqlient
 type __RevokeConnectionGrantInput struct {
@@ -57991,6 +58978,173 @@ func GetWorkerContinuity(
 	return data_, err_
 }
 
+// The mutation executed by GrantAppKeyScope.
+const GrantAppKeyScope_Operation = `
+mutation GrantAppKeyScope ($id: ID!, $scope: String!, $hostId: String) {
+	grantAppKeyScope(id: $id, scope: $scope, hostId: $hostId) {
+		... AppKeyScopesFields
+	}
+}
+fragment AppKeyScopesFields on AppKey {
+	id
+	appId
+	label
+	revokedAt
+	scopes {
+		scope
+		hostId
+		grantedAt
+		grantedBy
+	}
+}
+`
+
+func GrantAppKeyScope(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	scope string,
+	hostId *string,
+) (data_ *GrantAppKeyScopeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GrantAppKeyScope",
+		Query:  GrantAppKeyScope_Operation,
+		Variables: &__GrantAppKeyScopeInput{
+			Id:     id,
+			Scope:  scope,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &GrantAppKeyScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostOperations.
+const HostOperations_Operation = `
+query HostOperations ($appRef: String!, $hostId: String, $status: HostOperationStatus, $worker: String, $first: Int, $after: String) {
+	hostOperations(appRef: $appRef, hostId: $hostId, status: $status, worker: $worker, first: $first, after: $after) {
+		items {
+			... HostOperationFields
+		}
+		hasNextPage
+		endCursor
+	}
+}
+fragment HostOperationFields on HostOperation {
+	id
+	appId
+	hostId
+	type
+	args
+	workerId
+	worker {
+		id
+		name
+	}
+	status
+	issuedBy
+	issuedByUserId
+	issuedByWorkerId
+	issuedAt
+	collectedAt
+	finishedAt
+	result
+	failureReason
+}
+`
+
+func HostOperations(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId *string,
+	status *HostOperationStatus,
+	worker *string,
+	first *int,
+	after *string,
+) (data_ *HostOperationsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostOperations",
+		Query:  HostOperations_Operation,
+		Variables: &__HostOperationsInput{
+			AppRef: appRef,
+			HostId: hostId,
+			Status: status,
+			Worker: worker,
+			First:  first,
+			After:  after,
+		},
+	}
+
+	data_ = &HostOperationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostRegistrations.
+const HostRegistrations_Operation = `
+query HostRegistrations ($appRef: String!) {
+	hostRegistrations(appRef: $appRef) {
+		hostId
+		label
+		pollIntervalSeconds
+		registeredAt
+		refreshedAt
+		live
+		workers {
+			workerId
+			worker {
+				id
+				name
+			}
+			family
+			worktrees
+		}
+	}
+}
+`
+
+func HostRegistrations(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *HostRegistrationsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostRegistrations",
+		Query:  HostRegistrations_Operation,
+		Variables: &__HostRegistrationsInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &HostRegistrationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ImportNode.
 const ImportNode_Operation = `
 mutation ImportNode ($input: ImportNodeInput!) {
@@ -58090,6 +59244,61 @@ func InstallAgentIntoApp(
 	}
 
 	data_ = &InstallAgentIntoAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by IssueHostOperation.
+const IssueHostOperation_Operation = `
+mutation IssueHostOperation ($input: IssueHostOperationInput!) {
+	issueHostOperation(input: $input) {
+		... HostOperationFields
+	}
+}
+fragment HostOperationFields on HostOperation {
+	id
+	appId
+	hostId
+	type
+	args
+	workerId
+	worker {
+		id
+		name
+	}
+	status
+	issuedBy
+	issuedByUserId
+	issuedByWorkerId
+	issuedAt
+	collectedAt
+	finishedAt
+	result
+	failureReason
+}
+`
+
+func IssueHostOperation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *IssueHostOperationInput,
+) (data_ *IssueHostOperationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "IssueHostOperation",
+		Query:  IssueHostOperation_Operation,
+		Variables: &__IssueHostOperationInput{
+			Input: input,
+		},
+	}
+
+	data_ = &IssueHostOperationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -61486,6 +62695,54 @@ func RetireWorker(
 	}
 
 	data_ = &RetireWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeAppKeyScope.
+const RevokeAppKeyScope_Operation = `
+mutation RevokeAppKeyScope ($id: ID!, $scope: String!) {
+	revokeAppKeyScope(id: $id, scope: $scope) {
+		... AppKeyScopesFields
+	}
+}
+fragment AppKeyScopesFields on AppKey {
+	id
+	appId
+	label
+	revokedAt
+	scopes {
+		scope
+		hostId
+		grantedAt
+		grantedBy
+	}
+}
+`
+
+func RevokeAppKeyScope(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	scope string,
+) (data_ *RevokeAppKeyScopeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeAppKeyScope",
+		Query:  RevokeAppKeyScope_Operation,
+		Variables: &__RevokeAppKeyScopeInput{
+			Id:    id,
+			Scope: scope,
+		},
+	}
+
+	data_ = &RevokeAppKeyScopeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
