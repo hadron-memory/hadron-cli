@@ -50,7 +50,7 @@ func signatureLineServer(t *testing.T, statusJSON string, statusErr bool) (strin
 
 const signedStatusJSON = `{"data":{"node":{"id":"n1","urn":"` + testNodeURN + `","loc":"start-here","revision":7,` +
 	`"signatureStatus":{"state":"SIGNED","integrityProblems":0,"signatures":[` +
-	`{"id":"sig1","state":"VERIFIED","revision":7,"verifiedAt":"2026-10-14T10:00:00Z","signer":{"handle":"holger","urn":null},"passkeyLabel":"Yubikey 5C","passkeyRevokedAt":null,"payloadVersion":"1","signingRequestId":"sr1"},` +
+	`{"id":"sig1","state":"CURRENT","revision":7,"verifiedAt":"2026-10-14T10:00:00Z","signer":{"handle":"holger","urn":null},"passkeyLabel":"Yubikey 5C","passkeyRevokedAt":null,"payloadVersion":"1","signingRequestId":"sr1"},` +
 	`{"id":"sig2","state":"PENDING","revision":7,"verifiedAt":"","signer":{"handle":"ada","urn":null},"passkeyLabel":"Backup key","passkeyRevokedAt":null,"payloadVersion":"1","signingRequestId":"sr2"}]}}}}`
 
 func withSigningProbe(t *testing.T, advertised bool, probeErr error) {
@@ -91,7 +91,7 @@ func TestNodeGetSignatureLineWhenSigningAdvertised(t *testing.T) {
 	url, calls := signatureLineServer(t, signedStatusJSON, false)
 	withSigningProbe(t, true, nil)
 
-	if out := nodeGetRun(t, url, false, testNodeURN); !strings.Contains(out, "signature: signed (2 signatures; 1 verified)") {
+	if out := nodeGetRun(t, url, false, testNodeURN); !strings.Contains(out, "signature: SIGNED (2 signatures; 1 verified)") {
 		t.Fatalf("human output missing the signature line:\n%s", out)
 	}
 	if *calls != 1 {

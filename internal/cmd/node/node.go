@@ -77,6 +77,16 @@ type commentSummaryDTO struct {
 
 type nodeDetailDTO struct {
 	CommentSummary *commentSummaryDTO `json:"commentSummary"`
+	// SignatureSummary is the cli#878 part-3 fold: the node's signature
+	// status as counts and state, only when the server advertises signing
+	// (GET /capabilities `node-signing`). Null means unadvertised OR
+	// unreadable — never a guessed zero, and never key material or signer
+	// details (those stay `node signature status`).
+	SignatureSummary *signatureSummaryDTO `json:"signatureSummary"`
+	// signatureReadFailed drives the human "signature: unavailable" line for
+	// an advertised-but-unreadable status; unexported because --json already
+	// answers null for both it and the unadvertised case.
+	signatureReadFailed bool
 	nodeDTO
 	// Revision is the node's live revision (#1323, hadron-server#1339):
 	// creation is 1, and each committed authoring change advances it.
