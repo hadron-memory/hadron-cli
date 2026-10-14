@@ -141,9 +141,10 @@ func PollOnce(ctx context.Context, c *Config, s Server, orca OrcaRunner, log fun
 // backward walk (#1827). RED-FIRST STUB.
 func NudgeText(item AttentionItem) string { return "" }
 
-// PromptLineIsEmpty proves the screen's prompt box empty (draft refutation
-// rules per family). RED-FIRST STUB.
-func PromptLineIsEmpty(family string, tail []string, draft string) bool { return false }
+// PromptLineIsEmpty proves the screen's prompt box empty for the family
+// (placeholder for codex, empty box + status hint for claude; trailing
+// non-chrome content holds). RED-FIRST STUB.
+func PromptLineIsEmpty(tail []string, family string) bool { return false }
 
 // Screen is one `orca terminal read` result: the rendered tail, the optional
 // draft field, and the source (only "screen" carries the two-signal witness).

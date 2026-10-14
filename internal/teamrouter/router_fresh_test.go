@@ -75,7 +75,7 @@ func TestFreshDroppedFrontierRecordedCovered(t *testing.T) {
 	}
 }
 
-func contains(xs []string, v string) bool {
+func contains(xs []string, v string) bool { //nolint:unparam // later blocks cover workers other than Eli
 	for _, x := range xs {
 		if x == v {
 			return true
