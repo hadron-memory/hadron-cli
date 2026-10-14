@@ -89,9 +89,10 @@ type AttentionRequest struct {
 
 // RegisterRow is the winning attendeeRegister row for the team Channel.
 type RegisterRow struct {
-	NamedBy     string `json:"namedBy"`
+	NamedBy     string `json:"namedBy"` // WORKER rows count; EVERYONE rows never do
 	ChannelID   string `json:"channel"`
 	MentionOnly bool   `json:"mentionOnly"`
+	OwnerType   string `json:"ownerType,omitempty"` // ORGANIZATION rows count: the check reads the effective registration
 }
 
 // CursorResult is a worker's channelReadState — the liveness source attention
