@@ -156,9 +156,11 @@ type Screen struct {
 // RED-FIRST STUB.
 func ScreenAgentFamily(sc *Screen) string { return "" }
 
-// ResolveTerminal maps a roster row to its agent terminal. RED-FIRST STUB.
-func ResolveTerminal(c *Config, entry RosterEntry, terminals []Terminal, orca OrcaRunner) (*Terminal, string, error) {
-	return nil, "", &RouterError{Reason: "unimplemented"}
+// ResolveTerminal maps a roster row to its agent terminal, returning the
+// handle, the agent family, and how it was resolved ("identity", "screen"
+// — the #1823 flap fallback — or "pin", #1845). RED-FIRST STUB.
+func ResolveTerminal(entry RosterEntry, terminals []Terminal, c *Config, orca OrcaRunner) (handle, family, how string, err error) {
+	return "", "", "", &RouterError{Reason: "unimplemented"}
 }
 
 // LoadConfig reads and validates the router's config. RED-FIRST STUB.
