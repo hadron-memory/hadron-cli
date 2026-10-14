@@ -221,9 +221,10 @@ func TestWakesDrainsEveryPage(t *testing.T) {
 func TestWakesBusyHoldsWithoutAck(t *testing.T) {
 	w, f, c := setupWakes(t, "Eli")
 	f.busy["term_eli"] = true
+	f.setScreen("term_eli", screenSpec{tail: claudeBusyEmpty}) // #1924: busy needs the live indicator on screen
 	w.wakes = []Wake{dueWake("w-eli", "Eli", 100, 120, 110)}
 	out := w.poll(t, f, c, false)
-	if !strings.Contains(out.Held["Eli"], "busy for") {
+	if !strings.Contains(out.Held["Eli"], "a running turn is drawn above the prompt") {
 		t.Fatalf("held = %v, want the busy hold", out.Held)
 	}
 	if len(f.sent) != 0 || len(w.acked) != 0 || len(w.freshFor) != 0 {
@@ -260,6 +261,7 @@ func TestWakesUnresolvableHolds(t *testing.T) {
 func TestWakesRecheckAfterFreshReadBusyHolds(t *testing.T) {
 	w, f, c := setupWakes(t, "Eli")
 	f.busyRecheck["term_eli"] = true
+	f.setRecheck("term_eli", screenSpec{tail: claudeBusyEmpty}) // #1924: busy needs the live indicator on screen
 	w.wakes = []Wake{dueWake("w-eli", "Eli", 100, 120, 110)}
 	out := w.poll(t, f, c, false)
 	if !strings.Contains(out.Held["Eli"], "busy again after the re-read") {
@@ -537,6 +539,7 @@ func TestWakeNudgeTextTaskOnlyNamesNoChannel(t *testing.T) {
 func TestWakesProofNeverLeaks(t *testing.T) {
 	w, f, c := setupWakes(t, "Eli", "Baloo")
 	f.busy["term_baloo"] = true
+	f.setScreen("term_baloo", screenSpec{tail: claudeBusyEmpty}) // #1924: busy needs the live indicator on screen
 	w.wakes = []Wake{dueWake("w-eli", "Eli", 100, 120, 110), dueWake("w-baloo", "Baloo", 1, 9, 5)}
 	out := w.poll(t, f, c, false)
 	outBlob, _ := json.Marshal(out)
