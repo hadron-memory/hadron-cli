@@ -195,12 +195,13 @@ func TestLivenessBusyAtGateHoldsAndResetsClock(t *testing.T) {
 	f.addTerminal("ada", "claude", "", true)
 	f.cursors["w-ada"] = 100
 	seedLiveness(t, c, map[string]any{"w-ada": idleRec("term_ada", time.Now().UnixMilli()-ago21min, nil)})
-	f.busyRecheck["term_ada"] = true // idle at the probe, busy at the full gate
+	f.busyRecheck["term_ada"] = true                            // idle at the probe, busy at the full gate
+	f.setRecheck("term_ada", screenSpec{tail: claudeBusyEmpty}) // #1924: busy needs the live indicator
 	out := f.poll(t, c)
 	if len(out.Liveness) != 0 {
 		t.Fatalf("liveness = %v, want none", out.Liveness)
 	}
-	wantHeldContaining(t, out, "Ada", "liveness", "busy for")
+	wantHeldContaining(t, out, "Ada", "liveness", "a running turn is drawn above the prompt")
 	if out.Adopted {
 		t.Error("a held liveness nudge holds the token like a held mention nudge")
 	}
@@ -308,6 +309,7 @@ func TestLivenessBusyProbeResetsClockKeepsFrontier(t *testing.T) {
 	c := mcfgEntries(t, root, [3]string{"w-ada", "Ada", "coordinator"}, 20)
 	f.addTerminal("ada", "claude", "", true)
 	f.busy["term_ada"] = true
+	f.setScreen("term_ada", screenSpec{tail: codexBusyEmpty}) // #1924: a busy hold needs the live indicator on screen
 	f.cursors["w-ada"] = 100
 	seedLiveness(t, c, map[string]any{"w-ada": idleRec("term_ada", time.Now().UnixMilli()-ago21min, coveredPtr(90))})
 	out := f.poll(t, c)
@@ -326,7 +328,8 @@ func TestLivenessBusyProbeResetsClockKeepsFrontier(t *testing.T) {
 		t.Errorf("coveredFrontier = %v, want 90 preserved", rec["coveredFrontier"])
 	}
 	delete(f.busy, "term_ada")
-	if out := f.poll(t, c); len(out.Liveness) != 0 { // clock restarted at the idle poll — N more minutes needed
+	f.setScreen("term_ada", screenSpec{tail: claudeIdle}) // the turn finished: the probe can prove idle again (family-matched)
+	if out := f.poll(t, c); len(out.Liveness) != 0 {      // clock restarted at the idle poll — N more minutes needed
 		t.Fatalf("liveness = %v too early", out.Liveness)
 	}
 	if _, has := readLiveness(t, c)["w-ada"]["idleSince"]; !has {
@@ -433,6 +436,7 @@ func TestLivenessHeldMentionRestartsClock(t *testing.T) {
 	c := mcfgEntries(t, root, [3]string{"w-ada", "Ada", "coordinator"}, 20)
 	f.addTerminal("ada", "claude", "", true)
 	f.busy["term_ada"] = true
+	f.setScreen("term_ada", screenSpec{tail: codexBusyEmpty}) // #1924: a busy hold needs the live indicator on screen
 	f.attention.workers = []AttentionItem{worker("w-ada", "Ada", workerOpts{})}
 	f.cursors["w-ada"] = 100
 	seedLiveness(t, c, map[string]any{"w-ada": idleRec("term_ada", time.Now().UnixMilli()-ago21min, nil)})
@@ -482,6 +486,7 @@ func TestLivenessHeldTokenNeitherRestartsNorResets(t *testing.T) {
 	f.addTerminal("ada", "claude", "", true)
 	f.addTerminal("baloo", "claude", "", true)
 	f.busy["term_baloo"] = true
+	f.setScreen("term_baloo", screenSpec{tail: claudeBusyEmpty}) // #1924: a busy hold needs the live indicator on screen
 	f.attention.workers = []AttentionItem{worker("w-baloo", "Baloo", workerOpts{})}
 	f.cursors["w-ada"] = 100
 	seeded := time.Now().UnixMilli() - 10*60_000

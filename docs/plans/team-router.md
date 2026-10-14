@@ -7,7 +7,8 @@
 > [hadron-server#1704](https://github.com/hadron-memory/hadron-server/issues/1704)):
 > a native port of hadron-server's `scripts/orca-attention-router/router.ts`
 > (TS, run via tsx). The acceptance spec is the TS suite at server main
-> `f0ab31a0`, ported 1:1 into `internal/teamrouter/*_test.go` (Joost).
+> `f0ab31a0`, ported 1:1 into `internal/teamrouter/*_test.go` (Joost), then
+> carried forward to hadron-server#1924's merged behaviour (`fea74669`).
 > Review schedule per Xylon's CHECKED: **T2 Standard + §10 on every head**.
 >
 > PR 2 adds the v2 delivery source (`dueWakes` + `acknowledgeWakes` on an
@@ -26,9 +27,11 @@ port keeps them all, by name:
 
 - **Two signals before a send.** Orca's `tui-idle` proves the agent idle, and
   the rendered screen proves the prompt empty (#5473: tui-idle reads idle while
-  a human types). For a terminal Orca stopped tracking (`lastOutputAt` null),
-  the timeout means *unknown*, not *busy*, and the screen has to show an
-  empty prompt with positive idle chrome above it (#7398, #1700).
+  a human types). A `tui-idle` timeout means *unknown*, not *busy*, whether or
+  not Orca still tracks the terminal (#7398, then hadron-server#1924 for
+  tracked terminals stuck at a completed turn). The screen then decides: an
+  empty prompt with positive idle chrome above it proves idle, and a live
+  running-turn line vetoes (#1700).
 - **Draft refutation.** An Orca draft holds a Codex worker (Codex renders its
   composer empty while text is pending). A Claude screen that proves the
   composer empty refutes a stale draft (#6736).
@@ -120,6 +123,12 @@ The JSON keys stay router.ts's: `terminal` (not `pin`) and
 The `orcaCli` default is the macOS app bundle on darwin and `orca` elsewhere.
 
 ## Deviations from router.ts, deliberate
+
+- **#1924's `reported` prune is not ported.** router.ts deletes
+  `reported[<worker id>]` when a worker leaves the held set, but `reported`
+  is keyed by worker **name** there, so the delete is a no-op. The port keeps
+  the observable behaviour: it prunes `heldSince` and `heldLoggedAt` only.
+  Reported to QA as a suspected TS defect.
 
 - **Stricter config.** A non-string `worker` (TS: any truthy value), or a
   non-integer `busyWaitMs`/`submitWaitS` (TS: `Number(...)`), is refused.

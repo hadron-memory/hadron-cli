@@ -48,6 +48,7 @@ func TestFreshDroppedFrontierRecordedCovered(t *testing.T) {
 	f.addTerminal("eli", "claude", "", true)
 	f.addTerminal("baloo", "claude", "", true)
 	f.busy["term_baloo"] = true
+	f.setScreen("term_baloo", screenSpec{tail: claudeBusyEmpty}) // #1924: a busy hold needs the live indicator on screen
 	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{relevant: ip(110)}), worker("w-baloo", "Baloo", workerOpts{})}
 	f.fresh = []AttentionItem{worker("w-baloo", "Baloo", workerOpts{})} // Eli read its chat; Baloo still has its mention
 	first := f.poll(t, c)
@@ -90,7 +91,8 @@ func TestFreshSendsFreshCountsAndRecordsFreshFrontier(t *testing.T) {
 	c := cfgEntries(root, [2]string{"w-eli", "Eli"}, [2]string{"w-baloo", "Baloo"})
 	f.addTerminal("eli", "claude", "", true)
 	f.addTerminal("baloo", "claude", "", true)
-	f.busy["term_baloo"] = true // hold the token so the ledger's base survives to be read
+	f.busy["term_baloo"] = true                                  // hold the token so the ledger's base survives to be read
+	f.setScreen("term_baloo", screenSpec{tail: claudeBusyEmpty}) // #1924: a busy hold needs the live indicator on screen
 	f.attention.workers = []AttentionItem{
 		worker("w-eli", "Eli", workerOpts{mentions: ip(2), unread: ip(5), relevant: ip(110), head: ip(120)}),
 		worker("w-baloo", "Baloo", workerOpts{}),
@@ -223,6 +225,7 @@ func TestFreshLogsLongHoldAtMostEvery30Min(t *testing.T) {
 	c := cfgEntries(root, [2]string{"w-eli", "Eli"})
 	f.addTerminal("eli", "claude", "", true)
 	f.busy["term_eli"] = true
+	f.setScreen("term_eli", screenSpec{tail: claudeBusyEmpty}) // #1924: a busy hold needs the live indicator on screen
 	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{})}
 	base := time.Now().UnixMilli()
 	now := func() int64 { return base }
@@ -236,7 +239,7 @@ func TestFreshLogsLongHoldAtMostEvery30Min(t *testing.T) {
 	f.logs = nil
 	later := now // router.ts polls on the wall clock right after the backdate: 41 min, not 42
 	f.pollAt(t, c, later)
-	if !regexp.MustCompile(`Eli held 4[01] min with mentions pending \(busy`).MatchString(strings.Join(f.logs, "\n")) {
+	if !regexp.MustCompile(`Eli held 4[01] min with mentions pending \(a running turn`).MatchString(strings.Join(f.logs, "\n")) {
 		t.Fatalf("missing the long-hold line; logs = %v", f.logs)
 	}
 	f.logs = nil
@@ -276,7 +279,8 @@ func TestFreshReprovesIdleAfterRecompute(t *testing.T) {
 	c := cfgEntries(root, [2]string{"w-eli", "Eli"})
 	f.addTerminal("eli", "claude", "", true)
 	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{mentions: ip(1), unread: ip(2), relevant: ip(110)})}
-	f.busyRecheck["term_eli"] = true // the agent went busy during the fresh scan
+	f.busyRecheck["term_eli"] = true                            // the agent went busy during the fresh scan
+	f.setRecheck("term_eli", screenSpec{tail: claudeBusyEmpty}) // #1924: busy needs the live indicator on screen
 	out := f.poll(t, c)
 	if len(out.Nudged) != 0 {
 		t.Fatalf("nudged = %v, want none", out.Nudged)
