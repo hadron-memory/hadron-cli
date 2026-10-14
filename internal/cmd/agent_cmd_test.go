@@ -624,3 +624,198 @@ func TestAgentSystemPromptFileEmptyPathRefused(t *testing.T) {
 		})
 	}
 }
+
+// ---- cli#874: the Agent's two index refs (cor:dmo:050:15 / :16) ----------
+//
+// `agent tasks list` / `agent processes list` read the server's own chain
+// walk and dedupe (agentTaskList/agentProcessList); `agent update` sets or
+// clears the two refs through setAgentIndexRefs. The server reads an OMITTED
+// argument as preserve and an explicit NULL as clear, so each flag is
+// three-state: absent, value, or explicit empty (clear).
+
+// listedNodeJSON is one Node as the list rows carry it: own address, and the
+// base it was inherited from where that applies.
+const listedNodeJSON = `{"id":"n1","urn":"hrn:node:acme.com:base-mem:tasks:onboarding",
+	"name":"Onboarding","inheritedFrom":{"agentId":"agt_base","agentUrn":"hrn:agent:acme.com:base"}}`
+
+const listedOwnNodeJSON = `{"id":"n2","urn":"hrn:node:acme.com:support-tasks:escalate",
+	"name":"Escalate","inheritedFrom":null}`
+
+func TestAgentTasksList(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"AgentTaskIndexList": `{"data":{"agentTaskList":[
+			{"node":` + listedNodeJSON + `,"trigger":"tasks:agent"},
+			{"node":` + listedOwnNodeJSON + `,"trigger":null}]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "tasks", "list", "hrn:agent:acme.com:support", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Ref string `json:"ref"`
+	}
+	_ = json.Unmarshal(captured["AgentTaskIndexList"], &vars)
+	if vars.Ref != "hrn:agent:acme.com:support" {
+		t.Fatalf("ref = %v", vars.Ref)
+	}
+	got := out.String()
+	for _, want := range []string{"Onboarding", "tasks:agent", "hrn:agent:acme.com:base", "Escalate"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rows should carry %q:\n%s", want, got)
+		}
+	}
+	// A task no index edge lists shows a blank trigger, not "null".
+	if strings.Contains(got, "null") {
+		t.Errorf("a null trigger must render blank, got:\n%s", got)
+	}
+}
+
+// --json returns the server shape unchanged: a list of {node, trigger}.
+func TestAgentTasksListJSON(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AgentTaskIndexList": `{"data":{"agentTaskList":[{"node":` + listedOwnNodeJSON + `,"trigger":"tasks:agent"}]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "tasks", "list", "agt1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var rows []struct {
+		Node struct {
+			ID            string `json:"id"`
+			URN           string `json:"urn"`
+			Name          string `json:"name"`
+			InheritedFrom *struct {
+				AgentUrn string `json:"agentUrn"`
+			} `json:"inheritedFrom"`
+		} `json:"node"`
+		Trigger *string `json:"trigger"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	if len(rows) != 1 || rows[0].Node.URN == "" || rows[0].Trigger == nil || *rows[0].Trigger != "tasks:agent" {
+		t.Fatalf("server shape must pass through unchanged, got %s", out.String())
+	}
+	if rows[0].Node.InheritedFrom != nil {
+		t.Fatalf("own node must render inheritedFrom:null, got %s", out.String())
+	}
+}
+
+func TestAgentProcessesList(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"AgentProcessIndexList": `{"data":{"agentProcessList":[
+			{"node":` + listedNodeJSON + `,"kind":"STARTS","trigger":"processes:agent"},
+			{"node":` + listedOwnNodeJSON + `,"kind":"INVOLVED","trigger":null}]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "processes", "list", "agt1", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Ref string `json:"ref"`
+	}
+	_ = json.Unmarshal(captured["AgentProcessIndexList"], &vars)
+	if vars.Ref != "agt1" {
+		t.Fatalf("ref = %v", vars.Ref)
+	}
+	// kind renders in the readable spelling (starts/involved), trigger null
+	// renders blank.
+	for _, want := range []string{"starts", "involved", "Onboarding", "hrn:agent:acme.com:base"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("rows should carry %q:\n%s", want, out.String())
+		}
+	}
+}
+
+// A value flag routes through the set document; with no field flags, update
+// fires ONLY the index mutation (the server refuses an empty field update).
+func TestAgentUpdateSetsIndexRefs(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"SetAgentIndexRefs": `{"data":{"setAgentIndexRefs":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "update", "agt1",
+		"--tasks-index", "acme.com::support-tasks::tasks:agent", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	vars := map[string]any{}
+	_ = json.Unmarshal(captured["SetAgentIndexRefs"], &vars)
+	if vars["ref"] != "agt1" || vars["tasksIndexRef"] != "acme.com::support-tasks::tasks:agent" {
+		t.Fatalf("set vars: %v", vars)
+	}
+	if _, present := vars["processesIndexRef"]; present {
+		t.Fatalf("an unchanged ref must be OMITTED (preserve), got %v", vars["processesIndexRef"])
+	}
+	if _, called := captured["UpdateAgent"]; called {
+		t.Fatal("an index-only update must not send a field update")
+	}
+}
+
+// An explicit empty flag CLEARS: the server reads explicit null as clear and
+// an empty string as a bad ref, so the clear goes through its own document
+// whose variable marshals nil as null — while the untouched ref is omitted.
+func TestAgentUpdateClearsIndexRef(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ClearAgentTasksIndex": `{"data":{"setAgentIndexRefs":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "update", "agt1", "--tasks-index", "", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	vars := map[string]any{}
+	_ = json.Unmarshal(captured["ClearAgentTasksIndex"], &vars)
+	value, present := vars["tasksIndexRef"]
+	if !present || value != nil {
+		t.Fatalf("the clear must send an explicit null tasksIndexRef, got %v (present=%v)", value, present)
+	}
+	if _, present := vars["processesIndexRef"]; present {
+		t.Fatalf("the untouched ref must be omitted, got %v", vars["processesIndexRef"])
+	}
+	for _, op := range []string{"SetAgentIndexRefs", "UpdateAgent"} {
+		if _, called := captured[op]; called {
+			t.Fatalf("%s must not be called on a clear", op)
+		}
+	}
+}
+
+// Field flags and index flags compose: one field update, one index set.
+func TestAgentUpdateMixedFieldsAndIndexRefs(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateAgent":          `{"data":{"updateAgent":` + agentJSON + `}}`,
+		"SetAgentIndexRefs":    `{"data":{"setAgentIndexRefs":` + agentJSON + `}}`,
+		"ClearAgentTasksIndex": `{"data":{"setAgentIndexRefs":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "update", "agt1", "--name", "Support Bot v2",
+		"--tasks-index", "acme.com::kb::tasks:agent", "--processes-index", "", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, called := captured["UpdateAgent"]; !called {
+		t.Fatal("the field update must still run")
+	}
+	setVars := map[string]any{}
+	_ = json.Unmarshal(captured["SetAgentIndexRefs"], &setVars)
+	if setVars["tasksIndexRef"] != "acme.com::kb::tasks:agent" {
+		t.Fatalf("set vars: %v", setVars)
+	}
+	if _, present := setVars["processesIndexRef"]; present {
+		t.Fatalf("the cleared ref must not ride the set document, got %v", setVars["processesIndexRef"])
+	}
+	clearVars := map[string]any{}
+	_ = json.Unmarshal(captured["ClearAgentProcessesIndex"], &clearVars)
+	if v, present := clearVars["processesIndexRef"]; !present || v != nil {
+		t.Fatalf("the clear must send explicit null, got %v (present=%v)", v, present)
+	}
+}
