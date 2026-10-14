@@ -117,6 +117,8 @@ type Server interface {
 type Outcome struct {
 	Nudged  []string
 	Held    map[string]string
+	Dropped []string
+	Covered []string
 	Adopted bool
 }
 
@@ -159,7 +161,24 @@ type State struct{ dir string }
 
 func NewState(dir string) *State { return &State{dir: dir} }
 func (s *State) Token() string   { return "" } // RED-FIRST STUB
-func (s *State) ClearToken()     {}
+
+func (s *State) ClearToken() {}
+
+// LedgerNudge records a delivered nudge's mention frontier.
+type LedgerNudge struct {
+	RelevantSeq int
+}
+
+// Ledger is the durable delivery record: per-worker nudged frontiers and
+// hold-start times (the long-hold log's clock).
+type Ledger struct {
+	Nudged    map[string]LedgerNudge
+	HeldSince map[string]int64
+}
+
+func (s *State) Ledger() Ledger { return Ledger{} } // RED-FIRST STUB
+
+func (s *State) SaveLedger(l Ledger) {} // RED-FIRST STUB
 
 // Status renders the router's current state for `team router status`.
 // RED-FIRST STUB.
