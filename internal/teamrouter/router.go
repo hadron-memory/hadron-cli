@@ -27,15 +27,18 @@ type Config struct {
 	CoordinatorWatchMin float64       `json:"coordinatorWatchMinutes"`
 }
 
-// RosterEntry names one worker this router may wake. Pin (#1845) optionally
-// fixes the row's MAIN terminal; Watch (#1826) opts the row into the
-// coordinator/liveness rule.
+// RosterEntry names one worker this router may wake. Terminal (#1845,
+// "the pin") optionally fixes the row's MAIN terminal; Coordinator and
+// Lifecycle (#1826) opt the row into the liveness rule. The JSON keys are
+// the TS router's, so an existing roster file at
+// ~/.config/hadron-orca-attention-router/ loads unchanged (#829).
 type RosterEntry struct {
-	Worker   string `json:"worker"`
-	Name     string `json:"name"`
-	Worktree string `json:"worktree"`
-	Pin      string `json:"pin,omitempty"`
-	Watch    bool   `json:"watch,omitempty"`
+	Worker      string `json:"worker"`
+	Name        string `json:"name"`
+	Worktree    string `json:"worktree"`
+	Terminal    string `json:"terminal,omitempty"`
+	Coordinator bool   `json:"coordinator,omitempty"`
+	Lifecycle   bool   `json:"lifecycle,omitempty"`
 }
 
 // Terminal is one `orca terminal list` row.
@@ -110,9 +113,12 @@ type Server interface {
 	RegisterRow(ctx context.Context, workerID string) (RegisterRow, error)
 	ReadCursor(ctx context.Context, workerID string) (CursorResult, error)
 	ChannelHead(ctx context.Context, channelRef string) (int, error)
-	// MarkRead advances the router's own session cursor (mentions walk).
-	MarkRead(ctx context.Context, through int) error
 }
+
+// The router never marks anything read (router.ts header): the mentions
+// walk's mark is the WORKER's own step, through its own session, named in
+// the nudge text — a mark-read capability on the router's App key would
+// widen the §10 surface for nothing. (Joshua #11553.)
 
 // Outcome is one poll's result: who was nudged, who was held and why.
 type Outcome struct {
