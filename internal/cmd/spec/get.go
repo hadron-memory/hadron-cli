@@ -32,8 +32,11 @@ spec under the prefix is fetched (the listing is paged to exhaustion); pass
 --limit (with optional --offset) to fetch a single explicit page instead.
 
 --abstract-only prints metadata + abstract without the body. --body-only prints
-just the raw markdown body of a single spec (no metadata) — pipe it into
-` + "`hadron node update --content -`" + ` for a clean edit round-trip. --json emits
+the STORED markdown body of a single spec and nothing else, byte for byte — its
+{{…}} placeholders and {{=…=}} delimiter lines intact, no header, no newline
+added when piped. It is the read to edit from: save it to a file, edit, and
+` + "`hadron spec edit <citation> --content-file <file>`" + `. The text-mode read
+without it prints a header and a rendered body; neither belongs in a write. --json emits
 one object for a single citation, an array for --prefix.`,
 		Example: `  hadron spec get msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec get cor:dmo:060:02 -m hrn:mem:hadronmemory.com:platform-specs --body-only
@@ -71,24 +74,34 @@ one object for a single citation, an array for --prefix.`,
 				return err
 			}
 
+			// --body-only is the edit read, so it is the STORED body, byte for
+			// byte (#873). It used to print the rendered one, which compiles
+			// Mustache away: 050:01 lost its {{=…=}} delimiter line through an
+			// edit made from it. A newline is added only for a terminal, never
+			// into a pipe or file, so the round trip is exact.
+			if prefix == "" && bodyOnly {
+				n, err := fetchRawSpec(cmd, client, memURN, args[0])
+				if err != nil {
+					return err
+				}
+				body := ""
+				if n.Content != nil {
+					body = *n.Content
+				}
+				return output.Write(f.IOStreams, f.JSON, specBodyDTO{Citation: n.Loc, Content: body}, func(w io.Writer) error {
+					fmt.Fprint(w, body)
+					if f.IOStreams.IsTerminal() && body != "" && !strings.HasSuffix(body, "\n") {
+						fmt.Fprintln(w)
+					}
+					return nil
+				})
+			}
+
 			// Single citation — behavior unchanged.
 			if prefix == "" {
 				n, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
 				if err != nil {
 					return err
-				}
-				if bodyOnly {
-					body := ""
-					if n.Content != nil {
-						body = *n.Content
-					}
-					return output.Write(f.IOStreams, f.JSON, specBodyDTO{Citation: n.Loc, Content: body}, func(w io.Writer) error {
-						fmt.Fprint(w, body)
-						if !strings.HasSuffix(body, "\n") {
-							fmt.Fprintln(w)
-						}
-						return nil
-					})
 				}
 				// Single-ref read: the body is COMPILED, so re-read it raw for
 				// the abstract checks — the same move `spec lint <citation>`
@@ -187,7 +200,7 @@ one object for a single citation, an array for --prefix.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "dump every spec under this citation prefix (e.g. cor:cht)")
 	cmd.Flags().BoolVar(&abstractOnly, "abstract-only", false, "print metadata + abstract, omit the body")
-	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the raw markdown body of a single spec (for a clean edit round-trip; alias: --content-only)")
+	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the stored body of a single spec, byte for byte — the read to edit from (alias: --content-only)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max specs to fetch as one page in --prefix mode (default: all)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset for --prefix mode (implies a single page)")
 	// `edit`/`new` call the markdown body "content"; accept --content-only as

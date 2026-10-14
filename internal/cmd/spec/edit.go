@@ -61,6 +61,9 @@ type editResultDTO struct {
 	// ProposalHash binds a later approved save to the exact write input shown
 	// in the preview, including which fields are written and their text.
 	ProposalHash string `json:"proposalHash"`
+	// Warnings are the write guard's advisories on the proposal (#873): a
+	// new body that drops a {{…}} tag the stored one has. Always a list.
+	Warnings []string `json:"warnings"`
 }
 
 // fieldChangeDTO is one field of a proposed edit: the text as stored (read
@@ -229,6 +232,7 @@ func newCmdEdit(f *cmdutil.Factory) *cobra.Command {
 		descriptionFile string
 		stillAccurate   bool
 		dryRun          bool
+		force           bool
 		expectedRev     int
 		expectedID      string
 		expectedHash    string
@@ -261,6 +265,14 @@ body and abstract. The description is preserved when its flag is omitted.
 An abstract replacement may contain at most 2000 characters as counted by the
 server (UTF-16 code units, including surrounding whitespace and newlines).
 Both --dry-run and a save refuse an over-limit proposal before writing.
+
+A changed body that starts with the metadata header a text-mode ` + "`spec get`" + ` or
+` + "`node get`" + ` prints is REFUSED (exit 2, nothing written) unless --force: saving it
+would store the header in the body. Read the body to edit with
+` + "`spec get <citation> --body-only`" + `, the stored body byte for byte (#873). A body
+that drops a {{…}} tag the stored one has (a placeholder, or a {{=…=}}
+delimiter change) is saved with a warning on stderr, also listed under
+"warnings" in --json.
 
 --dry-run writes nothing and shows the change itself: a unified diff per field
 (--json: "changes", each with the stored text, the proposed text and the diff).
@@ -462,6 +474,19 @@ replacement over the cap is rejected.`,
 				baseNodeID:   node.Id,
 				baseRevision: base,
 			}
+			// cli#873: a body that starts with the header a text-mode get
+			// prints is refused, a dry run included, unless --force.
+			warnings := []string{}
+			if proposal.bodyChanged() {
+				if !force {
+					if err := cmdutil.RefuseGetHeaderPrefix(newBody, "--force"); err != nil {
+						return err
+					}
+				}
+				if w := cmdutil.TemplateDropWarning(curBody, newBody); w != "" {
+					warnings = append(warnings, w)
+				}
+			}
 			if proposal.abstractChanged() && abstractLength(&newAbstract) > abstractHardMax {
 				return exitcode.Newf(exitcode.Usage,
 					"abstract exceeds the %d-character cap (%d characters); shorten --abstract/--abstract-file before previewing or saving",
@@ -488,6 +513,10 @@ replacement over the cap is rejected.`,
 				Changes:            proposal.changes(),
 				Revision:           base,
 				ProposalHash:       proposalHash,
+				Warnings:           warnings,
+			}
+			for _, w := range warnings {
+				fmt.Fprintf(f.IOStreams.ErrOut, "warning: %s\n", w)
 			}
 			// A legacy abstract PAST the server's cap cannot be re-sent
 			// (@codex on #613). Omitting it preserves it — which is exactly why
@@ -598,6 +627,7 @@ replacement over the cap is rejected.`,
 	// rename the flag's argument in --help (review:backticks-in-flag-usage-become-the-placeholder).
 	cmd.Flags().BoolVar(&stillAccurate, "abstract-still-accurate", false,
 		"assert you re-read the abstract and it still describes the spec: re-sends it unchanged so it is re-fingerprinted against the body, refreshing its verification")
+	cmd.Flags().BoolVar(&force, "force", false, "save a body even though it starts with the metadata header a text-mode spec get / node get prints")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show the proposed change as a diff of the stored text, without writing (a preview, not an approval)")
 	cmd.Flags().IntVar(&expectedRev, "expected-revision", 0, "the revision from an approved dry run; use with --expected-node-id and --expected-proposal-hash")
 	cmd.Flags().StringVar(&expectedID, "expected-node-id", "", "the immutable node ID from the same dry run as --expected-revision and --expected-proposal-hash")

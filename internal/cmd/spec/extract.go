@@ -37,7 +37,7 @@ type extractResultDTO struct {
 }
 
 // placeholderMissHint explains a strip miss against a templated source.
-const placeholderMissHint = "the source's stored body holds {{…}} placeholders and is matched as stored; a chunk copied from `spec get`, which renders them, will not match — copy it from `spec edit` instead"
+const placeholderMissHint = "the source's stored body holds {{…}} placeholders and is matched as stored; a chunk copied from `spec get`, which renders them, will not match — copy it from `spec get --body-only` (the stored body) instead"
 
 func newCmdExtract(f *cmdutil.Factory) *cobra.Command {
 	var (

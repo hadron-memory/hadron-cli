@@ -2,10 +2,12 @@ package node
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"strings"
 
+	"github.com/aymanbagabas/go-udiff"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -34,6 +36,8 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		properties     string
 		propertiesFile string
 		runnable       bool
+		force          bool
+		dryRun         bool
 		reason         string
 		tags           []string
 	)
@@ -59,11 +63,27 @@ The data bag can be written two ways:
 Replace and merge are different operations, so --data and --data-merge are
 mutually exclusive.
 
-EDITING EXISTING CONTENT: read it with ` + "`node get --raw`" + `, never a plain
-` + "`node get`" + `. A plain single-ref read compiles the node's Mustache templates, so
-writing that text back here deletes every {{…}} placeholder, silently (#736).
+EDITING EXISTING CONTENT: read it with ` + "`node get <ref> --body-only`" + `, which
+prints the stored body byte for byte (#873). A plain ` + "`node get`" + ` compiles the
+node's Mustache templates, so writing that text back deletes every {{…}}
+placeholder (#736); a text-mode ` + "`node get --raw`" + ` prints a metadata header above
+the body, which would be saved INTO it.
 
---content -, --abstract - and --data-merge - read standard input, and are for
+Two guards stand on a new body (--content / --content-file). One that starts
+with that header is REFUSED (exit 2, nothing written) unless --force. One that
+drops a {{…}} tag the stored body has — a placeholder or a {{=…=}} delimiter
+change — is written, with a warning on stderr: removing a placeholder can be
+the edit.
+
+--dry-run writes nothing: it reads the node, runs every client-side check a
+write would (the header guard, the role and kind refusals, input parsing), and
+shows the fields that would change, with a diff of the stored body against the
+new one. The server's own validation (a schema-governed memory, the door's
+refusals) runs only on the write. It previews the field update only, so
+--data-merge is refused with it.
+
+--content - (or --content-file -), --abstract - and --data-merge - read
+standard input, and are for
 a PIPE (cat file | hadron node update ...). Each is REFUSED when stdin is an
 interactive terminal, which can truncate large input before the CLI sees it;
 use --content-file, --abstract-file or --data-merge-file instead.
@@ -91,6 +111,11 @@ schema-governed memory the server validates the result and rejects a violation.)
 			if !anyField && !mergeData {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
+			if dryRun && mergeData {
+				return exitcode.Newf(exitcode.Usage,
+					"--dry-run previews the field update only; --data-merge is a separate write it does not preview — drop one")
+			}
+			contentChanged := changed("content") || changed("content-file")
 			// Replace and merge are different operations (distinct mutations).
 			if replaceData && mergeData {
 				return exitcode.Newf(exitcode.Usage, "--data (replace) and --data-merge (merge) are mutually exclusive")
@@ -110,7 +135,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 			// content, abstract, and the merge patch can each read stdin via
 			// "-", but stdin can only be consumed once.
 			stdinReaders := 0
-			if changed("content") && content == "-" {
+			if (changed("content") && content == "-") || (changed("content-file") && contentFile == "-") {
 				stdinReaders++
 			}
 			if changed("abstract") && abstract == "-" {
@@ -120,7 +145,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 				stdinReaders++
 			}
 			if stdinReaders > 1 {
-				return exitcode.Newf(exitcode.Usage, "only one of --content -, --abstract -, --data-merge - may read stdin")
+				return exitcode.Newf(exitcode.Usage, "only one of --content - (--content-file -), --abstract -, --data-merge - may read stdin")
 			}
 			// Refuse a terminal HERE rather than at the read (#643): this
 			// command resolves the ref and fetches the node before building
@@ -131,6 +156,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 			// patch — none a secret, so all three take the guard.
 			for _, doc := range []struct{ flag, value, fileFlag string }{
 				{"content", content, "--content-file"},
+				{"content-file", contentFile, "--content-file"},
 				{"abstract", abstract, "--abstract-file"},
 				{"data-merge", dataMerge, "--data-merge-file"},
 			} {
@@ -147,6 +173,21 @@ schema-governed memory the server validates the result and rejects a violation.)
 			// let the file silently win.
 			if changed("abstract") && changed("abstract-file") {
 				return exitcode.Newf(exitcode.Usage, "--abstract and --abstract-file are mutually exclusive")
+			}
+			// The new body is read and checked BEFORE any request: a body
+			// carrying the get header is refused without a round trip (#873).
+			var body string
+			if contentChanged {
+				b, err := resolveContent(content, contentFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
+				if err != nil {
+					return err
+				}
+				if !force {
+					if err := cmdutil.RefuseGetHeaderPrefix(b, "--force"); err != nil {
+						return err
+					}
+				}
+				body = b
 			}
 
 			client, err := f.GraphQLClient()
@@ -189,10 +230,28 @@ schema-governed memory the server validates the result and rejects a violation.)
 				// Best-effort — a failed read leaves the zero value, which
 				// routes to the generic surface and lets the server give the
 				// authoritative refusal.
+				//
+				// A new body or a preview needs the STORED body as well, to
+				// compare against (#873), so that read is the raw one; it
+				// carries the same kind fields.
 				cur := api.NodeKindState{}
-				if existing, gerr := gen.GetNode(cmd.Context(), client, nodeID); gerr == nil && existing.Node != nil {
-					cur.Role = existing.Node.Role
-					cur.IsRunnable = existing.Node.IsRunnable != nil && *existing.Node.IsRunnable
+				var stored *gen.GetNodeNode
+				if contentChanged || dryRun {
+					existing, gerr := gen.GetNodeRaw(cmd.Context(), client, nodeID)
+					switch {
+					case gerr == nil && existing.Node != nil:
+						stored = existing.Node
+					case dryRun && gerr != nil:
+						return api.MapError(gerr)
+					case dryRun:
+						return exitcode.Newf(exitcode.NotFound, "node %q not found, or not readable by you", args[0])
+					}
+				} else if existing, gerr := gen.GetNode(cmd.Context(), client, nodeID); gerr == nil {
+					stored = existing.Node
+				}
+				if stored != nil {
+					cur.Role = stored.Role
+					cur.IsRunnable = stored.IsRunnable != nil && *stored.IsRunnable
 				}
 
 				input := gen.UpdateNodeInput{
@@ -201,12 +260,14 @@ schema-governed memory the server validates the result and rejects a violation.)
 				if changed("name") {
 					input.Name = &name
 				}
-				if changed("content") || changed("content-file") {
-					body, err := resolveContent(content, contentFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
-					if err != nil {
-						return err
-					}
+				warnings := []string{}
+				if contentChanged {
 					input.Content = &body
+					if stored != nil {
+						if w := cmdutil.TemplateDropWarning(strVal(stored.Content), body); w != "" {
+							warnings = append(warnings, w)
+						}
+					}
 				}
 				if changed("type") {
 					input.NodeType = &nodeType
@@ -287,6 +348,13 @@ schema-governed memory the server validates the result and rejects a violation.)
 				}
 				input.Reason = reasonPtr
 
+				if dryRun {
+					return writeUpdatePreview(f, stored, changed, body, contentChanged, warnings)
+				}
+				for _, w := range warnings {
+					fmt.Fprintf(f.IOStreams.ErrOut, "warning: %s\n", w)
+				}
+
 				// The gate reads the kind the node is now AND the kind it will
 				// be (before ∪ after, cli#714), and an omitted field preserves
 				// the stored one — so a plain `--description` edit of
@@ -331,7 +399,9 @@ schema-governed memory the server validates the result and rejects a violation.)
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&name, "name", "", "new node name")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `new content ("-" reads stdin)`)
-	cmd.Flags().StringVar(&contentFile, "content-file", "", "read new content from a file")
+	cmd.Flags().StringVar(&contentFile, "content-file", "", `read new content from a file ("-" reads piped stdin)`)
+	cmd.Flags().BoolVar(&force, "force", false, "write a new body even though it starts with the metadata header a text-mode node get prints")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would change, with a diff of the body, without writing")
 	cmd.Flags().StringVar(&nodeType, "type", "", "new node type (comments cannot be retyped; use hadron comment edit)")
 	cmd.Flags().StringVar(&objectType, "object-type", "", `new structured-storage collection (#725; "" clears → ordinary node; omit to preserve)`)
 	// NOT the same word as `memory member --role` / `memory share --role`, which
@@ -408,4 +478,76 @@ func clearDoorFor(cur api.NodeKindState) string {
 		return "updateReviewNode"
 	}
 	return "updateNode"
+}
+
+// updateFields is the order the --dry-run preview lists fields in, each with
+// the flags that set it.
+var updateFields = []struct {
+	field string
+	flags []string
+}{
+	{"name", []string{"name"}},
+	{"content", []string{"content", "content-file"}},
+	{"type", []string{"type"}},
+	{"object-type", []string{"object-type"}},
+	{"role", []string{"role"}},
+	{"description", []string{"description"}},
+	{"abstract", []string{"abstract", "abstract-file"}},
+	{"data", []string{"data", "data-file"}},
+	{"properties", []string{"properties", "properties-file"}},
+	{"runnable", []string{"runnable"}},
+	{"tags", []string{"tag"}},
+}
+
+// updatePreviewDTO is `node update --dry-run --json` (#873). content is null
+// unless the body changes; warnings is always a list.
+type updatePreviewDTO struct {
+	DryRun   bool               `json:"dryRun"`
+	ID       string             `json:"id"`
+	URN      string             `json:"urn"`
+	Loc      string             `json:"loc"`
+	Fields   []string           `json:"fields"`
+	Content  *contentPreviewDTO `json:"content"`
+	Warnings []string           `json:"warnings"`
+}
+
+// contentPreviewDTO is the body change: stored (raw) → proposed, and their
+// unified diff ("" when identical).
+type contentPreviewDTO struct {
+	Before string `json:"before"`
+	After  string `json:"after"`
+	Diff   string `json:"diff"`
+}
+
+func writeUpdatePreview(f *cmdutil.Factory, stored *gen.GetNodeNode, changed func(string) bool, body string, contentChanged bool, warnings []string) error {
+	dto := updatePreviewDTO{DryRun: true, ID: stored.Id, URN: stored.Urn, Loc: stored.Loc, Fields: []string{}, Warnings: warnings}
+	for _, uf := range updateFields {
+		for _, fl := range uf.flags {
+			if changed(fl) {
+				dto.Fields = append(dto.Fields, uf.field)
+				break
+			}
+		}
+	}
+	if contentChanged {
+		before := strVal(stored.Content)
+		dto.Content = &contentPreviewDTO{Before: before, After: body}
+		if before != body {
+			dto.Content.Diff = udiff.Unified("content (stored)", "content (proposed)", before, body)
+		}
+	}
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		fmt.Fprintf(w, "dry run: nothing was written. Would update %s: %s\n", dto.Loc, strings.Join(dto.Fields, ", "))
+		if dto.Content != nil {
+			if dto.Content.Diff == "" {
+				fmt.Fprintln(w, "content: unchanged")
+			} else {
+				fmt.Fprintf(w, "\n%s", dto.Content.Diff)
+			}
+		}
+		for _, warn := range dto.Warnings {
+			fmt.Fprintf(w, "\nwarning: %s\n", warn)
+		}
+		return nil
+	})
 }
