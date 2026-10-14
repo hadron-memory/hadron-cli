@@ -78,7 +78,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 109 unbound
+[Mutation] 110 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -159,6 +159,7 @@ saveChatSummary
 sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled
+setAgentBase  # cli#881 agent-inheritance client surface; parity tracked
 setAiModelPrice
 setAppTickerSettings  # server ticker settings (named-heartbeats epic, in flight); CLI parity follows the surface settling
 setDashboardWidgets
