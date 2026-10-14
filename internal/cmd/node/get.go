@@ -17,7 +17,7 @@ import (
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	var memory, locPrefix string
-	var raw bool
+	var raw, bodyOnly bool
 	cmd := &cobra.Command{
 		Use:   "get <node-urn>... | <loc>... -m <memory> | --prefix <loc> -m <memory>",
 		Short: "Show one or more nodes, including content and edges",
@@ -67,15 +67,21 @@ the batch is a bulk SOURCE read for lint/audit/migration, and compiling per
 node would reintroduce the N+1 it removes — so --raw changes nothing there.
 --json says which you hold: "rendered" is true only for a compiled body.
 
-TO EDIT A NODE'S CONTENT, READ IT WITH --raw. Writing a rendered body back
-(` + "`node update --content-file`" + `) deletes every placeholder it had, silently: a
-later rendered read agrees with what was written. For a node without
-templates the two bodies are identical.`,
+TO EDIT A NODE'S CONTENT, READ IT WITH --body-only (#873). It prints the STORED
+body and nothing else, byte for byte — no header, no trailing newline added
+when piped — so ` + "`node get <ref> --body-only > body.md`" + `, an edit, and
+` + "`node update <ref> --content-file body.md`" + ` round-trip exactly. Two other reads
+corrupt a body written back from them: a rendered read (no --raw) has already
+compiled away every {{…}} placeholder and {{=…=}} delimiter change, and the
+text-mode --raw read prints a metadata header above the body, which would be
+saved INTO it. --body-only implies --raw and takes one ref; with --json it is
+{id, urn, loc, content, rendered: false}.`,
 		Example: `  hadron node get hrn:node:hadronmemory.com:dev:start-here
   hadron node get start-here -m hrn:mem:hadronmemory.com:dev --json
   hadron node get start-here preflight instructions -m hrn:mem:hadronmemory.com:dev --json
   hadron node get --prefix findings: -m hrn:mem:hadronmemory.com:dev --json
-  hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --raw --json`,
+  hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --raw --json
+  hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --body-only > body.md`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			prefixMode := cmd.Flags().Changed("prefix")
 			// The two forms are mutually exclusive server-side, so reject the
@@ -92,6 +98,10 @@ templates the two bodies are identical.`,
 				return exitcode.Newf(exitcode.Usage,
 					"specify at least one node ref, or --prefix <loc> -m <memory> to read a subtree")
 			}
+			if bodyOnly && (prefixMode || len(args) > 1) {
+				return exitcode.Newf(exitcode.Usage,
+					"--body-only prints one node's stored body, so it takes exactly one ref — not several, and not --prefix")
+			}
 
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -105,6 +115,9 @@ templates the two bodies are identical.`,
 				id, err := cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
 				if err != nil {
 					return err
+				}
+				if bodyOnly {
+					return writeBodyOnly(cmd, f, client, id, args[0])
 				}
 				var dto nodeDetailDTO
 				err = readConsistently(cmd, client, revisionSelector{refs: []string{id}}, func() ([]*nodeDetailDTO, error) {
@@ -162,8 +175,47 @@ templates the two bodies are identical.`,
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&locPrefix, "prefix", "", "read every node under this loc prefix in one call (needs -m; empty means the whole memory)")
-	cmd.Flags().BoolVar(&raw, "raw", false, "return the stored body with {{…}} placeholders intact, not the rendered one — read this way to edit content")
+	cmd.Flags().BoolVar(&raw, "raw", false, "return the stored body with {{…}} placeholders intact, not the rendered one (to edit content, use --body-only)")
+	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the stored body of one node, byte for byte — the read to edit from (implies --raw; alias: --content-only)")
+	// The spelling `spec get` already accepts (#99 item 5).
+	cmdutil.WithFlagAliases(cmd, map[string]string{"content-only": "body-only"})
 	return cmd
+}
+
+// nodeBodyDTO is `node get --body-only --json`: the stored body and just
+// enough to name the node it came from. rendered is always false, said
+// anyway so the shape matches a full read's.
+type nodeBodyDTO struct {
+	ID       string `json:"id"`
+	URN      string `json:"urn"`
+	Loc      string `json:"loc"`
+	Content  string `json:"content"`
+	Rendered bool   `json:"rendered"`
+}
+
+// writeBodyOnly prints one node's STORED body and nothing else (#873). The
+// bytes are the body's own: a newline is added only for a terminal, where
+// the prompt would otherwise land on the last line, never into a pipe or
+// file, so a round trip through `node update --content-file` is exact.
+func writeBodyOnly(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, id, ref string) error {
+	node, err := fetchNodeByID(cmd, client, id, ref, true)
+	if err != nil {
+		return err
+	}
+	dto := nodeBodyDTO{ID: node.Id, URN: node.Urn, Loc: node.Loc}
+	if node.Content != nil {
+		dto.Content = *node.Content
+	}
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		if _, err := io.WriteString(w, dto.Content); err != nil {
+			return err
+		}
+		if f.IOStreams.IsTerminal() && dto.Content != "" && !strings.HasSuffix(dto.Content, "\n") {
+			_, err := io.WriteString(w, "\n")
+			return err
+		}
+		return nil
+	})
 }
 
 // renderNodeDetail prints one node in the human layout. Shared so a node read

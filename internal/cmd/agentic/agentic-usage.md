@@ -670,7 +670,18 @@ Conventions:
   errors report already-scoped, cross-org, membership, and install failures.
 - `node add` fails if the loc already exists; `node update` modifies
   an existing node and preserves unset fields. Content comes from
-  `--content "<text>"`, `--content -` (stdin), or `--content-file`.
+  `--content "<text>"`, `--content -` (stdin), or `--content-file` (`-`
+  reads stdin, like `--content -`). **Two write guards on a new body
+  (#873, `node update` and `spec edit`):** a body that starts with the header
+  a text-mode `node get` / `spec get` prints is REFUSED (exit 2, nothing
+  written; the message names `--body-only`) unless `--force`; a body that
+  drops a `{{…}}` tag the stored body has (a placeholder, or a `{{=…=}}`
+  delimiter change) is written with a `warning:` on stderr, and `spec edit
+  --json` lists it under `warnings`. `node update --dry-run` writes nothing:
+  it reads the node, runs every check a write would, and prints the fields
+  that would change with a unified diff of the stored body against the new
+  one (`--json`: `{dryRun, id, urn, loc, fields[], content: {before, after,
+  diff} | null, warnings[]}`); `--dry-run --data-merge` is refused (exit 2).
   **`--content -` is for a PIPE and is REFUSED (exit 2) when stdin is an
   interactive terminal** (#643): a terminal's line discipline can truncate or
   reorder large input BEFORE the CLI reads it, so the write would succeed and
@@ -872,9 +883,15 @@ Conventions:
   intact; batched and `--prefix` reads are always raw (the server's bulk SOURCE
   read for lint/audit/migration). `--json` carries **`rendered`** on every node:
   `true` only for a compiled body. **To edit a node's content, read it with
-  `--raw`**: writing a rendered body back (`node update --content-file`)
-  deletes every placeholder silently — a later rendered read agrees with what
-  was written. Identical for a node without templates. The CLI's own
+  `--body-only`** (#873): it prints ONE node's STORED body and nothing else,
+  byte for byte (no header; no newline added when piped), so `node get <ref>
+  --body-only > body.md` → edit → `node update <ref> --content-file body.md`
+  round-trips exactly; `--json` gives `{id, urn, loc, content, rendered:
+  false}`. It implies `--raw`, takes one ref (several, or `--prefix`, exit 2),
+  and `--content-only` is its alias. Both other reads corrupt a body written
+  back: a rendered body has lost every `{{…}}` placeholder and `{{=…=}}`
+  delimiter line, and text-mode `--raw` prints a metadata header ABOVE the
+  body, which would be saved into it. The CLI's own
   read-modify-write paths (`coding preflight create|route` rewriting the router
   body) read raw.
 - **`--where` reads ONE JSONB column, and the default is `properties` (#603).**
@@ -1367,8 +1384,10 @@ Conventions:
   `spec get` shows one citation, or `--prefix <prefix>` dumps every spec under
   any branch of the loc tree, at any depth, with the same per-node detail, paged to
   exhaustion (`--limit`/`--offset` fetch a single page); `--json` emits an array.
-  `--body-only` prints just one spec's raw markdown body for a clean
-  `… | node update --content -` edit round-trip.
+  `--body-only` prints one spec's STORED body, byte for byte (placeholders and
+  `{{=…=}}` delimiter lines intact, no header) — the read to edit from, into
+  `spec edit <citation> --content-file` (#873; it printed the rendered body
+  before, which is how a delimiter line was lost).
   `spec describe` inventories a memory's spec corpus — `specs`, `roots`,
   `maxDepth`, `legacyNumbered`, `outsideNumbering` — and classifies nothing
   (#709): no flat/product scheme, no per-tier counts, and `--declare` is

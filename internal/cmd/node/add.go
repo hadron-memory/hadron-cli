@@ -192,6 +192,9 @@ func resolveContent(content, contentFile string, stdin io.Reader, stdinIsTermina
 	if content != "" && contentFile != "" {
 		return "", exitcode.Newf(exitcode.Usage, "--content and --content-file are mutually exclusive")
 	}
+	if contentFile == "-" {
+		return cmdutil.ReadDocumentStdin(stdin, stdinIsTerminal, "--content-file -", "--content-file <path>")
+	}
 	if contentFile != "" {
 		data, err := os.ReadFile(contentFile)
 		if err != nil {

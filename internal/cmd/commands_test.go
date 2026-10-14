@@ -428,7 +428,7 @@ func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 func TestNodeUpdateContentOnlyOmitsTags(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
-		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"GetNodeRaw": `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)

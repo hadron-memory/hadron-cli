@@ -28,7 +28,7 @@ func bodyOnlyStubs(stored string) map[string]string {
 	}
 }
 
-func runNode(t *testing.T, stubs map[string]string, stdin string, args ...string) (string, string, error, map[string]json.RawMessage) {
+func runNode(t *testing.T, stubs map[string]string, stdin string, args ...string) (string, string, map[string]json.RawMessage, error) {
 	t.Helper()
 	gql, captured := captureGraphQL(t, stubs)
 	f, out := testFactory(t)
@@ -43,7 +43,7 @@ func runNode(t *testing.T, stubs map[string]string, stdin string, args ...string
 	if err != nil {
 		renderError(f, err)
 	}
-	return out.String(), errOut.String(), err, captured
+	return out.String(), errOut.String(), captured, err
 }
 
 func TestNodeGetBodyOnlyPrintsTheStoredBodyExactly(t *testing.T) {
@@ -54,7 +54,7 @@ func TestNodeGetBodyOnlyPrintsTheStoredBodyExactly(t *testing.T) {
 		{"node", "get", testNodeURN, "--body-only"},
 		{"node", "get", testNodeURN, "--content-only"},
 	} {
-		out, _, err, captured := runNode(t, bodyOnlyStubs(delimiterBody), "", args...)
+		out, _, captured, err := runNode(t, bodyOnlyStubs(delimiterBody), "", args...)
 		if err != nil {
 			t.Fatalf("%v: %v", args, err)
 		}
@@ -68,7 +68,7 @@ func TestNodeGetBodyOnlyPrintsTheStoredBodyExactly(t *testing.T) {
 }
 
 func TestNodeGetBodyOnlyJSON(t *testing.T) {
-	out, _, err, _ := runNode(t, bodyOnlyStubs(delimiterBody), "", "node", "get", testNodeURN, "--body-only", "--json")
+	out, _, _, err := runNode(t, bodyOnlyStubs(delimiterBody), "", "node", "get", testNodeURN, "--body-only", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestNodeGetBodyOnlyJSON(t *testing.T) {
 func TestNodeGetBodyOnlyEmptyBody(t *testing.T) {
 	stubs := bodyOnlyStubs("")
 	stubs["GetNodeRaw"] = strings.Replace(templatedNodeJSON(""), `"content":""`, `"content":null`, 1)
-	out, _, err, _ := runNode(t, stubs, "", "node", "get", testNodeURN, "--body-only")
+	out, _, _, err := runNode(t, stubs, "", "node", "get", testNodeURN, "--body-only")
 	if err != nil || out != "" {
 		t.Errorf("an empty body prints nothing, got %q (%v)", out, err)
 	}
@@ -101,8 +101,8 @@ func TestNodeGetBodyOnlyRefusesBatchAndPrefix(t *testing.T) {
 		{"node", "get", testNodeURN, "hrn:node:acme.com:kb:other", "--body-only"},
 		{"node", "get", "--prefix", "findings:", "-m", "hrn:mem:acme.com:kb", "--body-only"},
 	} {
-		_, _, err, captured := runNode(t, bodyOnlyStubs(delimiterBody), "", args...)
-		if exitcode.FromError(err) != exitcode.Usage {
+		_, _, captured, err := runNode(t, bodyOnlyStubs(delimiterBody), "", args...)
+		if exitCodeFor(err) != exitcode.Usage {
 			t.Errorf("%v: want exit 2, got %v", args, err)
 		}
 		if len(captured) != 0 {
@@ -114,11 +114,11 @@ func TestNodeGetBodyOnlyRefusesBatchAndPrefix(t *testing.T) {
 // The acceptance round trip: get --body-only | update --content-file - writes
 // exactly the stored body.
 func TestNodeBodyOnlyRoundTripIsByteIdentical(t *testing.T) {
-	body, _, err, _ := runNode(t, bodyOnlyStubs(delimiterBody), "", "node", "get", testNodeURN, "--body-only")
+	body, _, _, err := runNode(t, bodyOnlyStubs(delimiterBody), "", "node", "get", testNodeURN, "--body-only")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, stderr, err, captured := runNode(t, bodyOnlyStubs(delimiterBody), body, "node", "update", testNodeURN, "--content-file", "-")
+	_, stderr, captured, err := runNode(t, bodyOnlyStubs(delimiterBody), body, "node", "update", testNodeURN, "--content-file", "-")
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
@@ -163,9 +163,9 @@ func TestNodeUpdateRefusesAGetHeaderPrefix(t *testing.T) {
 		{"content -", headerPrefixed, []string{"--content", "-"}},
 		{"content inline", "", []string{"--content", headerPrefixed}},
 	} {
-		_, _, err, captured := runNode(t, bodyOnlyStubs(delimiterBody), src.stdin,
+		_, _, captured, err := runNode(t, bodyOnlyStubs(delimiterBody), src.stdin,
 			append([]string{"node", "update", testNodeURN}, src.args...)...)
-		if exitcode.FromError(err) != exitcode.Usage {
+		if exitCodeFor(err) != exitcode.Usage {
 			t.Errorf("%s: want exit 2, got %v", src.name, err)
 		}
 		if err == nil || !strings.Contains(err.Error(), "--body-only") {
@@ -178,7 +178,7 @@ func TestNodeUpdateRefusesAGetHeaderPrefix(t *testing.T) {
 }
 
 func TestNodeUpdateForceWritesAHeaderPrefix(t *testing.T) {
-	_, _, err, captured := runNode(t, bodyOnlyStubs(delimiterBody), "",
+	_, _, captured, err := runNode(t, bodyOnlyStubs(delimiterBody), "",
 		"node", "update", testNodeURN, "--content-file", writeTemp(t, "b.md", headerPrefixed), "--force")
 	if err != nil {
 		t.Fatalf("--force must write: %v", err)
@@ -190,7 +190,7 @@ func TestNodeUpdateForceWritesAHeaderPrefix(t *testing.T) {
 
 func TestNodeUpdateWarnsOnDroppedTemplateTags(t *testing.T) {
 	rendered := "Write {{name}} literally; <%who%> is a placeholder."
-	_, stderr, err, captured := runNode(t, bodyOnlyStubs(delimiterBody), "",
+	_, stderr, captured, err := runNode(t, bodyOnlyStubs(delimiterBody), "",
 		"node", "update", testNodeURN, "--content-file", writeTemp(t, "b.md", rendered))
 	if err != nil {
 		t.Fatalf("a drop warns, it does not refuse: %v", err)
@@ -208,7 +208,7 @@ func TestNodeUpdateWarnsOnDroppedTemplateTags(t *testing.T) {
 
 func TestNodeUpdateDryRunWritesNothing(t *testing.T) {
 	proposed := "Write {{name}} literally; <%who%> is a placeholder."
-	out, _, err, captured := runNode(t, bodyOnlyStubs(delimiterBody), "",
+	out, _, captured, err := runNode(t, bodyOnlyStubs(delimiterBody), "",
 		"node", "update", testNodeURN, "--content-file", writeTemp(t, "b.md", proposed), "--name", "renamed", "--dry-run", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -246,7 +246,7 @@ func TestNodeUpdateDryRunWritesNothing(t *testing.T) {
 }
 
 func TestNodeUpdateDryRunText(t *testing.T) {
-	out, _, err, captured := runNode(t, bodyOnlyStubs(delimiterBody), "",
+	out, _, captured, err := runNode(t, bodyOnlyStubs(delimiterBody), "",
 		"node", "update", testNodeURN, "--content", delimiterBody+"\nmore", "--dry-run")
 	if err != nil {
 		t.Fatal(err)
@@ -264,16 +264,16 @@ func TestNodeUpdateDryRunText(t *testing.T) {
 // The header check runs on a dry run too: the preview must not bless a body
 // the write would refuse.
 func TestNodeUpdateDryRunRefusesAHeaderPrefix(t *testing.T) {
-	_, _, err, _ := runNode(t, bodyOnlyStubs(delimiterBody), "",
+	_, _, _, err := runNode(t, bodyOnlyStubs(delimiterBody), "",
 		"node", "update", testNodeURN, "--content", headerPrefixed, "--dry-run")
-	if exitcode.FromError(err) != exitcode.Usage {
+	if exitCodeFor(err) != exitcode.Usage {
 		t.Errorf("want exit 2, got %v", err)
 	}
 }
 
 func TestNodeUpdateDryRunNeedsAField(t *testing.T) {
-	_, _, err, _ := runNode(t, bodyOnlyStubs(delimiterBody), "", "node", "update", testNodeURN, "--dry-run")
-	if exitcode.FromError(err) != exitcode.Usage {
+	_, _, _, err := runNode(t, bodyOnlyStubs(delimiterBody), "", "node", "update", testNodeURN, "--dry-run")
+	if exitCodeFor(err) != exitcode.Usage {
 		t.Errorf("want exit 2, got %v", err)
 	}
 }
@@ -281,9 +281,9 @@ func TestNodeUpdateDryRunNeedsAField(t *testing.T) {
 // --dry-run previews the field update only; a data merge is a separate
 // mutation it does not preview, so the combination is refused, not half-run.
 func TestNodeUpdateDryRunRefusesDataMerge(t *testing.T) {
-	_, _, err, captured := runNode(t, bodyOnlyStubs(delimiterBody), "",
+	_, _, captured, err := runNode(t, bodyOnlyStubs(delimiterBody), "",
 		"node", "update", testNodeURN, "--data-merge", `{"a":1}`, "--dry-run")
-	if exitcode.FromError(err) != exitcode.Usage {
+	if exitCodeFor(err) != exitcode.Usage {
 		t.Errorf("want exit 2, got %v", err)
 	}
 	if _, wrote := captured["UpdateNodeData"]; wrote {
@@ -296,7 +296,7 @@ func TestNodeUpdateDryRunRefusesDataMerge(t *testing.T) {
 func TestSpecGetBodyOnlyIsTheStoredBody(t *testing.T) {
 	b, _ := json.Marshal(delimiterBody)
 	rawDetail := strings.Replace(cleanSpecDetail, `"content":`, `"content":`+string(b)+`,"x":`, 1)
-	out, _, err, _ := runNode(t, map[string]string{
+	out, _, _, err := runNode(t, map[string]string{
 		"ResolveUrn":     resolveSpecJSON,
 		"GetNode":        `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"GetSpecNodeRaw": `{"data":{"node":` + rawDetail + `}}`,
@@ -312,15 +312,15 @@ func TestSpecGetBodyOnlyIsTheStoredBody(t *testing.T) {
 
 func TestSpecEditRefusesAGetHeaderPrefix(t *testing.T) {
 	header := "msg:010:02 — W2\nhrn:node:micromentor.org:platform-specs:msg:010:02\nTags: spec\n\n" + placeholderBody
-	_, _, err, captured := runNode(t, previewMocks(), "",
+	_, _, captured, err := runNode(t, previewMocks(), "",
 		"spec", "edit", "msg:010:02", "-m", specMem, "--content-file", writeTemp(t, "b.md", header))
-	if exitcode.FromError(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "--body-only") {
+	if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "--body-only") {
 		t.Errorf("want an exit-2 refusal naming --body-only, got %v", err)
 	}
 	if _, wrote := captured["UpdateSpecNode"]; wrote {
 		t.Error("a refused body must not be written")
 	}
-	_, _, err, captured = runNode(t, previewMocks(), "",
+	_, _, captured, err = runNode(t, previewMocks(), "",
 		"spec", "edit", "msg:010:02", "-m", specMem, "--content-file", writeTemp(t, "b.md", header), "--force")
 	if err != nil {
 		t.Fatalf("--force must write: %v", err)
@@ -332,7 +332,7 @@ func TestSpecEditRefusesAGetHeaderPrefix(t *testing.T) {
 
 func TestSpecEditWarnsOnDroppedTemplateTags(t *testing.T) {
 	proposed := strings.Replace(placeholderBody, "{{role}}", "role", 1)
-	out, stderr, err, _ := runNode(t, previewMocks(), "",
+	out, stderr, _, err := runNode(t, previewMocks(), "",
 		"spec", "edit", "msg:010:02", "-m", specMem, "--content-file", writeTemp(t, "b.md", proposed), "--dry-run", "--json")
 	if err != nil {
 		t.Fatal(err)
