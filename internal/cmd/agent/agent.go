@@ -28,6 +28,8 @@ type agentDTO struct {
 	OrganizationID *string  `json:"organizationId"`
 	Surfaces       []string `json:"surfaces"`
 	SystemMemoryID *string  `json:"systemMemoryId"`
+	TasksIndexRef  *string  `json:"tasksIndexRef"`
+	ProcessesIndex *string  `json:"processesIndexRef"`
 	SystemPrompt   *string  `json:"systemPrompt"`
 	AiProvider     *string  `json:"aiProvider"`
 	AiModel        *string  `json:"aiModel"`
@@ -45,6 +47,7 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 		ID: a.Id, URN: a.Urn, Name: a.Name, Description: a.Description,
 		Type: string(a.Type), Visibility: string(a.Visibility), OrganizationID: a.OrganizationId,
 		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId, SystemPrompt: a.SystemPrompt,
+		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
 		PersonaRole: a.PersonaRole, CreatedAt: a.CreatedAt,
 	}
@@ -274,8 +277,8 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 			dto := agentDTOFromFields(resp.Agent.AgentFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", dto.Name, dto.URN, dto.ID, dto.Type, dto.Visibility)
-				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  ai: %s/%s (key: %v)\n",
-					dash(dto.Description), dash(dto.SystemMemoryID), dash(dto.AiProvider), dash(dto.AiModel), dto.HasAiApiKey)
+				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  ai: %s/%s (key: %v)\n",
+					dash(dto.Description), dash(dto.SystemMemoryID), dash(dto.TasksIndexRef), dash(dto.ProcessesIndex), dash(dto.AiProvider), dash(dto.AiModel), dto.HasAiApiKey)
 				if len(dto.Surfaces) > 0 {
 					fmt.Fprintf(w, "  surfaces: %s\n", strings.Join(dto.Surfaces, ", "))
 				}

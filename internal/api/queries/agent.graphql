@@ -13,6 +13,10 @@ fragment AgentFields on Agent {
   surfaces
   systemMemoryId
   systemPrompt
+  # #874 read-back: the two index refs, null when unset — agent get shows
+  # what agent update set, so the write is verifiable through the CLI.
+  tasksIndexRef
+  processesIndexRef
   aiProvider
   aiModel
   hasAiApiKey

@@ -845,19 +845,20 @@ func agentWithRefsJSON(tasks, processes *string) string {
 // (the ref shows), clear, get (null renders as unset).
 func TestAgentGetExposesIndexRefsRoundTrip(t *testing.T) {
 	tasksRef := "n-tasks-index"
+	processesRef := "n-processes-index"
 	getCalls := 0
 	gql, _ := captureGraphQLFunc(t, func(op string) string {
 		switch op {
 		case "SetAgentIndexRefs":
-			return `{"data":{"setAgentIndexRefs":` + agentWithRefsJSON(&tasksRef, nil) + `}}`
+			return `{"data":{"setAgentIndexRefs":` + agentWithRefsJSON(&tasksRef, &processesRef) + `}}`
 		case "ClearAgentTasksIndex":
-			return `{"data":{"setAgentIndexRefs":` + agentWithRefsJSON(nil, nil) + `}}`
+			return `{"data":{"setAgentIndexRefs":` + agentWithRefsJSON(nil, &processesRef) + `}}`
 		case "GetAgent":
 			getCalls++
 			if getCalls == 1 {
-				return `{"data":{"agent":` + agentWithRefsJSON(&tasksRef, nil) + `}}`
+				return `{"data":{"agent":` + agentWithRefsJSON(&tasksRef, &processesRef) + `}}`
 			}
-			return `{"data":{"agent":` + agentWithRefsJSON(nil, nil) + `}}`
+			return `{"data":{"agent":` + agentWithRefsJSON(nil, &processesRef) + `}}`
 		}
 		return ""
 	})
@@ -878,7 +879,7 @@ func TestAgentGetExposesIndexRefsRoundTrip(t *testing.T) {
 
 	// Set, then read back through agent get --json: the set ref is present,
 	// the untouched one is an explicit null (unset), not a missing key.
-	if _, err := run(false, "agent", "update", "agt1", "--tasks-index", tasksRef); err != nil {
+	if _, err := run(false, "agent", "update", "agt1", "--tasks-index", tasksRef, "--processes-index", processesRef); err != nil {
 		t.Fatalf("set: %v", err)
 	}
 	out, err := run(true, "agent", "get", "agt1")
@@ -892,8 +893,8 @@ func TestAgentGetExposesIndexRefsRoundTrip(t *testing.T) {
 	if got["tasksIndexRef"] != tasksRef {
 		t.Fatalf("tasksIndexRef = %v, want the set ref", got["tasksIndexRef"])
 	}
-	if proc, present := got["processesIndexRef"]; !present || proc != nil {
-		t.Fatalf("processesIndexRef must be an explicit null when unset, got %v (present=%v)", proc, present)
+	if got["processesIndexRef"] != processesRef {
+		t.Fatalf("processesIndexRef = %v, want the set ref", got["processesIndexRef"])
 	}
 
 	// Clear, then read back: both render unset — the human view shows the
@@ -908,9 +909,14 @@ func TestAgentGetExposesIndexRefsRoundTrip(t *testing.T) {
 	if strings.Contains(humanOut, tasksRef) {
 		t.Fatalf("the cleared ref must not render, got:\n%s", humanOut)
 	}
+	// The untouched processes ref SURVIVES the tasks clear (the clear
+	// document omits it): still set, not dashed to unset.
+	if !strings.Contains(humanOut, processesRef) {
+		t.Fatalf("the processes ref must survive the tasks clear, got:\n%s", humanOut)
+	}
 	for _, want := range []string{"tasks index", "processes index"} {
 		if !strings.Contains(humanOut, want) {
-			t.Fatalf("the human view should show %q (unset), got:\n%s", want, humanOut)
+			t.Fatalf("the human view should show %q, got:\n%s", want, humanOut)
 		}
 	}
 }

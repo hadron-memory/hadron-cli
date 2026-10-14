@@ -613,9 +613,18 @@ type AgentFields struct {
 	SystemMemoryId *string         `json:"systemMemoryId"`
 	// Templated Agent prompt. {{name}}/{{role}} bind to the Agent in chats or the named Worker in briefings.
 	SystemPrompt *string `json:"systemPrompt"`
-	AiProvider   *string `json:"aiProvider"`
-	AiModel      *string `json:"aiModel"`
-	HasAiApiKey  bool    `json:"hasAiApiKey"`
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - the id of the index node whose incoming,
+	// trigger-labelled edges list this Agent's own tasks, or null. Set or clear
+	// it with setAgentIndexRefs; read the Agent's whole task list with agentTaskList.
+	TasksIndexRef *string `json:"tasksIndexRef"`
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - the id of the index node whose incoming,
+	// trigger-labelled edges list the processes this Agent starts or owns, or
+	// null. Set or clear it with setAgentIndexRefs; read the Agent's processes
+	// with agentProcessList.
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+	AiProvider        *string `json:"aiProvider"`
+	AiModel           *string `json:"aiModel"`
+	HasAiApiKey       bool    `json:"hasAiApiKey"`
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
 	CreatedAt   string  `json:"createdAt"`
@@ -650,6 +659,12 @@ func (v *AgentFields) GetSystemMemoryId() *string { return v.SystemMemoryId }
 
 // GetSystemPrompt returns AgentFields.SystemPrompt, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetSystemPrompt() *string { return v.SystemPrompt }
+
+// GetTasksIndexRef returns AgentFields.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetTasksIndexRef() *string { return v.TasksIndexRef }
+
+// GetProcessesIndexRef returns AgentFields.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetProcessesIndexRef() *string { return v.ProcessesIndexRef }
 
 // GetAiProvider returns AgentFields.AiProvider, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetAiProvider() *string { return v.AiProvider }
@@ -5733,6 +5748,16 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetSystemPrompt() *string {
 	return v.AgentFields.SystemPrompt
 }
 
+// GetTasksIndexRef returns AgentsAgentsAgentsPageItemsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns AgentsAgentsAgentsPageItemsAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
 // GetAiProvider returns AgentsAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -5794,6 +5819,10 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -5826,6 +5855,8 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -9797,6 +9828,16 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetSystemPrompt() *stri
 	return v.AgentFields.SystemPrompt
 }
 
+// GetTasksIndexRef returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
 // GetAiProvider returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -9868,6 +9909,10 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -9900,6 +9945,8 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -9977,6 +10024,16 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetSystemPrompt() *string {
 	return v.AgentFields.SystemPrompt
 }
 
+// GetTasksIndexRef returns ClearAgentTasksIndexSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns ClearAgentTasksIndexSetAgentIndexRefsAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
 // GetAiProvider returns ClearAgentTasksIndexSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -10048,6 +10105,10 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -10080,6 +10141,8 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -12076,6 +12139,14 @@ func (v *CreateAgentCreateAgent) GetSystemMemoryId() *string { return v.AgentFie
 // GetSystemPrompt returns CreateAgentCreateAgent.SystemPrompt, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
 
+// GetTasksIndexRef returns CreateAgentCreateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
+
+// GetProcessesIndexRef returns CreateAgentCreateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
 // GetAiProvider returns CreateAgentCreateAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -12137,6 +12208,10 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -12169,6 +12244,8 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -18600,6 +18677,12 @@ func (v *GetAgentAgent) GetSystemMemoryId() *string { return v.AgentFields.Syste
 // GetSystemPrompt returns GetAgentAgent.SystemPrompt, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
 
+// GetTasksIndexRef returns GetAgentAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
+
+// GetProcessesIndexRef returns GetAgentAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetProcessesIndexRef() *string { return v.AgentFields.ProcessesIndexRef }
+
 // GetAiProvider returns GetAgentAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -18661,6 +18744,10 @@ type __premarshalGetAgentAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -18693,6 +18780,8 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -30260,6 +30349,16 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetSystemPrompt() *string
 	return v.AgentFields.SystemPrompt
 }
 
+// GetTasksIndexRef returns PublicAgentsPublicAgentsAgentsPageItemsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns PublicAgentsPublicAgentsAgentsPageItemsAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
 // GetAiProvider returns PublicAgentsPublicAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -30331,6 +30430,10 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -30363,6 +30466,8 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -36140,6 +36245,16 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetSystemPrompt() *string {
 	return v.AgentFields.SystemPrompt
 }
 
+// GetTasksIndexRef returns SetAgentIndexRefsSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns SetAgentIndexRefsSetAgentIndexRefsAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
 // GetAiProvider returns SetAgentIndexRefsSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -36209,6 +36324,10 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -36241,6 +36360,8 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -42653,6 +42774,14 @@ func (v *UpdateAgentUpdateAgent) GetSystemMemoryId() *string { return v.AgentFie
 // GetSystemPrompt returns UpdateAgentUpdateAgent.SystemPrompt, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
 
+// GetTasksIndexRef returns UpdateAgentUpdateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
+
+// GetProcessesIndexRef returns UpdateAgentUpdateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
 // GetAiProvider returns UpdateAgentUpdateAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -42714,6 +42843,10 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -42746,6 +42879,8 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -55148,6 +55283,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -56459,6 +56596,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -56512,6 +56651,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -56947,6 +57088,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -60255,6 +60398,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -64144,6 +64289,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -66226,6 +66373,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -68207,6 +68356,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
