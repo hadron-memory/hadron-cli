@@ -122,11 +122,13 @@ type Server interface {
 
 // Outcome is one poll's result: who was nudged, who was held and why.
 type Outcome struct {
-	Nudged  []string
-	Held    map[string]string
-	Dropped []string
-	Covered []string
-	Adopted bool
+	Nudged          []string
+	Held            map[string]string
+	Dropped         []string
+	Covered         []string
+	Liveness        []string // woken through the #1826 idle-watch rule, not a mention
+	LivenessDropped []string // read-while-waiting under the liveness rule
+	Adopted         bool
 }
 
 // RouterError distinguishes a held poll (recorded, retried) from a failed one
