@@ -20825,7 +20825,7 @@ func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) __prem
 
 // HostOperationsResponse is returned by HostOperations on success.
 type HostOperationsResponse struct {
-	// #1709 — the App's host operations, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:02). Whoever reads the App's tasks and events. after: the endCursor of the previous page.
+	// #1709 — the App's host operations, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:02). Whoever reads the App's tasks and events. A host key (one ever granted host:operate) sees only its own host's operations (hrn:node:hadronmemory.com:specs:cor:agt:070:04, Holger 2026-10-13): another hostId returns nothing. after: the endCursor of the previous page.
 	HostOperations *HostOperationsHostOperationsHostOperationPage `json:"hostOperations"`
 }
 

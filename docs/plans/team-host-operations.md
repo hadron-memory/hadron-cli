@@ -87,7 +87,7 @@ never `keyPreview`.
 
 ## Follow-ups
 
-- The read audience: #1884 narrows `hostOperations` for a `host:operate`
+- The read audience: #1884 (in this snapshot, server fa96070) narrows `hostOperations` for a `host:operate`
   key to its own host, and server#1881 tracks the participant audience
   (#10778). Neither changes the SDL this client uses; regenerate from main if
   either does.
