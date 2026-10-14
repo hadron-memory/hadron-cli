@@ -38,7 +38,7 @@ func TestNodeSignSendsOnlyTheFlagsGivenAndKeepsTheRequest(t *testing.T) {
 		want map[string]any
 	}{
 		{"bare", nil, map[string]any{"nodeRef": "n1"}},
-		{"pinned", []string{"--revision", "4", "--signer", "u2"}, map[string]any{"nodeRef": "n1", "expectedRevision": float64(4), "signerRef": "u2"}},
+		{"pinned", []string{"--revision", "4", "--signer", " u2 "}, map[string]any{"nodeRef": "n1", "expectedRevision": float64(4), "signerRef": "u2"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

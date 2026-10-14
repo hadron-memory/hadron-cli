@@ -197,8 +197,11 @@ Follow it with ` + "`node signing-request get <id>`" + `.`,
 			if cmd.Flags().Changed("revision") && revision < 1 {
 				return exitcode.Newf(exitcode.Usage, "--revision must be a positive node revision")
 			}
-			if cmd.Flags().Changed("signer") && strings.TrimSpace(signer) == "" {
-				return exitcode.Newf(exitcode.Usage, "--signer must name a user")
+			// Passed-but-blank is not absent: --signer="$UNSET" must not
+			// silently widen the request to any writer of the memory.
+			signer = strings.TrimSpace(signer)
+			if cmd.Flags().Changed("signer") && signer == "" {
+				return exitcode.Newf(exitcode.Usage, "--signer was given an empty value (an unset variable?); name a user id, or omit it to let any writer sign")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
