@@ -30701,6 +30701,21 @@ func (v *RegisterEntryFilter) GetChannelRef() *string { return v.ChannelRef }
 // GetOwnerRef returns RegisterEntryFilter.OwnerRef, and is useful for accessing the field via an interface.
 func (v *RegisterEntryFilter) GetOwnerRef() *string { return v.OwnerRef }
 
+// Which attendee column the winning register row named.
+type RegisterNamedBy string
+
+const (
+	RegisterNamedByAgent    RegisterNamedBy = "AGENT"
+	RegisterNamedByEveryone RegisterNamedBy = "EVERYONE"
+	RegisterNamedByWorker   RegisterNamedBy = "WORKER"
+)
+
+var AllRegisterNamedBy = []RegisterNamedBy{
+	RegisterNamedByAgent,
+	RegisterNamedByEveryone,
+	RegisterNamedByWorker,
+}
+
 // A register row is owned by exactly one of the two; Agent-owned rows do not exist (plan §14).
 type RegisterOwnerType string
 
@@ -33378,6 +33393,247 @@ func (v *RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials) __premarsh
 	retval.Token = v.AgentWebhookCredentialFields.Token
 	retval.Webhook = v.AgentWebhookCredentialFields.Webhook
 	return &retval, nil
+}
+
+// RouterAttentionPageResponse is returned by RouterAttentionPage on success.
+type RouterAttentionPageResponse struct {
+	// #1384 paged (v2) attention poll — the bounded successor to teamAttention
+	// (v1 answers UPGRADE_REQUIRED). Each call decrypts at most scanLimit rows
+	// (encrypted Channels), counts plaintext Channels with bounded SQL
+	// aggregates (#1779: a window of 200 seqs per scanLimit unit per Channel
+	// visit, 400 per call), and emits at most limit Worker/Channel pairs; continue with page while
+	// nextPage is present. The final page alone carries adoptableSince — adopt
+	// it only after EVERY listed nudge was accepted; on any partial failure
+	// retain the prior watermark and restart the scan (duplicates, never loss).
+	// An existing v1 since token starts a scan, carrying the watermark forward.
+	// Never changes read state.
+	TeamAttentionPage *RouterAttentionPageTeamAttentionPage `json:"teamAttentionPage"`
+}
+
+// GetTeamAttentionPage returns RouterAttentionPageResponse.TeamAttentionPage, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageResponse) GetTeamAttentionPage() *RouterAttentionPageTeamAttentionPage {
+	return v.TeamAttentionPage
+}
+
+// RouterAttentionPageTeamAttentionPage includes the requested fields of the GraphQL type TeamAttentionPage.
+type RouterAttentionPageTeamAttentionPage struct {
+	// False while any Channel is unfinished or queued items remain undelivered.
+	ScanComplete bool `json:"scanComplete"`
+	// Continuation for the next pull; null on the final page.
+	NextPage *string `json:"nextPage"`
+	// FINAL PAGE ONLY: a since-watermark token (same shape v1 issued) to adopt
+	// after every listed nudge was accepted. Never present while scanComplete
+	// is false.
+	AdoptableSince *string                                                           `json:"adoptableSince"`
+	Items          []*RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem `json:"items"`
+}
+
+// GetScanComplete returns RouterAttentionPageTeamAttentionPage.ScanComplete, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPage) GetScanComplete() bool { return v.ScanComplete }
+
+// GetNextPage returns RouterAttentionPageTeamAttentionPage.NextPage, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPage) GetNextPage() *string { return v.NextPage }
+
+// GetAdoptableSince returns RouterAttentionPageTeamAttentionPage.AdoptableSince, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPage) GetAdoptableSince() *string { return v.AdoptableSince }
+
+// GetItems returns RouterAttentionPageTeamAttentionPage.Items, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPage) GetItems() []*RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem {
+	return v.Items
+}
+
+// RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem includes the requested fields of the GraphQL type TeamAttentionPageItem.
+// The GraphQL type's documentation follows.
+//
+// #1384 paged (v2): one bounded slice of an attention scan. Counts are exact
+// for the captured (seen, head] range of the issuing scan only, and items are
+// emitted solely from Channels that scan has exhausted.
+type RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem struct {
+	Worker          string `json:"worker"`
+	WorkerName      string `json:"workerName"`
+	Channel         string `json:"channel"`
+	Unread          int    `json:"unread"`
+	UnreadMentions  int    `json:"unreadMentions"`
+	FirstUnreadSeq  *int   `json:"firstUnreadSeq"`
+	LastRelevantSeq *int   `json:"lastRelevantSeq"`
+	// The frozen Channel head this item's counts are exact for.
+	LastSeq int `json:"lastSeq"`
+}
+
+// GetWorker returns RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.Worker, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetWorker() string {
+	return v.Worker
+}
+
+// GetWorkerName returns RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.WorkerName, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetWorkerName() string {
+	return v.WorkerName
+}
+
+// GetChannel returns RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.Channel, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetChannel() string {
+	return v.Channel
+}
+
+// GetUnread returns RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.Unread, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetUnread() int {
+	return v.Unread
+}
+
+// GetUnreadMentions returns RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.UnreadMentions, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetUnreadMentions() int {
+	return v.UnreadMentions
+}
+
+// GetFirstUnreadSeq returns RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.FirstUnreadSeq, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetFirstUnreadSeq() *int {
+	return v.FirstUnreadSeq
+}
+
+// GetLastRelevantSeq returns RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.LastRelevantSeq, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetLastRelevantSeq() *int {
+	return v.LastRelevantSeq
+}
+
+// GetLastSeq returns RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.LastSeq, and is useful for accessing the field via an interface.
+func (v *RouterAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetLastSeq() int {
+	return v.LastSeq
+}
+
+// RouterChannelHeadChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type RouterChannelHeadChannel struct {
+	// Highest seq the allocator has issued — a watermark, not a count.
+	LastSeq int `json:"lastSeq"`
+}
+
+// GetLastSeq returns RouterChannelHeadChannel.LastSeq, and is useful for accessing the field via an interface.
+func (v *RouterChannelHeadChannel) GetLastSeq() int { return v.LastSeq }
+
+// RouterChannelHeadResponse is returned by RouterChannelHead on success.
+type RouterChannelHeadResponse struct {
+	// Spec 049 Phase 4 — the uniform single-Channel read. 'ref' is the Channel's
+	// id or its ADDRESS — the chat root's node URN, which is `Channel.chatRootUrn`
+	// and what `createChannel(memoryRef, loc)` composes to (#1171). Null when
+	// missing, when the ref names nothing, OR when you may not read its host
+	// memory — identically, so this is never an existence oracle.
+	Channel *RouterChannelHeadChannel `json:"channel"`
+}
+
+// GetChannel returns RouterChannelHeadResponse.Channel, and is useful for accessing the field via an interface.
+func (v *RouterChannelHeadResponse) GetChannel() *RouterChannelHeadChannel { return v.Channel }
+
+// RouterReadCursorChannelReadState includes the requested fields of the GraphQL type ChannelReadState.
+// The GraphQL type's documentation follows.
+//
+// Spec 049 Phase 7 — where an attendee is up to on a Channel (D-2026-09-13-009).
+// Outside the register; keyed on the ATTENDEE (a Worker, or an Agent in an
+// App); advances are monotonic. Mute is session state, never here.
+type RouterReadCursorChannelReadState struct {
+	LastSeenSeq int `json:"lastSeenSeq"`
+}
+
+// GetLastSeenSeq returns RouterReadCursorChannelReadState.LastSeenSeq, and is useful for accessing the field via an interface.
+func (v *RouterReadCursorChannelReadState) GetLastSeenSeq() int { return v.LastSeenSeq }
+
+// RouterReadCursorResponse is returned by RouterReadCursor on success.
+type RouterReadCursorResponse struct {
+	// Spec 049 Phase 7 — an attendee's cursor on a Channel (attendeeRef: a Worker,
+	// or an Agent with appRef). Same gate as attendeeRegister; lastSeenSeq 0 when
+	// the attendee has never checkpointed there; null when unreadable or unknown.
+	// channelRef: the Channel's id or its address (`Channel.chatRootUrn`, #1171).
+	ChannelReadState *RouterReadCursorChannelReadState `json:"channelReadState"`
+}
+
+// GetChannelReadState returns RouterReadCursorResponse.ChannelReadState, and is useful for accessing the field via an interface.
+func (v *RouterReadCursorResponse) GetChannelReadState() *RouterReadCursorChannelReadState {
+	return v.ChannelReadState
+}
+
+// RouterRegisterAttendeeRegisterRegisterViewRow includes the requested fields of the GraphQL type RegisterViewRow.
+// The GraphQL type's documentation follows.
+//
+// One row of an attendee's RESOLVED register (spec 049 §4.3): the winning
+// register entry for a Channel (App › organization, Worker › Agent › everyone,
+// never unioned), the Channel's watermark, and the ATTENDEE's real standing on
+// the host memory — canRead / canPost are the existing gates, the register
+// grants nothing. A row the attendee cannot act on is returned with its reason,
+// never dropped. Host memory identifiers remain gated for the VIEWER.
+type RouterRegisterAttendeeRegisterRegisterViewRow struct {
+	NamedBy RegisterNamedBy                                                          `json:"namedBy"`
+	Channel *RouterRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel `json:"channel"`
+	Entry   *RouterRegisterAttendeeRegisterRegisterViewRowEntryRegisterEntry         `json:"entry"`
+}
+
+// GetNamedBy returns RouterRegisterAttendeeRegisterRegisterViewRow.NamedBy, and is useful for accessing the field via an interface.
+func (v *RouterRegisterAttendeeRegisterRegisterViewRow) GetNamedBy() RegisterNamedBy {
+	return v.NamedBy
+}
+
+// GetChannel returns RouterRegisterAttendeeRegisterRegisterViewRow.Channel, and is useful for accessing the field via an interface.
+func (v *RouterRegisterAttendeeRegisterRegisterViewRow) GetChannel() *RouterRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel {
+	return v.Channel
+}
+
+// GetEntry returns RouterRegisterAttendeeRegisterRegisterViewRow.Entry, and is useful for accessing the field via an interface.
+func (v *RouterRegisterAttendeeRegisterRegisterViewRow) GetEntry() *RouterRegisterAttendeeRegisterRegisterViewRowEntryRegisterEntry {
+	return v.Entry
+}
+
+// RouterRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel includes the requested fields of the GraphQL type RegisterViewChannel.
+// The GraphQL type's documentation follows.
+//
+// The Channel half of a register view row; the host memory's URN only when the viewer may read it.
+type RouterRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel struct {
+	Id string `json:"id"`
+}
+
+// GetId returns RouterRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel.Id, and is useful for accessing the field via an interface.
+func (v *RouterRegisterAttendeeRegisterRegisterViewRowChannelRegisterViewChannel) GetId() string {
+	return v.Id
+}
+
+// RouterRegisterAttendeeRegisterRegisterViewRowEntryRegisterEntry includes the requested fields of the GraphQL type RegisterEntry.
+// The GraphQL type's documentation follows.
+//
+// A REGISTER ENTRY (spec 049, D-2026-09-13-007): "this attendee takes part in
+// this Channel". The attendee is a Worker when cast, otherwise an Agent in an
+// App; both null = every attendee in the owner's context (org-wide for an
+// organization row, App-wide for an App row). Not a trigger list — a row never
+// starts a run. The register never grants: what the attendee may read or post
+// is the Channel's host memory's decision. Not exportable.
+type RouterRegisterAttendeeRegisterRegisterViewRowEntryRegisterEntry struct {
+	// Only messages mentioning the attendee count as new for it.
+	MentionOnly bool `json:"mentionOnly"`
+}
+
+// GetMentionOnly returns RouterRegisterAttendeeRegisterRegisterViewRowEntryRegisterEntry.MentionOnly, and is useful for accessing the field via an interface.
+func (v *RouterRegisterAttendeeRegisterRegisterViewRowEntryRegisterEntry) GetMentionOnly() bool {
+	return v.MentionOnly
+}
+
+// RouterRegisterResponse is returned by RouterRegister on success.
+type RouterRegisterResponse struct {
+	// Spec 049 Phase 6 — an attendee's RESOLVED register: the rows that apply to
+	// a Worker (workerRef) or to an Agent in an App (agentRef + appRef), one per
+	// Channel, with YOUR standing on each host memory. The relay reads this
+	// instead of a configured appRef. Gated on App participation (the same gate
+	// as the Worker's briefing); a foreign or nonexistent attendee is an empty list.
+	AttendeeRegister []*RouterRegisterAttendeeRegisterRegisterViewRow `json:"attendeeRegister"`
+}
+
+// GetAttendeeRegister returns RouterRegisterResponse.AttendeeRegister, and is useful for accessing the field via an interface.
+func (v *RouterRegisterResponse) GetAttendeeRegister() []*RouterRegisterAttendeeRegisterRegisterViewRow {
+	return v.AttendeeRegister
 }
 
 // RunTaskResponse is returned by RunTask on success.
@@ -51426,6 +51682,58 @@ type __RotateAgentWebhookInput struct {
 // GetId returns __RotateAgentWebhookInput.Id, and is useful for accessing the field via an interface.
 func (v *__RotateAgentWebhookInput) GetId() string { return v.Id }
 
+// __RouterAttentionPageInput is used internally by genqlient
+type __RouterAttentionPageInput struct {
+	AppRef string  `json:"appRef"`
+	Since  *string `json:"since,omitempty"`
+	Page   *string `json:"page,omitempty"`
+}
+
+// GetAppRef returns __RouterAttentionPageInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RouterAttentionPageInput) GetAppRef() string { return v.AppRef }
+
+// GetSince returns __RouterAttentionPageInput.Since, and is useful for accessing the field via an interface.
+func (v *__RouterAttentionPageInput) GetSince() *string { return v.Since }
+
+// GetPage returns __RouterAttentionPageInput.Page, and is useful for accessing the field via an interface.
+func (v *__RouterAttentionPageInput) GetPage() *string { return v.Page }
+
+// __RouterChannelHeadInput is used internally by genqlient
+type __RouterChannelHeadInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __RouterChannelHeadInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RouterChannelHeadInput) GetRef() string { return v.Ref }
+
+// __RouterReadCursorInput is used internally by genqlient
+type __RouterReadCursorInput struct {
+	AttendeeRef string `json:"attendeeRef"`
+	AppRef      string `json:"appRef"`
+	ChannelRef  string `json:"channelRef"`
+}
+
+// GetAttendeeRef returns __RouterReadCursorInput.AttendeeRef, and is useful for accessing the field via an interface.
+func (v *__RouterReadCursorInput) GetAttendeeRef() string { return v.AttendeeRef }
+
+// GetAppRef returns __RouterReadCursorInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RouterReadCursorInput) GetAppRef() string { return v.AppRef }
+
+// GetChannelRef returns __RouterReadCursorInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__RouterReadCursorInput) GetChannelRef() string { return v.ChannelRef }
+
+// __RouterRegisterInput is used internally by genqlient
+type __RouterRegisterInput struct {
+	WorkerRef string `json:"workerRef"`
+	AppRef    string `json:"appRef"`
+}
+
+// GetWorkerRef returns __RouterRegisterInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__RouterRegisterInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetAppRef returns __RouterRegisterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RouterRegisterInput) GetAppRef() string { return v.AppRef }
+
 // __RunTaskInput is used internally by genqlient
 type __RunTaskInput struct {
 	NodeRef   string           `json:"nodeRef"`
@@ -64572,6 +64880,179 @@ func RotateAgentWebhook(
 	}
 
 	data_ = &RotateAgentWebhookResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RouterAttentionPage.
+const RouterAttentionPage_Operation = `
+query RouterAttentionPage ($appRef: ID!, $since: String, $page: String) {
+	teamAttentionPage(appRef: $appRef, since: $since, page: $page) {
+		scanComplete
+		nextPage
+		adoptableSince
+		items {
+			worker
+			workerName
+			channel
+			unread
+			unreadMentions
+			firstUnreadSeq
+			lastRelevantSeq
+			lastSeq
+		}
+	}
+}
+`
+
+// One page of the paged v2 attention scan (#1384). Paged v2 because only it
+// carries lastRelevantSeq, the mention frontier the delivery ledger needs.
+func RouterAttentionPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	since *string,
+	page *string,
+) (data_ *RouterAttentionPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RouterAttentionPage",
+		Query:  RouterAttentionPage_Operation,
+		Variables: &__RouterAttentionPageInput{
+			AppRef: appRef,
+			Since:  since,
+			Page:   page,
+		},
+	}
+
+	data_ = &RouterAttentionPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RouterChannelHead.
+const RouterChannelHead_Operation = `
+query RouterChannelHead ($ref: ID!) {
+	channel(ref: $ref) {
+		lastSeq
+	}
+}
+`
+
+// #1826 — the team Channel's watermark.
+func RouterChannelHead(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *RouterChannelHeadResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RouterChannelHead",
+		Query:  RouterChannelHead_Operation,
+		Variables: &__RouterChannelHeadInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &RouterChannelHeadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RouterReadCursor.
+const RouterReadCursor_Operation = `
+query RouterReadCursor ($attendeeRef: ID!, $appRef: ID!, $channelRef: ID!) {
+	channelReadState(attendeeRef: $attendeeRef, appRef: $appRef, channelRef: $channelRef) {
+		lastSeenSeq
+	}
+}
+`
+
+// #1826 — a flagged worker's read cursor on the team Channel: the liveness
+// source attention cannot see (poll emission suppresses zero-relevant rows).
+func RouterReadCursor(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	attendeeRef string,
+	appRef string,
+	channelRef string,
+) (data_ *RouterReadCursorResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RouterReadCursor",
+		Query:  RouterReadCursor_Operation,
+		Variables: &__RouterReadCursorInput{
+			AttendeeRef: attendeeRef,
+			AppRef:      appRef,
+			ChannelRef:  channelRef,
+		},
+	}
+
+	data_ = &RouterReadCursorResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RouterRegister.
+const RouterRegister_Operation = `
+query RouterRegister ($workerRef: ID!, $appRef: ID!) {
+	attendeeRegister(workerRef: $workerRef, appRef: $appRef) {
+		namedBy
+		channel {
+			id
+		}
+		entry {
+			mentionOnly
+		}
+	}
+}
+`
+
+// The WINNING register row per Channel for one worker, exactly as the
+// attention API resolves it (App over organization; Worker over Agent over
+// everyone). No ownerRef: an organization-owned worker row must count too
+// (@codex P2, hadron-server#1490).
+func RouterRegister(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	appRef string,
+) (data_ *RouterRegisterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RouterRegister",
+		Query:  RouterRegister_Operation,
+		Variables: &__RouterRegisterInput{
+			WorkerRef: workerRef,
+			AppRef:    appRef,
+		},
+	}
+
+	data_ = &RouterRegisterResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -1,0 +1,66 @@
+# `hadron team router` (cli#829) — the Orca attention router's reads, and
+# nothing else: the router changes no server state. Its own operations rather
+# than shared ones, so the §10 review reads in one place exactly what the
+# router asks the server (token custody, cli#829 §10), and so a field another
+# command needs never widens what the router fetches.
+#
+# These run on the operator's OWN login, as the TS router's `hadron api` calls
+# did: teamAttentionPage serves only an ordinary user, and covers that user's
+# live workers (findings:router-port-two-delivery-principals).
+
+# One page of the paged v2 attention scan (#1384). Paged v2 because only it
+# carries lastRelevantSeq, the mention frontier the delivery ledger needs.
+query RouterAttentionPage(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $since: String
+  # @genqlient(omitempty: true)
+  $page: String
+) {
+  teamAttentionPage(appRef: $appRef, since: $since, page: $page) {
+    scanComplete
+    nextPage
+    adoptableSince
+    items {
+      worker
+      workerName
+      channel
+      unread
+      unreadMentions
+      firstUnreadSeq
+      lastRelevantSeq
+      lastSeq
+    }
+  }
+}
+
+# The WINNING register row per Channel for one worker, exactly as the
+# attention API resolves it (App over organization; Worker over Agent over
+# everyone). No ownerRef: an organization-owned worker row must count too
+# (@codex P2, hadron-server#1490).
+query RouterRegister($workerRef: ID!, $appRef: ID!) {
+  attendeeRegister(workerRef: $workerRef, appRef: $appRef) {
+    namedBy
+    channel {
+      id
+    }
+    entry {
+      mentionOnly
+    }
+  }
+}
+
+# #1826 — a flagged worker's read cursor on the team Channel: the liveness
+# source attention cannot see (poll emission suppresses zero-relevant rows).
+query RouterReadCursor($attendeeRef: ID!, $appRef: ID!, $channelRef: ID!) {
+  channelReadState(attendeeRef: $attendeeRef, appRef: $appRef, channelRef: $channelRef) {
+    lastSeenSeq
+  }
+}
+
+# #1826 — the team Channel's watermark.
+query RouterChannelHead($ref: ID!) {
+  channel(ref: $ref) {
+    lastSeq
+  }
+}
