@@ -28,6 +28,8 @@ type agentDTO struct {
 	OrganizationID *string  `json:"organizationId"`
 	Surfaces       []string `json:"surfaces"`
 	SystemMemoryID *string  `json:"systemMemoryId"`
+	TasksIndexRef  *string  `json:"tasksIndexRef"`
+	ProcessesIndex *string  `json:"processesIndexRef"`
 	SystemPrompt   *string  `json:"systemPrompt"`
 	AiProvider     *string  `json:"aiProvider"`
 	AiModel        *string  `json:"aiModel"`
@@ -45,6 +47,7 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 		ID: a.Id, URN: a.Urn, Name: a.Name, Description: a.Description,
 		Type: string(a.Type), Visibility: string(a.Visibility), OrganizationID: a.OrganizationId,
 		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId, SystemPrompt: a.SystemPrompt,
+		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
 		PersonaRole: a.PersonaRole, CreatedAt: a.CreatedAt,
 	}
@@ -107,6 +110,8 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdCreate(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))
+	cmd.AddCommand(newCmdAgentTasks(f))
+	cmd.AddCommand(newCmdAgentProcesses(f))
 	return cmd
 }
 
@@ -272,8 +277,8 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 			dto := agentDTOFromFields(resp.Agent.AgentFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", dto.Name, dto.URN, dto.ID, dto.Type, dto.Visibility)
-				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  ai: %s/%s (key: %v)\n",
-					dash(dto.Description), dash(dto.SystemMemoryID), dash(dto.AiProvider), dash(dto.AiModel), dto.HasAiApiKey)
+				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  ai: %s/%s (key: %v)\n",
+					dash(dto.Description), dash(dto.SystemMemoryID), dash(dto.TasksIndexRef), dash(dto.ProcessesIndex), dash(dto.AiProvider), dash(dto.AiModel), dto.HasAiApiKey)
 				if len(dto.Surfaces) > 0 {
 					fmt.Fprintf(w, "  surfaces: %s\n", strings.Join(dto.Surfaces, ", "))
 				}
@@ -501,6 +506,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var name, description, typ, vis, systemPrompt, systemMemory, urn string
 	var personaRole string
 	var systemPromptFile string
+	var tasksIndex, processesIndex string
 	var surfaces []string
 	cmd := &cobra.Command{
 		Use:   "update <ref>",
@@ -522,7 +528,8 @@ their prompt from this field.`,
 			if !changed("name") && !changed("description") && !changed("type") && !changed("visibility") &&
 				!changed("system-prompt") && !changed("system-prompt-file") &&
 				!changed("system-memory") && !changed("surface") && !changed("urn") &&
-				!changed("persona-role") {
+				!changed("persona-role") &&
+				!changed("tasks-index") && !changed("processes-index") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
 			// The server prepends the owner namespace, so --urn is the agent
@@ -563,18 +570,38 @@ their prompt from this field.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
-				changedStr(cmd, "name", name), changedStr(cmd, "description", description),
-				at, av, systemPromptArg,
-				changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
-				changedStr(cmd, "persona-role", personaRole))
-			if err != nil {
-				return api.MapError(err)
+			var updated *gen.AgentFields
+			if changed("name") || changed("description") || changed("type") || changed("visibility") ||
+				changed("system-prompt") || changed("system-prompt-file") ||
+				changed("system-memory") || changed("surface") || changed("urn") ||
+				changed("persona-role") {
+				resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
+					changedStr(cmd, "name", name), changedStr(cmd, "description", description),
+					at, av, systemPromptArg,
+					changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
+					changedStr(cmd, "persona-role", personaRole))
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.UpdateAgent == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no agent")
+				}
+				updated = &resp.UpdateAgent.AgentFields
 			}
-			if resp.UpdateAgent == nil {
+			// The two index refs are their own mutation (setAgentIndexRefs):
+			// a value sets, an explicit empty clears, absent preserves.
+			fields, err := applyAgentIndexRefChanges(cmd.Context(), client, args[0],
+				changed("tasks-index"), tasksIndex, changed("processes-index"), processesIndex)
+			if err != nil {
+				return err
+			}
+			if fields == nil {
+				fields = updated
+			}
+			if fields == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no agent")
 			}
-			return emitAgent(f, agentDTOFromFields(resp.UpdateAgent.AgentFields), "✓ updated")
+			return emitAgent(f, agentDTOFromFields(*fields), "✓ updated")
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "agent name")
@@ -586,6 +613,8 @@ their prompt from this field.`,
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable; replaces the set)")
 	cmd.Flags().StringVar(&urn, "urn", "", "agent URN path")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
+	cmd.Flags().StringVar(&tasksIndex, "tasks-index", "", `the Agent's tasks index node (a ref; an explicit empty clears it)`)
+	cmd.Flags().StringVar(&processesIndex, "processes-index", "", `the Agent's processes index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "read the shared prompt template from a file (multi-line safe); mutually exclusive with --system-prompt")
 	registerRetiredPersonaPromptFlags(cmd)
 	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
@@ -764,4 +793,231 @@ func changedStr(cmd *cobra.Command, flag, val string) *string {
 		return &val
 	}
 	return nil
+}
+
+// ---- #874: the Agent's two index refs (cor:dmo:050:15 / :16) --------------
+
+// inheritedFromDTO names the base a listed node came through.
+type inheritedFromDTO struct {
+	AgentID  string `json:"agentId"`
+	AgentUrn string `json:"agentUrn"`
+}
+
+// listedNodeDTO is the node half of a list row, in the server's own shape.
+type listedNodeDTO struct {
+	ID            string            `json:"id"`
+	URN           string            `json:"urn"`
+	Name          string            `json:"name"`
+	InheritedFrom *inheritedFromDTO `json:"inheritedFrom"`
+}
+
+// listedTaskDTO is one `agent tasks list` row: the server shape unchanged.
+type listedTaskDTO struct {
+	Node    listedNodeDTO `json:"node"`
+	Trigger *string       `json:"trigger"`
+}
+
+// listedProcessDTO is one `agent processes list` row; kind keeps the server's
+// enum in --json and renders lower-case in the table.
+type listedProcessDTO struct {
+	Node    listedNodeDTO `json:"node"`
+	Kind    string        `json:"kind"`
+	Trigger *string       `json:"trigger"`
+}
+
+// inheritedCell renders the base for a table cell: the base Agent's URN when
+// the node came through inheritance, blank for the Agent's own.
+func inheritedCell(n listedNodeDTO) string {
+	if n.InheritedFrom != nil {
+		return n.InheritedFrom.AgentUrn
+	}
+	return ""
+}
+
+// triggerCell renders an index edge's name, blank when no edge lists the row.
+func triggerCell(t *string) string {
+	if t == nil {
+		return ""
+	}
+	return *t
+}
+
+func newCmdAgentTasks(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "tasks <command>",
+		Short: "The Agent's effective task list",
+	}
+	cmd.AddCommand(newCmdAgentTasksList(f))
+	return cmd
+}
+
+func newCmdAgentTasksList(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list <agentRef>",
+		Aliases: []string{"ls"},
+		Short:   "List the tasks the Agent's workers see (own list plus inherited)",
+		Long: `List the Agent's effective task list — the tasks its own index
+edge lists plus everything inherited from the base it extends, deduped by
+the server (cor:dmo:050:15). TRIGGER is the index edge that lists the task
+(blank when none does); INHERITED FROM names the base Agent for a task that
+comes through inheritance (blank for the Agent's own).`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref := strings.TrimSpace(args[0])
+			if ref == "" {
+				return exitcode.Newf(exitcode.Usage, "the agent reference is empty")
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.AgentTaskIndexList(cmd.Context(), client, ref)
+			if err != nil {
+				return api.MapError(err)
+			}
+			rows := make([]listedTaskDTO, 0, len(resp.AgentTaskList))
+			for _, row := range resp.AgentTaskList {
+				rows = append(rows, listedTaskDTO{
+					Node: listedNodeDTO{
+						ID:            row.Node.Id,
+						URN:           row.Node.Urn,
+						Name:          row.Node.Name,
+						InheritedFrom: taskInheritedFromDTO(row.Node.InheritedFrom),
+					},
+					Trigger: row.Trigger,
+				})
+			}
+			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
+				t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM")
+				for _, row := range rows {
+					t.Row(triggerCell(row.Trigger), row.Node.Name, row.Node.URN, inheritedCell(row.Node))
+				}
+				return t.Flush()
+			})
+		},
+	}
+	return cmd
+}
+
+func newCmdAgentProcesses(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "processes <command>",
+		Short: "The Agent's effective process list",
+	}
+	cmd.AddCommand(newCmdAgentProcessesList(f))
+	return cmd
+}
+
+func newCmdAgentProcessesList(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list <agentRef>",
+		Aliases: []string{"ls"},
+		Short:   "List the processes the Agent's workers see (own list plus inherited)",
+		Long: `List the Agent's effective process list — the processes its own
+index edge lists plus everything inherited from the base it extends, deduped
+by the server (cor:dmo:050:16). KIND is STARTS (the process is listed in the
+Agent's own processes index) or INVOLVED (the process has a stage edge to
+one of the Agent's tasks); TRIGGER is the index edge's name for STARTS rows
+and blank for INVOLVED; INHERITED FROM names the base Agent where it applies.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref := strings.TrimSpace(args[0])
+			if ref == "" {
+				return exitcode.Newf(exitcode.Usage, "the agent reference is empty")
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.AgentProcessIndexList(cmd.Context(), client, ref)
+			if err != nil {
+				return api.MapError(err)
+			}
+			rows := make([]listedProcessDTO, 0, len(resp.AgentProcessList))
+			for _, row := range resp.AgentProcessList {
+				rows = append(rows, listedProcessDTO{
+					Node: listedNodeDTO{
+						ID:            row.Node.Id,
+						URN:           row.Node.Urn,
+						Name:          row.Node.Name,
+						InheritedFrom: processInheritedFromDTO(row.Node.InheritedFrom),
+					},
+					Kind:    string(row.Kind),
+					Trigger: row.Trigger,
+				})
+			}
+			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
+				t := output.NewTable(w, "TRIGGER", "KIND", "NAME", "URN", "INHERITED FROM")
+				for _, row := range rows {
+					t.Row(triggerCell(row.Trigger), strings.ToLower(row.Kind), row.Node.Name, row.Node.URN, inheritedCell(row.Node))
+				}
+				return t.Flush()
+			})
+		},
+	}
+	return cmd
+}
+
+// The generated row types are deeply nested; alias the ones reused here.
+type taskListedInherited = gen.AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom
+type processListedInherited = gen.AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom
+
+func taskInheritedFromDTO(inherited *taskListedInherited) *inheritedFromDTO {
+	if inherited == nil {
+		return nil
+	}
+	return &inheritedFromDTO{AgentID: inherited.AgentId, AgentUrn: inherited.AgentUrn}
+}
+
+func processInheritedFromDTO(inherited *processListedInherited) *inheritedFromDTO {
+	if inherited == nil {
+		return nil
+	}
+	return &inheritedFromDTO{AgentID: inherited.AgentId, AgentUrn: inherited.AgentUrn}
+}
+
+// applyAgentIndexRefChanges applies --tasks-index/--processes-index: a value
+// SETS the ref, an explicit empty CLEARS it, an absent flag PRESERVES it —
+// the server's three-state contract (an omitted argument preserves, an
+// explicit null clears). Value flags share one call; each cleared ref takes
+// its own clear call, which preserves the other by omitting it.
+func applyAgentIndexRefChanges(ctx context.Context, client graphql.Client, ref string, tasksChanged bool, tasksIndex string, processesChanged bool, processesIndex string) (*gen.AgentFields, error) {
+	var tasksVal, processesVal *string
+	if tasksChanged && tasksIndex != "" {
+		t := tasksIndex
+		tasksVal = &t
+	}
+	if processesChanged && processesIndex != "" {
+		p := processesIndex
+		processesVal = &p
+	}
+	var fields *gen.AgentFields
+	if tasksVal != nil || processesVal != nil {
+		resp, err := gen.SetAgentIndexRefs(ctx, client, ref, tasksVal, processesVal)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		if resp.SetAgentIndexRefs != nil {
+			fields = &resp.SetAgentIndexRefs.AgentFields
+		}
+	}
+	if tasksChanged && tasksIndex == "" {
+		resp, err := gen.ClearAgentTasksIndex(ctx, client, ref, nil)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		if resp.SetAgentIndexRefs != nil {
+			fields = &resp.SetAgentIndexRefs.AgentFields
+		}
+	}
+	if processesChanged && processesIndex == "" {
+		resp, err := gen.ClearAgentProcessesIndex(ctx, client, ref, nil)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		if resp.SetAgentIndexRefs != nil {
+			fields = &resp.SetAgentIndexRefs.AgentFields
+		}
+	}
+	return fields, nil
 }

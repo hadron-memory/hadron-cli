@@ -613,9 +613,18 @@ type AgentFields struct {
 	SystemMemoryId *string         `json:"systemMemoryId"`
 	// Templated Agent prompt. {{name}}/{{role}} bind to the Agent in chats or the named Worker in briefings.
 	SystemPrompt *string `json:"systemPrompt"`
-	AiProvider   *string `json:"aiProvider"`
-	AiModel      *string `json:"aiModel"`
-	HasAiApiKey  bool    `json:"hasAiApiKey"`
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - the id of the index node whose incoming,
+	// trigger-labelled edges list this Agent's own tasks, or null. Set or clear
+	// it with setAgentIndexRefs; read the Agent's whole task list with agentTaskList.
+	TasksIndexRef *string `json:"tasksIndexRef"`
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - the id of the index node whose incoming,
+	// trigger-labelled edges list the processes this Agent starts or owns, or
+	// null. Set or clear it with setAgentIndexRefs; read the Agent's processes
+	// with agentProcessList.
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+	AiProvider        *string `json:"aiProvider"`
+	AiModel           *string `json:"aiModel"`
+	HasAiApiKey       bool    `json:"hasAiApiKey"`
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
 	CreatedAt   string  `json:"createdAt"`
@@ -650,6 +659,12 @@ func (v *AgentFields) GetSystemMemoryId() *string { return v.SystemMemoryId }
 
 // GetSystemPrompt returns AgentFields.SystemPrompt, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetSystemPrompt() *string { return v.SystemPrompt }
+
+// GetTasksIndexRef returns AgentFields.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetTasksIndexRef() *string { return v.TasksIndexRef }
+
+// GetProcessesIndexRef returns AgentFields.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetProcessesIndexRef() *string { return v.ProcessesIndexRef }
 
 // GetAiProvider returns AgentFields.AiProvider, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetAiProvider() *string { return v.AiProvider }
@@ -687,6 +702,111 @@ func (v *AgentFilter) GetType() *AgentType { return v.Type }
 
 // GetVisibility returns AgentFilter.Visibility, and is useful for accessing the field via an interface.
 func (v *AgentFilter) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// AgentProcessIndexListAgentProcessListAgentListedProcess includes the requested fields of the GraphQL type AgentListedProcess.
+// The GraphQL type's documentation follows.
+//
+// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - one process on an Agent's process list.
+type AgentProcessIndexListAgentProcessListAgentListedProcess struct {
+	Node *AgentProcessIndexListAgentProcessListAgentListedProcessNode `json:"node"`
+	Kind AgentProcessKind                                             `json:"kind"`
+	// The name of the index edge that lists it, for STARTS; always null for INVOLVED.
+	Trigger *string `json:"trigger"`
+}
+
+// GetNode returns AgentProcessIndexListAgentProcessListAgentListedProcess.Node, and is useful for accessing the field via an interface.
+func (v *AgentProcessIndexListAgentProcessListAgentListedProcess) GetNode() *AgentProcessIndexListAgentProcessListAgentListedProcessNode {
+	return v.Node
+}
+
+// GetKind returns AgentProcessIndexListAgentProcessListAgentListedProcess.Kind, and is useful for accessing the field via an interface.
+func (v *AgentProcessIndexListAgentProcessListAgentListedProcess) GetKind() AgentProcessKind {
+	return v.Kind
+}
+
+// GetTrigger returns AgentProcessIndexListAgentProcessListAgentListedProcess.Trigger, and is useful for accessing the field via an interface.
+func (v *AgentProcessIndexListAgentProcessListAgentListedProcess) GetTrigger() *string {
+	return v.Trigger
+}
+
+// AgentProcessIndexListAgentProcessListAgentListedProcessNode includes the requested fields of the GraphQL type Node.
+type AgentProcessIndexListAgentProcessListAgentListedProcessNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set when this node
+	// was read through an Agent that extends a base: the node belongs to that
+	// base's system memory and comes into the Agent's effective system memory by
+	// inheritance. The node keeps its own address (its urn is the base's); this
+	// names the base it comes from. Null for a node read in its own memory.
+	InheritedFrom *AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom `json:"inheritedFrom"`
+}
+
+// GetId returns AgentProcessIndexListAgentProcessListAgentListedProcessNode.Id, and is useful for accessing the field via an interface.
+func (v *AgentProcessIndexListAgentProcessListAgentListedProcessNode) GetId() string { return v.Id }
+
+// GetUrn returns AgentProcessIndexListAgentProcessListAgentListedProcessNode.Urn, and is useful for accessing the field via an interface.
+func (v *AgentProcessIndexListAgentProcessListAgentListedProcessNode) GetUrn() string { return v.Urn }
+
+// GetName returns AgentProcessIndexListAgentProcessListAgentListedProcessNode.Name, and is useful for accessing the field via an interface.
+func (v *AgentProcessIndexListAgentProcessListAgentListedProcessNode) GetName() string { return v.Name }
+
+// GetInheritedFrom returns AgentProcessIndexListAgentProcessListAgentListedProcessNode.InheritedFrom, and is useful for accessing the field via an interface.
+func (v *AgentProcessIndexListAgentProcessListAgentListedProcessNode) GetInheritedFrom() *AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom {
+	return v.InheritedFrom
+}
+
+// AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom includes the requested fields of the GraphQL type InheritedFrom.
+// The GraphQL type's documentation follows.
+//
+// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the base Agent an
+// inherited node comes from.
+type AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom struct {
+	AgentId string `json:"agentId"`
+	// The base Agent's URN, fully qualified.
+	AgentUrn string `json:"agentUrn"`
+}
+
+// GetAgentId returns AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom.AgentId, and is useful for accessing the field via an interface.
+func (v *AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom) GetAgentId() string {
+	return v.AgentId
+}
+
+// GetAgentUrn returns AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom.AgentUrn, and is useful for accessing the field via an interface.
+func (v *AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom) GetAgentUrn() string {
+	return v.AgentUrn
+}
+
+// AgentProcessIndexListResponse is returned by AgentProcessIndexList on success.
+type AgentProcessIndexListResponse struct {
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - an Agent's processes: the ones its own
+	// processes index lists (STARTS, with the edge's trigger), then the ones with
+	// a stage edge (named 'stage ...') to one of its agentTaskList tasks (INVOLVED, no
+	// trigger), each once. Same gate as agentTaskList; the MCP tool
+	// hadron_agent_processes returns the same list. Accepts the Agent's ID or URN.
+	AgentProcessList []*AgentProcessIndexListAgentProcessListAgentListedProcess `json:"agentProcessList"`
+}
+
+// GetAgentProcessList returns AgentProcessIndexListResponse.AgentProcessList, and is useful for accessing the field via an interface.
+func (v *AgentProcessIndexListResponse) GetAgentProcessList() []*AgentProcessIndexListAgentProcessListAgentListedProcess {
+	return v.AgentProcessList
+}
+
+// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - how an Agent takes part in a process.
+type AgentProcessKind string
+
+const (
+	// Derived: the process has a stage edge to one of the Agent's tasks.
+	AgentProcessKindInvolved AgentProcessKind = "INVOLVED"
+	// Listed in the Agent's processes index: a process it starts or owns.
+	AgentProcessKindStarts AgentProcessKind = "STARTS"
+)
+
+var AllAgentProcessKind = []AgentProcessKind{
+	AgentProcessKindInvolved,
+	AgentProcessKindStarts,
+}
 
 // AgentScheduleFields includes the GraphQL fields of AgentSchedule requested by the fragment AgentScheduleFields.
 // The GraphQL type's documentation follows.
@@ -1709,9 +1829,8 @@ type AgentTaskFields struct {
 	StartedAt   *string `json:"startedAt"`
 	FinishedAt  *string `json:"finishedAt"`
 	CancelledAt *string `json:"cancelledAt"`
-	// Whether finishing asks the assignee to end its worker session
-	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns; stored only in this release,
-	// carried out by the host-operations slice.
+	// Whether finishing or cancelling asks the assignee to end its worker session
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns. #1709: carried out; see sessionEndRequest.
 	CloseSessionWhenDone bool                                              `json:"closeSessionWhenDone"`
 	Requirements         *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 	// Set only on a finished task.
@@ -2592,6 +2711,92 @@ type AgentTaskGetResponse struct {
 
 // GetAgentTask returns AgentTaskGetResponse.AgentTask, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetResponse) GetAgentTask() *AgentTaskGetAgentTask { return v.AgentTask }
+
+// AgentTaskIndexListAgentTaskListAgentListedTask includes the requested fields of the GraphQL type AgentListedTask.
+// The GraphQL type's documentation follows.
+//
+// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - one task on an Agent's task list.
+type AgentTaskIndexListAgentTaskListAgentListedTask struct {
+	// The task. A base's task, listed through the Agent, keeps its own URN and carries inheritedFrom.
+	Node *AgentTaskIndexListAgentTaskListAgentListedTaskNode `json:"node"`
+	// The name of the index edge that lists it; null for a task no index edge lists.
+	Trigger *string `json:"trigger"`
+}
+
+// GetNode returns AgentTaskIndexListAgentTaskListAgentListedTask.Node, and is useful for accessing the field via an interface.
+func (v *AgentTaskIndexListAgentTaskListAgentListedTask) GetNode() *AgentTaskIndexListAgentTaskListAgentListedTaskNode {
+	return v.Node
+}
+
+// GetTrigger returns AgentTaskIndexListAgentTaskListAgentListedTask.Trigger, and is useful for accessing the field via an interface.
+func (v *AgentTaskIndexListAgentTaskListAgentListedTask) GetTrigger() *string { return v.Trigger }
+
+// AgentTaskIndexListAgentTaskListAgentListedTaskNode includes the requested fields of the GraphQL type Node.
+type AgentTaskIndexListAgentTaskListAgentListedTaskNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set when this node
+	// was read through an Agent that extends a base: the node belongs to that
+	// base's system memory and comes into the Agent's effective system memory by
+	// inheritance. The node keeps its own address (its urn is the base's); this
+	// names the base it comes from. Null for a node read in its own memory.
+	InheritedFrom *AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom `json:"inheritedFrom"`
+}
+
+// GetId returns AgentTaskIndexListAgentTaskListAgentListedTaskNode.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskIndexListAgentTaskListAgentListedTaskNode) GetId() string { return v.Id }
+
+// GetUrn returns AgentTaskIndexListAgentTaskListAgentListedTaskNode.Urn, and is useful for accessing the field via an interface.
+func (v *AgentTaskIndexListAgentTaskListAgentListedTaskNode) GetUrn() string { return v.Urn }
+
+// GetName returns AgentTaskIndexListAgentTaskListAgentListedTaskNode.Name, and is useful for accessing the field via an interface.
+func (v *AgentTaskIndexListAgentTaskListAgentListedTaskNode) GetName() string { return v.Name }
+
+// GetInheritedFrom returns AgentTaskIndexListAgentTaskListAgentListedTaskNode.InheritedFrom, and is useful for accessing the field via an interface.
+func (v *AgentTaskIndexListAgentTaskListAgentListedTaskNode) GetInheritedFrom() *AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom {
+	return v.InheritedFrom
+}
+
+// AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom includes the requested fields of the GraphQL type InheritedFrom.
+// The GraphQL type's documentation follows.
+//
+// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the base Agent an
+// inherited node comes from.
+type AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom struct {
+	AgentId string `json:"agentId"`
+	// The base Agent's URN, fully qualified.
+	AgentUrn string `json:"agentUrn"`
+}
+
+// GetAgentId returns AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom.AgentId, and is useful for accessing the field via an interface.
+func (v *AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom) GetAgentId() string {
+	return v.AgentId
+}
+
+// GetAgentUrn returns AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom.AgentUrn, and is useful for accessing the field via an interface.
+func (v *AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom) GetAgentUrn() string {
+	return v.AgentUrn
+}
+
+// AgentTaskIndexListResponse is returned by AgentTaskIndexList on success.
+type AgentTaskIndexListResponse struct {
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - an Agent's tasks, across its base chain:
+	// every runnable node in its effective system memory, and every task the
+	// tasks index of an Agent in the chain lists, each once. A task an index
+	// lists carries that edge's name as its trigger, the nearest index's where
+	// two list it. Readable by whoever may read the Agent's system memory; a
+	// listed task outside the chain's memories is returned only when its own
+	// memory is readable too. Refused as AGENT_NOT_FOUND otherwise. The MCP tool
+	// hadron_agent_tasks returns the same list. Accepts the Agent's ID or URN.
+	AgentTaskList []*AgentTaskIndexListAgentTaskListAgentListedTask `json:"agentTaskList"`
+}
+
+// GetAgentTaskList returns AgentTaskIndexListResponse.AgentTaskList, and is useful for accessing the field via an interface.
+func (v *AgentTaskIndexListResponse) GetAgentTaskList() []*AgentTaskIndexListAgentTaskListAgentListedTask {
+	return v.AgentTaskList
+}
 
 // AgentTaskListAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
 // The GraphQL type's documentation follows.
@@ -5543,6 +5748,16 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetSystemPrompt() *string {
 	return v.AgentFields.SystemPrompt
 }
 
+// GetTasksIndexRef returns AgentsAgentsAgentsPageItemsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns AgentsAgentsAgentsPageItemsAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
 // GetAiProvider returns AgentsAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -5604,6 +5819,10 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -5636,6 +5855,8 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -9536,6 +9757,400 @@ func (v *ChatMessagesResponse) GetFindNodes() *ChatMessagesFindNodesFindNodesRes
 	return v.FindNodes
 }
 
+// ClearAgentProcessesIndexResponse is returned by ClearAgentProcessesIndex on success.
+type ClearAgentProcessesIndexResponse struct {
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15, hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - set or clear
+	// this Agent's tasks-index and processes-index pointers. An omitted argument
+	// leaves that pointer unchanged; null clears it. Each target is a node ID or
+	// fully-qualified URN, and must be a live node the caller may read (refused
+	// as NODE_NOT_FOUND otherwise). Whoever manages this Agent may call it.
+	// Accepts the Agent's ID or URN.
+	SetAgentIndexRefs *ClearAgentProcessesIndexSetAgentIndexRefsAgent `json:"setAgentIndexRefs"`
+}
+
+// GetSetAgentIndexRefs returns ClearAgentProcessesIndexResponse.SetAgentIndexRefs, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexResponse) GetSetAgentIndexRefs() *ClearAgentProcessesIndexSetAgentIndexRefsAgent {
+	return v.SetAgentIndexRefs
+}
+
+// ClearAgentProcessesIndexSetAgentIndexRefsAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type ClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.Id, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.Urn, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.Name, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.Description, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.Type, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetType() AgentType {
+	return v.AgentFields.Type
+}
+
+// GetVisibility returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetSystemPrompt returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetSystemPrompt() *string {
+	return v.AgentFields.SystemPrompt
+}
+
+// GetTasksIndexRef returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetAiProvider returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetAiModel() *string {
+	return v.AgentFields.AiModel
+}
+
+// GetHasAiApiKey returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetCreatedAt returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ClearAgentProcessesIndexSetAgentIndexRefsAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ClearAgentProcessesIndexSetAgentIndexRefsAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent, error) {
+	var retval __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// ClearAgentTasksIndexResponse is returned by ClearAgentTasksIndex on success.
+type ClearAgentTasksIndexResponse struct {
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15, hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - set or clear
+	// this Agent's tasks-index and processes-index pointers. An omitted argument
+	// leaves that pointer unchanged; null clears it. Each target is a node ID or
+	// fully-qualified URN, and must be a live node the caller may read (refused
+	// as NODE_NOT_FOUND otherwise). Whoever manages this Agent may call it.
+	// Accepts the Agent's ID or URN.
+	SetAgentIndexRefs *ClearAgentTasksIndexSetAgentIndexRefsAgent `json:"setAgentIndexRefs"`
+}
+
+// GetSetAgentIndexRefs returns ClearAgentTasksIndexResponse.SetAgentIndexRefs, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexResponse) GetSetAgentIndexRefs() *ClearAgentTasksIndexSetAgentIndexRefsAgent {
+	return v.SetAgentIndexRefs
+}
+
+// ClearAgentTasksIndexSetAgentIndexRefsAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type ClearAgentTasksIndexSetAgentIndexRefsAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns ClearAgentTasksIndexSetAgentIndexRefsAgent.Id, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns ClearAgentTasksIndexSetAgentIndexRefsAgent.Urn, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns ClearAgentTasksIndexSetAgentIndexRefsAgent.Name, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns ClearAgentTasksIndexSetAgentIndexRefsAgent.Description, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns ClearAgentTasksIndexSetAgentIndexRefsAgent.Type, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns ClearAgentTasksIndexSetAgentIndexRefsAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns ClearAgentTasksIndexSetAgentIndexRefsAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns ClearAgentTasksIndexSetAgentIndexRefsAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns ClearAgentTasksIndexSetAgentIndexRefsAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetSystemPrompt returns ClearAgentTasksIndexSetAgentIndexRefsAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetSystemPrompt() *string {
+	return v.AgentFields.SystemPrompt
+}
+
+// GetTasksIndexRef returns ClearAgentTasksIndexSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns ClearAgentTasksIndexSetAgentIndexRefsAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetAiProvider returns ClearAgentTasksIndexSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns ClearAgentTasksIndexSetAgentIndexRefsAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetAiModel() *string {
+	return v.AgentFields.AiModel
+}
+
+// GetHasAiApiKey returns ClearAgentTasksIndexSetAgentIndexRefsAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns ClearAgentTasksIndexSetAgentIndexRefsAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetCreatedAt returns ClearAgentTasksIndexSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ClearAgentTasksIndexSetAgentIndexRefsAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ClearAgentTasksIndexSetAgentIndexRefsAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__premarshalClearAgentTasksIndexSetAgentIndexRefsAgent, error) {
+	var retval __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
 // ClearNodeHistoryResponse is returned by ClearNodeHistory on success.
 type ClearNodeHistoryResponse struct {
 	// Delete ALL NodeRevision rows for a node, returning the count deleted (#617).
@@ -11524,6 +12139,14 @@ func (v *CreateAgentCreateAgent) GetSystemMemoryId() *string { return v.AgentFie
 // GetSystemPrompt returns CreateAgentCreateAgent.SystemPrompt, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
 
+// GetTasksIndexRef returns CreateAgentCreateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
+
+// GetProcessesIndexRef returns CreateAgentCreateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
 // GetAiProvider returns CreateAgentCreateAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -11585,6 +12208,10 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -11617,6 +12244,8 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -16499,8 +17128,8 @@ func (v *CreateUserInvitationResponse) GetCreateUserInvitation() *CreateUserInvi
 // DeleteAgentResponse is returned by DeleteAgent on success.
 type DeleteAgentResponse struct {
 	// Soft-delete an Agent and its owned system memory. Refuses while a live
-	// App install or live parent Agent import references it. AgentMemoryItem
-	// attachments do not block deletion.
+	// App install or live parent Agent import references it, or a live Agent
+	// extends it as its base. AgentMemoryItem attachments do not block deletion.
 	//
 	// See hrn:node:hadronmemory.com:specs:cor:dmo:050:14.
 	//
@@ -18048,6 +18677,12 @@ func (v *GetAgentAgent) GetSystemMemoryId() *string { return v.AgentFields.Syste
 // GetSystemPrompt returns GetAgentAgent.SystemPrompt, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
 
+// GetTasksIndexRef returns GetAgentAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
+
+// GetProcessesIndexRef returns GetAgentAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetProcessesIndexRef() *string { return v.AgentFields.ProcessesIndexRef }
+
 // GetAiProvider returns GetAgentAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -18109,6 +18744,10 @@ type __premarshalGetAgentAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -18141,6 +18780,8 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -20983,7 +21624,7 @@ func (v *HostOperationsHostOperationsHostOperationPageItemsHostOperation) __prem
 
 // HostOperationsResponse is returned by HostOperations on success.
 type HostOperationsResponse struct {
-	// #1709 — the App's host operations, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:02). Whoever reads the App's tasks and events. A host key (one ever granted host:operate) sees only its own host's operations (hrn:node:hadronmemory.com:specs:cor:agt:070:04, Holger 2026-10-13): another hostId returns nothing. after: the endCursor of the previous page.
+	// #1709 — the App's host operations, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:02). Whoever reads the App's tasks and events. A host key (one ever granted host:operate, revoked or not) is refused with FORBIDDEN, whatever it passes: it sees its own host's operations only by collecting them (hrn:node:hadronmemory.com:specs:cor:agt:070:04 S5, Holger's ruling 0). after: the endCursor of the previous page.
 	HostOperations *HostOperationsHostOperationsHostOperationPage `json:"hostOperations"`
 }
 
@@ -21665,10 +22306,12 @@ func (v *IssueHostOperationIssueHostOperation) __premarshalJSON() (*__premarshal
 type IssueHostOperationResponse struct {
 	// #1709 — issue an operation to one of the App's registered hosts (hrn:node:hadronmemory.com:specs:cor:agt:070:05).
 	// A type outside the closed set is HOST_OPERATION_TYPE_UNKNOWN (hrn:node:hadronmemory.com:specs:cor:agt:070:03), a
-	// missing, extra or malformed argument BAD_HOST_OPERATION_ARGS. Issued today: worktree.create and worktree.remove, by
-	// the worker's holder, the worker it reports to, or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED).
-	// worker.start and worker.end ship with #1709's next slices, and worker.deliver with a host delivery path:
-	// HOST_OPERATION_NOT_ISSUABLE until then. An unregistered host is HOST_NOT_FOUND.
+	// missing, extra or malformed argument BAD_HOST_OPERATION_ARGS. worktree.create and worktree.remove: the worker's
+	// holder, the worker it reports to, or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED). worker.start:
+	// whoever manages the App only, with an optional taskId, for a held worker with no live session and no start in
+	// flight, in a worktree and family the live host registers for it (WORKER_NOT_HELD, WORKER_LIVE,
+	// WORKER_START_PENDING). worker.end ships with #1709's close-on-finish slice, and worker.deliver with a host delivery
+	// path: HOST_OPERATION_NOT_ISSUABLE until then. An unregistered host is HOST_NOT_FOUND.
 	IssueHostOperation *IssueHostOperationIssueHostOperation `json:"issueHostOperation"`
 }
 
@@ -29706,6 +30349,16 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetSystemPrompt() *string
 	return v.AgentFields.SystemPrompt
 }
 
+// GetTasksIndexRef returns PublicAgentsPublicAgentsAgentsPageItemsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns PublicAgentsPublicAgentsAgentsPageItemsAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
 // GetAiProvider returns PublicAgentsPublicAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -29777,6 +30430,10 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -29809,6 +30466,8 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -31973,7 +32632,7 @@ func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) __premarshalJSO
 
 // RequestNodeSignatureResponse is returned by RequestNodeSignature on success.
 type RequestNodeSignatureResponse struct {
-	// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — ask for a node's current content to be signed. Any reader of the node may ask, agents included; agents never sign. expectedRevision, when given, must still be current (REVISION_MISMATCH). signerRef names one signer (a user id); omitted, any writer of the memory may sign. Refusals: NODE_NOT_FOUND, ENCRYPTED_MEMORY_NOT_APPLICABLE, and (hrn:node:hadronmemory.com:specs:cor:dmo:130:02, Holger #10430) COMMENT_NOT_SIGNABLE, NODE_IS_PLACEHOLDER, REVISION_MISMATCH, SIGNER_NOT_FOUND. No call takes an assertion: the signer signs on the server-hosted ceremony page (S2b-2).
+	// #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — ask for a node's current content to be signed. Any reader of the node may ask, agents included; agents never sign. expectedRevision, when given, must still be current (REVISION_MISMATCH). signerRef names one signer (a user id); omitted, any writer of the memory may sign. Refusals: NODE_NOT_FOUND, ENCRYPTED_MEMORY_NOT_APPLICABLE, and (hrn:node:hadronmemory.com:specs:cor:dmo:130:02, Holger #10430) COMMENT_NOT_SIGNABLE, NODE_IS_PLACEHOLDER, REVISION_MISMATCH, SIGNER_NOT_FOUND, and (Holger #11094, #1904) SIGNER_NOT_A_WRITER when the named signer may not write the node's memory (checked again when they sign or decline). No call takes an assertion: the signer signs on the server-hosted ceremony page (S2b-2).
 	RequestNodeSignature *RequestNodeSignatureRequestNodeSignatureSigningRequest `json:"requestNodeSignature"`
 }
 
@@ -35645,10 +36304,17 @@ type SessionInput struct {
 	// payload (who last drove it, when) before retrying with force - that IS the
 	// informed-takeover contract; force exists so the override is explicit,
 	// never the default.
-	Force           *bool   `json:"force,omitempty"`
-	Host            *string `json:"host,omitempty"`
-	Id              string  `json:"id"`
-	Language        *string `json:"language,omitempty"`
+	Force    *bool   `json:"force,omitempty"`
+	Host     *string `json:"host,omitempty"`
+	Id       string  `json:"id"`
+	Language *string `json:"language,omitempty"`
+	// #1709 — the single-use launch grant a host passed to the agent it started (hrn:node:hadronmemory.com:specs:cor:agt:070:08).
+	// Redeemed with the HOLDER's own token: it binds that worker on the holder's behalf and records the launching host,
+	// operation and task; the hold is unchanged. workerRef may be omitted (the grant names the worker). Refused
+	// LAUNCH_GRANT_INVALID when unknown, expired, used or not minted for the caller (an App key never redeems one);
+	// LAUNCH_REFUSED, failing the start with the reason, when the hold changed, the holder may no longer hold the
+	// worker, or it already has a live session. Never forced: with force it is BAD_USER_INPUT.
+	LaunchGrant     *string `json:"launchGrant"`
 	LlmModel        *string `json:"llmModel,omitempty"`
 	ParentSessionId *string `json:"parentSessionId,omitempty"`
 	// The session's stated intent (Session.plan) - what this session is about. MCP's hadron_start_session description lands here.
@@ -35730,6 +36396,9 @@ func (v *SessionInput) GetId() string { return v.Id }
 // GetLanguage returns SessionInput.Language, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetLanguage() *string { return v.Language }
 
+// GetLaunchGrant returns SessionInput.LaunchGrant, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetLaunchGrant() *string { return v.LaunchGrant }
+
 // GetLlmModel returns SessionInput.LlmModel, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetLlmModel() *string { return v.LlmModel }
 
@@ -35762,6 +36431,200 @@ func (v *SessionInput) GetType() *string { return v.Type }
 
 // GetWorkerRef returns SessionInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetWorkerRef() *string { return v.WorkerRef }
+
+// SetAgentIndexRefsResponse is returned by SetAgentIndexRefs on success.
+type SetAgentIndexRefsResponse struct {
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15, hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - set or clear
+	// this Agent's tasks-index and processes-index pointers. An omitted argument
+	// leaves that pointer unchanged; null clears it. Each target is a node ID or
+	// fully-qualified URN, and must be a live node the caller may read (refused
+	// as NODE_NOT_FOUND otherwise). Whoever manages this Agent may call it.
+	// Accepts the Agent's ID or URN.
+	SetAgentIndexRefs *SetAgentIndexRefsSetAgentIndexRefsAgent `json:"setAgentIndexRefs"`
+}
+
+// GetSetAgentIndexRefs returns SetAgentIndexRefsResponse.SetAgentIndexRefs, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsResponse) GetSetAgentIndexRefs() *SetAgentIndexRefsSetAgentIndexRefsAgent {
+	return v.SetAgentIndexRefs
+}
+
+// SetAgentIndexRefsSetAgentIndexRefsAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type SetAgentIndexRefsSetAgentIndexRefsAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns SetAgentIndexRefsSetAgentIndexRefsAgent.Id, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns SetAgentIndexRefsSetAgentIndexRefsAgent.Urn, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns SetAgentIndexRefsSetAgentIndexRefsAgent.Name, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns SetAgentIndexRefsSetAgentIndexRefsAgent.Description, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns SetAgentIndexRefsSetAgentIndexRefsAgent.Type, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns SetAgentIndexRefsSetAgentIndexRefsAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns SetAgentIndexRefsSetAgentIndexRefsAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns SetAgentIndexRefsSetAgentIndexRefsAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns SetAgentIndexRefsSetAgentIndexRefsAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetSystemPrompt returns SetAgentIndexRefsSetAgentIndexRefsAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetSystemPrompt() *string {
+	return v.AgentFields.SystemPrompt
+}
+
+// GetTasksIndexRef returns SetAgentIndexRefsSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns SetAgentIndexRefsSetAgentIndexRefsAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetAiProvider returns SetAgentIndexRefsSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns SetAgentIndexRefsSetAgentIndexRefsAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns SetAgentIndexRefsSetAgentIndexRefsAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns SetAgentIndexRefsSetAgentIndexRefsAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetCreatedAt returns SetAgentIndexRefsSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetAgentIndexRefsSetAgentIndexRefsAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetAgentIndexRefsSetAgentIndexRefsAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premarshalSetAgentIndexRefsSetAgentIndexRefsAgent, error) {
+	var retval __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
 
 type SetModelFamilyAvailabilityInput struct {
 	AppRef string `json:"appRef"`
@@ -42167,6 +43030,14 @@ func (v *UpdateAgentUpdateAgent) GetSystemMemoryId() *string { return v.AgentFie
 // GetSystemPrompt returns UpdateAgentUpdateAgent.SystemPrompt, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
 
+// GetTasksIndexRef returns UpdateAgentUpdateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
+
+// GetProcessesIndexRef returns UpdateAgentUpdateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
 // GetAiProvider returns UpdateAgentUpdateAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -42228,6 +43099,10 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	SystemPrompt *string `json:"systemPrompt"`
 
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -42260,6 +43135,8 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -48896,6 +49773,14 @@ func (v *__AdvanceChannelReadStateInput) GetSeq() int { return v.Seq }
 // GetAppRef returns __AdvanceChannelReadStateInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AdvanceChannelReadStateInput) GetAppRef() *string { return v.AppRef }
 
+// __AgentProcessIndexListInput is used internally by genqlient
+type __AgentProcessIndexListInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AgentProcessIndexListInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AgentProcessIndexListInput) GetRef() string { return v.Ref }
+
 // __AgentSchedulesInput is used internally by genqlient
 type __AgentSchedulesInput struct {
 	AppRef string `json:"appRef"`
@@ -48963,6 +49848,14 @@ type __AgentTaskGetInput struct {
 
 // GetId returns __AgentTaskGetInput.Id, and is useful for accessing the field via an interface.
 func (v *__AgentTaskGetInput) GetId() string { return v.Id }
+
+// __AgentTaskIndexListInput is used internally by genqlient
+type __AgentTaskIndexListInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AgentTaskIndexListInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AgentTaskIndexListInput) GetRef() string { return v.Ref }
 
 // __AgentTaskListInput is used internally by genqlient
 type __AgentTaskListInput struct {
@@ -49449,6 +50342,30 @@ func (v *__ChatMessagesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __ChatMessagesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ChatMessagesInput) GetOffset() *int { return v.Offset }
+
+// __ClearAgentProcessesIndexInput is used internally by genqlient
+type __ClearAgentProcessesIndexInput struct {
+	Ref               string  `json:"ref"`
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+}
+
+// GetRef returns __ClearAgentProcessesIndexInput.Ref, and is useful for accessing the field via an interface.
+func (v *__ClearAgentProcessesIndexInput) GetRef() string { return v.Ref }
+
+// GetProcessesIndexRef returns __ClearAgentProcessesIndexInput.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *__ClearAgentProcessesIndexInput) GetProcessesIndexRef() *string { return v.ProcessesIndexRef }
+
+// __ClearAgentTasksIndexInput is used internally by genqlient
+type __ClearAgentTasksIndexInput struct {
+	Ref           string  `json:"ref"`
+	TasksIndexRef *string `json:"tasksIndexRef"`
+}
+
+// GetRef returns __ClearAgentTasksIndexInput.Ref, and is useful for accessing the field via an interface.
+func (v *__ClearAgentTasksIndexInput) GetRef() string { return v.Ref }
+
+// GetTasksIndexRef returns __ClearAgentTasksIndexInput.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *__ClearAgentTasksIndexInput) GetTasksIndexRef() *string { return v.TasksIndexRef }
 
 // __ClearNodeHistoryInput is used internally by genqlient
 type __ClearNodeHistoryInput struct {
@@ -51902,6 +52819,22 @@ type __SelectedSkillFilePlanInput struct {
 // GetInput returns __SelectedSkillFilePlanInput.Input, and is useful for accessing the field via an interface.
 func (v *__SelectedSkillFilePlanInput) GetInput() *SelectedSkillFilePlanInput { return v.Input }
 
+// __SetAgentIndexRefsInput is used internally by genqlient
+type __SetAgentIndexRefsInput struct {
+	Ref               string  `json:"ref"`
+	TasksIndexRef     *string `json:"tasksIndexRef,omitempty"`
+	ProcessesIndexRef *string `json:"processesIndexRef,omitempty"`
+}
+
+// GetRef returns __SetAgentIndexRefsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SetAgentIndexRefsInput) GetRef() string { return v.Ref }
+
+// GetTasksIndexRef returns __SetAgentIndexRefsInput.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *__SetAgentIndexRefsInput) GetTasksIndexRef() *string { return v.TasksIndexRef }
+
+// GetProcessesIndexRef returns __SetAgentIndexRefsInput.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *__SetAgentIndexRefsInput) GetProcessesIndexRef() *string { return v.ProcessesIndexRef }
+
 // __SetWorkerReportsToInput is used internally by genqlient
 type __SetWorkerReportsToInput struct {
 	WorkerRef string  `json:"workerRef"`
@@ -53324,6 +54257,50 @@ func AdvanceChannelReadState(
 	return data_, err_
 }
 
+// The query executed by AgentProcessIndexList.
+const AgentProcessIndexList_Operation = `
+query AgentProcessIndexList ($ref: ID!) {
+	agentProcessList(ref: $ref) {
+		node {
+			id
+			urn
+			name
+			inheritedFrom {
+				agentId
+				agentUrn
+			}
+		}
+		kind
+		trigger
+	}
+}
+`
+
+func AgentProcessIndexList(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AgentProcessIndexListResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentProcessIndexList",
+		Query:  AgentProcessIndexList_Operation,
+		Variables: &__AgentProcessIndexListInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AgentProcessIndexListResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AgentSchedules.
 const AgentSchedules_Operation = `
 query AgentSchedules ($appRef: String!, $limit: Int, $offset: Int) {
@@ -53795,6 +54772,49 @@ func AgentTaskGet(
 	}
 
 	data_ = &AgentTaskGetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentTaskIndexList.
+const AgentTaskIndexList_Operation = `
+query AgentTaskIndexList ($ref: ID!) {
+	agentTaskList(ref: $ref) {
+		node {
+			id
+			urn
+			name
+			inheritedFrom {
+				agentId
+				agentUrn
+			}
+		}
+		trigger
+	}
+}
+`
+
+func AgentTaskIndexList(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AgentTaskIndexListResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskIndexList",
+		Query:  AgentTaskIndexList_Operation,
+		Variables: &__AgentTaskIndexListInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AgentTaskIndexListResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -54571,6 +55591,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -55864,6 +56886,119 @@ func ChatMessages(
 	return data_, err_
 }
 
+// The mutation executed by ClearAgentProcessesIndex.
+const ClearAgentProcessesIndex_Operation = `
+mutation ClearAgentProcessesIndex ($ref: ID!, $processesIndexRef: ID) {
+	setAgentIndexRefs(ref: $ref, processesIndexRef: $processesIndexRef) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	tasksIndexRef
+	processesIndexRef
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	createdAt
+}
+`
+
+func ClearAgentProcessesIndex(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	processesIndexRef *string,
+) (data_ *ClearAgentProcessesIndexResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClearAgentProcessesIndex",
+		Query:  ClearAgentProcessesIndex_Operation,
+		Variables: &__ClearAgentProcessesIndexInput{
+			Ref:               ref,
+			ProcessesIndexRef: processesIndexRef,
+		},
+	}
+
+	data_ = &ClearAgentProcessesIndexResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ClearAgentTasksIndex.
+const ClearAgentTasksIndex_Operation = `
+mutation ClearAgentTasksIndex ($ref: ID!, $tasksIndexRef: ID) {
+	setAgentIndexRefs(ref: $ref, tasksIndexRef: $tasksIndexRef) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	tasksIndexRef
+	processesIndexRef
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	createdAt
+}
+`
+
+// The clear variable deliberately has NO omitempty: a nil pointer marshals
+// as an explicit null in the variables — the server's clear — while the
+// untouched ref is OMITTED from the document entirely, and omitted preserves.
+func ClearAgentTasksIndex(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	tasksIndexRef *string,
+) (data_ *ClearAgentTasksIndexResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClearAgentTasksIndex",
+		Query:  ClearAgentTasksIndex_Operation,
+		Variables: &__ClearAgentTasksIndexInput{
+			Ref:           ref,
+			TasksIndexRef: tasksIndexRef,
+		},
+	}
+
+	data_ = &ClearAgentTasksIndexResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ClearNodeHistory.
 const ClearNodeHistory_Operation = `
 mutation ClearNodeHistory ($nodeRef: ID!) {
@@ -56261,6 +57396,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -59569,6 +60706,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -63458,6 +64597,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -65695,6 +66836,70 @@ func ServerInfo(
 	return data_, err_
 }
 
+// The mutation executed by SetAgentIndexRefs.
+const SetAgentIndexRefs_Operation = `
+mutation SetAgentIndexRefs ($ref: ID!, $tasksIndexRef: ID, $processesIndexRef: ID) {
+	setAgentIndexRefs(ref: $ref, tasksIndexRef: $tasksIndexRef, processesIndexRef: $processesIndexRef) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	tasksIndexRef
+	processesIndexRef
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	createdAt
+}
+`
+
+// setAgentIndexRefs reads an OMITTED argument as preserve and an explicit
+// NULL as clear — a three-state wire contract one omitempty variable cannot
+// express. Values go through SetAgentIndexRefs (omitempty: a nil pointer is
+// omitted, so only the passed flags ride); each clear goes through its own
+// document below, whose variable marshals a nil pointer as an explicit null
+// for exactly the ref being cleared while the other stays omitted. The
+// resolver writes each ref independently, so a set and a clear compose.
+func SetAgentIndexRefs(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	tasksIndexRef *string,
+	processesIndexRef *string,
+) (data_ *SetAgentIndexRefsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAgentIndexRefs",
+		Query:  SetAgentIndexRefs_Operation,
+		Variables: &__SetAgentIndexRefsInput{
+			Ref:               ref,
+			TasksIndexRef:     tasksIndexRef,
+			ProcessesIndexRef: processesIndexRef,
+		},
+	}
+
+	data_ = &SetAgentIndexRefsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetWorkerReportsTo.
 const SetWorkerReportsTo_Operation = `
 mutation SetWorkerReportsTo ($workerRef: ID!, $reportsTo: ID) {
@@ -67632,6 +68837,8 @@ fragment AgentFields on Agent {
 	surfaces
 	systemMemoryId
 	systemPrompt
+	tasksIndexRef
+	processesIndexRef
 	aiProvider
 	aiModel
 	hasAiApiKey
