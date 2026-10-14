@@ -1,0 +1,106 @@
+# Host operations — hadron-cli#871 over server #1876 (#1709 T6 slice 1). The
+# manager and reader surfaces: grant an App key `host:operate` for one host,
+# issue a typed operation to a registered host, and read the App's host
+# registrations and operations. The host's own side (register, collect,
+# report, availability) is the poller's, hadron-cli#831.
+
+fragment HostOperationFields on HostOperation {
+  id
+  appId
+  hostId
+  type
+  args
+  workerId
+  worker {
+    id
+    name
+  }
+  status
+  issuedBy
+  issuedByUserId
+  issuedByWorkerId
+  issuedAt
+  collectedAt
+  finishedAt
+  result
+  failureReason
+}
+
+query HostRegistrations($appRef: String!) {
+  hostRegistrations(appRef: $appRef) {
+    hostId
+    label
+    pollIntervalSeconds
+    registeredAt
+    refreshedAt
+    live
+    workers {
+      workerId
+      worker {
+        id
+        name
+      }
+      family
+      worktrees
+    }
+  }
+}
+
+query HostOperations(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $hostId: String
+  # @genqlient(omitempty: true)
+  $status: HostOperationStatus
+  # @genqlient(omitempty: true)
+  $worker: String
+  # @genqlient(omitempty: true)
+  $first: Int
+  # @genqlient(omitempty: true)
+  $after: String
+) {
+  hostOperations(appRef: $appRef, hostId: $hostId, status: $status, worker: $worker, first: $first, after: $after) {
+    items {
+      ...HostOperationFields
+    }
+    hasNextPage
+    endCursor
+  }
+}
+
+mutation IssueHostOperation($input: IssueHostOperationInput!) {
+  issueHostOperation(input: $input) {
+    ...HostOperationFields
+  }
+}
+
+# The key's id, label and scopes only — never its preview or any key material.
+fragment AppKeyScopesFields on AppKey {
+  id
+  appId
+  label
+  revokedAt
+  scopes {
+    scope
+    hostId
+    grantedAt
+    grantedBy
+  }
+}
+
+mutation GrantAppKeyScope(
+  $id: ID!
+  $scope: String!
+  # @genqlient(omitempty: true)
+  $hostId: String
+) {
+  grantAppKeyScope(id: $id, scope: $scope, hostId: $hostId) {
+    ...AppKeyScopesFields
+  }
+}
+
+mutation RevokeAppKeyScope($id: ID!, $scope: String!) {
+  revokeAppKeyScope(id: $id, scope: $scope) {
+    ...AppKeyScopesFields
+  }
+}

@@ -28,7 +28,7 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 	}
 	return func(ctx context.Context, req *graphql.Request) context.Context {
 		first.Do(func() { initial, _, initialErr = readBinding(ctx) })
-		if !authoredWriteRequest(req) {
+		if !authoredWriteRequest(req) || asPerson(ctx) {
 			return ctx
 		}
 		if initialErr != nil {
@@ -83,6 +83,21 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 		}
 		return api.WithSession(ctx, current.SessionID)
 	}
+}
+
+type asPersonKey struct{}
+
+// withAsPerson marks a command's calls as the person's even in a bound
+// worktree: no authored write made under ctx carries the worker session. For a
+// write the server lets either party make with different rules, where the
+// caller must say which (`team host issue --as-person`, #871).
+func withAsPerson(ctx context.Context) context.Context {
+	return context.WithValue(ctx, asPersonKey{}, true)
+}
+
+func asPerson(ctx context.Context) bool {
+	v, _ := ctx.Value(asPersonKey{}).(bool)
+	return v
 }
 
 // Inspect the selected mutation structurally, not its operation label or
@@ -161,7 +176,11 @@ func authoredWriteField(field string) bool {
 		// actor, so attributing them refused every manager working from a
 		// bound worktree. A worker's OWN record stays authored — the worker
 		// may mark itself unavailable (cor:agt:060:08).
-		"setWorkerAvailability":
+		"setWorkerAvailability",
+		// #871 over server #1876 (cor:agt:070:05): a bound worker issues as
+		// itself (the worker its target reports to); `--as-person` sends
+		// none, for the target's holder or the App's manager.
+		"issueHostOperation":
 		return true
 	default:
 		return false
