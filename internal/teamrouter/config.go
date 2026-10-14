@@ -29,6 +29,26 @@ type Config struct {
 	// continuous idle a flagged worker must exceed (strictly) before its
 	// liveness nudge may fire. Positive and finite; default 20.
 	CoordinatorWatchMin float64 `json:"coordinatorWatchMinutes"`
+	// Source picks the delivery source: SourceAttention (v1, the operator's
+	// login; the default) or SourceWakes (v2, dueWakes on an App key).
+	Source string `json:"source,omitempty"`
+	// AppKeyFile is v2's App key (attention:deliver), read from a private
+	// file — never argv, never the environment. Required for SourceWakes.
+	AppKeyFile string `json:"appKeyFile,omitempty"`
+}
+
+// The delivery sources.
+const (
+	SourceAttention = "attention"
+	SourceWakes     = "wakes"
+)
+
+// ValidSource refuses anything but the two sources.
+func ValidSource(s string) error {
+	if s != SourceAttention && s != SourceWakes {
+		return routerErrorf(`source must be %q or %q (got %q)`, SourceAttention, SourceWakes, s)
+	}
+	return nil
 }
 
 // RosterEntry names one worker this router may wake.
@@ -110,6 +130,24 @@ func LoadConfig(path string) (*Config, error) {
 		}
 	}
 	c.StateDir = expandHome(c.StateDir)
+	c.Source = SourceAttention
+	if v, ok := raw["source"]; ok {
+		if err := json.Unmarshal(v, &c.Source); err != nil {
+			return nil, routerErrorf(`"source" must be a string`)
+		}
+		if err := ValidSource(c.Source); err != nil {
+			return nil, err
+		}
+	}
+	if v, ok := raw["appKeyFile"]; ok {
+		if err := json.Unmarshal(v, &c.AppKeyFile); err != nil || strings.TrimSpace(c.AppKeyFile) == "" {
+			return nil, routerErrorf(`"appKeyFile" must be a non-empty path`)
+		}
+		c.AppKeyFile = expandHome(c.AppKeyFile)
+	}
+	if c.Source == SourceWakes && c.AppKeyFile == "" {
+		return nil, routerErrorf(`source %q needs "appKeyFile" (a 0600 file holding the router's App key)`, SourceWakes)
+	}
 	if v, ok := raw["orcaCli"]; ok {
 		if err := json.Unmarshal(v, &c.OrcaCli); err != nil || c.OrcaCli == "" {
 			return nil, routerErrorf(`"orcaCli" must be a non-empty string`)

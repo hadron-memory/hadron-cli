@@ -24,13 +24,16 @@ type StatusReport struct {
 	Locked                  bool                       `json:"locked"`
 	Roster                  []string                   `json:"roster"`
 	Liveness                map[string]*LivenessStatus `json:"liveness"`
+	// PendingAcks (v2): workers whose last delivered wake has not been
+	// acknowledged yet; the next poll acknowledges it without resending.
+	PendingAcks []string `json:"pendingAcks"`
 }
 
 // Status reads the router's local state for c.
 func Status(c *Config) (*StatusReport, error) {
 	st := NewState(c.StateDir)
 	rep := &StatusReport{StateDir: c.StateDir, NudgedUnderCurrentToken: []string{}, Held: map[string]string{},
-		Roster: []string{}, Liveness: map[string]*LivenessStatus{}}
+		Roster: []string{}, Liveness: map[string]*LivenessStatus{}, PendingAcks: []string{}}
 	_, err := os.Stat(c.StateDir)
 	present := err == nil
 	liveness := map[string]LivenessRecord{}
@@ -46,6 +49,12 @@ func Status(c *Config) (*StatusReport, error) {
 		_, err = os.Stat(filepath.Join(c.StateDir, ".writer-lock"))
 		rep.Locked = err == nil
 		liveness = st.Liveness()
+		pending := st.sentRecords(time.Now().UnixMilli())
+		for _, e := range c.Roster {
+			if _, ok := pending[e.Worker]; ok {
+				rep.PendingAcks = append(rep.PendingAcks, e.Name)
+			}
+		}
 	}
 	for _, e := range c.Roster {
 		rep.Roster = append(rep.Roster, e.Name)
