@@ -170,6 +170,9 @@ func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdApprove(f))
 	cmd.AddCommand(newCmdVerify(f))
 	cmd.AddCommand(newCmdMint(f))
+	cmd.AddCommand(newCmdSign(f))
+	cmd.AddCommand(newCmdSignatures(f))
+	cmd.AddCommand(newCmdSigningRequest(f))
 	return cmd
 }
 
