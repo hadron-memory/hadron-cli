@@ -230,9 +230,11 @@ func TestFreshLogsLongHoldAtMostEvery30Min(t *testing.T) {
 	st := NewState(c.StateDir)
 	ledger := st.Ledger()
 	ledger.HeldSince["w-eli"] = base - 41*60_000 // backdate the hold
-	st.SaveLedger(ledger)
+	if err := st.SaveLedger(ledger); err != nil {
+		t.Fatal(err)
+	}
 	f.logs = nil
-	later := func() int64 { return base + 60_000 }
+	later := now // router.ts polls on the wall clock right after the backdate: 41 min, not 42
 	f.pollAt(t, c, later)
 	if !regexp.MustCompile(`Eli held 4[01] min with mentions pending \(busy`).MatchString(strings.Join(f.logs, "\n")) {
 		t.Fatalf("missing the long-hold line; logs = %v", f.logs)

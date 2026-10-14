@@ -18,10 +18,15 @@ func TestSecretsTokenNeverAppearsAnywhere(t *testing.T) {
 	f.addTerminal("eli", "claude", "", true)
 	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{}), worker("w-baloo", "Baloo", workerOpts{})}
 	out := f.poll(t, c)
-	statusText, err := Status(c, f)
+	rep, err := Status(c)
 	if err != nil {
 		t.Fatalf("status: %v", err)
 	}
+	statusBlob, err := json.Marshal(rep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	statusText := string(statusBlob)
 	ledgerBlob, _ := os.ReadFile(filepath.Join(c.StateDir, "ledger.json"))
 	var sentBlob strings.Builder
 	for _, s := range f.sent {
