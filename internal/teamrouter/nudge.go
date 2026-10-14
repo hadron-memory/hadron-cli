@@ -37,7 +37,15 @@ func NudgeText(a AttentionItem) string {
 		whereText = "; " + strings.Join(where, ", ")
 	}
 	head := fmt.Sprintf("Hadron team attention: %d relevant unread (%d mention%s%s).", a.Unread, a.UnreadMentions, plural, whereText)
+	return head + readAnchor(a, v1Trailer)
+}
 
+const v1Trailer = " (Orca attention router; counts as of send.)"
+
+// readAnchor is the read instruction for the team chat after the head: the
+// large-gap mentions walk or the watermark anchor, then the finish-silently
+// clause and trailer. Shared by the v1 nudge and the v2 wake text.
+func readAnchor(a AttentionItem, trailer string) string {
 	if a.FirstUnreadSeq != nil && a.LastSeq-*a.FirstUnreadSeq > largeGapSpan {
 		since := max(0, *a.FirstUnreadSeq-1)
 		// Bounded both ways by values this nudge named: the ceiling is the
@@ -45,12 +53,11 @@ func NudgeText(a AttentionItem) string {
 		// nor be acknowledged), the floor the first unread. BACKWARD, because
 		// beforeSeq selects the NEWEST page under the bound (#1827).
 		bound := a.LastSeq + 1
-		return head +
-			fmt.Sprintf(" LARGE GAP (unread span %d > %d): walk MENTIONS ONLY from your first unread to the head named here — every unread mention is on the path; the rest is history.", a.LastSeq-*a.FirstUnreadSeq, largeGapSpan) +
+		return fmt.Sprintf(" LARGE GAP (unread span %d > %d): walk MENTIONS ONLY from your first unread to the head named here — every unread mention is on the path; the rest is history.", a.LastSeq-*a.FirstUnreadSeq, largeGapSpan) +
 			fmt.Sprintf(" CLI: `hadron team chat read --mentions-me --since %d --before %d --limit 200`, then follow each page's prevBefore BACKWARD to your first unread — beforeSeq selects the NEWEST page under the bound, so page down to the floor and stop at an empty or floor page; MCP: `hadron_team_chat_read` with your session, `sinceSeq=%d`, `beforeSeq=%d`, its mentions filter and limit 200, then re-call with `beforeSeq` = the smallest seq on your last page until the floor (MCP pages carry no prevBefore field).", since, bound, since, bound) +
 			fmt.Sprintf(" Then mark read through your OWN session at the highest seq actually delivered to you, never above #%d (CLI: `hadron team chat mark-read --through <that seq>`; MCP: `hadron_team_chat_mark_read` — a mentions-filtered read never auto-marks).", a.LastSeq) +
 			" An incomplete walk marks NOTHING; anything outside the walked bound — messages arriving now included — stays unread. If no mention needs action, mark read and finish silently — no chat post." +
-			" (Orca attention router; counts as of send.)"
+			trailer
 	}
 	// Watermark-anchored (Eden #9017/#9035): workers with a stale read mark
 	// read the NEWEST page, found nothing for them and stopped — while fresh
@@ -60,9 +67,9 @@ func NudgeText(a AttentionItem) string {
 		since := max(0, *a.FirstUnreadSeq-1)
 		from = fmt.Sprintf(" START AT #%d (your first unread message of any kind) — CLI: `hadron team chat read --since %d --limit 200` then follow nextSince; MCP: `hadron_team_chat_read` with your session and `sinceSeq=%d` then the returned cursor — NOT the newest page alone;", *a.FirstUnreadSeq, since, since)
 	}
-	return head + from + " " +
+	return from + " " +
 		"Read team chat unfiltered with your own live session; if nothing needs action, " +
-		"mark read and finish silently — no chat post or 'read/no-action' comment. (Orca attention router; counts as of send.)"
+		"mark read and finish silently — no chat post or 'read/no-action' comment." + trailer
 }
 
 // LivenessNudgeText is the one line a FLAGGED worker receives from the

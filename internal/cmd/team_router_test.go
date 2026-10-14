@@ -3,12 +3,15 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -52,7 +55,7 @@ func TestTeamRouterStatusJSONShape(t *testing.T) {
 	}
 	for key, want := range map[string]string{
 		"stateDir": jsonString(stateDir), "tokenAdopted": "false", "locked": "false",
-		"nudgedUnderCurrentToken": "[]", "held": "{}", "roster": `["Eli","Ada"]`, "liveness": `{"Ada":null}`,
+		"nudgedUnderCurrentToken": "[]", "held": "{}", "roster": `["Eli","Ada"]`, "liveness": `{"Ada":null}`, "pendingAcks": "[]",
 	} {
 		var compact bytes.Buffer
 		if err := json.Compact(&compact, got[key]); err != nil || compact.String() != want {
@@ -134,7 +137,7 @@ func TestTeamRouterMissingOrInvalidConfigIsUsage(t *testing.T) {
 // fakeOrcaScript answers `orca terminal list|wait|read|send --json` with an
 // idle, empty Claude terminal in worktree, and appends each send's argv to
 // sent.log — a real exec, so the argv the router builds is what is checked.
-func fakeOrcaScript(t *testing.T, dir, worktree string) string {
+func fakeOrcaScript(t *testing.T, dir, worktree string) {
 	t.Helper()
 	terminals := `{"ok":true,"result":{"terminals":[{"handle":"term_eli","worktreePath":` + jsonString(worktree) +
 		`,"agentIdentity":"claude","connected":true,"writable":true,"lastOutputAt":1700000000000}]}}`
@@ -148,11 +151,9 @@ case "$1 $2" in
 *) echo '{"ok":false,"error":{"code":"unknown"}}'; exit 1 ;;
 esac
 `
-	path := filepath.Join(dir, "orca")
-	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "orca"), []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	return path
 }
 
 func TestTeamRouterPollEndToEnd(t *testing.T) {
@@ -252,5 +253,166 @@ func TestTeamRouterPollFailureIsExitOneTokenUnchanged(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(stateDir, "adopted.token")); !os.IsNotExist(err) {
 		t.Fatalf("a failed poll must adopt nothing (stat: %v)", err)
+	}
+}
+
+// ── v2: --source wakes (cli#829 PR 2) ───────────────────────────────────
+
+// wakesServer answers the v2 operations and records each request's bearer
+// and session header — the custody checks this source exists to keep.
+type wakesCall struct {
+	Op, Auth, Session string
+	Vars              map[string]any
+}
+
+func wakesServer(t *testing.T, dueWakes string) (*httptest.Server, *[]wakesCall) {
+	t.Helper()
+	calls := &[]wakesCall{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string         `json:"operationName"`
+			Variables     map[string]any `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		*calls = append(*calls, wakesCall{Op: body.OperationName, Auth: r.Header.Get("Authorization"),
+			Session: r.Header.Get(api.SessionHeader), Vars: body.Variables})
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "RouterDueWakes":
+			_, _ = w.Write([]byte(dueWakes))
+		case "RouterAcknowledgeWakes":
+			_, _ = w.Write([]byte(`{"data":{"acknowledgeWakes":{"acknowledged":1,"unchanged":0}}}`))
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, calls
+}
+
+const oneDueWake = `{"data":{"dueWakes":{"status":"OK","withheld":0,"dormant":[],"pageInfo":{"endCursor":null,"hasNextPage":false},
+	"wakes":[{"proof":"PROOF-SECRET","unread":21,"unreadMentions":1,"worker":{"id":"w-eli","name":"Eli"},
+	"channels":[{"fromSeq":100,"throughSeq":120,"latestMentionSeq":110,"channel":{"id":"chan-team","name":"team"}}],
+	"reasons":[{"kind":"MENTION","ticker":null,"task":null}]}]}}}`
+
+func writeWakesConfig(t *testing.T, dir, worktree string, keyMode os.FileMode) string {
+	t.Helper()
+	key := filepath.Join(dir, "app.key")
+	if err := os.WriteFile(key, []byte("hdr_app_ROUTERKEY\n"), keyMode); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(key, keyMode); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "wakes.json")
+	cfg := `{"app": "hrn:app:acme.com:eng-team", "channel": "chan-team", "stateDir": ` + jsonString(filepath.Join(dir, "state")) +
+		`, "orcaCli": ` + jsonString(filepath.Join(dir, "orca")) + `, "busyWaitMs": 10, "submitWaitS": 1, "source": "wakes", "appKeyFile": ` +
+		jsonString(key) + `, "roster": [{"worker": "w-eli", "name": "Eli", "worktree": ` + jsonString(worktree) + `}]}`
+	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestTeamRouterWakesPollUsesTheAppKeyAndNoSession(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake orca is a POSIX shell script")
+	}
+	f, out := testFactory(t)
+	dir := t.TempDir()
+	worktree := filepath.Join(dir, "eli")
+	if err := os.MkdirAll(worktree, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	fakeOrcaScript(t, dir, worktree)
+	path := writeWakesConfig(t, dir, worktree, 0o600)
+	srv, calls := wakesServer(t, oneDueWake)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "router", "poll", "--config", path, "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("poll: %v\n%s", err, out.String())
+	}
+	var got struct {
+		Source string
+		OK     bool
+		Nudged []string
+		Status *string
+	}
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("poll --json: %v\n%s", err, out.String())
+	}
+	if got.Source != "wakes" || !got.OK || len(got.Nudged) != 1 || got.Status == nil || *got.Status != "OK" {
+		t.Fatalf("poll = %+v", got)
+	}
+	var ops []string
+	for _, c := range *calls {
+		ops = append(ops, c.Op)
+		if c.Auth != "Bearer hdr_app_ROUTERKEY" {
+			t.Errorf("%s carried %q, want the router's App key — never the operator's login", c.Op, c.Auth)
+		}
+		if c.Session != "" {
+			t.Errorf("%s carried a worker session %q: an App key bound to a session is refused", c.Op, c.Session)
+		}
+	}
+	if strings.Join(ops, ",") != "RouterDueWakes,RouterDueWakes,RouterAcknowledgeWakes" {
+		t.Fatalf("operations = %v, want scan, re-read, acknowledge", ops)
+	}
+	if refs, _ := (*calls)[0].Vars["workerRefs"].([]any); len(refs) != 1 || refs[0] != "w-eli" {
+		t.Errorf("the scan must name the roster, never read the whole App: %v", (*calls)[0].Vars)
+	}
+	sent, err := os.ReadFile(filepath.Join(dir, "sent.log"))
+	if err != nil || !strings.Contains(string(sent), "START AT #100") {
+		t.Fatalf("send argv = %s (%v)", sent, err)
+	}
+	if strings.Contains(string(sent)+out.String(), "SECRET") || strings.Contains(string(sent)+out.String(), "ROUTERKEY") {
+		t.Fatal("the proof or the App key leaked into a send or the output")
+	}
+}
+
+func TestTeamRouterWakesShadowTouchesNothing(t *testing.T) {
+	f, out := testFactory(t)
+	dir := t.TempDir()
+	path := writeWakesConfig(t, dir, filepath.Join(dir, "eli"), 0o600) // no orca script exists: any exec would fail
+	srv, calls := wakesServer(t, oneDueWake)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "router", "poll", "--config", path, "--shadow", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("shadow poll: %v\n%s", err, out.String())
+	}
+	if len(*calls) != 1 || (*calls)[0].Op != "RouterDueWakes" {
+		t.Fatalf("shadow sent %v, want the one scan", *calls)
+	}
+	var got struct {
+		Shadow bool
+		Would  map[string]string
+	}
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil || !got.Shadow || got.Would["Eli"] == "" {
+		t.Fatalf("shadow = %s (%v)", out.String(), err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "state")); !os.IsNotExist(err) {
+		t.Fatalf("shadow wrote state (%v)", err)
+	}
+}
+
+func TestTeamRouterWakesRefusals(t *testing.T) {
+	f, _ := testFactory(t)
+	dir := t.TempDir()
+	loose := writeWakesConfig(t, dir, filepath.Join(dir, "eli"), 0o644)
+	v1, _ := writeRouterConfig(t, t.TempDir(), `[]`)
+	for name, args := range map[string][]string{
+		"world-readable key file":   {"team", "router", "poll", "--config", loose},
+		"--shadow on the v1 source": {"team", "router", "poll", "--config", v1, "--shadow"},
+		"unknown --source":          {"team", "router", "poll", "--config", v1, "--source", "both"},
+	} {
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		err := root.Execute()
+		if exitCodeFor(err) != exitcode.Usage {
+			t.Errorf("%s: exit %d (%v), want %d", name, exitCodeFor(err), err, exitcode.Usage)
+		}
+		if err != nil && strings.Contains(err.Error(), "ROUTERKEY") {
+			t.Errorf("%s: the refusal quoted the key", name)
+		}
 	}
 }

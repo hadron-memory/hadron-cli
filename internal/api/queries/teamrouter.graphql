@@ -64,3 +64,71 @@ query RouterChannelHead($ref: ID!) {
     lastSeq
   }
 }
+
+# ── v2 (cli#829 PR 2): Tickers S2/S3. These run on an App key with
+# attention:deliver and NO session (cor:agt:080:22, cor:aut:010:04): the
+# router never sends X-Hadron-Session, or the server refuses
+# APP_KEY_SESSION_BOUND.
+
+# One page of due wakes for the roster. workerRefs is always the roster: an
+# empty list would read every worker of the App.
+query RouterDueWakes(
+  $appRef: String!
+  $workerRefs: [String!]
+  # @genqlient(omitempty: true)
+  $after: String
+) {
+  dueWakes(appRef: $appRef, workerRefs: $workerRefs, after: $after) {
+    status
+    withheld
+    dormant {
+      mentions
+      worker {
+        id
+        name
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+    wakes {
+      proof
+      unread
+      unreadMentions
+      worker {
+        id
+        name
+      }
+      channels {
+        fromSeq
+        throughSeq
+        latestMentionSeq
+        channel {
+          id
+          name
+        }
+      }
+      reasons {
+        kind
+        ticker {
+          name
+        }
+        task {
+          ref
+          title
+          event
+        }
+      }
+    }
+  }
+}
+
+# Hand back the proofs of delivered wakes (cor:agt:080:16/:17): raises the
+# delivery record, never the worker's read position.
+mutation RouterAcknowledgeWakes($proofs: [String!]!) {
+  acknowledgeWakes(proofs: $proofs) {
+    acknowledged
+    unchanged
+  }
+}

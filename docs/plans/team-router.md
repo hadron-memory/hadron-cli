@@ -1,6 +1,8 @@
 # Implementation Plan: `team router poll|loop|status` — the Orca attention router in Go
 
-> **Status: as built, slice 1 (v1 parity).** Implements
+> **Status: as built — PR 1 (v1 parity, hadron-cli#883) and PR 2 (the v2
+> `dueWakes` source, below).** Ada ruled the two-PR split at team chat
+> #11614 item 3. Implements
 > [#829](https://github.com/hadron-memory/hadron-cli/issues/829) (T7 of
 > [hadron-server#1704](https://github.com/hadron-memory/hadron-server/issues/1704)):
 > a native port of hadron-server's `scripts/orca-attention-router/router.ts`
@@ -8,10 +10,9 @@
 > `f0ab31a0`, ported 1:1 into `internal/teamrouter/*_test.go` (Joost).
 > Review schedule per Xylon's CHECKED: **T2 Standard + §10 on every head**.
 >
-> **Open scope question (team chat #11569):** the v2 delivery source
-> (`dueWakes` + `acknowledgeWakes` on an App key with `attention:deliver`,
-> plan `hadron-server:design:named-heartbeats` §7) is proposed as a second PR
-> under #829. See "What this slice does not do".
+> PR 2 adds the v2 delivery source (`dueWakes` + `acknowledgeWakes` on an
+> App key with `attention:deliver`, plan `hadron-server:design:named-heartbeats`
+> §7), as `--source wakes` on the same commands and gates.
 
 ## Context
 
@@ -151,14 +152,98 @@ The `orcaCli` default is the macOS app bundle on darwin and `orca` elsewhere.
   token is adopted and passed back next poll. Also: a failed poll exits 1
   with nothing adopted.
 
+## PR 2: the v2 source (`--source wakes`)
+
+**Contract.** The plan's §4.3 and §7, plus cor:agt:080:16 (acknowledging is
+not reading), :17 (only the receiving caller, within 15 min), :22 (an App key
+with `attention:deliver` and no session), and the server's reservation rule
+(`src/lib/tickers/dueWakes.ts`): **an unacknowledged wake is re-handed
+IDENTICALLY, with a fresh proof and no new budget slot, until it is
+acknowledged or lapses.** A worker that read in the meantime is simply not due.
+
+**One poll** (`PollWakes`, `internal/teamrouter/wakes.go`):
+
+1. `dueWakes(app, workerRefs: <roster>)`, drained page by page. `workerRefs`
+   is always the roster: an empty roster sends nothing, because an empty list
+   would read every worker of the App.
+2. For each roster worker with a wake, in roster order:
+   - **Already delivered?** If the sent-record holds this wake's identity
+     (worker, each channel's range, each reason), the earlier send's
+     acknowledgement never landed. Acknowledge it with this scan's proof and
+     type nothing.
+   - Otherwise run the v1 gates unchanged: resolution (pin, identity, screen),
+     the idle proof (busy-wait, or the untracked screen proof), the empty
+     prompt with draft refutation, and the lost-lock check.
+   - **Fresh re-read** of that one worker. Not due any more → **dropped**.
+     Otherwise this wake's counts are what get typed, and its proof's
+     15-minute window starts here, after the gates, which can busy-wait a
+     minute per worker.
+   - Re-prove idle (500 ms, re-listed tracking) and empty, then check the lock
+     again.
+   - Send `WakeNudgeText`, **persist the sent-record**, then acknowledge at
+     once. A refused or failed acknowledgement is reported (`ackFailed`) and
+     the record stays, so the next poll does the "already delivered" step
+     above.
+3. Holds and acknowledgement failures are logged once per reason. The budget
+   (`WAKE_BUDGET_EXHAUSTED`, withheld) and dormant workers are logged once per
+   state (`wake-notes.json`).
+
+**Why acknowledge per send, not batched at the end (plan §7.2 step 3).** A
+batch acknowledged after a long poll can hold proofs past 15 minutes. A
+refused ack leaves the wake due, and v2 without a sent-record would type it
+again.
+
+**What v2 drops from v1** (plan §7.2): token adoption, `ledger.json`, the
+mention-only prerequisite, and the #1826 liveness pass. A coordinator's watch
+becomes a ticker subscription. v1's `coordinator`/`lifecycle` flags are
+ignored under `--source wakes`.
+
+**The text** (`WakeNudgeText`): `Hadron team attention (<reasons>): N relevant
+unread (M mentions); team #A–#B, latest mention #C; <other> #a–#b.` The
+reasons are mentions, `<ticker> tick`, or `task <event>: <title> (<ref>)`.
+After that:
+- the team chat's v1 read anchor, including the large-gap mentions walk;
+- for any other channel, `hadron channel read <id> --since` and its mark-read;
+- for a task, `hadron team task get <id>`.
+
+It never carries the proof.
+
+**Custody (§10).**
+- **The App key.** It comes from `appKeyFile` only: never argv, never env.
+  The file must be owner-only (unix) and hold exactly one `hdr_app_` key, and
+  no refusal quotes it.
+- **The client.** v2 builds its own client with `api.NewClient(server, key)`,
+  outside the factory's session-attributing decorator. The command test
+  asserts that every request's bearer is the App key and that no
+  `X-Hadron-Session` is ever sent. It runs inside a bound worktree, so a
+  factory client *would* have attached a session.
+- **Proofs.** They never reach the outcome, logs, argv or state. The
+  sent-record stores the wake's identity, not its proof.
+
+**Shadow mode** (`--shadow`, wakes only) reads `dueWakes` only. It touches no
+terminal, sends and acknowledges nothing, and writes no state, so it can run
+beside the live v1 loop (plan §8 step 3). **Cost to know:** the server
+reserves each wake it hands out, so shadow reads take daily-budget slots
+until those wakes lapse unacknowledged.
+
+**State.** `wakes-sent.json` holds the sent-records (24 h TTL, sanitized on
+read) and `wake-notes.json` the logged-once notes. Both live in the same
+state dir, behind the same writer lock, so v1 and v2 exclude each other.
+`status` lists `pendingAcks`.
+
+**Tests.** 23 red-first in `wakes_test.go` (`96800fd`), green at the PR 2
+head, plus `wakes_config_test.go`. The command tests cover the custody checks
+above, shadow touching nothing, and the usage refusals: a world-readable key
+file, `--shadow` on v1, an unknown `--source`.
+
 ## What this slice does not do
 
-- **The v2 source** (`dueWakes`/`acknowledgeWakes`, App key `attention:deliver`,
-  wake proofs, task wakes, shadow mode then cutover). It needs its own
-  red-first tests. Proposed as PR 2 under #829 (chat #11569).
-- **Per-channel wakes** (Hugo's 2026-10-07 addendum: DMs, per-(worker,
-  channel) frontiers). Under v2 the server owns that bookkeeping. Under v1
-  the ledger stays single-channel, as in TS.
+- **The cutover itself.** That's Hugo's: shadow beside v1 for a day, then
+  `--source wakes`.
+- **Per-channel wakes under v1** (Hugo's 2026-10-07 addendum: DMs,
+  per-(worker, channel) frontiers). v1's ledger stays single-channel, as in
+  TS. v2 delivers every channel a wake names, and the server owns that
+  bookkeeping.
 - **Orca's hook-based agent state** (`orca worktree ps --json`, plan §8 of
   `design:agent-tasks`). This is an extra signal to add when it lands. It
   would not replace the screen.

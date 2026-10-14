@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -79,32 +80,49 @@ func loadRouterConfig(flag string) (*teamrouter.Config, error) {
 	return c, nil
 }
 
-// routerOutcomeDTO is the stable --json shape of one poll.
+// routerOutcomeDTO is the stable --json shape of one poll, for both sources.
+// Fields a source does not produce are present and empty.
 type routerOutcomeDTO struct {
-	At              string            `json:"at"`
-	OK              bool              `json:"ok"`
-	Error           *string           `json:"error"`
-	Nudged          []string          `json:"nudged"`
-	Dropped         []string          `json:"dropped"`
-	Covered         []string          `json:"covered"`
-	Held            map[string]string `json:"held"`
-	Adopted         bool              `json:"adopted"`
-	Liveness        []string          `json:"liveness"`
-	LivenessDropped []string          `json:"livenessDropped"`
+	At     string   `json:"at"`
+	Source string   `json:"source"`
+	Shadow bool     `json:"shadow"`
+	OK     bool     `json:"ok"`
+	Error  *string  `json:"error"`
+	Nudged []string `json:"nudged"`
+	// Dropped: no longer due (or read) at the re-read just before the send.
+	Dropped []string          `json:"dropped"`
+	Held    map[string]string `json:"held"`
+	// v1 (attention) only.
+	Covered         []string `json:"covered"`
+	Adopted         bool     `json:"adopted"`
+	Liveness        []string `json:"liveness"`
+	LivenessDropped []string `json:"livenessDropped"`
+	// v2 (wakes) only.
+	AckFailed map[string]string `json:"ackFailed"`
+	Recovered []string          `json:"recovered"`
+	Would     map[string]string `json:"would"`
+	Status    *string           `json:"status"`
+	Withheld  int               `json:"withheld"`
+	Dormant   []string          `json:"dormant"`
 }
 
-func outcomeDTO(at time.Time, o *teamrouter.Outcome, err error) routerOutcomeDTO {
-	dto := routerOutcomeDTO{At: at.UTC().Format(time.RFC3339), OK: err == nil, Nudged: []string{}, Dropped: []string{},
-		Covered: []string{}, Held: map[string]string{}, Liveness: []string{}, LivenessDropped: []string{}}
+func emptyOutcomeDTO(at time.Time, source string, shadow bool, err error) routerOutcomeDTO {
+	dto := routerOutcomeDTO{At: at.UTC().Format(time.RFC3339), Source: source, Shadow: shadow, OK: err == nil,
+		Nudged: []string{}, Dropped: []string{}, Held: map[string]string{}, Covered: []string{}, Liveness: []string{},
+		LivenessDropped: []string{}, AckFailed: map[string]string{}, Recovered: []string{}, Would: map[string]string{},
+		Dormant: []string{}}
 	if err != nil {
 		msg := err.Error()
 		dto.Error = &msg
-		return dto
 	}
-	dto.Nudged, dto.Dropped, dto.Covered = o.Nudged, o.Dropped, o.Covered
-	dto.Held, dto.Adopted = o.Held, o.Adopted
-	dto.Liveness, dto.LivenessDropped = o.Liveness, o.LivenessDropped
 	return dto
+}
+
+// pollResult is one poll, rendered for both outputs.
+type pollResult struct {
+	dto   routerOutcomeDTO
+	line  string
+	noisy bool
 }
 
 func newCmdTeamRouter(f *cmdutil.Factory) *cobra.Command {
@@ -144,49 +162,117 @@ Channel, or it is held (a broader row would wake it on every message).`,
 	return cmd
 }
 
-// routerRun is one poll's wiring: the config, the server reads and the orca runner.
+// routerRun is one poll's wiring: the config, the chosen source's server
+// seam and the orca runner.
 type routerRun struct {
-	cfg  *teamrouter.Config
-	srv  teamrouter.Server
-	orca teamrouter.OrcaRunner
+	cfg    *teamrouter.Config
+	source string
+	shadow bool
+	srv    teamrouter.Server
+	wakes  teamrouter.WakeServer
+	orca   teamrouter.OrcaRunner
 }
 
-func newRouterRun(f *cmdutil.Factory, configFlag string) (*routerRun, error) {
+func newRouterRun(f *cmdutil.Factory, configFlag, sourceFlag string, shadow bool) (*routerRun, error) {
 	cfg, err := loadRouterConfig(configFlag)
 	if err != nil {
 		return nil, err
 	}
-	client, err := f.GraphQLClient()
+	source := cfg.Source
+	if sourceFlag != "" {
+		if err := teamrouter.ValidSource(sourceFlag); err != nil {
+			return nil, exitcode.New(exitcode.Usage, err)
+		}
+		source = sourceFlag
+	}
+	if shadow && source != teamrouter.SourceWakes {
+		return nil, exitcode.Newf(exitcode.Usage, "--shadow runs the %q source only (pass --source %s)", teamrouter.SourceWakes, teamrouter.SourceWakes)
+	}
+	run := &routerRun{cfg: cfg, source: source, shadow: shadow, orca: teamrouter.ExecOrca(cfg.OrcaCli)}
+	if source == teamrouter.SourceAttention {
+		client, err := f.GraphQLClient()
+		if err != nil {
+			return nil, err
+		}
+		run.srv = teamrouter.NewGraphQLServer(client, cfg.App, cfg.Channel)
+		return run, nil
+	}
+	// v2 runs on the router's App key, never the operator's login, and with
+	// no worker session: a client of its own, outside the factory's
+	// session-attributing decorator (an App key bound to a session is
+	// refused APP_KEY_SESSION_BOUND).
+	if cfg.AppKeyFile == "" {
+		return nil, exitcode.Newf(exitcode.Usage, `source %q needs "appKeyFile" in the router config`, teamrouter.SourceWakes)
+	}
+	key, err := teamrouter.ReadAppKeyFile(cfg.AppKeyFile)
+	if err != nil {
+		return nil, exitcode.New(exitcode.Usage, err)
+	}
+	server, err := f.Server()
 	if err != nil {
 		return nil, err
 	}
-	return &routerRun{cfg: cfg, srv: teamrouter.NewGraphQLServer(client, cfg.App, cfg.Channel),
-		orca: teamrouter.ExecOrca(cfg.OrcaCli)}, nil
+	client, err := api.NewClient(server, key, f.HTTPClient)
+	if err != nil {
+		return nil, exitcode.New(exitcode.Usage, err)
+	}
+	run.wakes = teamrouter.NewGraphQLWakeServer(client, cfg.App)
+	return run, nil
 }
 
-// pollOnce runs one poll. A RouterError is the poll's own verdict (token
-// unchanged); anything else is mapped through the CLI's error contract.
-func (r *routerRun) pollOnce(ctx context.Context, logw io.Writer) (*teamrouter.Outcome, error) {
+// pollOnce runs one poll of the chosen source. A RouterError is the poll's
+// own verdict; anything else is mapped through the CLI's error contract.
+func (r *routerRun) pollOnce(ctx context.Context, logw io.Writer) (pollResult, error) {
 	log := func(line string) { fmt.Fprintf(logw, "%s %s\n", time.Now().UTC().Format(time.RFC3339), line) }
-	out, err := teamrouter.PollOnce(ctx, r.cfg, r.srv, r.orca, log, nil)
-	if err != nil {
+	fail := func(err error, unchanged string) (pollResult, error) {
 		var rerr *teamrouter.RouterError
 		if errors.As(err, &rerr) {
-			return nil, exitcode.New(exitcode.Error, fmt.Errorf("%s (token unchanged)", rerr.Reason))
+			err = exitcode.New(exitcode.Error, fmt.Errorf("%s (%s)", rerr.Reason, unchanged))
+		} else {
+			err = api.MapError(err)
 		}
-		return nil, api.MapError(err)
+		return pollResult{dto: emptyOutcomeDTO(time.Now(), r.source, r.shadow, err)}, err
 	}
-	return out, nil
+	if r.source == teamrouter.SourceAttention {
+		out, err := teamrouter.PollOnce(ctx, r.cfg, r.srv, r.orca, log, nil)
+		if err != nil {
+			return fail(err, "token unchanged")
+		}
+		dto := emptyOutcomeDTO(time.Now(), r.source, false, nil)
+		dto.Nudged, dto.Dropped, dto.Covered = out.Nudged, out.Dropped, out.Covered
+		dto.Held, dto.Adopted = out.Held, out.Adopted
+		dto.Liveness, dto.LivenessDropped = out.Liveness, out.LivenessDropped
+		return pollResult{dto: dto, line: teamrouter.DescribeOutcome(out),
+			noisy: len(out.Nudged) > 0 || len(out.Held) > 0 || len(out.Liveness) > 0}, nil
+	}
+	out, err := teamrouter.PollWakes(ctx, r.cfg, r.wakes, r.orca, log, nil, r.shadow)
+	if err != nil {
+		return fail(err, "nothing sent after the failure")
+	}
+	dto := emptyOutcomeDTO(time.Now(), r.source, r.shadow, nil)
+	dto.Nudged, dto.Dropped, dto.Held = out.Nudged, out.Dropped, out.Held
+	dto.AckFailed, dto.Recovered, dto.Would = out.AckFailed, out.Recovered, out.Would
+	status := out.Status
+	dto.Status, dto.Withheld, dto.Dormant = &status, out.Withheld, out.Dormant
+	return pollResult{dto: dto, line: teamrouter.DescribeWakeOutcome(out),
+		noisy: len(out.Nudged) > 0 || len(out.Held) > 0 || len(out.AckFailed) > 0 || len(out.Recovered) > 0 ||
+			len(out.Would) > 0 || out.Status != "OK"}, nil
+}
+
+func addSourceFlags(cmd *cobra.Command, source *string, shadow *bool) {
+	cmd.Flags().StringVar(source, "source", "", "delivery `source`: attention (v1, your login) or wakes (v2, the App key); default: the config's, else attention")
+	cmd.Flags().BoolVar(shadow, "shadow", false, "with --source wakes: read due wakes and report who WOULD be woken; touch no terminal, send and acknowledge nothing")
 }
 
 func newCmdTeamRouterPoll(f *cmdutil.Factory) *cobra.Command {
-	var configFlag string
+	var configFlag, sourceFlag string
+	var shadow bool
 	cmd := &cobra.Command{
-		Use:   "poll [--config <path>]",
+		Use:   "poll [--config <path>] [--source attention|wakes] [--shadow]",
 		Short: "Run one router poll",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			run, err := newRouterRun(f, configFlag)
+			run, err := newRouterRun(f, configFlag, sourceFlag, shadow)
 			if err != nil {
 				return err
 			}
@@ -195,10 +281,9 @@ func newCmdTeamRouterPoll(f *cmdutil.Factory) *cobra.Command {
 			if f.JSON {
 				logw = f.IOStreams.ErrOut
 			}
-			out, pollErr := run.pollOnce(context.WithoutCancel(cmd.Context()), logw)
-			at := time.Now()
+			res, pollErr := run.pollOnce(context.WithoutCancel(cmd.Context()), logw)
 			if f.JSON {
-				if err := output.WriteJSON(f.IOStreams.Out, outcomeDTO(at, out, pollErr)); err != nil {
+				if err := output.WriteJSON(f.IOStreams.Out, res.dto); err != nil {
 					return err
 				}
 				if pollErr != nil {
@@ -209,19 +294,21 @@ func newCmdTeamRouterPoll(f *cmdutil.Factory) *cobra.Command {
 			if pollErr != nil {
 				return pollErr
 			}
-			fmt.Fprintf(f.IOStreams.Out, "%s %s\n", at.UTC().Format(time.RFC3339), teamrouter.DescribeOutcome(out))
+			fmt.Fprintf(f.IOStreams.Out, "%s %s\n", res.dto.At, res.line)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&configFlag, "config", "", "router config `path` (default: see team router --help)")
+	addSourceFlags(cmd, &sourceFlag, &shadow)
 	return cmd
 }
 
 func newCmdTeamRouterLoop(f *cmdutil.Factory) *cobra.Command {
-	var configFlag string
+	var configFlag, sourceFlag string
+	var shadow bool
 	var interval time.Duration
 	cmd := &cobra.Command{
-		Use:   "loop [--config <path>] [--interval 60s]",
+		Use:   "loop [--config <path>] [--interval 60s] [--source attention|wakes] [--shadow]",
 		Short: "Poll forever in the foreground",
 		Long: `Poll every --interval, in the foreground (the default runtime, by design:
 the operator sees it run). A failed poll is logged and retried next interval,
@@ -236,7 +323,7 @@ exits at once.`,
 			if interval < time.Second {
 				return exitcode.Newf(exitcode.Usage, "--interval must be at least 1s (got %s)", interval)
 			}
-			run, err := newRouterRun(f, configFlag)
+			run, err := newRouterRun(f, configFlag, sourceFlag, shadow)
 			if err != nil {
 				return err
 			}
@@ -247,18 +334,17 @@ exits at once.`,
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
 			for {
-				out, pollErr := run.pollOnce(context.WithoutCancel(ctx), logw)
-				at := time.Now()
-				noisy := pollErr != nil || len(out.Nudged) > 0 || len(out.Held) > 0 || len(out.Liveness) > 0
+				res, pollErr := run.pollOnce(context.WithoutCancel(ctx), logw)
+				noisy := pollErr != nil || res.noisy
 				switch {
 				case f.JSON && noisy:
-					if err := output.WriteJSON(f.IOStreams.Out, outcomeDTO(at, out, pollErr)); err != nil {
+					if err := output.WriteJSON(f.IOStreams.Out, res.dto); err != nil {
 						return err
 					}
 				case pollErr != nil:
-					fmt.Fprintf(f.IOStreams.ErrOut, "%s orca-attention-router: %v\n", at.UTC().Format(time.RFC3339), pollErr)
+					fmt.Fprintf(f.IOStreams.ErrOut, "%s orca-attention-router: %v\n", res.dto.At, pollErr)
 				case noisy:
-					fmt.Fprintf(f.IOStreams.Out, "%s %s\n", at.UTC().Format(time.RFC3339), teamrouter.DescribeOutcome(out))
+					fmt.Fprintf(f.IOStreams.Out, "%s %s\n", res.dto.At, res.line)
 				}
 				select {
 				case <-ctx.Done():
@@ -271,6 +357,7 @@ exits at once.`,
 	}
 	cmd.Flags().StringVar(&configFlag, "config", "", "router config `path` (default: see team router --help)")
 	cmd.Flags().DurationVar(&interval, "interval", 60*time.Second, "time between polls")
+	addSourceFlags(cmd, &sourceFlag, &shadow)
 	return cmd
 }
 
@@ -298,6 +385,9 @@ liveness clock. Reads only the state directory; no network.`,
 				fmt.Fprintf(w, "token adopted: %t\n", rep.TokenAdopted)
 				fmt.Fprintf(w, "writer lock:   %s\n", map[bool]string{true: "held", false: "free"}[rep.Locked])
 				fmt.Fprintf(w, "roster:        %d worker(s)\n", len(rep.Roster))
+				if len(rep.PendingAcks) > 0 {
+					fmt.Fprintf(w, "delivered, acknowledgement pending (v2): %s\n", strings.Join(rep.PendingAcks, ", "))
+				}
 				if len(rep.NudgedUnderCurrentToken) > 0 {
 					fmt.Fprintf(w, "nudged under the current token: %d\n", len(rep.NudgedUnderCurrentToken))
 				}

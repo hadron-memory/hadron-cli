@@ -35,10 +35,13 @@ type fakeWakes struct {
 	inMain   bool
 	mainRefs [][]string
 	freshFor []string
-	issued   int
-	acked    [][]string
-	ackErr   error
-	ackHook  func()
+	// freshHook runs as a fresh re-read arrives — how a test stages
+	// something that happens between the gates and the send.
+	freshHook func()
+	issued    int
+	acked     [][]string
+	ackErr    error
+	ackHook   func()
 }
 
 func newFakeWakes(t *testing.T) *fakeWakes {
@@ -84,6 +87,9 @@ func (w *fakeWakes) DueWakes(_ context.Context, refs []string, after string) (Wa
 	}
 	worker := refs[0]
 	w.freshFor = append(w.freshFor, worker)
+	if w.freshHook != nil {
+		w.freshHook()
+	}
 	if w.freshFails[worker] {
 		return WakePage{}, errors.New("fresh dueWakes down")
 	}
@@ -424,6 +430,37 @@ func TestWakesLostLockStopsBeforeSendOrAck(t *testing.T) {
 	}
 	if len(f.sent) != 0 || len(w.acked) != 0 {
 		t.Fatal("sent or acked after losing the lock")
+	}
+}
+
+func TestWakesLockLostDuringReReadStopsBeforeSend(t *testing.T) {
+	w, f, c := setupWakes(t, "Eli")
+	w.wakes = []Wake{dueWake("w-eli", "Eli", 100, 120, 110)}
+	// The lock is taken over AFTER the gates' ownership check: the check
+	// right before the send must still catch it.
+	w.freshHook = func() {
+		if err := os.WriteFile(filepath.Join(c.StateDir, ".writer-lock", "owner"), []byte("someone-else"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := w.pollErr(f, c, false); err == nil || !strings.Contains(err.Error(), "lost the writer lock") {
+		t.Fatalf("err = %v, want the lost-lock stop", err)
+	}
+	if len(f.sent) != 0 || len(w.acked) != 0 {
+		t.Fatal("sent or acked after losing the lock")
+	}
+}
+
+func TestWakesEmptyRosterNeverReadsTheWholeApp(t *testing.T) {
+	w, f, c := setupWakes(t)
+	w.wakes = []Wake{dueWake("w-eli", "Eli", 100, 120, 110)}
+	for _, shadow := range []bool{false, true} {
+		if _, err := w.pollErr(f, c, shadow); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(w.mainRefs) != 0 {
+		t.Fatalf("dueWakes was called with refs %v: an empty workerRefs reads every worker of the App", w.mainRefs)
 	}
 }
 

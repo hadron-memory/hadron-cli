@@ -110,3 +110,84 @@ func (s *GraphQLServer) ChannelHead(ctx context.Context, channelRef string) (int
 	}
 	return resp.GetChannel().GetLastSeq(), nil
 }
+
+// GraphQLWakeServer is the production WakeServer: dueWakes and
+// acknowledgeWakes on a client authenticated with the router's App key.
+// The client must never attach a worker session (api.WithSession): an App
+// key bound to a session is refused APP_KEY_SESSION_BOUND.
+type GraphQLWakeServer struct {
+	client graphql.Client
+	app    string
+}
+
+// NewGraphQLWakeServer reads app's due wakes through client.
+func NewGraphQLWakeServer(client graphql.Client, app string) *GraphQLWakeServer {
+	return &GraphQLWakeServer{client: client, app: app}
+}
+
+// DueWakes reads one page of due wakes for workerRefs.
+func (s *GraphQLWakeServer) DueWakes(ctx context.Context, workerRefs []string, after string) (WakePage, error) {
+	resp, err := gen.RouterDueWakes(ctx, s.client, s.app, workerRefs, optional(after))
+	if err != nil {
+		return WakePage{}, err
+	}
+	p := resp.GetDueWakes()
+	if p == nil {
+		return WakePage{}, errors.New("malformed result")
+	}
+	out := WakePage{Status: string(p.GetStatus()), Withheld: p.GetWithheld(), Dormant: []DormantWorker{}, Wakes: []Wake{}}
+	if pi := p.GetPageInfo(); pi != nil {
+		out.HasNext = pi.GetHasNextPage()
+		if c := pi.GetEndCursor(); c != nil {
+			out.EndCursor = *c
+		}
+	}
+	for _, d := range p.GetDormant() {
+		if d == nil || d.GetWorker() == nil {
+			continue
+		}
+		out.Dormant = append(out.Dormant, DormantWorker{Worker: d.GetWorker().GetId(), Name: d.GetWorker().GetName(), Mentions: d.GetMentions()})
+	}
+	for _, w := range p.GetWakes() {
+		if w == nil || w.GetWorker() == nil {
+			continue
+		}
+		wake := Wake{Worker: w.GetWorker().GetId(), WorkerName: w.GetWorker().GetName(), Unread: w.GetUnread(),
+			UnreadMentions: w.GetUnreadMentions(), Proof: w.GetProof()}
+		for _, c := range w.GetChannels() {
+			if c == nil || c.GetChannel() == nil {
+				continue
+			}
+			wake.Channels = append(wake.Channels, WakeChannel{ID: c.GetChannel().GetId(), Name: c.GetChannel().GetName(),
+				FromSeq: c.GetFromSeq(), ThroughSeq: c.GetThroughSeq(), LatestMentionSeq: c.GetLatestMentionSeq()})
+		}
+		for _, r := range w.GetReasons() {
+			if r == nil {
+				continue
+			}
+			reason := WakeReason{Kind: string(r.GetKind())}
+			if t := r.GetTicker(); t != nil {
+				reason.Ticker = t.GetName()
+			}
+			if t := r.GetTask(); t != nil {
+				reason.Task = &WakeTask{Ref: t.GetRef(), Title: t.GetTitle(), Event: string(t.GetEvent())}
+			}
+			wake.Reasons = append(wake.Reasons, reason)
+		}
+		out.Wakes = append(out.Wakes, wake)
+	}
+	return out, nil
+}
+
+// AcknowledgeWakes hands back delivered wakes' proofs.
+func (s *GraphQLWakeServer) AcknowledgeWakes(ctx context.Context, proofs []string) (AckResult, error) {
+	resp, err := gen.RouterAcknowledgeWakes(ctx, s.client, proofs)
+	if err != nil {
+		return AckResult{}, err
+	}
+	r := resp.GetAcknowledgeWakes()
+	if r == nil {
+		return AckResult{}, errors.New("malformed result")
+	}
+	return AckResult{Acknowledged: r.GetAcknowledged(), Unchanged: r.GetUnchanged()}, nil
+}
