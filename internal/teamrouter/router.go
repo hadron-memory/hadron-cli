@@ -144,9 +144,17 @@ func NudgeText(item AttentionItem) string { return "" }
 // rules per family). RED-FIRST STUB.
 func PromptLineIsEmpty(family string, tail []string, draft string) bool { return false }
 
+// Screen is one `orca terminal read` result: the rendered tail, the optional
+// draft field, and the source (only "screen" carries the two-signal witness).
+type Screen struct {
+	Source string
+	Tail   []string
+	Draft  string
+}
+
 // ScreenAgentFamily reads positive family chrome only; "" = unresolved.
 // RED-FIRST STUB.
-func ScreenAgentFamily(tail []string) string { return "" }
+func ScreenAgentFamily(sc *Screen) string { return "" }
 
 // ResolveTerminal maps a roster row to its agent terminal. RED-FIRST STUB.
 func ResolveTerminal(c *Config, entry RosterEntry, terminals []Terminal, orca OrcaRunner) (*Terminal, string, error) {
