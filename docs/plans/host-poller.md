@@ -59,7 +59,7 @@ the poller can't match gets no operations.
 | type | what the host does | reported |
 |---|---|---|
 | `worktree.create` | Fetches `origin/<base>`, then runs `git worktree add --no-track -b <branch> <root>/<repo-basename>/<label>`. The repo must be in `repos:`. | SUCCEEDED with the name token. If the tree already exists on that branch (a re-delivery), it reports SUCCEEDED again. |
-| `worker.start` | Runs the worker's configured `launch` argv in a registered, existing worktree, with `HADRON_LAUNCH_GRANT`. | SUCCEEDED once the server answers anything other than `HOST_OPERATION_NOT_DONE`, within the grant's 10-minute lifetime. FAILED if the agent exits first or the lifetime runs out. |
+| `worker.start` | Runs the worker's configured `launch` argv in a registered, existing worktree with no live agent this poller launched, with `HADRON_LAUNCH_GRANT`. **The argv must stay in the foreground for the agent's life:** its exit is read as the agent's. | SUCCEEDED when a report of SUCCEEDED is accepted, within the grant's 10-minute lifetime. It stops at `HOST_OPERATION_ALREADY_REPORTED`, since the server already finished it. FAILED if the agent exits unbound (after one last ask) or the lifetime runs out. |
 | `worker.deliver` | Nothing. | FAILED: "no delivery path on this host yet (hadron-cli#829)". |
 | `worker.end` | Runs the optional `end` argv as a prompt, then waits up to `end_wait` (15m) or until the launched process exits. | **Always FAILED** (see below). |
 | `worktree.remove` | Runs `git worktree remove`, but only on a tree with nothing to lose. | FAILED with the reason for each refusal (below). |
@@ -75,7 +75,8 @@ the poller can't match gets no operations.
   new branch track the base. Remove's "pushed" check would then measure the
   branch against `main` instead of against its own push. The real-git test
   found this.
-- **`worktree.remove` refuses** a tree with:
+- **`worktree.remove` acts only on a tree registered for the operation's
+  own worker** (configured or created). It refuses a tree with:
   - uncommitted or untracked changes;
   - no upstream;
   - commits ahead of its upstream;
@@ -107,24 +108,58 @@ never remove a worktree after a failed end).
 
 ## Key custody (cor:agt:070:04, Holger #10761 option A)
 
-- **The host key comes from `key_file`, or else `HADRON_HOST_KEY`.** It never
-  comes from `HADRON_TOKEN` or the token store. Those are the holder's own
-  credential, which the launched agent binds on.
+- **The host key comes from `key_file` only.**
+  - The file must be mode 0600 or tighter; a group or world bit refuses.
+  - It never comes from `HADRON_TOKEN` or the token store. Those are the
+    holder's own credential, which the launched agent binds on.
+  - It never comes from an environment variable either. A same-user agent
+    could read one from the poller's `/proc/<pid>/environ`, so the review
+    walk dropped the `HADRON_HOST_KEY` fallback.
 - **No session on host calls.** The poller builds its own client
-  (`api.NewClient` with the host key), so no `X-Hadron-Session` rides along.
-  The server would refuse one with `APP_KEY_SESSION_BOUND`.
-- **A launched agent gets the poller's environment minus `HADRON_TOKEN`,
-  `HADRON_HOST_KEY`, any inherited `HADRON_LAUNCH_GRANT`, and any variable
-  whose value contains the host key.** It also gets
-  `HADRON_LAUNCH_GRANT=<grant>`. The argv is the configured one, with nothing
-  appended. Tests pin all of this, including a planted variable that carries
-  the key.
+  (`api.NewClient` with the host key), with none of the factory's
+  request-context hooks. So no `X-Hadron-Session` rides along. The server
+  would refuse one with `APP_KEY_SESSION_BOUND`.
+- **What a launched agent gets.**
+  - The poller's environment minus `HADRON_TOKEN`, `HADRON_HOST_KEY`, any
+    inherited `HADRON_LAUNCH_GRANT`, and any variable whose value contains
+    the host key.
+  - Plus `HADRON_LAUNCH_GRANT=<grant>`.
+  - The configured argv, with nothing appended.
+
+  Tests pin all of this: each variable by name, and a planted variable that
+  carries the key.
+- **What the poller guarantees, and what it doesn't.** The poller never puts
+  the key in an agent's environment, argv or files. It cannot keep the key
+  from the agent's OS user, though. The agent must run as the holder's OS
+  user, because it binds on that user's stored token. If the poller runs as
+  the same user, the agent can read `key_file` too. **Run the poller as its
+  own OS user, with `key_file` readable only by that user,** to close this.
+  The help and this doc say so rather than claiming more. This is a §10
+  question for the deployment runbook (docs#369).
 - **The agent redeems the grant** with
-  `hadron team session start --launch-grant` or `HADRON_LAUNCH_GRANT`:
-  - `--as` is optional, since the grant names the worker.
-  - `--force` is refused, because a refused launch can't be overridden.
+  `hadron team session start --launch-grant` or `HADRON_LAUNCH_GRANT`.
+  - The variable is read **only when neither `--launch-grant` nor `--as` is
+    given**. The poller sets it for the agent's whole process tree and
+    nothing clears it, so a later ordinary `start --as` (a rotation or a
+    shed) must not pick up the spent grant. That was review-walk P1.
+  - `--force` is refused only with a grant the caller actually chose.
   - The worker is read after the bind, for the binding and the briefing. A
     failed read rolls the session back.
+
+## `run`, `--once` and `status`
+
+- **`run` exits on a failed check-in in the 2, 3 or 8 class,** such as a
+  revoked or refused key or a malformed registration, with its code. Looping
+  on one would hide it. Other failures are logged, and the loop goes on.
+- **`--once` exits 7 if any report did not reach the server.** Those
+  operations are re-delivered at the next collect.
+- **`--json` prints one `hostEventDTO` per line:** `time`, `kind`,
+  `operation`, `type`, `outcome`, `detail`. Every key is always present.
+  Writes are serialized, since operations run concurrently.
+- **`status` finds this host's registration by the host id** saved in the
+  state file at the last registration. On the server, a host key reads
+  every registration in the App, and a label is not unique, so matching on
+  the label would be a guess.
 
 ## Exit codes (new mappings)
 
@@ -158,4 +193,11 @@ Command-level errors:
 - **A durable in-flight ledger.** After a restart the server re-delivers, and
   each handler is safe to repeat.
 - **`worker.end` after a restart:** with no tracked process, it waits the
-  whole `end_wait` before reporting.
+  whole `end_wait` before reporting. Likewise, an agent launched before a
+  restart that hasn't bound yet is invisible to the one-agent-per-worktree
+  check; its revoked grant fails its own bind.
+- **Name tokens:** a worktree's name token is `<repo basename>/<label>`, so
+  two repos with the same basename can collide. Re-creating a removed
+  worktree on the same branch fails, because `remove` keeps the branch.
+- **Clearing a keep:** there's no command for it. A kept tree stays kept
+  until its entry is removed from the state file by hand.

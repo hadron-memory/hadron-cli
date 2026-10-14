@@ -108,8 +108,9 @@ func (ExecHost) RemoveWorktree(ctx context.Context, path string) error {
 	return err
 }
 
-// Launch starts the agent in its own process group, so the poller's own
-// signals do not reach it, and returns at once.
+// Launch starts the agent and returns at once. On Unix it gets its own
+// session (setsid), so the poller's signals do not reach it; on Windows it
+// stays in the poller's console group.
 func (ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	cmd := exec.Command(spec.Argv[0], spec.Argv[1:]...)
 	cmd.Dir = spec.Dir

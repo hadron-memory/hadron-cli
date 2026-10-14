@@ -151,3 +151,21 @@ func TestSessionStartLaunchGrantServerRefusals(t *testing.T) {
 		})
 	}
 }
+
+// A spent grant left in the environment (the poller sets it for the agent's
+// whole process tree) never reaches a later ordinary bind: --as wins, and
+// --force is not refused on a grant the user never chose.
+func TestSessionStartAsIgnoresTheGrantInTheEnvironment(t *testing.T) {
+	teamGitDir(t)
+	t.Setenv("HADRON_LAUNCH_GRANT", "hlg_spent")
+	gql, captured := captureGraphQL(t, startWithAffinityStubs(irisWorkerJSON, nil))
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--force", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("--as with a spent grant in the environment must bind normally: %v", err)
+	}
+	if v, sent := startInput(t, captured["StartTeamSession"])["launchGrant"]; sent {
+		t.Errorf("--as must not send the environment's grant, sent %v", v)
+	}
+}

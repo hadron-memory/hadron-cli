@@ -23,8 +23,9 @@ import (
 
 // The host-local configuration. Hadron never sees it: the launch command and
 // any AI-plan login are the host's own (Holger #10777, cor:agt:070 Out of
-// Scope), and the host key is read from a file named here, never from the
-// environment the launched agents inherit.
+// Scope), and the host key is read from a file named here — never from an
+// environment variable, which a same-user agent could read from the
+// poller's /proc entry.
 type Config struct {
 	// Server is the Hadron server URL; empty means the CLI's usual resolution.
 	Server string `yaml:"server"`
@@ -34,8 +35,9 @@ type Config struct {
 	Label string `yaml:"label"`
 	// PollIntervalSeconds is how often the host checks in (1 to 86400).
 	PollIntervalSeconds int `yaml:"poll_interval_seconds"`
-	// KeyFile holds the App key carrying host:operate for this host. Empty
-	// means HADRON_HOST_KEY.
+	// KeyFile holds the App key carrying host:operate for this host
+	// (required; mode 0600 or tighter). Relative paths resolve against the
+	// configuration's directory.
 	KeyFile string `yaml:"key_file"`
 	// WorktreesRoot is the directory every worktree name token is relative to.
 	WorktreesRoot string `yaml:"worktrees_root"`
@@ -71,7 +73,9 @@ type WorkerConfig struct {
 const (
 	defaultPollInterval = 30
 	defaultEndWait      = 15 * time.Minute
-	// HostKeyEnv is the fallback for key_file. Launched agents never see it.
+	// HostKeyEnv is never read as a key source (a same-user agent could
+	// read it from the poller's environment); it is scrubbed from launched
+	// agents in case the operator's shell carries one.
 	HostKeyEnv = "HADRON_HOST_KEY"
 )
 
@@ -100,8 +104,14 @@ func LoadConfig(path string) (*Config, error) {
 	if err := dec.Decode(&c); err != nil {
 		return nil, fmt.Errorf("parsing host config %s: %w", path, err)
 	}
+	dir := filepath.Dir(path)
 	if c.StateFile == "" {
-		c.StateFile = filepath.Join(filepath.Dir(path), "hadron-host-state.json")
+		c.StateFile = filepath.Join(dir, "hadron-host-state.json")
+	} else if !filepath.IsAbs(c.StateFile) {
+		c.StateFile = filepath.Join(dir, c.StateFile)
+	}
+	if c.KeyFile != "" && !filepath.IsAbs(c.KeyFile) {
+		c.KeyFile = filepath.Join(dir, c.KeyFile)
 	}
 	if err := c.validate(); err != nil {
 		return nil, fmt.Errorf("host config %s: %w", path, err)
@@ -190,24 +200,36 @@ func (w WorkerConfig) endWait() time.Duration {
 	return defaultEndWait
 }
 
-// ReadHostKey returns the host:operate key: key_file when set, else
-// HADRON_HOST_KEY. Never HADRON_TOKEN or the token store, which the agents
-// this host launches use as their holder's own credential.
+// ReadHostKey returns the host:operate key from key_file. Never from
+// HADRON_TOKEN or the token store (the holder's own credential, which the
+// launched agents bind on), and never from an environment variable.
+//
+// The file must not be readable by group or others. That is the part of
+// key custody the poller CAN check. The part it cannot: an agent running as
+// the same OS user as the poller can read any file the poller can. Keeping
+// the key from a launched agent's environment, argv and files is the
+// poller's; keeping it from the agent's OS user is the deployment's — run
+// the poller as its own user, with key_file readable by that user only.
 func (c *Config) ReadHostKey() (string, error) {
-	if c.KeyFile != "" {
-		raw, err := os.ReadFile(c.KeyFile)
-		if err != nil {
-			return "", fmt.Errorf("reading host key file: %w", err)
-		}
-		if k := strings.TrimSpace(string(raw)); k != "" {
-			return k, nil
-		}
+	if c.KeyFile == "" {
+		return "", fmt.Errorf("no host key: set key_file in the host config (an App key with host:operate, mode 0600)")
+	}
+	info, err := os.Stat(c.KeyFile)
+	if err != nil {
+		return "", fmt.Errorf("reading host key file: %w", err)
+	}
+	if keyFileTooOpen(info) {
+		return "", fmt.Errorf("host key file %s is readable by group or others (mode %o): chmod 600 it", c.KeyFile, info.Mode().Perm())
+	}
+	raw, err := os.ReadFile(c.KeyFile)
+	if err != nil {
+		return "", fmt.Errorf("reading host key file: %w", err)
+	}
+	k := strings.TrimSpace(string(raw))
+	if k == "" {
 		return "", fmt.Errorf("host key file %s is empty", c.KeyFile)
 	}
-	if k := strings.TrimSpace(os.Getenv(HostKeyEnv)); k != "" {
-		return k, nil
-	}
-	return "", fmt.Errorf("no host key: set key_file in the host config or %s", HostKeyEnv)
+	return k, nil
 }
 
 // WorktreePath is the absolute path of a worktree name token.

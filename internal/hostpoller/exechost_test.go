@@ -108,13 +108,11 @@ func TestExecHostLaunchUsesTheGivenEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, line := range []string{"HADRON_LAUNCH_GRANT=hlg_x"} {
-		if !contains(string(raw), line) {
+		if !strings.Contains(string(raw), line) {
 			t.Errorf("env missing %q:\n%s", line, raw)
 		}
 	}
-	if contains(string(raw), "HADRON_TOKEN=") {
+	if strings.Contains(string(raw), "HADRON_TOKEN=") {
 		t.Errorf("only the given environment reaches the agent:\n%s", raw)
 	}
 }
-
-func contains(s, sub string) bool { return strings.Contains(s, sub) }

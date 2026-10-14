@@ -22,6 +22,10 @@ type State struct {
 	Created map[string][]string `json:"created"`
 	// Keep maps a worktree token to why it must not be removed.
 	Keep map[string]string `json:"keep"`
+	// HostID is the id the server derived from the host key at the last
+	// registration — how `status` finds this host's own registration, since
+	// a label is not unique.
+	HostID string `json:"hostId"`
 }
 
 // LoadState reads the state file; a missing file is an empty state.
@@ -121,6 +125,23 @@ func (s *State) keepReason(token string) (string, bool) {
 	defer s.mu.Unlock()
 	r, ok := s.Keep[token]
 	return r, ok
+}
+
+func (s *State) setHostID(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if id == "" || id == s.HostID {
+		return nil
+	}
+	s.HostID = id
+	return s.save()
+}
+
+// RegisteredHostID is the host id saved at the last registration.
+func (s *State) RegisteredHostID() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.HostID
 }
 
 // Snapshot copies the state for display.

@@ -3,10 +3,12 @@ package team
 // `team host run|status` — the host poller (hadron-cli#831, cor:agt:070):
 // the host's own side of host operations. It authenticates with an App key
 // carrying host:operate for ONE host (cor:agt:070:04), read from the host
-// configuration's key_file (or HADRON_HOST_KEY) — never from HADRON_TOKEN or
-// the token store, which the agents it launches use as their holder's own
-// credential. The host key never reaches an agent: worker.start hands it the
-// single-use launch grant and nothing else.
+// configuration's key_file — never from HADRON_TOKEN or the token store,
+// which the agents it launches use as their holder's own credential, and
+// never from an environment variable. The poller never puts the key in a
+// launched agent's environment, argv or files: worker.start hands it the
+// single-use launch grant and nothing else. Keeping the key from the agent's
+// OS user is the deployment's (see ReadHostKey).
 
 import (
 	"context"
@@ -17,7 +19,10 @@ import (
 	"os/signal"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
+	"unicode/utf16"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -95,17 +100,19 @@ func (s *hostServer) Report(ctx context.Context, id, outcome, worktree, reason s
 		in.Worktree = &worktree
 	}
 	if reason != "" {
-		// The server bounds a reason at 2000 characters; a git error can run
-		// longer, and a refused report would leave the operation in flight.
-		if r := []rune(reason); len(r) > 2000 {
-			reason = string(r[:1999]) + "…"
-		}
+		// The server bounds a reason at 2000 characters, counted as JS
+		// string length (UTF-16 units); a git error can run longer, and a
+		// refused report would leave the operation in flight.
+		reason = truncateUTF16(reason, 2000)
 		in.FailureReason = &reason
 	}
 	resp, err := gen.ReportHostOperation(ctx, s.client, in)
 	if err != nil {
 		if api.HasErrorCode(err, "HOST_OPERATION_NOT_DONE") {
 			return hostpoller.Operation{}, hostpoller.ErrNotDone
+		}
+		if api.HasErrorCode(err, "HOST_OPERATION_ALREADY_REPORTED") {
+			return hostpoller.Operation{}, fmt.Errorf("%w: %v", hostpoller.ErrFinal, api.MapError(err))
 		}
 		return hostpoller.Operation{}, api.MapError(err)
 	}
@@ -183,11 +190,19 @@ reports every outcome. One poller per host or container.
 An unknown type is refused here as well as by the server, and reported
 failed. There is no shell passthrough of any kind.
 
-THE HOST KEY never reaches a launched agent. It is read from key_file (or
-HADRON_HOST_KEY), never from HADRON_TOKEN or the token store; the agent
-gets the parent environment minus HADRON_TOKEN, HADRON_HOST_KEY and any
-variable carrying the key, plus the grant. The agent binds on its holder's
-own stored token.
+THE HOST KEY is never put in a launched agent's environment, argv or files.
+It is read only from key_file, which must be mode 0600 or tighter — never
+from HADRON_TOKEN, the token store, or any environment variable. The agent
+gets the parent environment minus HADRON_TOKEN, HADRON_HOST_KEY,
+HADRON_LAUNCH_GRANT and any variable carrying the key, plus its own grant,
+and binds on its holder's own stored token. An agent running as the SAME OS
+user as the poller can still read key_file itself: run the poller as its own
+user, with key_file readable by that user only, to close that.
+
+THE LAUNCH COMMAND must stay in the foreground for the agent's whole life:
+its exit is read as the agent's. A launcher that starts a detached session
+and returns (a tmux or wrapper script) is reported failed if no session has
+bound by then, which revokes the grant.
 
 A worker.start waiting for its bind is re-delivered by each collect and
 skipped as in flight. The server must not re-mint its grant meanwhile (a
@@ -199,7 +214,7 @@ The configuration (YAML):
   app: hrn:app:<root>:<slug>
   label: orca1                      # default: hostname
   poll_interval_seconds: 30
-  key_file: /etc/hadron/host.key    # an App key with host:operate
+  key_file: /etc/hadron/host.key    # an App key with host:operate, mode 0600
   worktrees_root: /srv/worktrees
   state_file: /var/lib/hadron/host-state.json   # default: beside the config
   repos:
@@ -226,6 +241,15 @@ per line; --json prints each as a JSON object.`,
 			}
 			emit := hostEventPrinter(f)
 			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{}, state, key, emit)
+			// A refused or revoked key, or a registration the server calls
+			// malformed, does not heal by retrying: exit with its code.
+			p.Fatal = func(err error) bool {
+				switch exitcode.FromError(err) {
+				case exitcode.AuthRequired, exitcode.Forbidden, exitcode.Usage:
+					return true
+				}
+				return false
+			}
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
 			if once {
@@ -234,9 +258,15 @@ per line; --json prints each as a JSON object.`,
 				if err != nil {
 					return hostStepError(err)
 				}
+				if n := p.ReportFailures(); n > 0 {
+					return exitcode.Newf(exitcode.Unavailable, "%d report(s) did not reach the server; those operations are re-delivered at the next collect", n)
+				}
 				return nil
 			}
-			return p.Run(ctx)
+			if err := p.Run(ctx); err != nil {
+				return hostStepError(err)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&configPath, "config", "", "host configuration file (YAML)")
@@ -250,10 +280,29 @@ func hostStepError(err error) error {
 	return exitcode.New(exitcode.FromError(err), err)
 }
 
+// hostEventDTO is one --json event line: every key always present, "" when
+// it does not apply.
+type hostEventDTO struct {
+	Time      string `json:"time"`
+	Kind      string `json:"kind"`
+	Operation string `json:"operation"`
+	Type      string `json:"type"`
+	Outcome   string `json:"outcome"`
+	Detail    string `json:"detail"`
+}
+
+// hostEventPrinter writes events one per line. Operations run concurrently,
+// so the writes are serialized.
 func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
+	var mu sync.Mutex
 	return func(e hostpoller.Event) {
+		mu.Lock()
+		defer mu.Unlock()
 		if f.JSON {
-			b, _ := json.Marshal(e)
+			b, _ := json.Marshal(hostEventDTO{
+				Time: e.Time.Format(time.RFC3339), Kind: e.Kind, Operation: e.Operation,
+				Type: e.Type, Outcome: e.Outcome, Detail: e.Detail,
+			})
 			fmt.Fprintln(f.IOStreams.Out, string(b))
 			return
 		}
@@ -300,8 +349,9 @@ func newCmdTeamHostStatus(f *cmdutil.Factory) *cobra.Command {
 		Long: `Check a host poller's configuration and key, and show what it would
 register (each worker's family, launch and end argv, and worktrees, created
 ones included), the worktrees it keeps because a worker.end on them failed,
-and the host's registration as the server holds it — read with the host key,
-which reaches only its own host (cor:agt:070:04). It changes nothing.`,
+and the host's registration as the server holds it, found by the host id
+saved at the poller's last registration (a label is not unique). It changes
+nothing.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, _, srv, err := loadHostPoller(f, configPath)
@@ -331,36 +381,28 @@ which reaches only its own host (cor:agt:070:04). It changes nothing.`,
 				msg := api.MapError(err).Error()
 				dto.ReadError = &msg
 			} else {
-				matches := 0
+				hostID := state.RegisteredHostID()
 				for _, r := range resp.HostRegistrations {
-					if r != nil && r.Label == cfg.Label {
-						matches++
+					// The host id saved at this poller's last registration —
+					// never the label, which is not unique.
+					if hostID == "" || r == nil || r.HostId != hostID {
+						continue
 					}
-				}
-				if matches > 1 {
-					// A label names a host to people and is not unique; showing
-					// one of several would be a guess.
-					msg := fmt.Sprintf("%d registrations carry the label %q; `team host list` shows them all", matches, cfg.Label)
-					dto.ReadError = &msg
-				}
-				for _, r := range resp.HostRegistrations {
-					if matches == 1 && r != nil && r.Label == cfg.Label {
-						reg := hostRegistrationDTO{
-							HostID: r.HostId, Label: r.Label, PollIntervalSeconds: r.PollIntervalSeconds,
-							RegisteredAt: r.RegisteredAt, RefreshedAt: r.RefreshedAt, Live: r.Live, Workers: []hostWorkerDTO{},
-						}
-						for _, w := range r.Workers {
-							if w == nil {
-								continue
-							}
-							hw := hostWorkerDTO{WorkerID: w.WorkerId, Family: w.Family, Worktrees: append([]string{}, w.Worktrees...)}
-							if w.Worker != nil {
-								hw.WorkerName = &w.Worker.Name
-							}
-							reg.Workers = append(reg.Workers, hw)
-						}
-						dto.Registration = &reg
+					reg := hostRegistrationDTO{
+						HostID: r.HostId, Label: r.Label, PollIntervalSeconds: r.PollIntervalSeconds,
+						RegisteredAt: r.RegisteredAt, RefreshedAt: r.RefreshedAt, Live: r.Live, Workers: []hostWorkerDTO{},
 					}
+					for _, w := range r.Workers {
+						if w == nil {
+							continue
+						}
+						hw := hostWorkerDTO{WorkerID: w.WorkerId, Family: w.Family, Worktrees: append([]string{}, w.Worktrees...)}
+						if w.Worker != nil {
+							hw.WorkerName = &w.Worker.Name
+						}
+						reg.Workers = append(reg.Workers, hw)
+					}
+					dto.Registration = &reg
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -379,7 +421,7 @@ which reaches only its own host (cor:agt:070:04). It changes nothing.`,
 				case dto.ReadError != nil:
 					fmt.Fprintf(w, "registration: not readable (%s)\n", *dto.ReadError)
 				case dto.Registration == nil:
-					fmt.Fprintln(w, "registration: none on the server yet")
+					fmt.Fprintln(w, "registration: none found for this poller's host id (it has not registered yet, or the registration is gone)")
 				default:
 					live := "not live"
 					if dto.Registration.Live {
@@ -412,4 +454,21 @@ func sortedKeys(m map[string]string) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// truncateUTF16 cuts s to at most max UTF-16 units, marking the cut.
+func truncateUTF16(s string, max int) string {
+	if len(utf16.Encode([]rune(s))) <= max {
+		return s
+	}
+	out, n := []rune{}, 0
+	for _, r := range s {
+		w := len(utf16.Encode([]rune{r}))
+		if n+w > max-1 {
+			break
+		}
+		out = append(out, r)
+		n += w
+	}
+	return string(out) + "…"
 }

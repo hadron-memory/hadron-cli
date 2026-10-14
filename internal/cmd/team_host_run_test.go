@@ -202,10 +202,14 @@ func TestTeamHostRunMapsARefusedHostKey(t *testing.T) {
 
 func TestTeamHostStatusShowsConfigAndRegistration(t *testing.T) {
 	cfg := writeHostConfig(t, "    worktrees: [repo/iris]\n")
+	if err := os.WriteFile(filepath.Join(filepath.Dir(cfg), "hadron-host-state.json"), []byte(`{"created":{},"keep":{},"hostId":"h1"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	srv, calls := hostServerFake(t, map[string]string{
 		"HostRegistrations": `{"data":{"hostRegistrations":[{"hostId":"h1","label":"box1","pollIntervalSeconds":30,
 			"registeredAt":"2026-10-14T12:00:00Z","refreshedAt":"2026-10-14T12:05:00Z","live":true,
-			"workers":[{"workerId":"wkr1","worker":{"id":"wkr1","name":"Iris"},"family":"claude","worktrees":["repo/iris"]}]}]}}`,
+			"workers":[{"workerId":"wkr1","worker":{"id":"wkr1","name":"Iris"},"family":"claude","worktrees":["repo/iris"]}]},
+			{"hostId":"h2","label":"box1","pollIntervalSeconds":30,"registeredAt":"2026-10-14T12:00:00Z","refreshedAt":"2026-10-14T12:05:00Z","live":false,"workers":[]}]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -243,5 +247,35 @@ func TestTeamHostStatusShowsConfigAndRegistration(t *testing.T) {
 		if c.auth != "Bearer hk_host_key" {
 			t.Errorf("status reads with the host key: %q", c.auth)
 		}
+	}
+}
+
+// A revoked key does not heal by retrying: run exits with its code instead of
+// looping on it.
+func TestTeamHostRunExitsOnARefusedKey(t *testing.T) {
+	cfg := writeHostConfig(t, "")
+	srv, _ := hostServerFake(t, map[string]string{
+		"RegisterHost": `{"errors":[{"message":"revoked","extensions":{"code":"APP_KEY_SCOPE_REQUIRED"}}],"data":null}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "run", "--config", cfg, "--server", srv.URL})
+	if code := exitCodeFor(root.Execute()); code != exitcode.Forbidden {
+		t.Errorf("exit = %d, want %d", code, exitcode.Forbidden)
+	}
+}
+
+func TestTeamHostRunOnceFailsWhenAReportDidNotLand(t *testing.T) {
+	cfg := writeHostConfig(t, "")
+	srv, _ := hostServerFake(t, map[string]string{
+		"RegisterHost":          hostRegistrationAnswer,
+		"CollectHostOperations": `{"data":{"collectHostOperations":[` + strings.Replace(polledOpJSON("o1", "worker.deliver", "COLLECTED"), `"failureReason":null}`, `"failureReason":null,"launchGrant":null}`, 1) + `]}}`,
+		"ReportHostOperation":   `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
+	if code := exitCodeFor(root.Execute()); code != exitcode.Unavailable {
+		t.Errorf("exit = %d, want %d: an undelivered report is not a clean poll", code, exitcode.Unavailable)
 	}
 }

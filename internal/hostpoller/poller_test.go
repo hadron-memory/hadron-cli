@@ -2,6 +2,7 @@ package hostpoller
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -593,5 +594,109 @@ func TestHostKeyNeverComesFromTheTokenChannel(t *testing.T) {
 	c := &Config{}
 	if _, err := c.ReadHostKey(); err == nil {
 		t.Error("HADRON_TOKEN must never serve as the host key")
+	}
+}
+
+func TestHostKeyFileMustNotBeReadableByOthers(t *testing.T) {
+	dir := t.TempDir()
+	key := filepath.Join(dir, "host.key")
+	if err := os.WriteFile(key, []byte("hk_x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := &Config{KeyFile: key}
+	if _, err := c.ReadHostKey(); err == nil || !strings.Contains(err.Error(), "chmod 600") {
+		t.Errorf("a world-readable key file must be refused: %v", err)
+	}
+	if err := os.Chmod(key, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if k, err := c.ReadHostKey(); err != nil || k != "hk_x" {
+		t.Errorf("a 0600 key file is read: %q %v", k, err)
+	}
+}
+
+func TestHostKeyIsNeverReadFromTheEnvironment(t *testing.T) {
+	t.Setenv(HostKeyEnv, "hk_from_env")
+	if _, err := (&Config{}).ReadHostKey(); err == nil {
+		t.Error("HADRON_HOST_KEY must not serve as the host key: a same-user agent can read the poller's environment")
+	}
+}
+
+// ---- review-walk fixes ----
+
+func TestWorktreeRemoveRefusesATreeNotRegisteredForItsWorker(t *testing.T) {
+	p, srv, host := testPoller(t)
+	other := p.cfg.WorktreePath("repo/someone-else")
+	host.trees[other] = WorktreeState{Exists: true, IsWorktree: true, Branch: "b", Upstream: "origin/b"}
+	srv.batches = [][]Operation{{{ID: "r1", Type: OpWorktreeRemove, WorkerID: "id-iris", Args: map[string]any{"worktree": "repo/someone-else"}}}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "not registered for this worker") {
+		t.Errorf("%+v", r)
+	}
+	if len(host.removed) != 0 {
+		t.Error("another worker's tree must never be removed")
+	}
+}
+
+func TestWorkerStartRefusesATreeWithALiveAgent(t *testing.T) {
+	p, srv, host := testPoller(t)
+	p.trackAgent("id-other", "repo/iris", &fakeAgent{done: make(chan struct{})})
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "still running") {
+		t.Errorf("%+v", r)
+	}
+	if len(host.launches) != 0 {
+		t.Error("one agent per worktree")
+	}
+}
+
+func TestWorkerStartStopsWhenTheServerAlreadyFinishedIt(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	fin := &finalServer{fakeServer: srv}
+	p.server = fin
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	if fin.asks > 3 {
+		t.Errorf("an already-finished start must not be asked again for the grant's lifetime: %d asks", fin.asks)
+	}
+}
+
+// finalServer answers NOT_DONE to the first SUCCEEDED and ErrFinal after.
+type finalServer struct {
+	*fakeServer
+	asks int
+}
+
+func (f *finalServer) Report(ctx context.Context, id, outcome, worktree, reason string) (Operation, error) {
+	f.asks++
+	if f.asks == 1 {
+		return Operation{}, ErrNotDone
+	}
+	return Operation{}, ErrFinal
+}
+
+func TestWorkerEndIgnoresAnAgentThatExitedLongAgo(t *testing.T) {
+	p, srv, _ := testPoller(t)
+	gone := &fakeAgent{done: make(chan struct{})}
+	close(gone.done)
+	p.trackAgent("id-iris", "repo/iris", gone)
+	srv.batches = [][]Operation{{endOp()}}
+	step(t, p)
+	if r := only(t, srv); !strings.Contains(r.reason, "did not end within") {
+		t.Errorf("a long-exited agent must not cut the wait short: %+v", r)
+	}
+}
+
+func TestRegistrationSavesTheHostID(t *testing.T) {
+	p, _, _ := testPoller(t)
+	step(t, p)
+	st, err := LoadState(p.cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.RegisteredHostID() != "h1" {
+		t.Errorf("host id: %q", st.RegisteredHostID())
 	}
 }

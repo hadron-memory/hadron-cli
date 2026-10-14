@@ -59,6 +59,17 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not a valid name token", token))
 		return
 	}
+	// Only the operation's own worker's tree: never another worker's, and
+	// never a tree under the root this host doesn't register for it.
+	ref, w, ok := p.workerRef(op)
+	if !ok {
+		p.finish(ctx, op, Failed, "", "the worker is not configured on this host")
+		return
+	}
+	if !contains(p.state.worktreesFor(ref, w.Worktrees), token) {
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not registered for this worker here", token))
+		return
+	}
 	if why, kept := p.state.keepReason(token); kept {
 		p.finish(ctx, op, Failed, "", "kept: "+why)
 		return
@@ -122,13 +133,7 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		return
 	}
 	token := argString(op, "worktree")
-	registered := false
-	for _, t := range p.state.worktreesFor(ref, w.Worktrees) {
-		if t == token {
-			registered = true
-		}
-	}
-	if !registered {
+	if !contains(p.state.worktreesFor(ref, w.Worktrees), token) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not registered for this worker here", token))
 		return
 	}
@@ -139,6 +144,13 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 	}
 	if op.LaunchGrant == "" {
 		p.finish(ctx, op, Failed, "", "the collected start carried no launch grant")
+		return
+	}
+	// One agent per worktree (#472). This sees only agents THIS poller
+	// launched: after a restart, an agent still booting from an earlier
+	// launch is invisible here, and its revoked grant fails its own bind.
+	if p.agentRunningIn(token) {
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("an agent this host launched is still running in %s", token))
 		return
 	}
 	deadline := p.now().Add(LaunchGrantTTL)
@@ -156,7 +168,13 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 	for {
 		select {
 		case <-agent.Done():
-			p.finish(ctx, op, Failed, "", "the agent exited before binding a session ("+agent.ExitDetail()+")")
+			// One last ask: an agent that bound and then exited is a start
+			// that succeeded.
+			if _, err := p.server.Report(ctx, op.ID, Succeeded, "", ""); err == nil {
+				p.log("reported", op.ID, op.Type, Succeeded, "its session bound before the agent exited")
+				return
+			}
+			p.finish(ctx, op, Failed, "", "the agent exited before binding a session ("+agent.ExitDetail()+"); the launch command must stay in the foreground for the agent's life")
 			return
 		default:
 		}
@@ -170,6 +188,11 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		_, err := p.server.Report(ctx, op.ID, Succeeded, "", "")
 		if err == nil {
 			p.log("reported", op.ID, op.Type, Succeeded, "its session bound")
+			return
+		}
+		if errors.Is(err, ErrFinal) {
+			// Already decided server-side (e.g. a refused bind failed it).
+			p.log("reported", op.ID, op.Type, "", "the server already finished it: "+err.Error())
 			return
 		}
 		if !errors.Is(err, ErrNotDone) {
@@ -195,6 +218,15 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	p.mu.Lock()
 	agent := p.agents[op.WorkerID]
 	p.mu.Unlock()
+	if agent != nil {
+		select {
+		case <-agent.Done():
+			// Exited long before: it says nothing about the session this
+			// operation names, which may be a later, manual bind.
+			agent = nil
+		default:
+		}
+	}
 	note := ""
 	if len(w.End) > 0 {
 		dir := ""
@@ -272,6 +304,15 @@ func (p *Poller) agentRunningIn(token string) bool {
 		select {
 		case <-p.agents[id].Done():
 		default:
+			return true
+		}
+	}
+	return false
+}
+
+func contains(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
 			return true
 		}
 	}

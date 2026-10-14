@@ -20,16 +20,23 @@ import (
 const launchGrantEnv = "HADRON_LAUNCH_GRANT"
 
 // launchGrantFrom returns the launch grant for `session start`: the flag
-// when given, else the environment. An explicitly empty flag is refused
-// rather than read as "use the environment" — an empty flag is not an
-// absent one.
-func launchGrantFrom(cmd *cobra.Command, flag string) (string, error) {
+// when given; else the environment, but ONLY when --as is absent too. The
+// poller sets HADRON_LAUNCH_GRANT for the agent's whole process tree and
+// nothing clears it once redeemed, so a later `session start --as …` in the
+// same terminal (a rotation, a shed) must not pick the spent grant up — it
+// would be refused LAUNCH_GRANT_INVALID, and --force refused with it. An
+// explicitly empty flag is refused rather than read as "use the
+// environment": an empty flag is not an absent one.
+func launchGrantFrom(cmd *cobra.Command, flag, as string) (string, error) {
 	if cmd.Flags().Changed("launch-grant") {
 		g := strings.TrimSpace(flag)
 		if g == "" {
 			return "", exitcode.Newf(exitcode.Usage, "--launch-grant must not be empty; omit it to start without a grant")
 		}
 		return g, nil
+	}
+	if strings.TrimSpace(as) != "" {
+		return "", nil
 	}
 	return strings.TrimSpace(os.Getenv(launchGrantEnv)), nil
 }

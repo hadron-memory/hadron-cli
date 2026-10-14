@@ -723,8 +723,11 @@ in one tree.
 A LAUNCHED AGENT binds with --launch-grant instead (hadron-cli#831,
 cor:agt:070:08). The host poller (` + "`team host run`" + `) hands the agent it starts
 a single-use grant in HADRON_LAUNCH_GRANT, and this command reads it from
-there when the flag is absent. The grant names the worker, so --as is
-optional with it; given, the server checks it names the same worker. Redeem
+there when neither --launch-grant nor --as is given. The grant names the
+worker, so --as is not needed with it; --as with --launch-grant has the
+server check both name the same worker. A plain ` + "`start --as <worker>`" + ` ignores
+the variable, so a spent grant left in the environment never gets in the
+way of an ordinary bind later. Redeem
 it with the HOLDER's own token: an App key, the host's own included, never
 redeems one (exit 8, LAUNCH_GRANT_INVALID, also for an unknown, expired or
 used grant). A changed hold or a worker that is already live refuses the
@@ -747,7 +750,7 @@ holds nothing).`,
 			if cmd.Flags().Changed("reports-to") && strings.TrimSpace(reportsTo) == "" {
 				return exitcode.Newf(exitcode.Usage, "--reports-to must name a worker; omit it to preserve the relation")
 			}
-			grant, err := launchGrantFrom(cmd, launchGrantFlag)
+			grant, err := launchGrantFrom(cmd, launchGrantFlag, as)
 			if err != nil {
 				return err
 			}

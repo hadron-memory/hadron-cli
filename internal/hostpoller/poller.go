@@ -83,14 +83,20 @@ type Server interface {
 // bound yet (HOST_OPERATION_NOT_DONE); the poller asks again.
 var ErrNotDone = errors.New("no session bound with this start's grant yet")
 
-// Event is one line of what the poller did, for the operator.
+// ErrFinal is a Report refusal meaning the operation is already finished
+// server-side (HOST_OPERATION_ALREADY_REPORTED): asking again cannot change
+// it.
+var ErrFinal = errors.New("the operation is already finished")
+
+// Event is one line of what the poller did, for the operator. The --json
+// shape is the command package's DTO, not this.
 type Event struct {
-	Time      time.Time `json:"time"`
-	Kind      string    `json:"kind"`
-	Operation string    `json:"operation,omitempty"`
-	Type      string    `json:"type,omitempty"`
-	Outcome   string    `json:"outcome,omitempty"`
-	Detail    string    `json:"detail,omitempty"`
+	Time      time.Time
+	Kind      string
+	Operation string
+	Type      string
+	Outcome   string
+	Detail    string
 }
 
 // Poller is one host's loop.
@@ -105,11 +111,17 @@ type Poller struct {
 	sleep  func(context.Context, time.Duration) error
 	// BindPoll is how often a pending start asks whether its session bound.
 	BindPoll time.Duration
+	// Fatal, when set, decides that a failed check-in ends Run: a refused or
+	// revoked host key does not heal by retrying, and looping on it would
+	// hide it.
+	Fatal func(error) bool
 
 	mu sync.Mutex
 	// inFlight are operations being carried out; a re-collection returns
 	// them again until they are reported, and they must not run twice.
 	inFlight map[string]bool
+	// reportFailures counts reports that did not reach the server.
+	reportFailures int
 	// workerRefs maps a resolved worker id to its configured reference, from
 	// the last registration's answer.
 	workerRefs map[string]string
@@ -158,6 +170,10 @@ func (p *Poller) Run(ctx context.Context) error {
 	for {
 		if err := p.Step(ctx); err != nil {
 			p.log("error", "", "", "", err.Error())
+			if p.Fatal != nil && p.Fatal(err) {
+				p.wg.Wait()
+				return err
+			}
 		}
 		if err := p.sleep(ctx, interval); err != nil {
 			p.wg.Wait()
@@ -166,8 +182,16 @@ func (p *Poller) Run(ctx context.Context) error {
 	}
 }
 
-// Wait blocks until every dispatched operation has been reported.
+// Wait blocks until every dispatched operation has been carried out.
 func (p *Poller) Wait() { p.wg.Wait() }
+
+// ReportFailures is how many reports did not reach the server; those
+// operations are re-delivered at the next collect.
+func (p *Poller) ReportFailures() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.reportFailures
+}
 
 // Step is one check-in: register (always — a host that stops registering
 // lapses), then collect and dispatch.
@@ -202,6 +226,9 @@ func (p *Poller) register(ctx context.Context) error {
 	ans, err := p.server.Register(ctx, r)
 	if err != nil {
 		return err
+	}
+	if err := p.state.setHostID(ans.HostID); err != nil {
+		p.log("state-failed", "", "", "", err.Error())
 	}
 	refs := map[string]string{}
 	for _, w := range ans.Workers {
@@ -273,6 +300,9 @@ func (p *Poller) carryOut(ctx context.Context, op Operation) {
 func (p *Poller) report(ctx context.Context, op Operation, outcome, worktree, reason string) (Operation, error) {
 	got, err := p.server.Report(ctx, op.ID, outcome, worktree, reason)
 	if err != nil {
+		p.mu.Lock()
+		p.reportFailures++
+		p.mu.Unlock()
 		p.log("report-failed", op.ID, op.Type, outcome, err.Error())
 		return Operation{}, err
 	}

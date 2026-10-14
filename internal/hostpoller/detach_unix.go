@@ -3,6 +3,7 @@
 package hostpoller
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
@@ -15,3 +16,6 @@ func detach(cmd *exec.Cmd) {
 }
 
 func realPath(p string) (string, error) { return filepath.EvalSymlinks(p) }
+
+// keyFileTooOpen: any group or other permission bit.
+func keyFileTooOpen(info os.FileInfo) bool { return info.Mode().Perm()&0o077 != 0 }
