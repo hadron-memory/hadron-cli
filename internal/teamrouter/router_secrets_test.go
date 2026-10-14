@@ -23,13 +23,13 @@ func TestSecretsTokenNeverAppearsAnywhere(t *testing.T) {
 		t.Fatalf("status: %v", err)
 	}
 	ledgerBlob, _ := os.ReadFile(filepath.Join(c.StateDir, "ledger.json"))
-	var sentBlob []byte
+	var sentBlob strings.Builder
 	for _, s := range f.sent {
-		b, _ := json.Marshal(s)
-		sentBlob = append(sentBlob, b...)
+		sentBlob.WriteString(s.handle)
+		sentBlob.WriteString(s.text)
 	}
 	logsBlob, _ := json.Marshal(f.logs)
-	blob := DescribeOutcome(out) + string(logsBlob) + string(sentBlob) + statusText + string(ledgerBlob)
+	blob := DescribeOutcome(out) + string(logsBlob) + sentBlob.String() + statusText + string(ledgerBlob)
 	if strings.Contains(blob, "SECRET") {
 		t.Fatalf("the token leaked into output, logs, nudges, status or the ledger")
 	}
