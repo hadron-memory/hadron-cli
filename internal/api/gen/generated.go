@@ -622,9 +622,12 @@ type AgentFields struct {
 	// null. Set or clear it with setAgentIndexRefs; read the Agent's processes
 	// with agentProcessList.
 	ProcessesIndexRef *string `json:"processesIndexRef"`
-	AiProvider        *string `json:"aiProvider"`
-	AiModel           *string `json:"aiModel"`
-	HasAiApiKey       bool    `json:"hasAiApiKey"`
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the id of the one base Agent this Agent extends,
+	// or null. Set, change or clear it with setAgentBase.
+	ExtendsAgentId *string `json:"extendsAgentId"`
+	AiProvider     *string `json:"aiProvider"`
+	AiModel        *string `json:"aiModel"`
+	HasAiApiKey    bool    `json:"hasAiApiKey"`
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
 	CreatedAt   string  `json:"createdAt"`
@@ -665,6 +668,9 @@ func (v *AgentFields) GetTasksIndexRef() *string { return v.TasksIndexRef }
 
 // GetProcessesIndexRef returns AgentFields.ProcessesIndexRef, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetProcessesIndexRef() *string { return v.ProcessesIndexRef }
+
+// GetExtendsAgentId returns AgentFields.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetExtendsAgentId() *string { return v.ExtendsAgentId }
 
 // GetAiProvider returns AgentFields.AiProvider, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetAiProvider() *string { return v.AiProvider }
@@ -5758,6 +5764,11 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetProcessesIndexRef() *string {
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns AgentsAgentsAgentsPageItemsAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
 // GetAiProvider returns AgentsAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -5823,6 +5834,8 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -5857,6 +5870,7 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -9838,6 +9852,11 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetProcessesIndexRef() 
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
 // GetAiProvider returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -9913,6 +9932,8 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -9947,6 +9968,7 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -10034,6 +10056,11 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetProcessesIndexRef() *str
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns ClearAgentTasksIndexSetAgentIndexRefsAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
 // GetAiProvider returns ClearAgentTasksIndexSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -10109,6 +10136,8 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -10143,6 +10172,7 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -12147,6 +12177,9 @@ func (v *CreateAgentCreateAgent) GetProcessesIndexRef() *string {
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns CreateAgentCreateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
+
 // GetAiProvider returns CreateAgentCreateAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -12212,6 +12245,8 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -12246,6 +12281,7 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -18683,6 +18719,9 @@ func (v *GetAgentAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksI
 // GetProcessesIndexRef returns GetAgentAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetProcessesIndexRef() *string { return v.AgentFields.ProcessesIndexRef }
 
+// GetExtendsAgentId returns GetAgentAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
+
 // GetAiProvider returns GetAgentAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -18748,6 +18787,8 @@ type __premarshalGetAgentAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -18782,6 +18823,7 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -30359,6 +30401,11 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetProcessesIndexRef() *s
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns PublicAgentsPublicAgentsAgentsPageItemsAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
 // GetAiProvider returns PublicAgentsPublicAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -30434,6 +30481,8 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -30468,6 +30517,7 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -36176,6 +36226,201 @@ func (v *SessionInput) GetType() *string { return v.Type }
 // GetWorkerRef returns SessionInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetWorkerRef() *string { return v.WorkerRef }
 
+// SetAgentBaseResponse is returned by SetAgentBase on success.
+type SetAgentBaseResponse struct {
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set, change or clear the one base Agent this
+	// Agent extends. The Agent then inherits its base chain's system-memory
+	// nodes, except boot prompts. A null baseRef clears the base.
+	//
+	// Whoever manages this Agent may call it. Extending another organization's
+	// Agent needs the organization's active AgentOrgGrant for it (a same-org base
+	// provisions one, never reactivating a revoked grant); a user-owned Agent
+	// extending someone else's needs its owner's active AgentSubscription.
+	// Refused, changing nothing, with AGENT_BASE_CYCLE when the base is this
+	// Agent or extends it, and AGENT_BASE_CHAIN_TOO_LONG when a chain through
+	// this Agent, its own or any Agent's that extends it, would hold more than 4.
+	//
+	// Accepts each Agent's ID or URN.
+	SetAgentBase *SetAgentBaseSetAgentBaseAgent `json:"setAgentBase"`
+}
+
+// GetSetAgentBase returns SetAgentBaseResponse.SetAgentBase, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseResponse) GetSetAgentBase() *SetAgentBaseSetAgentBaseAgent {
+	return v.SetAgentBase
+}
+
+// SetAgentBaseSetAgentBaseAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type SetAgentBaseSetAgentBaseAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns SetAgentBaseSetAgentBaseAgent.Id, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns SetAgentBaseSetAgentBaseAgent.Urn, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns SetAgentBaseSetAgentBaseAgent.Name, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns SetAgentBaseSetAgentBaseAgent.Description, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns SetAgentBaseSetAgentBaseAgent.Type, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns SetAgentBaseSetAgentBaseAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns SetAgentBaseSetAgentBaseAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns SetAgentBaseSetAgentBaseAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns SetAgentBaseSetAgentBaseAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetSystemPrompt returns SetAgentBaseSetAgentBaseAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
+
+// GetTasksIndexRef returns SetAgentBaseSetAgentBaseAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns SetAgentBaseSetAgentBaseAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns SetAgentBaseSetAgentBaseAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetAiProvider returns SetAgentBaseSetAgentBaseAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns SetAgentBaseSetAgentBaseAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns SetAgentBaseSetAgentBaseAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetPersonaRole returns SetAgentBaseSetAgentBaseAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
+
+// GetCreatedAt returns SetAgentBaseSetAgentBaseAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *SetAgentBaseSetAgentBaseAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetAgentBaseSetAgentBaseAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetAgentBaseSetAgentBaseAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetAgentBaseSetAgentBaseAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *SetAgentBaseSetAgentBaseAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgentBaseSetAgentBaseAgent, error) {
+	var retval __premarshalSetAgentBaseSetAgentBaseAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
 // SetAgentIndexRefsResponse is returned by SetAgentIndexRefs on success.
 type SetAgentIndexRefsResponse struct {
 	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15, hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - set or clear
@@ -36255,6 +36500,11 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetProcessesIndexRef() *string
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns SetAgentIndexRefsSetAgentIndexRefsAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
 // GetAiProvider returns SetAgentIndexRefsSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -36328,6 +36578,8 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -36362,6 +36614,7 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -42782,6 +43035,9 @@ func (v *UpdateAgentUpdateAgent) GetProcessesIndexRef() *string {
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns UpdateAgentUpdateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
+
 // GetAiProvider returns UpdateAgentUpdateAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -42847,6 +43103,8 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -42881,6 +43139,7 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -52511,6 +52770,18 @@ type __SelectedSkillFilePlanInput struct {
 // GetInput returns __SelectedSkillFilePlanInput.Input, and is useful for accessing the field via an interface.
 func (v *__SelectedSkillFilePlanInput) GetInput() *SelectedSkillFilePlanInput { return v.Input }
 
+// __SetAgentBaseInput is used internally by genqlient
+type __SetAgentBaseInput struct {
+	Ref     string  `json:"ref"`
+	BaseRef *string `json:"baseRef,omitempty"`
+}
+
+// GetRef returns __SetAgentBaseInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SetAgentBaseInput) GetRef() string { return v.Ref }
+
+// GetBaseRef returns __SetAgentBaseInput.BaseRef, and is useful for accessing the field via an interface.
+func (v *__SetAgentBaseInput) GetBaseRef() *string { return v.BaseRef }
+
 // __SetAgentIndexRefsInput is used internally by genqlient
 type __SetAgentIndexRefsInput struct {
 	Ref               string  `json:"ref"`
@@ -55285,6 +55556,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -56598,6 +56870,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -56653,6 +56926,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -57090,6 +57364,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -60400,6 +60675,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -64291,6 +64567,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -66355,6 +66632,66 @@ func ServerInfo(
 	return data_, err_
 }
 
+// The mutation executed by SetAgentBase.
+const SetAgentBase_Operation = `
+mutation SetAgentBase ($ref: ID!, $baseRef: ID) {
+	setAgentBase(ref: $ref, baseRef: $baseRef) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	createdAt
+}
+`
+
+// #881 (cor:dmo:050:14): set or clear the Agent's base. Two-state on the
+// wire: a baseRef value sets it; an OMITTED baseRef clears it (the resolver
+// resolves the base only when baseRef is non-empty — there is no preserve
+// state), so one omitempty variable serves both set and --clear.
+func SetAgentBase(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	baseRef *string,
+) (data_ *SetAgentBaseResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAgentBase",
+		Query:  SetAgentBase_Operation,
+		Variables: &__SetAgentBaseInput{
+			Ref:     ref,
+			BaseRef: baseRef,
+		},
+	}
+
+	data_ = &SetAgentBaseResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetAgentIndexRefs.
 const SetAgentIndexRefs_Operation = `
 mutation SetAgentIndexRefs ($ref: ID!, $tasksIndexRef: ID, $processesIndexRef: ID) {
@@ -66375,6 +66712,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -68358,6 +68696,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
