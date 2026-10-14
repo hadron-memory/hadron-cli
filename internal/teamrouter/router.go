@@ -205,5 +205,10 @@ func Status(c *Config, s Server) (string, error) { return "", &RouterError{Reaso
 // DescribeOutcome renders an Outcome for logs/status. RED-FIRST STUB.
 func DescribeOutcome(o *Outcome) string { return "" }
 
-// BreakStaleLock reclaims a lock whose owner cannot be alive. RED-FIRST STUB.
-func BreakStaleLock(path string) error { return &RouterError{Reason: "unimplemented"} }
+// BreakStaleLock reclaims a lock whose owner a racer judged stale, guarding
+// against races: "retry" = broken (or already gone), take it; "busy" = the
+// lock changed under the stale judgement and now looks live — stand down and
+// retry the whole acquire. RED-FIRST STUB.
+func BreakStaleLock(lockDir, staleOwner string) (verdict string, err error) {
+	return "", &RouterError{Reason: "unimplemented"}
+}
