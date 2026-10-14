@@ -791,9 +791,9 @@ func TestAgentUpdateClearsIndexRef(t *testing.T) {
 // Field flags and index flags compose: one field update, one index set.
 func TestAgentUpdateMixedFieldsAndIndexRefs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UpdateAgent":          `{"data":{"updateAgent":` + agentJSON + `}}`,
-		"SetAgentIndexRefs":    `{"data":{"setAgentIndexRefs":` + agentJSON + `}}`,
-		"ClearAgentTasksIndex": `{"data":{"setAgentIndexRefs":` + agentJSON + `}}`,
+		"UpdateAgent":              `{"data":{"updateAgent":` + agentJSON + `}}`,
+		"SetAgentIndexRefs":        `{"data":{"setAgentIndexRefs":` + agentJSON + `}}`,
+		"ClearAgentProcessesIndex": `{"data":{"setAgentIndexRefs":` + agentJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

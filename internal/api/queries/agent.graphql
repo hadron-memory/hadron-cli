@@ -154,3 +154,74 @@ mutation UpdateAgent(
 mutation DeleteAgent($ref: ID!) {
   deleteAgent(ref: $ref)
 }
+
+# ---- #874: the Agent's two index refs (cor:dmo:050:15 / :16) ---------------
+#
+# The server owns the base-chain walk and the dedupe; these read what it
+# returns. Each row's node carries its own address and, where it applies, the
+# base it was inherited from.
+
+query AgentTaskIndexList($ref: ID!) {
+  agentTaskList(ref: $ref) {
+    node {
+      id
+      urn
+      name
+      inheritedFrom {
+        agentId
+        agentUrn
+      }
+    }
+    trigger
+  }
+}
+
+query AgentProcessIndexList($ref: ID!) {
+  agentProcessList(ref: $ref) {
+    node {
+      id
+      urn
+      name
+      inheritedFrom {
+        agentId
+        agentUrn
+      }
+    }
+    kind
+    trigger
+  }
+}
+
+# setAgentIndexRefs reads an OMITTED argument as preserve and an explicit
+# NULL as clear — a three-state wire contract one omitempty variable cannot
+# express. Values go through SetAgentIndexRefs (omitempty: a nil pointer is
+# omitted, so only the passed flags ride); each clear goes through its own
+# document below, whose variable marshals a nil pointer as an explicit null
+# for exactly the ref being cleared while the other stays omitted. The
+# resolver writes each ref independently, so a set and a clear compose.
+mutation SetAgentIndexRefs(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $tasksIndexRef: ID
+  # @genqlient(omitempty: true)
+  $processesIndexRef: ID
+) {
+  setAgentIndexRefs(ref: $ref, tasksIndexRef: $tasksIndexRef, processesIndexRef: $processesIndexRef) {
+    ...AgentFields
+  }
+}
+
+# The clear variable deliberately has NO omitempty: a nil pointer marshals
+# as an explicit null in the variables — the server's clear — while the
+# untouched ref is OMITTED from the document entirely, and omitted preserves.
+mutation ClearAgentTasksIndex($ref: ID!, $tasksIndexRef: ID) {
+  setAgentIndexRefs(ref: $ref, tasksIndexRef: $tasksIndexRef) {
+    ...AgentFields
+  }
+}
+
+mutation ClearAgentProcessesIndex($ref: ID!, $processesIndexRef: ID) {
+  setAgentIndexRefs(ref: $ref, processesIndexRef: $processesIndexRef) {
+    ...AgentFields
+  }
+}
