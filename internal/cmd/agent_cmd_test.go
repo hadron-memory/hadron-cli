@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -817,5 +819,145 @@ func TestAgentUpdateMixedFieldsAndIndexRefs(t *testing.T) {
 	_ = json.Unmarshal(captured["ClearAgentProcessesIndex"], &clearVars)
 	if v, present := clearVars["processesIndexRef"]; !present || v != nil {
 		t.Fatalf("the clear must send explicit null, got %v (present=%v)", v, present)
+	}
+}
+
+// agentWithRefsJSON is the agent fixture carrying the two index refs (null
+// when unset) — the read-back half of the #874 round trip.
+func agentWithRefsJSON(tasks, processes *string) string {
+	ts, ps := "null", "null"
+	if tasks != nil {
+		ts = `"` + *tasks + `"`
+	}
+	if processes != nil {
+		ps = `"` + *processes + `"`
+	}
+	return fmt.Sprintf(`{"id":"agt1","urn":"acme.com::support-bot","name":"Support Bot","description":null,
+		"type":"CHATBOT","visibility":"ORGANIZATION","organizationId":"acme.com","surfaces":[],
+		"systemMemoryId":null,"systemPrompt":null,"aiProvider":null,"aiModel":null,"hasAiApiKey":false,
+		"tasksIndexRef":%s,"processesIndexRef":%s,
+		"createdAt":"2026-06-19T00:00:00Z"}`, ts, ps)
+}
+
+// Colin's QA P2 on #884 (#11646): a ref set through `agent update` could not
+// be read back — `agent get` exposed neither index ref, in JSON or human
+// output. The acceptance is the round trip through the CLI itself: set, get
+// (the ref shows), clear, get (null renders as unset).
+func TestAgentGetExposesIndexRefsRoundTrip(t *testing.T) {
+	tasksRef := "n-tasks-index"
+	getCalls := 0
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		switch op {
+		case "SetAgentIndexRefs":
+			return `{"data":{"setAgentIndexRefs":` + agentWithRefsJSON(&tasksRef, nil) + `}}`
+		case "ClearAgentTasksIndex":
+			return `{"data":{"setAgentIndexRefs":` + agentWithRefsJSON(nil, nil) + `}}`
+		case "GetAgent":
+			getCalls++
+			if getCalls == 1 {
+				return `{"data":{"agent":` + agentWithRefsJSON(&tasksRef, nil) + `}}`
+			}
+			return `{"data":{"agent":` + agentWithRefsJSON(nil, nil) + `}}`
+		}
+		return ""
+	})
+
+	run := func(jsonOut bool, argv ...string) (string, error) {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		args := append([]string{"--server", gql.URL}, argv...)
+		if jsonOut {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		err := root.Execute()
+		// Read the builder AFTER Execute: a `return out.String(), root.Execute()`
+		// would snapshot the output before the command ran.
+		return out.String(), err
+	}
+
+	// Set, then read back through agent get --json: the set ref is present,
+	// the untouched one is an explicit null (unset), not a missing key.
+	if _, err := run(false, "agent", "update", "agt1", "--tasks-index", tasksRef); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	out, err := run(true, "agent", "get", "agt1")
+	if err != nil {
+		t.Fatalf("get after set: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out)
+	}
+	if got["tasksIndexRef"] != tasksRef {
+		t.Fatalf("tasksIndexRef = %v, want the set ref", got["tasksIndexRef"])
+	}
+	if proc, present := got["processesIndexRef"]; !present || proc != nil {
+		t.Fatalf("processesIndexRef must be an explicit null when unset, got %v (present=%v)", proc, present)
+	}
+
+	// Clear, then read back: both render unset — the human view shows the
+	// dash, and the stale value is gone.
+	if _, err := run(false, "agent", "update", "agt1", "--tasks-index", ""); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	humanOut, err := run(false, "agent", "get", "agt1")
+	if err != nil {
+		t.Fatalf("get after clear: %v", err)
+	}
+	if strings.Contains(humanOut, tasksRef) {
+		t.Fatalf("the cleared ref must not render, got:\n%s", humanOut)
+	}
+	for _, want := range []string{"tasks index", "processes index"} {
+		if !strings.Contains(humanOut, want) {
+			t.Fatalf("the human view should show %q (unset), got:\n%s", want, humanOut)
+		}
+	}
+}
+
+// Andi's blind P3 (#11639): exact JSON equality pins on both list shapes —
+// the --json arrays equal the server's arrays, not merely contain their
+// fields.
+func TestAgentListShapesExactJSON(t *testing.T) {
+	taskFixture := `[{"node":` + listedNodeJSON + `,"trigger":"tasks:agent"},{"node":` + listedOwnNodeJSON + `,"trigger":null}]`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AgentTaskIndexList": `{"data":{"agentTaskList":` + taskFixture + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "tasks", "list", "agt1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var got, want []any
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	if err := json.Unmarshal([]byte(taskFixture), &want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("--json must equal the server array exactly:\ngot  %s\nwant %s", out.String(), taskFixture)
+	}
+
+	processFixture := `[{"node":` + listedNodeJSON + `,"kind":"STARTS","trigger":"processes:agent"},{"node":` + listedOwnNodeJSON + `,"kind":"INVOLVED","trigger":null}]`
+	gql2, _ := captureGraphQL(t, map[string]string{
+		"AgentProcessIndexList": `{"data":{"agentProcessList":` + processFixture + `}}`,
+	})
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"agent", "processes", "list", "agt1", "--json", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var got2, want2 []any
+	if err := json.Unmarshal([]byte(out2.String()), &got2); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out2.String())
+	}
+	if err := json.Unmarshal([]byte(processFixture), &want2); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got2, want2) {
+		t.Fatalf("--json must equal the server array exactly:\ngot  %s", out2.String())
 	}
 }
