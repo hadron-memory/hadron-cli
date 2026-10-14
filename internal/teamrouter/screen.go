@@ -168,7 +168,7 @@ func spinnerTimer(s string) bool {
 var idleMarkers = []*regexp.Regexp{
 	regexp.MustCompile(`· done`), regexp.MustCompile(`^⏺ Done`), regexp.MustCompile(`^Done\.`),
 	regexp.MustCompile(`^✻ \w+ for \d+[ms]`), regexp.MustCompile(`^✻ Compacted while idle`),
-	regexp.MustCompile(`/clear to save`), regexp.MustCompile(`recap:`), regexp.MustCompile(`Share Claude Code`),
+	regexp.MustCompile(`/clear to save`), regexp.MustCompile(`^new task\? /clear`), regexp.MustCompile(`recap:`), regexp.MustCompile(`Share Claude Code`),
 	regexp.MustCompile(`Claude Code v\d`), regexp.MustCompile(`glm-[\d.]`),
 	regexp.MustCompile(`OpenAI Codex \(v`), regexp.MustCompile(`Update available!`), regexp.MustCompile(`Worked for `),
 	regexp.MustCompile(`Update installed`),

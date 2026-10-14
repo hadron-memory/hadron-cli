@@ -286,34 +286,38 @@ func (r *router) channelHead(ctx context.Context) *int {
 // ── Gates ───────────────────────────────────────────────────────────────
 
 // provesIdle: whether the terminal may be typed into, with THREE outcomes
-// where tui-idle alone gave two (#7398). A tui-idle timeout is "busy" only
-// while Orca TRACKS the terminal's output; untracked, the timeout is
-// unknown, and the screen must prove an empty prompt AND positive quiet above
-// it — an empty composer proves nobody typed, not that the agent is not
-// working (both agents draw one mid-turn; @codex P2, #1700). A non-empty
-// reason on success marks the untracked screen proof.
+// where tui-idle alone gave two (#7398). A tui-idle timeout is UNKNOWN,
+// never busy-by-default, on either side of tracking (hadron-server#1924):
+// an untracked terminal can never satisfy tui-idle, and a TRACKED one at a
+// COMPLETED turn can sit unsatisfiable for hours (#1845: Atilla held 2,442
+// min, Chip 877, at idle screens). So the rendered screen decides in both
+// cases: an empty composer plus positive quiet above it proves idle; a live
+// running-turn indicator vetoes (an empty composer proves nobody typed, not
+// that the agent is not working — @codex P2, #1700); anything else is
+// missing evidence and holds. A non-empty reason on success marks a screen
+// proof.
 func (r *router) provesIdle(ctx context.Context, handle, family string, lastOutputAt *int64, timeoutMS int) (bool, string) {
 	if r.isIdle(ctx, handle, timeoutMS) {
 		return true, ""
 	}
+	sc := r.readScreen(ctx, handle)
+	if empty, why := promptIsEmptyFromScreen(sc, family); !empty {
+		return false, "unknown idle state — screen shows " + why
+	}
+	verdict, detail := "unknown", "screen unreadable"
+	if sc != nil {
+		verdict, detail = idleProofAbovePrompt(sc.Tail, family)
+	}
+	switch verdict {
+	case "busy":
+		return false, "a running turn is drawn above the prompt"
+	case "unknown":
+		return false, "unknown idle state — " + detail
+	}
 	if lastOutputAt == nil {
-		sc := r.readScreen(ctx, handle)
-		if empty, why := promptIsEmptyFromScreen(sc, family); !empty {
-			return false, "unknown idle state — no output tracking, screen shows " + why
-		}
-		verdict, detail := "unknown", "screen unreadable"
-		if sc != nil {
-			verdict, detail = idleProofAbovePrompt(sc.Tail, family)
-		}
-		switch verdict {
-		case "busy":
-			return false, "unknown idle state — no output tracking, a running turn is drawn above the prompt"
-		case "unknown":
-			return false, "unknown idle state — no output tracking, " + detail
-		}
 		return true, "untracked terminal, screen proves idle (empty prompt, positive idle chrome)"
 	}
-	return false, "busy for " + itoa((timeoutMS+500)/1000) + "s"
+	return true, "screen proves idle (completed turn, empty composer)"
 }
 
 func (r *router) promptIsEmpty(ctx context.Context, handle, family string) (bool, string) {
@@ -643,6 +647,25 @@ func (r *router) poll(ctx context.Context, st *State, stillOwner func() bool) (*
 	}
 
 	if len(out.Held) > 0 {
+		// #1924 — the long-hold clock measures ONE incident: a worker that left
+		// the held set (delivered, read its mentions itself, or covered) has
+		// its heldSince pruned, so a later stall starts a fresh count. Without
+		// it, a worker held yesterday and re-held today reports yesterday's
+		// epoch ("held 2442 min" on a 5-minute-old stall). router.ts also
+		// deletes reported[<worker id>], but reported is keyed by NAME there,
+		// so that delete is a no-op; the port keeps the observable behaviour.
+		heldWorkers := map[string]bool{}
+		for _, e := range cfg.Roster {
+			if _, held := out.Held[e.Name]; held {
+				heldWorkers[e.Worker] = true
+			}
+		}
+		for w := range ledger.HeldSince {
+			if !heldWorkers[w] {
+				delete(ledger.HeldSince, w)
+				delete(ledger.HeldLoggedAt, w)
+			}
+		}
 		// Each held worker's reason is logged once per token, not every poll.
 		var fresh, longHolds []string
 		for _, e := range cfg.Roster {
