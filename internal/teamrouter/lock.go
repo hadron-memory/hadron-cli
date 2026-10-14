@@ -133,14 +133,14 @@ func jsNumber(s string) float64 {
 	return f
 }
 
-// BreakStaleLock breaks a stale lock without ever deleting a LIVE one
+// breakStaleLock breaks a stale lock without ever deleting a LIVE one
 // (@codex P2 and Chip QA, #1490). Check-then-delete races: another run can
 // break and re-take the lock in between. So the lock is MOVED, atomically, to
 // a unique tomb, and the tomb's owner record compared with the one judged
 // dead: a match means the stale lock is gone ("retry" — mkdir again, also
 // atomic); a mismatch means another run took it first, so its live lock is
 // renamed straight back ("busy").
-func BreakStaleLock(lock string, judged *string) string {
+func breakStaleLock(lock string, judged *string) string {
 	tomb := fmt.Sprintf("%s.tomb-%d-%d-%x", lock, os.Getpid(), time.Now().UnixNano(), rand.Uint64())
 	if err := os.Rename(lock, tomb); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -158,6 +158,15 @@ func BreakStaleLock(lock string, judged *string) string {
 		_ = os.RemoveAll(tomb)
 	}
 	return "busy"
+}
+
+// BreakStaleLock is breakStaleLock for a lock judged stale by its owner
+// record staleOwner: "retry" (broken, or already gone — take it) or "busy"
+// (another run took it under the stale judgement — stand down). The rename
+// protocol never fails outright, so err is always nil; it is in the
+// signature for the callers that treat a lock break as fallible.
+func BreakStaleLock(lockDir, staleOwner string) (string, error) {
+	return breakStaleLock(lockDir, &staleOwner), nil
 }
 
 // withLock runs fn holding the state directory's writer lock. fn receives
@@ -186,7 +195,7 @@ func withLock[T any](stateDir string, fn func(stillOwner func() bool) (T, error)
 		if lockHolderAlive(lock, judged) {
 			return zero, busy
 		}
-		if BreakStaleLock(lock, judged) == "busy" {
+		if breakStaleLock(lock, judged) == "busy" {
 			return zero, busy
 		}
 		acquired = acquire()
