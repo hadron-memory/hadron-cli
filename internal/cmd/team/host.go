@@ -240,6 +240,13 @@ When more follow, the receipt names the --after that continues the list;
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// A filter flag given empty (an unset shell variable, usually) is
+			// refused, never read as "no filter": that would list everything.
+			for _, fl := range []struct{ name, val string }{{"host", hostID}, {"worker", worker}, {"after", after}} {
+				if cmd.Flags().Changed(fl.name) && strings.TrimSpace(fl.val) == "" {
+					return exitcode.Newf(exitcode.Usage, "--%s was given empty (an unset variable?); leave it out to list all", fl.name)
+				}
+			}
 			if limit < 1 || limit > hostOpsPageCap {
 				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", hostOpsPageCap, limit)
 			}
@@ -265,7 +272,7 @@ When more follow, the receipt names the --after that continues the list;
 			if err != nil {
 				return err
 			}
-			resp, err := gen.HostOperations(ctx, client, scope.Ref, optStr(hostID), statusArg, optStr(worker), &limit, optStr(after))
+			resp, err := gen.HostOperations(ctx, client, scope.Ref, optStr(strings.TrimSpace(hostID)), statusArg, optStr(strings.TrimSpace(worker)), &limit, optStr(strings.TrimSpace(after)))
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -417,6 +424,7 @@ the App's manager — with no worker session.`,
 			if err != nil {
 				return err
 			}
+			appLabel := lazyAppLabel(ctx, f, scope)
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -436,8 +444,8 @@ the App's manager — with no worker session.`,
 			}
 			op := hostOperationDTOFrom(&resp.IssueHostOperation.HostOperationFields)
 			return output.Write(f.IOStreams, f.JSON, op, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ issued %s %s to host %s for %s (%s, by %s)\n",
-					op.Type, op.ID, op.HostID, hostOpWorkerCell(op), op.Status, op.IssuedBy)
+				_, err := fmt.Fprintf(w, "✓ issued %s %s to host %s for %s (%s, by %s) in %s\n",
+					op.Type, op.ID, op.HostID, hostOpWorkerCell(op), op.Status, op.IssuedBy, appLabel())
 				return err
 			})
 		},

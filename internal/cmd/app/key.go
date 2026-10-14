@@ -95,7 +95,15 @@ another key. --host-id is refused for every other scope (exit 2).`,
 			var host *string
 			if cmd.Flags().Changed("host-id") {
 				h := strings.TrimSpace(hostID)
+				if h == "" {
+					return exitcode.Newf(exitcode.Usage, "--host-id was given empty (an unset variable?); name the one host this key operates as")
+				}
 				host = &h
+			}
+			// Said here in the CLI's own terms: the server's refusal names its
+			// GraphQL argument (hostId), not this flag.
+			if scope == "host:operate" && host == nil {
+				return exitcode.Newf(exitcode.Usage, "host:operate is granted for one host: name it with --host-id <host>")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {

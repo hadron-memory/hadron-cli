@@ -200,6 +200,9 @@ func TestTeamHostOpsLocalRefusals(t *testing.T) {
 		{"bad status", []string{"--status", "done"}, "--status takes issued, collected, succeeded or failed"},
 		{"limit zero", []string{"--limit", "0"}, "--limit takes 1 to 200"},
 		{"limit over cap", []string{"--limit", "201"}, "--limit takes 1 to 200"},
+		{"empty host", []string{"--host", ""}, "--host was given empty"},
+		{"blank worker", []string{"--worker", "  "}, "--worker was given empty"},
+		{"empty after", []string{"--after", ""}, "--after was given empty"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls, _, err := runTeamTask(t, hostResponses(), append([]string{"team", "host", "ops"}, tc.argv...)...)
@@ -246,7 +249,7 @@ func TestTeamHostIssueBoundIsTheWorkers(t *testing.T) {
 			t.Fatalf("%s = %s, want %s", k, in[k], v)
 		}
 	}
-	if !strings.Contains(out, "✓ issued worktree.remove hop2 to host orca1 for Jonas (ISSUED, by USER)") {
+	if !strings.Contains(out, "✓ issued worktree.remove hop2 to host orca1 for Jonas (ISSUED, by USER) in ") {
 		t.Fatalf("receipt %q", out)
 	}
 }
@@ -433,5 +436,81 @@ func TestAppKeyScopeRevokeEmptyScopesJSON(t *testing.T) {
 	}
 	if !strings.Contains(out, `"scopes": []`) {
 		t.Fatalf("empty scopes must render []:\n%s", out)
+	}
+}
+
+// The issue receipt names the App it wrote to, and where that came from.
+func TestTeamHostIssueReceiptNamesTheApp(t *testing.T) {
+	_, out, err := runTeamTask(t, hostResponses(), "team", "host", "issue", "worktree.remove",
+		"--host", "orca1", "--worker", "Jonas", "--arg", "worktree=jonas-3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, ") in ") || !strings.Contains(out, "(from the worktree binding)") {
+		t.Fatalf("receipt does not name the App and its source: %q", out)
+	}
+}
+
+// Empty lists render as [] in the raw output, never null: an empty page
+// under a filter, and a registration with no workers.
+func TestTeamHostEmptyListsRenderAsArrays(t *testing.T) {
+	r := hostResponses()
+	r["HostOperations"] = `{"data":{"hostOperations":{"items":[],"hasNextPage":false,"endCursor":null}}}`
+	_, out, err := runTeamTask(t, r, "team", "host", "ops", "--status", "failed", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"items": []`) {
+		t.Fatalf("empty page must render items as []:\n%s", out)
+	}
+	r = hostResponses()
+	r["HostRegistrations"] = `{"data":{"hostRegistrations":[{"hostId":"orca2","label":"idle","pollIntervalSeconds":60,
+		"registeredAt":"2026-10-14T00:00:00Z","refreshedAt":"2026-10-14T00:00:00Z","live":false,"workers":[]}]}}`
+	_, out, err = runTeamTask(t, r, "team", "host", "list", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"workers": []`) {
+		t.Fatalf("a registration with no workers must render workers as []:\n%s", out)
+	}
+}
+
+// A worker the host lists with no worktrees renders worktrees as [].
+func TestTeamHostWorkerWithoutWorktreesJSON(t *testing.T) {
+	r := hostResponses()
+	r["HostRegistrations"] = `{"data":{"hostRegistrations":[{"hostId":"orca1","label":"x","pollIntervalSeconds":30,
+		"registeredAt":"2026-10-14T00:00:00Z","refreshedAt":"2026-10-14T00:00:00Z","live":true,
+		"workers":[{"workerId":"wkr1","worker":null,"family":"codex","worktrees":[]}]}]}}`
+	_, out, err := runTeamTask(t, r, "team", "host", "list", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"worktrees": []`) || !strings.Contains(out, `"workerName": null`) {
+		t.Fatalf("worker shape:\n%s", out)
+	}
+}
+
+// host:operate needs --host-id, said in the CLI's terms before any call; an
+// empty --host-id is refused rather than sent.
+func TestAppKeyScopeGrantLocalRefusals(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		argv []string
+		want string
+	}{
+		{"host:operate without --host-id", []string{"key1", "host:operate"}, "name it with --host-id"},
+		{"empty --host-id", []string{"key1", "host:operate", "--host-id", ""}, "--host-id was given empty"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls, _, err := runTeamTask(t, hostResponses(), append([]string{"app", "key", "scope", "grant"}, tc.argv...)...)
+			if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("want usage refusal %q, got %v (exit %d)", tc.want, err, exitCodeFor(err))
+			}
+			for _, c := range *calls {
+				if c.Op == "GrantAppKeyScope" {
+					t.Fatal("a local refusal must not reach the server")
+				}
+			}
+		})
 	}
 }
