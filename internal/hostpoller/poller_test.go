@@ -407,21 +407,26 @@ func envHas(env []string, kv string) bool {
 	return false
 }
 
-func TestCollectionPausesWhileAStartWaitsForItsBind(t *testing.T) {
-	p, srv, _ := testPoller(t)
-	// Mark a start pending, as dispatch does, and step: register, no collect.
-	p.mu.Lock()
-	p.pendingStarts["s1"] = true
-	p.mu.Unlock()
-	before := srv.collects
+// A start re-delivered while it waits for its bind is not launched again.
+func TestReDeliveredStartIsNotRelaunched(t *testing.T) {
+	p, srv, host := testPoller(t)
+	srv.notDone["s1"] = 1 << 20
+	release := make(chan struct{})
+	p.sleep = func(ctx context.Context, d time.Duration) error {
+		<-release // hold the first start in its bind wait
+		return context.Canceled
+	}
+	srv.batches = [][]Operation{{startOp()}, {startOp()}}
 	if err := p.Step(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if srv.collects != before {
-		t.Error("collecting while a start boots would revoke its grant")
+	if err := p.Step(context.Background()); err != nil {
+		t.Fatal(err)
 	}
-	if len(srv.regs) == 0 {
-		t.Error("registration must continue while collection is paused")
+	close(release)
+	p.Wait()
+	if len(host.launches) != 1 {
+		t.Errorf("a re-delivered start in flight must not launch again: %d launches", len(host.launches))
 	}
 }
 

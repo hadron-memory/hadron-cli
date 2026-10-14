@@ -102,7 +102,7 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 
 // worker.start: launch the configured agent in a registered worktree and
 // hand it the grant, then report SUCCEEDED once the server sees its session
-// bound. Collection is paused meanwhile (see Poller.pendingStarts).
+// bound, within the grant's lifetime.
 func (p *Poller) workerStart(ctx context.Context, op Operation) {
 	ref, w, ok := p.workerRef(op)
 	if !ok {

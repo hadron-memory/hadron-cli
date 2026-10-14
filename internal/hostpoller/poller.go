@@ -110,10 +110,6 @@ type Poller struct {
 	// inFlight are operations being carried out; a re-collection returns
 	// them again until they are reported, and they must not run twice.
 	inFlight map[string]bool
-	// pendingStarts block collection: every collect revokes an unconsumed
-	// grant and mints a new one (launch.ts mintLaunchGrants), so collecting
-	// while an agent boots would void the grant it was handed.
-	pendingStarts map[string]bool
 	// workerRefs maps a resolved worker id to its configured reference, from
 	// the last registration's answer.
 	workerRefs map[string]string
@@ -129,14 +125,13 @@ type Poller struct {
 func New(cfg *Config, server Server, host Host, state *State, key string, emit func(Event)) *Poller {
 	return &Poller{
 		cfg: cfg, server: server, host: host, state: state, key: key, emit: emit,
-		now:           time.Now,
-		sleep:         sleepCtx,
-		BindPoll:      5 * time.Second,
-		inFlight:      map[string]bool{},
-		pendingStarts: map[string]bool{},
-		workerRefs:    map[string]string{},
-		agents:        map[string]Agent{},
-		agentTrees:    map[string]string{},
+		now:        time.Now,
+		sleep:      sleepCtx,
+		BindPoll:   5 * time.Second,
+		inFlight:   map[string]bool{},
+		workerRefs: map[string]string{},
+		agents:     map[string]Agent{},
+		agentTrees: map[string]string{},
 	}
 }
 
@@ -175,17 +170,16 @@ func (p *Poller) Run(ctx context.Context) error {
 func (p *Poller) Wait() { p.wg.Wait() }
 
 // Step is one check-in: register (always — a host that stops registering
-// lapses), then collect and dispatch, unless a start is waiting for its bind.
+// lapses), then collect and dispatch.
+//
+// A worker.start waiting for its bind is re-delivered by every collect and
+// skipped here as in flight. It must not come back with a fresh grant: that
+// would revoke the one its agent was handed. The server stops doing that
+// (Liam, team chat #11415: a re-collect omits a start whose grant is still
+// live), and this poller depends on it rather than pausing collection.
 func (p *Poller) Step(ctx context.Context) error {
 	if err := p.register(ctx); err != nil {
 		return fmt.Errorf("registering: %w", err)
-	}
-	p.mu.Lock()
-	paused := len(p.pendingStarts) > 0
-	p.mu.Unlock()
-	if paused {
-		p.log("collect-paused", "", "", "", "a worker.start is waiting for its session to bind; collecting now would revoke its grant")
-		return nil
 	}
 	ops, err := p.server.Collect(ctx)
 	if err != nil {
@@ -242,9 +236,6 @@ func (p *Poller) dispatch(ctx context.Context, op Operation) {
 		return
 	}
 	p.inFlight[op.ID] = true
-	if op.Type == OpWorkerStart {
-		p.pendingStarts[op.ID] = true
-	}
 	p.mu.Unlock()
 	p.log("collected", op.ID, op.Type, "", "")
 	p.wg.Add(1)
@@ -253,7 +244,6 @@ func (p *Poller) dispatch(ctx context.Context, op Operation) {
 		defer func() {
 			p.mu.Lock()
 			delete(p.inFlight, op.ID)
-			delete(p.pendingStarts, op.ID)
 			p.mu.Unlock()
 		}()
 		p.carryOut(ctx, op)
