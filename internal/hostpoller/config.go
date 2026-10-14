@@ -154,8 +154,15 @@ func (c *Config) validate() error {
 	if len(c.Workers) > 500 {
 		errs = append(errs, "at most 500 workers")
 	}
+	owner := map[string]string{}
 	for _, ref := range c.WorkerRefs() {
 		w := c.Workers[ref]
+		for _, t := range w.Worktrees {
+			if o, taken := owner[t]; taken {
+				errs = append(errs, fmt.Sprintf("worktree %q is listed for both %q and %q: a worktree belongs to one worker", t, o, ref))
+			}
+			owner[t] = ref
+		}
 		if !familyRE.MatchString(w.Family) {
 			errs = append(errs, fmt.Sprintf("worker %q: family %q must match %s", ref, w.Family, familyRE))
 		}

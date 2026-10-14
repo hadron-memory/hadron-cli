@@ -19,6 +19,12 @@ type Host interface {
 	Launch(ctx context.Context, spec LaunchSpec) (Agent, error)
 	// Prompt runs a short command (worker.end's prompt) to completion.
 	Prompt(ctx context.Context, argv []string, dir string, env []string) error
+	// Occupied names a process (other than the poller) working inside path,
+	// or "" when none is seen. Where the host cannot tell (no /proc), it
+	// reports none, and worktree.remove leans on the recorded agents alone.
+	Occupied(ctx context.Context, path string) (string, error)
+	// Alive reports whether a process id is still running.
+	Alive(pid int) bool
 }
 
 // WorktreeState is what worktree.create and worktree.remove decide on.
@@ -50,6 +56,8 @@ type Agent interface {
 	Done() <-chan struct{}
 	// ExitDetail describes how it exited, once Done is closed.
 	ExitDetail() string
+	// PID is its process id (0 when unknown).
+	PID() int
 }
 
 // Environment variables a launched agent must never inherit: the host key's

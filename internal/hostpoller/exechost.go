@@ -119,7 +119,7 @@ func (ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	a := &execAgent{done: make(chan struct{})}
+	a := &execAgent{done: make(chan struct{}), pid: cmd.Process.Pid}
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
@@ -135,10 +135,21 @@ func (ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 type execAgent struct {
 	done   chan struct{}
 	detail string
+	pid    int
 }
 
 func (a *execAgent) Done() <-chan struct{} { return a.done }
 func (a *execAgent) ExitDetail() string    { return a.detail }
+func (a *execAgent) PID() int              { return a.pid }
+
+// Occupied looks for a process whose working directory is inside path, via
+// /proc (Linux). Without /proc it cannot tell and reports none.
+func (ExecHost) Occupied(_ context.Context, path string) (string, error) {
+	return occupied(path)
+}
+
+// Alive reports whether pid is a running process.
+func (ExecHost) Alive(pid int) bool { return processAlive(pid) }
 
 // Prompt runs worker.end's prompt command to completion, bounded.
 func (h ExecHost) Prompt(ctx context.Context, argv []string, dir string, env []string) error {

@@ -29,6 +29,10 @@ func (p *Poller) worktreeCreate(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree name %q is not a valid name token", token))
 		return
 	}
+	if owner, ok := p.state.ownerOf(token, p.cfg); ok && owner != ref {
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("%s is registered for another worker here", token))
+		return
+	}
 	dir := p.cfg.WorktreePath(token)
 	st, err := p.host.Inspect(ctx, dir)
 	if err != nil {
@@ -79,6 +83,16 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		return
 	}
 	dir := p.cfg.WorktreePath(token)
+	// Any process working inside the tree refuses too: an agent launched
+	// before this poller existed, a human's shell. Fails closed on a read
+	// error.
+	if who, err := p.host.Occupied(ctx, dir); err != nil {
+		p.finish(ctx, op, Failed, "", "could not tell whether a process is working in it: "+err.Error())
+		return
+	} else if who != "" {
+		p.finish(ctx, op, Failed, "", "a process is working in it ("+who+")")
+		return
+	}
 	st, err := p.host.Inspect(ctx, dir)
 	if err != nil {
 		p.finish(ctx, op, Failed, "", "reading the worktree: "+err.Error())
@@ -122,11 +136,19 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 	}
 	// A start collected before a restart may already be bound: ask first,
 	// so it is never launched twice.
-	if _, err := p.server.Report(ctx, op.ID, Succeeded, "", ""); err == nil {
+	// Only NOT_DONE is evidence the start is unbound; launch on nothing
+	// else. A finished operation stops here, and any other failure leaves
+	// it collected for the next collect to retry.
+	switch _, err := p.server.Report(ctx, op.ID, Succeeded, "", ""); {
+	case err == nil:
 		p.log("reported", op.ID, op.Type, Succeeded, "its session was already bound")
 		return
-	} else if !errors.Is(err, ErrNotDone) {
-		p.log("report-failed", op.ID, op.Type, Succeeded, err.Error())
+	case errors.Is(err, ErrFinal):
+		p.log("reported", op.ID, op.Type, "", "the server already finished it: "+err.Error())
+		return
+	case !errors.Is(err, ErrNotDone):
+		p.log("report-failed", op.ID, op.Type, Succeeded, err.Error()+"; not launching on an unclear answer")
+		return
 	}
 	if fam := argString(op, "family"); fam != w.Family {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("this host runs the worker as %q, not %q", w.Family, fam))
@@ -278,25 +300,34 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	}
 }
 
-// trackAgent remembers a launched agent and the worktree it runs in.
+// trackAgent remembers a launched agent and the worktree it runs in, in
+// memory and in the state file (it outlives a poller restart).
 func (p *Poller) trackAgent(workerID, token string, a Agent) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	p.agents[workerID] = a
 	p.agentTrees[workerID] = token
+	p.mu.Unlock()
+	if err := p.state.recordAgent(workerID, token, a.PID()); err != nil {
+		p.log("state-failed", "", "", "", err.Error())
+	}
 }
 
+// agentWorktree is the worktree this worker's launched agent runs in: this
+// process's launch, else the one recorded before a restart.
 func (p *Poller) agentWorktree(workerID string) (string, bool) {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	t, ok := p.agentTrees[workerID]
-	return t, ok
+	p.mu.Unlock()
+	if ok {
+		return t, true
+	}
+	return p.state.recordedWorktree(workerID)
 }
 
-// agentRunningIn reports whether a launched agent is still running in token.
+// agentRunningIn reports whether an agent this host launched — in this
+// process or recorded before a restart — is still running in token.
 func (p *Poller) agentRunningIn(token string) bool {
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	for id, t := range p.agentTrees {
 		if t != token {
 			continue
@@ -304,6 +335,13 @@ func (p *Poller) agentRunningIn(token string) bool {
 		select {
 		case <-p.agents[id].Done():
 		default:
+			p.mu.Unlock()
+			return true
+		}
+	}
+	p.mu.Unlock()
+	for _, pid := range p.state.agentPIDsIn(token) {
+		if p.host.Alive(pid) {
 			return true
 		}
 	}

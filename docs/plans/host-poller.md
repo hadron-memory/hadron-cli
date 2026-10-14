@@ -81,7 +81,11 @@ the poller can't match gets no operations.
   - no upstream;
   - commits ahead of its upstream;
   - an agent this poller launched still running in it;
-  - a failed `worker.end` for its worker.
+  - a failed `worker.end` for its worker;
+  - any process working inside it, found through `/proc/<pid>/cwd` on Linux.
+    This covers agents launched before the poller and a human's shell. It
+    fails closed if the scan errors. Without `/proc` (macOS, Windows) it
+    sees nothing, and only the recorded agents protect the tree.
 
   A missing tree is reported SUCCEEDED, as already removed.
 
@@ -145,6 +149,27 @@ never remove a worktree after a failed end).
   - `--force` is refused only with a grant the caller actually chose.
   - The worker is read after the bind, for the binding and the briefing. A
     failed read rolls the session back.
+
+## Ordering and occupancy (Anne's blind review, #11490)
+
+- **One worker's operations run one at a time, in collection order.** The
+  server collects oldest first. Each dispatched operation waits for the
+  previous one for the same worker, through a per-worker FIFO chain of done
+  channels. A mutex wouldn't do, since it guarantees no order. So a remove
+  collected with a start or an end runs after it, and sees the agent the
+  start launched or the keep a failed end recorded. Different workers still
+  run concurrently: their trees are disjoint, because a worktree token
+  belongs to one worker. The config refuses a token listed for two workers,
+  and `worktree.create` refuses a token registered for another worker.
+- **Launched agents are recorded in the state file** by worker id, worktree
+  and pid. An agent outlives a poller restart, since it runs in its own
+  session, so an in-memory record alone would let a restarted poller remove
+  a live agent's tree. A recorded pid that's still alive refuses the remove.
+  A reused pid can only cause a false refusal, which is the safe direction.
+- **`worker.start` launches only on `HOST_OPERATION_NOT_DONE`.** That is the
+  only answer that shows the start is unbound. An already-finished operation
+  stops. Any other failure leaves the operation collected, and the next
+  collect retries it.
 
 ## `run`, `--once` and `status`
 

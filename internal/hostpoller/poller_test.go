@@ -74,10 +74,12 @@ func (s *fakeServer) finalReports() []report {
 
 type fakeAgent struct {
 	done chan struct{}
+	pid  int
 }
 
 func (a *fakeAgent) Done() <-chan struct{} { return a.done }
 func (a *fakeAgent) ExitDetail() string    { return "exit status 1" }
+func (a *fakeAgent) PID() int              { return a.pid }
 
 type fakeHost struct {
 	mu       sync.Mutex
@@ -87,6 +89,22 @@ type fakeHost struct {
 	launches []LaunchSpec
 	prompts  [][]string
 	agent    *fakeAgent
+	occupant string
+	alive    map[int]bool
+	// gate, when set, blocks Launch until closed (interleaving tests).
+	gate chan struct{}
+}
+
+func (h *fakeHost) Occupied(context.Context, string) (string, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.occupant, nil
+}
+
+func (h *fakeHost) Alive(pid int) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.alive[pid]
 }
 
 func (h *fakeHost) CreateWorktree(_ context.Context, _, path, branch, _ string) error {
@@ -112,6 +130,9 @@ func (h *fakeHost) RemoveWorktree(_ context.Context, path string) error {
 }
 
 func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
+	if h.gate != nil {
+		<-h.gate
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.launches = append(h.launches, spec)
@@ -735,5 +756,144 @@ func TestConsumedStartWithNullGrantIsReportedSucceeded(t *testing.T) {
 	}
 	if len(host.launches) != 0 {
 		t.Error("nothing launches for a bound start")
+	}
+}
+
+// ---- blind-review fixes (Anne, #11490) ----
+
+func removeOp() Operation {
+	return Operation{ID: "r1", Type: OpWorktreeRemove, WorkerID: "id-iris", Args: map[string]any{"workerId": "id-iris", "worktree": "repo/iris"}}
+}
+
+// P2-1: an agent launched before a restart is still in the state file, and
+// a live one keeps its tree.
+func TestRestartKeepsALiveAgentsTree(t *testing.T) {
+	p, srv, host := testPoller(t)
+	if err := p.state.recordAgent("id-iris", "repo/iris", 4242); err != nil {
+		t.Fatal(err)
+	}
+	// A fresh poller over the same state file: nothing in memory.
+	st, err := LoadState(p.cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	host.alive = map[int]bool{4242: true}
+	q := New(p.cfg, srv, host, st, hostKey, nil)
+	srv.batches = [][]Operation{{removeOp()}}
+	step(t, q)
+	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "still running") {
+		t.Errorf("%+v", r)
+	}
+	if len(host.removed) != 0 {
+		t.Error("a live agent's tree must survive a poller restart")
+	}
+}
+
+// P2-1, the agents nobody recorded: any process working in the tree refuses.
+func TestRemoveRefusesATreeAProcessIsWorkingIn(t *testing.T) {
+	p, srv, host := testPoller(t)
+	host.occupant = "pid 9, bash"
+	srv.batches = [][]Operation{{removeOp()}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "pid 9") {
+		t.Errorf("%+v", r)
+	}
+	if len(host.removed) != 0 {
+		t.Error("an occupied tree must not be removed")
+	}
+}
+
+// P2-2: a remove collected with a start for the same worker waits for the
+// start, then sees its agent. The launch is held at a barrier: were the
+// remove not ordered behind it, it would run (and remove the clean tree)
+// while the start is blocked.
+func TestRemoveWaitsForAStartOnTheSameWorker(t *testing.T) {
+	p, srv, host := testPoller(t)
+	host.gate = make(chan struct{})
+	srv.notDone["s1"] = 1 // the pre-check; the first poll after launch binds
+	srv.batches = [][]Operation{{startOp(), removeOp()}}
+	if err := p.Step(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	close(host.gate)
+	p.Wait()
+	if len(host.removed) != 0 {
+		t.Fatal("the remove must not take the tree a start is launching into")
+	}
+	rs := srv.finalReports()
+	if len(rs) != 2 || rs[0].id != "s1" || rs[1].id != "r1" || rs[1].outcome != Failed {
+		t.Errorf("start first, then a refused remove: %+v", rs)
+	}
+}
+
+// P2-2: a remove queued behind a worker.end sees the keep the failed end
+// recorded, instead of racing the end's grace wait.
+func TestRemoveWaitsForAnEndOnTheSameWorker(t *testing.T) {
+	p, srv, host := testPoller(t)
+	srv.batches = [][]Operation{{endOp(), removeOp()}}
+	step(t, p)
+	rs := srv.finalReports()
+	if len(rs) != 2 || rs[0].id != "e1" || rs[1].id != "r1" {
+		t.Fatalf("end first, then remove: %+v", rs)
+	}
+	if rs[1].outcome != Failed || !strings.Contains(rs[1].reason, "kept") {
+		t.Errorf("the remove must see the failed end's keep: %+v", rs[1])
+	}
+	if len(host.removed) != 0 {
+		t.Error("the tree must survive")
+	}
+}
+
+// P3: only NOT_DONE launches; a finished or unclear answer does not.
+func TestWorkerStartLaunchesOnlyOnNotDone(t *testing.T) {
+	for name, answer := range map[string]error{"final": ErrFinal, "unclear": context.DeadlineExceeded} {
+		t.Run(name, func(t *testing.T) {
+			p, srv, host := testPoller(t)
+			p.server = &answerServer{fakeServer: srv, err: answer}
+			srv.batches = [][]Operation{{startOp()}}
+			step(t, p)
+			if len(host.launches) != 0 {
+				t.Errorf("a %s first answer must not launch", name)
+			}
+		})
+	}
+}
+
+type answerServer struct {
+	*fakeServer
+	err error
+}
+
+func (a *answerServer) Report(context.Context, string, string, string, string) (Operation, error) {
+	return Operation{}, a.err
+}
+
+func TestConfigRefusesAWorktreeListedForTwoWorkers(t *testing.T) {
+	c := Config{App: "a", Label: "l", WorktreesRoot: "/w", Workers: map[string]WorkerConfig{
+		"iris": {Family: "claude", Launch: []string{"x"}, Worktrees: []string{"repo/shared"}},
+		"dara": {Family: "codex", Launch: []string{"x"}, Worktrees: []string{"repo/shared"}},
+	}}
+	if err := c.validate(); err == nil || !strings.Contains(err.Error(), "belongs to one worker") {
+		t.Errorf("%v", err)
+	}
+}
+
+func TestWorktreeCreateRefusesAnotherWorkersToken(t *testing.T) {
+	p, srv, host := testPoller(t)
+	p.cfg.Workers["dara"] = WorkerConfig{Family: "codex", Launch: []string{"x"}, Worktrees: []string{"repo/x"}}
+	srv.batches = [][]Operation{{{ID: "c1", Type: OpWorktreeCreate, WorkerID: "id-iris",
+		Args: map[string]any{"repo": "acme/repo", "baseBranch": "main", "branchName": "iris/x", "label": "x"}}}}
+	step(t, p)
+	var mine report
+	for _, r := range srv.finalReports() {
+		if r.id == "c1" {
+			mine = r
+		}
+	}
+	if mine.outcome != Failed || !strings.Contains(mine.reason, "another worker") {
+		t.Errorf("%+v", mine)
+	}
+	if len(host.created) != 0 {
+		t.Error("nothing created")
 	}
 }

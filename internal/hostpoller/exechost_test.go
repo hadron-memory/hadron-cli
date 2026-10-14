@@ -116,3 +116,43 @@ func TestExecHostLaunchUsesTheGivenEnvironment(t *testing.T) {
 		t.Errorf("only the given environment reaches the agent:\n%s", raw)
 	}
 }
+
+// Occupied finds a real process working inside a tree (Linux /proc), and
+// Alive tracks it.
+func TestExecHostSeesAProcessWorkingInATree(t *testing.T) {
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	sleep, err := exec.LookPath("sleep")
+	if err != nil {
+		t.Skip("no sleep")
+	}
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "deep")
+	if err := os.Mkdir(sub, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	h := ExecHost{}
+	if who, err := h.Occupied(context.Background(), dir); err != nil || who != "" {
+		t.Fatalf("empty tree: %q %v", who, err)
+	}
+	a, err := h.Launch(context.Background(), LaunchSpec{Argv: []string{sleep, "30"}, Dir: sub, Env: os.Environ()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = syscallKill(a.PID()) }()
+	deadline := time.Now().Add(5 * time.Second)
+	var who string
+	for time.Now().Before(deadline) {
+		if who, _ = h.Occupied(context.Background(), dir); who != "" {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !strings.Contains(who, "sleep") {
+		t.Errorf("a process in a subdirectory occupies the tree: %q", who)
+	}
+	if !h.Alive(a.PID()) {
+		t.Error("the launched process is alive")
+	}
+}

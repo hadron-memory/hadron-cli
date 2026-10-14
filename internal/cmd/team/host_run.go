@@ -183,9 +183,15 @@ reports every outcome. One poller per host or container.
   worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report; never kills the agent
-  worktree.remove  refused for uncommitted or untracked changes, no
-                   upstream, unpushed commits, a running agent, or a tree
-                   whose worker.end failed
+  worktree.remove  only the operation's own worker's registered tree;
+                   refused for uncommitted or untracked changes, no
+                   upstream, unpushed commits, an agent this host launched
+                   (recorded across restarts), any process working in it
+                   (Linux /proc), or a tree whose worker.end failed
+
+One worker's operations run one at a time, in the order collected, so a
+remove queued behind a start or an end sees what they left. A worktree
+belongs to one worker: the config refuses one listed for two.
 
 An unknown type is refused here as well as by the server, and reported
 failed. There is no shell passthrough of any kind.

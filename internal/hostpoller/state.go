@@ -26,11 +26,23 @@ type State struct {
 	// registration — how `status` finds this host's own registration, since
 	// a label is not unique.
 	HostID string `json:"hostId"`
+	// Agents are the agents this poller launched, by worker id: the
+	// worktree each runs in and its process id. A launched agent outlives a
+	// poller restart (it runs in its own session), so the in-memory record
+	// alone would forget it and let worktree.remove take a tree from under
+	// a live agent. A reused pid only makes a check refuse: the safe way.
+	Agents map[string]AgentRecord `json:"agents"`
+}
+
+// AgentRecord is one launched agent.
+type AgentRecord struct {
+	Worktree string `json:"worktree"`
+	PID      int    `json:"pid"`
 }
 
 // LoadState reads the state file; a missing file is an empty state.
 func LoadState(path string) (*State, error) {
-	s := &State{path: path, Created: map[string][]string{}, Keep: map[string]string{}}
+	s := &State{path: path, Created: map[string][]string{}, Keep: map[string]string{}, Agents: map[string]AgentRecord{}}
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return s, nil
@@ -46,6 +58,9 @@ func LoadState(path string) (*State, error) {
 	}
 	if s.Keep == nil {
 		s.Keep = map[string]string{}
+	}
+	if s.Agents == nil {
+		s.Agents = map[string]AgentRecord{}
 	}
 	return s, nil
 }
@@ -125,6 +140,45 @@ func (s *State) keepReason(token string) (string, bool) {
 	defer s.mu.Unlock()
 	r, ok := s.Keep[token]
 	return r, ok
+}
+
+func (s *State) recordAgent(workerID, token string, pid int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Agents[workerID] = AgentRecord{Worktree: token, PID: pid}
+	return s.save()
+}
+
+// agentPIDsIn lists the recorded agent pids in a worktree.
+func (s *State) agentPIDsIn(token string) []int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var pids []int
+	for _, a := range s.Agents {
+		if a.Worktree == token && a.PID > 0 {
+			pids = append(pids, a.PID)
+		}
+	}
+	return pids
+}
+
+// recordedWorktree is the worktree a recorded agent of this worker ran in.
+func (s *State) recordedWorktree(workerID string) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a, ok := s.Agents[workerID]
+	return a.Worktree, ok
+}
+
+// ownerOf is the worker reference a worktree token is registered for, from
+// the configuration or this poller's creations.
+func (s *State) ownerOf(token string, cfg *Config) (string, bool) {
+	for _, ref := range cfg.WorkerRefs() {
+		if contains(s.worktreesFor(ref, cfg.Workers[ref].Worktrees), token) {
+			return ref, true
+		}
+	}
+	return "", false
 }
 
 func (s *State) setHostID(id string) error {

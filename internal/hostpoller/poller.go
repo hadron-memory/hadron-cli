@@ -125,6 +125,9 @@ type Poller struct {
 	inFlight map[string]bool
 	// reportFailures counts reports that did not reach the server.
 	reportFailures int
+	// tails is each worker's last dispatched operation: the next one for
+	// that worker waits for it.
+	tails map[string]chan struct{}
 	// workerRefs maps a resolved worker id to its configured reference, from
 	// the last registration's answer.
 	workerRefs map[string]string
@@ -144,6 +147,7 @@ func New(cfg *Config, server Server, host Host, state *State, key string, emit f
 		sleep:      sleepCtx,
 		BindPoll:   5 * time.Second,
 		inFlight:   map[string]bool{},
+		tails:      map[string]chan struct{}{},
 		workerRefs: map[string]string{},
 		agents:     map[string]Agent{},
 		agentTrees: map[string]string{},
@@ -266,6 +270,20 @@ func (p *Poller) dispatch(ctx context.Context, op Operation) {
 		return
 	}
 	p.inFlight[op.ID] = true
+	// One worker's operations run one at a time, in collection order (the
+	// server collects oldest first). A worktree.remove queued behind a
+	// worker.start or worker.end therefore sees the agent it launched and
+	// any keep a failed end recorded; nothing checks a tree while another
+	// operation on it is between its check and its side effect. Different
+	// workers' operations still run concurrently: their trees are disjoint,
+	// since a worktree token belongs to one worker (config validation).
+	key := op.WorkerID
+	if key == "" {
+		key = argString(op, "workerId")
+	}
+	prev := p.tails[key]
+	done := make(chan struct{})
+	p.tails[key] = done
 	p.mu.Unlock()
 	p.log("collected", op.ID, op.Type, "", "")
 	p.wg.Add(1)
@@ -274,8 +292,15 @@ func (p *Poller) dispatch(ctx context.Context, op Operation) {
 		defer func() {
 			p.mu.Lock()
 			delete(p.inFlight, op.ID)
+			if p.tails[key] == done {
+				delete(p.tails, key)
+			}
 			p.mu.Unlock()
+			close(done)
 		}()
+		if prev != nil {
+			<-prev
+		}
 		p.carryOut(ctx, op)
 	}()
 }
