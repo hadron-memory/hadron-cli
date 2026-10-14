@@ -191,6 +191,13 @@ func TestMapError(t *testing.T) {
 		{"task not assignee", gqlErr("TASK_NOT_ASSIGNEE"), exitcode.Forbidden},
 		{"alarm not in chain", gqlErr("ALARM_NOT_IN_CHAIN"), exitcode.Forbidden},
 		{"availability not permitted", gqlErr("AVAILABILITY_NOT_PERMITTED"), exitcode.Forbidden},
+		// #871: host operations and the host:operate grant.
+		{"host op not permitted", gqlErr("HOST_OPERATION_NOT_PERMITTED"), exitcode.Forbidden},
+		{"host op type unknown", gqlErr("HOST_OPERATION_TYPE_UNKNOWN"), exitcode.Usage},
+		{"host op not issuable", gqlErr("HOST_OPERATION_NOT_ISSUABLE"), exitcode.Usage},
+		{"bad host op args", gqlErr("BAD_HOST_OPERATION_ARGS"), exitcode.Usage},
+		{"host not found", gqlErr("HOST_NOT_FOUND"), exitcode.NotFound},
+		{"key scope host conflict", gqlErr("APP_KEY_SCOPE_HOST_CONFLICT"), exitcode.Conflict},
 		{"task invalid transition", gqlErr("TASK_INVALID_TRANSITION"), exitcode.Conflict},
 		{"task ended", gqlErr("TASK_ENDED"), exitcode.Conflict},
 		{"alarm already acknowledged", gqlErr("ALARM_ALREADY_ACKNOWLEDGED"), exitcode.Conflict},
