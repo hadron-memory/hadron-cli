@@ -165,6 +165,14 @@ type Agent {
 
   """Persona role - free string with conventions ('backend-engineer')."""
   personaRole: String
+
+  """
+  #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - the id of the index node whose incoming,
+  trigger-labelled edges list the processes this Agent starts or owns, or
+  null. Set or clear it with setAgentIndexRefs; read the Agent's processes
+  with agentProcessList.
+  """
+  processesIndexRef: ID
   properties: JSON
 
   """
@@ -178,6 +186,13 @@ type Agent {
   Templated Agent prompt. {{name}}/{{role}} bind to the Agent in chats or the named Worker in briefings.
   """
   systemPrompt: String
+
+  """
+  #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - the id of the index node whose incoming,
+  trigger-labelled edges list this Agent's own tasks, or null. Set or clear
+  it with setAgentIndexRefs; read the Agent's whole task list with agentTaskList.
+  """
+  tasksIndexRef: ID
   type: AgentType!
   urn: String!
   visibility: AgentVisibility!
@@ -238,6 +253,34 @@ type AgentImport {
   required: Boolean!
 }
 
+"""
+#1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - one process on an Agent's process list.
+"""
+type AgentListedProcess {
+  kind: AgentProcessKind!
+  node: Node!
+
+  """
+  The name of the index edge that lists it, for STARTS; always null for INVOLVED.
+  """
+  trigger: String
+}
+
+"""
+#1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - one task on an Agent's task list.
+"""
+type AgentListedTask {
+  """
+  The task. A base's task, listed through the Agent, keeps its own URN and carries inheritedFrom.
+  """
+  node: Node!
+
+  """
+  The name of the index edge that lists it; null for a task no index edge lists.
+  """
+  trigger: String
+}
+
 type AgentMemoryItem {
   createdAt: DateTime!
   id: ID!
@@ -267,6 +310,17 @@ type AgentOrgGrant {
   organization: Organization
   revokedAt: DateTime
   revokedBy: ID
+}
+
+"""
+#1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - how an Agent takes part in a process.
+"""
+enum AgentProcessKind {
+  """Derived: the process has a stage edge to one of the Agent's tasks."""
+  INVOLVED
+
+  """Listed in the Agent's processes index: a process it starts or owns."""
+  STARTS
 }
 
 """Recurring trigger (cor:agt:010, D-2026-07-04-E)."""
@@ -3983,6 +4037,17 @@ enum ImportNodeStatus {
 }
 
 """
+#1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the base Agent an
+inherited node comes from.
+"""
+type InheritedFrom {
+  agentId: ID!
+
+  """The base Agent's URN, fully qualified."""
+  agentUrn: String!
+}
+
+"""
 Return shape for the installAgentIntoApp mutation. Wraps the new
 AppAgent row so callers can read its audit fields without re-querying.
 """
@@ -7028,7 +7093,7 @@ type Mutation {
   reportHostOperation(input: ReportHostOperationInput!): HostOperation!
 
   """
-  #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — ask for a node's current content to be signed. Any reader of the node may ask, agents included; agents never sign. expectedRevision, when given, must still be current (REVISION_MISMATCH). signerRef names one signer (a user id); omitted, any writer of the memory may sign. Refusals: NODE_NOT_FOUND, ENCRYPTED_MEMORY_NOT_APPLICABLE, and (hrn:node:hadronmemory.com:specs:cor:dmo:130:02, Holger #10430) COMMENT_NOT_SIGNABLE, NODE_IS_PLACEHOLDER, REVISION_MISMATCH, SIGNER_NOT_FOUND. No call takes an assertion: the signer signs on the server-hosted ceremony page (S2b-2).
+  #1632 (hrn:node:hadronmemory.com:specs:cor:dmo:130:03) — ask for a node's current content to be signed. Any reader of the node may ask, agents included; agents never sign. expectedRevision, when given, must still be current (REVISION_MISMATCH). signerRef names one signer (a user id); omitted, any writer of the memory may sign. Refusals: NODE_NOT_FOUND, ENCRYPTED_MEMORY_NOT_APPLICABLE, and (hrn:node:hadronmemory.com:specs:cor:dmo:130:02, Holger #10430) COMMENT_NOT_SIGNABLE, NODE_IS_PLACEHOLDER, REVISION_MISMATCH, SIGNER_NOT_FOUND, and (Holger #11094, #1904) SIGNER_NOT_A_WRITER when the named signer may not write the node's memory (checked again when they sign or decline). No call takes an assertion: the signer signs on the server-hosted ceremony page (S2b-2).
   """
   requestNodeSignature(expectedRevision: Int, nodeRef: ID!, signerRef: ID): SigningRequest!
 
@@ -7225,6 +7290,16 @@ type Mutation {
   Accepts each Agent's ID or URN.
   """
   setAgentBase(baseRef: ID, ref: ID!): Agent!
+
+  """
+  #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15, hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - set or clear
+  this Agent's tasks-index and processes-index pointers. An omitted argument
+  leaves that pointer unchanged; null clears it. Each target is a node ID or
+  fully-qualified URN, and must be a live node the caller may read (refused
+  as NODE_NOT_FOUND otherwise). Whoever manages this Agent may call it.
+  Accepts the Agent's ID or URN.
+  """
+  setAgentIndexRefs(processesIndexRef: ID, ref: ID!, tasksIndexRef: ID): Agent!
 
   """
   #1706 — set an App's stall windows, and (#1763) its host-registration lapse: whoever manages the App. Refusals:
@@ -8100,6 +8175,15 @@ type Node {
   embeddingPendingAt: DateTime
   id: ID!
   incomingEdges: [Edge!]!
+
+  """
+  #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set when this node
+  was read through an Agent that extends a base: the node belongs to that
+  base's system memory and comes into the Agent's effective system memory by
+  inheritance. The node keeps its own address (its urn is the base's); this
+  names the base it comes from. Null for a node read in its own memory.
+  """
+  inheritedFrom: InheritedFrom
   isLink: Boolean!
 
   """
@@ -9289,6 +9373,15 @@ type Query {
 
   """v1 — agent-addressed listing. Deprecated; use memoryAssets."""
   agentAssets(agentUrn: String!, count: Int = 20, includeDeleted: Boolean = false, mimeType: String, skip: Int = 0): AssetListResult!
+
+  """
+  #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - an Agent's processes: the ones its own
+  processes index lists (STARTS, with the edge's trigger), then the ones with
+  a stage edge (named 'stage ...') to one of its agentTaskList tasks (INVOLVED, no
+  trigger), each once. Same gate as agentTaskList; the MCP tool
+  hadron_agent_processes returns the same list. Accepts the Agent's ID or URN.
+  """
+  agentProcessList(ref: ID!): [AgentListedProcess!]!
   agentSchedules(appRef: String!, limit: Int, offset: Int): AgentSchedulesPage!
 
   """
@@ -9305,6 +9398,18 @@ type Query {
   acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
   """
   agentTask(id: ID!): AgentTask
+
+  """
+  #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - an Agent's tasks, across its base chain:
+  every runnable node in its effective system memory, and every task the
+  tasks index of an Agent in the chain lists, each once. A task an index
+  lists carries that edge's name as its trigger, the nearest index's where
+  two list it. Readable by whoever may read the Agent's system memory; a
+  listed task outside the chain's memories is returned only when its own
+  memory is readable too. Refused as AGENT_NOT_FOUND otherwise. The MCP tool
+  hadron_agent_tasks returns the same list. Accepts the Agent's ID or URN.
+  """
+  agentTaskList(ref: ID!): [AgentListedTask!]!
 
   """
   #1706 — an App's effective stall windows (hrn:node:hadronmemory.com:specs:cor:agt:050:14–:17), and (#1763) its
@@ -9985,7 +10090,7 @@ type Query {
   homeAssistantInstances(limit: Int, offset: Int, orgId: ID): HomeAssistantInstancesPage!
 
   """
-  #1709 — the App's host operations, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:02). Whoever reads the App's tasks and events. A host key (one ever granted host:operate) sees only its own host's operations (hrn:node:hadronmemory.com:specs:cor:agt:070:04, Holger 2026-10-13): another hostId returns nothing. after: the endCursor of the previous page.
+  #1709 — the App's host operations, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:02). Whoever reads the App's tasks and events. A host key (one ever granted host:operate, revoked or not) is refused with FORBIDDEN, whatever it passes: it sees its own host's operations only by collecting them (hrn:node:hadronmemory.com:specs:cor:agt:070:04 S5, Holger's ruling 0). after: the endCursor of the previous page.
   """
   hostOperations(after: String, appRef: String!, first: Int, hostId: String, status: HostOperationStatus, worker: String): HostOperationPage!
 

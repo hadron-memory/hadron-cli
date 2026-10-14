@@ -159,7 +159,7 @@ saveChatSummary
 sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled
-setAgentBase  # server#1889 agent inheritance; CLI parity is hadron-cli#881
+setAgentBase  # cli#881 agent-inheritance client surface; parity tracked
 setAiModelPrice
 setAppTickerSettings  # server ticker settings (named-heartbeats epic, in flight); CLI parity follows the surface settling
 setDashboardWidgets
