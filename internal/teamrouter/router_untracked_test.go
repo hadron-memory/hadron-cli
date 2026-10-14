@@ -229,7 +229,7 @@ func TestUntrackedRealIdleScreenUpdateBannerDelivers(t *testing.T) {
 func TestUntrackedProseContainingCompactedIsNotBanner(t *testing.T) {
 	f, c := setupUntracked(t, "claude")
 	// Diego's counterexample: an output-text line mentioning compaction is not the banner.
-	f.setScreen("term_eli", screenSpec{tail: []string{"  the router compacted several workers overnight", rule, "❯ ", rule, claudeHint}})
+	f.setScreen("term_eli", screenSpec{tail: []string{"  the router compacted several workers overnight", rule, "❯\u00a0", rule, claudeHint}})
 	out := f.poll(t, c)
 	if len(out.Nudged) != 0 {
 		t.Fatalf("nudged = %v, want none", out.Nudged)
