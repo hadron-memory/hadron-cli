@@ -1,0 +1,107 @@
+# hadron-server#1632 (S2b-1, contract #1864) — passkey-signed node revisions.
+# These operations are separate from every other node read on purpose: while
+# the server's signing switch is off (hadron-server#1895), its schema has none
+# of these fields, and a read that named them would refuse outright. The CLI
+# never takes an assertion; a person signs on the server-hosted page.
+
+fragment NodeSignatureFields on NodeSignature {
+  id
+  state
+  revision
+  verifiedAt
+  passkeyLabel
+  passkeyRevokedAt
+  payloadVersion
+  signingRequestId
+  signer {
+    handle
+    urn
+  }
+}
+
+fragment NodeSignatureStatusFields on NodeSignatureStatus {
+  state
+  integrityProblems
+  signatures {
+    ...NodeSignatureFields
+  }
+}
+
+fragment SigningRequestFields on SigningRequest {
+  id
+  nodeId
+  nodeUrn
+  revision
+  approvalHash
+  payloadVersion
+  state
+  createdAt
+  expiresAt
+  endedAt
+  namedSigner {
+    handle
+    urn
+  }
+  requestedBy {
+    userId
+    appId
+    workerId
+    sessionId
+  }
+  signature {
+    ...NodeSignatureFields
+  }
+}
+
+mutation RequestNodeSignature(
+  $nodeRef: ID!
+  # @genqlient(omitempty: true)
+  $expectedRevision: Int
+  # @genqlient(omitempty: true)
+  $signerRef: ID
+) {
+  requestNodeSignature(nodeRef: $nodeRef, expectedRevision: $expectedRevision, signerRef: $signerRef) {
+    ...SigningRequestFields
+  }
+}
+
+mutation WithdrawSigningRequest($id: ID!) {
+  withdrawSigningRequest(id: $id) {
+    ...SigningRequestFields
+  }
+}
+
+query GetSigningRequest($id: ID!) {
+  signingRequest(id: $id) {
+    ...SigningRequestFields
+  }
+}
+
+query NodeSigningRequests(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $state: SigningRequestState
+  # @genqlient(omitempty: true)
+  $first: Int
+) {
+  node(ref: $ref) {
+    id
+    urn
+    loc
+    signingRequests(state: $state, first: $first) {
+      ...SigningRequestFields
+    }
+  }
+}
+
+query NodeSignatureStatus($ref: ID!) {
+  node(ref: $ref) {
+    id
+    urn
+    loc
+    revision
+    signatureStatus {
+      ...NodeSignatureStatusFields
+    }
+  }
+}

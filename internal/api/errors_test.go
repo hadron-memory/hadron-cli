@@ -55,6 +55,13 @@ func TestMapError(t *testing.T) {
 	}{
 		{"nil", nil, exitcode.OK},
 		{"reports to self", gqlErr("WORKER_REPORTS_TO_SELF"), exitcode.Usage},
+		// Passkey signing refusals (cli#818); the _NOT_FOUND ones ride the suffix rule.
+		{"signing encrypted memory", gqlErr("ENCRYPTED_MEMORY_NOT_APPLICABLE"), exitcode.Conflict},
+		{"signing request ended", gqlErr("SIGNING_REQUEST_ENDED"), exitcode.Conflict},
+		{"comment not signable", gqlErr("COMMENT_NOT_SIGNABLE"), exitcode.Usage},
+		{"signing not requester", gqlErr("SIGNING_REQUEST_NOT_REQUESTER"), exitcode.Forbidden},
+		{"signer not found", gqlErr("SIGNER_NOT_FOUND"), exitcode.NotFound},
+		{"signing request not found", gqlErr("SIGNING_REQUEST_NOT_FOUND"), exitcode.NotFound},
 		{"reports to other app", gqlErr("WORKER_REPORTS_TO_OTHER_APP"), exitcode.Usage},
 		{"reports to cycle", gqlErr("WORKER_REPORTS_TO_CYCLE"), exitcode.Usage},
 		{"reports to retired", gqlErr("WORKER_REPORTS_TO_RETIRED"), exitcode.Conflict},

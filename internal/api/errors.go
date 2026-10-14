@@ -981,6 +981,25 @@ func codeForExtension(code string) int {
 		return exitcode.Conflict
 	case code == "SEARCH_REPLACE_MAX_NODES_CHANGED":
 		return exitcode.Usage
+	// Passkey signing (hadron-server#1632, refusal codes ruled by Holger
+	// #10430; cli#818). The _NOT_FOUND codes (SIGNER_NOT_FOUND,
+	// SIGNING_REQUEST_NOT_FOUND) already exit 4 through the suffix rule, and
+	// REVISION_MISMATCH / NODE_IS_PLACEHOLDER exit 5 above.
+	//   - ENCRYPTED_MEMORY_NOT_APPLICABLE: the node's memory is encrypted, where
+	//     signing does not apply. The memory's state refuses, like
+	//     SPEC_CORPUS_ENCRYPTED_UNSUPPORTED: 5.
+	//   - SIGNING_REQUEST_ENDED: withdrawing a request that already ended
+	//     (extensions.state says how). It ends exactly once, so no retry helps: 5.
+	//   - COMMENT_NOT_SIGNABLE: the ref names a comment, which is never
+	//     signable. The caller names a different node, like NOT_A_TASK: 2.
+	//   - SIGNING_REQUEST_NOT_REQUESTER: only the requester account may
+	//     withdraw. Authenticated but not permitted: 8.
+	case code == "ENCRYPTED_MEMORY_NOT_APPLICABLE" || code == "SIGNING_REQUEST_ENDED":
+		return exitcode.Conflict
+	case code == "COMMENT_NOT_SIGNABLE":
+		return exitcode.Usage
+	case code == "SIGNING_REQUEST_NOT_REQUESTER":
+		return exitcode.Forbidden
 	// These are invalid inputs. The CLI validates or constructs them before
 	// calling the draft door; if one arrives anyway, keep its typed category.
 	case code == "SEARCH_REPLACE_NO_SELECTION" || code == "SEARCH_REPLACE_NO_FIELDS" || code == "SEARCH_REPLACE_BAD_LIMIT":

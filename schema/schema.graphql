@@ -5901,7 +5901,11 @@ type Mutation {
   createUserInvitation(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, memberRole: Role!, name: String, orgId: ID!): UserInvitation!
 
   """
-  Soft-delete an Agent.
+  Soft-delete an Agent and its owned system memory. Refuses while a live
+  App install or live parent Agent import references it. AgentMemoryItem
+  attachments do not block deletion.
+  
+  See hrn:node:hadronmemory.com:specs:cor:dmo:050:14.
   
   Accepts the entity's ID or URN.
   """
