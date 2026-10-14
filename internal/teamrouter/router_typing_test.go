@@ -212,7 +212,7 @@ func TestTypingHoldsOnDraftNonScreenUnreadable(t *testing.T) {
 		// Whitespace is typing too (Gene, #1555): the gate promises nobody is typing.
 		{screenSpec{tail: codexIdle, draft: &ws}, "text in the composer draft"},
 		{screenSpec{tail: codexIdle, source: "screen-unavailable"}, "screen unreadable"},
-		{screenSpec{ok: false}, "screen unreadable"},
+		{screenSpec{unreadable: true}, "screen unreadable"},
 	}
 	for _, tc := range cases {
 		f.setScreen("term_eli", tc.screen)

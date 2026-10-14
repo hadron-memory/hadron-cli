@@ -27,22 +27,22 @@ var codexIdle = []string{"  Worked for 33s • 16:32", "› Ask Codex to do anyt
 
 // A WORKING agent renders an EMPTY composer — the running-turn line above the
 // prompt is the only separator (@codex P2, #1700; live screens 2026-10-09/10).
-var claudeBusyEmpty = []string{"  ⎿ Tip: Use /btw to ask a quick side question", "  (ctrl+b to run in background)", "✽ Bunning… (5m 55s · ↓ 15.6k tokens)", rule, "❯ ", rule, claudeHint}
+var claudeBusyEmpty = []string{"  ⎿ Tip: Use /btw to ask a quick side question", "  (ctrl+b to run in background)", "✽ Bunning… (5m 55s · ↓ 15.6k tokens)", rule, "❯\u00a0", rule, claudeHint}
 var codexBusyEmpty = []string{"  • Working (6s • esc to interrupt)", "› Ask Codex to do anything", "  GPT-6-Sol high · ~/orca/workspaces/hadron-server/andi · Start worker session as Andi", "  ? for shortcuts"}
 
 // Fresh launches (never worked): captured live 2026-10-10 — GLM worker Cody,
 // Codex worker Dara. Positive idle chrome, no done-marker exists yet (#1700 P2 r2).
-var claudeFresh = []string{" ▐▛███▛█   Claude Code v2.1.296", "▝▜██████▀  glm-5.3 · API Usage Billing", " ▝▝   ▝▝   ~/orca/workspaces/hadron-server/cody", rule, "❯ ", rule, claudeHint}
+var claudeFresh = []string{" ▐▛███▛█   Claude Code v2.1.296", "▝▜██████▀  glm-5.3 · API Usage Billing", " ▝▝   ▝▝   ~/orca/workspaces/hadron-server/cody", rule, "❯\u00a0", rule, claudeHint}
 var codexFresh = []string{"│ ✨ Update available! 0.162.0 -> 0.162.1         │", "  >_ OpenAI Codex (v0.162.0)", "     ~/orca/workspaces/hadron-server/dara", "  permissions: YOLO mode", "› Ask Codex to do anything", "  GPT-6.1-Sol default · ~/orca/workspaces/hadron-server/dara", "  ? for shortcuts"}
 
 // Empty prompt, no busy marker, and nothing positively idle either — must HOLD.
-var claudeUnknownQuiet = []string{"  some status output nobody classified", "  another unrecognized line", rule, "❯ ", rule, claudeHint}
+var claudeUnknownQuiet = []string{"  some status output nobody classified", "  another unrecognized line", rule, "❯\u00a0", rule, claudeHint}
 
 // REAL idle screens captured live 2026-10-11 (Yuri's first-night production
 // report, #8165): ordinary assistant output text above the done-marker.
-var claudeIdleRealXan = []string{"  Queued for my gate: Bindi's remaining attach-steps, Dan's 12-follow-up batch,", "  Session open.", "✻ Brewed for 2m 36s · done 3:20 AM", rule, "❯ ", rule, claudeHint}
-var claudeIdleRealLiam = []string{"  both types.", "  file\". I've marked team chat read through #8177, the worktree is clean, and I'm standing by.", "✻ Cooked for 9m 42s · done 3:26 AM", "  ✔ Update installed · Restart to update", rule, "❯ ", rule, claudeHint}
-var claudeIdleCompacted = []string{"✻ Compacted while idle", rule, "❯ ", rule, claudeHint}
+var claudeIdleRealXan = []string{"  Queued for my gate: Bindi's remaining attach-steps, Dan's 12-follow-up batch,", "  Session open.", "✻ Brewed for 2m 36s · done 3:20 AM", rule, "❯\u00a0", rule, claudeHint}
+var claudeIdleRealLiam = []string{"  both types.", "  file\". I've marked team chat read through #8177, the worktree is clean, and I'm standing by.", "✻ Cooked for 9m 42s · done 3:26 AM", "  ✔ Update installed · Restart to update", rule, "❯\u00a0", rule, claudeHint}
+var claudeIdleCompacted = []string{"✻ Compacted while idle", rule, "❯\u00a0", rule, claudeHint}
 
 func withPrompt(screen []string, marker, text string) []string {
 	last := -1
@@ -89,10 +89,10 @@ func worker(id, name string, o workerOpts) AttentionItem {
 }
 
 type screenSpec struct {
-	tail   []string
-	draft  *string
-	source string
-	ok     bool // false default = readable
+	tail       []string
+	draft      *string
+	source     string
+	unreadable bool // TS `ok: false`: the read fails; the zero value reads
 }
 
 type fakeCLIs struct {
@@ -156,7 +156,7 @@ type fakeCLIs struct {
 func newFake(t *testing.T, root string) *fakeCLIs {
 	t.Helper()
 	f := &fakeCLIs{t: t, root: root,
-		attentionOk: true, freshOk: true, pages: 1,
+		attentionOk: true, freshOk: true, pages: 1, headOk: true,
 		busy: map[string]bool{}, busyRecheck: map[string]bool{}, untracked: map[string]bool{},
 		healTracking: map[string]bool{}, waits: map[string]int{}, reject: map[string]bool{},
 		screens: map[string]*screenSpec{}, recheck: map[string]*screenSpec{}, reads: map[string]int{},
@@ -251,6 +251,9 @@ func (f *fakeCLIs) AttentionPage(ctx context.Context, req AttentionRequest) (Att
 
 func (f *fakeCLIs) RegisterRow(ctx context.Context, workerID string) (RegisterRow, error) {
 	f.t.Helper()
+	// TS clears sawWait on every non-attention `api` call: a new target begins,
+	// and its fresh scan (if any) follows its own idle gate.
+	f.sawWait = false
 	if f.registerFails[workerID] {
 		return RegisterRow{}, fmt.Errorf("register down")
 	}
@@ -268,6 +271,9 @@ func (f *fakeCLIs) RegisterRow(ctx context.Context, workerID string) (RegisterRo
 
 func (f *fakeCLIs) ReadCursor(ctx context.Context, workerID string) (CursorResult, error) {
 	f.t.Helper()
+	// TS clears sawWait on every non-attention `api` call: a new target begins,
+	// and its fresh scan (if any) follows its own idle gate.
+	f.sawWait = false
 	n := f.cursorQueries[workerID] + 1
 	f.cursorQueries[workerID] = n
 	if f.cursorFails[workerID] {
@@ -294,6 +300,9 @@ func (f *fakeCLIs) ReadCursor(ctx context.Context, workerID string) (CursorResul
 
 func (f *fakeCLIs) ChannelHead(ctx context.Context, channelRef string) (int, error) {
 	f.t.Helper()
+	// TS clears sawWait on every non-attention `api` call: a new target begins,
+	// and its fresh scan (if any) follows its own idle gate.
+	f.sawWait = false
 	f.headRead++
 	if !f.headOk {
 		return 0, fmt.Errorf("channel query down")
@@ -383,7 +392,7 @@ func (f *fakeCLIs) orca(ctx context.Context, argv []string) RunResult {
 				sc = r
 			}
 		}
-		if sc == nil || !sc.ok {
+		if sc == nil || sc.unreadable {
 			return fail("terminal_handle_stale", 1)
 		}
 		if n == 1 && f.untracked[handle] {

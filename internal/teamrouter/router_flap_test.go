@@ -75,6 +75,7 @@ func TestFlapShellPrintingCapturedClaudeScreenHolds(t *testing.T) {
 	c := cfgEntries(root, [2]string{"w-eli", "Eli"})
 	f.addTerminal("eli", "", "term_eli", false) // identity lost, untracked: the fallback's regime
 	f.setScreen("term_eli", screenSpec{tail: append(append([]string{}, claudeIdle...), "orca@orca1:~/ws/eli$ ")})
+	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{})}
 	out := f.poll(t, c)
 	if len(out.Nudged) != 0 {
 		t.Fatalf("nudged = %v, want none", out.Nudged)
@@ -93,6 +94,7 @@ func TestFlapWrongFamilyGuessCaughtOneGateLater(t *testing.T) {
 	// Classifies 'claude' on the banner line; there is no Claude composer box,
 	// so the family-specific empty-prompt gate must refuse what it resolved.
 	f.setScreen("term_eli", screenSpec{tail: []string{"  Claude Code v2.1.296 — a captured banner line", "  ordinary output", "orca@orca1:~/ws/eli$ "}})
+	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{})}
 	out := f.poll(t, c)
 	if len(out.Nudged) != 0 {
 		t.Fatalf("nudged = %v, want none", out.Nudged)
@@ -109,6 +111,7 @@ func TestFlapCapturedCodexScreenWithShellPromptHolds(t *testing.T) {
 	c := cfgEntries(root, [2]string{"w-eli", "Eli"})
 	f.addTerminal("eli", "", "term_eli", false)
 	f.setScreen("term_eli", screenSpec{tail: append(append([]string{}, codexIdle...), "orca@orca1:~/ws/eli$ ")})
+	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{})}
 	out := f.poll(t, c)
 	if len(out.Nudged) != 0 {
 		t.Fatalf("nudged = %v, want none", out.Nudged)
@@ -121,7 +124,7 @@ func TestFlapCapturedCodexScreenWithShellPromptHolds(t *testing.T) {
 
 func TestFlapUnreadableScreenHolds(t *testing.T) {
 	f, c := setupFlap(t)
-	f.setScreen("term_eli", screenSpec{tail: claudeIdle, ok: false})
+	f.setScreen("term_eli", screenSpec{tail: claudeIdle, unreadable: true})
 	out := f.poll(t, c)
 	if out.Held["Eli"] != "no live agent terminal in its worktree" {
 		t.Fatalf("hold = %q, want the no-terminal reason", out.Held["Eli"])
@@ -145,6 +148,7 @@ func TestFlapTwoScreenVerifiedTerminalsHoldAmbiguous(t *testing.T) {
 	c := cfgEntries(root, [2]string{"w-eli", "Eli"})
 	f.addTerminal("eli", "", "term_a", true)
 	f.addTerminal("eli", "", "term_b", true)
+	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{})}
 	out := f.poll(t, c)
 	if out.Held["Eli"] != "no live agent terminal in its worktree" {
 		t.Fatalf("hold = %q, want the no-terminal reason", out.Held["Eli"])
