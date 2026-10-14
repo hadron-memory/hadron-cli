@@ -63,6 +63,21 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not a valid name token", token))
 		return
 	}
+	dir := p.cfg.WorktreePath(token)
+	st, err := p.host.Inspect(ctx, dir)
+	if err != nil {
+		p.finish(ctx, op, Failed, "", "reading the worktree: "+err.Error())
+		return
+	}
+	// An absent tree is already removed, and removing nothing has no side
+	// effect: SUCCEEDED, before any check that needs the tree or its
+	// registration. A remove whose success report was lost comes back after
+	// the tree and its registration are gone, and must not turn into FAILED.
+	if !st.Exists {
+		_ = p.state.removeCreated(token)
+		p.finish(ctx, op, Succeeded, "", "")
+		return
+	}
 	// Only the operation's own worker's tree: never another worker's, and
 	// never a tree under the root this host doesn't register for it.
 	ref, w, ok := p.workerRef(op)
@@ -82,7 +97,6 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", "an agent this host launched is still running in it")
 		return
 	}
-	dir := p.cfg.WorktreePath(token)
 	// Any process working inside the tree refuses too: an agent launched
 	// before this poller existed, a human's shell. Fails closed on a read
 	// error.
@@ -91,16 +105,6 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		return
 	} else if who != "" {
 		p.finish(ctx, op, Failed, "", "a process is working in it ("+who+")")
-		return
-	}
-	st, err := p.host.Inspect(ctx, dir)
-	if err != nil {
-		p.finish(ctx, op, Failed, "", "reading the worktree: "+err.Error())
-		return
-	}
-	if !st.Exists {
-		_ = p.state.removeCreated(token)
-		p.finish(ctx, op, Succeeded, "", "")
 		return
 	}
 	switch {

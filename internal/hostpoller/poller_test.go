@@ -91,8 +91,10 @@ type fakeHost struct {
 	agent    *fakeAgent
 	occupant string
 	alive    map[int]bool
-	// gate, when set, blocks Launch until closed (interleaving tests).
-	gate chan struct{}
+	// gate, when set, blocks Launch until closed (interleaving tests);
+	// entered is closed when Launch reaches it.
+	gate    chan struct{}
+	entered chan struct{}
 }
 
 func (h *fakeHost) Occupied(context.Context, string) (string, error) {
@@ -131,6 +133,9 @@ func (h *fakeHost) RemoveWorktree(_ context.Context, path string) error {
 
 func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	if h.gate != nil {
+		if h.entered != nil {
+			close(h.entered)
+		}
 		<-h.gate
 	}
 	h.mu.Lock()
@@ -810,10 +815,17 @@ func TestRemoveRefusesATreeAProcessIsWorkingIn(t *testing.T) {
 func TestRemoveWaitsForAStartOnTheSameWorker(t *testing.T) {
 	p, srv, host := testPoller(t)
 	host.gate = make(chan struct{})
+	host.entered = make(chan struct{})
 	srv.notDone["s1"] = 1 // the pre-check; the first poll after launch binds
 	srv.batches = [][]Operation{{startOp(), removeOp()}}
 	if err := p.Step(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+	// The start is inside Launch, between its checks and its agent record:
+	// the window a concurrent remove would take the tree in.
+	<-host.entered
+	if len(host.removed) != 0 || len(srv.finalReports()) != 0 {
+		t.Fatal("nothing for this worker may run while its start is launching")
 	}
 	close(host.gate)
 	p.Wait()

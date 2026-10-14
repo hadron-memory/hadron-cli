@@ -156,3 +156,45 @@ func TestExecHostSeesAProcessWorkingInATree(t *testing.T) {
 		t.Error("the launched process is alive")
 	}
 }
+
+// A remove whose success report was lost is re-delivered after the tree is
+// gone, and succeeds again: on the real host, through the poller (Anne's
+// delta P2 on #882).
+func TestRemoveIsIdempotentOnTheRealHost(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	base := t.TempDir()
+	origin := filepath.Join(base, "origin.git")
+	repo := filepath.Join(base, "repo")
+	run(t, base, "init", "-q", "--bare", "-b", "main", origin)
+	run(t, base, "clone", "-q", origin, repo)
+	run(t, repo, "commit", "-q", "--allow-empty", "-m", "init")
+	run(t, repo, "push", "-q", "origin", "HEAD:main")
+	root := filepath.Join(base, "trees")
+	cfg := &Config{App: "a", Label: "l", PollIntervalSeconds: 30, WorktreesRoot: root,
+		StateFile: filepath.Join(base, "state.json"), Repos: map[string]string{"acme/repo": repo},
+		Workers: map[string]WorkerConfig{"iris": {Family: "claude", Launch: []string{"x"}}}}
+	if err := cfg.validate(); err != nil {
+		t.Fatal(err)
+	}
+	st, err := LoadState(cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := &fakeServer{notDone: map[string]int{}, endedOnce: map[string]bool{}}
+	p := New(cfg, srv, ExecHost{}, st, "hk", nil)
+	create := Operation{ID: "c1", Type: OpWorktreeCreate, WorkerID: "id-iris",
+		Args: map[string]any{"repo": "acme/repo", "baseBranch": "main", "branchName": "feat/x", "label": "x"}}
+	rm := Operation{ID: "r1", Type: OpWorktreeRemove, WorkerID: "id-iris", Args: map[string]any{"worktree": "repo/x"}}
+	srv.batches = [][]Operation{{create}}
+	step(t, p)
+	run(t, cfg.WorktreePath("repo/x"), "push", "-q", "-u", "origin", "feat/x")
+	srv.batches = [][]Operation{{rm}, {rm}} // the second: re-delivered after a lost report
+	step(t, p)
+	step(t, p)
+	rs := srv.finalReports()
+	if len(rs) != 3 || rs[1].outcome != Succeeded || rs[2].outcome != Succeeded {
+		t.Fatalf("create, remove, re-delivered remove all succeed: %+v", rs)
+	}
+}
