@@ -182,6 +182,7 @@ func TestPinNeverBypassesGuardChain(t *testing.T) {
 	f := newFake(t, root)
 	f.addTerminal("eli", "codex", "", true)
 	f.busy["term_eli"] = true
+	f.setScreen("term_eli", screenSpec{tail: claudeBusyEmpty}) // #1924: a busy hold needs the live indicator on screen
 	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{mentions: ip(1), unread: ip(3)})}
 	out := f.poll(t, pinnedCfg(t, root, "term_eli"))
 	if len(out.Nudged) != 0 {

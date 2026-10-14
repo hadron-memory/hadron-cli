@@ -75,15 +75,51 @@ func TestUntrackedScreenShowsActivityHoldsUnknownNotBusy(t *testing.T) {
 	wantNoSend(t, f)
 }
 
-func TestUntrackedTrackedTimeoutStillHoldsBusy(t *testing.T) {
+// #1924 (#1845): a tui-idle timeout is UNKNOWN on a tracked terminal too —
+// the screen decides. A completed turn over an empty composer nudges.
+func TestUntrackedTrackedTimeoutCompletedTurnNudges(t *testing.T) {
+	root := t.TempDir()
+	f := newFake(t, root)
+	c := cfgEntries(root, [2]string{"w-eli", "Eli"})
+	f.addTerminal("eli", "claude", "", true) // tracked; the tui-idle wait times out below
+	f.busy["term_eli"] = true
+	f.setScreen("term_eli", screenSpec{tail: claudeIdle}) // completed turn, empty composer
+	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{})}
+	out := f.poll(t, c)
+	wantDelivered(t, out, "Eli")
+	wantHandles(t, f, "term_eli")
+}
+
+// #1924 codex shape: a tracked timeout over a Worked-for frame nudges
+// (Atilla/Chip, held 2442/877 min as busy).
+func TestUntrackedTrackedTimeoutCodexWorkedForNudges(t *testing.T) {
+	root := t.TempDir()
+	f := newFake(t, root)
+	c := cfgEntries(root, [2]string{"w-eli", "Eli"})
+	f.addTerminal("eli", "codex", "", true)
+	f.busy["term_eli"] = true
+	f.setScreen("term_eli", screenSpec{tail: codexIdle})
+	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{})}
+	out := f.poll(t, c)
+	wantDelivered(t, out, "Eli")
+	wantHandles(t, f, "term_eli")
+}
+
+// A tracked terminal that times out still HOLDS on a live working
+// indicator: the screen vetoes.
+func TestUntrackedTrackedTimeoutLiveIndicatorHolds(t *testing.T) {
 	root := t.TempDir()
 	f := newFake(t, root)
 	c := cfgEntries(root, [2]string{"w-eli", "Eli"})
 	f.addTerminal("eli", "claude", "", true) // tracked
 	f.busy["term_eli"] = true
+	f.setScreen("term_eli", screenSpec{tail: claudeBusyEmpty})
 	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{})}
 	out := f.poll(t, c)
-	wantHeldContaining(t, out, "Eli", "busy for")
+	if len(out.Nudged) != 0 {
+		t.Fatalf("nudged = %v, want none", out.Nudged)
+	}
+	wantHeldContaining(t, out, "Eli", "a running turn is drawn above the prompt")
 	wantNoSend(t, f)
 }
 
@@ -150,13 +186,14 @@ func TestUntrackedBusyOnlyAfterFreshScan(t *testing.T) {
 
 func TestUntrackedTrackingHealedRestoresOrdinaryHold(t *testing.T) {
 	f, c := setupUntracked(t, "claude")
-	f.healTracking["term_eli"] = true // produced output after the gate: the recheck's list shows it tracked
-	f.busyRecheck["term_eli"] = true  // and its recheck wait times out
+	f.healTracking["term_eli"] = true                           // produced output after the gate: the recheck's list shows it tracked
+	f.busyRecheck["term_eli"] = true                            // and its recheck wait times out
+	f.setRecheck("term_eli", screenSpec{tail: claudeBusyEmpty}) // #1924: a live indicator, not just the wait
 	out := f.poll(t, c)
 	if len(out.Nudged) != 0 {
 		t.Fatalf("nudged = %v, want none", out.Nudged)
 	}
-	wantHeldContaining(t, out, "Eli", "busy again after the recompute (busy for")
+	wantHeldContaining(t, out, "Eli", "busy again after the recompute (a running turn is drawn above the prompt")
 	wantNotHeldContaining(t, out, "Eli", "unknown")
 	wantNoSend(t, f)
 }

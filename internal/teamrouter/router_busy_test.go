@@ -32,6 +32,7 @@ func TestBusyHoldsTokenThenNudgesOnceIdle(t *testing.T) {
 	f.addTerminal("eli", "claude", "", true)
 	f.addTerminal("baloo", "codex", "", true)
 	f.busy["term_baloo"] = true
+	f.setScreen("term_baloo", screenSpec{tail: codexBusyEmpty}) // #1924: a busy hold needs the live indicator on screen
 	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{}), worker("w-baloo", "Baloo", workerOpts{})}
 	out := f.poll(t, c)
 	if len(out.Nudged) != 1 || out.Nudged[0] != "Eli" {
@@ -63,6 +64,7 @@ func TestBusyHeldTokenNoRenudgeOnUnchangedMention(t *testing.T) {
 	f.addTerminal("eli", "claude", "", true)
 	f.addTerminal("baloo", "claude", "", true)
 	f.busy["term_baloo"] = true
+	f.setScreen("term_baloo", screenSpec{tail: claudeBusyEmpty}) // #1924: a busy hold needs the live indicator on screen
 	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{relevant: ip(110)}), worker("w-baloo", "Baloo", workerOpts{})}
 	f.poll(t, c)
 	// Unrelated chat moved the head; Eli's latest mention is still 110.
@@ -81,6 +83,7 @@ func TestBusyNewMentionRenudges(t *testing.T) {
 	f.addTerminal("eli", "claude", "", true)
 	f.addTerminal("baloo", "claude", "", true)
 	f.busy["term_baloo"] = true
+	f.setScreen("term_baloo", screenSpec{tail: claudeBusyEmpty}) // #1924: a busy hold needs the live indicator on screen
 	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{first: ip(100), relevant: ip(110), head: ip(120)}), worker("w-baloo", "Baloo", workerOpts{})}
 	f.poll(t, c)
 	// Eli read only its mention: firstUnreadSeq is still 100 (at or below the
