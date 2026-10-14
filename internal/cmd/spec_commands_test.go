@@ -1991,9 +1991,9 @@ func TestSpecLintVectorIndexEnabledNoWarning(t *testing.T) {
 // lint — so it pipes cleanly into `node update --content -`.
 func TestSpecGetBodyOnly(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
+		"ResolveUrn":     resolveSpecJSON,
+		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2060,9 +2060,9 @@ func TestSpecRegisterEmptyJSONModulesArray(t *testing.T) {
 
 func TestSpecGetBodyOnlyJSON(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
+		"ResolveUrn":     resolveSpecJSON,
+		"GetSpecNodeRaw": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

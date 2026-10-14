@@ -164,7 +164,7 @@ func TestNodeRawReadEditWriteRoundTripKeepsPlaceholders(t *testing.T) {
 
 	gql2, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
-		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"GetNodeRaw": `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f2, _ := testFactory(t)
