@@ -65,7 +65,7 @@ type AttentionItem struct {
 	Channel         string `json:"channel"`
 	Unread          int    `json:"unread"`
 	UnreadMentions  int    `json:"unreadMentions"`
-	FirstUnreadSeq  int    `json:"firstUnreadSeq"`
+	FirstUnreadSeq  *int   `json:"firstUnreadSeq"` // null = no read anchor (generic text)
 	LastRelevantSeq int    `json:"lastRelevantSeq"`
 	LastSeq         int    `json:"lastSeq"`
 }
@@ -133,19 +133,10 @@ func PollOnce(ctx context.Context, c *Config, s Server, orca OrcaRunner, log fun
 	return nil, &RouterError{Reason: "unimplemented"}
 }
 
-// NudgeText renders the wake text for a due worker. RED-FIRST STUB.
-func NudgeText(item AttentionItem, anchor *ReadAnchor, sessRouter SessionRef) string { return "" }
-
-// ReadAnchor is the bounded read anchor the nudge names (#1805/#1811).
-type ReadAnchor struct {
-	FirstUnreadSeq int
-	SinceSeq       int
-	Head           int
-	LargeGap       bool
-}
-
-// SessionRef names the router's own session for the mark ceiling.
-type SessionRef struct{ ID string }
+// NudgeText renders the wake text for a due worker: the bounded read
+// anchor (#1805), the large-gap mentions-only branch (#1811), the frozen
+// backward walk (#1827). RED-FIRST STUB.
+func NudgeText(item AttentionItem) string { return "" }
 
 // PromptLineIsEmpty proves the screen's prompt box empty (draft refutation
 // rules per family). RED-FIRST STUB.

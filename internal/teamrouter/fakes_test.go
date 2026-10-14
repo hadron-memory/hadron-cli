@@ -82,8 +82,9 @@ func worker(id, name string, o workerOpts) AttentionItem {
 		}
 		return *p
 	}
+	first := def(o.first, 100)
 	return AttentionItem{Worker: id, WorkerName: name, Channel: channel,
-		Unread: def(o.unread, 3), UnreadMentions: def(o.mentions, 1), FirstUnreadSeq: def(o.first, 100),
+		Unread: def(o.unread, 3), UnreadMentions: def(o.mentions, 1), FirstUnreadSeq: &first,
 		LastRelevantSeq: def(o.relevant, 110), LastSeq: def(o.head, 120)}
 }
 
