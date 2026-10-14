@@ -398,6 +398,21 @@ func TestWorkerStartHandsOnlyTheGrantToTheAgent(t *testing.T) {
 	}
 }
 
+// HADRON_HOST_KEY is scrubbed by name, not only by value: a poller reading
+// its key from key_file may still carry another host key in the variable.
+func TestWorkerStartScrubsTheHostKeyVariableByName(t *testing.T) {
+	t.Setenv(HostKeyEnv, "hk_some_other_key")
+	p, srv, host := testPoller(t)
+	srv.notDone["s1"] = 1
+	srv.batches = [][]Operation{{startOp()}}
+	step(t, p)
+	for _, kv := range host.launches[0].Env {
+		if strings.HasPrefix(kv, HostKeyEnv+"=") {
+			t.Errorf("%s reached the agent: %q", HostKeyEnv, kv)
+		}
+	}
+}
+
 func envHas(env []string, kv string) bool {
 	for _, e := range env {
 		if e == kv {
