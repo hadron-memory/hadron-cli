@@ -700,3 +700,40 @@ func TestRegistrationSavesTheHostID(t *testing.T) {
 		t.Errorf("host id: %q", st.RegisteredHostID())
 	}
 }
+
+// A stop signal lets a worktree operation finish and report.
+func TestStoppingFinishesAWorktreeOperation(t *testing.T) {
+	p, srv, host := testPoller(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	srv.batches = [][]Operation{{{ID: "o1", Type: OpWorktreeCreate, WorkerID: "id-iris",
+		Args: map[string]any{"repo": "acme/repo", "baseBranch": "main", "branchName": "iris/x", "label": "x"}}}}
+	if err := p.register(ctx); err != nil {
+		t.Fatal(err)
+	}
+	ops, _ := srv.Collect(ctx)
+	cancel() // the stop arrives before the operation runs
+	p.carryOut(ctx, ops[0])
+	if len(host.created) != 1 {
+		t.Error("the worktree operation must run to the end")
+	}
+	if r := only(t, srv); r.outcome != Succeeded {
+		t.Errorf("and report: %+v", r)
+	}
+}
+
+// hadron-server#1929: a start whose grant was consumed comes back to a
+// restarted host with launchGrant null. Its session is bound, so it is
+// reported SUCCEEDED, never failed for the missing grant.
+func TestConsumedStartWithNullGrantIsReportedSucceeded(t *testing.T) {
+	p, srv, host := testPoller(t)
+	op := startOp()
+	op.LaunchGrant = ""
+	srv.batches = [][]Operation{{op}}
+	step(t, p)
+	if r := only(t, srv); r.outcome != Succeeded {
+		t.Errorf("%+v", r)
+	}
+	if len(host.launches) != 0 {
+		t.Error("nothing launches for a bound start")
+	}
+}

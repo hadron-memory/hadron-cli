@@ -26,6 +26,9 @@ const (
 	Failed    = "FAILED"
 )
 
+// reportTimeout bounds one report, which is sent even while stopping.
+const reportTimeout = 30 * time.Second
+
 // LaunchGrantTTL is how long a collected start's grant lives (#1883,
 // Proposed). Waiting for the bind longer than this cannot succeed.
 const LaunchGrantTTL = 10 * time.Minute
@@ -279,10 +282,14 @@ func (p *Poller) dispatch(ctx context.Context, op Operation) {
 
 func (p *Poller) carryOut(ctx context.Context, op Operation) {
 	switch op.Type {
+	// A stop signal does not cut a worktree operation off midway: a killed
+	// `git worktree add|remove` can leave a half-made tree. Those run to the
+	// end and report; only the long waits (a start's bind, an end's grace)
+	// stop early, leaving their operation collected for the next poller.
 	case OpWorktreeCreate:
-		p.worktreeCreate(ctx, op)
+		p.worktreeCreate(context.WithoutCancel(ctx), op)
 	case OpWorktreeRemove:
-		p.worktreeRemove(ctx, op)
+		p.worktreeRemove(context.WithoutCancel(ctx), op)
 	case OpWorkerStart:
 		p.workerStart(ctx, op)
 	case OpWorkerEnd:
@@ -298,7 +305,10 @@ func (p *Poller) carryOut(ctx context.Context, op Operation) {
 
 // report sends an outcome and logs what the server recorded.
 func (p *Poller) report(ctx context.Context, op Operation, outcome, worktree, reason string) (Operation, error) {
-	got, err := p.server.Report(ctx, op.ID, outcome, worktree, reason)
+	// A final report is sent even while stopping, bounded.
+	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), reportTimeout)
+	defer cancel()
+	got, err := p.server.Report(rctx, op.ID, outcome, worktree, reason)
 	if err != nil {
 		p.mu.Lock()
 		p.reportFailures++
