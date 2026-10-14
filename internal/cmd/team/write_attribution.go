@@ -155,7 +155,13 @@ func authoredWriteField(field string) bool {
 		"startAgentTask", "recordAgentTaskProgress", "finishAgentTask",
 		"cancelAgentTask", "parkAgentTask", "makeAgentTaskReady",
 		"acknowledgeAlarm",
-		"setWorkerAvailability", "setModelFamilyAvailability":
+		// setModelFamilyAvailability is deliberately absent (#868), like
+		// setAgentTaskStallSchedule (#866): both are the App manager's
+		// writes, and the server's actorManagesApp is false for any worker
+		// actor, so attributing them refused every manager working from a
+		// bound worktree. A worker's OWN record stays authored — the worker
+		// may mark itself unavailable (cor:agt:060:08).
+		"setWorkerAvailability":
 		return true
 	default:
 		return false

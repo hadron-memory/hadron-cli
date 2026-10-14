@@ -35,6 +35,16 @@ every authored mutation, App-identity cross-check when `--app` is set, and a
 stderr note when attribution is unavailable. Nothing task-specific was
 invented; the commands don't touch the binding at all for attribution.
 
+**Amended (#868, 2026-10-13): `setModelFamilyAvailability` is no longer
+authored.** A family's availability is the App manager's write
+(cor:agt:060:09), and the server's `actorManagesApp` accepts a user actor
+only, so sending it with the worker session refused every manager working
+from a bound worktree (Chip reproduced it: exit 8 bound, exit 0 unbound). It
+now always goes as the person, like `setAgentTaskStallSchedule` (#866). The
+worker's OWN record (`setWorkerAvailability`) stays authored: a worker may
+mark itself unavailable. See
+`hrn:node:hadronmemory.com:hadron-cli:findings:manager-only-writes-must-not-ride-the-worker-session`.
+
 Reads (`get`, `list`, `tree`, `events`, `roster`, `availability get`) are
 plain: no header, no read-state effects.
 
