@@ -203,6 +203,8 @@ func TestTeamHostOpsLocalRefusals(t *testing.T) {
 		{"empty host", []string{"--host", ""}, "--host was given empty"},
 		{"blank worker", []string{"--worker", "  "}, "--worker was given empty"},
 		{"empty after", []string{"--after", ""}, "--after was given empty"},
+		{"empty status", []string{"--status", ""}, "--status was given empty"},
+		{"blank status", []string{"--status", "  "}, "--status was given empty"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls, _, err := runTeamTask(t, hostResponses(), append([]string{"team", "host", "ops"}, tc.argv...)...)
@@ -223,7 +225,13 @@ func TestTeamHostOpsLocalRefusals(t *testing.T) {
 // In a bound worktree, the operation is the worker's (cor:agt:070:05: the
 // worker the target reports to) — the session rides the request.
 func TestTeamHostIssueBoundIsTheWorkers(t *testing.T) {
-	calls, out, err := runTeamTask(t, hostResponses(), "team", "host", "issue", "worktree.create",
+	r := hostResponses()
+	r["IssueHostOperation"] = `{"data":{"issueHostOperation":{"id":"hop3","appId":"capp100000000000000000000","hostId":"orca1",
+		"type":"worktree.create","args":{"workerId":"wkr1","repo":"hadron-cli","baseBranch":"main","branchName":"jonas/871","label":"jonas-3"},
+		"workerId":"wkr1","worker":{"id":"wkr1","name":"Jonas"},"status":"ISSUED","issuedBy":"WORKER",
+		"issuedByUserId":"u1","issuedByWorkerId":"wkr2","issuedAt":"2026-10-14T02:00:00Z",
+		"collectedAt":null,"finishedAt":null,"result":null,"failureReason":null}}}`
+	calls, out, err := runTeamTask(t, r, "team", "host", "issue", "worktree.create",
 		"--host", "orca1", "--worker", "Jonas",
 		"--arg", "repo=hadron-cli", "--arg", "label=jonas-3", "--arg", "baseBranch=main", "--arg", "branchName=jonas/871")
 	if err != nil {
@@ -249,7 +257,7 @@ func TestTeamHostIssueBoundIsTheWorkers(t *testing.T) {
 			t.Fatalf("%s = %s, want %s", k, in[k], v)
 		}
 	}
-	if !strings.Contains(out, "✓ issued worktree.remove hop2 to host orca1 for Jonas (ISSUED, by USER) in ") {
+	if !strings.Contains(out, "✓ issued worktree.create hop3 to host orca1 for Jonas (ISSUED, by WORKER) in ") {
 		t.Fatalf("receipt %q", out)
 	}
 }

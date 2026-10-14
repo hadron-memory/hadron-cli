@@ -19,8 +19,8 @@ hadron team host issue <type> --host <id> --worker <ref> [--arg k=v]… [--as-pe
 Thin callers over `grantAppKeyScope` / `revokeAppKeyScope`,
 `hostRegistrations`, `hostOperations` and `issueHostOperation`, as typed
 operations in `internal/api/queries/hosts.graphql`. The schema snapshot was
-re-exported from a throwaway clone of hadron-server at `b47578b` (==
-origin/main, which carries #1876). The host's own surfaces (`registerHost`,
+re-exported from a throwaway clone of hadron-server at `fa96070` (==
+origin/main, which carries #1876 and #1884). The host's own surfaces (`registerHost`,
 `collectHostOperations`, `reportHostOperation`, `setHostWorkerAvailability`)
 stay in `unbound-ops.txt`, annotated as the poller's (#831).
 

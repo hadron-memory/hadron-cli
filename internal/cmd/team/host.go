@@ -242,7 +242,7 @@ When more follow, the receipt names the --after that continues the list;
 			ctx := cmd.Context()
 			// A filter flag given empty (an unset shell variable, usually) is
 			// refused, never read as "no filter": that would list everything.
-			for _, fl := range []struct{ name, val string }{{"host", hostID}, {"worker", worker}, {"after", after}} {
+			for _, fl := range []struct{ name, val string }{{"host", hostID}, {"status", status}, {"worker", worker}, {"after", after}} {
 				if cmd.Flags().Changed(fl.name) && strings.TrimSpace(fl.val) == "" {
 					return exitcode.Newf(exitcode.Usage, "--%s was given empty (an unset variable?); leave it out to list all", fl.name)
 				}
