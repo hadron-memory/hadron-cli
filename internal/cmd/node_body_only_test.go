@@ -350,3 +350,86 @@ func TestSpecEditWarnsOnDroppedTemplateTags(t *testing.T) {
 		t.Errorf("stderr must carry the warning too, got %q", stderr)
 	}
 }
+
+// The guard is pinned to what the renderers REALLY print, not to a fixture
+// written from memory of it: a spec get header once printed a line the
+// detector did not expect, and the refusal never fired (review walk on #873).
+func TestHeaderGuardRefusesRealGetOutput(t *testing.T) {
+	nodeText, _, _, err := runNode(t, bodyOnlyStubs(delimiterBody), "", "node", "get", testNodeURN, "--raw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	specText, _, _, err := runNode(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
+	}, "", "spec", "get", "msg:010:02", "-m", specMem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, src := range []struct{ name, text string }{{"node get --raw", nodeText}, {"spec get", specText}} {
+		for _, write := range []struct {
+			name  string
+			stubs map[string]string
+			args  []string
+			op    string
+		}{
+			{"node update", bodyOnlyStubs(delimiterBody), []string{"node", "update", testNodeURN}, "UpdateNode"},
+			{"spec edit", previewMocks(), []string{"spec", "edit", "msg:010:02", "-m", specMem}, "UpdateSpecNode"},
+		} {
+			args := append(append([]string{}, write.args...), "--content-file", writeTemp(t, "b.md", src.text))
+			_, _, captured, err := runNode(t, write.stubs, "", args...)
+			if exitCodeFor(err) != exitcode.Usage {
+				t.Errorf("%s output into %s: want exit 2, got %v", src.name, write.name, err)
+			}
+			if _, wrote := captured[write.op]; wrote {
+				t.Errorf("%s output into %s: written", src.name, write.name)
+			}
+		}
+	}
+}
+
+// --json lists are [] and an untouched body is null — asserted on the bytes,
+// since a struct decode cannot tell null from [].
+func TestBodyGuardJSONEmptyShapes(t *testing.T) {
+	out, _, _, err := runNode(t, bodyOnlyStubs(delimiterBody), "",
+		"node", "update", testNodeURN, "--name", "x", "--dry-run", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	compact := strings.Join(strings.Fields(out), "")
+	for _, want := range []string{`"warnings":[]`, `"content":null`, `"fields":["name"]`} {
+		if !strings.Contains(compact, want) {
+			t.Errorf("node update --dry-run --json must carry %s:\n%s", want, out)
+		}
+	}
+	proposed := strings.Replace(placeholderBody, "Old rule line.", "New rule line.", 1)
+	out, _, _, err = runNode(t, previewMocks(), "",
+		"spec", "edit", "msg:010:02", "-m", specMem, "--content-file", writeTemp(t, "b.md", proposed), "--dry-run", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(strings.Fields(out), ""), `"warnings":[]`) {
+		t.Errorf("spec edit --json must carry warnings: []:\n%s", out)
+	}
+}
+
+func TestNodeAddContentFileDashReadsStdin(t *testing.T) {
+	_, _, captured, err := runNode(t, map[string]string{
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
+	}, delimiterBody, "node", "add", "-m", "acme.com::kb", "--loc", "x:y", "--name", "N", "--content-file", "-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vars struct {
+		Input struct {
+			Content string `json:"content"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["CreateNode"], &vars); err != nil {
+		t.Fatal(err)
+	}
+	if vars.Input.Content != delimiterBody {
+		t.Errorf("sent %q", vars.Input.Content)
+	}
+}

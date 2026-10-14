@@ -28,7 +28,7 @@ Until now, the only safe source for an edit was `node get --raw --json` →
 | `node get --body-only` (alias `--content-only`) | New. One ref only (several or `--prefix`: exit 2, no request). Reads `GetNodeRaw` and prints the stored body **byte for byte**, with no newline added unless stdout is a terminal. `--json`: `{id, urn, loc, content, rendered: false}`. It implies `--raw`. |
 | `spec get --body-only` | Now reads raw (`fetchRawSpec` / `GetSpecNodeRaw`), and no longer appends a newline when piped. The `--json` shape `{citation, content}` is unchanged. |
 | `node update` | New body (`--content`, `--content-file`): a header-prefixed body is **refused** (exit 2, before any request) unless `--force`. A body that drops a `{{…}}` tag the stored body has is written, with `warning:` on stderr. `--content-file -` reads piped stdin, the same as `--content -` (the acceptance's round trip spells it that way), and is refused from a terminal. |
-| `node update --dry-run` | New. It reads the node raw, runs every check a write runs (header guard, the role and governed-kind refusals, input parsing), and writes nothing. Output is the changed fields plus a unified diff of stored → proposed body. `--json`: `{dryRun, id, urn, loc, fields[], content: {before, after, diff} \| null, warnings[]}`. `--dry-run --data-merge` is refused: the merge is a separate mutation the preview doesn't cover. |
+| `node update --dry-run` | New. It reads the node raw, runs every client-side check a write runs (header guard, the role and governed-kind refusals, input parsing), and writes nothing; the server's own validation runs only on the write. Output is the changed fields plus a unified diff of stored → proposed body. `--json`: `{dryRun, id, urn, loc, fields[], content: {before, after, diff} \| null, warnings[]}`. `--dry-run --data-merge` is refused: the merge is a separate mutation the preview doesn't cover. |
 | `spec edit` | Same two guards on a changed body, dry run included, with `--force`. Warnings go to stderr and into the result's new `warnings` list (always present, `[]` when there are none). |
 | help text, agentic-usage | The edit read is `--body-only` everywhere; `--raw` text output is no longer recommended for edits. |
 
@@ -49,12 +49,15 @@ The shared logic lives in `internal/cmdutil/bodyguard.go`
   placeholder can be the point of an edit, so a dropped tag warns but does not
   block. That matches the acceptance ("refuse a get-header prefix", "a
   warning when a proposed body drops …").
-- **Header detection is narrow.** It requires a non-indented title line
-  followed by `  loc: <value>` (node get), or by a whitespace-free
-  `hrn:node:` line, possibly after the `PLACEHOLDER` line (spec get). A first
-  line starting with `#` never matches the spec form, because spec get prints
-  the plain name. That keeps false positives off ordinary markdown, and
-  `--force` covers any that remain.
+- **Header detection is narrow.** node get: a non-indented title line,
+  `  loc: <value>`, then one of the lines the renderer prints next (`  urn: `,
+  `  URL: `, `  type: `), so a YAML-ish `deploy:` / `  loc: us-east` body is
+  not caught. spec get: a title line, then a whitespace-free reference (the
+  `<org>::<memory>::<loc>` it prints today, or an `hrn:node:` URN), possibly
+  after the `PLACEHOLDER` line. A first line starting with `#` never matches
+  the spec form, because spec get prints the plain name. The command tests feed
+  each renderer's real text output to the guard, so the detector can't drift
+  from the printer unnoticed. `--force` covers any false positive that remains.
 - **Tag comparison is on distinct tags in the default delimiters.** A tag the
   new body still contains somewhere is not reported, even if one occurrence
   was removed. Tags written in a custom delimiter (`<%who%>` after

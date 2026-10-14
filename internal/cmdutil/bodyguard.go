@@ -22,10 +22,14 @@ import (
 // dropped tags only warned about (removing a placeholder can be the edit).
 
 // GetHeaderPrefix reports whether body begins with the header a text-mode
-// `node get` or `spec get` prints: a title line, then `  loc: <loc>` (node
-// get) or the node's bare `hrn:node:` URN (spec get, possibly after its
-// PLACEHOLDER line). A markdown heading as the first line is never the spec
-// header, which prints the plain name.
+// `node get` or `spec get` prints. node get: a title line, `  loc: <loc>`,
+// then one of the lines its renderer prints next (`  urn: `, `  URL: `,
+// `  type: `) — the third line keeps a YAML-ish body (`deploy:` /
+// `  loc: us-east`) out. spec get: a title line, then the node's reference
+// with no whitespace — `<org>::<memory>::<loc>` as it prints today, or an
+// `hrn:node:` URN — possibly after its PLACEHOLDER line. A markdown heading
+// as the first line is never the spec header, which prints the plain name.
+// The command tests pin this against both renderers' real output.
 func GetHeaderPrefix(body string) bool {
 	lines := strings.SplitN(body, "\n", 4)
 	if len(lines) < 2 {
@@ -39,7 +43,15 @@ func GetHeaderPrefix(body string) bool {
 		return false
 	}
 	if loc, ok := strings.CutPrefix(lines[1], "  loc: "); ok && strings.TrimSpace(loc) != "" {
-		return true
+		if len(lines) < 3 {
+			return false
+		}
+		for _, next := range []string{"  urn: ", "  URL: ", "  type: "} {
+			if strings.HasPrefix(lines[2], next) {
+				return true
+			}
+		}
+		return false
 	}
 	if strings.HasPrefix(title, "#") {
 		return false
@@ -48,7 +60,10 @@ func GetHeaderPrefix(body string) bool {
 	if urnLine == "PLACEHOLDER — reserved, not yet written" && len(lines) > 2 {
 		urnLine = lines[2]
 	}
-	return strings.HasPrefix(urnLine, "hrn:node:") && !strings.ContainsAny(urnLine, " \t")
+	if urnLine == "" || strings.ContainsAny(urnLine, " \t") {
+		return false
+	}
+	return strings.HasPrefix(urnLine, "hrn:node:") || strings.Count(urnLine, "::") >= 2
 }
 
 // RefuseGetHeaderPrefix is the one refusal for a header-prefixed body, so

@@ -14,7 +14,12 @@ func TestGetHeaderPrefix(t *testing.T) {
 		want bool
 	}{
 		{"node get header", "Dispatch a CHECKED issue\n  loc: tasks:dispatch\n  urn: hrn:node:x:y:tasks:dispatch\n\nbody", true},
-		{"node get header, CRLF", "Dispatch\r\n  loc: tasks:dispatch\r\n", true},
+		{"node get header, CRLF", "Dispatch\r\n  loc: tasks:dispatch\r\n  type: info\r\n", true},
+		{"node get header without URL or urn", "Dispatch\n  loc: tasks:dispatch\n  type: task\n", true},
+		{"YAML-ish body", "deploy:\n  loc: us-east\n  replicas: 3\n", false},
+		{"two-line loc body", "deploy:\n  loc: us-east", false},
+		{"spec get header as printed", "cor:dmo:050:01 — Agent\nhadronmemory.com::specs::cor:dmo:050:01\nApproval: none\n", true},
+		{"one :: is not a ref", "Title\na::b\n", false},
 		{"spec get header", "Delivery window\nhrn:node:hadronmemory.com:specs:msg:010:02\nTags: a\n\nbody", true},
 		{"spec get placeholder header", "Reserved\nPLACEHOLDER — reserved, not yet written\nhrn:node:hadronmemory.com:specs:msg:010:03\n", true},
 		{"plain markdown", "# Title\n\nSome text.\n", false},
@@ -23,7 +28,7 @@ func TestGetHeaderPrefix(t *testing.T) {
 		{"empty", "", false},
 		{"indented first line", "  loc: x\n  loc: y\n", false},
 		{"blank title", "\n  loc: x\n", false},
-		{"loc with no value", "Title\n  loc: \n", false},
+		{"loc with no value", "Title\n  loc: \n  type: x\n", false},
 		{"URN line with prose", "Title\nhrn:node:a:b:c is the node\n", false},
 		{"three-space loc", "Title\n   loc: x\n", false},
 	} {
@@ -37,7 +42,7 @@ func TestRefuseGetHeaderPrefix(t *testing.T) {
 	if err := RefuseGetHeaderPrefix("# fine\n", "--force"); err != nil {
 		t.Fatalf("a plain body must pass, got %v", err)
 	}
-	err := RefuseGetHeaderPrefix("Name\n  loc: a:b\n\nbody", "--force")
+	err := RefuseGetHeaderPrefix("Name\n  loc: a:b\n  type: info\n\nbody", "--force")
 	if err == nil || exitcode.FromError(err) != exitcode.Usage {
 		t.Fatalf("want a usage (exit 2) refusal, got %v", err)
 	}

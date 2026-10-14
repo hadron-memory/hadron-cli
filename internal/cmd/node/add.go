@@ -42,7 +42,7 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 loc (use ` + "`hadron node update`" + ` to modify an existing node).
 
 --content takes the content inline, or "-" to read it from standard
-input; --content-file reads it from a file.
+input; --content-file reads it from a file ("-" reads piped stdin too).
 
 "-" is for a PIPE (cat file | hadron node add ...). It is REFUSED when
 stdin is an interactive terminal: a terminal can truncate large input
@@ -164,7 +164,7 @@ schema and rejects a violation.`,
 	cmd.Flags().StringVar(&loc, "loc", "", "node location within the memory (required)")
 	cmd.Flags().StringVar(&name, "name", "", "node name (required)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `node content ("-" reads stdin)`)
-	cmd.Flags().StringVar(&contentFile, "content-file", "", "read node content from a file")
+	cmd.Flags().StringVar(&contentFile, "content-file", "", `read node content from a file ("-" reads piped stdin)`)
 	cmd.Flags().StringVar(&nodeType, "type", "", "node type (defaults to the server default; comments use hadron comment create)")
 	cmd.Flags().StringVar(&objectType, "object-type", "", "collection this node belongs to (#725; e.g. competitor), orthogonal to --type")
 	cmd.Flags().StringVar(&description, "description", "", "one-line description")
@@ -193,7 +193,7 @@ func resolveContent(content, contentFile string, stdin io.Reader, stdinIsTermina
 		return "", exitcode.Newf(exitcode.Usage, "--content and --content-file are mutually exclusive")
 	}
 	if contentFile == "-" {
-		return cmdutil.ReadDocumentStdin(stdin, stdinIsTerminal, "--content-file -", "--content-file <path>")
+		return cmdutil.ReadDocumentStdin(stdin, stdinIsTerminal, "--content-file -", "--content-file")
 	}
 	if contentFile != "" {
 		data, err := os.ReadFile(contentFile)

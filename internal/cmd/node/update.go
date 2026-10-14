@@ -75,10 +75,12 @@ drops a {{…}} tag the stored body has — a placeholder or a {{=…=}} delimit
 change — is written, with a warning on stderr: removing a placeholder can be
 the edit.
 
---dry-run writes nothing: it reads the node, runs every check a write would,
-and shows the fields that would change, with a diff of the stored body against
-the new one. It previews the field update only, so --data-merge is refused
-with it.
+--dry-run writes nothing: it reads the node, runs every client-side check a
+write would (the header guard, the role and kind refusals, input parsing), and
+shows the fields that would change, with a diff of the stored body against the
+new one. The server's own validation (a schema-governed memory, the door's
+refusals) runs only on the write. It previews the field update only, so
+--data-merge is refused with it.
 
 --content - (or --content-file -), --abstract - and --data-merge - read
 standard input, and are for
@@ -154,7 +156,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 			// patch — none a secret, so all three take the guard.
 			for _, doc := range []struct{ flag, value, fileFlag string }{
 				{"content", content, "--content-file"},
-				{"content-file", contentFile, "--content-file <path>"},
+				{"content-file", contentFile, "--content-file"},
 				{"abstract", abstract, "--abstract-file"},
 				{"data-merge", dataMerge, "--data-merge-file"},
 			} {

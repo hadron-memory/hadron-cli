@@ -266,6 +266,14 @@ An abstract replacement may contain at most 2000 characters as counted by the
 server (UTF-16 code units, including surrounding whitespace and newlines).
 Both --dry-run and a save refuse an over-limit proposal before writing.
 
+A changed body that starts with the metadata header a text-mode ` + "`spec get`" + ` or
+` + "`node get`" + ` prints is REFUSED (exit 2, nothing written) unless --force: saving it
+would store the header in the body. Read the body to edit with
+` + "`spec get <citation> --body-only`" + `, the stored body byte for byte (#873). A body
+that drops a {{…}} tag the stored one has (a placeholder, or a {{=…=}}
+delimiter change) is saved with a warning on stderr, also listed under
+"warnings" in --json.
+
 --dry-run writes nothing and shows the change itself: a unified diff per field
 (--json: "changes", each with the stored text, the proposed text and the diff).
 It is a preview, not an approval; applying it is a separate run without
