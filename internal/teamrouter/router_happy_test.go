@@ -13,7 +13,7 @@ func TestHappyNudgesIdleRosterWorkerOnce(t *testing.T) {
 	f := newFake(t, root)
 	c := cfgEntries(root, [2]string{"w-eli", "Eli"})
 	f.addTerminal("eli", "claude", "", true)
-	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{mentions: 2, unread: 5})}
+	f.attention.workers = []AttentionItem{worker("w-eli", "Eli", workerOpts{mentions: ip(2), unread: ip(5)})}
 	out := f.poll(t, c)
 	if len(out.Nudged) != 1 || out.Nudged[0] != "Eli" || !out.Adopted {
 		t.Fatalf("outcome = %+v, want nudged [Eli] adopted", out)
@@ -43,7 +43,7 @@ func TestHappyNudgesIdleRosterWorkerOnce(t *testing.T) {
 			sendIdx = i
 		}
 	}
-	if !(waitIdx < readIdx && readIdx < sendIdx) {
+	if waitIdx >= readIdx || readIdx >= sendIdx {
 		t.Fatalf("verbs out of order: wait=%d read=%d send=%d", waitIdx, readIdx, sendIdx)
 	}
 }
@@ -83,7 +83,7 @@ func TestHappyLeavesOthersAlone(t *testing.T) {
 	f := newFake(t, root)
 	c := cfgEntries(root, [2]string{"w-eli", "Eli"})
 	f.addTerminal("eli", "claude", "", true)
-	f.attention.workers = []AttentionItem{worker("w-ada", "Ada", workerOpts{}), worker("w-eli", "Eli", workerOpts{mentions: 0})}
+	f.attention.workers = []AttentionItem{worker("w-ada", "Ada", workerOpts{}), worker("w-eli", "Eli", workerOpts{mentions: ip(0)})}
 	out := f.poll(t, c)
 	if !out.Adopted {
 		t.Fatal("want adopted")

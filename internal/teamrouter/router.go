@@ -17,14 +17,14 @@ import "context"
 // Config is the router's host-local configuration (cli#829 design notes:
 // placement follows the CLI's own config conventions).
 type Config struct {
-	App                  string        `json:"app"`
-	Channel              string        `json:"channel"`
-	OrcaCli              string        `json:"orcaCli"`
-	StateDir             string        `json:"stateDir"`
-	Roster               []RosterEntry `json:"roster"`
-	BusyWaitMS           int           `json:"busyWaitMs"`
-	SubmitWaitS          int           `json:"submitWaitS"`
-	CoordinatorWatchMin  float64       `json:"coordinatorWatchMinutes"`
+	App                 string        `json:"app"`
+	Channel             string        `json:"channel"`
+	OrcaCli             string        `json:"orcaCli"`
+	StateDir            string        `json:"stateDir"`
+	Roster              []RosterEntry `json:"roster"`
+	BusyWaitMS          int           `json:"busyWaitMs"`
+	SubmitWaitS         int           `json:"submitWaitS"`
+	CoordinatorWatchMin float64       `json:"coordinatorWatchMinutes"`
 }
 
 // RosterEntry names one worker this router may wake. Pin (#1845) optionally
@@ -60,23 +60,23 @@ type OrcaRunner func(ctx context.Context, argv []string) RunResult
 
 // AttentionItem is one due worker row from the v2 paged attention surface.
 type AttentionItem struct {
-	Worker         string `json:"worker"`
-	WorkerName     string `json:"workerName"`
-	Channel        string `json:"channel"`
-	Unread         int    `json:"unread"`
-	UnreadMentions int    `json:"unreadMentions"`
-	FirstUnreadSeq int    `json:"firstUnreadSeq"`
-	LastRelevantSeq int   `json:"lastRelevantSeq"`
-	LastSeq        int    `json:"lastSeq"`
+	Worker          string `json:"worker"`
+	WorkerName      string `json:"workerName"`
+	Channel         string `json:"channel"`
+	Unread          int    `json:"unread"`
+	UnreadMentions  int    `json:"unreadMentions"`
+	FirstUnreadSeq  int    `json:"firstUnreadSeq"`
+	LastRelevantSeq int    `json:"lastRelevantSeq"`
+	LastSeq         int    `json:"lastSeq"`
 }
 
 // AttentionPage is one drained page of the attention scan.
 type AttentionPage struct {
-	ScanComplete    bool            `json:"scanComplete"`
-	NextPage        string          `json:"nextPage"`
-	AdoptableSince  string          `json:"adoptableSince"`
-	Items           []AttentionItem `json:"items"`
-	IncompleteScan  bool            `json:"incompleteScan"` // errors present: refuse (#1700 class)
+	ScanComplete   bool            `json:"scanComplete"`
+	NextPage       string          `json:"nextPage"`
+	AdoptableSince string          `json:"adoptableSince"`
+	Items          []AttentionItem `json:"items"`
+	IncompleteScan bool            `json:"incompleteScan"` // errors present: refuse (#1700 class)
 }
 
 // AttentionRequest addresses the paged surface: Since adopts a token, Page
@@ -166,9 +166,9 @@ func LoadConfig(path string) (*Config, error) { return nil, &RouterError{Reason:
 // State is the token/ledger/liveness persistence (0700/0600, single-writer).
 type State struct{ dir string }
 
-func NewState(dir string) *State          { return &State{dir: dir} }
-func (s *State) Token() string            { return "" } // RED-FIRST STUB
-func (s *State) ClearToken()              {}
+func NewState(dir string) *State { return &State{dir: dir} }
+func (s *State) Token() string   { return "" } // RED-FIRST STUB
+func (s *State) ClearToken()     {}
 
 // Status renders the router's current state for `team router status`.
 // RED-FIRST STUB.

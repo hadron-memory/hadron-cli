@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -62,34 +63,28 @@ const (
 	freshTok = "tok-fresh-NEVER-ADOPT"
 )
 
+// workerOpts mirrors the TS helper's `?? defaults`: a nil pointer takes the
+// default, an explicit value — including 0 — is kept as written.
 type workerOpts struct {
-	mentions int
-	unread   int
-	first    int
+	mentions *int
+	unread   *int
+	first    *int
 	relevant *int
-	head     int
+	head     *int
 }
 
+func ip(v int) *int { return &v }
+
 func worker(id, name string, o workerOpts) AttentionItem {
-	if o.mentions == 0 {
-		o.mentions = 1
-	}
-	if o.unread == 0 {
-		o.unread = 3
-	}
-	if o.first == 0 {
-		o.first = 100
-	}
-	relevant := 110
-	if o.relevant != nil {
-		relevant = *o.relevant
-	}
-	if o.head == 0 {
-		o.head = 120
+	def := func(p *int, d int) int {
+		if p == nil {
+			return d
+		}
+		return *p
 	}
 	return AttentionItem{Worker: id, WorkerName: name, Channel: channel,
-		Unread: o.unread, UnreadMentions: o.mentions, FirstUnreadSeq: o.first,
-		LastRelevantSeq: relevant, LastSeq: o.head}
+		Unread: def(o.unread, 3), UnreadMentions: def(o.mentions, 1), FirstUnreadSeq: def(o.first, 100),
+		LastRelevantSeq: def(o.relevant, 110), LastSeq: def(o.head, 120)}
 }
 
 type screenSpec struct {
@@ -100,7 +95,7 @@ type screenSpec struct {
 }
 
 type fakeCLIs struct {
-	t  *testing.T
+	t *testing.T
 	// attention
 	attention struct {
 		token   string
@@ -108,12 +103,12 @@ type fakeCLIs struct {
 	}
 	attentionOk bool
 	// fresh re-read rows; nil = same as the poll
-	fresh    []AttentionItem
-	freshOk  bool
-	freshN   int
-	pages    int
-	dropTok  bool
-	incompl  bool
+	fresh   []AttentionItem
+	freshOk bool
+	freshN  int
+	pages   int
+	dropTok bool
+	incompl bool
 
 	terminals []Terminal
 	busy      map[string]bool
@@ -135,9 +130,9 @@ type fakeCLIs struct {
 	registerFails  map[string]bool
 	registerRowFor func(worker string) *RegisterRow
 
-	head     int
-	headOk   bool
-	headRead int
+	head      int
+	headOk    bool
+	headRead  int
 	freshHead *int
 
 	cursors       map[string]int
@@ -150,11 +145,11 @@ type fakeCLIs struct {
 	renameFromList int
 	hideFromList   int
 
-	polls    []AttentionRequest
-	calls    []string
-	sawWait  bool
-	root     string
-	logs     []string
+	polls   []AttentionRequest
+	calls   []string
+	sawWait bool
+	root    string
+	logs    []string
 }
 
 func newFake(t *testing.T, root string) *fakeCLIs {
@@ -172,6 +167,7 @@ func newFake(t *testing.T, root string) *fakeCLIs {
 	return f
 }
 
+//nolint:unparam // later describe blocks add terminals under other names
 func (f *fakeCLIs) addTerminal(name string, agent string, handle string, tracked bool) Terminal {
 	f.t.Helper()
 	wt := filepath.Join(f.root, "workspaces", name)
@@ -202,8 +198,14 @@ func (f *fakeCLIs) addTerminal(name string, agent string, handle string, tracked
 	return row
 }
 
-func (f *fakeCLIs) setScreen(handle string, s screenSpec) { f.screens[handle] = &s }
-func (f *fakeCLIs) setRecheck(handle string, s screenSpec) { f.recheck[handle] = &s }
+// The handle param stays: later describe blocks set screens on other handles.
+func (f *fakeCLIs) setScreen(handle string, s screenSpec) { //nolint:unparam
+	f.screens[handle] = &s
+}
+
+func (f *fakeCLIs) setRecheck(handle string, s screenSpec) { //nolint:unparam
+	f.recheck[handle] = &s
+}
 
 // Server seam.
 
@@ -233,7 +235,9 @@ func (f *fakeCLIs) AttentionPage(ctx context.Context, req AttentionRequest) (Att
 	}
 	n := 1
 	if req.Page != "" {
-		fmt.Sscanf(req.Page, "%d", &n)
+		if parsed, err := strconv.Atoi(req.Page); err == nil {
+			n = parsed
+		}
 	}
 	last := n >= f.pages
 	tok := ""
@@ -441,12 +445,4 @@ func (f *fakeCLIs) poll(t *testing.T, c *Config) *Outcome {
 func adoptedToken(t *testing.T, c *Config) string {
 	t.Helper()
 	return NewState(c.StateDir).Token()
-}
-
-func (f *fakeCLIs) sentTexts() []string {
-	var out []string
-	for _, s := range f.sent {
-		out = append(out, s.text)
-	}
-	return out
 }
