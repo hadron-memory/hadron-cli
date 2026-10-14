@@ -30,6 +30,7 @@ type agentDTO struct {
 	SystemMemoryID *string  `json:"systemMemoryId"`
 	TasksIndexRef  *string  `json:"tasksIndexRef"`
 	ProcessesIndex *string  `json:"processesIndexRef"`
+	ExtendsAgentID *string  `json:"extendsAgentId"`
 	SystemPrompt   *string  `json:"systemPrompt"`
 	AiProvider     *string  `json:"aiProvider"`
 	AiModel        *string  `json:"aiModel"`
@@ -47,7 +48,7 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 		ID: a.Id, URN: a.Urn, Name: a.Name, Description: a.Description,
 		Type: string(a.Type), Visibility: string(a.Visibility), OrganizationID: a.OrganizationId,
 		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId, SystemPrompt: a.SystemPrompt,
-		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef,
+		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef, ExtendsAgentID: a.ExtendsAgentId,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
 		PersonaRole: a.PersonaRole, CreatedAt: a.CreatedAt,
 	}
@@ -112,6 +113,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdAgentTasks(f))
 	cmd.AddCommand(newCmdAgentProcesses(f))
+	cmd.AddCommand(newCmdAgentSetBase(f))
 	return cmd
 }
 
@@ -277,8 +279,8 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 			dto := agentDTOFromFields(resp.Agent.AgentFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", dto.Name, dto.URN, dto.ID, dto.Type, dto.Visibility)
-				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  ai: %s/%s (key: %v)\n",
-					dash(dto.Description), dash(dto.SystemMemoryID), dash(dto.TasksIndexRef), dash(dto.ProcessesIndex), dash(dto.AiProvider), dash(dto.AiModel), dto.HasAiApiKey)
+				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  extends: %s\n  ai: %s/%s (key: %v)\n",
+					dash(dto.Description), dash(dto.SystemMemoryID), dash(dto.TasksIndexRef), dash(dto.ProcessesIndex), dash(dto.ExtendsAgentID), dash(dto.AiProvider), dash(dto.AiModel), dto.HasAiApiKey)
 				if len(dto.Surfaces) > 0 {
 					fmt.Fprintf(w, "  surfaces: %s\n", strings.Join(dto.Surfaces, ", "))
 				}
@@ -1020,4 +1022,62 @@ func applyAgentIndexRefChanges(ctx context.Context, client graphql.Client, ref s
 		}
 	}
 	return fields, nil
+}
+
+// newCmdAgentSetBase backs `hadron agent set-base` (#881, cor:dmo:050:14):
+// a positional base sets the Agent's base; --clear removes it. Exactly one of
+// the two is required — the command is deliberately explicit, because
+// inheritance changes what every worker of the Agent sees.
+func newCmdAgentSetBase(f *cmdutil.Factory) *cobra.Command {
+	var clear bool
+	cmd := &cobra.Command{
+		Use:   "set-base <agent> (<base> | --clear)",
+		Short: "Set or clear the Agent's base (inheritance, cor:dmo:050:14)",
+		Long: `Set the base this Agent extends, or clear it with --clear. The base's
+system memory is inherited: its tasks and processes lists, and the nodes its
+workers read, come through the chain (deduped by the server), and a chain may
+hold at most four Agents. Setting a base needs a licence to it — a PUBLIC
+base needs an active subscription, an org-owned one an org grant. Whoever
+manages the Agent may set its base (cor:dmo:050:13).`,
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref := strings.TrimSpace(args[0])
+			if ref == "" {
+				return exitcode.Newf(exitcode.Usage, "the agent reference is empty")
+			}
+			var baseRef *string
+			switch {
+			case clear && len(args) == 2:
+				return exitcode.Newf(exitcode.Usage, "pass either a base or --clear, not both")
+			case clear:
+				// An omitted baseRef is the server's clear.
+			case len(args) == 2:
+				b := strings.TrimSpace(args[1])
+				if b == "" {
+					return exitcode.Newf(exitcode.Usage, "the base reference is empty")
+				}
+				baseRef = &b
+			default:
+				return exitcode.Newf(exitcode.Usage, "pass the base to extend, or --clear to remove it")
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.SetAgentBase(cmd.Context(), client, ref, baseRef)
+			if err != nil {
+				return api.MapError(err)
+			}
+			if resp.SetAgentBase == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no agent")
+			}
+			verb := "✓ set base of"
+			if clear {
+				verb = "✓ cleared base of"
+			}
+			return emitAgent(f, agentDTOFromFields(resp.SetAgentBase.AgentFields), verb)
+		},
+	}
+	cmd.Flags().BoolVar(&clear, "clear", false, "remove the Agent's base instead of setting one")
+	return cmd
 }

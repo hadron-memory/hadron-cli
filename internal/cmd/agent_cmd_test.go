@@ -967,3 +967,133 @@ func TestAgentListShapesExactJSON(t *testing.T) {
 		t.Fatalf("--json must equal the server array exactly:\ngot  %s", out2.String())
 	}
 }
+
+// ---- cli#881: agent set-base (cor:dmo:050:14, server #1889) ---------------
+//
+// setAgentBase is two-state on the wire: a baseRef value sets the base, any
+// absent/empty baseRef clears it (verified in the resolver — baseId is null
+// unless baseRef resolves). The CLI surface is `agent set-base <agent>
+// (<base> | --clear)`, and `agent get` shows extendsAgentId.
+
+func TestAgentSetBase(t *testing.T) {
+	t.Run("a positional base sets it", func(t *testing.T) {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"SetAgentBase": `{"data":{"setAgentBase":` + agentJSON + `}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"agent", "set-base", "agt1", "hrn:agent:acme.com:base", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		var vars map[string]any
+		_ = json.Unmarshal(captured["SetAgentBase"], &vars)
+		if vars["ref"] != "agt1" || vars["baseRef"] != "hrn:agent:acme.com:base" {
+			t.Fatalf("set vars: %v", vars)
+		}
+	})
+	t.Run("--clear sends no base", func(t *testing.T) {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"SetAgentBase": `{"data":{"setAgentBase":` + agentJSON + `}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"agent", "set-base", "agt1", "--clear", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		vars := map[string]any{}
+		_ = json.Unmarshal(captured["SetAgentBase"], &vars)
+		if _, present := vars["baseRef"]; present {
+			t.Fatalf("a clear must omit baseRef (the server reads absent as null-base), got %v", vars["baseRef"])
+		}
+	})
+	t.Run("neither a base nor --clear is a usage error", func(t *testing.T) {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"agent", "set-base", "agt1", "--server", "http://127.0.0.1:1"})
+		if err := root.Execute(); err == nil {
+			t.Fatal("set-base needs a base or --clear")
+		}
+	})
+	t.Run("both a base and --clear is a usage error", func(t *testing.T) {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"agent", "set-base", "agt1", "base", "--clear", "--server", "http://127.0.0.1:1"})
+		if err := root.Execute(); err == nil {
+			t.Fatal("a base and --clear contradict each other")
+		}
+	})
+}
+
+// agent get shows the base: extendsAgentId in JSON (explicit null when the
+// Agent extends nothing — unset is an answer) and the human line.
+func TestAgentGetShowsBase(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetAgent": `{"data":{"agent":{"id":"agt1","urn":"acme.com::support-bot","name":"Support Bot","description":null,
+			"type":"CHATBOT","visibility":"ORGANIZATION","organizationId":"acme.com","surfaces":[],
+			"systemMemoryId":null,"systemPrompt":null,"aiProvider":null,"aiModel":null,"hasAiApiKey":false,
+			"extendsAgentId":"agt-base",
+			"createdAt":"2026-06-19T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "get", "agt1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	if got["extendsAgentId"] != "agt-base" {
+		t.Fatalf("extendsAgentId = %v, want the base id", got["extendsAgentId"])
+	}
+
+	// The human view names the base too.
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"agent", "get", "agt1", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out2.String(), "extends") || !strings.Contains(out2.String(), "agt-base") {
+		t.Fatalf("the human view should name the base, got:\n%s", out2.String())
+	}
+}
+
+// The server's setAgentBase refusals (src/lib/agentBase.ts) map to their
+// documented exit codes: the licence trio is a permission refusal (8), the
+// cycle/chain/in-use trio a state conflict (5), and AGENT_NOT_FOUND rides the
+// existing _NOT_FOUND suffix rule (4).
+func TestAgentSetBaseRefusalMap(t *testing.T) {
+	cases := []struct {
+		code string
+		want int
+	}{
+		{"AGENT_ORG_GRANT_REQUIRED", exitcode.Forbidden},
+		{"AGENT_ORG_GRANT_INACTIVE", exitcode.Forbidden},
+		{"AGENT_SUBSCRIPTION_REQUIRED", exitcode.Forbidden},
+		{"AGENT_BASE_CYCLE", exitcode.Conflict},
+		{"AGENT_BASE_CHAIN_TOO_LONG", exitcode.Conflict},
+		{"AGENT_IN_USE", exitcode.Conflict},
+		{"AGENT_NOT_FOUND", exitcode.NotFound},
+	}
+	for _, tc := range cases {
+		t.Run(tc.code, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{
+				"SetAgentBase": `{"errors":[{"message":"refused","extensions":{"code":"` + tc.code + `"}}]}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"agent", "set-base", "agt1", "base", "--server", gql.URL})
+			err := root.Execute()
+			if err == nil {
+				t.Fatalf("%s must surface as an error", tc.code)
+			}
+			if got := exitCodeFor(err); got != tc.want {
+				t.Fatalf("%s: exit code = %d, want %d", tc.code, got, tc.want)
+			}
+		})
+	}
+}
