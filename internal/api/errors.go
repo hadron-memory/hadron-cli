@@ -763,6 +763,20 @@ func codeForExtension(code string) int {
 		code == "UNSUPPORTED_MEMORY_CLASS" || code == "MEMORY_TRANSFER_MEMBER_RESET_INVALID" ||
 		code == "MEMORY_TRANSFER_USER_TARGET_UNSUPPORTED" || code == "MEMORY_TRANSFER_SAME_OWNER":
 		return exitcode.Usage
+	// Agent inheritance (hadron-server#1889, src/lib/agentBase.ts). The
+	// licence trio is AUTHENTICATED-BUT-NOT-PERMITTED: the caller must hold
+	// an active subscription (PUBLIC bases) or an org grant before extending
+	// — a permission refusal, not an argument fix, and deliberately NOT the
+	// _REQUIRED suffix rule's usage exit. The cycle/chain/in-use trio is
+	// state: retrying blind cannot help until the graph or the Agent's use
+	// changes (AGENT_IN_USE matches WORKER_IN_USE's precedent). AGENT_NOT_FOUND
+	// rides the existing _NOT_FOUND suffix rule (4), including its concealed
+	// base case.
+	case code == "AGENT_ORG_GRANT_REQUIRED" || code == "AGENT_ORG_GRANT_INACTIVE" ||
+		code == "AGENT_SUBSCRIPTION_REQUIRED":
+		return exitcode.Forbidden
+	case code == "AGENT_BASE_CYCLE" || code == "AGENT_BASE_CHAIN_TOO_LONG" || code == "AGENT_IN_USE":
+		return exitcode.Conflict
 	// Key supply the server refused (hadron-server#1817): BAD_UNLOCK_INPUT is
 	// a malformed, channel-mismatched, or already-consumed operation key;
 	// WRONG_KEY is a key that fails verification against an existing one. The

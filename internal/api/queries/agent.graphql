@@ -17,6 +17,9 @@ fragment AgentFields on Agent {
   # what agent update set, so the write is verifiable through the CLI.
   tasksIndexRef
   processesIndexRef
+  # #881: the base this Agent extends (cor:dmo:050:14), null when it
+  # extends nothing.
+  extendsAgentId
   aiProvider
   aiModel
   hasAiApiKey
@@ -226,6 +229,20 @@ mutation ClearAgentTasksIndex($ref: ID!, $tasksIndexRef: ID) {
 
 mutation ClearAgentProcessesIndex($ref: ID!, $processesIndexRef: ID) {
   setAgentIndexRefs(ref: $ref, processesIndexRef: $processesIndexRef) {
+    ...AgentFields
+  }
+}
+
+# #881 (cor:dmo:050:14): set or clear the Agent's base. Two-state on the
+# wire: a baseRef value sets it; an OMITTED baseRef clears it (the resolver
+# resolves the base only when baseRef is non-empty — there is no preserve
+# state), so one omitempty variable serves both set and --clear.
+mutation SetAgentBase(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $baseRef: ID
+) {
+  setAgentBase(ref: $ref, baseRef: $baseRef) {
     ...AgentFields
   }
 }
