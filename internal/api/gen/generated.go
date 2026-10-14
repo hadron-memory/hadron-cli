@@ -1709,9 +1709,8 @@ type AgentTaskFields struct {
 	StartedAt   *string `json:"startedAt"`
 	FinishedAt  *string `json:"finishedAt"`
 	CancelledAt *string `json:"cancelledAt"`
-	// Whether finishing asks the assignee to end its worker session
-	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns; stored only in this release,
-	// carried out by the host-operations slice.
+	// Whether finishing or cancelling asks the assignee to end its worker session
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns. #1709: carried out; see sessionEndRequest.
 	CloseSessionWhenDone bool                                              `json:"closeSessionWhenDone"`
 	Requirements         *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 	// Set only on a finished task.
@@ -16499,8 +16498,8 @@ func (v *CreateUserInvitationResponse) GetCreateUserInvitation() *CreateUserInvi
 // DeleteAgentResponse is returned by DeleteAgent on success.
 type DeleteAgentResponse struct {
 	// Soft-delete an Agent and its owned system memory. Refuses while a live
-	// App install or live parent Agent import references it. AgentMemoryItem
-	// attachments do not block deletion.
+	// App install or live parent Agent import references it, or a live Agent
+	// extends it as its base. AgentMemoryItem attachments do not block deletion.
 	//
 	// See hrn:node:hadronmemory.com:specs:cor:dmo:050:14.
 	//
@@ -21665,10 +21664,12 @@ func (v *IssueHostOperationIssueHostOperation) __premarshalJSON() (*__premarshal
 type IssueHostOperationResponse struct {
 	// #1709 — issue an operation to one of the App's registered hosts (hrn:node:hadronmemory.com:specs:cor:agt:070:05).
 	// A type outside the closed set is HOST_OPERATION_TYPE_UNKNOWN (hrn:node:hadronmemory.com:specs:cor:agt:070:03), a
-	// missing, extra or malformed argument BAD_HOST_OPERATION_ARGS. Issued today: worktree.create and worktree.remove, by
-	// the worker's holder, the worker it reports to, or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED).
-	// worker.start and worker.end ship with #1709's next slices, and worker.deliver with a host delivery path:
-	// HOST_OPERATION_NOT_ISSUABLE until then. An unregistered host is HOST_NOT_FOUND.
+	// missing, extra or malformed argument BAD_HOST_OPERATION_ARGS. worktree.create and worktree.remove: the worker's
+	// holder, the worker it reports to, or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED). worker.start:
+	// whoever manages the App only, with an optional taskId, for a held worker with no live session and no start in
+	// flight, in a worktree and family the live host registers for it (WORKER_NOT_HELD, WORKER_LIVE,
+	// WORKER_START_PENDING). worker.end ships with #1709's close-on-finish slice, and worker.deliver with a host delivery
+	// path: HOST_OPERATION_NOT_ISSUABLE until then. An unregistered host is HOST_NOT_FOUND.
 	IssueHostOperation *IssueHostOperationIssueHostOperation `json:"issueHostOperation"`
 }
 
@@ -35389,10 +35390,17 @@ type SessionInput struct {
 	// payload (who last drove it, when) before retrying with force - that IS the
 	// informed-takeover contract; force exists so the override is explicit,
 	// never the default.
-	Force           *bool   `json:"force,omitempty"`
-	Host            *string `json:"host,omitempty"`
-	Id              string  `json:"id"`
-	Language        *string `json:"language,omitempty"`
+	Force    *bool   `json:"force,omitempty"`
+	Host     *string `json:"host,omitempty"`
+	Id       string  `json:"id"`
+	Language *string `json:"language,omitempty"`
+	// #1709 — the single-use launch grant a host passed to the agent it started (hrn:node:hadronmemory.com:specs:cor:agt:070:08).
+	// Redeemed with the HOLDER's own token: it binds that worker on the holder's behalf and records the launching host,
+	// operation and task; the hold is unchanged. workerRef may be omitted (the grant names the worker). Refused
+	// LAUNCH_GRANT_INVALID when unknown, expired, used or not minted for the caller (an App key never redeems one);
+	// LAUNCH_REFUSED, failing the start with the reason, when the hold changed, the holder may no longer hold the
+	// worker, or it already has a live session. Never forced: with force it is BAD_USER_INPUT.
+	LaunchGrant     *string `json:"launchGrant,omitempty"`
 	LlmModel        *string `json:"llmModel,omitempty"`
 	ParentSessionId *string `json:"parentSessionId,omitempty"`
 	// The session's stated intent (Session.plan) - what this session is about. MCP's hadron_start_session description lands here.
@@ -35473,6 +35481,9 @@ func (v *SessionInput) GetId() string { return v.Id }
 
 // GetLanguage returns SessionInput.Language, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetLanguage() *string { return v.Language }
+
+// GetLaunchGrant returns SessionInput.LaunchGrant, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetLaunchGrant() *string { return v.LaunchGrant }
 
 // GetLlmModel returns SessionInput.LlmModel, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetLlmModel() *string { return v.LlmModel }
@@ -65767,6 +65778,8 @@ fragment WorkerReportingRefFields on Worker {
 // Schema refresh (#836): no family flag means omit, letting server classification run.
 // plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
 // the refreshed field still needs its omitempty line (the #139 trap).
+// launchGrant (#1709 slice 2, hadron-cli#831): sent only with --launch-grant or
+// HADRON_LAUNCH_GRANT, so an ordinary start never puts `"launchGrant": null` on the wire.
 func StartTeamSession(
 	ctx_ context.Context,
 	client_ graphql.Client,

@@ -80,7 +80,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 110 unbound
+[Mutation] 111 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -162,6 +162,7 @@ saveChatSummary
 sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled
+setAgentBase  # server#1889 agent inheritance; CLI parity is hadron-cli#881
 setAiModelPrice
 setAppTickerSettings  # server ticker settings (named-heartbeats epic, in flight); CLI parity follows the surface settling
 setDashboardWidgets

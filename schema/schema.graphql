@@ -135,6 +135,12 @@ type Agent {
   apps: [App!]!
   createdAt: DateTime!
   description: String
+
+  """
+  #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the id of the one base Agent this Agent extends,
+  or null. Set, change or clear it with setAgentBase.
+  """
+  extendsAgentId: ID
   hasAiApiKey: Boolean!
   id: ID!
   importedBy: [AgentImport!]!
@@ -328,9 +334,8 @@ type AgentTask {
   cancelledAt: DateTime
 
   """
-  Whether finishing asks the assignee to end its worker session
-  (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns; stored only in this release,
-  carried out by the host-operations slice.
+  Whether finishing or cancelling asks the assignee to end its worker session
+  (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns. #1709: carried out; see sessionEndRequest.
   """
   closeSessionWhenDone: Boolean!
   createdAt: DateTime!
@@ -356,6 +361,14 @@ type AgentTask {
 
   """Set only on a finished task."""
   result: AgentTaskResult
+
+  """
+  #1709 — the request this task's finish or cancellation made that its worker assignee end its session
+  (hrn:node:hadronmemory.com:specs:cor:agt:050:10); null when none was made (closeSessionWhenDone false, a person
+  assignee, or no open session). A worker that finishes its own task reads it here: end the session, with a handoff,
+  before dueAt, or the platform ends it through a live host.
+  """
+  sessionEndRequest: AgentTaskSessionEndRequest
 
   """Opaque origin reference (an issue URL, a node URN). Not interpreted."""
   source: String
@@ -456,6 +469,35 @@ input AgentTaskResultInput {
 }
 
 """
+#1709 — a task's request that its assignee end its session (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
+"""
+type AgentTaskSessionEndRequest {
+  """When the App's grace runs out (default 10 minutes after the request)."""
+  dueAt: DateTime!
+
+  """The worker.end operation the platform issued (END_ISSUED)."""
+  operationId: ID
+  requestedAt: DateTime!
+
+  """
+  Null while open; else ENDED (the session ended), END_ISSUED (the platform issued worker.end through a live host) or NO_LIVE_HOST (nothing more happens).
+  """
+  resolution: AgentTaskSessionEndResolution
+  resolvedAt: DateTime
+
+  """
+  The session asked to end: only this one is ever ended, never a later replacement.
+  """
+  sessionId: ID!
+}
+
+enum AgentTaskSessionEndResolution {
+  ENDED
+  END_ISSUED
+  NO_LIVE_HOST
+}
+
+"""
 #1706 — an App's effective stall windows, in minutes (hrn:node:hadronmemory.com:specs:cor:agt:050:14–:17).
 Tunables, not contract: the platform defaults are 15, 60, 20 and 30.
 """
@@ -486,13 +528,18 @@ type AgentTaskStallSchedule {
   ownerReactionMinutes: Int!
 
   """
+  #1709 — how many minutes a worker asked to end its session on its task's finish or cancellation has before the platform ends it through its host (hrn:node:hadronmemory.com:specs:cor:agt:050:10): 1 to 1440, default 10.
+  """
+  sessionEndGraceMinutes: Int!
+
+  """
   When the App last changed them; null while every window is the default.
   """
   updatedAt: DateTime
 }
 
 """
-An omitted field keeps its value; null returns it to the platform default. Each window is 1 to 10080 minutes; hostLapseCheckIns is 2 to 10.
+An omitted field keeps its value; null returns it to the platform default. Each window is 1 to 10080 minutes; hostLapseCheckIns is 2 to 10; sessionEndGraceMinutes is 1 to 1440.
 """
 input AgentTaskStallScheduleInput {
   assignmentMinutes: Int
@@ -500,6 +547,7 @@ input AgentTaskStallScheduleInput {
   noProgressMinutes: Int
   notStartedMinutes: Int
   ownerReactionMinutes: Int
+  sessionEndGraceMinutes: Int
 }
 
 """
@@ -3717,6 +3765,13 @@ type HostOperation {
   issuedByUserId: ID
   issuedByWorkerId: ID
 
+  """
+  #1709 — worker.start only, and only in collectHostOperations' answer: the single-use launch grant to pass to the
+  agent the host starts (it redeems it at startSession with its holder's own token). Minted at each collection, which
+  revokes the previous one; short-lived; never stored in clear and never shown again. Null everywhere else.
+  """
+  launchGrant: String
+
   """A success's typed result: {worktree} for worktree.create."""
   result: JSON
   status: HostOperationStatus!
@@ -5902,8 +5957,8 @@ type Mutation {
 
   """
   Soft-delete an Agent and its owned system memory. Refuses while a live
-  App install or live parent Agent import references it. AgentMemoryItem
-  attachments do not block deletion.
+  App install or live parent Agent import references it, or a live Agent
+  extends it as its base. AgentMemoryItem attachments do not block deletion.
   
   See hrn:node:hadronmemory.com:specs:cor:dmo:050:14.
   
@@ -6424,10 +6479,12 @@ type Mutation {
   """
   #1709 — issue an operation to one of the App's registered hosts (hrn:node:hadronmemory.com:specs:cor:agt:070:05).
   A type outside the closed set is HOST_OPERATION_TYPE_UNKNOWN (hrn:node:hadronmemory.com:specs:cor:agt:070:03), a
-  missing, extra or malformed argument BAD_HOST_OPERATION_ARGS. Issued today: worktree.create and worktree.remove, by
-  the worker's holder, the worker it reports to, or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED).
-  worker.start and worker.end ship with #1709's next slices, and worker.deliver with a host delivery path:
-  HOST_OPERATION_NOT_ISSUABLE until then. An unregistered host is HOST_NOT_FOUND.
+  missing, extra or malformed argument BAD_HOST_OPERATION_ARGS. worktree.create and worktree.remove: the worker's
+  holder, the worker it reports to, or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED). worker.start:
+  whoever manages the App only, with an optional taskId, for a held worker with no live session and no start in
+  flight, in a worktree and family the live host registers for it (WORKER_NOT_HELD, WORKER_LIVE,
+  WORKER_START_PENDING). worker.end ships with #1709's close-on-finish slice, and worker.deliver with a host delivery
+  path: HOST_OPERATION_NOT_ISSUABLE until then. An unregistered host is HOST_NOT_FOUND.
   """
   issueHostOperation(input: IssueHostOperationInput!): HostOperation!
 
@@ -7151,6 +7208,23 @@ type Mutation {
   sendChatMessage(chatId: String!, userMessage: String!): ChatPromptResult!
   sendContactMessage(email: String!, message: String!, name: String!): Boolean!
   setAgentAssetUploadEnabled(input: SetAgentAssetUploadEnabledInput!): App!
+
+  """
+  #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set, change or clear the one base Agent this
+  Agent extends. The Agent then inherits its base chain's system-memory
+  nodes, except boot prompts. A null baseRef clears the base.
+  
+  Whoever manages this Agent may call it. Extending another organization's
+  Agent needs the organization's active AgentOrgGrant for it (a same-org base
+  provisions one, never reactivating a revoked grant); a user-owned Agent
+  extending someone else's needs its owner's active AgentSubscription.
+  Refused, changing nothing, with AGENT_BASE_CYCLE when the base is this
+  Agent or extends it, and AGENT_BASE_CHAIN_TOO_LONG when a chain through
+  this Agent, its own or any Agent's that extends it, would hold more than 4.
+  
+  Accepts each Agent's ID or URN.
+  """
+  setAgentBase(baseRef: ID, ref: ID!): Agent!
 
   """
   #1706 — set an App's stall windows, and (#1763) its host-registration lapse: whoever manages the App. Refusals:
@@ -11689,6 +11763,16 @@ type ServerInfo {
   """
   baseUrl: String!
 
+  """
+  Present and true only when passkey registration is enabled separately from node signing.
+  """
+  passkeyRegistration: Boolean!
+
+  """
+  Present and true only when this deployment offers node signing. Discovery never grants access to sign.
+  """
+  signing: Boolean!
+
   """HADRON_SERVER_VERSION — the MCP/API-surface contract version."""
   version: String!
 }
@@ -11766,6 +11850,22 @@ type Session {
   Null for an ended or deleted session.
   """
   lapsesAt: DateTime
+
+  """
+  #1709 — a host-launched session (hrn:node:hadronmemory.com:specs:cor:agt:070:08): the host that started it. Null for a session started by hand.
+  """
+  launchHostId: String
+
+  """#1709 — who issued the start: platform (an assignment) or manager."""
+  launchIssuedBy: String
+
+  """#1709 — the worker.start operation that launched it."""
+  launchOperationId: ID
+
+  """
+  #1709 — the task it was launched for; null for a manager's start without one.
+  """
+  launchTaskId: ID
   llmModel: String
   memoryId: String
   outcome: Float
@@ -11861,6 +11961,16 @@ input SessionInput {
   host: String
   id: String!
   language: String
+
+  """
+  #1709 — the single-use launch grant a host passed to the agent it started (hrn:node:hadronmemory.com:specs:cor:agt:070:08).
+  Redeemed with the HOLDER's own token: it binds that worker on the holder's behalf and records the launching host,
+  operation and task; the hold is unchanged. workerRef may be omitted (the grant names the worker). Refused
+  LAUNCH_GRANT_INVALID when unknown, expired, used or not minted for the caller (an App key never redeems one);
+  LAUNCH_REFUSED, failing the start with the reason, when the hold changed, the holder may no longer hold the
+  worker, or it already has a live session. Never forced: with force it is BAD_USER_INPUT.
+  """
+  launchGrant: String
   llmModel: String
   parentSessionId: String
 
@@ -12721,6 +12831,11 @@ enum TaskWakeEvent {
   A child task finished; the reason names the child (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
   """
   CHILD_FINISHED
+
+  """
+  #1709 — the task was cancelled and asks its assignee to end its session (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Due while that session is open and the platform has not yet ended it through a host.
+  """
+  END_SESSION
 
   """
   The platform's matcher assigned it (hrn:node:hadronmemory.com:specs:cor:agt:060:06).
@@ -13728,7 +13843,7 @@ enum WakeKind {
   MENTION
 
   """
-  #1708 — a task event the worker must act on (an assignment, a child's finish, an alarm's woken position). Wakes at once, like a mention.
+  #1708 — a task event the worker must act on (an assignment, a child's finish, an alarm's woken position, #1709 a request to end its session). Wakes at once, like a mention.
   """
   TASK
   TICK
