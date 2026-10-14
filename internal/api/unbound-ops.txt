@@ -80,7 +80,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 111 unbound
+[Mutation] 108 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -95,7 +95,6 @@ calendarDeleteEvent
 calendarRespondToEvent
 calendarUpdateEvent
 clearAgentAIConfig
-collectHostOperations  # server#1876 host side (host:operate key): the poller's, hadron-cli#831
 createAgentOrgGrant
 createAppKey
 createAppUser
@@ -143,7 +142,6 @@ pushMemoryToGit
 reAdoptAutomation  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 recordUsage
 regenerateAppKey
-registerHost  # server#1876 host side (host:operate key): the poller's, hadron-cli#831
 releaseEditorLock
 removeAgentFromApp
 removeAgentImport
@@ -151,7 +149,6 @@ removeAppMember
 removeMemoryFromAgent
 repairAgentSystemMemory
 replaceSubtree  # server#1407: deprecated field; authorized calls return REPLACE_SUBTREE_RETIRED without writes
-reportHostOperation  # server#1876 host side (host:operate key): the poller's, hadron-cli#831
 restoreRevision
 retryFailedEmbeddings
 revokeAgentOrgGrant

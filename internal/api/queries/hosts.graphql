@@ -104,3 +104,67 @@ mutation RevokeAppKeyScope($id: ID!, $scope: String!) {
     ...AppKeyScopesFields
   }
 }
+
+# ---- The host poller's own surface (hadron-cli#831, server #1876/#1883) ----
+# Called with a host:operate App key (cor:agt:070:04); the host's identity
+# comes from the key's scope row, never from these arguments, and no session
+# rides along (APP_KEY_SESSION_BOUND).
+
+fragment HostRegistrationFields on HostRegistration {
+  hostId
+  label
+  pollIntervalSeconds
+  registeredAt
+  refreshedAt
+  live
+  workers {
+    workerId
+    worker {
+      id
+      urn
+      name
+    }
+    family
+    worktrees
+  }
+}
+
+# The whole workers list: it replaces the last registration's. So workers is
+# ALWAYS sent, an empty list included: omitting it would not clear a host
+# whose workers were all removed from its configuration.
+# @genqlient(for: "RegisterHostInput.workers", omitempty: false)
+mutation RegisterHost(
+  $input: RegisterHostInput!
+) {
+  registerHost(input: $input) {
+    ...HostRegistrationFields
+  }
+}
+
+# Issued operations become collected; collected-but-unreported ones come back
+# too (a restarted host resumes them). launchGrant is set only on worker.start,
+# and only in this answer: a re-collection revokes the unconsumed grant and
+# mints a fresh one (launch.ts mintLaunchGrants).
+mutation CollectHostOperations(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $first: Int
+) {
+  collectHostOperations(appRef: $appRef, first: $first) {
+    ...HostOperationFields
+    launchGrant
+  }
+}
+
+# worktree is sent only on a worktree.create success and failureReason only on
+# a failure, so both are omitted when unset. ($input sits on its own line: a
+# comment above a one-line signature also attaches to its first variable.)
+# @genqlient(for: "ReportHostOperationInput.worktree", omitempty: true)
+# @genqlient(for: "ReportHostOperationInput.failureReason", omitempty: true)
+mutation ReportHostOperation(
+  $input: ReportHostOperationInput!
+) {
+  reportHostOperation(input: $input) {
+    ...HostOperationFields
+  }
+}
