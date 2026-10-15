@@ -26,8 +26,9 @@ func cmdHelpOut(t *testing.T, args ...string) string {
 }
 
 func TestTeamRosterHelpStatesInServerPrecedence(t *testing.T) {
-	help := cmdHelpOut(t, "team", "roster")
+	help := strings.Join(strings.Fields(cmdHelpOut(t, "team", "roster")), " ")
 	// roster.ts: most actionable first — and WORKING is one of the eight.
+	// Whitespace-normalized: the terminal wraps the Long, the ORDER is the pin.
 	want := "YOUR_MOVE, UNAVAILABLE, WAITING, WORKING, ASSIGNED_NOT_STARTED, AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE"
 	if !strings.Contains(help, want) {
 		t.Fatalf("roster help must name all eight states in the server's precedence:\n%s", help)
