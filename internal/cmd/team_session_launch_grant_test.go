@@ -99,7 +99,6 @@ func TestSessionStartLaunchGrantRefusals(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"no worker and no grant", []string{}, "--as is required"},
 		{"empty grant flag", []string{"--launch-grant", " "}, "--launch-grant must not be empty"},
 		{"force with a grant", []string{"--launch-grant", "hlg_x", "--force"}, "--force does not apply"},
 	}

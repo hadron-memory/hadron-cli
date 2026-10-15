@@ -211,8 +211,13 @@ binding,
 the message is authored by the bound WORKER through that session (the
 server verifies the session is yours, active, and bound to a non-retired
 worker of this App, and records it — a worker message always traces to the
-human driving it); without a binding — or with --as-me — it is authored by
-you.
+human driving it). With --as-me it is authored by you.
+
+WITHOUT A BINDING THE POST IS REFUSED (cor:agt:020:03, hadron-cli#842),
+exit 4, and nothing is sent: it would otherwise be attributed to the person
+driving the agent. Recover your worker with ` + "`hadron team session start`" + `
+(no worker named: it redeems your resume claim, or your one live worker
+session), bind one with ` + "`--as <worker>`" + `, or post as yourself with --as-me.
 
 Mentions (@worker-name / @handle; a multiword name by its slug, e.g.
 @mary-jane) are extracted server-side into the message. The body is the
@@ -254,6 +259,14 @@ refused when stdin is an interactive terminal (use --body-file there).
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
 				return err
+			}
+			// cor:agt:020:03 (hadron-cli#842): a post from a context with no
+			// worker binding is REFUSED, never sent as the human. Before #842
+			// it went out with no sessionRef, and the server attributed it to
+			// the person driving the agent, with nothing telling the agent so.
+			// --as-me is the explicit way to post as yourself.
+			if !asMe && (b == nil || b.SessionID == "") {
+				return noBindingRefusal("this post", true)
 			}
 			var sessionRef *string
 			if b != nil && !asMe {

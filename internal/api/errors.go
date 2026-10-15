@@ -872,6 +872,17 @@ func codeForExtension(code string) int {
 	// is the same class: re-sending it cannot succeed.
 	case code == "HOST_KEY_REQUIRED" || code == "APP_KEY_SCOPE_REQUIRED" || code == "LAUNCH_GRANT_INVALID":
 		return exitcode.Forbidden
+	// Resume claims (hadron-cli#842 over server #1956, cor:agt:020:03).
+	// NOTHING_TO_RESUME is the one answer for absent, expired, used and
+	// someone else's alike: there is nothing of yours to bind, which is
+	// NotFound, the code `session log` gives "no active session". A refused
+	// resume (the lifecycle gate: hold, dormancy, another live session) is the
+	// state's answer, and the claim is spent. RESUME_AMBIGUOUS needs no case:
+	// the _AMBIGUOUS rule below already makes it Usage (name the worker).
+	case code == "NOTHING_TO_RESUME":
+		return exitcode.NotFound
+	case code == "RESUME_REFUSED":
+		return exitcode.Conflict
 	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
 		strings.HasSuffix(code, "_TOO_LARGE") || strings.HasSuffix(code, "_REQUIRED"):
 		return exitcode.Usage
