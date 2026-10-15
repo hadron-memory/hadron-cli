@@ -162,3 +162,49 @@ func TestCapabilitiesRevalidation200ReplacesTheBody(t *testing.T) {
 		t.Fatal("a changed 200 must replace the held body — the switch turned off")
 	}
 }
+
+// The P2-3 pins (Andi #12525, Chip #12532, Ada #12545): a 304 is
+// "unchanged" ONLY when a validator was sent and an entry is held. An
+// unsolicited first 304, or one without a validator, reads as a failure —
+// never a panic, and the caller sees every switch off.
+
+func TestCapabilitiesUnsolicitedFirst304IsAnErrorNotAPanic(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotModified) // no If-None-Match was sent
+	}))
+	defer srv.Close()
+	caps, err := Capabilities(context.Background(), srv.URL)
+	if err == nil {
+		t.Fatal("an unsolicited first 304 must read as an error (the caller sees off)")
+	}
+	if caps != nil {
+		t.Fatalf("caps = %v, want nil", caps)
+	}
+}
+
+func TestCapabilities304WithoutAValidatorHeldIsAnError(t *testing.T) {
+	var hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&hits, 1) == 1 {
+			w.Header().Set("Cache-Control", "public, max-age=60") // no ETag
+			_, _ = w.Write([]byte(`{"capabilities":["node-signing"]}`))
+			return
+		}
+		// Past the window we hold no validator; a 304 anyway matches nothing.
+		w.WriteHeader(http.StatusNotModified)
+	}))
+	defer srv.Close()
+	ctx := context.Background()
+	if _, err := Capabilities(ctx, srv.URL); err != nil {
+		t.Fatalf("fill: %v", err)
+	}
+	capabilitiesNow = func() time.Time { return time.Now().Add(2 * time.Minute) }
+	t.Cleanup(func() { capabilitiesNow = time.Now })
+	caps, err := Capabilities(ctx, srv.URL)
+	if err == nil {
+		t.Fatal("a 304 with no validator held must read as an error")
+	}
+	if caps != nil {
+		t.Fatalf("caps = %v, want nil", caps)
+	}
+}
