@@ -20,6 +20,15 @@ import (
 func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// GET /capabilities (cli#878 part 3's gate, hadron-server#1925) is
+		// unauthenticated REST beside the GraphQL surface: answer it as a
+		// server with every switch OFF, so command fakes behave like the
+		// honest default (and older servers' 404 reads the same).
+		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
 		if got := r.Header.Get("Authorization"); !strings.HasPrefix(got, "Bearer ") {
 			t.Errorf("missing Bearer auth header, got %q", got)
 		}
