@@ -533,3 +533,100 @@ func TestTeamSessionResumeClaimUnboundRefuses(t *testing.T) {
 		t.Error("an empty --session must not claim anything")
 	}
 }
+
+// Anne's #892 blind P2: the cache describes the session the server bound, not
+// this command's flags. A no-flag resume must leave a binding whose next
+// `session log` carries the resumed session's tool, never an empty one.
+func TestTeamSessionStartResumeCachesTheSessionsProvenance(t *testing.T) {
+	dir := teamGitDir(t)
+	t.Setenv("HADRON_LAUNCH_GRANT", "")
+	resumed := strings.Replace(startedSessionJSON, `"repo":null`, `"repo":"hadron-memory/hadron-cli"`, 1)
+	resumed = strings.Replace(resumed, `"llmModel":null`, `"llmModel":"claude-opus-5-5"`, 1)
+	stubs := map[string]string{
+		"GetWorker":         `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"ResumeTeamSession": `{"data":{"resumeSession":{"outcome":"RESUMED","session":` + resumed + `,"candidates":[]}}}`,
+		"UpdateTeamSession": `{"data":{"updateSession":` + resumed + `}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
+			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
+	}
+	gql, captured := captureGraphQL(t, stubs)
+
+	// No flags at all: the recovery prompt's bare `team session start`.
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "hadron-team-session.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b map[string]any
+	_ = json.Unmarshal(data, &b)
+	if b["tool"] != "claude-code" || b["model"] != "claude-opus-5-5" || b["repo"] != "hadron-memory/hadron-cli" {
+		t.Errorf("the cache must carry the resumed session's provenance: %s", data)
+	}
+
+	// The next work record carries that tool.
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("session log after a no-flag resume: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["RecordTeamWork"], &vars)
+	if vars["tool"] != "claude-code" {
+		t.Errorf("the work record must carry the resumed session's tool, got %v (%v)", vars["tool"], vars)
+	}
+}
+
+// Differing flags on RESUMED: the server keeps the session's own provenance,
+// so the cache follows the session and stderr says the flag was not applied.
+func TestTeamSessionStartResumedKeepsTheSessionsToolOverAFlag(t *testing.T) {
+	dir := teamGitDir(t)
+	t.Setenv("HADRON_LAUNCH_GRANT", "")
+	gql, _ := captureGraphQL(t, resumeStubs("RESUMED")) // the session records tool claude-code
+	f, _ := testFactory(t)
+	errOut := f.IOStreams.ErrOut.(*strings.Builder)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--tool", "codex", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "hadron-team-session.json"))
+	var b map[string]any
+	_ = json.Unmarshal(data, &b)
+	if b["tool"] != "claude-code" {
+		t.Errorf("RESUMED must cache the session's tool, not the flag: %s", data)
+	}
+	if !strings.Contains(errOut.String(), "--tool claude-code") || !strings.Contains(errOut.String(), "not applied") {
+		t.Errorf("stderr must say the flag was not applied: %q", errOut.String())
+	}
+}
+
+// A field the session lacks is filled from the flag (STARTED takes the flags,
+// and an older session may have recorded none).
+func TestTeamSessionStartResumeFlagFillsAMissingField(t *testing.T) {
+	dir := teamGitDir(t)
+	t.Setenv("HADRON_LAUNCH_GRANT", "")
+	noTool := strings.Replace(startedSessionJSON, `"tool":"claude-code"`, `"tool":null`, 1)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker":         `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"ResumeTeamSession": `{"data":{"resumeSession":{"outcome":"STARTED","session":` + noTool + `,"candidates":[]}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--tool", "codex", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "hadron-team-session.json"))
+	var b map[string]any
+	_ = json.Unmarshal(data, &b)
+	if b["tool"] != "codex" {
+		t.Errorf("a missing session field falls back to the flag: %s", data)
+	}
+}

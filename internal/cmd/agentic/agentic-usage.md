@@ -2192,7 +2192,9 @@ Conventions:
   `--force` (exit 2), refuses over a worktree still bound to a live session
   (exit 5) and outside a git worktree (exit 2), all BEFORE any claim is
   spent. It never ends the session it recovered: on a later failure, run
-  `start` again. A claim carries no secret and no id — there is nothing to
+  `start` again. The binding caches the bound session's own tool, model and
+  repo; a flag fills only a field it lacks, and a flag a RESUMED session
+  ignores gets a stderr note. A claim carries no secret and no id — there is nothing to
   store or pass on. It is for a context with NO binding: in a worktree still
   bound to a live session the binding already carries the worker (`whoami`),
   and a resume there refuses (exit 5). `tookOver` is **null** on `RESUMED`

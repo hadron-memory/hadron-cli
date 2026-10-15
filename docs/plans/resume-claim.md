@@ -61,6 +61,13 @@ no binding, and an unused one lapses on its own. A lapsed or ended
 binding is replaced, as a plain start replaces one. Outside a git worktree the start refuses before the
 call too: the CLI has nowhere to cache the binding, and consuming the claim anyway would strand it.
 
+**The cache describes the session the server bound, not the flags** (Anne, blind P2 at e720abf5). A
+RESUMED session keeps the provenance it was started with, and the server ignores the flags for it. Only
+STARTED passes them to `startSession`. So the binding's tool, model and repo come from the returned
+session, and a flag fills only a field the session lacks. Caching the flags left a no-argument resume
+with an empty tool, and the next `session log` sent it and was refused. A flag that disagrees with a
+resumed session gets a stderr note saying it was not applied.
+
 **A resume never rolls back.** If the worker read or the binding write fails after `resumeSession`
 answered, the CLI does not end the session, unlike a plain or launched start. A RESUMED session is the
 worker's continuing session, and ending it would destroy exactly what the claim recovered. The error

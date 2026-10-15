@@ -148,6 +148,17 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 	if err != nil {
 		return retry(err)
 	}
+	// The cache describes the session the SERVER bound, not this command's
+	// flags (Anne, #892 blind P2). A RESUMED session keeps the provenance it
+	// was started with, and the server ignores the flags for it; only a
+	// STARTED session takes them. Caching the flags instead left a
+	// no-argument resume with an empty tool, which the next `session log`
+	// sends and the server refuses. A flag fills only a field the session
+	// lacks.
+	tool := sessionOr(s.Tool, rf.tool)
+	model := sessionOr(s.LlmModel, rf.model)
+	noteIgnoredFlag(f, "tool", rf.tool, s.Tool)
+	noteIgnoredFlag(f, "model", rf.model, s.LlmModel)
 	server, _ := f.Server()
 	path, err := writeBinding(ctx, &binding{
 		AppBound:   true,
@@ -159,8 +170,9 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 		AppID:      w.AppId,
 		Server:     server,
 		StartedAt:  s.StartedAt,
-		Tool:       rf.tool,
-		Model:      rf.model,
+		Tool:       tool,
+		Model:      model,
+		Repo:       strOrEmpty(s.Repo),
 	})
 	if err != nil {
 		return retry(err)
@@ -176,6 +188,23 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 		live = liveNo
 	}
 	return finishBind(cmd, f, client, s, w, path, lapsedBinding, existing, live, "", &outcome)
+}
+
+// sessionOr is the session's recorded value, or the flag when it has none.
+func sessionOr(recorded *string, flag string) string {
+	if recorded != nil && strings.TrimSpace(*recorded) != "" {
+		return *recorded
+	}
+	return flag
+}
+
+// noteIgnoredFlag says on stderr when a flag disagrees with the session the
+// server resumed: the session keeps its own value, so the flag had no effect.
+func noteIgnoredFlag(f *cmdutil.Factory, name, flag string, recorded *string) {
+	if flag == "" || recorded == nil || strings.TrimSpace(*recorded) == "" || *recorded == flag {
+		return
+	}
+	fmt.Fprintf(f.IOStreams.ErrOut, "note: the resumed session records --%s %s; your --%s %s was not applied to it\n", name, *recorded, name, flag)
 }
 
 // renderResumeChoice lists a CHOOSE answer and exits 2: nothing is bound, so
