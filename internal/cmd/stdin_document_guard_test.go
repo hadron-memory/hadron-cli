@@ -352,7 +352,7 @@ func TestChatBodyStdinRefusesATerminal(t *testing.T) {
 		remedy string
 	}{
 		{"chat post --body -", []string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--body", "-"}, "--body-file <path>"},
-		{"team chat post positional", []string{"team", "chat", "post", "-", "--app", "acme.com:eng-team"}, "--body-file <path>"},
+		{"team chat post positional", []string{"team", "chat", "post", "-", "--app", "acme.com:eng-team", "--as-me"}, "--body-file <path>"},
 		{"team chat post --body -", []string{"team", "chat", "post", "--body", "-", "--app", "acme.com:eng-team"}, "--body-file <path>"},
 		{"channel post", []string{"channel", "post", "r", "-", "--as-me"}, "hadron channel post <address> - < <path>"},
 		// A pre-#399 binding (team memory, no appId): team chat post resolves
@@ -412,7 +412,7 @@ func TestChatBodyStdinStillWorksWhenPiped(t *testing.T) {
 	}{
 		{"chat post --body -", []string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--body", "-"},
 			"CreateChannelMessage", `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`},
-		{"team chat post -", []string{"team", "chat", "post", "-", "--app", "acme.com:eng-team"},
+		{"team chat post -", []string{"team", "chat", "post", "-", "--app", "acme.com:eng-team", "--as-me"},
 			"CreateTeamChatMessage", `{"data":{"createTeamChatMessage":` + teamChatMsgJSON + `}}`},
 		{"channel post", []string{"channel", "post", "r", "-", "--as-me"},
 			"CreateChannelMessage", `{"data":{"createChannelMessage":` + messageJSON + `}}`},

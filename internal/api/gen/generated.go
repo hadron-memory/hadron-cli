@@ -10387,8 +10387,10 @@ func (v *CloneNodeResponse) GetCloneNode() *CloneNodeCloneNode { return v.CloneN
 type CollectHostOperationsCollectHostOperationsHostOperation struct {
 	HostOperationFields `json:"-"`
 	// #1709 — worker.start only, and only in collectHostOperations' answer: the single-use launch grant to pass to the
-	// agent the host starts (it redeems it at startSession with its holder's own token). Minted at each collection, which
-	// revokes the previous one; short-lived; never stored in clear and never shown again. Null everywhere else.
+	// agent the host starts (it redeems it at startSession with its holder's own token). Short-lived; never stored in clear
+	// and never shown again. #1928: while it is live, a re-collection leaves the start out of the answer; once it expires,
+	// the next collection revokes it and delivers the start with a fresh one; once redeemed, the start is delivered with
+	// null here, so a restarted host can still report it. Null everywhere else.
 	LaunchGrant *string `json:"launchGrant"`
 }
 
@@ -10572,7 +10574,8 @@ func (v *CollectHostOperationsCollectHostOperationsHostOperation) __premarshalJS
 // CollectHostOperationsResponse is returned by CollectHostOperations on success.
 type CollectHostOperationsResponse struct {
 	// #1709 — a host collects its own operations, oldest first: those still ISSUED (now marked COLLECTED) and those it
-	// collected and has not reported. Only its own host's, in its own App (hrn:node:hadronmemory.com:specs:cor:agt:070:04).
+	// collected and has not reported, except a worker.start whose launch grant is still live (#1928: a re-collection never
+	// revokes a launch in flight). Only its own host's, in its own App (hrn:node:hadronmemory.com:specs:cor:agt:070:04).
 	// first: at most 200, default 50.
 	CollectHostOperations []*CollectHostOperationsCollectHostOperationsHostOperation `json:"collectHostOperations"`
 }
@@ -16177,6 +16180,51 @@ func (v *CreateRegisterEntryResponse) GetCreateRegisterEntry() *CreateRegisterEn
 	return v.CreateRegisterEntry
 }
 
+// CreateResumeClaimCreateResumeClaimResumeClaimReceipt includes the requested fields of the GraphQL type ResumeClaimReceipt.
+// The GraphQL type's documentation follows.
+//
+// #1956 — the receipt of a written resume claim. It names no claim id: redemption is judged by the caller's token.
+type CreateResumeClaimCreateResumeClaimResumeClaimReceipt struct {
+	SessionId string `json:"sessionId"`
+	WorkerId  string `json:"workerId"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
+// GetSessionId returns CreateResumeClaimCreateResumeClaimResumeClaimReceipt.SessionId, and is useful for accessing the field via an interface.
+func (v *CreateResumeClaimCreateResumeClaimResumeClaimReceipt) GetSessionId() string {
+	return v.SessionId
+}
+
+// GetWorkerId returns CreateResumeClaimCreateResumeClaimResumeClaimReceipt.WorkerId, and is useful for accessing the field via an interface.
+func (v *CreateResumeClaimCreateResumeClaimResumeClaimReceipt) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetExpiresAt returns CreateResumeClaimCreateResumeClaimResumeClaimReceipt.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreateResumeClaimCreateResumeClaimResumeClaimReceipt) GetExpiresAt() string {
+	return v.ExpiresAt
+}
+
+// CreateResumeClaimResponse is returned by CreateResumeClaim on success.
+type CreateResumeClaimResponse struct {
+	// #1956 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — write a RESUME CLAIM for your own open worker
+	// session before a deliberate context reset that keeps the session (a shed).
+	// The fresh context recovers the worker with resumeSession and no arguments,
+	// so no binding file is needed. The claim is single use, lives 60 seconds from
+	// this write (Holger, #12291), is redeemable only by you (judged by your token,
+	// never by anything presented), and replaces any unused claim for the same
+	// session. For a rotation, pass endSession(resumeClaim: true) instead, which
+	// writes it with the handoff, before the end. Someone else's session answers
+	// as an absent one; an ended session refuses SESSION_ENDED; a session with no
+	// worker refuses SESSION_NOT_WORKER_BOUND.
+	CreateResumeClaim *CreateResumeClaimCreateResumeClaimResumeClaimReceipt `json:"createResumeClaim"`
+}
+
+// GetCreateResumeClaim returns CreateResumeClaimResponse.CreateResumeClaim, and is useful for accessing the field via an interface.
+func (v *CreateResumeClaimResponse) GetCreateResumeClaim() *CreateResumeClaimCreateResumeClaimResumeClaimReceipt {
+	return v.CreateResumeClaim
+}
+
 // CreateReviewNodeCreateReviewNode includes the requested fields of the GraphQL type Node.
 type CreateReviewNodeCreateReviewNode struct {
 	Id       string `json:"id"`
@@ -18515,7 +18563,10 @@ type EndTeamSessionResponse struct {
 	// untouched.
 	//
 	// Gate (#931): platform admin, the session's App, or the attributed user
-	// (not via impersonation).
+	// (not via impersonation). An App key ends only user-less sessions (never one
+	// a person is behind), never a host-launched one, and a key ever granted
+	// host:operate ends none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04);
+	// a host ends a launched session only by reporting its worker.end.
 	//
 	// `handoff` is agent-composed prose: what landed, what is open, what is
 	// blocked, what the next driver should not repeat. The server owns where it
@@ -18543,11 +18594,266 @@ type EndTeamSessionResponse struct {
 	// session whose handoff evaporated is not, because the context that composed
 	// it is gone. Passing `handoff` on a session with no worker is refused rather
 	// than dropped; there is no sequence to write it to.
+	//
+	// #1956: `resumeClaim: true` also writes a resume claim, after the handoff
+	// and before the end, so the fresh context of a rotation starts this worker's
+	// next session with resumeSession and no arguments (see createResumeClaim).
+	// Only on your own open worker session: otherwise it refuses and nothing ends.
 	EndSession *EndTeamSessionEndSession `json:"endSession"`
 }
 
 // GetEndSession returns EndTeamSessionResponse.EndSession, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionResponse) GetEndSession() *EndTeamSessionEndSession { return v.EndSession }
+
+// EndTeamSessionWithResumeClaimEndSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type EndTeamSessionWithResumeClaimEndSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns EndTeamSessionWithResumeClaimEndSession.Id, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetId() string { return v.TeamSessionFields.Id }
+
+// GetAgentId returns EndTeamSessionWithResumeClaimEndSession.AgentId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetAgentId() *string {
+	return v.TeamSessionFields.AgentId
+}
+
+// GetWorkerId returns EndTeamSessionWithResumeClaimEndSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetWorkerId() *string {
+	return v.TeamSessionFields.WorkerId
+}
+
+// GetWorker returns EndTeamSessionWithResumeClaimEndSession.Worker, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
+// GetUserId returns EndTeamSessionWithResumeClaimEndSession.UserId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetUserId() *string {
+	return v.TeamSessionFields.UserId
+}
+
+// GetType returns EndTeamSessionWithResumeClaimEndSession.Type, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetType() string { return v.TeamSessionFields.Type }
+
+// GetRepo returns EndTeamSessionWithResumeClaimEndSession.Repo, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetRepo() *string { return v.TeamSessionFields.Repo }
+
+// GetBranch returns EndTeamSessionWithResumeClaimEndSession.Branch, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetBranch() *string {
+	return v.TeamSessionFields.Branch
+}
+
+// GetPrNumber returns EndTeamSessionWithResumeClaimEndSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetPrNumber() *int {
+	return v.TeamSessionFields.PrNumber
+}
+
+// GetStartedAt returns EndTeamSessionWithResumeClaimEndSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetStartedAt() string {
+	return v.TeamSessionFields.StartedAt
+}
+
+// GetEndedAt returns EndTeamSessionWithResumeClaimEndSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetEndedAt() *string {
+	return v.TeamSessionFields.EndedAt
+}
+
+// GetAutoExpiredAt returns EndTeamSessionWithResumeClaimEndSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
+// GetHost returns EndTeamSessionWithResumeClaimEndSession.Host, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetHost() *string { return v.TeamSessionFields.Host }
+
+// GetTool returns EndTeamSessionWithResumeClaimEndSession.Tool, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetTool() *string { return v.TeamSessionFields.Tool }
+
+// GetTranscriptPath returns EndTeamSessionWithResumeClaimEndSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns EndTeamSessionWithResumeClaimEndSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetLlmModel() *string {
+	return v.TeamSessionFields.LlmModel
+}
+
+func (v *EndTeamSessionWithResumeClaimEndSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*EndTeamSessionWithResumeClaimEndSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.EndTeamSessionWithResumeClaimEndSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalEndTeamSessionWithResumeClaimEndSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	WorkerId *string `json:"workerId"`
+
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *EndTeamSessionWithResumeClaimEndSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *EndTeamSessionWithResumeClaimEndSession) __premarshalJSON() (*__premarshalEndTeamSessionWithResumeClaimEndSession, error) {
+	var retval __premarshalEndTeamSessionWithResumeClaimEndSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Worker = v.TeamSessionFields.Worker
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
+// EndTeamSessionWithResumeClaimResponse is returned by EndTeamSessionWithResumeClaim on success.
+type EndTeamSessionWithResumeClaimResponse struct {
+	// End a session, and — for a worker-bound one — write its closing handoff
+	// (#1029). This is the CLIENT operation that ends a worker session. Since
+	// #1114 it is very nearly the ONLY one: the reaper ends a session only when a
+	// hard expiresAt promised at session start has passed, never for going
+	// quiet. A client's chat session ending **does not end a worker session**, and
+	// never reaches this server (#1034).
+	//
+	// It ends the SESSION, not any HOLD. Where a person bound the worker the name
+	// stays theirs until explicitly released (#1050,
+	// [`cor:agt:020:09`](hrn:node:hadronmemory.com:specs:cor:agt:020:09)), so
+	// only that holder can bind it again. A pure App-key **bind takes no hold** —
+	// which is a fact about the bind, not a promise about the worker's state when
+	// this returns: an eligible user may have forced a binding meanwhile and taken
+	// the name, and ending the App-key session leaves that hold and that session
+	// untouched.
+	//
+	// Gate (#931): platform admin, the session's App, or the attributed user
+	// (not via impersonation). An App key ends only user-less sessions (never one
+	// a person is behind), never a host-launched one, and a key ever granted
+	// host:operate ends none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04);
+	// a host ends a launched session only by reporting its worker.end.
+	//
+	// `handoff` is agent-composed prose: what landed, what is open, what is
+	// blocked, what the next driver should not repeat. The server owns where it
+	// goes (the worker's working memory, under the `handoffs` parent, at a
+	// lexically-ordered loc), so no client re-derives the convention.
+	//
+	// `summary` is NOT a smaller `handoff` (#1100). It sets `Session.summary`,
+	// a label on the session row — readable back through `session` / `sessions`,
+	// but read by no worker-continuity path, so the next driver never sees it. The
+	// two sit side by side and only one of them reaches that driver, so a caller
+	// writing a closing note picks by name: it is `handoff`.
+	//
+	// The two mistakes are not symmetric, and that is the whole hazard. Putting
+	// continuity prose in `summary` succeeds, returns a normal receipt, and
+	// produces NO handoff — discovered only once the context that could have
+	// written one is gone, and not correctable in place, since the sequence is
+	// append-only and the stint has ended (re-ending is refused). The remedy is to
+	// bind again and end THAT session with the prose. Putting a label in
+	// `handoff` is merely untidy: the row lacks its label and the text reaches
+	// the next driver anyway.
+	//
+	// Written BEFORE the session ends, and a failed write REFUSES the end
+	// (HANDOFF_WRITE_FAILED) rather than ending anyway: a still-bound worker is
+	// recoverable — retry, or end without a handoff deliberately — while an ended
+	// session whose handoff evaporated is not, because the context that composed
+	// it is gone. Passing `handoff` on a session with no worker is refused rather
+	// than dropped; there is no sequence to write it to.
+	//
+	// #1956: `resumeClaim: true` also writes a resume claim, after the handoff
+	// and before the end, so the fresh context of a rotation starts this worker's
+	// next session with resumeSession and no arguments (see createResumeClaim).
+	// Only on your own open worker session: otherwise it refuses and nothing ends.
+	EndSession *EndTeamSessionWithResumeClaimEndSession `json:"endSession"`
+}
+
+// GetEndSession returns EndTeamSessionWithResumeClaimResponse.EndSession, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimResponse) GetEndSession() *EndTeamSessionWithResumeClaimEndSession {
+	return v.EndSession
+}
 
 // ExtractParentNodeToMemoryExtractParentNodeToMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -34152,6 +34458,370 @@ func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetNodeType() string { retu
 // GetUpdatedAt returns RestoreNodeRevisionRestoreNodeRevisionNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetUpdatedAt() string { return v.UpdatedAt }
 
+// #1956 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — what resumeSession did. RESUMED: bound to an open
+// session (a shed's claim, or the one live session of the fast path). STARTED:
+// the claimed session had ended (a rotation), so the worker's next session was
+// started. CHOOSE: several candidates, nothing bound or consumed; call again with
+// `session` set to the one the human picks.
+type ResumeOutcome string
+
+const (
+	ResumeOutcomeChoose  ResumeOutcome = "CHOOSE"
+	ResumeOutcomeResumed ResumeOutcome = "RESUMED"
+	ResumeOutcomeStarted ResumeOutcome = "STARTED"
+)
+
+var AllResumeOutcome = []ResumeOutcome{
+	ResumeOutcomeChoose,
+	ResumeOutcomeResumed,
+	ResumeOutcomeStarted,
+}
+
+// #1956 — resumeSession's optional input. Everything but `session` is provenance for a session the redemption starts.
+type ResumeSessionInput struct {
+	// What the next session is about, when the redemption starts one (its plan).
+	Description *string `json:"description,omitempty"`
+	Family      *string `json:"family,omitempty"`
+	Host        *string `json:"host,omitempty"`
+	LlmModel    *string `json:"llmModel,omitempty"`
+	// Pick one of a CHOOSE answer's candidates by its sessionId.
+	Session        *string `json:"session,omitempty"`
+	Tool           *string `json:"tool,omitempty"`
+	TranscriptPath *string `json:"transcriptPath,omitempty"`
+}
+
+// GetDescription returns ResumeSessionInput.Description, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetDescription() *string { return v.Description }
+
+// GetFamily returns ResumeSessionInput.Family, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetFamily() *string { return v.Family }
+
+// GetHost returns ResumeSessionInput.Host, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetHost() *string { return v.Host }
+
+// GetLlmModel returns ResumeSessionInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetLlmModel() *string { return v.LlmModel }
+
+// GetSession returns ResumeSessionInput.Session, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetSession() *string { return v.Session }
+
+// GetTool returns ResumeSessionInput.Tool, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetTool() *string { return v.Tool }
+
+// GetTranscriptPath returns ResumeSessionInput.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetTranscriptPath() *string { return v.TranscriptPath }
+
+// #1956 — where a resume candidate came from: an unused resume claim, or (with no claim) a live bound session.
+type ResumeSource string
+
+const (
+	ResumeSourceClaim       ResumeSource = "CLAIM"
+	ResumeSourceLiveSession ResumeSource = "LIVE_SESSION"
+)
+
+var AllResumeSource = []ResumeSource{
+	ResumeSourceClaim,
+	ResumeSourceLiveSession,
+}
+
+// ResumeTeamSessionResponse is returned by ResumeTeamSession on success.
+type ResumeTeamSessionResponse struct {
+	// #1956 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — recover your worker binding after a context reset,
+	// with one call and no arguments. One unused resume claim of yours binds it
+	// (RESUMED to the open session, or STARTED: the worker's next session, when
+	// the claimed one had ended); several list as CHOOSE and consume nothing. With
+	// no claim, the fast path: exactly one of your worker sessions that reads LIVE
+	// is RESUMED, several list as CHOOSE, never a guess. Pass `session` to pick
+	// a listed candidate. Nothing at all refuses NOTHING_TO_RESUME, and nothing is
+	// posted or recorded on your behalf. Judged only on your own user: anyone
+	// else's claims and sessions are invisible, and an App key or an impersonation
+	// gets the same refusal as a caller with nothing. A claim is single use: of two
+	// racing redemptions one binds and the other refuses NOTHING_TO_RESUME, and a
+	// claim's 60 seconds are judged by the database clock when it is consumed.
+	// A claim is recovery intent, not a waiver: resuming an open session passes
+	// the same lifecycle gate as any resume (you still hold the name and may drive
+	// its App, it is not past its hard expiry or dormant, no other session of the
+	// worker is live), else RESUME_REFUSED; starting the next one passes
+	// startSession's. Either refusal spends the claim. More recently driven worker
+	// sessions than one scan holds refuses RESUME_AMBIGUOUS rather than guessing.
+	ResumeSession *ResumeTeamSessionResumeSessionResumeSessionResult `json:"resumeSession"`
+}
+
+// GetResumeSession returns ResumeTeamSessionResponse.ResumeSession, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResponse) GetResumeSession() *ResumeTeamSessionResumeSessionResumeSessionResult {
+	return v.ResumeSession
+}
+
+// ResumeTeamSessionResumeSessionResumeSessionResult includes the requested fields of the GraphQL type ResumeSessionResult.
+// The GraphQL type's documentation follows.
+//
+// #1956 — the answer to resumeSession: the bound session, or the candidates to choose from.
+type ResumeTeamSessionResumeSessionResumeSessionResult struct {
+	Outcome ResumeOutcome `json:"outcome"`
+	// The bound session for RESUMED and STARTED; null for CHOOSE.
+	Session *ResumeTeamSessionResumeSessionResumeSessionResultSession `json:"session"`
+	// Empty unless outcome is CHOOSE.
+	Candidates []*ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate `json:"candidates"`
+}
+
+// GetOutcome returns ResumeTeamSessionResumeSessionResumeSessionResult.Outcome, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResult) GetOutcome() ResumeOutcome {
+	return v.Outcome
+}
+
+// GetSession returns ResumeTeamSessionResumeSessionResumeSessionResult.Session, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResult) GetSession() *ResumeTeamSessionResumeSessionResumeSessionResultSession {
+	return v.Session
+}
+
+// GetCandidates returns ResumeTeamSessionResumeSessionResumeSessionResult.Candidates, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResult) GetCandidates() []*ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate {
+	return v.Candidates
+}
+
+// ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate includes the requested fields of the GraphQL type ResumeCandidate.
+// The GraphQL type's documentation follows.
+//
+// #1956 — one of the caller's own sessions offered by a CHOOSE answer. Never carries a claim id.
+type ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate struct {
+	// The session to pass back as resumeSession(input: { session }) to pick this one.
+	SessionId  string `json:"sessionId"`
+	WorkerId   string `json:"workerId"`
+	WorkerName string `json:"workerName"`
+	// The session's description (its plan), when it has one.
+	Description *string      `json:"description"`
+	Source      ResumeSource `json:"source"`
+	// When the claim lapses; null for a live session.
+	ExpiresAt *string `json:"expiresAt"`
+}
+
+// GetSessionId returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.SessionId, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetSessionId() string {
+	return v.SessionId
+}
+
+// GetWorkerId returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.WorkerId, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetWorkerName returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.WorkerName, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetWorkerName() string {
+	return v.WorkerName
+}
+
+// GetDescription returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.Description, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetDescription() *string {
+	return v.Description
+}
+
+// GetSource returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.Source, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetSource() ResumeSource {
+	return v.Source
+}
+
+// GetExpiresAt returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetExpiresAt() *string {
+	return v.ExpiresAt
+}
+
+// ResumeTeamSessionResumeSessionResumeSessionResultSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type ResumeTeamSessionResumeSessionResumeSessionResultSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Id, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetId() string {
+	return v.TeamSessionFields.Id
+}
+
+// GetAgentId returns ResumeTeamSessionResumeSessionResumeSessionResultSession.AgentId, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetAgentId() *string {
+	return v.TeamSessionFields.AgentId
+}
+
+// GetWorkerId returns ResumeTeamSessionResumeSessionResumeSessionResultSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetWorkerId() *string {
+	return v.TeamSessionFields.WorkerId
+}
+
+// GetWorker returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Worker, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
+// GetUserId returns ResumeTeamSessionResumeSessionResumeSessionResultSession.UserId, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetUserId() *string {
+	return v.TeamSessionFields.UserId
+}
+
+// GetType returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Type, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetType() string {
+	return v.TeamSessionFields.Type
+}
+
+// GetRepo returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Repo, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetRepo() *string {
+	return v.TeamSessionFields.Repo
+}
+
+// GetBranch returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Branch, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetBranch() *string {
+	return v.TeamSessionFields.Branch
+}
+
+// GetPrNumber returns ResumeTeamSessionResumeSessionResumeSessionResultSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetPrNumber() *int {
+	return v.TeamSessionFields.PrNumber
+}
+
+// GetStartedAt returns ResumeTeamSessionResumeSessionResumeSessionResultSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetStartedAt() string {
+	return v.TeamSessionFields.StartedAt
+}
+
+// GetEndedAt returns ResumeTeamSessionResumeSessionResumeSessionResultSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetEndedAt() *string {
+	return v.TeamSessionFields.EndedAt
+}
+
+// GetAutoExpiredAt returns ResumeTeamSessionResumeSessionResumeSessionResultSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
+// GetHost returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Host, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetHost() *string {
+	return v.TeamSessionFields.Host
+}
+
+// GetTool returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Tool, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetTool() *string {
+	return v.TeamSessionFields.Tool
+}
+
+// GetTranscriptPath returns ResumeTeamSessionResumeSessionResumeSessionResultSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns ResumeTeamSessionResumeSessionResumeSessionResultSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetLlmModel() *string {
+	return v.TeamSessionFields.LlmModel
+}
+
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ResumeTeamSessionResumeSessionResumeSessionResultSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ResumeTeamSessionResumeSessionResumeSessionResultSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalResumeTeamSessionResumeSessionResumeSessionResultSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	WorkerId *string `json:"workerId"`
+
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) __premarshalJSON() (*__premarshalResumeTeamSessionResumeSessionResumeSessionResultSession, error) {
+	var retval __premarshalResumeTeamSessionResumeSessionResumeSessionResultSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Worker = v.TeamSessionFields.Worker
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
 // RetireWorkerResponse is returned by RetireWorker on success.
 type RetireWorkerResponse struct {
 	// #974 — retire a Worker (cor:agt:020:02): end the casting while reserving
@@ -36799,6 +37469,9 @@ type SessionInput struct {
 	// LAUNCH_GRANT_INVALID when unknown, expired, used or not minted for the caller (an App key never redeems one);
 	// LAUNCH_REFUSED, failing the start with the reason, when the hold changed, the holder may no longer hold the
 	// worker, or it already has a live session. Never forced: with force it is BAD_USER_INPUT.
+	// The grant's own worker skips the #1937 worker read gate, because the grant already told its holder that worker
+	// exists: a holder who has lost the App gets LAUNCH_REFUSED with its reason rather than WORKER_NOT_FOUND, and so
+	// may learn that this one worker was retired (#1945). Any other workerRef sent with a grant is gated first.
 	LaunchGrant     *string `json:"launchGrant,omitempty"`
 	LlmModel        *string `json:"llmModel,omitempty"`
 	ParentSessionId *string `json:"parentSessionId,omitempty"`
@@ -36846,7 +37519,11 @@ type SessionInput struct {
 	// role-agent. The worker must belong to the session's App: with appRef (or an
 	// App-key credential) it must match the worker's App; without one, the
 	// worker's App becomes the session's, behind the same membership gate as
-	// appRef. A retired worker refuses (WORKER_RETIRED). #940: a worker with an
+	// appRef. A retired worker refuses (WORKER_RETIRED). #1937: an id or URN
+	// naming a worker in an App the caller cannot read refuses exactly like an
+	// absent ref (WORKER_NOT_FOUND, same message and extensions), so no other
+	// refusal here tells an outsider the worker exists. The one exception is the
+	// worker the caller's own launchGrant names (see launchGrant). #940: a worker with an
 	// ACTIVE session refuses WORKER_TAKEN — extensions carry workerId, sessionId,
 	// lastDriver, lastSeenAt, everything the takeover prompt needs — unless
 	// force is true (informed takeover, cor:agt:020:03: show who last drove it,
@@ -47923,8 +48600,10 @@ type UpdateTeamSessionResponse struct {
 	// preserves; an empty update is a valid liveness touch (bumps updatedAt,
 	// which liveness counts — #1114). id-only - sessions have no URN.
 	// Gate: platform admin, the session's App, or the attributed user (not via
-	// impersonation). Updates on an ended session stay allowed (late PR-merge
-	// attribution).
+	// impersonation). An App key updates only user-less sessions (never one a
+	// person is behind), never a host-launched one, and a key ever granted
+	// host:operate updates none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04).
+	// Updates on an ended session stay allowed (late PR-merge attribution).
 	UpdateSession *UpdateTeamSessionUpdateSession `json:"updateSession"`
 }
 
@@ -51731,6 +52410,14 @@ type __CreateRegisterEntryInput struct {
 // GetInput returns __CreateRegisterEntryInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateRegisterEntryInput) GetInput() *CreateRegisterEntryInput { return v.Input }
 
+// __CreateResumeClaimInput is used internally by genqlient
+type __CreateResumeClaimInput struct {
+	SessionId string `json:"sessionId"`
+}
+
+// GetSessionId returns __CreateResumeClaimInput.SessionId, and is useful for accessing the field via an interface.
+func (v *__CreateResumeClaimInput) GetSessionId() string { return v.SessionId }
+
 // __CreateReviewNodeInput is used internally by genqlient
 type __CreateReviewNodeInput struct {
 	Input *CreateNodeInput `json:"input,omitempty"`
@@ -52154,6 +52841,22 @@ func (v *__EndTeamSessionInput) GetSummary() *string { return v.Summary }
 
 // GetHandoff returns __EndTeamSessionInput.Handoff, and is useful for accessing the field via an interface.
 func (v *__EndTeamSessionInput) GetHandoff() *string { return v.Handoff }
+
+// __EndTeamSessionWithResumeClaimInput is used internally by genqlient
+type __EndTeamSessionWithResumeClaimInput struct {
+	Id      string  `json:"id"`
+	Summary *string `json:"summary,omitempty"`
+	Handoff *string `json:"handoff,omitempty"`
+}
+
+// GetId returns __EndTeamSessionWithResumeClaimInput.Id, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithResumeClaimInput) GetId() string { return v.Id }
+
+// GetSummary returns __EndTeamSessionWithResumeClaimInput.Summary, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithResumeClaimInput) GetSummary() *string { return v.Summary }
+
+// GetHandoff returns __EndTeamSessionWithResumeClaimInput.Handoff, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithResumeClaimInput) GetHandoff() *string { return v.Handoff }
 
 // __ExtractParentNodeToMemoryInput is used internally by genqlient
 type __ExtractParentNodeToMemoryInput struct {
@@ -53268,6 +53971,14 @@ func (v *__RestoreNodeRevisionInput) GetRevisionId() string { return v.RevisionI
 
 // GetTruncate returns __RestoreNodeRevisionInput.Truncate, and is useful for accessing the field via an interface.
 func (v *__RestoreNodeRevisionInput) GetTruncate() *bool { return v.Truncate }
+
+// __ResumeTeamSessionInput is used internally by genqlient
+type __ResumeTeamSessionInput struct {
+	Input *ResumeSessionInput `json:"input,omitempty"`
+}
+
+// GetInput returns __ResumeTeamSessionInput.Input, and is useful for accessing the field via an interface.
+func (v *__ResumeTeamSessionInput) GetInput() *ResumeSessionInput { return v.Input }
 
 // __RetireWorkerInput is used internally by genqlient
 type __RetireWorkerInput struct {
@@ -59609,6 +60320,45 @@ func CreateRegisterEntry(
 	return data_, err_
 }
 
+// The mutation executed by CreateResumeClaim.
+const CreateResumeClaim_Operation = `
+mutation CreateResumeClaim ($sessionId: ID!) {
+	createResumeClaim(sessionId: $sessionId) {
+		sessionId
+		workerId
+		expiresAt
+	}
+}
+`
+
+// #842 over server #1956: the shed half. A claim for the caller's own OPEN
+// worker session, redeemable by the caller's token for 60 seconds. The receipt
+// names no claim id: there is nothing to hold, store or pass on.
+func CreateResumeClaim(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	sessionId string,
+) (data_ *CreateResumeClaimResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateResumeClaim",
+		Query:  CreateResumeClaim_Operation,
+		Variables: &__CreateResumeClaimInput{
+			SessionId: sessionId,
+		},
+	}
+
+	data_ = &CreateResumeClaimResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateReviewNode.
 const CreateReviewNode_Operation = `
 mutation CreateReviewNode ($input: CreateNodeInput!) {
@@ -61240,6 +61990,81 @@ func EndTeamSession(
 	}
 
 	data_ = &EndTeamSessionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EndTeamSessionWithResumeClaim.
+const EndTeamSessionWithResumeClaim_Operation = `
+mutation EndTeamSessionWithResumeClaim ($id: ID!, $summary: String, $handoff: String) {
+	endSession(id: $id, summary: $summary, handoff: $handoff, resumeClaim: true) {
+		... TeamSessionFields
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	workerId
+	worker {
+		id
+		name
+		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
+	}
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	autoExpiredAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+`
+
+// #842 over server #1956 (cor:agt:020:03): the rotation half of a resume claim.
+// endSession(resumeClaim: true) writes the claim after the handoff and before
+// the end. A SEPARATE operation from EndTeamSession, not an omitempty variable
+// on it: the argument sits in the document, and an older server rejects an
+// unknown argument at validation even when the variable is omitted.
+func EndTeamSessionWithResumeClaim(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	summary *string,
+	handoff *string,
+) (data_ *EndTeamSessionWithResumeClaimResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EndTeamSessionWithResumeClaim",
+		Query:  EndTeamSessionWithResumeClaim_Operation,
+		Variables: &__EndTeamSessionWithResumeClaimInput{
+			Id:      id,
+			Summary: summary,
+			Handoff: handoff,
+		},
+	}
+
+	data_ = &EndTeamSessionWithResumeClaimResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -66601,6 +67426,86 @@ func RestoreNodeRevision(
 	}
 
 	data_ = &RestoreNodeRevisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ResumeTeamSession.
+const ResumeTeamSession_Operation = `
+mutation ResumeTeamSession ($input: ResumeSessionInput!) {
+	resumeSession(input: $input) {
+		outcome
+		session {
+			... TeamSessionFields
+		}
+		candidates {
+			sessionId
+			workerId
+			workerName
+			description
+			source
+			expiresAt
+		}
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	workerId
+	worker {
+		id
+		name
+		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
+	}
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	autoExpiredAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+`
+
+// #842 over server #1956: recover the caller's worker binding with no worker
+// named. Every input field is optional provenance (or the CHOOSE pick), so each
+// is omitted when unset rather than sent as null.
+func ResumeTeamSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *ResumeSessionInput,
+) (data_ *ResumeTeamSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ResumeTeamSession",
+		Query:  ResumeTeamSession_Operation,
+		Variables: &__ResumeTeamSessionInput{
+			Input: input,
+		},
+	}
+
+	data_ = &ResumeTeamSessionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

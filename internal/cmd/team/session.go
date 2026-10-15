@@ -60,6 +60,7 @@ holds nothing), so it has nothing to release.`,
 	cmd.AddCommand(newCmdSessionWhoami(f))
 	cmd.AddCommand(newCmdSessionLog(f))
 	cmd.AddCommand(newCmdSessionEnd(f))
+	cmd.AddCommand(newCmdSessionResumeClaim(f))
 	cmd.AddCommand(newCmdSessionList(f))
 	return cmd
 }
@@ -634,10 +635,10 @@ func heldRefusal(name, ref, holder string, heldAt *string) error {
 }
 
 func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
-	var as, repo, branch, transcript, host, tool, model, teamMemory, reportsTo, launchGrantFlag string
+	var as, repo, branch, transcript, host, tool, model, teamMemory, reportsTo, launchGrantFlag, pick string
 	var force bool
 	cmd := &cobra.Command{
-		Use:   "start (--as <worker> | --launch-grant <grant>) [--transcript <path>] [--tool <t>] [--force]",
+		Use:   "start [--as <worker> | --launch-grant <grant> | --session <id>] [--transcript <path>] [--tool <t>] [--force]",
 		Short: "Start a worker session: bind this worktree to a worker",
 		Long: `Start a coding session as a worker. The session is recorded server-side
 (with the provenance fields: repo, branch, host, tool, transcript path,
@@ -741,21 +742,51 @@ The relation lives on the worker and survives session changes.
 Binding a worker CLAIMS its name for you. Casting one does not: a roster
 staffed by a coordinator is unheld until each person binds their own, and
 an APP-KEY session claims nothing at all (an App key is not a person and
-holds nothing).`,
+holds nothing).
+
+WITH NO WORKER NAMED AND NO GRANT, START RESUMES (hadron-cli#842,
+cor:agt:020:03). It asks the server to recover your worker, judged only by
+your own token: an unused resume claim of yours (written by
+` + "`session end --resume-claim`" + ` or ` + "`session resume-claim`" + ` before a context reset,
+redeemable for 60 seconds) binds it, RESUMED to the open session or STARTED
+as the worker's next one. With no claim, your one live worker session is
+RESUMED. Either way the worktree binding is written and the briefing
+printed, as for any bind. Several candidates bind nothing: they are listed,
+exit 2, and --session <id> picks one. Nothing at all refuses
+NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
+behalf. A refused resume (exit 5, RESUME_REFUSED) has spent its claim.
+--tool, --host, --model and --transcript ride along. --repo, --branch,
+--reports-to, -m and --force do not apply and are refused. A worktree still
+bound to a live session refuses first, before any claim is spent, as does a
+directory outside a git worktree. A failure after the server answered never
+ends the recovered session: run start again to pick it up.`,
 		Example: `  hadron team session start --as Iris --tool claude-code \
-      --transcript ~/.claude/projects/x/transcript.jsonl`,
+      --transcript ~/.claude/projects/x/transcript.jsonl
+  hadron team session start --tool claude-code   # resume after a context reset`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if cmd.Flags().Changed("reports-to") && strings.TrimSpace(reportsTo) == "" {
 				return exitcode.Newf(exitcode.Usage, "--reports-to must name a worker; omit it to preserve the relation")
 			}
+			// An EMPTY --as is not an absent one (#842): `--as "$W"` with W
+			// unset must not fall through to a resume, which could bind a
+			// different worker (your claim, or your one live session).
+			if cmd.Flags().Changed("as") && strings.TrimSpace(as) == "" {
+				return exitcode.Newf(exitcode.Usage, "--as must name a worker; omit it to resume (start with no worker named)")
+			}
 			grant, err := launchGrantFrom(cmd, launchGrantFlag, as)
 			if err != nil {
 				return err
 			}
 			if grant == "" && strings.TrimSpace(as) == "" {
-				return exitcode.Newf(exitcode.Usage, "--as is required (name the worker to drive), unless a launch grant is given with --launch-grant or HADRON_LAUNCH_GRANT")
+				// hadron-cli#842: no worker named and no grant is a RESUME.
+				return runSessionResume(cmd, f, resumeFlags{
+					pick: pick, tool: tool, host: host, model: model, transcript: transcript,
+				})
+			}
+			if cmd.Flags().Changed("session") {
+				return exitcode.Newf(exitcode.Usage, "--session picks a candidate of a resume (start with no worker named); it does not apply with --as or a launch grant")
 			}
 			if grant != "" && force {
 				return exitcode.Newf(exitcode.Usage, "--force does not apply to a launch grant: a refused launch is not overridable (cor:agt:070:08)")
@@ -1126,130 +1157,10 @@ holds nothing).`,
 					"current holder, and `worker release` gives the name up if that is what you want.)",
 					err, s.Id, w.Name)
 			}
-			// Read the handoff AFTER the bind. With --force, ending the old
-			// worktree session above may be the event that makes its handoff
-			// MISSING, so a pre-bind worker projection could be stale. Keep this
-			// in a separate operation: older servers reject an unknown
-			// Worker.continuity field at document validation time, and must not
-			// lose the ordinary worker lookup or the successful bind (#790).
-			var continuity *sessionStartContinuity
-			continuityResp, continuityErr := gen.GetWorkerContinuity(ctx, client, w.Id)
-			switch {
-			case continuityErr == nil && continuityResp.Worker != nil:
-				continuity = sessionStartContinuityDTO(continuityResp.Worker.Continuity)
-			case continuityErr == nil:
-				fmt.Fprintln(f.IOStreams.ErrOut, "note: worker continuity was unavailable after bind")
-			case api.IsGraphQLValidationFor(continuityErr, "continuity"):
-				// An older server has no field. The bind already succeeded;
-				// omitting this optional projection is its compatibility path.
-			default:
-				fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read worker continuity after bind (%v)\n", api.MapError(continuityErr))
-			}
-			if lapsedBinding {
-				fmt.Fprintf(f.IOStreams.ErrOut, "note: replaced lapsed local binding for session %s; that session remains open for its driver to end with a handoff\n", existing.SessionID)
-			}
-			result := struct {
-				Session sessionDTO `json:"session"`
-				// sessionStartWorker, not workerDTO: this response is built from
-				// the PRE-mutation read, so the fields the bind itself changes
-				// are omitted rather than reported stale. See its doc.
-				Worker      sessionStartWorker `json:"worker"`
-				BindingPath string             `json:"bindingPath"`
-				// Null means unavailable (old server, masked read, or read
-				// failure), never "no handoff". FIRST_STINT/MISSING carry that
-				// distinction explicitly when the server supports it.
-				Continuity *sessionStartContinuity `json:"continuity"`
-				// TookOver: did this bind displace a driver?
-				//
-				// NULLABLE since #550, for the reason releaseResultDTO's
-				// WasHeld and Forced are: the answer can be WITHHELD. It is
-				// derived liveness — true when the name was live and --force
-				// took it, false when it provably was not live, and NULL when
-				// the working-state group was masked, where the CLI cannot
-				// tell and `false` would be a claim with no evidence behind it.
-				//
-				// It used to be `active != nil` — an OPEN session row — which
-				// since hadron-server#1114 answers a different question:
-				// nothing ends an abandoned session, so binding over one
-				// displaces nobody while this reported a takeover anyway. Same
-				// wrong fact as the refusal, in the --json contract.
-				//
-				// `null` degrades where `false` did: falsy in jq and in JS, and
-				// a Go consumer decoding into a plain `bool` is unaffected —
-				// MEASURED, since @copilot read it the other way. Go's
-				// encoding/json treats null as "not present": it produces no
-				// error and LEAVES THE VALUE UNCHANGED, so a freshly-decoded
-				// struct reads the zero value, false. (A type mismatch does
-				// error — `"yes"` into a bool fails — so the null case is a
-				// defined no-op, not a swallowed error.)
-				TookOver *bool `json:"tookOver"`
-			}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, continuity, tookOver(live)}
-			if err := output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
-				if _, err := fmt.Fprintf(out, "✓ started session %s as %s%s\n  binding: %s\n", s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
-					return err
-				}
-				// The worker's portal link, at the bind (#510, beyond that
-				// issue's literal list of worker get/list — say so and it comes
-				// out). Two reasons it belongs here more than anywhere:
-				//
-				// PARITY: hadron_start_session already returns this line, so a
-				// desktop-track worker is handed its link at bind and a CLI
-				// one was not — the same surface, two answers.
-				//
-				// ADJACENCY: the boot briefing printed immediately below tells
-				// this worker to sign whatever it publishes with a CLICKABLE
-				// URN (hadron-server#1008). This is the one place where that
-				// instruction and the string it needs are on the same screen,
-				// which is what lets the briefing's "the ONE portal link you
-				// may construct yourself" carve-out be retired.
-				//
-				// Absent stays absent, as everywhere else (cor:api:230:01).
-				if w.PortalUrl != nil && *w.PortalUrl != "" {
-					if _, err := fmt.Fprintf(out, "  URL: %s\n", *w.PortalUrl); err != nil {
-						return err
-					}
-				}
-				if continuity != nil {
-					if err := renderSessionStartContinuity(out, continuity); err != nil {
-						return err
-					}
-				}
-				// The resolved boot briefing (template bound + override) is
-				// what the driver adopts — print it where they will see it.
-				if w.Prompt != nil && *w.Prompt != "" {
-					if _, err := fmt.Fprintf(out, "\n%s\n", *w.Prompt); err != nil {
-						return err
-					}
-				}
-				return nil
-			}); err != nil {
-				return err
-			}
-			// #456 — the role/repo mismatch nudge, and its PLACEMENT is the
-			// feature. The bind receipt has always printed the role
-			// (`roleSuffix`), so the information was never missing; it is
-			// missable, because the several-hundred-word boot briefing prints
-			// directly after it and pushes it off screen. A warning emitted
-			// before the briefing would land in exactly the spot the issue
-			// exists because nobody reads, which is why this sits AFTER
-			// output.Write rather than inside its callback.
-			//
-			// stderr, not stdout: it is a nudge about the invocation rather
-			// than part of the session record, so it must not enter a --json
-			// consumer's parse. It still prints under --json for the same
-			// reason — a wrong binding is worth telling an agent about too, and
-			// stderr is not the JSON channel.
-			//
-			// WARN, NEVER REFUSE (cor:agt:020 / the server's own SDL note):
-			// cross-repo work is legitimate — a coordinator does it by
-			// definition and sibling repos share code — so the exit code is
-			// untouched, the session is already started and the binding
-			// already written by the time this runs.
-			warnRepoAffinity(cmd.Context(), f, client, w, repo)
-			return nil
+			return finishBind(cmd, f, client, s, w, path, lapsedBinding, existing, live, repo, nil)
 		},
 	}
-	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App (required unless a launch grant is given)")
+	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App; omit it (and any launch grant) to resume")
 	cmd.Flags().StringVar(&launchGrantFlag, "launch-grant", "", "single-use launch grant from the host poller (default: $"+launchGrantEnv+"); binds the worker it names")
 	// LIVE, not "active": the gate is derived liveness, and an ACTIVE session
 	// is precisely the thing that no longer decides it (#550). Readers scan
@@ -1264,7 +1175,150 @@ holds nothing).`,
 	cmd.Flags().StringVar(&model, "model", "", "LLM model driving the session")
 	cmd.Flags().StringVar(&reportsTo, "reports-to", "", "worker to report to at bind (name, URN or id); omit to preserve")
 	cmd.Flags().StringVarP(&teamMemory, "memory", "m", "", "explicit team memory (optional since #399 — the worker's App is recorded as the worklog home; -m also cross-checks the App at start)")
+	cmd.Flags().StringVar(&pick, "session", "", "resume only: pick this candidate (a session id a resume listed)")
 	return cmd
+}
+
+// finishBind is everything a bind does once the server has bound a session
+// and the worktree binding is written: the continuity read, the receipt, the
+// briefing and the repo nudge. `session start --as`, a launch grant and a
+// resume (hadron-cli#842) all end here, so a recovered worker is briefed
+// exactly as a bound one is. resumeOutcome is nil except on a resume.
+func finishBind(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, s gen.TeamSessionFields, w gen.WorkerFields,
+	path string, lapsedBinding bool, existing *binding, live liveness, repo string, resumeOutcome *string) error {
+	ctx := cmd.Context()
+	// Read the handoff AFTER the bind. With --force, ending the old
+	// worktree session above may be the event that makes its handoff
+	// MISSING, so a pre-bind worker projection could be stale. Keep this
+	// in a separate operation: older servers reject an unknown
+	// Worker.continuity field at document validation time, and must not
+	// lose the ordinary worker lookup or the successful bind (#790).
+	var continuity *sessionStartContinuity
+	continuityResp, continuityErr := gen.GetWorkerContinuity(ctx, client, w.Id)
+	switch {
+	case continuityErr == nil && continuityResp.Worker != nil:
+		continuity = sessionStartContinuityDTO(continuityResp.Worker.Continuity)
+	case continuityErr == nil:
+		fmt.Fprintln(f.IOStreams.ErrOut, "note: worker continuity was unavailable after bind")
+	case api.IsGraphQLValidationFor(continuityErr, "continuity"):
+		// An older server has no field. The bind already succeeded;
+		// omitting this optional projection is its compatibility path.
+	default:
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read worker continuity after bind (%v)\n", api.MapError(continuityErr))
+	}
+	if lapsedBinding {
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: replaced lapsed local binding for session %s; that session remains open for its driver to end with a handoff\n", existing.SessionID)
+	}
+	result := struct {
+		Session sessionDTO `json:"session"`
+		// sessionStartWorker, not workerDTO: this response is built from
+		// the PRE-mutation read, so the fields the bind itself changes
+		// are omitted rather than reported stale. See its doc.
+		Worker      sessionStartWorker `json:"worker"`
+		BindingPath string             `json:"bindingPath"`
+		// Null means unavailable (old server, masked read, or read
+		// failure), never "no handoff". FIRST_STINT/MISSING carry that
+		// distinction explicitly when the server supports it.
+		Continuity *sessionStartContinuity `json:"continuity"`
+		// TookOver: did this bind displace a driver?
+		//
+		// NULLABLE since #550, for the reason releaseResultDTO's
+		// WasHeld and Forced are: the answer can be WITHHELD. It is
+		// derived liveness — true when the name was live and --force
+		// took it, false when it provably was not live, and NULL when
+		// the working-state group was masked, where the CLI cannot
+		// tell and `false` would be a claim with no evidence behind it.
+		//
+		// It used to be `active != nil` — an OPEN session row — which
+		// since hadron-server#1114 answers a different question:
+		// nothing ends an abandoned session, so binding over one
+		// displaces nobody while this reported a takeover anyway. Same
+		// wrong fact as the refusal, in the --json contract.
+		//
+		// `null` degrades where `false` did: falsy in jq and in JS, and
+		// a Go consumer decoding into a plain `bool` is unaffected —
+		// MEASURED, since @copilot read it the other way. Go's
+		// encoding/json treats null as "not present": it produces no
+		// error and LEAVES THE VALUE UNCHANGED, so a freshly-decoded
+		// struct reads the zero value, false. (A type mismatch does
+		// error — `"yes"` into a bool fails — so the null case is a
+		// defined no-op, not a swallowed error.)
+		TookOver *bool `json:"tookOver"`
+		// ResumeOutcome (hadron-cli#842): RESUMED or STARTED when this bind
+		// redeemed a resume claim or the caller's one live session (start
+		// with no worker named), null on an ordinary or launched bind.
+		ResumeOutcome *string `json:"resumeOutcome"`
+	}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, continuity, tookOver(live), resumeOutcome}
+	if err := output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
+		verb := "started session"
+		switch {
+		case resumeOutcome != nil && *resumeOutcome == string(gen.ResumeOutcomeResumed):
+			verb = "resumed session"
+		case resumeOutcome != nil:
+			verb = "started the next session"
+		}
+		if _, err := fmt.Fprintf(out, "✓ %s %s as %s%s\n  binding: %s\n", verb, s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
+			return err
+		}
+		// The worker's portal link, at the bind (#510, beyond that
+		// issue's literal list of worker get/list — say so and it comes
+		// out). Two reasons it belongs here more than anywhere:
+		//
+		// PARITY: hadron_start_session already returns this line, so a
+		// desktop-track worker is handed its link at bind and a CLI
+		// one was not — the same surface, two answers.
+		//
+		// ADJACENCY: the boot briefing printed immediately below tells
+		// this worker to sign whatever it publishes with a CLICKABLE
+		// URN (hadron-server#1008). This is the one place where that
+		// instruction and the string it needs are on the same screen,
+		// which is what lets the briefing's "the ONE portal link you
+		// may construct yourself" carve-out be retired.
+		//
+		// Absent stays absent, as everywhere else (cor:api:230:01).
+		if w.PortalUrl != nil && *w.PortalUrl != "" {
+			if _, err := fmt.Fprintf(out, "  URL: %s\n", *w.PortalUrl); err != nil {
+				return err
+			}
+		}
+		if continuity != nil {
+			if err := renderSessionStartContinuity(out, continuity); err != nil {
+				return err
+			}
+		}
+		// The resolved boot briefing (template bound + override) is
+		// what the driver adopts — print it where they will see it.
+		if w.Prompt != nil && *w.Prompt != "" {
+			if _, err := fmt.Fprintf(out, "\n%s\n", *w.Prompt); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	// #456 — the role/repo mismatch nudge, and its PLACEMENT is the
+	// feature. The bind receipt has always printed the role
+	// (`roleSuffix`), so the information was never missing; it is
+	// missable, because the several-hundred-word boot briefing prints
+	// directly after it and pushes it off screen. A warning emitted
+	// before the briefing would land in exactly the spot the issue
+	// exists because nobody reads, which is why this sits AFTER
+	// output.Write rather than inside its callback.
+	//
+	// stderr, not stdout: it is a nudge about the invocation rather
+	// than part of the session record, so it must not enter a --json
+	// consumer's parse. It still prints under --json for the same
+	// reason — a wrong binding is worth telling an agent about too, and
+	// stderr is not the JSON channel.
+	//
+	// WARN, NEVER REFUSE (cor:agt:020 / the server's own SDL note):
+	// cross-repo work is legitimate — a coordinator does it by
+	// definition and sibling repos share code — so the exit code is
+	// untouched, the session is already started and the binding
+	// already written by the time this runs.
+	warnRepoAffinity(cmd.Context(), f, client, w, repo)
+	return nil
 }
 
 // whoamiDTO is the stable --json shape of `session whoami`.
@@ -1871,7 +1925,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				return err
 			}
 			if b == nil {
-				return exitcode.Newf(exitcode.NotFound, "no active session in this worktree — `hadron team session start --as <name>` first")
+				return noBindingRefusal("this work record", false)
 			}
 			if err := checkBindingServer(f, b); err != nil {
 				return err
@@ -2177,12 +2231,16 @@ type endResultDTO struct {
 	SessionID  string `json:"sessionId"`
 	WorkerName string `json:"workerName"`
 	EndedAt    string `json:"endedAt"`
+	// ResumeClaim (hadron-cli#842): --resume-claim was passed and the server
+	// wrote the claim before the end. False on a plain end.
+	ResumeClaim bool `json:"resumeClaim"`
 }
 
 func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
 	var summary, sessionID, handoff, handoffFile string
+	var resumeClaim bool
 	cmd := &cobra.Command{
-		Use:   "end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>]",
+		Use:   "end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim]",
 		Short: "End this worktree's worker session — the session, not the name",
 		Long: `End the WORKER SESSION this worktree is bound to and clear the binding.
 This is the only thing that ends the session — unless another active worker
@@ -2262,7 +2320,16 @@ write --handoff.
 --session ends an explicit worker session id instead — the recovery path
 when the binding is gone or unusable (a lost worktree, a failed binding
 write, a binding written by a pre-Worker CLI) but the server-side worker
-session is still open.`,
+session is still open.
+
+--resume-claim is for a ROTATION (hadron-cli#842, cor:agt:020:03): the server
+writes a resume claim after the handoff and before the end, so the fresh
+context that follows recovers this worker by running ` + "`hadron team session start`" + `
+with no worker named, within 60 seconds. That start begins the worker's
+next session. The claim is redeemable only with your own token, and carries
+nothing to keep. If the server cannot write it, the end is refused and
+nothing ends. For a SHED, which keeps the session open, use
+` + "`team session resume-claim`" + ` instead.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -2343,7 +2410,23 @@ session is still open.`,
 					text: text, src: src, sessionID: id, server: bound, summary: summary, answered: true,
 				}, err)
 			}
-			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
+			// A separate operation, not a flag on EndTeamSession: an older
+			// server rejects the unknown argument at validation even when
+			// it is omitted, so a plain end keeps the document it always sent.
+			var ended *gen.TeamSessionFields
+			if resumeClaim {
+				var r *gen.EndTeamSessionWithResumeClaimResponse
+				r, err = gen.EndTeamSessionWithResumeClaim(ctx, client, id, optStr(summary), optStr(text))
+				if err == nil && r.EndSession != nil {
+					ended = &r.EndSession.TeamSessionFields
+				}
+			} else {
+				var r *gen.EndTeamSessionResponse
+				r, err = gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
+				if err == nil && r.EndSession != nil {
+					ended = &r.EndSession.TeamSessionFields
+				}
+			}
 			if err != nil {
 				// The handoff does not evaporate with the call that carried it.
 				// Only THIS path can be ambiguous: everything above either never
@@ -2370,17 +2453,23 @@ session is still open.`,
 				}
 			}
 			var endedAt string
-			if resp.EndSession != nil && resp.EndSession.EndedAt != nil {
-				endedAt = *resp.EndSession.EndedAt
+			if ended != nil && ended.EndedAt != nil {
+				endedAt = *ended.EndedAt
 			}
-			result := endResultDTO{SessionID: id, WorkerName: workerName, EndedAt: endedAt}
+			result := endResultDTO{SessionID: id, WorkerName: workerName, EndedAt: endedAt, ResumeClaim: resumeClaim}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				who := ""
 				if workerName != "" {
 					who = " (worker " + workerName + ")"
 				}
-				_, err := fmt.Fprintf(w, "✓ ended session %s%s\n", id, who)
-				return err
+				if _, err := fmt.Fprintf(w, "✓ ended session %s%s\n", id, who); err != nil {
+					return err
+				}
+				if resumeClaim {
+					_, err := fmt.Fprintln(w, "  resume claim written: within 60 seconds, `hadron team session start` with no worker named starts this worker's next session")
+					return err
+				}
+				return nil
 			})
 		},
 	}
@@ -2389,6 +2478,7 @@ session is still open.`,
 	cmd.Flags().StringVar(&summary, "summary", "", "short session label — DISPLAY ONLY, the next driver never sees it (use --handoff for that)")
 	cmd.MarkFlagsMutuallyExclusive("handoff", "handoff-file")
 	cmd.Flags().StringVar(&sessionID, "session", "", "end this session id instead of the worktree's bound one (recovery)")
+	cmd.Flags().BoolVar(&resumeClaim, "resume-claim", false, "also write a resume claim before the end (a rotation): the next context recovers this worker by running team session start with no worker named")
 	return cmd
 }
 

@@ -312,8 +312,8 @@ hadron agent list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--vis
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | set-reports-to <worker> (<target> | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
-hadron team session start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
-hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
+hadron team session start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
+hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding; with NO binding it REFUSES, exit 4, unless --as-me — cli#842) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
 hadron team attention [--since <token>] (uses --app or the binding)
 hadron team attention switchover preview | apply --proof <proof> [--yes] (uses --app or the binding)
 hadron team task create <title> [--description <d>] [--assignee <party>] [--owner <party>] [--parent <id>] [--start-by <iso>] [--tag <t>]… [--source <s>] [--status backlog|pending] [--require-role <r>] [--family-in|--family-not-in <a,b>] [--exclude-worker <w>]… [--no-close-session] (uses --app or the binding) | assign|reassign <taskId> --assignee <party> [--close-session|--no-close-session] | start|progress|cancel <taskId> | park|ready <taskId> | finish <taskId> --outcome <word> [--summary <s>] [--evidence <url>] | get <taskId> | list [--status <s>]… [--assignee <party>] [--owner <party>] [--tag <t>] [--queued] [--roots-only] [--parent <id>] [--limit N] [--offset N] (uses --app or the binding) | tree <rootTaskId>   # a party is worker:<id|urn|name> or user:<id|handle>; writes are the bound worker's when a session is bound
@@ -2171,6 +2171,38 @@ Conventions:
   handoff. `--json` adds `continuity` with status, handoff and previousSession;
   `null` means unavailable, not no handoff. An older server without the field
   still binds and omits the text.
+  **Recovering after a context reset: resume claims (cli#842, server #1956,
+  `cor:agt:020:03`).** Before a deliberate reset, write a claim:
+  `session resume-claim` for a SHED (the session stays open) or
+  `session end --resume-claim` for a ROTATION (written with the handoff,
+  before the end; `--json` gains `resumeClaim: true`). Then, within **60
+  seconds**, the fresh context runs `session start` with **no worker named**
+  (and no launch grant). The server judges it only by your token: your one
+  unused claim binds (`RESUMED` to the open session, or `STARTED` as the
+  worker's next session); with no claim, your one LIVE worker session is
+  `RESUMED`. The binding is written and the briefing printed as for any bind,
+  and `--json` carries `resumeOutcome` (`RESUMED` | `STARTED`; **null** on an
+  ordinary or launched bind). Several candidates bind nothing: they are listed
+  (`--json`: `{"resumeOutcome":"CHOOSE","candidates":[{sessionId, workerId,
+  workerName, description, source: CLAIM|LIVE_SESSION, expiresAt}]}`), **exit
+  2**, and `start --session <id>` picks one. `NOTHING_TO_RESUME` is **exit 4**
+  and nothing is posted or recorded; `RESUME_REFUSED` (the lifecycle gate) is
+  exit 5 and has spent the claim; `RESUME_AMBIGUOUS` is exit 2 (name the
+  worker). A resume refuses `--repo`, `--branch`, `--reports-to`, `-m` and
+  `--force` (exit 2), refuses over a worktree still bound to a live session
+  (exit 5) and outside a git worktree (exit 2), all BEFORE any claim is
+  spent. It never ends the session it recovered: on a later failure, run
+  `start` again. The binding caches the bound session's own tool, model and
+  repo; a flag fills only a field it lacks, and a flag a RESUMED session
+  ignores gets a stderr note. A claim carries no secret and no id — there is nothing to
+  store or pass on. It is for a context with NO binding: in a worktree still
+  bound to a live session the binding already carries the worker (`whoami`),
+  and a resume there refuses (exit 5). `tookOver` is **null** on `RESUMED`
+  (another context may still drive that session) and false on `STARTED`. An
+  empty `--as` is refused (exit 2), never read as a resume.
+  `resume-claim` on an ended session is `SESSION_ENDED`, exit 5; its `--json`
+  is `{sessionId, workerId, workerName, expiresAt}` (`workerName` null with
+  `--session`).
   **`whoami` falls back to the SERVER when there is no binding — and when
   there is no worktree at all (#623)**, so a lost binding
   is a cache miss rather than an orphaned session, and a caller with no worktree
@@ -2488,8 +2520,13 @@ Conventions:
   (the server verifies it is yours, active, and bound to a non-retired
   worker OF this App — `SESSION_NOT_WORKER_BOUND` /
   `SESSION_WORKER_NOT_IN_APP` / `WORKER_RETIRED` — and records it: a worker
-  message always traces to the DRIVING human); without one, or with
-  `--as-me`, by you. Mention teammates as `@worker-name`/`@handle` (a
+  message always traces to the DRIVING human); with `--as-me`, by you.
+  **Without a binding (no binding file, no worktree, or an App from `--app`
+  or the context alone) and without `--as-me`, `chat post` REFUSES, exit 4,
+  and sends nothing** (cli#842, `cor:agt:020:03`): it used to post as the
+  human driving the agent. Recover with `session start` (no worker named),
+  bind with `--as <worker>`, or say `--as-me`. `session log` refuses the same
+  way (exit 4, unchanged). Mention teammates as `@worker-name`/`@handle` (a
   multiword name by its slug, `@mary-jane`); mention tokens carry **no
   uniqueness** (hadron-server#979) — a token may match several workers, and
   the filter simply returns every match. `--reply-to` takes the seq readers
@@ -2567,7 +2604,7 @@ Conventions:
   steady state and was otherwise byte-identical to reading another team
   (#470). `chat post` names the team chat in its receipt, and writes a `note:` to
   **stderr before posting** when the scope is ambient AND no session goes on
-  the wire (no binding, or `--as-me`) — with a sessionRef the server checks
+  the wire (`--as-me`; without a binding nothing else reaches the write) — with a sessionRef the server checks
   session against App and refuses a mismatch, so only the sessionless case
   can land silently, and a post can neither be recalled nor its mentions
   unfired. Warning, never refusal; NOT suppressed by `--json`, since stderr

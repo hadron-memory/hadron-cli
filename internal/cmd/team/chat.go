@@ -34,7 +34,8 @@ func newCmdTeamChat(f *cmdutil.Factory) *cobra.Command {
 App, owned end-to-end by the server (placement, ordering, authorship,
 mentions). With a worktree WORKER SESSION binding (` + "`session start`" + `),
 posts are authored by the bound worker and carry the driving worker session;
-without one, posts are authored by you. (A chat session — your Desktop window
+without one, a post is REFUSED (exit 4, cor:agt:020:03) unless you pass
+--as-me, which posts as you. (A chat session — your Desktop window
 or Claude Code session — is a different thing and authors nothing.)
 
 The team App resolves from --app (or the configured App context), falling
@@ -46,7 +47,7 @@ App it landed on and where the scope came from — including when there is
 nothing new, which is the usual case and was previously indistinguishable
 from reading another team. ` + "`post`" + ` names the team chat in its receipt, and warns
 on stderr BEFORE writing when the App came from a context or binding you
-did not name AND no session goes on the wire (no binding, or --as-me).
+did not name AND no session goes on the wire (--as-me).
 With a session the server checks it against the App and refuses a mismatch;
 without one nothing does, and a post can neither be recalled nor its
 mentions unfired — so that signal comes early rather than in the receipt.`,
@@ -211,8 +212,13 @@ binding,
 the message is authored by the bound WORKER through that session (the
 server verifies the session is yours, active, and bound to a non-retired
 worker of this App, and records it — a worker message always traces to the
-human driving it); without a binding — or with --as-me — it is authored by
-you.
+human driving it). With --as-me it is authored by you.
+
+WITHOUT A BINDING THE POST IS REFUSED (cor:agt:020:03, hadron-cli#842),
+exit 4, and nothing is sent: it would otherwise be attributed to the person
+driving the agent. Recover your worker with ` + "`hadron team session start`" + `
+(no worker named: it redeems your resume claim, or your one live worker
+session), bind one with ` + "`--as <worker>`" + `, or post as yourself with --as-me.
 
 Mentions (@worker-name / @handle; a multiword name by its slug, e.g.
 @mary-jane) are extracted server-side into the message. The body is the
@@ -254,6 +260,14 @@ refused when stdin is an interactive terminal (use --body-file there).
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
 				return err
+			}
+			// cor:agt:020:03 (hadron-cli#842): a post from a context with no
+			// worker binding is REFUSED, never sent as the human. Before #842
+			// it went out with no sessionRef, and the server attributed it to
+			// the person driving the agent, with nothing telling the agent so.
+			// --as-me is the explicit way to post as yourself.
+			if !asMe && (b == nil || b.SessionID == "") {
+				return noBindingRefusal("this post", true)
 			}
 			var sessionRef *string
 			if b != nil && !asMe {
