@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// capabilitiesNow is the clock the cache ages by (injectable for tests).
+var capabilitiesNow = time.Now
+
 // capabilitiesHTTP is the client GET /capabilities runs on: unauthenticated
 // by design, and short-timeout — discovery must never hang a command that
 // works fine without the answer.

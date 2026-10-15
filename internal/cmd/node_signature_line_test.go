@@ -178,3 +178,41 @@ func TestNodeGetMultiRefSkipsSignatureSummary(t *testing.T) {
 		t.Fatalf("NodeSignatureStatus calls = %d, want 0 for the multi-ref envelope", *calls)
 	}
 }
+
+// The P2-1 pin (Andi #12479): the fold must pass the RESOLVED node id to the
+// status query — args[0] loses -m resolution, and a bare loc is ambiguous
+// across memories.
+func TestNodeGetSignatureFoldUsesResolvedID(t *testing.T) {
+	gql, captured := captureGraphQLFunc(t, func(op string) string {
+		switch op {
+		case "ResolveUrn":
+			return `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`
+		case "GetNode":
+			return nodeGetJSON(testNodeURL)
+		case "NodeSignatureStatus":
+			return signedStatusJSON
+		}
+		return ""
+	})
+	withSigningProbe(t, true, nil)
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "-m", "hrn:mem:acme.com:kb", "start-here", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("node get: %v", err)
+	}
+	if !strings.Contains(out.String(), "signature: SIGNED") {
+		t.Fatalf("the fold must still render:\n%s", out.String())
+	}
+	raw := captured["NodeSignatureStatus"]
+	var vars struct {
+		Ref string `json:"ref"`
+	}
+	if err := json.Unmarshal(raw, &vars); err != nil {
+		t.Fatalf("variables: %v (%s)", err, raw)
+	}
+	if vars.Ref != "n1" {
+		t.Fatalf("status ref = %q, want the RESOLVED id n1 (args[0] loses -m resolution)", vars.Ref)
+	}
+}
