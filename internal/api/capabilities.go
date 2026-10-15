@@ -81,6 +81,13 @@ func Capabilities(ctx context.Context, baseURL string) (map[string]bool, error) 
 	defer resp.Body.Close()
 	switch resp.StatusCode {
 	case http.StatusNotModified:
+		// A 304 means "unchanged" only when WE sent a validator and hold the
+		// entry it matches. An unsolicited first 304, or one with no ETag
+		// held, matches nothing: read it as a failure so the caller sees
+		// every switch off (Andi/Chip P2-3 — the unguarded path panicked).
+		if entry == nil || entry.etag == "" {
+			return nil, fmt.Errorf("GET /capabilities: unexpected 304 without a validator held")
+		}
 		// The body is fixed for the server's process: unchanged is the same
 		// answer, and the 304 renews the window.
 		capabilitiesCache.Lock()
