@@ -4,7 +4,7 @@ package team
 // the registrations its hosts keep (cor:agt:070:01), the operations issued to
 // them (cor:agt:070:02), and issuing one (cor:agt:070:05). These are the
 // reader and manager surfaces; a host's own side (register, collect, report)
-// is the poller's (#831). No argument, flag or output here carries a
+// is the poller's: `team host run|status` in host_run.go (#831). No argument, flag or output here carries a
 // credential: an operation's arguments are ids and name tokens only
 // (cor:agt:070:03), and a plan login never travels in one (Holger, #10777).
 
@@ -114,12 +114,15 @@ func newCmdTeamHost(f *cmdutil.Factory) *cobra.Command {
 workers it can run, as which model family and in which worktrees
 (cor:agt:070:01); people and workers issue it typed operations
 (cor:agt:070:05), which it collects and reports (cor:agt:070:02).
-` + "`list`" + ` and ` + "`ops`" + ` read them; ` + "`issue`" + ` issues one. A host's key is
+` + "`list`" + ` and ` + "`ops`" + ` read them; ` + "`issue`" + ` issues one. ` + "`run`" + ` is the
+host's own poller, and ` + "`status`" + ` checks its configuration. A host's key is
 granted with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" + `.`,
 	}
 	cmd.AddCommand(newCmdTeamHostLs(f))
 	cmd.AddCommand(newCmdTeamHostOps(f))
 	cmd.AddCommand(newCmdTeamHostIssue(f))
+	cmd.AddCommand(newCmdTeamHostRun(f))
+	cmd.AddCommand(newCmdTeamHostStatus(f))
 	return cmd
 }
 

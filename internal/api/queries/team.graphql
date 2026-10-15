@@ -567,6 +567,9 @@ fragment TeamSessionFields on Session {
 # plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
 # the refreshed field still needs its omitempty line (the #139 trap).
 # @genqlient(for: "SessionInput.plan", omitempty: true)
+# launchGrant (#1709 slice 2, hadron-cli#831): sent only with --launch-grant or
+# HADRON_LAUNCH_GRANT, so an ordinary start never puts `"launchGrant": null` on the wire.
+# @genqlient(for: "SessionInput.launchGrant", omitempty: true)
 mutation StartTeamSession(
   $input: SessionInput!
 ) {

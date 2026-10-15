@@ -864,6 +864,14 @@ func codeForExtension(code string) int {
 	// rule below, which would read it as a usage error.
 	case code == "APP_MANAGER_REQUIRED":
 		return exitcode.Forbidden
+	// The host poller's credential refusals (hadron-cli#831 over server #1876,
+	// cor:agt:070:04): a person calling a host-only surface, and a key without a
+	// live host:operate scope. Both name a CREDENTIAL that is not permitted, not
+	// a missing argument, so they too precede the _REQUIRED suffix rule. A
+	// launch grant that is unknown, expired, used, or not minted for the caller
+	// is the same class: re-sending it cannot succeed.
+	case code == "HOST_KEY_REQUIRED" || code == "APP_KEY_SCOPE_REQUIRED" || code == "LAUNCH_GRANT_INVALID":
+		return exitcode.Forbidden
 	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
 		strings.HasSuffix(code, "_TOO_LARGE") || strings.HasSuffix(code, "_REQUIRED"):
 		return exitcode.Usage
@@ -920,6 +928,18 @@ func codeForExtension(code string) int {
 		code == "BAD_HOST_OPERATION_ARGS":
 		return exitcode.Usage
 	case code == "APP_KEY_SCOPE_HOST_CONFLICT":
+		return exitcode.Conflict
+	// The poller's half (hadron-cli#831, #1709 slices 1-3). A malformed
+	// registration and a session sent on a host call are inputs the caller
+	// changes. A report the operation's state refuses (not collected yet,
+	// already reported differently, a start whose session is not bound yet),
+	// a refused launch bind, and the issue-time worker states are conflicts:
+	// retrying blind does not help until the state moves.
+	case code == "BAD_HOST_REGISTRATION" || code == "APP_KEY_SESSION_BOUND":
+		return exitcode.Usage
+	case code == "HOST_OPERATION_NOT_COLLECTED" || code == "HOST_OPERATION_ALREADY_REPORTED" ||
+		code == "HOST_OPERATION_NOT_DONE" || code == "LAUNCH_REFUSED" ||
+		code == "WORKER_NOT_HELD" || code == "WORKER_LIVE" || code == "WORKER_START_PENDING":
 		return exitcode.Conflict
 	// A lifecycle move the task's current state forbids — assigning an
 	// already-assigned task, starting a finished one, acknowledging an alarm
