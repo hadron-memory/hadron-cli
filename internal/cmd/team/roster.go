@@ -29,8 +29,9 @@ rendered as returned. The CLI derives nothing.
 The STATES are plan-derived (design:agent-tasks §7.4), not a spec — they are
 the plan's model of a worker's situation, and cor:agt:050 keeps them out of
 the law corpus on purpose. A worker can be in several at once; it is shown
-in the first that holds: ASSIGNED_NOT_STARTED, AVAILABLE, NOT_LAUNCHABLE,
-NO_FAMILY, UNAVAILABLE, WAITING, YOUR_MOVE…
+in the first that holds (the server's roster order, most actionable
+first): YOUR_MOVE, UNAVAILABLE, WAITING, WORKING, ASSIGNED_NOT_STARTED,
+AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE.
 
 Read it with lastActiveAt: nothing clears a reportsTo claim automatically,
 and a state is a fact about now, not a judgement.`,
