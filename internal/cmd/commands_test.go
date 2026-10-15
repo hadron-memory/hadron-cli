@@ -19,6 +19,15 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 	t.Helper()
 	captured := map[string]json.RawMessage{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// GET /capabilities (cli#878 part 3's gate, hadron-server#1925) is
+		// unauthenticated REST beside the GraphQL surface: answer it as a
+		// server with every switch OFF, so command fakes behave like the
+		// honest default (and older servers' 404 reads the same).
+		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
 		var body struct {
 			OperationName string          `json:"operationName"`
 			Variables     json.RawMessage `json:"variables"`
@@ -53,6 +62,15 @@ func captureGraphQLFunc(t *testing.T, respond func(op string) string) (*httptest
 	t.Helper()
 	captured := map[string]json.RawMessage{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// GET /capabilities (cli#878 part 3's gate, hadron-server#1925) is
+		// unauthenticated REST beside the GraphQL surface: answer it as a
+		// server with every switch OFF, so command fakes behave like the
+		// honest default (and older servers' 404 reads the same).
+		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
 		var body struct {
 			OperationName string          `json:"operationName"`
 			Variables     json.RawMessage `json:"variables"`
