@@ -34,7 +34,8 @@ func newCmdTeamChat(f *cmdutil.Factory) *cobra.Command {
 App, owned end-to-end by the server (placement, ordering, authorship,
 mentions). With a worktree WORKER SESSION binding (` + "`session start`" + `),
 posts are authored by the bound worker and carry the driving worker session;
-without one, posts are authored by you. (A chat session — your Desktop window
+without one, a post is REFUSED (exit 4, cor:agt:020:03) unless you pass
+--as-me, which posts as you. (A chat session — your Desktop window
 or Claude Code session — is a different thing and authors nothing.)
 
 The team App resolves from --app (or the configured App context), falling
@@ -46,7 +47,7 @@ App it landed on and where the scope came from — including when there is
 nothing new, which is the usual case and was previously indistinguishable
 from reading another team. ` + "`post`" + ` names the team chat in its receipt, and warns
 on stderr BEFORE writing when the App came from a context or binding you
-did not name AND no session goes on the wire (no binding, or --as-me).
+did not name AND no session goes on the wire (--as-me).
 With a session the server checks it against the App and refuses a mismatch;
 without one nothing does, and a post can neither be recalled nor its
 mentions unfired — so that signal comes early rather than in the receipt.`,

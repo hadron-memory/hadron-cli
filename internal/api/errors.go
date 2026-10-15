@@ -883,6 +883,11 @@ func codeForExtension(code string) int {
 		return exitcode.NotFound
 	case code == "RESUME_REFUSED":
 		return exitcode.Conflict
+	// createResumeClaim on an ENDED session: the session's state, so a
+	// Conflict like the rest; a rotation writes its claim with
+	// `session end --resume-claim`, before the end, instead.
+	case code == "SESSION_ENDED":
+		return exitcode.Conflict
 	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
 		strings.HasSuffix(code, "_TOO_LARGE") || strings.HasSuffix(code, "_REQUIRED"):
 		return exitcode.Usage

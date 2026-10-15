@@ -2193,7 +2193,14 @@ Conventions:
   (exit 5) and outside a git worktree (exit 2), all BEFORE any claim is
   spent. It never ends the session it recovered: on a later failure, run
   `start` again. A claim carries no secret and no id — there is nothing to
-  store or pass on.
+  store or pass on. It is for a context with NO binding: in a worktree still
+  bound to a live session the binding already carries the worker (`whoami`),
+  and a resume there refuses (exit 5). `tookOver` is **null** on `RESUMED`
+  (another context may still drive that session) and false on `STARTED`. An
+  empty `--as` is refused (exit 2), never read as a resume.
+  `resume-claim` on an ended session is `SESSION_ENDED`, exit 5; its `--json`
+  is `{sessionId, workerId, workerName, expiresAt}` (`workerName` null with
+  `--session`).
   **`whoami` falls back to the SERVER when there is no binding — and when
   there is no worktree at all (#623)**, so a lost binding
   is a cache miss rather than an orphaned session, and a caller with no worktree
@@ -2595,7 +2602,7 @@ Conventions:
   steady state and was otherwise byte-identical to reading another team
   (#470). `chat post` names the team chat in its receipt, and writes a `note:` to
   **stderr before posting** when the scope is ambient AND no session goes on
-  the wire (no binding, or `--as-me`) — with a sessionRef the server checks
+  the wire (`--as-me`; without a binding nothing else reaches the write) — with a sessionRef the server checks
   session against App and refuses a mismatch, so only the sessionless case
   can land silently, and a post can neither be recalled nor its mentions
   unfired. Warning, never refusal; NOT suppressed by `--json`, since stderr

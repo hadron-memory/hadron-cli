@@ -149,6 +149,14 @@ func TestTeamSessionStartWithNoWorkerRedeems(t *testing.T) {
 			if dto["resumeOutcome"] != outcome {
 				t.Errorf("resumeOutcome = %v, want %s", dto["resumeOutcome"], outcome)
 			}
+			// RESUMED picks a session that reads live, so whether anyone was
+			// displaced is unknown (null); STARTED is new, so provably false.
+			if outcome == "RESUMED" && dto["tookOver"] != nil {
+				t.Errorf("RESUMED tookOver = %v, want null", dto["tookOver"])
+			}
+			if outcome == "STARTED" && dto["tookOver"] != false {
+				t.Errorf("STARTED tookOver = %v, want false", dto["tookOver"])
+			}
 		})
 	}
 }
@@ -288,6 +296,7 @@ func TestTeamSessionStartResumeFlagRefusals(t *testing.T) {
 		{"--reports-to on a resume", []string{"--reports-to", "Ada"}, "--reports-to"},
 		{"-m on a resume", []string{"-m", "acme.com::eng-team"}, "--memory"},
 		{"empty --session", []string{"--session", " "}, "--session"},
+		{"empty --as is not a resume", []string{"--as", " "}, "--as must name a worker"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -331,6 +340,12 @@ func TestTeamSessionStartResumeRefusesOverALiveBinding(t *testing.T) {
 	}
 	if _, called := captured["ResumeTeamSession"]; called {
 		t.Error("a live binding must refuse before a claim is spent")
+	}
+	// The shed-in-the-same-worktree shape: say the binding already answers,
+	// not the "another agent may be working here" takeover text.
+	if err == nil || !strings.Contains(err.Error(), "nothing to resume") || !strings.Contains(err.Error(), "whoami") ||
+		strings.Contains(err.Error(), "git worktree add") {
+		t.Errorf("the refusal must point at the binding, not at a takeover: %v", err)
 	}
 }
 
@@ -493,5 +508,28 @@ func TestTeamSessionResumeClaimUnboundRefuses(t *testing.T) {
 	_ = json.Unmarshal(captured["CreateResumeClaim"], &vars)
 	if vars["sessionId"] != "s-x" {
 		t.Errorf("vars: %v", vars)
+	}
+
+	// No binding names the worker there: workerName is null, never "".
+	f3, out3 := testFactory(t)
+	root3 := NewRootCmd(f3)
+	root3.SetArgs([]string{"team", "session", "resume-claim", "--session", "s-x", "--json", "--server", gql.URL})
+	if err := root3.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out3.String(), `"workerName": null`) {
+		t.Errorf("workerName must be null with --session:\n%s", out3.String())
+	}
+
+	// An EMPTY --session is refused, not read as "the bound one".
+	delete(captured, "CreateResumeClaim")
+	f4, _ := testFactory(t)
+	root4 := NewRootCmd(f4)
+	root4.SetArgs([]string{"team", "session", "resume-claim", "--session", " ", "--server", gql.URL})
+	if code := exitCodeFor(root4.Execute()); code != exitcode.Usage {
+		t.Errorf("empty --session: exit %d, want %d", code, exitcode.Usage)
+	}
+	if _, called := captured["CreateResumeClaim"]; called {
+		t.Error("an empty --session must not claim anything")
 	}
 }

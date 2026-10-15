@@ -68,6 +68,7 @@ func TestMapError(t *testing.T) {
 		{"nothing to resume", gqlErr("NOTHING_TO_RESUME"), exitcode.NotFound},
 		{"resume refused", gqlErr("RESUME_REFUSED"), exitcode.Conflict},
 		{"resume ambiguous", gqlErr("RESUME_AMBIGUOUS"), exitcode.Usage},
+		{"session ended", gqlErr("SESSION_ENDED"), exitcode.Conflict},
 		{"worker not held", gqlErr("WORKER_NOT_HELD"), exitcode.Conflict},
 		{"worker live", gqlErr("WORKER_LIVE"), exitcode.Conflict},
 		{"worker start pending", gqlErr("WORKER_START_PENDING"), exitcode.Conflict},

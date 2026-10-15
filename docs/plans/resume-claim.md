@@ -37,8 +37,8 @@ Before #842, `start` with neither `--as` nor a launch grant was a usage error. N
 
 | Server outcome | CLI |
 |---|---|
-| `RESUMED` (a claim for an open session, or the caller's one live worker session) | writes the worktree binding (the optional cache), prints the receipt, continuity and briefing exactly as a bind does, and adds `resumeOutcome: "RESUMED"` to `--json` |
-| `STARTED` (the claimed session had ended, so the worker's next session was started) | the same, with `resumeOutcome: "STARTED"` |
+| `RESUMED` (a claim for an open session, or the caller's one live worker session) | writes the worktree binding (the optional cache), prints the receipt, continuity and briefing exactly as a bind does, and adds `resumeOutcome: "RESUMED"` to `--json`. `tookOver` is null: the session was picked because it reads live, so another context may still drive it |
+| `STARTED` (the claimed session had ended, so the worker's next session was started) | the same, with `resumeOutcome: "STARTED"` and `tookOver: false` (a new session, admitted only with none live) |
 | `CHOOSE` | binds nothing. It lists the candidates (worker name, description, source, and for a claim its expiry) with the `--session <id>` to pick each one, and exits 2. `--json` prints `{"resumeOutcome":"CHOOSE","candidates":[…]}` |
 | `NOTHING_TO_RESUME` | exit 4, with the server's message. No fallback, and nothing is posted |
 | `RESUME_REFUSED` | exit 5. The claim is spent, and the message says so |
@@ -50,8 +50,14 @@ or a launch grant. The flags `ResumeSessionInput` can't carry (`--repo`, `--bran
 takeover flag for a named worker, and a resume names none. `--tool`, `--host`, `--model` and
 `--transcript` ride along as provenance for a session the redemption starts.
 
-**The existing binding guard runs first.** Redeeming spends a claim, so a worktree already bound to a
-live session refuses (exit 5, the existing message) before `resumeSession` is called. A lapsed or ended
+**An empty `--as` is not an absent one.** `--as "$W"` with `W` unset is refused (exit 2), so it can
+never fall through to a resume that binds a different worker.
+
+**The existing binding guard runs first.** Redeeming spends a claim, so a worktree still bound to a live
+session refuses (exit 5) before `resumeSession` is called. The message says the binding already carries
+the worker (`whoami`), which is the ordinary shape of a shed in the same worktree, instead of the
+"another agent may be working here" takeover text that a named bind gets. A claim is for a context with
+no binding, and an unused one lapses on its own. A lapsed or ended
 binding is replaced, as a plain start replaces one. Outside a git worktree the start refuses before the
 call too: the CLI has nowhere to cache the binding, and consuming the claim anyway would strand it.
 
@@ -70,7 +76,9 @@ fast path (the one live session).
 * **Shed:** `team session resume-claim` (new) calls `createResumeClaim` for the bound session, or for
   `--session <id>`. The receipt prints the worker and the expiry, and says the claim must be redeemed
   within 60 seconds by running `team session start` with no worker named. The shed tooling (#1958)
-  calls this before the reset.
+  calls this before the reset. `--session ""` is refused, not read as the bound session. With
+  `--session`, `--json`'s `workerName` is null, because no binding names the worker. `SESSION_ENDED` maps
+  to exit 5.
 
 ## §10: custody of the claim
 

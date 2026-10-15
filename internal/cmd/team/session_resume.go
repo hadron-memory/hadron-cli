@@ -86,6 +86,22 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 	}
 	var lapsedBinding bool
 	if existing != nil {
+		if err := checkBindingServer(f, existing); err != nil {
+			return err
+		}
+		// A worktree whose binding is still LIVE needs no resume: the
+		// binding already carries the worker. That is the ordinary shape of
+		// a shed in the same worktree, so say so plainly instead of the
+		// "another agent may be working here" takeover refusal below, which
+		// is right for a named bind and wrong here. Best-effort: on any doubt
+		// the general guard still decides.
+		if c, cerr := f.GraphQLClient(); cerr == nil {
+			if r, lerr := gen.GetBoundSessionLiveness(ctx, c, existing.SessionID); lerr == nil && r != nil && r.Session != nil && r.Session.IsLive {
+				return exitcode.Newf(exitcode.Conflict,
+					"this worktree is still bound to worker %s (session %s, live), so there is nothing to resume: the binding already carries the worker, and `hadron team session whoami` shows it. A resume claim is for a context with no binding; an unused one lapses on its own",
+					existing.WorkerName, existing.SessionID)
+			}
+		}
 		lapsedBinding, err = checkExistingBinding(ctx, f, existing)
 		if err != nil {
 			return err
@@ -150,9 +166,16 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 		return retry(err)
 	}
 	outcome := string(r.Outcome)
-	// liveNo: the server's lifecycle gate admitted the resume only with no
-	// other live session of the worker, so nobody was displaced.
-	return finishBind(cmd, f, client, s, w, path, lapsedBinding, existing, liveNo, "", &outcome)
+	// tookOver. STARTED is a NEW session, and startSession's gate admits it
+	// only with no live session of the worker: provably nobody displaced.
+	// RESUMED is an EXISTING session, and the fast path picks it precisely
+	// because it reads live; another context may still be driving it, so
+	// whether this displaced anyone is unknown (null), never false.
+	live := liveUnknown
+	if r.Outcome == gen.ResumeOutcomeStarted {
+		live = liveNo
+	}
+	return finishBind(cmd, f, client, s, w, path, lapsedBinding, existing, live, "", &outcome)
 }
 
 // renderResumeChoice lists a CHOOSE answer and exits 2: nothing is bound, so
@@ -199,10 +222,11 @@ func renderResumeChoice(f *cmdutil.Factory, cands []*gen.ResumeTeamSessionResume
 // resumeClaimDTO is the stable --json shape of `session resume-claim`. It
 // carries no claim id because the server issues none.
 type resumeClaimDTO struct {
-	SessionID  string `json:"sessionId"`
-	WorkerID   string `json:"workerId"`
-	WorkerName string `json:"workerName"`
-	ExpiresAt  string `json:"expiresAt"`
+	SessionID string `json:"sessionId"`
+	WorkerID  string `json:"workerId"`
+	// From the binding; null with --session, where no binding names it.
+	WorkerName *string `json:"workerName"`
+	ExpiresAt  string  `json:"expiresAt"`
 }
 
 func newCmdSessionResumeClaim(f *cmdutil.Factory) *cobra.Command {
@@ -216,6 +240,12 @@ open: a shed. The fresh context then recovers the worker by running
 ` + "`hadron team session start`" + ` with no worker named, within 60 seconds of
 this write.
 
+The claim is for a context that has NO binding: another directory, a fresh
+checkout, a host whose worktree went away. A fresh context in THIS worktree
+needs no claim, since the binding here still carries the worker
+(` + "`team session whoami`" + `), and a resume here refuses (exit 5) because it is
+still bound. An unused claim lapses on its own.
+
 The claim is server-side and judged by your own token. The receipt names no
 claim id: there is nothing to keep, pass on or protect. It is single use, and
 writing a new one replaces any unused claim for the same session.
@@ -228,13 +258,16 @@ handoff, before the end.
 when the binding is gone). Someone else's session answers as an absent one;
 an ended session refuses SESSION_ENDED, and a session with no worker refuses
 SESSION_NOT_WORKER_BOUND.`,
-		Example: `  hadron team session resume-claim   # then reset the context, and in the new one:
+		Example: `  hadron team session resume-claim   # then reset; in the new context, with no binding:
   hadron team session start --tool claude-code`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			id := strings.TrimSpace(sessionID)
-			workerName := ""
+			if cmd.Flags().Changed("session") && id == "" {
+				return exitcode.Newf(exitcode.Usage, "--session must name a session id; omit it to claim this worktree's bound session")
+			}
+			var workerName *string
 			if id == "" {
 				b, _, err := readBinding(ctx)
 				if err != nil {
@@ -247,7 +280,7 @@ SESSION_NOT_WORKER_BOUND.`,
 				if err := checkBindingServer(f, b); err != nil {
 					return err
 				}
-				id, workerName = b.SessionID, b.WorkerName
+				id, workerName = b.SessionID, optStr(b.WorkerName)
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -264,8 +297,8 @@ SESSION_NOT_WORKER_BOUND.`,
 			dto := resumeClaimDTO{SessionID: rc.SessionId, WorkerID: rc.WorkerId, WorkerName: workerName, ExpiresAt: rc.ExpiresAt}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				who := dto.WorkerID
-				if dto.WorkerName != "" {
-					who = dto.WorkerName
+				if dto.WorkerName != nil {
+					who = *dto.WorkerName
 				}
 				_, err := fmt.Fprintf(w, "✓ resume claim written for %s (session %s), expires %s\n"+
 					"  within 60 seconds, run `hadron team session start` with no worker named in the fresh context to resume it\n",

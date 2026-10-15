@@ -769,6 +769,12 @@ ends the recovered session: run start again to pick it up.`,
 			if cmd.Flags().Changed("reports-to") && strings.TrimSpace(reportsTo) == "" {
 				return exitcode.Newf(exitcode.Usage, "--reports-to must name a worker; omit it to preserve the relation")
 			}
+			// An EMPTY --as is not an absent one (#842): `--as "$W"` with W
+			// unset must not fall through to a resume, which could bind a
+			// different worker (your claim, or your one live session).
+			if cmd.Flags().Changed("as") && strings.TrimSpace(as) == "" {
+				return exitcode.Newf(exitcode.Usage, "--as must name a worker; omit it to resume (start with no worker named)")
+			}
 			grant, err := launchGrantFrom(cmd, launchGrantFlag, as)
 			if err != nil {
 				return err
@@ -1154,7 +1160,7 @@ ends the recovered session: run start again to pick it up.`,
 			return finishBind(cmd, f, client, s, w, path, lapsedBinding, existing, live, repo, nil)
 		},
 	}
-	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App (required unless a launch grant is given)")
+	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App; omit it (and any launch grant) to resume")
 	cmd.Flags().StringVar(&launchGrantFlag, "launch-grant", "", "single-use launch grant from the host poller (default: $"+launchGrantEnv+"); binds the worker it names")
 	// LIVE, not "active": the gate is derived liveness, and an ACTIVE session
 	// is precisely the thing that no longer decides it (#550). Readers scan
