@@ -85,7 +85,7 @@ jobs:
           sparse-checkout: |
             scripts/export-graphql-sdl.mjs
             src/api/graphql/schema/typeDefs.ts
-            src/mcp/server.ts
+            src/mcp
             src/lib/runner/tools
             src/lib/hostOperations/types.ts
           sparse-checkout-cone-mode: false
@@ -109,7 +109,8 @@ jobs:
             SDL_EXPORT="npm install --no-save --no-package-lock --silent tsx graphql@16 1>&2 && node_modules/.bin/tsx scripts/export-graphql-sdl.mjs"
 
       # Same cross-repo checkout, second drift axis: the registered-tool manifest
-      # `hadron spec check-tools` embeds. Pure grep over the tool-source files —
+      # `hadron spec check-tools` embeds. Pure grep over the tool-source files (every module
+      # under src/mcp, since registration is split across them, plus the runner tools) —
       # no server install needed. continue-on-error so both checks always run and
       # the gate below reports either.
       - name: Check for tool-manifest drift
