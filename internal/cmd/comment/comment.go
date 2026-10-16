@@ -45,7 +45,7 @@ type Comment struct {
 	ThreadRootID       *string `json:"threadRootId"`
 	IsTopLevel         bool    `json:"isTopLevel"`
 	AnchorRevision     int     `json:"anchorRevision"`
-	AnchorApprovalHash string  `json:"anchorApprovalHash"`
+	AnchorApprovalHash *string `json:"anchorApprovalHash"`
 	AnchorIsCurrent    bool    `json:"anchorIsCurrent"`
 	Quote              *string `json:"quote"`
 	Body               *string `json:"body"`
