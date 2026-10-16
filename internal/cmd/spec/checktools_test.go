@@ -78,3 +78,24 @@ func TestEmbeddedToolManifest(t *testing.T) {
 		}
 	}
 }
+
+// hadron-cli#901: the manifest once held only server.ts's tools, so the specs
+// that cite tools from a split MCP module (cor:dmo:050:15/16, 130:03) were
+// reported as drift. The three signing tools are registered but gated behind a
+// feature — registration is what counts, so they belong in the manifest.
+func TestEmbeddedToolManifestHoldsSplitModuleTools(t *testing.T) {
+	reg := parseToolList(toolManifestRaw)
+	for _, want := range []string{
+		"hadron_agent_tasks", "hadron_agent_processes", // agentDefinitionTools.ts
+		"hadron_get_signing_request", "hadron_request_signature", "hadron_withdraw_signing_request", // signingTools.ts, gated
+	} {
+		if !reg[want] {
+			t.Errorf("manifest missing registered split-module tool %q", want)
+		}
+	}
+	// A cited-but-unregistered name must still fail; the fix is not a mask.
+	got := checkToolField("cor:dmo:050:15", "content", "hadron_agent_tasks and hadron_not_a_real_tool", reg, parseToolList(toolIgnoreRaw))
+	if len(got) != 1 || got[0].Token != "hadron_not_a_real_tool" {
+		t.Errorf("findings = %+v, want only hadron_not_a_real_tool", got)
+	}
+}
