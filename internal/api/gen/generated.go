@@ -22974,8 +22974,10 @@ type IssueHostOperationResponse struct {
 	// holder, the worker it reports to, or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED). worker.start:
 	// whoever manages the App only, with an optional taskId, for a held worker with no live session and no start in
 	// flight, in a worktree and family the live host registers for it (WORKER_NOT_HELD, WORKER_LIVE,
-	// WORKER_START_PENDING). worker.end ships with #1709's close-on-finish slice, and worker.deliver with a host delivery
-	// path: HOST_OPERATION_NOT_ISSUABLE until then. An unregistered host is HOST_NOT_FOUND.
+	// WORKER_START_PENDING). worker.end: whoever manages the App only (else HOST_OPERATION_NOT_PERMITTED), naming an open
+	// session of the worker on a host that registers it (else BAD_HOST_OPERATION_ARGS). worker.deliver is the one type
+	// not issued yet, HOST_OPERATION_NOT_ISSUABLE until a host has a delivery path for it (hadron-cli#829). An App key
+	// issues nothing (FORBIDDEN). An unregistered host is HOST_NOT_FOUND.
 	IssueHostOperation *IssueHostOperationIssueHostOperation `json:"issueHostOperation"`
 }
 
@@ -26528,17 +26530,17 @@ func (v *NodeApprovalFieldsApprovedByNodeRevisionEditor) GetHandle() *string { r
 // GetUrn returns NodeApprovalFieldsApprovedByNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
 func (v *NodeApprovalFieldsApprovedByNodeRevisionEditor) GetUrn() *string { return v.Urn }
 
-// #1591 — whether a node's current revision is approved.
+// #1591 — whether a node's approval still covers its current text (#1611: title, abstract and content under approval-hash v1; a metadata-only revision keeps it).
 type NodeApprovalState string
 
 const (
-	// The current revision is approved.
+	// The approval covers the current text: it was recorded at the revision in NodeApproval.revision, which can be older than Node.revision when only metadata (tags, properties, role, description, alias, loc, edges) changed since.
 	NodeApprovalStateApproved NodeApprovalState = "APPROVED"
 	// Approval is not applicable in an encrypted memory.
 	NodeApprovalStateNotApplicable NodeApprovalState = "NOT_APPLICABLE"
 	// Never approved.
 	NodeApprovalStateNotApproved NodeApprovalState = "NOT_APPROVED"
-	// Approved once, edited since: the approval covers an older revision.
+	// Approved once, then the title, abstract or content changed (or the text no longer hashes to the approval, see verifyNode's TAMPERED).
 	NodeApprovalStateSuperseded NodeApprovalState = "SUPERSEDED"
 )
 
@@ -42084,7 +42086,7 @@ type TeamRosterState string
 const (
 	// The assignee of a pending task.
 	TeamRosterStateAssignedNotStarted TeamRosterState = "ASSIGNED_NOT_STARTED"
-	// Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05), including an unbound worker a live host can launch and a bound worker whose session is quiet, which the matcher leaves alone until the host-operations slice (see liveSession).
+	// Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05), including an unbound worker a live host can launch, which the matcher assigns to, and a bound worker whose session is quiet, which the matcher leaves alone until its session is live again (see liveSession).
 	TeamRosterStateAvailable TeamRosterState = "AVAILABLE"
 	// Unbound, and no live host registration lists it.
 	TeamRosterStateNotLaunchable TeamRosterState = "NOT_LAUNCHABLE"
@@ -42142,7 +42144,7 @@ type TeamRosterTeamRosterWorkersTeamRosterEntry struct {
 	Role   *string                                                         `json:"role"`
 	// Bound: has an open session, live or quiet. Going quiet never unbinds; ending the session does.
 	Bound bool `json:"bound"`
-	// Has a live session (hrn:node:hadronmemory.com:specs:cor:agt:020:11). Until the host-operations slice, the matcher assigns only to a worker with one.
+	// Has a live session (hrn:node:hadronmemory.com:specs:cor:agt:020:11). The matcher assigns to a BOUND worker only while it has one and has reported a family; an unbound worker is matched when a live host can launch it.
 	LiveSession bool `json:"liveSession"`
 	// The binding's model family: its newest open session's (hrn:node:hadronmemory.com:specs:cor:agt:060:04), kept while the session is quiet. Null when unbound or none was reported.
 	Family *string `json:"family"`
@@ -48860,6 +48862,8 @@ type UpdateTeamSessionResponse struct {
 	// person is behind), never a host-launched one, and a key ever granted
 	// host:operate updates none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04).
 	// Updates on an ended session stay allowed (late PR-merge attribution).
+	// #1931 — llmModel refreshes the model-family derivation; an explicit family wins.
+	// Null or omitted family metadata preserves the existing family. Unclassified models do not clear it.
 	UpdateSession *UpdateTeamSessionUpdateSession `json:"updateSession"`
 }
 

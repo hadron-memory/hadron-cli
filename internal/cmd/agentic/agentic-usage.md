@@ -814,14 +814,20 @@ Conventions:
     server snapshotted it — never reconstructed from the live node), with the
     same null convention; the list table gains a VALIDATION column.
   - `approvalStatus` reports APPROVED, NOT_APPROVED or SUPERSEDED for the
-    current revision, with the latest approval record; `mintStatus` reports
+    node's current text, with the latest approval record. APPROVED means the
+    approval still covers the title, abstract and content, so a metadata-only
+    revision (tags, properties, role, description, alias, loc, edges) keeps it
+    and `approval.revision` — where it was recorded — can be older than the
+    node's `revision`. SUPERSEDED means that text changed after approval;
+    `mintStatus` reports
     whether that node is minted and, when known, the minted revision, hash,
     time and principal. A null status means the server predates that feature.
     `node approve <ref> [--revision N]` stamps the current revision, with the
     optional expected revision refusing a changed node (REVISION_MISMATCH,
     exit 5). `memory approve-all -m <memory> --yes` stamps eligible unminted
     nodes in bulk. `node verify <ref>` returns INTACT, NOT_APPROVED,
-    SUPERSEDED or TAMPERED; non-INTACT exits 5. `spec get` and `spec list`
+    SUPERSEDED or TAMPERED (content changed outside the write path, never
+    reported as merely superseded); non-INTACT exits 5. `spec get` and `spec list`
     expose the same statuses, `spec describe` counts them, and `spec list`
     accepts `--approved|--unapproved` or `--minted|--unminted` filters.
   - **Passkey signatures** (hadron-server#1632; cli#818). The CLI asks for a

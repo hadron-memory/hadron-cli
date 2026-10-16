@@ -14,8 +14,10 @@ import (
 )
 
 // approvalDTO is the latest server-recorded approval. It is deliberately
-// separate from a content-validation stamp: an approval covers exactly one
-// node revision, and a newer revision never inherits it.
+// separate from a content-validation stamp. Revision is where the approval was
+// RECORDED; the approval keeps covering the node until its title, abstract or
+// content changes, so a metadata-only revision leaves it valid and Revision can
+// be older than the node's current one (hadron-server#1611).
 type approvalDTO struct {
 	Revision       int                `json:"revision"`
 	ApprovedAt     string             `json:"approvedAt"`
@@ -116,7 +118,9 @@ func newCmdApprove(f *cmdutil.Factory) *cobra.Command {
 		Short: "Approve a node's current revision",
 		Long: `Record approval of the node's current revision. The server records the
 approver, time and full SHA-256 of the title, abstract and content. A later
-edit creates a new revision and leaves that new revision unapproved.
+change to the title, abstract or content supersedes the approval; a
+metadata-only revision (tags, properties, role, description, alias, loc, edges)
+leaves it valid.
 
 Pass --revision from a prior node read to refuse if the node changed since
 you saw it. Without that flag, the server approves the revision current when
@@ -168,9 +172,11 @@ func newCmdVerify(f *cmdutil.Factory) *cobra.Command {
 		Use:   "verify <node-ref>",
 		Short: "Check a node's current content against its recorded approval",
 		Long: `Recompute the server's approval hash over the current title, abstract
-and content. INTACT means the current revision is approved and still matches.
-TAMPERED means an approved revision changed outside revisioned editing;
-SUPERSEDED means a legitimate edit advanced the revision after approval.
+and content. INTACT means the approval still covers the current text, even when
+it was recorded at an older revision (a metadata-only revision keeps it).
+TAMPERED means approved content changed outside revisioned editing;
+SUPERSEDED means a legitimate edit changed the title, abstract or content
+after approval.
 NOT_APPROVED means no approval exists. The command exits 5 for every state
 other than INTACT, after printing the result.`,
 		Args: cobra.ExactArgs(1),
@@ -201,7 +207,7 @@ other than INTACT, after printing the result.`,
 					return err
 				}
 				if dto.ApprovedRevision != nil {
-					fmt.Fprintf(w, "  approved revision: %d\n", *dto.ApprovedRevision)
+					fmt.Fprintf(w, "  approval recorded at revision: %d\n", *dto.ApprovedRevision)
 				}
 				if dto.ExpectedHash != nil {
 					fmt.Fprintf(w, "  approved hash: %s\n", *dto.ExpectedHash)
@@ -244,13 +250,13 @@ func renderApprovalStatus(w io.Writer, indent string, s *approvalStatusDTO) {
 	switch s.State {
 	case string(gen.NodeApprovalStateApproved):
 		if s.Approval != nil {
-			fmt.Fprintf(w, "%sapproval: APPROVED revision %d by %s at %s\n", indent,
+			fmt.Fprintf(w, "%sapproval: APPROVED (approval recorded at revision %d by %s at %s)\n", indent,
 				s.Approval.Revision, approverLabel(*s.Approval), s.Approval.ApprovedAt)
 			return
 		}
 	case string(gen.NodeApprovalStateSuperseded):
 		if s.Approval != nil {
-			fmt.Fprintf(w, "%sapproval: SUPERSEDED (last approved revision %d by %s at %s)\n", indent,
+			fmt.Fprintf(w, "%sapproval: SUPERSEDED (title, abstract or content changed since the approval recorded at revision %d by %s at %s)\n", indent,
 				s.Approval.Revision, approverLabel(*s.Approval), s.Approval.ApprovedAt)
 			return
 		}

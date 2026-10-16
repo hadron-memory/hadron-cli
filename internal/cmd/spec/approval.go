@@ -181,12 +181,12 @@ func renderSpecApproval(w io.Writer, s *specApprovalDTO) {
 	switch s.State {
 	case string(gen.NodeApprovalStateApproved):
 		if s.Approval != nil {
-			fmt.Fprintf(w, "Approval: APPROVED revision %d by %s at %s\n", s.Approval.Revision, specApprover(*s.Approval), s.Approval.ApprovedAt)
+			fmt.Fprintf(w, "Approval: APPROVED (approval recorded at revision %d by %s at %s)\n", s.Approval.Revision, specApprover(*s.Approval), s.Approval.ApprovedAt)
 			return
 		}
 	case string(gen.NodeApprovalStateSuperseded):
 		if s.Approval != nil {
-			fmt.Fprintf(w, "Approval: SUPERSEDED (last approved revision %d by %s at %s)\n", s.Approval.Revision, specApprover(*s.Approval), s.Approval.ApprovedAt)
+			fmt.Fprintf(w, "Approval: SUPERSEDED (title, abstract or content changed since the approval recorded at revision %d by %s at %s)\n", s.Approval.Revision, specApprover(*s.Approval), s.Approval.ApprovedAt)
 			return
 		}
 	}

@@ -355,3 +355,68 @@ func TestNodeGetKeepsMintFromAfterProbe(t *testing.T) {
 		t.Errorf("after-probe mint not paired with node: %+v", dto)
 	}
 }
+
+// hadron-cli#895: APPROVED covers the last content revision, so a metadata-only
+// edit leaves a node APPROVED/INTACT at a revision newer than the approval's.
+// The text must not present the approval's revision as the current one, and
+// the wire fields stay exactly as the server sent them.
+func TestNodeVerifyIntactWithOlderApprovalRevision(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"VerifyNode": `{"data":{"verifyNode":{"nodeId":"n1","urn":"hrn:node:acme.com:kb:findings:flaky-ci","loc":"findings:flaky-ci","state":"INTACT","revision":5,"approvedRevision":2,"expectedHash":"aaaa","actualHash":"aaaa"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "verify", nodeURN, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("INTACT must exit 0: %v", err)
+	}
+	got := out.String()
+	for _, want := range []string{"INTACT (revision 5)", "approval recorded at revision: 2"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("%q missing %q", got, want)
+		}
+	}
+	if strings.Contains(got, "approved revision:") {
+		t.Errorf("old label survived: %q", got)
+	}
+
+	f, out = testFactory(t)
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"node", "verify", nodeURN, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var dto struct {
+		State            string `json:"state"`
+		Revision         int    `json:"revision"`
+		ApprovedRevision *int   `json:"approvedRevision"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if dto.State != "INTACT" || dto.Revision != 5 || dto.ApprovedRevision == nil || *dto.ApprovedRevision != 2 {
+		t.Errorf("wire fields moved: %+v", dto)
+	}
+}
+
+func TestApprovalHelpDescribesContentNotRevision(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"node", "verify", "--help"}, "metadata-only"},
+		{[]string{"node", "approve", "--help"}, "metadata-only"},
+		{[]string{"spec", "list", "--help"}, "title, abstract or content changed"},
+	} {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(tc.args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", tc.args, err)
+		}
+		if !strings.Contains(out.String(), tc.want) {
+			t.Errorf("%v help lacks %q", tc.args, tc.want)
+		}
+	}
+}

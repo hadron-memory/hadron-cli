@@ -3788,7 +3788,9 @@ type HomeAssistantOp {
 #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
 """
 type HostKeyUse {
-  """register, collect, report, availability or read."""
+  """
+  register, collect, report, availability, read or (#1969) session: a refused session write (updateSession, endSession).
+  """
   action: String!
 
   """
@@ -6584,8 +6586,10 @@ type Mutation {
   holder, the worker it reports to, or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED). worker.start:
   whoever manages the App only, with an optional taskId, for a held worker with no live session and no start in
   flight, in a worktree and family the live host registers for it (WORKER_NOT_HELD, WORKER_LIVE,
-  WORKER_START_PENDING). worker.end ships with #1709's close-on-finish slice, and worker.deliver with a host delivery
-  path: HOST_OPERATION_NOT_ISSUABLE until then. An unregistered host is HOST_NOT_FOUND.
+  WORKER_START_PENDING). worker.end: whoever manages the App only (else HOST_OPERATION_NOT_PERMITTED), naming an open
+  session of the worker on a host that registers it (else BAD_HOST_OPERATION_ARGS). worker.deliver is the one type
+  not issued yet, HOST_OPERATION_NOT_ISSUABLE until a host has a delivery path for it (hadron-cli#829). An App key
+  issues nothing (FORBIDDEN). An unregistered host is HOST_NOT_FOUND.
   """
   issueHostOperation(input: IssueHostOperationInput!): HostOperation!
 
@@ -7997,8 +8001,10 @@ type Mutation {
   person is behind), never a host-launched one, and a key ever granted
   host:operate updates none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04).
   Updates on an ended session stay allowed (late PR-merge attribution).
+  #1931 — llmModel refreshes the model-family derivation; an explicit family wins.
+  Null or omitted family metadata preserves the existing family. Unclassified models do not clear it.
   """
-  updateSession(branch: String, id: ID!, prNumber: Int): Session!
+  updateSession(branch: String, family: String, id: ID!, llmModel: String, prNumber: Int): Session!
 
   """
   #1201 — the UPDATE door for the spec kind, and the counterpart of
@@ -8393,9 +8399,13 @@ type NodeApprovalReceipt {
   urn: String!
 }
 
-"""#1591 — whether a node's current revision is approved."""
+"""
+#1591 — whether a node's approval still covers its current text (#1611: title, abstract and content under approval-hash v1; a metadata-only revision keeps it).
+"""
 enum NodeApprovalState {
-  """The current revision is approved."""
+  """
+  The approval covers the current text: it was recorded at the revision in NodeApproval.revision, which can be older than Node.revision when only metadata (tags, properties, role, description, alias, loc, edges) changed since.
+  """
   APPROVED
 
   """Approval is not applicable in an encrypted memory."""
@@ -8404,7 +8414,9 @@ enum NodeApprovalState {
   """Never approved."""
   NOT_APPROVED
 
-  """Approved once, edited since: the approval covers an older revision."""
+  """
+  Approved once, then the title, abstract or content changed (or the text no longer hashes to the approval, see verifyNode's TAMPERED).
+  """
   SUPERSEDED
 }
 
@@ -13398,7 +13410,7 @@ type TeamRosterEntry {
   launchableFamilies: [String!]!
 
   """
-  Has a live session (hrn:node:hadronmemory.com:specs:cor:agt:020:11). Until the host-operations slice, the matcher assigns only to a worker with one.
+  Has a live session (hrn:node:hadronmemory.com:specs:cor:agt:020:11). The matcher assigns to a BOUND worker only while it has one and has reported a family; an unbound worker is matched when a live host can launch it.
   """
   liveSession: Boolean!
 
@@ -13450,7 +13462,7 @@ enum TeamRosterState {
   ASSIGNED_NOT_STARTED
 
   """
-  Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05), including an unbound worker a live host can launch and a bound worker whose session is quiet, which the matcher leaves alone until the host-operations slice (see liveSession).
+  Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05), including an unbound worker a live host can launch, which the matcher assigns to, and a bound worker whose session is quiet, which the matcher leaves alone until its session is live again (see liveSession).
   """
   AVAILABLE
 

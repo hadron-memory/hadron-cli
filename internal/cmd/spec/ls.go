@@ -153,8 +153,8 @@ after merging both spec markers.`,
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by citation prefix (e.g. msg:010)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of specs to display (default: all)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset (implies a single page)")
-	cmd.Flags().BoolVar(&approved, "approved", false, "show only specs whose current revision is approved")
-	cmd.Flags().BoolVar(&unapproved, "unapproved", false, "show specs never approved or edited since approval")
+	cmd.Flags().BoolVar(&approved, "approved", false, "show only specs whose current text is approved (a metadata-only revision keeps the approval)")
+	cmd.Flags().BoolVar(&unapproved, "unapproved", false, "show specs never approved, or whose title, abstract or content changed since approval")
 	cmd.Flags().BoolVar(&minted, "minted", false, "show minted specs")
 	cmd.Flags().BoolVar(&unminted, "unminted", false, "show unminted specs")
 	return cmd
