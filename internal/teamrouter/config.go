@@ -2,6 +2,7 @@ package teamrouter
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -16,11 +17,13 @@ import (
 // loads unchanged (cli#829: config migrates). `hadronCli` is accepted and
 // ignored: this port speaks GraphQL natively.
 type Config struct {
-	App      string        `json:"app"`
-	Channel  string        `json:"channel"`
-	OrcaCli  string        `json:"orcaCli"`
-	StateDir string        `json:"stateDir"`
-	Roster   []RosterEntry `json:"roster"`
+	// Fingerprint identifies the exact bytes loaded, without exposing state tokens.
+	Fingerprint string        `json:"-"`
+	App         string        `json:"app"`
+	Channel     string        `json:"channel"`
+	OrcaCli     string        `json:"orcaCli"`
+	StateDir    string        `json:"stateDir"`
+	Roster      []RosterEntry `json:"roster"`
 	// BusyWaitMS is the idle gate's tui-idle wait (default 60 s).
 	BusyWaitMS int `json:"busyWaitMs"`
 	// SubmitWaitS is `orca terminal send --wait-submit` (default 15 s).
@@ -89,11 +92,15 @@ func LoadConfig(path string) (*Config, error) {
 	if err != nil {
 		return nil, routerErrorf("config: %v", err)
 	}
+	return parseConfig(b, path)
+}
+
+func parseConfig(b []byte, path string) (*Config, error) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(b, &raw); err != nil || raw == nil {
 		return nil, routerErrorf("config %s is not a JSON object", path)
 	}
-	c := &Config{OrcaCli: DefaultOrcaCli(), BusyWaitMS: 60_000, SubmitWaitS: 15, CoordinatorWatchMin: 20}
+	c := &Config{Fingerprint: fmt.Sprintf("%x", sha256.Sum256(b)), OrcaCli: DefaultOrcaCli(), BusyWaitMS: 60_000, SubmitWaitS: 15, CoordinatorWatchMin: 20}
 	// The roster is validated first, as in router.ts, so a config with
 	// several faults names the same one either router would.
 	roster, err := loadRoster(raw["roster"])

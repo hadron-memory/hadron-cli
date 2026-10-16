@@ -311,6 +311,7 @@ hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] 
 hadron agent list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] [--tasks-index <node-ref> | --processes-index <node-ref>] (explicit empty clears) | rm <id> --yes | tasks list <agentRef> | processes list <agentRef> | set-base <agent> (<base> | --clear)
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | set-reports-to <worker> (<target> | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
+hadron team worker onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <label> --family <family> --worktrees-root <absolute-path> --config <router.json> [--base main] [--display-name <text>] [--coordinator] [--apply] [--as-person] [--timeout 2m]   # Orca-hosted workers only; dry-run by default, submits nothing; prerequisites and partial-outcome contract below
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team session start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding; with NO binding it REFUSES, exit 4, unless --as-me — cli#842) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
@@ -3011,6 +3012,36 @@ Comment refusals expose their bounded recovery details on curated output:
 are not forwarded. `COMMENT_MERGE_FOLDS_THREADS` exits 2: the caller must
 resolve the anchored-thread conflict before merging, rather than retry blind.
 
+
+## Orca worker onboarding
+
+`team worker onboard` is Orca-hosted workers only. It defaults to dry-run,
+submitting nothing and changing no files. It requires an already cast, held
+worker, live host registration and configured launch argv/repo mapping, and
+the worker's mention-only Channel register row. Those are operator prerequisites.
+The router config must belong to the worker's App. `--repo` is the queue's repo
+token; `--worktrees-root` must match the target host's root. Outside reachable
+Orca it refuses with exit 2 before any queue submission.
+
+`--apply` submits only typed `worktree.create` then `worker.start`, with
+server-side authority checks (starting requires the App manager; `--as-person`
+uses your own authority). It reuses identical operations on retry, and reports
+failed operations instead of reissuing them. Only three host-local steps follow:
+roster entry, exact-config reload confirmation from the current Go `team router
+loop`, and Orca display name. Set `--timeout` (1s–30m, per operation/reload) to
+allow the router's polling interval. A TS router has no reload receipt; upgrade
+the loop before applying. Onboard never casts, binds a session, writes a register
+row, or reads/writes the router's adopted token.
+
+`--json` returns `appId`, `appRef`, `dryRun`, `workerId`, `worktree`, `operations` (type/args),
+`queue` (known id/type/status), `verified`, `humanRemainder`, and nullable `error`.
+After preflight a failure prints this partial record before nonzero exit;
+timeouts leave submitted work running. Inspect `team host ops` after ambiguous
+submission errors before retrying. Onboarding separately verifies the worktree
+path/branch, a current worker session, an Orca agent terminal, and display
+metadata. The human tail asks for the worker's pickup and mention
+delivery to be checked. `team router loop` reloads validated configuration only
+between complete polls, writing a fingerprint/time receipt in `config-loaded.json`.
 
 ## Worker reporting relationships
 

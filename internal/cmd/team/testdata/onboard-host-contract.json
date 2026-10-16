@@ -1,0 +1,8 @@
+{
+  "source": "hadron-memory/hadron-server:src/lib/hostOperations/types.ts",
+  "revision": "b2916e71fb397ca7cbfbc6ed7efa218f428942bc",
+  "operations": {
+    "worktree.create": {"required": {"workerId":"id","repo":"token","baseBranch":"token","branchName":"token","label":"token"}, "optional": {}},
+    "worker.start": {"required": {"workerId":"id","worktree":"token","family":"family"}, "optional": {"taskId":"id"}}
+  }
+}
