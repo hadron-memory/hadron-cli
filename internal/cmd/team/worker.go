@@ -49,6 +49,7 @@ worker in scripts.`,
 	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))
+	cmd.AddCommand(newCmdWorkerOnboard(f))
 	return cmd
 }
 

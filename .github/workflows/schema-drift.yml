@@ -87,7 +87,12 @@ jobs:
             src/api/graphql/schema/typeDefs.ts
             src/mcp/server.ts
             src/lib/runner/tools
+            src/lib/hostOperations/types.ts
           sparse-checkout-cone-mode: false
+
+      - name: Check onboard typed host-operation fixture
+        if: steps.gate.outputs.enabled == 'true'
+        run: python3 scripts/check-onboard-host-contract.py --server-repo .hadron-server --server-ref HEAD
 
       # Reuses the same `make schema-check` developers run locally. SDL_EXPORT is
       # overridden to export the SDL without a full server `pnpm install`:

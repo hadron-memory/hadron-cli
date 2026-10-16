@@ -230,15 +230,12 @@ held someone, or failed; --json prints one JSON object per such poll.
 
 SIGINT/SIGTERM stop the loop AFTER the poll in flight finishes — a send is
 never cut off between Orca's receipt and the ledger write. A second signal
-exits at once.`,
+exits at once. Configuration reloads between polls; config-loaded.json records
+the loaded config fingerprint and time, without changing the adopted token.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if interval < time.Second {
 				return exitcode.Newf(exitcode.Usage, "--interval must be at least 1s (got %s)", interval)
-			}
-			run, err := newRouterRun(f, configFlag)
-			if err != nil {
-				return err
 			}
 			logw := f.IOStreams.Out
 			if f.JSON {
@@ -247,6 +244,15 @@ exits at once.`,
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
 			for {
+				// Reload only between complete deliveries. Invalid config stops the
+				// loop rather than continuing to wake an obsolete roster.
+				run, err := newRouterRun(f, configFlag)
+				if err != nil {
+					return err
+				}
+				if err := teamrouter.RecordReload(run.cfg); err != nil {
+					return err
+				}
 				out, pollErr := run.pollOnce(context.WithoutCancel(ctx), logw)
 				at := time.Now()
 				noisy := pollErr != nil || len(out.Nudged) > 0 || len(out.Held) > 0 || len(out.Liveness) > 0
