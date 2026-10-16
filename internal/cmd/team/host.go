@@ -4,7 +4,7 @@ package team
 // the registrations its hosts keep (cor:agt:070:01), the operations issued to
 // them (cor:agt:070:02), and issuing one (cor:agt:070:05). These are the
 // reader and manager surfaces; a host's own side (register, collect, report)
-// is the poller's (#831). No argument, flag or output here carries a
+// is the poller's: `team host run|status` in host_run.go (#831). No argument, flag or output here carries a
 // credential: an operation's arguments are ids and name tokens only
 // (cor:agt:070:03), and a plan login never travels in one (Holger, #10777).
 
@@ -114,12 +114,15 @@ func newCmdTeamHost(f *cmdutil.Factory) *cobra.Command {
 workers it can run, as which model family and in which worktrees
 (cor:agt:070:01); people and workers issue it typed operations
 (cor:agt:070:05), which it collects and reports (cor:agt:070:02).
-` + "`list`" + ` and ` + "`ops`" + ` read them; ` + "`issue`" + ` issues one. A host's key is
+` + "`list`" + ` and ` + "`ops`" + ` read them; ` + "`issue`" + ` issues one. ` + "`run`" + ` is the
+host's own poller, and ` + "`status`" + ` checks its configuration. A host's key is
 granted with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" + `.`,
 	}
 	cmd.AddCommand(newCmdTeamHostLs(f))
 	cmd.AddCommand(newCmdTeamHostOps(f))
 	cmd.AddCommand(newCmdTeamHostIssue(f))
+	cmd.AddCommand(newCmdTeamHostRun(f))
+	cmd.AddCommand(newCmdTeamHostStatus(f))
 	return cmd
 }
 
@@ -384,8 +387,10 @@ tokens, never a command and never a credential:
   worktree.remove  --arg worktree=…   (a worktree the host registers for the worker)
 
 The worker is named with --worker (id, URN or name), never inside --arg.
-worker.start, worker.end and worker.deliver are in the set but not issued
-yet (HOST_OPERATION_NOT_ISSUABLE, exit 2); any other type is
+worker.start and worker.end are issued by whoever manages the App —
+worker.end for an open session of the worker; worker.deliver is not issued
+until a host has a delivery path for it (hadron-cli#829), refusing
+HOST_OPERATION_NOT_ISSUABLE (exit 2). Any other type is
 HOST_OPERATION_TYPE_UNKNOWN (exit 2), and a missing, extra or malformed
 argument BAD_HOST_OPERATION_ARGS (exit 2). An unregistered host is
 HOST_NOT_FOUND (exit 4).
@@ -397,8 +402,8 @@ operation is that worker's: it qualifies only as the target's reports-to.
 Pass --as-person to issue it as yourself instead — as the target's holder or
 the App's manager — with no worker session.`,
 		Example: `  hadron team host issue worktree.create --host orca1 --worker Jonas \
-    --arg repo=hadron-cli --arg baseBranch=main --arg branchName=jonas/871 --arg label=jonas-3
-  hadron team host issue worktree.remove --host orca1 --worker Jonas --arg worktree=jonas-3 --as-person`,
+    --arg repo=hadron-memory/hadron-cli --arg baseBranch=main --arg branchName=jonas/871 --arg label=jonas-3
+  hadron team host issue worktree.remove --host orca1 --worker Jonas --arg worktree=hadron-memory/hadron-cli/jonas-3 --as-person`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

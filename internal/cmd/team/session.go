@@ -60,6 +60,7 @@ holds nothing), so it has nothing to release.`,
 	cmd.AddCommand(newCmdSessionWhoami(f))
 	cmd.AddCommand(newCmdSessionLog(f))
 	cmd.AddCommand(newCmdSessionEnd(f))
+	cmd.AddCommand(newCmdSessionResumeClaim(f))
 	cmd.AddCommand(newCmdSessionList(f))
 	return cmd
 }
@@ -634,10 +635,10 @@ func heldRefusal(name, ref, holder string, heldAt *string) error {
 }
 
 func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
-	var as, repo, branch, transcript, host, tool, model, teamMemory, reportsTo string
+	var as, repo, branch, transcript, host, tool, model, teamMemory, reportsTo, launchGrantFlag, pick string
 	var force bool
 	cmd := &cobra.Command{
-		Use:   "start --as <worker> [--transcript <path>] [--tool <t>] [--force]",
+		Use:   "start [--as <worker> | --launch-grant <grant> | --session <id>] [--transcript <path>] [--tool <t>] [--force]",
 		Short: "Start a worker session: bind this worktree to a worker",
 		Long: `Start a coding session as a worker. The session is recorded server-side
 (with the provenance fields: repo, branch, host, tool, transcript path,
@@ -720,6 +721,20 @@ That leaves an open lapsed session intact for its own driver's handoff.
 replacing its local binding. It never separates two live agents working
 in one tree.
 
+A LAUNCHED AGENT binds with --launch-grant instead (hadron-cli#831,
+cor:agt:070:08). The host poller (` + "`team host run`" + `) hands the agent it starts
+a single-use grant in HADRON_LAUNCH_GRANT, and this command reads it from
+there when neither --launch-grant nor --as is given. The grant names the
+worker, so --as is not needed with it; --as with --launch-grant has the
+server check both name the same worker. A plain ` + "`start --as <worker>`" + ` ignores
+the variable, so a spent grant left in the environment never gets in the
+way of an ordinary bind later. Redeem
+it with the HOLDER's own token: an App key, the host's own included, never
+redeems one (exit 8, LAUNCH_GRANT_INVALID, also for an unknown, expired or
+used grant). A changed hold or a worker that is already live refuses the
+bind and fails the start (exit 5, LAUNCH_REFUSED). --force never applies to
+a launch: nothing overrides a refused one.
+
 --reports-to optionally names the worker this worker reports to (name, URN or
 id). The server sets it at bind; omit the flag to preserve the existing relation.
 The relation lives on the worker and survives session changes.
@@ -727,14 +742,54 @@ The relation lives on the worker and survives session changes.
 Binding a worker CLAIMS its name for you. Casting one does not: a roster
 staffed by a coordinator is unheld until each person binds their own, and
 an APP-KEY session claims nothing at all (an App key is not a person and
-holds nothing).`,
+holds nothing).
+
+WITH NO WORKER NAMED AND NO GRANT, START RESUMES (hadron-cli#842,
+cor:agt:020:03). It asks the server to recover your worker, judged only by
+your own token: an unused resume claim of yours (written by
+` + "`session end --resume-claim`" + ` or ` + "`session resume-claim`" + ` before a context reset,
+redeemable for 60 seconds) binds it, RESUMED to the open session or STARTED
+as the worker's next one. With no claim, your one live worker session is
+RESUMED. Either way the worktree binding is written and the briefing
+printed, as for any bind. Several candidates bind nothing: they are listed,
+exit 2, and --session <id> picks one. Nothing at all refuses
+NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
+behalf. A refused resume (exit 5, RESUME_REFUSED) has spent its claim.
+--tool, --host, --model and --transcript ride along. --repo, --branch,
+--reports-to, -m and --force do not apply and are refused. A worktree still
+bound to a live session refuses first, before any claim is spent, as does a
+directory outside a git worktree. A failure after the server answered never
+ends the recovered session: run start again to pick it up.`,
 		Example: `  hadron team session start --as Iris --tool claude-code \
-      --transcript ~/.claude/projects/x/transcript.jsonl`,
+      --transcript ~/.claude/projects/x/transcript.jsonl
+  hadron team session start --tool claude-code   # resume after a context reset`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if cmd.Flags().Changed("reports-to") && strings.TrimSpace(reportsTo) == "" {
 				return exitcode.Newf(exitcode.Usage, "--reports-to must name a worker; omit it to preserve the relation")
+			}
+			// An EMPTY --as is not an absent one (#842): `--as "$W"` with W
+			// unset must not fall through to a resume, which could bind a
+			// different worker (your claim, or your one live session).
+			if cmd.Flags().Changed("as") && strings.TrimSpace(as) == "" {
+				return exitcode.Newf(exitcode.Usage, "--as must name a worker; omit it to resume (start with no worker named)")
+			}
+			grant, err := launchGrantFrom(cmd, launchGrantFlag, as)
+			if err != nil {
+				return err
+			}
+			if grant == "" && strings.TrimSpace(as) == "" {
+				// hadron-cli#842: no worker named and no grant is a RESUME.
+				return runSessionResume(cmd, f, resumeFlags{
+					pick: pick, tool: tool, host: host, model: model, transcript: transcript,
+				})
+			}
+			if cmd.Flags().Changed("session") {
+				return exitcode.Newf(exitcode.Usage, "--session picks a candidate of a resume (start with no worker named); it does not apply with --as or a launch grant")
+			}
+			if grant != "" && force {
+				return exitcode.Newf(exitcode.Usage, "--force does not apply to a launch grant: a refused launch is not overridable (cor:agt:070:08)")
 			}
 			existing, _, err := readBinding(ctx)
 			if err != nil {
@@ -776,6 +831,8 @@ holds nothing).`,
 			// configured context. A worker ID resolves without any of them.
 			appScope := ""
 			var appRefArg *string
+			var w gen.WorkerFields
+			live := liveNo
 			if teamMemory != "" {
 				resolved, aerr := appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(teamMemory))
 				if aerr != nil {
@@ -789,142 +846,150 @@ holds nothing).`,
 			} else if ambient, aerr := f.App(); aerr == nil && ambient != "" {
 				appScope = ambient
 			}
-			w, err := resolveWorker(ctx, client, appScope, as)
-			if err != nil {
-				return err
+			if strings.TrimSpace(as) != "" {
+				w, err = resolveWorker(ctx, client, appScope, as)
+				if err != nil {
+					return err
+				}
 			}
-			if w.RetiredAt != nil {
+			if w.Id != "" && w.RetiredAt != nil {
 				return exitcode.Newf(exitcode.Usage,
 					"worker %s retired %s — a retired worker takes no new sessions (cast a new worker for the role)", w.Name, *w.RetiredAt)
 			}
-			// LIVENESS FIRST, because it is what decides whether the read below
-			// is narration or the decision — and it costs nothing, being a field
-			// on the worker row already in hand.
-			live := workerLiveness(w)
-			// NARRATION, so it degrades — except where the narration IS the
-			// decision (#553, coordinator ruling).
-			//
-			// #552 demoted this read: the TAKEN gate is `workerLiveness` above.
-			// A read the command no longer depends on must not be able to fail
-			// the command — that refuses a caller who can see the worker but not
-			// its session list, by a dependency that was removed, which is #550
-			// in a different costume.
-			//
-			// The exception is a bind that MAY DISPLACE SOMEBODY, because
-			// cor:agt:020:03 makes the override informed or nothing: a takeover
-			// that cannot see who it displaces has nothing left to be informed
-			// by. This is the ONE thing here that is allowed to be fatal.
-			//
-			// It is gated on `live != liveNo` and NOT on `force` alone — the
-			// distinction @codex and @copilot both caught, and @codex's reason
-			// is the one that makes it urgent. **--force is not only a takeover
-			// flag**: it also explicitly replaces an abandoned local worktree
-			// binding, and that path has ALREADY ENDED the previous session by
-			// the time it arrives here. Aborting on a narration blip therefore
-			// leaves the old session ended and the local binding intact. A plain
-			// start can replace an ended binding since #791, but the forced path
-			// must still avoid turning a best-effort narration read into a bind
-			// refusal.
-			//
-			// `liveNo` and not `liveYes` is the direction, because degrading
-			// needs POSITIVE evidence that nobody is displaced. `liveUnknown`
-			// means the server declined to say, and "it did not tell me somebody
-			// is there" is not "nobody is there".
-			//
-			// BOTH conditions, and the `force` half is not redundant: a bind
-			// WITHOUT --force against a live name is about to refuse anyway, with
-			// exit 5 and a sentence naming liveness. Turning that into a
-			// transport error would replace an answer about the worker with an
-			// answer about the network — the mirror of the defect above, and the
-			// shape #556 already fixed once by hoisting a guard above the client.
-			narr, aerr := workerActivity(ctx, client, w.Id)
-			if aerr != nil {
-				if force && live != liveNo {
-					// Preserve the mapped code — a gateway 5xx must still exit
-					// 7, not collapse to a generic 1 because we added a
-					// sentence. The bind is refused, not attempted.
-					return exitcode.New(exitcode.FromError(aerr), fmt.Errorf(
-						"could not read who is driving worker %s, so --force cannot say whom it takes over from (cor:agt:020:03). Retry: %w",
-						w.Name, aerr))
-				}
-				// No claim about what happens next: this note is printed on
-				// paths that go on to refuse as well as ones that bind, so
-				// promising that the server decides would be false on the first
-				// (@copilot).
-				fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read %s's session detail (%v) — continuing; the bind does not depend on it\n", w.Name, aerr)
-			}
-			last, active := narr.last, narr.active
-			// TAKEN is DERIVED liveness, never an open session row (#550).
-			//
-			// MASKED DEFERS TO THE SERVER, deliberately, and this is the one
-			// place that decides it. A caller outside the worker read gate is
-			// not shown liveness; refusing them on that absence would refuse
-			// somebody the server would have admitted, and would make --force
-			// the routine path for everyone outside the gate — which is how an
-			// override stops meaning anything. The bind that follows is not
-			// unguarded: startSession applies this same predicate atomically
-			// and refuses WORKER_TAKEN / WORKER_HELD, whose extensions payloads
-			// this command already renders below. So the loosening costs one
-			// round trip on the refusal path and gives up no safety.
-			// (Decision: Holger, 2026-09-03.)
-			if live == liveYes && !force {
-				// --force is the remedy for a TAKEN worker, and cor:agt:020:09
-				// says TAKEN is only ever a question about your OWN name: the
-				// driver deciding is the driver affected. When the name is HELD
-				// by somebody else the server refuses WORKER_HELD *before* it
-				// weighs liveness at all, and no --force gets past it — so
-				// offering the flag here would send the driver at the one door
-				// the spec says is locked. That is #487's conflation arriving as
-				// advice rather than as vocabulary.
+			// A launch skips the pre-flight below: the server decides a launched
+			// bind atomically (LAUNCH_REFUSED for a changed hold or a live
+			// worker), and there is no takeover to inform since --force is
+			// refused with a grant.
+			if grant == "" {
+				// LIVENESS FIRST, because it is what decides whether the read below
+				// is narration or the decision — and it costs nothing, being a field
+				// on the worker row already in hand.
+				live = workerLiveness(w)
+				// NARRATION, so it degrades — except where the narration IS the
+				// decision (#553, coordinator ruling).
 				//
-				// This classification stays INSIDE the liveness gate on purpose,
-				// which #550 asked about. HELD and TAKEN are independent
-				// (cor:agt:020:09) and the server checks HELD first — but the
-				// server is also the authority on it, and the WORKER_HELD branch
-				// below renders the SAME refusal from its extensions. So a hold
-				// on a name that is not live already reaches the identical
-				// sentence one round trip later, while hoisting this out would
-				// spend two extra reads (holder + identity) on every ordinary
-				// bind — every one of which holds its own name. What the
-				// pre-flight buys is message quality on the path that was going
-				// to refuse anyway; it is not, and must not become, the gate.
-				switch holder, verdict := classifyHold(ctx, client, w); verdict {
-				case holdByOther:
-					return heldRefusal(w.Name, appIndependentRef(w), holder, w.HeldAt)
-				case holdUnknownWhose:
-					return exitcode.Newf(exitcode.Conflict,
-						"worker %s is live — being driven by %s — and the name is held by %s: this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
-						w.Name, drivenBy(narr, live), holder)
+				// #552 demoted this read: the TAKEN gate is `workerLiveness` above.
+				// A read the command no longer depends on must not be able to fail
+				// the command — that refuses a caller who can see the worker but not
+				// its session list, by a dependency that was removed, which is #550
+				// in a different costume.
+				//
+				// The exception is a bind that MAY DISPLACE SOMEBODY, because
+				// cor:agt:020:03 makes the override informed or nothing: a takeover
+				// that cannot see who it displaces has nothing left to be informed
+				// by. This is the ONE thing here that is allowed to be fatal.
+				//
+				// It is gated on `live != liveNo` and NOT on `force` alone — the
+				// distinction @codex and @copilot both caught, and @codex's reason
+				// is the one that makes it urgent. **--force is not only a takeover
+				// flag**: it also explicitly replaces an abandoned local worktree
+				// binding, and that path has ALREADY ENDED the previous session by
+				// the time it arrives here. Aborting on a narration blip therefore
+				// leaves the old session ended and the local binding intact. A plain
+				// start can replace an ended binding since #791, but the forced path
+				// must still avoid turning a best-effort narration read into a bind
+				// refusal.
+				//
+				// `liveNo` and not `liveYes` is the direction, because degrading
+				// needs POSITIVE evidence that nobody is displaced. `liveUnknown`
+				// means the server declined to say, and "it did not tell me somebody
+				// is there" is not "nobody is there".
+				//
+				// BOTH conditions, and the `force` half is not redundant: a bind
+				// WITHOUT --force against a live name is about to refuse anyway, with
+				// exit 5 and a sentence naming liveness. Turning that into a
+				// transport error would replace an answer about the worker with an
+				// answer about the network — the mirror of the defect above, and the
+				// shape #556 already fixed once by hoisting a guard above the client.
+				narr, aerr := workerActivity(ctx, client, w.Id)
+				if aerr != nil {
+					if force && live != liveNo {
+						// Preserve the mapped code — a gateway 5xx must still exit
+						// 7, not collapse to a generic 1 because we added a
+						// sentence. The bind is refused, not attempted.
+						return exitcode.New(exitcode.FromError(aerr), fmt.Errorf(
+							"could not read who is driving worker %s, so --force cannot say whom it takes over from (cor:agt:020:03). Retry: %w",
+							w.Name, aerr))
+					}
+					// No claim about what happens next: this note is printed on
+					// paths that go on to refuse as well as ones that bind, so
+					// promising that the server decides would be false on the first
+					// (@copilot).
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read %s's session detail (%v) — continuing; the bind does not depend on it\n", w.Name, aerr)
 				}
-				// "clears on its own", NOT "nothing frees it by waiting"
-				// (@codex, P2). The first draft said the second, which is the
-				// pre-#1114 conclusion about an OPEN session row attached to
-				// LIVENESS, where the opposite holds: liveness is derived from
-				// recent driving, so it lapses when the driver stops. Waiting is
-				// a real remedy here and the sentence sent readers at --force
-				// instead. #550's own defect, in the message announcing the fix.
-				return exitcode.Newf(exitcode.Conflict,
-					"worker %s is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so it lapses on its own once nobody is driving; --force takes over now",
-					w.Name, drivenBy(narr, live))
-			}
-			switch {
-			case live == liveYes:
-				// Reached only under --force: the gate above refuses otherwise.
-				fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, drivenBy(narr, live))
-			case live == liveNo && active != nil:
-				// The ordinary post-#1114 shape, and worth naming rather than
-				// calling a takeover: the name is free, and the open row is
-				// somebody's unfinished stint. Binding here takes nothing from
-				// them and does not end it — their handoff stays theirs to
-				// write, which is exactly what leaving the row open preserves.
-				fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is not live; an earlier session is still open (%s) and this bind does not end it\n", w.Name, describeSession(active))
-			case active != nil:
-				// live == liveUnknown. State the row, claim nothing about it:
-				// "not live" would be a fact the server declined to show us.
-				fmt.Fprintf(f.IOStreams.ErrOut, "worker %s has an open session (%s); whether the name is live is not visible to you, so the server decides at bind\n", w.Name, describeSession(active))
-			case last != nil:
-				// Informational, not a conflict: the last stint ended.
-				fmt.Fprintf(f.IOStreams.ErrOut, "worker %s was last driven by %s\n", w.Name, describeSession(last))
+				last, active := narr.last, narr.active
+				// TAKEN is DERIVED liveness, never an open session row (#550).
+				//
+				// MASKED DEFERS TO THE SERVER, deliberately, and this is the one
+				// place that decides it. A caller outside the worker read gate is
+				// not shown liveness; refusing them on that absence would refuse
+				// somebody the server would have admitted, and would make --force
+				// the routine path for everyone outside the gate — which is how an
+				// override stops meaning anything. The bind that follows is not
+				// unguarded: startSession applies this same predicate atomically
+				// and refuses WORKER_TAKEN / WORKER_HELD, whose extensions payloads
+				// this command already renders below. So the loosening costs one
+				// round trip on the refusal path and gives up no safety.
+				// (Decision: Holger, 2026-09-03.)
+				if live == liveYes && !force {
+					// --force is the remedy for a TAKEN worker, and cor:agt:020:09
+					// says TAKEN is only ever a question about your OWN name: the
+					// driver deciding is the driver affected. When the name is HELD
+					// by somebody else the server refuses WORKER_HELD *before* it
+					// weighs liveness at all, and no --force gets past it — so
+					// offering the flag here would send the driver at the one door
+					// the spec says is locked. That is #487's conflation arriving as
+					// advice rather than as vocabulary.
+					//
+					// This classification stays INSIDE the liveness gate on purpose,
+					// which #550 asked about. HELD and TAKEN are independent
+					// (cor:agt:020:09) and the server checks HELD first — but the
+					// server is also the authority on it, and the WORKER_HELD branch
+					// below renders the SAME refusal from its extensions. So a hold
+					// on a name that is not live already reaches the identical
+					// sentence one round trip later, while hoisting this out would
+					// spend two extra reads (holder + identity) on every ordinary
+					// bind — every one of which holds its own name. What the
+					// pre-flight buys is message quality on the path that was going
+					// to refuse anyway; it is not, and must not become, the gate.
+					switch holder, verdict := classifyHold(ctx, client, w); verdict {
+					case holdByOther:
+						return heldRefusal(w.Name, appIndependentRef(w), holder, w.HeldAt)
+					case holdUnknownWhose:
+						return exitcode.Newf(exitcode.Conflict,
+							"worker %s is live — being driven by %s — and the name is held by %s: this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
+							w.Name, drivenBy(narr, live), holder)
+					}
+					// "clears on its own", NOT "nothing frees it by waiting"
+					// (@codex, P2). The first draft said the second, which is the
+					// pre-#1114 conclusion about an OPEN session row attached to
+					// LIVENESS, where the opposite holds: liveness is derived from
+					// recent driving, so it lapses when the driver stops. Waiting is
+					// a real remedy here and the sentence sent readers at --force
+					// instead. #550's own defect, in the message announcing the fix.
+					return exitcode.Newf(exitcode.Conflict,
+						"worker %s is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so it lapses on its own once nobody is driving; --force takes over now",
+						w.Name, drivenBy(narr, live))
+				}
+				switch {
+				case live == liveYes:
+					// Reached only under --force: the gate above refuses otherwise.
+					fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, drivenBy(narr, live))
+				case live == liveNo && active != nil:
+					// The ordinary post-#1114 shape, and worth naming rather than
+					// calling a takeover: the name is free, and the open row is
+					// somebody's unfinished stint. Binding here takes nothing from
+					// them and does not end it — their handoff stays theirs to
+					// write, which is exactly what leaving the row open preserves.
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is not live; an earlier session is still open (%s) and this bind does not end it\n", w.Name, describeSession(active))
+				case active != nil:
+					// live == liveUnknown. State the row, claim nothing about it:
+					// "not live" would be a fact the server declined to show us.
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s has an open session (%s); whether the name is live is not visible to you, so the server decides at bind\n", w.Name, describeSession(active))
+				case last != nil:
+					// Informational, not a conflict: the last stint ended.
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s was last driven by %s\n", w.Name, describeSession(last))
+				}
 			}
 			if host == "" {
 				host, _ = os.Hostname()
@@ -932,8 +997,9 @@ holds nothing).`,
 			input := &gen.SessionInput{
 				Id:             newSessionID(),
 				ReportsTo:      optStr(reportsTo),
-				WorkerRef:      &w.Id,
+				WorkerRef:      optStr(w.Id),
 				AppRef:         appRefArg,
+				LaunchGrant:    optStr(grant),
 				Repo:           optStr(repo),
 				Branch:         optStr(branch),
 				Host:           optStr(host),
@@ -1010,6 +1076,19 @@ holds nothing).`,
 				return exitcode.Newf(exitcode.Error, "server returned no session")
 			}
 			s := resp.StartSession.TeamSessionFields
+			if grant != "" && w.Id == "" {
+				// The grant named the worker: read it now, for the binding and
+				// the briefing. Without it this worktree cannot end the session
+				// it just bound, so a failed read rolls the bind back, as a
+				// failed binding write does below.
+				w, err = launchedWorker(ctx, client, s)
+				if err != nil {
+					if _, endErr := gen.EndTeamSession(ctx, client, s.Id, nil, nil); endErr != nil {
+						return fmt.Errorf("%w; additionally, rolling back launched session %s failed (%v) — end it with `hadron team session end --session %s`", err, s.Id, endErr, s.Id)
+					}
+					return fmt.Errorf("%w (launched session %s was rolled back)", err, s.Id)
+				}
+			}
 			server, _ := f.Server()
 			teamMem := ""
 			if teamMemory != "" {
@@ -1078,130 +1157,11 @@ holds nothing).`,
 					"current holder, and `worker release` gives the name up if that is what you want.)",
 					err, s.Id, w.Name)
 			}
-			// Read the handoff AFTER the bind. With --force, ending the old
-			// worktree session above may be the event that makes its handoff
-			// MISSING, so a pre-bind worker projection could be stale. Keep this
-			// in a separate operation: older servers reject an unknown
-			// Worker.continuity field at document validation time, and must not
-			// lose the ordinary worker lookup or the successful bind (#790).
-			var continuity *sessionStartContinuity
-			continuityResp, continuityErr := gen.GetWorkerContinuity(ctx, client, w.Id)
-			switch {
-			case continuityErr == nil && continuityResp.Worker != nil:
-				continuity = sessionStartContinuityDTO(continuityResp.Worker.Continuity)
-			case continuityErr == nil:
-				fmt.Fprintln(f.IOStreams.ErrOut, "note: worker continuity was unavailable after bind")
-			case api.IsGraphQLValidationFor(continuityErr, "continuity"):
-				// An older server has no field. The bind already succeeded;
-				// omitting this optional projection is its compatibility path.
-			default:
-				fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read worker continuity after bind (%v)\n", api.MapError(continuityErr))
-			}
-			if lapsedBinding {
-				fmt.Fprintf(f.IOStreams.ErrOut, "note: replaced lapsed local binding for session %s; that session remains open for its driver to end with a handoff\n", existing.SessionID)
-			}
-			result := struct {
-				Session sessionDTO `json:"session"`
-				// sessionStartWorker, not workerDTO: this response is built from
-				// the PRE-mutation read, so the fields the bind itself changes
-				// are omitted rather than reported stale. See its doc.
-				Worker      sessionStartWorker `json:"worker"`
-				BindingPath string             `json:"bindingPath"`
-				// Null means unavailable (old server, masked read, or read
-				// failure), never "no handoff". FIRST_STINT/MISSING carry that
-				// distinction explicitly when the server supports it.
-				Continuity *sessionStartContinuity `json:"continuity"`
-				// TookOver: did this bind displace a driver?
-				//
-				// NULLABLE since #550, for the reason releaseResultDTO's
-				// WasHeld and Forced are: the answer can be WITHHELD. It is
-				// derived liveness — true when the name was live and --force
-				// took it, false when it provably was not live, and NULL when
-				// the working-state group was masked, where the CLI cannot
-				// tell and `false` would be a claim with no evidence behind it.
-				//
-				// It used to be `active != nil` — an OPEN session row — which
-				// since hadron-server#1114 answers a different question:
-				// nothing ends an abandoned session, so binding over one
-				// displaces nobody while this reported a takeover anyway. Same
-				// wrong fact as the refusal, in the --json contract.
-				//
-				// `null` degrades where `false` did: falsy in jq and in JS, and
-				// a Go consumer decoding into a plain `bool` is unaffected —
-				// MEASURED, since @copilot read it the other way. Go's
-				// encoding/json treats null as "not present": it produces no
-				// error and LEAVES THE VALUE UNCHANGED, so a freshly-decoded
-				// struct reads the zero value, false. (A type mismatch does
-				// error — `"yes"` into a bool fails — so the null case is a
-				// defined no-op, not a swallowed error.)
-				TookOver *bool `json:"tookOver"`
-			}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, continuity, tookOver(live)}
-			if err := output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
-				if _, err := fmt.Fprintf(out, "✓ started session %s as %s%s\n  binding: %s\n", s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
-					return err
-				}
-				// The worker's portal link, at the bind (#510, beyond that
-				// issue's literal list of worker get/list — say so and it comes
-				// out). Two reasons it belongs here more than anywhere:
-				//
-				// PARITY: hadron_start_session already returns this line, so a
-				// desktop-track worker is handed its link at bind and a CLI
-				// one was not — the same surface, two answers.
-				//
-				// ADJACENCY: the boot briefing printed immediately below tells
-				// this worker to sign whatever it publishes with a CLICKABLE
-				// URN (hadron-server#1008). This is the one place where that
-				// instruction and the string it needs are on the same screen,
-				// which is what lets the briefing's "the ONE portal link you
-				// may construct yourself" carve-out be retired.
-				//
-				// Absent stays absent, as everywhere else (cor:api:230:01).
-				if w.PortalUrl != nil && *w.PortalUrl != "" {
-					if _, err := fmt.Fprintf(out, "  URL: %s\n", *w.PortalUrl); err != nil {
-						return err
-					}
-				}
-				if continuity != nil {
-					if err := renderSessionStartContinuity(out, continuity); err != nil {
-						return err
-					}
-				}
-				// The resolved boot briefing (template bound + override) is
-				// what the driver adopts — print it where they will see it.
-				if w.Prompt != nil && *w.Prompt != "" {
-					if _, err := fmt.Fprintf(out, "\n%s\n", *w.Prompt); err != nil {
-						return err
-					}
-				}
-				return nil
-			}); err != nil {
-				return err
-			}
-			// #456 — the role/repo mismatch nudge, and its PLACEMENT is the
-			// feature. The bind receipt has always printed the role
-			// (`roleSuffix`), so the information was never missing; it is
-			// missable, because the several-hundred-word boot briefing prints
-			// directly after it and pushes it off screen. A warning emitted
-			// before the briefing would land in exactly the spot the issue
-			// exists because nobody reads, which is why this sits AFTER
-			// output.Write rather than inside its callback.
-			//
-			// stderr, not stdout: it is a nudge about the invocation rather
-			// than part of the session record, so it must not enter a --json
-			// consumer's parse. It still prints under --json for the same
-			// reason — a wrong binding is worth telling an agent about too, and
-			// stderr is not the JSON channel.
-			//
-			// WARN, NEVER REFUSE (cor:agt:020 / the server's own SDL note):
-			// cross-repo work is legitimate — a coordinator does it by
-			// definition and sibling repos share code — so the exit code is
-			// untouched, the session is already started and the binding
-			// already written by the time this runs.
-			warnRepoAffinity(cmd.Context(), f, client, w, repo)
-			return nil
+			return finishBind(cmd, f, client, s, w, path, lapsedBinding, existing, live, repo, nil)
 		},
 	}
-	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App (required)")
+	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App; omit it (and any launch grant) to resume")
+	cmd.Flags().StringVar(&launchGrantFlag, "launch-grant", "", "single-use launch grant from the host poller (default: $"+launchGrantEnv+"); binds the worker it names")
 	// LIVE, not "active": the gate is derived liveness, and an ACTIVE session
 	// is precisely the thing that no longer decides it (#550). Readers scan
 	// labels, so a corrected paragraph over a stale one-liner is the miss this
@@ -1215,8 +1175,150 @@ holds nothing).`,
 	cmd.Flags().StringVar(&model, "model", "", "LLM model driving the session")
 	cmd.Flags().StringVar(&reportsTo, "reports-to", "", "worker to report to at bind (name, URN or id); omit to preserve")
 	cmd.Flags().StringVarP(&teamMemory, "memory", "m", "", "explicit team memory (optional since #399 — the worker's App is recorded as the worklog home; -m also cross-checks the App at start)")
-	_ = cmd.MarkFlagRequired("as")
+	cmd.Flags().StringVar(&pick, "session", "", "resume only: pick this candidate (a session id a resume listed)")
 	return cmd
+}
+
+// finishBind is everything a bind does once the server has bound a session
+// and the worktree binding is written: the continuity read, the receipt, the
+// briefing and the repo nudge. `session start --as`, a launch grant and a
+// resume (hadron-cli#842) all end here, so a recovered worker is briefed
+// exactly as a bound one is. resumeOutcome is nil except on a resume.
+func finishBind(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, s gen.TeamSessionFields, w gen.WorkerFields,
+	path string, lapsedBinding bool, existing *binding, live liveness, repo string, resumeOutcome *string) error {
+	ctx := cmd.Context()
+	// Read the handoff AFTER the bind. With --force, ending the old
+	// worktree session above may be the event that makes its handoff
+	// MISSING, so a pre-bind worker projection could be stale. Keep this
+	// in a separate operation: older servers reject an unknown
+	// Worker.continuity field at document validation time, and must not
+	// lose the ordinary worker lookup or the successful bind (#790).
+	var continuity *sessionStartContinuity
+	continuityResp, continuityErr := gen.GetWorkerContinuity(ctx, client, w.Id)
+	switch {
+	case continuityErr == nil && continuityResp.Worker != nil:
+		continuity = sessionStartContinuityDTO(continuityResp.Worker.Continuity)
+	case continuityErr == nil:
+		fmt.Fprintln(f.IOStreams.ErrOut, "note: worker continuity was unavailable after bind")
+	case api.IsGraphQLValidationFor(continuityErr, "continuity"):
+		// An older server has no field. The bind already succeeded;
+		// omitting this optional projection is its compatibility path.
+	default:
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read worker continuity after bind (%v)\n", api.MapError(continuityErr))
+	}
+	if lapsedBinding {
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: replaced lapsed local binding for session %s; that session remains open for its driver to end with a handoff\n", existing.SessionID)
+	}
+	result := struct {
+		Session sessionDTO `json:"session"`
+		// sessionStartWorker, not workerDTO: this response is built from
+		// the PRE-mutation read, so the fields the bind itself changes
+		// are omitted rather than reported stale. See its doc.
+		Worker      sessionStartWorker `json:"worker"`
+		BindingPath string             `json:"bindingPath"`
+		// Null means unavailable (old server, masked read, or read
+		// failure), never "no handoff". FIRST_STINT/MISSING carry that
+		// distinction explicitly when the server supports it.
+		Continuity *sessionStartContinuity `json:"continuity"`
+		// TookOver: did this bind displace a driver?
+		//
+		// NULLABLE since #550, for the reason releaseResultDTO's
+		// WasHeld and Forced are: the answer can be WITHHELD. It is
+		// derived liveness — true when the name was live and --force
+		// took it, false when it provably was not live, and NULL when
+		// the working-state group was masked, where the CLI cannot
+		// tell and `false` would be a claim with no evidence behind it.
+		//
+		// It used to be `active != nil` — an OPEN session row — which
+		// since hadron-server#1114 answers a different question:
+		// nothing ends an abandoned session, so binding over one
+		// displaces nobody while this reported a takeover anyway. Same
+		// wrong fact as the refusal, in the --json contract.
+		//
+		// `null` degrades where `false` did: falsy in jq and in JS, and
+		// a Go consumer decoding into a plain `bool` is unaffected —
+		// MEASURED, since @copilot read it the other way. Go's
+		// encoding/json treats null as "not present": it produces no
+		// error and LEAVES THE VALUE UNCHANGED, so a freshly-decoded
+		// struct reads the zero value, false. (A type mismatch does
+		// error — `"yes"` into a bool fails — so the null case is a
+		// defined no-op, not a swallowed error.)
+		TookOver *bool `json:"tookOver"`
+		// ResumeOutcome (hadron-cli#842): RESUMED or STARTED when this bind
+		// redeemed a resume claim or the caller's one live session (start
+		// with no worker named), null on an ordinary or launched bind.
+		ResumeOutcome *string `json:"resumeOutcome"`
+	}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, continuity, tookOver(live), resumeOutcome}
+	if err := output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
+		verb := "started session"
+		switch {
+		case resumeOutcome != nil && *resumeOutcome == string(gen.ResumeOutcomeResumed):
+			verb = "resumed session"
+		case resumeOutcome != nil:
+			verb = "started the next session"
+		}
+		if _, err := fmt.Fprintf(out, "✓ %s %s as %s%s\n  binding: %s\n", verb, s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
+			return err
+		}
+		// The worker's portal link, at the bind (#510, beyond that
+		// issue's literal list of worker get/list — say so and it comes
+		// out). Two reasons it belongs here more than anywhere:
+		//
+		// PARITY: hadron_start_session already returns this line, so a
+		// desktop-track worker is handed its link at bind and a CLI
+		// one was not — the same surface, two answers.
+		//
+		// ADJACENCY: the boot briefing printed immediately below tells
+		// this worker to sign whatever it publishes with a CLICKABLE
+		// URN (hadron-server#1008). This is the one place where that
+		// instruction and the string it needs are on the same screen,
+		// which is what lets the briefing's "the ONE portal link you
+		// may construct yourself" carve-out be retired.
+		//
+		// Absent stays absent, as everywhere else (cor:api:230:01).
+		if w.PortalUrl != nil && *w.PortalUrl != "" {
+			if _, err := fmt.Fprintf(out, "  URL: %s\n", *w.PortalUrl); err != nil {
+				return err
+			}
+		}
+		if continuity != nil {
+			if err := renderSessionStartContinuity(out, continuity); err != nil {
+				return err
+			}
+		}
+		// The resolved boot briefing (template bound + override) is
+		// what the driver adopts — print it where they will see it.
+		if w.Prompt != nil && *w.Prompt != "" {
+			if _, err := fmt.Fprintf(out, "\n%s\n", *w.Prompt); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	// #456 — the role/repo mismatch nudge, and its PLACEMENT is the
+	// feature. The bind receipt has always printed the role
+	// (`roleSuffix`), so the information was never missing; it is
+	// missable, because the several-hundred-word boot briefing prints
+	// directly after it and pushes it off screen. A warning emitted
+	// before the briefing would land in exactly the spot the issue
+	// exists because nobody reads, which is why this sits AFTER
+	// output.Write rather than inside its callback.
+	//
+	// stderr, not stdout: it is a nudge about the invocation rather
+	// than part of the session record, so it must not enter a --json
+	// consumer's parse. It still prints under --json for the same
+	// reason — a wrong binding is worth telling an agent about too, and
+	// stderr is not the JSON channel.
+	//
+	// WARN, NEVER REFUSE (cor:agt:020 / the server's own SDL note):
+	// cross-repo work is legitimate — a coordinator does it by
+	// definition and sibling repos share code — so the exit code is
+	// untouched, the session is already started and the binding
+	// already written by the time this runs.
+	warnRepoAffinity(cmd.Context(), f, client, w, repo)
+	return nil
 }
 
 // whoamiDTO is the stable --json shape of `session whoami`.
@@ -1823,7 +1925,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				return err
 			}
 			if b == nil {
-				return exitcode.Newf(exitcode.NotFound, "no active session in this worktree — `hadron team session start --as <name>` first")
+				return noBindingRefusal("this work record", false)
 			}
 			if err := checkBindingServer(f, b); err != nil {
 				return err
@@ -2129,12 +2231,16 @@ type endResultDTO struct {
 	SessionID  string `json:"sessionId"`
 	WorkerName string `json:"workerName"`
 	EndedAt    string `json:"endedAt"`
+	// ResumeClaim (hadron-cli#842): --resume-claim was passed and the server
+	// wrote the claim before the end. False on a plain end.
+	ResumeClaim bool `json:"resumeClaim"`
 }
 
 func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
 	var summary, sessionID, handoff, handoffFile string
+	var resumeClaim bool
 	cmd := &cobra.Command{
-		Use:   "end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>]",
+		Use:   "end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim]",
 		Short: "End this worktree's worker session — the session, not the name",
 		Long: `End the WORKER SESSION this worktree is bound to and clear the binding.
 This is the only thing that ends the session — unless another active worker
@@ -2214,7 +2320,16 @@ write --handoff.
 --session ends an explicit worker session id instead — the recovery path
 when the binding is gone or unusable (a lost worktree, a failed binding
 write, a binding written by a pre-Worker CLI) but the server-side worker
-session is still open.`,
+session is still open.
+
+--resume-claim is for a ROTATION (hadron-cli#842, cor:agt:020:03): the server
+writes a resume claim after the handoff and before the end, so the fresh
+context that follows recovers this worker by running ` + "`hadron team session start`" + `
+with no worker named, within 60 seconds. That start begins the worker's
+next session. The claim is redeemable only with your own token, and carries
+nothing to keep. If the server cannot write it, the end is refused and
+nothing ends. For a SHED, which keeps the session open, use
+` + "`team session resume-claim`" + ` instead.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -2295,7 +2410,23 @@ session is still open.`,
 					text: text, src: src, sessionID: id, server: bound, summary: summary, answered: true,
 				}, err)
 			}
-			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
+			// A separate operation, not a flag on EndTeamSession: an older
+			// server rejects the unknown argument at validation even when
+			// it is omitted, so a plain end keeps the document it always sent.
+			var ended *gen.TeamSessionFields
+			if resumeClaim {
+				var r *gen.EndTeamSessionWithResumeClaimResponse
+				r, err = gen.EndTeamSessionWithResumeClaim(ctx, client, id, optStr(summary), optStr(text))
+				if err == nil && r.EndSession != nil {
+					ended = &r.EndSession.TeamSessionFields
+				}
+			} else {
+				var r *gen.EndTeamSessionResponse
+				r, err = gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
+				if err == nil && r.EndSession != nil {
+					ended = &r.EndSession.TeamSessionFields
+				}
+			}
 			if err != nil {
 				// The handoff does not evaporate with the call that carried it.
 				// Only THIS path can be ambiguous: everything above either never
@@ -2322,17 +2453,23 @@ session is still open.`,
 				}
 			}
 			var endedAt string
-			if resp.EndSession != nil && resp.EndSession.EndedAt != nil {
-				endedAt = *resp.EndSession.EndedAt
+			if ended != nil && ended.EndedAt != nil {
+				endedAt = *ended.EndedAt
 			}
-			result := endResultDTO{SessionID: id, WorkerName: workerName, EndedAt: endedAt}
+			result := endResultDTO{SessionID: id, WorkerName: workerName, EndedAt: endedAt, ResumeClaim: resumeClaim}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				who := ""
 				if workerName != "" {
 					who = " (worker " + workerName + ")"
 				}
-				_, err := fmt.Fprintf(w, "✓ ended session %s%s\n", id, who)
-				return err
+				if _, err := fmt.Fprintf(w, "✓ ended session %s%s\n", id, who); err != nil {
+					return err
+				}
+				if resumeClaim {
+					_, err := fmt.Fprintln(w, "  resume claim written: within 60 seconds, `hadron team session start` with no worker named starts this worker's next session")
+					return err
+				}
+				return nil
 			})
 		},
 	}
@@ -2341,6 +2478,7 @@ session is still open.`,
 	cmd.Flags().StringVar(&summary, "summary", "", "short session label — DISPLAY ONLY, the next driver never sees it (use --handoff for that)")
 	cmd.MarkFlagsMutuallyExclusive("handoff", "handoff-file")
 	cmd.Flags().StringVar(&sessionID, "session", "", "end this session id instead of the worktree's bound one (recovery)")
+	cmd.Flags().BoolVar(&resumeClaim, "resume-claim", false, "also write a resume claim before the end (a rotation): the next context recovers this worker by running team session start with no worker named")
 	return cmd
 }
 

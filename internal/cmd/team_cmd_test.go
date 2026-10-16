@@ -1839,7 +1839,7 @@ func TestTeamChatPostPreflightOnlyWhenScopeIsAmbientAndUnbound(t *testing.T) {
 		f, _ := testFactory(t)
 		errOut := f.IOStreams.ErrOut.(*strings.Builder)
 		root := NewRootCmd(f)
-		root.SetArgs([]string{"team", "chat", "post", "hello",
+		root.SetArgs([]string{"team", "chat", "post", "hello", "--as-me",
 			"--app", "acme.com:eng-team", "--server", gql.URL})
 		if err := root.Execute(); err != nil {
 			t.Fatalf("execute: %v", err)
@@ -1849,6 +1849,8 @@ func TestTeamChatPostPreflightOnlyWhenScopeIsAmbientAndUnbound(t *testing.T) {
 		}
 	})
 
+	// Unbound, only --as-me reaches the write at all since #842 (without it
+	// the post refuses): the pre-flight still guards that one path.
 	t.Run("an ambient App context with no binding DOES warn, before the write", func(t *testing.T) {
 		teamGitDir(t)
 		gql, captured := captureGraphQL(t, post)
@@ -1856,7 +1858,7 @@ func TestTeamChatPostPreflightOnlyWhenScopeIsAmbientAndUnbound(t *testing.T) {
 		configuredApp(t, "acme.com:eng-team")
 		errOut := f.IOStreams.ErrOut.(*strings.Builder)
 		root := NewRootCmd(f)
-		root.SetArgs([]string{"team", "chat", "post", "hello", "--json", "--server", gql.URL})
+		root.SetArgs([]string{"team", "chat", "post", "hello", "--as-me", "--json", "--server", gql.URL})
 		if err := root.Execute(); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
@@ -1932,7 +1934,8 @@ func TestTeamChatPostReceiptNamesTheChat(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "chat", "post", "hello",
+	// --as-me: an unbound post is refused since #842, and this pins the receipt.
+	root.SetArgs([]string{"team", "chat", "post", "hello", "--as-me",
 		"--app", "acme.com:eng-team", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -4410,14 +4413,15 @@ func TestTeamChatPostPositionalBody(t *testing.T) {
 	}
 }
 
-// Without a binding the post is authored by the calling HUMAN (the server
-// supports both author paths, hadron-server#939) — but the App must then be
-// resolvable, so no binding AND no --app is a usage error.
+// Without a binding, --as-me posts as the calling HUMAN (the server supports
+// both author paths, hadron-server#939; without --as-me the post refuses since
+// #842, see team_resume_claim_test.go) — but the App must then be resolvable,
+// so no binding AND no --app is a usage error.
 func TestTeamChatPostUnbound(t *testing.T) {
 	teamGitDir(t)
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--server", "http://127.0.0.1:1"})
+	root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--as-me", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("no binding, no app: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
@@ -4431,7 +4435,7 @@ func TestTeamChatPostUnbound(t *testing.T) {
 	})
 	f2, out := testFactory(t)
 	root2 := NewRootCmd(f2)
-	root2.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
+	root2.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--as-me", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4484,6 +4488,7 @@ func TestTeamChatPostReplyToSeq(t *testing.T) {
 // Outside a git worktree there is no binding to read — with an App context
 // the commands proceed as the unbound-human path instead of failing in
 // `git rev-parse` (PR #382 review); without one, the worktree error stands.
+// A post takes that path only with --as-me since #842.
 func TestTeamChatOutsideWorktreeWithApp(t *testing.T) {
 	t.Setenv("HADRON_TEAM_GIT_DIR", "")
 	t.Chdir(t.TempDir()) // no .git anywhere above a fresh temp dir
@@ -4493,7 +4498,7 @@ func TestTeamChatOutsideWorktreeWithApp(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--as-me", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("post outside a worktree with --app must work: %v", err)
 	}
@@ -4519,7 +4524,7 @@ func TestTeamChatOutsideWorktreeWithApp(t *testing.T) {
 	// No App context: the worktree error is the actionable one.
 	f3, _ := testFactory(t)
 	root3 := NewRootCmd(f3)
-	root3.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--server", gql.URL})
+	root3.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--as-me", "--server", gql.URL})
 	err := root3.Execute()
 	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)

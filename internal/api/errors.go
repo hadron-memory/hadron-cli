@@ -763,6 +763,20 @@ func codeForExtension(code string) int {
 		code == "UNSUPPORTED_MEMORY_CLASS" || code == "MEMORY_TRANSFER_MEMBER_RESET_INVALID" ||
 		code == "MEMORY_TRANSFER_USER_TARGET_UNSUPPORTED" || code == "MEMORY_TRANSFER_SAME_OWNER":
 		return exitcode.Usage
+	// Agent inheritance (hadron-server#1889, src/lib/agentBase.ts). The
+	// licence trio is AUTHENTICATED-BUT-NOT-PERMITTED: the caller must hold
+	// an active subscription (PUBLIC bases) or an org grant before extending
+	// — a permission refusal, not an argument fix, and deliberately NOT the
+	// _REQUIRED suffix rule's usage exit. The cycle/chain/in-use trio is
+	// state: retrying blind cannot help until the graph or the Agent's use
+	// changes (AGENT_IN_USE matches WORKER_IN_USE's precedent). AGENT_NOT_FOUND
+	// rides the existing _NOT_FOUND suffix rule (4), including its concealed
+	// base case.
+	case code == "AGENT_ORG_GRANT_REQUIRED" || code == "AGENT_ORG_GRANT_INACTIVE" ||
+		code == "AGENT_SUBSCRIPTION_REQUIRED":
+		return exitcode.Forbidden
+	case code == "AGENT_BASE_CYCLE" || code == "AGENT_BASE_CHAIN_TOO_LONG" || code == "AGENT_IN_USE":
+		return exitcode.Conflict
 	// Key supply the server refused (hadron-server#1817): BAD_UNLOCK_INPUT is
 	// a malformed, channel-mismatched, or already-consumed operation key;
 	// WRONG_KEY is a key that fails verification against an existing one. The
@@ -850,6 +864,30 @@ func codeForExtension(code string) int {
 	// rule below, which would read it as a usage error.
 	case code == "APP_MANAGER_REQUIRED":
 		return exitcode.Forbidden
+	// The host poller's credential refusals (hadron-cli#831 over server #1876,
+	// cor:agt:070:04): a person calling a host-only surface, and a key without a
+	// live host:operate scope. Both name a CREDENTIAL that is not permitted, not
+	// a missing argument, so they too precede the _REQUIRED suffix rule. A
+	// launch grant that is unknown, expired, used, or not minted for the caller
+	// is the same class: re-sending it cannot succeed.
+	case code == "HOST_KEY_REQUIRED" || code == "APP_KEY_SCOPE_REQUIRED" || code == "LAUNCH_GRANT_INVALID":
+		return exitcode.Forbidden
+	// Resume claims (hadron-cli#842 over server #1956, cor:agt:020:03).
+	// NOTHING_TO_RESUME is the one answer for absent, expired, used and
+	// someone else's alike: there is nothing of yours to bind, which is
+	// NotFound, the code `session log` gives "no active session". A refused
+	// resume (the lifecycle gate: hold, dormancy, another live session) is the
+	// state's answer, and the claim is spent. RESUME_AMBIGUOUS needs no case:
+	// the _AMBIGUOUS rule below already makes it Usage (name the worker).
+	case code == "NOTHING_TO_RESUME":
+		return exitcode.NotFound
+	case code == "RESUME_REFUSED":
+		return exitcode.Conflict
+	// createResumeClaim on an ENDED session: the session's state, so a
+	// Conflict like the rest; a rotation writes its claim with
+	// `session end --resume-claim`, before the end, instead.
+	case code == "SESSION_ENDED":
+		return exitcode.Conflict
 	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
 		strings.HasSuffix(code, "_TOO_LARGE") || strings.HasSuffix(code, "_REQUIRED"):
 		return exitcode.Usage
@@ -906,6 +944,18 @@ func codeForExtension(code string) int {
 		code == "BAD_HOST_OPERATION_ARGS":
 		return exitcode.Usage
 	case code == "APP_KEY_SCOPE_HOST_CONFLICT":
+		return exitcode.Conflict
+	// The poller's half (hadron-cli#831, #1709 slices 1-3). A malformed
+	// registration and a session sent on a host call are inputs the caller
+	// changes. A report the operation's state refuses (not collected yet,
+	// already reported differently, a start whose session is not bound yet),
+	// a refused launch bind, and the issue-time worker states are conflicts:
+	// retrying blind does not help until the state moves.
+	case code == "BAD_HOST_REGISTRATION" || code == "APP_KEY_SESSION_BOUND":
+		return exitcode.Usage
+	case code == "HOST_OPERATION_NOT_COLLECTED" || code == "HOST_OPERATION_ALREADY_REPORTED" ||
+		code == "HOST_OPERATION_NOT_DONE" || code == "LAUNCH_REFUSED" ||
+		code == "WORKER_NOT_HELD" || code == "WORKER_LIVE" || code == "WORKER_START_PENDING":
 		return exitcode.Conflict
 	// A lifecycle move the task's current state forbids — assigning an
 	// already-assigned task, starting a finished one, acknowledging an alarm

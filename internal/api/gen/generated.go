@@ -622,9 +622,12 @@ type AgentFields struct {
 	// null. Set or clear it with setAgentIndexRefs; read the Agent's processes
 	// with agentProcessList.
 	ProcessesIndexRef *string `json:"processesIndexRef"`
-	AiProvider        *string `json:"aiProvider"`
-	AiModel           *string `json:"aiModel"`
-	HasAiApiKey       bool    `json:"hasAiApiKey"`
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the id of the one base Agent this Agent extends,
+	// or null. Set, change or clear it with setAgentBase.
+	ExtendsAgentId *string `json:"extendsAgentId"`
+	AiProvider     *string `json:"aiProvider"`
+	AiModel        *string `json:"aiModel"`
+	HasAiApiKey    bool    `json:"hasAiApiKey"`
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
 	CreatedAt   string  `json:"createdAt"`
@@ -665,6 +668,9 @@ func (v *AgentFields) GetTasksIndexRef() *string { return v.TasksIndexRef }
 
 // GetProcessesIndexRef returns AgentFields.ProcessesIndexRef, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetProcessesIndexRef() *string { return v.ProcessesIndexRef }
+
+// GetExtendsAgentId returns AgentFields.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetExtendsAgentId() *string { return v.ExtendsAgentId }
 
 // GetAiProvider returns AgentFields.AiProvider, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetAiProvider() *string { return v.AiProvider }
@@ -5758,6 +5764,11 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetProcessesIndexRef() *string {
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns AgentsAgentsAgentsPageItemsAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
 // GetAiProvider returns AgentsAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -5823,6 +5834,8 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -5857,6 +5870,7 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -9838,6 +9852,11 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetProcessesIndexRef() 
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
 // GetAiProvider returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -9913,6 +9932,8 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -9947,6 +9968,7 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -10034,6 +10056,11 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetProcessesIndexRef() *str
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns ClearAgentTasksIndexSetAgentIndexRefsAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
 // GetAiProvider returns ClearAgentTasksIndexSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -10109,6 +10136,8 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -10143,6 +10172,7 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -10345,6 +10375,215 @@ type CloneNodeResponse struct {
 
 // GetCloneNode returns CloneNodeResponse.CloneNode, and is useful for accessing the field via an interface.
 func (v *CloneNodeResponse) GetCloneNode() *CloneNodeCloneNode { return v.CloneNode }
+
+// CollectHostOperationsCollectHostOperationsHostOperation includes the requested fields of the GraphQL type HostOperation.
+// The GraphQL type's documentation follows.
+//
+// #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove; args are its typed arguments (ids and name
+// tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName, label}; worker.start
+// {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end {workerId,
+// sessionId}; worktree.remove {workerId, worktree}. The per-type arguments are #1709's design, Proposed.
+type CollectHostOperationsCollectHostOperationsHostOperation struct {
+	HostOperationFields `json:"-"`
+	// #1709 — worker.start only, and only in collectHostOperations' answer: the single-use launch grant to pass to the
+	// agent the host starts (it redeems it at startSession with its holder's own token). Short-lived; never stored in clear
+	// and never shown again. #1928: while it is live, a re-collection leaves the start out of the answer; once it expires,
+	// the next collection revokes it and delivers the start with a fresh one; once redeemed, the start is delivered with
+	// null here, so a restarted host can still report it. Null everywhere else.
+	LaunchGrant *string `json:"launchGrant"`
+}
+
+// GetLaunchGrant returns CollectHostOperationsCollectHostOperationsHostOperation.LaunchGrant, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetLaunchGrant() *string {
+	return v.LaunchGrant
+}
+
+// GetId returns CollectHostOperationsCollectHostOperationsHostOperation.Id, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetId() string {
+	return v.HostOperationFields.Id
+}
+
+// GetAppId returns CollectHostOperationsCollectHostOperationsHostOperation.AppId, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetAppId() string {
+	return v.HostOperationFields.AppId
+}
+
+// GetHostId returns CollectHostOperationsCollectHostOperationsHostOperation.HostId, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetHostId() string {
+	return v.HostOperationFields.HostId
+}
+
+// GetType returns CollectHostOperationsCollectHostOperationsHostOperation.Type, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetType() string {
+	return v.HostOperationFields.Type
+}
+
+// GetArgs returns CollectHostOperationsCollectHostOperationsHostOperation.Args, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetArgs() json.RawMessage {
+	return v.HostOperationFields.Args
+}
+
+// GetWorkerId returns CollectHostOperationsCollectHostOperationsHostOperation.WorkerId, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetWorkerId() string {
+	return v.HostOperationFields.WorkerId
+}
+
+// GetWorker returns CollectHostOperationsCollectHostOperationsHostOperation.Worker, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetWorker() *HostOperationFieldsWorker {
+	return v.HostOperationFields.Worker
+}
+
+// GetStatus returns CollectHostOperationsCollectHostOperationsHostOperation.Status, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetStatus() HostOperationStatus {
+	return v.HostOperationFields.Status
+}
+
+// GetIssuedBy returns CollectHostOperationsCollectHostOperationsHostOperation.IssuedBy, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetIssuedBy() HostOperationIssuer {
+	return v.HostOperationFields.IssuedBy
+}
+
+// GetIssuedByUserId returns CollectHostOperationsCollectHostOperationsHostOperation.IssuedByUserId, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetIssuedByUserId() *string {
+	return v.HostOperationFields.IssuedByUserId
+}
+
+// GetIssuedByWorkerId returns CollectHostOperationsCollectHostOperationsHostOperation.IssuedByWorkerId, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetIssuedByWorkerId() *string {
+	return v.HostOperationFields.IssuedByWorkerId
+}
+
+// GetIssuedAt returns CollectHostOperationsCollectHostOperationsHostOperation.IssuedAt, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetIssuedAt() string {
+	return v.HostOperationFields.IssuedAt
+}
+
+// GetCollectedAt returns CollectHostOperationsCollectHostOperationsHostOperation.CollectedAt, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetCollectedAt() *string {
+	return v.HostOperationFields.CollectedAt
+}
+
+// GetFinishedAt returns CollectHostOperationsCollectHostOperationsHostOperation.FinishedAt, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetFinishedAt() *string {
+	return v.HostOperationFields.FinishedAt
+}
+
+// GetResult returns CollectHostOperationsCollectHostOperationsHostOperation.Result, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetResult() *json.RawMessage {
+	return v.HostOperationFields.Result
+}
+
+// GetFailureReason returns CollectHostOperationsCollectHostOperationsHostOperation.FailureReason, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) GetFailureReason() *string {
+	return v.HostOperationFields.FailureReason
+}
+
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CollectHostOperationsCollectHostOperationsHostOperation
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CollectHostOperationsCollectHostOperationsHostOperation = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostOperationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCollectHostOperationsCollectHostOperationsHostOperation struct {
+	LaunchGrant *string `json:"launchGrant"`
+
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	HostId string `json:"hostId"`
+
+	Type string `json:"type"`
+
+	Args json.RawMessage `json:"args"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostOperationFieldsWorker `json:"worker"`
+
+	Status HostOperationStatus `json:"status"`
+
+	IssuedBy HostOperationIssuer `json:"issuedBy"`
+
+	IssuedByUserId *string `json:"issuedByUserId"`
+
+	IssuedByWorkerId *string `json:"issuedByWorkerId"`
+
+	IssuedAt string `json:"issuedAt"`
+
+	CollectedAt *string `json:"collectedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	Result *json.RawMessage `json:"result"`
+
+	FailureReason *string `json:"failureReason"`
+}
+
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CollectHostOperationsCollectHostOperationsHostOperation) __premarshalJSON() (*__premarshalCollectHostOperationsCollectHostOperationsHostOperation, error) {
+	var retval __premarshalCollectHostOperationsCollectHostOperationsHostOperation
+
+	retval.LaunchGrant = v.LaunchGrant
+	retval.Id = v.HostOperationFields.Id
+	retval.AppId = v.HostOperationFields.AppId
+	retval.HostId = v.HostOperationFields.HostId
+	retval.Type = v.HostOperationFields.Type
+	retval.Args = v.HostOperationFields.Args
+	retval.WorkerId = v.HostOperationFields.WorkerId
+	retval.Worker = v.HostOperationFields.Worker
+	retval.Status = v.HostOperationFields.Status
+	retval.IssuedBy = v.HostOperationFields.IssuedBy
+	retval.IssuedByUserId = v.HostOperationFields.IssuedByUserId
+	retval.IssuedByWorkerId = v.HostOperationFields.IssuedByWorkerId
+	retval.IssuedAt = v.HostOperationFields.IssuedAt
+	retval.CollectedAt = v.HostOperationFields.CollectedAt
+	retval.FinishedAt = v.HostOperationFields.FinishedAt
+	retval.Result = v.HostOperationFields.Result
+	retval.FailureReason = v.HostOperationFields.FailureReason
+	return &retval, nil
+}
+
+// CollectHostOperationsResponse is returned by CollectHostOperations on success.
+type CollectHostOperationsResponse struct {
+	// #1709 — a host collects its own operations, oldest first: those still ISSUED (now marked COLLECTED) and those it
+	// collected and has not reported, except a worker.start whose launch grant is still live (#1928: a re-collection never
+	// revokes a launch in flight). Only its own host's, in its own App (hrn:node:hadronmemory.com:specs:cor:agt:070:04).
+	// first: at most 200, default 50.
+	CollectHostOperations []*CollectHostOperationsCollectHostOperationsHostOperation `json:"collectHostOperations"`
+}
+
+// GetCollectHostOperations returns CollectHostOperationsResponse.CollectHostOperations, and is useful for accessing the field via an interface.
+func (v *CollectHostOperationsResponse) GetCollectHostOperations() []*CollectHostOperationsCollectHostOperationsHostOperation {
+	return v.CollectHostOperations
+}
 
 // CommentActorFields includes the GraphQL fields of CommentActorRef requested by the fragment CommentActorFields.
 // The GraphQL type's documentation follows.
@@ -12147,6 +12386,9 @@ func (v *CreateAgentCreateAgent) GetProcessesIndexRef() *string {
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns CreateAgentCreateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
+
 // GetAiProvider returns CreateAgentCreateAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -12212,6 +12454,8 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -12246,6 +12490,7 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -15935,6 +16180,51 @@ func (v *CreateRegisterEntryResponse) GetCreateRegisterEntry() *CreateRegisterEn
 	return v.CreateRegisterEntry
 }
 
+// CreateResumeClaimCreateResumeClaimResumeClaimReceipt includes the requested fields of the GraphQL type ResumeClaimReceipt.
+// The GraphQL type's documentation follows.
+//
+// #1956 — the receipt of a written resume claim. It names no claim id: redemption is judged by the caller's token.
+type CreateResumeClaimCreateResumeClaimResumeClaimReceipt struct {
+	SessionId string `json:"sessionId"`
+	WorkerId  string `json:"workerId"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
+// GetSessionId returns CreateResumeClaimCreateResumeClaimResumeClaimReceipt.SessionId, and is useful for accessing the field via an interface.
+func (v *CreateResumeClaimCreateResumeClaimResumeClaimReceipt) GetSessionId() string {
+	return v.SessionId
+}
+
+// GetWorkerId returns CreateResumeClaimCreateResumeClaimResumeClaimReceipt.WorkerId, and is useful for accessing the field via an interface.
+func (v *CreateResumeClaimCreateResumeClaimResumeClaimReceipt) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetExpiresAt returns CreateResumeClaimCreateResumeClaimResumeClaimReceipt.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreateResumeClaimCreateResumeClaimResumeClaimReceipt) GetExpiresAt() string {
+	return v.ExpiresAt
+}
+
+// CreateResumeClaimResponse is returned by CreateResumeClaim on success.
+type CreateResumeClaimResponse struct {
+	// #1956 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — write a RESUME CLAIM for your own open worker
+	// session before a deliberate context reset that keeps the session (a shed).
+	// The fresh context recovers the worker with resumeSession and no arguments,
+	// so no binding file is needed. The claim is single use, lives 60 seconds from
+	// this write (Holger, #12291), is redeemable only by you (judged by your token,
+	// never by anything presented), and replaces any unused claim for the same
+	// session. For a rotation, pass endSession(resumeClaim: true) instead, which
+	// writes it with the handoff, before the end. Someone else's session answers
+	// as an absent one; an ended session refuses SESSION_ENDED; a session with no
+	// worker refuses SESSION_NOT_WORKER_BOUND.
+	CreateResumeClaim *CreateResumeClaimCreateResumeClaimResumeClaimReceipt `json:"createResumeClaim"`
+}
+
+// GetCreateResumeClaim returns CreateResumeClaimResponse.CreateResumeClaim, and is useful for accessing the field via an interface.
+func (v *CreateResumeClaimResponse) GetCreateResumeClaim() *CreateResumeClaimCreateResumeClaimResumeClaimReceipt {
+	return v.CreateResumeClaim
+}
+
 // CreateReviewNodeCreateReviewNode includes the requested fields of the GraphQL type Node.
 type CreateReviewNodeCreateReviewNode struct {
 	Id       string `json:"id"`
@@ -18273,7 +18563,10 @@ type EndTeamSessionResponse struct {
 	// untouched.
 	//
 	// Gate (#931): platform admin, the session's App, or the attributed user
-	// (not via impersonation).
+	// (not via impersonation). An App key ends only user-less sessions (never one
+	// a person is behind), never a host-launched one, and a key ever granted
+	// host:operate ends none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04);
+	// a host ends a launched session only by reporting its worker.end.
 	//
 	// `handoff` is agent-composed prose: what landed, what is open, what is
 	// blocked, what the next driver should not repeat. The server owns where it
@@ -18301,11 +18594,266 @@ type EndTeamSessionResponse struct {
 	// session whose handoff evaporated is not, because the context that composed
 	// it is gone. Passing `handoff` on a session with no worker is refused rather
 	// than dropped; there is no sequence to write it to.
+	//
+	// #1956: `resumeClaim: true` also writes a resume claim, after the handoff
+	// and before the end, so the fresh context of a rotation starts this worker's
+	// next session with resumeSession and no arguments (see createResumeClaim).
+	// Only on your own open worker session: otherwise it refuses and nothing ends.
 	EndSession *EndTeamSessionEndSession `json:"endSession"`
 }
 
 // GetEndSession returns EndTeamSessionResponse.EndSession, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionResponse) GetEndSession() *EndTeamSessionEndSession { return v.EndSession }
+
+// EndTeamSessionWithResumeClaimEndSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type EndTeamSessionWithResumeClaimEndSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns EndTeamSessionWithResumeClaimEndSession.Id, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetId() string { return v.TeamSessionFields.Id }
+
+// GetAgentId returns EndTeamSessionWithResumeClaimEndSession.AgentId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetAgentId() *string {
+	return v.TeamSessionFields.AgentId
+}
+
+// GetWorkerId returns EndTeamSessionWithResumeClaimEndSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetWorkerId() *string {
+	return v.TeamSessionFields.WorkerId
+}
+
+// GetWorker returns EndTeamSessionWithResumeClaimEndSession.Worker, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
+// GetUserId returns EndTeamSessionWithResumeClaimEndSession.UserId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetUserId() *string {
+	return v.TeamSessionFields.UserId
+}
+
+// GetType returns EndTeamSessionWithResumeClaimEndSession.Type, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetType() string { return v.TeamSessionFields.Type }
+
+// GetRepo returns EndTeamSessionWithResumeClaimEndSession.Repo, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetRepo() *string { return v.TeamSessionFields.Repo }
+
+// GetBranch returns EndTeamSessionWithResumeClaimEndSession.Branch, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetBranch() *string {
+	return v.TeamSessionFields.Branch
+}
+
+// GetPrNumber returns EndTeamSessionWithResumeClaimEndSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetPrNumber() *int {
+	return v.TeamSessionFields.PrNumber
+}
+
+// GetStartedAt returns EndTeamSessionWithResumeClaimEndSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetStartedAt() string {
+	return v.TeamSessionFields.StartedAt
+}
+
+// GetEndedAt returns EndTeamSessionWithResumeClaimEndSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetEndedAt() *string {
+	return v.TeamSessionFields.EndedAt
+}
+
+// GetAutoExpiredAt returns EndTeamSessionWithResumeClaimEndSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
+// GetHost returns EndTeamSessionWithResumeClaimEndSession.Host, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetHost() *string { return v.TeamSessionFields.Host }
+
+// GetTool returns EndTeamSessionWithResumeClaimEndSession.Tool, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetTool() *string { return v.TeamSessionFields.Tool }
+
+// GetTranscriptPath returns EndTeamSessionWithResumeClaimEndSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns EndTeamSessionWithResumeClaimEndSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetLlmModel() *string {
+	return v.TeamSessionFields.LlmModel
+}
+
+func (v *EndTeamSessionWithResumeClaimEndSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*EndTeamSessionWithResumeClaimEndSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.EndTeamSessionWithResumeClaimEndSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalEndTeamSessionWithResumeClaimEndSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	WorkerId *string `json:"workerId"`
+
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *EndTeamSessionWithResumeClaimEndSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *EndTeamSessionWithResumeClaimEndSession) __premarshalJSON() (*__premarshalEndTeamSessionWithResumeClaimEndSession, error) {
+	var retval __premarshalEndTeamSessionWithResumeClaimEndSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Worker = v.TeamSessionFields.Worker
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
+// EndTeamSessionWithResumeClaimResponse is returned by EndTeamSessionWithResumeClaim on success.
+type EndTeamSessionWithResumeClaimResponse struct {
+	// End a session, and — for a worker-bound one — write its closing handoff
+	// (#1029). This is the CLIENT operation that ends a worker session. Since
+	// #1114 it is very nearly the ONLY one: the reaper ends a session only when a
+	// hard expiresAt promised at session start has passed, never for going
+	// quiet. A client's chat session ending **does not end a worker session**, and
+	// never reaches this server (#1034).
+	//
+	// It ends the SESSION, not any HOLD. Where a person bound the worker the name
+	// stays theirs until explicitly released (#1050,
+	// [`cor:agt:020:09`](hrn:node:hadronmemory.com:specs:cor:agt:020:09)), so
+	// only that holder can bind it again. A pure App-key **bind takes no hold** —
+	// which is a fact about the bind, not a promise about the worker's state when
+	// this returns: an eligible user may have forced a binding meanwhile and taken
+	// the name, and ending the App-key session leaves that hold and that session
+	// untouched.
+	//
+	// Gate (#931): platform admin, the session's App, or the attributed user
+	// (not via impersonation). An App key ends only user-less sessions (never one
+	// a person is behind), never a host-launched one, and a key ever granted
+	// host:operate ends none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04);
+	// a host ends a launched session only by reporting its worker.end.
+	//
+	// `handoff` is agent-composed prose: what landed, what is open, what is
+	// blocked, what the next driver should not repeat. The server owns where it
+	// goes (the worker's working memory, under the `handoffs` parent, at a
+	// lexically-ordered loc), so no client re-derives the convention.
+	//
+	// `summary` is NOT a smaller `handoff` (#1100). It sets `Session.summary`,
+	// a label on the session row — readable back through `session` / `sessions`,
+	// but read by no worker-continuity path, so the next driver never sees it. The
+	// two sit side by side and only one of them reaches that driver, so a caller
+	// writing a closing note picks by name: it is `handoff`.
+	//
+	// The two mistakes are not symmetric, and that is the whole hazard. Putting
+	// continuity prose in `summary` succeeds, returns a normal receipt, and
+	// produces NO handoff — discovered only once the context that could have
+	// written one is gone, and not correctable in place, since the sequence is
+	// append-only and the stint has ended (re-ending is refused). The remedy is to
+	// bind again and end THAT session with the prose. Putting a label in
+	// `handoff` is merely untidy: the row lacks its label and the text reaches
+	// the next driver anyway.
+	//
+	// Written BEFORE the session ends, and a failed write REFUSES the end
+	// (HANDOFF_WRITE_FAILED) rather than ending anyway: a still-bound worker is
+	// recoverable — retry, or end without a handoff deliberately — while an ended
+	// session whose handoff evaporated is not, because the context that composed
+	// it is gone. Passing `handoff` on a session with no worker is refused rather
+	// than dropped; there is no sequence to write it to.
+	//
+	// #1956: `resumeClaim: true` also writes a resume claim, after the handoff
+	// and before the end, so the fresh context of a rotation starts this worker's
+	// next session with resumeSession and no arguments (see createResumeClaim).
+	// Only on your own open worker session: otherwise it refuses and nothing ends.
+	EndSession *EndTeamSessionWithResumeClaimEndSession `json:"endSession"`
+}
+
+// GetEndSession returns EndTeamSessionWithResumeClaimResponse.EndSession, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimResponse) GetEndSession() *EndTeamSessionWithResumeClaimEndSession {
+	return v.EndSession
+}
 
 // ExtractParentNodeToMemoryExtractParentNodeToMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -18683,6 +19231,9 @@ func (v *GetAgentAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksI
 // GetProcessesIndexRef returns GetAgentAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetProcessesIndexRef() *string { return v.AgentFields.ProcessesIndexRef }
 
+// GetExtendsAgentId returns GetAgentAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
+
 // GetAiProvider returns GetAgentAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -18748,6 +19299,8 @@ type __premarshalGetAgentAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -18782,6 +19335,7 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -21405,6 +21959,19 @@ var AllHostOperationIssuer = []HostOperationIssuer{
 	HostOperationIssuerWorker,
 }
 
+// #1709 — a host's report: done, or failed with a reason.
+type HostOperationOutcome string
+
+const (
+	HostOperationOutcomeFailed    HostOperationOutcome = "FAILED"
+	HostOperationOutcomeSucceeded HostOperationOutcome = "SUCCEEDED"
+)
+
+var AllHostOperationOutcome = []HostOperationOutcome{
+	HostOperationOutcomeFailed,
+	HostOperationOutcomeSucceeded,
+}
+
 // #1709 — a host operation's status (hrn:node:hadronmemory.com:specs:cor:agt:070:02; COLLECTED is #1709's, Proposed).
 type HostOperationStatus string
 
@@ -21632,6 +22199,103 @@ type HostOperationsResponse struct {
 func (v *HostOperationsResponse) GetHostOperations() *HostOperationsHostOperationsHostOperationPage {
 	return v.HostOperations
 }
+
+// HostRegistrationFields includes the GraphQL fields of HostRegistration requested by the fragment HostRegistrationFields.
+// The GraphQL type's documentation follows.
+//
+// #1709 — a host's registration (hrn:node:hadronmemory.com:specs:cor:agt:070:01).
+type HostRegistrationFields struct {
+	// The host's id within its App: the one its key's host:operate scope names.
+	HostId              string `json:"hostId"`
+	Label               string `json:"label"`
+	PollIntervalSeconds int    `json:"pollIntervalSeconds"`
+	RegisteredAt        string `json:"registeredAt"`
+	RefreshedAt         string `json:"refreshedAt"`
+	// Refreshed within the App's lapse count of its poll intervals, now.
+	Live    bool                                                   `json:"live"`
+	Workers []*HostRegistrationFieldsWorkersHostRegistrationWorker `json:"workers"`
+}
+
+// GetHostId returns HostRegistrationFields.HostId, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFields) GetHostId() string { return v.HostId }
+
+// GetLabel returns HostRegistrationFields.Label, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFields) GetLabel() string { return v.Label }
+
+// GetPollIntervalSeconds returns HostRegistrationFields.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFields) GetPollIntervalSeconds() int { return v.PollIntervalSeconds }
+
+// GetRegisteredAt returns HostRegistrationFields.RegisteredAt, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFields) GetRegisteredAt() string { return v.RegisteredAt }
+
+// GetRefreshedAt returns HostRegistrationFields.RefreshedAt, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFields) GetRefreshedAt() string { return v.RefreshedAt }
+
+// GetLive returns HostRegistrationFields.Live, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFields) GetLive() bool { return v.Live }
+
+// GetWorkers returns HostRegistrationFields.Workers, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFields) GetWorkers() []*HostRegistrationFieldsWorkersHostRegistrationWorker {
+	return v.Workers
+}
+
+// HostRegistrationFieldsWorkersHostRegistrationWorker includes the requested fields of the GraphQL type HostRegistrationWorker.
+// The GraphQL type's documentation follows.
+//
+// #1709 — a worker a host can launch: the family it would run as, and its existing worktrees there.
+type HostRegistrationFieldsWorkersHostRegistrationWorker struct {
+	WorkerId  string                                                     `json:"workerId"`
+	Worker    *HostRegistrationFieldsWorkersHostRegistrationWorkerWorker `json:"worker"`
+	Family    string                                                     `json:"family"`
+	Worktrees []string                                                   `json:"worktrees"`
+}
+
+// GetWorkerId returns HostRegistrationFieldsWorkersHostRegistrationWorker.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFieldsWorkersHostRegistrationWorker) GetWorkerId() string { return v.WorkerId }
+
+// GetWorker returns HostRegistrationFieldsWorkersHostRegistrationWorker.Worker, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFieldsWorkersHostRegistrationWorker) GetWorker() *HostRegistrationFieldsWorkersHostRegistrationWorkerWorker {
+	return v.Worker
+}
+
+// GetFamily returns HostRegistrationFieldsWorkersHostRegistrationWorker.Family, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFieldsWorkersHostRegistrationWorker) GetFamily() string { return v.Family }
+
+// GetWorktrees returns HostRegistrationFieldsWorkersHostRegistrationWorker.Worktrees, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFieldsWorkersHostRegistrationWorker) GetWorktrees() []string {
+	return v.Worktrees
+}
+
+// HostRegistrationFieldsWorkersHostRegistrationWorkerWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostRegistrationFieldsWorkersHostRegistrationWorkerWorker struct {
+	Id string `json:"id"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetId returns HostRegistrationFieldsWorkersHostRegistrationWorkerWorker.Id, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFieldsWorkersHostRegistrationWorkerWorker) GetId() string { return v.Id }
+
+// GetUrn returns HostRegistrationFieldsWorkersHostRegistrationWorkerWorker.Urn, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFieldsWorkersHostRegistrationWorkerWorker) GetUrn() *string { return v.Urn }
+
+// GetName returns HostRegistrationFieldsWorkersHostRegistrationWorkerWorker.Name, and is useful for accessing the field via an interface.
+func (v *HostRegistrationFieldsWorkersHostRegistrationWorkerWorker) GetName() string { return v.Name }
 
 // HostRegistrationsHostRegistrationsHostRegistration includes the requested fields of the GraphQL type HostRegistration.
 // The GraphQL type's documentation follows.
@@ -30359,6 +31023,11 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetProcessesIndexRef() *s
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns PublicAgentsPublicAgentsAgentsPageItemsAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
 // GetAiProvider returns PublicAgentsPublicAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -30434,6 +31103,8 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -30468,6 +31139,7 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -31359,6 +32031,165 @@ func (v *RegisterEntryFilter) GetChannelRef() *string { return v.ChannelRef }
 
 // GetOwnerRef returns RegisterEntryFilter.OwnerRef, and is useful for accessing the field via an interface.
 func (v *RegisterEntryFilter) GetOwnerRef() *string { return v.OwnerRef }
+
+type RegisterHostInput struct {
+	AppRef string `json:"appRef"`
+	Label  string `json:"label"`
+	// How often the host checks in; it lapses after the App's count of these without one.
+	PollIntervalSeconds int `json:"pollIntervalSeconds"`
+	// The whole list: it replaces the last registration's.
+	Workers []*RegisterHostWorkerInput `json:"workers"`
+}
+
+// GetAppRef returns RegisterHostInput.AppRef, and is useful for accessing the field via an interface.
+func (v *RegisterHostInput) GetAppRef() string { return v.AppRef }
+
+// GetLabel returns RegisterHostInput.Label, and is useful for accessing the field via an interface.
+func (v *RegisterHostInput) GetLabel() string { return v.Label }
+
+// GetPollIntervalSeconds returns RegisterHostInput.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *RegisterHostInput) GetPollIntervalSeconds() int { return v.PollIntervalSeconds }
+
+// GetWorkers returns RegisterHostInput.Workers, and is useful for accessing the field via an interface.
+func (v *RegisterHostInput) GetWorkers() []*RegisterHostWorkerInput { return v.Workers }
+
+// RegisterHostRegisterHostHostRegistration includes the requested fields of the GraphQL type HostRegistration.
+// The GraphQL type's documentation follows.
+//
+// #1709 — a host's registration (hrn:node:hadronmemory.com:specs:cor:agt:070:01).
+type RegisterHostRegisterHostHostRegistration struct {
+	HostRegistrationFields `json:"-"`
+}
+
+// GetHostId returns RegisterHostRegisterHostHostRegistration.HostId, and is useful for accessing the field via an interface.
+func (v *RegisterHostRegisterHostHostRegistration) GetHostId() string {
+	return v.HostRegistrationFields.HostId
+}
+
+// GetLabel returns RegisterHostRegisterHostHostRegistration.Label, and is useful for accessing the field via an interface.
+func (v *RegisterHostRegisterHostHostRegistration) GetLabel() string {
+	return v.HostRegistrationFields.Label
+}
+
+// GetPollIntervalSeconds returns RegisterHostRegisterHostHostRegistration.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *RegisterHostRegisterHostHostRegistration) GetPollIntervalSeconds() int {
+	return v.HostRegistrationFields.PollIntervalSeconds
+}
+
+// GetRegisteredAt returns RegisterHostRegisterHostHostRegistration.RegisteredAt, and is useful for accessing the field via an interface.
+func (v *RegisterHostRegisterHostHostRegistration) GetRegisteredAt() string {
+	return v.HostRegistrationFields.RegisteredAt
+}
+
+// GetRefreshedAt returns RegisterHostRegisterHostHostRegistration.RefreshedAt, and is useful for accessing the field via an interface.
+func (v *RegisterHostRegisterHostHostRegistration) GetRefreshedAt() string {
+	return v.HostRegistrationFields.RefreshedAt
+}
+
+// GetLive returns RegisterHostRegisterHostHostRegistration.Live, and is useful for accessing the field via an interface.
+func (v *RegisterHostRegisterHostHostRegistration) GetLive() bool {
+	return v.HostRegistrationFields.Live
+}
+
+// GetWorkers returns RegisterHostRegisterHostHostRegistration.Workers, and is useful for accessing the field via an interface.
+func (v *RegisterHostRegisterHostHostRegistration) GetWorkers() []*HostRegistrationFieldsWorkersHostRegistrationWorker {
+	return v.HostRegistrationFields.Workers
+}
+
+func (v *RegisterHostRegisterHostHostRegistration) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RegisterHostRegisterHostHostRegistration
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RegisterHostRegisterHostHostRegistration = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostRegistrationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRegisterHostRegisterHostHostRegistration struct {
+	HostId string `json:"hostId"`
+
+	Label string `json:"label"`
+
+	PollIntervalSeconds int `json:"pollIntervalSeconds"`
+
+	RegisteredAt string `json:"registeredAt"`
+
+	RefreshedAt string `json:"refreshedAt"`
+
+	Live bool `json:"live"`
+
+	Workers []*HostRegistrationFieldsWorkersHostRegistrationWorker `json:"workers"`
+}
+
+func (v *RegisterHostRegisterHostHostRegistration) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RegisterHostRegisterHostHostRegistration) __premarshalJSON() (*__premarshalRegisterHostRegisterHostHostRegistration, error) {
+	var retval __premarshalRegisterHostRegisterHostHostRegistration
+
+	retval.HostId = v.HostRegistrationFields.HostId
+	retval.Label = v.HostRegistrationFields.Label
+	retval.PollIntervalSeconds = v.HostRegistrationFields.PollIntervalSeconds
+	retval.RegisteredAt = v.HostRegistrationFields.RegisteredAt
+	retval.RefreshedAt = v.HostRegistrationFields.RefreshedAt
+	retval.Live = v.HostRegistrationFields.Live
+	retval.Workers = v.HostRegistrationFields.Workers
+	return &retval, nil
+}
+
+// RegisterHostResponse is returned by RegisterHost on success.
+type RegisterHostResponse struct {
+	// #1709 — a host registers, or refreshes, which of its App's workers it can launch, as which model family, and in
+	// which existing worktrees (hrn:node:hadronmemory.com:specs:cor:agt:070:01). A host key only: an App key holding
+	// host:operate, which names the host; the request names none (hrn:node:hadronmemory.com:specs:cor:agt:070:04). Refreshing within the App's lapse count
+	// of poll intervals keeps it live. Refused HOST_KEY_REQUIRED for anyone else, APP_KEY_SCOPE_REQUIRED without the
+	// scope, APP_KEY_SESSION_BOUND with a session, BAD_HOST_REGISTRATION for a bad shape or a worker not of the App.
+	RegisterHost *RegisterHostRegisterHostHostRegistration `json:"registerHost"`
+}
+
+// GetRegisterHost returns RegisterHostResponse.RegisterHost, and is useful for accessing the field via an interface.
+func (v *RegisterHostResponse) GetRegisterHost() *RegisterHostRegisterHostHostRegistration {
+	return v.RegisterHost
+}
+
+type RegisterHostWorkerInput struct {
+	// The model family it would run as here, e.g. claude or codex.
+	Family string `json:"family"`
+	// The worker: its id, URN or name within the App.
+	Worker string `json:"worker"`
+	// Its existing worktrees on this host, as the host names them (at most 32 name tokens).
+	Worktrees []string `json:"worktrees"`
+}
+
+// GetFamily returns RegisterHostWorkerInput.Family, and is useful for accessing the field via an interface.
+func (v *RegisterHostWorkerInput) GetFamily() string { return v.Family }
+
+// GetWorker returns RegisterHostWorkerInput.Worker, and is useful for accessing the field via an interface.
+func (v *RegisterHostWorkerInput) GetWorker() string { return v.Worker }
+
+// GetWorktrees returns RegisterHostWorkerInput.Worktrees, and is useful for accessing the field via an interface.
+func (v *RegisterHostWorkerInput) GetWorktrees() []string { return v.Worktrees }
 
 // Which attendee column the winning register row named.
 type RegisterNamedBy string
@@ -32477,6 +33308,222 @@ func (v *ReplyToCommentResponse) GetReplyToComment() *ReplyToCommentReplyToComme
 	return v.ReplyToComment
 }
 
+type ReportHostOperationInput struct {
+	AppRef string `json:"appRef"`
+	// FAILED only: why, 1 to 2000 characters.
+	FailureReason *string              `json:"failureReason,omitempty"`
+	Id            string               `json:"id"`
+	Outcome       HostOperationOutcome `json:"outcome"`
+	// worktree.create's success only: the worktree it created.
+	Worktree *string `json:"worktree,omitempty"`
+}
+
+// GetAppRef returns ReportHostOperationInput.AppRef, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationInput) GetAppRef() string { return v.AppRef }
+
+// GetFailureReason returns ReportHostOperationInput.FailureReason, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationInput) GetFailureReason() *string { return v.FailureReason }
+
+// GetId returns ReportHostOperationInput.Id, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationInput) GetId() string { return v.Id }
+
+// GetOutcome returns ReportHostOperationInput.Outcome, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationInput) GetOutcome() HostOperationOutcome { return v.Outcome }
+
+// GetWorktree returns ReportHostOperationInput.Worktree, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationInput) GetWorktree() *string { return v.Worktree }
+
+// ReportHostOperationReportHostOperation includes the requested fields of the GraphQL type HostOperation.
+// The GraphQL type's documentation follows.
+//
+// #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove; args are its typed arguments (ids and name
+// tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName, label}; worker.start
+// {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end {workerId,
+// sessionId}; worktree.remove {workerId, worktree}. The per-type arguments are #1709's design, Proposed.
+type ReportHostOperationReportHostOperation struct {
+	HostOperationFields `json:"-"`
+}
+
+// GetId returns ReportHostOperationReportHostOperation.Id, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetId() string { return v.HostOperationFields.Id }
+
+// GetAppId returns ReportHostOperationReportHostOperation.AppId, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetAppId() string {
+	return v.HostOperationFields.AppId
+}
+
+// GetHostId returns ReportHostOperationReportHostOperation.HostId, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetHostId() string {
+	return v.HostOperationFields.HostId
+}
+
+// GetType returns ReportHostOperationReportHostOperation.Type, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetType() string { return v.HostOperationFields.Type }
+
+// GetArgs returns ReportHostOperationReportHostOperation.Args, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetArgs() json.RawMessage {
+	return v.HostOperationFields.Args
+}
+
+// GetWorkerId returns ReportHostOperationReportHostOperation.WorkerId, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetWorkerId() string {
+	return v.HostOperationFields.WorkerId
+}
+
+// GetWorker returns ReportHostOperationReportHostOperation.Worker, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetWorker() *HostOperationFieldsWorker {
+	return v.HostOperationFields.Worker
+}
+
+// GetStatus returns ReportHostOperationReportHostOperation.Status, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetStatus() HostOperationStatus {
+	return v.HostOperationFields.Status
+}
+
+// GetIssuedBy returns ReportHostOperationReportHostOperation.IssuedBy, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetIssuedBy() HostOperationIssuer {
+	return v.HostOperationFields.IssuedBy
+}
+
+// GetIssuedByUserId returns ReportHostOperationReportHostOperation.IssuedByUserId, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetIssuedByUserId() *string {
+	return v.HostOperationFields.IssuedByUserId
+}
+
+// GetIssuedByWorkerId returns ReportHostOperationReportHostOperation.IssuedByWorkerId, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetIssuedByWorkerId() *string {
+	return v.HostOperationFields.IssuedByWorkerId
+}
+
+// GetIssuedAt returns ReportHostOperationReportHostOperation.IssuedAt, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetIssuedAt() string {
+	return v.HostOperationFields.IssuedAt
+}
+
+// GetCollectedAt returns ReportHostOperationReportHostOperation.CollectedAt, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetCollectedAt() *string {
+	return v.HostOperationFields.CollectedAt
+}
+
+// GetFinishedAt returns ReportHostOperationReportHostOperation.FinishedAt, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetFinishedAt() *string {
+	return v.HostOperationFields.FinishedAt
+}
+
+// GetResult returns ReportHostOperationReportHostOperation.Result, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetResult() *json.RawMessage {
+	return v.HostOperationFields.Result
+}
+
+// GetFailureReason returns ReportHostOperationReportHostOperation.FailureReason, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationReportHostOperation) GetFailureReason() *string {
+	return v.HostOperationFields.FailureReason
+}
+
+func (v *ReportHostOperationReportHostOperation) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ReportHostOperationReportHostOperation
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ReportHostOperationReportHostOperation = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostOperationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalReportHostOperationReportHostOperation struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	HostId string `json:"hostId"`
+
+	Type string `json:"type"`
+
+	Args json.RawMessage `json:"args"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostOperationFieldsWorker `json:"worker"`
+
+	Status HostOperationStatus `json:"status"`
+
+	IssuedBy HostOperationIssuer `json:"issuedBy"`
+
+	IssuedByUserId *string `json:"issuedByUserId"`
+
+	IssuedByWorkerId *string `json:"issuedByWorkerId"`
+
+	IssuedAt string `json:"issuedAt"`
+
+	CollectedAt *string `json:"collectedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	Result *json.RawMessage `json:"result"`
+
+	FailureReason *string `json:"failureReason"`
+}
+
+func (v *ReportHostOperationReportHostOperation) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ReportHostOperationReportHostOperation) __premarshalJSON() (*__premarshalReportHostOperationReportHostOperation, error) {
+	var retval __premarshalReportHostOperationReportHostOperation
+
+	retval.Id = v.HostOperationFields.Id
+	retval.AppId = v.HostOperationFields.AppId
+	retval.HostId = v.HostOperationFields.HostId
+	retval.Type = v.HostOperationFields.Type
+	retval.Args = v.HostOperationFields.Args
+	retval.WorkerId = v.HostOperationFields.WorkerId
+	retval.Worker = v.HostOperationFields.Worker
+	retval.Status = v.HostOperationFields.Status
+	retval.IssuedBy = v.HostOperationFields.IssuedBy
+	retval.IssuedByUserId = v.HostOperationFields.IssuedByUserId
+	retval.IssuedByWorkerId = v.HostOperationFields.IssuedByWorkerId
+	retval.IssuedAt = v.HostOperationFields.IssuedAt
+	retval.CollectedAt = v.HostOperationFields.CollectedAt
+	retval.FinishedAt = v.HostOperationFields.FinishedAt
+	retval.Result = v.HostOperationFields.Result
+	retval.FailureReason = v.HostOperationFields.FailureReason
+	return &retval, nil
+}
+
+// ReportHostOperationResponse is returned by ReportHostOperation on success.
+type ReportHostOperationResponse struct {
+	// #1709 — a host reports an operation's final outcome: SUCCEEDED, or FAILED with a reason
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:03). Only after collecting it, and only its own host's (another's is
+	// HOST_OPERATION_NOT_FOUND). The same outcome again answers the operation as it is; a different one is
+	// HOST_OPERATION_ALREADY_REPORTED. Writes host.operation.succeeded or host.operation.failed.
+	ReportHostOperation *ReportHostOperationReportHostOperation `json:"reportHostOperation"`
+}
+
+// GetReportHostOperation returns ReportHostOperationResponse.ReportHostOperation, and is useful for accessing the field via an interface.
+func (v *ReportHostOperationResponse) GetReportHostOperation() *ReportHostOperationReportHostOperation {
+	return v.ReportHostOperation
+}
+
 // RequestNodeSignatureRequestNodeSignatureSigningRequest includes the requested fields of the GraphQL type SigningRequest.
 // The GraphQL type's documentation follows.
 //
@@ -33425,6 +34472,370 @@ func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetNodeType() string { retu
 
 // GetUpdatedAt returns RestoreNodeRevisionRestoreNodeRevisionNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// #1956 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — what resumeSession did. RESUMED: bound to an open
+// session (a shed's claim, or the one live session of the fast path). STARTED:
+// the claimed session had ended (a rotation), so the worker's next session was
+// started. CHOOSE: several candidates, nothing bound or consumed; call again with
+// `session` set to the one the human picks.
+type ResumeOutcome string
+
+const (
+	ResumeOutcomeChoose  ResumeOutcome = "CHOOSE"
+	ResumeOutcomeResumed ResumeOutcome = "RESUMED"
+	ResumeOutcomeStarted ResumeOutcome = "STARTED"
+)
+
+var AllResumeOutcome = []ResumeOutcome{
+	ResumeOutcomeChoose,
+	ResumeOutcomeResumed,
+	ResumeOutcomeStarted,
+}
+
+// #1956 — resumeSession's optional input. Everything but `session` is provenance for a session the redemption starts.
+type ResumeSessionInput struct {
+	// What the next session is about, when the redemption starts one (its plan).
+	Description *string `json:"description,omitempty"`
+	Family      *string `json:"family,omitempty"`
+	Host        *string `json:"host,omitempty"`
+	LlmModel    *string `json:"llmModel,omitempty"`
+	// Pick one of a CHOOSE answer's candidates by its sessionId.
+	Session        *string `json:"session,omitempty"`
+	Tool           *string `json:"tool,omitempty"`
+	TranscriptPath *string `json:"transcriptPath,omitempty"`
+}
+
+// GetDescription returns ResumeSessionInput.Description, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetDescription() *string { return v.Description }
+
+// GetFamily returns ResumeSessionInput.Family, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetFamily() *string { return v.Family }
+
+// GetHost returns ResumeSessionInput.Host, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetHost() *string { return v.Host }
+
+// GetLlmModel returns ResumeSessionInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetLlmModel() *string { return v.LlmModel }
+
+// GetSession returns ResumeSessionInput.Session, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetSession() *string { return v.Session }
+
+// GetTool returns ResumeSessionInput.Tool, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetTool() *string { return v.Tool }
+
+// GetTranscriptPath returns ResumeSessionInput.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetTranscriptPath() *string { return v.TranscriptPath }
+
+// #1956 — where a resume candidate came from: an unused resume claim, or (with no claim) a live bound session.
+type ResumeSource string
+
+const (
+	ResumeSourceClaim       ResumeSource = "CLAIM"
+	ResumeSourceLiveSession ResumeSource = "LIVE_SESSION"
+)
+
+var AllResumeSource = []ResumeSource{
+	ResumeSourceClaim,
+	ResumeSourceLiveSession,
+}
+
+// ResumeTeamSessionResponse is returned by ResumeTeamSession on success.
+type ResumeTeamSessionResponse struct {
+	// #1956 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — recover your worker binding after a context reset,
+	// with one call and no arguments. One unused resume claim of yours binds it
+	// (RESUMED to the open session, or STARTED: the worker's next session, when
+	// the claimed one had ended); several list as CHOOSE and consume nothing. With
+	// no claim, the fast path: exactly one of your worker sessions that reads LIVE
+	// is RESUMED, several list as CHOOSE, never a guess. Pass `session` to pick
+	// a listed candidate. Nothing at all refuses NOTHING_TO_RESUME, and nothing is
+	// posted or recorded on your behalf. Judged only on your own user: anyone
+	// else's claims and sessions are invisible, and an App key or an impersonation
+	// gets the same refusal as a caller with nothing. A claim is single use: of two
+	// racing redemptions one binds and the other refuses NOTHING_TO_RESUME, and a
+	// claim's 60 seconds are judged by the database clock when it is consumed.
+	// A claim is recovery intent, not a waiver: resuming an open session passes
+	// the same lifecycle gate as any resume (you still hold the name and may drive
+	// its App, it is not past its hard expiry or dormant, no other session of the
+	// worker is live), else RESUME_REFUSED; starting the next one passes
+	// startSession's. Either refusal spends the claim. More recently driven worker
+	// sessions than one scan holds refuses RESUME_AMBIGUOUS rather than guessing.
+	ResumeSession *ResumeTeamSessionResumeSessionResumeSessionResult `json:"resumeSession"`
+}
+
+// GetResumeSession returns ResumeTeamSessionResponse.ResumeSession, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResponse) GetResumeSession() *ResumeTeamSessionResumeSessionResumeSessionResult {
+	return v.ResumeSession
+}
+
+// ResumeTeamSessionResumeSessionResumeSessionResult includes the requested fields of the GraphQL type ResumeSessionResult.
+// The GraphQL type's documentation follows.
+//
+// #1956 — the answer to resumeSession: the bound session, or the candidates to choose from.
+type ResumeTeamSessionResumeSessionResumeSessionResult struct {
+	Outcome ResumeOutcome `json:"outcome"`
+	// The bound session for RESUMED and STARTED; null for CHOOSE.
+	Session *ResumeTeamSessionResumeSessionResumeSessionResultSession `json:"session"`
+	// Empty unless outcome is CHOOSE.
+	Candidates []*ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate `json:"candidates"`
+}
+
+// GetOutcome returns ResumeTeamSessionResumeSessionResumeSessionResult.Outcome, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResult) GetOutcome() ResumeOutcome {
+	return v.Outcome
+}
+
+// GetSession returns ResumeTeamSessionResumeSessionResumeSessionResult.Session, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResult) GetSession() *ResumeTeamSessionResumeSessionResumeSessionResultSession {
+	return v.Session
+}
+
+// GetCandidates returns ResumeTeamSessionResumeSessionResumeSessionResult.Candidates, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResult) GetCandidates() []*ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate {
+	return v.Candidates
+}
+
+// ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate includes the requested fields of the GraphQL type ResumeCandidate.
+// The GraphQL type's documentation follows.
+//
+// #1956 — one of the caller's own sessions offered by a CHOOSE answer. Never carries a claim id.
+type ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate struct {
+	// The session to pass back as resumeSession(input: { session }) to pick this one.
+	SessionId  string `json:"sessionId"`
+	WorkerId   string `json:"workerId"`
+	WorkerName string `json:"workerName"`
+	// The session's description (its plan), when it has one.
+	Description *string      `json:"description"`
+	Source      ResumeSource `json:"source"`
+	// When the claim lapses; null for a live session.
+	ExpiresAt *string `json:"expiresAt"`
+}
+
+// GetSessionId returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.SessionId, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetSessionId() string {
+	return v.SessionId
+}
+
+// GetWorkerId returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.WorkerId, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetWorkerName returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.WorkerName, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetWorkerName() string {
+	return v.WorkerName
+}
+
+// GetDescription returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.Description, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetDescription() *string {
+	return v.Description
+}
+
+// GetSource returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.Source, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetSource() ResumeSource {
+	return v.Source
+}
+
+// GetExpiresAt returns ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultCandidatesResumeCandidate) GetExpiresAt() *string {
+	return v.ExpiresAt
+}
+
+// ResumeTeamSessionResumeSessionResumeSessionResultSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type ResumeTeamSessionResumeSessionResumeSessionResultSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Id, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetId() string {
+	return v.TeamSessionFields.Id
+}
+
+// GetAgentId returns ResumeTeamSessionResumeSessionResumeSessionResultSession.AgentId, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetAgentId() *string {
+	return v.TeamSessionFields.AgentId
+}
+
+// GetWorkerId returns ResumeTeamSessionResumeSessionResumeSessionResultSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetWorkerId() *string {
+	return v.TeamSessionFields.WorkerId
+}
+
+// GetWorker returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Worker, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
+// GetUserId returns ResumeTeamSessionResumeSessionResumeSessionResultSession.UserId, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetUserId() *string {
+	return v.TeamSessionFields.UserId
+}
+
+// GetType returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Type, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetType() string {
+	return v.TeamSessionFields.Type
+}
+
+// GetRepo returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Repo, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetRepo() *string {
+	return v.TeamSessionFields.Repo
+}
+
+// GetBranch returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Branch, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetBranch() *string {
+	return v.TeamSessionFields.Branch
+}
+
+// GetPrNumber returns ResumeTeamSessionResumeSessionResumeSessionResultSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetPrNumber() *int {
+	return v.TeamSessionFields.PrNumber
+}
+
+// GetStartedAt returns ResumeTeamSessionResumeSessionResumeSessionResultSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetStartedAt() string {
+	return v.TeamSessionFields.StartedAt
+}
+
+// GetEndedAt returns ResumeTeamSessionResumeSessionResumeSessionResultSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetEndedAt() *string {
+	return v.TeamSessionFields.EndedAt
+}
+
+// GetAutoExpiredAt returns ResumeTeamSessionResumeSessionResumeSessionResultSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
+// GetHost returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Host, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetHost() *string {
+	return v.TeamSessionFields.Host
+}
+
+// GetTool returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Tool, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetTool() *string {
+	return v.TeamSessionFields.Tool
+}
+
+// GetTranscriptPath returns ResumeTeamSessionResumeSessionResumeSessionResultSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns ResumeTeamSessionResumeSessionResumeSessionResultSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetLlmModel() *string {
+	return v.TeamSessionFields.LlmModel
+}
+
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ResumeTeamSessionResumeSessionResumeSessionResultSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ResumeTeamSessionResumeSessionResumeSessionResultSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalResumeTeamSessionResumeSessionResumeSessionResultSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	WorkerId *string `json:"workerId"`
+
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) __premarshalJSON() (*__premarshalResumeTeamSessionResumeSessionResumeSessionResultSession, error) {
+	var retval __premarshalResumeTeamSessionResumeSessionResumeSessionResultSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Worker = v.TeamSessionFields.Worker
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
 
 // RetireWorkerResponse is returned by RetireWorker on success.
 type RetireWorkerResponse struct {
@@ -36314,7 +37725,10 @@ type SessionInput struct {
 	// LAUNCH_GRANT_INVALID when unknown, expired, used or not minted for the caller (an App key never redeems one);
 	// LAUNCH_REFUSED, failing the start with the reason, when the hold changed, the holder may no longer hold the
 	// worker, or it already has a live session. Never forced: with force it is BAD_USER_INPUT.
-	LaunchGrant     *string `json:"launchGrant"`
+	// The grant's own worker skips the #1937 worker read gate, because the grant already told its holder that worker
+	// exists: a holder who has lost the App gets LAUNCH_REFUSED with its reason rather than WORKER_NOT_FOUND, and so
+	// may learn that this one worker was retired (#1945). Any other workerRef sent with a grant is gated first.
+	LaunchGrant     *string `json:"launchGrant,omitempty"`
 	LlmModel        *string `json:"llmModel,omitempty"`
 	ParentSessionId *string `json:"parentSessionId,omitempty"`
 	// The session's stated intent (Session.plan) - what this session is about. MCP's hadron_start_session description lands here.
@@ -36361,7 +37775,11 @@ type SessionInput struct {
 	// role-agent. The worker must belong to the session's App: with appRef (or an
 	// App-key credential) it must match the worker's App; without one, the
 	// worker's App becomes the session's, behind the same membership gate as
-	// appRef. A retired worker refuses (WORKER_RETIRED). #940: a worker with an
+	// appRef. A retired worker refuses (WORKER_RETIRED). #1937: an id or URN
+	// naming a worker in an App the caller cannot read refuses exactly like an
+	// absent ref (WORKER_NOT_FOUND, same message and extensions), so no other
+	// refusal here tells an outsider the worker exists. The one exception is the
+	// worker the caller's own launchGrant names (see launchGrant). #940: a worker with an
 	// ACTIVE session refuses WORKER_TAKEN — extensions carry workerId, sessionId,
 	// lastDriver, lastSeenAt, everything the takeover prompt needs — unless
 	// force is true (informed takeover, cor:agt:020:03: show who last drove it,
@@ -36431,6 +37849,201 @@ func (v *SessionInput) GetType() *string { return v.Type }
 
 // GetWorkerRef returns SessionInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetWorkerRef() *string { return v.WorkerRef }
+
+// SetAgentBaseResponse is returned by SetAgentBase on success.
+type SetAgentBaseResponse struct {
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set, change or clear the one base Agent this
+	// Agent extends. The Agent then inherits its base chain's system-memory
+	// nodes, except boot prompts. A null baseRef clears the base.
+	//
+	// Whoever manages this Agent may call it. Extending another organization's
+	// Agent needs the organization's active AgentOrgGrant for it (a same-org base
+	// provisions one, never reactivating a revoked grant); a user-owned Agent
+	// extending someone else's needs its owner's active AgentSubscription.
+	// Refused, changing nothing, with AGENT_BASE_CYCLE when the base is this
+	// Agent or extends it, and AGENT_BASE_CHAIN_TOO_LONG when a chain through
+	// this Agent, its own or any Agent's that extends it, would hold more than 4.
+	//
+	// Accepts each Agent's ID or URN.
+	SetAgentBase *SetAgentBaseSetAgentBaseAgent `json:"setAgentBase"`
+}
+
+// GetSetAgentBase returns SetAgentBaseResponse.SetAgentBase, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseResponse) GetSetAgentBase() *SetAgentBaseSetAgentBaseAgent {
+	return v.SetAgentBase
+}
+
+// SetAgentBaseSetAgentBaseAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type SetAgentBaseSetAgentBaseAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns SetAgentBaseSetAgentBaseAgent.Id, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns SetAgentBaseSetAgentBaseAgent.Urn, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns SetAgentBaseSetAgentBaseAgent.Name, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns SetAgentBaseSetAgentBaseAgent.Description, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns SetAgentBaseSetAgentBaseAgent.Type, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns SetAgentBaseSetAgentBaseAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns SetAgentBaseSetAgentBaseAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns SetAgentBaseSetAgentBaseAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns SetAgentBaseSetAgentBaseAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetSystemPrompt returns SetAgentBaseSetAgentBaseAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
+
+// GetTasksIndexRef returns SetAgentBaseSetAgentBaseAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns SetAgentBaseSetAgentBaseAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns SetAgentBaseSetAgentBaseAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetAiProvider returns SetAgentBaseSetAgentBaseAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns SetAgentBaseSetAgentBaseAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns SetAgentBaseSetAgentBaseAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetPersonaRole returns SetAgentBaseSetAgentBaseAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
+
+// GetCreatedAt returns SetAgentBaseSetAgentBaseAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *SetAgentBaseSetAgentBaseAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetAgentBaseSetAgentBaseAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetAgentBaseSetAgentBaseAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetAgentBaseSetAgentBaseAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *SetAgentBaseSetAgentBaseAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgentBaseSetAgentBaseAgent, error) {
+	var retval __premarshalSetAgentBaseSetAgentBaseAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
 
 // SetAgentIndexRefsResponse is returned by SetAgentIndexRefs on success.
 type SetAgentIndexRefsResponse struct {
@@ -36511,6 +38124,11 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetProcessesIndexRef() *string
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns SetAgentIndexRefsSetAgentIndexRefsAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
 // GetAiProvider returns SetAgentIndexRefsSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -36584,6 +38202,8 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -36618,6 +38238,7 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -43038,6 +44659,9 @@ func (v *UpdateAgentUpdateAgent) GetProcessesIndexRef() *string {
 	return v.AgentFields.ProcessesIndexRef
 }
 
+// GetExtendsAgentId returns UpdateAgentUpdateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
+
 // GetAiProvider returns UpdateAgentUpdateAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -43103,6 +44727,8 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
 
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -43137,6 +44763,7 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -47229,8 +48856,10 @@ type UpdateTeamSessionResponse struct {
 	// preserves; an empty update is a valid liveness touch (bumps updatedAt,
 	// which liveness counts — #1114). id-only - sessions have no URN.
 	// Gate: platform admin, the session's App, or the attributed user (not via
-	// impersonation). Updates on an ended session stay allowed (late PR-merge
-	// attribution).
+	// impersonation). An App key updates only user-less sessions (never one a
+	// person is behind), never a host-launched one, and a key ever granted
+	// host:operate updates none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04).
+	// Updates on an ended session stay allowed (late PR-merge attribution).
 	UpdateSession *UpdateTeamSessionUpdateSession `json:"updateSession"`
 }
 
@@ -50403,6 +52032,18 @@ func (v *__CloneNodeInput) GetTargetUrn() *string { return v.TargetUrn }
 // GetTargetMemoryRef returns __CloneNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
 func (v *__CloneNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
 
+// __CollectHostOperationsInput is used internally by genqlient
+type __CollectHostOperationsInput struct {
+	AppRef string `json:"appRef"`
+	First  *int   `json:"first,omitempty"`
+}
+
+// GetAppRef returns __CollectHostOperationsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CollectHostOperationsInput) GetAppRef() string { return v.AppRef }
+
+// GetFirst returns __CollectHostOperationsInput.First, and is useful for accessing the field via an interface.
+func (v *__CollectHostOperationsInput) GetFirst() *int { return v.First }
+
 // __CommentThreadsInput is used internally by genqlient
 type __CommentThreadsInput struct {
 	Target string               `json:"target"`
@@ -51025,6 +52666,14 @@ type __CreateRegisterEntryInput struct {
 // GetInput returns __CreateRegisterEntryInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateRegisterEntryInput) GetInput() *CreateRegisterEntryInput { return v.Input }
 
+// __CreateResumeClaimInput is used internally by genqlient
+type __CreateResumeClaimInput struct {
+	SessionId string `json:"sessionId"`
+}
+
+// GetSessionId returns __CreateResumeClaimInput.SessionId, and is useful for accessing the field via an interface.
+func (v *__CreateResumeClaimInput) GetSessionId() string { return v.SessionId }
+
 // __CreateReviewNodeInput is used internally by genqlient
 type __CreateReviewNodeInput struct {
 	Input *CreateNodeInput `json:"input,omitempty"`
@@ -51448,6 +53097,22 @@ func (v *__EndTeamSessionInput) GetSummary() *string { return v.Summary }
 
 // GetHandoff returns __EndTeamSessionInput.Handoff, and is useful for accessing the field via an interface.
 func (v *__EndTeamSessionInput) GetHandoff() *string { return v.Handoff }
+
+// __EndTeamSessionWithResumeClaimInput is used internally by genqlient
+type __EndTeamSessionWithResumeClaimInput struct {
+	Id      string  `json:"id"`
+	Summary *string `json:"summary,omitempty"`
+	Handoff *string `json:"handoff,omitempty"`
+}
+
+// GetId returns __EndTeamSessionWithResumeClaimInput.Id, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithResumeClaimInput) GetId() string { return v.Id }
+
+// GetSummary returns __EndTeamSessionWithResumeClaimInput.Summary, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithResumeClaimInput) GetSummary() *string { return v.Summary }
+
+// GetHandoff returns __EndTeamSessionWithResumeClaimInput.Handoff, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithResumeClaimInput) GetHandoff() *string { return v.Handoff }
 
 // __ExtractParentNodeToMemoryInput is used internally by genqlient
 type __ExtractParentNodeToMemoryInput struct {
@@ -52367,6 +54032,14 @@ func (v *__RegisterEntriesInput) GetOffset() *int { return v.Offset }
 // GetOrgId returns __RegisterEntriesInput.OrgId, and is useful for accessing the field via an interface.
 func (v *__RegisterEntriesInput) GetOrgId() *string { return v.OrgId }
 
+// __RegisterHostInput is used internally by genqlient
+type __RegisterHostInput struct {
+	Input *RegisterHostInput `json:"input,omitempty"`
+}
+
+// GetInput returns __RegisterHostInput.Input, and is useful for accessing the field via an interface.
+func (v *__RegisterHostInput) GetInput() *RegisterHostInput { return v.Input }
+
 // __ReleaseWorkerInput is used internally by genqlient
 type __ReleaseWorkerInput struct {
 	WorkerRef            string  `json:"workerRef"`
@@ -52450,6 +54123,14 @@ func (v *__ReplyToCommentInput) GetRef() string { return v.Ref }
 
 // GetBody returns __ReplyToCommentInput.Body, and is useful for accessing the field via an interface.
 func (v *__ReplyToCommentInput) GetBody() string { return v.Body }
+
+// __ReportHostOperationInput is used internally by genqlient
+type __ReportHostOperationInput struct {
+	Input *ReportHostOperationInput `json:"input,omitempty"`
+}
+
+// GetInput returns __ReportHostOperationInput.Input, and is useful for accessing the field via an interface.
+func (v *__ReportHostOperationInput) GetInput() *ReportHostOperationInput { return v.Input }
 
 // __RequestNodeSignatureInput is used internally by genqlient
 type __RequestNodeSignatureInput struct {
@@ -52546,6 +54227,14 @@ func (v *__RestoreNodeRevisionInput) GetRevisionId() string { return v.RevisionI
 
 // GetTruncate returns __RestoreNodeRevisionInput.Truncate, and is useful for accessing the field via an interface.
 func (v *__RestoreNodeRevisionInput) GetTruncate() *bool { return v.Truncate }
+
+// __ResumeTeamSessionInput is used internally by genqlient
+type __ResumeTeamSessionInput struct {
+	Input *ResumeSessionInput `json:"input,omitempty"`
+}
+
+// GetInput returns __ResumeTeamSessionInput.Input, and is useful for accessing the field via an interface.
+func (v *__ResumeTeamSessionInput) GetInput() *ResumeSessionInput { return v.Input }
 
 // __RetireWorkerInput is used internally by genqlient
 type __RetireWorkerInput struct {
@@ -52818,6 +54507,18 @@ type __SelectedSkillFilePlanInput struct {
 
 // GetInput returns __SelectedSkillFilePlanInput.Input, and is useful for accessing the field via an interface.
 func (v *__SelectedSkillFilePlanInput) GetInput() *SelectedSkillFilePlanInput { return v.Input }
+
+// __SetAgentBaseInput is used internally by genqlient
+type __SetAgentBaseInput struct {
+	Ref     string  `json:"ref"`
+	BaseRef *string `json:"baseRef,omitempty"`
+}
+
+// GetRef returns __SetAgentBaseInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SetAgentBaseInput) GetRef() string { return v.Ref }
+
+// GetBaseRef returns __SetAgentBaseInput.BaseRef, and is useful for accessing the field via an interface.
+func (v *__SetAgentBaseInput) GetBaseRef() *string { return v.BaseRef }
 
 // __SetAgentIndexRefsInput is used internally by genqlient
 type __SetAgentIndexRefsInput struct {
@@ -55593,6 +57294,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -56906,6 +58608,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -56961,6 +58664,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -57121,6 +58825,68 @@ func CloneNode(
 	}
 
 	data_ = &CloneNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CollectHostOperations.
+const CollectHostOperations_Operation = `
+mutation CollectHostOperations ($appRef: String!, $first: Int) {
+	collectHostOperations(appRef: $appRef, first: $first) {
+		... HostOperationFields
+		launchGrant
+	}
+}
+fragment HostOperationFields on HostOperation {
+	id
+	appId
+	hostId
+	type
+	args
+	workerId
+	worker {
+		id
+		name
+	}
+	status
+	issuedBy
+	issuedByUserId
+	issuedByWorkerId
+	issuedAt
+	collectedAt
+	finishedAt
+	result
+	failureReason
+}
+`
+
+// Issued operations become collected; collected-but-unreported ones come back
+// too (a restarted host resumes them). launchGrant is set only on worker.start,
+// and only in this answer: a re-collection revokes the unconsumed grant and
+// mints a fresh one (launch.ts mintLaunchGrants).
+func CollectHostOperations(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	first *int,
+) (data_ *CollectHostOperationsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CollectHostOperations",
+		Query:  CollectHostOperations_Operation,
+		Variables: &__CollectHostOperationsInput{
+			AppRef: appRef,
+			First:  first,
+		},
+	}
+
+	data_ = &CollectHostOperationsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -57398,6 +59164,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -58850,6 +60617,45 @@ func CreateRegisterEntry(
 	}
 
 	data_ = &CreateRegisterEntryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateResumeClaim.
+const CreateResumeClaim_Operation = `
+mutation CreateResumeClaim ($sessionId: ID!) {
+	createResumeClaim(sessionId: $sessionId) {
+		sessionId
+		workerId
+		expiresAt
+	}
+}
+`
+
+// #842 over server #1956: the shed half. A claim for the caller's own OPEN
+// worker session, redeemable by the caller's token for 60 seconds. The receipt
+// names no claim id: there is nothing to hold, store or pass on.
+func CreateResumeClaim(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	sessionId string,
+) (data_ *CreateResumeClaimResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateResumeClaim",
+		Query:  CreateResumeClaim_Operation,
+		Variables: &__CreateResumeClaimInput{
+			SessionId: sessionId,
+		},
+	}
+
+	data_ = &CreateResumeClaimResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -60503,6 +62309,81 @@ func EndTeamSession(
 	return data_, err_
 }
 
+// The mutation executed by EndTeamSessionWithResumeClaim.
+const EndTeamSessionWithResumeClaim_Operation = `
+mutation EndTeamSessionWithResumeClaim ($id: ID!, $summary: String, $handoff: String) {
+	endSession(id: $id, summary: $summary, handoff: $handoff, resumeClaim: true) {
+		... TeamSessionFields
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	workerId
+	worker {
+		id
+		name
+		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
+	}
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	autoExpiredAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+`
+
+// #842 over server #1956 (cor:agt:020:03): the rotation half of a resume claim.
+// endSession(resumeClaim: true) writes the claim after the handoff and before
+// the end. A SEPARATE operation from EndTeamSession, not an omitempty variable
+// on it: the argument sits in the document, and an older server rejects an
+// unknown argument at validation even when the variable is omitted.
+func EndTeamSessionWithResumeClaim(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	summary *string,
+	handoff *string,
+) (data_ *EndTeamSessionWithResumeClaimResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EndTeamSessionWithResumeClaim",
+		Query:  EndTeamSessionWithResumeClaim_Operation,
+		Variables: &__EndTeamSessionWithResumeClaimInput{
+			Id:      id,
+			Summary: summary,
+			Handoff: handoff,
+		},
+	}
+
+	data_ = &EndTeamSessionWithResumeClaimResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ExtractParentNodeToMemory.
 const ExtractParentNodeToMemory_Operation = `
 mutation ExtractParentNodeToMemory ($parentRef: ID!, $targetUrn: String!, $move: Boolean) {
@@ -60708,6 +62589,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -64599,6 +66481,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -64863,6 +66746,61 @@ func RegisterEntries(
 	}
 
 	data_ = &RegisterEntriesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RegisterHost.
+const RegisterHost_Operation = `
+mutation RegisterHost ($input: RegisterHostInput!) {
+	registerHost(input: $input) {
+		... HostRegistrationFields
+	}
+}
+fragment HostRegistrationFields on HostRegistration {
+	hostId
+	label
+	pollIntervalSeconds
+	registeredAt
+	refreshedAt
+	live
+	workers {
+		workerId
+		worker {
+			id
+			urn
+			name
+		}
+		family
+		worktrees
+	}
+}
+`
+
+// The whole workers list: it replaces the last registration's. So workers is
+// ALWAYS sent, an empty list included: omitting it would not clear a host
+// whose workers were all removed from its configuration.
+func RegisterHost(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *RegisterHostInput,
+) (data_ *RegisterHostResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RegisterHost",
+		Query:  RegisterHost_Operation,
+		Variables: &__RegisterHostInput{
+			Input: input,
+		},
+	}
+
+	data_ = &RegisterHostResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -65315,6 +67253,64 @@ func ReplyToComment(
 	return data_, err_
 }
 
+// The mutation executed by ReportHostOperation.
+const ReportHostOperation_Operation = `
+mutation ReportHostOperation ($input: ReportHostOperationInput!) {
+	reportHostOperation(input: $input) {
+		... HostOperationFields
+	}
+}
+fragment HostOperationFields on HostOperation {
+	id
+	appId
+	hostId
+	type
+	args
+	workerId
+	worker {
+		id
+		name
+	}
+	status
+	issuedBy
+	issuedByUserId
+	issuedByWorkerId
+	issuedAt
+	collectedAt
+	finishedAt
+	result
+	failureReason
+}
+`
+
+// worktree is sent only on a worktree.create success and failureReason only on
+// a failure, so both are omitted when unset. ($input sits on its own line: a
+// comment above a one-line signature also attaches to its first variable.)
+func ReportHostOperation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *ReportHostOperationInput,
+) (data_ *ReportHostOperationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ReportHostOperation",
+		Query:  ReportHostOperation_Operation,
+		Variables: &__ReportHostOperationInput{
+			Input: input,
+		},
+	}
+
+	data_ = &ReportHostOperationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RequestNodeSignature.
 const RequestNodeSignature_Operation = `
 mutation RequestNodeSignature ($nodeRef: ID!, $expectedRevision: Int, $signerRef: ID) {
@@ -65738,6 +67734,86 @@ func RestoreNodeRevision(
 	}
 
 	data_ = &RestoreNodeRevisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ResumeTeamSession.
+const ResumeTeamSession_Operation = `
+mutation ResumeTeamSession ($input: ResumeSessionInput!) {
+	resumeSession(input: $input) {
+		outcome
+		session {
+			... TeamSessionFields
+		}
+		candidates {
+			sessionId
+			workerId
+			workerName
+			description
+			source
+			expiresAt
+		}
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	workerId
+	worker {
+		id
+		name
+		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
+	}
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	autoExpiredAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+`
+
+// #842 over server #1956: recover the caller's worker binding with no worker
+// named. Every input field is optional provenance (or the CHOOSE pick), so each
+// is omitted when unset rather than sent as null.
+func ResumeTeamSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *ResumeSessionInput,
+) (data_ *ResumeTeamSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ResumeTeamSession",
+		Query:  ResumeTeamSession_Operation,
+		Variables: &__ResumeTeamSessionInput{
+			Input: input,
+		},
+	}
+
+	data_ = &ResumeTeamSessionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -66836,6 +68912,66 @@ func ServerInfo(
 	return data_, err_
 }
 
+// The mutation executed by SetAgentBase.
+const SetAgentBase_Operation = `
+mutation SetAgentBase ($ref: ID!, $baseRef: ID) {
+	setAgentBase(ref: $ref, baseRef: $baseRef) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	createdAt
+}
+`
+
+// #881 (cor:dmo:050:14): set or clear the Agent's base. Two-state on the
+// wire: a baseRef value sets it; an OMITTED baseRef clears it (the resolver
+// resolves the base only when baseRef is non-empty — there is no preserve
+// state), so one omitempty variable serves both set and --clear.
+func SetAgentBase(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	baseRef *string,
+) (data_ *SetAgentBaseResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAgentBase",
+		Query:  SetAgentBase_Operation,
+		Variables: &__SetAgentBaseInput{
+			Ref:     ref,
+			BaseRef: baseRef,
+		},
+	}
+
+	data_ = &SetAgentBaseResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetAgentIndexRefs.
 const SetAgentIndexRefs_Operation = `
 mutation SetAgentIndexRefs ($ref: ID!, $tasksIndexRef: ID, $processesIndexRef: ID) {
@@ -66856,6 +68992,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -67453,6 +69590,8 @@ fragment WorkerReportingRefFields on Worker {
 // Schema refresh (#836): no family flag means omit, letting server classification run.
 // plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
 // the refreshed field still needs its omitempty line (the #139 trap).
+// launchGrant (#1709 slice 2, hadron-cli#831): sent only with --launch-grant or
+// HADRON_LAUNCH_GRANT, so an ordinary start never puts `"launchGrant": null` on the wire.
 func StartTeamSession(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -68839,6 +70978,7 @@ fragment AgentFields on Agent {
 	systemPrompt
 	tasksIndexRef
 	processesIndexRef
+	extendsAgentId
 	aiProvider
 	aiModel
 	hasAiApiKey

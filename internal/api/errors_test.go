@@ -55,6 +55,23 @@ func TestMapError(t *testing.T) {
 	}{
 		{"nil", nil, exitcode.OK},
 		{"reports to self", gqlErr("WORKER_REPORTS_TO_SELF"), exitcode.Usage},
+		// Host poller and launch refusals (cli#831).
+		{"host key required", gqlErr("HOST_KEY_REQUIRED"), exitcode.Forbidden},
+		{"host scope required", gqlErr("APP_KEY_SCOPE_REQUIRED"), exitcode.Forbidden},
+		{"launch grant invalid", gqlErr("LAUNCH_GRANT_INVALID"), exitcode.Forbidden},
+		{"bad host registration", gqlErr("BAD_HOST_REGISTRATION"), exitcode.Usage},
+		{"host call with session", gqlErr("APP_KEY_SESSION_BOUND"), exitcode.Usage},
+		{"host op not collected", gqlErr("HOST_OPERATION_NOT_COLLECTED"), exitcode.Conflict},
+		{"host op already reported", gqlErr("HOST_OPERATION_ALREADY_REPORTED"), exitcode.Conflict},
+		{"host op not done", gqlErr("HOST_OPERATION_NOT_DONE"), exitcode.Conflict},
+		{"launch refused", gqlErr("LAUNCH_REFUSED"), exitcode.Conflict},
+		{"nothing to resume", gqlErr("NOTHING_TO_RESUME"), exitcode.NotFound},
+		{"resume refused", gqlErr("RESUME_REFUSED"), exitcode.Conflict},
+		{"resume ambiguous", gqlErr("RESUME_AMBIGUOUS"), exitcode.Usage},
+		{"session ended", gqlErr("SESSION_ENDED"), exitcode.Conflict},
+		{"worker not held", gqlErr("WORKER_NOT_HELD"), exitcode.Conflict},
+		{"worker live", gqlErr("WORKER_LIVE"), exitcode.Conflict},
+		{"worker start pending", gqlErr("WORKER_START_PENDING"), exitcode.Conflict},
 		// Passkey signing refusals (cli#818); the _NOT_FOUND ones ride the suffix rule.
 		{"signing encrypted memory", gqlErr("ENCRYPTED_MEMORY_NOT_APPLICABLE"), exitcode.Conflict},
 		{"signing request ended", gqlErr("SIGNING_REQUEST_ENDED"), exitcode.Conflict},

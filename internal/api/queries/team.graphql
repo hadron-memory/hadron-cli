@@ -567,6 +567,9 @@ fragment TeamSessionFields on Session {
 # plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
 # the refreshed field still needs its omitempty line (the #139 trap).
 # @genqlient(for: "SessionInput.plan", omitempty: true)
+# launchGrant (#1709 slice 2, hadron-cli#831): sent only with --launch-grant or
+# HADRON_LAUNCH_GRANT, so an ordinary start never puts `"launchGrant": null` on the wire.
+# @genqlient(for: "SessionInput.launchGrant", omitempty: true)
 mutation StartTeamSession(
   $input: SessionInput!
 ) {
@@ -616,6 +619,63 @@ mutation EndTeamSession(
 ) {
   endSession(id: $id, summary: $summary, handoff: $handoff) {
     ...TeamSessionFields
+  }
+}
+
+# #842 over server #1956 (cor:agt:020:03): the rotation half of a resume claim.
+# endSession(resumeClaim: true) writes the claim after the handoff and before
+# the end. A SEPARATE operation from EndTeamSession, not an omitempty variable
+# on it: the argument sits in the document, and an older server rejects an
+# unknown argument at validation even when the variable is omitted.
+mutation EndTeamSessionWithResumeClaim(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $summary: String
+  # @genqlient(omitempty: true)
+  $handoff: String
+) {
+  endSession(id: $id, summary: $summary, handoff: $handoff, resumeClaim: true) {
+    ...TeamSessionFields
+  }
+}
+
+# #842 over server #1956: the shed half. A claim for the caller's own OPEN
+# worker session, redeemable by the caller's token for 60 seconds. The receipt
+# names no claim id: there is nothing to hold, store or pass on.
+mutation CreateResumeClaim($sessionId: ID!) {
+  createResumeClaim(sessionId: $sessionId) {
+    sessionId
+    workerId
+    expiresAt
+  }
+}
+
+# #842 over server #1956: recover the caller's worker binding with no worker
+# named. Every input field is optional provenance (or the CHOOSE pick), so each
+# is omitted when unset rather than sent as null.
+# @genqlient(for: "ResumeSessionInput.session", omitempty: true)
+# @genqlient(for: "ResumeSessionInput.description", omitempty: true)
+# @genqlient(for: "ResumeSessionInput.tool", omitempty: true)
+# @genqlient(for: "ResumeSessionInput.host", omitempty: true)
+# @genqlient(for: "ResumeSessionInput.llmModel", omitempty: true)
+# @genqlient(for: "ResumeSessionInput.family", omitempty: true)
+# @genqlient(for: "ResumeSessionInput.transcriptPath", omitempty: true)
+mutation ResumeTeamSession(
+  $input: ResumeSessionInput!
+) {
+  resumeSession(input: $input) {
+    outcome
+    session {
+      ...TeamSessionFields
+    }
+    candidates {
+      sessionId
+      workerId
+      workerName
+      description
+      source
+      expiresAt
+    }
   }
 }
 

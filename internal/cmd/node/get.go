@@ -133,6 +133,12 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 					return err
 				}
 				loadCommentSummaries(cmd.Context(), f, client, []*nodeDetailDTO{&dto})
+				// cli#878 part 3: advisory, and gated on the server advertising
+				// signing, so an off or older server pays no refused round trip.
+				// The RESOLVED id, never args[0]: a bare loc plus -m already
+				// resolved here, and the raw spelling is ambiguous across
+				// memories (Andi's cycle-1 P2).
+				loadSignatureSummary(cmd.Context(), f, client, id, &dto)
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					return renderNodeDetail(w, dto)
 				})
@@ -276,6 +282,7 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 	} else {
 		fmt.Fprintln(w, "  feedback: unavailable")
 	}
+	renderSignatureLine(w, dto)
 	renderStamps(w, "  ", dto.Authorship, dto.ContentValidation, "this revision")
 	renderApprovalStatus(w, "  ", dto.ApprovalStatus)
 	renderMintStatus(w, "  ", dto.MintStatus)

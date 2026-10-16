@@ -308,12 +308,12 @@ hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--trai
 hadron ai-config list [--app <ref>] [--agent <id>] [--with-endpoints] | get <id> | endpoints <provider> | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--endpoint <url>] [--api-key -] [--file <path>] | update <id> [--endpoint <url|"">] ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
-hadron agent list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] [--tasks-index <node-ref> | --processes-index <node-ref>] (explicit empty clears) | rm <id> --yes | tasks list <agentRef> | processes list <agentRef>
+hadron agent list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] [--tasks-index <node-ref> | --processes-index <node-ref>] (explicit empty clears) | rm <id> --yes | tasks list <agentRef> | processes list <agentRef> | set-base <agent> (<base> | --clear)
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | set-reports-to <worker> (<target> | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
-hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
-hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
+hadron team session start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
+hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding; with NO binding it REFUSES, exit 4, unless --as-me — cli#842) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
 hadron team attention [--since <token>] (uses --app or the binding)
 hadron team attention switchover preview | apply --proof <proof> [--yes] (uses --app or the binding)
 hadron team task create <title> [--description <d>] [--assignee <party>] [--owner <party>] [--parent <id>] [--start-by <iso>] [--tag <t>]… [--source <s>] [--status backlog|pending] [--require-role <r>] [--family-in|--family-not-in <a,b>] [--exclude-worker <w>]… [--no-close-session] (uses --app or the binding) | assign|reassign <taskId> --assignee <party> [--close-session|--no-close-session] | start|progress|cancel <taskId> | park|ready <taskId> | finish <taskId> --outcome <word> [--summary <s>] [--evidence <url>] | get <taskId> | list [--status <s>]… [--assignee <party>] [--owner <party>] [--tag <t>] [--queued] [--roots-only] [--parent <id>] [--limit N] [--offset N] (uses --app or the binding) | tree <rootTaskId>   # a party is worker:<id|urn|name> or user:<id|handle>; writes are the bound worker's when a session is bound
@@ -322,7 +322,8 @@ hadron team events [--alarms] [--since <iso>] [--after <eventId>] [--task <id>] 
 hadron team alarm ack <eventId>   # stops the alarm waking higher owners (cor:agt:050:20)
 hadron team availability get | set (--worker <ref> | --family <token>) --state <available|unavailable> [--reason HOST_DOWN|OTHER|OUT_OF_TOKENS|STALLED] [--until <iso>] (uses --app or the binding)
 hadron team stall-schedule get | set [--assignment-minutes N|default] [--not-started-minutes N|default] [--no-progress-minutes N|default] [--owner-reaction-minutes N|default] [--host-lapse-check-ins N|default] (uses --app or the binding)   # an omitted flag keeps its value, `default` restores the platform default; set is the App manager's, never the bound worker's (exit 8 APP_MANAGER_REQUIRED)
-hadron team host list | ops [--host <id>] [--status issued|collected|succeeded|failed] [--worker <ref>] [--limit N] [--after <cursor>] | issue <type> --host <id> --worker <ref> [--arg k=v]… [--as-person] (uses --app or the binding)   # ops: newest first, --json {items, hasNextPage, endCursor}; issue: worktree.create|worktree.remove (worker.* exit 2 HOST_OPERATION_NOT_ISSUABLE, other types exit 2 HOST_OPERATION_TYPE_UNKNOWN, bad args exit 2 BAD_HOST_OPERATION_ARGS, not permitted exit 8, unknown host exit 4); bound: issued as the worker (the target's reports-to), --as-person: as yourself (holder or App manager); arguments are ids and name tokens, never a credential
+hadron team host list | ops [--host <id>] [--status issued|collected|succeeded|failed] [--worker <ref>] [--limit N] [--after <cursor>] | issue <type> --host <id> --worker <ref> [--arg k=v]… [--as-person] (uses --app or the binding)   # ops: newest first, --json {items, hasNextPage, endCursor}; issue: worktree.create|worktree.remove plus worker.start|worker.end issued by App managers (worker.deliver exit 2 HOST_OPERATION_NOT_ISSUABLE, other types exit 2 HOST_OPERATION_TYPE_UNKNOWN, bad args exit 2 BAD_HOST_OPERATION_ARGS, not permitted exit 8, unknown host exit 4); bound: issued as the worker (the target's reports-to), --as-person: as yourself (holder or App manager); arguments are ids and name tokens, never a credential
+hadron team host run --config <host.yaml> [--once] | status --config <host.yaml>   # the host poller (cli#831, cor:agt:070): registers each poll, collects, runs ONLY worktree.create|worker.start|worker.deliver|worker.end|worktree.remove (anything else reported FAILED locally), reports every outcome; authenticates with the host:operate key from key_file only (mode 0600; NEVER HADRON_TOKEN or an env var); a launched agent gets HADRON_LAUNCH_GRANT and no host credential, and binds with session start reading it (the grant names the worker, so no worker argument; never forced; LAUNCH_GRANT_INVALID exit 8, LAUNCH_REFUSED exit 5); worker.end prompts and reports FAILED after end_wait (the server records an ended session as success; it never kills); worktree.remove refuses dirty, untracked, no-upstream, unpushed, or after a failed end; --json: one event object per line; no host key exit 3, bad config exit 2, APP_KEY_SCOPE_REQUIRED/HOST_KEY_REQUIRED exit 8
 hadron team router poll | loop [--interval 60s] | status [--config <path>]   # the Orca attention router (cli#829), on YOUR login: types one nudge line into an idle, empty-prompt roster worker's Orca terminal; never reads/posts/marks chat. Config: --config, $HADRON_ROUTER_CONFIG, ~/.config/hadron/team-router/config.json, else the TS router's config (same state dir + writer lock). poll --json {at, ok, error, nudged, dropped, covered, held{name:reason}, adopted, liveness, livenessDropped}; a failed poll exits 1 with the token unchanged; no config exit 2; status reads local state only (never the token)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--handle <h>] [--email <e>]   # --email is accepted and REFUSED locally (exit 2, "Changing your email address is not supported here.") — the flag stays so scripts fail loudly (#844)
@@ -2171,6 +2172,38 @@ Conventions:
   handoff. `--json` adds `continuity` with status, handoff and previousSession;
   `null` means unavailable, not no handoff. An older server without the field
   still binds and omits the text.
+  **Recovering after a context reset: resume claims (cli#842, server #1956,
+  `cor:agt:020:03`).** Before a deliberate reset, write a claim:
+  `session resume-claim` for a SHED (the session stays open) or
+  `session end --resume-claim` for a ROTATION (written with the handoff,
+  before the end; `--json` gains `resumeClaim: true`). Then, within **60
+  seconds**, the fresh context runs `session start` with **no worker named**
+  (and no launch grant). The server judges it only by your token: your one
+  unused claim binds (`RESUMED` to the open session, or `STARTED` as the
+  worker's next session); with no claim, your one LIVE worker session is
+  `RESUMED`. The binding is written and the briefing printed as for any bind,
+  and `--json` carries `resumeOutcome` (`RESUMED` | `STARTED`; **null** on an
+  ordinary or launched bind). Several candidates bind nothing: they are listed
+  (`--json`: `{"resumeOutcome":"CHOOSE","candidates":[{sessionId, workerId,
+  workerName, description, source: CLAIM|LIVE_SESSION, expiresAt}]}`), **exit
+  2**, and `start --session <id>` picks one. `NOTHING_TO_RESUME` is **exit 4**
+  and nothing is posted or recorded; `RESUME_REFUSED` (the lifecycle gate) is
+  exit 5 and has spent the claim; `RESUME_AMBIGUOUS` is exit 2 (name the
+  worker). A resume refuses `--repo`, `--branch`, `--reports-to`, `-m` and
+  `--force` (exit 2), refuses over a worktree still bound to a live session
+  (exit 5) and outside a git worktree (exit 2), all BEFORE any claim is
+  spent. It never ends the session it recovered: on a later failure, run
+  `start` again. The binding caches the bound session's own tool, model and
+  repo; a flag fills only a field it lacks, and a flag a RESUMED session
+  ignores gets a stderr note. A claim carries no secret and no id — there is nothing to
+  store or pass on. It is for a context with NO binding: in a worktree still
+  bound to a live session the binding already carries the worker (`whoami`),
+  and a resume there refuses (exit 5). `tookOver` is **null** on `RESUMED`
+  (another context may still drive that session) and false on `STARTED`. An
+  empty `--as` is refused (exit 2), never read as a resume.
+  `resume-claim` on an ended session is `SESSION_ENDED`, exit 5; its `--json`
+  is `{sessionId, workerId, workerName, expiresAt}` (`workerName` null with
+  `--session`).
   **`whoami` falls back to the SERVER when there is no binding — and when
   there is no worktree at all (#623)**, so a lost binding
   is a cache miss rather than an orphaned session, and a caller with no worktree
@@ -2488,8 +2521,13 @@ Conventions:
   (the server verifies it is yours, active, and bound to a non-retired
   worker OF this App — `SESSION_NOT_WORKER_BOUND` /
   `SESSION_WORKER_NOT_IN_APP` / `WORKER_RETIRED` — and records it: a worker
-  message always traces to the DRIVING human); without one, or with
-  `--as-me`, by you. Mention teammates as `@worker-name`/`@handle` (a
+  message always traces to the DRIVING human); with `--as-me`, by you.
+  **Without a binding (no binding file, no worktree, or an App from `--app`
+  or the context alone) and without `--as-me`, `chat post` REFUSES, exit 4,
+  and sends nothing** (cli#842, `cor:agt:020:03`): it used to post as the
+  human driving the agent. Recover with `session start` (no worker named),
+  bind with `--as <worker>`, or say `--as-me`. `session log` refuses the same
+  way (exit 4, unchanged). Mention teammates as `@worker-name`/`@handle` (a
   multiword name by its slug, `@mary-jane`); mention tokens carry **no
   uniqueness** (hadron-server#979) — a token may match several workers, and
   the filter simply returns every match. `--reply-to` takes the seq readers
@@ -2567,7 +2605,7 @@ Conventions:
   steady state and was otherwise byte-identical to reading another team
   (#470). `chat post` names the team chat in its receipt, and writes a `note:` to
   **stderr before posting** when the scope is ambient AND no session goes on
-  the wire (no binding, or `--as-me`) — with a sessionRef the server checks
+  the wire (`--as-me`; without a binding nothing else reaches the write) — with a sessionRef the server checks
   session against App and refuses a mismatch, so only the sessionless case
   can land silently, and a post can neither be recalled nor its mentions
   unfired. Warning, never refusal; NOT suppressed by `--json`, since stderr
