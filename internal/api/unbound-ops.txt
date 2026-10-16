@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 73 unbound
+[Query] 72 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -17,7 +17,6 @@ appKeys
 appNodes
 appTickerSettings  # server ticker settings (named-heartbeats epic, in flight — #1750/#1791 cycle); CLI parity follows the surface settling
 assets
-attendeeRegister  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes
 calendarEvent
 calendarEvents
 calendarSchedule
