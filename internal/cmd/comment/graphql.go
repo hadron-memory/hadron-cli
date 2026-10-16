@@ -130,14 +130,8 @@ func actor(a gen.CommentActorFields) *Actor {
 }
 func fromFields(c gen.CommentFields) Comment {
 	out := Comment{ID: c.Id, URN: c.Urn, PortalURL: c.PortalUrl, ThreadRootID: c.ThreadRootId, IsTopLevel: c.IsTopLevel, AnchorRevision: c.AnchorRevision, AnchorIsCurrent: c.AnchorIsCurrent, Quote: c.Quote, Body: c.Body, Deleted: c.Deleted, DeletedAt: c.DeletedAt, EditedAt: c.EditedAt, ResolvedAt: c.ResolvedAt, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt, RevSeq: c.RevSeq}
-	// Nullable since server #1866 (cor:dmo:110:01): an encrypted target has no
-	// fingerprint. Kept as "" here — what the CLI has always emitted for it,
-	// since decoding the null into a string left it empty — so this refresh
-	// does not move the --json contract; whether it should read null is
-	// tracked separately.
-	if c.AnchorApprovalHash != nil {
-		out.AnchorApprovalHash = *c.AnchorApprovalHash
-	}
+	// Preserve absence: encrypted targets have no content fingerprint.
+	out.AnchorApprovalHash = c.AnchorApprovalHash
 	if c.State != nil {
 		state := string(*c.State)
 		out.State = &state

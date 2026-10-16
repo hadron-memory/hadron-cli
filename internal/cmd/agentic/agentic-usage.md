@@ -2983,6 +2983,11 @@ this group. Permission/author/admin refusals exit 8; missing or unreadable
 comments/targets exit 4; invalid inputs exit 2; changed thread state, existing
 open thread and unavailable historical anchor exit 5.
 
+`anchorApprovalHash` is a string or JSON null: encrypted targets have no hash;
+plaintext hashes are preserved exactly. The key is always present. This replaces
+the previous empty-string representation of an absent hash. Text output continues
+to show the anchor revision and currentness without a fingerprint.
+
 JSON uses explicit comment fields including `revSeq` (the current write counter), public `author`,
 `provenanceUser`, target/anchor metadata, state, nullable body/quote ; list emits `{items, total}` with each thread's root, replies
 array and server replyCount. `deleted`/`deletedAt`/`deletedBy` describe deletion;
