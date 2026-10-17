@@ -28,13 +28,15 @@ type endedFake struct {
 	legacy  bool   // the server predates endReason
 	down    bool   // every request fails
 	ops     []string
+	headers map[string]string // the X-Hadron-Session each operation carried
+	onCheck func()            // runs while the notice's read is in flight
 	stubs   map[string]string
 	srv     *httptest.Server
 }
 
 func newEndedFake(t *testing.T) *endedFake {
 	t.Helper()
-	fk := &endedFake{stubs: map[string]string{}}
+	fk := &endedFake{stubs: map[string]string{}, headers: map[string]string{}}
 	fk.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
 			_, _ = w.Write([]byte(`{"capabilities":[]}`))
@@ -47,6 +49,7 @@ func newEndedFake(t *testing.T) *endedFake {
 		fk.mu.Lock()
 		defer fk.mu.Unlock()
 		fk.ops = append(fk.ops, body.Op)
+		fk.headers[body.Op] = r.Header.Get("X-Hadron-Session")
 		if fk.down {
 			w.WriteHeader(http.StatusBadGateway)
 			_, _ = w.Write([]byte(`bad gateway`))
@@ -58,6 +61,9 @@ func newEndedFake(t *testing.T) *endedFake {
 		}
 		switch body.Op {
 		case "GetBoundSessionEnd":
+			if fk.onCheck != nil {
+				fk.onCheck()
+			}
 			if fk.legacy {
 				_, _ = w.Write([]byte(`{"errors":[{"message":"Cannot query field \"endReason\" on type \"Session\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`))
 				return
@@ -359,5 +365,49 @@ func TestEndedBindingSupersededPointsAtTheNewerSession(t *testing.T) {
 	}
 	if !strings.Contains(errOut, "session list --as wkr1 --active") || strings.Contains(errOut, "no --force needed") {
 		t.Errorf("superseded must point at the newer session:\n%s", errOut)
+	}
+}
+
+// Xavier's #915 local P2: the notice is a round trip, and a rebind can land
+// while it is in flight. The authored write must then carry NO session, never
+// the snapshot taken before the round trip. Control: an unchanged binding still
+// attributes the write, and the notice still runs once.
+func TestEndedBindingAuthoredWriteRechecksAfterTheNotice(t *testing.T) {
+	for _, swap := range []bool{true, false} {
+		name := "unchanged binding attributes"
+		if swap {
+			name = "rebind during the notice attaches nothing"
+		}
+		t.Run(name, func(t *testing.T) {
+			fk := newEndedFake(t)
+			fk.stubs["CreateComment"] = `{"errors":[{"message":"refused"}]}`
+			dir := bindEndedWorktree(t, fk.srv.URL)
+			if swap {
+				fk.onCheck = func() {
+					p := filepath.Join(dir, "hadron-team-session.json")
+					b, _ := os.ReadFile(p)
+					b = []byte(strings.Replace(string(b), `"sessionId":"s-new"`, `"sessionId":"replacement"`, 1))
+					if err := os.WriteFile(p, b, 0o600); err != nil {
+						t.Error(err)
+					}
+				}
+			}
+			_, _, _ = runBound(t, fk, "comment", "create", "hrn:node:acme.com:eng:a", "--body", "hi")
+			fk.mu.Lock()
+			got, sent := fk.headers["CreateComment"]
+			fk.mu.Unlock()
+			if !sent {
+				t.Fatalf("premise: the authored write must reach the server: %v", fk.ops)
+			}
+			if swap && got != "" {
+				t.Errorf("a binding replaced during the notice must attach no session, sent %q", got)
+			}
+			if !swap && got != "s-new" {
+				t.Errorf("an unchanged binding must still attribute the write, sent %q", got)
+			}
+			if fk.checks() != 1 {
+				t.Errorf("the notice runs once: %d", fk.checks())
+			}
+		})
 	}
 }

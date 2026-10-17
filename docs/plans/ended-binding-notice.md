@@ -23,7 +23,9 @@ another server, and a legacy binding that recorded no server.
   before the call's own work and before any refusal.
 - **`AuthoredWriteContext`.** It now reads the file raw for its per-request look, and checks only when it
   actually attaches the session to a write. A plain read like `node get` in a bound worktree sends no session,
-  so it pays no extra request.
+  so it pays no extra request. The notice is a round trip, so the write re-reads the binding raw after it and
+  attaches the session only if the binding is unchanged; a rebind during the notice attaches nothing (Xavier's
+  local P2 on #915).
 
 The check state is installed per root command, like `AuthoredWriteContext`, so each command checks at most
 once.
