@@ -48,6 +48,9 @@ environment variable (which skips storage entirely).`,
 
 			var token string
 			if withToken {
+				if f.IOStreams.IsInputTerminal() {
+					fmt.Fprintln(f.IOStreams.ErrOut, "Now paste your key/token here:")
+				}
 				token, err = readToken(f.IOStreams.In, "--with-token")
 				if err != nil {
 					return err
