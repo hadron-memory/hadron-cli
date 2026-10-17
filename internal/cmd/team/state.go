@@ -143,7 +143,21 @@ func bindingPath(ctx context.Context) (string, error) {
 
 // readBinding returns the worktree's binding and its path, or a nil binding
 // when none is recorded.
+// readBinding is how a command consumes the worktree binding, so it is also
+// where a call through a binding learns that its session ended (#914): the
+// first read of a session binding per command runs that check.
 func readBinding(ctx context.Context) (*binding, string, error) {
+	b, path, err := readBindingFile(ctx)
+	if err == nil && b != nil {
+		noteEndedBinding(ctx, b)
+	}
+	return b, path, err
+}
+
+// readBindingFile reads the binding with no server check. For paths that read
+// it without consuming it, such as AuthoredWriteContext's per-request look,
+// which checks only when it actually attaches the session.
+func readBindingFile(ctx context.Context) (*binding, string, error) {
 	path, err := bindingPath(ctx)
 	if err != nil {
 		return nil, "", err

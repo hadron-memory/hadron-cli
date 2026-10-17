@@ -57,6 +57,7 @@ import (
 
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	f.GraphQLRequestContext = teamcmd.AuthoredWriteContext(f)
+	teamcmd.InstallEndedBindingCheck(f)
 	root := &cobra.Command{
 		Use:   "hadron <command> <subcommand>",
 		Short: "The Hadron platform CLI",

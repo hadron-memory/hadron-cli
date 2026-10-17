@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // hadron-cli#914 (Holger R1/R2 over server #1156; cor:dmo:070:05): a call
@@ -29,7 +29,6 @@ type endedFake struct {
 	down    bool   // every request fails
 	ops     []string
 	stubs   map[string]string
-	onEnd   func()
 	srv     *httptest.Server
 }
 
@@ -89,12 +88,13 @@ func newEndedFake(t *testing.T) *endedFake {
 	return fk
 }
 
-func (fk *endedFake) count(op string) int {
+// checks counts the notice's own read.
+func (fk *endedFake) checks() int {
 	fk.mu.Lock()
 	defer fk.mu.Unlock()
 	n := 0
 	for _, o := range fk.ops {
-		if o == op {
+		if o == "GetBoundSessionEnd" {
 			n++
 		}
 	}
@@ -214,8 +214,8 @@ func TestEndedBindingSilentWhileTheSessionIsOpen(t *testing.T) {
 	if strings.Contains(errOut, "warning:") || strings.Contains(errOut, "could not check") {
 		t.Errorf("an open session must get no notice:\n%s", errOut)
 	}
-	if fk.count("GetBoundSessionEnd") != 1 {
-		t.Errorf("the check runs once: %d", fk.count("GetBoundSessionEnd"))
+	if fk.checks() != 1 {
+		t.Errorf("the check runs once: %d", fk.checks())
 	}
 }
 
@@ -240,7 +240,7 @@ func TestEndedBindingNeverAsksAboutAnotherServersSession(t *testing.T) {
 	fk := newEndedFake(t)
 	bindEndedWorktree(t, "https://elsewhere.example")
 	_, errOut, _ := runBound(t, fk, "team", "session", "whoami")
-	if fk.count("GetBoundSessionEnd") != 0 {
+	if fk.checks() != 0 {
 		t.Error("another server's session must not be looked up here")
 	}
 	if !strings.Contains(errOut, "could not check") {
@@ -290,8 +290,8 @@ func TestEndedBindingAuthoredWriteWarns(t *testing.T) {
 	if !strings.Contains(errOut, "cause: superseded") {
 		t.Errorf("an authored write through the binding must warn:\n%s", errOut)
 	}
-	if fk.count("GetBoundSessionEnd") != 1 {
-		t.Errorf("once per command: %d", fk.count("GetBoundSessionEnd"))
+	if fk.checks() != 1 {
+		t.Errorf("once per command: %d", fk.checks())
 	}
 }
 
@@ -303,7 +303,7 @@ func TestEndedBindingPlainReadPaysNothing(t *testing.T) {
 	fk.stubs["GetNodeByLoc"] = `{"errors":[{"message":"nope"}]}`
 	bindEndedWorktree(t, fk.srv.URL)
 	_, errOut, _ := runBound(t, fk, "node", "get", "hrn:node:acme.com:eng:a")
-	if fk.count("GetBoundSessionEnd") != 0 || strings.Contains(errOut, "warning:") {
+	if fk.checks() != 0 || strings.Contains(errOut, "warning:") {
 		t.Errorf("a read that sends no session must not check: %v\n%s", fk.ops, errOut)
 	}
 }
@@ -323,7 +323,7 @@ func TestEndedBindingExemptCommandsDoNotDoubleTheirAnswer(t *testing.T) {
 			bindEndedWorktree(t, fk.srv.URL)
 			t.Setenv("HADRON_LAUNCH_GRANT", "")
 			_, errOut, _ := runBound(t, fk, args...)
-			if fk.count("GetBoundSessionEnd") != 0 || strings.Contains(errOut, "warning: this worktree") {
+			if fk.checks() != 0 || strings.Contains(errOut, "warning: this worktree") {
 				t.Errorf("%v must not add the notice: ops=%v\n%s", args, fk.ops, errOut)
 			}
 		})

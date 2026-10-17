@@ -2179,6 +2179,22 @@ Conventions:
   handoff. `--json` adds `continuity` with status, handoff and previousSession;
   `null` means unavailable, not no handoff. An older server without the field
   still binds and omits the text.
+  **A call through a binding whose session ENDED warns (cli#914, Holger R1/R2,
+  `cor:dmo:070:05`).** The first time a command consumes the worktree binding
+  (any team command that reads it, or an authored write that attaches the
+  session; a plain read sends none and checks nothing), it asks the server
+  once. If the session ended, **stderr** says `warning: this worktree's worker
+  session <id> (worker <name>) ended at <time> (cause: ended|superseded|expired|unknown)`
+  and names the rebind: `hadron team session start --as <worker id>` (a plain
+  start replaces an ended binding; **no --force**). The cause is the server's
+  `Session.endReason`; a legacy end or an older server reads **unknown**, never
+  guessed, and no actor is shown. **The call itself runs unchanged**: stdout,
+  `--json` and the exit status are untouched, nothing ends or rebinds, and the
+  binding file is not rewritten. A check that cannot complete (unreachable
+  server, a binding for another server or one that recorded none, a session
+  you cannot read) prints `note: could not check …` and never claims an end.
+  `session start`, `session end` and `whoami --check` answer for the session
+  themselves and add no notice.
   **Recovering after a context reset: resume claims (cli#842, server #1956,
   `cor:agt:020:03`).** Before a deliberate reset, write a claim:
   `session resume-claim` for a SHED (the session stays open) or
