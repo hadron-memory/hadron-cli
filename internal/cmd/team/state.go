@@ -143,7 +143,21 @@ func bindingPath(ctx context.Context) (string, error) {
 
 // readBinding returns the worktree's binding and its path, or a nil binding
 // when none is recorded.
+// readBinding is how a command consumes the worktree binding, so it is also
+// where a call through a binding learns that its session ended (#914): the
+// first read of a session binding per command runs that check.
 func readBinding(ctx context.Context) (*binding, string, error) {
+	b, path, err := readBindingFile(ctx)
+	if err == nil && b != nil {
+		noteEndedBinding(ctx, b)
+	}
+	return b, path, err
+}
+
+// readBindingFile reads the binding with no server check. For paths that read
+// it without consuming it, such as AuthoredWriteContext's per-request look,
+// which checks only when it actually attaches the session.
+func readBindingFile(ctx context.Context) (*binding, string, error) {
 	path, err := bindingPath(ctx)
 	if err != nil {
 		return nil, "", err
@@ -266,7 +280,8 @@ func withBindingLock(ctx context.Context, fn func() error) error {
 //     report it as live.
 func updateBinding(ctx context.Context, mutate func(*binding) error) error {
 	return withBindingLock(ctx, func() error {
-		current, path, err := readBinding(ctx)
+		// The raw read: never a server round trip under the lock (#914).
+		current, path, err := readBindingFile(ctx)
 		if err != nil {
 			return err
 		}
@@ -357,7 +372,7 @@ func recordChatWatermark(ctx context.Context, sessionID string, seq int) (stillO
 func bindingIsSession(ctx context.Context, sessionID string) bool {
 	ours := false
 	_ = withBindingLock(ctx, func() error {
-		cur, _, err := readBinding(ctx)
+		cur, _, err := readBindingFile(ctx)
 		ours = err == nil && cur != nil && cur.SessionID == sessionID
 		return nil
 	})

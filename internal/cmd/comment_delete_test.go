@@ -21,6 +21,11 @@ func TestCommentDeleteContract(t *testing.T) {
 					Variables map[string]json.RawMessage `json:"variables"`
 				}
 				_ = json.NewDecoder(r.Body).Decode(&req)
+				if req.Op == "GetBoundSessionEnd" { // #914's notice read, answered open
+					resp, _ := unstubbedDefault(req.Op)
+					_, _ = w.Write([]byte(resp))
+					return
+				}
 				calls++
 				if req.Op != "DeleteComment" || string(req.Variables["expected"]) != "4" {
 					t.Errorf("wrong delete request: %+v", req)

@@ -95,7 +95,7 @@ func chatServer(t *testing.T, pages ...string) (*httptest.Server, *[]chatVars) {
 			_, _ = w.Write([]byte(resp))
 		case "TeamAppIdentity":
 			_, _ = w.Write([]byte(teamAppIdentityJSON))
-		case "TeamDefaultChannel", "MarkOwnTeamChatRead":
+		case "TeamDefaultChannel", "MarkOwnTeamChatRead", "GetBoundSessionEnd":
 			resp, _ := unstubbedDefault(body.OperationName)
 			_, _ = w.Write([]byte(resp))
 		default:

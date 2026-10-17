@@ -766,6 +766,10 @@ ends the recovered session: run start again to pick it up.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// start judges an existing binding itself (checkExistingBinding:
+			// an ended one is replaced), and it IS the rebind the #914 notice
+			// recommends, so the notice would only repeat it.
+			suppressEndedBindingCheck()
 			if cmd.Flags().Changed("reports-to") && strings.TrimSpace(reportsTo) == "" {
 				return exitcode.Newf(exitcode.Usage, "--reports-to must name a worker; omit it to preserve the relation")
 			}
@@ -1653,6 +1657,11 @@ for when the WORK ends — not when a chat session, a branch or a worktree does.
 binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// --check answers the same question itself, from the server
+			// (#914: the ended-binding notice would only double it).
+			if check {
+				suppressEndedBindingCheck()
+			}
 			b, path, err := readBinding(cmd.Context())
 			// No worktree is not a failure for THIS command — it is the case
 			// the fallback exists for. A non-coding worker and a Cowork session
@@ -2333,6 +2342,9 @@ nothing ends. For a SHED, which keeps the session open, use
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// It addresses the bound session directly, and the server
+			// answers for an ended one: no #914 notice on top.
+			suppressEndedBindingCheck()
 			// THE HANDOFF IS TAKEN FIRST — before the binding preflight, not
 			// merely before the client (PR #528 review, Codex, third round).
 			//

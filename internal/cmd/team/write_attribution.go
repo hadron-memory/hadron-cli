@@ -27,7 +27,7 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 		})
 	}
 	return func(ctx context.Context, req *graphql.Request) context.Context {
-		first.Do(func() { initial, _, initialErr = readBinding(ctx) })
+		first.Do(func() { initial, _, initialErr = readBindingFile(ctx) })
 		if !authoredWriteRequest(req) || asPerson(ctx) {
 			return ctx
 		}
@@ -40,7 +40,7 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 		if initial == nil || initial.SessionID == "" || initial.WorkerID == "" || initial.AppID == "" || initial.Server == "" {
 			return ctx
 		}
-		current, _, err := readBinding(ctx)
+		current, _, err := readBindingFile(ctx)
 		if err != nil {
 			note(err)
 			return ctx
@@ -72,7 +72,7 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 			}
 			// The ambiguous App lookup is a round trip: never use the pre-lookup
 			// snapshot if that lookup raced a rebind.
-			fresh, _, err := readBinding(ctx)
+			fresh, _, err := readBindingFile(ctx)
 			if err != nil {
 				note(err)
 				return ctx
@@ -80,6 +80,20 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 			if !sameWriteBinding(fresh, current) {
 				return ctx
 			}
+		}
+		// The write goes out through the binding: the #914 notice, once.
+		noteEndedBinding(ctx, current)
+		// The notice can be a round trip, and a rebind may land during it
+		// (Xavier, #915 local P2): the same re-read as after the App lookup
+		// above, raw so it never triggers another notice and holds no lock.
+		// A changed or unreadable binding attaches nothing.
+		after, _, err := readBindingFile(ctx)
+		if err != nil {
+			note(err)
+			return ctx
+		}
+		if !sameWriteBinding(after, current) {
+			return ctx
 		}
 		return api.WithSession(ctx, current.SessionID)
 	}

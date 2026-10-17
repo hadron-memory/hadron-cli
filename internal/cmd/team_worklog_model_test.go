@@ -32,6 +32,9 @@ func captureOldWorklogServer(t *testing.T, responses map[string]string) (*httpte
 		}
 		captured[req.OperationName] = req.Variables
 		body, ok := responses[req.OperationName]
+		if !ok && req.OperationName == "GetBoundSessionEnd" {
+			body, ok = unstubbedDefault(req.OperationName)
+		}
 		if !ok {
 			t.Errorf("unexpected operation %q", req.OperationName)
 			body = `{"errors":[{"message":"unexpected operation"}]}`

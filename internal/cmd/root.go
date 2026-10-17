@@ -67,6 +67,17 @@ session attribution when the binding's App and deployment are verified.
 Supporting servers record the worker and agent alongside the authenticated user.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		// #914's ended-binding check is armed HERE, on the root that actually
+		// runs, after its flags (--server) are parsed. Not at construction:
+		// Execute also builds probe roots (unknown-subcommand, --json), each
+		// with a fresh Factory, and arming at construction let the last probe
+		// win, so a real run checked through a Factory that never saw
+		// --server. No subcommand defines its own PersistentPreRun, so this
+		// one always runs.
+		PersistentPreRunE: func(*cobra.Command, []string) error {
+			teamcmd.InstallEndedBindingCheck(f)
+			return nil
+		},
 		// #393: `--version` and `-v` are what a human reaches for first —
 		// setting Version registers both (cobra takes the free `v` shorthand),
 		// and the template reproduces `hadron version`'s human line so the two

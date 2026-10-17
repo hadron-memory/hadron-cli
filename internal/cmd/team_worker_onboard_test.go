@@ -75,6 +75,8 @@ func TestTeamWorkerOnboardApplyQueueOnlyAndRetry837(t *testing.T) {
 		default:
 			if response, ok := r[q.Op]; ok {
 				_, _ = w.Write([]byte(response))
+			} else if response, ok := unstubbedDefault(q.Op); ok && q.Op == "GetBoundSessionEnd" {
+				_, _ = w.Write([]byte(response))
 			} else {
 				t.Errorf("unexpected GraphQL %s", q.Op)
 				_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))

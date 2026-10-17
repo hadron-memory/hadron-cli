@@ -65,6 +65,11 @@ func TestCommentGeneratedMutationVariablesAndAttribution(t *testing.T) {
 					Variables     map[string]json.RawMessage `json:"variables"`
 				}
 				_ = json.NewDecoder(r.Body).Decode(&req)
+				if req.OperationName == "GetBoundSessionEnd" { // #914's notice read, answered open
+					resp, _ := unstubbedDefault(req.OperationName)
+					_, _ = w.Write([]byte(resp))
+					return
+				}
 				calls++
 				if req.OperationName != tc.op {
 					t.Errorf("op=%s", req.OperationName)

@@ -702,6 +702,19 @@ query GetBoundSessionLiveness($id: ID!) {
   }
 }
 
+# hadron-cli#914 (Holger R1/R2 over server #1156, cor:dmo:070:05): the
+# ended-binding notice reads the bound session's end and its closed cause.
+# A SEPARATE operation: an older server rejects the unknown endReason field
+# at validation, and the notice then falls back to GetTeamSession's endedAt
+# with the cause unknown, never guessed.
+query GetBoundSessionEnd($id: ID!) {
+  session(id: $id) {
+    id
+    endedAt
+    endReason
+  }
+}
+
 # workerRef (#974) is the server-side narrowing the taken/last-driven-by check
 # reads: only sessions bound to that Worker (by id), newest first — so the
 # presence check no longer scans the whole list. The plain listing still pages
