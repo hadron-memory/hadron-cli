@@ -256,6 +256,10 @@ mutation UpdateMemory(
   # validates well-formedness and rejects a malformed schema with BAD_USER_INPUT.
   # @genqlient(omitempty: true)
   $schema: JSON
+  # #592 (cor:acl:080:04): the opt-in marketplace catalogue flag. Omitted =
+  # preserve: sending false unasked would silently de-list the memory.
+  # @genqlient(omitempty: true)
+  $listedOnMarketplace: Boolean
 ) {
   updateMemory(
     id: $id
@@ -268,6 +272,7 @@ mutation UpdateMemory(
     urn: $urn
     maxRevCount: $maxRevCount
     schema: $schema
+    listedOnMarketplace: $listedOnMarketplace
   ) {
     id
     urn
@@ -278,6 +283,7 @@ mutation UpdateMemory(
     organizationId
     isEncrypted
     maxRevCount
+    listedOnMarketplace
     data
     updatedAt
   }
@@ -305,6 +311,7 @@ query GetMemory($ref: ID!) {
     syncStatus
     vectorIndexEnabled
     maxRevCount
+    listedOnMarketplace
     data
     schema
     createdAt
