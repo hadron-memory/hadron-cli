@@ -73,7 +73,12 @@ func (c *endedBindingCheck) run(ctx context.Context, b *binding) {
 		cannot("the binding records no server")
 		return
 	}
-	if server, err := c.f.Server(); err != nil || server != b.Server {
+	server, err := c.f.Server()
+	if err != nil {
+		cannot("this command's server could not be resolved: " + err.Error())
+		return
+	}
+	if server != b.Server {
 		cannot("the binding is for " + b.Server + ", not this server")
 		return
 	}
@@ -94,11 +99,19 @@ func (c *endedBindingCheck) run(ctx context.Context, b *binding) {
 	if rebind == "" {
 		rebind = "<worker>"
 	}
+	// superseded: another session of this worker replaced it, and if that one
+	// is live a plain start refuses WORKER_TAKEN (Xavier's gate, UX seat), so
+	// the advice names where to look instead of promising the rebind works.
+	advice := fmt.Sprintf("To work as this worker again, rebind this worktree: hadron team session start --as %s "+
+		"(a plain start replaces an ended binding; no --force needed)", rebind)
+	if reason == "superseded" {
+		advice = fmt.Sprintf("Another session of this worker replaced it; hadron team session list --as %s --active shows it. "+
+			"If that session is yours and no longer in use, hadron team session start --as %s rebinds this worktree; "+
+			"if it is live, start refuses and says who is driving it", rebind, rebind)
+	}
 	fmt.Fprintf(errOut,
-		"warning: this worktree's worker session %s ended at %s (cause: %s). This command still runs. "+
-			"To work as this worker again, rebind this worktree: hadron team session start --as %s "+
-			"(a plain start replaces an ended binding; no --force needed)\n",
-		who, *endedAt, reason, rebind)
+		"warning: this worktree's worker session %s ended at %s (cause: %s). This command still runs. %s\n",
+		who, *endedAt, reason, advice)
 }
 
 // boundSessionEnd reads the session's end and its closed cause. An older

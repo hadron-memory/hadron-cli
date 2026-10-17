@@ -280,7 +280,8 @@ func withBindingLock(ctx context.Context, fn func() error) error {
 //     report it as live.
 func updateBinding(ctx context.Context, mutate func(*binding) error) error {
 	return withBindingLock(ctx, func() error {
-		current, path, err := readBinding(ctx)
+		// The raw read: never a server round trip under the lock (#914).
+		current, path, err := readBindingFile(ctx)
 		if err != nil {
 			return err
 		}
@@ -371,7 +372,7 @@ func recordChatWatermark(ctx context.Context, sessionID string, seq int) (stillO
 func bindingIsSession(ctx context.Context, sessionID string) bool {
 	ours := false
 	_ = withBindingLock(ctx, func() error {
-		cur, _, err := readBinding(ctx)
+		cur, _, err := readBindingFile(ctx)
 		ours = err == nil && cur != nil && cur.SessionID == sessionID
 		return nil
 	})

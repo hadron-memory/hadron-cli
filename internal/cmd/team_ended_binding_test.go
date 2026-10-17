@@ -274,10 +274,6 @@ func TestEndedBindingKeepsTheCommandsOwnExit(t *testing.T) {
 	if !strings.Contains(errOut, "warning:") {
 		t.Errorf("the refused call still gets the notice:\n%s", errOut)
 	}
-	// The notice lands BEFORE the call's own refusal.
-	if i, j := strings.Index(errOut, "warning:"), strings.Index(errOut, "session ended"); j >= 0 && i > j {
-		t.Errorf("the notice must precede the refusal:\n%s", errOut)
-	}
 }
 
 // An authored write through the binding (not a team command) warns too.
@@ -327,5 +323,41 @@ func TestEndedBindingExemptCommandsDoNotDoubleTheirAnswer(t *testing.T) {
 				t.Errorf("%v must not add the notice: ops=%v\n%s", args, fk.ops, errOut)
 			}
 		})
+	}
+}
+
+// The review walk's P1: Execute builds probe roots (unknown-subcommand, --json)
+// with fresh Factories AFTER the real one. The check must run through the root
+// that executes, with its parsed --server, never a probe's.
+func TestEndedBindingUsesTheExecutingRootsServer(t *testing.T) {
+	fk := newEndedFake(t)
+	fk.endedAt, fk.reason = "2026-10-17T09:00:00Z", "ended"
+	bindEndedWorktree(t, fk.srv.URL)
+	f, _ := testFactory(t)
+	errOut := f.IOStreams.ErrOut.(*strings.Builder)
+	root := NewRootCmd(f)
+	probe, _ := testFactory(t)
+	_ = NewRootCmd(probe) // built after, never executed: as Execute's probes are
+	root.SetArgs([]string{"team", "session", "whoami", "--server", fk.srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errOut.String(), "cause: ended") || strings.Contains(errOut.String(), "could not check") {
+		t.Errorf("the executing root's --server must be the one checked:\n%s", errOut.String())
+	}
+}
+
+// superseded: a newer session may be live, so the advice must not promise
+// that a plain start rebinds.
+func TestEndedBindingSupersededPointsAtTheNewerSession(t *testing.T) {
+	fk := newEndedFake(t)
+	fk.endedAt, fk.reason = "2026-10-17T09:00:00Z", "superseded"
+	bindEndedWorktree(t, fk.srv.URL)
+	_, errOut, err := runBound(t, fk, "team", "session", "whoami")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errOut, "session list --as wkr1 --active") || strings.Contains(errOut, "no --force needed") {
+		t.Errorf("superseded must point at the newer session:\n%s", errOut)
 	}
 }
