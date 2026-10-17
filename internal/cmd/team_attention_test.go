@@ -61,10 +61,15 @@ func attnServerHook(t *testing.T, responses map[string]string, onOp func(op stri
 		_ = json.Unmarshal(raw, &rawBody)
 		rawOp := body.OperationName
 		body.OperationName = legacyChatReadOperation(body.OperationName)
-		if onOp != nil {
-			onOp(body.OperationName)
+		// #914's ended-binding read is answered (open) but not recorded: these
+		// tests pin their command's own request order, and the notice's read
+		// is pinned by team_ended_binding_test.go.
+		if body.OperationName != "GetBoundSessionEnd" {
+			if onOp != nil {
+				onOp(body.OperationName)
+			}
+			*calls = append(*calls, attnCall{Op: body.OperationName, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session"), Query: body.Query, RawOp: rawOp, RawVars: rawBody.Variables})
 		}
-		*calls = append(*calls, attnCall{Op: body.OperationName, Vars: body.Variables, Session: r.Header.Get("X-Hadron-Session"), Query: body.Query, RawOp: rawOp, RawVars: rawBody.Variables})
 		w.Header().Set("Content-Type", "application/json")
 		resp, ok := responses[rawOp]
 		if !ok {
@@ -73,7 +78,7 @@ func attnServerHook(t *testing.T, responses map[string]string, onOp func(op stri
 		if !ok && (body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata") {
 			resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
 		}
-		if !ok && body.OperationName == "ChannelReadState" {
+		if !ok && (body.OperationName == "ChannelReadState" || body.OperationName == "GetBoundSessionEnd") {
 			resp, ok = unstubbedDefault(body.OperationName)
 		}
 		if !ok {

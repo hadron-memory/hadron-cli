@@ -1888,7 +1888,9 @@ func TestTeamChatPostPreflightOnlyWhenScopeIsAmbientAndUnbound(t *testing.T) {
 		if err := root.Execute(); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
-		if strings.Contains(errOut.String(), "note:") {
+		// The pre-flight note specifically: this fixture records no server,
+		// so #914's "could not check" notice is expected and separate.
+		if strings.Contains(errOut.String(), "note: no --app") {
 			t.Errorf("a session-bound post is server-checked — no warning: %q", errOut.String())
 		}
 	})

@@ -17965,11 +17965,17 @@ func (v *DeleteTeamRoleResponse) GetDeleteTeamRole() *DeleteTeamRoleDeleteTeamRo
 
 // DeleteWorkerResponse is returned by DeleteWorker on success.
 type DeleteWorkerResponse struct {
-	// #974 — hard-delete a NEVER-USED miscast (cor:dmo:050:11's only removal
-	// escape): refused with WORKER_IN_USE unless no session was ever bound and
-	// the worker's working memory holds no content. Anything with history
-	// retires instead — its name is bound to that history forever. Also removes
-	// the empty working memory. Same authorization as castWorker.
+	// #1162 — hard-delete a never-referenced miscast only.
+	// hrn:node:hadronmemory.com:specs:cor:dmo:050:11
+	// Empty normally ended and released stints are repairable; persisted
+	// attribution, including tombstones/history, refuses WORKER_IN_USE.
+	// The requester must explicitly verify no signed commit, trailer, PR,
+	// comment, review or published artifact attributes work to this Worker.
+	// Database counts cannot prove external absence: known or uncertain
+	// external history means retire instead. Omitted or false confirmation
+	// refuses WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED. No external crawl.
+	// Also removes empty ended stints and the empty working memory.
+	// Same staffing authorization as castWorker.
 	DeleteWorker bool `json:"deleteWorker"`
 }
 
@@ -19442,6 +19448,54 @@ type GetAppSharedMemoryResponse struct {
 
 // GetApp returns GetAppSharedMemoryResponse.App, and is useful for accessing the field via an interface.
 func (v *GetAppSharedMemoryResponse) GetApp() *GetAppSharedMemoryApp { return v.App }
+
+// GetBoundSessionEndResponse is returned by GetBoundSessionEnd on success.
+type GetBoundSessionEndResponse struct {
+	Session *GetBoundSessionEndSession `json:"session"`
+}
+
+// GetSession returns GetBoundSessionEndResponse.Session, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionEndResponse) GetSession() *GetBoundSessionEndSession { return v.Session }
+
+// GetBoundSessionEndSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type GetBoundSessionEndSession struct {
+	Id      string  `json:"id"`
+	EndedAt *string `json:"endedAt"`
+	// #1156 — hrn:node:hadronmemory.com:specs:cor:dmo:070:05: null while open; stamped cause after end, unknown for legacy ends. Readable wherever this Session is; no ending actor.
+	EndReason *SessionEndReason `json:"endReason"`
+}
+
+// GetId returns GetBoundSessionEndSession.Id, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionEndSession) GetId() string { return v.Id }
+
+// GetEndedAt returns GetBoundSessionEndSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionEndSession) GetEndedAt() *string { return v.EndedAt }
+
+// GetEndReason returns GetBoundSessionEndSession.EndReason, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionEndSession) GetEndReason() *SessionEndReason { return v.EndReason }
 
 // GetBoundSessionLivenessResponse is returned by GetBoundSessionLiveness on success.
 type GetBoundSessionLivenessResponse struct {
@@ -29780,11 +29834,16 @@ var AllNodeRoleRuleRefState = []NodeRoleRuleRefState{
 	NodeRoleRuleRefStateUnreadable,
 }
 
+// #1331 — who may write a node whose role this rule governs, ON TOP OF memory write access (never instead of it).
+// A write is judged against the role the node has BEFORE it and the role it has AFTER, so creating, editing, changing or clearing a role all need the level.
 type NodeRoleWriters string
 
 const (
+	// The owning organization's ADMINs and OWNERs, and the owning user (ROLE_WRITER_LEVEL_REQUIRED otherwise).
 	NodeRoleWritersAdmin NodeRoleWriters = "ADMIN"
-	NodeRoleWritersAll   NodeRoleWriters = "ALL"
+	// Anyone who may write the memory. Grants no new access.
+	NodeRoleWritersAll NodeRoleWriters = "ALL"
+	// NOT BUILT yet (#1333): any write touching this role is refused (ROLE_WRITERS_UNSUPPORTED). Never read as ALL.
 	NodeRoleWritersOwner NodeRoleWriters = "OWNER"
 )
 
@@ -35249,12 +35308,11 @@ func (v *RevokePrincipalGrantResponse) GetRevokePrincipalGrant() bool { return v
 // RevokeUserApiKeyResponse is returned by RevokeUserApiKey on success.
 type RevokeUserApiKeyResponse struct {
 	// 025-oauth-for-mcp FR-004: revoke a user-scoped API key owned by
-	// the calling User. Returns the updated UserApiKey so the portal
-	// can render the new revokedAt without a refetch (PR-137 review
-	// delta D3 — was Boolean). Idempotent for already-revoked keys;
-	// rejected with FORBIDDEN if the key belongs to another user;
-	// NOT_FOUND if id does not exist; UNAUTHENTICATED for AppKey-
-	// resolved callers.
+	// the calling User, together with every recorded descendant. Unrelated
+	// roots and siblings stay live; unknown legacy parents are not inferred.
+	// Returns the named UserApiKey with its revokedAt. Idempotent for
+	// already-revoked keys. NOT_FOUND for both unknown and foreign keys;
+	// UNAUTHENTICATED for AppKey-resolved callers.
 	RevokeUserApiKey *RevokeUserApiKeyRevokeUserApiKey `json:"revokeUserApiKey"`
 }
 
@@ -37678,6 +37736,23 @@ func (v *ServerInfoServerInfo) GetVersion() string { return v.Version }
 
 // GetBaseUrl returns ServerInfoServerInfo.BaseUrl, and is useful for accessing the field via an interface.
 func (v *ServerInfoServerInfo) GetBaseUrl() string { return v.BaseUrl }
+
+// #1156 — hrn:node:hadronmemory.com:specs:cor:dmo:070:05: closed end causes; unknown is reserved for legacy rows.
+type SessionEndReason string
+
+const (
+	SessionEndReasonEnded      SessionEndReason = "ended"
+	SessionEndReasonExpired    SessionEndReason = "expired"
+	SessionEndReasonSuperseded SessionEndReason = "superseded"
+	SessionEndReasonUnknown    SessionEndReason = "unknown"
+)
+
+var AllSessionEndReason = []SessionEndReason{
+	SessionEndReasonEnded,
+	SessionEndReasonExpired,
+	SessionEndReasonSuperseded,
+	SessionEndReasonUnknown,
+}
 
 type SessionInput struct {
 	// #928 / cor:api:140: the role-Agent driving this session, as a PK or URN.
@@ -49418,8 +49493,9 @@ type UserApiKeyFields struct {
 	Id         string  `json:"id"`
 	Label      *string `json:"label"`
 	KeyPreview string  `json:"keyPreview"`
-	// Issuance path: portal (createUserApiKey) or oauth:<client_id>
-	// (POST /oauth/token). Powers source labels in the revocation UI.
+	// Issuance identity: portal for direct sign-in issuance, or oauth:<client_id>
+	// for OAuth issuance. A key minted by a key inherits that credential's
+	// issuance identity. Powers source labels in the revocation UI.
 	IssuedVia  *string `json:"issuedVia"`
 	CreatedAt  string  `json:"createdAt"`
 	LastUsedAt *string `json:"lastUsedAt"`
@@ -53221,6 +53297,14 @@ type __GetAppSharedMemoryInput struct {
 
 // GetAppRef returns __GetAppSharedMemoryInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__GetAppSharedMemoryInput) GetAppRef() string { return v.AppRef }
+
+// __GetBoundSessionEndInput is used internally by genqlient
+type __GetBoundSessionEndInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __GetBoundSessionEndInput.Id, and is useful for accessing the field via an interface.
+func (v *__GetBoundSessionEndInput) GetId() string { return v.Id }
 
 // __GetBoundSessionLivenessInput is used internally by genqlient
 type __GetBoundSessionLivenessInput struct {
@@ -62661,6 +62745,47 @@ func GetAppSharedMemory(
 	}
 
 	data_ = &GetAppSharedMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetBoundSessionEnd.
+const GetBoundSessionEnd_Operation = `
+query GetBoundSessionEnd ($id: ID!) {
+	session(id: $id) {
+		id
+		endedAt
+		endReason
+	}
+}
+`
+
+// hadron-cli#914 (Holger R1/R2 over server #1156, cor:dmo:070:05): the
+// ended-binding notice reads the bound session's end and its closed cause.
+// A SEPARATE operation: an older server rejects the unknown endReason field
+// at validation, and the notice then falls back to GetTeamSession's endedAt
+// with the cause unknown, never guessed.
+func GetBoundSessionEnd(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *GetBoundSessionEndResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetBoundSessionEnd",
+		Query:  GetBoundSessionEnd_Operation,
+		Variables: &__GetBoundSessionEndInput{
+			Id: id,
+		},
+	}
+
+	data_ = &GetBoundSessionEndResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

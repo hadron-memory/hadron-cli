@@ -64,6 +64,11 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 // Anything else unstubbed is still an error.
 func unstubbedDefault(op string) (string, bool) {
 	switch op {
+	// #914's ended-binding notice: every call through a session binding
+	// asks once whether the session ended. Answered as OPEN, so existing
+	// tests see no notice; the notice's own tests stub an ended session.
+	case "GetBoundSessionEnd":
+		return `{"data":{"session":{"id":"s-new","endedAt":null,"endReason":null}}}`, true
 	case "NodeCommentSummaries":
 		return missingFieldJSON("commentSummary"), true
 	// `team chat read`'s best-effort server-side mark after delivery (#1353):

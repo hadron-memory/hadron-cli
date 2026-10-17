@@ -3789,7 +3789,7 @@ type HomeAssistantOp {
 """
 type HostKeyUse {
   """
-  register, collect, report, availability, read or (#1969) session: a refused session write (updateSession, endSession).
+  register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation.
   """
   action: String!
 
@@ -6087,7 +6087,10 @@ type Mutation {
   """
   deleteChannel(ref: ID!): Boolean!
 
-  """Soft-delete a saved chat and all its messages"""
+  """
+  Soft-delete a saved chat and all its messages. Requires current write access
+  to its host memory.
+  """
   deleteChat(chatId: String!): Boolean!
 
   """
@@ -6316,16 +6319,22 @@ type Mutation {
   (identity fields nulled, handle replaced with a random deleted-...
   value) and soft-deleted; a deleted account can no longer authenticate.
   """
-  deleteUser(userRef: ID): Boolean!
+  deleteUser(reason: String, userRef: ID): Boolean!
 
   """
-  #974 — hard-delete a NEVER-USED miscast (cor:dmo:050:11's only removal
-  escape): refused with WORKER_IN_USE unless no session was ever bound and
-  the worker's working memory holds no content. Anything with history
-  retires instead — its name is bound to that history forever. Also removes
-  the empty working memory. Same authorization as castWorker.
+  #1162 — hard-delete a never-referenced miscast only.
+  hrn:node:hadronmemory.com:specs:cor:dmo:050:11
+  Empty normally ended and released stints are repairable; persisted
+  attribution, including tombstones/history, refuses WORKER_IN_USE.
+  The requester must explicitly verify no signed commit, trailer, PR,
+  comment, review or published artifact attributes work to this Worker.
+  Database counts cannot prove external absence: known or uncertain
+  external history means retire instead. Omitted or false confirmation
+  refuses WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED. No external crawl.
+  Also removes empty ended stints and the empty working memory.
+  Same staffing authorization as castWorker.
   """
-  deleteWorker(workerRef: ID!): Boolean!
+  deleteWorker(confirmNoExternalAttribution: Boolean, workerRef: ID!): Boolean!
 
   """
   #1606 — the author edits a comment's body and/or quote. COMMENT_NOT_AUTHOR otherwise.
@@ -7272,12 +7281,11 @@ type Mutation {
 
   """
   025-oauth-for-mcp FR-004: revoke a user-scoped API key owned by
-  the calling User. Returns the updated UserApiKey so the portal
-  can render the new revokedAt without a refetch (PR-137 review
-  delta D3 — was Boolean). Idempotent for already-revoked keys;
-  rejected with FORBIDDEN if the key belongs to another user;
-  NOT_FOUND if id does not exist; UNAUTHENTICATED for AppKey-
-  resolved callers.
+  the calling User, together with every recorded descendant. Unrelated
+  roots and siblings stay live; unknown legacy parents are not inferred.
+  Returns the named UserApiKey with its revokedAt. Idempotent for
+  already-revoked keys. NOT_FOUND for both unknown and foreign keys;
+  UNAUTHENTICATED for AppKey-resolved callers.
   """
   revokeUserApiKey(id: ID!): UserApiKey!
 
@@ -7706,7 +7714,7 @@ type Mutation {
   """
   updateChannel(input: UpdateChannelInput!, ref: ID!): Channel!
 
-  """Rename a saved chat (user must own it)"""
+  """Rename a saved chat with current write access to its host memory."""
   updateChatTitle(chatId: String!, title: String!): Boolean!
 
   """
@@ -9067,9 +9075,22 @@ type NodeRoleRuleSourceTemplate {
   name: String!
 }
 
+"""
+#1331 — who may write a node whose role this rule governs, ON TOP OF memory write access (never instead of it).
+A write is judged against the role the node has BEFORE it and the role it has AFTER, so creating, editing, changing or clearing a role all need the level.
+"""
 enum NodeRoleWriters {
+  """
+  The owning organization's ADMINs and OWNERs, and the owning user (ROLE_WRITER_LEVEL_REQUIRED otherwise).
+  """
   ADMIN
+
+  """Anyone who may write the memory. Grants no new access."""
   ALL
+
+  """
+  NOT BUILT yet (#1333): any write touching this role is refused (ROLE_WRITERS_UNSUPPORTED). Never read as ALL.
+  """
   OWNER
 }
 
@@ -12065,6 +12086,11 @@ type Session {
   autoExpiredAt: DateTime
   branch: String
   customerId: String
+
+  """
+  #1156 — hrn:node:hadronmemory.com:specs:cor:dmo:070:05: null while open; stamped cause after end, unknown for legacy ends. Readable wherever this Session is; no ending actor.
+  """
+  endReason: SessionEndReason
   endedAt: DateTime
   errorCount: Int
   events: [UsageEvent!]!
@@ -12162,6 +12188,16 @@ type Session {
   #974 / cor:agt:020:03: the Worker (named casting) this session works as.
   """
   workerId: String
+}
+
+"""
+#1156 — hrn:node:hadronmemory.com:specs:cor:dmo:070:05: closed end causes; unknown is reserved for legacy rows.
+"""
+enum SessionEndReason {
+  ended
+  expired
+  superseded
+  unknown
 }
 
 input SessionInput {
@@ -14035,13 +14071,20 @@ type UserApiKey {
   id: ID!
 
   """
-  Issuance path: portal (createUserApiKey) or oauth:<client_id>
-  (POST /oauth/token). Powers source labels in the revocation UI.
+  Issuance identity: portal for direct sign-in issuance, or oauth:<client_id>
+  for OAuth issuance. A key minted by a key inherits that credential's
+  issuance identity. Powers source labels in the revocation UI.
   """
   issuedVia: String
   keyPreview: String!
   label: String
   lastUsedAt: DateTime
+
+  """
+  Authenticated key that minted this key. Null for direct issuance or
+  unknown legacy ancestry; historical parents are never inferred.
+  """
+  mintedByKeyId: ID
 
   """
   Immutable OAuth scopes bound to this credential. Empty means an
