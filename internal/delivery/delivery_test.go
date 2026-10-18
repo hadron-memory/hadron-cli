@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 )
@@ -291,7 +292,7 @@ func TestForeignDraftsAreHeldNeverClearedNeverStored(t *testing.T) {
 	for name, sc := range cases {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t)
-			h.d.Caps = Capabilities{EnterOnly: map[string]bool{"claude": true}, Clear: map[string]string{"claude": "\x15"}}
+			h.d.Caps = Capabilities{EnterOnly: map[string]bool{"claude": true}, Clear: map[string]bool{"claude": true}}
 			h.orca.screens["term_j"] = []*orcaterm.Screen{sc}
 			o := h.deliver(h.batch())
 			h.wantHold(o, HoldDraft)
@@ -335,6 +336,7 @@ func TestOwnLeftover(t *testing.T) {
 	})
 	t.Run("the current batch already typed, Enter-only unproven: held not-submitted", func(t *testing.T) {
 		h := newHarness(t)
+		h.d.Caps = Capabilities{}
 		b := h.batch()
 		h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeTyped(b.Text))}
 		h.wantHold(h.deliver(b), HoldNotSubmitted)
@@ -342,28 +344,60 @@ func TestOwnLeftover(t *testing.T) {
 	})
 	t.Run("an older leftover of ours, clear unproven: held not-submitted", func(t *testing.T) {
 		h := newHarness(t)
+		h.d.Caps = Capabilities{}
 		h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeTyped("[hadron chat #1] an older batch"))}
 		h.wantHold(h.deliver(h.batch()), HoldNotSubmitted)
 		h.wantNoSend()
 	})
 	t.Run("an older leftover of ours, clear proven: cleared, proven empty, then sent", func(t *testing.T) {
 		h := newHarness(t)
-		h.d.Caps.Clear = map[string]string{"claude": "\x15"}
-		h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeTyped("[hadron chat #1] an older batch")), screen(claudeIdle)}
+		h.d.Caps.Clear = map[string]bool{"claude": true}
+		older := "[hadron chat #1] an older batch — über"
+		h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeTyped(older)), screen(claudeIdle)}
 		o := h.deliver(h.batch())
 		if o.Kind != Delivered || len(h.orca.sends) != 2 || !h.orca.sends[0].opts.NoEnter || h.orca.sends[1].text != h.batch().Text {
 			t.Fatalf("outcome %+v sends %+v", o, h.orca.sends)
 		}
+		if h.orca.sends[0].text != ClearKeys(older) {
+			t.Fatalf("clear sent %q, want Backspace per rune of the leftover", h.orca.sends[0].text)
+		}
 	})
 	t.Run("a clear that does not leave a proven-empty composer holds", func(t *testing.T) {
 		h := newHarness(t)
-		h.d.Caps.Clear = map[string]string{"claude": "\x15"}
+		h.d.Caps.Clear = map[string]bool{"claude": true}
 		h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeTyped("[hadron chat #1] an older batch"))}
 		h.wantHold(h.deliver(h.batch()), HoldNotSubmitted)
 		if len(h.orca.sends) != 1 || !h.orca.sends[0].opts.NoEnter {
 			t.Fatalf("only the clear may be sent: %+v", h.orca.sends)
 		}
 	})
+}
+
+// The 2026-10-18 scratch terminal (cli#907) proved, on Claude Code 2.1.303
+// and Codex CLI 0.163.0: Enter alone submits an existing composer, and
+// Backspace once per rune empties one, multi-line included, while doing
+// nothing to an empty composer. Ctrl+C is never a clear: ONE on an empty
+// Codex composer quits Codex, so a human emptying it between our read and
+// our send would cost the worker its agent.
+func TestProvenCapabilitiesAreTheDefault(t *testing.T) {
+	d := New(&fakeServer{}, &fakeOrca{}, t.TempDir())
+	for _, family := range []string{"claude", "codex"} {
+		if !d.Caps.EnterOnly[family] || !d.Caps.Clear[family] {
+			t.Errorf("%s: caps %+v, want Enter-only and clear proven", family, d.Caps)
+		}
+	}
+}
+
+func TestClearKeysAreBackspacePerRuneNeverCtrlC(t *testing.T) {
+	for _, leftover := range []string{"[hadron chat #1] x", "[hadron chat #1] über\nsecond line", ""} {
+		keys := ClearKeys(leftover)
+		if keys != strings.Repeat("\x7f", utf8.RuneCountInString(leftover)) {
+			t.Errorf("%q: keys %q", leftover, keys)
+		}
+		if strings.ContainsAny(keys, "\x03\x1b\x15") {
+			t.Errorf("%q: keys %q carry Ctrl+C, Esc or Ctrl+U", leftover, keys)
+		}
+	}
 }
 
 // --- checklist 4: interrupt only when the batch says so --------------------------
