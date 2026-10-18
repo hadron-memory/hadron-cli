@@ -5,6 +5,7 @@ package team
 // returned.
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -214,11 +215,8 @@ combine with AND: --status (repeatable, ` + taskStatusDoc + `), --assignee and
 filters by tag. --limit/--offset page (server default 50, cap 200).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			if limit < 1 || limit > teamEventPageCap {
-				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", teamEventPageCap, limit)
-			}
-			if offset < 0 {
-				return exitcode.Newf(exitcode.Usage, "--offset takes a non-negative page offset, got %d", offset)
+			if err := checkTaskPage(limit, offset); err != nil {
+				return err
 			}
 			for _, s := range statuses {
 				if !taskStatuses[strings.ToUpper(s)] {
@@ -252,39 +250,9 @@ filters by tag. --limit/--offset page (server default 50, cap 200).`,
 			if err != nil {
 				return err
 			}
-			appLabel := lazyAppLabel(ctx, f, scope)
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
-			resp, err := gen.AgentTaskList(ctx, client, scope.Ref, assigneeIn, &limit, &offset, ownerIn, optStr(parent), optBool(queued), optBool(rootsOnly), status, optStr(tag))
-			if err != nil {
-				return api.MapError(err)
-			}
-			tasks := []taskDTO{}
-			for _, t := range resp.AgentTasks {
-				if t != nil {
-					tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
-				}
-			}
-			return output.Write(f.IOStreams, f.JSON, tasks, func(w io.Writer) error {
-				// Unconditionally, and before the rows (#470): an empty list
-				// is the normal steady state of a quiet App, and without this
-				// line "no tasks" and "another team's App" look identical.
-				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
-					return err
-				}
-				t := output.NewTable(w, "ID", "STATUS", "TITLE", "OWNER", "ASSIGNEE")
-				for _, task := range tasks {
-					assignee := "—"
-					if task.Queued {
-						assignee = "(queued)"
-					} else if task.Assignee != nil {
-						assignee = partyCell(task.Assignee)
-					}
-					t.Row(task.ID, task.Status, task.Title, partyCell(task.Owner), assignee)
-				}
-				return t.Flush()
+			return listTasks(ctx, f, scope, taskListQuery{
+				assignee: assigneeIn, owner: ownerIn, parent: optStr(parent), queued: optBool(queued),
+				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), limit: limit, offset: offset,
 			})
 		},
 	}
@@ -295,6 +263,133 @@ filters by tag. --limit/--offset page (server default 50, cap 200).`,
 	cmd.Flags().StringVar(&tag, "tag", "", "tag filter")
 	cmd.Flags().BoolVar(&queued, "queued", false, "only queued tasks (pending, no assignee)")
 	cmd.Flags().BoolVar(&rootsOnly, "roots-only", false, "drop child tasks")
+	cmd.Flags().IntVar(&limit, "limit", 50, "page size (server cap 200)")
+	cmd.Flags().IntVar(&offset, "offset", 0, "page offset")
+	return cmd
+}
+
+// taskListQuery is one AgentTaskList request's filters and page.
+type taskListQuery struct {
+	assignee, owner   *gen.AgentTaskPartyInput
+	parent, tag       *string
+	queued, rootsOnly *bool
+	status            []gen.AgentTaskStatus
+	limit, offset     int
+}
+
+func checkTaskPage(limit, offset int) error {
+	if limit < 1 || limit > teamEventPageCap {
+		return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", teamEventPageCap, limit)
+	}
+	if offset < 0 {
+		return exitcode.Newf(exitcode.Usage, "--offset takes a non-negative page offset, got %d", offset)
+	}
+	return nil
+}
+
+// listTasks is `task list`'s request and render, shared with `task mine`
+// so the shortcut's output is the list's own.
+func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskListQuery) error {
+	appLabel := lazyAppLabel(ctx, f, scope)
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return err
+	}
+	resp, err := gen.AgentTaskList(ctx, client, scope.Ref, q.assignee, &q.limit, &q.offset, q.owner, q.parent, q.queued, q.rootsOnly, q.status, q.tag)
+	if err != nil {
+		return api.MapError(err)
+	}
+	tasks := []taskDTO{}
+	for _, t := range resp.AgentTasks {
+		if t != nil {
+			tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+		}
+	}
+	return output.Write(f.IOStreams, f.JSON, tasks, func(w io.Writer) error {
+		// Unconditionally, and before the rows (#470): an empty list
+		// is the normal steady state of a quiet App, and without this
+		// line "no tasks" and "another team's App" look identical.
+		if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
+			return err
+		}
+		t := output.NewTable(w, "ID", "STATUS", "TITLE", "OWNER", "ASSIGNEE")
+		for _, task := range tasks {
+			assignee := "—"
+			if task.Queued {
+				assignee = "(queued)"
+			} else if task.Assignee != nil {
+				assignee = partyCell(task.Assignee)
+			}
+			t.Row(task.ID, task.Status, task.Title, partyCell(task.Owner), assignee)
+		}
+		return t.Flush()
+	})
+}
+
+// ---- mine -----------------------------------------------------------------
+
+// newCmdTeamTaskMine is #910 (C4 of hadron-server#2016): "give me my
+// assignment". It is `task list` with the filters fixed — the bound worker
+// as assignee, PENDING and STARTED — and no way to widen them, so it refuses
+// rather than fall back to a person, an unfiltered list or another App.
+func newCmdTeamTaskMine(f *cmdutil.Factory) *cobra.Command {
+	var limit, offset int
+	cmd := &cobra.Command{
+		Use:   "mine",
+		Short: "List the bound worker's open tasks",
+		Long: `List the tasks assigned to this worktree's bound worker that are PENDING or
+STARTED — ` + "`task list --assignee worker:<bound worker> --status PENDING --status STARTED`" + `
+in the bound worker's App, with the same output. The filters are fixed.
+--limit/--offset page (server default 50, cap 200).
+
+It needs a worker session binding: without one, start a session with
+` + "`hadron team session start`" + `. --app may name the bound App (by id, URN
+or <root>:<slug>) but no other: "mine" never means another App, and the
+binding's server must be the one this call targets.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if err := checkTaskPage(limit, offset); err != nil {
+				return err
+			}
+			b, _, err := readBinding(ctx)
+			if err != nil {
+				return err
+			}
+			if b == nil {
+				return exitcode.Newf(exitcode.Usage, "`task mine` lists the bound worker's tasks, and this worktree has no worker session — start one with `hadron team session start`")
+			}
+			if b.SessionID == "" || b.WorkerID == "" || b.AppID == "" {
+				return exitcode.Newf(exitcode.Usage, "the worker session binding does not record its session, worker and App — re-run `hadron team session start`")
+			}
+			if !bindingServerMatches(f, b) {
+				server, _ := f.Server()
+				return exitcode.Newf(exitcode.Usage, "the worker session is bound on %s, and this call targets %s — `task mine` reads only the bound server", b.Server, server)
+			}
+			// --app may restate the bound App in any spelling: compared by
+			// identity, and the query below stays on the bound id.
+			if f.AppFlag != "" {
+				ref, err := f.App()
+				if err != nil {
+					return err
+				}
+				same, err := bindingsAppIdentity(ctx, f, ref, b.AppID)
+				if err != nil {
+					return err
+				}
+				if !same {
+					return exitcode.Newf(exitcode.Usage, "`task mine` reads the bound worker's App %s; --app %s is not that App (omit --app)", b.AppID, f.AppFlag)
+				}
+			}
+			worker := b.WorkerID
+			return listTasks(ctx, f, appScope{Ref: b.AppID, Source: "from the worktree binding", Ambient: true}, taskListQuery{
+				assignee: &gen.AgentTaskPartyInput{Worker: &worker},
+				status:   []gen.AgentTaskStatus{gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted},
+				limit:    limit,
+				offset:   offset,
+			})
+		},
+	}
 	cmd.Flags().IntVar(&limit, "limit", 50, "page size (server cap 200)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "page offset")
 	return cmd
