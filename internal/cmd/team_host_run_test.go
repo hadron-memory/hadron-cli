@@ -279,3 +279,23 @@ func TestTeamHostRunOnceFailsWhenAReportDidNotLand(t *testing.T) {
 		t.Errorf("exit = %d, want %d: an undelivered report is not a clean poll", code, exitcode.Unavailable)
 	}
 }
+
+// Until S1's batch query is on server main (hadron-server#2017), a host
+// config that turns delivery on must fail loudly, not load and do nothing.
+func TestTeamHostRunRefusesDeliveryUntilTheBatchSourceShips(t *testing.T) {
+	cfg := writeHostConfig(t, "delivery:\n  enabled: true\n  orca_bin: /usr/local/bin/orca\n")
+	srv, calls := hostServerFake(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("exit = %d, want %d: %v", code, exitcode.Usage, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "hadron-server#2017") {
+		t.Errorf("the refusal names what it waits on: %v", err)
+	}
+	if len(calls()) != 0 {
+		t.Errorf("no host call before the refusal: %+v", calls())
+	}
+}
