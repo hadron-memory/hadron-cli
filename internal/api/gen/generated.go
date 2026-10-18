@@ -19535,12 +19535,14 @@ type GetBoundSessionLivenessSession struct {
 	Id        string  `json:"id"`
 	StartedAt string  `json:"startedAt"`
 	EndedAt   *string `json:"endedAt"`
-	// hadron-cli#791 / cor:agt:020:11: whether THIS session is live: not ended,
+	// hadron-cli#791 / hrn:node:hadronmemory.com:specs:cor:agt:020:11:
+	// whether THIS session is live: not ended
+	// or hard-expired (hrn:node:hadronmemory.com:specs:cor:agt:020:03),
 	// AND driven inside its type's idle window (activity is the latest of
 	// startedAt, the heartbeat updatedAt, and the latest attributed usage
 	// event, capped at endedAt). The same derived predicate as startSession's
 	// WORKER_TAKEN gate and Worker.hasLiveSession, so the three always agree.
-	// An open session that is not live has LAPSED: nobody drove it inside the
+	// An unexpired open session that is not live has LAPSED: nobody drove it inside the
 	// window, so another driver may bind its worker; it is not ended, and can
 	// still be ended with a handoff. False for an ended or deleted session.
 	IsLive bool `json:"isLive"`
@@ -41278,7 +41280,11 @@ type TeamChatMessagesAttributedResponse struct {
 	// mentionsRef filters to messages whose stored envelope mentions the
 	// referenced worker (a Worker id or name of THIS App, retired included) or
 	// user (handle/id) — matching runs against the mention tokens extracted at
-	// write time, never by re-parsing bodies. The ref must name this App's own
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
 	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
@@ -41475,7 +41481,11 @@ type TeamChatMessagesResponse struct {
 	// mentionsRef filters to messages whose stored envelope mentions the
 	// referenced worker (a Worker id or name of THIS App, retired included) or
 	// user (handle/id) — matching runs against the mention tokens extracted at
-	// write time, never by re-parsing bodies. The ref must name this App's own
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
 	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
@@ -41670,7 +41680,11 @@ type TeamChatReadHeadAttributedResponse struct {
 	// mentionsRef filters to messages whose stored envelope mentions the
 	// referenced worker (a Worker id or name of THIS App, retired included) or
 	// user (handle/id) — matching runs against the mention tokens extracted at
-	// write time, never by re-parsing bodies. The ref must name this App's own
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
 	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
@@ -41743,7 +41757,11 @@ type TeamChatReadHeadResponse struct {
 	// mentionsRef filters to messages whose stored envelope mentions the
 	// referenced worker (a Worker id or name of THIS App, retired included) or
 	// user (handle/id) — matching runs against the mention tokens extracted at
-	// write time, never by re-parsing bodies. The ref must name this App's own
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
 	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
