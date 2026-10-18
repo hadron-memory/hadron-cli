@@ -156,6 +156,13 @@ func TestSendShape(t *testing.T) {
 			t.Fatalf("argv %v", r.calls[0])
 		}
 	})
+	t.Run("a NoEnter send types without submitting", func(t *testing.T) {
+		r := &recorder{replies: []string{accepted}}
+		NewClient(r.run).Send(context.Background(), "term_1", "\x15", SendOptions{NoEnter: true})
+		if argv := r.first(t); slices.Contains(argv, "--enter") || !slices.Contains(argv, "--text") {
+			t.Fatalf("argv %v", argv)
+		}
+	})
 	t.Run("turn_started is the strong evidence; input_accepted alone is not", func(t *testing.T) {
 		r := &recorder{replies: []string{accepted}}
 		if rc := NewClient(r.run).Send(context.Background(), "t", "x", SendOptions{}); !rc.Accepted || !rc.TurnStarted {

@@ -151,6 +151,9 @@ type SendOptions struct {
 	Interrupt bool
 	// EnterOnly submits what the composer already holds: no text is typed.
 	EnterOnly bool
+	// NoEnter types text without submitting it: a family's clearing
+	// keystroke, never a message.
+	NoEnter bool
 }
 
 // Send types text into the terminal and submits it. It retries once, with
