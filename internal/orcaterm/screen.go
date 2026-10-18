@@ -40,10 +40,15 @@ func indent(s string) int { return len([]rune(leadSpace.FindString(s))) }
 // codexPlaceholders is what an idle, EMPTY Codex composer shows.
 var codexPlaceholders = map[string]bool{"Ask Codex to do anything": true}
 
-// claudeEmptyHint is the suffix Claude Code's status line carries only while
-// its composer is EMPTY. If Claude Code renames it, every Claude worker
-// holds: fail closed.
-const claudeEmptyHint = "· ← for agents"
+// claudeModeFooter is the ONE line Claude Code draws under an empty
+// composer's box: its permission-mode line. The router required the
+// "· ← for agents" suffix, but on 2.1.303 that shows only on the first screen
+// after start (scratch captures, cli#907), and live workers' footers carry
+// it or not, and other " · " segments such as a "PR #435" badge (a read of
+// the fleet on 2026-10-18). So any trailing segments are allowed. The mode
+// text varies ("bypass permissions on", "auto mode on"). If Claude Code
+// reshapes the line, every Claude worker holds: fail closed.
+var claudeModeFooter = regexp.MustCompile(`^⏵⏵ .+ \(shift\+tab to cycle\)( · .+)?$`)
 
 func ruleIndexes(lines []string) []int {
 	var out []int
@@ -68,8 +73,10 @@ func lastPromptLine(lines []string) int {
 // PromptLineIsEmpty is true only on positive proof the agent's prompt holds
 // no typed text (#5473: tui-idle reports idle while a human is typing).
 //   - claude: the box between the last two column-0 rules is a bare `❯` plus
-//     blank lines, and the ONE nonblank line below it ends with the
-//     empty-input hint.
+//     blank lines, and the ONE nonblank line below it is the mode footer.
+//     Orca blanks a composer's text in the tail and reports it as the
+//     screen's draft, so the box alone is no proof: ReadComposer judges the
+//     draft first, and a Claude empty composer rests on Orca reporting none.
 //   - codex: the last column-0 `›` line shows the idle placeholder and every
 //     line below it is footer.
 //
@@ -97,7 +104,7 @@ func PromptLineIsEmpty(lines []string, family string) bool {
 				below = append(below, s)
 			}
 		}
-		return len(below) == 1 && strings.HasSuffix(below[0], claudeEmptyHint)
+		return len(below) == 1 && claudeModeFooter.MatchString(below[0])
 	case "codex":
 		at := lastPromptLine(lines)
 		if at < 0 {

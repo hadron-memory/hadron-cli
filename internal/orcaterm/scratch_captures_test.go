@@ -84,6 +84,8 @@ func TestClaudeEmptyNeedsTheModeFooter(t *testing.T) {
 		"  ⏵⏵ auto mode on (shift+tab to cycle)",
 		"  ⏵⏵ auto mode on (shift+tab to cycle) · ← for agents",
 		claudeHint,
+		// A live worker's footer (fleet read, 2026-10-18).
+		"  ⏵⏵ bypass permissions on (shift+tab to cycle) · PR #435 · ← for agents",
 	} {
 		if !PromptLineIsEmpty([]string{rule, "❯ ", rule, footer}, "claude") {
 			t.Errorf("%q not judged empty", footer)

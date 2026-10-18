@@ -156,8 +156,9 @@ type SendOptions struct {
 	NoEnter bool
 }
 
-// Send types text into the terminal and submits it. It retries once, with
-// Orca's durable request id, only after an ambiguous transport failure, as
+// Send types text into the terminal and submits it. An observed send (text
+// plus Enter, no interrupt) retries once, with Orca's durable request id,
+// only after an ambiguous transport failure, as
 // Orca prescribes: the id is bound to the payload and the terminal process,
 // so a retry re-issues, never re-types. Nothing else ever retries a send.
 func (c *Client) Send(ctx context.Context, handle, text string, o SendOptions) Receipt {
@@ -171,9 +172,17 @@ func (c *Client) Send(ctx context.Context, handle, text string, o SendOptions) R
 	if o.Interrupt {
 		argv = append(argv, "--interrupt")
 	}
-	argv = append(argv, "--wait-submit", strconv.Itoa(SubmitWait), "--json")
+	// Orca observes submission, and offers a retry id, only for text plus
+	// Enter without an interrupt; it refuses --wait-submit on any other send
+	// (invalid_argument, scratch capture cli#907). Those sends carry no
+	// stages, so the caller confirms by re-reading the screen.
+	observed := !o.EnterOnly && !o.NoEnter && !o.Interrupt
+	if observed {
+		argv = append(argv, "--wait-submit", strconv.Itoa(SubmitWait))
+	}
+	argv = append(argv, "--json")
 	rc, retryID := readReceipt(c.run(ctx, argv))
-	if rc.Accepted || retryID == "" {
+	if rc.Accepted || retryID == "" || !observed {
 		return rc
 	}
 	rc, _ = readReceipt(c.run(ctx, append(argv, "--retry-request", retryID)))
