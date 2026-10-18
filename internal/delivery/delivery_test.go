@@ -433,7 +433,24 @@ func TestConfirmation(t *testing.T) {
 		if len(h.records()) != 0 {
 			t.Fatal("an unconfirmed send must leave no record")
 		}
-		// Next time the leftover is ours and current: no retype.
+		// Next time the leftover is ours and current: submitted with Enter
+		// alone (proven, cli#907 scratch terminal), never retyped.
+		h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeTyped(b.Text)), screen(claudeIdle)}
+		h.orca.reads["term_j"] = 0
+		if o := h.deliver(b); o.Kind != Delivered {
+			t.Fatalf("outcome %+v", o)
+		}
+		if len(h.orca.sends) != 2 || !h.orca.sends[1].opts.EnterOnly {
+			t.Fatalf("want one Enter-only send after the first: %+v", h.orca.sends)
+		}
+	})
+	t.Run("the same, with Enter-only unproven: the leftover holds, never retyped", func(t *testing.T) {
+		h := newHarness(t)
+		h.d.Caps = Capabilities{}
+		b := h.batch()
+		h.orca.receipts = []orcaterm.Receipt{{Accepted: true, Stages: []string{"input_accepted"}}}
+		h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeIdle), screen(claudeTyped(b.Text))}
+		h.wantHold(h.deliver(b), HoldNotSubmitted)
 		h.orca.reads["term_j"] = 1
 		h.wantHold(h.deliver(b), HoldNotSubmitted)
 		if len(h.orca.sends) != 1 {

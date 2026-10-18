@@ -5,8 +5,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 )
@@ -49,8 +51,28 @@ type Recipient struct {
 type Capabilities struct {
 	// EnterOnly: an Enter-only send submits what the composer holds.
 	EnterOnly map[string]bool
-	// Clear is the keystroke that empties the family's composer.
-	Clear map[string]string
+	// Clear: ClearKeys empties the family's composer.
+	Clear map[string]bool
+}
+
+// Proven is what the 2026-10-18 scratch terminal proved on Claude Code
+// 2.1.303 and Codex CLI 0.163.0 (cli#907; hadron-dev-team-joshua:work:
+// cli907-scratch-terminal-evidence-2026-10-18): Enter alone submits an
+// existing composer, and ClearKeys empties one, multi-line included.
+func Proven() Capabilities {
+	return Capabilities{
+		EnterOnly: map[string]bool{"claude": true, "codex": true},
+		Clear:     map[string]bool{"claude": true, "codex": true},
+	}
+}
+
+// ClearKeys empties a composer holding leftover: one Backspace per rune.
+// It does nothing to an empty composer, so a human who empties it between
+// our read and our send loses nothing. Never Ctrl+C: ONE on an empty Codex
+// composer quits Codex. Never Ctrl+U (one line only) or Esc Esc (Claude
+// opens its Rewind dialog on an empty composer).
+func ClearKeys(leftover string) string {
+	return strings.Repeat("\x7f", utf8.RuneCountInString(leftover))
 }
 
 // Kind is a delivery's outcome.
@@ -113,6 +135,7 @@ func New(server Server, orca Terminals, stateDir string) *Deliverer {
 		Records: &Records{Dir: filepath.Join(stateDir, "delivery", "records")},
 		LockDir: filepath.Join(stateDir, "delivery", "locks"),
 		Bound:   BoundWorker, Now: time.Now, Budget: DefaultBudget,
+		Caps: Proven(),
 	}
 }
 
@@ -220,7 +243,7 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 				return d.hold(ctx, b, r, HoldNotSubmitted, term.Handle)
 			}
 			enterOnly = true
-		} else if o, cleared := d.clearOwn(ctx, b, r, term.Handle, family, stillOwner); !cleared {
+		} else if o, cleared := d.clearOwn(ctx, b, r, term.Handle, family, leftover, stillOwner); !cleared {
 			return o
 		}
 	default:
@@ -305,17 +328,15 @@ func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (Outcom
 	return Outcome{}, false
 }
 
-// clearOwn empties a composer holding our own OLDER leftover, with the
-// family's proven clearing keystroke, and re-reads to prove it empty.
-// Orca has no clear operation (hadron-cli:findings:
-// orca-terminal-has-no-clear-operation); until a family's keystroke is
-// proven on a scratch terminal it holds instead.
-func (d *Deliverer) clearOwn(ctx context.Context, b Batch, r Recipient, handle, family string, stillOwner func() bool) (Outcome, bool) {
-	keys := d.Caps.Clear[family]
-	if keys == "" || !stillOwner() {
+// clearOwn empties a composer holding our own OLDER leftover with
+// ClearKeys, and re-reads to prove it empty. Orca has no clear operation
+// (hadron-cli:findings:orca-terminal-has-no-clear-operation); a family whose
+// clear is not proven holds instead.
+func (d *Deliverer) clearOwn(ctx context.Context, b Batch, r Recipient, handle, family, leftover string, stillOwner func() bool) (Outcome, bool) {
+	if !d.Caps.Clear[family] || leftover == "" || !stillOwner() {
 		return d.hold(ctx, b, r, HoldNotSubmitted, handle), false
 	}
-	if rc := d.Orca.Send(ctx, handle, keys, orcaterm.SendOptions{NoEnter: true}); !rc.Accepted {
+	if rc := d.Orca.Send(ctx, handle, ClearKeys(leftover), orcaterm.SendOptions{NoEnter: true}); !rc.Accepted {
 		return d.hold(ctx, b, r, HoldNotSubmitted, handle), false
 	}
 	sc := d.Orca.ReadScreen(ctx, handle)

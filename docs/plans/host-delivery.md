@@ -194,6 +194,35 @@ Delivery state (records, locks) lives beside `state_file`. That is where C2's
 - `go test -race` is clean on all three packages, and `make test` and
   `make lint` are green.
 
+## Scratch-terminal evidence (2026-10-18)
+
+One Orca scratch terminal in a throwaway, unregistered worktree, with Claude
+Code 2.1.303 and then Codex CLI 0.163.0: 7 min 28 s, torn down (evidence
+node `hrn:node:hadronmemory.com:hadron-dev-team-joshua:work:cli907-scratch-terminal-evidence-2026-10-18`;
+the captures pinned under `internal/orcaterm/testdata/scratch-2026-10-18`).
+What it changed:
+
+- **Claude's empty composer.** The router's rule needed the footer to end in
+  `· ← for agents`. On 2.1.303 that shows only on some screens: the first
+  after start, and three of twelve live workers in a fleet read. Every other
+  empty Claude composer read `screen-unknown`. The rule is now ONE footer line
+  matching the permission-mode line (`⏵⏵ … (shift+tab to cycle)`, any
+  trailing ` · ` segments, such as a `PR #435` badge). Orca blanks a
+  composer's text in the screen tail and reports it as the `draft` field
+  (both families), so a Claude empty composer rests on Orca reporting no
+  draft; Codex keeps its independent placeholder proof.
+- **Enter alone submits** an existing composer, in both families. Orca
+  refuses `--wait-submit` (and so `--retry-request`) on any send but text plus
+  Enter without an interrupt (`invalid_argument`), so Enter-only, NoEnter and
+  interrupt sends go without it and are confirmed by the re-read.
+- **The clear is Backspace once per rune** of our leftover (`ClearKeys`), for
+  both families. It empties a multi-line draft and does nothing to an empty
+  one. Ctrl+U clears one line only. Claude's Esc Esc opens Rewind on an empty
+  composer. **One Ctrl+C on an empty Codex composer quits Codex**, so delivery
+  never sends Ctrl+C.
+- `Proven()` records both families' Enter-only and clear, and is `New`'s
+  default.
+
 ## Owed before APPROVE (not in this branch yet)
 
 - **S1/S5 on server main:**
@@ -203,15 +232,10 @@ Delivery state (records, locks) lives beside `state_file`. That is where C2's
     `BAD_USER_INPUT`, `WAKE_PROOF_STALE`);
   - the command wiring;
   - `team host status`'s delivery block, `--help` and `agentic-usage.md`.
-- **Scratch-terminal evidence** (one stack/terminal, under
-  `decisions:2026-10-18-e2e-pause-partial-lift`):
-  - verbatim question and menu captures, to replace the provisional
-    recognizers;
-  - whether an Enter-only send submits an existing composer;
-  - each family's clearing keystroke.
-
-  Until each is proven, its path holds `not-submitted`. Safe holds don't
-  satisfy the plan's own-leftover acceptance.
+- **Approval-prompt captures.** The fleet runs both agents without
+  approvals, so none appeared on the scratch terminal (below). The approval
+  regexes in `orcaterm.questionLine` stay provisional; a false match only
+  names the hold reason, never sends.
 
 ## Out of scope
 
