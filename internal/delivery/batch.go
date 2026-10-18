@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Prefix opens every rendered batch (D8). It is how a deliverer recognizes
@@ -73,7 +74,33 @@ var ErrMalformed = errors.New("malformed batch")
 // CheckBatch is the shape a batch must have before anything is typed: one
 // line (a newline would submit early), our prefix, a bounded length, and
 // ranges whose seqs lie inside them.
-func CheckBatch(b Batch) error { return nil }
+func CheckBatch(b Batch) error {
+	switch {
+	case b.ID == "" || b.WorkerID == "":
+		return fmt.Errorf("%w: no id or worker", ErrMalformed)
+	case !strings.HasPrefix(b.Text, Prefix):
+		return fmt.Errorf("%w: text does not open with the batch prefix", ErrMalformed)
+	case strings.ContainsAny(b.Text, "\r\n"):
+		return fmt.Errorf("%w: text is not one line", ErrMalformed)
+	case !utf8.ValidString(b.Text) || utf8.RuneCountInString(b.Text) > MaxTextRunes:
+		return fmt.Errorf("%w: text is not valid UTF-8 or exceeds %d characters", ErrMalformed, MaxTextRunes)
+	case len(b.Ranges) == 0:
+		return fmt.Errorf("%w: no ranges", ErrMalformed)
+	}
+	for _, r := range b.Ranges {
+		if r.ChannelID == "" || len(r.Seqs) == 0 || r.FromSeq > r.ThroughSeq {
+			return fmt.Errorf("%w: an empty or inverted range", ErrMalformed)
+		}
+		prev := 0
+		for _, s := range r.Seqs {
+			if s < r.FromSeq || s > r.ThroughSeq || s <= prev {
+				return fmt.Errorf("%w: seqs outside their range or out of order", ErrMalformed)
+			}
+			prev = s
+		}
+	}
+	return nil
+}
 
 // Through limits an ack to a channel's covered prefix: Seq must be one of
 // that channel's rendered seqs (S1), and the mark moves from the range's

@@ -165,7 +165,9 @@ func (c *Client) Send(ctx context.Context, handle, text string, o SendOptions) R
 	if !o.EnterOnly {
 		argv = append(argv, "--text", text)
 	}
-	argv = append(argv, "--enter")
+	if !o.NoEnter {
+		argv = append(argv, "--enter")
+	}
 	if o.Interrupt {
 		argv = append(argv, "--interrupt")
 	}

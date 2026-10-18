@@ -281,9 +281,9 @@ const canary = "DRAFT-CANARY-7d1f"
 
 func TestForeignDraftsAreHeldNeverClearedNeverStored(t *testing.T) {
 	cases := map[string]*orcaterm.Screen{
-		"Orca's draft field":                           {Source: "screen", Tail: claudeIdle, Draft: canary},
+		"Orca's draft field": {Source: "screen", Tail: claudeIdle, Draft: canary},
 		"a Claude screen that proves the box empty (#6736, inverted)": {Source: "screen", Tail: claudeIdle, Draft: "ghost " + canary},
-		"a human's text in the box":                    screen(claudeTyped("please also " + canary)),
+		"a human's text in the box":                                   screen(claudeTyped("please also " + canary)),
 	}
 	for name, sc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -696,6 +696,16 @@ func TestCoveredPrefixRecovery(t *testing.T) {
 			t.Fatal("a refused reconciliation must keep the record")
 		}
 	})
+}
+
+func TestReconcileMatchesOnlyTheSameIncarnation(t *testing.T) {
+	b := Batch{Ranges: []Range{rng("c", 2, 1, 2)}}
+	if c := Reconcile(b, []Record{{State: RecordConfirmed, Ranges: []Range{rng("c", 1, 1, 2)}}}); c.Full || len(c.Through) != 0 {
+		t.Fatalf("an earlier incarnation's record covered %+v", c)
+	}
+	if c := Reconcile(b, []Record{{State: RecordConfirmed, Ranges: []Range{rng("c", 2, 1, 2)}}}); !c.Full {
+		t.Fatalf("the same incarnation's record must cover: %+v", c)
+	}
 }
 
 func TestReconcileNeverSendsAnXThatIsNotARenderedSeq(t *testing.T) {
