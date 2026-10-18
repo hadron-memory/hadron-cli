@@ -173,6 +173,10 @@ func TestTeamTaskMineRefusesAnUnusableBinding(t *testing.T) {
 		"corrupt":   `{"sessionId":`,
 		"no worker": strings.Replace(bindingFixture, `"workerId":"wkr1"`, `"workerId":""`, 1),
 		"no App":    strings.Replace(bindingFixture, `"appId":"capp100000000000000000000",`, ``, 1),
+		// Joost's P2-2 on #922: a worker and App without a session is not a
+		// worker-session binding.
+		"empty session":   strings.Replace(bindingFixture, `"sessionId":"s-new"`, `"sessionId":""`, 1),
+		"missing session": strings.Replace(bindingFixture, `"sessionId":"s-new",`, ``, 1),
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := teamGitDir(t)
@@ -180,6 +184,9 @@ func TestTeamTaskMineRefusesAnUnusableBinding(t *testing.T) {
 				t.Fatal(err)
 			}
 			srv, calls := attnServer(t, taskResponses())
+			if name != "corrupt" {
+				setTeamBindingServer(t, srv.URL)
+			}
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"--server", srv.URL, "team", "task", "mine"})
@@ -191,18 +198,52 @@ func TestTeamTaskMineRefusesAnUnusableBinding(t *testing.T) {
 	}
 }
 
-// --app may restate the bound App but never redirect "mine" to another one.
+// --app may name the bound App in any accepted spelling — its id, its URN or
+// the short <root>:<slug> form — but never redirect "mine" to another one:
+// the refs are compared by identity, and the query stays on the bound id
+// (Joost's P2-1 on #922).
+func TestTeamTaskMineAcceptsTheBoundAppInAnySpelling(t *testing.T) {
+	for _, ref := range []string{"capp100000000000000000000", "hrn:app:acme.com:eng-team", "acme.com:eng-team"} {
+		t.Run(ref, func(t *testing.T) {
+			calls, _, err := runTeamTask(t, taskResponses(), "--app", ref, "team", "task", "mine")
+			if err != nil {
+				t.Fatalf("--app %s names the bound App and must be accepted: %v", ref, err)
+			}
+			if c := taskListCall(t, calls); c.Vars["appRef"] != "capp100000000000000000000" {
+				t.Fatalf("appRef %v, want the bound id", c.Vars["appRef"])
+			}
+		})
+	}
+}
+
 func TestTeamTaskMineRefusesAnotherApp(t *testing.T) {
-	calls, _, err := runTeamTask(t, taskResponses(), "--app", "cappOTHER0000000000000000", "team", "task", "mine")
+	r := taskResponses()
+	r["TeamAppIdentity"] = strings.ReplaceAll(teamAppIdentityJSON, "capp100000000000000000000", "capp200000000000000000000")
+	calls, _, err := runTeamTask(t, r, "--app", "hrn:app:acme.com:other-team", "team", "task", "mine")
 	if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "capp100000000000000000000") {
 		t.Fatalf("want a usage refusal naming the bound App, got %v", err)
 	}
 	noTaskListCall(t, calls)
-	calls, _, err = runTeamTask(t, taskResponses(), "--app", "capp100000000000000000000", "team", "task", "mine")
-	if err != nil {
-		t.Fatalf("--app naming the bound App must be accepted: %v", err)
+}
+
+// An --app the server cannot resolve is not the bound App; a failed lookup
+// keeps its own error rather than becoming either answer.
+func TestTeamTaskMineAppIdentityUnknownOrFailed(t *testing.T) {
+	r := taskResponses()
+	r["TeamAppIdentity"] = `{"data":{"app":null}}`
+	calls, _, err := runTeamTask(t, r, "--app", "hrn:app:acme.com:nowhere", "team", "task", "mine")
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("unresolvable --app: want a usage refusal, got %v", err)
 	}
-	taskListCall(t, calls)
+	noTaskListCall(t, calls)
+
+	r = taskResponses()
+	r["TeamAppIdentity"] = gqlErrorJSON("UNAUTHENTICATED")
+	calls, _, err = runTeamTask(t, r, "--app", "hrn:app:acme.com:eng-team", "team", "task", "mine")
+	if err == nil || exitCodeFor(err) != exitcode.AuthRequired {
+		t.Fatalf("failed identity lookup: want its AuthRequired error, got %v (exit %d)", err, exitCodeFor(err))
+	}
+	noTaskListCall(t, calls)
 }
 
 func TestTeamTaskMineRefusesAnotherServer(t *testing.T) {
