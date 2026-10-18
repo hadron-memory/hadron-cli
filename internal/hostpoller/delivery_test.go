@@ -213,6 +213,16 @@ func TestADeliveryWaitsForTheWorkersOperationInFlight(t *testing.T) {
 	}
 }
 
+func TestTwoBatchesForOneWorkerDeliverInOrder(t *testing.T) {
+	p, _, _, src, d := deliveryPoller(t)
+	src.queue = [][]delivery.Batch{{batchFor("id-iris", 5), batchFor("id-iris", 6)}}
+	step(t, p)
+	got := d.deliveries()
+	if len(got) != 2 || got[0].batch.Ranges[0].FromSeq != 5 || got[1].batch.Ranges[0].FromSeq != 6 {
+		t.Fatalf("deliveries %+v", got)
+	}
+}
+
 func TestABatchInFlightIsNotDeliveredTwice(t *testing.T) {
 	p, _, _, src, d := deliveryPoller(t)
 	d.gate, d.enter = make(chan struct{}), make(chan struct{})
