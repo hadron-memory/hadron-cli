@@ -52,6 +52,7 @@ words, so a bare value is ambiguous and refused rather than guessed.`,
 	cmd.AddCommand(newCmdTeamTaskReady(f))
 	cmd.AddCommand(newCmdTeamTaskGet(f))
 	cmd.AddCommand(newCmdTeamTaskList(f))
+	cmd.AddCommand(newCmdTeamTaskMine(f))
 	cmd.AddCommand(newCmdTeamTaskTree(f))
 	return cmd
 }
