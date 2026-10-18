@@ -343,9 +343,9 @@ in the bound worker's App, with the same output. The filters are fixed.
 --limit/--offset page (server default 50, cap 200).
 
 It needs a worker session binding: without one, start a session with
-` + "`hadron team session start`" + `. --app may only restate the bound App's id;
-"mine" never means another App, and the binding's server must be the one
-this call targets.`,
+` + "`hadron team session start`" + `. --app may name the bound App (by id, URN
+or <root>:<slug>) but no other: "mine" never means another App, and the
+binding's server must be the one this call targets.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -359,15 +359,27 @@ this call targets.`,
 			if b == nil {
 				return exitcode.Newf(exitcode.Usage, "`task mine` lists the bound worker's tasks, and this worktree has no worker session — start one with `hadron team session start`")
 			}
-			if b.WorkerID == "" || b.AppID == "" {
-				return exitcode.Newf(exitcode.Usage, "the worker session binding does not record its worker and App — re-run `hadron team session start`")
+			if b.SessionID == "" || b.WorkerID == "" || b.AppID == "" {
+				return exitcode.Newf(exitcode.Usage, "the worker session binding does not record its session, worker and App — re-run `hadron team session start`")
 			}
 			if !bindingServerMatches(f, b) {
 				server, _ := f.Server()
 				return exitcode.Newf(exitcode.Usage, "the worker session is bound on %s, and this call targets %s — `task mine` reads only the bound server", b.Server, server)
 			}
-			if f.AppFlag != "" && f.AppFlag != b.AppID {
-				return exitcode.Newf(exitcode.Usage, "`task mine` reads the bound worker's App %s; --app %s names another (omit --app)", b.AppID, f.AppFlag)
+			// --app may restate the bound App in any spelling: compared by
+			// identity, and the query below stays on the bound id.
+			if f.AppFlag != "" {
+				ref, err := f.App()
+				if err != nil {
+					return err
+				}
+				same, err := bindingsAppIdentity(ctx, f, ref, b.AppID)
+				if err != nil {
+					return err
+				}
+				if !same {
+					return exitcode.Newf(exitcode.Usage, "`task mine` reads the bound worker's App %s; --app %s is not that App (omit --app)", b.AppID, f.AppFlag)
+				}
 			}
 			worker := b.WorkerID
 			return listTasks(ctx, f, appScope{Ref: b.AppID, Source: "from the worktree binding", Ambient: true}, taskListQuery{
