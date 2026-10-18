@@ -207,6 +207,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
   actor {
     ...AgentTaskPartyFields
   }
+  actorRunId
   subjectWorker {
     ...AgentTaskPartyFields
   }

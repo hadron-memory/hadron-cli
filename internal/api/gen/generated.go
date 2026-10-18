@@ -4602,6 +4602,8 @@ type AgentTeamEventFields struct {
 	CreatedAt string                  `json:"createdAt"`
 	// Who acted: the Worker when the request was bound to a worker session, else the person.
 	Actor *AgentTeamEventFieldsActorAgentTaskParty `json:"actor"`
+	// #1833 — the headless run that acted, when a run made this event (actor is then null: a run is never a person or a worker). Null otherwise. Matches AgentTask.createdByRunId for the task a run created.
+	ActorRunId *string `json:"actorRunId"`
 	// The worker the event concerns, e.g. a new assignee.
 	SubjectWorker  *AgentTeamEventFieldsSubjectWorkerAgentTaskParty  `json:"subjectWorker"`
 	Payload        json.RawMessage                                   `json:"payload"`
@@ -4637,6 +4639,9 @@ func (v *AgentTeamEventFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetActor returns AgentTeamEventFields.Actor, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventFields) GetActor() *AgentTeamEventFieldsActorAgentTaskParty { return v.Actor }
+
+// GetActorRunId returns AgentTeamEventFields.ActorRunId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventFields) GetActorRunId() *string { return v.ActorRunId }
 
 // GetSubjectWorker returns AgentTeamEventFields.SubjectWorker, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventFields) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
@@ -5080,6 +5085,11 @@ func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetActor() *AgentTeamEven
 	return v.AgentTeamEventFields.Actor
 }
 
+// GetActorRunId returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.ActorRunId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetActorRunId() *string {
+	return v.AgentTeamEventFields.ActorRunId
+}
+
 // GetSubjectWorker returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.SubjectWorker, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
 	return v.AgentTeamEventFields.SubjectWorker
@@ -5155,6 +5165,8 @@ type __premarshalAgentTeamEventsAgentTeamEventsAgentTeamEvent struct {
 
 	Actor *AgentTeamEventFieldsActorAgentTaskParty `json:"actor"`
 
+	ActorRunId *string `json:"actorRunId"`
+
 	SubjectWorker *AgentTeamEventFieldsSubjectWorkerAgentTaskParty `json:"subjectWorker"`
 
 	Payload json.RawMessage `json:"payload"`
@@ -5188,6 +5200,7 @@ func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) __premarshalJSON() (*__pr
 	retval.Severity = v.AgentTeamEventFields.Severity
 	retval.CreatedAt = v.AgentTeamEventFields.CreatedAt
 	retval.Actor = v.AgentTeamEventFields.Actor
+	retval.ActorRunId = v.AgentTeamEventFields.ActorRunId
 	retval.SubjectWorker = v.AgentTeamEventFields.SubjectWorker
 	retval.Payload = v.AgentTeamEventFields.Payload
 	retval.AcknowledgedAt = v.AgentTeamEventFields.AcknowledgedAt
@@ -6316,6 +6329,11 @@ func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetActor() *AgentTeamEv
 	return v.AgentTeamEventFields.Actor
 }
 
+// GetActorRunId returns AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent.ActorRunId, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetActorRunId() *string {
+	return v.AgentTeamEventFields.ActorRunId
+}
+
 // GetSubjectWorker returns AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent.SubjectWorker, and is useful for accessing the field via an interface.
 func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
 	return v.AgentTeamEventFields.SubjectWorker
@@ -6391,6 +6409,8 @@ type __premarshalAlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent struct {
 
 	Actor *AgentTeamEventFieldsActorAgentTaskParty `json:"actor"`
 
+	ActorRunId *string `json:"actorRunId"`
+
 	SubjectWorker *AgentTeamEventFieldsSubjectWorkerAgentTaskParty `json:"subjectWorker"`
 
 	Payload json.RawMessage `json:"payload"`
@@ -6424,6 +6444,7 @@ func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) __premarshalJSON() (*__
 	retval.Severity = v.AgentTeamEventFields.Severity
 	retval.CreatedAt = v.AgentTeamEventFields.CreatedAt
 	retval.Actor = v.AgentTeamEventFields.Actor
+	retval.ActorRunId = v.AgentTeamEventFields.ActorRunId
 	retval.SubjectWorker = v.AgentTeamEventFields.SubjectWorker
 	retval.Payload = v.AgentTeamEventFields.Payload
 	retval.AcknowledgedAt = v.AgentTeamEventFields.AcknowledgedAt
@@ -57269,6 +57290,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
 	actor {
 		... AgentTaskPartyFields
 	}
+	actorRunId
 	subjectWorker {
 		... AgentTaskPartyFields
 	}
@@ -57558,6 +57580,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
 	actor {
 		... AgentTaskPartyFields
 	}
+	actorRunId
 	subjectWorker {
 		... AgentTaskPartyFields
 	}

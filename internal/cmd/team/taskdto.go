@@ -164,6 +164,7 @@ type teamEventDTO struct {
 	Severity       *string         `json:"severity"`
 	CreatedAt      string          `json:"createdAt"`
 	Actor          *taskPartyDTO   `json:"actor"`
+	ActorRunID     *string         `json:"actorRunId"`
 	SubjectWorker  *taskPartyDTO   `json:"subjectWorker"`
 	Payload        json.RawMessage `json:"payload"`
 	AcknowledgedAt *string         `json:"acknowledgedAt"`
@@ -181,6 +182,7 @@ func teamEventDTOFrom(e *gen.AgentTeamEventFields) teamEventDTO {
 		Type:           e.Type,
 		CreatedAt:      e.CreatedAt,
 		Actor:          partyDTO(e.Actor),
+		ActorRunID:     e.ActorRunId,
 		SubjectWorker:  partyDTO(e.SubjectWorker),
 		Payload:        json.RawMessage("null"),
 		AcknowledgedAt: e.AcknowledgedAt,
