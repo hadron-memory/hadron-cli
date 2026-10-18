@@ -147,6 +147,13 @@ func loadHostPoller(f *cmdutil.Factory, path string) (*hostpoller.Config, string
 	if err != nil {
 		return nil, "", nil, exitcode.New(exitcode.Usage, err)
 	}
+	// The terminal half of delivery is built (cli#907); its batch source,
+	// S1's query, is not on server main yet. A config that turns delivery
+	// on must not load and silently do nothing.
+	if cfg.Delivery.Enabled {
+		return nil, "", nil, exitcode.Newf(exitcode.Usage,
+			"delivery.enabled: this build has no batch source yet (hadron-cli#907 waits on hadron-server#2017): remove the delivery block to run the host poller")
+	}
 	key, err := cfg.ReadHostKey()
 	if err != nil {
 		return nil, "", nil, exitcode.New(exitcode.AuthRequired, err)
