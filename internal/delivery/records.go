@@ -172,10 +172,14 @@ type Cover struct {
 // channel restarts its seqs on the same id (hadron-server src/lib/channels.ts
 // at b8384631), so an earlier incarnation's record proves nothing. Within a
 // channel the covered prefix is the batch's own seqs from its first, for as
-// long as each is in one record's confirmed seqs, and that record's first
-// seq is the batch's first. The first seq not in the record ends it, and a
-// later distinct message is therefore never acked unseen. A batchKey match
-// with a confirmed record is a full cover by S1's definition of the key.
+// long as each is in one record's confirmed seqs. The first seq not in the
+// record ends it, so a later distinct message is never acked unseen, and a
+// batch whose first seq the record lacks gets no ack at all. (cli#907
+// delta 2 also asked that the record START at the batch's first seq. That
+// only ever refused a record starting earlier, e.g. [4,5,6] against
+// [5,6,7], which proves 5 and 6 confirmed: refusing it would retype them.)
+// A batchKey match with a confirmed record is a full cover by S1's
+// definition of the key.
 func Reconcile(b Batch, recs []Record) Cover {
 	if b.BatchKey != "" {
 		for _, r := range recs {
@@ -191,7 +195,7 @@ func Reconcile(b Batch, recs []Record) Cover {
 		best, from := 0, Record{}
 		for _, rec := range recs {
 			for _, rr := range rec.Ranges {
-				if rr.ChannelID != br.ChannelID || rr.Incarnation != br.Incarnation || len(rr.Seqs) == 0 || rr.Seqs[0] != br.Seqs[0] {
+				if rr.ChannelID != br.ChannelID || rr.Incarnation != br.Incarnation {
 					continue
 				}
 				n := 0
