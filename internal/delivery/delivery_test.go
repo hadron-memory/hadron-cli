@@ -51,7 +51,10 @@ func (f *fakeOrca) List(context.Context) ([]orcaterm.Terminal, error) {
 	return f.terms, f.listErr
 }
 
-func (f *fakeOrca) ReadScreen(_ context.Context, handle string) *orcaterm.Screen {
+func (f *fakeOrca) ReadScreen(ctx context.Context, handle string) *orcaterm.Screen {
+	if ctx.Err() != nil {
+		return nil // a cancelled read fails, as a real call would
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	seq := f.screens[handle]
@@ -659,11 +662,22 @@ func TestCoveredPrefixRecovery(t *testing.T) {
 			t.Fatalf("through %+v", got)
 		}
 	})
-	t.Run("a record that does not start where the batch starts proves nothing: typed", func(t *testing.T) {
+	t.Run("a record that lacks the batch's first seq proves nothing: typed", func(t *testing.T) {
 		h := newHarness(t)
 		seedRecord(t, h, rng("ch-team", 1, 6, 7))
 		if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Delivered || len(h.orca.sends) != 1 {
 			t.Fatalf("outcome %+v", o)
+		}
+	})
+	t.Run("a record that starts earlier still proves the seqs it confirmed: no retype", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 4, 5, 6))
+		if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Reconciled {
+			t.Fatalf("outcome %+v", o)
+		}
+		h.wantNoSend()
+		if got := h.ack(0).through; len(got) != 1 || got[0].Seq != 6 {
+			t.Fatalf("through %+v", got)
 		}
 	})
 	t.Run("a disjoint record proves nothing: typed", func(t *testing.T) {
@@ -758,6 +772,8 @@ func TestTimingGates(t *testing.T) {
 		h := newHarness(t)
 		ctx, cancel := context.WithCancel(context.Background())
 		h.orca.onSend = cancel
+		// Accepted without a turn start: the confirm read must still run.
+		h.orca.receipts = []orcaterm.Receipt{{Accepted: true, Stages: []string{"input_accepted"}}}
 		if o := h.d.Deliver(ctx, h.batch(), h.r); o.Kind != Delivered || len(h.server.acks) != 1 {
 			t.Fatalf("outcome %+v acks %d", o, len(h.server.acks))
 		}

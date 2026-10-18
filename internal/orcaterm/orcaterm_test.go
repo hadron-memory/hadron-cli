@@ -49,11 +49,18 @@ func TestExecFailClosed(t *testing.T) {
 		bin := script(t, `trap '' TERM; printf '{"ok":true}'; sleep 5; exit 0`)
 		start := time.Now()
 		res := Exec(bin, 150*time.Millisecond)(ctx, []string{"terminal", "list"})
-		if res.Code != 1 || res.Stdout != "" || !strings.Contains(res.Stderr, "killed") {
+		if res.Code != 1 || res.Stdout != "" || !strings.Contains(res.Stderr, "exceeded") {
 			t.Fatalf("got %+v", res)
 		}
 		if time.Since(start) > 3*time.Second {
 			t.Fatalf("the kill was not hard: took %s", time.Since(start))
+		}
+	})
+	t.Run("a child killed by a signal after printing success JSON reads as code 1 with EMPTY stdout", func(t *testing.T) {
+		bin := script(t, `printf '{"ok":true}'; kill -9 $$`)
+		res := Exec(bin, CallTimeout)(ctx, []string{"terminal", "list"})
+		if res.Code != 1 || res.Stdout != "" {
+			t.Fatalf("got %+v", res)
 		}
 	})
 	t.Run("an ordinary non-zero exit keeps its output: Orca's error envelope is the verdict", func(t *testing.T) {
