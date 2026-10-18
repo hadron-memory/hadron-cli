@@ -10,9 +10,11 @@ import (
 
 func TestTeamAttentionV2Frontiers(t *testing.T) {
 	teamGitDir(t)
-	for _, frontier := range []string{"42", "null"} {
-		t.Run(frontier, func(t *testing.T) {
+	for _, tc := range []struct{ first, relevant string }{{"41", "42"}, {"null", "null"}} {
+		t.Run(tc.relevant, func(t *testing.T) {
+			frontier := tc.relevant
 			response := strings.Replace(attentionJSON, `"lastSeq":43`, `"lastRelevantSeq":`+frontier+`,"lastSeq":43`, 1)
+			response = strings.Replace(response, `"firstUnreadSeq":41`, `"firstUnreadSeq":`+tc.first, 1)
 			srv, _ := attnServer(t, map[string]string{"TeamAttentionPage": response})
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
@@ -21,16 +23,20 @@ func TestTeamAttentionV2Frontiers(t *testing.T) {
 				t.Fatal(err)
 			}
 			var dto struct {
+				Token   string
 				Workers []struct{ Channels []map[string]json.RawMessage }
 			}
 			if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 				t.Fatal(err)
 			}
+			if dto.Token != "tok-2" {
+				t.Fatalf("JSON token lost: %s", out.String())
+			}
 			c := dto.Workers[0].Channels[0]
 			if string(c["lastRelevantSeq"]) != frontier {
 				t.Fatalf("frontier: %s, want %s; output %s", c["lastRelevantSeq"], frontier, out.String())
 			}
-			if string(c["firstUnreadSeq"]) != "41" || string(c["lastSeq"]) != "43" {
+			if string(c["firstUnreadSeq"]) != tc.first || string(c["lastSeq"]) != "43" {
 				t.Fatalf("frontiers conflated: %v", c)
 			}
 		})
@@ -69,7 +75,11 @@ func TestTeamAttentionV2LaterPageFailureHasNoOutput(t *testing.T) {
 				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 					t.Error(err)
 				}
-				if !strings.Contains(request.Query, "\n      lastRelevantSeq\n") {
+				selected := false
+				for _, line := range strings.Split(request.Query, "\n") {
+					selected = selected || strings.TrimSpace(line) == "lastRelevantSeq"
+				}
+				if !selected {
 					t.Error("query omits relevant frontier")
 				}
 				if out.Len() != 0 {

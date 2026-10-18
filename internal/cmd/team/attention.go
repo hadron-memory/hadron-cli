@@ -152,7 +152,7 @@ no server provenance; pass --app explicitly in that case.`,
 				if _, err := fmt.Fprintln(w, "token: returned (use --json to retrieve it)"); err != nil {
 					return err
 				}
-				_, err := fmt.Fprintln(w, "Pass it as --since only after every nudge was accepted; on any failure keep the previous token.")
+				_, err := fmt.Fprintln(w, "Pass the JSON token as --since only after every nudge was accepted; on any failure keep the previous token.")
 				return err
 			})
 		},
