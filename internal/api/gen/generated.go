@@ -20041,6 +20041,8 @@ type GetMemoryMemory struct {
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int `json:"maxRevCount"`
+	// cor:acl:080:04 — opt-in marketplace catalogue flag (advertisement, not access).
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
 	// Free-form structured metadata bag (client-defined JSON, no server-side
 	// semantics). Null when unset. Settable via createMemory / updateMemory.
 	Data *json.RawMessage `json:"data"`
@@ -20091,6 +20093,9 @@ func (v *GetMemoryMemory) GetVectorIndexEnabled() bool { return v.VectorIndexEna
 
 // GetMaxRevCount returns GetMemoryMemory.MaxRevCount, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetListedOnMarketplace returns GetMemoryMemory.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *GetMemoryMemory) GetListedOnMarketplace() bool { return v.ListedOnMarketplace }
 
 // GetData returns GetMemoryMemory.Data, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetData() *json.RawMessage { return v.Data }
@@ -46501,6 +46506,8 @@ type UpdateMemoryUpdateMemory struct {
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int `json:"maxRevCount"`
+	// cor:acl:080:04 — opt-in marketplace catalogue flag (advertisement, not access).
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
 	// Free-form structured metadata bag (client-defined JSON, no server-side
 	// semantics). Null when unset. Settable via createMemory / updateMemory.
 	Data      *json.RawMessage `json:"data"`
@@ -46533,6 +46540,9 @@ func (v *UpdateMemoryUpdateMemory) GetIsEncrypted() bool { return v.IsEncrypted 
 
 // GetMaxRevCount returns UpdateMemoryUpdateMemory.MaxRevCount, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetListedOnMarketplace returns UpdateMemoryUpdateMemory.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetListedOnMarketplace() bool { return v.ListedOnMarketplace }
 
 // GetData returns UpdateMemoryUpdateMemory.Data, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetData() *json.RawMessage { return v.Data }
@@ -55350,16 +55360,17 @@ func (v *__UpdateMemoryConfigTemplateInput) GetExpectedRevision() int { return v
 
 // __UpdateMemoryInput is used internally by genqlient
 type __UpdateMemoryInput struct {
-	Id               string            `json:"id"`
-	Name             *string           `json:"name,omitempty"`
-	ShortDescription *string           `json:"shortDescription,omitempty"`
-	Description      *string           `json:"description,omitempty"`
-	Tags             *[]string         `json:"tags,omitempty"`
-	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
-	Data             *json.RawMessage  `json:"data,omitempty"`
-	Urn              *string           `json:"urn,omitempty"`
-	MaxRevCount      *int              `json:"maxRevCount,omitempty"`
-	Schema           *json.RawMessage  `json:"schema,omitempty"`
+	Id                  string            `json:"id"`
+	Name                *string           `json:"name,omitempty"`
+	ShortDescription    *string           `json:"shortDescription,omitempty"`
+	Description         *string           `json:"description,omitempty"`
+	Tags                *[]string         `json:"tags,omitempty"`
+	Visibility          *MemoryVisibility `json:"visibility,omitempty"`
+	Data                *json.RawMessage  `json:"data,omitempty"`
+	Urn                 *string           `json:"urn,omitempty"`
+	MaxRevCount         *int              `json:"maxRevCount,omitempty"`
+	Schema              *json.RawMessage  `json:"schema,omitempty"`
+	ListedOnMarketplace *bool             `json:"listedOnMarketplace,omitempty"`
 }
 
 // GetId returns __UpdateMemoryInput.Id, and is useful for accessing the field via an interface.
@@ -55391,6 +55402,9 @@ func (v *__UpdateMemoryInput) GetMaxRevCount() *int { return v.MaxRevCount }
 
 // GetSchema returns __UpdateMemoryInput.Schema, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetSchema() *json.RawMessage { return v.Schema }
+
+// GetListedOnMarketplace returns __UpdateMemoryInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
 
 // __UpdateMemoryMemberRoleInput is used internally by genqlient
 type __UpdateMemoryMemberRoleInput struct {
@@ -63060,6 +63074,7 @@ query GetMemory ($ref: ID!) {
 		syncStatus
 		vectorIndexEnabled
 		maxRevCount
+		listedOnMarketplace
 		data
 		schema
 		createdAt
@@ -71541,8 +71556,8 @@ func UpdateMcpServer(
 
 // The mutation executed by UpdateMemory.
 const UpdateMemory_Operation = `
-mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int, $schema: JSON) {
-	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount, schema: $schema) {
+mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int, $schema: JSON, $listedOnMarketplace: Boolean) {
+	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount, schema: $schema, listedOnMarketplace: $listedOnMarketplace) {
 		id
 		urn
 		name
@@ -71552,6 +71567,7 @@ mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $desc
 		organizationId
 		isEncrypted
 		maxRevCount
+		listedOnMarketplace
 		data
 		updatedAt
 	}
@@ -71572,21 +71588,23 @@ func UpdateMemory(
 	urn *string,
 	maxRevCount *int,
 	schema *json.RawMessage,
+	listedOnMarketplace *bool,
 ) (data_ *UpdateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateMemory",
 		Query:  UpdateMemory_Operation,
 		Variables: &__UpdateMemoryInput{
-			Id:               id,
-			Name:             name,
-			ShortDescription: shortDescription,
-			Description:      description,
-			Tags:             tags,
-			Visibility:       visibility,
-			Data:             data,
-			Urn:              urn,
-			MaxRevCount:      maxRevCount,
-			Schema:           schema,
+			Id:                  id,
+			Name:                name,
+			ShortDescription:    shortDescription,
+			Description:         description,
+			Tags:                tags,
+			Visibility:          visibility,
+			Data:                data,
+			Urn:                 urn,
+			MaxRevCount:         maxRevCount,
+			Schema:              schema,
+			ListedOnMarketplace: listedOnMarketplace,
 		},
 	}
 
