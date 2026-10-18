@@ -50,7 +50,16 @@ type Config struct {
 	// Workers maps a worker reference (its name in the App, URN or id) to
 	// how this host runs it.
 	Workers map[string]WorkerConfig `yaml:"workers"`
+	// RED (cli#907): delivery's configuration; validation follows.
+	Delivery DeliveryConfig `yaml:"delivery"`
 }
+
+type DeliveryConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	OrcaBin string `yaml:"orca_bin"`
+}
+
+func (c *Config) DeliveryStateDir() string { return "" }
 
 // WorkerConfig is one worker this host can launch.
 type WorkerConfig struct {
@@ -68,6 +77,7 @@ type WorkerConfig struct {
 	// Worktrees are this worker's existing worktree name tokens, relative to
 	// worktrees_root, beyond the ones this poller created.
 	Worktrees []string `yaml:"worktrees"`
+	TUI       string   `yaml:"tui"`
 }
 
 const (
