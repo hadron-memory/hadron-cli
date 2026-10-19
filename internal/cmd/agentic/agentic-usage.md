@@ -330,6 +330,7 @@ hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role
 hadron profile set [--name <n>] [--handle <h>] [--email <e>]   # --email is accepted and REFUSED locally (exit 2, "Changing your email address is not supported here.") — the flag stays so scripts fail loudly (#844)
 hadron server-info
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
+hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [--reasons read-team-channel,every-tick] | update <id-or-URN> [--reasons <list>] | delete <id-or-URN> --yes | subscribe <id-or-URN> --worker <id-or-URN> | unsubscribe <id-or-URN> --worker <id-or-URN>
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | list --app <ref> | update <id> ... | rm <id> --yes
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | list --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
@@ -3090,3 +3091,42 @@ Session whoami and session rows add the same fields plus `reportingKnown`;
 whoami reads the current worker relation, never a cached bind-time value.
 With several fallback candidates each row shows its relation; there is no single
 selected relation. No client enforcement, alarm routing or human target is added.
+
+### Ticker commands
+
+`ticker create` and `list` use the explicit/configured `--app`. Ticker and worker
+refs are IDs or fully-qualified URNs; names are not addresses. No owner flag:
+the server determines the caller and authority. Create/update accept `--name`,
+`--cadence-seconds`, `--anchor-at` (RFC3339), `--quiet-hours` (JSON object),
+`--channel-ids` (comma-separated/repeated IDs), `--relevance all|mentions`,
+`--reasons` and `--enabled=false`. Update also has `--clear-quiet-hours` and
+`--clear-channels`, mutually exclusive with their set flags. Omitted update
+fields are preserved; false and clear values are transmitted explicitly. A no-field
+update refuses with exit 2 before a request. Ticker/worker URNs use the v2 parser;
+malformed or wrong-type refs refuse before a request.
+
+Reasons form a nonempty closed set: `read-team-channel`, `every-tick`, or both
+(any-of). Duplicate reasons collapse to canonical order. Empty and unknown
+reasons refuse before a write. The current server defaults omitted create
+reasons to read-team-channel, relevance to all, anchor to now, enabled to true.
+These defaults and the management/read rules include Proposed corpus clauses;
+this describes shipped behavior, not a promotion to settled law. The server
+checks cadence, consent and authority; no local wake/budget simulation occurs.
+Adding every-tick can refuse the entire edit with TICKER_CADENCE_NEEDS_CONSENT.
+The CLI does not retry an uncertain write or attempt a narrower edit.
+
+JSON ticker objects use id, nullable urn, name, slug, appId, cadenceSeconds,
+anchorAt, quietHours, readableChannels, relevance, reasons, enabled, nullable
+owner/nextTickAt/lastTickAt/updatedAt, and createdAt. Reasons use lowercase
+hyphenated names. Get/list add subscribers, paged to exhaustion; empty arrays
+are []. Readable channels are only the reader's view. Missing and unreadable
+get both report not found. The server's ticker list is currently unpaged: the
+CLI reports that response without claiming an exhaustive census.
+
+Delete requires TTY confirmation or --yes and ends live subscriptions; there is
+no restore. A false delete response is an error, never a success receipt. Recreating a
+name gets a new slug/URN. Subscribe/unsubscribe return subscription and nullable
+announcement. Null is normal; POSTED reports grant announcement success. FAILED
+leaves the subscription change standing and prints a warning; never rerun to
+retry the announcement. Ticker/wake settings and actual wake transport are
+separate surfaces; these commands do not advance chat/read/tick marks.

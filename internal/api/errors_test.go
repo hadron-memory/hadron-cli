@@ -54,6 +54,13 @@ func TestMapError(t *testing.T) {
 		want int
 	}{
 		{"nil", nil, exitcode.OK},
+		{"ticker consent", gqlErr("TICKER_CADENCE_NEEDS_CONSENT"), exitcode.Forbidden},
+		{"ticker self subscribe", gqlErr("SUBSCRIBE_CADENCE_NEEDS_HOLDER"), exitcode.Forbidden},
+		{"ticker subscribe authority", gqlErr("SUBSCRIBE_FORBIDDEN"), exitcode.Forbidden},
+		{"ticker cadence", gqlErr("TICKER_CADENCE_OUT_OF_RANGE"), exitcode.Usage},
+		{"ticker quiet hours", gqlErr("TICKER_QUIET_HOURS_INVALID"), exitcode.Usage},
+		{"ticker name", gqlErr("TICKER_NAME_TAKEN"), exitcode.Conflict},
+		{"ticker cap", gqlErr("TICKER_LIMIT_REACHED"), exitcode.Conflict},
 		{"reports to self", gqlErr("WORKER_REPORTS_TO_SELF"), exitcode.Usage},
 		// Host poller and launch refusals (cli#831).
 		{"host key required", gqlErr("HOST_KEY_REQUIRED"), exitcode.Forbidden},
