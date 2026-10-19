@@ -365,3 +365,93 @@ func TestTickerUncertainMutationNoRetry(t *testing.T) {
 		t.Fatalf("error %v, calls %d", err, calls)
 	}
 }
+
+func TestTickerURNFromCreateRoundTrips(t *testing.T) {
+	for _, root := range []string{"e2e-alpha", "e2e.com"} {
+		for _, verb := range []string{"get", "update", "delete", "subscribe", "unsubscribe"} {
+			t.Run(root+"/"+verb, func(t *testing.T) {
+				tickerURN := "hrn:ticker:" + root + ":team:qa-t1"
+				workerURN := "hrn:worker:" + root + ":team:test-coordinator"
+				fixture := strings.Replace(tickerFixture, `"urn":null`, `"urn":"`+tickerURN+`"`, 1)
+				gql, captured := captureGraphQL(t, map[string]string{"CreateTicker": `{"data":{"createTicker":` + fixture + `}}`, "GetTicker": `{"data":{"ticker":` + fixture + `}}`, "UpdateTicker": `{"data":{"updateTicker":` + fixture + `}}`, "DeleteTicker": `{"data":{"deleteTicker":true}}`, "SubscribeTicker": `{"data":{"subscribeWorker":{"subscription":` + subscriptionFixture + `,"announcement":null}}}`, "UnsubscribeTicker": `{"data":{"unsubscribeWorker":{"subscription":` + subscriptionFixture + `,"announcement":null}}}`, "TickerSubscribers": `{"data":{"ticker":{"subscribers":{"items":[],"hasNextPage":false,"endCursor":null}}}}`})
+				f, out := testFactory(t)
+				r := NewRootCmd(f)
+				r.SetArgs([]string{"ticker", "create", "--app", root + ":team", "--name", "qa-t1", "--cadence-seconds", "600", "--json", "--server", gql.URL})
+				if e := r.Execute(); e != nil {
+					t.Fatal(e)
+				}
+				var created struct {
+					URN string `json:"urn"`
+				}
+				if e := json.Unmarshal([]byte(out.String()), &created); e != nil {
+					t.Fatal(e)
+				}
+				if created.URN != tickerURN {
+					t.Fatal(out.String())
+				}
+				args := []string{"ticker", verb, created.URN, "--json", "--server", gql.URL}
+				op, key := "GetTicker", "ref"
+				switch verb {
+				case "update":
+					args = append(args, "--name", "renamed")
+					op = "UpdateTicker"
+				case "delete":
+					args = append(args, "--yes")
+					op = "DeleteTicker"
+				case "subscribe", "unsubscribe":
+					args = append(args, "--worker", workerURN)
+					key = "tickerRef"
+					op = "SubscribeTicker"
+					if verb == "unsubscribe" {
+						op = "UnsubscribeTicker"
+					}
+				}
+				f, _ = testFactory(t)
+				r = NewRootCmd(f)
+				r.SetArgs(args)
+				if e := r.Execute(); e != nil {
+					t.Fatal(e)
+				}
+				var vars map[string]any
+				if e := json.Unmarshal(captured[op], &vars); e != nil {
+					t.Fatal(e)
+				}
+				if vars[key] != tickerURN {
+					t.Fatalf("%s", captured[op])
+				}
+				if key == "tickerRef" && vars["workerRef"] != workerURN {
+					t.Fatalf("%s", captured[op])
+				}
+			})
+		}
+	}
+}
+
+func TestTickerUpdateNoFieldsAndHelp(t *testing.T) {
+	calls := 0
+	gql, _ := captureGraphQLFunc(t, func(op string) string { calls++; return `{"data":{"updateTicker":` + tickerFixture + `}}` })
+	f, _ := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"ticker", "update", tickerRef, "--json", "--server", gql.URL})
+	e := r.Execute()
+	if e == nil || exitCodeFor(e) != 2 || !strings.Contains(e.Error(), "nothing to update") || calls != 0 {
+		t.Fatalf("%v, calls %d", e, calls)
+	}
+	for _, verb := range []string{"create", "update"} {
+		t.Run(verb, func(t *testing.T) {
+			f, out := testFactory(t)
+			r := NewRootCmd(f)
+			r.SetArgs([]string{"ticker", verb, "--help"})
+			if e := r.Execute(); e != nil {
+				t.Fatal(e)
+			}
+			help := out.String()
+			if strings.Contains(help, "(default true)") || strings.Contains(help, "Proposed") || strings.Contains(help, "uncertain write") {
+				t.Fatal(help)
+			}
+			if verb == "update" && (strings.Contains(help, "required on create") || strings.Contains(help, "creation time") || !strings.Contains(help, "omitted keeps the current value")) {
+				t.Fatal(help)
+			}
+		})
+	}
+}
