@@ -241,6 +241,9 @@ Moving a host from the Orca attention router: see
 docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the
 hadron-cli repository. Preparing a config authorizes no cutover.
 
+A held delivery is not reported to the server yet (hadron-cli#940): it
+raises no server alarm, and team host status shows it as UNREPORTED.
+
 --once runs a single poll and waits for what it collected. Events print one
 per line; --json prints each as a JSON object.`,
 		Args: cobra.NoArgs,
@@ -451,7 +454,7 @@ func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
 	for _, id := range sortedKeys(st.Workers) {
 		w := st.Workers[id]
 		last := w.At.UTC().Format(time.RFC3339)
-		row := hostDeliveryWorkerDTO{Worker: w.Name, WorkerID: id, LastKind: string(w.Kind), LastReason: w.Reason, LastAt: &last, ResolvedBy: w.ResolvedBy}
+		row := hostDeliveryWorkerDTO{Worker: w.Name, WorkerID: id, LastKind: string(w.Kind), LastReason: w.Reason, LastAt: &last, ResolvedBy: w.ResolvedBy, Unreported: w.Unreported}
 		if list, err := recs.List(id); err == nil {
 			row.ConfirmedUnacked = len(list)
 		}
@@ -495,8 +498,12 @@ func writeHostDelivery(w io.Writer, d hostDeliveryDTO) {
 		fmt.Fprintln(w, wl)
 	}
 	for _, wk := range d.Workers {
-		fmt.Fprintf(w, "  %s: %s %s (%s) at %s, confirmed-unacked %d, ticks typed-unacked %d, resolved by %s\n",
-			wk.Worker, wk.LastKind, wk.LastReason, wk.LastFor, *wk.LastAt, wk.ConfirmedUnacked, wk.TicksUnacked, orDash(wk.ResolvedBy))
+		unreported := ""
+		if wk.Unreported {
+			unreported = ", UNREPORTED: no server hold, alarm or escalation"
+		}
+		fmt.Fprintf(w, "  %s: %s %s (%s)%s at %s, confirmed-unacked %d, ticks typed-unacked %d, resolved by %s\n",
+			wk.Worker, wk.LastKind, wk.LastReason, wk.LastFor, unreported, *wk.LastAt, wk.ConfirmedUnacked, wk.TicksUnacked, orDash(wk.ResolvedBy))
 	}
 }
 

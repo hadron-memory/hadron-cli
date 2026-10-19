@@ -8,15 +8,16 @@ Gate: CHECKED T2 + §10, dependency-ordered (Xylon, issuecomment-6246632510).
 The design attach is issuecomment-6246590915; deltas 1 to 4 follow it on the
 issue. Built by Joshua on 2026-10-18 from cli main `52b4968`.
 
-**Status: the terminal half is built. Integration waits for S1/S5 on server
-main.** Everything that needs no server is in, behind typed seams:
+**Status: the terminal half is built. Integration waits for S1 on server
+main; the S5 hold report is a deferred slice (#940, Xan's bounded split on
+#907, 2026-10-19 05:11Z).** Everything that needs no server is in, behind typed seams:
 - the Orca calls and screen checks;
 - send and confirm;
 - locks, the expiry budget, and recovery state.
 
 Still waiting for server main:
-- the GraphQL adapter (`deliveryBatches`, `acknowledgeDeliveryBatches`,
-  `holdDeliveryBatch`);
+- the GraphQL adapter (`deliveryBatches`, `acknowledgeDeliveryBatches`; the
+  S5 hold report, `holdDeliveryBatch`, waits for #940);
 - codegen and `make unbound-ops`;
 - the command wiring.
 
@@ -67,8 +68,10 @@ anyway.
 - **R2 (`ReadComposer`).**
   - Any draft that isn't ours holds, for **both** families. The router let a
     Claude screen that proves the box empty refute Orca's draft and typed
-    over it (#6736). That inverts to a hold: a ghost draft now reaches a
-    human through S5's 15-minute stuck alarm, which is R2's intent.
+    over it (#6736). That inverts to a hold: a ghost draft reaches a human
+    through S5's stuck alarm on the App's delivery window, which is R2's
+    intent. Until #940 lands the hold is unreported (below), so it reaches a
+    human only through `team host status` or the poller's events.
   - Our own prefix (`[hadron chat`) is a leftover, for the caller to recover.
   - A question, menu or approval prompt holds `question`. An unrecognized
     screen holds `screen-unknown`.
@@ -168,6 +171,29 @@ Holds are reported once per (batch, reason) change, not every poll.
   - Neither fails the check-in.
 - **`worker.deliver`** stays reported FAILED. It is a per-task-event
   operation, and chat delivery doesn't use it.
+
+## Unreported holds (#940)
+
+S5 isn't on server main, so C1 ships without its hold report (Xan's bounded
+split on #907, 2026-10-19 05:11Z). The adapter answers `Hold` with
+`ErrHoldUnavailable` and makes no call.
+
+- The outcome is `Held`, with the hold's reason code and `Unreported` set.
+  It is not `Failed`. It claims no server hold, episode, alarm, delivery
+  confirmation, ack or escalation.
+- Nothing is typed, acked or recorded as delivered. S1 re-hands the batch,
+  and each replay holds again until the hold clears.
+- Unavailable doesn't fill the reported-hold cache, so the same hold is
+  reported, once, as soon as the server has the capability.
+- A real transport or server error stays `hold-report-failed:<reason>` →
+  `Failed`. Only `ErrHoldUnavailable` (wrapped or not) is unavailable.
+- Confirmed-send records and reconcile are unchanged.
+- The event, the status snapshot and `team host status` carry it (JSON
+  `unreported`, human `UNREPORTED: no server hold, alarm or escalation`);
+  `team host run --help` and the migration guide state the limitation.
+  Codes and ids only, as everywhere here.
+- **Residual, accepted by Xan:** until #940 lands, a held delivery reaches no
+  human automatically.
 
 ## Tick and task wakes (#906 row 1)
 
@@ -279,7 +305,7 @@ What it changed:
 
 ## Owed before APPROVE (not in this branch yet)
 
-- **S1/S5 on server main:**
+- **S1 on server main** (S5 is #940):
   - `make schema` from a clean `origin/main`, `make generate`,
     `make unbound-ops`;
   - the adapter, with red pins on its refusals (`APP_KEY_SCOPE_REQUIRED`,

@@ -62,3 +62,11 @@ The delivery block is a **local snapshot** of what this host's poller last saw.
 It is not authoritative delivery health, which is the server's (S5). It reads
 `stale` when the snapshot is missing, unreadable, or older than three poll
 intervals.
+
+**Holds are not reported to the server yet** (hadron-cli#940). Until the
+server has the delivery hold report (S5), a held delivery stays on this host.
+`team host status` shows it as `UNREPORTED` (`"unreported": true` in JSON),
+and there is no server hold, alarm or escalation behind it. A ghost draft, a
+question prompt or a mismatched binding reaches a human only if someone reads
+this status or the poller's events. The batch stays unacknowledged, so the
+server hands it again and it is delivered once the hold clears.

@@ -95,7 +95,7 @@ func (b *StatusBook) Observe(e Event) {
 	if old, ok := b.st.Workers[e.WorkerID]; ok && e.Time.Before(old.At) {
 		return
 	}
-	b.st.Workers[e.WorkerID] = WorkerStatus{Name: e.Worker, Kind: e.Kind, Reason: e.Reason, At: e.Time, ResolvedBy: e.ResolvedBy, Wake: e.Wake}
+	b.st.Workers[e.WorkerID] = WorkerStatus{Name: e.Worker, Kind: e.Kind, Reason: e.Reason, At: e.Time, ResolvedBy: e.ResolvedBy, Wake: e.Wake, Unreported: e.Unreported}
 }
 
 // Step records a finished poller step and writes the snapshot: 0600, by

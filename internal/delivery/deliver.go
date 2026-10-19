@@ -168,7 +168,7 @@ func New(server Server, orca Terminals, stateDir string) *Deliverer {
 
 func (d *Deliverer) emit(b Batch, r Recipient, o Outcome) Outcome {
 	if d.Emit != nil {
-		d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, WorkerID: r.WorkerID, Span: b.Span(), Kind: o.Kind, Reason: o.Reason, Terminal: o.Terminal, ResolvedBy: r.resolvedBy})
+		d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, WorkerID: r.WorkerID, Span: b.Span(), Kind: o.Kind, Reason: o.Reason, Terminal: o.Terminal, ResolvedBy: r.resolvedBy, Unreported: o.Unreported})
 	}
 	return o
 }
@@ -180,7 +180,9 @@ func batchKey(b Batch) string {
 	return recordName(b.Ranges)
 }
 
-// hold reports a hold once per (batch, reason) change.
+// hold reports a hold once per (batch, reason) change. A server without the
+// hold report (ErrHoldUnavailable) leaves it Held and unreported, and
+// uncached, so a later step reports it.
 func (d *Deliverer) hold(ctx context.Context, b Batch, r Recipient, reason, terminal string) Outcome {
 	key := batchKey(b)
 	d.mu.Lock()
@@ -193,6 +195,9 @@ func (d *Deliverer) hold(ctx context.Context, b Batch, r Recipient, reason, term
 		hctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), AckTimeout)
 		err := d.Server.Hold(hctx, b.ID, reason, terminal)
 		cancel()
+		if errors.Is(err, ErrHoldUnavailable) {
+			return d.emit(b, r, Outcome{Kind: Held, Reason: reason, Terminal: terminal, Unreported: true})
+		}
 		if err != nil {
 			return d.emit(b, r, Outcome{Kind: Failed, Reason: "hold-report-failed:" + reason, Terminal: terminal})
 		}
