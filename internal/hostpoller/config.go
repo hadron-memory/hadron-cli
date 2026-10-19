@@ -50,6 +50,18 @@ type Config struct {
 	// Workers maps a worker reference (its name in the App, URN or id) to
 	// how this host runs it.
 	Workers map[string]WorkerConfig `yaml:"workers"`
+	// Delivery turns on chat delivery into this host's Orca terminals
+	// (cli#907). Absent, the poller carries out host operations only.
+	Delivery DeliveryConfig `yaml:"delivery"`
+}
+
+// DeliveryConfig is chat delivery's part of a host configuration.
+type DeliveryConfig struct {
+	// Enabled turns delivery on. The host key then also needs
+	// attention:deliver; without it delivery switches off for the run.
+	Enabled bool `yaml:"enabled"`
+	// OrcaBin is the absolute path of the orca CLI.
+	OrcaBin string `yaml:"orca_bin"`
 }
 
 // WorkerConfig is one worker this host can launch.
@@ -68,6 +80,22 @@ type WorkerConfig struct {
 	// Worktrees are this worker's existing worktree name tokens, relative to
 	// worktrees_root, beyond the ones this poller created.
 	Worktrees []string `yaml:"worktrees"`
+	// TUI is the agent interface its terminal shows, claude or codex, when
+	// the model family does not say (a glm worker runs in Claude Code).
+	// Delivery holds a terminal that shows anything else.
+	TUI string `yaml:"tui"`
+}
+
+// tui is the interface delivery expects: the configured one, else a family
+// that names its own interface, else "" (the screen and Orca must agree).
+func (w WorkerConfig) tui() string {
+	if w.TUI != "" {
+		return w.TUI
+	}
+	if w.Family == "claude" || w.Family == "codex" {
+		return w.Family
+	}
+	return ""
 }
 
 const (
@@ -174,6 +202,9 @@ func (c *Config) validate() error {
 				errs = append(errs, fmt.Sprintf("worker %q: end_wait %q is not a positive duration", ref, w.EndWait))
 			}
 		}
+		if w.TUI != "" && w.TUI != "claude" && w.TUI != "codex" {
+			errs = append(errs, fmt.Sprintf("worker %q: tui %q must be claude or codex", ref, w.TUI))
+		}
 		if len(w.Worktrees) > 32 {
 			errs = append(errs, fmt.Sprintf("worker %q: at most 32 worktrees", ref))
 		}
@@ -183,11 +214,23 @@ func (c *Config) validate() error {
 			}
 		}
 	}
+	if c.Delivery.Enabled {
+		switch {
+		case c.Delivery.OrcaBin == "":
+			errs = append(errs, "delivery.orca_bin is required when delivery is enabled")
+		case !filepath.IsAbs(c.Delivery.OrcaBin):
+			errs = append(errs, "delivery.orca_bin must be an absolute path")
+		}
+	}
 	if len(errs) > 0 {
 		return errors.New(strings.Join(errs, "; "))
 	}
 	return nil
 }
+
+// DeliveryStateDir holds delivery's records and per-worker locks: beside the
+// state file, where C2's --orca-host-config finds the same locks.
+func (c *Config) DeliveryStateDir() string { return filepath.Dir(c.StateFile) }
 
 // WorkerRefs lists the configured worker references in a stable order.
 func (c *Config) WorkerRefs() []string {
@@ -242,4 +285,32 @@ func (c *Config) ReadHostKey() (string, error) {
 // WorktreePath is the absolute path of a worktree name token.
 func (c *Config) WorktreePath(token string) string {
 	return filepath.Join(c.WorktreesRoot, filepath.FromSlash(token))
+}
+
+// CheckWorktreeAliases refuses two workers whose worktrees, configured or
+// created by this poller, name one directory under different tokens
+// (cli#906). validate already refuses one token listed twice; a symlink
+// gives one directory a second token. A tree that does not exist yet is
+// compared by its cleaned path only. One worker's own aliases are allowed.
+func (c *Config) CheckWorktreeAliases(s *State) error {
+	type claim struct{ ref, token string }
+	owner := map[string]claim{}
+	var errs []string
+	for _, ref := range c.WorkerRefs() {
+		for _, token := range s.worktreesFor(ref, c.Workers[ref].Worktrees) {
+			dir := filepath.Clean(c.WorktreePath(token))
+			if real, err := filepath.EvalSymlinks(dir); err == nil {
+				dir = real
+			}
+			if o, taken := owner[dir]; taken && o.ref != ref {
+				errs = append(errs, fmt.Sprintf("worktrees %q (%s) and %q (%s) are one directory: a worktree belongs to one worker", o.token, o.ref, token, ref))
+				continue
+			}
+			owner[dir] = claim{ref, token}
+		}
+	}
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "; "))
+	}
+	return nil
 }

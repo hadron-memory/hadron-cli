@@ -60,6 +60,37 @@ var AllAccessSource = []AccessSource{
 	AccessSourcePublicVisibility,
 }
 
+// AcknowledgeDeliveryBatchesAcknowledgeDeliveryBatchesAcknowledgeWakesResult includes the requested fields of the GraphQL type AcknowledgeWakesResult.
+type AcknowledgeDeliveryBatchesAcknowledgeDeliveryBatchesAcknowledgeWakesResult struct {
+	// Wakes that moved the delivery record.
+	Acknowledged int `json:"acknowledged"`
+	// Repeats: already delivered, counted nowhere twice.
+	Unchanged int `json:"unchanged"`
+}
+
+// GetAcknowledged returns AcknowledgeDeliveryBatchesAcknowledgeDeliveryBatchesAcknowledgeWakesResult.Acknowledged, and is useful for accessing the field via an interface.
+func (v *AcknowledgeDeliveryBatchesAcknowledgeDeliveryBatchesAcknowledgeWakesResult) GetAcknowledged() int {
+	return v.Acknowledged
+}
+
+// GetUnchanged returns AcknowledgeDeliveryBatchesAcknowledgeDeliveryBatchesAcknowledgeWakesResult.Unchanged, and is useful for accessing the field via an interface.
+func (v *AcknowledgeDeliveryBatchesAcknowledgeDeliveryBatchesAcknowledgeWakesResult) GetUnchanged() int {
+	return v.Unchanged
+}
+
+// AcknowledgeDeliveryBatchesResponse is returned by AcknowledgeDeliveryBatches on success.
+type AcknowledgeDeliveryBatchesResponse struct {
+	// #2017 (S1) — record that delivery batches were typed (hrn:node:hadronmemory.com:specs:cor:agt:080:16, :17). Only the receiving host key or the worker's own receiving live session, within 15 minutes.
+	// The delivered mark rises to the end of each rendered range; with through (one batch only), only the listed channels move, each to a
+	// rendered seq of its own. Writes no read position, tick or budget. A repeat changes nothing.
+	AcknowledgeDeliveryBatches *AcknowledgeDeliveryBatchesAcknowledgeDeliveryBatchesAcknowledgeWakesResult `json:"acknowledgeDeliveryBatches"`
+}
+
+// GetAcknowledgeDeliveryBatches returns AcknowledgeDeliveryBatchesResponse.AcknowledgeDeliveryBatches, and is useful for accessing the field via an interface.
+func (v *AcknowledgeDeliveryBatchesResponse) GetAcknowledgeDeliveryBatches() *AcknowledgeDeliveryBatchesAcknowledgeDeliveryBatchesAcknowledgeWakesResult {
+	return v.AcknowledgeDeliveryBatches
+}
+
 // ActionTicketFields includes the GraphQL fields of ActionTicket requested by the fragment ActionTicketFields.
 // The GraphQL type's documentation follows.
 //
@@ -8572,6 +8603,18 @@ var AllAvailabilityState = []AvailabilityState{
 	AvailabilityStateUnavailable,
 }
 
+type BatchThrough struct {
+	ChannelId string `json:"channelId"`
+	// A seq this batch rendered in that channel.
+	Seq int `json:"seq"`
+}
+
+// GetChannelId returns BatchThrough.ChannelId, and is useful for accessing the field via an interface.
+func (v *BatchThrough) GetChannelId() string { return v.ChannelId }
+
+// GetSeq returns BatchThrough.Seq, and is useful for accessing the field via an interface.
+func (v *BatchThrough) GetSeq() int { return v.Seq }
+
 // BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult includes the requested fields of the GraphQL type BeginAssetUploadResult.
 type BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult struct {
 	UploadId        string                                                                              `json:"uploadId"`
@@ -15409,6 +15452,12 @@ type CreateNodeResponse struct {
 	// already exists at (memoryId, loc) — creating is create-only (spec 039
 	// Phase 0 D1); a soft-deleted node at the target loc is resurrected.
 	// 'name' is required here and only here (D4).
+	// Include tags (#2040): content may carry {{> target settings}} tags. Writes
+	// that make a tag malformed refuse INVALID_INCLUDE, one that would make the
+	// node include itself INCLUDE_CYCLE, and a chain deeper than 10
+	// INCLUDE_TOO_DEEP; nothing is written. Each tag's target gets a derived edge
+	// (governed kind INCLUDE) that only the content owns: editing or deleting it
+	// directly refuses INCLUDE_EDGE_DERIVED.
 	CreateNode *CreateNodeCreateNode `json:"createNode"`
 }
 
@@ -18228,6 +18277,188 @@ type DeleteWorkerResponse struct {
 
 // GetDeleteWorker returns DeleteWorkerResponse.DeleteWorker, and is useful for accessing the field via an interface.
 func (v *DeleteWorkerResponse) GetDeleteWorker() bool { return v.DeleteWorker }
+
+// DeliveryBatchesDeliveryBatchesDeliveryBatchPage includes the requested fields of the GraphQL type DeliveryBatchPage.
+// The GraphQL type's documentation follows.
+//
+// #2017 (S1) — one page of delivery batches.
+type DeliveryBatchesDeliveryBatchesDeliveryBatchPage struct {
+	Batches  []*DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch  `json:"batches"`
+	PageInfo *DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo `json:"pageInfo"`
+}
+
+// GetBatches returns DeliveryBatchesDeliveryBatchesDeliveryBatchPage.Batches, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPage) GetBatches() []*DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch {
+	return v.Batches
+}
+
+// GetPageInfo returns DeliveryBatchesDeliveryBatchesDeliveryBatchPage.PageInfo, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPage) GetPageInfo() *DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo {
+	return v.PageInfo
+}
+
+// DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch includes the requested fields of the GraphQL type DeliveryBatch.
+// The GraphQL type's documentation follows.
+//
+// One ready-to-type delivery for one worker. The id is a signed proof bound to the key, the host and the rendered ranges: hand it back to acknowledgeDeliveryBatches after typing.
+type DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch struct {
+	Id     string                                                                     `json:"id"`
+	Worker *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker `json:"worker"`
+	// The whole delivery, one line, written by the server (hrn:node:hadronmemory.com:specs:cor:agt:080:26). Type it unchanged.
+	Text string `json:"text"`
+	// Not before this moment (the batching window / busy deadline of the oldest waiting message).
+	DeliverAfter string `json:"deliverAfter"`
+	// The latest moment a busy worker may be made to wait for this delivery.
+	BusyDeadline string `json:"busyDeadline"`
+	// Always false until stop signals ship (S6).
+	Interrupt bool `json:"interrupt"`
+	// Eligible messages left for the next batch.
+	Overflow int                                                                                            `json:"overflow"`
+	Ranges   []*DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange `json:"ranges"`
+}
+
+// GetId returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Id, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetId() string {
+	return v.Id
+}
+
+// GetWorker returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Worker, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetWorker() *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker {
+	return v.Worker
+}
+
+// GetText returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Text, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetText() string {
+	return v.Text
+}
+
+// GetDeliverAfter returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.DeliverAfter, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetDeliverAfter() string {
+	return v.DeliverAfter
+}
+
+// GetBusyDeadline returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.BusyDeadline, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetBusyDeadline() string {
+	return v.BusyDeadline
+}
+
+// GetInterrupt returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Interrupt, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetInterrupt() bool {
+	return v.Interrupt
+}
+
+// GetOverflow returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Overflow, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetOverflow() int {
+	return v.Overflow
+}
+
+// GetRanges returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Ranges, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetRanges() []*DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange {
+	return v.Ranges
+}
+
+// DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange includes the requested fields of the GraphQL type DeliveryBatchRange.
+type DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange struct {
+	Channel     *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel `json:"channel"`
+	Incarnation int                                                                                                 `json:"incarnation"`
+	FromSeq     int                                                                                                 `json:"fromSeq"`
+	ThroughSeq  int                                                                                                 `json:"throughSeq"`
+	// Exactly the message seqs this batch rendered.
+	Seqs []int `json:"seqs"`
+}
+
+// GetChannel returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange.Channel, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange) GetChannel() *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel {
+	return v.Channel
+}
+
+// GetIncarnation returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange.Incarnation, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange) GetIncarnation() int {
+	return v.Incarnation
+}
+
+// GetFromSeq returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange.FromSeq, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange) GetFromSeq() int {
+	return v.FromSeq
+}
+
+// GetThroughSeq returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange.ThroughSeq, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange) GetThroughSeq() int {
+	return v.ThroughSeq
+}
+
+// GetSeqs returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange.Seqs, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange) GetSeqs() []int {
+	return v.Seqs
+}
+
+// DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel struct {
+	Id string `json:"id"`
+}
+
+// GetId returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel.Id, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel) GetId() string {
+	return v.Id
+}
+
+// DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker struct {
+	Id string `json:"id"`
+}
+
+// GetId returns DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker.Id, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker) GetId() string {
+	return v.Id
+}
+
+// DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo includes the requested fields of the GraphQL type DueWakePageInfo.
+type DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo struct {
+	HasNextPage bool    `json:"hasNextPage"`
+	EndCursor   *string `json:"endCursor"`
+}
+
+// GetHasNextPage returns DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo.HasNextPage, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo) GetHasNextPage() bool {
+	return v.HasNextPage
+}
+
+// GetEndCursor returns DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo.EndCursor, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo) GetEndCursor() *string {
+	return v.EndCursor
+}
+
+// DeliveryBatchesResponse is returned by DeliveryBatches on success.
+type DeliveryBatchesResponse struct {
+	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
+	// An own live session reads only its bound worker. A host App key needs attention:deliver AND host:operate;
+	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
+	DeliveryBatches *DeliveryBatchesDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
+}
+
+// GetDeliveryBatches returns DeliveryBatchesResponse.DeliveryBatches, and is useful for accessing the field via an interface.
+func (v *DeliveryBatchesResponse) GetDeliveryBatches() *DeliveryBatchesDeliveryBatchesDeliveryBatchPage {
+	return v.DeliveryBatches
+}
 
 // EditCommentEditComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
@@ -48274,6 +48505,12 @@ type UpdateNodeClearingRoleResponse struct {
 	// moveNode's job, D3). Every content field is optional — omitted fields are
 	// preserved ('name' included, D4; 'abstract' keeps its omit/null/string
 	// contract; omitted 'tags' are preserved, issue #235).
+	// Include tags (#2040): content may carry {{> target settings}} tags. Writes
+	// that make a tag malformed refuse INVALID_INCLUDE, one that would make the
+	// node include itself INCLUDE_CYCLE, and a chain deeper than 10
+	// INCLUDE_TOO_DEEP; nothing is written. Each tag's target gets a derived edge
+	// (governed kind INCLUDE) that only the content owns: editing or deleting it
+	// directly refuses INCLUDE_EDGE_DERIVED.
 	UpdateNode *UpdateNodeClearingRoleUpdateNode `json:"updateNode"`
 }
 
@@ -48566,6 +48803,12 @@ type UpdateNodeResponse struct {
 	// moveNode's job, D3). Every content field is optional — omitted fields are
 	// preserved ('name' included, D4; 'abstract' keeps its omit/null/string
 	// contract; omitted 'tags' are preserved, issue #235).
+	// Include tags (#2040): content may carry {{> target settings}} tags. Writes
+	// that make a tag malformed refuse INVALID_INCLUDE, one that would make the
+	// node include itself INCLUDE_CYCLE, and a chain deeper than 10
+	// INCLUDE_TOO_DEEP; nothing is written. Each tag's target gets a derived edge
+	// (governed kind INCLUDE) that only the content owns: editing or deleting it
+	// directly refuses INCLUDE_EDGE_DERIVED.
 	UpdateNode *UpdateNodeUpdateNode `json:"updateNode"`
 }
 
@@ -53521,6 +53764,18 @@ type __AcceptInvitationInput struct {
 // GetSlug returns __AcceptInvitationInput.Slug, and is useful for accessing the field via an interface.
 func (v *__AcceptInvitationInput) GetSlug() string { return v.Slug }
 
+// __AcknowledgeDeliveryBatchesInput is used internally by genqlient
+type __AcknowledgeDeliveryBatchesInput struct {
+	BatchIds []string        `json:"batchIds"`
+	Through  []*BatchThrough `json:"through,omitempty"`
+}
+
+// GetBatchIds returns __AcknowledgeDeliveryBatchesInput.BatchIds, and is useful for accessing the field via an interface.
+func (v *__AcknowledgeDeliveryBatchesInput) GetBatchIds() []string { return v.BatchIds }
+
+// GetThrough returns __AcknowledgeDeliveryBatchesInput.Through, and is useful for accessing the field via an interface.
+func (v *__AcknowledgeDeliveryBatchesInput) GetThrough() []*BatchThrough { return v.Through }
+
 // __ActionTicketsInput is used internally by genqlient
 type __ActionTicketsInput struct {
 	OrgRef string `json:"orgRef"`
@@ -55250,6 +55505,22 @@ func (v *__DeleteWorkerInput) GetWorkerRef() string { return v.WorkerRef }
 func (v *__DeleteWorkerInput) GetConfirmNoExternalAttribution() *bool {
 	return v.ConfirmNoExternalAttribution
 }
+
+// __DeliveryBatchesInput is used internally by genqlient
+type __DeliveryBatchesInput struct {
+	AppRef string  `json:"appRef"`
+	First  int     `json:"first"`
+	After  *string `json:"after,omitempty"`
+}
+
+// GetAppRef returns __DeliveryBatchesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__DeliveryBatchesInput) GetAppRef() string { return v.AppRef }
+
+// GetFirst returns __DeliveryBatchesInput.First, and is useful for accessing the field via an interface.
+func (v *__DeliveryBatchesInput) GetFirst() int { return v.First }
+
+// GetAfter returns __DeliveryBatchesInput.After, and is useful for accessing the field via an interface.
+func (v *__DeliveryBatchesInput) GetAfter() *string { return v.After }
 
 // __EditCommentInput is used internally by genqlient
 type __EditCommentInput struct {
@@ -58420,6 +58691,43 @@ func AcceptInvitation(
 	}
 
 	data_ = &AcceptInvitationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AcknowledgeDeliveryBatches.
+const AcknowledgeDeliveryBatches_Operation = `
+mutation AcknowledgeDeliveryBatches ($batchIds: [String!]!, $through: [BatchThrough!]) {
+	acknowledgeDeliveryBatches(batchIds: $batchIds, through: $through) {
+		acknowledged
+		unchanged
+	}
+}
+`
+
+func AcknowledgeDeliveryBatches(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	batchIds []string,
+	through []*BatchThrough,
+) (data_ *AcknowledgeDeliveryBatchesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AcknowledgeDeliveryBatches",
+		Query:  AcknowledgeDeliveryBatches_Operation,
+		Variables: &__AcknowledgeDeliveryBatchesInput{
+			BatchIds: batchIds,
+			Through:  through,
+		},
+	}
+
+	data_ = &AcknowledgeDeliveryBatchesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -64798,6 +65106,67 @@ func DeleteWorker(
 	}
 
 	data_ = &DeleteWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by DeliveryBatches.
+const DeliveryBatches_Operation = `
+query DeliveryBatches ($appRef: String!, $first: Int!, $after: String) {
+	deliveryBatches(appRef: $appRef, first: $first, after: $after) {
+		batches {
+			id
+			worker {
+				id
+			}
+			text
+			deliverAfter
+			busyDeadline
+			interrupt
+			overflow
+			ranges {
+				channel {
+					id
+				}
+				incarnation
+				fromSeq
+				throughSeq
+				seqs
+			}
+		}
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+	}
+}
+`
+
+func DeliveryBatches(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	first int,
+	after *string,
+) (data_ *DeliveryBatchesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeliveryBatches",
+		Query:  DeliveryBatches_Operation,
+		Variables: &__DeliveryBatchesInput{
+			AppRef: appRef,
+			First:  first,
+			After:  after,
+		},
+	}
+
+	data_ = &DeliveryBatchesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
