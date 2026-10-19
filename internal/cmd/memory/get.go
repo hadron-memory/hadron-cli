@@ -74,6 +74,8 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 				v := string(*m.Visibility)
 				dto.Visibility = &v
 			}
+			listed := m.ListedOnMarketplace
+			dto.ListedOnMarketplace = &listed
 
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "%s\n  urn: %s\n  class: %s\n  org: %s\n", dto.Name, dto.URN, dto.Class, output.Dash(dto.OrganizationID))
@@ -84,6 +86,11 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 					fmt.Fprintf(w, "  tags: %v\n", dto.Tags)
 				}
 				fmt.Fprintf(w, "  max revisions: %d\n", dto.MaxRevCount)
+				marketplace := "not listed"
+				if *dto.ListedOnMarketplace {
+					marketplace = "listed"
+				}
+				fmt.Fprintf(w, "  marketplace: %s\n", marketplace)
 				if dto.Schema != nil && len(*dto.Schema) > 0 {
 					if schemaStr := string(*dto.Schema); schemaStr != "null" {
 						fmt.Fprintf(w, "  schema: %s\n", schemaStr)

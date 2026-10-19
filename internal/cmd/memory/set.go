@@ -33,6 +33,7 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		schema      string
 		schemaFile  string
 		draftCorpus bool
+		listed      bool
 	)
 	cmd := &cobra.Command{
 		Use: "set [<memoryRef>]",
@@ -45,6 +46,10 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		SuggestFor: []string{"create", "new", "add"},
 		Short:      "Create or update a memory",
 		Long: `Create or update a memory.
+
+--listed-on-marketplace[=false] lists or de-lists an existing memory in the
+marketplace catalogue (cor:acl:080:04: advertisement, not access). Update only;
+omitted keeps the current value. The server decides who may list a memory.
 
 With a positional memory ID or URN, updates that memory (only the
 fields you pass change). Without one, creates a new memory. A
@@ -187,7 +192,17 @@ create-only and is refused with --app/--agent.`,
 			// (--slug rename and/or --schema) failed — a partial write we report,
 			// then exit non-zero.
 			var postCreateErr error
+			// #592 (cor:acl:080:04): sent only when given, so an omitted flag
+			// preserves the current listing; false unasked would de-list.
+			var listedArg *bool
+			if cmd.Flags().Changed("listed-on-marketplace") {
+				listedArg = &listed
+			}
 			if len(args) == 0 {
+				// Listing is a deliberate, later act on an existing memory.
+				if listedArg != nil {
+					return exitcode.Newf(exitcode.Usage, "--listed-on-marketplace only applies when updating (pass the memory as the positional argument)")
+				}
 				switch {
 				case appScoped:
 					if ownerMe {
@@ -298,7 +313,7 @@ create-only and is refused with --app/--agent.`,
 					if needSlug {
 						urnPtr = &slug
 					}
-					if resp, rerr := gen.UpdateMemory(cmd.Context(), client, m.ID, nil, nil, nil, nil, nil, nil, urnPtr, nil, schemaArg); rerr != nil {
+					if resp, rerr := gen.UpdateMemory(cmd.Context(), client, m.ID, nil, nil, nil, nil, nil, nil, urnPtr, nil, schemaArg, nil); rerr != nil {
 						postCreateErr = api.MapError(rerr)
 					} else if resp == nil || resp.UpdateMemory == nil {
 						postCreateErr = exitcode.Newf(exitcode.Error, "server returned no memory on the post-create update")
@@ -312,7 +327,7 @@ create-only and is refused with --app/--agent.`,
 				if org != "" || class != "" || appScoped || ownerMe {
 					return exitcode.Newf(exitcode.Usage, "--org, --class, --app, --agent, and --owner-me only apply when creating (no positional argument)")
 				}
-				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil && slug == "" && maxRevArg == nil && schemaArg == nil {
+				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil && slug == "" && maxRevArg == nil && schemaArg == nil && listedArg == nil {
 					return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 				}
 				memID, err := resolveMemoryID(cmd, client, args[0])
@@ -323,7 +338,7 @@ create-only and is refused with --app/--agent.`,
 				if slug != "" {
 					urnArg = &slug
 				}
-				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tagsArg, visArg, nil, urnArg, maxRevArg, schemaArg)
+				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tagsArg, visArg, nil, urnArg, maxRevArg, schemaArg, listedArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -331,6 +346,8 @@ create-only and is refused with --app/--agent.`,
 					return exitcode.Newf(exitcode.Error, "server returned no memory")
 				}
 				m = dtoFromMemory(resp.UpdateMemory)
+				listedNow := resp.UpdateMemory.ListedOnMarketplace
+				m.ListedOnMarketplace = &listedNow
 				verb = "updated"
 			}
 
@@ -397,6 +414,7 @@ create-only and is refused with --app/--agent.`,
 	cmd.Flags().IntVar(&maxRevCount, "max-rev-count", 0, "per-node revision-history cap (min 1; unset leaves the server default / current value)")
 	cmd.Flags().StringVar(&schema, "schema", "", `structured-storage property schema as JSON (#725); "" or "null" clears it`)
 	cmd.Flags().StringVar(&schemaFile, "schema-file", "", "read the property schema JSON from a file")
+	cmd.Flags().BoolVar(&listed, "listed-on-marketplace", false, "list the memory in the marketplace catalogue, or =false to de-list it (update only; advertisement, not access; omitted keeps the current value)")
 	return cmd
 }
 

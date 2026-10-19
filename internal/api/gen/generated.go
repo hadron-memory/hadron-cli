@@ -4602,6 +4602,8 @@ type AgentTeamEventFields struct {
 	CreatedAt string                  `json:"createdAt"`
 	// Who acted: the Worker when the request was bound to a worker session, else the person.
 	Actor *AgentTeamEventFieldsActorAgentTaskParty `json:"actor"`
+	// #1833 — the headless run that acted, when a run made this event (actor is then null: a run is never a person or a worker). Null otherwise. Matches AgentTask.createdByRunId for the task a run created.
+	ActorRunId *string `json:"actorRunId"`
 	// The worker the event concerns, e.g. a new assignee.
 	SubjectWorker  *AgentTeamEventFieldsSubjectWorkerAgentTaskParty  `json:"subjectWorker"`
 	Payload        json.RawMessage                                   `json:"payload"`
@@ -4637,6 +4639,9 @@ func (v *AgentTeamEventFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetActor returns AgentTeamEventFields.Actor, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventFields) GetActor() *AgentTeamEventFieldsActorAgentTaskParty { return v.Actor }
+
+// GetActorRunId returns AgentTeamEventFields.ActorRunId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventFields) GetActorRunId() *string { return v.ActorRunId }
 
 // GetSubjectWorker returns AgentTeamEventFields.SubjectWorker, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventFields) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
@@ -5080,6 +5085,11 @@ func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetActor() *AgentTeamEven
 	return v.AgentTeamEventFields.Actor
 }
 
+// GetActorRunId returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.ActorRunId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetActorRunId() *string {
+	return v.AgentTeamEventFields.ActorRunId
+}
+
 // GetSubjectWorker returns AgentTeamEventsAgentTeamEventsAgentTeamEvent.SubjectWorker, and is useful for accessing the field via an interface.
 func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
 	return v.AgentTeamEventFields.SubjectWorker
@@ -5155,6 +5165,8 @@ type __premarshalAgentTeamEventsAgentTeamEventsAgentTeamEvent struct {
 
 	Actor *AgentTeamEventFieldsActorAgentTaskParty `json:"actor"`
 
+	ActorRunId *string `json:"actorRunId"`
+
 	SubjectWorker *AgentTeamEventFieldsSubjectWorkerAgentTaskParty `json:"subjectWorker"`
 
 	Payload json.RawMessage `json:"payload"`
@@ -5188,6 +5200,7 @@ func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) __premarshalJSON() (*__pr
 	retval.Severity = v.AgentTeamEventFields.Severity
 	retval.CreatedAt = v.AgentTeamEventFields.CreatedAt
 	retval.Actor = v.AgentTeamEventFields.Actor
+	retval.ActorRunId = v.AgentTeamEventFields.ActorRunId
 	retval.SubjectWorker = v.AgentTeamEventFields.SubjectWorker
 	retval.Payload = v.AgentTeamEventFields.Payload
 	retval.AcknowledgedAt = v.AgentTeamEventFields.AcknowledgedAt
@@ -6316,6 +6329,11 @@ func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetActor() *AgentTeamEv
 	return v.AgentTeamEventFields.Actor
 }
 
+// GetActorRunId returns AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent.ActorRunId, and is useful for accessing the field via an interface.
+func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetActorRunId() *string {
+	return v.AgentTeamEventFields.ActorRunId
+}
+
 // GetSubjectWorker returns AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent.SubjectWorker, and is useful for accessing the field via an interface.
 func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
 	return v.AgentTeamEventFields.SubjectWorker
@@ -6391,6 +6409,8 @@ type __premarshalAlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent struct {
 
 	Actor *AgentTeamEventFieldsActorAgentTaskParty `json:"actor"`
 
+	ActorRunId *string `json:"actorRunId"`
+
 	SubjectWorker *AgentTeamEventFieldsSubjectWorkerAgentTaskParty `json:"subjectWorker"`
 
 	Payload json.RawMessage `json:"payload"`
@@ -6424,6 +6444,7 @@ func (v *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent) __premarshalJSON() (*__
 	retval.Severity = v.AgentTeamEventFields.Severity
 	retval.CreatedAt = v.AgentTeamEventFields.CreatedAt
 	retval.Actor = v.AgentTeamEventFields.Actor
+	retval.ActorRunId = v.AgentTeamEventFields.ActorRunId
 	retval.SubjectWorker = v.AgentTeamEventFields.SubjectWorker
 	retval.Payload = v.AgentTeamEventFields.Payload
 	retval.AcknowledgedAt = v.AgentTeamEventFields.AcknowledgedAt
@@ -19535,12 +19556,14 @@ type GetBoundSessionLivenessSession struct {
 	Id        string  `json:"id"`
 	StartedAt string  `json:"startedAt"`
 	EndedAt   *string `json:"endedAt"`
-	// hadron-cli#791 / cor:agt:020:11: whether THIS session is live: not ended,
+	// hadron-cli#791 / hrn:node:hadronmemory.com:specs:cor:agt:020:11:
+	// whether THIS session is live: not ended
+	// or hard-expired (hrn:node:hadronmemory.com:specs:cor:agt:020:03),
 	// AND driven inside its type's idle window (activity is the latest of
 	// startedAt, the heartbeat updatedAt, and the latest attributed usage
 	// event, capped at endedAt). The same derived predicate as startSession's
 	// WORKER_TAKEN gate and Worker.hasLiveSession, so the three always agree.
-	// An open session that is not live has LAPSED: nobody drove it inside the
+	// An unexpired open session that is not live has LAPSED: nobody drove it inside the
 	// window, so another driver may bind its worker; it is not ended, and can
 	// still be ended with a handoff. False for an ended or deleted session.
 	IsLive bool `json:"isLive"`
@@ -20041,6 +20064,8 @@ type GetMemoryMemory struct {
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int `json:"maxRevCount"`
+	// cor:acl:080:04 — opt-in marketplace catalogue flag (advertisement, not access).
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
 	// Free-form structured metadata bag (client-defined JSON, no server-side
 	// semantics). Null when unset. Settable via createMemory / updateMemory.
 	Data *json.RawMessage `json:"data"`
@@ -20091,6 +20116,9 @@ func (v *GetMemoryMemory) GetVectorIndexEnabled() bool { return v.VectorIndexEna
 
 // GetMaxRevCount returns GetMemoryMemory.MaxRevCount, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetListedOnMarketplace returns GetMemoryMemory.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *GetMemoryMemory) GetListedOnMarketplace() bool { return v.ListedOnMarketplace }
 
 // GetData returns GetMemoryMemory.Data, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetData() *json.RawMessage { return v.Data }
@@ -41279,7 +41307,11 @@ type TeamChatMessagesAttributedResponse struct {
 	// mentionsRef filters to messages whose stored envelope mentions the
 	// referenced worker (a Worker id or name of THIS App, retired included) or
 	// user (handle/id) — matching runs against the mention tokens extracted at
-	// write time, never by re-parsing bodies. The ref must name this App's own
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
 	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
@@ -41476,7 +41508,11 @@ type TeamChatMessagesResponse struct {
 	// mentionsRef filters to messages whose stored envelope mentions the
 	// referenced worker (a Worker id or name of THIS App, retired included) or
 	// user (handle/id) — matching runs against the mention tokens extracted at
-	// write time, never by re-parsing bodies. The ref must name this App's own
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
 	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
@@ -41671,7 +41707,11 @@ type TeamChatReadHeadAttributedResponse struct {
 	// mentionsRef filters to messages whose stored envelope mentions the
 	// referenced worker (a Worker id or name of THIS App, retired included) or
 	// user (handle/id) — matching runs against the mention tokens extracted at
-	// write time, never by re-parsing bodies. The ref must name this App's own
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
 	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
@@ -41744,7 +41784,11 @@ type TeamChatReadHeadResponse struct {
 	// mentionsRef filters to messages whose stored envelope mentions the
 	// referenced worker (a Worker id or name of THIS App, retired included) or
 	// user (handle/id) — matching runs against the mention tokens extracted at
-	// write time, never by re-parsing bodies. The ref must name this App's own
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
 	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
@@ -46507,6 +46551,8 @@ type UpdateMemoryUpdateMemory struct {
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int `json:"maxRevCount"`
+	// cor:acl:080:04 — opt-in marketplace catalogue flag (advertisement, not access).
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
 	// Free-form structured metadata bag (client-defined JSON, no server-side
 	// semantics). Null when unset. Settable via createMemory / updateMemory.
 	Data      *json.RawMessage `json:"data"`
@@ -46539,6 +46585,9 @@ func (v *UpdateMemoryUpdateMemory) GetIsEncrypted() bool { return v.IsEncrypted 
 
 // GetMaxRevCount returns UpdateMemoryUpdateMemory.MaxRevCount, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetListedOnMarketplace returns UpdateMemoryUpdateMemory.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetListedOnMarketplace() bool { return v.ListedOnMarketplace }
 
 // GetData returns UpdateMemoryUpdateMemory.Data, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetData() *json.RawMessage { return v.Data }
@@ -55356,16 +55405,17 @@ func (v *__UpdateMemoryConfigTemplateInput) GetExpectedRevision() int { return v
 
 // __UpdateMemoryInput is used internally by genqlient
 type __UpdateMemoryInput struct {
-	Id               string            `json:"id"`
-	Name             *string           `json:"name,omitempty"`
-	ShortDescription *string           `json:"shortDescription,omitempty"`
-	Description      *string           `json:"description,omitempty"`
-	Tags             *[]string         `json:"tags,omitempty"`
-	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
-	Data             *json.RawMessage  `json:"data,omitempty"`
-	Urn              *string           `json:"urn,omitempty"`
-	MaxRevCount      *int              `json:"maxRevCount,omitempty"`
-	Schema           *json.RawMessage  `json:"schema,omitempty"`
+	Id                  string            `json:"id"`
+	Name                *string           `json:"name,omitempty"`
+	ShortDescription    *string           `json:"shortDescription,omitempty"`
+	Description         *string           `json:"description,omitempty"`
+	Tags                *[]string         `json:"tags,omitempty"`
+	Visibility          *MemoryVisibility `json:"visibility,omitempty"`
+	Data                *json.RawMessage  `json:"data,omitempty"`
+	Urn                 *string           `json:"urn,omitempty"`
+	MaxRevCount         *int              `json:"maxRevCount,omitempty"`
+	Schema              *json.RawMessage  `json:"schema,omitempty"`
+	ListedOnMarketplace *bool             `json:"listedOnMarketplace,omitempty"`
 }
 
 // GetId returns __UpdateMemoryInput.Id, and is useful for accessing the field via an interface.
@@ -55397,6 +55447,9 @@ func (v *__UpdateMemoryInput) GetMaxRevCount() *int { return v.MaxRevCount }
 
 // GetSchema returns __UpdateMemoryInput.Schema, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetSchema() *json.RawMessage { return v.Schema }
+
+// GetListedOnMarketplace returns __UpdateMemoryInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
 
 // __UpdateMemoryMemberRoleInput is used internally by genqlient
 type __UpdateMemoryMemberRoleInput struct {
@@ -57243,6 +57296,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
 	actor {
 		... AgentTaskPartyFields
 	}
+	actorRunId
 	subjectWorker {
 		... AgentTaskPartyFields
 	}
@@ -57532,6 +57586,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
 	actor {
 		... AgentTaskPartyFields
 	}
+	actorRunId
 	subjectWorker {
 		... AgentTaskPartyFields
 	}
@@ -63066,6 +63121,7 @@ query GetMemory ($ref: ID!) {
 		syncStatus
 		vectorIndexEnabled
 		maxRevCount
+		listedOnMarketplace
 		data
 		schema
 		createdAt
@@ -63610,7 +63666,7 @@ query GetSpecNodeRaw ($ref: ID!) {
 //
 // Without it node(ref:) compiles the body's Mustache before returning it, so a
 // `{{name}}` placeholder comes back RENDERED (measured on production, cli#737:
-// spec cor:agt:040:01 has 4 `{{` occurrences read raw and 0 read plain, at the
+// spec cor:agt:040:01 as of revision 1 has 4 `{{` occurrences read raw and 0 read plain, at the
 // same revision). `spec edit` builds
 // everything from this read (the $EDITOR buffer, the dry-run preview and the
 // write), and from rendered text it would preview a diff of text that is not
@@ -71548,8 +71604,8 @@ func UpdateMcpServer(
 
 // The mutation executed by UpdateMemory.
 const UpdateMemory_Operation = `
-mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int, $schema: JSON) {
-	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount, schema: $schema) {
+mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int, $schema: JSON, $listedOnMarketplace: Boolean) {
+	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount, schema: $schema, listedOnMarketplace: $listedOnMarketplace) {
 		id
 		urn
 		name
@@ -71559,6 +71615,7 @@ mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $desc
 		organizationId
 		isEncrypted
 		maxRevCount
+		listedOnMarketplace
 		data
 		updatedAt
 	}
@@ -71579,21 +71636,23 @@ func UpdateMemory(
 	urn *string,
 	maxRevCount *int,
 	schema *json.RawMessage,
+	listedOnMarketplace *bool,
 ) (data_ *UpdateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateMemory",
 		Query:  UpdateMemory_Operation,
 		Variables: &__UpdateMemoryInput{
-			Id:               id,
-			Name:             name,
-			ShortDescription: shortDescription,
-			Description:      description,
-			Tags:             tags,
-			Visibility:       visibility,
-			Data:             data,
-			Urn:              urn,
-			MaxRevCount:      maxRevCount,
-			Schema:           schema,
+			Id:                  id,
+			Name:                name,
+			ShortDescription:    shortDescription,
+			Description:         description,
+			Tags:                tags,
+			Visibility:          visibility,
+			Data:                data,
+			Urn:                 urn,
+			MaxRevCount:         maxRevCount,
+			Schema:              schema,
+			ListedOnMarketplace: listedOnMarketplace,
 		},
 	}
 
