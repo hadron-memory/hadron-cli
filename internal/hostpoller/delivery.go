@@ -87,13 +87,32 @@ func (p *Poller) recipient(workerID string) (delivery.Recipient, bool) {
 	if !ok {
 		return delivery.Recipient{}, false
 	}
-	w, ok := p.cfg.Workers[ref]
-	if !ok {
+	if _, ok := p.cfg.Workers[ref]; !ok {
 		return delivery.Recipient{}, false
 	}
-	trees := []string{}
-	for _, t := range p.state.worktreesFor(ref, w.Worktrees) {
-		trees = append(trees, p.cfg.WorktreePath(t))
+	return p.cfg.Recipient(p.state, ref, workerID), true
+}
+
+// RefFor is the configured reference for a worker, matched by id, URN or
+// name (names are unique per App case-insensitively, cor:agt:020:02), or ""
+// when none matches. It is the poller's registration rule, for a caller that
+// delivers on this host without a live registration (C2, cli#908).
+func (c *Config) RefFor(id, urn, name string) string {
+	for _, ref := range c.WorkerRefs() {
+		if refMatches(ref, id, urn, name) {
+			return ref
+		}
 	}
-	return delivery.Recipient{WorkerID: workerID, Name: ref, TUI: w.tui(), Worktrees: trees}, true
+	return ""
+}
+
+// Recipient is the configured worker ref, resolved to workerID, as delivery
+// needs it: its expected interface and its configured and created worktrees
+// as absolute paths. The poller and C2 build it the same way.
+func (c *Config) Recipient(s *State, ref, workerID string) delivery.Recipient {
+	trees := []string{}
+	for _, t := range s.worktreesFor(ref, c.Workers[ref].Worktrees) {
+		trees = append(trees, c.WorktreePath(t))
+	}
+	return delivery.Recipient{WorkerID: workerID, Name: ref, TUI: c.Workers[ref].tui(), Worktrees: trees}
 }

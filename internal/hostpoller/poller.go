@@ -262,11 +262,15 @@ func (p *Poller) register(ctx context.Context) error {
 // guess.
 func refFor(w RegisteredHostWorker, sent []RegisteredWorker) string {
 	for _, s := range sent {
-		if s.Worker == w.WorkerID || (w.URN != "" && s.Worker == w.URN) || strings.EqualFold(s.Worker, w.Name) {
+		if refMatches(s.Worker, w.WorkerID, w.URN, w.Name) {
 			return s.Worker
 		}
 	}
 	return ""
+}
+
+func refMatches(ref, id, urn, name string) bool {
+	return ref == id || (urn != "" && ref == urn) || strings.EqualFold(ref, name)
 }
 
 // dispatch carries an operation out in the background, once.
