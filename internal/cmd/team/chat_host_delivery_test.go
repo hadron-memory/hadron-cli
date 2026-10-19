@@ -40,13 +40,13 @@ func newPostFixture(t *testing.T) *postFixture {
 		if strings.Contains(q.Query, "createTeamChatMessage") {
 			x.posts++
 			if x.failPost {
-				io.WriteString(w, `{"errors":[{"message":"controlled refusal","extensions":{"code":"FORBIDDEN"}}]}`)
+				_, _ = io.WriteString(w, `{"errors":[{"message":"controlled refusal","extensions":{"code":"FORBIDDEN"}}]}`)
 				return
 			}
-			io.WriteString(w, `{"data":{"createTeamChatMessage":{"nodeId":"m1","seq":17,"body":"plain post","at":"2026-10-19T00:00:00Z","authorName":"person","mentions":[]}}}`)
+			_, _ = io.WriteString(w, `{"data":{"createTeamChatMessage":{"nodeId":"m1","seq":17,"body":"plain post","at":"2026-10-19T00:00:00Z","authorName":"person","mentions":[]}}}`)
 			return
 		}
-		io.WriteString(w, `{"data":{"app":{"id":"app1","name":"Team","urn":"hrn:app:acme.com:team"}}}`)
+		_, _ = io.WriteString(w, `{"data":{"app":{"id":"app1","name":"Team","urn":"hrn:app:acme.com:team"}}}`)
 	}))
 	t.Cleanup(srv.Close)
 	x.factory = cmdutil.NewFactory()
@@ -140,5 +140,34 @@ func TestPostHostDeliveryEmptyFlagRefusesBeforePost(t *testing.T) {
 	}
 	if called || x.posts != 0 {
 		t.Error("empty flag reached host or post")
+	}
+}
+
+type failedPostReceipt struct{}
+
+func (failedPostReceipt) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+func TestPostHostDeliveryReceiptFailureDoesNotDeliverOrRepost(t *testing.T) {
+	x := newPostFixture(t)
+	runs := 0
+	x.factory.IOStreams.Out = failedPostReceipt{}
+	cmd := newCmdTeamChatPostWithHostDelivery(x.factory, func(context.Context, string, postHostTarget) (postHostDeliveryPass, error) {
+		return testPostPass(func(context.Context) (postHostDeliverySummary, error) { runs++; return postHostDeliverySummary{}, nil }), nil
+	})
+	cmd.SetArgs([]string{"plain post", "--as-me", "--orca-host-config", "host.yaml"})
+	if err := cmd.Execute(); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("receipt failure lost: %v", err)
+	}
+	if x.posts != 1 || runs != 0 {
+		t.Fatalf("posts=%d runs=%d", x.posts, runs)
+	}
+	if !strings.Contains(x.stderr.String(), "post succeeded") {
+		t.Fatal("missing truthful receipt-failure notice")
+	}
+}
+func TestPostHostDeliveryIsNotActivatedWithoutLandedAdapter(t *testing.T) {
+	x := newPostFixture(t)
+	cmd := newCmdTeamChatPost(x.factory)
+	if cmd.Flags().Lookup("orca-host-config") != nil {
+		t.Fatal("production constructor exposed pending host adapter")
 	}
 }

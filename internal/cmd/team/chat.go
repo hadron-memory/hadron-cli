@@ -239,6 +239,9 @@ refused when stdin is an interactive terminal (use --body-file there).
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			if cmd.Flags().Changed("orca-host-config") && strings.TrimSpace(hostConfig) == "" {
+				return exitcode.Newf(exitcode.Usage, "--orca-host-config requires a host configuration file")
+			}
 			// Exactly one body source: the positional, --body, or --body-file.
 			if len(args) == 1 {
 				if body != "" || bodyFile != "" {
@@ -291,6 +294,20 @@ refused when stdin is an interactive terminal (use --body-file there).
 			if err != nil {
 				return err
 			}
+			var hostPass postHostDeliveryPass
+			if prepare != nil && cmd.Flags().Changed("orca-host-config") {
+				server, err := f.Server()
+				if err != nil {
+					return err
+				}
+				hostPass, err = prepare(ctx, hostConfig, postHostTarget{AppRef: scope.Ref, Server: server})
+				if err != nil {
+					return err
+				}
+				if hostPass == nil {
+					return exitcode.Newf(exitcode.Unavailable, "host delivery preflight returned no pass; nothing was posted")
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -330,7 +347,7 @@ refused when stdin is an interactive terminal (use --body-file there).
 				return api.MapError(err)
 			}
 			msg := teamChatMessageDTOFromFields(resp.CreateTeamChatMessage.TeamChatMessageFields)
-			return output.Write(f.IOStreams, f.JSON, msg, func(w io.Writer) error {
+			err = output.Write(f.IOStreams, f.JSON, msg, func(w io.Writer) error {
 				who := "you"
 				if msg.AuthorName != nil {
 					who = *msg.AuthorName
@@ -350,6 +367,16 @@ refused when stdin is an interactive terminal (use --body-file there).
 				_, err := fmt.Fprintf(w, "  app: %s\n", appLabel())
 				return err
 			})
+			if err != nil {
+				if hostPass != nil {
+					fmt.Fprintln(f.IOStreams.ErrOut, "note: the post succeeded but its receipt could not be written; check the chat before posting again")
+				}
+				return err
+			}
+			if hostPass != nil {
+				reportPostHostDelivery(ctx, hostPass, f.IOStreams.ErrOut, msg.Seq)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&body, "body", "", "message body, or - to read from stdin")
