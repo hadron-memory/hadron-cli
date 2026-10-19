@@ -8,14 +8,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Deliberately unregistered until the generated R57 adapter and bound identity
-// reader can be integrated against landed contracts.
+// Transport seam used by the production self adapter and lifecycle tests.
 func newCmdTeamChatInboxWithTransport(f *cmdutil.Factory, source inboxTransport, identity inboxIdentityReader) *cobra.Command {
 	var ackFile string
 	cmd := &cobra.Command{
 		Use: "inbox", Short: "Display your worker's delivery batches and acknowledge complete output",
 		Long: `Display delivery batches for this worktree's own live worker session.
-Acknowledgment follows complete output; this does not mark chat read.
+Acknowledgment follows complete output and records delivery marks only;
+it does not call chat mark-read. S2 integration is server-owned.
+Read one bounded page; use --after with its pageInfo.endCursor for the next.
+Before acknowledgment, a failed run may redisplay a batch if repulled.
+Retain JSON output privately when you need proof ids for ack-only recovery.
+Real-worker activation is blocked by hadron-server#2121; no host is enabled.
 If acknowledgment is unconfirmed, retain the output. Retry only its proof list
 with --ack-file PATH (JSON: {"batchIds":["opaque-proof"]}); use - for piped stdin.
 Recovery acknowledges without reading or redisplaying batches. Proofs must

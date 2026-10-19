@@ -54,7 +54,7 @@ type inboxTransport interface {
 	Ack(context.Context, inboxIdentity, []string) (inboxAck, error)
 }
 
-// runInbox is not wired to a production command until the R57 server arm lands.
+// runInbox preserves complete-output-before-ack for the landed R57 self arm.
 func runInbox(ctx context.Context, source inboxTransport, identity inboxIdentityReader, streams *output.IOStreams, jsonMode bool, ackOnly []string) error {
 	scope, err := identity(ctx)
 	if err != nil {
@@ -161,12 +161,16 @@ func validateInboxProofs(ids []string) error {
 }
 
 func inboxFailure(err error, message string) error {
-	return exitcode.Newf(exitcode.FromError(api.MapError(err)), "%s", message)
+	code := exitcode.FromError(api.MapError(err))
+	if api.HasErrorCode(err, "SESSION_NOT_LIVE") {
+		code = exitcode.Conflict
+	}
+	return exitcode.Newf(code, "%s", message)
 }
 
 func inboxUnconfirmed(streams *output.IOStreams, err error) error {
 	_, _ = fmt.Fprintln(streams.ErrOut, "Inbox output completed; acknowledgment is unconfirmed. Keep the output and use ack-file recovery in the same live session; do not redisplay it to acknowledge.")
-	return exitcode.Silent(exitcode.FromError(api.MapError(err)))
+	return exitcode.Silent(exitcode.FromError(inboxFailure(err, "inbox acknowledgment unconfirmed")))
 }
 
 func writeInboxOutput(streams *output.IOStreams, jsonMode bool, v any, human func(io.Writer) error) error {

@@ -740,6 +740,13 @@ func DescendantCount(err error) int {
 
 func codeForExtension(code string) int {
 	switch {
+	// S1/R57 self delivery: stale session/proof requires a fresh binding/read.
+	case code == "WAKE_PROOF_STALE":
+		return exitcode.Conflict
+	case code == "WAKE_PROOF_INVALID":
+		return exitcode.Usage
+	case code == "WAKE_PROOF_REQUESTER_MISMATCH":
+		return exitcode.Forbidden
 	// S9 settings (#911): invalid candidates are input errors; a live ticker
 	// conflict or unavailable standby behavior requires a state change.
 	case code == "DELIVERY_SETTINGS_OUT_OF_RANGE" || code == "DELIVERY_SETTINGS_CONFLICT" || code == "TICKER_SETTINGS_OUT_OF_RANGE":
