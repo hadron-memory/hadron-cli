@@ -89,3 +89,22 @@ func TestNodeClearRoleUnreadableKindDoesNotWrite(t *testing.T) {
 		}
 	}
 }
+
+func TestNodeClearRoleDryRunChecksCurrentAndResultingKinds(t *testing.T) {
+	stubs := bodyOnlyStubs(delimiterBody)
+	stubs["GetNodeRaw"] = strings.Replace(stubs["GetNodeRaw"], `"role":null`, `"role":"spec.rule"`, 1)
+	// templatedNodeJSON historically may omit role; add it explicitly if so.
+	if !strings.Contains(stubs["GetNodeRaw"], `"role":"spec.rule"`) {
+		stubs["GetNodeRaw"] = strings.Replace(stubs["GetNodeRaw"], `"id":"n1"`, `"id":"n1","role":"spec.rule"`, 1)
+	}
+	_, _, captured, err := runNode(t, stubs, "", "node", "update", testNodeURN,
+		"--role", "", "--runnable", "--dry-run")
+	if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "two governed kinds") {
+		t.Fatalf("expected same union refusal as write: %v", err)
+	}
+	for op := range captured {
+		if op != "ResolveUrn" && op != "GetNodeRaw" {
+			t.Fatalf("preview wrote %s", op)
+		}
+	}
+}

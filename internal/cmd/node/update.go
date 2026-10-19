@@ -341,6 +341,14 @@ schema-governed memory the server validates the result and rejects a violation.)
 				}
 				input.Reason = reasonPtr
 
+				if clearRole {
+					// A preview must make the same current ∪ resulting kind
+					// check as the literal-null writer. The blank routing value
+					// denotes no resulting role; it is never sent to the server.
+					if err := api.CheckUpdateKinds(&input, cur); err != nil {
+						return err
+					}
+				}
 				if dryRun {
 					return writeUpdatePreview(f, stored, changed, body, contentChanged, warnings)
 				}
