@@ -344,6 +344,34 @@ func TestTeamHostRunOnceScopeRefusalTurnsDeliveryOff(t *testing.T) {
 	}
 }
 
+// Rodolfo's §10 P2 on #939, end to end: a refusal that echoes the host key
+// never reaches the operator's output, in either format.
+func TestTeamHostRunNeverPrintsUpstreamDeliveryText(t *testing.T) {
+	for _, asJSON := range []bool{false, true} {
+		cfg := writeHostConfig(t, deliveryOn)
+		srv, _ := hostServerFake(t, map[string]string{
+			"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": noOps,
+			"DeliveryBatches": `{"errors":[{"message":"echo hk_host_key PRIVATE-CHAT-TEXT","extensions":{"code":"FORBIDDEN"}}],"data":null}`,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		args := []string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL}
+		if asJSON {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("run --once: %v", err)
+		}
+		if strings.Contains(out.String(), "hk_host_key") || strings.Contains(out.String(), "PRIVATE") {
+			t.Fatalf("json=%v output carries upstream text:\n%s", asJSON, out.String())
+		}
+		if !strings.Contains(out.String(), "FORBIDDEN") {
+			t.Fatalf("json=%v output lacks the code:\n%s", asJSON, out.String())
+		}
+	}
+}
+
 // With delivery off, nothing reads batches.
 func TestTeamHostRunOnceWithoutDeliveryReadsNoBatches(t *testing.T) {
 	cfg := writeHostConfig(t, "")

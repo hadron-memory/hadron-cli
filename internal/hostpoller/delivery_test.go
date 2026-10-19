@@ -3,6 +3,7 @@ package hostpoller
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -292,5 +293,60 @@ func TestDeliveryConfig(t *testing.T) {
 	}
 	if got := c.DeliveryStateDir(); got != "/s" {
 		t.Fatalf("delivery state beside the state file, got %q", got)
+	}
+}
+
+// Rodolfo's §10 P2 on #939: the poller never copies a source's error text
+// into an event. It logs the code the error declares, when that code is
+// safe, else a fixed class.
+const leak = "PRIVATE-CHAT-TEXT hk_host_key PROOF-SECRET"
+
+type codedErr struct{ code string }
+
+func (e codedErr) Error() string        { return "coded: " + leak }
+func (e codedErr) DeliveryCode() string { return e.code }
+
+func noLeak(t *testing.T, events []Event) {
+	t.Helper()
+	for _, e := range events {
+		if strings.Contains(e.Detail+e.Outcome, "PRIVATE") || strings.Contains(e.Detail+e.Outcome, "hk_host_key") {
+			t.Fatalf("event carries upstream text: %+v", e)
+		}
+	}
+}
+
+func TestDeliveryDiagnosticsCarryNoSourceText(t *testing.T) {
+	for name, c := range map[string]struct {
+		err  error
+		kind string
+		want string
+	}{
+		"a plain error":               {errors.New(leak), "delivery-failed", "unclassified"},
+		"a declared code":             {codedErr{"FORBIDDEN"}, "delivery-failed", "FORBIDDEN"},
+		"a code that is not one":      {codedErr{"FORBIDDEN " + leak}, "delivery-failed", "unclassified"},
+		"a scope refusal with a leak": {fmt.Errorf("%w: %s", ErrDeliveryScope, leak), "delivery-off", "attention:deliver"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			p, _, _ := testPoller(t)
+			events := recordEvents(p)
+			p.EnableDelivery(&fakeBatches{err: c.err}, &fakeDeliverer{})
+			p.deliverStep(context.Background())
+			noLeak(t, events())
+			if !hasEvent(events(), c.kind, c.want) {
+				t.Fatalf("events %+v, want %s with %q", events(), c.kind, c.want)
+			}
+		})
+	}
+}
+
+func TestWakeDiagnosticsCarryNoSourceText(t *testing.T) {
+	p, _, _ := testPoller(t)
+	events := recordEvents(p)
+	p.EnableDelivery(&fakeBatches{}, &fakeDeliverer{})
+	p.EnableWakes(&fakeWakes{err: errors.New(leak)}, nil)
+	p.deliverStep(context.Background())
+	noLeak(t, events())
+	if !hasEvent(events(), "delivery-failed", "unclassified") {
+		t.Fatalf("events %+v", events())
 	}
 }

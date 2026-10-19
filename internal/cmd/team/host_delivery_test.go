@@ -254,3 +254,71 @@ func TestDeliveryEventLinesCarryCodesOnly(t *testing.T) {
 		t.Fatalf("a delivery says unreported: %q", e.Detail)
 	}
 }
+
+// Rodolfo's §10 P2 on #939 (issuecomment-6262918146): a server or proxy
+// error may echo the request or carry message text, and delivery errors
+// reach the operator's log. They carry an allowlisted code or a fixed
+// class, never upstream text; scope-off is still recognised.
+const leak = "PRIVATE-CHAT-TEXT hk_host_key PROOF-SECRET"
+
+type deliveryCoded interface{ DeliveryCode() string }
+
+func TestDeliveryErrorsCarryNoUpstreamText(t *testing.T) {
+	cases := []struct {
+		name, body, code string
+		scope            bool
+	}{
+		{"a refusal echoing the request", `{"errors":[{"message":"` + leak + `","extensions":{"code":"FORBIDDEN"}}],"data":null}`, "FORBIDDEN", false},
+		{"a scope refusal echoing the key", `{"errors":[{"message":"` + leak + `","extensions":{"code":"APP_KEY_SCOPE_REQUIRED"}}],"data":null}`, "APP_KEY_SCOPE_REQUIRED", true},
+		{"a code not on the list", `{"errors":[{"message":"` + leak + `","extensions":{"code":"SOMETHING_NEW"}}],"data":null}`, "server-refused", false},
+		{"an error with no code", `{"errors":[{"message":"` + leak + `"}],"data":null}`, "server-refused", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			s, _ := deliveryFake(t, map[string][]string{"DeliveryBatches": {c.body}, "AcknowledgeDeliveryBatches": {c.body}})
+			_, err := s.Batches(context.Background())
+			checkClean(t, "read", err, c.code)
+			if errors.Is(err, hostpoller.ErrDeliveryScope) != c.scope {
+				t.Fatalf("scope %v, want %v: %v", errors.Is(err, hostpoller.ErrDeliveryScope), c.scope, err)
+			}
+			_, err = s.Ack(context.Background(), "PROOF-SECRET", nil)
+			checkClean(t, "ack", err, c.code)
+		})
+	}
+}
+
+func TestDeliveryTransportErrorsCarryNoUpstreamText(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte("<html>" + leak + "</html>"))
+	}))
+	t.Cleanup(srv.Close)
+	client, err := api.NewClient(srv.URL, "hk_host_key", srv.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &hostServer{client: client, app: "a"}
+	_, err = s.Batches(context.Background())
+	checkClean(t, "read", err, "")
+}
+
+// checkClean: err is a delivery error with a fixed text, no upstream
+// content, and (when want is set) that code.
+func checkClean(t *testing.T, call string, err error, want string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("%s: no error", call)
+	}
+	for _, bad := range []string{"PRIVATE", "hk_host_key", "PROOF-SECRET", "html"} {
+		if strings.Contains(err.Error(), bad) {
+			t.Fatalf("%s error carries %q: %v", call, bad, err)
+		}
+	}
+	var coded deliveryCoded
+	if !errors.As(err, &coded) || coded.DeliveryCode() == "" {
+		t.Fatalf("%s error declares no delivery code: %v", call, err)
+	}
+	if want != "" && coded.DeliveryCode() != want {
+		t.Fatalf("%s code %q, want %q", call, coded.DeliveryCode(), want)
+	}
+}
