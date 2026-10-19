@@ -17,7 +17,7 @@ Set exposes --batch-window-seconds, --busy-delay-seconds,
 passed empty/null/default/fractional/overflow values refuse before requests.
 Cobra Changed plus generated pointers/omitempty preserve omission and false.
 No reset/null path or standbyEffective input. Empty patch sends {} and prints
-“nothing changed (unchanged readback),” never a claimed modification.
+“Current setting values (manager-only set),” never a participant-read or database-no-op claim.
 
 Batch window IS ticker cadence floor, one dial; help states this coupling next
 to the flag: existing tickers keep their cadence and a raise above a live
@@ -118,3 +118,14 @@ updates add explicit updated/unchanged receipts and readable standby labels;
 JSON keys, input/transport/auth and error mappings are unchanged. User help
 removes S7/GraphQL terminology. P3 string flag placeholders are deferred; empty
 set remains the gate's explicitly chosen manager-write readback semantics.
+
+## LOCAL empty-set clarification
+
+Jack's P2 is addressed by copy narrowing, not a gate-changing transport rewrite:
+empty set remains the selected manager-only `{}` mutation. Help explicitly names
+that permission requirement and points readers to get. Output describes current
+setting values and no longer says “nothing changed”: server writeAppSettings
+still calls App.update and App has @updatedAt. Settings values preserve omission;
+that does not imply zero database/audit metadata writes. Red regression pins both
+the permission distinction and absence of the broad no-op promise. No input,
+JSON, operations, credentials or transport changes.

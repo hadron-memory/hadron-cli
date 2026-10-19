@@ -102,7 +102,7 @@ try:
                 if mode:
                     assert json.loads(result.stdout) == SETTINGS
                 elif expected == {}:
-                    assert 'nothing changed' in result.stdout and 'Delivery settings updated.' not in result.stdout
+                    assert 'Current setting values (manager-only set)' in result.stdout and 'Delivery settings updated.' not in result.stdout
                 else:
                     assert 'Delivery settings updated.' in result.stdout
             for refusal, code in [

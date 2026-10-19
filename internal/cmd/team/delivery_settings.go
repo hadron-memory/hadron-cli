@@ -50,7 +50,7 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 	help := "Any App participant may read these settings.\n\n" + deliverySettingsHelp
 	if set {
 		use, short = "set", "Change the App's delivery settings"
-		help = "Change only the fields you pass; omitted fields keep their values.\nExplicit --standby=false sends false. No null or reset values are accepted.\nWith no field flags, request unchanged settings readback, not a change.\n\nThe server currently permits only App managers to write settings. These\ncommands use your ordinary authenticated caller, never a bound worker's\nsession or a fallback credential.\n\n" + deliverySettingsHelp
+		help = "Change only the fields you pass; omitted fields keep their values.\nExplicit --standby=false sends false. No null or reset values are accepted.\nWith no field flags, set returns current setting values but still requires\nmanager write permission. Use get for a read.\n\nThe server currently permits only App managers to write settings. These\ncommands use your ordinary authenticated caller, never a bound worker's\nsession or a fallback credential.\n\n" + deliverySettingsHelp
 	}
 	c := &cobra.Command{Use: use, Short: short, Long: help, Args: cobra.NoArgs}
 	var batch, busy, stuck string
@@ -128,7 +128,7 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 				return err
 			}
 			if set && !cmd.Flags().Changed("batch-window-seconds") && !cmd.Flags().Changed("busy-delay-seconds") && !cmd.Flags().Changed("stuck-window-seconds") && !cmd.Flags().Changed("standby") {
-				if _, err := fmt.Fprintln(w, "No settings passed, so nothing changed (unchanged readback). Current settings:"); err != nil {
+				if _, err := fmt.Fprintln(w, "No setting fields supplied. Current setting values (manager-only set):"); err != nil {
 					return err
 				}
 			}

@@ -92,7 +92,7 @@ func TestTeamDeliverySettingsPatchPresence(t *testing.T) {
 		if seen != 1 {
 			t.Fatalf("mutations %d", seen)
 		}
-		if tc.args == nil && (!strings.Contains(out, "unchanged") || strings.Contains(out, "✓")) {
+		if tc.args == nil && (!strings.Contains(out, "Current setting values (manager-only set)") || strings.Contains(out, "✓")) {
 			t.Fatalf("empty patch claimed a change: %q", out)
 		}
 	}
