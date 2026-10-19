@@ -100,12 +100,25 @@ poller.
 1. **Reconcile** confirmed records first (below). Anything proven delivered is
    acked without typing.
 2. **Check the batch:**
-   - its shape: one line, our prefix, ≤ 8,000 characters, seqs inside their
-     ranges, this worker's. A malformed batch is neither typed nor acked nor
-     held; S5 has no reason for it, by design;
+   - its shape: one line, our prefix, seqs inside their ranges, this
+     worker's, and no longer than S1 can render. S1 caps a batch at 10
+     messages within a 6,000-character body budget, but always delivers the
+     first message whole and alone, up to the 65,536-character chat body;
+     the bound is that plus 4,096 for the header and hints. (Colette's P2 on
+     #939: the old 8,000 refused a valid whole message.) A malformed batch is
+     neither typed nor acked nor held; S5 has no reason for it, by design;
    - `deliverAfter`;
    - the proof's remaining life against the **budget**: send, confirm,
-     record and ack, about 4 minutes.
+     record and ack, about 4 minutes;
+   - **the terminal's limit.** `orca terminal send` takes text only as
+     `--text`, one argv string, which Linux caps at 131,072 bytes. A valid
+     batch longer than that (a whole message of about 43,000 or more 3-byte
+     characters) can't be typed through Orca. It fails as
+     `too-long-to-type`: left due, never truncated, acked, held or recorded.
+     Since S1 always delivers the oldest message first, such a message
+     blocks that worker's chat delivery until the server renders it
+     differently. That is an open residual for the server and product side,
+     not decided here.
 3. **Find the terminal**, fresh: in a registered worktree (cleaned,
    symlinks resolved), an agent and never a shell.
    - **Two agent terminals:** hold `two-agents`.

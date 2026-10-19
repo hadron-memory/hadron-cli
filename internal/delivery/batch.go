@@ -21,10 +21,15 @@ import (
 // its own leftover in a composer: anything else there is someone's draft.
 const Prefix = "[hadron chat"
 
-// MaxTextRunes bounds a batch's text: S1 caps a batch at 10 messages or
-// about 6,000 characters plus an overflow line, so a much longer text is a
-// contract error, not something to type.
-const MaxTextRunes = 8000
+// MaxTextRunes bounds a batch's text by S1's own rule (renderBatch.ts at
+// server main ad7f1c2): at most 10 messages within a 6,000-character body
+// budget, except that the first message is always delivered whole and
+// alone, up to the 65,536-character chat body. The header, authors, parent
+// context, overflow lines and reply hint come on top; 4,096 covers them. A
+// longer text is a contract error. The server counts UTF-16 units, which
+// are never fewer than runes. (Colette's LOCAL P2 on #939: the old 8,000
+// refused a valid whole message.)
+const MaxTextRunes = 65_536 + 4_096
 
 // Range is one channel's part of a batch (S1 #2017 issuecomment-6246620593).
 // Seqs are the exact message seqs rendered, at most ten across the batch.

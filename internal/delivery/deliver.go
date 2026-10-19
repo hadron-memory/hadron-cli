@@ -255,6 +255,11 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 	if ctx.Err() != nil {
 		return d.emit(b, r, Outcome{Kind: Deferred, Reason: "stopping"})
 	}
+	// A valid batch longer than one argv string can carry cannot be typed
+	// through Orca at all. Never truncated: it is left due, and says why.
+	if len(b.Text) > orcaterm.MaxSendTextBytes {
+		return d.emit(b, r, Outcome{Kind: Failed, Reason: "too-long-to-type"})
+	}
 
 	l := line{
 		text: b.Text, interrupt: b.Interrupt, busyDeadline: b.BusyDeadline,
