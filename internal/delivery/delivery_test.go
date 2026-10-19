@@ -591,6 +591,51 @@ func TestATextTooLongForTheTerminalIsNeverTypedNorTruncated(t *testing.T) {
 	}
 }
 
+// textOfBytes is a valid batch text of exactly n UTF-8 bytes, mostly 3-byte
+// characters. When last is set, it ends in one: that character's final
+// byte is the text's n-th.
+func textOfBytes(t *testing.T, n int, last bool) string {
+	t.Helper()
+	head := "[hadron chat] 1 for Joshua · #5 Ada: "
+	tail := ""
+	if last {
+		tail = "界"
+	}
+	need := n - len(head) - len(tail)
+	s := head + strings.Repeat("界", need/3) + strings.Repeat("x", need%3) + tail
+	if len(s) != n || !utf8.ValidString(s) {
+		t.Fatalf("built %d bytes, want %d", len(s), n)
+	}
+	return s
+}
+
+// Xan's gate amendment on #907 (2026-10-19 08:14Z): the transport bound is
+// pinned at its boundary with non-ASCII text. MaxSendTextBytes is typed
+// whole; one byte more, as the last byte of a 3-byte character, is refused
+// with no side effect. Bytes are counted, not characters.
+func TestTheTerminalBoundIsExactInBytes(t *testing.T) {
+	h := newHarness(t)
+	b := h.batch()
+	b.Text = textOfBytes(t, orcaterm.MaxSendTextBytes, false)
+	if o := h.deliver(b); o.Kind != Delivered {
+		t.Fatalf("at the bound: %+v", o)
+	}
+	if len(h.orca.sends) != 1 || h.orca.sends[0].text != b.Text {
+		t.Fatal("at the bound the whole text is typed once")
+	}
+
+	h = newHarness(t)
+	b = h.batch()
+	b.Text = textOfBytes(t, orcaterm.MaxSendTextBytes+1, true)
+	if o := h.deliver(b); o.Kind != Failed || o.Reason != "too-long-to-type" {
+		t.Fatalf("one byte over: %+v", o)
+	}
+	h.wantNoSend()
+	if len(h.server.acks)+len(h.server.holds) != 0 || len(h.records()) != 0 {
+		t.Fatalf("acks %+v holds %+v records %+v", h.server.acks, h.server.holds, h.records())
+	}
+}
+
 // --- 2.2 finding the recipient ---------------------------------------------------
 
 func TestFindingTheRecipient(t *testing.T) {

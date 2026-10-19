@@ -252,6 +252,13 @@ not delivered yet (hadron-cli#906). A held delivery is not reported to the
 server yet (hadron-cli#940): it raises no server alarm, and team host
 status shows it as UNREPORTED.
 
+A single message longer than 131,071 bytes of UTF-8 cannot be typed (orca
+terminal send carries text as one argument). It fails as too-long-to-type,
+is never truncated or acknowledged, and stays due. The server delivers the
+oldest message first, so it BLOCKS all later chat delivery to that worker
+until hadron-server#2121 lands. Delivery for real workers stays off until
+then.
+
 --once runs a single poll and waits for what it collected. Events print one
 per line; --json prints each as a JSON object.`,
 		Args: cobra.NoArgs,

@@ -68,6 +68,16 @@ It is not authoritative delivery health, which is the server's (S5). It reads
 `stale` when the snapshot is missing, unreadable, or older than three poll
 intervals.
 
+**A message too long to type blocks its worker** (hadron-server#2121). `orca
+terminal send` carries text as one argument, at most 131,071 bytes of UTF-8,
+while the server delivers a single message whole up to 65,536 characters.
+So a message of about 43,700 or more 3-byte characters (or about 32,700 or
+more 4-byte ones) can't be typed. It shows as `too-long-to-type` in the
+poller's events and `team host status`, every poll. It is never truncated or
+acknowledged, and it stays due. Since the server hands the oldest message
+first, **no later chat reaches that worker** until #2121 lands. That is why
+activation for real workers is blocked on #2121; this guide authorizes none.
+
 **Holds are not reported to the server yet** (hadron-cli#940). Until the
 server has the delivery hold report (S5), a held delivery stays on this host.
 `team host status` shows it as `UNREPORTED` (`"unreported": true` in JSON),
