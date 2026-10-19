@@ -9,6 +9,8 @@ package hostpoller
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
 )
@@ -16,6 +18,28 @@ import (
 // BatchSource reads this host's due batches with the host key.
 type BatchSource interface {
 	Batches(ctx context.Context) ([]delivery.Batch, error)
+}
+
+// WakeSource reads this host's due wakes with the host key (dueWakes,
+// paged to exhaustion over this host's registered workers).
+type WakeSource interface {
+	Wakes(ctx context.Context) (WakePage, error)
+}
+
+// WakePage is one step's due wakes.
+type WakePage struct {
+	Wakes []delivery.Wake
+	// BudgetExhausted: WAKE_BUDGET_EXHAUSTED. Nothing is typed; the
+	// withheld wakes stay due.
+	BudgetExhausted bool
+	// Dormant and Withheld are counted in status only.
+	Dormant, Withheld int
+}
+
+// WakeDeliverer carries one wake to its recipient; *delivery.Deliverer is
+// one.
+type WakeDeliverer interface {
+	DeliverWake(ctx context.Context, w delivery.Wake, r delivery.Recipient) delivery.Outcome
 }
 
 // Deliverer carries one batch to its recipient; *delivery.Deliverer is one.
@@ -35,6 +59,71 @@ func (p *Poller) EnableDelivery(src BatchSource, d Deliverer) {
 	p.batches, p.deliverer, p.deliveryOff = src, d, false
 }
 
+// EnableWakes turns tick and task wake delivery on (cli#906 row 1). Wakes
+// are read only while chat delivery is on: they share its key, scope and
+// per-worker chain.
+func (p *Poller) EnableWakes(src WakeSource, d WakeDeliverer) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.wakes, p.wakeDeliverer = src, d
+}
+
+func (p *Poller) wakesEnabled() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.wakes != nil
+}
+
+// wakeStep reads the due wakes and queues each for its worker, after the
+// step's batches on the same chain. It returns the read's step code.
+func (p *Poller) wakeStep(ctx context.Context) string {
+	page, err := p.wakes.Wakes(ctx)
+	if errors.Is(err, ErrDeliveryScope) {
+		p.scopeOff(err)
+		return delivery.StepOffByScope
+	}
+	at := p.now().UTC()
+	if err != nil {
+		p.log("delivery-failed", "", "", "", "reading wakes: "+err.Error())
+		p.wakeRead(delivery.WakeRead{At: at, Read: delivery.StepReadFailed})
+		return delivery.StepReadFailed
+	}
+	if page.BudgetExhausted {
+		p.wakeRead(delivery.WakeRead{At: at, Read: delivery.WakeBudgetExhausted, Dormant: page.Dormant, Withheld: page.Withheld})
+		day := at.Format(time.DateOnly)
+		p.mu.Lock()
+		first := p.budgetLogged != day
+		p.budgetLogged = day
+		p.mu.Unlock()
+		if first {
+			p.log("wake-budget-exhausted", "", "", "", "the App's daily wake budget is spent: no tick or task is typed until it resets")
+		}
+		return delivery.StepRead
+	}
+	p.wakeRead(delivery.WakeRead{At: at, Read: delivery.StepRead, Dormant: page.Dormant, Withheld: page.Withheld})
+	for i, w := range page.Wakes {
+		r, ok := p.recipient(w.WorkerID)
+		if !ok {
+			p.log("delivery-skipped", "", "", "", "a wake for a worker not registered on this host ("+w.Span()+")")
+			continue
+		}
+		if ctx.Err() != nil {
+			break
+		}
+		// Keyed by position, not by reason keys: the queue key is never
+		// logged, but keys stay out of everything but the records.
+		key := fmt.Sprintf("wake:%s:%d", w.WorkerID, i)
+		p.enqueue(w.WorkerID, key, func() { p.wakeDeliverer.DeliverWake(ctx, w, r) })
+	}
+	return delivery.StepRead
+}
+
+func (p *Poller) wakeRead(r delivery.WakeRead) {
+	if p.WakeStep != nil {
+		p.WakeStep(r)
+	}
+}
+
 // DeliveryEnabled reports whether this run delivers.
 func (p *Poller) DeliveryEnabled() bool {
 	p.mu.Lock()
@@ -42,27 +131,40 @@ func (p *Poller) DeliveryEnabled() bool {
 	return p.batches != nil && !p.deliveryOff
 }
 
-// deliverStep reads the due batches and queues each for its worker. A
-// failure here never fails the check-in: operations already ran.
+// deliverStep reads the due batches and queues each for its worker, then
+// does the same for the due wakes. A failure here never fails the check-in:
+// operations already ran.
 func (p *Poller) deliverStep(ctx context.Context) {
 	if !p.DeliveryEnabled() || ctx.Err() != nil {
 		return
 	}
+	read := p.batchStep(ctx)
+	if read != delivery.StepOffByScope && p.wakesEnabled() && ctx.Err() == nil {
+		if p.wakeStep(ctx) == delivery.StepOffByScope {
+			read = delivery.StepOffByScope
+		}
+	}
+	p.stepDone(read)
+}
+
+// scopeOff switches delivery off for the run.
+func (p *Poller) scopeOff(err error) {
+	p.mu.Lock()
+	p.deliveryOff = true
+	p.mu.Unlock()
+	p.log("delivery-off", "", "", "", err.Error())
+}
+
+func (p *Poller) batchStep(ctx context.Context) string {
 	batches, err := p.batches.Batches(ctx)
 	if errors.Is(err, ErrDeliveryScope) {
-		p.mu.Lock()
-		p.deliveryOff = true
-		p.mu.Unlock()
-		p.log("delivery-off", "", "", "", err.Error())
-		p.stepDone(delivery.StepOffByScope)
-		return
+		p.scopeOff(err)
+		return delivery.StepOffByScope
 	}
 	if err != nil {
 		p.log("delivery-failed", "", "", "", "reading batches: "+err.Error())
-		p.stepDone(delivery.StepReadFailed)
-		return
+		return delivery.StepReadFailed
 	}
-	defer p.stepDone(delivery.StepRead)
 	for _, b := range batches {
 		r, ok := p.recipient(b.WorkerID)
 		if !ok {
@@ -70,7 +172,7 @@ func (p *Poller) deliverStep(ctx context.Context) {
 			continue
 		}
 		if ctx.Err() != nil {
-			return
+			break
 		}
 		key := "deliver:" + b.WorkerID + ":" + b.BatchKey
 		if b.BatchKey == "" {
@@ -78,6 +180,7 @@ func (p *Poller) deliverStep(ctx context.Context) {
 		}
 		p.enqueue(b.WorkerID, key, func() { p.deliverer.Deliver(ctx, b, r) })
 	}
+	return delivery.StepRead
 }
 
 // stepDone reports a finished delivery step (cli#906: `team host status`).

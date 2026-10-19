@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hadron-memory/hadron-cli/internal/delivery"
 )
 
 // The closed set of operation types a host carries out (cor:agt:070:03).
@@ -135,6 +137,9 @@ type Poller struct {
 	// DeliveryStep, when set, is told how each delivery step's batch read
 	// went (delivery.StepRead, StepReadFailed, StepOffByScope).
 	DeliveryStep func(at time.Time, read string)
+	// WakeStep, when set, is told how each step's wake read went (cli#906
+	// row 1).
+	WakeStep func(delivery.WakeRead)
 	// agents are the agent processes this poller launched, by worker id.
 	agents map[string]Agent
 	// agentTrees is the worktree each launched agent runs in, by worker id.
@@ -146,6 +151,11 @@ type Poller struct {
 	batches     BatchSource
 	deliverer   Deliverer
 	deliveryOff bool
+	// Tick and task wakes (cli#906 row 1): off unless EnableWakes.
+	wakes         WakeSource
+	wakeDeliverer WakeDeliverer
+	// budgetLogged is the UTC day an exhausted wake budget was last logged.
+	budgetLogged string
 }
 
 // New builds a poller. key is the host key, kept only to scrub it from

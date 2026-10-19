@@ -15,7 +15,18 @@ const (
 	StepRead       = "read"
 	StepReadFailed = "read-failed"
 	StepOffByScope = "off-by-scope"
+	// WakeBudgetExhausted: the wake read answered WAKE_BUDGET_EXHAUSTED.
+	WakeBudgetExhausted = "budget-exhausted"
 )
+
+// WakeRead is how a step's wake read went (cli#906 row 1): its code and
+// the counts dueWakes reports for status. Counts only.
+type WakeRead struct {
+	At       time.Time
+	Read     string
+	Dormant  int
+	Withheld int
+}
 
 // WorkerStatus is a worker's newest delivery event: codes only.
 type WorkerStatus struct {
