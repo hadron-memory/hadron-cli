@@ -169,6 +169,53 @@ Holds are reported once per (batch, reason) change, not every poll.
 - **`worker.deliver`** stays reported FAILED. It is a per-task-event
   operation, and chat delivery doesn't use it.
 
+## Tick and task wakes (#906 row 1)
+
+Gated at #906 issuecomment-6257655782, under R53 (A′) and R63. Built behind
+typed seams (`hostpoller.WakeSource`, `delivery.WakeServer`). The `dueWakes`
+adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
+(c), so nothing here is wired into `team host run` yet.
+
+- **The read:** in the same step, after the batches, while chat delivery is
+  on. Each wake goes on its worker's chain behind that worker's batches.
+  - A wake for a worker not registered here is skipped and logged.
+  - `WAKE_BUDGET_EXHAUSTED` types nothing, and is logged once per UTC day.
+  - A scope refusal switches delivery off, as for batches.
+- **What is typed:** one line for the wake's TICK and TASK reasons that have
+  no record yet, joined by `; ` and capped at 1,000 characters. When cut, the
+  line says how many reasons it left out.
+  - TICK: `[hadron tick] <ticker>: scheduled check-in. Read your team chat and tasks.`
+  - TASK: `[hadron task] <event>: <title> (<task id>)`.
+  - A **MENTION-only wake is never typed and never acked**: its text arrives
+    as an S1 batch.
+  - Both prefixes are own prefixes (`OwnPrefixes`). So a batch clears a
+    leftover tick line, and a wake clears a leftover batch.
+- **The terminal path** is the batch's (`typeLine`): the same lock, recipient,
+  R2 composer, liveness, send and confirmation. There are two differences.
+  - A wake's hold is logged and shown in status, never reported to S5.
+  - A busy or unproven agent with no server `busyDeadline` holds as
+    `timing-unavailable`. A proven-idle one needs no deadline.
+- **Records** (`delivery/wakes/<worker>/`, 0600) hold one file per reason
+  key: `tick:<tickerId>:<lastTickAt>` or `task:<eventId>:<chainIndex>`. Each
+  file is in one of two states.
+  - `typed` is written after confirmation and before any ack. It **never
+    expires by age.**
+  - `acked` is written when the proof's ack returns acknowledged or unchanged.
+    It is pruned after a day.
+  - A landed ack also archives that ticker's older typed ticks (#2069's
+    monotone k). A task is archived only by its own ack.
+- **The ack** is sent when every TICK and TASK reason is recorded, and the
+  proof either names no channels and carries no MENTION, or `AckMixed` is
+  set. `AckMixed` may be set only once A′ is verified deployed.
+  - Before that, a mixed or channel-naming wake is typed once and held from
+    ack, and is never retyped.
+  - Recovery is always ack-only: after a lost ack, a stale proof or a
+    restart, the next read finds the keys recorded.
+- **Status:** the wake read's code, `dormant`/`withheld`,
+  `budgetExhaustedAt` (shown only while the budget is spent), and per worker
+  `lastFor` (batch or wake) and `ticksUnacked`. No reason key reaches
+  status, events or logs: an event's span is reason counts only.
+
 ## Config
 
 ```yaml
