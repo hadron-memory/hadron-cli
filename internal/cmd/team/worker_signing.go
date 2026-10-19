@@ -1,6 +1,8 @@
 package team
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -45,15 +47,74 @@ func overrideEdit(set, clear bool, v string) *string {
 
 const boundSigningHint = "note: this edit was sent from your bound worker session; if you manage this App, an edit made through a worker session may be what was refused — try from an unbound shell"
 
+// signingSession resolves, BEFORE the write, the worker session a signature or
+// trailer edit must go out through (#946 BLIND P2). The generic
+// AuthoredWriteContext is best-effort: it attaches nothing when it can't
+// verify a binding, which for these edits would silently make a bound worker's
+// edit the person's. So: no worktree or no binding is an unbound shell ("");
+// a binding that verifies for this request is its session; a binding that
+// doesn't refuses, and nothing is written.
+func signingSession(ctx context.Context, f *cmdutil.Factory) (string, error) {
+	b, _, err := readBindingFile(ctx)
+	if errors.Is(err, errNoWorktree) {
+		return "", nil
+	}
+	if err != nil {
+		return "", exitcode.Newf(exitcode.Usage, "cannot read this worktree's session binding (%v), so the edit can't be attributed; nothing was written", err)
+	}
+	if b == nil || b.SessionID == "" {
+		return "", nil
+	}
+	refuse := func(why string) error {
+		return exitcode.Newf(exitcode.Usage,
+			"this worktree is bound to worker session %s, but %s, so this signature/trailer edit can't go out through it; nothing was written. Make the edit from an unbound shell, or run it against the binding's server and App",
+			b.SessionID, why)
+	}
+	if b.WorkerID == "" || b.AppID == "" || b.Server == "" {
+		return "", refuse("the binding is incomplete")
+	}
+	server, err := f.Server()
+	if err != nil {
+		return "", err
+	}
+	// Endpoint is the client's own normalization: equal endpoints are the
+	// same server, whatever the spelling.
+	if api.Endpoint(server) != api.Endpoint(b.Server) {
+		return "", refuse("it belongs to " + b.Server + ", not " + server)
+	}
+	app, err := f.App()
+	if err != nil {
+		return "", err
+	}
+	if app != "" {
+		same, err := bindingsAppIdentity(ctx, f, app, b.AppID)
+		if err != nil {
+			return "", exitcode.Newf(exitcode.FromError(err), "cannot confirm the binding's App (%v); nothing was written", err)
+		}
+		if !same {
+			return "", refuse("it belongs to a different App than --app")
+		}
+	}
+	noteEndedBinding(ctx, b)
+	return b.SessionID, nil
+}
+
 func updateWorkerSigning(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, workerID string, e signingEdit) error {
-	ctx, attached := withSessionAttachRecorder(cmd.Context())
+	ctx := cmd.Context()
+	session, err := signingSession(ctx, f)
+	if err != nil {
+		return err
+	}
+	if session != "" {
+		ctx = api.WithSession(ctx, session)
+	}
 	resp, err := gen.UpdateWorkerSigning(ctx, client, workerID, e.override, e.signature, e.trailer)
 	if err != nil {
 		mapped := api.MapError(err)
 		// FORBIDDEN covers a non-manager AND a session-bound edit, and the CLI
 		// can't tell which: the server's sentence stays whole, and the hedge is
 		// added only when this edit really went out through a session.
-		if attached() && exitcode.FromError(mapped) == exitcode.Forbidden {
+		if session != "" && exitcode.FromError(mapped) == exitcode.Forbidden {
 			return exitcode.Newf(exitcode.Forbidden, "%s\n%s", mapped.Error(), boundSigningHint)
 		}
 		return mapped

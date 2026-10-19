@@ -1606,9 +1606,10 @@ is SHARED by every casting of that role, so editing it reaches everyone;
 and re-casting is barred by WORKER_IN_USE once a worker has done work —
 precisely the workers with an identity worth recording.
 
-Scope is ONE field on purpose. A worker's name is permanent per App
-(cor:agt:020:02), and role/agent define the casting itself, so neither is
-amendable here or anywhere.
+The editable parts of a casting are the override and the signature and
+trailer templates. A worker's name is permanent per App (cor:agt:020:02),
+and role/agent define the casting itself, so neither is amendable here or
+anywhere.
 
 The override REPLACES, it does not append. To extend an existing one, read
 it first (` + "`worker get <name>`" + ` prints it under "Prompt override") and pass
