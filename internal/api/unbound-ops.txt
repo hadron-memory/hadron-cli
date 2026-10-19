@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 71 unbound
+[Query] 70 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -13,7 +13,6 @@ aiModelPrice
 aiModelPrices
 aiServiceConfigs
 appAIConfig
-appDeliverySettings  # delivery settings belong to messaging C5 cli#911; outside ticker commands #923
 appKeys
 appNodes
 appTickerSettings  # server ticker settings (named-heartbeats epic, in flight — #1750/#1791 cycle); CLI parity follows the surface settling
@@ -78,7 +77,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 103 unbound
+[Mutation] 102 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -156,7 +155,6 @@ sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled
 setAiModelPrice
-setAppDeliverySettings  # delivery settings belong to messaging C5 cli#911; outside ticker commands #923
 setAppTickerSettings  # server ticker settings (named-heartbeats epic, in flight); CLI parity follows the surface settling
 setDashboardWidgets
 setDecisionLogDeciders  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
