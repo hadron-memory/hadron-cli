@@ -9,7 +9,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/hadron-memory/hadron-cli/internal/delivery"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -323,5 +325,140 @@ func TestTeamHostRunRefusesTwoWorkersOnOneDirectory(t *testing.T) {
 	}
 	if calls != 0 {
 		t.Fatalf("%d server calls before the refusal", calls)
+	}
+}
+
+// cli#906 row 3: `team host status` adds the poller's local delivery
+// snapshot. It is observational, reads no server state for it, and shows
+// codes only.
+type hostDeliveryStatus struct {
+	Delivery struct {
+		Enabled    bool    `json:"enabled"`
+		Mode       string  `json:"mode"`
+		OrcaBin    string  `json:"orcaBin"`
+		LastStepAt *string `json:"lastStepAt"`
+		LastRead   *string `json:"lastRead"`
+		Stale      bool    `json:"stale"`
+		Error      *string `json:"error"`
+		Workers    []struct {
+			Worker           string  `json:"worker"`
+			WorkerID         string  `json:"workerId"`
+			LastKind         string  `json:"lastKind"`
+			LastReason       string  `json:"lastReason"`
+			LastAt           *string `json:"lastAt"`
+			ConfirmedUnacked int     `json:"confirmedUnacked"`
+			ResolvedBy       string  `json:"resolvedBy"`
+		} `json:"workers"`
+	} `json:"delivery"`
+}
+
+func runHostStatus(t *testing.T, cfg string, args ...string) (string, error) {
+	t.Helper()
+	srv, _ := hostServerFake(t, map[string]string{"HostRegistrations": `{"data":{"hostRegistrations":[]}}`})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append([]string{"team", "host", "status", "--config", cfg, "--server", srv.URL}, args...))
+	err := root.Execute()
+	return out.String(), err
+}
+
+func hostStatusJSON(t *testing.T, cfg string) hostDeliveryStatus {
+	t.Helper()
+	out, err := runHostStatus(t, cfg, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var st hostDeliveryStatus
+	if err := json.Unmarshal([]byte(out), &st); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	return st
+}
+
+const deliveryOn = "delivery:\n  enabled: true\n  orca_bin: /opt/orca/bin/orca\n"
+
+func TestTeamHostStatusShowsTheDeliveryBlock(t *testing.T) {
+	cfg := writeHostConfig(t, deliveryOn)
+	stateDir := filepath.Dir(cfg)
+	now := time.Now().UTC()
+	book := delivery.NewStatusBook(stateDir)
+	book.Observe(delivery.Event{Time: now, Worker: "iris", WorkerID: "wkr1", Kind: delivery.Held, Reason: delivery.HoldDraft, ResolvedBy: "screen"})
+	if err := book.Step(now, delivery.StepRead); err != nil {
+		t.Fatal(err)
+	}
+	recs := &delivery.Records{Dir: filepath.Join(stateDir, "delivery", "records")}
+	if err := recs.Put(delivery.Batch{WorkerID: "wkr1", BatchKey: "k1", Ranges: []delivery.Range{{ChannelID: "ch", Incarnation: 1, FromSeq: 5, ThroughSeq: 5, Seqs: []int{5}}}}, now); err != nil {
+		t.Fatal(err)
+	}
+	d := hostStatusJSON(t, cfg).Delivery
+	if !d.Enabled || d.Mode != "enabled" || d.OrcaBin != "/opt/orca/bin/orca" || d.Stale || d.Error != nil || d.LastStepAt == nil || d.LastRead == nil || *d.LastRead != "read" {
+		t.Fatalf("delivery %+v", d)
+	}
+	if len(d.Workers) != 1 {
+		t.Fatalf("workers %+v", d.Workers)
+	}
+	w := d.Workers[0]
+	if w.Worker != "iris" || w.WorkerID != "wkr1" || w.LastKind != "held" || w.LastReason != "draft" || w.ConfirmedUnacked != 1 || w.ResolvedBy != "screen" || w.LastAt == nil {
+		t.Fatalf("worker %+v", w)
+	}
+	human, err := runHostStatus(t, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"delivery: enabled", "orca /opt/orca/bin/orca", "iris", "held draft", "confirmed-unacked 1", "resolved by screen"} {
+		if !strings.Contains(human, want) {
+			t.Errorf("human status lacks %q:\n%s", want, human)
+		}
+	}
+	if strings.Contains(human, "STALE") {
+		t.Errorf("a fresh snapshot is not stale:\n%s", human)
+	}
+}
+
+func TestTeamHostStatusDeliveryIsStaleWhenMissingCorruptOrOld(t *testing.T) {
+	t.Run("missing", func(t *testing.T) {
+		d := hostStatusJSON(t, writeHostConfig(t, deliveryOn)).Delivery
+		if !d.Stale || d.Error == nil || *d.Error != "status-missing" || d.Workers == nil {
+			t.Fatalf("%+v", d)
+		}
+	})
+	t.Run("corrupt", func(t *testing.T) {
+		cfg := writeHostConfig(t, deliveryOn)
+		dir := filepath.Join(filepath.Dir(cfg), "delivery")
+		_ = os.MkdirAll(dir, 0o700)
+		_ = os.WriteFile(filepath.Join(dir, "status.json"), []byte("{"), 0o600)
+		d := hostStatusJSON(t, cfg).Delivery
+		if !d.Stale || d.Error == nil || *d.Error != "status-unreadable" {
+			t.Fatalf("%+v", d)
+		}
+	})
+	t.Run("old", func(t *testing.T) {
+		cfg := writeHostConfig(t, deliveryOn)
+		// poll_interval_seconds is 30: older than three intervals is stale.
+		if err := delivery.NewStatusBook(filepath.Dir(cfg)).Step(time.Now().Add(-2*time.Minute), delivery.StepRead); err != nil {
+			t.Fatal(err)
+		}
+		d := hostStatusJSON(t, cfg).Delivery
+		if !d.Stale || d.Error != nil {
+			t.Fatalf("%+v", d)
+		}
+		human, _ := runHostStatus(t, cfg)
+		if !strings.Contains(human, "STALE") {
+			t.Errorf("human status should say STALE:\n%s", human)
+		}
+	})
+	t.Run("off by scope", func(t *testing.T) {
+		cfg := writeHostConfig(t, deliveryOn)
+		_ = delivery.NewStatusBook(filepath.Dir(cfg)).Step(time.Now(), delivery.StepOffByScope)
+		if d := hostStatusJSON(t, cfg).Delivery; d.Mode != "off-by-scope" {
+			t.Fatalf("%+v", d)
+		}
+	})
+}
+
+func TestTeamHostStatusDeliveryDisabled(t *testing.T) {
+	d := hostStatusJSON(t, writeHostConfig(t, "")).Delivery
+	if d.Enabled || d.Mode != "disabled" || d.Stale || d.Error != nil || d.Workers == nil || len(d.Workers) != 0 {
+		t.Fatalf("%+v", d)
 	}
 }
