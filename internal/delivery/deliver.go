@@ -131,6 +131,15 @@ type Deliverer struct {
 	Budget time.Duration
 	Emit   func(Event)
 
+	// Wakes acknowledges wake proofs; nil leaves wakes unacknowledged.
+	Wakes       WakeServer
+	WakeRecords *WakeRecords
+	// AckMixed is set only once A′ (hadron-server#2072) is verified
+	// deployed: a wake carrying a MENTION, or naming channels, may then be
+	// acknowledged once all its TICK and TASK reasons are typed. Off, C1
+	// acknowledges only a proof with no MENTION reason and no channels.
+	AckMixed bool
+
 	mu sync.Mutex
 	// reported is the last hold reason reported per batch, so a hold is
 	// reported once per change, not every poll.
@@ -141,9 +150,10 @@ type Deliverer struct {
 func New(server Server, orca Terminals, stateDir string) *Deliverer {
 	return &Deliverer{
 		Server: server, Orca: orca,
-		Records: &Records{Dir: filepath.Join(stateDir, "delivery", "records")},
-		LockDir: filepath.Join(stateDir, "delivery", "locks"),
-		Bound:   BoundWorker, Now: time.Now, Budget: DefaultBudget,
+		Records:     &Records{Dir: filepath.Join(stateDir, "delivery", "records")},
+		WakeRecords: &WakeRecords{Dir: filepath.Join(stateDir, "delivery", "wakes")},
+		LockDir:     filepath.Join(stateDir, "delivery", "locks"),
+		Bound:       BoundWorker, Now: time.Now, Budget: DefaultBudget,
 		Caps: Proven(),
 	}
 }
