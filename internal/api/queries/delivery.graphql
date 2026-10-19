@@ -38,3 +38,15 @@ mutation AcknowledgeDeliveryBatches($batchIds: [String!]!,
     unchanged
   }
 }
+# R57 own-session page: server auth binds this call via X-Hadron-Session.
+query SessionInbox($appRef: String!, $workerRefs: [String!]!,
+ # @genqlient(omitempty: true)
+ $after: String
+) {
+ deliveryBatches(appRef:$appRef, workerRefs:$workerRefs, first:200, after:$after) {
+  batches { id worker { id name } text deliverAfter busyDeadline interrupt overflow
+   ranges { channel { id } incarnation fromSeq throughSeq seqs }
+  }
+  pageInfo { hasNextPage endCursor }
+ }
+}
