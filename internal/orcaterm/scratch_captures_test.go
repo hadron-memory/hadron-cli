@@ -131,3 +131,46 @@ func TestSendWaitsOnlyWhereOrcaAllows(t *testing.T) {
 		})
 	}
 }
+
+// cli#906 row 2: Claude's steady-state liveness on the saved captures. Idle
+// needs positive evidence: a completed turn, or a fresh launch's banner with
+// only its own chrome below it. A thinking line is busy before its timer
+// appears. Anything else stays unknown (deferred to busyDeadline, no later).
+func TestClaudeIdleOnScratchCaptures(t *testing.T) {
+	for name, want := range map[string]Liveness{
+		"c01-start":         Idle, // fresh launch, update notice below the banner
+		"c13-ml3-esc-esc":   Idle,
+		"c30-restart":       Idle, // effort indicator below the banner
+		"c33-bs-on-empty":   Idle,
+		"c18-after-enter-1": Busy, // "✢ Noodling…", no timer yet
+		"c18-after-enter-4": Idle,
+		"c21-after-answer":  Idle, // completion line under the effort indicator
+		"c14-empty-esc-esc": Unknown,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got, why := IdleProof(scratchScreen(t, name).Tail, "claude"); got != want {
+				t.Fatalf("liveness %q (%s), want %q", got, why, want)
+			}
+		})
+	}
+}
+
+func TestClaudeWeakChromeNeverSubstitutesForEvidence(t *testing.T) {
+	box := []string{rule, "❯ ", rule, "  ⏵⏵ bypass permissions on (shift+tab to cycle)"}
+	for name, above := range map[string][]string{
+		"effort indicator alone":  {"                                    ◐ medium · /effort"},
+		"update notice alone":     {"  Updated to latest. Got 37 features, 227 bugfixes, and 65 other changes.", "  code.claude.com/docs/en/changelog for details"},
+		"logo without its banner": {"▝▜██████▀  Sonnet 5.5 · Claude Max"},
+		"ordinary output":         {"● You picked Alpha.", "◐ medium · /effort"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got, _ := IdleProof(append(append([]string{}, above...), box...), "claude"); got == Idle {
+				t.Fatalf("judged idle on chrome alone: %q", above)
+			}
+		})
+	}
+	thinking := append([]string{"❯ do a thing", "✶ Pondering…"}, box...)
+	if got, _ := IdleProof(thinking, "claude"); got != Busy {
+		t.Fatalf("a thinking line without a timer: %q, want busy", got)
+	}
+}
