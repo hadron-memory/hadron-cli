@@ -9,7 +9,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-const deliverySettingsJSON = `{"batchWindowSeconds":120,"busyDelaySeconds":600,"stuckWindowSeconds":900,"standbyEnabled":false,"standbyEffective":false}`
+const deliverySettingsJSON = `{"batchWindowSeconds":120,"busyDelaySeconds":600,"stuckWindowSeconds":900,"standbyEnabled":true,"standbyEffective":false}`
 
 func deliveryResponses() map[string]string {
 	r := taskResponses()
@@ -168,6 +168,48 @@ func TestTeamDeliverySettingsHelpAndText(t *testing.T) {
 	for _, s := range []string{"worktree binding", "batch window / ticker cadence floor", "120 s", "600 s", "900 s", "standbyEnabled", "standbyEffective"} {
 		if !strings.Contains(out, s) {
 			t.Fatalf("text lacks %q: %s", s, out)
+		}
+	}
+}
+
+// Review regression: floor edits never silently rewrite existing tickers.
+func TestTeamDeliverySettingsFloorHelpDoesNotPromiseRetiming(t *testing.T) {
+	for _, sub := range []string{"get", "set"} {
+		_, out, err := runTeamTask(t, deliveryResponses(), "team", "delivery-settings", sub, "--help")
+		if err != nil {
+			t.Fatal(err)
+		}
+		normalized := strings.Join(strings.Fields(out), " ")
+		if strings.Contains(normalized, "changing it changes ticker cadence") {
+			t.Fatal("help promises silent retiming")
+		}
+		for _, want := range []string{"Existing tickers keep their cadence", "Raising it above a live ticker's cadence is refused"} {
+			if !strings.Contains(normalized, want) {
+				t.Fatalf("missing consequence %q: %s", want, out)
+			}
+		}
+	}
+}
+
+// A stored-on projection must not be rendered as effective-on (Joran P2).
+func TestTeamDeliverySettingsDistinctStandbyText(t *testing.T) {
+	_, out, err := runTeamTask(t, deliveryResponses(), "team", "delivery-settings", "get")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range []struct{ label, value string }{{"standbyEnabled", "true"}, {"standbyEffective", "false"}} {
+		matched := false
+		for _, line := range strings.Split(out, "\n") {
+			if strings.Contains(line, row.label) {
+				matched = true
+				fields := strings.Fields(line)
+				if fields[len(fields)-1] != row.value {
+					t.Fatalf("wrong server value: %s", line)
+				}
+			}
+		}
+		if !matched {
+			t.Fatalf("missing %s", row.label)
 		}
 	}
 }
