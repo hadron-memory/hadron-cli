@@ -983,3 +983,28 @@ func TestBoundWorkerReadsALinkedWorktreesBinding(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+// cli#906 row 6: when Orca reports no agent identity, the recipient's family
+// comes from the screen. Events say which, as a bounded code; it grants
+// nothing (the agreement rule still decides).
+func TestEventsSayHowTheTerminalWasResolved(t *testing.T) {
+	for want, identity := range map[string]*string{"identity": ptr("claude"), "screen": nil} {
+		t.Run(want, func(t *testing.T) {
+			h := newHarness(t)
+			h.orca.terms[0].AgentIdentity = identity
+			if o := h.deliver(h.batch()); o.Kind != Delivered {
+				t.Fatalf("outcome %+v", o)
+			}
+			last := h.events[len(h.events)-1]
+			if last.ResolvedBy != want {
+				t.Fatalf("event %+v, want resolvedBy %q", last, want)
+			}
+		})
+	}
+	h := newHarness(t)
+	h.orca.terms = nil
+	h.deliver(h.batch())
+	if e := h.events[len(h.events)-1]; e.ResolvedBy != "" {
+		t.Fatalf("no terminal found, yet resolvedBy %q", e.ResolvedBy)
+	}
+}
