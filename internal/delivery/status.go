@@ -35,6 +35,8 @@ type WorkerStatus struct {
 	Reason     string    `json:"reason,omitempty"`
 	At         time.Time `json:"at"`
 	ResolvedBy string    `json:"resolvedBy,omitempty"`
+	// Wake: the event was a tick or task wake's, not a batch's.
+	Wake bool `json:"wake,omitempty"`
 }
 
 // Status is the poller's local delivery snapshot. It is observational: what
@@ -45,10 +47,25 @@ type Status struct {
 	LastStepAt time.Time               `json:"lastStepAt"`
 	LastRead   string                  `json:"lastRead"`
 	Workers    map[string]WorkerStatus `json:"workers"`
+	// The newest wake read (cli#906 row 1): its code, and dueWakes' counts.
+	WakeRead          string     `json:"wakeRead,omitempty"`
+	BudgetExhaustedAt *time.Time `json:"budgetExhaustedAt,omitempty"`
+	Dormant           int        `json:"dormant"`
+	Withheld          int        `json:"withheld"`
 }
 
 // ObserveWakes records a step's wake read. It writes nothing: Step does.
-func (b *StatusBook) ObserveWakes(r WakeRead) {}
+// The budget time is kept only while the newest read says it is spent.
+func (b *StatusBook) ObserveWakes(r WakeRead) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.st.WakeRead, b.st.Dormant, b.st.Withheld = r.Read, r.Dormant, r.Withheld
+	b.st.BudgetExhaustedAt = nil
+	if r.Read == WakeBudgetExhausted {
+		at := r.At.UTC()
+		b.st.BudgetExhaustedAt = &at
+	}
+}
 
 // StatusBook keeps the snapshot as events arrive and writes it after each
 // poller step. Safe for concurrent use: deliveries for different workers
@@ -76,7 +93,7 @@ func (b *StatusBook) Observe(e Event) {
 	if old, ok := b.st.Workers[e.WorkerID]; ok && e.Time.Before(old.At) {
 		return
 	}
-	b.st.Workers[e.WorkerID] = WorkerStatus{Name: e.Worker, Kind: e.Kind, Reason: e.Reason, At: e.Time, ResolvedBy: e.ResolvedBy}
+	b.st.Workers[e.WorkerID] = WorkerStatus{Name: e.Worker, Kind: e.Kind, Reason: e.Reason, At: e.Time, ResolvedBy: e.ResolvedBy, Wake: e.Wake}
 }
 
 // Step records a finished poller step and writes the snapshot: 0600, by

@@ -380,9 +380,17 @@ type hostDeliveryDTO struct {
 	LastRead   *string `json:"lastRead"`
 	// Stale: delivery is on and the snapshot is missing, unreadable, or
 	// older than three poll intervals. Error then names which, as a code.
-	Stale   bool                    `json:"stale"`
-	Error   *string                 `json:"error"`
-	Workers []hostDeliveryWorkerDTO `json:"workers"`
+	Stale bool    `json:"stale"`
+	Error *string `json:"error"`
+	// WakeRead is the newest tick/task wake read's code (read, read-failed,
+	// budget-exhausted), null before one. BudgetExhaustedAt is set only
+	// while that read says the App's daily wake budget is spent. Dormant
+	// and Withheld are dueWakes' counts.
+	WakeRead          *string                 `json:"wakeRead"`
+	BudgetExhaustedAt *string                 `json:"budgetExhaustedAt"`
+	Dormant           int                     `json:"dormant"`
+	Withheld          int                     `json:"withheld"`
+	Workers           []hostDeliveryWorkerDTO `json:"workers"`
 }
 
 type hostDeliveryWorkerDTO struct {
@@ -395,6 +403,11 @@ type hostDeliveryWorkerDTO struct {
 	// ack has not landed: they reconcile without typing.
 	ConfirmedUnacked int    `json:"confirmedUnacked"`
 	ResolvedBy       string `json:"resolvedBy"`
+	// LastFor says whether the last event was a batch's or a wake's.
+	LastFor string `json:"lastFor"`
+	// TicksUnacked counts tick and task reasons typed and confirmed whose
+	// ack has not landed: never retyped, acked when the proof allows.
+	TicksUnacked int `json:"ticksUnacked"`
 }
 
 // hostDeliveryStatus builds the delivery block from local state only.
@@ -421,13 +434,34 @@ func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
 	}
 	interval := time.Duration(cfg.PollIntervalSeconds) * time.Second
 	d.Stale = now.Sub(st.LastStepAt) > 3*interval
+	if st.WakeRead != "" {
+		wr := st.WakeRead
+		d.WakeRead = &wr
+	}
+	if st.BudgetExhaustedAt != nil {
+		b := st.BudgetExhaustedAt.UTC().Format(time.RFC3339)
+		d.BudgetExhaustedAt = &b
+	}
+	d.Dormant, d.Withheld = st.Dormant, st.Withheld
 	recs := &delivery.Records{Dir: filepath.Join(stateDir, "delivery", "records")}
+	wakes := &delivery.WakeRecords{Dir: filepath.Join(stateDir, "delivery", "wakes")}
 	for _, id := range sortedKeys(st.Workers) {
 		w := st.Workers[id]
 		last := w.At.UTC().Format(time.RFC3339)
 		row := hostDeliveryWorkerDTO{Worker: w.Name, WorkerID: id, LastKind: string(w.Kind), LastReason: w.Reason, LastAt: &last, ResolvedBy: w.ResolvedBy}
 		if list, err := recs.List(id); err == nil {
 			row.ConfirmedUnacked = len(list)
+		}
+		row.LastFor = "batch"
+		if w.Wake {
+			row.LastFor = "wake"
+		}
+		if list, err := wakes.List(id); err == nil {
+			for _, r := range list {
+				if r.State == delivery.WakeTyped {
+					row.TicksUnacked++
+				}
+			}
 		}
 		d.Workers = append(d.Workers, row)
 	}
@@ -450,9 +484,16 @@ func writeHostDelivery(w io.Writer, d hostDeliveryDTO) {
 		line += " (" + *d.Error + ")"
 	}
 	fmt.Fprintln(w, line)
+	if d.WakeRead != nil {
+		wl := fmt.Sprintf("wakes: %s, dormant %d, withheld %d", *d.WakeRead, d.Dormant, d.Withheld)
+		if d.BudgetExhaustedAt != nil {
+			wl += ", budget exhausted at " + *d.BudgetExhaustedAt
+		}
+		fmt.Fprintln(w, wl)
+	}
 	for _, wk := range d.Workers {
-		fmt.Fprintf(w, "  %s: %s %s at %s, confirmed-unacked %d, resolved by %s\n",
-			wk.Worker, wk.LastKind, wk.LastReason, *wk.LastAt, wk.ConfirmedUnacked, orDash(wk.ResolvedBy))
+		fmt.Fprintf(w, "  %s: %s %s (%s) at %s, confirmed-unacked %d, ticks typed-unacked %d, resolved by %s\n",
+			wk.Worker, wk.LastKind, wk.LastReason, wk.LastFor, *wk.LastAt, wk.ConfirmedUnacked, wk.TicksUnacked, orDash(wk.ResolvedBy))
 	}
 }
 
