@@ -1,0 +1,40 @@
+# Chat delivery — hadron-cli#907 (C1) over hadron-server#2017 (S1). The host
+# poller reads its ready-to-deliver batches and acknowledges the ones it
+# typed, with the host's App key (attention:deliver and host:operate). A
+# batch id is a signed proof: it goes back to the server and nowhere else.
+# S5's hold report is #940.
+
+query DeliveryBatches($appRef: String!, $first: Int!,
+ # @genqlient(omitempty: true)
+ $after: String
+) {
+  deliveryBatches(appRef: $appRef, first: $first, after: $after) {
+    batches {
+      id
+      worker { id }
+      text
+      deliverAfter
+      busyDeadline
+      interrupt
+      overflow
+      ranges {
+        channel { id }
+        incarnation
+        fromSeq
+        throughSeq
+        seqs
+      }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation AcknowledgeDeliveryBatches($batchIds: [String!]!,
+ # @genqlient(omitempty: true)
+ $through: [BatchThrough!]
+) {
+  acknowledgeDeliveryBatches(batchIds: $batchIds, through: $through) {
+    acknowledged
+    unchanged
+  }
+}
