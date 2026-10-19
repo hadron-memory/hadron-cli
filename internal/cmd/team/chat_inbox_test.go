@@ -2,11 +2,13 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
@@ -166,5 +168,65 @@ func TestInboxRejectsForeignAndUnreadableScope(t *testing.T) {
 	}
 	if s.reads != 0 || s.acks != 0 {
 		t.Fatal("bad binding reached transport")
+	}
+}
+
+func TestInboxAckInputRefusals(t *testing.T) {
+	for _, input := range []string{`null`, `{}`, `{"batchIds":null}`, `{"batchIds":[]}`, `{"batchIds":[""]}`, `{"batchIds":["PRIVATE"],"extra":true}`, `{"batchIds":["PRIVATE"]} {}`, `{"batchIds":"PRIVATE"}`} {
+		if _, err := decodeInboxAckFile(strings.NewReader(input)); err == nil || strings.Contains(err.Error(), "PRIVATE") {
+			t.Fatalf("unsafe input result: %v", err)
+		}
+	}
+	ids, err := decodeInboxAckFile(strings.NewReader(`{"batchIds":["PRIVATE"]}`))
+	if err != nil || len(ids) != 1 || ids[0] != "PRIVATE" {
+		t.Fatal("valid proof input refused")
+	}
+}
+func TestInboxEmptyPageAndCancellationDoNotAck(t *testing.T) {
+	streams, out, _ := output.Test()
+	s := &fakeInbox{}
+	if err := runInbox(context.Background(), s, ownInboxIdentity, streams, true, nil); err != nil {
+		t.Fatal(err)
+	}
+	var page inboxPage
+	if err := json.Unmarshal(out.Bytes(), &page); err != nil {
+		t.Fatal(err)
+	}
+	if s.acks != 0 || page.Batches == nil || len(page.Batches) != 0 {
+		t.Fatal("empty page acknowledgment or null array")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s = inboxFixture()
+	s.beforeRead = cancel
+	streams, out, _ = output.Test()
+	if err := runInbox(ctx, s, ownInboxIdentity, streams, true, nil); err == nil {
+		t.Fatal("cancel ignored")
+	}
+	if s.acks != 0 || out.Len() != 0 {
+		t.Fatal("cancelled read displayed or acked")
+	}
+}
+
+func TestInboxCommandRecoveryAndTTYRefusal(t *testing.T) {
+	streams, out, _ := output.Test()
+	streams.In = strings.NewReader(`{"batchIds":["PRIVATE"]}`)
+	source := inboxFixture()
+	cmd := newCmdTeamChatInboxWithTransport(&cmdutil.Factory{IOStreams: streams, JSON: true}, source, ownInboxIdentity)
+	cmd.SetArgs([]string{"--ack-file", "-"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if source.reads != 0 || source.acks != 1 || strings.Contains(out.String(), "PRIVATE") {
+		t.Fatal("recovery read or proof disclosure")
+	}
+	streams, _, _ = output.TestTTY(`{"batchIds":["PRIVATE"]}`)
+	source = inboxFixture()
+	cmd = newCmdTeamChatInboxWithTransport(&cmdutil.Factory{IOStreams: streams}, source, ownInboxIdentity)
+	cmd.SetArgs([]string{"--ack-file", "-"})
+	if err := cmd.Execute(); err == nil || exitcode.FromError(err) != exitcode.Usage {
+		t.Fatal("terminal stdin accepted")
+	}
+	if source.reads != 0 || source.acks != 0 {
+		t.Fatal("terminal input reached server")
 	}
 }
