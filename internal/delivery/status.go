@@ -47,6 +47,9 @@ type Status struct {
 	Workers    map[string]WorkerStatus `json:"workers"`
 }
 
+// ObserveWakes records a step's wake read. It writes nothing: Step does.
+func (b *StatusBook) ObserveWakes(r WakeRead) {}
+
 // StatusBook keeps the snapshot as events arrive and writes it after each
 // poller step. Safe for concurrent use: deliveries for different workers
 // run at once.

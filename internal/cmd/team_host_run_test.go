@@ -340,7 +340,12 @@ type hostDeliveryStatus struct {
 		LastRead   *string `json:"lastRead"`
 		Stale      bool    `json:"stale"`
 		Error      *string `json:"error"`
-		Workers    []struct {
+		// Wakes (cli#906 row 1).
+		WakeRead          *string `json:"wakeRead"`
+		BudgetExhaustedAt *string `json:"budgetExhaustedAt"`
+		Dormant           int     `json:"dormant"`
+		Withheld          int     `json:"withheld"`
+		Workers           []struct {
 			Worker           string  `json:"worker"`
 			WorkerID         string  `json:"workerId"`
 			LastKind         string  `json:"lastKind"`
@@ -348,6 +353,8 @@ type hostDeliveryStatus struct {
 			LastAt           *string `json:"lastAt"`
 			ConfirmedUnacked int     `json:"confirmedUnacked"`
 			ResolvedBy       string  `json:"resolvedBy"`
+			LastFor          string  `json:"lastFor"`
+			TicksUnacked     int     `json:"ticksUnacked"`
 		} `json:"workers"`
 	} `json:"delivery"`
 }
@@ -412,6 +419,49 @@ func TestTeamHostStatusShowsTheDeliveryBlock(t *testing.T) {
 	}
 	if strings.Contains(human, "STALE") {
 		t.Errorf("a fresh snapshot is not stale:\n%s", human)
+	}
+}
+
+// cli#906 row 1: the wake read, the budget, and each worker's typed ticks
+// whose ack has not landed. Counts and codes only: never a reason key.
+func TestTeamHostStatusShowsTheWakeFields(t *testing.T) {
+	cfg := writeHostConfig(t, deliveryOn)
+	stateDir := filepath.Dir(cfg)
+	now := time.Now().UTC()
+	book := delivery.NewStatusBook(stateDir)
+	book.Observe(delivery.Event{Time: now, Worker: "iris", WorkerID: "wkr1", Kind: delivery.Delivered, Reason: "ack-held", Wake: true})
+	book.ObserveWakes(delivery.WakeRead{At: now, Read: delivery.WakeBudgetExhausted, Dormant: 2, Withheld: 3})
+	if err := book.Step(now, delivery.StepRead); err != nil {
+		t.Fatal(err)
+	}
+	wakes := &delivery.WakeRecords{Dir: filepath.Join(stateDir, "delivery", "wakes")}
+	tick := delivery.WakeReason{Kind: delivery.WakeTick, TickerID: "tk-SECRETKEY", TickerName: "Check-in", LastTickAt: now}
+	task := delivery.WakeReason{Kind: delivery.WakeTask, Task: &delivery.TaskReason{EventID: "ev1", Event: "assigned", ID: "t1", Title: "T"}}
+	if err := wakes.Typed("wkr1", []delivery.WakeReason{tick, task}, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := wakes.Acked("wkr1", []string{task.Key()}, now); err != nil {
+		t.Fatal(err)
+	}
+	d := hostStatusJSON(t, cfg).Delivery
+	if d.WakeRead == nil || *d.WakeRead != "budget-exhausted" || d.BudgetExhaustedAt == nil || d.Dormant != 2 || d.Withheld != 3 {
+		t.Fatalf("delivery %+v", d)
+	}
+	if len(d.Workers) != 1 || d.Workers[0].LastFor != "wake" || d.Workers[0].TicksUnacked != 1 {
+		t.Fatalf("workers %+v", d.Workers)
+	}
+	human, err := runHostStatus(t, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"wakes: budget-exhausted", "budget exhausted at", "dormant 2, withheld 3", "(wake)", "ticks typed-unacked 1"} {
+		if !strings.Contains(human, want) {
+			t.Errorf("human status lacks %q:\n%s", want, human)
+		}
+	}
+	out, _ := runHostStatus(t, cfg, "--json")
+	if strings.Contains(human+out, "SECRETKEY") || strings.Contains(human+out, "ev1") {
+		t.Fatal("status shows a reason key")
 	}
 }
 
