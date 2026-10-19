@@ -130,7 +130,7 @@ func holderLabeller(resolve func(string) string) func(string) string {
 	}
 }
 
-// renderLastDriven is the LAST DRIVEN cell, and it carries liveness too.
+// renderLastDriven is the LAST RECORDED ACTIVITY cell, and it carries liveness too.
 //
 // ONE column rather than two, and no age beside a live session — both
 // deliberate, and both are the server engineer's call on #1086 rather than

@@ -702,7 +702,7 @@ reaper foreclosed, not a record that does not exist.
 
 So an OPEN session tells you nothing about whether the name is taken.
 Liveness does — and it means DRIVEN RECENTLY, not that somebody is at the
-keyboard: the window is generous. ` + "`worker list`'s" + ` LAST DRIVEN
+keyboard: the window is generous. ` + "`worker list`'s" + ` LAST RECORDED ACTIVITY
 column is where to read it, and binding a name whose session is open but
 no longer live is NOT a takeover: it needs no --force, and it does not end
 that session, so its driver's handoff stays theirs to write.
@@ -2522,7 +2522,7 @@ func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {
 team presence: since hadron-server#1114 nothing ends a developer session
 but an explicit ` + "`session end`" + `, so an abandoned one stays listed
 indefinitely. For "was this name driven recently, and does the server still
-count it as taken", read ` + "`worker list`'s" + ` LAST DRIVEN. --as narrows to one
+count it as taken", read ` + "`worker list`'s" + ` LAST RECORDED ACTIVITY. --as narrows to one
 worker's sessions (server-side, via the worker binding on the session).
 --active narrows client-side over the full list; plain listings page
 server-side.
@@ -2669,7 +2669,7 @@ from a later milestone's REPORTED MODEL.`,
 	// flag's PLACEHOLDER name, so "see `worker list`" rendered the flag as
 	// "--active worker list" (review:backticks-in-flag-usage-become-the-placeholder,
 	// caught by TestFlagUsagePlaceholdersAreDeliberate).
-	cmd.Flags().BoolVar(&active, "active", false, "only sessions that never ENDED — not presence; see worker list's LAST DRIVEN")
+	cmd.Flags().BoolVar(&active, "active", false, "only sessions that never ENDED — not presence; see worker list's LAST RECORDED ACTIVITY")
 	cmd.Flags().StringVar(&as, "as", "", "only one worker's sessions (name within the team App, or worker id)")
 	cmd.Flags().StringVar(&repo, "repo", "", "filter by repository")
 	cmd.Flags().StringVar(&pr, "pr", "", "provenance query: sessions behind this PR (number, owner/repo#N, or URL)")
