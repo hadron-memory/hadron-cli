@@ -361,17 +361,19 @@ func TestWakeTiming(t *testing.T) {
 			t.Fatalf("at the deadline: %+v", o)
 		}
 	})
-	t.Run("no deadline from the server holds a busy agent visibly", func(t *testing.T) {
-		h := newHarness(t)
-		h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeQuiet)}
-		w := h.wake(tick("tk1", tickAt))
-		w.BusyDeadline = time.Time{}
-		if o := h.deliverWake(w); o.Kind != Held || o.Reason != HoldTimingUnavailable {
-			t.Fatalf("outcome %+v", o)
-		}
-		h.wantNoSend()
-	})
-	t.Run("no deadline is no obstacle to a proven-idle agent", func(t *testing.T) {
+	for name, tail := range map[string][]string{"busy": claudeBusy, "unproven": claudeQuiet} {
+		t.Run(name+" with no busyDeadline holds visibly", func(t *testing.T) {
+			h := newHarness(t)
+			h.orca.screens["term_j"] = []*orcaterm.Screen{screen(tail)}
+			w := h.wake(tick("tk1", tickAt))
+			w.BusyDeadline = time.Time{}
+			if o := h.deliverWake(w); o.Kind != Held || o.Reason != HoldTimingUnavailable {
+				t.Fatalf("outcome %+v", o)
+			}
+			h.wantNoSend()
+		})
+	}
+	t.Run("deliverAfter passed, no busyDeadline, proven idle: typed", func(t *testing.T) {
 		h := newHarness(t)
 		w := h.wake(tick("tk1", tickAt))
 		w.BusyDeadline = time.Time{}
@@ -379,7 +381,19 @@ func TestWakeTiming(t *testing.T) {
 			t.Fatalf("outcome %+v", o)
 		}
 	})
-	t.Run("not yet due", func(t *testing.T) {
+	t.Run("no deliverAfter from the server holds even a proven-idle agent", func(t *testing.T) {
+		h := newHarness(t)
+		w := h.wake(tick("tk1", tickAt))
+		w.DeliverAfter = time.Time{}
+		if o := h.deliverWake(w); o.Kind != Held || o.Reason != HoldTimingUnavailable {
+			t.Fatalf("outcome %+v", o)
+		}
+		h.wantNoSend()
+		if len(h.server.holds) != 0 || len(h.wakeRecords()) != 0 {
+			t.Fatal("a timing hold is local and records nothing")
+		}
+	})
+	t.Run("not yet due, idle", func(t *testing.T) {
 		h := newHarness(t)
 		w := h.wake(tick("tk1", tickAt))
 		w.DeliverAfter = h.now.Add(time.Minute)
