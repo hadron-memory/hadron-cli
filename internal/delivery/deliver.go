@@ -99,6 +99,9 @@ type Outcome struct {
 	// AckPending: delivered and recorded, but the ack did not land; the
 	// record reconciles it next time without typing.
 	AckPending bool
+	// Unreported: Held, but the server was not told (ErrHoldUnavailable).
+	// No server hold, episode, alarm or escalation exists for it.
+	Unreported bool
 }
 
 // Event is one line of what delivery did, for the operator.
@@ -118,6 +121,8 @@ type Event struct {
 	// Wake: the event is a tick or task wake's (cli#906 row 1), not a
 	// batch's. Span is then reason counts.
 	Wake bool
+	// Unreported: a hold the server was not told about (cli#940).
+	Unreported bool
 }
 
 // Deliverer delivers batches into Orca terminals.

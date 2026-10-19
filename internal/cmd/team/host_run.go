@@ -408,6 +408,9 @@ type hostDeliveryWorkerDTO struct {
 	// TicksUnacked counts tick and task reasons typed and confirmed whose
 	// ack has not landed: never retyped, acked when the proof allows.
 	TicksUnacked int `json:"ticksUnacked"`
+	// Unreported: the last event was a hold the server was not told about
+	// (cli#940): no server hold, alarm or escalation exists for it.
+	Unreported bool `json:"unreported"`
 }
 
 // hostDeliveryStatus builds the delivery block from local state only.

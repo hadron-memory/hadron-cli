@@ -355,6 +355,7 @@ type hostDeliveryStatus struct {
 			ResolvedBy       string  `json:"resolvedBy"`
 			LastFor          string  `json:"lastFor"`
 			TicksUnacked     int     `json:"ticksUnacked"`
+			Unreported       bool    `json:"unreported"`
 		} `json:"workers"`
 	} `json:"delivery"`
 }
@@ -419,6 +420,34 @@ func TestTeamHostStatusShowsTheDeliveryBlock(t *testing.T) {
 	}
 	if strings.Contains(human, "STALE") {
 		t.Errorf("a fresh snapshot is not stale:\n%s", human)
+	}
+}
+
+// cli#940: a hold the server was not told about says so, in both forms,
+// and never claims a server hold, alarm or escalation.
+func TestTeamHostStatusShowsAnUnreportedHold(t *testing.T) {
+	cfg := writeHostConfig(t, deliveryOn)
+	stateDir := filepath.Dir(cfg)
+	now := time.Now().UTC()
+	book := delivery.NewStatusBook(stateDir)
+	book.Observe(delivery.Event{Time: now, Worker: "iris", WorkerID: "wkr1", Kind: delivery.Held, Reason: delivery.HoldDraft, Unreported: true})
+	book.Observe(delivery.Event{Time: now, Worker: "dara", WorkerID: "wkr2", Kind: delivery.Held, Reason: delivery.HoldQuestion})
+	if err := book.Step(now, delivery.StepRead); err != nil {
+		t.Fatal(err)
+	}
+	d := hostStatusJSON(t, cfg).Delivery
+	if len(d.Workers) != 2 || !d.Workers[0].Unreported || d.Workers[1].Unreported {
+		t.Fatalf("workers %+v", d.Workers)
+	}
+	human, err := runHostStatus(t, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(human, "held draft (batch), UNREPORTED: no server hold, alarm or escalation") {
+		t.Errorf("human status:\n%s", human)
+	}
+	if strings.Count(human, "UNREPORTED") != 1 {
+		t.Errorf("only iris's hold is unreported:\n%s", human)
 	}
 }
 

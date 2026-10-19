@@ -90,10 +90,11 @@ type ackCall struct {
 type holdCall struct{ id, reason, terminal string }
 
 type fakeServer struct {
-	mu      sync.Mutex
-	acks    []ackCall
-	ackErrs []error
-	holds   []holdCall
+	mu       sync.Mutex
+	acks     []ackCall
+	ackErrs  []error
+	holds    []holdCall
+	holdErrs []error
 }
 
 func (s *fakeServer) Ack(_ context.Context, id string, through []Through) (AckResult, error) {
@@ -114,6 +115,11 @@ func (s *fakeServer) Hold(_ context.Context, id, reason, terminal string) error 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.holds = append(s.holds, holdCall{id, reason, terminal})
+	if len(s.holdErrs) > 0 {
+		err := s.holdErrs[0]
+		s.holdErrs = s.holdErrs[1:]
+		return err
+	}
 	return nil
 }
 
@@ -847,6 +853,98 @@ func TestHoldsAreReportedOncePerReasonChange(t *testing.T) {
 	h.deliver(b)
 	if len(h.server.holds) != 2 || h.server.holds[1].reason != HoldQuestion {
 		t.Fatalf("holds %+v", h.server.holds)
+	}
+}
+
+// cli#940 / Xan's split (#907, 2026-10-19 05:11Z): until S5 is on the
+// server, the adapter answers ErrHoldUnavailable without a call. The hold is
+// Held and unreported: never Failed, never acked, never recorded as
+// delivered, and never cached as reported, so it is reported once the
+// capability is there.
+func TestAnUnavailableHoldReportIsHeldUnreported(t *testing.T) {
+	h := newHarness(t)
+	h.server.holdErrs = []error{ErrHoldUnavailable}
+	h.orca.screens["term_j"] = []*orcaterm.Screen{{Source: "screen", Tail: claudeIdle, Draft: canary}}
+	o := h.deliver(h.batch())
+	if o.Kind != Held || o.Reason != HoldDraft || !o.Unreported {
+		t.Fatalf("outcome %+v, want held draft, unreported", o)
+	}
+	h.wantNoSend()
+	if len(h.server.acks) != 0 || len(h.records()) != 0 {
+		t.Fatalf("an unreported hold acked %+v or recorded %+v", h.server.acks, h.records())
+	}
+	if n := len(h.events); n == 0 || !h.events[n-1].Unreported || h.events[n-1].Kind != Held {
+		t.Fatalf("events %+v", h.events)
+	}
+	h.wantNoCanary(o)
+}
+
+func TestAnUnreportedHoldIsReportedOnceTheCapabilityIsThere(t *testing.T) {
+	h := newHarness(t)
+	h.server.holdErrs = []error{ErrHoldUnavailable, ErrHoldUnavailable}
+	h.orca.screens["term_j"] = []*orcaterm.Screen{{Source: "screen", Tail: claudeIdle, Draft: "x"}}
+	b := h.batch()
+	// S1 re-hands the held batch: each replay holds again, still unreported.
+	for i := range 2 {
+		if o := h.deliver(b); o.Kind != Held || !o.Unreported {
+			t.Fatalf("replay %d: %+v", i, o)
+		}
+	}
+	// The capability arrives: the same hold is now reported, once.
+	if o := h.deliver(b); o.Kind != Held || o.Unreported {
+		t.Fatalf("outcome %+v, want held and reported", o)
+	}
+	h.deliver(b)
+	if len(h.server.holds) != 3 {
+		t.Fatalf("holds %+v: unavailable must not count as reported, and a reported hold is reported once", h.server.holds)
+	}
+	h.wantNoSend()
+	if len(h.server.acks) != 0 {
+		t.Fatalf("acks %+v", h.server.acks)
+	}
+}
+
+func TestARealHoldReportErrorIsFailedNotUnavailable(t *testing.T) {
+	cases := map[string]struct {
+		err        error
+		kind       Kind
+		unreported bool
+	}{
+		"transport":           {errors.New("transport: connection reset"), Failed, false},
+		"a server refusal":    {errors.New("BAD_USER_INPUT"), Failed, false},
+		"wrapped unavailable": {fmt.Errorf("adapter: %w", ErrHoldUnavailable), Held, true},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t)
+			h.server.holdErrs = []error{c.err}
+			h.orca.screens["term_j"] = []*orcaterm.Screen{{Source: "screen", Tail: claudeIdle, Draft: "x"}}
+			o := h.deliver(h.batch())
+			if o.Kind != c.kind || o.Unreported != c.unreported {
+				t.Fatalf("outcome %+v, want %s unreported=%v", o, c.kind, c.unreported)
+			}
+			if c.kind == Failed && o.Reason != "hold-report-failed:"+HoldDraft {
+				t.Fatalf("reason %q", o.Reason)
+			}
+		})
+	}
+}
+
+func TestReconcileIsUnchangedWhenHoldReportsAreUnavailable(t *testing.T) {
+	h := newHarness(t)
+	h.server.ackErrs = []error{errors.New("transport: response lost")}
+	h.server.holdErrs = []error{ErrHoldUnavailable}
+	b := h.batch(5, 6)
+	if o := h.deliver(b); o.Kind != Delivered || !o.AckPending {
+		t.Fatalf("outcome %+v", o)
+	}
+	again := b
+	again.ID = "signed-proof-2"
+	if o := h.deliver(again); o.Kind != Reconciled {
+		t.Fatalf("outcome %+v", o)
+	}
+	if len(h.orca.sends) != 1 || len(h.server.holds) != 0 || len(h.records()) != 0 {
+		t.Fatalf("sends %+v holds %+v records %+v", h.orca.sends, h.server.holds, h.records())
 	}
 }
 

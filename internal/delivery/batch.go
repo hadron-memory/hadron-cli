@@ -129,6 +129,12 @@ const (
 	HoldBindingMismatch = "binding-mismatch"
 )
 
+// ErrHoldUnavailable is Hold's answer when the server has no hold report
+// (S5 not on it yet: cli#940). The adapter returns it without a call. The
+// hold stays local: Held and unreported, never Failed, and never cached as
+// reported, so it is reported once the capability is there.
+var ErrHoldUnavailable = errors.New("the server has no delivery hold report")
+
 // Server is S1's acknowledgement and S5's hold, as delivery consumes them.
 // An Ack error of any kind (a refusal included: BAD_USER_INPUT,
 // WAKE_PROOF_STALE) means nothing moved, so a confirmed record is kept.

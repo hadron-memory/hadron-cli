@@ -37,6 +37,8 @@ type WorkerStatus struct {
 	ResolvedBy string    `json:"resolvedBy,omitempty"`
 	// Wake: the event was a tick or task wake's, not a batch's.
 	Wake bool `json:"wake,omitempty"`
+	// Unreported: the newest event was a hold the server was not told about.
+	Unreported bool `json:"unreported,omitempty"`
 }
 
 // Status is the poller's local delivery snapshot. It is observational: what

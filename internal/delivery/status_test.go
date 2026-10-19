@@ -40,6 +40,23 @@ func TestStatusBookRoundTrip(t *testing.T) {
 	}
 }
 
+func TestStatusBookKeepsAnUnreportedHold(t *testing.T) {
+	dir := t.TempDir()
+	at := time.Date(2026, 10, 19, 1, 0, 0, 0, time.UTC)
+	book := NewStatusBook(dir)
+	book.Observe(Event{Time: at, Worker: "iris", WorkerID: "wkr1", Kind: Held, Reason: HoldDraft, Unreported: true})
+	if err := book.Step(at, StepRead); err != nil {
+		t.Fatal(err)
+	}
+	st, err := ReadStatus(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := st.Workers["wkr1"]; w.Kind != Held || !w.Unreported {
+		t.Fatalf("iris %+v", w)
+	}
+}
+
 func TestStatusBookRecordsAScopeRefusal(t *testing.T) {
 	dir := t.TempDir()
 	book := NewStatusBook(dir)
