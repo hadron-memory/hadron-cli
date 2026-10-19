@@ -190,6 +190,7 @@ func TestMapError(t *testing.T) {
 		// (hadron-server#1050) — pinning an exit code for a refusal the server
 		// cannot produce documents a contract nobody can exercise.
 		{"role exists", gqlErr("TEAM_ROLE_EXISTS"), exitcode.Conflict},
+		{"worker external attribution needs an explicit input", gqlErr("WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED"), exitcode.Usage},
 		// #608: a duplicate node loc. PascalCase, because the server stamps this
 		// extensions.code from an Error CLASS NAME rather than from the
 		// SCREAMING_SNAKE vocabulary — so it matches no prefix, suffix or literal

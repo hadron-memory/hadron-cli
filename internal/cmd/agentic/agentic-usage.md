@@ -2001,8 +2001,16 @@ Conventions:
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
   its name reserved — PR trailers and chat history reference it — and there
   is no rename; `worker rm` is the ONE removal escape, hard-deleting a
-  NEVER-USED miscast (`WORKER_IN_USE` exit 5 otherwise) and freeing its
-  name.
+  NEVER-USED miscast and freeing its name. Persisted references or an
+  unreleased stint refuse with `WORKER_IN_USE` (exit 5); an ended empty
+  stint alone is not attributed work. Before removing one, verify that no
+  signed commit, trailer, PR, comment, review or other published artifact
+  attributes work to it, then pass `--confirm-no-external-attribution`.
+  Database checks cannot prove external absence. Known or uncertain history
+  means retire instead. `--yes` skips the deletion prompt only, never attests;
+  omission of the separate flag refuses with
+  `WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED` (exit 2). Concealed/not-found workers
+  remain exit 4. Old-server schema refusal never retries an unattested delete.
   **`team worker release <name-or-id>`** clears the HOLD (`releaseWorker`,
   `cor:agt:020:09`) and is the ONLY thing that frees one — not `session end`,
   not an idle window, not an expiry, not a reap, not a closed chat session.

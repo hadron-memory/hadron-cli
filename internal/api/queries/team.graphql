@@ -253,10 +253,14 @@ mutation RetireWorker($workerRef: ID!) {
 }
 
 # The one removal escape (cor:dmo:050:11): hard-delete a NEVER-USED miscast.
-# Refused WORKER_IN_USE when any session was ever bound or the working memory
-# holds content — anything with history retires instead.
-mutation DeleteWorker($workerRef: ID!) {
-  deleteWorker(workerRef: $workerRef)
+# DB references/unreleased stints refuse WORKER_IN_USE; external absence is
+# requester-attested, not proved by the DB. Omission never attests.
+mutation DeleteWorker(
+  $workerRef: ID!
+  # @genqlient(omitempty: true)
+  $confirmNoExternalAttribution: Boolean
+) {
+  deleteWorker(workerRef: $workerRef, confirmNoExternalAttribution: $confirmNoExternalAttribution)
 }
 
 # One worker by ref — its id, or its URN (#991); both resolve here, which is

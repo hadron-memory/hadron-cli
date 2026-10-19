@@ -54632,11 +54632,17 @@ func (v *__DeleteTickerInput) GetRef() string { return v.Ref }
 
 // __DeleteWorkerInput is used internally by genqlient
 type __DeleteWorkerInput struct {
-	WorkerRef string `json:"workerRef"`
+	WorkerRef                    string `json:"workerRef"`
+	ConfirmNoExternalAttribution *bool  `json:"confirmNoExternalAttribution,omitempty"`
 }
 
 // GetWorkerRef returns __DeleteWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__DeleteWorkerInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetConfirmNoExternalAttribution returns __DeleteWorkerInput.ConfirmNoExternalAttribution, and is useful for accessing the field via an interface.
+func (v *__DeleteWorkerInput) GetConfirmNoExternalAttribution() *bool {
+	return v.ConfirmNoExternalAttribution
+}
 
 // __EditCommentInput is used internally by genqlient
 type __EditCommentInput struct {
@@ -63773,24 +63779,26 @@ func DeleteTicker(
 
 // The mutation executed by DeleteWorker.
 const DeleteWorker_Operation = `
-mutation DeleteWorker ($workerRef: ID!) {
-	deleteWorker(workerRef: $workerRef)
+mutation DeleteWorker ($workerRef: ID!, $confirmNoExternalAttribution: Boolean) {
+	deleteWorker(workerRef: $workerRef, confirmNoExternalAttribution: $confirmNoExternalAttribution)
 }
 `
 
 // The one removal escape (cor:dmo:050:11): hard-delete a NEVER-USED miscast.
-// Refused WORKER_IN_USE when any session was ever bound or the working memory
-// holds content — anything with history retires instead.
+// DB references/unreleased stints refuse WORKER_IN_USE; external absence is
+// requester-attested, not proved by the DB. Omission never attests.
 func DeleteWorker(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	workerRef string,
+	confirmNoExternalAttribution *bool,
 ) (data_ *DeleteWorkerResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteWorker",
 		Query:  DeleteWorker_Operation,
 		Variables: &__DeleteWorkerInput{
-			WorkerRef: workerRef,
+			WorkerRef:                    workerRef,
+			ConfirmNoExternalAttribution: confirmNoExternalAttribution,
 		},
 	}
 
