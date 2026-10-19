@@ -28,11 +28,15 @@ func startedWith(raw string) string {
 func runStartAs(t *testing.T, startResp string, extra ...string) (string, string, *[]attnCall) {
 	t.Helper()
 	teamGitDir(t)
-	srv, calls := attnServer(t, map[string]string{
+	stubs := map[string]string{
 		"GetWorker":        `{"data":{"worker":` + preBindWorkerJSON + `}}`,
 		"TeamSessions":     `{"data":{"sessions":[]}}`,
 		"StartTeamSession": startResp,
-	})
+	}
+	if resp, ok := unstubbedDefault("GetWorkerContinuity"); ok {
+		stubs["GetWorkerContinuity"] = resp
+	}
+	srv, calls := attnServer(t, stubs)
 	f, out := testFactory(t)
 	errOut := f.IOStreams.ErrOut.(*strings.Builder)
 	root := NewRootCmd(f)
@@ -111,5 +115,45 @@ func TestC947OnlyTheBindOperationSelectsThePrompt(t *testing.T) {
 	}
 	if strings.Contains(frag, "prompt") {
 		t.Errorf("TeamSessionFields must not drag a prompt into session lists:\n%s", frag)
+	}
+}
+
+// Pins 3 and 4 (characterization): a launch and a resume already read the
+// worker AFTER the bind (launchedWorker), so their briefing is the post-bind
+// rendering without the bind-response selection, and no fallback note.
+func TestC947LaunchAndResumeReadTheWorkerAfterTheBind(t *testing.T) {
+	postBind := strings.Replace(preBindWorkerJSON, "MODEL=model-one", "MODEL=model-two", 1)
+	for _, tc := range []struct {
+		name  string
+		stubs map[string]string
+		env   string
+	}{
+		{"launch grant", map[string]string{
+			"GetWorker":        `{"data":{"worker":` + postBind + `}}`,
+			"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+		}, "hlg_abc"},
+		{"resume", map[string]string{
+			"GetWorker":         `{"data":{"worker":` + postBind + `}}`,
+			"ResumeTeamSession": `{"data":{"resumeSession":{"outcome":"RESUMED","session":` + startedSessionJSON + `,"candidates":[]}}}`,
+		}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			teamGitDir(t)
+			t.Setenv("HADRON_LAUNCH_GRANT", tc.env)
+			gql, _ := captureGraphQL(t, tc.stubs)
+			f, out := testFactory(t)
+			errOut := f.IOStreams.ErrOut.(*strings.Builder)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "session", "start", "--tool", "claude-code", "--model", "model-two", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out.String(), "MODEL=model-two") {
+				t.Errorf("the post-bind briefing must print:\n%s", out.String())
+			}
+			if strings.Contains(errOut.String(), "read before this bind") {
+				t.Errorf("a post-bind read needs no fallback note:\n%s", errOut.String())
+			}
+		})
 	}
 }

@@ -585,6 +585,17 @@ mutation StartTeamSession(
 ) {
   startSession(input: $input) {
     ...TeamSessionFields
+    # cli#947: the briefing to print, read off the bind's own response. The
+    # pre-bind worker read was rendered while the PREVIOUS session was the
+    # newest open one, so {{session.llmModel}} named the old model. This is
+    # the server's Worker.prompt rendering as of the response (the session
+    # just bound is now the newest open one), not a record of what the
+    # session was served. Aliased so it can't collide with the fragment's
+    # worker { id name role }, and kept off TeamSessionFields, which session
+    # lists use and must not carry a multi-KB prompt.
+    boundWorker: worker {
+      prompt
+    }
   }
 }
 

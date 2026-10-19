@@ -1080,7 +1080,11 @@ ends the recovered session: run start again to pick it up.`,
 				return exitcode.Newf(exitcode.Error, "server returned no session")
 			}
 			s := resp.StartSession.TeamSessionFields
+			// Which worker read the briefing comes from: a launch reads the
+			// worker AFTER the bind (below), which is already post-bind.
+			readAfterBind := false
 			if grant != "" && w.Id == "" {
+				readAfterBind = true
 				// The grant named the worker: read it now, for the binding and
 				// the briefing. Without it this worktree cannot end the session
 				// it just bound, so a failed read rolls the bind back, as a
@@ -1091,6 +1095,17 @@ ends the recovered session: run start again to pick it up.`,
 						return fmt.Errorf("%w; additionally, rolling back launched session %s failed (%v) — end it with `hadron team session end --session %s`", err, s.Id, endErr, s.Id)
 					}
 					return fmt.Errorf("%w (launched session %s was rolled back)", err, s.Id)
+				}
+			}
+			if !readAfterBind {
+				// cli#947: w was read BEFORE the bind, so its prompt was rendered
+				// while the previous session was the newest open one. Print the
+				// bind response's rendering instead. Only a NULL falls back: an
+				// empty prompt is a real answer. The bind is never repeated.
+				if bw := resp.StartSession.BoundWorker; bw != nil && bw.Prompt != nil {
+					w.Prompt = bw.Prompt
+				} else {
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: the briefing below was read before this bind and may show the previous session's model; `hadron team worker get %s` shows the current one\n", w.Name)
 				}
 			}
 			server, _ := f.Server()
