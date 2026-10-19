@@ -643,17 +643,27 @@ type removeResultDTO struct {
 
 func newCmdWorkerRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
+	var confirmNoExternalAttribution bool
 	cmd := &cobra.Command{
 		Use:     "rm <name-or-id>",
 		Aliases: []string{"delete"},
 		Short:   "Hard-delete a NEVER-USED casting (frees its name)",
 		Long: `Hard-delete a worker that never did anything — the one removal escape
 (cor:dmo:050:11), for a miscast: wrong role, typo'd name. The server refuses
-with WORKER_IN_USE when any session was ever bound to it or its working
-memory holds content; a worker with history retires instead
+with WORKER_IN_USE when it has persisted references or an unreleased stint;
+a worker with history retires instead
 (` + "`worker retire`" + `), keeping its name reserved. Deleting also removes the
-empty working memory, and — unlike retiring — frees the name.`,
-		Example: `  hadron team worker rm Irsi --yes`,
+empty working memory, and — unlike retiring — frees the name.
+
+Database checks cannot prove the absence of signed commits, trailers, PRs,
+comments, reviews or other published artifacts naming this worker. Verify
+their absence yourself, then explicitly pass --confirm-no-external-attribution.
+Known or uncertain external attribution means retire instead. --yes only
+skips the deletion prompt; it never supplies this separate attestation.
+Missing attestation is WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED (exit 2);
+WORKER_IN_USE is exit 5. Older-server schema refusal is never retried without
+the attestation.`,
+		Example: `  hadron team worker rm Irsi --yes --confirm-no-external-attribution`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w, err := workerForArg(cmd, f, args[0])
@@ -661,14 +671,18 @@ empty working memory, and — unlike retiring — frees the name.`,
 				return err
 			}
 			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes,
-				fmt.Sprintf("worker %s (%s) — only a never-used casting can be deleted; this frees its name", w.Name, w.Id)); err != nil {
+				fmt.Sprintf("worker %s (%s) — this frees its name. Have you verified no signed commit, trailer, PR, comment, review or published artifact names it? Database checks cannot prove external absence; known or uncertain history means retire. The separate --confirm-no-external-attribution flag attests your check", w.Name, w.Id)); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			resp, err := gen.DeleteWorker(cmd.Context(), client, w.Id)
+			var attestation *bool
+			if confirmNoExternalAttribution {
+				attestation = &confirmNoExternalAttribution
+			}
+			resp, err := gen.DeleteWorker(cmd.Context(), client, w.Id, attestation)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -683,6 +697,7 @@ empty working memory, and — unlike retiring — frees the name.`,
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	cmd.Flags().BoolVar(&confirmNoExternalAttribution, "confirm-no-external-attribution", false, "attest you verified no external artifact attributes work to this worker; known or uncertain history means retire")
 	return cmd
 }
 

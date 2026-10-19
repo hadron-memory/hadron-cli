@@ -133,3 +133,35 @@ func TestNudgeBoundaryDeterministic(t *testing.T) {
 		t.Errorf("span 401 switches to the mentions anchor")
 	}
 }
+
+// Mirrors the merged TS #2094 pins: a prompted turn can end with a short
+// assistant line while still avoiding a no-action post to the team chat.
+func TestNudgeEndingsSatisfiable(t *testing.T) {
+	variants := []struct {
+		name string
+		text string
+	}{
+		{"small-gap", NudgeText(worker("w-eli", "Eli", workerOpts{mentions: ip(2), unread: ip(5), first: ip(100), relevant: ip(110), head: ip(120)}))},
+		{"large-gap", NudgeText(worker("w-eli", "Eli", workerOpts{mentions: ip(2), unread: ip(9841), first: ip(61), relevant: ip(9750), head: ip(9901)}))},
+		{"generic-anchor", NudgeText(AttentionItem{Worker: "w-eli", WorkerName: "Eli", Channel: channel, Unread: 3, UnreadMentions: 1, LastRelevantSeq: 110, LastSeq: 120})},
+		{"liveness", LivenessNudgeText(100, 120)},
+	}
+	for _, v := range variants {
+		t.Run(v.name, func(t *testing.T) {
+			if strings.Contains(strings.ToLower(v.text), "finish silently") || strings.Contains(v.text, "'read/no-action' comment") {
+				t.Error("ending contains an unsatisfiable silence instruction")
+			}
+			for _, want := range []string{"end with one short line", "do not post to team chat"} {
+				if !strings.Contains(v.text, want) {
+					t.Errorf("ending missing %q", want)
+				}
+			}
+		})
+	}
+}
+
+func TestLivenessEndingMarksReadOnce(t *testing.T) {
+	if n := strings.Count(strings.ToLower(LivenessNudgeText(100, 120)), "mark read"); n != 1 {
+		t.Errorf("mark read appears %d times, want 1", n)
+	}
+}

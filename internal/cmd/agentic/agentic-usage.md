@@ -322,6 +322,7 @@ hadron team roster (uses --app or the binding)   # states are plan-derived, rend
 hadron team events [--alarms] [--since <iso>] [--after <eventId>] [--task <id>] [--type <t>]… [--limit N] (uses --app or the binding)   # oldest-first; --after pages forward
 hadron team alarm ack <eventId>   # stops the alarm waking higher owners (cor:agt:050:20)
 hadron team availability get | set (--worker <ref> | --family <token>) --state <available|unavailable> [--reason HOST_DOWN|OTHER|OUT_OF_TOKENS|STALLED] [--until <iso>] (uses --app or the binding)
+hadron team delivery-settings get | set [--batch-window-seconds N] [--busy-delay-seconds N] [--stuck-window-seconds N] [--standby=true|false] (uses --app or the binding)   # batch window IS ticker cadence floor (min 60s, default 120); existing tickers retain cadence, floor raise above a live ticker refuses; server defaults busy/stuck 600/900s; server enforces its current limits; omitted preserves, explicit false sends false, no null/reset; no-field set is manager-only current-values readback (not a database no-op); use get for a participant read; standby true currently refused (exit 5), never an activation claim; ordinary authenticated caller, server controls manager rights
 hadron team stall-schedule get | set [--assignment-minutes N|default] [--not-started-minutes N|default] [--no-progress-minutes N|default] [--owner-reaction-minutes N|default] [--host-lapse-check-ins N|default] (uses --app or the binding)   # an omitted flag keeps its value, `default` restores the platform default; set is the App manager's, never the bound worker's (exit 8 APP_MANAGER_REQUIRED)
 hadron team host list | ops [--host <id>] [--status issued|collected|succeeded|failed] [--worker <ref>] [--limit N] [--after <cursor>] | issue <type> --host <id> --worker <ref> [--arg k=v]… [--as-person] (uses --app or the binding)   # ops: newest first, --json {items, hasNextPage, endCursor}; issue: worktree.create|worktree.remove plus worker.start|worker.end issued by App managers (worker.deliver exit 2 HOST_OPERATION_NOT_ISSUABLE, other types exit 2 HOST_OPERATION_TYPE_UNKNOWN, bad args exit 2 BAD_HOST_OPERATION_ARGS, not permitted exit 8, unknown host exit 4); bound: issued as the worker (the target's reports-to), --as-person: as yourself (holder or App manager); arguments are ids and name tokens, never a credential
 hadron team host run --config <host.yaml> [--once] | status --config <host.yaml>   # the host poller (cli#831, cor:agt:070): registers each poll, collects, runs ONLY worktree.create|worker.start|worker.deliver|worker.end|worktree.remove (anything else reported FAILED locally), reports every outcome; authenticates with the host:operate key from key_file only (mode 0600; NEVER HADRON_TOKEN or an env var); a launched agent gets HADRON_LAUNCH_GRANT and no host credential, and binds with session start reading it (the grant names the worker, so no worker argument; never forced; LAUNCH_GRANT_INVALID exit 8, LAUNCH_REFUSED exit 5); worker.end prompts and reports FAILED after end_wait (the server records an ended session as success; it never kills); worktree.remove refuses dirty, untracked, no-upstream, unpushed, or after a failed end; --json: one event object per line; no host key exit 3, bad config exit 2, APP_KEY_SCOPE_REQUIRED/HOST_KEY_REQUIRED exit 8
@@ -330,6 +331,7 @@ hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role
 hadron profile set [--name <n>] [--handle <h>] [--email <e>]   # --email is accepted and REFUSED locally (exit 2, "Changing your email address is not supported here.") — the flag stays so scripts fail loudly (#844)
 hadron server-info
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
+hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [--reasons read-team-channel,every-tick] | update <id-or-URN> [--reasons <list>] | delete <id-or-URN> --yes | subscribe <id-or-URN> --worker <id-or-URN> | unsubscribe <id-or-URN> --worker <id-or-URN>
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | list --app <ref> | update <id> ... | rm <id> --yes
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | list --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
@@ -1638,10 +1640,13 @@ Conventions:
   **`node add --role` / `node update --role` set `Node.role`** and the command
   routes the write through that kind's door for you — so `hadron node update
   <ref> --role spec` is how an existing node becomes governed. Omit the flag to
-  PRESERVE the stored role; `--role ""` is REFUSED rather than sent, because the
-  server keeps an empty role verbatim (unlike `--object-type ""`, which it
-  normalizes to null) and would leave the node carrying a role no kind
-  recognizes. Clearing needs an explicit null via `hadron api`. The flag is NOT
+  PRESERVE the stored role; an empty or whitespace-only `--role` clears it.
+  Updates send literal null through the current ∪ resulting kind's door;
+  creates omit the blank role. This also avoids writing empty strings on older
+  servers. Governed refusals stay fail-closed, with no generic retry. The clear
+  and other field edits share one mutation; --data-merge is refused with a role
+  clear (use --data for atomic replacement). Nonblank roles remain verbatim.
+  The flag is NOT
   `--type` (the platform kind) and NOT the `--role` on `memory member` /
   `memory share`, which is a MEMBERSHIP role on a person. `node get` and
   `node list` PROJECT it, and `--json` renders `"role": null` for an ungoverned
@@ -2000,8 +2005,16 @@ Conventions:
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
   its name reserved — PR trailers and chat history reference it — and there
   is no rename; `worker rm` is the ONE removal escape, hard-deleting a
-  NEVER-USED miscast (`WORKER_IN_USE` exit 5 otherwise) and freeing its
-  name.
+  NEVER-USED miscast and freeing its name. Persisted references or an
+  unreleased stint refuse with `WORKER_IN_USE` (exit 5); an ended empty
+  stint alone is not attributed work. Before removing one, verify that no
+  signed commit, trailer, PR, comment, review or other published artifact
+  attributes work to it, then pass `--confirm-no-external-attribution`.
+  Database checks cannot prove external absence. Known or uncertain history
+  means retire instead. `--yes` skips the deletion prompt only, never attests;
+  omission of the separate flag refuses with
+  `WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED` (exit 2). Concealed/not-found workers
+  remain exit 4. Old-server schema refusal never retries an unattested delete.
   **`team worker release <name-or-id>`** clears the HOLD (`releaseWorker`,
   `cor:agt:020:09`) and is the ONLY thing that frees one — not `session end`,
   not an idle window, not an expiry, not a reap, not a closed chat session.
@@ -3093,3 +3106,42 @@ Session whoami and session rows add the same fields plus `reportingKnown`;
 whoami reads the current worker relation, never a cached bind-time value.
 With several fallback candidates each row shows its relation; there is no single
 selected relation. No client enforcement, alarm routing or human target is added.
+
+### Ticker commands
+
+`ticker create` and `list` use the explicit/configured `--app`. Ticker and worker
+refs are IDs or fully-qualified URNs; names are not addresses. No owner flag:
+the server determines the caller and authority. Create/update accept `--name`,
+`--cadence-seconds`, `--anchor-at` (RFC3339), `--quiet-hours` (JSON object),
+`--channel-ids` (comma-separated/repeated IDs), `--relevance all|mentions`,
+`--reasons` and `--enabled=false`. Update also has `--clear-quiet-hours` and
+`--clear-channels`, mutually exclusive with their set flags. Omitted update
+fields are preserved; false and clear values are transmitted explicitly. A no-field
+update refuses with exit 2 before a request. Ticker/worker URNs use the v2 parser;
+malformed or wrong-type refs refuse before a request.
+
+Reasons form a nonempty closed set: `read-team-channel`, `every-tick`, or both
+(any-of). Duplicate reasons collapse to canonical order. Empty and unknown
+reasons refuse before a write. The current server defaults omitted create
+reasons to read-team-channel, relevance to all, anchor to now, enabled to true.
+These defaults and the management/read rules include Proposed corpus clauses;
+this describes shipped behavior, not a promotion to settled law. The server
+checks cadence, consent and authority; no local wake/budget simulation occurs.
+Adding every-tick can refuse the entire edit with TICKER_CADENCE_NEEDS_CONSENT.
+The CLI does not retry an uncertain write or attempt a narrower edit.
+
+JSON ticker objects use id, nullable urn, name, slug, appId, cadenceSeconds,
+anchorAt, quietHours, readableChannels, relevance, reasons, enabled, nullable
+owner/nextTickAt/lastTickAt/updatedAt, and createdAt. Reasons use lowercase
+hyphenated names. Get/list add subscribers, paged to exhaustion; empty arrays
+are []. Readable channels are only the reader's view. Missing and unreadable
+get both report not found. The server's ticker list is currently unpaged: the
+CLI reports that response without claiming an exhaustive census.
+
+Delete requires TTY confirmation or --yes and ends live subscriptions; there is
+no restore. A false delete response is an error, never a success receipt. Recreating a
+name gets a new slug/URN. Subscribe/unsubscribe return subscription and nullable
+announcement. Null is normal; POSTED reports grant announcement success. FAILED
+leaves the subscription change standing and prints a warning; never rerun to
+retry the announcement. Ticker/wake settings and actual wake transport are
+separate surfaces; these commands do not advance chat/read/tick marks.

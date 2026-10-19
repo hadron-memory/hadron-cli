@@ -1,0 +1,658 @@
+// Package ticker exposes the server's named ticker schedules. It does not
+// compute due wakes or enforce server authorization/cadence policy.
+package ticker
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"strings"
+	"time"
+
+	"github.com/Khan/genqlient/graphql"
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
+	urn "github.com/hadron-memory/urn-lib-go"
+	"github.com/spf13/cobra"
+)
+
+type identityDTO struct {
+	ID   string  `json:"id"`
+	Name string  `json:"name"`
+	URN  *string `json:"urn"`
+}
+type channelDTO struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+type subscriptionDTO struct {
+	ID          string       `json:"id"`
+	Worker      *identityDTO `json:"worker"`
+	CreatedBy   *identityDTO `json:"createdBy"`
+	ViaGrant    bool         `json:"viaGrant"`
+	CreatedAt   string       `json:"createdAt"`
+	EndedAt     *string      `json:"endedAt"`
+	EndedReason *string      `json:"endedReason"`
+}
+type tickerDTO struct {
+	ID               string           `json:"id"`
+	URN              *string          `json:"urn"`
+	Name             string           `json:"name"`
+	Slug             string           `json:"slug"`
+	AppID            string           `json:"appId"`
+	CadenceSeconds   int              `json:"cadenceSeconds"`
+	AnchorAt         string           `json:"anchorAt"`
+	QuietHours       *json.RawMessage `json:"quietHours"`
+	ReadableChannels []channelDTO     `json:"readableChannels"`
+	Relevance        string           `json:"relevance"`
+	Reasons          []string         `json:"reasons"`
+	Enabled          bool             `json:"enabled"`
+	Owner            *identityDTO     `json:"owner"`
+	NextTickAt       *string          `json:"nextTickAt"`
+	LastTickAt       *string          `json:"lastTickAt"`
+	CreatedAt        string           `json:"createdAt"`
+	UpdatedAt        *string          `json:"updatedAt"`
+}
+type readDTO struct {
+	tickerDTO
+	Subscribers []subscriptionDTO `json:"subscribers"`
+}
+
+func tickerFrom(x gen.TickerFields) tickerDTO {
+	d := tickerDTO{ID: x.Id, URN: x.Urn, Name: x.Name, Slug: x.Slug, CadenceSeconds: x.CadenceSeconds, AnchorAt: x.AnchorAt, QuietHours: x.QuietHours, ReadableChannels: []channelDTO{}, Relevance: strings.ToLower(string(x.Relevance)), Reasons: []string{}, Enabled: x.Enabled, NextTickAt: x.NextTickAt, LastTickAt: x.LastTickAt, CreatedAt: x.CreatedAt, UpdatedAt: x.UpdatedAt}
+	if x.App != nil {
+		d.AppID = x.App.Id
+	}
+	if x.Owner != nil {
+		d.Owner = &identityDTO{x.Owner.Id, x.Owner.Name, x.Owner.Urn}
+	}
+	for _, c := range x.Channels {
+		if c != nil {
+			d.ReadableChannels = append(d.ReadableChannels, channelDTO{c.Id, c.Name})
+		}
+	}
+	for _, r := range x.Reasons {
+		d.Reasons = append(d.Reasons, strings.ReplaceAll(strings.ToLower(string(r)), "_", "-"))
+	}
+	return d
+}
+func subFrom(x gen.TickerSubscriptionFields) subscriptionDTO {
+	d := subscriptionDTO{ID: x.Id, ViaGrant: x.ViaGrant, CreatedAt: x.CreatedAt, EndedAt: x.EndedAt}
+	if x.Worker != nil {
+		d.Worker = &identityDTO{x.Worker.Id, x.Worker.Name, x.Worker.Urn}
+	}
+	if x.CreatedBy != nil {
+		d.CreatedBy = &identityDTO{x.CreatedBy.Id, x.CreatedBy.Name, x.CreatedBy.Urn}
+	}
+	if x.EndedReason != nil {
+		v := string(*x.EndedReason)
+		d.EndedReason = &v
+	}
+	return d
+}
+func writeTicker(w io.Writer, d tickerDTO) error {
+	ref := d.ID
+	if d.URN != nil {
+		ref = *d.URN
+	}
+	owner := "unknown"
+	if d.Owner != nil {
+		owner = d.Owner.Name
+		if owner == "" {
+			owner = d.Owner.ID
+		}
+	}
+	state := "disabled"
+	if d.Enabled {
+		state = "enabled"
+	}
+	channels := "none visible to you"
+	if len(d.ReadableChannels) > 0 {
+		channels = fmt.Sprint(len(d.ReadableChannels))
+	}
+	_, err := fmt.Fprintf(w, "%s · %s · every %s · %s · relevance %s · reasons %s\n  owner %s · anchor %s\n  readable channels (reader's view): %s\n", d.Name, ref, cadenceCell(d.CadenceSeconds), state, d.Relevance, strings.Join(d.Reasons, "+"), owner, d.AnchorAt, channels)
+	if err != nil {
+		return err
+	}
+	for _, channel := range d.ReadableChannels {
+		if _, e := fmt.Fprintf(w, "    %s · %s\n", channel.ID, channel.Name); e != nil {
+			return e
+		}
+	}
+	quiet := "none"
+	if d.QuietHours != nil {
+		var q struct {
+			Timezone string            `json:"timezone"`
+			Windows  []json.RawMessage `json:"windows"`
+		}
+		if err := json.Unmarshal(*d.QuietHours, &q); err == nil && q.Timezone != "" {
+			quiet = fmt.Sprintf("%s (%d windows)", q.Timezone, len(q.Windows))
+		} else {
+			quiet = "configured (details in --json)"
+		}
+	}
+	_, err = fmt.Fprintf(w, "  quiet hours %s · next tick %s · last tick %s\n  created %s · updated %s\n", quiet, dateCell(d.NextTickAt), dateCell(d.LastTickAt), d.CreatedAt, dateCell(d.UpdatedAt))
+	return err
+}
+func dateCell(s *string) string {
+	if s == nil {
+		return "none"
+	}
+	return *s
+}
+func writeOne(ctx context.Context, client graphql.Client, f *cmdutil.Factory, x gen.TickerFields, scope string) error {
+	d := tickerFrom(x)
+	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+		if scope != "" {
+			if err := writeScope(ctx, client, f, w, scope); err != nil {
+				return err
+			}
+		}
+		return writeTicker(w, d)
+	})
+}
+
+// NewCmdTicker builds ticker CRUD and subscription commands only.
+func NewCmdTicker(f *cmdutil.Factory) *cobra.Command {
+	c := &cobra.Command{Use: "ticker <command>", Short: "Manage named ticker schedules and worker subscriptions", Long: `Manage named ticker schedules through the server. The server determines
+ownership, permissions, cadence limits and subscriber consent; this command
+never computes due wakes. Wake delivery is a separate host operation.
+
+Current server behavior may change. Create defaults reasons to
+read-team-channel, relevance to all, anchor to now and enabled to true.
+The server determines edit/delete authority and reader access.`}
+	c.AddCommand(newWrite(f, false), newWrite(f, true), newRead(f, false), newRead(f, true), newDelete(f), newSubscribe(f, false), newSubscribe(f, true))
+	return c
+}
+
+func qualifiedRef(value, kind string) (string, error) {
+	v := strings.TrimSpace(value)
+	if cmdutil.IsAppID(v) {
+		return v, nil
+	}
+	// Ticker and worker are v2-only types: the shared v1 compatibility
+	// parser deliberately rejects them. Keep this fix local to these commands.
+	parsed, err := urn.ParseUrnV2(v)
+	if err == nil && parsed.Type == kind && parsed.Fragment == "" {
+		return urn.ComposeUrnV2(kind, parsed.Root, parsed.Segments...)
+	}
+	listing := "hadron ticker list"
+	if kind == "worker" {
+		listing = "hadron team worker list"
+	}
+	return "", exitcode.Newf(exitcode.Usage, "pass a %s id or fully-qualified hrn:%s: URN (names are not addresses); %s shows the refs", kind, kind, listing)
+}
+
+func subscribers(ctx context.Context, client graphql.Client, ref string) ([]subscriptionDTO, error) {
+	result := []subscriptionDTO{}
+	var after *string
+	seen := map[string]bool{}
+	for {
+		r, err := gen.TickerSubscribers(ctx, client, ref, 200, after)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		if r.Ticker == nil {
+			return nil, exitcode.Newf(exitcode.NotFound, "ticker not found")
+		}
+		p := r.Ticker.Subscribers
+		if p == nil {
+			return nil, exitcode.Newf(exitcode.Error, "server returned no subscriber page")
+		}
+		for _, s := range p.Items {
+			if s != nil {
+				result = append(result, subFrom(s.TickerSubscriptionFields))
+			}
+		}
+		if !p.HasNextPage {
+			return result, nil
+		}
+		if p.EndCursor == nil || *p.EndCursor == "" || seen[*p.EndCursor] {
+			return nil, exitcode.Newf(exitcode.Error, "server returned a non-advancing subscriber cursor")
+		}
+		seen[*p.EndCursor] = true
+		after = p.EndCursor
+	}
+}
+func newRead(f *cmdutil.Factory, list bool) *cobra.Command {
+	use, short := "get <id-or-URN>", "Read one ticker and its live subscribers"
+	if list {
+		use = "list"
+		short = "List the tickers returned by the server"
+	}
+	c := &cobra.Command{Use: use, Short: short, Long: short + `. Channels are the reader's view, not the full configured set.
+Subscribers are paged to the end. The server ticker list is currently unpaged;
+this command reports its response and does not promise an exhaustive census.`, Args: cobra.ExactArgs(1)}
+	if list {
+		c.Args = cobra.NoArgs
+		c.Aliases = []string{"ls"}
+	}
+	c.RunE = func(cmd *cobra.Command, args []string) error {
+		var ref, app string
+		var err error
+		if list {
+			app, err = cmdutil.ResolveAppRef(f, "")
+		} else {
+			ref, err = qualifiedRef(args[0], "ticker")
+		}
+		if err != nil {
+			return err
+		}
+		client, err := f.GraphQLClient()
+		if err != nil {
+			return err
+		}
+		rows := []gen.TickerFields{}
+		if list {
+			r, e := gen.ListTickers(cmd.Context(), client, app)
+			if e != nil {
+				return api.MapError(e)
+			}
+			for _, x := range r.Tickers {
+				if x != nil {
+					rows = append(rows, x.TickerFields)
+				}
+			}
+		} else {
+			r, e := gen.GetTicker(cmd.Context(), client, ref)
+			if e != nil {
+				return api.MapError(e)
+			}
+			if r.Ticker == nil {
+				return exitcode.Newf(exitcode.NotFound, "ticker not found")
+			}
+			rows = append(rows, r.Ticker.TickerFields)
+		}
+		result := []readDTO{}
+		for _, x := range rows {
+			s, e := subscribers(cmd.Context(), client, x.Id)
+			if e != nil {
+				return e
+			}
+			result = append(result, readDTO{tickerFrom(x), s})
+		}
+		var dto any = result
+		if !list {
+			dto = result[0]
+		}
+		return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			if list {
+				if err := writeScope(cmd.Context(), client, f, w, app); err != nil {
+					return err
+				}
+			}
+			if list && len(result) == 0 {
+				_, err := fmt.Fprintln(w, "No tickers in this App.")
+				return err
+			}
+			for _, d := range result {
+				if e := writeTicker(w, d.tickerDTO); e != nil {
+					return e
+				}
+				if _, e := fmt.Fprintf(w, "  live subscribers: %d\n", len(d.Subscribers)); e != nil {
+					return e
+				}
+				for _, s := range d.Subscribers {
+					label := s.ID
+					if s.Worker != nil {
+						label = s.Worker.ID
+						if s.Worker.Name != "" {
+							label = s.Worker.Name
+						}
+					}
+					if _, e := fmt.Fprintf(w, "    %s · %s\n", s.ID, label); e != nil {
+						return e
+					}
+				}
+			}
+			return nil
+		})
+	}
+	return c
+}
+
+type writeFlags struct {
+	name                               string
+	cadence                            int
+	anchor, quiet, relevance, reasons  string
+	channels                           []string
+	enabled, clearQuiet, clearChannels bool
+}
+
+func newWrite(f *cmdutil.Factory, update bool) *cobra.Command {
+	v := &writeFlags{}
+	use, short := "create", "Create a named ticker"
+	if update {
+		use = "update <id-or-URN>"
+		short = "Update a ticker atomically"
+	}
+	long := `Create a named ticker. Name and cadence are required. Omitted inputs
+use the current server defaults: reasons read-team-channel, relevance all,
+anchor at creation time, and enabled. These defaults may change.
+The caller becomes the owner; owner and immutable slug cannot be supplied.`
+	if update {
+		long = `Update a ticker atomically. Omitted fields keep their current values,
+including enabled/disabled state. Pass at least one field flag.
+Adding every-tick may require subscriber consent: refusal rejects the whole
+edit. The server determines edit authority; current server behavior may change.
+Owner and immutable slug cannot be supplied.`
+	}
+	long += `
+
+--reasons is a nonempty set: read-team-channel, every-tick, or both (any-of).
+The server checks permissions and cadence limits. If a write's outcome is
+unknown, verify the current state before retrying; this command never retries.
+Quiet hours are a JSON object {"timezone":"UTC","windows":[{"days":[1],"from":"09:00","to":"10:00"}]}.
+Watched channels are those in the subscriber's WATCH or BOTH channel register.`
+	c := &cobra.Command{Use: use, Short: short, Args: cobra.NoArgs, Long: long}
+	if update {
+		c.Args = cobra.ExactArgs(1)
+	}
+	flags := c.Flags()
+	nameUsage, cadenceUsage := "Ticker name (required)", "Cadence in whole seconds (required; server validates limits)"
+	anchorUsage, relevanceUsage := "Tick anchor as RFC3339", "all or mentions"
+	keep := ""
+	if update {
+		nameUsage = "Replacement ticker name"
+		cadenceUsage = "Replacement cadence in whole seconds (server validates limits)"
+		keep = "; omitted keeps the current value"
+	}
+	flags.StringVar(&v.name, "name", "", nameUsage+keep)
+	flags.IntVar(&v.cadence, "cadence-seconds", 0, cadenceUsage+keep)
+	flags.StringVar(&v.anchor, "anchor-at", "", anchorUsage+keep)
+	flags.StringVar(&v.quiet, "quiet-hours", "", "Quiet-hours JSON object"+keep)
+	channelUsage := "Channel IDs, comma-separated/repeated; watched means WATCH/BOTH register"
+	if update {
+		channelUsage += keep
+	} else {
+		channelUsage += "; omit for watched channels"
+	}
+	flags.StringSliceVar(&v.channels, "channel-ids", nil, channelUsage)
+	flags.StringVar(&v.relevance, "relevance", "", relevanceUsage+keep)
+	flags.StringVar(&v.reasons, "reasons", "", "Nonempty comma-separated reasons: read-team-channel,every-tick"+keep)
+	// The bound bool's default is not a server default. Changed controls omission.
+	flags.BoolVar(&v.enabled, "enabled", false, "Enable ticker; --enabled=false disables"+keep)
+	if update {
+		flags.BoolVar(&v.clearQuiet, "clear-quiet-hours", false, "Remove quiet hours")
+		flags.BoolVar(&v.clearChannels, "clear-channels", false, "Remove channel selection; count watched channels")
+		c.MarkFlagsMutuallyExclusive("quiet-hours", "clear-quiet-hours")
+		c.MarkFlagsMutuallyExclusive("channel-ids", "clear-channels")
+	} else {
+		_ = c.MarkFlagRequired("name")
+		_ = c.MarkFlagRequired("cadence-seconds")
+	}
+	c.RunE = func(cmd *cobra.Command, args []string) error {
+		if update {
+			changed := false
+			for _, name := range []string{"name", "cadence-seconds", "anchor-at", "quiet-hours", "channel-ids", "relevance", "reasons", "enabled", "clear-quiet-hours", "clear-channels"} {
+				changed = changed || cmd.Flags().Changed(name)
+			}
+			if !changed {
+				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
+			}
+		}
+		p, err := v.patch(cmd)
+		if err != nil {
+			return err
+		}
+		var ref, app string
+		if update {
+			ref, err = qualifiedRef(args[0], "ticker")
+		} else {
+			app, err = cmdutil.ResolveAppRef(f, "")
+		}
+		if err != nil {
+			return err
+		}
+		client, err := f.GraphQLClient()
+		if err != nil {
+			return err
+		}
+		if update {
+			r, e := gen.UpdateTicker(cmd.Context(), client, ref, p)
+			if e != nil {
+				return api.MapError(e)
+			}
+			if r.UpdateTicker == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no ticker")
+			}
+			return writeOne(cmd.Context(), client, f, r.UpdateTicker.TickerFields, "")
+		}
+		in := &gen.TickerInput{Name: v.name, CadenceSeconds: v.cadence, AnchorAt: p.AnchorAt, QuietHours: p.QuietHours, ChannelIds: p.ChannelIds, Relevance: p.Relevance, Reasons: p.Reasons, Enabled: p.Enabled}
+		r, e := gen.CreateTicker(cmd.Context(), client, app, in)
+		if e != nil {
+			return api.MapError(e)
+		}
+		if r.CreateTicker == nil {
+			return exitcode.Newf(exitcode.Error, "server returned no ticker")
+		}
+		return writeOne(cmd.Context(), client, f, r.CreateTicker.TickerFields, app)
+	}
+	return c
+}
+func (v *writeFlags) patch(c *cobra.Command) (*gen.TickerPatch, error) {
+	p := &gen.TickerPatch{}
+	changed := c.Flags().Changed
+	if changed("name") {
+		if strings.TrimSpace(v.name) == "" {
+			return nil, exitcode.Newf(exitcode.Usage, "--name must not be empty")
+		}
+		p.Name = &v.name
+	}
+	if changed("cadence-seconds") {
+		p.CadenceSeconds = &v.cadence
+	}
+	if changed("anchor-at") {
+		if _, err := time.Parse(time.RFC3339, v.anchor); err != nil {
+			return nil, exitcode.Newf(exitcode.Usage, "--anchor-at takes an RFC3339 timestamp")
+		}
+		p.AnchorAt = &v.anchor
+	}
+	if changed("quiet-hours") {
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(v.quiet), &obj); err != nil || obj == nil {
+			return nil, exitcode.Newf(exitcode.Usage, "--quiet-hours takes a JSON object")
+		}
+		raw := json.RawMessage(v.quiet)
+		p.QuietHours = &raw
+	}
+	if changed("channel-ids") {
+		if len(v.channels) == 0 {
+			return nil, exitcode.Newf(exitcode.Usage, "--channel-ids must not be empty; use --clear-channels on update")
+		}
+		for _, id := range v.channels {
+			if strings.TrimSpace(id) == "" {
+				return nil, exitcode.Newf(exitcode.Usage, "--channel-ids contains an empty ID")
+			}
+		}
+		p.ChannelIds = v.channels
+	}
+	if changed("enabled") {
+		p.Enabled = &v.enabled
+	}
+	if changed("clear-quiet-hours") {
+		p.ClearQuietHours = &v.clearQuiet
+	}
+	if changed("clear-channels") {
+		p.ClearChannels = &v.clearChannels
+	}
+	if changed("relevance") {
+		r := gen.TickerRelevance(strings.ToUpper(v.relevance))
+		if r != gen.TickerRelevanceAll && r != gen.TickerRelevanceMentions {
+			return nil, exitcode.Newf(exitcode.Usage, "--relevance takes all or mentions")
+		}
+		p.Relevance = &r
+	}
+	if changed("reasons") {
+		seen := map[string]bool{}
+		for _, r := range strings.Split(v.reasons, ",") {
+			r = strings.ReplaceAll(strings.ToLower(strings.TrimSpace(r)), "_", "-")
+			if r == "" {
+				return nil, exitcode.Newf(exitcode.Usage, "reasons must name at least one reason: a ticker with none would never fire.")
+			}
+			if r != "read-team-channel" && r != "every-tick" {
+				return nil, exitcode.Newf(exitcode.Usage, "reasons are from: read-team-channel, every-tick.")
+			}
+			seen[r] = true
+		}
+		for _, r := range []string{"read-team-channel", "every-tick"} {
+			if seen[r] {
+				p.Reasons = append(p.Reasons, gen.TickerReason(strings.ReplaceAll(strings.ToUpper(r), "-", "_")))
+			}
+		}
+	}
+	return p, nil
+}
+func newDelete(f *cmdutil.Factory) *cobra.Command {
+	var yes bool
+	c := &cobra.Command{Use: "delete <id-or-URN>", Short: "Permanently delete a ticker and end its subscriptions", Long: `Delete a ticker. There is no restore. Recreating its name gives a new slug
+and URN; existing subscriptions do not transfer to the replacement.`, Args: cobra.ExactArgs(1)}
+	c.Flags().BoolVar(&yes, "yes", false, "Confirm permanent deletion without prompting")
+	c.RunE = func(cmd *cobra.Command, args []string) error {
+		ref, err := qualifiedRef(args[0], "ticker")
+		if err != nil {
+			return err
+		}
+		if err = cmdutil.ConfirmDeletion(f.IOStreams, yes, "ticker "+ref+" (ending its live subscriptions)"); err != nil {
+			return err
+		}
+		client, err := f.GraphQLClient()
+		if err != nil {
+			return err
+		}
+		r, err := gen.DeleteTicker(cmd.Context(), client, ref)
+		if err != nil {
+			return api.MapError(err)
+		}
+		if !r.DeleteTicker {
+			return exitcode.Newf(exitcode.Error, "server did not delete ticker; verify the current state before retrying")
+		}
+		d := struct {
+			Ref     string `json:"ref"`
+			Deleted bool   `json:"deleted"`
+		}{ref, r.DeleteTicker}
+		return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+			_, e := fmt.Fprintf(w, "ticker %s · deleted %t\n", d.Ref, d.Deleted)
+			return e
+		})
+	}
+	return c
+}
+func newSubscribe(f *cmdutil.Factory, unsubscribe bool) *cobra.Command {
+	worker := ""
+	verb := "subscribe"
+	if unsubscribe {
+		verb = "unsubscribe"
+	}
+	c := &cobra.Command{Use: verb + " <ticker-id-or-URN> --worker <id-or-URN>", Short: strings.ToUpper(verb[:1]) + verb[1:] + " a worker to a ticker", Args: cobra.ExactArgs(1), Long: `Change a worker's ticker subscription. The server checks holder, manager,
+self-subscribe cadence and grant authority. Current server behavior permits
+self-unsubscribe at any cadence; current server behavior may change.
+A grant announcement is best-effort:
+FAILED leaves the subscription change standing; this command never retries it.`}
+	if unsubscribe {
+		c.Short = "Unsubscribe a worker from a ticker"
+	}
+	c.Flags().StringVar(&worker, "worker", "", "Worker ID or fully-qualified worker URN (required)")
+	_ = c.MarkFlagRequired("worker")
+	c.RunE = func(cmd *cobra.Command, args []string) error {
+		ref, err := qualifiedRef(args[0], "ticker")
+		if err != nil {
+			return err
+		}
+		wref, err := qualifiedRef(worker, "worker")
+		if err != nil {
+			return err
+		}
+		client, err := f.GraphQLClient()
+		if err != nil {
+			return err
+		}
+		var sub gen.TickerSubscriptionFields
+		var announcement *gen.GrantAnnouncement
+		if unsubscribe {
+			r, e := gen.UnsubscribeTicker(cmd.Context(), client, ref, wref)
+			if e != nil {
+				return api.MapError(e)
+			}
+			if r.UnsubscribeWorker == nil || r.UnsubscribeWorker.Subscription == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no subscription")
+			}
+			sub = r.UnsubscribeWorker.Subscription.TickerSubscriptionFields
+			announcement = r.UnsubscribeWorker.Announcement
+		} else {
+			r, e := gen.SubscribeTicker(cmd.Context(), client, ref, wref)
+			if e != nil {
+				return api.MapError(e)
+			}
+			if r.SubscribeWorker == nil || r.SubscribeWorker.Subscription == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no subscription")
+			}
+			sub = r.SubscribeWorker.Subscription.TickerSubscriptionFields
+			announcement = r.SubscribeWorker.Announcement
+		}
+		var a *string
+		if announcement != nil {
+			s := string(*announcement)
+			a = &s
+		}
+		d := struct {
+			Subscription subscriptionDTO `json:"subscription"`
+			Announcement *string         `json:"announcement"`
+		}{subFrom(sub), a}
+		if a != nil && *a == "FAILED" {
+			if _, e := fmt.Fprintln(f.IOStreams.ErrOut, "Subscription change stands, but the grant announcement failed. Tell the worker's holder; do not rerun to retry the announcement."); e != nil {
+				return e
+			}
+		}
+		return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+			label := wref
+			if d.Subscription.Worker != nil {
+				label = d.Subscription.Worker.ID
+				if d.Subscription.Worker.Name != "" {
+					label = d.Subscription.Worker.Name + " (" + d.Subscription.Worker.ID + ")"
+				}
+			}
+			preposition := "to"
+			if unsubscribe {
+				preposition = "from"
+			}
+			_, e := fmt.Fprintf(w, "%s worker %s %s ticker %s · subscription %s\n", verb, label, preposition, ref, d.Subscription.ID)
+			if e == nil && a != nil && *a == "POSTED" {
+				_, e = fmt.Fprintln(w, "Grant use announced to the team chat.")
+			}
+			return e
+		})
+	}
+	return c
+}
+
+// Scope decoration is best-effort, human-only and never a new gate.
+func writeScope(ctx context.Context, client graphql.Client, f *cmdutil.Factory, w io.Writer, ref string) error {
+	label := ref
+	if r, err := gen.TeamAppIdentity(ctx, client, ref); err == nil && r.App != nil && r.App.Urn != "" {
+		label = r.App.Urn
+		if r.App.Name != "" {
+			label += " — " + r.App.Name
+		}
+	}
+	source := "the App context"
+	if f.AppFlag != "" {
+		source = "--app"
+	}
+	_, err := fmt.Fprintf(w, "app: %s (from %s)\n", label, source)
+	return err
+}
+
+func cadenceCell(seconds int) string {
+	if seconds%3600 == 0 {
+		return fmt.Sprintf("%dh", seconds/3600)
+	}
+	if seconds%60 == 0 {
+		return fmt.Sprintf("%dm", seconds/60)
+	}
+	return (time.Duration(seconds) * time.Second).String()
+}

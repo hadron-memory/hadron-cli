@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 72 unbound
+[Query] 70 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -71,15 +71,13 @@ secret
 slackConnection
 slackConnections
 teamSpecSchema  # cli#811 team-from-JSON consumer, outside cli#807 comments/search
-ticker  # server ticker (named-heartbeats epic, in flight); CLI parity follows the surface settling
-tickers  # server ticker list (named-heartbeats epic, in flight); CLI parity follows the surface settling
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 verifyDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 107 unbound
+[Mutation] 102 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -103,7 +101,6 @@ createHomeAssistantInstance
 createResendSender
 createRevision
 createSlackConnection
-createTicker  # server ticker (named-heartbeats epic, in flight); CLI parity follows the surface settling
 deleteChat
 deleteCommentThread  # cli#807 commands slice covers writer operations; admin thread deletion is a later parity slice
 deleteDashboardWidgetPreset
@@ -111,7 +108,6 @@ deleteExchangeConnection
 deleteHomeAssistantInstance
 deleteResendSender
 deleteSlackConnection
-deleteTicker  # server ticker (named-heartbeats epic, in flight); CLI parity follows the surface settling
 deleteUser
 emailCategorizeMessage
 emailDeleteMessage
@@ -168,12 +164,10 @@ setQuotaLimit
 setWorkerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 startAgentSession
 startChat
-subscribeWorker  # wake-surface v2 channel subscriptions; cli#828 lane
 syncMemory
 testAiServiceConfig  # server#1378 saved-config provider probe; outside cli#739 endpoint CRUD scope
 testExchangeConnection
 unlinkGithubApp
-unsubscribeWorker  # wake-surface v2 channel subscriptions; cli#828 lane
 updateAgentAIConfig
 updateAgentMemoryRole
 updateApp
@@ -185,5 +179,4 @@ updateNodeProperties
 updateOrgGithubApp
 updateResendSender
 updateSecret
-updateTicker  # server ticker (named-heartbeats epic, in flight); CLI parity follows the surface settling
 withdrawDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
