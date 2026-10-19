@@ -310,7 +310,7 @@ hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <or
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
 hadron agent list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] [--tasks-index <node-ref> | --processes-index <node-ref>] (explicit empty clears) | rm <id> --yes | tasks list <agentRef> | processes list <agentRef> | set-base <agent> (<base> | --clear)
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
-hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | set-reports-to <worker> (<target> | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
+hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> [--signature <text>] [--trailer <text>] [--prompt-override <text> | --clear-prompt-override] | set-reports-to <worker> (<target> | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team worker onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <label> --family <family> --worktrees-root <absolute-path> --config <router.json> [--base main] [--display-name <text>] [--coordinator] [--apply] [--as-person] [--timeout 2m]   # Orca-hosted workers only; dry-run by default, submits nothing; prerequisites and partial-outcome contract below
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team session start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
@@ -2003,6 +2003,17 @@ Conventions:
   refuses with `WORKER_RETIRED`, exit 5 — an override is briefing text
   delivered at bind time, so the edit could never reach anyone. The receipt
   prints the RE-RENDERED briefing, which is what a bind actually delivers.
+  **`--signature` / `--trailer`** (cli#916 C4, `cor:agt:040:04`) replace the
+  worker's raw signature and commit-trailer TEMPLATES (`{{worker.name}}`-style
+  variables, rendered into the next briefing; nothing already delivered
+  changes). Omitted keeps the stored template; `""` stores an empty one, which
+  delivers nothing (D8); there is no reset — pass the default text to restore
+  it. App managers only; the length limit is the server's (exit 2). From a
+  bound worktree these edits carry the worktree session, and a refusal exits 8
+  with the server's sentence plus a hedged note to retry from an unbound shell
+  (the bound-session rule is provisional). A prompt-only update is unchanged.
+  `worker get` and every worker `--json` gain `signature` / `trailer`: a string
+  (`""` = empty template) or `null` = WITHHELD (masked), never "empty".
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
   its name reserved — PR trailers and chat history reference it — and there
   is no rename; `worker rm` is the ONE removal escape, hard-deleting a

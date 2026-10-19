@@ -47,6 +47,12 @@ fragment WorkerFields on Worker {
   # surfaced by `worker get` — it is what a session driver adopts.
   prompt
   promptOverride
+  # cli#916 C4: the raw signature and trailer templates ({{worker.name}} and
+  # friends, unrendered). Working-state fields: NULL MEANS WITHHELD (masked for
+  # a reader who may not see this worker's internals), never empty — an empty
+  # template is "". Not on the roster projection below.
+  signature
+  trailer
   # #1024 — the repo affinity of this worker's ROLE, resolved server-side so a
   # caller already holding the worker needs no second trip to teamRoles.
   #
@@ -1053,6 +1059,27 @@ mutation DeleteTeamRole(
 # adopts — without a second read.
 mutation UpdateWorker($workerRef: ID!, $promptOverride: String) {
   updateWorker(workerRef: $workerRef, promptOverride: $promptOverride) {
+    ...WorkerFields
+  }
+}
+
+# cli#916 C4 (hadron-server#2120, cor:agt:040:04): the per-worker signature
+# and trailer templates, with the override when it rides the same call.
+# A SEPARATE operation from UpdateWorker, which keeps its explicit-null clear
+# unchanged. Here every field is presence-preserving: omitempty on the
+# optional pointer, so nil is OMITTED (the server preserves it) and &"" is an
+# explicit empty string (an empty template, or a cleared override). Null is
+# never sent: the server refuses a null signature/trailer (D2).
+mutation UpdateWorkerSigning(
+  $workerRef: ID!
+  # @genqlient(omitempty: true)
+  $promptOverride: String
+  # @genqlient(omitempty: true)
+  $signature: String
+  # @genqlient(omitempty: true)
+  $trailer: String
+) {
+  updateWorker(workerRef: $workerRef, promptOverride: $promptOverride, signature: $signature, trailer: $trailer) {
     ...WorkerFields
   }
 }
