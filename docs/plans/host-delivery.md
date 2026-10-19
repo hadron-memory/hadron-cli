@@ -37,7 +37,9 @@ Built on S1 (`internal/cmd/team/host_delivery.go`):
     `server-refused`, or a transport class. The adapter's own failures
     (`no-page`, `no-cursor`, …) are fixed codes too.
   - The poller logs a source error only through `diagnostic`: the code the
-    error declares, when it is a plain token, else `unclassified`. Never
+    error declares, when it is in the fixed vocabulary (`delivery.KnownCode`),
+    else `unclassified`. A code is trusted by membership, never by shape: a
+    code-shaped token can still be private text (Xan #24626). Never
     `err.Error()`. Scope-off logs only its fixed text.
   - Event lines print Orca's terminal handle and the span (S1 channel ids)
     only in their plain shape, else `withheld`. Worker names are printed as
