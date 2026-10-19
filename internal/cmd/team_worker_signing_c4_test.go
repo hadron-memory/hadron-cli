@@ -2,9 +2,12 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -255,5 +258,68 @@ func TestC4WorkerGetShowsTemplatesAndWithheld(t *testing.T) {
 	}
 	if strings.Contains(get(irisWorkerJSON, false), "template:") {
 		t.Error("a withheld template prints nothing")
+	}
+}
+
+// Pin 8 (#946 BLIND P2, Joost): a bound worktree's signing edit never falls
+// back to the person. The binding is resolved BEFORE the write: the same
+// endpoint under another spelling still carries the session, and a binding
+// that can't be verified for this request refuses with nothing written.
+// Unbound shells are unaffected (pin 4).
+func TestC4BoundSigningEditNeverDowngradesToThePerson(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		server  func(url string) string // the binding's recorded server
+		app     string                  // --app, when set
+		mutate  func(b map[string]any)
+		session string // "" means refused before any write
+	}{
+		{name: "same endpoint, trailing slash", server: func(u string) string { return u + "/" }, session: "s-new"},
+		{name: "another server", server: func(string) string { return "https://elsewhere.example.test" }},
+		{name: "another App", server: func(u string) string { return u }, app: "capp200000000000000000000"},
+		{name: "incomplete binding", server: func(u string) string { return u }, mutate: func(b map[string]any) { b["workerId"] = "" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			writeTeamBinding(t)
+			r := signingStubs(signingOK)
+			r["TeamAppIdentity"] = teamAppIdentityJSON
+			if tc.app != "" {
+				r["TeamAppIdentity"] = strings.ReplaceAll(teamAppIdentityJSON, "capp100000000000000000000", tc.app)
+			}
+			srv, calls := attnServer(t, r)
+			setTeamBindingServer(t, tc.server(srv.URL))
+			if tc.mutate != nil {
+				p := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
+				raw, _ := os.ReadFile(p)
+				var b map[string]any
+				_ = json.Unmarshal(raw, &b)
+				tc.mutate(b)
+				raw, _ = json.Marshal(b)
+				if err := os.WriteFile(p, raw, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"team", "worker", "update", "hrn:worker:acme.com:eng-team:iris", "--signature", "s", "--server", srv.URL}
+			if tc.app != "" {
+				args = append(args, "--app", tc.app)
+			}
+			root.SetArgs(args)
+			err := root.Execute()
+			writes := callsFor(calls, "UpdateWorkerSigning")
+			if tc.session != "" {
+				if err != nil || len(writes) != 1 || writes[0].Session != tc.session {
+					t.Fatalf("want one write carrying %q; err=%v writes=%+v", tc.session, err, writes)
+				}
+				return
+			}
+			if len(writes) != 0 {
+				t.Fatalf("an unverifiable binding must refuse before writing; sent %+v", writes)
+			}
+			if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "nothing was written") {
+				t.Errorf("want a Usage refusal saying nothing was written, got %d: %v", exitCodeFor(err), err)
+			}
+		})
 	}
 }
