@@ -255,8 +255,7 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 	// anything else changes which door may write the node, so it earns a line.
 	//
 	// An EMPTY role is shown too, and shown as odd (@copilot on #615). It is a
-	// state `--role` refuses to create, but one the generic surface and MCP can
-	// still produce, and it matches no kind — so hiding it alongside null would
+	// historical state; current server writers normalize blanks to null, and it matches no kind — so hiding it alongside null would
 	// make the one node a reader most needs to notice look ordinary.
 	if dto.Role != nil {
 		if *dto.Role == "" {

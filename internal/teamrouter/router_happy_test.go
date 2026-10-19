@@ -27,7 +27,7 @@ func TestHappyNudgesIdleRosterWorkerOnce(t *testing.T) {
 	if f.sent[0].handle != "term_eli" {
 		t.Fatalf("send handle = %q, want term_eli", f.sent[0].handle)
 	}
-	for _, want := range []string{"5 relevant unread (2 mentions", "unread #100–#120", "latest mention #110", "as of send", "no chat post or 'read/no-action' comment"} {
+	for _, want := range []string{"5 relevant unread (2 mentions", "unread #100–#120", "latest mention #110", "as of send", "end with one short line", "do not post to team chat"} {
 		if !strings.Contains(f.sent[0].text, want) {
 			t.Fatalf("nudge text missing %q:\n%s", want, f.sent[0].text)
 		}

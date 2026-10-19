@@ -716,8 +716,8 @@ func buildCreateNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string) (*
 	// cli#714: the governed signals, carried only when the file states them. An
 	// absent key is "no opinion", so a file written before these keys existed
 	// preserves the stored kind rather than clearing it. An empty role is read
-	// as absent too: the server keeps "" as a role no kind recognizes, and a
-	// file is not a reason to write that (see `node update --role ""`).
+	// as absent too for this import format, preserving its existing no-op
+	// semantics. Explicit CLI --role blank uses a separate null-clear operation.
 	if doc.Role != nil && *doc.Role != "" {
 		input.Role = doc.Role
 	}
