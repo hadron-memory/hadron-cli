@@ -84,7 +84,7 @@ type Kind string
 const (
 	Delivered  Kind = "delivered"  // typed and confirmed
 	Reconciled Kind = "reconciled" // acknowledged from a confirmed record, nothing typed
-	Held       Kind = "held"       // reported to S5 with a reason
+	Held       Kind = "held"       // left due with a reason; reported to S5 unless Unreported (#940)
 	Deferred   Kind = "deferred"   // left due: try again next time
 	Skipped    Kind = "skipped"    // left due, without a hold (no terminal, lock busy)
 	Failed     Kind = "error"      // a contract or transport error; left due

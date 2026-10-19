@@ -243,8 +243,14 @@ Moving a host from the Orca attention router: see
 docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the
 hadron-cli repository. Preparing a config authorizes no cutover.
 
-A held delivery is not reported to the server yet (hadron-cli#940): it
-raises no server alarm, and team host status shows it as UNREPORTED.
+With delivery.enabled (and orca_bin), each poll also reads this host's
+ready chat batches (the key needs attention:deliver too) and types each
+into its worker's agent terminal, only into an empty composer, then
+acknowledges it. A key without attention:deliver turns delivery off for the
+run (a delivery-off event); operations carry on. Tick and task wakes are
+not delivered yet (hadron-cli#906). A held delivery is not reported to the
+server yet (hadron-cli#940): it raises no server alarm, and team host
+status shows it as UNREPORTED.
 
 --once runs a single poll and waits for what it collected. Events print one
 per line; --json prints each as a JSON object.`,
@@ -253,14 +259,6 @@ per line; --json prints each as a JSON object.`,
 			cfg, key, srv, err := loadHostPoller(f, configPath)
 			if err != nil {
 				return err
-			}
-			// The terminal half of delivery is built (cli#907); its batch
-			// source, S1's query, is not on server main yet. A config that
-			// turns delivery on must not run and silently do nothing.
-			// `status` still reads it: it changes nothing.
-			if cfg.Delivery.Enabled {
-				return exitcode.Newf(exitcode.Usage,
-					"delivery.enabled: this build has no batch source yet (hadron-cli#907 waits on hadron-server#2017): remove the delivery block to run the host poller")
 			}
 			state, err := hostpoller.LoadState(cfg.StateFile)
 			if err != nil {
@@ -271,6 +269,9 @@ per line; --json prints each as a JSON object.`,
 			}
 			emit := hostEventPrinter(f)
 			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{}, state, key, emit)
+			if cfg.Delivery.Enabled {
+				wireDelivery(p, cfg, srv, emit)
+			}
 			// A refused or revoked key, or a registration the server calls
 			// malformed, does not heal by retrying: exit with its code.
 			p.Fatal = func(err error) bool {

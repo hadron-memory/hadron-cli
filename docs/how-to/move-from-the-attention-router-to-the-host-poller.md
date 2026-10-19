@@ -9,9 +9,11 @@ configuration onto the other.
 
 **Preparing the host config authorizes nothing.** Stopping the router or
 `ticker-wake`, enabling `delivery`, and changing a host are the cutover's, and
-the cutover has its own owner and sign-off. Until the batch source ships,
-`team host run` refuses `delivery.enabled` with exit 2. `team host status`
-already reads such a config, so you can check it beforehand.
+the cutover has its own owner and sign-off. With `delivery.enabled`,
+`team host run` reads and types this host's chat batches, so turning it on
+for a live host is that cutover step. Tick and task wakes are not delivered
+by the poller yet (hadron-cli#906). `team host status` reads such a config,
+so you can check it beforehand.
 
 ## Order, per worker
 

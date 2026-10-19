@@ -8,20 +8,32 @@ Gate: CHECKED T2 + §10, dependency-ordered (Xylon, issuecomment-6246632510).
 The design attach is issuecomment-6246590915; deltas 1 to 4 follow it on the
 issue. Built by Joshua on 2026-10-18 from cli main `52b4968`.
 
-**Status: the terminal half is built. Integration waits for S1 on server
-main; the S5 hold report is a deferred slice (#940, Xan's bounded split on
-#907, 2026-10-19 05:11Z).** Everything that needs no server is in, behind typed seams:
+**Status: built against S1 (hadron-server#2102). The S5 hold report is a
+deferred slice (#940, Xan's bounded split on #907, 2026-10-19 05:11Z).** The
+schema is exported from #2102's head until it lands, and then re-exported
+from server main before the freeze. Everything that needs no server is in, behind typed seams:
 - the Orca calls and screen checks;
 - send and confirm;
 - locks, the expiry budget, and recovery state.
 
-Still waiting for server main:
-- the GraphQL adapter (`deliveryBatches`, `acknowledgeDeliveryBatches`; the
-  S5 hold report, `holdDeliveryBatch`, waits for #940);
-- codegen and `make unbound-ops`;
-- the command wiring.
-
-Until those land, `team host run` refuses `delivery.enabled` with exit 2.
+Built on S1 (`internal/cmd/team/host_delivery.go`):
+- **The read:** `deliveryBatches(appRef, first: 200, after)`, paged to
+  exhaustion with the host key and no session, naming no workers (the host
+  is the key's). A batch's proof expiry is the read time plus 15 minutes,
+  taken before the request so it is never later than the server's. A page
+  that breaks the contract (a time that doesn't parse, a next page with no
+  new cursor, no page) refuses the whole read, so nothing is typed from it.
+- **The ack:** `acknowledgeDeliveryBatches([id], through)`, with `through`
+  only for a covered prefix. 1 acknowledged is `Acked` and 1 unchanged is
+  `Unchanged`; any other count, or any refusal, is an error, and nothing
+  moved.
+- **Scope:** `APP_KEY_SCOPE_REQUIRED` on the read is `ErrDeliveryScope`, so
+  delivery is off for the run; other refusals are read failures.
+- **Hold:** `ErrHoldUnavailable`, with no call (#940).
+- **Wiring:** `team host run` with `delivery.enabled` wires batches only. It
+  writes the status snapshot after each step and prints each outcome as a
+  `delivery-<kind>` event (codes, ids and spans). Wakes stay unwired until
+  hadron-server#2069/#2072 (#906 row 1).
 
 ## The split
 
@@ -305,13 +317,10 @@ What it changed:
 
 ## Owed before APPROVE (not in this branch yet)
 
-- **S1 on server main** (S5 is #940):
-  - `make schema` from a clean `origin/main`, `make generate`,
-    `make unbound-ops`;
-  - the adapter, with red pins on its refusals (`APP_KEY_SCOPE_REQUIRED`,
-    `BAD_USER_INPUT`, `WAKE_PROOF_STALE`);
-  - the command wiring;
-  - `team host status`'s delivery block, `--help` and `agentic-usage.md`.
+- **S1 on server main** (S5 is #940): `make schema` from a clean
+  `origin/main` (replacing #2102's export), `make generate`,
+  `make unbound-ops`, and a diff check that nothing the adapter selects
+  changed.
 - **Approval-prompt captures.** The fleet runs both agents without
   approvals, so none appeared on the scratch terminal (below). The approval
   regexes in `orcaterm.questionLine` stay provisional; a false match only

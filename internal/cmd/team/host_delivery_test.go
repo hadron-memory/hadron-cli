@@ -241,3 +241,16 @@ func TestHoldIsUnavailableWithNoServerCall(t *testing.T) {
 		t.Fatalf("%d server calls, want none", n)
 	}
 }
+
+func TestDeliveryEventLinesCarryCodesOnly(t *testing.T) {
+	e := deliveryEvent(delivery.Event{Time: deliveryNow, Worker: "Iris", WorkerID: "wkr1", Span: "ch1#2:4-5", Kind: delivery.Held, Reason: delivery.HoldDraft, Terminal: "term_1", Unreported: true})
+	if e.Kind != "delivery-held" || e.Outcome != "draft" {
+		t.Fatalf("event %+v", e)
+	}
+	if e.Detail != "Iris ch1#2:4-5 in term_1, unreported: no server hold, alarm or escalation" {
+		t.Fatalf("detail %q", e.Detail)
+	}
+	if e := deliveryEvent(delivery.Event{Worker: "Iris", Span: "ch1#2:4-5", Kind: delivery.Delivered}); strings.Contains(e.Detail, "unreported") {
+		t.Fatalf("a delivery says unreported: %q", e.Detail)
+	}
+}
