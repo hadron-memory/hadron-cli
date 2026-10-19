@@ -237,6 +237,10 @@ The configuration (YAML):
       end_wait: 15m
       worktrees: [hadron-cli/jonas-2]
 
+Moving a host from the Orca attention router: see
+docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the
+hadron-cli repository. Preparing a config authorizes no cutover.
+
 --once runs a single poll and waits for what it collected. Events print one
 per line; --json prints each as a JSON object.`,
 		Args: cobra.NoArgs,
