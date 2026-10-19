@@ -202,6 +202,12 @@ func teamChatMessageDTOFromFields(m gen.TeamChatMessageFields) teamChatMessageDT
 }
 
 func newCmdTeamChatPost(f *cmdutil.Factory) *cobra.Command {
+	return newCmdTeamChatPostWithHostDelivery(f, nil)
+}
+
+// Host delivery is injected only after the landed C1/S1 adapter is available.
+func newCmdTeamChatPostWithHostDelivery(f *cmdutil.Factory, prepare postHostDeliveryPreparer) *cobra.Command {
+	var hostConfig string
 	var body, bodyFile, replyTo string
 	var asMe bool
 	cmd := &cobra.Command{
@@ -353,6 +359,9 @@ refused when stdin is an interactive terminal (use --body-file there).
 	// One body source is enforced in RunE (a cobra flag group can't see the
 	// positional form).
 	cmd.MarkFlagsMutuallyExclusive("body", "body-file")
+	if prepare != nil {
+		cmd.Flags().StringVar(&hostConfig, "orca-host-config", "", "attempt this host’s due deliveries after posting (including older unrelated batches)")
+	}
 	return cmd
 }
 
