@@ -38578,6 +38578,195 @@ var AllSessionEndReason = []SessionEndReason{
 	SessionEndReasonUnknown,
 }
 
+// SessionInboxDeliveryBatchesDeliveryBatchPage includes the requested fields of the GraphQL type DeliveryBatchPage.
+// The GraphQL type's documentation follows.
+//
+// #2017 (S1) — one page of delivery batches.
+type SessionInboxDeliveryBatchesDeliveryBatchPage struct {
+	Batches  []*SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch  `json:"batches"`
+	PageInfo *SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo `json:"pageInfo"`
+}
+
+// GetBatches returns SessionInboxDeliveryBatchesDeliveryBatchPage.Batches, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPage) GetBatches() []*SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch {
+	return v.Batches
+}
+
+// GetPageInfo returns SessionInboxDeliveryBatchesDeliveryBatchPage.PageInfo, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPage) GetPageInfo() *SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo {
+	return v.PageInfo
+}
+
+// SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch includes the requested fields of the GraphQL type DeliveryBatch.
+// The GraphQL type's documentation follows.
+//
+// One ready-to-type delivery for one worker. The id is a signed proof bound to the key, the host and the rendered ranges: hand it back to acknowledgeDeliveryBatches after typing.
+type SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch struct {
+	Id     string                                                                  `json:"id"`
+	Worker *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker `json:"worker"`
+	// The whole delivery, one line, written by the server (hrn:node:hadronmemory.com:specs:cor:agt:080:26). Type it unchanged.
+	Text string `json:"text"`
+	// Not before this moment (the batching window / busy deadline of the oldest waiting message).
+	DeliverAfter string `json:"deliverAfter"`
+	// The latest moment a busy worker may be made to wait for this delivery.
+	BusyDeadline string `json:"busyDeadline"`
+	// Always false until stop signals ship (S6).
+	Interrupt bool `json:"interrupt"`
+	// Eligible messages left for the next batch.
+	Overflow int                                                                                         `json:"overflow"`
+	Ranges   []*SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange `json:"ranges"`
+}
+
+// GetId returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Id, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetId() string {
+	return v.Id
+}
+
+// GetWorker returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Worker, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetWorker() *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker {
+	return v.Worker
+}
+
+// GetText returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Text, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetText() string {
+	return v.Text
+}
+
+// GetDeliverAfter returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.DeliverAfter, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetDeliverAfter() string {
+	return v.DeliverAfter
+}
+
+// GetBusyDeadline returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.BusyDeadline, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetBusyDeadline() string {
+	return v.BusyDeadline
+}
+
+// GetInterrupt returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Interrupt, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetInterrupt() bool {
+	return v.Interrupt
+}
+
+// GetOverflow returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Overflow, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetOverflow() int {
+	return v.Overflow
+}
+
+// GetRanges returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch.Ranges, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatch) GetRanges() []*SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange {
+	return v.Ranges
+}
+
+// SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange includes the requested fields of the GraphQL type DeliveryBatchRange.
+type SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange struct {
+	Channel     *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel `json:"channel"`
+	Incarnation int                                                                                              `json:"incarnation"`
+	FromSeq     int                                                                                              `json:"fromSeq"`
+	ThroughSeq  int                                                                                              `json:"throughSeq"`
+	// Exactly the message seqs this batch rendered.
+	Seqs []int `json:"seqs"`
+}
+
+// GetChannel returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange.Channel, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange) GetChannel() *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel {
+	return v.Channel
+}
+
+// GetIncarnation returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange.Incarnation, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange) GetIncarnation() int {
+	return v.Incarnation
+}
+
+// GetFromSeq returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange.FromSeq, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange) GetFromSeq() int {
+	return v.FromSeq
+}
+
+// GetThroughSeq returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange.ThroughSeq, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange) GetThroughSeq() int {
+	return v.ThroughSeq
+}
+
+// GetSeqs returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange.Seqs, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRange) GetSeqs() []int {
+	return v.Seqs
+}
+
+// SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel struct {
+	Id string `json:"id"`
+}
+
+// GetId returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel.Id, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel) GetId() string {
+	return v.Id
+}
+
+// SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetId returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker.Id, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker) GetId() string {
+	return v.Id
+}
+
+// GetName returns SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker.Name, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchWorker) GetName() string {
+	return v.Name
+}
+
+// SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo includes the requested fields of the GraphQL type DueWakePageInfo.
+type SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo struct {
+	HasNextPage bool    `json:"hasNextPage"`
+	EndCursor   *string `json:"endCursor"`
+}
+
+// GetHasNextPage returns SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo.HasNextPage, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo) GetHasNextPage() bool {
+	return v.HasNextPage
+}
+
+// GetEndCursor returns SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo.EndCursor, and is useful for accessing the field via an interface.
+func (v *SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo) GetEndCursor() *string {
+	return v.EndCursor
+}
+
+// SessionInboxResponse is returned by SessionInbox on success.
+type SessionInboxResponse struct {
+	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
+	// An own live session reads only its bound worker. A host App key needs attention:deliver AND host:operate;
+	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
+	DeliveryBatches *SessionInboxDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
+}
+
+// GetDeliveryBatches returns SessionInboxResponse.DeliveryBatches, and is useful for accessing the field via an interface.
+func (v *SessionInboxResponse) GetDeliveryBatches() *SessionInboxDeliveryBatchesDeliveryBatchPage {
+	return v.DeliveryBatches
+}
+
 type SessionInput struct {
 	// #928 / cor:api:140: the role-Agent driving this session, as a PK or URN.
 	// Resolves to Session.agentId. The caller must be able to READ the agent
@@ -57016,6 +57205,22 @@ type __SelectedSkillFilePlanInput struct {
 // GetInput returns __SelectedSkillFilePlanInput.Input, and is useful for accessing the field via an interface.
 func (v *__SelectedSkillFilePlanInput) GetInput() *SelectedSkillFilePlanInput { return v.Input }
 
+// __SessionInboxInput is used internally by genqlient
+type __SessionInboxInput struct {
+	AppRef     string   `json:"appRef"`
+	WorkerRefs []string `json:"workerRefs"`
+	After      *string  `json:"after,omitempty"`
+}
+
+// GetAppRef returns __SessionInboxInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SessionInboxInput) GetAppRef() string { return v.AppRef }
+
+// GetWorkerRefs returns __SessionInboxInput.WorkerRefs, and is useful for accessing the field via an interface.
+func (v *__SessionInboxInput) GetWorkerRefs() []string { return v.WorkerRefs }
+
+// GetAfter returns __SessionInboxInput.After, and is useful for accessing the field via an interface.
+func (v *__SessionInboxInput) GetAfter() *string { return v.After }
+
 // __SetAgentBaseInput is used internally by genqlient
 type __SetAgentBaseInput struct {
 	Ref     string  `json:"ref"`
@@ -72217,6 +72422,69 @@ func ServerInfo(
 	}
 
 	data_ = &ServerInfoResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SessionInbox.
+const SessionInbox_Operation = `
+query SessionInbox ($appRef: String!, $workerRefs: [String!]!, $after: String) {
+	deliveryBatches(appRef: $appRef, workerRefs: $workerRefs, first: 200, after: $after) {
+		batches {
+			id
+			worker {
+				id
+				name
+			}
+			text
+			deliverAfter
+			busyDeadline
+			interrupt
+			overflow
+			ranges {
+				channel {
+					id
+				}
+				incarnation
+				fromSeq
+				throughSeq
+				seqs
+			}
+		}
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+	}
+}
+`
+
+// R57 own-session page: server auth binds this call via X-Hadron-Session.
+func SessionInbox(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	workerRefs []string,
+	after *string,
+) (data_ *SessionInboxResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SessionInbox",
+		Query:  SessionInbox_Operation,
+		Variables: &__SessionInboxInput{
+			AppRef:     appRef,
+			WorkerRefs: workerRefs,
+			After:      after,
+		},
+	}
+
+	data_ = &SessionInboxResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
