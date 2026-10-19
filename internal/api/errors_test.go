@@ -935,3 +935,9 @@ func TestUnknownChatReadSuppressionArgumentRequiresExactEnvelope(t *testing.T) {
 		t.Fatal("unparsed error retried")
 	}
 }
+
+func TestInboxTypedRefusalCodes(t *testing.T) {
+ for code,want:=range map[string]int{"WAKE_PROOF_STALE":exitcode.Conflict,"SESSION_NOT_LIVE":exitcode.Conflict,"WAKE_PROOF_INVALID":exitcode.Usage,"WAKE_PROOF_REQUESTER_MISMATCH":exitcode.Forbidden} {
+  if got:=exitcode.FromError(MapError(gqlErr(code)));got!=want{t.Errorf("%s=%d want %d",code,got,want)}
+ }
+}
