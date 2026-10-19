@@ -13,10 +13,13 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -30,6 +33,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/delivery"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -39,6 +43,8 @@ import (
 type hostServer struct {
 	client graphql.Client
 	app    string
+	// now dates a batch read, for its proof's expiry; time.Now when nil.
+	now func() time.Time
 }
 
 func (s *hostServer) Register(ctx context.Context, r hostpoller.Registration) (hostpoller.RegisteredHost, error) {
@@ -233,6 +239,26 @@ The configuration (YAML):
       end_wait: 15m
       worktrees: [hadron-cli/jonas-2]
 
+Moving a host from the Orca attention router: see
+docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the
+hadron-cli repository. Preparing a config authorizes no cutover.
+
+With delivery.enabled (and orca_bin), each poll also reads this host's
+ready chat batches (the key needs attention:deliver too) and types each
+into its worker's agent terminal, only into an empty composer, then
+acknowledges it. A key without attention:deliver turns delivery off for the
+run (a delivery-off event); operations carry on. Tick and task wakes are
+not delivered yet (hadron-cli#906). A held delivery is not reported to the
+server yet (hadron-cli#940): it raises no server alarm, and team host
+status shows it as UNREPORTED.
+
+A single message longer than 131,071 bytes of UTF-8 cannot be typed (orca
+terminal send carries text as one argument). It fails as too-long-to-type,
+is never truncated or acknowledged, and stays due. The server delivers the
+oldest message first, so it BLOCKS all later chat delivery to that worker
+until hadron-server#2121 lands. Delivery for real workers stays off until
+then.
+
 --once runs a single poll and waits for what it collected. Events print one
 per line; --json prints each as a JSON object.`,
 		Args: cobra.NoArgs,
@@ -245,8 +271,14 @@ per line; --json prints each as a JSON object.`,
 			if err != nil {
 				return exitcode.Newf(exitcode.Error, "reading host state %s: %v", cfg.StateFile, err)
 			}
+			if err := cfg.CheckWorktreeAliases(state); err != nil {
+				return exitcode.Newf(exitcode.Usage, "%s: %v", configPath, err)
+			}
 			emit := hostEventPrinter(f)
 			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{}, state, key, emit)
+			if cfg.Delivery.Enabled {
+				wireDelivery(p, cfg, srv, emit)
+			}
 			// A refused or revoked key, or a registration the server calls
 			// malformed, does not heal by retrying: exit with its code.
 			p.Fatal = func(err error) bool {
@@ -345,6 +377,151 @@ type hostStatusDTO struct {
 	// when the read was refused or this host has not registered yet.
 	Registration *hostRegistrationDTO `json:"registration"`
 	ReadError    *string              `json:"readError"`
+	// Delivery is the poller's local delivery snapshot (cli#906): what this
+	// host's poller last saw, read from local state only. It is not
+	// authoritative delivery health (S5 is), and it carries codes only.
+	Delivery hostDeliveryDTO `json:"delivery"`
+}
+
+type hostDeliveryDTO struct {
+	Enabled bool `json:"enabled"`
+	// Mode is disabled, enabled, or off-by-scope (the host key lacked
+	// attention:deliver at the poller's last step).
+	Mode       string  `json:"mode"`
+	OrcaBin    string  `json:"orcaBin"`
+	LastStepAt *string `json:"lastStepAt"`
+	LastRead   *string `json:"lastRead"`
+	// Stale: delivery is on and the snapshot is missing, unreadable, or
+	// older than three poll intervals. Error then names which, as a code.
+	Stale bool    `json:"stale"`
+	Error *string `json:"error"`
+	// WakeRead is the newest tick/task wake read's code (read, read-failed,
+	// budget-exhausted), null before one. BudgetExhaustedAt is set only
+	// while that read says the App's daily wake budget is spent. Dormant
+	// and Withheld are dueWakes' counts.
+	WakeRead          *string                 `json:"wakeRead"`
+	BudgetExhaustedAt *string                 `json:"budgetExhaustedAt"`
+	Dormant           int                     `json:"dormant"`
+	Withheld          int                     `json:"withheld"`
+	Workers           []hostDeliveryWorkerDTO `json:"workers"`
+}
+
+type hostDeliveryWorkerDTO struct {
+	Worker     string  `json:"worker"`
+	WorkerID   string  `json:"workerId"`
+	LastKind   string  `json:"lastKind"`
+	LastReason string  `json:"lastReason"`
+	LastAt     *string `json:"lastAt"`
+	// ConfirmedUnacked counts this host's confirmed-delivery records whose
+	// ack has not landed: they reconcile without typing.
+	ConfirmedUnacked int    `json:"confirmedUnacked"`
+	ResolvedBy       string `json:"resolvedBy"`
+	// LastFor says whether the last event was a batch's or a wake's.
+	LastFor string `json:"lastFor"`
+	// TicksUnacked counts tick and task reasons typed and confirmed whose
+	// ack has not landed: never retyped, acked when the proof allows.
+	TicksUnacked int `json:"ticksUnacked"`
+	// Unreported: the last event was a hold the server was not told about
+	// (cli#940): no server hold, alarm or escalation exists for it.
+	Unreported bool `json:"unreported"`
+}
+
+// hostDeliveryStatus builds the delivery block from local state only.
+func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
+	d := hostDeliveryDTO{Enabled: cfg.Delivery.Enabled, Mode: "disabled", OrcaBin: cfg.Delivery.OrcaBin, Workers: []hostDeliveryWorkerDTO{}}
+	if !d.Enabled {
+		return d
+	}
+	d.Mode = "enabled"
+	stateDir := cfg.DeliveryStateDir()
+	st, err := delivery.ReadStatus(stateDir)
+	if err != nil {
+		code := "status-unreadable"
+		if errors.Is(err, fs.ErrNotExist) {
+			code = "status-missing"
+		}
+		d.Stale, d.Error = true, &code
+		return d
+	}
+	at, read := st.LastStepAt.UTC().Format(time.RFC3339), st.LastRead
+	d.LastStepAt, d.LastRead = &at, &read
+	if read == delivery.StepOffByScope {
+		d.Mode = "off-by-scope"
+	}
+	interval := time.Duration(cfg.PollIntervalSeconds) * time.Second
+	d.Stale = now.Sub(st.LastStepAt) > 3*interval
+	if st.WakeRead != "" {
+		wr := st.WakeRead
+		d.WakeRead = &wr
+	}
+	if st.BudgetExhaustedAt != nil {
+		b := st.BudgetExhaustedAt.UTC().Format(time.RFC3339)
+		d.BudgetExhaustedAt = &b
+	}
+	d.Dormant, d.Withheld = st.Dormant, st.Withheld
+	recs := &delivery.Records{Dir: filepath.Join(stateDir, "delivery", "records")}
+	wakes := &delivery.WakeRecords{Dir: filepath.Join(stateDir, "delivery", "wakes")}
+	for _, id := range sortedKeys(st.Workers) {
+		w := st.Workers[id]
+		last := w.At.UTC().Format(time.RFC3339)
+		row := hostDeliveryWorkerDTO{Worker: w.Name, WorkerID: id, LastKind: string(w.Kind), LastReason: w.Reason, LastAt: &last, ResolvedBy: w.ResolvedBy, Unreported: w.Unreported}
+		if list, err := recs.List(id); err == nil {
+			row.ConfirmedUnacked = len(list)
+		}
+		row.LastFor = "batch"
+		if w.Wake {
+			row.LastFor = "wake"
+		}
+		if list, err := wakes.List(id); err == nil {
+			for _, r := range list {
+				if r.State == delivery.WakeTyped {
+					row.TicksUnacked++
+				}
+			}
+		}
+		d.Workers = append(d.Workers, row)
+	}
+	return d
+}
+
+func writeHostDelivery(w io.Writer, d hostDeliveryDTO) {
+	if !d.Enabled {
+		fmt.Fprintln(w, "delivery: disabled")
+		return
+	}
+	line := "delivery: " + d.Mode + ", orca " + d.OrcaBin
+	if d.LastStepAt != nil {
+		line += ", last step " + *d.LastStepAt + " (" + *d.LastRead + ")"
+	}
+	if d.Stale {
+		line += ", STALE"
+	}
+	if d.Error != nil {
+		line += " (" + *d.Error + ")"
+	}
+	fmt.Fprintln(w, line)
+	if d.WakeRead != nil {
+		wl := fmt.Sprintf("wakes: %s, dormant %d, withheld %d", *d.WakeRead, d.Dormant, d.Withheld)
+		if d.BudgetExhaustedAt != nil {
+			wl += ", budget exhausted at " + *d.BudgetExhaustedAt
+		}
+		fmt.Fprintln(w, wl)
+	}
+	for _, wk := range d.Workers {
+		unreported := ""
+		if wk.Unreported {
+			unreported = ", UNREPORTED: no server hold, alarm or escalation"
+		}
+		fmt.Fprintf(w, "  %s: %s %s (%s)%s at %s, confirmed-unacked %d, ticks typed-unacked %d, resolved by %s\n",
+			wk.Worker, wk.LastKind, wk.LastReason, wk.LastFor, unreported, *wk.LastAt, wk.ConfirmedUnacked, wk.TicksUnacked, orDash(wk.ResolvedBy))
+	}
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
 }
 
 func newCmdTeamHostStatus(f *cmdutil.Factory) *cobra.Command {
@@ -411,6 +588,7 @@ nothing.`,
 					dto.Registration = &reg
 				}
 			}
+			dto.Delivery = hostDeliveryStatus(cfg, time.Now())
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "host %s for %s, checking in every %ds\n", dto.Label, dto.App, dto.PollIntervalSeconds)
 				t := output.NewTable(w, "WORKER", "FAMILY", "LAUNCH", "WORKTREES")
@@ -435,6 +613,7 @@ nothing.`,
 					}
 					fmt.Fprintf(w, "registration: host %s, %s, refreshed %s\n", dto.Registration.HostID, live, dto.Registration.RefreshedAt)
 				}
+				writeHostDelivery(w, dto.Delivery)
 				return nil
 			})
 		},
@@ -453,7 +632,7 @@ func dedupe(s []string) []string {
 	return out
 }
 
-func sortedKeys(m map[string]string) []string {
+func sortedKeys[V any](m map[string]V) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
