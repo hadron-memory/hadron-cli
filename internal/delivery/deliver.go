@@ -44,6 +44,9 @@ type Recipient struct {
 	TUI string
 	// Worktrees are its registered worktrees, absolute.
 	Worktrees []string
+
+	// resolvedBy is set by Deliver once the terminal is found (Event).
+	resolvedBy string
 }
 
 // Capabilities are what has been PROVEN on a scratch terminal, per TUI
@@ -106,6 +109,11 @@ type Event struct {
 	Kind     Kind
 	Reason   string
 	Terminal string
+	// ResolvedBy says where the recipient terminal's agent family came
+	// from: "identity" (Orca's agent identity) or "screen" (Orca reported
+	// none, and the screen showed one). Empty before a terminal is found. A
+	// diagnostic code only (cli#906): it grants nothing.
+	ResolvedBy string
 }
 
 // Deliverer delivers batches into Orca terminals.
@@ -141,7 +149,7 @@ func New(server Server, orca Terminals, stateDir string) *Deliverer {
 
 func (d *Deliverer) emit(b Batch, r Recipient, o Outcome) Outcome {
 	if d.Emit != nil {
-		d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, Span: b.Span(), Kind: o.Kind, Reason: o.Reason, Terminal: o.Terminal})
+		d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, Span: b.Span(), Kind: o.Kind, Reason: o.Reason, Terminal: o.Terminal, ResolvedBy: r.resolvedBy})
 	}
 	return o
 }
@@ -227,6 +235,11 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 	term, sc, family, o, ok := d.recipientTerminal(ctx, b, r)
 	if !ok {
 		return o
+	}
+	// Every later event of this delivery says how the terminal was found.
+	r.resolvedBy = "identity"
+	if term.Identity() == "" {
+		r.resolvedBy = "screen"
 	}
 	state, leftover := orcaterm.ReadComposer(sc, family, Prefix)
 	enterOnly := false
