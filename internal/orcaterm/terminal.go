@@ -156,6 +156,11 @@ type SendOptions struct {
 	NoEnter bool
 }
 
+// MaxSendTextBytes is the longest text Send can carry: it travels as one
+// argv string (orca terminal send has no file or stdin input), and Linux
+// caps one argument at MAX_ARG_STRLEN, 131,072 bytes with its NUL.
+const MaxSendTextBytes = 131_072 - 1
+
 // Send types text into the terminal and submits it. An observed send (text
 // plus Enter, no interrupt) retries once, with Orca's durable request id,
 // only after an ambiguous transport failure, as

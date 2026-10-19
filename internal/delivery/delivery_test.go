@@ -540,6 +540,57 @@ func TestMalformedBatchesAreNeitherTypedNorAckedNorHeld(t *testing.T) {
 	}
 }
 
+// Colette's LOCAL P2 on #939 (issuecomment-6262511293): S1 delivers the
+// first message whole and alone even past its 6,000-character budget
+// (renderBatch.ts at ad7f1c2), up to the 65,536-character chat body. Such a
+// batch is valid: typed unchanged, never truncated, never malformed.
+func TestAWholeOversizedMessageIsTypedUnchanged(t *testing.T) {
+	h := newHarness(t)
+	b := h.batch()
+	b.Text = "[hadron chat] 1 for Joshua · #5 Ada: " + strings.Repeat("x", 9000) + " · reply: hadron team chat post"
+	o := h.deliver(b)
+	if o.Kind != Delivered {
+		t.Fatalf("outcome %+v", o)
+	}
+	if len(h.orca.sends) != 1 || h.orca.sends[0].text != b.Text {
+		t.Fatalf("sent %d, want the whole text once", len(h.orca.sends))
+	}
+}
+
+func TestATextPastTheServersBoundIsMalformed(t *testing.T) {
+	h := newHarness(t)
+	b := h.batch()
+	b.Text = "[hadron chat] 1 for Joshua · #5 Ada: " + strings.Repeat("x", 70_000)
+	if o := h.deliver(b); o.Kind != Failed || o.Reason != "malformed-batch" {
+		t.Fatalf("outcome %+v", o)
+	}
+	h.wantNoSend()
+}
+
+// A valid batch whose text is longer than one argv string can carry
+// (orca terminal send --text; Linux MAX_ARG_STRLEN) cannot be typed through
+// Orca at all. It is a transport failure, not a malformed batch: left due,
+// never truncated, never acked or held, and it says why.
+func TestATextTooLongForTheTerminalIsNeverTypedNorTruncated(t *testing.T) {
+	h := newHarness(t)
+	b := h.batch()
+	b.Text = "[hadron chat] 1 for Joshua · #5 Ada: " + strings.Repeat("界", 45_000) // 135,000 bytes, 45,0xx runes
+	if err := CheckBatch(b); err != nil {
+		t.Fatalf("a valid server batch is malformed: %v", err)
+	}
+	o := h.deliver(b)
+	if o.Kind != Failed || o.Reason != "too-long-to-type" {
+		t.Fatalf("outcome %+v", o)
+	}
+	h.wantNoSend()
+	if len(h.server.acks)+len(h.server.holds) != 0 || len(h.records()) != 0 {
+		t.Fatalf("acks %+v holds %+v records %+v", h.server.acks, h.server.holds, h.records())
+	}
+	if n := len(h.events); n == 0 || h.events[n-1].Reason != "too-long-to-type" {
+		t.Fatalf("events %+v", h.events)
+	}
+}
+
 // --- 2.2 finding the recipient ---------------------------------------------------
 
 func TestFindingTheRecipient(t *testing.T) {
