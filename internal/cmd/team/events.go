@@ -138,7 +138,13 @@ the exact --after that continues it.
 // the payload's setBy "lapse" and lapsedAt say what happened, and the cell
 // says it rather than the bare "—" an unnamed platform change shows. Any
 // other event, or a payload that is not an object, renders as before.
+// A headless run is never a party (#854 over server #1834): its event's
+// actor is null and actorRunId names it, as "run <id>" — the bare id the
+// server hands out, which is what `hadron run get` takes.
 func eventActorCell(e teamEventDTO) string {
+	if e.Actor == nil && e.ActorRunID != nil && *e.ActorRunID != "" {
+		return "run " + *e.ActorRunID
+	}
 	if e.Actor == nil && e.Type == "availability.changed" {
 		var p struct {
 			SetBy    string `json:"setBy"`

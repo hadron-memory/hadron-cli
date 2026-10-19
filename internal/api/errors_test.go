@@ -54,6 +54,18 @@ func TestMapError(t *testing.T) {
 		want int
 	}{
 		{"nil", nil, exitcode.OK},
+		{"delivery range", gqlErr("DELIVERY_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
+		{"delivery relation", gqlErr("DELIVERY_SETTINGS_CONFLICT"), exitcode.Usage},
+		{"ticker settings range", gqlErr("TICKER_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
+		{"ticker settings conflict", gqlErr("TICKER_SETTINGS_CONFLICT"), exitcode.Conflict},
+		{"standby unavailable", gqlErr("DELIVERY_STANDBY_UNAVAILABLE"), exitcode.Conflict},
+		{"ticker consent", gqlErr("TICKER_CADENCE_NEEDS_CONSENT"), exitcode.Forbidden},
+		{"ticker self subscribe", gqlErr("SUBSCRIBE_CADENCE_NEEDS_HOLDER"), exitcode.Forbidden},
+		{"ticker subscribe authority", gqlErr("SUBSCRIBE_FORBIDDEN"), exitcode.Forbidden},
+		{"ticker cadence", gqlErr("TICKER_CADENCE_OUT_OF_RANGE"), exitcode.Usage},
+		{"ticker quiet hours", gqlErr("TICKER_QUIET_HOURS_INVALID"), exitcode.Usage},
+		{"ticker name", gqlErr("TICKER_NAME_TAKEN"), exitcode.Conflict},
+		{"ticker cap", gqlErr("TICKER_LIMIT_REACHED"), exitcode.Conflict},
 		{"reports to self", gqlErr("WORKER_REPORTS_TO_SELF"), exitcode.Usage},
 		// Host poller and launch refusals (cli#831).
 		{"host key required", gqlErr("HOST_KEY_REQUIRED"), exitcode.Forbidden},
@@ -183,6 +195,7 @@ func TestMapError(t *testing.T) {
 		// (hadron-server#1050) — pinning an exit code for a refusal the server
 		// cannot produce documents a contract nobody can exercise.
 		{"role exists", gqlErr("TEAM_ROLE_EXISTS"), exitcode.Conflict},
+		{"worker external attribution needs an explicit input", gqlErr("WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED"), exitcode.Usage},
 		// #608: a duplicate node loc. PascalCase, because the server stamps this
 		// extensions.code from an Error CLASS NAME rather than from the
 		// SCREAMING_SNAKE vocabulary — so it matches no prefix, suffix or literal
