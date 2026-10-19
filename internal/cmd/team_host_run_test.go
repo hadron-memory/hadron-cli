@@ -351,7 +351,7 @@ func TestTeamHostRunNeverPrintsUpstreamDeliveryText(t *testing.T) {
 		cfg := writeHostConfig(t, deliveryOn)
 		srv, _ := hostServerFake(t, map[string]string{
 			"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": noOps,
-			"DeliveryBatches": `{"errors":[{"message":"echo hk_host_key PRIVATE-CHAT-TEXT","extensions":{"code":"FORBIDDEN"}}],"data":null}`,
+			"DeliveryBatches": `{"errors":[{"message":"echo hk_host_key PRIVATE-CHAT-TEXT","extensions":{"code":"FORBIDDEN"}},{"message":"y","extensions":{"code":"PRIVATE_TOKEN_42"}}],"data":null}`,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)

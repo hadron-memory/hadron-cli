@@ -19,6 +19,10 @@ const (
 	WakeBudgetExhausted = "budget-exhausted"
 )
 
+// KnownCode reports whether code is in the delivery diagnostic vocabulary.
+// Stub for the red step.
+func KnownCode(code string) bool { return false }
+
 // WakeRead is how a step's wake read went (cli#906 row 1): its code and
 // the counts dueWakes reports for status. Counts only.
 type WakeRead struct {

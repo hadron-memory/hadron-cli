@@ -324,6 +324,7 @@ func TestDeliveryDiagnosticsCarryNoSourceText(t *testing.T) {
 		"a plain error":               {errors.New(leak), "delivery-failed", "unclassified"},
 		"a declared code":             {codedErr{"FORBIDDEN"}, "delivery-failed", "FORBIDDEN"},
 		"a code that is not one":      {codedErr{"FORBIDDEN " + leak}, "delivery-failed", "unclassified"},
+		"a code-shaped private token": {codedErr{"PRIVATE_TOKEN_42"}, "delivery-failed", "unclassified"},
 		"a scope refusal with a leak": {fmt.Errorf("%w: %s", ErrDeliveryScope, leak), "delivery-off", "attention:deliver"},
 	} {
 		t.Run(name, func(t *testing.T) {

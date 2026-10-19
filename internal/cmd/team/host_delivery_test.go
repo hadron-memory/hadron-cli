@@ -183,6 +183,7 @@ func TestAckSendsOneBatchAndMapsTheCounts(t *testing.T) {
 		{"a repeat", ackBody(0, 1), delivery.Unchanged, false},
 		{"nothing counted", ackBody(0, 0), "", true},
 		{"counted twice", ackBody(1, 1), "", true},
+		{"counted wrong", ackBody(2, 0), "", true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -272,6 +273,7 @@ func TestDeliveryErrorsCarryNoUpstreamText(t *testing.T) {
 		{"a scope refusal echoing the key", `{"errors":[{"message":"` + leak + `","extensions":{"code":"APP_KEY_SCOPE_REQUIRED"}}],"data":null}`, "APP_KEY_SCOPE_REQUIRED", true},
 		{"a code not on the list", `{"errors":[{"message":"` + leak + `","extensions":{"code":"SOMETHING_NEW"}}],"data":null}`, "server-refused", false},
 		{"an error with no code", `{"errors":[{"message":"` + leak + `"}],"data":null}`, "server-refused", false},
+		{"a code-shaped private token as the code", `{"errors":[{"message":"x","extensions":{"code":"PRIVATE_TOKEN_42"}}],"data":null}`, "server-refused", false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -309,7 +311,7 @@ func checkClean(t *testing.T, call string, err error, want string) {
 	if err == nil {
 		t.Fatalf("%s: no error", call)
 	}
-	for _, bad := range []string{"PRIVATE", "hk_host_key", "PROOF-SECRET", "html"} {
+	for _, bad := range []string{"PRIVATE", "hk_host_key", "PROOF-SECRET", "html", "counted"} {
 		if strings.Contains(err.Error(), bad) {
 			t.Fatalf("%s error carries %q: %v", call, bad, err)
 		}
@@ -330,5 +332,18 @@ func TestDeliveryEventsWithholdMalformedUpstreamFields(t *testing.T) {
 	}
 	if e := deliveryEvent(delivery.Event{Worker: "Iris", Span: "ch1#2:4-5,ch2#1:1-1", Terminal: "term_1"}); e.Detail != "Iris ch1#2:4-5,ch2#1:1-1 in term_1" {
 		t.Fatalf("plain fields are printed: %q", e.Detail)
+	}
+}
+
+// Xan #24626: a code is trusted by membership in the known vocabulary,
+// never by its shape. Every code the adapter can produce is known.
+func TestEveryAdapterCodeIsKnown(t *testing.T) {
+	for _, code := range append(append([]string{}, deliveryCodes...), "server-refused", "unauthenticated", "forbidden", "unavailable", "transport-error", "no-page", "no-cursor", "bad-deliver-after", "bad-busy-deadline", "no-result", "bad-count") {
+		if !delivery.KnownCode(code) {
+			t.Errorf("%s is not a known diagnostic code", code)
+		}
+	}
+	if delivery.KnownCode("PRIVATE_TOKEN_42") {
+		t.Fatal("an unknown token is known")
 	}
 }
