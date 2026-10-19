@@ -213,3 +213,24 @@ func TestTeamDeliverySettingsDistinctStandbyText(t *testing.T) {
 		}
 	}
 }
+
+// Empty set is the gated manager mutation, not a participant read or DB no-op.
+func TestTeamDeliverySettingsEmptySetStatesPermissionAndValuesOnly(t *testing.T) {
+	_, help, err := runTeamTask(t, deliveryResponses(), "team", "delivery-settings", "set", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	flat := strings.Join(strings.Fields(help), " ")
+	for _, want := range []string{"still requires manager write permission", "Use get for a read"} {
+		if !strings.Contains(flat, want) {
+			t.Fatalf("missing permission distinction %q: %s", want, help)
+		}
+	}
+	_, out, err := runTeamTask(t, deliveryResponses(), "team", "delivery-settings", "set")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "nothing changed") || !strings.Contains(out, "Current setting values (manager-only set)") {
+		t.Fatalf("must not promise a database no-op: %s", out)
+	}
+}
