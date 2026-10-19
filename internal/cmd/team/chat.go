@@ -203,6 +203,12 @@ func teamChatMessageDTOFromFields(m gen.TeamChatMessageFields) teamChatMessageDT
 }
 
 func newCmdTeamChatPost(f *cmdutil.Factory) *cobra.Command {
+	return newCmdTeamChatPostWithHostDelivery(f, preparePostHostDelivery(f))
+}
+
+// Host delivery is injected only after the landed C1/S1 adapter is available.
+func newCmdTeamChatPostWithHostDelivery(f *cmdutil.Factory, prepare postHostDeliveryPreparer) *cobra.Command {
+	var hostConfig string
 	var body, bodyFile, replyTo string
 	var asMe bool
 	cmd := &cobra.Command{
@@ -228,12 +234,24 @@ matching ` + "`hadron chat post`" + `. Exactly one source. - is for a pipe: it i
 refused when stdin is an interactive terminal (use --body-file there).
 
 --reply-to takes the seq of the message being answered, as shown by
-` + "`team chat read`" + `.`,
+` + "`team chat read`" + `.
+
+With --orca-host-config PATH, validate this host before posting, then attempt
+already-due batches for it after confirmed post output (including older unrelated
+batches). Without the flag no host config, key or Orca is touched. The host uses
+a separate session-free key and must already be registered for the same App and
+server; this command never registers it. A held/failed pass preserves post
+stdout/JSON and exit 0: do not repost; recover with
+hadron team host run --config <host.yaml>. Held deliveries are reported in
+local counts but are not reported to the server yet (no alarm/escalation).`,
 		Example: `  hadron team chat post "@rufus schema is live, over to you"
   hadron team chat post --reply-to 42 "done"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			if cmd.Flags().Changed("orca-host-config") && strings.TrimSpace(hostConfig) == "" {
+				return exitcode.Newf(exitcode.Usage, "--orca-host-config requires a host configuration file")
+			}
 			// Exactly one body source: the positional, --body, or --body-file.
 			if len(args) == 1 {
 				if body != "" || bodyFile != "" {
@@ -286,6 +304,20 @@ refused when stdin is an interactive terminal (use --body-file there).
 			if err != nil {
 				return err
 			}
+			var hostPass postHostDeliveryPass
+			if prepare != nil && cmd.Flags().Changed("orca-host-config") {
+				server, err := f.Server()
+				if err != nil {
+					return err
+				}
+				hostPass, err = prepare(ctx, hostConfig, postHostTarget{AppRef: scope.Ref, Server: server})
+				if err != nil {
+					return err
+				}
+				if hostPass == nil {
+					return exitcode.Newf(exitcode.Unavailable, "host delivery preflight returned no pass; nothing was posted")
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -325,7 +357,7 @@ refused when stdin is an interactive terminal (use --body-file there).
 				return api.MapError(err)
 			}
 			msg := teamChatMessageDTOFromFields(resp.CreateTeamChatMessage.TeamChatMessageFields)
-			return output.Write(f.IOStreams, f.JSON, msg, func(w io.Writer) error {
+			err = output.Write(f.IOStreams, f.JSON, msg, func(w io.Writer) error {
 				who := "you"
 				if msg.AuthorName != nil {
 					who = *msg.AuthorName
@@ -345,6 +377,22 @@ refused when stdin is an interactive terminal (use --body-file there).
 				_, err := fmt.Fprintf(w, "  app: %s\n", appLabel())
 				return err
 			})
+			if err != nil {
+				if hostPass != nil {
+					fmt.Fprintln(f.IOStreams.ErrOut, "note: the post succeeded but its receipt could not be written; check the chat before posting again")
+				}
+				return err
+			}
+			if hostPass != nil {
+				if flusher, ok := f.IOStreams.Out.(interface{ Flush() error }); ok {
+					if err := flusher.Flush(); err != nil {
+						fmt.Fprintln(f.IOStreams.ErrOut, "note: post succeeded but its receipt flush failed; no delivery attempted; check chat before posting again")
+						return err
+					}
+				}
+				reportPostHostDelivery(ctx, hostPass, f.IOStreams.ErrOut, msg.Seq)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&body, "body", "", "message body, or - to read from stdin")
@@ -354,6 +402,9 @@ refused when stdin is an interactive terminal (use --body-file there).
 	// One body source is enforced in RunE (a cobra flag group can't see the
 	// positional form).
 	cmd.MarkFlagsMutuallyExclusive("body", "body-file")
+	if prepare != nil {
+		cmd.Flags().StringVar(&hostConfig, "orca-host-config", "", "attempt this host’s due deliveries after posting (including older unrelated batches)")
+	}
 	return cmd
 }
 

@@ -23120,6 +23120,12 @@ func (v *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrati
 // by its id or by the computed `urn` below (#991).
 type HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker struct {
 	Id string `json:"id"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
 	// The worker's name ('Iris') — the identity every surface renders.
 	Name string `json:"name"`
 }
@@ -23127,6 +23133,11 @@ type HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWo
 // GetId returns HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker.Id, and is useful for accessing the field via an interface.
 func (v *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker) GetId() string {
 	return v.Id
+}
+
+// GetUrn returns HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker.Urn, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker) GetUrn() *string {
+	return v.Urn
 }
 
 // GetName returns HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrationWorkerWorker.Name, and is useful for accessing the field via an interface.
@@ -67369,6 +67380,7 @@ query HostRegistrations ($appRef: String!) {
 			workerId
 			worker {
 				id
+				urn
 				name
 			}
 			family

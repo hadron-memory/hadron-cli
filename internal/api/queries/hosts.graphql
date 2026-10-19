@@ -38,6 +38,7 @@ query HostRegistrations($appRef: String!) {
       workerId
       worker {
         id
+        urn
         name
       }
       family
