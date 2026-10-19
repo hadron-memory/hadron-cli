@@ -252,6 +252,9 @@ per line; --json prints each as a JSON object.`,
 			if err != nil {
 				return exitcode.Newf(exitcode.Error, "reading host state %s: %v", cfg.StateFile, err)
 			}
+			if err := cfg.CheckWorktreeAliases(state); err != nil {
+				return exitcode.Newf(exitcode.Usage, "%s: %v", configPath, err)
+			}
 			emit := hostEventPrinter(f)
 			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{}, state, key, emit)
 			// A refused or revoked key, or a registration the server calls

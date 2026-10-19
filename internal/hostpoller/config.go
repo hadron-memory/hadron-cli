@@ -286,3 +286,31 @@ func (c *Config) ReadHostKey() (string, error) {
 func (c *Config) WorktreePath(token string) string {
 	return filepath.Join(c.WorktreesRoot, filepath.FromSlash(token))
 }
+
+// CheckWorktreeAliases refuses two workers whose worktrees, configured or
+// created by this poller, name one directory under different tokens
+// (cli#906). validate already refuses one token listed twice; a symlink
+// gives one directory a second token. A tree that does not exist yet is
+// compared by its cleaned path only. One worker's own aliases are allowed.
+func (c *Config) CheckWorktreeAliases(s *State) error {
+	type claim struct{ ref, token string }
+	owner := map[string]claim{}
+	var errs []string
+	for _, ref := range c.WorkerRefs() {
+		for _, token := range s.worktreesFor(ref, c.Workers[ref].Worktrees) {
+			dir := filepath.Clean(c.WorktreePath(token))
+			if real, err := filepath.EvalSymlinks(dir); err == nil {
+				dir = real
+			}
+			if o, taken := owner[dir]; taken && o.ref != ref {
+				errs = append(errs, fmt.Sprintf("worktrees %q (%s) and %q (%s) are one directory: a worktree belongs to one worker", o.token, o.ref, token, ref))
+				continue
+			}
+			owner[dir] = claim{ref, token}
+		}
+	}
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "; "))
+	}
+	return nil
+}
