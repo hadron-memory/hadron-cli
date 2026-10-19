@@ -41247,6 +41247,19 @@ func (v *StartTeamSessionResponse) GetStartSession() *StartTeamSessionStartSessi
 // — that is an **agent chat**, a third concept.
 type StartTeamSessionStartSession struct {
 	TeamSessionFields `json:"-"`
+	// #980 / cor:agt:020:02: the Worker behind workerId, nested — so a session
+	// list can render the app-qualified compound ('eng-team/Iris') without a
+	// per-row worker(ref:) + app(ref:) round trip (Worker carries name and app).
+	// Resolves for RETIRED workers too: retirement ends the casting, not the
+	// history, so past sessions stay attributable. Worker.app and Worker.agent
+	// run their OWN read gates and mask to null on deny (#552), so this nesting
+	// never widens what the session read admits.
+	BoundWorker *StartTeamSessionStartSessionBoundWorker `json:"boundWorker"`
+}
+
+// GetBoundWorker returns StartTeamSessionStartSession.BoundWorker, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetBoundWorker() *StartTeamSessionStartSessionBoundWorker {
+	return v.BoundWorker
 }
 
 // GetId returns StartTeamSessionStartSession.Id, and is useful for accessing the field via an interface.
@@ -41329,6 +41342,8 @@ func (v *StartTeamSessionStartSession) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalStartTeamSessionStartSession struct {
+	BoundWorker *StartTeamSessionStartSessionBoundWorker `json:"boundWorker"`
+
 	Id string `json:"id"`
 
 	AgentId *string `json:"agentId"`
@@ -41373,6 +41388,7 @@ func (v *StartTeamSessionStartSession) MarshalJSON() ([]byte, error) {
 func (v *StartTeamSessionStartSession) __premarshalJSON() (*__premarshalStartTeamSessionStartSession, error) {
 	var retval __premarshalStartTeamSessionStartSession
 
+	retval.BoundWorker = v.BoundWorker
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
@@ -41391,6 +41407,27 @@ func (v *StartTeamSessionStartSession) __premarshalJSON() (*__premarshalStartTea
 	retval.LlmModel = v.TeamSessionFields.LlmModel
 	return &retval, nil
 }
+
+// StartTeamSessionStartSessionBoundWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type StartTeamSessionStartSessionBoundWorker struct {
+	// The worker's boot prompt, resolved: the agent's systemPrompt template
+	// with {{name}}/{{role}} bound, then promptOverride appended as its own
+	// paragraph. Null when the agent carries no template and the worker no
+	// override.
+	Prompt *string `json:"prompt"`
+}
+
+// GetPrompt returns StartTeamSessionStartSessionBoundWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSessionBoundWorker) GetPrompt() *string { return v.Prompt }
 
 // StopImpersonationResponse is returned by StopImpersonation on success.
 type StopImpersonationResponse struct {
@@ -73540,6 +73577,9 @@ const StartTeamSession_Operation = `
 mutation StartTeamSession ($input: SessionInput!) {
 	startSession(input: $input) {
 		... TeamSessionFields
+		boundWorker: worker {
+			prompt
+		}
 	}
 }
 fragment TeamSessionFields on Session {
