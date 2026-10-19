@@ -146,6 +146,13 @@ Holds are reported once per (batch, reason) change, not every poll.
 `Reconcile`:
 - **Full cover:** a `batchKey` match with the same messages, or every channel
   fully covered. The batch is acked whole, nothing typed.
+  - Each matched record is then **retired**, not deleted. The ack covered
+    this batch's messages only, so a record that also confirmed other seqs or
+    another channel keeps them. The remainder keeps the record's confirmation
+    time, and is written before the old file is removed. A record with
+    nothing left is deleted. (Jane's blind P2 on #939: deleting whole retyped
+    confirmed messages that S1 later re-handed, e.g. after a lost ack and a
+    read that left a channel out for a while.)
 - **Covered prefix:** per channel, the batch's own seqs from its first, for
   as long as each is in one record with the **same channel id and
   incarnation**.

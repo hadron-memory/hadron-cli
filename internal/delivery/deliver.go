@@ -301,8 +301,10 @@ func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (Outcom
 		if !d.ack(ctx, b, nil) {
 			return d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed"}), true
 		}
+		// The ack covered this batch's messages only: a matched record
+		// keeps whatever else it confirmed.
 		for _, m := range cover.Matched {
-			_ = d.Records.Delete(b.WorkerID, m.Ranges)
+			_ = d.Records.Retire(b.WorkerID, m, b.Ranges)
 		}
 		d.forget(b)
 		return d.emit(b, r, Outcome{Kind: Reconciled}), true

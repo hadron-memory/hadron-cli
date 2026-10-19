@@ -845,6 +845,22 @@ func TestAFullReconcileDeletesAnExactRecordAndKeepsOtherIncarnations(t *testing.
 	}
 }
 
+func TestRetireSubtractsOnlyTheSameChannelAndIncarnation(t *testing.T) {
+	got := subtractRanges([]Range{rng("c", 0, 5), rng("c", 1, 5, 6), rng("d", 1, 5)}, []Range{rng("c", 1, 5)})
+	want := []Range{rng("c", 0, 5), {ChannelID: "c", Incarnation: 1, FromSeq: 5, ThroughSeq: 6, Seqs: []int{6}}, rng("d", 1, 5)}
+	if len(got) != len(want) {
+		t.Fatalf("got %+v", got)
+	}
+	for i := range want {
+		if got[i].ChannelID != want[i].ChannelID || got[i].Incarnation != want[i].Incarnation || !slices.Equal(got[i].Seqs, want[i].Seqs) {
+			t.Fatalf("got %+v, want %+v", got, want)
+		}
+	}
+	if rest := subtractRanges([]Range{rng("c", 1, 5)}, []Range{rng("c", 1, 4, 5)}); len(rest) != 0 {
+		t.Fatalf("a fully acked record leaves %+v", rest)
+	}
+}
+
 func TestReconcileMatchesOnlyTheSameIncarnation(t *testing.T) {
 	b := Batch{Ranges: []Range{rng("c", 2, 1, 2)}}
 	if c := Reconcile(b, []Record{{State: RecordConfirmed, Ranges: []Range{rng("c", 1, 1, 2)}}}); c.Full || len(c.Through) != 0 {

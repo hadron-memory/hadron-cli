@@ -64,7 +64,10 @@ func (s *Records) Put(b Batch, at time.Time) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	rec := Record{State: RecordConfirmed, WorkerID: b.WorkerID, BatchKey: b.BatchKey, Ranges: b.Ranges, ConfirmedAt: at.UTC()}
+	return s.write(dir, Record{State: RecordConfirmed, WorkerID: b.WorkerID, BatchKey: b.BatchKey, Ranges: b.Ranges, ConfirmedAt: at.UTC()})
+}
+
+func (s *Records) write(dir string, rec Record) error {
 	data, err := json.Marshal(rec)
 	if err != nil {
 		return err
@@ -89,7 +92,7 @@ func (s *Records) Put(b Batch, at time.Time) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmp.Name(), filepath.Join(dir, recordName(b.Ranges)))
+	return os.Rename(tmp.Name(), filepath.Join(dir, recordName(rec.Ranges)))
 }
 
 // List is the worker's confirmed records. A file that does not parse as a
@@ -136,6 +139,56 @@ func (s *Records) Delete(workerID string, ranges []Range) error {
 		return nil
 	}
 	return err
+}
+
+// Retire removes from rec the messages an ack just covered (acked, the
+// acknowledged batch's ranges) and keeps the rest: a record can confirm
+// seqs or channels the acknowledged batch did not carry, and those are
+// still owed their own ack (Jane's P2 on #939). The remainder keeps rec's
+// confirmation time and drops its batchKey, which named the whole. It is
+// written before rec is removed, so a crash between leaves both, which
+// only proves the same messages twice. A record with nothing left is
+// deleted.
+func (s *Records) Retire(workerID string, rec Record, acked []Range) error {
+	rest := subtractRanges(rec.Ranges, acked)
+	if len(rest) == 0 {
+		return s.Delete(workerID, rec.Ranges)
+	}
+	dir, err := s.workerDir(workerID)
+	if err != nil {
+		return err
+	}
+	if err := s.write(dir, Record{State: RecordConfirmed, WorkerID: workerID, Ranges: rest, ConfirmedAt: rec.ConfirmedAt}); err != nil {
+		return err
+	}
+	return s.Delete(workerID, rec.Ranges)
+}
+
+// subtractRanges is rs without the seqs acked covers, per channel and
+// incarnation; a range left with no seqs is dropped.
+func subtractRanges(rs, acked []Range) []Range {
+	out := []Range{}
+	for _, r := range rs {
+		kept := []int{}
+		for _, seq := range r.Seqs {
+			if !coveredBy(acked, r.ChannelID, r.Incarnation, seq) {
+				kept = append(kept, seq)
+			}
+		}
+		if len(kept) > 0 {
+			out = append(out, Range{ChannelID: r.ChannelID, Incarnation: r.Incarnation, FromSeq: r.FromSeq, ThroughSeq: r.ThroughSeq, Seqs: kept})
+		}
+	}
+	return out
+}
+
+func coveredBy(acked []Range, channel string, incarnation, seq int) bool {
+	for _, a := range acked {
+		if a.ChannelID == channel && a.Incarnation == incarnation && slices.Contains(a.Seqs, seq) {
+			return true
+		}
+	}
+	return false
 }
 
 // Prune drops records confirmed before cutoff: past the proof's lifetime a
