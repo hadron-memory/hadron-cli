@@ -299,3 +299,29 @@ func TestTeamHostRunRefusesDeliveryUntilTheBatchSourceShips(t *testing.T) {
 		t.Errorf("no host call before the refusal: %+v", calls())
 	}
 }
+
+// cli#906 row 4: two workers whose worktree tokens name one directory
+// through a symlink are refused at start, before anything reaches the server.
+func TestTeamHostRunRefusesTwoWorkersOnOneDirectory(t *testing.T) {
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++ }))
+	defer srv.Close()
+	cfg := writeHostConfig(t, "    worktrees: [repo/a]\n  dara:\n    family: codex\n    launch: [x]\n    worktrees: [repo/b]\n")
+	trees := filepath.Join(filepath.Dir(cfg), "trees", "repo")
+	if err := os.MkdirAll(filepath.Join(trees, "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(trees, "a"), filepath.Join(trees, "b")); err != nil {
+		t.Skipf("no symlinks here: %v", err)
+	}
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "host", "run", "--once", "--config", cfg})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Usage || !strings.Contains(err.Error(), "one directory") {
+		t.Fatalf("exit %d: %v", code, err)
+	}
+	if calls != 0 {
+		t.Fatalf("%d server calls before the refusal", calls)
+	}
+}
