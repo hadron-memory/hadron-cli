@@ -134,13 +134,10 @@ schema and rejects a violation.`,
 						"a node cannot be two governed kinds at once — this would be %s, and each door is exempt from its OWN kind only, so every one of them refuses it. Drop one, or write it with `hadron api` if the server's register has changed",
 						strings.Join(kinds, " AND "))
 				}
-				// Same refusal as `node update --role ""`: an empty role is a
-				// value the server keeps verbatim, not a clear.
-				if role == "" {
-					return exitcode.Newf(exitcode.Usage,
-						`--role "" would write an EMPTY role rather than leave the node ungoverned — omit the flag instead`)
+				// Blank roles mean no role; omission also works on older servers.
+				if strings.TrimSpace(role) != "" {
+					input.Role = &role
 				}
-				input.Role = &role
 			}
 
 			// Dispatch by KIND, not by command (#1201). `--runnable` produces a
@@ -175,7 +172,7 @@ schema and rejects a violation.`,
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "read the JSON properties object from a file")
 	// See node update's --role: NOT --type, and NOT a membership role.
 	cmd.Flags().StringVar(&role, "role", "",
-		`what this node is FOR (#1201) — "spec"/"spec.*" and "review"/"review.*" route through their governed doors. NOT --type (the platform kind) and NOT a membership role`)
+		`what this node is FOR (#1201) — "spec"/"spec.*" and "review"/"review.*" route through their governed doors; blank or whitespace means no role. NOT --type (the platform kind) and NOT a membership role`)
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run'")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable)")
 	_ = cmd.MarkFlagRequired("memory")

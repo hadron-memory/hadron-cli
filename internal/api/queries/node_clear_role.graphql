@@ -1,0 +1,302 @@
+# Explicit null is a document literal, not an omitted nil pointer (#903).
+# Other edits remain in the same input and mutation; no shared input tags change.
+mutation UpdateNodeClearingRole(
+  # @genqlient(omitempty: true)
+  $abstract: String
+  # @genqlient(omitempty: true)
+  $aiAgent: String
+  # @genqlient(omitempty: true)
+  $alias: String
+  # @genqlient(omitempty: true)
+  $content: String
+  # @genqlient(omitempty: true)
+  $contentType: String
+  # @genqlient(omitempty: true)
+  $data: JSON
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $edges: [NodeEdgeInput!]
+  # @genqlient(omitempty: true)
+  $expectedRevision: Int
+  # @genqlient(omitempty: true)
+  $id: String
+  # @genqlient(omitempty: true)
+  $isRunnable: Boolean
+  # @genqlient(omitempty: true)
+  $llmModel: String
+  # @genqlient(omitempty: true)
+  $loc: String
+  # @genqlient(omitempty: true)
+  $memoryId: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $nodeType: String
+  # @genqlient(omitempty: true)
+  $objectType: String
+  # @genqlient(omitempty: true)
+  $ownerRepo: String
+  # @genqlient(omitempty: true)
+  $properties: JSON
+  # @genqlient(omitempty: true)
+  $reason: String
+  # @genqlient(omitempty: true)
+  $seq: Int
+  # @genqlient(omitempty: true)
+  $tags: [String!]
+) {
+  updateNode(input: {
+    role: null
+    abstract: $abstract
+    aiAgent: $aiAgent
+    alias: $alias
+    content: $content
+    contentType: $contentType
+    data: $data
+    description: $description
+    edges: $edges
+    expectedRevision: $expectedRevision
+    id: $id
+    isRunnable: $isRunnable
+    llmModel: $llmModel
+    loc: $loc
+    memoryId: $memoryId
+    name: $name
+    nodeType: $nodeType
+    objectType: $objectType
+    ownerRepo: $ownerRepo
+    properties: $properties
+    reason: $reason
+    seq: $seq
+    tags: $tags
+  }) {
+    id memoryId loc name nodeType tags seq isRunnable role updatedAt
+  }
+}
+
+mutation UpdateSpecNodeClearingRole(
+  # @genqlient(omitempty: true)
+  $abstract: String
+  # @genqlient(omitempty: true)
+  $aiAgent: String
+  # @genqlient(omitempty: true)
+  $alias: String
+  # @genqlient(omitempty: true)
+  $content: String
+  # @genqlient(omitempty: true)
+  $contentType: String
+  # @genqlient(omitempty: true)
+  $data: JSON
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $edges: [NodeEdgeInput!]
+  # @genqlient(omitempty: true)
+  $expectedRevision: Int
+  # @genqlient(omitempty: true)
+  $id: String
+  # @genqlient(omitempty: true)
+  $isRunnable: Boolean
+  # @genqlient(omitempty: true)
+  $llmModel: String
+  # @genqlient(omitempty: true)
+  $loc: String
+  # @genqlient(omitempty: true)
+  $memoryId: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $nodeType: String
+  # @genqlient(omitempty: true)
+  $objectType: String
+  # @genqlient(omitempty: true)
+  $ownerRepo: String
+  # @genqlient(omitempty: true)
+  $properties: JSON
+  # @genqlient(omitempty: true)
+  $reason: String
+  # @genqlient(omitempty: true)
+  $seq: Int
+  # @genqlient(omitempty: true)
+  $tags: [String!]
+) {
+  updateSpecNode(input: {
+    role: null
+    abstract: $abstract
+    aiAgent: $aiAgent
+    alias: $alias
+    content: $content
+    contentType: $contentType
+    data: $data
+    description: $description
+    edges: $edges
+    expectedRevision: $expectedRevision
+    id: $id
+    isRunnable: $isRunnable
+    llmModel: $llmModel
+    loc: $loc
+    memoryId: $memoryId
+    name: $name
+    nodeType: $nodeType
+    objectType: $objectType
+    ownerRepo: $ownerRepo
+    properties: $properties
+    reason: $reason
+    seq: $seq
+    tags: $tags
+  }) {
+    id memoryId loc name nodeType tags seq isRunnable role updatedAt
+  }
+}
+
+mutation UpdateReviewNodeClearingRole(
+  # @genqlient(omitempty: true)
+  $abstract: String
+  # @genqlient(omitempty: true)
+  $aiAgent: String
+  # @genqlient(omitempty: true)
+  $alias: String
+  # @genqlient(omitempty: true)
+  $content: String
+  # @genqlient(omitempty: true)
+  $contentType: String
+  # @genqlient(omitempty: true)
+  $data: JSON
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $edges: [NodeEdgeInput!]
+  # @genqlient(omitempty: true)
+  $expectedRevision: Int
+  # @genqlient(omitempty: true)
+  $id: String
+  # @genqlient(omitempty: true)
+  $isRunnable: Boolean
+  # @genqlient(omitempty: true)
+  $llmModel: String
+  # @genqlient(omitempty: true)
+  $loc: String
+  # @genqlient(omitempty: true)
+  $memoryId: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $nodeType: String
+  # @genqlient(omitempty: true)
+  $objectType: String
+  # @genqlient(omitempty: true)
+  $ownerRepo: String
+  # @genqlient(omitempty: true)
+  $properties: JSON
+  # @genqlient(omitempty: true)
+  $reason: String
+  # @genqlient(omitempty: true)
+  $seq: Int
+  # @genqlient(omitempty: true)
+  $tags: [String!]
+) {
+  updateReviewNode(input: {
+    role: null
+    abstract: $abstract
+    aiAgent: $aiAgent
+    alias: $alias
+    content: $content
+    contentType: $contentType
+    data: $data
+    description: $description
+    edges: $edges
+    expectedRevision: $expectedRevision
+    id: $id
+    isRunnable: $isRunnable
+    llmModel: $llmModel
+    loc: $loc
+    memoryId: $memoryId
+    name: $name
+    nodeType: $nodeType
+    objectType: $objectType
+    ownerRepo: $ownerRepo
+    properties: $properties
+    reason: $reason
+    seq: $seq
+    tags: $tags
+  }) {
+    id memoryId loc name nodeType tags seq isRunnable role updatedAt
+  }
+}
+
+mutation UpdateTaskNodeClearingRole(
+  # @genqlient(omitempty: true)
+  $abstract: String
+  # @genqlient(omitempty: true)
+  $aiAgent: String
+  # @genqlient(omitempty: true)
+  $alias: String
+  # @genqlient(omitempty: true)
+  $content: String
+  # @genqlient(omitempty: true)
+  $contentType: String
+  # @genqlient(omitempty: true)
+  $data: JSON
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $edges: [NodeEdgeInput!]
+  # @genqlient(omitempty: true)
+  $expectedRevision: Int
+  # @genqlient(omitempty: true)
+  $id: String
+  # @genqlient(omitempty: true)
+  $isRunnable: Boolean
+  # @genqlient(omitempty: true)
+  $llmModel: String
+  # @genqlient(omitempty: true)
+  $loc: String
+  # @genqlient(omitempty: true)
+  $memoryId: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $nodeType: String
+  # @genqlient(omitempty: true)
+  $objectType: String
+  # @genqlient(omitempty: true)
+  $ownerRepo: String
+  # @genqlient(omitempty: true)
+  $properties: JSON
+  # @genqlient(omitempty: true)
+  $reason: String
+  # @genqlient(omitempty: true)
+  $seq: Int
+  # @genqlient(omitempty: true)
+  $tags: [String!]
+) {
+  updateTaskNode(input: {
+    role: null
+    abstract: $abstract
+    aiAgent: $aiAgent
+    alias: $alias
+    content: $content
+    contentType: $contentType
+    data: $data
+    description: $description
+    edges: $edges
+    expectedRevision: $expectedRevision
+    id: $id
+    isRunnable: $isRunnable
+    llmModel: $llmModel
+    loc: $loc
+    memoryId: $memoryId
+    name: $name
+    nodeType: $nodeType
+    objectType: $objectType
+    ownerRepo: $ownerRepo
+    properties: $properties
+    reason: $reason
+    seq: $seq
+    tags: $tags
+  }) {
+    id memoryId loc name nodeType tags seq isRunnable role updatedAt
+  }
+}
+

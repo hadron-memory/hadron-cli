@@ -80,7 +80,9 @@ write would (the header guard, the role and kind refusals, input parsing), and
 shows the fields that would change, with a diff of the stored body against the
 new one. The server's own validation (a schema-governed memory, the door's
 refusals) runs only on the write. It previews the field update only, so
---data-merge is refused with it.
+--data-merge is refused with it. Empty or whitespace --role clears via literal
+null in the current kind's door; --data-merge cannot be combined with a role
+clear because it is a separate write (use --data for one atomic replacement).
 
 --content - (or --content-file -), --abstract - and --data-merge - read
 standard input, and are for
@@ -100,6 +102,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
+			clearRole := changed("role") && strings.TrimSpace(role) == ""
 			replaceData := changed("data") || changed("data-file")
 			mergeData := changed("data-merge") || changed("data-merge-file")
 			replaceProps := changed("properties") || changed("properties-file")
@@ -110,6 +113,9 @@ schema-governed memory the server validates the result and rejects a violation.)
 				changed("role")
 			if !anyField && !mergeData {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
+			}
+			if clearRole && mergeData {
+				return exitcode.Newf(exitcode.Usage, "clearing --role and --data-merge cannot share one mutation; use --data to replace the bag atomically with the clear")
 			}
 			if dryRun && mergeData {
 				return exitcode.Newf(exitcode.Usage,
@@ -216,18 +222,17 @@ schema-governed memory the server validates the result and rejects a violation.)
 
 			var dto nodeDTO
 			if anyField {
-				// The node's CURRENT kind, read once and used twice: to choose
+				// The node's CURRENT kind, read once to choose
 				// the door for the write (the gate reads the kind the node is
-				// now AND the kind it will be, and an omitted field preserves
-				// the stored one), and to name
-				// the right door in the `--role ""` refusal.
+				// now AND the kind it will be; an omitted field preserves
+				// the stored one). Clearing requires this read to succeed.
 				//
 				// INSIDE the field branch, not above it: a `--data-merge`-only
 				// update writes through `updateNodeData` and needs no door, so
 				// reading here would spend a round trip on every merge for an
 				// answer nothing consults.
 				//
-				// Best-effort — a failed read leaves the zero value, which
+				// Except for clears/previews, a failed read leaves the zero value, which
 				// routes to the generic surface and lets the server give the
 				// authoritative refusal.
 				//
@@ -241,13 +246,22 @@ schema-governed memory the server validates the result and rejects a violation.)
 					switch {
 					case gerr == nil && existing.Node != nil:
 						stored = existing.Node
-					case dryRun && gerr != nil:
+					case (dryRun || clearRole) && gerr != nil:
 						return api.MapError(gerr)
-					case dryRun:
+					case dryRun || clearRole:
 						return exitcode.Newf(exitcode.NotFound, "node %q not found, or not readable by you", args[0])
 					}
-				} else if existing, gerr := gen.GetNode(cmd.Context(), client, nodeID); gerr == nil {
-					stored = existing.Node
+				} else {
+					existing, gerr := gen.GetNode(cmd.Context(), client, nodeID)
+					if gerr != nil && clearRole {
+						return api.MapError(gerr)
+					}
+					if gerr == nil {
+						stored = existing.Node
+					}
+					if clearRole && stored == nil {
+						return exitcode.Newf(exitcode.NotFound, "node %q not found, or not readable by you", args[0])
+					}
 				}
 				if stored != nil {
 					cur.Role = stored.Role
@@ -292,28 +306,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 							"this would leave the node as two governed kinds at once — %s — and each door is exempt from its OWN kind only, so every one of them refuses it. Clear the other first, or write it with `hadron api` if the server's register has changed",
 							strings.Join(kinds, " AND "))
 					}
-					// REFUSED rather than sent. The schema says null clears and
-					// omission preserves, and `*string` + omitempty can express
-					// neither an explicit null nor a distinct "clear" — a nil
-					// pointer is omitted. So `--role ""` would write the EMPTY
-					// STRING, which the server does NOT normalize to null.
-					//
-					// Measured, because the neighbouring flag sets the opposite
-					// expectation: `--object-type ""` really does clear (the
-					// server normalizes that one). Role does not, so a node would
-					// be left carrying role "" — neither governed nor cleanly
-					// ungoverned, and matching no entry in the register.
-					//
-					// The remedy names the door for the node's CURRENT kind, not a
-					// fixed one: clearing is an UPDATE of what the node is now, so
-					// a review node needs updateReviewNode and a runnable one
-					// updateTaskNode. Prescribing updateSpecNode for all of them
-					// would be refused for most governed nodes (@copilot on #615).
-					if role == "" {
-						return exitcode.Newf(exitcode.Usage,
-							`--role "" would write an EMPTY role, not clear it — the server normalizes an empty object-type but not an empty role, leaving the node in a state no kind recognizes. Pass a value, or clear it with an explicit null through the door for what this node is NOW: hadron api 'mutation($i: UpdateNodeInput!){ %s(input:$i){ id role } }' -F i='{"id":"%s","role":null}'`,
-							clearDoorFor(cur), nodeID)
-					}
+
 					input.Role = &role
 				}
 				if changed("description") {
@@ -366,9 +359,14 @@ schema-governed memory the server validates the result and rejects a violation.)
 				// One extra read per update, on a command that is not a hot
 				// loop. The alternative — write optimistically and retry on the
 				// typed refusal — doubles latency on the governed path and turns
-				// a routing decision into error handling. (Read above, so the
-				// `--role ""` refusal can name the same door.)
-				resp, err := api.UpdateNodeByKind(cmd.Context(), client, &input, cur)
+				// a routing decision into error handling.
+				var resp *api.AuthoredNode
+				var err error
+				if clearRole {
+					resp, err = api.UpdateNodeClearingRoleByKind(cmd.Context(), client, &input, cur)
+				} else {
+					resp, err = api.UpdateNodeByKind(cmd.Context(), client, &input, cur)
+				}
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -409,7 +407,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 	// — and the usage says what it is not, the condition @Holger attached to
 	// there being three kind-ish fields at all (nodeType / objectType / role).
 	cmd.Flags().StringVar(&role, "role", "",
-		`what this node is FOR (#1201) — "spec"/"spec.*" and "review"/"review.*" use their governed doors; omit to preserve (clearing needs an explicit null; "" is refused). NOT --type (the platform kind) and NOT a membership role`)
+		`what this node is FOR (#1201) — "spec"/"spec.*" and "review"/"review.*" use their governed doors; omit to preserve; empty or whitespace clears through an explicit null. NOT --type (the platform kind) and NOT a membership role`)
 	cmd.Flags().StringVar(&description, "description", "", "new one-line description")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `new paragraph-length summary ("-" reads stdin)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the new abstract from a file")
@@ -455,29 +453,6 @@ func resolveMergeData(dataMerge, dataMergeFile string, stdin io.Reader) (json.Ra
 		return nil, exitcode.Newf(exitcode.Usage, "%s must contain valid JSON", flag)
 	}
 	return json.RawMessage(raw), nil
-}
-
-// clearDoorFor names the mutation that may clear a node's role — the door for
-// what the node is NOW, not a fixed one.
-//
-// Clearing is an UPDATE, and the gate reads BOTH the prior and resulting state,
-// so the write must go through the door of the kind the node currently carries:
-// a review node needs `updateReviewNode`, a runnable one `updateTaskNode`.
-// Naming `updateSpecNode` for all of them — as the first version did — is
-// refused for most governed nodes (@copilot on #615).
-//
-// An ungoverned node needs no door and gets the generic surface; it also cannot
-// reach this message, since there is nothing to clear.
-func clearDoorFor(cur api.NodeKindState) string {
-	switch {
-	case cur.IsRunnable:
-		return "updateTaskNode"
-	case api.RoleInFamily(cur.Role, api.SpecNodeRole):
-		return "updateSpecNode"
-	case api.RoleInFamily(cur.Role, api.ReviewNodeRole):
-		return "updateReviewNode"
-	}
-	return "updateNode"
 }
 
 // updateFields is the order the --dry-run preview lists fields in, each with

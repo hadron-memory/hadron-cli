@@ -1639,10 +1639,13 @@ Conventions:
   **`node add --role` / `node update --role` set `Node.role`** and the command
   routes the write through that kind's door for you — so `hadron node update
   <ref> --role spec` is how an existing node becomes governed. Omit the flag to
-  PRESERVE the stored role; `--role ""` is REFUSED rather than sent, because the
-  server keeps an empty role verbatim (unlike `--object-type ""`, which it
-  normalizes to null) and would leave the node carrying a role no kind
-  recognizes. Clearing needs an explicit null via `hadron api`. The flag is NOT
+  PRESERVE the stored role; an empty or whitespace-only `--role` clears it.
+  Updates send literal null through the current ∪ resulting kind's door;
+  creates omit the blank role. This also avoids writing empty strings on older
+  servers. Governed refusals stay fail-closed, with no generic retry. The clear
+  and other field edits share one mutation; --data-merge is refused with a role
+  clear (use --data for atomic replacement). Nonblank roles remain verbatim.
+  The flag is NOT
   `--type` (the platform kind) and NOT the `--role` on `memory member` /
   `memory share`, which is a MEMBERSHIP role on a person. `node get` and
   `node list` PROJECT it, and `--json` renders `"role": null` for an ungoverned

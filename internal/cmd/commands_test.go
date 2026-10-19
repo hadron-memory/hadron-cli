@@ -2817,31 +2817,48 @@ func TestNodeUpdateRoleRoutesOnTheResultingState(t *testing.T) {
 // Blank roles express no role; legacy servers receive null on update or no
 // role on create, never an empty string that an older writer might preserve.
 func TestNodeBlankRoleCompatibility(t *testing.T) {
- for _, role := range []string{"", " \t\n"} {
-  for _, create := range []bool{false, true} {
-   gql, captured := captureGraphQL(t, map[string]string{
-    "ResolveUrn": resolveNodeJSON, "GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
-    "UpdateNodeClearingRole": `{"data":{"updateNode":` + nodeJSON + `}}`,
-    "CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
-   })
-   f, _ := testFactory(t); root := NewRootCmd(f)
-   args := []string{"node", "update", nodeURN, "--role", role, "--name", "New name"}
-   if create { args = []string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y", "--name", "X", "--role", role} }
-   root.SetArgs(append(args, "--server", gql.URL))
-   if err := root.Execute(); err != nil { t.Fatalf("create=%v blank=%q: %v", create, role, err) }
-   if create {
-    var vars struct { Input map[string]any `json:"input"` }; _ = json.Unmarshal(captured["CreateNode"], &vars)
-    if _, present := vars.Input["role"]; present { t.Fatalf("blank create sent role: %v", vars.Input) }
-   } else {
-    var vars map[string]any; _ = json.Unmarshal(captured["UpdateNodeClearingRole"], &vars)
-    if vars["name"] != "New name" { t.Fatalf("simultaneous edit lost: %v", vars) }
-    for _, key := range []string{"role", "content", "description", "tags", "expectedRevision"} {
-     if _, ok := vars[key]; ok { t.Errorf("unset/literal %s leaked into variables: %v", key, vars) }
-    }
-    if _, ok := captured["UpdateNode"]; ok { t.Fatal("clear also sent ordinary update") }
-   }
-  }
- }
+	for _, role := range []string{"", " \t\n"} {
+		for _, create := range []bool{false, true} {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"ResolveUrn": resolveNodeJSON, "GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
+				"UpdateNodeClearingRole": `{"data":{"updateNode":` + nodeJSON + `}}`,
+				"CreateNode":             `{"data":{"createNode":` + nodeJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"node", "update", nodeURN, "--role", role, "--name", "New name"}
+			if create {
+				args = []string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y", "--name", "X", "--role", role}
+			}
+			root.SetArgs(append(args, "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("create=%v blank=%q: %v", create, role, err)
+			}
+			if create {
+				var vars struct {
+					Input map[string]any `json:"input"`
+				}
+				_ = json.Unmarshal(captured["CreateNode"], &vars)
+				if _, present := vars.Input["role"]; present {
+					t.Fatalf("blank create sent role: %v", vars.Input)
+				}
+			} else {
+				var vars map[string]any
+				_ = json.Unmarshal(captured["UpdateNodeClearingRole"], &vars)
+				if vars["name"] != "New name" {
+					t.Fatalf("simultaneous edit lost: %v", vars)
+				}
+				for _, key := range []string{"role", "content", "description", "tags", "expectedRevision"} {
+					if _, ok := vars[key]; ok {
+						t.Errorf("unset/literal %s leaked into variables: %v", key, vars)
+					}
+				}
+				if _, ok := captured["UpdateNode"]; ok {
+					t.Fatal("clear also sent ordinary update")
+				}
+			}
+		}
+	}
 }
 
 // Omitting the flag must PRESERVE the stored role — the nil pointer is omitted
@@ -2989,26 +3006,41 @@ func TestNodeRunnableWithUngovernedRoleIsAllowed(t *testing.T) {
 // Clearing still touches the CURRENT governed kind; it must never fall back
 // to the generic writer when that door refuses.
 func TestNodeUpdateClearUsesCurrentKindsDoor(t *testing.T) {
- for _, tc := range []struct{ name, role, runnable, op string }{
-  {"spec", `"spec.rule"`, "false", "UpdateSpecNodeClearingRole"},
-  {"review", `"review.security"`, "false", "UpdateReviewNodeClearingRole"},
-  {"task", "null", "true", "UpdateTaskNodeClearingRole"},
- } {
-  t.Run(tc.name, func(t *testing.T) {
-   detail := `{"id":"n1","memoryId":"mem1","loc":"findings:x","name":"X","nodeType":"info","tags":[],"role":` + tc.role + `,"isRunnable":` + tc.runnable + `,"content":"b","updatedAt":"2026-06-11T00:00:00Z"}`
-   calls := 0
-   gql, captured := captureGraphQLFunc(t, func(op string) string {
-    switch op { case "ResolveUrn": return resolveNodeJSON; case "GetNode": return `{"data":{"node":`+detail+`}}` }
-    if op == tc.op { calls++; return `{"errors":[{"message":"governed clear refused","extensions":{"code":"ROLE_GOVERNED"}}]}` }
-    return ""
-   })
-   f, _ := testFactory(t); root := NewRootCmd(f)
-   root.SetArgs([]string{"node","update",nodeURN,"--role","","--server",gql.URL})
-   err := root.Execute()
-   if exitCodeFor(err) != exitcode.Usage || calls != 1 || !strings.Contains(err.Error(),"governed clear refused") { t.Fatalf("calls=%d err=%v",calls,err) }
-   for _, op := range []string{"UpdateNode","UpdateNodeClearingRole"} { if _, ok := captured[op]; ok { t.Fatalf("fallback %s",op) } }
-  })
- }
+	for _, tc := range []struct{ name, role, runnable, op string }{
+		{"spec", `"spec.rule"`, "false", "UpdateSpecNodeClearingRole"},
+		{"review", `"review.security"`, "false", "UpdateReviewNodeClearingRole"},
+		{"task", "null", "true", "UpdateTaskNodeClearingRole"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			detail := `{"id":"n1","memoryId":"mem1","loc":"findings:x","name":"X","nodeType":"info","tags":[],"role":` + tc.role + `,"isRunnable":` + tc.runnable + `,"content":"b","updatedAt":"2026-06-11T00:00:00Z"}`
+			calls := 0
+			gql, captured := captureGraphQLFunc(t, func(op string) string {
+				switch op {
+				case "ResolveUrn":
+					return resolveNodeJSON
+				case "GetNode":
+					return `{"data":{"node":` + detail + `}}`
+				}
+				if op == tc.op {
+					calls++
+					return `{"errors":[{"message":"governed clear refused","extensions":{"code":"ROLE_GOVERNED"}}]}`
+				}
+				return ""
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"node", "update", nodeURN, "--role", "", "--server", gql.URL})
+			err := root.Execute()
+			if exitCodeFor(err) != exitcode.Usage || calls != 1 || !strings.Contains(err.Error(), "governed clear refused") {
+				t.Fatalf("calls=%d err=%v", calls, err)
+			}
+			for _, op := range []string{"UpdateNode", "UpdateNodeClearingRole"} {
+				if _, ok := captured[op]; ok {
+					t.Fatalf("fallback %s", op)
+				}
+			}
+		})
+	}
 }
 
 // @copilot on #615: `node add` without --role must not send `role: null` on the
