@@ -6559,6 +6559,57 @@ type AppAgentRosterResponse struct {
 // GetApp returns AppAgentRosterResponse.App, and is useful for accessing the field via an interface.
 func (v *AppAgentRosterResponse) GetApp() *AppAgentRosterApp { return v.App }
 
+// C5 slice A (#911): one shared batching-window/ticker-floor dial. Settings
+// operations use the ordinary authenticated caller, not a worker attribution.
+type AppDeliverySettingsFields struct {
+	// The existing ticker cadence floor and wake-rate ceiling, also the batching window. Changing it affects ticker cadence.
+	BatchWindowSeconds int `json:"batchWindowSeconds"`
+	// Whole seconds, 1..86400; default 600.
+	BusyDelaySeconds int `json:"busyDelaySeconds"`
+	// Whole seconds, 1..604800; default 900. Must exceed busy delay plus batch window.
+	StuckWindowSeconds int `json:"stuckWindowSeconds"`
+	// Stored configuration; default false. Enabling is refused until standby behavior ships.
+	StandbyEnabled bool `json:"standbyEnabled"`
+	// False until S7 supplies standby behavior; configuration alone has no effect.
+	StandbyEffective bool `json:"standbyEffective"`
+}
+
+// GetBatchWindowSeconds returns AppDeliverySettingsFields.BatchWindowSeconds, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsFields) GetBatchWindowSeconds() int { return v.BatchWindowSeconds }
+
+// GetBusyDelaySeconds returns AppDeliverySettingsFields.BusyDelaySeconds, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsFields) GetBusyDelaySeconds() int { return v.BusyDelaySeconds }
+
+// GetStuckWindowSeconds returns AppDeliverySettingsFields.StuckWindowSeconds, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsFields) GetStuckWindowSeconds() int { return v.StuckWindowSeconds }
+
+// GetStandbyEnabled returns AppDeliverySettingsFields.StandbyEnabled, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsFields) GetStandbyEnabled() bool { return v.StandbyEnabled }
+
+// GetStandbyEffective returns AppDeliverySettingsFields.StandbyEffective, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsFields) GetStandbyEffective() bool { return v.StandbyEffective }
+
+// Atomic patch: omit to preserve, explicit null refuses. Empty patch returns the current authorized settings.
+type AppDeliverySettingsInput struct {
+	// Shared ticker floor/window; existing floor, self-cadence and live-ticker limits apply.
+	BatchWindowSeconds *int  `json:"batchWindowSeconds,omitempty"`
+	BusyDelaySeconds   *int  `json:"busyDelaySeconds,omitempty"`
+	StandbyEnabled     *bool `json:"standbyEnabled,omitempty"`
+	StuckWindowSeconds *int  `json:"stuckWindowSeconds,omitempty"`
+}
+
+// GetBatchWindowSeconds returns AppDeliverySettingsInput.BatchWindowSeconds, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsInput) GetBatchWindowSeconds() *int { return v.BatchWindowSeconds }
+
+// GetBusyDelaySeconds returns AppDeliverySettingsInput.BusyDelaySeconds, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsInput) GetBusyDelaySeconds() *int { return v.BusyDelaySeconds }
+
+// GetStandbyEnabled returns AppDeliverySettingsInput.StandbyEnabled, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsInput) GetStandbyEnabled() *bool { return v.StandbyEnabled }
+
+// GetStuckWindowSeconds returns AppDeliverySettingsInput.StuckWindowSeconds, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsInput) GetStuckWindowSeconds() *int { return v.StuckWindowSeconds }
+
 // Filter for the uniform apps() list (#473). Clauses AND-combine.
 type AppFilter struct {
 	// #782 — true restricts the list to the caller's OWN user-owned (org-less)
@@ -42597,6 +42648,206 @@ type TeamDefaultChannelResponse struct {
 // GetApp returns TeamDefaultChannelResponse.App, and is useful for accessing the field via an interface.
 func (v *TeamDefaultChannelResponse) GetApp() *TeamDefaultChannelApp { return v.App }
 
+// TeamDeliverySettingsAppDeliverySettings includes the requested fields of the GraphQL type AppDeliverySettings.
+// The GraphQL type's documentation follows.
+//
+// Delivery timing per App. Busy/stuck bounds and relation are Proposed (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
+type TeamDeliverySettingsAppDeliverySettings struct {
+	AppDeliverySettingsFields `json:"-"`
+}
+
+// GetBatchWindowSeconds returns TeamDeliverySettingsAppDeliverySettings.BatchWindowSeconds, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsAppDeliverySettings) GetBatchWindowSeconds() int {
+	return v.AppDeliverySettingsFields.BatchWindowSeconds
+}
+
+// GetBusyDelaySeconds returns TeamDeliverySettingsAppDeliverySettings.BusyDelaySeconds, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsAppDeliverySettings) GetBusyDelaySeconds() int {
+	return v.AppDeliverySettingsFields.BusyDelaySeconds
+}
+
+// GetStuckWindowSeconds returns TeamDeliverySettingsAppDeliverySettings.StuckWindowSeconds, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsAppDeliverySettings) GetStuckWindowSeconds() int {
+	return v.AppDeliverySettingsFields.StuckWindowSeconds
+}
+
+// GetStandbyEnabled returns TeamDeliverySettingsAppDeliverySettings.StandbyEnabled, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsAppDeliverySettings) GetStandbyEnabled() bool {
+	return v.AppDeliverySettingsFields.StandbyEnabled
+}
+
+// GetStandbyEffective returns TeamDeliverySettingsAppDeliverySettings.StandbyEffective, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsAppDeliverySettings) GetStandbyEffective() bool {
+	return v.AppDeliverySettingsFields.StandbyEffective
+}
+
+func (v *TeamDeliverySettingsAppDeliverySettings) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamDeliverySettingsAppDeliverySettings
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamDeliverySettingsAppDeliverySettings = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppDeliverySettingsFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamDeliverySettingsAppDeliverySettings struct {
+	BatchWindowSeconds int `json:"batchWindowSeconds"`
+
+	BusyDelaySeconds int `json:"busyDelaySeconds"`
+
+	StuckWindowSeconds int `json:"stuckWindowSeconds"`
+
+	StandbyEnabled bool `json:"standbyEnabled"`
+
+	StandbyEffective bool `json:"standbyEffective"`
+}
+
+func (v *TeamDeliverySettingsAppDeliverySettings) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamDeliverySettingsAppDeliverySettings) __premarshalJSON() (*__premarshalTeamDeliverySettingsAppDeliverySettings, error) {
+	var retval __premarshalTeamDeliverySettingsAppDeliverySettings
+
+	retval.BatchWindowSeconds = v.AppDeliverySettingsFields.BatchWindowSeconds
+	retval.BusyDelaySeconds = v.AppDeliverySettingsFields.BusyDelaySeconds
+	retval.StuckWindowSeconds = v.AppDeliverySettingsFields.StuckWindowSeconds
+	retval.StandbyEnabled = v.AppDeliverySettingsFields.StandbyEnabled
+	retval.StandbyEffective = v.AppDeliverySettingsFields.StandbyEffective
+	return &retval, nil
+}
+
+// TeamDeliverySettingsResponse is returned by TeamDeliverySettings on success.
+type TeamDeliverySettingsResponse struct {
+	// App delivery settings for participants; cadence/window is the ticker floor (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
+	AppDeliverySettings *TeamDeliverySettingsAppDeliverySettings `json:"appDeliverySettings"`
+}
+
+// GetAppDeliverySettings returns TeamDeliverySettingsResponse.AppDeliverySettings, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsResponse) GetAppDeliverySettings() *TeamDeliverySettingsAppDeliverySettings {
+	return v.AppDeliverySettings
+}
+
+// TeamDeliverySettingsSetResponse is returned by TeamDeliverySettingsSet on success.
+type TeamDeliverySettingsSetResponse struct {
+	// App managers only; omitted preserves, null refuses. Standby activation is unavailable until S7 (hrn:node:hadronmemory.com:specs:cor:agt:080:19).
+	SetAppDeliverySettings *TeamDeliverySettingsSetSetAppDeliverySettings `json:"setAppDeliverySettings"`
+}
+
+// GetSetAppDeliverySettings returns TeamDeliverySettingsSetResponse.SetAppDeliverySettings, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsSetResponse) GetSetAppDeliverySettings() *TeamDeliverySettingsSetSetAppDeliverySettings {
+	return v.SetAppDeliverySettings
+}
+
+// TeamDeliverySettingsSetSetAppDeliverySettings includes the requested fields of the GraphQL type AppDeliverySettings.
+// The GraphQL type's documentation follows.
+//
+// Delivery timing per App. Busy/stuck bounds and relation are Proposed (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
+type TeamDeliverySettingsSetSetAppDeliverySettings struct {
+	AppDeliverySettingsFields `json:"-"`
+}
+
+// GetBatchWindowSeconds returns TeamDeliverySettingsSetSetAppDeliverySettings.BatchWindowSeconds, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetBatchWindowSeconds() int {
+	return v.AppDeliverySettingsFields.BatchWindowSeconds
+}
+
+// GetBusyDelaySeconds returns TeamDeliverySettingsSetSetAppDeliverySettings.BusyDelaySeconds, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetBusyDelaySeconds() int {
+	return v.AppDeliverySettingsFields.BusyDelaySeconds
+}
+
+// GetStuckWindowSeconds returns TeamDeliverySettingsSetSetAppDeliverySettings.StuckWindowSeconds, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetStuckWindowSeconds() int {
+	return v.AppDeliverySettingsFields.StuckWindowSeconds
+}
+
+// GetStandbyEnabled returns TeamDeliverySettingsSetSetAppDeliverySettings.StandbyEnabled, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetStandbyEnabled() bool {
+	return v.AppDeliverySettingsFields.StandbyEnabled
+}
+
+// GetStandbyEffective returns TeamDeliverySettingsSetSetAppDeliverySettings.StandbyEffective, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetStandbyEffective() bool {
+	return v.AppDeliverySettingsFields.StandbyEffective
+}
+
+func (v *TeamDeliverySettingsSetSetAppDeliverySettings) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamDeliverySettingsSetSetAppDeliverySettings
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamDeliverySettingsSetSetAppDeliverySettings = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppDeliverySettingsFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamDeliverySettingsSetSetAppDeliverySettings struct {
+	BatchWindowSeconds int `json:"batchWindowSeconds"`
+
+	BusyDelaySeconds int `json:"busyDelaySeconds"`
+
+	StuckWindowSeconds int `json:"stuckWindowSeconds"`
+
+	StandbyEnabled bool `json:"standbyEnabled"`
+
+	StandbyEffective bool `json:"standbyEffective"`
+}
+
+func (v *TeamDeliverySettingsSetSetAppDeliverySettings) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamDeliverySettingsSetSetAppDeliverySettings) __premarshalJSON() (*__premarshalTeamDeliverySettingsSetSetAppDeliverySettings, error) {
+	var retval __premarshalTeamDeliverySettingsSetSetAppDeliverySettings
+
+	retval.BatchWindowSeconds = v.AppDeliverySettingsFields.BatchWindowSeconds
+	retval.BusyDelaySeconds = v.AppDeliverySettingsFields.BusyDelaySeconds
+	retval.StuckWindowSeconds = v.AppDeliverySettingsFields.StuckWindowSeconds
+	retval.StandbyEnabled = v.AppDeliverySettingsFields.StandbyEnabled
+	retval.StandbyEffective = v.AppDeliverySettingsFields.StandbyEffective
+	return &retval, nil
+}
+
 // TeamMemoryAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -56795,6 +57046,26 @@ type __TeamDefaultChannelInput struct {
 
 // GetAppRef returns __TeamDefaultChannelInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamDefaultChannelInput) GetAppRef() string { return v.AppRef }
+
+// __TeamDeliverySettingsInput is used internally by genqlient
+type __TeamDeliverySettingsInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamDeliverySettingsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamDeliverySettingsInput) GetAppRef() string { return v.AppRef }
+
+// __TeamDeliverySettingsSetInput is used internally by genqlient
+type __TeamDeliverySettingsSetInput struct {
+	AppRef string                    `json:"appRef"`
+	Input  *AppDeliverySettingsInput `json:"input,omitempty"`
+}
+
+// GetAppRef returns __TeamDeliverySettingsSetInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamDeliverySettingsSetInput) GetAppRef() string { return v.AppRef }
+
+// GetInput returns __TeamDeliverySettingsSetInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamDeliverySettingsSetInput) GetInput() *AppDeliverySettingsInput { return v.Input }
 
 // __TeamMemoryAppInput is used internally by genqlient
 type __TeamMemoryAppInput struct {
@@ -72960,6 +73231,90 @@ func TeamDefaultChannel(
 	}
 
 	data_ = &TeamDefaultChannelResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamDeliverySettings.
+const TeamDeliverySettings_Operation = `
+query TeamDeliverySettings ($appRef: String!) {
+	appDeliverySettings(appRef: $appRef) {
+		... AppDeliverySettingsFields
+	}
+}
+fragment AppDeliverySettingsFields on AppDeliverySettings {
+	batchWindowSeconds
+	busyDelaySeconds
+	stuckWindowSeconds
+	standbyEnabled
+	standbyEffective
+}
+`
+
+func TeamDeliverySettings(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamDeliverySettingsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamDeliverySettings",
+		Query:  TeamDeliverySettings_Operation,
+		Variables: &__TeamDeliverySettingsInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamDeliverySettingsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamDeliverySettingsSet.
+const TeamDeliverySettingsSet_Operation = `
+mutation TeamDeliverySettingsSet ($appRef: String!, $input: AppDeliverySettingsInput!) {
+	setAppDeliverySettings(appRef: $appRef, input: $input) {
+		... AppDeliverySettingsFields
+	}
+}
+fragment AppDeliverySettingsFields on AppDeliverySettings {
+	batchWindowSeconds
+	busyDelaySeconds
+	stuckWindowSeconds
+	standbyEnabled
+	standbyEffective
+}
+`
+
+func TeamDeliverySettingsSet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	input *AppDeliverySettingsInput,
+) (data_ *TeamDeliverySettingsSetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamDeliverySettingsSet",
+		Query:  TeamDeliverySettingsSet_Operation,
+		Variables: &__TeamDeliverySettingsSetInput{
+			AppRef: appRef,
+			Input:  input,
+		},
+	}
+
+	data_ = &TeamDeliverySettingsSetResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
