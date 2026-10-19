@@ -51,8 +51,13 @@ type TaskReason struct {
 	// Event is the line's wording: "assigned", "child finished", "alarm" or
 	// "end session".
 	Event string
+	// ID and Title are the task's. A task-less alarm (S5 #2021
+	// comment-6259060238: taskId null) has neither, and none is invented.
 	ID    string
 	Title string
+	// AlarmType is a task-less alarm's closed type code from the server
+	// (e.g. delivery.stuck), shown as given.
+	AlarmType string
 }
 
 // WakeReason is one reason a wake is due.

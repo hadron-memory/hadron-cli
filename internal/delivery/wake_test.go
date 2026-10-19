@@ -103,6 +103,33 @@ func TestWakeKeys(t *testing.T) {
 	}
 }
 
+// S5 #2021 comment-6259060238: a task-less alarm carries no task id or
+// title. It renders from its alarm type, never a blank or invented task,
+// and keeps eventId+chainIndex as its identity.
+func TestATaskLessAlarm(t *testing.T) {
+	alarm := WakeReason{Kind: WakeTask, Task: &TaskReason{EventID: "ev7", ChainIndex: 2, Event: "alarm", AlarmType: "delivery.stuck", Title: "ignored without a task"}}
+	if got := RenderWake([]WakeReason{alarm}); got != "[hadron task] alarm: delivery.stuck (no task)" {
+		t.Fatalf("typed alarm %q", got)
+	}
+	untyped := alarm
+	untyped.Task = &TaskReason{EventID: "ev7", ChainIndex: 2, Event: "alarm"}
+	if got := RenderWake([]WakeReason{untyped}); got != "[hadron task] alarm (no task)" {
+		t.Fatalf("alarm with no type %q", got)
+	}
+	if alarm.Key() != "task:ev7:2" || CheckWake(Wake{Proof: "p", WorkerID: "w", Reasons: []WakeReason{alarm}}) != nil {
+		t.Fatal("a task-less alarm is a well-formed reason keyed by its event")
+	}
+	notAlarm := WakeReason{Kind: WakeTask, Task: &TaskReason{EventID: "ev8", Event: "assigned"}}
+	if CheckWake(Wake{Proof: "p", WorkerID: "w", Reasons: []WakeReason{notAlarm}}) == nil {
+		t.Fatal("only an alarm may come without its task")
+	}
+	h := newHarness(t)
+	if o := h.deliverWake(h.wake(alarm)); o.Kind != Delivered || h.orca.sends[0].text != "[hadron task] alarm: delivery.stuck (no task)" {
+		t.Fatalf("outcome %+v sends %+v", o, h.orca.sends)
+	}
+	h.wantWakeRecord("task:ev7:2", WakeAcked)
+}
+
 func TestRenderWake(t *testing.T) {
 	if got := RenderWake([]WakeReason{tick("tk1", tickAt)}); got != tickLine {
 		t.Fatalf("tick line %q", got)
