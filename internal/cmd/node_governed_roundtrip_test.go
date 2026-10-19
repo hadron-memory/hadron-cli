@@ -241,8 +241,8 @@ func TestNodeImportTwoGovernedKindsIsRefusedBeforeAnyWrite(t *testing.T) {
 	}
 }
 
-// An empty role is read as absent: the server keeps "" as a role no kind
-// recognizes, and a file is not a reason to write that.
+// An empty import role remains a no-op under the import format contract.
+// CLI flag clearing is separate; imports preserve their previous behavior.
 func TestNodeImportEmptyRoleIsNotSent(t *testing.T) {
 	captured, err := runImport(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,

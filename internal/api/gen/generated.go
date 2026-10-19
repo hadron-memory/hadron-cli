@@ -48265,6 +48265,92 @@ func (v *UpdateMyProfileUpdateMyProfileUser) __premarshalJSON() (*__premarshalUp
 	return &retval, nil
 }
 
+// UpdateNodeClearingRoleResponse is returned by UpdateNodeClearingRole on success.
+type UpdateNodeClearingRoleResponse struct {
+	// Update an existing node. Identify it by 'id' (PK or fully-qualified node
+	// URN) XOR the ('memoryId', 'loc') combo — supplying both selectors, or
+	// neither, is an error (D2). Rejects with NODE_NOT_FOUND when the target
+	// does not exist; updateNode never creates and never moves (relocation is
+	// moveNode's job, D3). Every content field is optional — omitted fields are
+	// preserved ('name' included, D4; 'abstract' keeps its omit/null/string
+	// contract; omitted 'tags' are preserved, issue #235).
+	UpdateNode *UpdateNodeClearingRoleUpdateNode `json:"updateNode"`
+}
+
+// GetUpdateNode returns UpdateNodeClearingRoleResponse.UpdateNode, and is useful for accessing the field via an interface.
+func (v *UpdateNodeClearingRoleResponse) GetUpdateNode() *UpdateNodeClearingRoleUpdateNode {
+	return v.UpdateNode
+}
+
+// UpdateNodeClearingRoleUpdateNode includes the requested fields of the GraphQL type Node.
+type UpdateNodeClearingRoleUpdateNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Seq      *int     `json:"seq"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
+}
+
+// GetId returns UpdateNodeClearingRoleUpdateNode.Id, and is useful for accessing the field via an interface.
+func (v *UpdateNodeClearingRoleUpdateNode) GetId() string { return v.Id }
+
+// GetMemoryId returns UpdateNodeClearingRoleUpdateNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeClearingRoleUpdateNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns UpdateNodeClearingRoleUpdateNode.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateNodeClearingRoleUpdateNode) GetLoc() string { return v.Loc }
+
+// GetName returns UpdateNodeClearingRoleUpdateNode.Name, and is useful for accessing the field via an interface.
+func (v *UpdateNodeClearingRoleUpdateNode) GetName() string { return v.Name }
+
+// GetNodeType returns UpdateNodeClearingRoleUpdateNode.NodeType, and is useful for accessing the field via an interface.
+func (v *UpdateNodeClearingRoleUpdateNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns UpdateNodeClearingRoleUpdateNode.Tags, and is useful for accessing the field via an interface.
+func (v *UpdateNodeClearingRoleUpdateNode) GetTags() []string { return v.Tags }
+
+// GetSeq returns UpdateNodeClearingRoleUpdateNode.Seq, and is useful for accessing the field via an interface.
+func (v *UpdateNodeClearingRoleUpdateNode) GetSeq() *int { return v.Seq }
+
+// GetIsRunnable returns UpdateNodeClearingRoleUpdateNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UpdateNodeClearingRoleUpdateNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns UpdateNodeClearingRoleUpdateNode.Role, and is useful for accessing the field via an interface.
+func (v *UpdateNodeClearingRoleUpdateNode) GetRole() *string { return v.Role }
+
+// GetUpdatedAt returns UpdateNodeClearingRoleUpdateNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateNodeClearingRoleUpdateNode) GetUpdatedAt() string { return v.UpdatedAt }
+
 // UpdateNodeDataResponse is returned by UpdateNodeData on success.
 type UpdateNodeDataResponse struct {
 	// Shallow-merge a JSON patch into a node's 'data' bag. The supplied JSON's
@@ -49893,6 +49979,96 @@ func (v *UpdateRegisterEntryUpdateRegisterEntry) __premarshalJSON() (*__premarsh
 	return &retval, nil
 }
 
+// UpdateReviewNodeClearingRoleResponse is returned by UpdateReviewNodeClearingRole on success.
+type UpdateReviewNodeClearingRoleResponse struct {
+	// #1201 — the UPDATE door for the review kind, and the counterpart of
+	// createReviewNode. Same posture: pure routing, exempt from its own kind only;
+	// its MCP counterpart is hadron_update_review.
+	//
+	// It is needed because the gate reads the RESULTING state: editing a node that
+	// already carries this kind still produces one, so the generic updateNode
+	// refuses it even when the edit touches neither signal. That is the point — a
+	// review node must not be rewritable through the generic surface.
+	//
+	// Identical to updateNode otherwise, selectors included ('id' XOR 'memoryId' +
+	// 'loc'); it never creates and never moves.
+	UpdateReviewNode *UpdateReviewNodeClearingRoleUpdateReviewNode `json:"updateReviewNode"`
+}
+
+// GetUpdateReviewNode returns UpdateReviewNodeClearingRoleResponse.UpdateReviewNode, and is useful for accessing the field via an interface.
+func (v *UpdateReviewNodeClearingRoleResponse) GetUpdateReviewNode() *UpdateReviewNodeClearingRoleUpdateReviewNode {
+	return v.UpdateReviewNode
+}
+
+// UpdateReviewNodeClearingRoleUpdateReviewNode includes the requested fields of the GraphQL type Node.
+type UpdateReviewNodeClearingRoleUpdateReviewNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Seq      *int     `json:"seq"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
+}
+
+// GetId returns UpdateReviewNodeClearingRoleUpdateReviewNode.Id, and is useful for accessing the field via an interface.
+func (v *UpdateReviewNodeClearingRoleUpdateReviewNode) GetId() string { return v.Id }
+
+// GetMemoryId returns UpdateReviewNodeClearingRoleUpdateReviewNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateReviewNodeClearingRoleUpdateReviewNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns UpdateReviewNodeClearingRoleUpdateReviewNode.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateReviewNodeClearingRoleUpdateReviewNode) GetLoc() string { return v.Loc }
+
+// GetName returns UpdateReviewNodeClearingRoleUpdateReviewNode.Name, and is useful for accessing the field via an interface.
+func (v *UpdateReviewNodeClearingRoleUpdateReviewNode) GetName() string { return v.Name }
+
+// GetNodeType returns UpdateReviewNodeClearingRoleUpdateReviewNode.NodeType, and is useful for accessing the field via an interface.
+func (v *UpdateReviewNodeClearingRoleUpdateReviewNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns UpdateReviewNodeClearingRoleUpdateReviewNode.Tags, and is useful for accessing the field via an interface.
+func (v *UpdateReviewNodeClearingRoleUpdateReviewNode) GetTags() []string { return v.Tags }
+
+// GetSeq returns UpdateReviewNodeClearingRoleUpdateReviewNode.Seq, and is useful for accessing the field via an interface.
+func (v *UpdateReviewNodeClearingRoleUpdateReviewNode) GetSeq() *int { return v.Seq }
+
+// GetIsRunnable returns UpdateReviewNodeClearingRoleUpdateReviewNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UpdateReviewNodeClearingRoleUpdateReviewNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns UpdateReviewNodeClearingRoleUpdateReviewNode.Role, and is useful for accessing the field via an interface.
+func (v *UpdateReviewNodeClearingRoleUpdateReviewNode) GetRole() *string { return v.Role }
+
+// GetUpdatedAt returns UpdateReviewNodeClearingRoleUpdateReviewNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateReviewNodeClearingRoleUpdateReviewNode) GetUpdatedAt() string { return v.UpdatedAt }
+
 // UpdateReviewNodeResponse is returned by UpdateReviewNode on success.
 type UpdateReviewNodeResponse struct {
 	// #1201 — the UPDATE door for the review kind, and the counterpart of
@@ -50137,6 +50313,96 @@ func (v *UpdateScopeUpdateScope) __premarshalJSON() (*__premarshalUpdateScopeUpd
 	return &retval, nil
 }
 
+// UpdateSpecNodeClearingRoleResponse is returned by UpdateSpecNodeClearingRole on success.
+type UpdateSpecNodeClearingRoleResponse struct {
+	// #1201 — the UPDATE door for the spec kind, and the counterpart of
+	// createSpecNode. Same posture: pure routing, exempt from its own kind only,
+	// not an MCP tool.
+	//
+	// It is needed because the gate reads the RESULTING state: editing a node that
+	// already carries this kind still produces one, so the generic updateNode
+	// refuses it even when the edit touches neither signal. That is the point — a
+	// spec node must not be rewritable through the generic surface.
+	//
+	// Identical to updateNode otherwise, selectors included ('id' XOR 'memoryId' +
+	// 'loc'); it never creates and never moves.
+	UpdateSpecNode *UpdateSpecNodeClearingRoleUpdateSpecNode `json:"updateSpecNode"`
+}
+
+// GetUpdateSpecNode returns UpdateSpecNodeClearingRoleResponse.UpdateSpecNode, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeClearingRoleResponse) GetUpdateSpecNode() *UpdateSpecNodeClearingRoleUpdateSpecNode {
+	return v.UpdateSpecNode
+}
+
+// UpdateSpecNodeClearingRoleUpdateSpecNode includes the requested fields of the GraphQL type Node.
+type UpdateSpecNodeClearingRoleUpdateSpecNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Seq      *int     `json:"seq"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
+}
+
+// GetId returns UpdateSpecNodeClearingRoleUpdateSpecNode.Id, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeClearingRoleUpdateSpecNode) GetId() string { return v.Id }
+
+// GetMemoryId returns UpdateSpecNodeClearingRoleUpdateSpecNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeClearingRoleUpdateSpecNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns UpdateSpecNodeClearingRoleUpdateSpecNode.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeClearingRoleUpdateSpecNode) GetLoc() string { return v.Loc }
+
+// GetName returns UpdateSpecNodeClearingRoleUpdateSpecNode.Name, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeClearingRoleUpdateSpecNode) GetName() string { return v.Name }
+
+// GetNodeType returns UpdateSpecNodeClearingRoleUpdateSpecNode.NodeType, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeClearingRoleUpdateSpecNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns UpdateSpecNodeClearingRoleUpdateSpecNode.Tags, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeClearingRoleUpdateSpecNode) GetTags() []string { return v.Tags }
+
+// GetSeq returns UpdateSpecNodeClearingRoleUpdateSpecNode.Seq, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeClearingRoleUpdateSpecNode) GetSeq() *int { return v.Seq }
+
+// GetIsRunnable returns UpdateSpecNodeClearingRoleUpdateSpecNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeClearingRoleUpdateSpecNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns UpdateSpecNodeClearingRoleUpdateSpecNode.Role, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeClearingRoleUpdateSpecNode) GetRole() *string { return v.Role }
+
+// GetUpdatedAt returns UpdateSpecNodeClearingRoleUpdateSpecNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateSpecNodeClearingRoleUpdateSpecNode) GetUpdatedAt() string { return v.UpdatedAt }
+
 // UpdateSpecNodeResponse is returned by UpdateSpecNode on success.
 type UpdateSpecNodeResponse struct {
 	// #1201 — the UPDATE door for the spec kind, and the counterpart of
@@ -50231,6 +50497,96 @@ func (v *UpdateSpecNodeUpdateSpecNode) GetUpdatedAt() string { return v.UpdatedA
 
 // GetAbstractOriginHash returns UpdateSpecNodeUpdateSpecNode.AbstractOriginHash, and is useful for accessing the field via an interface.
 func (v *UpdateSpecNodeUpdateSpecNode) GetAbstractOriginHash() *string { return v.AbstractOriginHash }
+
+// UpdateTaskNodeClearingRoleResponse is returned by UpdateTaskNodeClearingRole on success.
+type UpdateTaskNodeClearingRoleResponse struct {
+	// #1201 — the UPDATE door for the task kind, and the counterpart of
+	// createTaskNode. Same posture: pure routing, exempt from its own kind only;
+	// its MCP counterpart is hadron_update_task.
+	//
+	// It is needed because the gate reads the RESULTING state: editing a node that
+	// already carries this kind still produces one, so the generic updateNode
+	// refuses it even when the edit touches neither signal. That is the point — a
+	// task node must not be rewritable through the generic surface.
+	//
+	// Identical to updateNode otherwise, selectors included ('id' XOR 'memoryId' +
+	// 'loc'); it never creates and never moves.
+	UpdateTaskNode *UpdateTaskNodeClearingRoleUpdateTaskNode `json:"updateTaskNode"`
+}
+
+// GetUpdateTaskNode returns UpdateTaskNodeClearingRoleResponse.UpdateTaskNode, and is useful for accessing the field via an interface.
+func (v *UpdateTaskNodeClearingRoleResponse) GetUpdateTaskNode() *UpdateTaskNodeClearingRoleUpdateTaskNode {
+	return v.UpdateTaskNode
+}
+
+// UpdateTaskNodeClearingRoleUpdateTaskNode includes the requested fields of the GraphQL type Node.
+type UpdateTaskNodeClearingRoleUpdateTaskNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Seq      *int     `json:"seq"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other values are inert unless a caller explicitly filters for them.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
+}
+
+// GetId returns UpdateTaskNodeClearingRoleUpdateTaskNode.Id, and is useful for accessing the field via an interface.
+func (v *UpdateTaskNodeClearingRoleUpdateTaskNode) GetId() string { return v.Id }
+
+// GetMemoryId returns UpdateTaskNodeClearingRoleUpdateTaskNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateTaskNodeClearingRoleUpdateTaskNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns UpdateTaskNodeClearingRoleUpdateTaskNode.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateTaskNodeClearingRoleUpdateTaskNode) GetLoc() string { return v.Loc }
+
+// GetName returns UpdateTaskNodeClearingRoleUpdateTaskNode.Name, and is useful for accessing the field via an interface.
+func (v *UpdateTaskNodeClearingRoleUpdateTaskNode) GetName() string { return v.Name }
+
+// GetNodeType returns UpdateTaskNodeClearingRoleUpdateTaskNode.NodeType, and is useful for accessing the field via an interface.
+func (v *UpdateTaskNodeClearingRoleUpdateTaskNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns UpdateTaskNodeClearingRoleUpdateTaskNode.Tags, and is useful for accessing the field via an interface.
+func (v *UpdateTaskNodeClearingRoleUpdateTaskNode) GetTags() []string { return v.Tags }
+
+// GetSeq returns UpdateTaskNodeClearingRoleUpdateTaskNode.Seq, and is useful for accessing the field via an interface.
+func (v *UpdateTaskNodeClearingRoleUpdateTaskNode) GetSeq() *int { return v.Seq }
+
+// GetIsRunnable returns UpdateTaskNodeClearingRoleUpdateTaskNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UpdateTaskNodeClearingRoleUpdateTaskNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns UpdateTaskNodeClearingRoleUpdateTaskNode.Role, and is useful for accessing the field via an interface.
+func (v *UpdateTaskNodeClearingRoleUpdateTaskNode) GetRole() *string { return v.Role }
+
+// GetUpdatedAt returns UpdateTaskNodeClearingRoleUpdateTaskNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateTaskNodeClearingRoleUpdateTaskNode) GetUpdatedAt() string { return v.UpdatedAt }
 
 // UpdateTaskNodeResponse is returned by UpdateTaskNode on success.
 type UpdateTaskNodeResponse struct {
@@ -57313,6 +57669,98 @@ func (v *__UpdateMyProfileInput) GetEmail() *string { return v.Email }
 // GetHandle returns __UpdateMyProfileInput.Handle, and is useful for accessing the field via an interface.
 func (v *__UpdateMyProfileInput) GetHandle() *string { return v.Handle }
 
+// __UpdateNodeClearingRoleInput is used internally by genqlient
+type __UpdateNodeClearingRoleInput struct {
+	Abstract         *string          `json:"abstract,omitempty"`
+	AiAgent          *string          `json:"aiAgent,omitempty"`
+	Alias            *string          `json:"alias,omitempty"`
+	Content          *string          `json:"content,omitempty"`
+	ContentType      *string          `json:"contentType,omitempty"`
+	Data             *json.RawMessage `json:"data,omitempty"`
+	Description      *string          `json:"description,omitempty"`
+	Edges            []*NodeEdgeInput `json:"edges,omitempty"`
+	ExpectedRevision *int             `json:"expectedRevision,omitempty"`
+	Id               *string          `json:"id,omitempty"`
+	IsRunnable       *bool            `json:"isRunnable,omitempty"`
+	LlmModel         *string          `json:"llmModel,omitempty"`
+	Loc              *string          `json:"loc,omitempty"`
+	MemoryId         *string          `json:"memoryId,omitempty"`
+	Name             *string          `json:"name,omitempty"`
+	NodeType         *string          `json:"nodeType,omitempty"`
+	ObjectType       *string          `json:"objectType,omitempty"`
+	OwnerRepo        *string          `json:"ownerRepo,omitempty"`
+	Properties       *json.RawMessage `json:"properties,omitempty"`
+	Reason           *string          `json:"reason,omitempty"`
+	Seq              *int             `json:"seq,omitempty"`
+	Tags             []string         `json:"tags,omitempty"`
+}
+
+// GetAbstract returns __UpdateNodeClearingRoleInput.Abstract, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetAbstract() *string { return v.Abstract }
+
+// GetAiAgent returns __UpdateNodeClearingRoleInput.AiAgent, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetAiAgent() *string { return v.AiAgent }
+
+// GetAlias returns __UpdateNodeClearingRoleInput.Alias, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetAlias() *string { return v.Alias }
+
+// GetContent returns __UpdateNodeClearingRoleInput.Content, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetContent() *string { return v.Content }
+
+// GetContentType returns __UpdateNodeClearingRoleInput.ContentType, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetContentType() *string { return v.ContentType }
+
+// GetData returns __UpdateNodeClearingRoleInput.Data, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetData() *json.RawMessage { return v.Data }
+
+// GetDescription returns __UpdateNodeClearingRoleInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetDescription() *string { return v.Description }
+
+// GetEdges returns __UpdateNodeClearingRoleInput.Edges, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetEdges() []*NodeEdgeInput { return v.Edges }
+
+// GetExpectedRevision returns __UpdateNodeClearingRoleInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetExpectedRevision() *int { return v.ExpectedRevision }
+
+// GetId returns __UpdateNodeClearingRoleInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetId() *string { return v.Id }
+
+// GetIsRunnable returns __UpdateNodeClearingRoleInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetLlmModel returns __UpdateNodeClearingRoleInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetLlmModel() *string { return v.LlmModel }
+
+// GetLoc returns __UpdateNodeClearingRoleInput.Loc, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetLoc() *string { return v.Loc }
+
+// GetMemoryId returns __UpdateNodeClearingRoleInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetMemoryId() *string { return v.MemoryId }
+
+// GetName returns __UpdateNodeClearingRoleInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetName() *string { return v.Name }
+
+// GetNodeType returns __UpdateNodeClearingRoleInput.NodeType, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetNodeType() *string { return v.NodeType }
+
+// GetObjectType returns __UpdateNodeClearingRoleInput.ObjectType, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetObjectType() *string { return v.ObjectType }
+
+// GetOwnerRepo returns __UpdateNodeClearingRoleInput.OwnerRepo, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetOwnerRepo() *string { return v.OwnerRepo }
+
+// GetProperties returns __UpdateNodeClearingRoleInput.Properties, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetReason returns __UpdateNodeClearingRoleInput.Reason, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetReason() *string { return v.Reason }
+
+// GetSeq returns __UpdateNodeClearingRoleInput.Seq, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetSeq() *int { return v.Seq }
+
+// GetTags returns __UpdateNodeClearingRoleInput.Tags, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetTags() []string { return v.Tags }
+
 // __UpdateNodeDataInput is used internally by genqlient
 type __UpdateNodeDataInput struct {
 	NodeRef string          `json:"nodeRef"`
@@ -57475,6 +57923,98 @@ func (v *__UpdateRegisterEntryInput) GetRef() string { return v.Ref }
 // GetInput returns __UpdateRegisterEntryInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateRegisterEntryInput) GetInput() *UpdateRegisterEntryInput { return v.Input }
 
+// __UpdateReviewNodeClearingRoleInput is used internally by genqlient
+type __UpdateReviewNodeClearingRoleInput struct {
+	Abstract         *string          `json:"abstract,omitempty"`
+	AiAgent          *string          `json:"aiAgent,omitempty"`
+	Alias            *string          `json:"alias,omitempty"`
+	Content          *string          `json:"content,omitempty"`
+	ContentType      *string          `json:"contentType,omitempty"`
+	Data             *json.RawMessage `json:"data,omitempty"`
+	Description      *string          `json:"description,omitempty"`
+	Edges            []*NodeEdgeInput `json:"edges,omitempty"`
+	ExpectedRevision *int             `json:"expectedRevision,omitempty"`
+	Id               *string          `json:"id,omitempty"`
+	IsRunnable       *bool            `json:"isRunnable,omitempty"`
+	LlmModel         *string          `json:"llmModel,omitempty"`
+	Loc              *string          `json:"loc,omitempty"`
+	MemoryId         *string          `json:"memoryId,omitempty"`
+	Name             *string          `json:"name,omitempty"`
+	NodeType         *string          `json:"nodeType,omitempty"`
+	ObjectType       *string          `json:"objectType,omitempty"`
+	OwnerRepo        *string          `json:"ownerRepo,omitempty"`
+	Properties       *json.RawMessage `json:"properties,omitempty"`
+	Reason           *string          `json:"reason,omitempty"`
+	Seq              *int             `json:"seq,omitempty"`
+	Tags             []string         `json:"tags,omitempty"`
+}
+
+// GetAbstract returns __UpdateReviewNodeClearingRoleInput.Abstract, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetAbstract() *string { return v.Abstract }
+
+// GetAiAgent returns __UpdateReviewNodeClearingRoleInput.AiAgent, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetAiAgent() *string { return v.AiAgent }
+
+// GetAlias returns __UpdateReviewNodeClearingRoleInput.Alias, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetAlias() *string { return v.Alias }
+
+// GetContent returns __UpdateReviewNodeClearingRoleInput.Content, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetContent() *string { return v.Content }
+
+// GetContentType returns __UpdateReviewNodeClearingRoleInput.ContentType, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetContentType() *string { return v.ContentType }
+
+// GetData returns __UpdateReviewNodeClearingRoleInput.Data, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetData() *json.RawMessage { return v.Data }
+
+// GetDescription returns __UpdateReviewNodeClearingRoleInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetDescription() *string { return v.Description }
+
+// GetEdges returns __UpdateReviewNodeClearingRoleInput.Edges, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetEdges() []*NodeEdgeInput { return v.Edges }
+
+// GetExpectedRevision returns __UpdateReviewNodeClearingRoleInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetExpectedRevision() *int { return v.ExpectedRevision }
+
+// GetId returns __UpdateReviewNodeClearingRoleInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetId() *string { return v.Id }
+
+// GetIsRunnable returns __UpdateReviewNodeClearingRoleInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetLlmModel returns __UpdateReviewNodeClearingRoleInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetLlmModel() *string { return v.LlmModel }
+
+// GetLoc returns __UpdateReviewNodeClearingRoleInput.Loc, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetLoc() *string { return v.Loc }
+
+// GetMemoryId returns __UpdateReviewNodeClearingRoleInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetMemoryId() *string { return v.MemoryId }
+
+// GetName returns __UpdateReviewNodeClearingRoleInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetName() *string { return v.Name }
+
+// GetNodeType returns __UpdateReviewNodeClearingRoleInput.NodeType, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetNodeType() *string { return v.NodeType }
+
+// GetObjectType returns __UpdateReviewNodeClearingRoleInput.ObjectType, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetObjectType() *string { return v.ObjectType }
+
+// GetOwnerRepo returns __UpdateReviewNodeClearingRoleInput.OwnerRepo, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetOwnerRepo() *string { return v.OwnerRepo }
+
+// GetProperties returns __UpdateReviewNodeClearingRoleInput.Properties, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetReason returns __UpdateReviewNodeClearingRoleInput.Reason, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetReason() *string { return v.Reason }
+
+// GetSeq returns __UpdateReviewNodeClearingRoleInput.Seq, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetSeq() *int { return v.Seq }
+
+// GetTags returns __UpdateReviewNodeClearingRoleInput.Tags, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetTags() []string { return v.Tags }
+
 // __UpdateReviewNodeInput is used internally by genqlient
 type __UpdateReviewNodeInput struct {
 	Input *UpdateNodeInput `json:"input,omitempty"`
@@ -57495,6 +58035,98 @@ func (v *__UpdateScopeInput) GetRef() string { return v.Ref }
 // GetInput returns __UpdateScopeInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateScopeInput) GetInput() *UpdateScopeInput { return v.Input }
 
+// __UpdateSpecNodeClearingRoleInput is used internally by genqlient
+type __UpdateSpecNodeClearingRoleInput struct {
+	Abstract         *string          `json:"abstract,omitempty"`
+	AiAgent          *string          `json:"aiAgent,omitempty"`
+	Alias            *string          `json:"alias,omitempty"`
+	Content          *string          `json:"content,omitempty"`
+	ContentType      *string          `json:"contentType,omitempty"`
+	Data             *json.RawMessage `json:"data,omitempty"`
+	Description      *string          `json:"description,omitempty"`
+	Edges            []*NodeEdgeInput `json:"edges,omitempty"`
+	ExpectedRevision *int             `json:"expectedRevision,omitempty"`
+	Id               *string          `json:"id,omitempty"`
+	IsRunnable       *bool            `json:"isRunnable,omitempty"`
+	LlmModel         *string          `json:"llmModel,omitempty"`
+	Loc              *string          `json:"loc,omitempty"`
+	MemoryId         *string          `json:"memoryId,omitempty"`
+	Name             *string          `json:"name,omitempty"`
+	NodeType         *string          `json:"nodeType,omitempty"`
+	ObjectType       *string          `json:"objectType,omitempty"`
+	OwnerRepo        *string          `json:"ownerRepo,omitempty"`
+	Properties       *json.RawMessage `json:"properties,omitempty"`
+	Reason           *string          `json:"reason,omitempty"`
+	Seq              *int             `json:"seq,omitempty"`
+	Tags             []string         `json:"tags,omitempty"`
+}
+
+// GetAbstract returns __UpdateSpecNodeClearingRoleInput.Abstract, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetAbstract() *string { return v.Abstract }
+
+// GetAiAgent returns __UpdateSpecNodeClearingRoleInput.AiAgent, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetAiAgent() *string { return v.AiAgent }
+
+// GetAlias returns __UpdateSpecNodeClearingRoleInput.Alias, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetAlias() *string { return v.Alias }
+
+// GetContent returns __UpdateSpecNodeClearingRoleInput.Content, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetContent() *string { return v.Content }
+
+// GetContentType returns __UpdateSpecNodeClearingRoleInput.ContentType, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetContentType() *string { return v.ContentType }
+
+// GetData returns __UpdateSpecNodeClearingRoleInput.Data, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetData() *json.RawMessage { return v.Data }
+
+// GetDescription returns __UpdateSpecNodeClearingRoleInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetDescription() *string { return v.Description }
+
+// GetEdges returns __UpdateSpecNodeClearingRoleInput.Edges, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetEdges() []*NodeEdgeInput { return v.Edges }
+
+// GetExpectedRevision returns __UpdateSpecNodeClearingRoleInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetExpectedRevision() *int { return v.ExpectedRevision }
+
+// GetId returns __UpdateSpecNodeClearingRoleInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetId() *string { return v.Id }
+
+// GetIsRunnable returns __UpdateSpecNodeClearingRoleInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetLlmModel returns __UpdateSpecNodeClearingRoleInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetLlmModel() *string { return v.LlmModel }
+
+// GetLoc returns __UpdateSpecNodeClearingRoleInput.Loc, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetLoc() *string { return v.Loc }
+
+// GetMemoryId returns __UpdateSpecNodeClearingRoleInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetMemoryId() *string { return v.MemoryId }
+
+// GetName returns __UpdateSpecNodeClearingRoleInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetName() *string { return v.Name }
+
+// GetNodeType returns __UpdateSpecNodeClearingRoleInput.NodeType, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetNodeType() *string { return v.NodeType }
+
+// GetObjectType returns __UpdateSpecNodeClearingRoleInput.ObjectType, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetObjectType() *string { return v.ObjectType }
+
+// GetOwnerRepo returns __UpdateSpecNodeClearingRoleInput.OwnerRepo, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetOwnerRepo() *string { return v.OwnerRepo }
+
+// GetProperties returns __UpdateSpecNodeClearingRoleInput.Properties, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetReason returns __UpdateSpecNodeClearingRoleInput.Reason, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetReason() *string { return v.Reason }
+
+// GetSeq returns __UpdateSpecNodeClearingRoleInput.Seq, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetSeq() *int { return v.Seq }
+
+// GetTags returns __UpdateSpecNodeClearingRoleInput.Tags, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetTags() []string { return v.Tags }
+
 // __UpdateSpecNodeInput is used internally by genqlient
 type __UpdateSpecNodeInput struct {
 	Input *UpdateNodeInput `json:"input,omitempty"`
@@ -57502,6 +58134,98 @@ type __UpdateSpecNodeInput struct {
 
 // GetInput returns __UpdateSpecNodeInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateSpecNodeInput) GetInput() *UpdateNodeInput { return v.Input }
+
+// __UpdateTaskNodeClearingRoleInput is used internally by genqlient
+type __UpdateTaskNodeClearingRoleInput struct {
+	Abstract         *string          `json:"abstract,omitempty"`
+	AiAgent          *string          `json:"aiAgent,omitempty"`
+	Alias            *string          `json:"alias,omitempty"`
+	Content          *string          `json:"content,omitempty"`
+	ContentType      *string          `json:"contentType,omitempty"`
+	Data             *json.RawMessage `json:"data,omitempty"`
+	Description      *string          `json:"description,omitempty"`
+	Edges            []*NodeEdgeInput `json:"edges,omitempty"`
+	ExpectedRevision *int             `json:"expectedRevision,omitempty"`
+	Id               *string          `json:"id,omitempty"`
+	IsRunnable       *bool            `json:"isRunnable,omitempty"`
+	LlmModel         *string          `json:"llmModel,omitempty"`
+	Loc              *string          `json:"loc,omitempty"`
+	MemoryId         *string          `json:"memoryId,omitempty"`
+	Name             *string          `json:"name,omitempty"`
+	NodeType         *string          `json:"nodeType,omitempty"`
+	ObjectType       *string          `json:"objectType,omitempty"`
+	OwnerRepo        *string          `json:"ownerRepo,omitempty"`
+	Properties       *json.RawMessage `json:"properties,omitempty"`
+	Reason           *string          `json:"reason,omitempty"`
+	Seq              *int             `json:"seq,omitempty"`
+	Tags             []string         `json:"tags,omitempty"`
+}
+
+// GetAbstract returns __UpdateTaskNodeClearingRoleInput.Abstract, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetAbstract() *string { return v.Abstract }
+
+// GetAiAgent returns __UpdateTaskNodeClearingRoleInput.AiAgent, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetAiAgent() *string { return v.AiAgent }
+
+// GetAlias returns __UpdateTaskNodeClearingRoleInput.Alias, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetAlias() *string { return v.Alias }
+
+// GetContent returns __UpdateTaskNodeClearingRoleInput.Content, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetContent() *string { return v.Content }
+
+// GetContentType returns __UpdateTaskNodeClearingRoleInput.ContentType, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetContentType() *string { return v.ContentType }
+
+// GetData returns __UpdateTaskNodeClearingRoleInput.Data, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetData() *json.RawMessage { return v.Data }
+
+// GetDescription returns __UpdateTaskNodeClearingRoleInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetDescription() *string { return v.Description }
+
+// GetEdges returns __UpdateTaskNodeClearingRoleInput.Edges, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetEdges() []*NodeEdgeInput { return v.Edges }
+
+// GetExpectedRevision returns __UpdateTaskNodeClearingRoleInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetExpectedRevision() *int { return v.ExpectedRevision }
+
+// GetId returns __UpdateTaskNodeClearingRoleInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetId() *string { return v.Id }
+
+// GetIsRunnable returns __UpdateTaskNodeClearingRoleInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetLlmModel returns __UpdateTaskNodeClearingRoleInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetLlmModel() *string { return v.LlmModel }
+
+// GetLoc returns __UpdateTaskNodeClearingRoleInput.Loc, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetLoc() *string { return v.Loc }
+
+// GetMemoryId returns __UpdateTaskNodeClearingRoleInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetMemoryId() *string { return v.MemoryId }
+
+// GetName returns __UpdateTaskNodeClearingRoleInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetName() *string { return v.Name }
+
+// GetNodeType returns __UpdateTaskNodeClearingRoleInput.NodeType, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetNodeType() *string { return v.NodeType }
+
+// GetObjectType returns __UpdateTaskNodeClearingRoleInput.ObjectType, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetObjectType() *string { return v.ObjectType }
+
+// GetOwnerRepo returns __UpdateTaskNodeClearingRoleInput.OwnerRepo, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetOwnerRepo() *string { return v.OwnerRepo }
+
+// GetProperties returns __UpdateTaskNodeClearingRoleInput.Properties, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetReason returns __UpdateTaskNodeClearingRoleInput.Reason, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetReason() *string { return v.Reason }
+
+// GetSeq returns __UpdateTaskNodeClearingRoleInput.Seq, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetSeq() *int { return v.Seq }
+
+// GetTags returns __UpdateTaskNodeClearingRoleInput.Tags, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetTags() []string { return v.Tags }
 
 // __UpdateTaskNodeInput is used internally by genqlient
 type __UpdateTaskNodeInput struct {
@@ -74378,6 +75102,93 @@ func UpdateNode(
 	return data_, err_
 }
 
+// The mutation executed by UpdateNodeClearingRole.
+const UpdateNodeClearingRole_Operation = `
+mutation UpdateNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		seq
+		isRunnable
+		role
+		updatedAt
+	}
+}
+`
+
+// Explicit null is a document literal, not an omitted nil pointer (#903).
+// Other edits remain in the same input and mutation; no shared input tags change.
+func UpdateNodeClearingRole(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	abstract *string,
+	aiAgent *string,
+	alias *string,
+	content *string,
+	contentType *string,
+	data *json.RawMessage,
+	description *string,
+	edges []*NodeEdgeInput,
+	expectedRevision *int,
+	id *string,
+	isRunnable *bool,
+	llmModel *string,
+	loc *string,
+	memoryId *string,
+	name *string,
+	nodeType *string,
+	objectType *string,
+	ownerRepo *string,
+	properties *json.RawMessage,
+	reason *string,
+	seq *int,
+	tags []string,
+) (data_ *UpdateNodeClearingRoleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateNodeClearingRole",
+		Query:  UpdateNodeClearingRole_Operation,
+		Variables: &__UpdateNodeClearingRoleInput{
+			Abstract:         abstract,
+			AiAgent:          aiAgent,
+			Alias:            alias,
+			Content:          content,
+			ContentType:      contentType,
+			Data:             data,
+			Description:      description,
+			Edges:            edges,
+			ExpectedRevision: expectedRevision,
+			Id:               id,
+			IsRunnable:       isRunnable,
+			LlmModel:         llmModel,
+			Loc:              loc,
+			MemoryId:         memoryId,
+			Name:             name,
+			NodeType:         nodeType,
+			ObjectType:       objectType,
+			OwnerRepo:        ownerRepo,
+			Properties:       properties,
+			Reason:           reason,
+			Seq:              seq,
+			Tags:             tags,
+		},
+	}
+
+	data_ = &UpdateNodeClearingRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by UpdateNodeData.
 const UpdateNodeData_Operation = `
 mutation UpdateNodeData ($nodeRef: ID!, $data: JSON!, $reason: String) {
@@ -74905,6 +75716,91 @@ func UpdateReviewNode(
 	return data_, err_
 }
 
+// The mutation executed by UpdateReviewNodeClearingRole.
+const UpdateReviewNodeClearingRole_Operation = `
+mutation UpdateReviewNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateReviewNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		seq
+		isRunnable
+		role
+		updatedAt
+	}
+}
+`
+
+func UpdateReviewNodeClearingRole(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	abstract *string,
+	aiAgent *string,
+	alias *string,
+	content *string,
+	contentType *string,
+	data *json.RawMessage,
+	description *string,
+	edges []*NodeEdgeInput,
+	expectedRevision *int,
+	id *string,
+	isRunnable *bool,
+	llmModel *string,
+	loc *string,
+	memoryId *string,
+	name *string,
+	nodeType *string,
+	objectType *string,
+	ownerRepo *string,
+	properties *json.RawMessage,
+	reason *string,
+	seq *int,
+	tags []string,
+) (data_ *UpdateReviewNodeClearingRoleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateReviewNodeClearingRole",
+		Query:  UpdateReviewNodeClearingRole_Operation,
+		Variables: &__UpdateReviewNodeClearingRoleInput{
+			Abstract:         abstract,
+			AiAgent:          aiAgent,
+			Alias:            alias,
+			Content:          content,
+			ContentType:      contentType,
+			Data:             data,
+			Description:      description,
+			Edges:            edges,
+			ExpectedRevision: expectedRevision,
+			Id:               id,
+			IsRunnable:       isRunnable,
+			LlmModel:         llmModel,
+			Loc:              loc,
+			MemoryId:         memoryId,
+			Name:             name,
+			NodeType:         nodeType,
+			ObjectType:       objectType,
+			OwnerRepo:        ownerRepo,
+			Properties:       properties,
+			Reason:           reason,
+			Seq:              seq,
+			Tags:             tags,
+		},
+	}
+
+	data_ = &UpdateReviewNodeClearingRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by UpdateScope.
 const UpdateScope_Operation = `
 mutation UpdateScope ($ref: ID!, $input: UpdateScopeInput!) {
@@ -75034,6 +75930,91 @@ func UpdateSpecNode(
 	return data_, err_
 }
 
+// The mutation executed by UpdateSpecNodeClearingRole.
+const UpdateSpecNodeClearingRole_Operation = `
+mutation UpdateSpecNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateSpecNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		seq
+		isRunnable
+		role
+		updatedAt
+	}
+}
+`
+
+func UpdateSpecNodeClearingRole(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	abstract *string,
+	aiAgent *string,
+	alias *string,
+	content *string,
+	contentType *string,
+	data *json.RawMessage,
+	description *string,
+	edges []*NodeEdgeInput,
+	expectedRevision *int,
+	id *string,
+	isRunnable *bool,
+	llmModel *string,
+	loc *string,
+	memoryId *string,
+	name *string,
+	nodeType *string,
+	objectType *string,
+	ownerRepo *string,
+	properties *json.RawMessage,
+	reason *string,
+	seq *int,
+	tags []string,
+) (data_ *UpdateSpecNodeClearingRoleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateSpecNodeClearingRole",
+		Query:  UpdateSpecNodeClearingRole_Operation,
+		Variables: &__UpdateSpecNodeClearingRoleInput{
+			Abstract:         abstract,
+			AiAgent:          aiAgent,
+			Alias:            alias,
+			Content:          content,
+			ContentType:      contentType,
+			Data:             data,
+			Description:      description,
+			Edges:            edges,
+			ExpectedRevision: expectedRevision,
+			Id:               id,
+			IsRunnable:       isRunnable,
+			LlmModel:         llmModel,
+			Loc:              loc,
+			MemoryId:         memoryId,
+			Name:             name,
+			NodeType:         nodeType,
+			ObjectType:       objectType,
+			OwnerRepo:        ownerRepo,
+			Properties:       properties,
+			Reason:           reason,
+			Seq:              seq,
+			Tags:             tags,
+		},
+	}
+
+	data_ = &UpdateSpecNodeClearingRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by UpdateTaskNode.
 const UpdateTaskNode_Operation = `
 mutation UpdateTaskNode ($input: UpdateNodeInput!) {
@@ -75066,6 +76047,91 @@ func UpdateTaskNode(
 	}
 
 	data_ = &UpdateTaskNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateTaskNodeClearingRole.
+const UpdateTaskNodeClearingRole_Operation = `
+mutation UpdateTaskNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateTaskNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		seq
+		isRunnable
+		role
+		updatedAt
+	}
+}
+`
+
+func UpdateTaskNodeClearingRole(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	abstract *string,
+	aiAgent *string,
+	alias *string,
+	content *string,
+	contentType *string,
+	data *json.RawMessage,
+	description *string,
+	edges []*NodeEdgeInput,
+	expectedRevision *int,
+	id *string,
+	isRunnable *bool,
+	llmModel *string,
+	loc *string,
+	memoryId *string,
+	name *string,
+	nodeType *string,
+	objectType *string,
+	ownerRepo *string,
+	properties *json.RawMessage,
+	reason *string,
+	seq *int,
+	tags []string,
+) (data_ *UpdateTaskNodeClearingRoleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateTaskNodeClearingRole",
+		Query:  UpdateTaskNodeClearingRole_Operation,
+		Variables: &__UpdateTaskNodeClearingRoleInput{
+			Abstract:         abstract,
+			AiAgent:          aiAgent,
+			Alias:            alias,
+			Content:          content,
+			ContentType:      contentType,
+			Data:             data,
+			Description:      description,
+			Edges:            edges,
+			ExpectedRevision: expectedRevision,
+			Id:               id,
+			IsRunnable:       isRunnable,
+			LlmModel:         llmModel,
+			Loc:              loc,
+			MemoryId:         memoryId,
+			Name:             name,
+			NodeType:         nodeType,
+			ObjectType:       objectType,
+			OwnerRepo:        ownerRepo,
+			Properties:       properties,
+			Reason:           reason,
+			Seq:              seq,
+			Tags:             tags,
+		},
+	}
+
+	data_ = &UpdateTaskNodeClearingRoleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
