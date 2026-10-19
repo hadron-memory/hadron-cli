@@ -29,6 +29,19 @@ Built on S1 (`internal/cmd/team/host_delivery.go`):
   moved.
 - **Scope:** `APP_KEY_SCOPE_REQUIRED` on the read is `ErrDeliveryScope`, so
   delivery is off for the run; other refusals are read failures.
+- **Diagnostics carry no upstream text** (Rodolfo's §10 P2 on #939). A
+  server or proxy error may echo the request (a proof, the host key) or carry
+  message text, and these errors reach the operator's log.
+  - Every adapter error is a `deliveryCallError`: the call, plus an
+    allowlisted S1 or auth code (read by code, never by message), or
+    `server-refused`, or a transport class. The adapter's own failures
+    (`no-page`, `no-cursor`, …) are fixed codes too.
+  - The poller logs a source error only through `diagnostic`: the code the
+    error declares, when it is a plain token, else `unclassified`. Never
+    `err.Error()`. Scope-off logs only its fixed text.
+  - Event lines print Orca's terminal handle and the span (S1 channel ids)
+    only in their plain shape, else `withheld`. Worker names are printed as
+    the host's other events already print them.
 - **Hold:** `ErrHoldUnavailable`, with no call (#940).
 - **Wiring:** `team host run` with `delivery.enabled` wires batches only. It
   writes the status snapshot after each step and prints each outcome as a

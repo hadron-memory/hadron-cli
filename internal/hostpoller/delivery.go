@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
@@ -84,7 +85,7 @@ func (p *Poller) wakeStep(ctx context.Context) string {
 	}
 	at := p.now().UTC()
 	if err != nil {
-		p.log("delivery-failed", "", "", "", "reading wakes: "+err.Error())
+		p.log("delivery-failed", "", "", "", "reading wakes failed: "+diagnostic(err))
 		p.wakeRead(delivery.WakeRead{At: at, Read: delivery.StepReadFailed})
 		return delivery.StepReadFailed
 	}
@@ -147,12 +148,28 @@ func (p *Poller) deliverStep(ctx context.Context) {
 	p.stepDone(read)
 }
 
-// scopeOff switches delivery off for the run.
-func (p *Poller) scopeOff(err error) {
+// scopeOff switches delivery off for the run. It logs only the fixed scope
+// text: err may carry a source's text.
+func (p *Poller) scopeOff(error) {
 	p.mu.Lock()
 	p.deliveryOff = true
 	p.mu.Unlock()
-	p.log("delivery-off", "", "", "", err.Error())
+	p.log("delivery-off", "", "", "", ErrDeliveryScope.Error())
+}
+
+// safeCode matches a code a log line may carry.
+var safeCode = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// diagnostic is a source's error as a log line may carry it: the code it
+// declares (DeliveryCode), when that is a plain token, else "unclassified".
+// Never err.Error(): a server or proxy error may echo the request or carry
+// message text (Rodolfo's §10 P2 on #939).
+func diagnostic(err error) string {
+	var coded interface{ DeliveryCode() string }
+	if errors.As(err, &coded) && safeCode.MatchString(coded.DeliveryCode()) {
+		return coded.DeliveryCode()
+	}
+	return "unclassified"
 }
 
 func (p *Poller) batchStep(ctx context.Context) string {
@@ -162,7 +179,7 @@ func (p *Poller) batchStep(ctx context.Context) string {
 		return delivery.StepOffByScope
 	}
 	if err != nil {
-		p.log("delivery-failed", "", "", "", "reading batches: "+err.Error())
+		p.log("delivery-failed", "", "", "", "reading batches failed: "+diagnostic(err))
 		return delivery.StepReadFailed
 	}
 	for _, b := range batches {

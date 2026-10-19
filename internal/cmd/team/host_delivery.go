@@ -9,6 +9,7 @@ package team
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -40,14 +41,56 @@ func (s *hostServer) clock() time.Time {
 	return time.Now()
 }
 
-// deliveryError maps a delivery call's error: a key without the scope turns
-// delivery off for the run; anything else is that call failing. Server
-// messages carry no proof.
-func deliveryError(err error) error {
-	if api.HasErrorCode(err, "APP_KEY_SCOPE_REQUIRED") {
-		return fmt.Errorf("%w: %v", hostpoller.ErrDeliveryScope, api.MapError(err))
+// deliveryCodes are the server codes a delivery error may carry into a log:
+// S1's refusals (resolvers.deliveryBatch.ts and acknowledge.ts at server
+// main ad7f1c2) and the generic auth refusals. Any other code is
+// server-refused.
+var deliveryCodes = []string{
+	"APP_KEY_SCOPE_REQUIRED", "HOST_KEY_REQUIRED", "APP_NOT_FOUND", "APP_KEY_SESSION_BOUND",
+	"BAD_USER_INPUT", "WAKE_PROOF_STALE", "WAKE_PROOF_INVALID", "WAKE_PROOF_REQUESTER_MISMATCH",
+	"FORBIDDEN", "UNAUTHENTICATED",
+}
+
+// deliveryCallError is a delivery call's failure as the operator may see
+// it: which call, and an allowlisted server code or a fixed class. It
+// carries no upstream text: a server or proxy error may echo the request (a
+// proof, the host key) or message text, and these errors reach the
+// operator's log (Rodolfo's §10 P2 on #939).
+type deliveryCallError struct{ call, code string }
+
+func (e *deliveryCallError) Error() string        { return "delivery " + e.call + " failed: " + e.code }
+func (e *deliveryCallError) DeliveryCode() string { return e.code }
+
+// deliveryError classifies a delivery call's error. A key without the scope
+// turns delivery off for the run; anything else is that call failing.
+func deliveryError(call string, err error) error {
+	e := &deliveryCallError{call: call, code: deliveryCodeOf(err)}
+	if e.code == "APP_KEY_SCOPE_REQUIRED" {
+		return fmt.Errorf("%w: %w", hostpoller.ErrDeliveryScope, e)
 	}
-	return api.MapError(err)
+	return e
+}
+
+// deliveryCodeOf reads only codes, never messages: an allowlisted server
+// code, else server-refused for a GraphQL error, else the transport class.
+func deliveryCodeOf(err error) string {
+	for _, code := range deliveryCodes {
+		if api.HasErrorCode(err, code) {
+			return code
+		}
+	}
+	if len(api.ServerMessages(err)) > 0 {
+		return "server-refused"
+	}
+	switch exitcode.FromError(api.MapError(err)) {
+	case exitcode.AuthRequired:
+		return "unauthenticated"
+	case exitcode.Forbidden:
+		return "forbidden"
+	case exitcode.Unavailable:
+		return "unavailable"
+	}
+	return "transport-error"
 }
 
 // Batches reads every ready-to-deliver batch of the workers registered on
@@ -61,11 +104,11 @@ func (s *hostServer) Batches(ctx context.Context) ([]delivery.Batch, error) {
 		read := s.clock()
 		resp, err := gen.DeliveryBatches(ctx, s.client, s.app, deliveryBatchesPage, after)
 		if err != nil {
-			return nil, deliveryError(err)
+			return nil, deliveryError("read", err)
 		}
 		page := resp.DeliveryBatches
 		if page == nil || page.PageInfo == nil {
-			return nil, exitcode.Newf(exitcode.Error, "the server returned no delivery batch page")
+			return nil, &deliveryCallError{call: "read", code: "no-page"}
 		}
 		for _, b := range page.Batches {
 			if b == nil {
@@ -82,7 +125,7 @@ func (s *hostServer) Batches(ctx context.Context) ([]delivery.Batch, error) {
 		}
 		next := page.PageInfo.EndCursor
 		if next == nil || *next == "" || (after != nil && *after == *next) {
-			return nil, exitcode.Newf(exitcode.Error, "the server's delivery batch page has a next page but no new cursor")
+			return nil, &deliveryCallError{call: "read", code: "no-cursor"}
 		}
 		after = next
 	}
@@ -95,10 +138,10 @@ func batchFrom(b *genBatch, read time.Time) (delivery.Batch, error) {
 	}
 	var err error
 	if out.DeliverAfter, err = time.Parse(time.RFC3339, b.DeliverAfter); err != nil {
-		return out, exitcode.Newf(exitcode.Error, "a delivery batch's deliverAfter is not a time")
+		return out, &deliveryCallError{call: "read", code: "bad-deliver-after"}
 	}
 	if out.BusyDeadline, err = time.Parse(time.RFC3339, b.BusyDeadline); err != nil {
-		return out, exitcode.Newf(exitcode.Error, "a delivery batch's busyDeadline is not a time")
+		return out, &deliveryCallError{call: "read", code: "bad-busy-deadline"}
 	}
 	for _, r := range b.Ranges {
 		if r == nil {
@@ -126,18 +169,18 @@ func (s *hostServer) Ack(ctx context.Context, batchID string, through []delivery
 	}
 	resp, err := gen.AcknowledgeDeliveryBatches(ctx, s.client, []string{batchID}, th)
 	if err != nil {
-		return "", deliveryError(err)
+		return "", deliveryError("ack", err)
 	}
 	r := resp.AcknowledgeDeliveryBatches
 	switch {
 	case r == nil:
-		return "", exitcode.Newf(exitcode.Error, "the server returned no acknowledgement result")
+		return "", &deliveryCallError{call: "ack", code: "no-result"}
 	case r.Acknowledged == 1 && r.Unchanged == 0:
 		return delivery.Acked, nil
 	case r.Acknowledged == 0 && r.Unchanged == 1:
 		return delivery.Unchanged, nil
 	}
-	return "", exitcode.Newf(exitcode.Error, "the server counted %d acknowledged and %d unchanged for one batch", r.Acknowledged, r.Unchanged)
+	return "", &deliveryCallError{call: "ack", code: fmt.Sprintf("counted-%d-acknowledged-%d-unchanged", r.Acknowledged, r.Unchanged)}
 }
 
 // Hold is S5's hold report, not on the server yet (#940): it answers
@@ -166,12 +209,27 @@ func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer,
 	p.EnableDelivery(srv, d)
 }
 
+// Upstream machine fields an event prints: Orca's terminal handle and the
+// span built from S1's channel ids. Printed only in their plain shape, else
+// withheld (Rodolfo's §10 P2 on #939: no upstream free text in a log).
+var (
+	safeTerminal = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
+	safeSpan     = regexp.MustCompile(`^[A-Za-z0-9_.:#,-]+$`)
+)
+
+func shaped(re *regexp.Regexp, s string) string {
+	if len(s) <= 2048 && re.MatchString(s) {
+		return s
+	}
+	return "withheld"
+}
+
 // deliveryEvent is one delivery outcome as a host event line: codes, ids
 // and spans only, never text, draft or proof.
 func deliveryEvent(e delivery.Event) hostpoller.Event {
-	detail := e.Worker + " " + e.Span
+	detail := e.Worker + " " + shaped(safeSpan, e.Span)
 	if e.Terminal != "" {
-		detail += " in " + e.Terminal
+		detail += " in " + shaped(safeTerminal, e.Terminal)
 	}
 	if e.Unreported {
 		detail += ", unreported: no server hold, alarm or escalation"

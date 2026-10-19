@@ -322,3 +322,13 @@ func checkClean(t *testing.T, call string, err error, want string) {
 		t.Fatalf("%s code %q, want %q", call, coded.DeliveryCode(), want)
 	}
 }
+
+func TestDeliveryEventsWithholdMalformedUpstreamFields(t *testing.T) {
+	e := deliveryEvent(delivery.Event{Worker: "Iris", Span: "ch1#2:4-5 " + leak, Kind: delivery.Held, Reason: delivery.HoldDraft, Terminal: "term_1 " + leak})
+	if strings.Contains(e.Detail, "PRIVATE") || e.Detail != "Iris withheld in withheld" {
+		t.Fatalf("detail %q", e.Detail)
+	}
+	if e := deliveryEvent(delivery.Event{Worker: "Iris", Span: "ch1#2:4-5,ch2#1:1-1", Terminal: "term_1"}); e.Detail != "Iris ch1#2:4-5,ch2#1:1-1 in term_1" {
+		t.Fatalf("plain fields are printed: %q", e.Detail)
+	}
+}
