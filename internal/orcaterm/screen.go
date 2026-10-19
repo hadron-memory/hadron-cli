@@ -176,20 +176,20 @@ func isQuestion(lines []string) bool {
 
 // ReadComposer judges the composer under R2. leftover is the composer's own
 // text, returned only with ComposerOwn so the caller can compare it with
-// what it is about to send; it must never be logged or reported.
+// what it is about to send; it must never be logged or reported. Text that
+// opens with any of ownPrefixes is the deliverer's own.
 //
 // Order matters. A draft is judged first and for BOTH families: the router
 // let a Claude screen that proves the composer empty refute Orca's draft
 // (#6736), and R2 inverts that. Any draft that is not ours holds, so a ghost
 // draft now reaches a human through S5's stuck alarm instead of being typed
 // over.
-func ReadComposer(sc *Screen, family, ownPrefix string) (state Composer, leftover string) {
+func ReadComposer(sc *Screen, family string, ownPrefixes ...string) (state Composer, leftover string) {
 	if !sc.usable() {
 		return ComposerUnknown, ""
 	}
-	prefix := Normalize(ownPrefix)
 	if sc.Draft != "" {
-		if prefix != "" && strings.HasPrefix(Normalize(sc.Draft), prefix) {
+		if ownText(sc.Draft, ownPrefixes) {
 			return ComposerOwn, sc.Draft
 		}
 		return ComposerDraft, ""
@@ -204,10 +204,21 @@ func ReadComposer(sc *Screen, family, ownPrefix string) (state Composer, leftove
 	if !ok {
 		return ComposerUnknown, ""
 	}
-	if prefix != "" && strings.HasPrefix(Normalize(text), prefix) {
+	if ownText(text, ownPrefixes) {
 		return ComposerOwn, text
 	}
 	return ComposerDraft, ""
+}
+
+// ownText: text opens with one of the deliverer's own prefixes.
+func ownText(text string, prefixes []string) bool {
+	t := Normalize(text)
+	for _, p := range prefixes {
+		if p := Normalize(p); p != "" && strings.HasPrefix(t, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // typedText is what a recognized composer shows typed into it: Claude's box

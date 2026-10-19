@@ -115,6 +115,9 @@ type Event struct {
 	// none, and the screen showed one). Empty before a terminal is found. A
 	// diagnostic code only (cli#906): it grants nothing.
 	ResolvedBy string
+	// Wake: the event is a tick or task wake's (cli#906 row 1), not a
+	// batch's. Span is then reason counts.
+	Wake bool
 }
 
 // Deliverer delivers batches into Orca terminals.
@@ -243,74 +246,28 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 		return d.emit(b, r, Outcome{Kind: Deferred, Reason: "stopping"})
 	}
 
-	term, sc, family, o, ok := d.recipientTerminal(ctx, b, r)
+	l := line{
+		text: b.Text, interrupt: b.Interrupt, busyDeadline: b.BusyDeadline,
+		emit: func(o Outcome) Outcome { return d.emit(b, r, o) },
+		hold: func(reason, terminal string) Outcome { return d.hold(ctx, b, r, reason, terminal) },
+	}
+	handle, o, ok := d.typeLine(ctx, l, &r, stillOwner)
 	if !ok {
 		return o
 	}
-	// Every later event of this delivery says how the terminal was found.
-	r.resolvedBy = "identity"
-	if term.Identity() == "" {
-		r.resolvedBy = "screen"
-	}
-	state, leftover := orcaterm.ReadComposer(sc, family, Prefix)
-	enterOnly := false
-	switch state {
-	case orcaterm.ComposerEmpty:
-	case orcaterm.ComposerDraft:
-		return d.hold(ctx, b, r, HoldDraft, term.Handle)
-	case orcaterm.ComposerQuestion:
-		return d.hold(ctx, b, r, HoldQuestion, term.Handle)
-	case orcaterm.ComposerOwn:
-		if orcaterm.Normalize(leftover) == orcaterm.Normalize(b.Text) {
-			// Our current batch is already typed: submit it, never retype.
-			if !d.Caps.EnterOnly[family] {
-				return d.hold(ctx, b, r, HoldNotSubmitted, term.Handle)
-			}
-			enterOnly = true
-		} else if o, cleared := d.clearOwn(ctx, b, r, term.Handle, family, leftover, stillOwner); !cleared {
-			return o
-		}
-	default:
-		return d.hold(ctx, b, r, HoldScreenUnknown, term.Handle)
-	}
-
-	if live, _ := orcaterm.IdleProof(sc.Tail, family); live != orcaterm.Idle && d.Now().Before(b.BusyDeadline) {
-		// A working (or unproven) agent defers the batch, but never past the
-		// busy-delay cap: at the deadline a proven-empty composer is typed
-		// into, as both agents queue input during a turn.
-		return d.emit(b, r, Outcome{Kind: Deferred, Reason: "busy", Terminal: term.Handle})
-	}
-
-	if !stillOwner() || ctx.Err() != nil {
-		return d.emit(b, r, Outcome{Kind: Deferred, Reason: "lock-lost-before-send", Terminal: term.Handle})
-	}
-	// Past this point a send may have happened, and a send cannot be undone:
-	// the rest finishes even while stopping, each step bounded.
 	fin := context.WithoutCancel(ctx)
-	rc := d.Orca.Send(fin, term.Handle, b.Text, orcaterm.SendOptions{Interrupt: b.Interrupt, EnterOnly: enterOnly})
-	if !rc.Accepted {
-		return d.hold(ctx, b, r, HoldNotSubmitted, term.Handle)
-	}
-	if !rc.TurnStarted {
-		after := d.Orca.ReadScreen(fin, term.Handle)
-		if st, _ := orcaterm.ReadComposer(after, family, Prefix); st != orcaterm.ComposerEmpty {
-			// Accepted but not provably submitted: no record, never re-typed.
-			// The next attempt finds our own leftover.
-			return d.hold(ctx, b, r, HoldNotSubmitted, term.Handle)
-		}
-	}
 	// Confirmed. The record is written even if the lock was lost meanwhile:
 	// it is the known outcome, and every deliverer reconciles records before
 	// typing.
 	if err := d.Records.Put(b, d.Now()); err != nil {
-		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "record-failed", Terminal: term.Handle, AckPending: !d.ack(fin, b, nil)})
+		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "record-failed", Terminal: handle, AckPending: !d.ack(fin, b, nil)})
 	}
 	d.forget(b)
 	if !d.ack(fin, b, nil) {
-		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "ack-pending", Terminal: term.Handle, AckPending: true})
+		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "ack-pending", Terminal: handle, AckPending: true})
 	}
 	_ = d.Records.Delete(b.WorkerID, b.Ranges)
-	return d.emit(b, r, Outcome{Kind: Delivered, Terminal: term.Handle})
+	return d.emit(b, r, Outcome{Kind: Delivered, Terminal: handle})
 }
 
 // ack acknowledges a batch, bounded. True when it landed (or had already).
@@ -352,20 +309,103 @@ func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (Outcom
 	return Outcome{}, false
 }
 
+// line is what one delivery types, and how its outcomes are reported: a
+// batch reports its holds to S5, a wake (cli#906) only logs them.
+type line struct {
+	text      string
+	interrupt bool
+	// busyDeadline is when a working or unproven agent stops deferring the
+	// line. deadlineRequired: a zero one holds as timing-unavailable rather
+	// than typing at once.
+	busyDeadline     time.Time
+	deadlineRequired bool
+	emit             func(Outcome) Outcome
+	hold             func(reason, terminal string) Outcome
+}
+
+// typeLine finds r's terminal, judges its composer under R2 and its
+// liveness, and types l.text. ok is true only when the text was sent and
+// provably submitted; otherwise o is the outcome to return. r learns how
+// its terminal was found.
+func (d *Deliverer) typeLine(ctx context.Context, l line, r *Recipient, stillOwner func() bool) (handle string, o Outcome, ok bool) {
+	term, sc, family, o, ok := d.recipientTerminal(ctx, l, *r)
+	if !ok {
+		return "", o, false
+	}
+	// Every later event of this delivery says how the terminal was found.
+	r.resolvedBy = "identity"
+	if term.Identity() == "" {
+		r.resolvedBy = "screen"
+	}
+	state, leftover := orcaterm.ReadComposer(sc, family, OwnPrefixes...)
+	enterOnly := false
+	switch state {
+	case orcaterm.ComposerEmpty:
+	case orcaterm.ComposerDraft:
+		return "", l.hold(HoldDraft, term.Handle), false
+	case orcaterm.ComposerQuestion:
+		return "", l.hold(HoldQuestion, term.Handle), false
+	case orcaterm.ComposerOwn:
+		if orcaterm.Normalize(leftover) == orcaterm.Normalize(l.text) {
+			// Our current text is already typed: submit it, never retype.
+			if !d.Caps.EnterOnly[family] {
+				return "", l.hold(HoldNotSubmitted, term.Handle), false
+			}
+			enterOnly = true
+		} else if o, cleared := d.clearOwn(ctx, l, term.Handle, family, leftover, stillOwner); !cleared {
+			return "", o, false
+		}
+	default:
+		return "", l.hold(HoldScreenUnknown, term.Handle), false
+	}
+
+	if live, _ := orcaterm.IdleProof(sc.Tail, family); live != orcaterm.Idle {
+		// A working (or unproven) agent defers the line, but never past the
+		// busy-delay cap: at the deadline a proven-empty composer is typed
+		// into, as both agents queue input during a turn.
+		if l.deadlineRequired && l.busyDeadline.IsZero() {
+			return "", l.hold(HoldTimingUnavailable, term.Handle), false
+		}
+		if d.Now().Before(l.busyDeadline) {
+			return "", l.emit(Outcome{Kind: Deferred, Reason: "busy", Terminal: term.Handle}), false
+		}
+	}
+
+	if !stillOwner() || ctx.Err() != nil {
+		return "", l.emit(Outcome{Kind: Deferred, Reason: "lock-lost-before-send", Terminal: term.Handle}), false
+	}
+	// Past this point a send may have happened, and a send cannot be undone:
+	// the rest finishes even while stopping, each step bounded.
+	fin := context.WithoutCancel(ctx)
+	rc := d.Orca.Send(fin, term.Handle, l.text, orcaterm.SendOptions{Interrupt: l.interrupt, EnterOnly: enterOnly})
+	if !rc.Accepted {
+		return "", l.hold(HoldNotSubmitted, term.Handle), false
+	}
+	if !rc.TurnStarted {
+		after := d.Orca.ReadScreen(fin, term.Handle)
+		if st, _ := orcaterm.ReadComposer(after, family, OwnPrefixes...); st != orcaterm.ComposerEmpty {
+			// Accepted but not provably submitted: no record, never re-typed.
+			// The next attempt finds our own leftover.
+			return "", l.hold(HoldNotSubmitted, term.Handle), false
+		}
+	}
+	return term.Handle, Outcome{}, true
+}
+
 // clearOwn empties a composer holding our own OLDER leftover with
 // ClearKeys, and re-reads to prove it empty. Orca has no clear operation
 // (hadron-cli:findings:orca-terminal-has-no-clear-operation); a family whose
 // clear is not proven holds instead.
-func (d *Deliverer) clearOwn(ctx context.Context, b Batch, r Recipient, handle, family, leftover string, stillOwner func() bool) (Outcome, bool) {
+func (d *Deliverer) clearOwn(ctx context.Context, l line, handle, family, leftover string, stillOwner func() bool) (Outcome, bool) {
 	if !d.Caps.Clear[family] || leftover == "" || !stillOwner() {
-		return d.hold(ctx, b, r, HoldNotSubmitted, handle), false
+		return l.hold(HoldNotSubmitted, handle), false
 	}
 	if rc := d.Orca.Send(ctx, handle, ClearKeys(leftover), orcaterm.SendOptions{NoEnter: true}); !rc.Accepted {
-		return d.hold(ctx, b, r, HoldNotSubmitted, handle), false
+		return l.hold(HoldNotSubmitted, handle), false
 	}
 	sc := d.Orca.ReadScreen(ctx, handle)
-	if st, _ := orcaterm.ReadComposer(sc, family, Prefix); st != orcaterm.ComposerEmpty {
-		return d.hold(ctx, b, r, HoldNotSubmitted, handle), false
+	if st, _ := orcaterm.ReadComposer(sc, family, OwnPrefixes...); st != orcaterm.ComposerEmpty {
+		return l.hold(HoldNotSubmitted, handle), false
 	}
 	return Outcome{}, true
 }
@@ -373,11 +413,11 @@ func (d *Deliverer) clearOwn(ctx context.Context, b Batch, r Recipient, handle, 
 // recipientTerminal finds the one agent terminal for r, looked up fresh: in
 // a registered worktree, an agent (never a shell), one of them only, bound
 // to r, showing the expected interface.
-func (d *Deliverer) recipientTerminal(ctx context.Context, b Batch, r Recipient) (orcaterm.Terminal, *orcaterm.Screen, string, Outcome, bool) {
+func (d *Deliverer) recipientTerminal(ctx context.Context, l line, r Recipient) (orcaterm.Terminal, *orcaterm.Screen, string, Outcome, bool) {
 	var none orcaterm.Terminal
 	terms, err := d.Orca.List(ctx)
 	if err != nil {
-		return none, nil, "", d.emit(b, r, Outcome{Kind: Failed, Reason: "orca-list"}), false
+		return none, nil, "", l.emit(Outcome{Kind: Failed, Reason: "orca-list"}), false
 	}
 	var inTree []orcaterm.Terminal
 	for _, t := range terms {
@@ -387,7 +427,7 @@ func (d *Deliverer) recipientTerminal(ctx context.Context, b Batch, r Recipient)
 	}
 	if len(inTree) == 0 {
 		// No hold evidence: S5 judges an overdue backlog by itself.
-		return none, nil, "", d.emit(b, r, Outcome{Kind: Skipped, Reason: "no-terminal"}), false
+		return none, nil, "", l.emit(Outcome{Kind: Skipped, Reason: "no-terminal"}), false
 	}
 	type agentTerm struct {
 		t      orcaterm.Terminal
@@ -405,16 +445,16 @@ func (d *Deliverer) recipientTerminal(ctx context.Context, b Batch, r Recipient)
 	}
 	switch {
 	case len(agents) > 1:
-		return none, nil, "", d.hold(ctx, b, r, HoldTwoAgents, ""), false
+		return none, nil, "", l.hold(HoldTwoAgents, ""), false
 	case len(agents) == 0:
-		return none, nil, "", d.hold(ctx, b, r, HoldScreenUnknown, inTree[0].Handle), false
+		return none, nil, "", l.hold(HoldScreenUnknown, inTree[0].Handle), false
 	}
 	a := agents[0]
 	if !a.t.Connected || !a.t.Writable {
-		return none, nil, "", d.hold(ctx, b, r, HoldScreenUnknown, a.t.Handle), false
+		return none, nil, "", l.hold(HoldScreenUnknown, a.t.Handle), false
 	}
 	if d.Bound(a.t.WorktreePath) != r.WorkerID {
-		return none, nil, "", d.hold(ctx, b, r, HoldBindingMismatch, a.t.Handle), false
+		return none, nil, "", l.hold(HoldBindingMismatch, a.t.Handle), false
 	}
 	// The interface: the screen's own family, else Orca's identity (a dialog
 	// can hide the agent's chrome). Falling back is safe: without that chrome
@@ -429,7 +469,7 @@ func (d *Deliverer) recipientTerminal(ctx context.Context, b Batch, r Recipient)
 		want = id
 	}
 	if family == "" || family != want || (id != "" && a.family != "" && id != a.family) {
-		return none, nil, "", d.hold(ctx, b, r, HoldScreenUnknown, a.t.Handle), false
+		return none, nil, "", l.hold(HoldScreenUnknown, a.t.Handle), false
 	}
 	return a.t, a.sc, family, Outcome{}, true
 }
