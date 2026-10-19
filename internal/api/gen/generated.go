@@ -9837,8 +9837,12 @@ func (v *ChatMessagesFindNodesFindNodesResultHitsNodeHit) GetNode() *ChatMessage
 
 // ChatMessagesFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
 type ChatMessagesFindNodesFindNodesResultHitsNodeHitNode struct {
-	Loc     string           `json:"loc"`
-	Seq     *int             `json:"seq"`
+	Loc string `json:"loc"`
+	Seq *int   `json:"seq"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
 	Content *string          `json:"content"`
 	Data    *json.RawMessage `json:"data"`
 }
@@ -20653,8 +20657,12 @@ type GetNodeNode struct {
 	// NOT 'nodeType' (the platform-kind axis, which drives retrieval) and NOT
 	// 'role' (what the node is for; role can be filtered explicitly but does not
 	// change default ranking or rendering).
-	ObjectType *string          `json:"objectType"`
-	Tags       []string         `json:"tags"`
+	ObjectType *string  `json:"objectType"`
+	Tags       []string `json:"tags"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
 	Content    *string          `json:"content"`
 	Data       *json.RawMessage `json:"data"`
 	Properties *json.RawMessage `json:"properties"`
@@ -21478,7 +21486,11 @@ type GetSpecNodeForEditNode struct {
 	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other values are inert unless a caller explicitly filters for them.
-	Role    *string `json:"role"`
+	Role *string `json:"role"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
 	Content *string `json:"content"`
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
@@ -21566,7 +21578,11 @@ type GetSpecNodeRawNode struct {
 	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other values are inert unless a caller explicitly filters for them.
-	Role    *string `json:"role"`
+	Role *string `json:"role"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
 	Content *string `json:"content"`
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
@@ -22190,8 +22206,12 @@ func (v *GetWorkerContinuityWorkerContinuity) GetPreviousSession() *GetWorkerCon
 // GetWorkerContinuityWorkerContinuityHandoffNode includes the requested fields of the GraphQL type Node.
 type GetWorkerContinuityWorkerContinuityHandoffNode struct {
 	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
-	Urn       string  `json:"urn"`
-	Loc       string  `json:"loc"`
+	Urn string `json:"urn"`
+	Loc string `json:"loc"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
 	Content   *string `json:"content"`
 	CreatedAt string  `json:"createdAt"`
 }
@@ -27686,16 +27706,20 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
 	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
-	AbstractOriginHash *string                                                        `json:"abstractOriginHash"`
-	Tags               []string                                                       `json:"tags"`
-	Seq                *int                                                           `json:"seq"`
-	Data               *json.RawMessage                                               `json:"data"`
-	Properties         *json.RawMessage                                               `json:"properties"`
-	Content            *string                                                        `json:"content"`
-	CreatedAt          string                                                         `json:"createdAt"`
-	UpdatedAt          string                                                         `json:"updatedAt"`
-	OutgoingEdges      []*NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge `json:"outgoingEdges"`
-	IncomingEdges      []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge `json:"incomingEdges"`
+	AbstractOriginHash *string          `json:"abstractOriginHash"`
+	Tags               []string         `json:"tags"`
+	Seq                *int             `json:"seq"`
+	Data               *json.RawMessage `json:"data"`
+	Properties         *json.RawMessage `json:"properties"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
+	Content       *string                                                        `json:"content"`
+	CreatedAt     string                                                         `json:"createdAt"`
+	UpdatedAt     string                                                         `json:"updatedAt"`
+	OutgoingEdges []*NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+	IncomingEdges []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge `json:"incomingEdges"`
 }
 
 // GetId returns NodeBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
@@ -51613,7 +51637,11 @@ type UpdateWorkerResponse struct {
 	// role), and re-casting is barred by `WORKER_IN_USE` for any worker that has
 	// done work — precisely the ones with an identity to record.
 	//
-	// Scope is one field on purpose: `name` is permanent by law (cor:agt:020:02)
+	// Signature/trailer edits require an App manager; a bound worker is provisionally refused (H26).
+	// Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
+	// A mixed update is atomic. These values reach the next compose/bind via S4.
+	//
+	// The other casting identity fields stay immutable: `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02)
 	// and `role`/`agent` define the casting itself. OMITTING promptOverride
 	// preserves it; explicit `null` or a blank string CLEARS it, matching the
 	// nullable column and castWorker's blank-is-absent normalization.
@@ -51622,7 +51650,7 @@ type UpdateWorkerResponse struct {
 	// delivered at bind time, and a retired worker takes no new bindings, so the
 	// edit could never reach anyone.
 	//
-	// Same authorization as castWorker. workerRef is the worker's id or URN (#991).
+	// promptOverride alone keeps castWorker staffing authorization. workerRef is the worker's id or URN (#991).
 	UpdateWorker *UpdateWorkerUpdateWorker `json:"updateWorker"`
 }
 
@@ -66255,7 +66283,7 @@ query GetNodeRaw ($ref: ID!) {
 		role
 		objectType
 		tags
-		content
+		content(raw: true)
 		data
 		properties
 		seq
@@ -66602,7 +66630,7 @@ query GetSpecNodeForEdit ($ref: ID!) {
 		description
 		tags
 		role
-		content
+		content(raw: true)
 		abstract
 		abstractOriginHash
 		revision
@@ -66655,7 +66683,7 @@ query GetSpecNodeRaw ($ref: ID!) {
 		name
 		tags
 		role
-		content
+		content(raw: true)
 		abstract
 		abstractOriginHash
 	}
@@ -68652,7 +68680,7 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 			seq
 			data
 			properties
-			content
+			content(raw: true)
 			createdAt
 			updatedAt
 			outgoingEdges {

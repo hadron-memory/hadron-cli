@@ -146,7 +146,8 @@ query NodeBatch(
       seq
       data
       properties
-      content
+      # Explicit, not the default (cli#916 C3a): every caller wants stored text, and nodeBatch's stored default (R21 A) is stated rather than assumed.
+      content(raw: true)
       createdAt
       updatedAt
       outgoingEdges {
@@ -283,7 +284,8 @@ query GetNodeRaw($ref: ID!) {
     role
     objectType
     tags
-    content
+    # Explicit, not the default (cli#916 C3a): a plain node read resolves include tags since hadron-server#2118, and this read feeds writers.
+    content(raw: true)
     data
     properties
     seq
