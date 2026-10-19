@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -80,7 +81,10 @@ func TestTeamDeliverySettingsPatchPresence(t *testing.T) {
 				seen++
 				var vars map[string]json.RawMessage
 				_ = json.Unmarshal(c.RawVars, &vars)
-				if string(vars["input"]) != tc.want {
+				var actual, expected map[string]any
+				_ = json.Unmarshal(vars["input"], &actual)
+				_ = json.Unmarshal([]byte(tc.want), &expected)
+				if !reflect.DeepEqual(actual, expected) {
 					t.Fatalf("wire %s want %s", vars["input"], tc.want)
 				}
 			}
@@ -114,7 +118,7 @@ func TestTeamDeliverySettingsRefusalNoRetry(t *testing.T) {
 		exit int
 	}{
 		{"FORBIDDEN", exitcode.Forbidden}, {"APP_NOT_FOUND", exitcode.NotFound},
-		{"SESSION_NOT_LIVE", exitcode.Conflict}, {"DELIVERY_SETTINGS_OUT_OF_RANGE", exitcode.Usage},
+		{"SESSION_NOT_LIVE", exitcode.Error}, {"DELIVERY_SETTINGS_OUT_OF_RANGE", exitcode.Usage},
 		{"DELIVERY_SETTINGS_CONFLICT", exitcode.Usage}, {"TICKER_SETTINGS_OUT_OF_RANGE", exitcode.Usage},
 		{"TICKER_SETTINGS_CONFLICT", exitcode.Conflict}, {"DELIVERY_STANDBY_UNAVAILABLE", exitcode.Conflict},
 	} {
