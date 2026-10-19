@@ -240,9 +240,9 @@ already-due batches for it after confirmed post output (including older unrelate
 batches). Without the flag no host config, key or Orca is touched. The host uses
 a separate session-free key and must already be registered for the same App and
 server; this command never registers it. A held/failed pass preserves post
-stdout/JSON and exit 0: recover through the poller, never repost.
-Holds remain UNREPORTED until #940, with no server alarm/escalation.
-Real-worker activation is blocked by hadron-server#2121; no host is enabled.`,
+stdout/JSON and exit 0: do not repost; recover with
+hadron team host run --config <host.yaml>. Held deliveries are reported in
+local counts but are not reported to the server yet (no alarm/escalation).`,
 		Example: `  hadron team chat post "@rufus schema is live, over to you"
   hadron team chat post --reply-to 42 "done"`,
 		Args: cobra.MaximumNArgs(1),

@@ -22,7 +22,6 @@ func postDeliveryServerURL(raw string) string {
 	if u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") {
 		return ""
 	}
-	u.Scheme = strings.ToLower(u.Scheme)
 	u.Host = strings.ToLower(u.Host)
 	if u.Scheme == "https" {
 		u.Host = strings.TrimSuffix(u.Host, ":443")
@@ -62,14 +61,20 @@ func preparePostHostDelivery(f *cmdutil.Factory) postHostDeliveryPreparer {
 		// borrowed for the post, and neither identity read registers a host.
 		c, err := f.GraphQLClient()
 		if err != nil {
-			return nil, err
+			return nil, postHostPreflightFailure(err, "posting caller setup")
 		}
 		a, err := gen.TeamAppIdentity(ctx, c, target.AppRef)
-		if err != nil || a == nil || a.App == nil {
-			return nil, exitcode.Newf(exitcode.Forbidden, "cannot resolve posting App for host delivery; nothing posted")
+		if err != nil {
+			return nil, postHostPreflightFailure(err, "posting App identity read")
+		}
+		if a == nil || a.App == nil {
+			return nil, exitcode.Newf(exitcode.NotFound, "posting App was not found; nothing posted")
 		}
 		h, err := gen.TeamAppIdentity(ctx, c, cfg.App)
-		if err != nil || h == nil || h.App == nil || h.App.Id != a.App.Id {
+		if err != nil {
+			return nil, postHostPreflightFailure(err, "host App identity read")
+		}
+		if h == nil || h.App == nil || h.App.Id != a.App.Id {
 			return nil, exitcode.Newf(exitcode.Conflict, "host delivery App differs from posting App; nothing posted")
 		}
 		srv.app = a.App.Id
@@ -82,13 +87,13 @@ func preparePostHostDelivery(f *cmdutil.Factory) postHostDeliveryPreparer {
 		}
 		p := &postHostPass{cfg: cfg, state: state, server: srv}
 		if _, err := p.recipients(ctx); err != nil {
-			return nil, exitcode.Newf(exitcode.Forbidden, "host registration unavailable; nothing posted")
+			return nil, postHostPreflightFailure(err, "host registration read")
 		}
 		// Read-only authority check before the irreversible post: the server checks
 		// live host:operate/attention:deliver and registration. Discard these proofs;
 		// Run obtains fresh pages after the post, not a cached pre-post snapshot.
 		if _, err := srv.Batches(ctx); err != nil {
-			return nil, exitcode.Newf(exitcode.Forbidden, "host delivery not authorized; nothing posted")
+			return nil, postHostPreflightFailure(err, "host delivery read")
 		}
 		p.deliver = delivery.New(srv, orcaterm.NewClient(orcaterm.Exec(cfg.Delivery.OrcaBin, orcaterm.CallTimeout)), cfg.DeliveryStateDir())
 		return p, nil
@@ -101,7 +106,7 @@ func preparePostHostDelivery(f *cmdutil.Factory) postHostDeliveryPreparer {
 func (p *postHostPass) recipients(ctx context.Context) (map[string]delivery.Recipient, error) {
 	hostID := p.state.RegisteredHostID()
 	if hostID == "" {
-		return nil, callError("read", "no-page")
+		return nil, postNotRegistered
 	}
 	r, err := gen.HostRegistrations(ctx, p.server.client, p.server.app)
 	if err != nil {
@@ -112,8 +117,11 @@ func (p *postHostPass) recipients(ctx context.Context) (map[string]delivery.Reci
 	}
 	out := map[string]delivery.Recipient{}
 	for _, reg := range r.HostRegistrations {
-		if reg == nil || reg.HostId != hostID || !reg.Live {
+		if reg == nil || reg.HostId != hostID {
 			continue
+		}
+		if !reg.Live {
+			return nil, postNotLive
 		}
 		for _, w := range reg.Workers {
 			if w == nil || w.Worker == nil || w.Worker.Id != w.WorkerId {
@@ -148,7 +156,7 @@ func (p *postHostPass) recipients(ctx context.Context) (map[string]delivery.Reci
 		}
 		return out, nil
 	}
-	return nil, callError("read", "no-page")
+	return nil, postNotRegistered
 }
 func (p *postHostPass) Run(ctx context.Context) (postHostDeliverySummary, error) {
 	summary := postHostDeliverySummary{}
@@ -174,7 +182,11 @@ func (p *postHostPass) Run(ctx context.Context) (postHostDeliverySummary, error)
 			return summary, ctx.Err()
 		}
 		r, ok := recipients[b.WorkerID]
-		if !ok || blocked[b.WorkerID] {
+		if !ok {
+			summary.Excluded++
+			continue
+		}
+		if blocked[b.WorkerID] {
 			summary.Pending++
 			continue
 		}

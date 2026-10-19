@@ -3148,6 +3148,6 @@ same-App/server registered host with its separate session-free file key before
 posting. After confirmed output it attempts already-due host batches, including
 older unrelated ones, with C1 locks/confirmation/receipts. Absent flag means zero
 host/Orca access. Delivery holds/failures preserve post stdout/JSON and exit 0;
-recover through the host poller, never repost. Holds remain UNREPORTED until
-#940 (no server alarm/escalation). HARD real-worker activation blocked by
-hadron-server#2121; no release, host enablement or cutover.
+recover with hadron team host run --config <host.yaml>, never repost. Held
+deliveries appear in local counts but are not reported to the server yet
+(no server alarm/escalation).

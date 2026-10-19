@@ -52,3 +52,26 @@ deliverer (not real terminal QA). C1's own transaction/lock/timing tests cover
 its reused internals. Independent compiled CLI/server/terminal QA and review
 remain required. HARD real-worker activation blocked by server#2121; no
 release, enablement or cutover is authorized. Refs #908; no umbrella closure.
+
+## Combined review fix at 935ff04f
+
+The initial seats found collapsed preflight failure categories and missing
+boundary pins. Fixed messages now distinguish unregistered/not-live/read
+refusal; authentication remains exit3 and transport/server unavailability exit7,
+with known server refusals retaining their category. No upstream text is
+rendered. Recovery names hadron team host run --config <host.yaml>. Local
+success and excluded-work counts use separate fixed notes; excluded recipients
+are not counted as retryable pending work. JSON post output is unchanged.
+
+Red-first boundary test cae4e38 reproduces HTTP502/401 and registration-text
+failures. Eighteen scenario pins cover the existing guard families; thirteen
+non-no-op guard mutants were each killed and restored: server, App, preflight
+Batches authority read, reg.Live, reg.HostId, worktree intersection, worker id,
+Run host id, enabled, aliases preflight, aliases Run, receipt flush, and a held
+worker blocking its later batches. The test fixture uses synthetic credentials
+and loopback servers, with a recording deliverer, never a real worker. The
+compiled fixture matrix grows to9cases, including actual502/401 exits and
+not-live/unregistered messages. These author checks do not replace Celine's
+one real-host run or independent review deltas. The remote935ff04f head stays
+frozen until all initial seats post; one combined fix follows. #940 and #2121
+holds remain unchanged.
