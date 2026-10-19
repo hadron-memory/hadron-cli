@@ -747,6 +747,14 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "COMMENT_OPEN_THREAD_EXISTS" || code == "COMMENT_ANCHOR_REVISION_UNAVAILABLE" || code == "COMMENT_DELETED" || code == "COMMENT_THREAD_STATE":
 		return exitcode.Conflict
+	// Ticker commands (#923): permission/consent, fixable input and current
+	// state are distinct refusals; none is an internal server fault.
+	case code == "TICKER_CADENCE_NEEDS_CONSENT" || code == "SUBSCRIBE_CADENCE_NEEDS_HOLDER" || code == "SUBSCRIBE_FORBIDDEN":
+		return exitcode.Forbidden
+	case code == "TICKER_CADENCE_OUT_OF_RANGE" || code == "TICKER_QUIET_HOURS_INVALID":
+		return exitcode.Usage
+	case code == "TICKER_NAME_TAKEN" || code == "TICKER_LIMIT_REACHED":
+		return exitcode.Conflict
 	case code == "UNAUTHENTICATED":
 		return exitcode.AuthRequired
 	case code == "NOT_FOUND" || strings.HasSuffix(code, "_NOT_FOUND") || code == "AiServiceConfigNotFoundError":

@@ -1,0 +1,56 @@
+# Ticker commands only; wake transport belongs to #906.
+fragment TickerFields on Ticker {
+ id urn name slug app { id } cadenceSeconds anchorAt quietHours
+ channels { id name } relevance reasons enabled owner { id name urn }
+ nextTickAt lastTickAt createdAt updatedAt
+}
+fragment TickerSubscriptionFields on TickerSubscription {
+ id worker { id name urn } createdBy { id name urn } viaGrant createdAt endedAt endedReason
+}
+query ListTickers($appRef: String!) {
+ tickers(appRef: $appRef) { ...TickerFields }
+}
+query GetTicker($ref: String!) {
+ ticker(ref: $ref) { ...TickerFields }
+}
+query TickerSubscribers($ref: String!, $first: Int!,
+ # @genqlient(omitempty: true)
+ $after: String
+) { ticker(ref: $ref) { subscribers(first: $first, after: $after) { items { ...TickerSubscriptionFields } hasNextPage endCursor } }
+}
+# @genqlient(for: "TickerInput.anchorAt", omitempty: true)
+# @genqlient(for: "TickerInput.quietHours", omitempty: true)
+# @genqlient(for: "TickerInput.channelIds", omitempty: true)
+# @genqlient(for: "TickerInput.relevance", omitempty: true)
+# @genqlient(for: "TickerInput.reasons", omitempty: true)
+# @genqlient(for: "TickerInput.enabled", omitempty: true)
+mutation CreateTicker(
+ $appRef: String!
+ $input: TickerInput!
+) {
+ createTicker(appRef: $appRef, input: $input) { ...TickerFields }
+}
+# @genqlient(for: "TickerPatch.name", omitempty: true)
+# @genqlient(for: "TickerPatch.cadenceSeconds", omitempty: true)
+# @genqlient(for: "TickerPatch.anchorAt", omitempty: true)
+# @genqlient(for: "TickerPatch.quietHours", omitempty: true)
+# @genqlient(for: "TickerPatch.clearQuietHours", omitempty: true)
+# @genqlient(for: "TickerPatch.channelIds", omitempty: true)
+# @genqlient(for: "TickerPatch.clearChannels", omitempty: true)
+# @genqlient(for: "TickerPatch.relevance", omitempty: true)
+# @genqlient(for: "TickerPatch.reasons", omitempty: true)
+# @genqlient(for: "TickerPatch.enabled", omitempty: true)
+mutation UpdateTicker(
+ $ref: String!
+ $input: TickerPatch!
+) {
+ updateTicker(ref: $ref, input: $input) { ...TickerFields }
+}
+mutation DeleteTicker($ref: String!) {
+ deleteTicker(ref: $ref) }
+mutation SubscribeTicker($tickerRef: String!, $workerRef: String!) {
+ subscribeWorker(tickerRef: $tickerRef, workerRef: $workerRef) { subscription { ...TickerSubscriptionFields } announcement }
+}
+mutation UnsubscribeTicker($tickerRef: String!, $workerRef: String!) {
+ unsubscribeWorker(tickerRef: $tickerRef, workerRef: $workerRef) { subscription { ...TickerSubscriptionFields } announcement }
+}
