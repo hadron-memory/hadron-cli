@@ -17,10 +17,13 @@ so you can check it beforehand.
 
 ## Order, per worker
 
-1. The worker's interim acknowledgers stop **before** the host poller delivers
-   batches to it: `ticker-wake` (and never `--ack-mentions`), and the router.
-   Two deliverers acknowledging one worker can mark message text delivered that
-   was never typed (hadron-server#2072).
+1. The worker's interim deliverers stop **before** the host poller delivers
+   batches to it: the router, and `ticker-wake` if it would type chat text
+   (never `--ack-mentions`). One deliverer per worker (G5): two can type the
+   same message twice. Since R53 (hadron-server#2072, on server main since
+   `ad7f1c2`), acknowledging a wake moves no message mark, so a wake ack can
+   no longer mark untyped text delivered; only a batch ack or the worker's
+   own read does.
 2. Only then is that worker's delivery enabled on the host poller.
 
 ## Field mapping
