@@ -202,7 +202,7 @@ func teamChatMessageDTOFromFields(m gen.TeamChatMessageFields) teamChatMessageDT
 }
 
 func newCmdTeamChatPost(f *cmdutil.Factory) *cobra.Command {
-	return newCmdTeamChatPostWithHostDelivery(f, nil)
+	return newCmdTeamChatPostWithHostDelivery(f, preparePostHostDelivery(f))
 }
 
 // Host delivery is injected only after the landed C1/S1 adapter is available.
@@ -233,7 +233,16 @@ matching ` + "`hadron chat post`" + `. Exactly one source. - is for a pipe: it i
 refused when stdin is an interactive terminal (use --body-file there).
 
 --reply-to takes the seq of the message being answered, as shown by
-` + "`team chat read`" + `.`,
+` + "`team chat read`" + `.
+
+With --orca-host-config PATH, validate this host before posting, then attempt
+already-due batches for it after confirmed post output (including older unrelated
+batches). Without the flag no host config, key or Orca is touched. The host uses
+a separate session-free key and must already be registered for the same App and
+server; this command never registers it. A held/failed pass preserves post
+stdout/JSON and exit 0: recover through the poller, never repost.
+Holds remain UNREPORTED until #940, with no server alarm/escalation.
+Real-worker activation is blocked by hadron-server#2121; no host is enabled.`,
 		Example: `  hadron team chat post "@rufus schema is live, over to you"
   hadron team chat post --reply-to 42 "done"`,
 		Args: cobra.MaximumNArgs(1),
@@ -374,6 +383,12 @@ refused when stdin is an interactive terminal (use --body-file there).
 				return err
 			}
 			if hostPass != nil {
+				if flusher, ok := f.IOStreams.Out.(interface{ Flush() error }); ok {
+					if err := flusher.Flush(); err != nil {
+						fmt.Fprintln(f.IOStreams.ErrOut, "note: post succeeded but its receipt flush failed; no delivery attempted; check chat before posting again")
+						return err
+					}
+				}
 				reportPostHostDelivery(ctx, hostPass, f.IOStreams.ErrOut, msg.Seq)
 			}
 			return nil

@@ -314,7 +314,7 @@ hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-ove
 hadron team worker onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <label> --family <family> --worktrees-root <absolute-path> --config <router.json> [--base main] [--display-name <text>] [--coordinator] [--apply] [--as-person] [--timeout 2m]   # Orca-hosted workers only; dry-run by default, submits nothing; prerequisites and partial-outcome contract below
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team session start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
-hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding; with NO binding it REFUSES, exit 4, unless --as-me — cli#842) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
+hadron team chat post <body|-> [--reply-to <seq>] [--as-me] [--orca-host-config PATH] (uses --app or the binding; with NO binding it REFUSES, exit 4, unless --as-me — cli#842) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
 hadron team attention [--since <token>] (uses --app or the binding)
 hadron team attention switchover preview | apply --proof <proof> [--yes] (uses --app or the binding)
 hadron team task create <title> [--description <d>] [--assignee <party>] [--owner <party>] [--parent <id>] [--start-by <iso>] [--tag <t>]… [--source <s>] [--status backlog|pending] [--require-role <r>] [--family-in|--family-not-in <a,b>] [--exclude-worker <w>]… [--no-close-session] (uses --app or the binding) | assign|reassign <taskId> --assignee <party> [--close-session|--no-close-session] | start|progress|cancel <taskId> | park|ready <taskId> | finish <taskId> --outcome <word> [--summary <s>] [--evidence <url>] | get <taskId> | list [--status <s>]… [--assignee <party>] [--owner <party>] [--tag <t>] [--queued] [--roots-only] [--parent <id>] [--limit N] [--offset N] (uses --app or the binding) | mine [--limit N] [--offset N] (needs the binding: the bound worker's PENDING+STARTED tasks, fixed filters) | tree <rootTaskId>   # a party is worker:<id|urn|name> or user:<id|handle>; writes are the bound worker's when a session is bound
@@ -3142,3 +3142,12 @@ announcement. Null is normal; POSTED reports grant announcement success. FAILED
 leaves the subscription change standing and prints a warning; never rerun to
 retry the announcement. Ticker/wake settings and actual wake transport are
 separate surfaces; these commands do not advance chat/read/tick marks.
+
+C2 host-due delivery opt-in: `team chat post --orca-host-config PATH` validates a
+same-App/server registered host with its separate session-free file key before
+posting. After confirmed output it attempts already-due host batches, including
+older unrelated ones, with C1 locks/confirmation/receipts. Absent flag means zero
+host/Orca access. Delivery holds/failures preserve post stdout/JSON and exit 0;
+recover through the host poller, never repost. Holds remain UNREPORTED until
+#940 (no server alarm/escalation). HARD real-worker activation blocked by
+hadron-server#2121; no release, host enablement or cutover.

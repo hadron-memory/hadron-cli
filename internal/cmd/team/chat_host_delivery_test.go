@@ -164,10 +164,3 @@ func TestPostHostDeliveryReceiptFailureDoesNotDeliverOrRepost(t *testing.T) {
 		t.Fatal("missing truthful receipt-failure notice")
 	}
 }
-func TestPostHostDeliveryIsNotActivatedWithoutLandedAdapter(t *testing.T) {
-	x := newPostFixture(t)
-	cmd := newCmdTeamChatPost(x.factory)
-	if cmd.Flags().Lookup("orca-host-config") != nil {
-		t.Fatal("production constructor exposed pending host adapter")
-	}
-}
