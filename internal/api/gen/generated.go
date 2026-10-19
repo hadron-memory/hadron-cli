@@ -63660,7 +63660,7 @@ query GetSpecNodeRaw ($ref: ID!) {
 //
 // Without it node(ref:) compiles the body's Mustache before returning it, so a
 // `{{name}}` placeholder comes back RENDERED (measured on production, cli#737:
-// spec cor:agt:040:01 has 4 `{{` occurrences read raw and 0 read plain, at the
+// spec cor:agt:040:01 as of revision 1 has 4 `{{` occurrences read raw and 0 read plain, at the
 // same revision). `spec edit` builds
 // everything from this read (the $EDITOR buffer, the dry-run preview and the
 // write), and from rendered text it would preview a diff of text that is not
