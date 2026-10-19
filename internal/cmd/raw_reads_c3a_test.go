@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // cli#916 C3a: every read that feeds a stored-text consumer (export, the
@@ -244,3 +245,31 @@ const (
 	c3aSpecStored   = "# msg:010:01 — W2\n\n## Definition\n{{> hrn:node:acme.com:kb:shared}}\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n"
 	c3aSpecResolved = "# msg:010:01 — W2\n\n## Definition\nShared text, spliced in.\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n"
 )
+
+// Pin 6, compatibility: a server older than hadron-server#2118 rejects
+// content(raw:) at validation. That maps through api.MapError's existing
+// schema-skew path (direction-neutral upgrade advice, the server's own
+// message kept) with no special casing here.
+func TestC3aOlderServerRejectingRawMapsToSchemaSkew(t *testing.T) {
+	const nodesResp = `{"data":{"nodes":[` +
+		`{"id":"n-root","memoryId":"` + c3aMem + `","loc":"root","name":"Root","nodeType":"info","tags":[],"updatedAt":"2026-10-19T00:00:00Z"}]}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": nodesResp,
+		"NodeBatch": `{"errors":[{"message":"Unknown argument \"raw\" on field \"Node.content\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "export", c3aMem, "--out", t.TempDir(), "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("an older server's validation refusal must fail the export")
+	}
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Errorf("exit = %d, want the schema-skew mapping %d", code, exitcode.Usage)
+	}
+	for _, want := range []string{"out of sync", `Unknown argument "raw" on field "Node.content"`} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error must carry %q:\n%v", want, err)
+		}
+	}
+}
