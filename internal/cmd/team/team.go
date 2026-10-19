@@ -159,6 +159,12 @@ type workerDTO struct {
 	Role           *string `json:"role"`
 	Prompt         *string `json:"prompt"`
 	PromptOverride *string `json:"promptOverride"`
+	// Signature / Trailer are the raw per-worker templates (cli#916 C4,
+	// cor:agt:040:04), unrendered. NOT omitempty: null means WITHHELD (the
+	// read gate masked it), and "" is a real, empty template (D8), so the
+	// key must stay to carry the difference.
+	Signature *string `json:"signature"`
+	Trailer   *string `json:"trailer"`
 	// Repos is the ROLE's repo affinity, resolved (#1024). A SOFT signal —
 	// `session start` warns on a mismatch and never refuses. Empty is the
 	// answer to every uncertainty (no role, no definition, unreadable memory,
@@ -213,6 +219,7 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
 		Name: w.Name, Role: w.Role,
 		Prompt: w.Prompt, PromptOverride: w.PromptOverride,
+		Signature: w.Signature, Trailer: w.Trailer,
 		Repos: nonNilRepos(w.Repos), MemoryID: w.MemoryId,
 		HeldByUserID: w.HeldByUserId, HeldAt: w.HeldAt,
 		HasLiveSession: w.HasLiveSession, LastActiveAt: w.LastActiveAt,

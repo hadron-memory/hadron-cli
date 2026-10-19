@@ -29,14 +29,14 @@ func signingStubs(resp string) map[string]string {
 
 const signingOK = `{"data":{"updateWorker":` + signedWorkerJSON + `}}`
 
-func runWorkerUpdate(t *testing.T, responses map[string]string, flags ...string) (string, error, *[]attnCall) {
+func runWorkerUpdate(t *testing.T, responses map[string]string, flags ...string) (string, *[]attnCall, error) {
 	t.Helper()
 	srv, calls := attnServer(t, responses)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append(append([]string{"team", "worker", "update", "hrn:worker:acme.com:eng-team:iris"}, flags...), "--server", srv.URL))
 	err := root.Execute()
-	return out.String(), err, calls
+	return out.String(), calls, err
 }
 
 func callsFor(calls *[]attnCall, op string) []attnCall {
@@ -68,7 +68,7 @@ func TestC4SigningUpdateSerializesPresenceExactly(t *testing.T) {
 		{"with cleared override", []string{"--trailer", "t", "--clear-prompt-override"}, []string{`"trailer":"t"`, `"promptOverride":""`}, []string{`"signature"`}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err, calls := runWorkerUpdate(t, signingStubs(signingOK), tc.flags...)
+			_, calls, err := runWorkerUpdate(t, signingStubs(signingOK), tc.flags...)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -99,7 +99,7 @@ func TestC4SigningUpdateSerializesPresenceExactly(t *testing.T) {
 func TestC4PromptOnlyUpdateKeepsItsOperation(t *testing.T) {
 	r := signingStubs(signingOK)
 	r["UpdateWorker"] = `{"data":{"updateWorker":` + updatedWorkerJSON + `}}`
-	_, err, calls := runWorkerUpdate(t, r, "--prompt-override", "p")
+	_, calls, err := runWorkerUpdate(t, r, "--prompt-override", "p")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestC4PromptOnlyUpdateKeepsItsOperation(t *testing.T) {
 // Pin 3: nothing to update is refused before any write, and the message
 // names every field.
 func TestC4NothingToUpdateNamesAllFields(t *testing.T) {
-	_, err, calls := runWorkerUpdate(t, signingStubs(signingOK))
+	_, calls, err := runWorkerUpdate(t, signingStubs(signingOK))
 	if exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("exit = %d, want Usage", exitCodeFor(err))
 	}
@@ -204,7 +204,7 @@ func TestC4ForbiddenKeepsServerTextAndHedgesOnlyWhenBound(t *testing.T) {
 
 // Pin 6: the receipt names what this call changed, and nothing else.
 func TestC4ReceiptNamesOnlyChangedFields(t *testing.T) {
-	out, err, _ := runWorkerUpdate(t, signingStubs(signingOK), "--trailer", "")
+	out, _, err := runWorkerUpdate(t, signingStubs(signingOK), "--trailer", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func TestC4ReceiptNamesOnlyChangedFields(t *testing.T) {
 // "(empty)"), and a masked field is null (printed as nothing).
 func TestC4WorkerGetShowsTemplatesAndWithheld(t *testing.T) {
 	get := func(worker string, json bool) string {
-		gql, _ := captureGraphQL(t, map[string]string{"GetWorker": `{"data":{"worker":` + worker + `}}`})
+		gql, _ := captureGraphQL(t, map[string]string{"GetWorker": `{"data":{"worker":` + worker + `}}`, "TeamAppIdentity": teamAppIdentityJSON})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
 		args := []string{"team", "worker", "get", "hrn:worker:acme.com:eng-team:iris", "--server", gql.URL}

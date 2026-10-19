@@ -2,9 +2,11 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -95,7 +97,24 @@ func AuthoredWriteContext(f *cmdutil.Factory) func(context.Context, *graphql.Req
 		if !sameWriteBinding(after, current) {
 			return ctx
 		}
+		recordSessionAttached(ctx)
 		return api.WithSession(ctx, current.SessionID)
+	}
+}
+
+type sessionAttachedKey struct{}
+
+// withSessionAttachRecorder lets a command learn whether its authored write
+// actually went out through the worktree's session, which only this hook
+// decides (cli#916 C4: a refusal may be hedged only when it did).
+func withSessionAttachRecorder(ctx context.Context) (context.Context, func() bool) {
+	var attached atomic.Bool
+	return context.WithValue(ctx, sessionAttachedKey{}, &attached), attached.Load
+}
+
+func recordSessionAttached(ctx context.Context) {
+	if a, ok := ctx.Value(sessionAttachedKey{}).(*atomic.Bool); ok {
+		a.Store(true)
 	}
 }
 
@@ -130,7 +149,34 @@ func authoredWriteRequest(req *graphql.Request) bool {
 	if op == nil && req.OpName == "" && len(doc.Operations) == 1 {
 		op = doc.Operations[0]
 	}
-	return op != nil && op.Operation == ast.Mutation && authoredSelections(doc, op.SelectionSet, map[string]bool{})
+	if op == nil || op.Operation != ast.Mutation {
+		return false
+	}
+	// cli#916 C4: updateWorker is authored only when it edits the signature or
+	// trailer (Xylon #24986), so the server can apply its bound-session rule
+	// (H26, provisional). A prompt-override-only update stays the person's, as
+	// before. Decided from the variables actually sent, which omit an unset
+	// field, so it means exactly "a signature or trailer flag was given".
+	if len(op.SelectionSet) == 1 {
+		if f, ok := op.SelectionSet[0].(*ast.Field); ok && f.Name == "updateWorker" {
+			return sendsSigningVariables(req)
+		}
+	}
+	return authoredSelections(doc, op.SelectionSet, map[string]bool{})
+}
+
+func sendsSigningVariables(req *graphql.Request) bool {
+	raw, err := json.Marshal(req.Variables)
+	if err != nil {
+		return false
+	}
+	var vars map[string]json.RawMessage
+	if json.Unmarshal(raw, &vars) != nil {
+		return false
+	}
+	_, sig := vars["signature"]
+	_, trl := vars["trailer"]
+	return sig || trl
 }
 func authoredSelections(doc *ast.QueryDocument, selections ast.SelectionSet, visiting map[string]bool) bool {
 	if len(selections) == 0 {

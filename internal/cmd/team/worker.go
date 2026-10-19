@@ -569,6 +569,7 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 				if dto.PromptOverride != nil && *dto.PromptOverride != "" {
 					fmt.Fprintf(out, "\nPrompt override (this worker's own, amend and pass back whole):\n%s\n", *dto.PromptOverride)
 				}
+				writeSigningTemplates(out, dto.Signature, dto.Trailer)
 				if dto.Prompt != nil && *dto.Prompt != "" {
 					fmt.Fprintf(out, "\n%s\n", *dto.Prompt)
 				}
@@ -577,6 +578,25 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	return cmd
+}
+
+// writeSigningTemplates prints the raw signature and trailer templates (cli#916
+// C4). Null is WITHHELD, so it prints nothing rather than a value; an empty
+// template is a real setting (D8: it delivers nothing) and prints as (empty).
+func writeSigningTemplates(out io.Writer, signature, trailer *string) {
+	for _, t := range []struct {
+		label string
+		value *string
+	}{{"Signature template", signature}, {"Trailer template", trailer}} {
+		if t.value == nil {
+			continue
+		}
+		v := *t.value
+		if v == "" {
+			v = "(empty)"
+		}
+		fmt.Fprintf(out, "\n%s:\n%s\n", t.label, v)
+	}
 }
 
 // retireResultDTO is the stable --json shape of `worker retire`.
@@ -1571,11 +1591,11 @@ func releasePromptTransferClause(retiredAt *string) string {
 }
 
 func newCmdWorkerUpdate(f *cmdutil.Factory) *cobra.Command {
-	var promptOverride string
+	var promptOverride, signature, trailer string
 	var clearOverride bool
 	cmd := &cobra.Command{
-		Use:   "update <name-or-id> (--prompt-override <text> | --clear-prompt-override)",
-		Short: "Amend a casting's prompt override",
+		Use:   "update <name-or-id> [--signature <text>] [--trailer <text>] [--prompt-override <text> | --clear-prompt-override]",
+		Short: "Amend a casting's prompt override, signature or trailer",
 		Long: `Amend a worker's promptOverride — the individuality layered over the
 shared role template (updateWorker, hadron-server#1010).
 
@@ -1601,22 +1621,36 @@ template with {{name}}/{{role}} bound and the override appended is what a
 session driver actually adopts, and it is what materially changed.
 
 A RETIRED worker refuses (WORKER_RETIRED, exit 5): an override is briefing
-text delivered at bind time, so the edit could never reach anyone.`,
+text delivered at bind time, so the edit could never reach anyone.
+
+--signature and --trailer set the worker's signature and commit-trailer
+TEMPLATES (cor:agt:040:04), raw text with {{worker.name}}-style variables
+that the server renders into the next briefing; nothing already delivered
+changes. An omitted flag keeps the stored template. --signature "" stores an
+empty template, which delivers nothing; there is no reset to the default
+here — to restore it, pass the default text. Only an App manager may edit
+them. From a bound worktree these edits go out through your worker session,
+and the server may refuse an edit made that way (exit 8): make it from an
+unbound shell. The length limit is the server's.`,
 		Example: `  hadron team worker update Iris --prompt-override "You favour small, reviewable PRs."
-  hadron team worker update Iris --clear-prompt-override`,
+  hadron team worker update Iris --clear-prompt-override
+  hadron team worker update Iris --trailer "Worker: {{worker.name}} ({{worker.role}}) <{{worker.url}}>"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			setOverride := cmd.Flags().Changed("prompt-override")
+			setSignature := cmd.Flags().Changed("signature")
+			setTrailer := cmd.Flags().Changed("trailer")
+			signing := setSignature || setTrailer
 			switch {
 			case setOverride && clearOverride:
 				return exitcode.Newf(exitcode.Usage,
 					"--prompt-override and --clear-prompt-override are mutually exclusive")
-			case !setOverride && !clearOverride:
+			case !setOverride && !clearOverride && !signing:
 				// Omitting the field PRESERVES it server-side, so a bare
 				// `worker update Iris` would report success having written
 				// nothing. Refused, like `role update`'s empty case.
 				return exitcode.Newf(exitcode.Usage,
-					"nothing to update — pass --prompt-override <text> or --clear-prompt-override")
+					"nothing to update — pass --signature <text>, --trailer <text>, --prompt-override <text> or --clear-prompt-override")
 			case setOverride && strings.TrimSpace(promptOverride) == "":
 				// The SERVER treats a blank string as a clear, matching
 				// castWorker's blank-is-absent normalization. The CLI refuses
@@ -1636,6 +1670,13 @@ text delivered at bind time, so the edit could never reach anyone.`,
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			if signing {
+				return updateWorkerSigning(cmd, f, client, w.Id, signingEdit{
+					override:  overrideEdit(setOverride, clearOverride, promptOverride),
+					signature: optionalFlag(setSignature, signature),
+					trailer:   optionalFlag(setTrailer, trailer),
+				})
 			}
 			// nil on the CLEAR path is an explicit `null` on the wire, because
 			// the operation deliberately carries no omitempty: omitting the
@@ -1675,5 +1716,7 @@ text delivered at bind time, so the edit could never reach anyone.`,
 	}
 	cmd.Flags().StringVar(&promptOverride, "prompt-override", "", "replace the worker's prompt override with this text")
 	cmd.Flags().BoolVar(&clearOverride, "clear-prompt-override", false, "remove the worker's prompt override, leaving the shared role template")
+	cmd.Flags().StringVar(&signature, "signature", "", `replace the worker's signature template ("" stores an empty one)`)
+	cmd.Flags().StringVar(&trailer, "trailer", "", `replace the worker's commit-trailer template ("" stores an empty one)`)
 	return cmd
 }

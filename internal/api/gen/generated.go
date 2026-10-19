@@ -8943,6 +8943,12 @@ func (v *CastWorkerCastWorker) GetPrompt() *string { return v.WorkerFields.Promp
 // GetPromptOverride returns CastWorkerCastWorker.PromptOverride, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
 
+// GetSignature returns CastWorkerCastWorker.Signature, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetSignature() *string { return v.WorkerFields.Signature }
+
+// GetTrailer returns CastWorkerCastWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
+
 // GetRepos returns CastWorkerCastWorker.Repos, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetRepos() []string { return v.WorkerFields.Repos }
 
@@ -9023,6 +9029,10 @@ type __premarshalCastWorkerCastWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -9067,6 +9077,8 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -9837,8 +9849,12 @@ func (v *ChatMessagesFindNodesFindNodesResultHitsNodeHit) GetNode() *ChatMessage
 
 // ChatMessagesFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
 type ChatMessagesFindNodesFindNodesResultHitsNodeHitNode struct {
-	Loc     string           `json:"loc"`
-	Seq     *int             `json:"seq"`
+	Loc string `json:"loc"`
+	Seq *int   `json:"seq"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
 	Content *string          `json:"content"`
 	Data    *json.RawMessage `json:"data"`
 }
@@ -20653,8 +20669,12 @@ type GetNodeNode struct {
 	// NOT 'nodeType' (the platform-kind axis, which drives retrieval) and NOT
 	// 'role' (what the node is for; role can be filtered explicitly but does not
 	// change default ranking or rendering).
-	ObjectType *string          `json:"objectType"`
-	Tags       []string         `json:"tags"`
+	ObjectType *string  `json:"objectType"`
+	Tags       []string `json:"tags"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
 	Content    *string          `json:"content"`
 	Data       *json.RawMessage `json:"data"`
 	Properties *json.RawMessage `json:"properties"`
@@ -21478,7 +21498,11 @@ type GetSpecNodeForEditNode struct {
 	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other values are inert unless a caller explicitly filters for them.
-	Role    *string `json:"role"`
+	Role *string `json:"role"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
 	Content *string `json:"content"`
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
@@ -21566,7 +21590,11 @@ type GetSpecNodeRawNode struct {
 	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other values are inert unless a caller explicitly filters for them.
-	Role    *string `json:"role"`
+	Role *string `json:"role"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
 	Content *string `json:"content"`
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
@@ -22190,8 +22218,12 @@ func (v *GetWorkerContinuityWorkerContinuity) GetPreviousSession() *GetWorkerCon
 // GetWorkerContinuityWorkerContinuityHandoffNode includes the requested fields of the GraphQL type Node.
 type GetWorkerContinuityWorkerContinuityHandoffNode struct {
 	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
-	Urn       string  `json:"urn"`
-	Loc       string  `json:"loc"`
+	Urn string `json:"urn"`
+	Loc string `json:"loc"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
 	Content   *string `json:"content"`
 	CreatedAt string  `json:"createdAt"`
 }
@@ -22312,6 +22344,12 @@ func (v *GetWorkerWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
 // GetPromptOverride returns GetWorkerWorker.PromptOverride, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
 
+// GetSignature returns GetWorkerWorker.Signature, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetSignature() *string { return v.WorkerFields.Signature }
+
+// GetTrailer returns GetWorkerWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
+
 // GetRepos returns GetWorkerWorker.Repos, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetRepos() []string { return v.WorkerFields.Repos }
 
@@ -22392,6 +22430,10 @@ type __premarshalGetWorkerWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -22436,6 +22478,8 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -27697,16 +27741,20 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
 	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
-	AbstractOriginHash *string                                                        `json:"abstractOriginHash"`
-	Tags               []string                                                       `json:"tags"`
-	Seq                *int                                                           `json:"seq"`
-	Data               *json.RawMessage                                               `json:"data"`
-	Properties         *json.RawMessage                                               `json:"properties"`
-	Content            *string                                                        `json:"content"`
-	CreatedAt          string                                                         `json:"createdAt"`
-	UpdatedAt          string                                                         `json:"updatedAt"`
-	OutgoingEdges      []*NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge `json:"outgoingEdges"`
-	IncomingEdges      []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge `json:"incomingEdges"`
+	AbstractOriginHash *string          `json:"abstractOriginHash"`
+	Tags               []string         `json:"tags"`
+	Seq                *int             `json:"seq"`
+	Data               *json.RawMessage `json:"data"`
+	Properties         *json.RawMessage `json:"properties"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
+	Content       *string                                                        `json:"content"`
+	CreatedAt     string                                                         `json:"createdAt"`
+	UpdatedAt     string                                                         `json:"updatedAt"`
+	OutgoingEdges []*NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+	IncomingEdges []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge `json:"incomingEdges"`
 }
 
 // GetId returns NodeBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
@@ -33328,6 +33376,16 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetPromptOverride
 	return v.WorkerFields.PromptOverride
 }
 
+// GetSignature returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Signature, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetSignature() *string {
+	return v.WorkerFields.Signature
+}
+
+// GetTrailer returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetTrailer() *string {
+	return v.WorkerFields.Trailer
+}
+
 // GetRepos returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Repos, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetRepos() []string {
 	return v.WorkerFields.Repos
@@ -33428,6 +33486,10 @@ type __premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -33472,6 +33534,8 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) __premarshalJSON(
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -35801,6 +35865,12 @@ func (v *RetireWorkerRetireWorker) GetPrompt() *string { return v.WorkerFields.P
 // GetPromptOverride returns RetireWorkerRetireWorker.PromptOverride, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
 
+// GetSignature returns RetireWorkerRetireWorker.Signature, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetSignature() *string { return v.WorkerFields.Signature }
+
+// GetTrailer returns RetireWorkerRetireWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
+
 // GetRepos returns RetireWorkerRetireWorker.Repos, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetRepos() []string { return v.WorkerFields.Repos }
 
@@ -35881,6 +35951,10 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -35925,6 +35999,8 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -39480,6 +39556,16 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetPromptOverride() *string
 	return v.WorkerFields.PromptOverride
 }
 
+// GetSignature returns SetWorkerReportsToSetWorkerReportsToWorker.Signature, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetSignature() *string {
+	return v.WorkerFields.Signature
+}
+
+// GetTrailer returns SetWorkerReportsToSetWorkerReportsToWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetTrailer() *string {
+	return v.WorkerFields.Trailer
+}
+
 // GetRepos returns SetWorkerReportsToSetWorkerReportsToWorker.Repos, and is useful for accessing the field via an interface.
 func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetRepos() []string { return v.WorkerFields.Repos }
 
@@ -39578,6 +39664,10 @@ type __premarshalSetWorkerReportsToSetWorkerReportsToWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -39622,6 +39712,8 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -51813,7 +51905,11 @@ type UpdateWorkerResponse struct {
 	// role), and re-casting is barred by `WORKER_IN_USE` for any worker that has
 	// done work — precisely the ones with an identity to record.
 	//
-	// Scope is one field on purpose: `name` is permanent by law (cor:agt:020:02)
+	// Signature/trailer edits require an App manager; a bound worker is provisionally refused (H26).
+	// Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
+	// A mixed update is atomic. These values reach the next compose/bind via S4.
+	//
+	// The other casting identity fields stay immutable: `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02)
 	// and `role`/`agent` define the casting itself. OMITTING promptOverride
 	// preserves it; explicit `null` or a blank string CLEARS it, matching the
 	// nullable column and castWorker's blank-is-absent normalization.
@@ -51822,12 +51918,256 @@ type UpdateWorkerResponse struct {
 	// delivered at bind time, and a retired worker takes no new bindings, so the
 	// edit could never reach anyone.
 	//
-	// Same authorization as castWorker. workerRef is the worker's id or URN (#991).
+	// promptOverride alone keeps castWorker staffing authorization. workerRef is the worker's id or URN (#991).
 	UpdateWorker *UpdateWorkerUpdateWorker `json:"updateWorker"`
 }
 
 // GetUpdateWorker returns UpdateWorkerResponse.UpdateWorker, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerResponse) GetUpdateWorker() *UpdateWorkerUpdateWorker { return v.UpdateWorker }
+
+// UpdateWorkerSigningResponse is returned by UpdateWorkerSigning on success.
+type UpdateWorkerSigningResponse struct {
+	// #1010 — amend a casting's individuality after the fact.
+	//
+	// `promptOverride` is the per-worker escape hatch (cor:agt:020:01), but it
+	// could only be set at CASTING time — fixing a casting's individuality at the
+	// one moment nobody yet knows what makes it individual. The role agent's
+	// `systemPrompt` cannot stand in (it is SHARED by every casting of that
+	// role), and re-casting is barred by `WORKER_IN_USE` for any worker that has
+	// done work — precisely the ones with an identity to record.
+	//
+	// Signature/trailer edits require an App manager; a bound worker is provisionally refused (H26).
+	// Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
+	// A mixed update is atomic. These values reach the next compose/bind via S4.
+	//
+	// The other casting identity fields stay immutable: `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02)
+	// and `role`/`agent` define the casting itself. OMITTING promptOverride
+	// preserves it; explicit `null` or a blank string CLEARS it, matching the
+	// nullable column and castWorker's blank-is-absent normalization.
+	//
+	// Refuses WORKER_RETIRED for a retired worker: an override is briefing text
+	// delivered at bind time, and a retired worker takes no new bindings, so the
+	// edit could never reach anyone.
+	//
+	// promptOverride alone keeps castWorker staffing authorization. workerRef is the worker's id or URN (#991).
+	UpdateWorker *UpdateWorkerSigningUpdateWorker `json:"updateWorker"`
+}
+
+// GetUpdateWorker returns UpdateWorkerSigningResponse.UpdateWorker, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningResponse) GetUpdateWorker() *UpdateWorkerSigningUpdateWorker {
+	return v.UpdateWorker
+}
+
+// UpdateWorkerSigningUpdateWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type UpdateWorkerSigningUpdateWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns UpdateWorkerSigningUpdateWorker.Id, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns UpdateWorkerSigningUpdateWorker.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetPortalUrl returns UpdateWorkerSigningUpdateWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
+
+// GetSlug returns UpdateWorkerSigningUpdateWorker.Slug, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetSlug() string { return v.WorkerFields.Slug }
+
+// GetAppId returns UpdateWorkerSigningUpdateWorker.AppId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns UpdateWorkerSigningUpdateWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+
+// GetName returns UpdateWorkerSigningUpdateWorker.Name, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetReportsTo returns UpdateWorkerSigningUpdateWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns UpdateWorkerSigningUpdateWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetReportsToRetired() bool {
+	return v.WorkerFields.ReportsToRetired
+}
+
+// GetRole returns UpdateWorkerSigningUpdateWorker.Role, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns UpdateWorkerSigningUpdateWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetPromptOverride returns UpdateWorkerSigningUpdateWorker.PromptOverride, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetPromptOverride() *string {
+	return v.WorkerFields.PromptOverride
+}
+
+// GetSignature returns UpdateWorkerSigningUpdateWorker.Signature, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetSignature() *string { return v.WorkerFields.Signature }
+
+// GetTrailer returns UpdateWorkerSigningUpdateWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
+
+// GetRepos returns UpdateWorkerSigningUpdateWorker.Repos, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
+// GetMemoryId returns UpdateWorkerSigningUpdateWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+
+// GetHeldByUserId returns UpdateWorkerSigningUpdateWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetHeldByUserId() *string {
+	return v.WorkerFields.HeldByUserId
+}
+
+// GetHeldAt returns UpdateWorkerSigningUpdateWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
+// GetHasLiveSession returns UpdateWorkerSigningUpdateWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetHasLiveSession() *bool {
+	return v.WorkerFields.HasLiveSession
+}
+
+// GetLastActiveAt returns UpdateWorkerSigningUpdateWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetLastActiveAt() *string {
+	return v.WorkerFields.LastActiveAt
+}
+
+// GetRetiredAt returns UpdateWorkerSigningUpdateWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
+
+// GetRetiredBy returns UpdateWorkerSigningUpdateWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
+
+// GetCreatedAt returns UpdateWorkerSigningUpdateWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
+
+// GetCreatedBy returns UpdateWorkerSigningUpdateWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
+
+func (v *UpdateWorkerSigningUpdateWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateWorkerSigningUpdateWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateWorkerSigningUpdateWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateWorkerSigningUpdateWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	PromptOverride *string `json:"promptOverride"`
+
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
+	Repos []string `json:"repos"`
+
+	MemoryId *string `json:"memoryId"`
+
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *UpdateWorkerSigningUpdateWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateWorkerSigningUpdateWorker) __premarshalJSON() (*__premarshalUpdateWorkerSigningUpdateWorker, error) {
+	var retval __premarshalUpdateWorkerSigningUpdateWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
+	retval.Slug = v.WorkerFields.Slug
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
+	retval.Repos = v.WorkerFields.Repos
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
 
 // UpdateWorkerUpdateWorker includes the requested fields of the GraphQL type Worker.
 // The GraphQL type's documentation follows.
@@ -51880,6 +52220,12 @@ func (v *UpdateWorkerUpdateWorker) GetPrompt() *string { return v.WorkerFields.P
 
 // GetPromptOverride returns UpdateWorkerUpdateWorker.PromptOverride, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerUpdateWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
+
+// GetSignature returns UpdateWorkerUpdateWorker.Signature, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetSignature() *string { return v.WorkerFields.Signature }
+
+// GetTrailer returns UpdateWorkerUpdateWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
 
 // GetRepos returns UpdateWorkerUpdateWorker.Repos, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerUpdateWorker) GetRepos() []string { return v.WorkerFields.Repos }
@@ -51961,6 +52307,10 @@ type __premarshalUpdateWorkerUpdateWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -52005,6 +52355,8 @@ func (v *UpdateWorkerUpdateWorker) __premarshalJSON() (*__premarshalUpdateWorker
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -52784,6 +53136,10 @@ type WorkerFields struct {
 	Prompt *string `json:"prompt"`
 	// Per-worker individuality layered over the agent's template prompt.
 	PromptOverride *string `json:"promptOverride"`
+	// Per-worker signature template, masked for nonreaders (hrn:node:hadronmemory.com:specs:cor:agt:040:04).
+	Signature *string `json:"signature"`
+	// Per-worker commit trailer template, masked for nonreaders (hrn:node:hadronmemory.com:specs:cor:agt:040:04).
+	Trailer *string `json:"trailer"`
 	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
 	// already holds the worker needs no second round-trip to teamRoles. The CLI
 	// warns on a role/repo mismatch at session start (hadron-cli#456).
@@ -52905,6 +53261,12 @@ func (v *WorkerFields) GetPrompt() *string { return v.Prompt }
 
 // GetPromptOverride returns WorkerFields.PromptOverride, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetPromptOverride() *string { return v.PromptOverride }
+
+// GetSignature returns WorkerFields.Signature, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetSignature() *string { return v.Signature }
+
+// GetTrailer returns WorkerFields.Trailer, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetTrailer() *string { return v.Trailer }
 
 // GetRepos returns WorkerFields.Repos, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetRepos() []string { return v.Repos }
@@ -53807,6 +54169,14 @@ func (v *WorkersWorkersWorkersPageItemsWorker) GetPromptOverride() *string {
 	return v.WorkerFields.PromptOverride
 }
 
+// GetSignature returns WorkersWorkersWorkersPageItemsWorker.Signature, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetSignature() *string {
+	return v.WorkerFields.Signature
+}
+
+// GetTrailer returns WorkersWorkersWorkersPageItemsWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
+
 // GetRepos returns WorkersWorkersWorkersPageItemsWorker.Repos, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetRepos() []string { return v.WorkerFields.Repos }
 
@@ -53899,6 +54269,10 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -53943,6 +54317,8 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -58802,6 +59178,26 @@ func (v *__UpdateWorkerInput) GetWorkerRef() string { return v.WorkerRef }
 // GetPromptOverride returns __UpdateWorkerInput.PromptOverride, and is useful for accessing the field via an interface.
 func (v *__UpdateWorkerInput) GetPromptOverride() *string { return v.PromptOverride }
 
+// __UpdateWorkerSigningInput is used internally by genqlient
+type __UpdateWorkerSigningInput struct {
+	WorkerRef      string  `json:"workerRef"`
+	PromptOverride *string `json:"promptOverride,omitempty"`
+	Signature      *string `json:"signature,omitempty"`
+	Trailer        *string `json:"trailer,omitempty"`
+}
+
+// GetWorkerRef returns __UpdateWorkerSigningInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__UpdateWorkerSigningInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetPromptOverride returns __UpdateWorkerSigningInput.PromptOverride, and is useful for accessing the field via an interface.
+func (v *__UpdateWorkerSigningInput) GetPromptOverride() *string { return v.PromptOverride }
+
+// GetSignature returns __UpdateWorkerSigningInput.Signature, and is useful for accessing the field via an interface.
+func (v *__UpdateWorkerSigningInput) GetSignature() *string { return v.Signature }
+
+// GetTrailer returns __UpdateWorkerSigningInput.Trailer, and is useful for accessing the field via an interface.
+func (v *__UpdateWorkerSigningInput) GetTrailer() *string { return v.Trailer }
+
 // __ValidateMemoryInput is used internally by genqlient
 type __ValidateMemoryInput struct {
 	MemoryRef string `json:"memoryRef"`
@@ -61444,6 +61840,8 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	signature
+	trailer
 	repos
 	memoryId
 	heldByUserId
@@ -67123,6 +67521,8 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	signature
+	trailer
 	repos
 	memoryId
 	heldByUserId
@@ -70377,6 +70777,8 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	signature
+	trailer
 	repos
 	memoryId
 	heldByUserId
@@ -71380,6 +71782,8 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	signature
+	trailer
 	repos
 	memoryId
 	heldByUserId
@@ -72655,6 +73059,8 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	signature
+	trailer
 	repos
 	memoryId
 	heldByUserId
@@ -77110,6 +77516,8 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	signature
+	trailer
 	repos
 	memoryId
 	heldByUserId
@@ -77162,6 +77570,86 @@ func UpdateWorker(
 	}
 
 	data_ = &UpdateWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateWorkerSigning.
+const UpdateWorkerSigning_Operation = `
+mutation UpdateWorkerSigning ($workerRef: ID!, $promptOverride: String, $signature: String, $trailer: String) {
+	updateWorker(workerRef: $workerRef, promptOverride: $promptOverride, signature: $signature, trailer: $trailer) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	urn
+	portalUrl
+	slug
+	appId
+	agentId
+	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
+	role
+	prompt
+	promptOverride
+	signature
+	trailer
+	repos
+	memoryId
+	heldByUserId
+	heldAt
+	hasLiveSession
+	lastActiveAt
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+`
+
+// cli#916 C4 (hadron-server#2120, cor:agt:040:04): the per-worker signature
+// and trailer templates, with the override when it rides the same call.
+// A SEPARATE operation from UpdateWorker, which keeps its explicit-null clear
+// unchanged. Here every field is presence-preserving: omitempty on the
+// optional pointer, so nil is OMITTED (the server preserves it) and &"" is an
+// explicit empty string (an empty template, or a cleared override). Null is
+// never sent: the server refuses a null signature/trailer (D2).
+func UpdateWorkerSigning(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	promptOverride *string,
+	signature *string,
+	trailer *string,
+) (data_ *UpdateWorkerSigningResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateWorkerSigning",
+		Query:  UpdateWorkerSigning_Operation,
+		Variables: &__UpdateWorkerSigningInput{
+			WorkerRef:      workerRef,
+			PromptOverride: promptOverride,
+			Signature:      signature,
+			Trailer:        trailer,
+		},
+	}
+
+	data_ = &UpdateWorkerSigningResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -77472,6 +77960,8 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	signature
+	trailer
 	repos
 	memoryId
 	heldByUserId
