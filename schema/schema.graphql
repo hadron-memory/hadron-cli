@@ -1094,6 +1094,10 @@ type App {
   cannot be emitted in grammar v2.
   """
   installedAgentUrn: String
+
+  """
+  Key inventory, only for whoever manages the App as themselves, never through a bound worker session (hrn:node:hadronmemory.com:specs:cor:dmo:050:05).
+  """
   keys: [AppKey!]!
   memberCount: Int!
   members: [AppMember!]!
@@ -1804,6 +1808,13 @@ enum AvailabilitySetter {
 enum AvailabilityState {
   AVAILABLE
   UNAVAILABLE
+}
+
+input BatchThrough {
+  channelId: ID!
+
+  """A seq this batch rendered in that channel."""
+  seq: Int!
 }
 
 input BeginAssetUploadInput {
@@ -3225,6 +3236,49 @@ type DeleteTeamRolePayload {
   role: String!
 }
 
+"""
+One ready-to-type delivery for one worker. The id is a signed proof bound to the key, the host and the rendered ranges: hand it back to acknowledgeDeliveryBatches after typing.
+"""
+type DeliveryBatch {
+  """The latest moment a busy worker may be made to wait for this delivery."""
+  busyDeadline: DateTime!
+
+  """
+  Not before this moment (the batching window / busy deadline of the oldest waiting message).
+  """
+  deliverAfter: DateTime!
+  id: String!
+
+  """Always false until stop signals ship (S6)."""
+  interrupt: Boolean!
+
+  """Eligible messages left for the next batch."""
+  overflow: Int!
+  ranges: [DeliveryBatchRange!]!
+
+  """
+  The whole delivery, one line, written by the server (hrn:node:hadronmemory.com:specs:cor:agt:080:26). Type it unchanged.
+  """
+  text: String!
+  worker: Worker!
+}
+
+"""#2017 (S1) — one page of delivery batches."""
+type DeliveryBatchPage {
+  batches: [DeliveryBatch!]!
+  pageInfo: DueWakePageInfo!
+}
+
+type DeliveryBatchRange {
+  channel: Channel!
+  fromSeq: Int!
+  incarnation: Int!
+
+  """Exactly the message seqs this batch rendered."""
+  seqs: [Int!]!
+  throughSeq: Int!
+}
+
 type DormantWithheld {
   mentions: Int!
   worker: Worker!
@@ -3317,10 +3371,26 @@ One merged wake: every reason, one seq range per channel. A wake never moves a r
 """
 type DueWake {
   """
+  #2017 R63 — when the earliest waiting reason became due: a mention's first still-due post, a tick's OLDEST unacknowledged
+  tick time, a task event's time. Never restarted by a re-offer or a join (hrn:node:hadronmemory.com:specs:cor:agt:080:27).
+  """
+  anchorAt: DateTime!
+
+  """
   Carried, never an exclusion (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
   """
   availability: DueWakeAvailability
+
+  """
+  The latest a busy worker may be made to wait: the anchor plus the App's busy delay.
+  """
+  busyDeadline: DateTime!
   channels: [DueChannel!]!
+
+  """
+  Not before this moment: the anchor plus the App's batching window (the shared cadence floor).
+  """
+  deliverAfter: DateTime!
 
   """
   Hand this back to acknowledgeWakes after delivering. Bound to the requester; good for 15 minutes.
@@ -5042,6 +5112,13 @@ type Mutation {
   acknowledgeAlarm(eventId: ID!): AgentTeamEvent!
 
   """
+  #2017 (S1) — record that delivery batches were typed (hrn:node:hadronmemory.com:specs:cor:agt:080:16, :17). Only the receiving host key or the worker's own receiving live session, within 15 minutes.
+  The delivered mark rises to the end of each rendered range; with through (one batch only), only the listed channels move, each to a
+  rendered seq of its own. Writes no read position, tick or budget. A repeat changes nothing.
+  """
+  acknowledgeDeliveryBatches(batchIds: [String!]!, through: [BatchThrough!]): AcknowledgeWakesResult!
+
+  """
   #1748 — record that wakes were delivered (hrn:node:hadronmemory.com:specs:cor:agt:080:16). Never moves a read position.
   """
   acknowledgeWakes(proofs: [String!]!): AcknowledgeWakesResult!
@@ -5573,7 +5650,10 @@ type Mutation {
   ): App!
 
   """
-  Mint a new AppKey for an App.
+  Mint a new AppKey for an App. Only whoever manages the App, as themselves
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
+  Never an App key, a bound worker session or an impersonated request; new keys hold no scopes.
+  Granting or revoking scopes uses the same manager audience.
   
   Accepts the entity's ID or URN.
   """
@@ -6964,7 +7044,9 @@ type Mutation {
 
   """
   App key management — revoke all active keys for an App and mint a
-  fresh one. (See createAppKey / revokeAppKey / deleteApp below.)
+  fresh one. Only whoever manages the App, as themselves
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
+  Never an App key, a bound worker session or an impersonated request. The replacement key holds no scopes.
   
   Accepts the entity's ID or URN.
   """
@@ -7308,7 +7390,11 @@ type Mutation {
   """
   revokeAppGrant(appRef: String!, name: AppGrantName!, workerRef: String!): AppGrant!
 
-  """AppKey is keyed by raw ID — no urn column. Stays ID-only."""
+  """
+  Revoke an AppKey. Only whoever manages the App, as themselves
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
+  Never an App key, a bound worker session or an impersonated request. AppKey has no URN; the id is raw ID-only.
+  """
   revokeAppKey(id: ID!): Boolean!
 
   """
@@ -9012,6 +9098,11 @@ type NodeRevision {
   revNo: Int
 
   """
+  #1838 — was THIS revision approved (for pinning)? Not whether the node is approved now (that is Node.approvalStatus). A revision counts as approved when some recorded approval covers exactly its hashed content, whichever revision the approval was recorded on (Holger's R7, hrn:node:hadronmemory.com:specs:cor:dmo:060:04).
+  """
+  revisionApproval: RevisionApproval!
+
+  """
   #1201 — Node.role at capture time. In the curated subset because CLEARING a governed role is the escalation #1202 exists for: a history that cannot show the role cannot show the un-governing.
   """
   role: String
@@ -9674,7 +9765,9 @@ type Query {
   appDeliverySettings(appRef: String!): AppDeliverySettings!
 
   """
-  List keys for an App (org ADMIN of the App's org).
+  List keys for an App, only for whoever manages the App
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
+  Never an App key, a bound worker session or an impersonated request.
   
   Accepts the entity's ID or URN.
   """
@@ -9960,6 +10053,13 @@ type Query {
   filters, sort and paging; a list above 5000 candidates refuses (DECISION_LOG_TOO_LARGE_FOR_FILTER).
   """
   decisions(authorizes: Boolean, awaitingMe: Boolean, limit: Int = 50, logRef: ID, offset: Int = 0, sort: DecisionSort = PORTAL_DEFAULT, state: [DecisionState!], tier: DecisionTier, urgency: [DecisionUrgency!]): DecisionPage!
+
+  """
+  #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
+  An own live session reads only its bound worker. A host App key needs attention:deliver AND host:operate;
+  the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
+  """
+  deliveryBatches(after: String, appRef: String!, first: Int, workerRefs: [String!]): DeliveryBatchPage!
 
   """File metadata by id. Grant scope: drive.read."""
   driveFile(connectionRef: ID!, fileId: ID!): DriveFile!
@@ -11725,6 +11825,26 @@ type ResumeSessionResult {
 enum ResumeSource {
   CLAIM
   LIVE_SESSION
+}
+
+"""
+#1838 — whether one revision was approved, and by which recorded approval.
+"""
+type RevisionApproval {
+  approved: Boolean!
+  approvedAt: DateTime
+  approvedBy: String
+  approvedByInfo: String
+
+  """
+  The revision the covering approval was recorded at; it can differ from this revision when only metadata changed, or the text recurs.
+  """
+  recordedAtRevision: Int
+
+  """
+  NOT_APPLICABLE inside an encrypted memory; APPROVED or NOT_APPROVED otherwise (never SUPERSEDED: that is about the live text).
+  """
+  state: NodeApprovalState!
 }
 
 type RevisionResult {

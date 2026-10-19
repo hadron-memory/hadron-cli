@@ -43,6 +43,8 @@ import (
 type hostServer struct {
 	client graphql.Client
 	app    string
+	// now dates a batch read, for its proof's expiry; time.Now when nil.
+	now func() time.Time
 }
 
 func (s *hostServer) Register(ctx context.Context, r hostpoller.Registration) (hostpoller.RegisteredHost, error) {

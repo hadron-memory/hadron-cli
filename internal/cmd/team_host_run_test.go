@@ -284,21 +284,80 @@ func TestTeamHostRunOnceFailsWhenAReportDidNotLand(t *testing.T) {
 
 // Until S1's batch query is on server main (hadron-server#2017), a host
 // config that turns delivery on must fail loudly, not load and do nothing.
-func TestTeamHostRunRefusesDeliveryUntilTheBatchSourceShips(t *testing.T) {
-	cfg := writeHostConfig(t, "delivery:\n  enabled: true\n  orca_bin: /usr/local/bin/orca\n")
-	srv, calls := hostServerFake(t, map[string]string{})
+const noOps = `{"data":{"collectHostOperations":[]}}`
+
+const noBatches = `{"data":{"deliveryBatches":{"batches":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}`
+
+// cli#907: with delivery on, each step also reads this host's batches, with
+// the host key and no session, and the status snapshot records the read.
+func TestTeamHostRunOnceReadsBatchesWithTheHostKey(t *testing.T) {
+	cfg := writeHostConfig(t, deliveryOn)
+	srv, calls := hostServerFake(t, map[string]string{
+		"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": noOps, "DeliveryBatches": noBatches,
+	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
-	err := root.Execute()
-	if code := exitCodeFor(err); code != exitcode.Usage {
-		t.Fatalf("exit = %d, want %d: %v", code, exitcode.Usage, err)
+	if err := root.Execute(); err != nil {
+		t.Fatalf("run --once: %v", err)
 	}
-	if err == nil || !strings.Contains(err.Error(), "hadron-server#2017") {
-		t.Errorf("the refusal names what it waits on: %v", err)
+	var read *hostCall
+	for i, c := range calls() {
+		if c.auth != "Bearer hk_host_key" || c.session != "" {
+			t.Errorf("%s: auth %q session %q", c.op, c.auth, c.session)
+		}
+		if c.op == "DeliveryBatches" {
+			read = &calls()[i]
+		}
+		if c.op == "AcknowledgeDeliveryBatches" {
+			t.Errorf("an ack with nothing typed: %+v", c)
+		}
 	}
-	if len(calls()) != 0 {
-		t.Errorf("no host call before the refusal: %+v", calls())
+	if read == nil {
+		t.Fatalf("no batch read: %+v", calls())
+	}
+	d := hostStatusJSON(t, cfg).Delivery
+	if d.Mode != "enabled" || d.LastRead == nil || *d.LastRead != "read" || d.Stale {
+		t.Fatalf("delivery %+v", d)
+	}
+}
+
+// A key without attention:deliver switches delivery off for the run; the
+// host's operations carry on and the run succeeds.
+func TestTeamHostRunOnceScopeRefusalTurnsDeliveryOff(t *testing.T) {
+	cfg := writeHostConfig(t, deliveryOn)
+	srv, _ := hostServerFake(t, map[string]string{
+		"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": noOps,
+		"DeliveryBatches": `{"errors":[{"message":"scope","extensions":{"code":"APP_KEY_SCOPE_REQUIRED"}}],"data":null}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("run --once: %v", err)
+	}
+	if !strings.Contains(out.String(), "delivery-off") {
+		t.Errorf("the operator is told delivery is off:\n%s", out.String())
+	}
+	if d := hostStatusJSON(t, cfg).Delivery; d.Mode != "off-by-scope" {
+		t.Fatalf("delivery %+v", d)
+	}
+}
+
+// With delivery off, nothing reads batches.
+func TestTeamHostRunOnceWithoutDeliveryReadsNoBatches(t *testing.T) {
+	cfg := writeHostConfig(t, "")
+	srv, calls := hostServerFake(t, map[string]string{"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": noOps})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("run --once: %v", err)
+	}
+	for _, c := range calls() {
+		if c.op == "DeliveryBatches" {
+			t.Fatalf("read batches with delivery off: %+v", calls())
+		}
 	}
 }
 
