@@ -258,6 +258,10 @@ var (
 	spinnerDone   = regexp.MustCompile(`(?i)done`)
 	spinnerWorked = regexp.MustCompile(`(?i)worked for`)
 	callingTool   = regexp.MustCompile(`(?i)^calling [a-z]`)
+	// claudeThinking: Claude's working line before its timer appears, a
+	// spinner glyph and a verb ending in an ellipsis ("✢ Noodling…"). A
+	// completed turn's line ("✻ Crunched for 2s") has no ellipsis.
+	claudeThinking = regexp.MustCompile(`^[✢✳✶✻✽∗*·] \p{L}+…$`)
 )
 
 // spinnerTimer is a parenthesized elapsed timer: a running spinner.
@@ -284,12 +288,20 @@ var (
 	weakBanner    = regexp.MustCompile(`^[▐▛█▝▜▀│╭╮╰╯ ]*[~❯]`)
 	weakPerms     = regexp.MustCompile(`^permissions: `)
 	weakCollapsed = regexp.MustCompile(`^\+ (Show details|\d+ lines)`)
+	// Claude Code 2.1.303 (scratch captures, cli#906): the logo's model
+	// line, the launch's update notice, and the effort indicator drawn
+	// right-aligned above the box. A logo line that carries the version is
+	// the banner marker itself, so it is never weak.
+	weakLogo   = regexp.MustCompile(`^[▐▛█▝▜▀]{2,}`)
+	weakUpdate = regexp.MustCompile(`^Updated to latest\. |changelog for details$`)
+	weakEffort = regexp.MustCompile(`^[◐◑◒◓○●] \w+ · /effort$`)
 )
 
 // isWeakChrome may surround a strong marker without explaining it away; it
 // never substitutes for one. #1983 adds the collapsed-output indicators.
 func isWeakChrome(s string) bool {
-	return weakEcho.MatchString(s) || weakBanner.MatchString(s) || weakPerms.MatchString(s) || weakCollapsed.MatchString(s)
+	return weakEcho.MatchString(s) || weakBanner.MatchString(s) || weakPerms.MatchString(s) || weakCollapsed.MatchString(s) ||
+		(weakLogo.MatchString(s) && !matchesAny(idleMarkers, s)) || weakUpdate.MatchString(s) || weakEffort.MatchString(s)
 }
 
 var (
@@ -388,7 +400,8 @@ func IdleProof(lines []string, family string) (Liveness, string) {
 	}
 	for _, l := range window {
 		if strings.Contains(l, "to interrupt") || strings.Contains(l, "run in background") ||
-			strings.Contains(l, "Working (") || callingTool.MatchString(l) || spinnerTimer(l) {
+			strings.Contains(l, "Working (") || callingTool.MatchString(l) || spinnerTimer(l) ||
+			(family == "claude" && claudeThinking.MatchString(l)) {
 			return Busy, "running-turn"
 		}
 	}
