@@ -2132,18 +2132,18 @@ Conventions:
   a caller who cannot see the working state gets NEITHER line rather than a
   dashed one, because a dash there would answer a question the server refused.
   **`worker list` now carries the hold too, alongside liveness** (#487,
-  hadron-server#1086): the table gains `HELD BY` and `LAST DRIVEN` after
+  hadron-server#1086): the table gains `HELD BY` and `LAST RECORDED ACTIVITY` after
   `ROLE`, and `--json` gains `heldByUserId`/`heldAt`/`hasLiveSession`/
   `lastActiveAt` on every row, additive. **The two columns answer different
   questions and must not be collapsed** (`cor:agt:020:09`). `HELD BY` is whose
   name it is — what decides whether you may bind, freed only by an explicit
   `worker release`, and `--force` does not help against someone else's hold.
-  `LAST DRIVEN` is whether a session on this name was DRIVEN inside its idle
-  window (`live`) and otherwise how long since it was driven (`3d ago`), or
-  `never` for a casting nobody has ever bound — the state the issue was filed
-  for, since a worker nobody picked up otherwise renders exactly like one
-  worked yesterday. **Since hadron-server#1114 liveness is DERIVED at read
-  time** — not ended AND driven recently — so it is no longer the same
+  `LAST RECORDED ACTIVITY` shows `live` when the server reports a live
+  session; otherwise the age of the server's last recorded activity (`3d ago`),
+  or `never` for a name nobody has ever bound. A recent age does not imply a
+  live session. This is not a session-end timestamp: normal ending may advance
+  recorded activity to approximately the end time. **Since hadron-server#1114
+  liveness is DERIVED at read time** — not ended AND driven recently — so it is no longer the same
   question as "is a session row open": an abandoned session stays open
   indefinitely and stops reading as live. **`live` is still not a claim that
   anyone is at the keyboard**: the window is generous, and a worker session
@@ -2497,7 +2497,7 @@ Conventions:
   ENDED, and since hadron-server#1114 nothing ends a developer session but an
   explicit `session end`, so an abandoned one stays listed indefinitely. For
   "was this name driven recently, and does the server still count it as
-  taken", read `worker list`'s LAST DRIVEN. Neither view answers "is somebody
+  taken", read `worker list`'s LAST RECORDED ACTIVITY. Neither view answers "is somebody
   at the keyboard" — nothing here does. `--as` narrows SERVER-side
   (`sessions(workerRef:)`), `--active` client-side. **Both its tables lead with `WORKER  ROLE …` and carry
   `SESSION` last** (#486): the role says what a worker IS and was already on

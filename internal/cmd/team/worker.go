@@ -306,7 +306,7 @@ or quiet time never clears it.
 Retired workers are hidden unless --include-retired — their names stay
 bound to them forever, so the retired list is also the reserved-name list.
 
-HELD BY and LAST DRIVEN answer two DIFFERENT questions (cor:agt:020:09),
+HELD BY and LAST RECORDED ACTIVITY answer two DIFFERENT questions (cor:agt:020:09),
 and reading one as the other is the mistake this table exists to stop.
 
   HELD BY      whose name it is. A name is held by a PERSON, and only an
@@ -316,17 +316,17 @@ and reading one as the other is the mistake this table exists to stop.
                take however idle it looks, and --force will not help.
                "nobody" means binding it holds it.
 
-  LAST DRIVEN  whether a session on this name was DRIVEN inside its idle
-               window ("live"), and otherwise how long since it was last
-               driven. Since hadron-server#1114 this is DERIVED at read
-               time — not ended AND driven recently — so it is no longer
-               the same question as "is a session row open": an abandoned
-               session stays open forever and stops reading as live.
-               "live" is still NOT a claim that anyone is at the keyboard:
-               the window is generous, and a worker session outlives the
-               chat session that started it. It is only ever a question
-               about a name that is already yours.
-               "never" means cast and never bound by anyone.
+  LAST RECORDED ACTIVITY
+               "live" when the server reports a live session; otherwise
+               the age of the server's last recorded activity, or "never"
+               for a name nobody has ever bound. A recent age does not
+               imply a live session. This is not a session-end timestamp:
+               normal ending may advance recorded activity to approximately
+               the end time. Liveness is derived at read time, not simply
+               whether a session row is open. "live" is NOT a claim that
+               anyone is at the keyboard: the window is generous, and a
+               worker session outlives the chat session that started it.
+               A live row shows no age.
 
 Both read "?" when this account may not see the App's working state — not
 "—", which this table uses for a definite no (RETIRED). "?" is "not
@@ -391,7 +391,7 @@ reads as MORE idle than it was, never less.`,
 				// in it. AGENT ID was the weakest column, an opaque id nobody acts
 				// on; `worker get` still shows it.
 				//
-				// HELD BY and LAST DRIVEN sit immediately after ROLE (#487),
+				// HELD BY and LAST RECORDED ACTIVITY sit immediately after ROLE (#487),
 				// ahead of RETIRED/URN/ID: this table's reader is a coordinator
 				// asking "who is on this team, and is anyone actually driving
 				// them", and before now it answered neither. The two are
@@ -417,7 +417,7 @@ reads as MORE idle than it was, never less.`,
 					return describeHolder(ctx, client, id)
 				})
 				now := time.Now()
-				t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST DRIVEN", "RETIRED", "URN", "ID")
+				t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST RECORDED ACTIVITY", "RETIRED", "URN", "ID")
 				for _, wk := range workers {
 					retired := "—"
 					if wk.RetiredAt != nil {
