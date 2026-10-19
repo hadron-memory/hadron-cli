@@ -13,10 +13,13 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -30,6 +33,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/delivery"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -147,13 +151,6 @@ func loadHostPoller(f *cmdutil.Factory, path string) (*hostpoller.Config, string
 	if err != nil {
 		return nil, "", nil, exitcode.New(exitcode.Usage, err)
 	}
-	// The terminal half of delivery is built (cli#907); its batch source,
-	// S1's query, is not on server main yet. A config that turns delivery
-	// on must not load and silently do nothing.
-	if cfg.Delivery.Enabled {
-		return nil, "", nil, exitcode.Newf(exitcode.Usage,
-			"delivery.enabled: this build has no batch source yet (hadron-cli#907 waits on hadron-server#2017): remove the delivery block to run the host poller")
-	}
 	key, err := cfg.ReadHostKey()
 	if err != nil {
 		return nil, "", nil, exitcode.New(exitcode.AuthRequired, err)
@@ -247,6 +244,14 @@ per line; --json prints each as a JSON object.`,
 			cfg, key, srv, err := loadHostPoller(f, configPath)
 			if err != nil {
 				return err
+			}
+			// The terminal half of delivery is built (cli#907); its batch
+			// source, S1's query, is not on server main yet. A config that
+			// turns delivery on must not run and silently do nothing.
+			// `status` still reads it: it changes nothing.
+			if cfg.Delivery.Enabled {
+				return exitcode.Newf(exitcode.Usage,
+					"delivery.enabled: this build has no batch source yet (hadron-cli#907 waits on hadron-server#2017): remove the delivery block to run the host poller")
 			}
 			state, err := hostpoller.LoadState(cfg.StateFile)
 			if err != nil {
@@ -355,6 +360,103 @@ type hostStatusDTO struct {
 	// when the read was refused or this host has not registered yet.
 	Registration *hostRegistrationDTO `json:"registration"`
 	ReadError    *string              `json:"readError"`
+	// Delivery is the poller's local delivery snapshot (cli#906): what this
+	// host's poller last saw, read from local state only. It is not
+	// authoritative delivery health (S5 is), and it carries codes only.
+	Delivery hostDeliveryDTO `json:"delivery"`
+}
+
+type hostDeliveryDTO struct {
+	Enabled bool `json:"enabled"`
+	// Mode is disabled, enabled, or off-by-scope (the host key lacked
+	// attention:deliver at the poller's last step).
+	Mode       string  `json:"mode"`
+	OrcaBin    string  `json:"orcaBin"`
+	LastStepAt *string `json:"lastStepAt"`
+	LastRead   *string `json:"lastRead"`
+	// Stale: delivery is on and the snapshot is missing, unreadable, or
+	// older than three poll intervals. Error then names which, as a code.
+	Stale   bool                    `json:"stale"`
+	Error   *string                 `json:"error"`
+	Workers []hostDeliveryWorkerDTO `json:"workers"`
+}
+
+type hostDeliveryWorkerDTO struct {
+	Worker     string  `json:"worker"`
+	WorkerID   string  `json:"workerId"`
+	LastKind   string  `json:"lastKind"`
+	LastReason string  `json:"lastReason"`
+	LastAt     *string `json:"lastAt"`
+	// ConfirmedUnacked counts this host's confirmed-delivery records whose
+	// ack has not landed: they reconcile without typing.
+	ConfirmedUnacked int    `json:"confirmedUnacked"`
+	ResolvedBy       string `json:"resolvedBy"`
+}
+
+// hostDeliveryStatus builds the delivery block from local state only.
+func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
+	d := hostDeliveryDTO{Enabled: cfg.Delivery.Enabled, Mode: "disabled", OrcaBin: cfg.Delivery.OrcaBin, Workers: []hostDeliveryWorkerDTO{}}
+	if !d.Enabled {
+		return d
+	}
+	d.Mode = "enabled"
+	stateDir := cfg.DeliveryStateDir()
+	st, err := delivery.ReadStatus(stateDir)
+	if err != nil {
+		code := "status-unreadable"
+		if errors.Is(err, fs.ErrNotExist) {
+			code = "status-missing"
+		}
+		d.Stale, d.Error = true, &code
+		return d
+	}
+	at, read := st.LastStepAt.UTC().Format(time.RFC3339), st.LastRead
+	d.LastStepAt, d.LastRead = &at, &read
+	if read == delivery.StepOffByScope {
+		d.Mode = "off-by-scope"
+	}
+	interval := time.Duration(cfg.PollIntervalSeconds) * time.Second
+	d.Stale = now.Sub(st.LastStepAt) > 3*interval
+	recs := &delivery.Records{Dir: filepath.Join(stateDir, "delivery", "records")}
+	for _, id := range sortedKeys(st.Workers) {
+		w := st.Workers[id]
+		last := w.At.UTC().Format(time.RFC3339)
+		row := hostDeliveryWorkerDTO{Worker: w.Name, WorkerID: id, LastKind: string(w.Kind), LastReason: w.Reason, LastAt: &last, ResolvedBy: w.ResolvedBy}
+		if list, err := recs.List(id); err == nil {
+			row.ConfirmedUnacked = len(list)
+		}
+		d.Workers = append(d.Workers, row)
+	}
+	return d
+}
+
+func writeHostDelivery(w io.Writer, d hostDeliveryDTO) {
+	if !d.Enabled {
+		fmt.Fprintln(w, "delivery: disabled")
+		return
+	}
+	line := "delivery: " + d.Mode + ", orca " + d.OrcaBin
+	if d.LastStepAt != nil {
+		line += ", last step " + *d.LastStepAt + " (" + *d.LastRead + ")"
+	}
+	if d.Stale {
+		line += ", STALE"
+	}
+	if d.Error != nil {
+		line += " (" + *d.Error + ")"
+	}
+	fmt.Fprintln(w, line)
+	for _, wk := range d.Workers {
+		fmt.Fprintf(w, "  %s: %s %s at %s, confirmed-unacked %d, resolved by %s\n",
+			wk.Worker, wk.LastKind, wk.LastReason, *wk.LastAt, wk.ConfirmedUnacked, orDash(wk.ResolvedBy))
+	}
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
 }
 
 func newCmdTeamHostStatus(f *cmdutil.Factory) *cobra.Command {
@@ -421,6 +523,7 @@ nothing.`,
 					dto.Registration = &reg
 				}
 			}
+			dto.Delivery = hostDeliveryStatus(cfg, time.Now())
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "host %s for %s, checking in every %ds\n", dto.Label, dto.App, dto.PollIntervalSeconds)
 				t := output.NewTable(w, "WORKER", "FAMILY", "LAUNCH", "WORKTREES")
@@ -445,6 +548,7 @@ nothing.`,
 					}
 					fmt.Fprintf(w, "registration: host %s, %s, refreshed %s\n", dto.Registration.HostID, live, dto.Registration.RefreshedAt)
 				}
+				writeHostDelivery(w, dto.Delivery)
 				return nil
 			})
 		},
@@ -463,7 +567,7 @@ func dedupe(s []string) []string {
 	return out
 }
 
-func sortedKeys(m map[string]string) []string {
+func sortedKeys[V any](m map[string]V) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

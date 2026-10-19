@@ -131,6 +131,10 @@ type Poller struct {
 	// workerRefs maps a resolved worker id to its configured reference, from
 	// the last registration's answer.
 	workerRefs map[string]string
+
+	// DeliveryStep, when set, is told how each delivery step's batch read
+	// went (delivery.StepRead, StepReadFailed, StepOffByScope).
+	DeliveryStep func(at time.Time, read string)
 	// agents are the agent processes this poller launched, by worker id.
 	agents map[string]Agent
 	// agentTrees is the worktree each launched agent runs in, by worker id.

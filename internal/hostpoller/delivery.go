@@ -54,12 +54,15 @@ func (p *Poller) deliverStep(ctx context.Context) {
 		p.deliveryOff = true
 		p.mu.Unlock()
 		p.log("delivery-off", "", "", "", err.Error())
+		p.stepDone(delivery.StepOffByScope)
 		return
 	}
 	if err != nil {
 		p.log("delivery-failed", "", "", "", "reading batches: "+err.Error())
+		p.stepDone(delivery.StepReadFailed)
 		return
 	}
+	defer p.stepDone(delivery.StepRead)
 	for _, b := range batches {
 		r, ok := p.recipient(b.WorkerID)
 		if !ok {
@@ -74,6 +77,13 @@ func (p *Poller) deliverStep(ctx context.Context) {
 			key = "deliver:" + b.WorkerID + ":" + b.Span()
 		}
 		p.enqueue(b.WorkerID, key, func() { p.deliverer.Deliver(ctx, b, r) })
+	}
+}
+
+// stepDone reports a finished delivery step (cli#906: `team host status`).
+func (p *Poller) stepDone(read string) {
+	if p.DeliveryStep != nil {
+		p.DeliveryStep(p.now(), read)
 	}
 }
 

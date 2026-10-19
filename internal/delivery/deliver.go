@@ -105,6 +105,7 @@ type Outcome struct {
 type Event struct {
 	Time     time.Time
 	Worker   string
+	WorkerID string
 	Span     string
 	Kind     Kind
 	Reason   string
@@ -149,7 +150,7 @@ func New(server Server, orca Terminals, stateDir string) *Deliverer {
 
 func (d *Deliverer) emit(b Batch, r Recipient, o Outcome) Outcome {
 	if d.Emit != nil {
-		d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, Span: b.Span(), Kind: o.Kind, Reason: o.Reason, Terminal: o.Terminal, ResolvedBy: r.resolvedBy})
+		d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, WorkerID: r.WorkerID, Span: b.Span(), Kind: o.Kind, Reason: o.Reason, Terminal: o.Terminal, ResolvedBy: r.resolvedBy})
 	}
 	return o
 }
