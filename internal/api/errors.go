@@ -740,12 +740,26 @@ func DescendantCount(err error) int {
 
 func codeForExtension(code string) int {
 	switch {
+	// S9 settings (#911): invalid candidates are input errors; a live ticker
+	// conflict or unavailable standby behavior requires a state change.
+	case code == "DELIVERY_SETTINGS_OUT_OF_RANGE" || code == "DELIVERY_SETTINGS_CONFLICT" || code == "TICKER_SETTINGS_OUT_OF_RANGE":
+		return exitcode.Usage
+	case code == "TICKER_SETTINGS_CONFLICT" || code == "DELIVERY_STANDBY_UNAVAILABLE":
+		return exitcode.Conflict
 	// Comment operations retain typed permission, input and state refusals.
 	case code == "COMMENT_FORBIDDEN" || code == "COMMENT_NOT_AUTHOR" || code == "COMMENT_ADMIN_REQUIRED" || code == "COMMENT_IMPERSONATION_REFUSED":
 		return exitcode.Forbidden
 	case code == "COMMENT_TARGET_IS_COMMENT" || code == "COMMENT_MEMORY_NOT_COMMENTABLE" || code == "COMMENT_ANCHOR_REVISION_INVALID" || code == "COMMENT_NOT_TOP_LEVEL" || code == "COMMENT_BODY_INVALID" || code == "COMMENT_MOVE_UNCOMMENTABLE" || code == "COMMENT_MERGE_FOLDS_THREADS" || code == "COMMENT_NOT_APPROVABLE":
 		return exitcode.Usage
 	case code == "COMMENT_OPEN_THREAD_EXISTS" || code == "COMMENT_ANCHOR_REVISION_UNAVAILABLE" || code == "COMMENT_DELETED" || code == "COMMENT_THREAD_STATE":
+		return exitcode.Conflict
+	// Ticker commands (#923): permission/consent, fixable input and current
+	// state are distinct refusals; none is an internal server fault.
+	case code == "TICKER_CADENCE_NEEDS_CONSENT" || code == "SUBSCRIBE_CADENCE_NEEDS_HOLDER" || code == "SUBSCRIBE_FORBIDDEN":
+		return exitcode.Forbidden
+	case code == "TICKER_CADENCE_OUT_OF_RANGE" || code == "TICKER_QUIET_HOURS_INVALID":
+		return exitcode.Usage
+	case code == "TICKER_NAME_TAKEN" || code == "TICKER_LIMIT_REACHED":
 		return exitcode.Conflict
 	case code == "UNAUTHENTICATED":
 		return exitcode.AuthRequired
@@ -920,6 +934,10 @@ func codeForExtension(code string) int {
 	// It must NOT ride the `_STALE` shape into anything else: there is no
 	// suffix rule here, because a code ending in _STALE is not automatically a
 	// conflict and inventing the family would map codes nobody has defined.
+	case code == "WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED":
+		// The caller must explicitly attest verified external absence; --yes
+		// alone confirms deletion, not that separate input (server#1162).
+		return exitcode.Usage
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
 		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE":
 		return exitcode.Conflict

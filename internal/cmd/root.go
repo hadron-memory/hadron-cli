@@ -46,6 +46,7 @@ import (
 	speccmd "github.com/hadron-memory/hadron-cli/internal/cmd/spec"
 	taskcmd "github.com/hadron-memory/hadron-cli/internal/cmd/task"
 	teamcmd "github.com/hadron-memory/hadron-cli/internal/cmd/team"
+	tickercmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticker"
 	ticketcmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticket"
 	usercmd "github.com/hadron-memory/hadron-cli/internal/cmd/user"
 	versioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/version"
@@ -119,6 +120,7 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.AddCommand(scopecmd.NewCmdScope(f))
 	root.AddCommand(agentcmd.NewCmdAgent(f))
 	root.AddCommand(teamcmd.NewCmdTeam(f))
+	root.AddCommand(tickercmd.NewCmdTicker(f))
 	root.AddCommand(usercmd.NewCmdUser(f))
 	root.AddCommand(usercmd.NewCmdProfile(f))
 	root.AddCommand(accesscmd.NewCmdAccess(f))
