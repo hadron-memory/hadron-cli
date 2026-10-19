@@ -106,7 +106,15 @@ func writeTicker(w io.Writer, d tickerDTO) error {
 			owner = d.Owner.ID
 		}
 	}
-	_, err := fmt.Fprintf(w, "%s · %s · every %ds · enabled %t · relevance %s · reasons %s\n  owner %s · anchor %s\n  readable channels (reader's view): %d\n", d.Name, ref, d.CadenceSeconds, d.Enabled, d.Relevance, strings.Join(d.Reasons, "+"), owner, d.AnchorAt, len(d.ReadableChannels))
+	state := "disabled"
+	if d.Enabled {
+		state = "enabled"
+	}
+	channels := "none visible to you"
+	if len(d.ReadableChannels) > 0 {
+		channels = fmt.Sprint(len(d.ReadableChannels))
+	}
+	_, err := fmt.Fprintf(w, "%s · %s · every %s · %s · relevance %s · reasons %s\n  owner %s · anchor %s\n  readable channels (reader's view): %s\n", d.Name, ref, cadenceCell(d.CadenceSeconds), state, d.Relevance, strings.Join(d.Reasons, "+"), owner, d.AnchorAt, channels)
 	if err != nil {
 		return err
 	}
@@ -117,7 +125,15 @@ func writeTicker(w io.Writer, d tickerDTO) error {
 	}
 	quiet := "none"
 	if d.QuietHours != nil {
-		quiet = string(*d.QuietHours)
+		var q struct {
+			Timezone string            `json:"timezone"`
+			Windows  []json.RawMessage `json:"windows"`
+		}
+		if err := json.Unmarshal(*d.QuietHours, &q); err == nil && q.Timezone != "" {
+			quiet = fmt.Sprintf("%s (%d windows)", q.Timezone, len(q.Windows))
+		} else {
+			quiet = "configured (details in --json)"
+		}
 	}
 	_, err = fmt.Fprintf(w, "  quiet hours %s · next tick %s · last tick %s\n  created %s · updated %s\n", quiet, dateCell(d.NextTickAt), dateCell(d.LastTickAt), d.CreatedAt, dateCell(d.UpdatedAt))
 	return err
@@ -146,11 +162,9 @@ func NewCmdTicker(f *cmdutil.Factory) *cobra.Command {
 ownership, permissions, cadence limits and subscriber consent; this command
 never computes due wakes. Wake delivery is a separate host operation.
 
-Current server behavior includes Proposed defaults and management/read rules:
-create reasons default to read-team-channel, relevance to all, anchor to now,
-and enabled to true. Edits/deletes admit the owner, its worker's holder or an
-App manager; reads admit App participants. These are current implementation
-behaviors, not additional settled platform guarantees.`}
+Current server behavior may change. Create defaults reasons to
+read-team-channel, relevance to all, anchor to now and enabled to true.
+The server determines edit/delete authority and reader access.`}
 	c.AddCommand(newWrite(f, false), newWrite(f, true), newRead(f, false), newRead(f, true), newDelete(f), newSubscribe(f, false), newSubscribe(f, true))
 	return c
 }
@@ -160,17 +174,17 @@ func qualifiedRef(value, kind string) (string, error) {
 	if cmdutil.IsAppID(v) {
 		return v, nil
 	}
-	if urn.HasSchemePrefix(v) {
-		canon, err := cmdutil.CanonicalizeURN(kind, v)
-		if err != nil {
-			return "", err
-		}
-		parsed, err := urn.ParseUrn(canon)
-		if err == nil && parsed.Type == kind {
-			return canon, nil
-		}
+	// Ticker and worker are v2-only types: the shared v1 compatibility
+	// parser deliberately rejects them. Keep this fix local to these commands.
+	parsed, err := urn.ParseUrnV2(v)
+	if err == nil && parsed.Type == kind && parsed.Fragment == "" {
+		return urn.ComposeUrnV2(kind, parsed.Root, parsed.Segments...)
 	}
-	return "", exitcode.Newf(exitcode.Usage, "pass a %s id or fully-qualified hrn:%s: URN (names are not addresses)", kind, kind)
+	listing := "hadron ticker list"
+	if kind == "worker" {
+		listing = "hadron team worker list"
+	}
+	return "", exitcode.Newf(exitcode.Usage, "pass a %s id or fully-qualified hrn:%s: URN (names are not addresses); %s shows the refs", kind, kind, listing)
 }
 
 func subscribers(ctx context.Context, client graphql.Client, ref string) ([]subscriptionDTO, error) {
@@ -271,6 +285,10 @@ this command reports its response and does not promise an exhaustive census.`, A
 					return err
 				}
 			}
+			if list && len(result) == 0 {
+				_, err := fmt.Fprintln(w, "No tickers in this App.")
+				return err
+			}
 			for _, d := range result {
 				if e := writeTicker(w, d.tickerDTO); e != nil {
 					return e
@@ -312,29 +330,52 @@ func newWrite(f *cmdutil.Factory, update bool) *cobra.Command {
 		use = "update <id-or-URN>"
 		short = "Update a ticker atomically"
 	}
-	c := &cobra.Command{Use: use, Short: short, Args: cobra.NoArgs, Long: short + `.
-Omitted inputs use current server defaults on create and preserve on update.
---reasons is a nonempty set: read-team-channel, every-tick, or both (any-of).
-Adding every-tick may require subscriber consent; refusal rejects the whole
-edit. On create the current server defaults reasons to read-team-channel
-(Proposed). The server owns authorization and cadence limits. No uncertain write
-is retried automatically. Owner and immutable slug cannot be supplied.
+	long := `Create a named ticker. Name and cadence are required. Omitted inputs
+use the current server defaults: reasons read-team-channel, relevance all,
+anchor at creation time, and enabled. These defaults may change.
+The caller becomes the owner; owner and immutable slug cannot be supplied.`
+	if update {
+		long = `Update a ticker atomically. Omitted fields keep their current values,
+including enabled/disabled state. Pass at least one field flag.
+Adding every-tick may require subscriber consent: refusal rejects the whole
+edit. The server determines edit authority; current server behavior may change.
+Owner and immutable slug cannot be supplied.`
+	}
+	long += `
 
+--reasons is a nonempty set: read-team-channel, every-tick, or both (any-of).
+The server checks permissions and cadence limits. If a write's outcome is
+unknown, verify the current state before retrying; this command never retries.
 Quiet hours are a JSON object {"timezone":"UTC","windows":[{"days":[1],"from":"09:00","to":"10:00"}]}.
-Anchor, relevance, enabled, quiet-hours shape, read audiences and edit authority
-are current server behavior with Proposed clauses in the corpus.`}
+Watched channels are those in the subscriber's WATCH or BOTH channel register.`
+	c := &cobra.Command{Use: use, Short: short, Args: cobra.NoArgs, Long: long}
 	if update {
 		c.Args = cobra.ExactArgs(1)
 	}
 	flags := c.Flags()
-	flags.StringVar(&v.name, "name", "", "Ticker name (required on create)")
-	flags.IntVar(&v.cadence, "cadence-seconds", 0, "Cadence in whole seconds (required on create; server validates limits)")
-	flags.StringVar(&v.anchor, "anchor-at", "", "Tick anchor as RFC3339 (current server default: creation time)")
-	flags.StringVar(&v.quiet, "quiet-hours", "", "Quiet-hours JSON object")
-	flags.StringSliceVar(&v.channels, "channel-ids", nil, "Channel IDs, comma-separated or repeated; omit for watched channels")
-	flags.StringVar(&v.relevance, "relevance", "", "all or mentions (current server default: all)")
-	flags.StringVar(&v.reasons, "reasons", "", "Nonempty comma-separated reasons: read-team-channel,every-tick")
-	flags.BoolVar(&v.enabled, "enabled", true, "Enable ticker; --enabled=false disables (current server default: true)")
+	nameUsage, cadenceUsage := "Ticker name (required)", "Cadence in whole seconds (required; server validates limits)"
+	anchorUsage, relevanceUsage := "Tick anchor as RFC3339", "all or mentions"
+	keep := ""
+	if update {
+		nameUsage = "Replacement ticker name"
+		cadenceUsage = "Replacement cadence in whole seconds (server validates limits)"
+		keep = "; omitted keeps the current value"
+	}
+	flags.StringVar(&v.name, "name", "", nameUsage+keep)
+	flags.IntVar(&v.cadence, "cadence-seconds", 0, cadenceUsage+keep)
+	flags.StringVar(&v.anchor, "anchor-at", "", anchorUsage+keep)
+	flags.StringVar(&v.quiet, "quiet-hours", "", "Quiet-hours JSON object"+keep)
+	channelUsage := "Channel IDs, comma-separated/repeated; watched means WATCH/BOTH register"
+	if update {
+		channelUsage += keep
+	} else {
+		channelUsage += "; omit for watched channels"
+	}
+	flags.StringSliceVar(&v.channels, "channel-ids", nil, channelUsage)
+	flags.StringVar(&v.relevance, "relevance", "", relevanceUsage+keep)
+	flags.StringVar(&v.reasons, "reasons", "", "Nonempty comma-separated reasons: read-team-channel,every-tick"+keep)
+	// The bound bool's default is not a server default. Changed controls omission.
+	flags.BoolVar(&v.enabled, "enabled", false, "Enable ticker; --enabled=false disables"+keep)
 	if update {
 		flags.BoolVar(&v.clearQuiet, "clear-quiet-hours", false, "Remove quiet hours")
 		flags.BoolVar(&v.clearChannels, "clear-channels", false, "Remove channel selection; count watched channels")
@@ -345,6 +386,15 @@ are current server behavior with Proposed clauses in the corpus.`}
 		_ = c.MarkFlagRequired("cadence-seconds")
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
+		if update {
+			changed := false
+			for _, name := range []string{"name", "cadence-seconds", "anchor-at", "quiet-hours", "channel-ids", "relevance", "reasons", "enabled", "clear-quiet-hours", "clear-channels"} {
+				changed = changed || cmd.Flags().Changed(name)
+			}
+			if !changed {
+				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
+			}
+		}
 		p, err := v.patch(cmd)
 		if err != nil {
 			return err
@@ -467,7 +517,7 @@ and URN; existing subscriptions do not transfer to the replacement.`, Args: cobr
 		if err != nil {
 			return err
 		}
-		if err = cmdutil.ConfirmDeletion(f.IOStreams, yes, "ticker "+ref); err != nil {
+		if err = cmdutil.ConfirmDeletion(f.IOStreams, yes, "ticker "+ref+" (ending its live subscriptions)"); err != nil {
 			return err
 		}
 		client, err := f.GraphQLClient()
@@ -477,6 +527,9 @@ and URN; existing subscriptions do not transfer to the replacement.`, Args: cobr
 		r, err := gen.DeleteTicker(cmd.Context(), client, ref)
 		if err != nil {
 			return api.MapError(err)
+		}
+		if !r.DeleteTicker {
+			return exitcode.Newf(exitcode.Error, "server did not delete ticker; verify the current state before retrying")
 		}
 		d := struct {
 			Ref     string `json:"ref"`
@@ -495,10 +548,14 @@ func newSubscribe(f *cmdutil.Factory, unsubscribe bool) *cobra.Command {
 	if unsubscribe {
 		verb = "unsubscribe"
 	}
-	c := &cobra.Command{Use: verb + " <ticker-id-or-URN> --worker <id-or-URN>", Short: strings.ToUpper(verb[:1]) + verb[1:] + " a worker", Args: cobra.ExactArgs(1), Long: `Change a worker's ticker subscription. The server checks holder, manager,
+	c := &cobra.Command{Use: verb + " <ticker-id-or-URN> --worker <id-or-URN>", Short: strings.ToUpper(verb[:1]) + verb[1:] + " a worker to a ticker", Args: cobra.ExactArgs(1), Long: `Change a worker's ticker subscription. The server checks holder, manager,
 self-subscribe cadence and grant authority. Current server behavior permits
-self-unsubscribe at any cadence (Proposed). A grant announcement is best-effort:
+self-unsubscribe at any cadence; current server behavior may change.
+A grant announcement is best-effort:
 FAILED leaves the subscription change standing; this command never retries it.`}
+	if unsubscribe {
+		c.Short = "Unsubscribe a worker from a ticker"
+	}
 	c.Flags().StringVar(&worker, "worker", "", "Worker ID or fully-qualified worker URN (required)")
 	_ = c.MarkFlagRequired("worker")
 	c.RunE = func(cmd *cobra.Command, args []string) error {
@@ -552,7 +609,18 @@ FAILED leaves the subscription change standing; this command never retries it.`}
 			}
 		}
 		return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-			_, e := fmt.Fprintf(w, "%s · subscription %s\n", verb, d.Subscription.ID)
+			label := wref
+			if d.Subscription.Worker != nil {
+				label = d.Subscription.Worker.ID
+				if d.Subscription.Worker.Name != "" {
+					label = d.Subscription.Worker.Name + " (" + d.Subscription.Worker.ID + ")"
+				}
+			}
+			preposition := "to"
+			if unsubscribe {
+				preposition = "from"
+			}
+			_, e := fmt.Fprintf(w, "%s worker %s %s ticker %s · subscription %s\n", verb, label, preposition, ref, d.Subscription.ID)
 			if e == nil && a != nil && *a == "POSTED" {
 				_, e = fmt.Fprintln(w, "Grant use announced to the team chat.")
 			}
@@ -577,4 +645,14 @@ func writeScope(ctx context.Context, client graphql.Client, f *cmdutil.Factory, 
 	}
 	_, err := fmt.Fprintf(w, "app: %s (from %s)\n", label, source)
 	return err
+}
+
+func cadenceCell(seconds int) string {
+	if seconds%3600 == 0 {
+		return fmt.Sprintf("%dh", seconds/3600)
+	}
+	if seconds%60 == 0 {
+		return fmt.Sprintf("%dm", seconds/60)
+	}
+	return (time.Duration(seconds) * time.Second).String()
 }

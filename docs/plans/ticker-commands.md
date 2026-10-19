@@ -18,7 +18,9 @@ credentials and worktree attribution; no new session or credential store.
 
 Create/list use explicit/configured App context. Human output names the scope
 and source, best-effort resolving the App identity; JSON stays object/array.
-Get and mutations take IDs or fully-qualified URNs, never ticker names. The
+Get and mutations take IDs or fully-qualified v2 URNs, never ticker names. Validation uses
+urn-lib ParseUrnV2/ComposeUrnV2 locally; the shared CanonicalizeURN is
+intentionally v1-only for compatibility and is unchanged. The
 owner is server-derived, and there is no owner flag. Delete uses the shared
 irreversible confirmation gate; recreation yields a new slug/URN.
 
@@ -66,7 +68,7 @@ subscriber pagination/stuck cursors, delete confirmation and refusal/no retry.
 Error-mapping tests cover new ticker/subscribe refusals. Existing global tests
 also enforce list/ls naming, required help flags and agentic usage completeness.
 
-`python3 scripts/check-ticker-cli.py /absolute/path/to/hadron` runs 26 offline
+`python3 scripts/check-ticker-cli.py /absolute/path/to/hadron` runs 42 offline
 compiled-command cases: all seven text/JSON paths, help, validation and
 confirmation refusals, FAILED announcements and a widening refusal with one
 mutation. It uses an isolated temp directory, synthetic credential and loopback
@@ -90,10 +92,10 @@ This is an author check, not the required independent review/QA/UX receipts.
 | omit-unset-optional-args | Pass: generated omitempty plus captured key absence; clear/false retained. |
 | regenerate-after-graphql-edit | Pass: pinned-main schema and regenerated operations. |
 | stable-json-dto | Pass: package DTOs and raw empty-array checks; nil channels/subscribers mutant fails. |
-| canonical-ref-handling | Skipped: no memory/node resolution or upsert; ticker/worker validation uses urn-lib through cmdutil. |
+| canonical-ref-handling | Skipped: no memory/node resolution or upsert; ticker/worker validation uses urn-lib v2 locally. |
 | async-wait-command-contract | Skipped: no async polling. |
 | entity-fields-not-display-labels | Pass: owner/worker/channel identities retain IDs and nullable URNs, not labels alone. |
-| help-text-matches-changed-behaviour | Skipped: new command group; new help and agent contract reviewed directly. |
+| help-text-matches-changed-behaviour | Pass: separate create/update help, omitted-state wording and no misleading bound bool default. |
 | no-rmw-sugar-over-wholesale-writes | Skipped: reasons/channels replace explicitly; no partial set-edit sugar. |
 | map-new-server-error-codes | Pass: consent/subscription permission, input and state codes deliberately mapped/tested. |
 | confirm-prompt-tells-the-truth | Pass: shared irreversible gate; no restore promise or known-doomed pre-read. |
@@ -108,7 +110,7 @@ This is an author check, not the required independent review/QA/UX receipts.
 | separate-streams-cannot-test-order | Skipped: no cross-stream ordering claim. |
 | a-mutation-check-can-itself-be-a-no-op | Pass: nil-array mutant changes actual initializer and fails raw JSON assertion. |
 | a-tidy-argument-is-not-a-checked-one | Skipped: no ambiguous value treated as certain. |
-| mutate-with-the-original-input | Skipped: new feature, no reported defect fix. |
+| mutate-with-the-original-input | Pass: exact create-printed e2e-alpha ticker/worker URNs and dotted root reproduce Celine P2 red before v2 fix. |
 | a-new-meaning-for-an-existing-glyph | Skipped: no existing display glyph redefined. |
 | enumerate-the-paths-before-promising-a-guarantee | Pass: seven commands enumerated; mutation/no-retry and output-failure paths tested; no live authority guarantee. |
 | a-test-double-must-satisfy-the-real-access-pattern | Pass: actual command entrypoints, multipage calls and race checks; compiled acceptance uses fake HTTP. |
@@ -126,3 +128,34 @@ This is an author check, not the required independent review/QA/UX receipts.
 | a-recommended-field-must-be-seen-carrying-a-value | Pass for command mapping: optional false/clear, reasons, channels and quiet object exercised on fake wire; real persistence still QA-held. |
 | classify-security-input-by-structure | Skipped: no security request classification. |
 | old-server-graphql-document-compatibility | Skipped: entirely new command group; no existing command's older-server path altered. |
+
+## Review delta after initial head 96ce595
+
+Red-first 5032b57 reproduces Celine's exact create-printed ticker/worker URNs
+and dotted root, plus Uma's no-flag update/help issue. The narrow fix uses
+urn-lib v2 parsing/composition only in the ticker package; no shared helper or
+other command changes. Wrong-type/malformed refs retain a readable id-or-URN
+refusal and a list-command hint. ID inputs continue to work.
+
+Update now refuses no field flags before client construction, including when
+only global flags are supplied. Create/update have separate help; bound bool
+values have no help default and Changed still owns input omission. End-user
+help says current behavior may change; precise Proposed corpus status remains
+in the agent contract and this plan.
+
+Text output names both subscription targets, explicitly reports an empty list,
+labels zero readable channels as none visible, formats cadence/state, summarizes
+quiet hours, and describes the live-subscription consequence in delete's prompt.
+A false delete response refuses success and recommends state verification,
+without a retry. JSON DTO shapes are unchanged. Regression tests cover these
+paths; the compiled runner now has 42 cases, including exact printed-URN
+round trips and no-op/wrong-type guards.
+
+Celine's prior one-stack real authority/persisted-reasons evidence and Chip's
+#2078 server atomicity evidence are independent receipts, not author claims.
+Xylon #22138 allows no second stack solely for widening consent, with independent
+final-head compiled replay plus the retained server evidence. Chip #22185 then
+confirmed that no authentic response envelope was retained: the author's fake
+response remains explicitly synthetic, never a historical capture. The exact
+replay substitution is escalated to Xylon/Ada rather than inventing evidence.
+New-head review/QA carries and green CI remain required.

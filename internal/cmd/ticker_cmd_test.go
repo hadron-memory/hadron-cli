@@ -232,7 +232,7 @@ func TestTickerDeleteConfirmation(t *testing.T) {
 			} else if e == nil || calls != 0 {
 				t.Fatalf("%v %d", e, calls)
 			}
-			if !strings.Contains(stderr.String(), "cannot be undone") {
+			if !strings.Contains(stderr.String(), "cannot be undone") || !strings.Contains(stderr.String(), "ending its live subscriptions") {
 				t.Fatal(stderr.String())
 			}
 		})
@@ -262,7 +262,7 @@ func TestTickerEmptyListScopeAndDecorationFailure(t *testing.T) {
 			if e := r.Execute(); e != nil {
 				t.Fatal(e)
 			}
-			if !strings.Contains(out.String(), "app: hrn:app:acme.com:ops (from --app)") {
+			if !strings.Contains(out.String(), "app: hrn:app:acme.com:ops (from --app)") || !strings.Contains(out.String(), "No tickers in this App.") {
 				t.Fatal(out.String())
 			}
 		})
@@ -435,7 +435,7 @@ func TestTickerUpdateNoFieldsAndHelp(t *testing.T) {
 	r.SetArgs([]string{"ticker", "update", tickerRef, "--json", "--server", gql.URL})
 	e := r.Execute()
 	if e == nil || exitCodeFor(e) != 2 || !strings.Contains(e.Error(), "nothing to update") || calls != 0 {
-		t.Fatalf("%v, calls %d", e, calls)
+		t.Errorf("%v, calls %d", e, calls)
 	}
 	for _, verb := range []string{"create", "update"} {
 		t.Run(verb, func(t *testing.T) {
@@ -453,5 +453,80 @@ func TestTickerUpdateNoFieldsAndHelp(t *testing.T) {
 				t.Fatal(help)
 			}
 		})
+	}
+}
+
+func TestTickerMalformedAndWrongTypeURNs(t *testing.T) {
+	for _, args := range [][]string{{"get", "hrn:node:e2e-alpha:team:qa-t1"}, {"get", "hrn:ticker:e2e-alpha:team"}, {"subscribe", tickerRef, "--worker", "hrn:ticker:e2e-alpha:team:qa-t1"}, {"subscribe", tickerRef, "--worker", "hrn:worker:e2e-alpha:team"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			calls := 0
+			gql, _ := captureGraphQLFunc(t, func(op string) string { calls++; return `{"data":{}}` })
+			f, _ := testFactory(t)
+			r := NewRootCmd(f)
+			r.SetArgs(append(append([]string{"ticker"}, args...), "--server", gql.URL))
+			e := r.Execute()
+			kind := "ticker"
+			if args[0] == "subscribe" {
+				kind = "worker"
+			}
+			if e == nil || exitCodeFor(e) != 2 || calls != 0 || !strings.Contains(e.Error(), "pass a "+kind+" id or fully-qualified hrn:"+kind+": URN") || strings.Contains(e.Error(), "unknown-type") {
+				t.Fatalf("%v, calls %d", e, calls)
+			}
+		})
+	}
+}
+
+func TestTickerUXTextControls(t *testing.T) {
+	fixture := strings.Replace(tickerFixture, `"quietHours":null`, `"quietHours":{"timezone":"UTC","windows":[]}`, 1)
+	gql := fakeGraphQL(t, map[string]string{"GetTicker": `{"data":{"ticker":` + fixture + `}}`, "TickerSubscribers": `{"data":{"ticker":{"subscribers":{"items":[],"hasNextPage":false,"endCursor":null}}}}`})
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"ticker", "get", tickerRef, "--server", gql.URL})
+	if e := r.Execute(); e != nil {
+		t.Fatal(e)
+	}
+	text := out.String()
+	for _, want := range []string{"every 10m", " · enabled · ", "none visible to you", "quiet hours UTC (0 windows)"} {
+		if !strings.Contains(text, want) {
+			t.Fatal(text)
+		}
+	}
+	if strings.Contains(text, `"timezone"`) || strings.Contains(text, "enabled true") {
+		t.Fatal(text)
+	}
+}
+
+func TestTickerSubscriptionTextNamesTargets(t *testing.T) {
+	for _, verb := range []string{"subscribe", "unsubscribe"} {
+		t.Run(verb, func(t *testing.T) {
+			op, field, prep := "SubscribeTicker", "subscribeWorker", "to"
+			if verb == "unsubscribe" {
+				op, field, prep = "UnsubscribeTicker", "unsubscribeWorker", "from"
+			}
+			gql := fakeGraphQL(t, map[string]string{op: `{"data":{"` + field + `":{"subscription":` + subscriptionFixture + `,"announcement":null}}}`})
+			f, out := testFactory(t)
+			r := NewRootCmd(f)
+			r.SetArgs([]string{"ticker", verb, tickerRef, "--worker", workerRef, "--server", gql.URL})
+			if e := r.Execute(); e != nil {
+				t.Fatal(e)
+			}
+			for _, want := range []string{"Worker (w1)", prep + " ticker " + tickerRef, "subscription s1"} {
+				if !strings.Contains(out.String(), want) {
+					t.Fatal(out.String())
+				}
+			}
+		})
+	}
+}
+
+func TestTickerDeleteFalseIsNotSuccess(t *testing.T) {
+	calls := 0
+	gql, _ := captureGraphQLFunc(t, func(op string) string { calls++; return `{"data":{"deleteTicker":false}}` })
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"ticker", "delete", tickerRef, "--yes", "--json", "--server", gql.URL})
+	e := r.Execute()
+	if e == nil || exitCodeFor(e) == 0 || !strings.Contains(e.Error(), "server did not delete ticker") || calls != 1 || out.Len() != 0 {
+		t.Fatalf("%v, calls %d, output %s", e, calls, out.String())
 	}
 }

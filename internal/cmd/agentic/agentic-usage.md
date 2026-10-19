@@ -3101,7 +3101,9 @@ the server determines the caller and authority. Create/update accept `--name`,
 `--channel-ids` (comma-separated/repeated IDs), `--relevance all|mentions`,
 `--reasons` and `--enabled=false`. Update also has `--clear-quiet-hours` and
 `--clear-channels`, mutually exclusive with their set flags. Omitted update
-fields are preserved; false and clear values are transmitted explicitly.
+fields are preserved; false and clear values are transmitted explicitly. A no-field
+update refuses with exit 2 before a request. Ticker/worker URNs use the v2 parser;
+malformed or wrong-type refs refuse before a request.
 
 Reasons form a nonempty closed set: `read-team-channel`, `every-tick`, or both
 (any-of). Duplicate reasons collapse to canonical order. Empty and unknown
@@ -3121,7 +3123,8 @@ are []. Readable channels are only the reader's view. Missing and unreadable
 get both report not found. The server's ticker list is currently unpaged: the
 CLI reports that response without claiming an exhaustive census.
 
-Delete requires TTY confirmation or --yes; there is no restore. Recreating a
+Delete requires TTY confirmation or --yes and ends live subscriptions; there is
+no restore. A false delete response is an error, never a success receipt. Recreating a
 name gets a new slug/URN. Subscribe/unsubscribe return subscription and nullable
 announcement. Null is normal; POSTED reports grant announcement success. FAILED
 leaves the subscription change standing and prints a warning; never rerun to
