@@ -19,9 +19,25 @@ const (
 	WakeBudgetExhausted = "budget-exhausted"
 )
 
+// knownCodes is the delivery diagnostic vocabulary: the only codes a
+// delivery error may carry into a log, status line or receipt. S1's and the
+// auth refusals (server main ad7f1c2), and the adapter's fixed classes and
+// own failures. A code is trusted by membership, never by its shape: a
+// code-shaped token can still be private text (Rodolfo's §10 P2 on #939;
+// Xan #24626).
+var knownCodes = map[string]bool{
+	"APP_KEY_SCOPE_REQUIRED": true, "HOST_KEY_REQUIRED": true, "APP_NOT_FOUND": true,
+	"APP_KEY_SESSION_BOUND": true, "BAD_USER_INPUT": true, "WAKE_PROOF_STALE": true,
+	"WAKE_PROOF_INVALID": true, "WAKE_PROOF_REQUESTER_MISMATCH": true,
+	"FORBIDDEN": true, "UNAUTHENTICATED": true,
+	"server-refused": true, "unauthenticated": true, "forbidden": true,
+	"unavailable": true, "transport-error": true,
+	"no-page": true, "no-cursor": true, "bad-deliver-after": true,
+	"bad-busy-deadline": true, "no-result": true, "bad-count": true,
+}
+
 // KnownCode reports whether code is in the delivery diagnostic vocabulary.
-// Stub for the red step.
-func KnownCode(code string) bool { return false }
+func KnownCode(code string) bool { return knownCodes[code] }
 
 // WakeRead is how a step's wake read went (cli#906 row 1): its code and
 // the counts dueWakes reports for status. Counts only.

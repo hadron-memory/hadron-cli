@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
@@ -157,16 +156,14 @@ func (p *Poller) scopeOff(error) {
 	p.log("delivery-off", "", "", "", ErrDeliveryScope.Error())
 }
 
-// safeCode matches a code a log line may carry.
-var safeCode = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
-
 // diagnostic is a source's error as a log line may carry it: the code it
-// declares (DeliveryCode), when that is a plain token, else "unclassified".
-// Never err.Error(): a server or proxy error may echo the request or carry
-// message text (Rodolfo's §10 P2 on #939).
+// declares (DeliveryCode), when that is in the known vocabulary, else
+// "unclassified". Never err.Error(): a server or proxy error may echo the
+// request or carry message text (Rodolfo's §10 P2 on #939), and a code is
+// trusted by membership, not shape (Xan #24626).
 func diagnostic(err error) string {
 	var coded interface{ DeliveryCode() string }
-	if errors.As(err, &coded) && safeCode.MatchString(coded.DeliveryCode()) {
+	if errors.As(err, &coded) && delivery.KnownCode(coded.DeliveryCode()) {
 		return coded.DeliveryCode()
 	}
 	return "unclassified"

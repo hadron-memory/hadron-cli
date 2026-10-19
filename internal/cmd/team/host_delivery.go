@@ -61,10 +61,19 @@ type deliveryCallError struct{ call, code string }
 func (e *deliveryCallError) Error() string        { return "delivery " + e.call + " failed: " + e.code }
 func (e *deliveryCallError) DeliveryCode() string { return e.code }
 
+// callError is the only constructor: a code outside the known vocabulary
+// collapses to server-refused.
+func callError(call, code string) *deliveryCallError {
+	if !delivery.KnownCode(code) {
+		code = "server-refused"
+	}
+	return &deliveryCallError{call: call, code: code}
+}
+
 // deliveryError classifies a delivery call's error. A key without the scope
 // turns delivery off for the run; anything else is that call failing.
 func deliveryError(call string, err error) error {
-	e := &deliveryCallError{call: call, code: deliveryCodeOf(err)}
+	e := callError(call, deliveryCodeOf(err))
 	if e.code == "APP_KEY_SCOPE_REQUIRED" {
 		return fmt.Errorf("%w: %w", hostpoller.ErrDeliveryScope, e)
 	}
@@ -108,7 +117,7 @@ func (s *hostServer) Batches(ctx context.Context) ([]delivery.Batch, error) {
 		}
 		page := resp.DeliveryBatches
 		if page == nil || page.PageInfo == nil {
-			return nil, &deliveryCallError{call: "read", code: "no-page"}
+			return nil, callError("read", "no-page")
 		}
 		for _, b := range page.Batches {
 			if b == nil {
@@ -125,7 +134,7 @@ func (s *hostServer) Batches(ctx context.Context) ([]delivery.Batch, error) {
 		}
 		next := page.PageInfo.EndCursor
 		if next == nil || *next == "" || (after != nil && *after == *next) {
-			return nil, &deliveryCallError{call: "read", code: "no-cursor"}
+			return nil, callError("read", "no-cursor")
 		}
 		after = next
 	}
@@ -138,10 +147,10 @@ func batchFrom(b *genBatch, read time.Time) (delivery.Batch, error) {
 	}
 	var err error
 	if out.DeliverAfter, err = time.Parse(time.RFC3339, b.DeliverAfter); err != nil {
-		return out, &deliveryCallError{call: "read", code: "bad-deliver-after"}
+		return out, callError("read", "bad-deliver-after")
 	}
 	if out.BusyDeadline, err = time.Parse(time.RFC3339, b.BusyDeadline); err != nil {
-		return out, &deliveryCallError{call: "read", code: "bad-busy-deadline"}
+		return out, callError("read", "bad-busy-deadline")
 	}
 	for _, r := range b.Ranges {
 		if r == nil {
@@ -174,13 +183,13 @@ func (s *hostServer) Ack(ctx context.Context, batchID string, through []delivery
 	r := resp.AcknowledgeDeliveryBatches
 	switch {
 	case r == nil:
-		return "", &deliveryCallError{call: "ack", code: "no-result"}
+		return "", callError("ack", "no-result")
 	case r.Acknowledged == 1 && r.Unchanged == 0:
 		return delivery.Acked, nil
 	case r.Acknowledged == 0 && r.Unchanged == 1:
 		return delivery.Unchanged, nil
 	}
-	return "", &deliveryCallError{call: "ack", code: fmt.Sprintf("counted-%d-acknowledged-%d-unchanged", r.Acknowledged, r.Unchanged)}
+	return "", callError("ack", "bad-count")
 }
 
 // Hold is S5's hold report, not on the server yet (#940): it answers

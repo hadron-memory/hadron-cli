@@ -192,8 +192,8 @@ func TestAckSendsOneBatchAndMapsTheCounts(t *testing.T) {
 			if got != c.want || (err != nil) != c.err {
 				t.Fatalf("got %q err %v", got, err)
 			}
-			if err != nil && strings.Contains(err.Error(), "SECRET") {
-				t.Fatalf("error carries the proof: %v", err)
+			if err != nil {
+				checkClean(t, "ack", err, "")
 			}
 			cs := calls()
 			if len(cs) != 1 || cs[0].auth != "Bearer hk_host_key" || cs[0].session != "" {
