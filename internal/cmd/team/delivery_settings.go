@@ -23,18 +23,21 @@ type deliverySettingsDTO struct {
 	StandbyEffective   bool `json:"standbyEffective"`
 }
 
-const deliverySettingsHelp = `The batch window IS the ticker cadence floor: changing it changes ticker
-cadence. Managers change this shared floor; it is at least 60 seconds.
-Defaults: batch window/floor 120 seconds, busy delay 600, stuck window 900.
+const deliverySettingsHelp = `The batch window is also the ticker cadence floor: no ticker or
+self-subscription may tick faster than it. Lowering it allows faster tickers.
+Existing tickers keep their cadence. Raising it above a live ticker's cadence
+is refused, naming the tickers to slow or delete first. Managers change this
+shared floor; minimum 60 seconds, default 120. It also limits the normal wake rate.
+Defaults for busy delay and stuck window are 600 and 900 seconds.
 
 The server rejects values outside its current limits: busy delay 1–86400
 seconds, stuck window 1–604800 seconds, and stuck must exceed busy plus the
-batch window. It also checks existing ticker and self-subscription cadences.
-These busy/stuck limits and write rights describe current server behavior.
+batch window. It also checks the self-subscription cadence. These busy/stuck
+limits and write rights describe current server behavior.
 
 The two standby fields are server values, not a claim that standby delivery
-is running. Enabling standby is currently refused until that behavior ships
-(S7). A successful settings write does not mean anything was delivered.`
+is running. Enabling standby is currently refused until standby delivery ships.
+A successful settings write does not mean anything was delivered.`
 
 func newCmdTeamDeliverySettings(f *cmdutil.Factory) *cobra.Command {
 	c := &cobra.Command{Use: "delivery-settings <command>", Short: "Read or change the App's delivery settings", Long: deliverySettingsHelp}
@@ -53,7 +56,7 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 	var batch, busy, stuck string
 	var standby bool
 	if set {
-		c.Flags().StringVar(&batch, "batch-window-seconds", "", "Shared ticker cadence floor and batch window, whole seconds (minimum 60); changing it changes ticker cadence")
+		c.Flags().StringVar(&batch, "batch-window-seconds", "", "Shared ticker cadence floor and batch window, whole seconds (minimum 60); existing tickers keep their cadence; raising above a live ticker is refused")
 		c.Flags().StringVar(&busy, "busy-delay-seconds", "", "Busy delay in whole seconds; the server checks its current limits")
 		c.Flags().StringVar(&stuck, "stuck-window-seconds", "", "Stuck window in whole seconds; the server checks its current limits and joint relation")
 		c.Flags().BoolVar(&standby, "standby", false, "Stored standby setting (true currently refused by the server); explicit false is sent")
@@ -75,7 +78,7 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 				// GraphQL Int is signed 32-bit. Ranges/relations stay server-owned.
 				n, err := strconv.ParseInt(v.raw, 10, 32)
 				if err != nil {
-					return exitcode.Newf(exitcode.Usage, "--%s takes a whole number of seconds within GraphQL Int range; no null or default value", v.name)
+					return exitcode.Newf(exitcode.Usage, "--%s takes a whole number of seconds, for example 600 (maximum 2147483647); no null or default value", v.name)
 				}
 				value := int(n)
 				*v.dst = &value
@@ -125,7 +128,12 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 				return err
 			}
 			if set && !cmd.Flags().Changed("batch-window-seconds") && !cmd.Flags().Changed("busy-delay-seconds") && !cmd.Flags().Changed("stuck-window-seconds") && !cmd.Flags().Changed("standby") {
-				if _, err := fmt.Fprintln(w, "unchanged settings readback (empty patch)"); err != nil {
+				if _, err := fmt.Fprintln(w, "No settings passed, so nothing changed (unchanged readback). Current settings:"); err != nil {
+					return err
+				}
+			}
+			if set && (cmd.Flags().Changed("batch-window-seconds") || cmd.Flags().Changed("busy-delay-seconds") || cmd.Flags().Changed("stuck-window-seconds") || cmd.Flags().Changed("standby")) {
+				if _, err := fmt.Fprintln(w, "Delivery settings updated."); err != nil {
 					return err
 				}
 			}
@@ -133,8 +141,8 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 			t.Row("batch window / ticker cadence floor", fmt.Sprintf("%d s", dto.BatchWindowSeconds))
 			t.Row("busy delay", fmt.Sprintf("%d s", dto.BusyDelaySeconds))
 			t.Row("stuck window", fmt.Sprintf("%d s", dto.StuckWindowSeconds))
-			t.Row("standbyEnabled", strconv.FormatBool(dto.StandbyEnabled))
-			t.Row("standbyEffective", strconv.FormatBool(dto.StandbyEffective))
+			t.Row("standby (stored)", strconv.FormatBool(dto.StandbyEnabled))
+			t.Row("standby (effective)", strconv.FormatBool(dto.StandbyEffective))
 			return t.Flush()
 		})
 	}

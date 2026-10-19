@@ -17,10 +17,11 @@ Set exposes --batch-window-seconds, --busy-delay-seconds,
 passed empty/null/default/fractional/overflow values refuse before requests.
 Cobra Changed plus generated pointers/omitempty preserve omission and false.
 No reset/null path or standbyEffective input. Empty patch sends {} and prints
-“unchanged settings readback,” never a claimed modification.
+“nothing changed (unchanged readback),” never a claimed modification.
 
 Batch window IS ticker cadence floor, one dial; help states this coupling next
-to the flag. Decided minimum 60 and defaults120/600/900 are stated. Busy/stuck
+to the flag: existing tickers keep their cadence and a raise above a live
+ticker is refused. Decided minimum 60 and defaults120/600/900 are stated. Busy/stuck
 ranges, joint relation and manager write rights are described as current server
 behavior under Proposed corpus text, not new law. Server owns joint/live-ticker/
 self-cadence validation. Standby read fields are returned values; no activation
@@ -84,7 +85,7 @@ production settings control, release, activation, stop or host action.
 | sweep-by-identifier-not-by-prose | Skipped: no removed/renamed surface |
 | backticks-in-flag-usage-become-the-placeholder | Pass: no backticks; rendered help checked |
 | separate-streams-cannot-test-order | Skipped: no cross-stream ordering assertion |
-| a-mutation-check-can-itself-be-a-no-op | Skipped: no mutation-testing claim |
+| a-mutation-check-can-itself-be-a-no-op | Pass: asserted production substitution applied; JSON and text tests fail; restored source passes |
 | a-tidy-argument-is-not-a-checked-one | Skipped: no ambiguity promoted to certainty |
 | mutate-with-the-original-input | Skipped: addition, not incident-specific fix |
 | a-new-meaning-for-an-existing-glyph | Skipped: no unknown glyph |
@@ -104,3 +105,16 @@ production settings control, release, activation, stop or host action.
 | a-recommended-field-must-be-seen-carrying-a-value | Skipped: no proposed workaround built on an unobserved field |
 | classify-security-input-by-structure | Skipped: no security body scanner |
 | old-server-graphql-document-compatibility | Skipped: new S9 commands require landed S9; no older-server fallback promised |
+
+## Review delta (Uma/Joran)
+
+Red ad36573 reproduces the false-retiming help claim and adds a distinct
+stored-on/effective-off projection fixture. The DTO-substitution mutant
+(effective := stored) then fails both get/set JSON and exact text rows; restored
+production passes. The fixture is a synthetic projection, not evidence that
+this CLI enabled standby on the current server. Help now states unchanged
+existing ticker cadence and the named-ticker refusal on floor raise. Text-only
+updates add explicit updated/unchanged receipts and readable standby labels;
+JSON keys, input/transport/auth and error mappings are unchanged. User help
+removes S7/GraphQL terminology. P3 string flag placeholders are deferred; empty
+set remains the gate's explicitly chosen manager-write readback semantics.

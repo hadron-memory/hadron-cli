@@ -165,7 +165,7 @@ func TestTeamDeliverySettingsHelpAndText(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, s := range []string{"worktree binding", "batch window / ticker cadence floor", "120 s", "600 s", "900 s", "standbyEnabled", "standbyEffective"} {
+	for _, s := range []string{"worktree binding", "batch window / ticker cadence floor", "120 s", "600 s", "900 s", "standby (stored)", "standby (effective)"} {
 		if !strings.Contains(out, s) {
 			t.Fatalf("text lacks %q: %s", s, out)
 		}
@@ -197,7 +197,7 @@ func TestTeamDeliverySettingsDistinctStandbyText(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, row := range []struct{ label, value string }{{"standbyEnabled", "true"}, {"standbyEffective", "false"}} {
+	for _, row := range []struct{ label, value string }{{"standby (stored)", "true"}, {"standby (effective)", "false"}} {
 		matched := false
 		for _, line := range strings.Split(out, "\n") {
 			if strings.Contains(line, row.label) {

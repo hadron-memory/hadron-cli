@@ -13,7 +13,7 @@ import threading
 
 BINARY = str(Path(sys.argv[1] if len(sys.argv) > 1 else 'bin/hadron').resolve())
 SETTINGS = dict(batchWindowSeconds=120, busyDelaySeconds=600,
-                stuckWindowSeconds=900, standbyEnabled=False, standbyEffective=False)
+                stuckWindowSeconds=900, standbyEnabled=True, standbyEffective=False)
 requests = []
 refusal = None
 transport_fail = False
@@ -87,6 +87,8 @@ try:
                 assert len(calls) == 1  # no render-only identity query
             else:
                 assert 'from --app' in result.stdout and 'ticker cadence floor' in result.stdout
+                rows = {line.rsplit(None, 1)[0].strip(): line.rsplit(None, 1)[-1] for line in result.stdout.splitlines() if 'standby (' in line}
+                assert rows == {'standby (stored)': 'true', 'standby (effective)': 'false'}, rows
             for args, expected in [
                 (['set', '--standby=false'], {'standbyEnabled': False}),
                 (['set', '--busy-delay-seconds', '700'], {'busyDelaySeconds': 700}),
@@ -100,7 +102,9 @@ try:
                 if mode:
                     assert json.loads(result.stdout) == SETTINGS
                 elif expected == {}:
-                    assert 'unchanged' in result.stdout
+                    assert 'nothing changed' in result.stdout and 'Delivery settings updated.' not in result.stdout
+                else:
+                    assert 'Delivery settings updated.' in result.stdout
             for refusal, code in [
                 ('FORBIDDEN', 8), ('APP_NOT_FOUND', 4), ('BAD_USER_INPUT', 2),
                 ('DELIVERY_SETTINGS_OUT_OF_RANGE', 2), ('DELIVERY_SETTINGS_CONFLICT', 2),
@@ -132,6 +136,10 @@ try:
             assert calls == []
             for text in ('cadence floor', '120', '600', '900', 'current limits'):
                 assert text in result.stdout
+            normalized = ' '.join(result.stdout.split())
+            assert 'changing it changes ticker cadence' not in normalized
+            assert 'Existing tickers keep their cadence' in normalized
+            assert "Raising it above a live ticker's cadence is refused" in normalized
         print(f'PASS {count} compiled CLI cases; synthetic transport only, no live authority/persistence proof')
 finally:
     srv.shutdown()
