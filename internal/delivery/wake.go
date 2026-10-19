@@ -154,6 +154,9 @@ func CheckWake(w Wake) error {
 			if r.Task == nil || r.Task.EventID == "" || r.Task.ChainIndex < 0 {
 				return fmt.Errorf("%w: a task without its event", ErrMalformedWake)
 			}
+			if r.Task.ID == "" && r.Task.Event != "alarm" {
+				return fmt.Errorf("%w: only an alarm may come without its task", ErrMalformedWake)
+			}
 		default:
 			return fmt.Errorf("%w: an unknown reason kind", ErrMalformedWake)
 		}
@@ -172,7 +175,7 @@ func RenderWake(reasons []WakeReason) string {
 		case WakeTick:
 			parts = append(parts, TickPrefix+" "+oneLine(r.TickerName)+": scheduled check-in. Read your team chat and tasks.")
 		case WakeTask:
-			parts = append(parts, fmt.Sprintf("%s %s: %s (%s)", TaskPrefix, oneLine(r.Task.Event), oneLine(r.Task.Title), oneLine(r.Task.ID)))
+			parts = append(parts, renderTask(r.Task))
 		}
 	}
 	text := strings.Join(parts, "; ")
@@ -183,6 +186,18 @@ func RenderWake(reasons []WakeReason) string {
 		text = string([]rune(text)[:MaxWakeRunes-1]) + "…"
 	}
 	return text
+}
+
+// renderTask is one TASK reason. A task-less alarm says its alarm type, or
+// just that it has no task: a title without a task is never shown as one.
+func renderTask(t *TaskReason) string {
+	if t.ID != "" {
+		return fmt.Sprintf("%s %s: %s (%s)", TaskPrefix, oneLine(t.Event), oneLine(t.Title), oneLine(t.ID))
+	}
+	if at := oneLine(t.AlarmType); at != "" {
+		return fmt.Sprintf("%s %s: %s (no task)", TaskPrefix, oneLine(t.Event), at)
+	}
+	return fmt.Sprintf("%s %s (no task)", TaskPrefix, oneLine(t.Event))
 }
 
 // oneLine folds control characters (a newline would submit early) and runs

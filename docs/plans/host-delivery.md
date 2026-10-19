@@ -186,6 +186,11 @@ adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
   line says how many reasons it left out.
   - TICK: `[hadron tick] <ticker>: scheduled check-in. Read your team chat and tasks.`
   - TASK: `[hadron task] <event>: <title> (<task id>)`.
+  - A task-less alarm (S5, hadron-server#2021 comment-6259060238: `taskId`
+    null) renders as `[hadron task] alarm: <alarm type> (no task)`, or as
+    `[hadron task] alarm (no task)` with no type. A title is never shown
+    without its task. Only an alarm may come without its task. Its identity
+    stays `task:<eventId>:<chainIndex>`.
   - A **MENTION-only wake is never typed and never acked**: its text arrives
     as an S1 batch.
   - Both prefixes are own prefixes (`OwnPrefixes`). So a batch clears a
