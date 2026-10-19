@@ -24,9 +24,20 @@ func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 		Long: `Sign in to a Hadron server.
 
 By default this opens your browser and runs an OAuth flow against the
-server's consent screen, using GitHub for identity. Pass --provider google
-to sign in with Google instead. The resulting token is stored in the OS
-keychain (or ~/.config/hadron/auth.json when no keychain is available).
+server's sign-in page, which offers the methods that server supports, such
+as GitHub, Google or email. Pass --provider google to go straight to Google.
+The resulting token is stored in the OS keychain (or
+~/.config/hadron/auth.json when no keychain is available).
+
+If the server requires a passkey for email sign-in, its page asks for one
+before the CLI receives anything. Where the server offers passkey
+registration, it emails a second link: open it in the same browser.
+Otherwise sign in with --provider github or --provider google. An agent
+cannot complete a browser passkey step; agents use HADRON_TOKEN or
+--with-token.
+
+The browser step must finish within 15 minutes, a limit the CLI sets for
+itself. If it does not, nothing is stored; rerun ` + "`hadron auth login`" + `.
 
 The browser flow requests the "account" OAuth scope, because the CLI uses
 the server's data API and a key limited to "mcp" is refused there. If the

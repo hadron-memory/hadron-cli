@@ -50,3 +50,26 @@ func TestBrowserLoginTimeoutSaysNothingStored(t *testing.T) {
 		}
 	}
 }
+
+// An interrupt (the caller's context cancelled, not timed out) must not be
+// reported as a timeout naming a limit that never fired.
+func TestBrowserLoginInterruptIsNotReportedAsTimeout(t *testing.T) {
+	as := newFakeAS(t)
+	io, _, _ := output.Test()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(200*time.Millisecond, cancel)
+	_, err := BrowserStrategy{}.Login(ctx, LoginOptions{
+		ServerURL:   as.server.URL,
+		IO:          io,
+		HTTPClient:  as.server.Client(),
+		OpenBrowser: func(string) error { return nil },
+	})
+	if got := exitcode.FromError(err); got != exitcode.Cancelled {
+		t.Fatalf("exit = %d, want Cancelled %d (err: %v)", got, exitcode.Cancelled, err)
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "was cancelled; nothing was stored") || strings.Contains(msg, "did not finish within") {
+		t.Errorf("interrupt message = %q", msg)
+	}
+}
