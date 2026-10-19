@@ -934,6 +934,10 @@ func codeForExtension(code string) int {
 	// It must NOT ride the `_STALE` shape into anything else: there is no
 	// suffix rule here, because a code ending in _STALE is not automatically a
 	// conflict and inventing the family would map codes nobody has defined.
+	case code == "WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED":
+		// The caller must explicitly attest verified external absence; --yes
+		// alone confirms deletion, not that separate input (server#1162).
+		return exitcode.Usage
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
 		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE":
 		return exitcode.Conflict
