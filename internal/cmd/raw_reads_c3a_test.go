@@ -35,11 +35,10 @@ const (
 // RESOLVED reader view: it returns stored text only to a query that asks for
 // it explicitly. respond builds the body for an operation given the content
 // the query earned. It records each operation's query text.
-func rawAwareGraphQL(t *testing.T, respond func(op, content string) (string, bool)) (*httptest.Server, map[string]string, map[string]json.RawMessage) {
+func rawAwareGraphQL(t *testing.T, respond func(op, content string) (string, bool)) (*httptest.Server, map[string]string) {
 	t.Helper()
 	var mu sync.Mutex
 	queries := map[string]string{}
-	vars := map[string]json.RawMessage{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
 			w.Header().Set("Content-Type", "application/json")
@@ -47,14 +46,12 @@ func rawAwareGraphQL(t *testing.T, respond func(op, content string) (string, boo
 			return
 		}
 		var body struct {
-			OperationName string          `json:"operationName"`
-			Query         string          `json:"query"`
-			Variables     json.RawMessage `json:"variables"`
+			OperationName string `json:"operationName"`
+			Query         string `json:"query"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		mu.Lock()
 		queries[body.OperationName] = body.Query
-		vars[body.OperationName] = body.Variables
 		mu.Unlock()
 		content := c3aResolved
 		if strings.Contains(body.Query, rawArg) {
@@ -72,7 +69,7 @@ func rawAwareGraphQL(t *testing.T, respond func(op, content string) (string, boo
 		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
 	}))
 	t.Cleanup(server.Close)
-	return server, queries, vars
+	return server, queries
 }
 
 func c3aJSON(s string) string {
@@ -108,7 +105,7 @@ func TestC3aStoredReadOperationsStateRawContent(t *testing.T) {
 // Pin 1, on the wire, for the two command families a reader runs directly.
 func TestC3aRawArgumentOnTheWire(t *testing.T) {
 	t.Run("node get --raw", func(t *testing.T) {
-		gql, queries, _ := rawAwareGraphQL(t, func(op, content string) (string, bool) {
+		gql, queries := rawAwareGraphQL(t, func(op, content string) (string, bool) {
 			if op == "ResolveUrn" {
 				return resolveNodeJSON, true
 			}
@@ -148,7 +145,7 @@ func TestC3aExportImportRoundTripKeepsIncludeTag(t *testing.T) {
 	const nodesResp = `{"data":{"nodes":[` +
 		`{"id":"n-root","memoryId":"` + c3aMem + `","loc":"root","name":"Root","nodeType":"info","tags":[],"updatedAt":"2026-10-19T00:00:00Z"},` +
 		`{"id":"n-intro","memoryId":"` + c3aMem + `","loc":"guide:intro","name":"Intro","nodeType":"info","tags":[],"updatedAt":"2026-10-19T00:00:00Z"}]}}`
-	gql, queries, _ := rawAwareGraphQL(t, func(op, content string) (string, bool) {
+	gql, queries := rawAwareGraphQL(t, func(op, content string) (string, bool) {
 		switch op {
 		case "FindNodes":
 			return nodesResp, true
@@ -213,7 +210,7 @@ func TestC3aAbstractFingerprintIsOverStoredText(t *testing.T) {
 			`"updatedAt":"2026-10-19T00:00:00Z","outgoingEdges":[{"label":"p1: W2","priority":0,"condition":null,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],"incomingEdges":[]}`,
 			loc, loc, loc, specOriginHash(c3aSpecStored), c3aJSON(content))
 	}
-	gql, queries, _ := rawAwareGraphQL(t, func(op, content string) (string, bool) {
+	gql, queries := rawAwareGraphQL(t, func(op, content string) (string, bool) {
 		switch op {
 		case "FindNodes":
 			return `{"data":{"nodes":[` + specNodeList(loc, `["spec","p1"]`) + `]}}`, true
