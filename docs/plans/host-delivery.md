@@ -193,8 +193,10 @@ adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
 - **The terminal path** is the batch's (`typeLine`): the same lock, recipient,
   R2 composer, liveness, send and confirmation. There are two differences.
   - A wake's hold is logged and shown in status, never reported to S5.
-  - A busy or unproven agent with no server `busyDeadline` holds as
-    `timing-unavailable`. A proven-idle one needs no deadline.
+  - Timing is the server's alone (Xylon, team chat #21827). With no
+    `deliverAfter`, the wake holds as `timing-unavailable`, even for an idle
+    agent. With no `busyDeadline`, a busy or unproven agent holds the same
+    way. A proven-idle, empty composer past `deliverAfter` needs no deadline.
 - **Records** (`delivery/wakes/<worker>/`, 0600) hold one file per reason
   key: `tick:<tickerId>:<lastTickAt>` or `task:<eventId>:<chainIndex>`. Each
   file is in one of two states.

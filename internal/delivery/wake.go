@@ -90,9 +90,10 @@ type Wake struct {
 	// mark unseen text delivered, so C1 never does.
 	NamesChannels bool
 	// DeliverAfter and BusyDeadline are S1 slice (c)'s timing (R63): the
-	// busy deadline counts from the oldest waiting reason's due time. Zero
-	// means the server did not say, and a busy agent holds visibly as
-	// timing-unavailable rather than on a client-invented deadline.
+	// busy deadline counts from the oldest waiting reason's due time. A zero
+	// one means the server did not say, and C1 invents none: no
+	// DeliverAfter holds the wake as timing-unavailable even for an idle
+	// agent, and no BusyDeadline holds it so for a busy or unproven one.
 	DeliverAfter time.Time
 	BusyDeadline time.Time
 }
@@ -194,8 +195,8 @@ type WakeServer interface {
 // Hold reasons local to a wake. A wake hold is logged and shown in status,
 // never reported to S5 (S5's hold is a batch event).
 const (
-	// HoldTimingUnavailable: the agent is busy or unproven and the server
-	// gave no busy deadline.
+	// HoldTimingUnavailable: the server gave no deliverAfter, or the agent
+	// is busy or unproven and it gave no busy deadline.
 	HoldTimingUnavailable = "timing-unavailable"
 )
 
@@ -271,6 +272,11 @@ func (d *Deliverer) deliverWakeLocked(ctx context.Context, w Wake, r Recipient, 
 			return d.emitWake(w, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed"})
 		}
 		return d.emitWake(w, r, Outcome{Kind: Reconciled})
+	}
+	// Whether a wake is due is the server's to say: without its deliverAfter
+	// nothing is typed, however idle the agent (Xylon, team chat #21827).
+	if w.DeliverAfter.IsZero() {
+		return d.emitWake(w, r, Outcome{Kind: Held, Reason: HoldTimingUnavailable})
 	}
 	if d.Now().Before(w.DeliverAfter) {
 		return d.emitWake(w, r, Outcome{Kind: Deferred, Reason: "not-yet-due"})
