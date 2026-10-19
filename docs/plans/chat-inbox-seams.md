@@ -49,7 +49,27 @@ that sum to the supplied proof count. C1 hostServer remains session-free.
 JSON output contains the server-issued ids for caller-owned private ack-file
 recovery; human callers retaining no ids may repull and redisplay before ack.
 No unconditional exactly-once claim is made. MCP uses the existing server tools
-hadron_delivery_batches and hadron_ack_delivery_batches as two explicit calls;
+hadron_team_chat_inbox and hadron_team_chat_inbox_ack as two explicit calls;
 CLI-only integration does not prove live cross-transport QA. Required review
 and independent CLI/MCP QA remain Ada's seats. Real-worker activation is HARD
 BLOCKED by server#2121, and no release, enablement or cutover is authorized.
+
+## Combined review fix (after all c1fc6d31 seats posted)
+
+Known server/local reasons now use a fixed membership vocabulary and fixed
+messages; unknown codes/messages never become diagnostic text. A definitive
+refusal is labelled refused, with its own next step, rather than implying a
+lost response. Unknown/transport ack failures alone use unconfirmed recovery:
+human mode repulls with an explicit redisplay warning, JSON mode names
+batches[].id -> batchIds and --ack-file -. Signed proofs stay out of human
+stdout and all stderr. Empty human pages say so; a next-page hint makes no
+claim the entire inbox is empty. Ack replay counts say already acknowledged.
+Duplicate recovery ids refuse before a request. Binding guards have explicit
+loopback tests and both removal mutants fail. The published gate's old MCP
+names are corrected here to shipped hadron_team_chat_inbox and
+hadron_team_chat_inbox_ack (server tickerTools.ts / Celine real-stack receipt).
+This is a naming correction, not a new MCP/server operation.
+
+Nonblocking --ack-file permission/path-detail suggestions remain follow-ups;
+this command reads caller-owned input and never writes a proof journal.
+Independent fix-head deltas/carries and final gate are still required.

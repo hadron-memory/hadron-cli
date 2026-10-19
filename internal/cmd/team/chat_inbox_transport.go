@@ -91,7 +91,7 @@ func inboxBoundIdentity(f *cmdutil.Factory) inboxIdentityReader {
 	return func(ctx context.Context) (inboxIdentity, error) {
 		b, _, err := readBindingFile(ctx)
 		if err != nil || b == nil || b.AppID == "" || b.WorkerID == "" || b.SessionID == "" || b.Server == "" {
-			return inboxIdentity{}, exitcode.Newf(exitcode.Usage, "inbox requires this worktree's complete worker session binding")
+			return inboxIdentity{}, inboxLocal("INBOX_UNBOUND")
 		}
 		server, err := f.Server()
 		if err != nil {
@@ -99,7 +99,7 @@ func inboxBoundIdentity(f *cmdutil.Factory) inboxIdentityReader {
 		}
 		canonical := deliveryServerURL(server)
 		if canonical == "" || canonical != deliveryServerURL(b.Server) {
-			return inboxIdentity{}, exitcode.Newf(exitcode.Conflict, "inbox server differs from the worker binding")
+			return inboxIdentity{}, inboxLocal("INBOX_SERVER_MISMATCH")
 		}
 		app, err := f.App()
 		if err != nil {
@@ -115,7 +115,7 @@ func inboxBoundIdentity(f *cmdutil.Factory) inboxIdentityReader {
 				return inboxIdentity{}, err
 			}
 			if r == nil || r.App == nil || r.App.Id != b.AppID {
-				return inboxIdentity{}, exitcode.Newf(exitcode.Conflict, "inbox App differs from the worker binding")
+				return inboxIdentity{}, inboxLocal("INBOX_APP_MISMATCH")
 			}
 		}
 		return inboxIdentity{AppID: b.AppID, WorkerID: b.WorkerID, SessionID: b.SessionID, Server: canonical}, nil

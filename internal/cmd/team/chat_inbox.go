@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/hadron-memory/hadron-cli/internal/api"
+	"io"
+
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
-	"io"
 )
 
 type inboxIdentity struct{ AppID, WorkerID, SessionID, Server string }
@@ -61,7 +61,7 @@ func runInbox(ctx context.Context, source inboxTransport, identity inboxIdentity
 		return inboxFailure(err, "cannot read inbox binding")
 	}
 	if scope.AppID == "" || scope.WorkerID == "" || scope.SessionID == "" || scope.Server == "" {
-		return exitcode.Newf(exitcode.Usage, "inbox requires a complete worker session binding")
+		return inboxLocal("INBOX_UNBOUND")
 	}
 	check := func() error {
 		if err := ctx.Err(); err != nil {
@@ -72,7 +72,7 @@ func runInbox(ctx context.Context, source inboxTransport, identity inboxIdentity
 			return inboxFailure(err, "cannot recheck inbox binding")
 		}
 		if current != scope {
-			return exitcode.Newf(exitcode.Conflict, "inbox binding changed; acknowledgment refused")
+			return inboxLocal("INBOX_BINDING_CHANGED")
 		}
 		return nil
 	}
@@ -91,7 +91,7 @@ func runInbox(ctx context.Context, source inboxTransport, identity inboxIdentity
 			return inboxFailure(err, "inbox acknowledgment unconfirmed")
 		}
 		return writeInboxOutput(streams, jsonMode, result, func(w io.Writer) error {
-			_, err := fmt.Fprintf(w, "Acknowledged %d (%d already delivered).\n", result.Acknowledged, result.Unchanged)
+			_, err := fmt.Fprintf(w, "Acknowledged %d (%d already acknowledged).\n", result.Acknowledged, result.Unchanged)
 			return err
 		})
 	}
@@ -127,10 +127,19 @@ func runInbox(ctx context.Context, source inboxTransport, identity inboxIdentity
 		return err
 	}
 	if err := writeInboxOutput(streams, jsonMode, page, func(w io.Writer) error {
+		if len(page.Batches) == 0 {
+			if _, err := fmt.Fprintln(w, "No deliveries waiting in this page."); err != nil {
+				return err
+			}
+		}
 		for _, batch := range page.Batches {
 			if _, err := fmt.Fprintln(w, batch.Text); err != nil {
 				return err
 			}
+		}
+		if page.PageInfo.HasNextPage {
+			_, err := fmt.Fprintln(w, "More pages are available; use --json pageInfo.endCursor with --after.")
+			return err
 		}
 		return nil
 	}); err != nil {
@@ -140,10 +149,10 @@ func runInbox(ctx context.Context, source inboxTransport, identity inboxIdentity
 		return nil
 	}
 	if err := check(); err != nil {
-		return inboxUnconfirmed(streams, err)
+		return inboxUnconfirmed(streams.ErrOut, jsonMode, err)
 	}
 	if _, err := source.Ack(ctx, scope, ids); err != nil {
-		return inboxUnconfirmed(streams, err)
+		return inboxUnconfirmed(streams.ErrOut, jsonMode, err)
 	}
 	return nil
 }
@@ -152,25 +161,17 @@ func validateInboxProofs(ids []string) error {
 	if len(ids) == 0 || len(ids) > 200 {
 		return exitcode.Newf(exitcode.Usage, "acknowledgment requires 1 to 200 batch proofs")
 	}
+	seen := map[string]bool{}
 	for _, id := range ids {
+		if seen[id] {
+			return exitcode.Newf(exitcode.Usage, "acknowledgment contains a duplicate batch proof")
+		}
+		seen[id] = true
 		if id == "" {
 			return exitcode.Newf(exitcode.Usage, "acknowledgment contains an empty batch proof")
 		}
 	}
 	return nil
-}
-
-func inboxFailure(err error, message string) error {
-	code := exitcode.FromError(api.MapError(err))
-	if api.HasErrorCode(err, "SESSION_NOT_LIVE") {
-		code = exitcode.Conflict
-	}
-	return exitcode.Newf(code, "%s", message)
-}
-
-func inboxUnconfirmed(streams *output.IOStreams, err error) error {
-	_, _ = fmt.Fprintln(streams.ErrOut, "Inbox output completed; acknowledgment is unconfirmed. Keep the output and use ack-file recovery in the same live session; do not redisplay it to acknowledge.")
-	return exitcode.Silent(exitcode.FromError(inboxFailure(err, "inbox acknowledgment unconfirmed")))
 }
 
 func writeInboxOutput(streams *output.IOStreams, jsonMode bool, v any, human func(io.Writer) error) error {

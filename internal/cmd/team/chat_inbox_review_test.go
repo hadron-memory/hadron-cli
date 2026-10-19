@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -40,12 +41,9 @@ func TestInboxReviewEmptyHumanAndModeSpecificRecovery(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		streams, out, stderr := output.Test()
 		s := inboxFixture()
-		s.ackErr = gqlerror.List{{Message: "PRIVATE", Extensions: map[string]any{"code": "WAKE_PROOF_STALE"}}}
-		if err := runInbox(context.Background(), s, ownInboxIdentity, streams, jsonMode, nil); exitcode.FromError(err) != 5 {
+		s.ackErr = errors.New("PRIVATE transport failure")
+		if err := runInbox(context.Background(), s, ownInboxIdentity, streams, jsonMode, nil); exitcode.FromError(err) != 1 {
 			t.Fatal(err)
-		}
-		if !strings.Contains(stderr.String(), "WAKE_PROOF_STALE") {
-			t.Fatal("ack reason hidden")
 		}
 		if strings.Contains(stderr.String(), "PRIVATE") {
 			t.Fatal("raw upstream leaked")
@@ -123,6 +121,20 @@ func TestInboxReviewCanonicalServer(t *testing.T) {
 	for _, v := range []struct{ raw, want string }{{"https://EXAMPLE.test:443/", "https://example.test"}, {"HTTP://Example.test:80/", "http://example.test"}, {"https://user@example.test/", ""}, {"https://example.test/?x=y", ""}, {"https://example.test/#fragment", ""}} {
 		if got := deliveryServerURL(v.raw); got != v.want {
 			t.Errorf("%s=%s want %s", v.raw, got, v.want)
+		}
+	}
+}
+
+func TestInboxReviewDefinitiveAckRefusalIsNotUnconfirmed(t *testing.T) {
+	for _, code := range []string{"SESSION_NOT_LIVE", "WAKE_PROOF_INVALID", "WAKE_PROOF_REQUESTER_MISMATCH", "WAKE_PROOF_STALE"} {
+		streams, _, stderr := output.Test()
+		s := inboxFixture()
+		s.ackErr = gqlerror.List{{Message: "PRIVATE", Extensions: map[string]any{"code": code}}}
+		if err := runInbox(context.Background(), s, ownInboxIdentity, streams, false, nil); err == nil {
+			t.Fatal("refusal lost")
+		}
+		if !strings.Contains(stderr.String(), code) || strings.Contains(strings.ToLower(stderr.String()), "unconfirmed") || strings.Contains(stderr.String(), "PRIVATE") {
+			t.Fatalf("%s: %s", code, stderr.String())
 		}
 	}
 }

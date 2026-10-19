@@ -15,12 +15,13 @@ func newCmdTeamChatInboxWithTransport(f *cmdutil.Factory, source inboxTransport,
 		Use: "inbox", Short: "Display your worker's delivery batches and acknowledge complete output",
 		Long: `Display delivery batches for this worktree's own live worker session.
 Acknowledgment follows complete output and records delivery marks only;
-it does not call chat mark-read. S2 integration is server-owned.
+it does not call chat mark-read.
 Read one bounded page; use --after with its pageInfo.endCursor for the next.
 Before acknowledgment, a failed run may redisplay a batch if repulled.
 Retain JSON output privately when you need proof ids for ack-only recovery.
-Real-worker activation is blocked by hadron-server#2121; no host is enabled.
-If acknowledgment is unconfirmed, retain the output. Retry only its proof list
+If acknowledgment is unconfirmed in human mode, run inbox again; batches not
+acknowledged may show again. With --json, retain the output privately and put
+its batches[].id values in a batchIds array. Retry only that proof list
 with --ack-file PATH (JSON: {"batchIds":["opaque-proof"]}); use - for piped stdin.
 Recovery acknowledges without reading or redisplaying batches. Proofs must
 belong to the same live session. This command creates no recovery file.`,
