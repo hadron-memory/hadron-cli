@@ -278,6 +278,7 @@ func TestC4BoundSigningEditNeverDowngradesToThePerson(t *testing.T) {
 		{name: "another server", server: func(string) string { return "https://elsewhere.example.test" }},
 		{name: "another App", server: func(u string) string { return u }, app: "capp200000000000000000000"},
 		{name: "incomplete binding", server: func(u string) string { return u }, mutate: func(b map[string]any) { b["workerId"] = "" }},
+		{name: "binding without a session", server: func(u string) string { return u }, mutate: func(b map[string]any) { b["sessionId"] = "" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			writeTeamBinding(t)

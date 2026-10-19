@@ -51,9 +51,10 @@ const boundSigningHint = "note: this edit was sent from your bound worker sessio
 // trailer edit must go out through (#946 BLIND P2). The generic
 // AuthoredWriteContext is best-effort: it attaches nothing when it can't
 // verify a binding, which for these edits would silently make a bound worker's
-// edit the person's. So: no worktree or no binding is an unbound shell ("");
-// a binding that verifies for this request is its session; a binding that
-// doesn't refuses, and nothing is written.
+// edit the person's. So: no worktree, or no binding file, is a genuinely
+// unbound shell (""); a binding that verifies for this request is its session;
+// any other binding (unreadable, incomplete, or for another server or App)
+// refuses, and nothing is written.
 func signingSession(ctx context.Context, f *cmdutil.Factory) (string, error) {
 	b, _, err := readBindingFile(ctx)
 	if errors.Is(err, errNoWorktree) {
@@ -62,15 +63,15 @@ func signingSession(ctx context.Context, f *cmdutil.Factory) (string, error) {
 	if err != nil {
 		return "", exitcode.Newf(exitcode.Usage, "cannot read this worktree's session binding (%v), so the edit can't be attributed; nothing was written", err)
 	}
-	if b == nil || b.SessionID == "" {
+	if b == nil {
 		return "", nil
 	}
 	refuse := func(why string) error {
 		return exitcode.Newf(exitcode.Usage,
-			"this worktree is bound to worker session %s, but %s, so this signature/trailer edit can't go out through it; nothing was written. Make the edit from an unbound shell, or run it against the binding's server and App",
+			"this worktree has a session binding (%q), but %s, so this signature/trailer edit can't go out through it; nothing was written. Make the edit from an unbound shell, or run it against the binding's server and App",
 			b.SessionID, why)
 	}
-	if b.WorkerID == "" || b.AppID == "" || b.Server == "" {
+	if b.SessionID == "" || b.WorkerID == "" || b.AppID == "" || b.Server == "" {
 		return "", refuse("the binding is incomplete")
 	}
 	server, err := f.Server()
