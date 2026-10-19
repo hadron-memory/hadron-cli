@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -767,6 +768,81 @@ func TestCoveredPrefixRecovery(t *testing.T) {
 			t.Fatal("a refused reconciliation must keep the record")
 		}
 	})
+}
+
+// Jane's blind P2 on #939 (issuecomment-6262509785): a full reconcile acks
+// only the current batch, so a matched record that also confirmed other
+// seqs or channels keeps them. Deleting it whole would retype them when S1
+// re-hands them (e.g. a lost ack, then a read whose channel policy left one
+// channel out for a while).
+func TestAFullReconcileKeepsTheRecordsOtherSeqs(t *testing.T) {
+	h := newHarness(t)
+	if err := h.d.Records.Put(h.batch(5, 6), h.now); err != nil {
+		t.Fatal(err)
+	}
+	if o := h.deliver(h.batch(5)); o.Kind != Reconciled {
+		t.Fatalf("first: %+v", o)
+	}
+	if o := h.deliver(h.batch(6)); o.Kind != Reconciled {
+		t.Fatalf("the confirmed remainder was retyped: %+v", o)
+	}
+	h.wantNoSend()
+	if len(h.server.acks) != 2 || len(h.records()) != 0 {
+		t.Fatalf("acks %+v records %+v", h.server.acks, h.records())
+	}
+}
+
+func TestAFullReconcileKeepsTheRecordsOtherChannels(t *testing.T) {
+	h := newHarness(t)
+	a, b := h.batch(5), h.batch(6)
+	b.Ranges[0].ChannelID = "ch-other"
+	both := a
+	both.Ranges = append(append([]Range{}, a.Ranges...), b.Ranges...)
+	both.BatchKey = "two-channel-confirmed"
+	if err := h.d.Records.Put(both, h.now); err != nil {
+		t.Fatal(err)
+	}
+	if o := h.deliver(a); o.Kind != Reconciled {
+		t.Fatalf("first: %+v", o)
+	}
+	// The ack named only a's channel: nothing is acked for a channel the
+	// proof did not carry.
+	if len(h.server.acks) != 1 || len(h.server.acks[0].through) != 0 {
+		t.Fatalf("acks %+v", h.server.acks)
+	}
+	recs := h.records()
+	if len(recs) != 1 || len(recs[0].Ranges) != 1 || recs[0].Ranges[0].ChannelID != "ch-other" {
+		t.Fatalf("the remainder %+v, want ch-other's range alone", recs)
+	}
+	if o := h.deliver(b); o.Kind != Reconciled {
+		t.Fatalf("the confirmed other channel was retyped: %+v", o)
+	}
+	h.wantNoSend()
+	if len(h.records()) != 0 {
+		t.Fatalf("records %+v", h.records())
+	}
+}
+
+// Controls: an exact match is deleted whole, and a record of another
+// incarnation of the same channel is untouched by the subtraction.
+func TestAFullReconcileDeletesAnExactRecordAndKeepsOtherIncarnations(t *testing.T) {
+	h := newHarness(t)
+	old := h.batch(5)
+	old.Ranges[0].Incarnation = 0
+	old.BatchKey = "old-incarnation"
+	if err := h.d.Records.Put(h.batch(5), h.now); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.d.Records.Put(old, h.now); err != nil {
+		t.Fatal(err)
+	}
+	if o := h.deliver(h.batch(5)); o.Kind != Reconciled {
+		t.Fatalf("outcome %+v", o)
+	}
+	recs := h.records()
+	if len(recs) != 1 || recs[0].Ranges[0].Incarnation != 0 || !slices.Equal(recs[0].Ranges[0].Seqs, []int{5}) {
+		t.Fatalf("records %+v, want only the other incarnation's, whole", recs)
+	}
 }
 
 func TestReconcileMatchesOnlyTheSameIncarnation(t *testing.T) {
