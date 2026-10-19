@@ -66869,7 +66869,7 @@ query GetNodeRaw ($ref: ID!) {
 		role
 		objectType
 		tags
-		content
+		content(raw: true)
 		data
 		properties
 		seq
@@ -67216,7 +67216,7 @@ query GetSpecNodeForEdit ($ref: ID!) {
 		description
 		tags
 		role
-		content
+		content(raw: true)
 		abstract
 		abstractOriginHash
 		revision
@@ -67269,7 +67269,7 @@ query GetSpecNodeRaw ($ref: ID!) {
 		name
 		tags
 		role
-		content
+		content(raw: true)
 		abstract
 		abstractOriginHash
 	}
@@ -69269,7 +69269,7 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 			seq
 			data
 			properties
-			content
+			content(raw: true)
 			createdAt
 			updatedAt
 			outgoingEdges {
