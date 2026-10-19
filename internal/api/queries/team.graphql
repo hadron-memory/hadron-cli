@@ -1257,3 +1257,26 @@ mutation SetWorkerReportsTo($workerRef: ID!, $reportsTo: ID) {
 query WorkerReporting($ref: ID!) {
  worker(ref: $ref) { id hasLiveSession reportsTo { ...WorkerReportingRefFields } reportsToRetired }
 }
+
+# C5 slice A (#911): one shared batching-window/ticker-floor dial. Settings
+# operations use the ordinary authenticated caller, not a worker attribution.
+fragment AppDeliverySettingsFields on AppDeliverySettings {
+  batchWindowSeconds
+  busyDelaySeconds
+  stuckWindowSeconds
+  standbyEnabled
+  standbyEffective
+}
+query TeamDeliverySettings($appRef: String!) {
+  appDeliverySettings(appRef: $appRef) { ...AppDeliverySettingsFields }
+}
+# @genqlient(for: "AppDeliverySettingsInput.batchWindowSeconds", omitempty: true)
+# @genqlient(for: "AppDeliverySettingsInput.busyDelaySeconds", omitempty: true)
+# @genqlient(for: "AppDeliverySettingsInput.stuckWindowSeconds", omitempty: true)
+# @genqlient(for: "AppDeliverySettingsInput.standbyEnabled", omitempty: true)
+mutation TeamDeliverySettingsSet(
+  $appRef: String!
+  $input: AppDeliverySettingsInput!
+) {
+  setAppDeliverySettings(appRef: $appRef, input: $input) { ...AppDeliverySettingsFields }
+}

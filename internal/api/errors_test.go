@@ -54,6 +54,11 @@ func TestMapError(t *testing.T) {
 		want int
 	}{
 		{"nil", nil, exitcode.OK},
+		{"delivery range", gqlErr("DELIVERY_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
+		{"delivery relation", gqlErr("DELIVERY_SETTINGS_CONFLICT"), exitcode.Usage},
+		{"ticker settings range", gqlErr("TICKER_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
+		{"ticker settings conflict", gqlErr("TICKER_SETTINGS_CONFLICT"), exitcode.Conflict},
+		{"standby unavailable", gqlErr("DELIVERY_STANDBY_UNAVAILABLE"), exitcode.Conflict},
 		{"ticker consent", gqlErr("TICKER_CADENCE_NEEDS_CONSENT"), exitcode.Forbidden},
 		{"ticker self subscribe", gqlErr("SUBSCRIBE_CADENCE_NEEDS_HOLDER"), exitcode.Forbidden},
 		{"ticker subscribe authority", gqlErr("SUBSCRIBE_FORBIDDEN"), exitcode.Forbidden},

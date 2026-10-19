@@ -740,6 +740,12 @@ func DescendantCount(err error) int {
 
 func codeForExtension(code string) int {
 	switch {
+	// S9 settings (#911): invalid candidates are input errors; a live ticker
+	// conflict or unavailable standby behavior requires a state change.
+	case code == "DELIVERY_SETTINGS_OUT_OF_RANGE" || code == "DELIVERY_SETTINGS_CONFLICT" || code == "TICKER_SETTINGS_OUT_OF_RANGE":
+		return exitcode.Usage
+	case code == "TICKER_SETTINGS_CONFLICT" || code == "DELIVERY_STANDBY_UNAVAILABLE":
+		return exitcode.Conflict
 	// Comment operations retain typed permission, input and state refusals.
 	case code == "COMMENT_FORBIDDEN" || code == "COMMENT_NOT_AUTHOR" || code == "COMMENT_ADMIN_REQUIRED" || code == "COMMENT_IMPERSONATION_REFUSED":
 		return exitcode.Forbidden
