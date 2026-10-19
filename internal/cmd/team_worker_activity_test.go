@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
+	"os/exec"
+	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -9,7 +12,7 @@ import (
 )
 
 // Column padding in the rendered table: two or more spaces. Single spaces are
-// INSIDE headers ("HELD BY", "LAST DRIVEN") and inside cells.
+// INSIDE headers ("HELD BY", "LAST RECORDED ACTIVITY") and inside cells.
 var columnGap = regexp.MustCompile(`  +|\t`)
 
 // hadron-cli#487's client half: `worker list` answers WHO HOLDS a name and
@@ -150,7 +153,7 @@ func TestTeamWorkerListColumnOrderPutsTheReadableFactsFirst(t *testing.T) {
 	if header == "" {
 		t.Fatalf("no header row in:\n%s", out)
 	}
-	want := []string{"WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST DRIVEN", "RETIRED", "URN", "ID"}
+	want := []string{"WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST RECORDED ACTIVITY", "RETIRED", "URN", "ID"}
 	// Split on the table's column padding, not on whitespace: two of these
 	// headers contain a space, and strings.Fields would silently turn a
 	// seven-column header into a nine-item list that no longer lines up with
@@ -399,5 +402,75 @@ func TestTeamWorkerGetSaysNobodyOnlyWhenItMayKnow(t *testing.T) {
 	// read that failed and printed nothing: the worker itself still renders.
 	if !strings.Contains(masked, "Mira") {
 		t.Errorf("the masked read must still render the worker: %s", masked)
+	}
+}
+
+func TestRecordedActivityHelpLabel(t *testing.T) {
+	for _, args := range [][]string{{"team", "worker", "list", "--help"}, {"team", "session", "list", "--help"}, {"team", "session", "start", "--help"}, {"agentic-usage"}} {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out.String(), "LAST RECORDED ACTIVITY") || strings.Contains(out.String(), "LAST DRIVEN") {
+			t.Errorf("%v: stale or missing heading", args)
+		}
+	}
+}
+
+// Exercise the real entry point and table padding, not just command injection.
+// The server is a read-only fixture; no real worker operation is performed.
+func TestCompiledRecordedActivityLabel(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "hadron")
+	build := exec.Command("go", "build", "-o", binary, "../../cmd/hadron")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build: %v\n%s", err, out)
+	}
+	teamGitDir(t)
+	testFactory(t) // isolated config/token environment for the subprocess
+	gql, _ := captureGraphQL(t, activityStubs(t))
+	run := func(args ...string) string {
+		t.Helper()
+		out, err := exec.Command(binary, args...).CombinedOutput()
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+		return string(out)
+	}
+	args := []string{"team", "worker", "list", "--app", "acme.com:eng-team", "--server", gql.URL}
+	injected := func(args ...string) string {
+		t.Helper()
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		return out.String()
+	}
+	table := run(args...)
+	if !strings.Contains(table, "LAST RECORDED ACTIVITY") || strings.Contains(table, "LAST DRIVEN") {
+		t.Fatalf("heading: %s", table)
+	}
+	// Exact command output pins column padding/order and the live/age/never/masked cells.
+	if want := injected(args...); table != want {
+		t.Fatalf("compiled table differs:\n%s\nwant:\n%s", table, want)
+	}
+	var got, want any
+	if err := json.Unmarshal([]byte(run(append(args, "--json")...)), &got); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(injected(append(args, "--json")...)), &want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("compiled JSON differs: got %v want %v", got, want)
+	}
+	for _, help := range [][]string{{"team", "worker", "list", "--help"}, {"team", "session", "start", "--help"}, {"team", "session", "list", "--help"}, {"agentic-usage"}} {
+		out := run(help...)
+		if !strings.Contains(out, "LAST RECORDED ACTIVITY") || strings.Contains(out, "LAST DRIVEN") {
+			t.Errorf("%v: stale or missing heading", help)
+		}
 	}
 }
