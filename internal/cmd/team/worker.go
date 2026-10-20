@@ -461,6 +461,9 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <name-or-id>",
 		Short: "Show a worker (by name within the App, or by id)",
+		Long: `Show the worker and the server-derived team-channel check status.
+A known check result with no lastCheckedAt means never checked; an unavailable
+check result stays unavailable. No local clock or task-count inference is made.`,
 		Example: `  hadron team worker get Iris
   hadron team worker get wkr_123 --json`,
 		Args: cobra.ExactArgs(1),

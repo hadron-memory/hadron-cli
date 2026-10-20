@@ -33,6 +33,11 @@ in the first that holds (the server's roster order, most actionable
 first): YOUR_MOVE, UNAVAILABLE, WAITING, WORKING, ASSIGNED_NOT_STARTED,
 AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE.
 
+CHECK is the separate server-derived team-channel checking status:
+NO_SESSION, PENDING (with its reason), OK or OVERDUE. A dash means the
+server did not make the result available. This experiment adds no overdue
+alarm, and the CLI does not calculate the status from local time or tasks.
+
 Read it with lastActiveAt: nothing clears a reportsTo claim automatically,
 and a state is a fact about now, not a judgement.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
