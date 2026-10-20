@@ -2926,6 +2926,8 @@ func strOrEmpty(s *string) string {
 // the embedded ones, so a nil drops the key entirely.
 type sessionStartWorker struct {
 	workerDTO
+	// The bind changes the checking clock; do not publish a pre-bind status.
+	CheckStatus *channelCheckDTO `json:"checkStatus,omitempty"`
 	// Shadowing workerDTO's fields of the same name. Always nil in practice;
 	// present only so encoding/json takes THESE tags rather than the embedded
 	// ones. If either is ever populated here, it must come from a post-bind

@@ -21,7 +21,7 @@ import (
 const agentJSON = `{"id":"agt1","urn":"acme.com::support-bot","name":"Support Bot","description":null,
 	"type":"CHATBOT","visibility":"ORGANIZATION","organizationId":"acme.com","surfaces":[],
 	"systemMemoryId":null,"systemPrompt":null,"aiProvider":null,"aiModel":null,"hasAiApiKey":false,
-	"createdAt":"2026-06-19T00:00:00Z"}`
+	"usesTasks":true,"createdAt":"2026-06-19T00:00:00Z"}`
 
 func TestAgentOperationsValidateAgainstCutoverSchema(t *testing.T) {
 	sdl, err := os.ReadFile("../../schema/schema.graphql")
@@ -836,7 +836,7 @@ func agentWithRefsJSON(tasks, processes *string) string {
 		"type":"CHATBOT","visibility":"ORGANIZATION","organizationId":"acme.com","surfaces":[],
 		"systemMemoryId":null,"systemPrompt":null,"aiProvider":null,"aiModel":null,"hasAiApiKey":false,
 		"tasksIndexRef":%s,"processesIndexRef":%s,
-		"createdAt":"2026-06-19T00:00:00Z"}`, ts, ps)
+		"usesTasks":true,"createdAt":"2026-06-19T00:00:00Z"}`, ts, ps)
 }
 
 // Colin's QA P2 on #884 (#11646): a ref set through `agent update` could not

@@ -16,7 +16,7 @@ func Test2138TickerLiveCheckReasonsWire(t *testing.T) {
 					op, field = "UpdateTicker", "updateTicker"
 					args = []string{"ticker", "update", tickerRef}
 				}
-				gql, captured := captureGraphQL(t, map[string]string{op: `{"data":{"` + field + `":` + tickerFixture + `}}`})
+				gql, captured := captureGraphQL(t, map[string]string{op: `{"data":{"` + field + `":` + tickerFixture + `}}`, "TeamAppIdentity": teamAppIdentityJSON})
 				f, _ := testFactory(t)
 				root := NewRootCmd(f)
 				root.SetArgs(append(args, "--reasons", reason, "--server", gql.URL))
@@ -99,6 +99,76 @@ func Test2138AgentUsesTasksPresence(t *testing.T) {
 			}
 			if len(vars) != 2 {
 				t.Fatalf("uses-tasks-only update sent unrelated fields: %v", vars)
+			}
+		})
+	}
+}
+
+func Test2138AgentOrdinaryUpdateOmitsUsesTasks(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{"UpdateAgent": `{"data":{"updateAgent":` + agentJSON + `}}`})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "update", "agt1", "--name", "Renamed", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(captured["UpdateAgent"], &vars); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := vars["usesTasks"]; ok {
+		t.Fatalf("ordinary update reset usesTasks: %s", captured["UpdateAgent"])
+	}
+}
+
+func Test2138WorkerAndRosterPreserveServerCheckStatus(t *testing.T) {
+	states := []string{"NO_SESSION", "OK", "OVERDUE", "NO_TASK", "STANDBY", "ISOLATED", "PAUSED", "TEAM_PAUSED", "WITHHELD"}
+	for _, state := range states {
+		t.Run(state, func(t *testing.T) {
+			var check any
+			if state != "WITHHELD" {
+				status := state
+				var pending any
+				if state != "NO_SESSION" && state != "OK" && state != "OVERDUE" {
+					status = "PENDING"
+					pending = state
+				}
+				check = map[string]any{"status": status, "pendingReason": pending, "lastCheckedAt": nil}
+			}
+			for _, roster := range []bool{false, true} {
+				r := taskResponses()
+				args := []string{"team", "worker", "get", "hrn:worker:acme.com:eng-team:iris", "--json"}
+				if roster {
+					var body map[string]any
+					_ = json.Unmarshal([]byte(rosterJSON), &body)
+					for _, row := range body["workers"].([]any) {
+						row.(map[string]any)["checkStatus"] = check
+					}
+					raw, _ := json.Marshal(body)
+					r["TeamRoster"] = `{"data":{"teamRoster":` + string(raw) + `}}`
+					args = []string{"team", "roster", "--json"}
+				} else {
+					var body map[string]any
+					_ = json.Unmarshal([]byte(irisWorkerJSON), &body)
+					body["checkStatus"] = check
+					raw, _ := json.Marshal(body)
+					r["GetWorker"] = `{"data":{"worker":` + string(raw) + `}}`
+				}
+				_, out, err := runTeamTask(t, r, args...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var got map[string]any
+				if err := json.Unmarshal([]byte(out), &got); err != nil {
+					t.Fatal(err)
+				}
+				if roster {
+					got = got["workers"].([]any)[0].(map[string]any)
+				}
+				actual, exists := got["checkStatus"]
+				if !exists || !reflect.DeepEqual(actual, check) {
+					t.Fatalf("roster=%v check=%v present=%v want=%v", roster, actual, exists, check)
+				}
 			}
 		})
 	}

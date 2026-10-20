@@ -547,6 +547,14 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 				if workingStateVisible(dto.HasLiveSession) {
 					fmt.Fprintf(out, "  driven: %s\n", renderLastDriven(dto.HasLiveSession, dto.LastActiveAt, time.Now()))
 				}
+				fmt.Fprintf(out, "  check status: %s\n", channelCheckLabel(dto.CheckStatus))
+				if dto.CheckStatus != nil {
+					last := "never"
+					if dto.CheckStatus.LastCheckedAt != nil {
+						last = *dto.CheckStatus.LastCheckedAt
+					}
+					fmt.Fprintf(out, "  last team-channel check: %s\n", last)
+				}
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
 				}

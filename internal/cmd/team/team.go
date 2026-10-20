@@ -202,11 +202,12 @@ type workerDTO struct {
 	// session, on purpose and in the safe direction; see the fragment comment
 	// in team.graphql, which is read from the resolver rather than from the
 	// field's SDL description.
-	LastActiveAt *string `json:"lastActiveAt"`
-	RetiredAt    *string `json:"retiredAt"`
-	RetiredBy    *string `json:"retiredBy"`
-	CreatedAt    string  `json:"createdAt"`
-	CreatedBy    *string `json:"createdBy"`
+	LastActiveAt *string          `json:"lastActiveAt"`
+	CheckStatus  *channelCheckDTO `json:"checkStatus"`
+	RetiredAt    *string          `json:"retiredAt"`
+	RetiredBy    *string          `json:"retiredBy"`
+	CreatedAt    string           `json:"createdAt"`
+	CreatedBy    *string          `json:"createdBy"`
 	// Retired is the convenience read of retiredAt — a retired worker stops
 	// authoring and takes no new sessions; its name stays reserved forever.
 	// (Contrast HeldByUserID above, which gets no such convenience and says
@@ -226,6 +227,9 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 		RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
 		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
 		Retired: w.RetiredAt != nil,
+	}
+	if w.CheckStatus != nil {
+		dto.CheckStatus = channelCheckFromFields(w.CheckStatus.ChannelCheckFields)
 	}
 	if w.ReportsTo != nil {
 		dto.ReportsTo = reportingRef(w.ReportsTo.WorkerReportingRefFields)

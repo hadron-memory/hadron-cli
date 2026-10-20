@@ -343,7 +343,7 @@ Owner and immutable slug cannot be supplied.`
 	}
 	long += `
 
---reasons is a nonempty set: read-team-channel, every-tick, or both (any-of).
+--reasons is a nonempty set: read-team-channel, every-tick, live-check (any-of).
 The server checks permissions and cadence limits. If a write's outcome is
 unknown, verify the current state before retrying; this command never retries.
 Quiet hours are a JSON object {"timezone":"UTC","windows":[{"days":[1],"from":"09:00","to":"10:00"}]}.
@@ -373,7 +373,7 @@ Watched channels are those in the subscriber's WATCH or BOTH channel register.`
 	}
 	flags.StringSliceVar(&v.channels, "channel-ids", nil, channelUsage)
 	flags.StringVar(&v.relevance, "relevance", "", relevanceUsage+keep)
-	flags.StringVar(&v.reasons, "reasons", "", "Nonempty comma-separated reasons: read-team-channel,every-tick"+keep)
+	flags.StringVar(&v.reasons, "reasons", "", "Nonempty comma-separated reasons: read-team-channel,every-tick,live-check"+keep)
 	// The bound bool's default is not a server default. Changed controls omission.
 	flags.BoolVar(&v.enabled, "enabled", false, "Enable ticker; --enabled=false disables"+keep)
 	if update {
@@ -494,12 +494,12 @@ func (v *writeFlags) patch(c *cobra.Command) (*gen.TickerPatch, error) {
 			if r == "" {
 				return nil, exitcode.Newf(exitcode.Usage, "reasons must name at least one reason: a ticker with none would never fire.")
 			}
-			if r != "read-team-channel" && r != "every-tick" {
-				return nil, exitcode.Newf(exitcode.Usage, "reasons are from: read-team-channel, every-tick.")
+			if r != "read-team-channel" && r != "every-tick" && r != "live-check" {
+				return nil, exitcode.Newf(exitcode.Usage, "reasons are from: read-team-channel, every-tick, live-check.")
 			}
 			seen[r] = true
 		}
-		for _, r := range []string{"read-team-channel", "every-tick"} {
+		for _, r := range []string{"read-team-channel", "every-tick", "live-check"} {
 			if seen[r] {
 				p.Reasons = append(p.Reasons, gen.TickerReason(strings.ReplaceAll(strings.ToUpper(r), "-", "_")))
 			}

@@ -9,7 +9,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-const deliverySettingsJSON = `{"batchWindowSeconds":120,"busyDelaySeconds":600,"stuckWindowSeconds":900,"standbyEnabled":true,"standbyEffective":false}`
+const deliverySettingsJSON = `{"batchWindowSeconds":120,"busyDelaySeconds":600,"stuckWindowSeconds":900,"standbyEnabled":true,"standbyEffective":false,"checkPeriodSeconds":600,"failedChecksToOverdue":2}`
 
 func deliveryResponses() map[string]string {
 	r := taskResponses()
