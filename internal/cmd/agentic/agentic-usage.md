@@ -323,7 +323,7 @@ hadron team events [--alarms] [--since <iso>] [--after <eventId>] [--task <id>] 
 hadron team alarm ack <eventId>   # stops the alarm waking higher owners (cor:agt:050:20)
 hadron team availability get | set (--worker <ref> | --family <token>) --state <available|unavailable> [--reason HOST_DOWN|OTHER|OUT_OF_TOKENS|STALLED] [--until <iso>] (uses --app or the binding)
 hadron team chat inbox [--after <endCursor> | --ack-file <path|->]   # own bound live worker session only, same canonical App/server; one rendered page, output+flush before ack; --json stable page/proof ids, no hidden journal; retain privately for ack-only recovery {"batchIds":["proof"]}; '-' requires piped input; ack recovery does not reread/redisplay; same-session proof/15-minute server boundary; no host-key fallback, no mark-read compensation; before ack a repull can redisplay
-hadron team delivery-settings get | set [--batch-window-seconds N] [--busy-delay-seconds N] [--stuck-window-seconds N] [--standby=true|false] (uses --app or the binding)   # batch window IS ticker cadence floor (min 60s, default 120); existing tickers retain cadence, floor raise above a live ticker refuses; server defaults busy/stuck 600/900s; server enforces its current limits; omitted preserves, explicit false sends false, no null/reset; no-field set is manager-only current-values readback (not a database no-op); use get for a participant read; standby true currently refused (exit 5), never an activation claim; ordinary authenticated caller, server controls manager rights
+hadron team delivery-settings get | set [--check-period-seconds N] [--failed-checks-to-overdue N] [--batch-window-seconds N] [--busy-delay-seconds N] [--stuck-window-seconds N] [--standby=true|false] (uses --app or the binding)   # check period default 600s and failed checks default2 + 5min slack; server-derived check status; pair period with team ticker cadence; batch/busy/stuck settings deprecated; batch window IS ticker cadence floor (min 60s, default 120); existing tickers retain cadence, floor raise above a live ticker refuses; server defaults busy/stuck 600/900s; server enforces its current limits; omitted preserves, explicit false sends false, no null/reset; no-field set is manager-only current-values readback (not a database no-op); use get for a participant read; standby true currently refused (exit 5), never an activation claim; ordinary authenticated caller, server controls manager rights
 hadron team stall-schedule get | set [--assignment-minutes N|default] [--not-started-minutes N|default] [--no-progress-minutes N|default] [--owner-reaction-minutes N|default] [--host-lapse-check-ins N|default] (uses --app or the binding)   # an omitted flag keeps its value, `default` restores the platform default; set is the App manager's, never the bound worker's (exit 8 APP_MANAGER_REQUIRED)
 hadron team host list | ops [--host <id>] [--status issued|collected|succeeded|failed] [--worker <ref>] [--limit N] [--after <cursor>] | issue <type> --host <id> --worker <ref> [--arg k=v]… [--as-person] (uses --app or the binding)   # ops: newest first, --json {items, hasNextPage, endCursor}; issue: worktree.create|worktree.remove plus worker.start|worker.end issued by App managers (worker.deliver exit 2 HOST_OPERATION_NOT_ISSUABLE, other types exit 2 HOST_OPERATION_TYPE_UNKNOWN, bad args exit 2 BAD_HOST_OPERATION_ARGS, not permitted exit 8, unknown host exit 4); bound: issued as the worker (the target's reports-to), --as-person: as yourself (holder or App manager); arguments are ids and name tokens, never a credential
 hadron team host run --config <host.yaml> [--once] | status --config <host.yaml>   # the host poller (cli#831, cor:agt:070): registers each poll, collects, runs ONLY worktree.create|worker.start|worker.deliver|worker.end|worktree.remove (anything else reported FAILED locally), reports every outcome; authenticates with the host:operate key from key_file only (mode 0600; NEVER HADRON_TOKEN or an env var); a launched agent gets HADRON_LAUNCH_GRANT and no host credential, and binds with session start reading it (the grant names the worker, so no worker argument; never forced; LAUNCH_GRANT_INVALID exit 8, LAUNCH_REFUSED exit 5); worker.end prompts and reports FAILED after end_wait (the server records an ended session as success; it never kills); worktree.remove refuses dirty, untracked, no-upstream, unpushed, or after a failed end; --json: one event object per line; no host key exit 3, bad config exit 2, APP_KEY_SCOPE_REQUIRED/HOST_KEY_REQUIRED exit 8; delivery.enabled (cli#907): each poll also reads the host's chat batches (key also needs attention:deliver) and types each only into an empty agent composer via orca_bin, then acks it; events delivery-delivered|reconciled|held|deferred|skipped|error (codes, ids, spans; never text or proof); a read APP_KEY_SCOPE_REQUIRED turns delivery off for the run (delivery-off event, exit unaffected); holds are UNREPORTED to the server until cli#940 (no server alarm); a message over 131,071 UTF-8 bytes fails delivery-error too-long-to-type (never truncated or acked, stays due) and, oldest first, blocks that worker's later chat until hadron-server#2121; no tick/task wakes yet (cli#906); status --json delivery.workers[].unreported
@@ -332,7 +332,7 @@ hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role
 hadron profile set [--name <n>] [--handle <h>] [--email <e>]   # --email is accepted and REFUSED locally (exit 2, "Changing your email address is not supported here.") — the flag stays so scripts fail loudly (#844)
 hadron server-info
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
-hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [--reasons read-team-channel,every-tick] | update <id-or-URN> [--reasons <list>] | delete <id-or-URN> --yes | subscribe <id-or-URN> --worker <id-or-URN> | unsubscribe <id-or-URN> --worker <id-or-URN>
+hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [--reasons read-team-channel,every-tick,live-check] | update <id-or-URN> [--reasons <list>] | delete <id-or-URN> --yes | subscribe <id-or-URN> --worker <id-or-URN> | unsubscribe <id-or-URN> --worker <id-or-URN>
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | list --app <ref> | update <id> ... | rm <id> --yes
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | list --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
@@ -3129,8 +3129,8 @@ fields are preserved; false and clear values are transmitted explicitly. A no-fi
 update refuses with exit 2 before a request. Ticker/worker URNs use the v2 parser;
 malformed or wrong-type refs refuse before a request.
 
-Reasons form a nonempty closed set: `read-team-channel`, `every-tick`, or both
-(any-of). Duplicate reasons collapse to canonical order. Empty and unknown
+Reasons form a nonempty closed set: `read-team-channel`, `every-tick`,
+`live-check` (any-of). Duplicate reasons collapse to canonical order. Empty and unknown
 reasons refuse before a write. The current server defaults omitted create
 reasons to read-team-channel, relevance to all, anchor to now, enabled to true.
 These defaults and the management/read rules include Proposed corpus clauses;
@@ -3163,3 +3163,31 @@ host/Orca access. Delivery holds/failures preserve post stdout/JSON and exit 0;
 recover with hadron team host run --config <host.yaml>, never repost. Held
 deliveries appear in local counts but are not reported to the server yet
 (no server alarm/escalation).
+
+
+### Team-channel checks (experiment #2138)
+
+`team roster` adds a CHECK column alongside its existing work STATE. `team worker
+get` shows the server's check status and last team-channel check. JSON carries
+`checkStatus: {status, pendingReason, lastCheckedAt} | null`: null is unavailable,
+not PENDING or OK. A known result with lastCheckedAt null means never checked.
+NO_SESSION, PENDING (with the server's reason), OK and OVERDUE are rendered as
+returned; the CLI does not infer them from local time, task counts or liveness.
+This experiment supplies status only, with no overdue alarm.
+
+`ticker create|update --reasons live-check` selects the server's live-check rule.
+The server decides task expectation, freshness, pause and isolation exclusions;
+the CLI never computes due wakes. Changing a check period and the corresponding
+team ticker cadence is the App manager's coordinated operation.
+
+`team delivery-settings set --check-period-seconds 600 --failed-checks-to-overdue 2`
+changes only the supplied settings; omitted fields preserve, no null/default
+reset. Values are whole GraphQL Ints; limits and relations are server-owned.
+Batch window, busy delay and stuck window remain readable and settable as
+legacy deprecated push settings; they are not used to derive check status.
+
+`agent update <ref> --uses-tasks=false` makes that Agent's workers expected to
+check without an assigned task. Explicit true/false is sent; omission preserves.
+`agent get` and Agent JSON read back usesTasks. The server owns edit authority.
+No task is created or finished by this setting, and this CLI slice does not
+start a ticker, service, terminal push or fleet activation.

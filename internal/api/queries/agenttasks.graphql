@@ -285,6 +285,7 @@ query TeamRoster($appRef: ID!) {
       unavailableReason
       unavailableUntil
       lastActiveAt
+      checkStatus { ...ChannelCheckFields }
       lastAssignedAt
       pendingTasks
       startedTasks

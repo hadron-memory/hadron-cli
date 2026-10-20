@@ -195,6 +195,11 @@ type Agent {
   tasksIndexRef: ID
   type: AgentType!
   urn: String!
+
+  """
+  #2138: false means every Worker cast from this Agent counts as having a task and is expected to check its team channel every period (coordinators, the lifecycle agent). Default true.
+  """
+  usesTasks: Boolean!
   visibility: AgentVisibility!
 }
 
@@ -1137,6 +1142,11 @@ type App {
   sharedMemory: Memory
   surfaces: [String!]!
   systemPrompt: String
+
+  """
+  #2138: when the whole team was paused (setTeamPause), or null. Separate from every worker's own pause.
+  """
+  teamPausedAt: DateTime
   trainingMode: Boolean!
   updatedAt: DateTime
   urn: String!
@@ -1184,12 +1194,24 @@ Delivery timing per App. Busy/stuck bounds and relation are Proposed (hrn:node:h
 """
 type AppDeliverySettings {
   """
-  The existing ticker cadence floor and wake-rate ceiling, also the batching window. Changing it affects ticker cadence.
+  The existing ticker cadence floor and wake-rate ceiling, also the batching window. Changing it affects ticker cadence. DEPRECATED (#2138): push batching is superseded by channel checks; kept readable, no new consumer.
   """
   batchWindowSeconds: Int!
 
-  """Whole seconds, 1..86400; default 600."""
+  """
+  Whole seconds, 1..86400; default 600. DEPRECATED (#2138): superseded by channel checks.
+  """
   busyDelaySeconds: Int!
+
+  """
+  #2138: a worker with a task is expected to check its team channel every period. Whole seconds, 60..86400; default 600. Set together with the team ticker's cadence.
+  """
+  checkPeriodSeconds: Int!
+
+  """
+  #2138: a worker with a task is OVERDUE after this many missed periods plus 5 minutes. Whole number, 1..100; default 2.
+  """
+  failedChecksToOverdue: Int!
 
   """
   False until S7 supplies standby behavior; configuration alone has no effect.
@@ -1202,7 +1224,7 @@ type AppDeliverySettings {
   standbyEnabled: Boolean!
 
   """
-  Whole seconds, 1..604800; default 900. Must exceed busy delay plus batch window.
+  Whole seconds, 1..604800; default 900. Must exceed busy delay plus batch window. DEPRECATED (#2138): superseded by channel checks.
   """
   stuckWindowSeconds: Int!
 }
@@ -1216,6 +1238,12 @@ input AppDeliverySettingsInput {
   """
   batchWindowSeconds: Int
   busyDelaySeconds: Int
+
+  """#2138: whole seconds, 60..86400."""
+  checkPeriodSeconds: Int
+
+  """#2138: whole number, 1..100."""
+  failedChecksToOverdue: Int
   standbyEnabled: Boolean
   stuckWindowSeconds: Int
 }
@@ -3362,6 +3390,11 @@ type DueTaskReason {
   """A stable label for the reason, e.g. TASK:<id>:assigned."""
   ref: String!
 
+  """
+  S7 (#2023, R90) — on an assignment to a worker that was on standby: how many messages were held from it and passed by the delivered mark. Returned with this one event, so once.
+  """
+  standbyHeld: Int
+
   """The task's title, for the nudge text."""
   title: String!
 }
@@ -5437,6 +5470,11 @@ type Mutation {
   clearNodeHistory(nodeRef: ID!): Int!
 
   """
+  S7 — lift an isolation (same audience). Clearing when none is set changes nothing.
+  """
+  clearWorkerIsolation(workerRef: String!): WorkerWakeSettings!
+
+  """
   Clone a Memory into a new Memory at `targetUrn`.
   
   `ref` accepts the source's ID or URN. `targetUrn` is a fully-qualified
@@ -5503,7 +5541,7 @@ type Mutation {
   
   orgId accepts the org's ID or URN.
   """
-  createAgent(description: String, name: String!, orgId: ID, personaRole: String, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, visibility: AgentVisibility): Agent!
+  createAgent(description: String, name: String!, orgId: ID, personaRole: String, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, usesTasks: Boolean, visibility: AgentVisibility): Agent!
 
   """
   Subscribe an organization to a PUBLIC Agent without creating an App.
@@ -6718,6 +6756,13 @@ type Mutation {
   inviteUser(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, name: String): UserInvitation!
 
   """
+  S7 (#2023, R85) — isolate a worker until a time (default 2 hours, at most 7 days; a later time extends, an earlier one shortens).
+  Only a person managing the App or holding the worker, acting as themselves; a worker session (even a manager's), an App key or an
+  impersonation is refused with WORKER_ISOLATION_FORBIDDEN. Never touches the worker's own pause.
+  """
+  isolateWorker(until: DateTime, workerRef: String!): WorkerWakeSettings!
+
+  """
   #1709 — issue an operation to one of the App's registered hosts (hrn:node:hadronmemory.com:specs:cor:agt:070:05).
   A type outside the closed set is HOST_OPERATION_TYPE_UNKNOWN (hrn:node:hadronmemory.com:specs:cor:agt:070:03), a
   missing, extra or malformed argument BAD_HOST_OPERATION_ARGS. worktree.create and worktree.remove: the worker's
@@ -7571,6 +7616,11 @@ type Mutation {
   setQuotaLimit(input: SetQuotaLimitInput!): QuotaCounter!
 
   """
+  #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED).
+  """
+  setTeamPause(appRef: String!, paused: Boolean!): TeamPause!
+
+  """
   #1706 — set a worker's availability for work (hrn:node:hadronmemory.com:specs:cor:agt:060:08): the worker
   itself, acting through its session, and only to UNAVAILABLE; the person
   holding its name; or whoever manages the App. Writes availability.changed.
@@ -7764,7 +7814,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateAgent(description: String, listedOnMarketplace: Boolean, name: String, personaRole: String, ref: ID!, registerDefaults: RegisterDefaultsInput, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, visibility: AgentVisibility): Agent!
+  updateAgent(description: String, listedOnMarketplace: Boolean, name: String, personaRole: String, ref: ID!, registerDefaults: RegisterDefaultsInput, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, usesTasks: Boolean, visibility: AgentVisibility): Agent!
 
   """
   Update an Agent's AI provider config. Key is encrypted at rest.
@@ -13548,6 +13598,13 @@ type TeamCollectionsPayload {
 }
 
 """
+#2138: the App's team pause. teamPausedAt is null when the team is not paused.
+"""
+type TeamPause {
+  teamPausedAt: DateTime
+}
+
+"""
 A role definition (#960): the roles:<role> node in the Team Agent's system
 memory. #1050: it carries no name register — a role is a definition, not an
 allocation pool.
@@ -13624,6 +13681,11 @@ type TeamRosterEntry {
   Bound: has an open session, live or quiet. Going quiet never unbinds; ending the session does.
   """
   bound: Boolean!
+
+  """
+  #2138 §3.4 (experimental) — whether it is checking its team channel as expected.
+  """
+  checkStatus: WorkerCheckStatus
 
   """
   The binding's model family: its newest open session's (hrn:node:hadronmemory.com:specs:cor:agt:060:04), kept while the session is quiet. Null when unbound or none was reported.
@@ -13885,6 +13947,11 @@ enum TickerReason {
   Fires on every tick, with or without unread. The floor, budget, pause and dormancy still apply.
   """
   EVERY_TICK
+
+  """
+  #2138: fires when the subscriber has not checked its team channel within the ticker's cadence, whatever is unread, and never for a worker not expected to check (no task, isolated, paused, or a team pause).
+  """
+  LIVE_CHECK
 
   """
   Fires only when the subscriber has relevant unread in the ticker's channels (what relevance counts is the ticker's relevance).
@@ -14423,6 +14490,13 @@ type Worker {
   appUrn: String
 
   """
+  #2138 §3.4 (experimental) — whether this worker is checking its team
+  channel as expected, derived at read time. Masked to null on the same read
+  gate as hasLiveSession.
+  """
+  checkStatus: WorkerCheckStatus
+
+  """
   #1029 — what a fresh binding of this worker inherits from the last one.
   
   Returned by startSession alongside the boot briefing (binding is briefing,
@@ -14659,6 +14733,44 @@ type WorkerAvailability {
 }
 
 """
+#2138 §3.4 (experimental) — a worker's check status. Draft spec: hrn:node:hadronmemory.com:hadron-dev-team-vera:work:2138-experiment-spec.
+"""
+enum WorkerCheckState {
+  """No live session."""
+  NO_SESSION
+
+  """
+  Has a task and checked within failedChecksToOverdue × checkPeriodSeconds + 5 minutes.
+  """
+  OK
+
+  """
+  Has a task and hasn't checked for longer than that. Long turns show here on purpose.
+  """
+  OVERDUE
+
+  """Not expected to check now; pendingReason says why."""
+  PENDING
+}
+
+"""
+#2138 §3.4 — a worker's check status. A worker HAS A TASK when an open task is
+assigned to it or its Agent has usesTasks: false. The OVERDUE clock runs from
+the latest of lastCheckedAt, its newest open assignment, its live session's
+start and the end of its own pause.
+"""
+type WorkerCheckStatus {
+  """
+  When it last checked the App's team channel through its own session; null if never.
+  """
+  lastCheckedAt: DateTime
+
+  """Set only when status is PENDING."""
+  pendingReason: WorkerPendingReason
+  status: WorkerCheckState!
+}
+
+"""
 #1029 — the continuity a worker carries between stints.
 
 Handoffs are ordinary nodes in the worker's working memory, so a client walks
@@ -14720,6 +14832,26 @@ enum WorkerContinuityStatus {
 }
 
 """
+#2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, PAUSED, ISOLATED, STANDBY, NO_TASK.
+"""
+enum WorkerPendingReason {
+  """In isolation (unreachable until isolation is built)."""
+  ISOLATED
+
+  """No open task assigned, and its Agent uses tasks."""
+  NO_TASK
+
+  """Its own pause (pausedUntil) is in force."""
+  PAUSED
+
+  """On standby (unreachable until standby is built)."""
+  STANDBY
+
+  """A team pause is in force (App.teamPausedAt); the worker can't lift it."""
+  TEAM_PAUSED
+}
+
+"""
 #1747 — a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
 """
 type WorkerWakeSettings {
@@ -14730,6 +14862,20 @@ type WorkerWakeSettings {
 
   """The fastest live subscription on an enabled ticker; null when none."""
   effectiveCadenceSeconds: Int
+
+  """Live: isolatedUntil is in the future."""
+  isolated: Boolean!
+  isolatedAt: DateTime
+
+  """
+  The handle of the person who set it: only a person managing the App or holding the worker, acting as themselves, can.
+  """
+  isolatedByHandle: String
+
+  """
+  S7 (#2023, R85) — isolation is its own state, never pausedUntil. While live the worker gets no chat batches or ordinary wakes and is not matched.
+  """
+  isolatedUntil: DateTime
   mentions: MentionWake!
 
   """A pause belongs to the worker, not to a session."""

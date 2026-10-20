@@ -18,6 +18,13 @@
 
 fragment WorkerReportingRefFields on Worker { id name urn }
 
+# #2138 experiment: server-derived checking status, not local activity inference.
+fragment ChannelCheckFields on WorkerCheckStatus {
+  status
+  pendingReason
+  lastCheckedAt
+}
+
 fragment WorkerFields on Worker {
   id
   # The address (#991): derived from the App's URN plus the permanent slug,
@@ -122,6 +129,7 @@ fragment WorkerFields on Worker {
   # contract anywhere — asked of hadron-server rather than assumed permanent.
   hasLiveSession
   lastActiveAt
+  checkStatus { ...ChannelCheckFields }
   retiredAt
   retiredBy
   createdAt
@@ -1304,6 +1312,8 @@ fragment AppDeliverySettingsFields on AppDeliverySettings {
   stuckWindowSeconds
   standbyEnabled
   standbyEffective
+  checkPeriodSeconds
+  failedChecksToOverdue
 }
 query TeamDeliverySettings($appRef: String!) {
   appDeliverySettings(appRef: $appRef) { ...AppDeliverySettingsFields }
@@ -1312,6 +1322,8 @@ query TeamDeliverySettings($appRef: String!) {
 # @genqlient(for: "AppDeliverySettingsInput.busyDelaySeconds", omitempty: true)
 # @genqlient(for: "AppDeliverySettingsInput.stuckWindowSeconds", omitempty: true)
 # @genqlient(for: "AppDeliverySettingsInput.standbyEnabled", omitempty: true)
+# @genqlient(for: "AppDeliverySettingsInput.checkPeriodSeconds", omitempty: true)
+# @genqlient(for: "AppDeliverySettingsInput.failedChecksToOverdue", omitempty: true)
 mutation TeamDeliverySettingsSet(
   $appRef: String!
   $input: AppDeliverySettingsInput!

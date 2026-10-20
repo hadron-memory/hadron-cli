@@ -77,7 +77,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 102 unbound
+[Mutation] 105 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -92,6 +92,7 @@ calendarDeleteEvent
 calendarRespondToEvent
 calendarUpdateEvent
 clearAgentAIConfig
+clearWorkerIsolation  # S7a remains inert; isolation CLI commands are outside the #2138 experiment slice
 createAgentOrgGrant
 createAppKey
 createAppUser
@@ -124,6 +125,7 @@ exportNodeToGoogleDoc
 grantApp  # server#1747 worker App grants; CLI parity slice to follow
 grantCredits
 inviteUser
+isolateWorker  # typed-refused until deferred S7b (#2130); no CLI activation surface in #2138
 joinApp
 joinWaitingList
 leaveApp
@@ -161,6 +163,7 @@ setDecisionLogDeciders  # server main schema refresh for cli#836; separate CLI p
 setHostWorkerAvailability  # host-side OUT_OF_TOKENS/HOST_DOWN marks: the cli#831 poller sets none yet (no signal for them is ruled); follow-up
 setMemorySourceToken
 setQuotaLimit
+setTeamPause  # #2138 server/MCP control; this dispatched CLI slice covers status, settings, live-check and usesTasks only
 setWorkerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 startAgentSession
 startChat

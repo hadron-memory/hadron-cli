@@ -26,6 +26,7 @@ fragment AgentFields on Agent {
   # The persona role is metadata. systemPrompt is the shared template with
   # {{name}}/{{role}} bound when a Worker is cast or its prompt is resolved.
   personaRole
+  usesTasks
   createdAt
 }
 
@@ -141,6 +142,8 @@ mutation UpdateAgent(
   # same rule via systemPrompt above.
   # @genqlient(omitempty: true)
   $personaRole: String
+  # @genqlient(omitempty: true)
+  $usesTasks: Boolean
 ) {
   updateAgent(
     ref: $ref
@@ -153,6 +156,7 @@ mutation UpdateAgent(
     surfaces: $surfaces
     urn: $urn
     personaRole: $personaRole
+    usesTasks: $usesTasks
   ) {
     ...AgentFields
   }

@@ -33,6 +33,11 @@ in the first that holds (the server's roster order, most actionable
 first): YOUR_MOVE, UNAVAILABLE, WAITING, WORKING, ASSIGNED_NOT_STARTED,
 AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE.
 
+CHECK is the separate server-derived team-channel checking status:
+NO_SESSION, PENDING (with its reason), OK or OVERDUE. A dash means the
+server did not make the result available. This experiment adds no overdue
+alarm, and the CLI does not calculate the status from local time or tasks.
+
 Read it with lastActiveAt: nothing clears a reportsTo claim automatically,
 and a state is a fact about now, not a judgement.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -70,7 +75,12 @@ and a state is a fact about now, not a judgement.`,
 				if party := partyDTO(w.Worker); party != nil {
 					worker = *party
 				}
+				var check *channelCheckDTO
+				if w.CheckStatus != nil {
+					check = channelCheckFromFields(w.CheckStatus.ChannelCheckFields)
+				}
 				dto.Workers = append(dto.Workers, rosterEntryDTO{
+					CheckStatus:         check,
 					Worker:              worker,
 					State:               string(w.State),
 					Role:                w.Role,
@@ -101,7 +111,7 @@ and a state is a fact about now, not a judgement.`,
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 					return err
 				}
-				t := output.NewTable(w, "WORKER", "STATE", "ROLE", "FAMILY", "LIVE", "TASKS", "ALARMS")
+				t := output.NewTable(w, "WORKER", "STATE", "CHECK", "ROLE", "FAMILY", "LIVE", "TASKS", "ALARMS")
 				for _, e := range dto.Workers {
 					name := e.Worker.ID
 					if e.Worker.Name != nil {
@@ -116,7 +126,7 @@ and a state is a fact about now, not a judgement.`,
 					}
 					tasks := fmt.Sprintf("P%d S%d", len(e.PendingTasks), len(e.StartedTasks))
 					alarms := fmt.Sprintf("%d", len(e.Alarms))
-					t.Row(name, e.State, strOr(e.Role), family, live, tasks, alarms)
+					t.Row(name, e.State, channelCheckLabel(e.CheckStatus), strOr(e.Role), family, live, tasks, alarms)
 				}
 				if err := t.Flush(); err != nil {
 					return err

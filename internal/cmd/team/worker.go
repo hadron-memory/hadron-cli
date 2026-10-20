@@ -461,6 +461,9 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <name-or-id>",
 		Short: "Show a worker (by name within the App, or by id)",
+		Long: `Show the worker and the server-derived team-channel check status.
+A known check result with no lastCheckedAt means never checked; an unavailable
+check result stays unavailable. No local clock or task-count inference is made.`,
 		Example: `  hadron team worker get Iris
   hadron team worker get wkr_123 --json`,
 		Args: cobra.ExactArgs(1),
@@ -546,6 +549,14 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 				// the same reason.
 				if workingStateVisible(dto.HasLiveSession) {
 					fmt.Fprintf(out, "  driven: %s\n", renderLastDriven(dto.HasLiveSession, dto.LastActiveAt, time.Now()))
+				}
+				fmt.Fprintf(out, "  check status: %s\n", channelCheckLabel(dto.CheckStatus))
+				if dto.CheckStatus != nil {
+					last := "never"
+					if dto.CheckStatus.LastCheckedAt != nil {
+						last = *dto.CheckStatus.LastCheckedAt
+					}
+					fmt.Fprintf(out, "  last team-channel check: %s\n", last)
 				}
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)

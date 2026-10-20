@@ -36,6 +36,7 @@ type agentDTO struct {
 	AiModel        *string  `json:"aiModel"`
 	HasAiApiKey    bool     `json:"hasAiApiKey"`
 	PersonaRole    *string  `json:"personaRole"`
+	UsesTasks      bool     `json:"usesTasks"`
 	CreatedAt      string   `json:"createdAt"`
 }
 
@@ -50,7 +51,7 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId, SystemPrompt: a.SystemPrompt,
 		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef, ExtendsAgentID: a.ExtendsAgentId,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
-		PersonaRole: a.PersonaRole, CreatedAt: a.CreatedAt,
+		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, CreatedAt: a.CreatedAt,
 	}
 }
 
@@ -281,6 +282,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", dto.Name, dto.URN, dto.ID, dto.Type, dto.Visibility)
 				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  extends: %s\n  ai: %s/%s (key: %v)\n",
 					dash(dto.Description), dash(dto.SystemMemoryID), dash(dto.TasksIndexRef), dash(dto.ProcessesIndex), dash(dto.ExtendsAgentID), dash(dto.AiProvider), dash(dto.AiModel), dto.HasAiApiKey)
+				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
 				if len(dto.Surfaces) > 0 {
 					fmt.Fprintf(w, "  surfaces: %s\n", strings.Join(dto.Surfaces, ", "))
 				}
@@ -507,6 +509,7 @@ it can refuse after the create succeeds.`,
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var name, description, typ, vis, systemPrompt, systemMemory, urn string
 	var personaRole string
+	var usesTasks bool
 	var systemPromptFile string
 	var tasksIndex, processesIndex string
 	var surfaces []string
@@ -530,7 +533,7 @@ their prompt from this field.`,
 			if !changed("name") && !changed("description") && !changed("type") && !changed("visibility") &&
 				!changed("system-prompt") && !changed("system-prompt-file") &&
 				!changed("system-memory") && !changed("surface") && !changed("urn") &&
-				!changed("persona-role") &&
+				!changed("persona-role") && !changed("uses-tasks") &&
 				!changed("tasks-index") && !changed("processes-index") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
@@ -576,12 +579,16 @@ their prompt from this field.`,
 			if changed("name") || changed("description") || changed("type") || changed("visibility") ||
 				changed("system-prompt") || changed("system-prompt-file") ||
 				changed("system-memory") || changed("surface") || changed("urn") ||
-				changed("persona-role") {
+				changed("persona-role") || changed("uses-tasks") {
+				var usesTasksArg *bool
+				if changed("uses-tasks") {
+					usesTasksArg = &usesTasks
+				}
 				resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
 					changedStr(cmd, "name", name), changedStr(cmd, "description", description),
 					at, av, systemPromptArg,
 					changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
-					changedStr(cmd, "persona-role", personaRole))
+					changedStr(cmd, "persona-role", personaRole), usesTasksArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -618,6 +625,7 @@ their prompt from this field.`,
 	cmd.Flags().StringVar(&tasksIndex, "tasks-index", "", `the Agent's tasks index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().StringVar(&processesIndex, "processes-index", "", `the Agent's processes index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "read the shared prompt template from a file (multi-line safe); mutually exclusive with --system-prompt")
+	cmd.Flags().BoolVar(&usesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks; false keeps them expected to check the team channel without a task (omitted preserves)")
 	registerRetiredPersonaPromptFlags(cmd)
 	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
 	return cmd
