@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 func Test2138TickerLiveCheckReasonsWire(t *testing.T) {
@@ -219,4 +221,15 @@ func Test2138CheckSettingsNumericRefusalAndServerLimits(t *testing.T) {
 			t.Fatalf("server limit not preserved: %v", err)
 		}
 	}
+}
+
+// The reason is sent as an enum VARIABLE, so operation validation alone does
+// not catch a missing provider enum member (server#2144 / Elena25935).
+func Test2138LiveCheckExistsInProviderSchema(t *testing.T) {
+	for _, reason := range gen.AllTickerReason {
+		if reason == gen.TickerReason("LIVE_CHECK") {
+			return
+		}
+	}
+	t.Fatal("selected server schema lacks TickerReason.LIVE_CHECK; the provider rejects create/update and ticker read-back")
 }
