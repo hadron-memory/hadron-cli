@@ -661,7 +661,9 @@ type AgentFields struct {
 	HasAiApiKey    bool    `json:"hasAiApiKey"`
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
-	CreatedAt   string  `json:"createdAt"`
+	// #2138: false means every Worker cast from this Agent counts as having a task and is expected to check its team channel every period (coordinators, the lifecycle agent). Default true.
+	UsesTasks bool   `json:"usesTasks"`
+	CreatedAt string `json:"createdAt"`
 }
 
 // GetId returns AgentFields.Id, and is useful for accessing the field via an interface.
@@ -714,6 +716,9 @@ func (v *AgentFields) GetHasAiApiKey() bool { return v.HasAiApiKey }
 
 // GetPersonaRole returns AgentFields.PersonaRole, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetUsesTasks returns AgentFields.UsesTasks, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetUsesTasks() bool { return v.UsesTasks }
 
 // GetCreatedAt returns AgentFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetCreatedAt() string { return v.CreatedAt }
@@ -5825,6 +5830,9 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetHasAiApiKey() bool { return v.Agen
 // GetPersonaRole returns AgentsAgentsAgentsPageItemsAgent.PersonaRole, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
 
+// GetUsesTasks returns AgentsAgentsAgentsPageItemsAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
 // GetCreatedAt returns AgentsAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -5888,6 +5896,8 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
+	UsesTasks bool `json:"usesTasks"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -5919,6 +5929,7 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -6593,16 +6604,20 @@ func (v *AppAgentRosterResponse) GetApp() *AppAgentRosterApp { return v.App }
 // C5 slice A (#911): one shared batching-window/ticker-floor dial. Settings
 // operations use the ordinary authenticated caller, not a worker attribution.
 type AppDeliverySettingsFields struct {
-	// The existing ticker cadence floor and wake-rate ceiling, also the batching window. Changing it affects ticker cadence.
+	// The existing ticker cadence floor and wake-rate ceiling, also the batching window. Changing it affects ticker cadence. DEPRECATED (#2138): push batching is superseded by channel checks; kept readable, no new consumer.
 	BatchWindowSeconds int `json:"batchWindowSeconds"`
-	// Whole seconds, 1..86400; default 600.
+	// Whole seconds, 1..86400; default 600. DEPRECATED (#2138): superseded by channel checks.
 	BusyDelaySeconds int `json:"busyDelaySeconds"`
-	// Whole seconds, 1..604800; default 900. Must exceed busy delay plus batch window.
+	// Whole seconds, 1..604800; default 900. Must exceed busy delay plus batch window. DEPRECATED (#2138): superseded by channel checks.
 	StuckWindowSeconds int `json:"stuckWindowSeconds"`
 	// Stored configuration; default false. Enabling is refused until standby behavior ships.
 	StandbyEnabled bool `json:"standbyEnabled"`
 	// False until S7 supplies standby behavior; configuration alone has no effect.
 	StandbyEffective bool `json:"standbyEffective"`
+	// #2138: a worker with a task is expected to check its team channel every period. Whole seconds, 60..86400; default 600. Set together with the team ticker's cadence.
+	CheckPeriodSeconds int `json:"checkPeriodSeconds"`
+	// #2138: a worker with a task is OVERDUE after this many missed periods plus 5 minutes. Whole number, 1..100; default 2.
+	FailedChecksToOverdue int `json:"failedChecksToOverdue"`
 }
 
 // GetBatchWindowSeconds returns AppDeliverySettingsFields.BatchWindowSeconds, and is useful for accessing the field via an interface.
@@ -6620,13 +6635,23 @@ func (v *AppDeliverySettingsFields) GetStandbyEnabled() bool { return v.StandbyE
 // GetStandbyEffective returns AppDeliverySettingsFields.StandbyEffective, and is useful for accessing the field via an interface.
 func (v *AppDeliverySettingsFields) GetStandbyEffective() bool { return v.StandbyEffective }
 
+// GetCheckPeriodSeconds returns AppDeliverySettingsFields.CheckPeriodSeconds, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsFields) GetCheckPeriodSeconds() int { return v.CheckPeriodSeconds }
+
+// GetFailedChecksToOverdue returns AppDeliverySettingsFields.FailedChecksToOverdue, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsFields) GetFailedChecksToOverdue() int { return v.FailedChecksToOverdue }
+
 // Atomic patch: omit to preserve, explicit null refuses. Empty patch returns the current authorized settings.
 type AppDeliverySettingsInput struct {
 	// Shared ticker floor/window; existing floor, self-cadence and live-ticker limits apply.
-	BatchWindowSeconds *int  `json:"batchWindowSeconds,omitempty"`
-	BusyDelaySeconds   *int  `json:"busyDelaySeconds,omitempty"`
-	StandbyEnabled     *bool `json:"standbyEnabled,omitempty"`
-	StuckWindowSeconds *int  `json:"stuckWindowSeconds,omitempty"`
+	BatchWindowSeconds *int `json:"batchWindowSeconds,omitempty"`
+	BusyDelaySeconds   *int `json:"busyDelaySeconds,omitempty"`
+	// #2138: whole seconds, 60..86400.
+	CheckPeriodSeconds *int `json:"checkPeriodSeconds,omitempty"`
+	// #2138: whole number, 1..100.
+	FailedChecksToOverdue *int  `json:"failedChecksToOverdue,omitempty"`
+	StandbyEnabled        *bool `json:"standbyEnabled,omitempty"`
+	StuckWindowSeconds    *int  `json:"stuckWindowSeconds,omitempty"`
 }
 
 // GetBatchWindowSeconds returns AppDeliverySettingsInput.BatchWindowSeconds, and is useful for accessing the field via an interface.
@@ -6634,6 +6659,12 @@ func (v *AppDeliverySettingsInput) GetBatchWindowSeconds() *int { return v.Batch
 
 // GetBusyDelaySeconds returns AppDeliverySettingsInput.BusyDelaySeconds, and is useful for accessing the field via an interface.
 func (v *AppDeliverySettingsInput) GetBusyDelaySeconds() *int { return v.BusyDelaySeconds }
+
+// GetCheckPeriodSeconds returns AppDeliverySettingsInput.CheckPeriodSeconds, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsInput) GetCheckPeriodSeconds() *int { return v.CheckPeriodSeconds }
+
+// GetFailedChecksToOverdue returns AppDeliverySettingsInput.FailedChecksToOverdue, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsInput) GetFailedChecksToOverdue() *int { return v.FailedChecksToOverdue }
 
 // GetStandbyEnabled returns AppDeliverySettingsInput.StandbyEnabled, and is useful for accessing the field via an interface.
 func (v *AppDeliverySettingsInput) GetStandbyEnabled() *bool { return v.StandbyEnabled }
@@ -8967,6 +8998,11 @@ func (v *CastWorkerCastWorker) GetHasLiveSession() *bool { return v.WorkerFields
 // GetLastActiveAt returns CastWorkerCastWorker.LastActiveAt, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
 
+// GetCheckStatus returns CastWorkerCastWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
 // GetRetiredAt returns CastWorkerCastWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -9045,6 +9081,8 @@ type __premarshalCastWorkerCastWorker struct {
 
 	LastActiveAt *string `json:"lastActiveAt"`
 
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -9085,6 +9123,7 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
 	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -9215,6 +9254,24 @@ type CastWorkerResponse struct {
 
 // GetCastWorker returns CastWorkerResponse.CastWorker, and is useful for accessing the field via an interface.
 func (v *CastWorkerResponse) GetCastWorker() *CastWorkerCastWorker { return v.CastWorker }
+
+// #2138 experiment: server-derived checking status, not local activity inference.
+type ChannelCheckFields struct {
+	Status WorkerCheckState `json:"status"`
+	// Set only when status is PENDING.
+	PendingReason *WorkerPendingReason `json:"pendingReason"`
+	// When it last checked the App's team channel through its own session; null if never.
+	LastCheckedAt *string `json:"lastCheckedAt"`
+}
+
+// GetStatus returns ChannelCheckFields.Status, and is useful for accessing the field via an interface.
+func (v *ChannelCheckFields) GetStatus() WorkerCheckState { return v.Status }
+
+// GetPendingReason returns ChannelCheckFields.PendingReason, and is useful for accessing the field via an interface.
+func (v *ChannelCheckFields) GetPendingReason() *WorkerPendingReason { return v.PendingReason }
+
+// GetLastCheckedAt returns ChannelCheckFields.LastCheckedAt, and is useful for accessing the field via an interface.
+func (v *ChannelCheckFields) GetLastCheckedAt() *string { return v.LastCheckedAt }
 
 // ChannelFields includes the GraphQL fields of Channel requested by the fragment ChannelFields.
 // The GraphQL type's documentation follows.
@@ -10008,6 +10065,11 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetPersonaRole() *strin
 	return v.AgentFields.PersonaRole
 }
 
+// GetUsesTasks returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetUsesTasks() bool {
+	return v.AgentFields.UsesTasks
+}
+
 // GetCreatedAt returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -10073,6 +10135,8 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
+	UsesTasks bool `json:"usesTasks"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -10104,6 +10168,7 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -10212,6 +10277,11 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetPersonaRole() *string {
 	return v.AgentFields.PersonaRole
 }
 
+// GetUsesTasks returns ClearAgentTasksIndexSetAgentIndexRefsAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetUsesTasks() bool {
+	return v.AgentFields.UsesTasks
+}
+
 // GetCreatedAt returns ClearAgentTasksIndexSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -10277,6 +10347,8 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
+	UsesTasks bool `json:"usesTasks"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -10308,6 +10380,7 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -12532,6 +12605,9 @@ func (v *CreateAgentCreateAgent) GetHasAiApiKey() bool { return v.AgentFields.Ha
 // GetPersonaRole returns CreateAgentCreateAgent.PersonaRole, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
 
+// GetUsesTasks returns CreateAgentCreateAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
 // GetCreatedAt returns CreateAgentCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -12595,6 +12671,8 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
+	UsesTasks bool `json:"usesTasks"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -12626,6 +12704,7 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -19746,6 +19825,9 @@ func (v *GetAgentAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey
 // GetPersonaRole returns GetAgentAgent.PersonaRole, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
 
+// GetUsesTasks returns GetAgentAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
 // GetCreatedAt returns GetAgentAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -19809,6 +19891,8 @@ type __premarshalGetAgentAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
+	UsesTasks bool `json:"usesTasks"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -19840,6 +19924,7 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -22368,6 +22453,11 @@ func (v *GetWorkerWorker) GetHasLiveSession() *bool { return v.WorkerFields.HasL
 // GetLastActiveAt returns GetWorkerWorker.LastActiveAt, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
 
+// GetCheckStatus returns GetWorkerWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
 // GetRetiredAt returns GetWorkerWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -22446,6 +22536,8 @@ type __premarshalGetWorkerWorker struct {
 
 	LastActiveAt *string `json:"lastActiveAt"`
 
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -22486,6 +22578,7 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
 	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -31992,6 +32085,11 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetPersonaRole() *string 
 	return v.AgentFields.PersonaRole
 }
 
+// GetUsesTasks returns PublicAgentsPublicAgentsAgentsPageItemsAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetUsesTasks() bool {
+	return v.AgentFields.UsesTasks
+}
+
 // GetCreatedAt returns PublicAgentsPublicAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -32057,6 +32155,8 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
+	UsesTasks bool `json:"usesTasks"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -32088,6 +32188,7 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -33416,6 +33517,11 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetLastActiveAt()
 	return v.WorkerFields.LastActiveAt
 }
 
+// GetCheckStatus returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
 // GetRetiredAt returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetRetiredAt() *string {
 	return v.WorkerFields.RetiredAt
@@ -33502,6 +33608,8 @@ type __premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker struct {
 
 	LastActiveAt *string `json:"lastActiveAt"`
 
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -33542,6 +33650,7 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) __premarshalJSON(
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
 	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -35889,6 +35998,11 @@ func (v *RetireWorkerRetireWorker) GetHasLiveSession() *bool { return v.WorkerFi
 // GetLastActiveAt returns RetireWorkerRetireWorker.LastActiveAt, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
 
+// GetCheckStatus returns RetireWorkerRetireWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
 // GetRetiredAt returns RetireWorkerRetireWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -35967,6 +36081,8 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	LastActiveAt *string `json:"lastActiveAt"`
 
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -36007,6 +36123,7 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
 	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -39124,6 +39241,9 @@ func (v *SetAgentBaseSetAgentBaseAgent) GetHasAiApiKey() bool { return v.AgentFi
 // GetPersonaRole returns SetAgentBaseSetAgentBaseAgent.PersonaRole, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
 
+// GetUsesTasks returns SetAgentBaseSetAgentBaseAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
 // GetCreatedAt returns SetAgentBaseSetAgentBaseAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -39187,6 +39307,8 @@ type __premarshalSetAgentBaseSetAgentBaseAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
+	UsesTasks bool `json:"usesTasks"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -39218,6 +39340,7 @@ func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgen
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -39324,6 +39447,9 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetPersonaRole() *string {
 	return v.AgentFields.PersonaRole
 }
 
+// GetUsesTasks returns SetAgentIndexRefsSetAgentIndexRefsAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
 // GetCreatedAt returns SetAgentIndexRefsSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -39389,6 +39515,8 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
+	UsesTasks bool `json:"usesTasks"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -39420,6 +39548,7 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -39594,6 +39723,11 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetLastActiveAt() *string {
 	return v.WorkerFields.LastActiveAt
 }
 
+// GetCheckStatus returns SetWorkerReportsToSetWorkerReportsToWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
 // GetRetiredAt returns SetWorkerReportsToSetWorkerReportsToWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetRetiredAt() *string {
 	return v.WorkerFields.RetiredAt
@@ -39680,6 +39814,8 @@ type __premarshalSetWorkerReportsToSetWorkerReportsToWorker struct {
 
 	LastActiveAt *string `json:"lastActiveAt"`
 
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -39720,6 +39856,7 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
 	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -43241,6 +43378,16 @@ func (v *TeamDeliverySettingsAppDeliverySettings) GetStandbyEffective() bool {
 	return v.AppDeliverySettingsFields.StandbyEffective
 }
 
+// GetCheckPeriodSeconds returns TeamDeliverySettingsAppDeliverySettings.CheckPeriodSeconds, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsAppDeliverySettings) GetCheckPeriodSeconds() int {
+	return v.AppDeliverySettingsFields.CheckPeriodSeconds
+}
+
+// GetFailedChecksToOverdue returns TeamDeliverySettingsAppDeliverySettings.FailedChecksToOverdue, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsAppDeliverySettings) GetFailedChecksToOverdue() int {
+	return v.AppDeliverySettingsFields.FailedChecksToOverdue
+}
+
 func (v *TeamDeliverySettingsAppDeliverySettings) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -43276,6 +43423,10 @@ type __premarshalTeamDeliverySettingsAppDeliverySettings struct {
 	StandbyEnabled bool `json:"standbyEnabled"`
 
 	StandbyEffective bool `json:"standbyEffective"`
+
+	CheckPeriodSeconds int `json:"checkPeriodSeconds"`
+
+	FailedChecksToOverdue int `json:"failedChecksToOverdue"`
 }
 
 func (v *TeamDeliverySettingsAppDeliverySettings) MarshalJSON() ([]byte, error) {
@@ -43294,6 +43445,8 @@ func (v *TeamDeliverySettingsAppDeliverySettings) __premarshalJSON() (*__premars
 	retval.StuckWindowSeconds = v.AppDeliverySettingsFields.StuckWindowSeconds
 	retval.StandbyEnabled = v.AppDeliverySettingsFields.StandbyEnabled
 	retval.StandbyEffective = v.AppDeliverySettingsFields.StandbyEffective
+	retval.CheckPeriodSeconds = v.AppDeliverySettingsFields.CheckPeriodSeconds
+	retval.FailedChecksToOverdue = v.AppDeliverySettingsFields.FailedChecksToOverdue
 	return &retval, nil
 }
 
@@ -43352,6 +43505,16 @@ func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetStandbyEffective() bo
 	return v.AppDeliverySettingsFields.StandbyEffective
 }
 
+// GetCheckPeriodSeconds returns TeamDeliverySettingsSetSetAppDeliverySettings.CheckPeriodSeconds, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetCheckPeriodSeconds() int {
+	return v.AppDeliverySettingsFields.CheckPeriodSeconds
+}
+
+// GetFailedChecksToOverdue returns TeamDeliverySettingsSetSetAppDeliverySettings.FailedChecksToOverdue, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetFailedChecksToOverdue() int {
+	return v.AppDeliverySettingsFields.FailedChecksToOverdue
+}
+
 func (v *TeamDeliverySettingsSetSetAppDeliverySettings) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -43387,6 +43550,10 @@ type __premarshalTeamDeliverySettingsSetSetAppDeliverySettings struct {
 	StandbyEnabled bool `json:"standbyEnabled"`
 
 	StandbyEffective bool `json:"standbyEffective"`
+
+	CheckPeriodSeconds int `json:"checkPeriodSeconds"`
+
+	FailedChecksToOverdue int `json:"failedChecksToOverdue"`
 }
 
 func (v *TeamDeliverySettingsSetSetAppDeliverySettings) MarshalJSON() ([]byte, error) {
@@ -43405,6 +43572,8 @@ func (v *TeamDeliverySettingsSetSetAppDeliverySettings) __premarshalJSON() (*__p
 	retval.StuckWindowSeconds = v.AppDeliverySettingsFields.StuckWindowSeconds
 	retval.StandbyEnabled = v.AppDeliverySettingsFields.StandbyEnabled
 	retval.StandbyEffective = v.AppDeliverySettingsFields.StandbyEffective
+	retval.CheckPeriodSeconds = v.AppDeliverySettingsFields.CheckPeriodSeconds
+	retval.FailedChecksToOverdue = v.AppDeliverySettingsFields.FailedChecksToOverdue
 	return &retval, nil
 }
 
@@ -43741,6 +43910,8 @@ type TeamRosterTeamRosterWorkersTeamRosterEntry struct {
 	UnavailableReason *AvailabilityReason `json:"unavailableReason"`
 	UnavailableUntil  *string             `json:"unavailableUntil"`
 	LastActiveAt      *string             `json:"lastActiveAt"`
+	// #2138 §3.4 (experimental) — whether it is checking its team channel as expected.
+	CheckStatus *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus `json:"checkStatus"`
 	// When it was last assigned a task; the matcher picks the least recent (hrn:node:hadronmemory.com:specs:cor:agt:060:06).
 	LastAssignedAt *string `json:"lastAssignedAt"`
 	// Pending tasks it is the assignee of.
@@ -43812,6 +43983,11 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetUnavailableUntil() *stri
 // GetLastActiveAt returns TeamRosterTeamRosterWorkersTeamRosterEntry.LastActiveAt, and is useful for accessing the field via an interface.
 func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetLastActiveAt() *string { return v.LastActiveAt }
 
+// GetCheckStatus returns TeamRosterTeamRosterWorkersTeamRosterEntry.CheckStatus, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetCheckStatus() *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus {
+	return v.CheckStatus
+}
+
 // GetLastAssignedAt returns TeamRosterTeamRosterWorkersTeamRosterEntry.LastAssignedAt, and is useful for accessing the field via an interface.
 func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetLastAssignedAt() *string {
 	return v.LastAssignedAt
@@ -43849,6 +44025,82 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetReportsTo() *TeamRosterT
 // GetReportsToRetired returns TeamRosterTeamRosterWorkersTeamRosterEntry.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetReportsToRetired() bool {
 	return v.ReportsToRetired
+}
+
+// TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus includes the requested fields of the GraphQL type WorkerCheckStatus.
+// The GraphQL type's documentation follows.
+//
+// #2138 §3.4 — a worker's check status. A worker HAS A TASK when an open task is
+// assigned to it or its Agent has usesTasks: false. The OVERDUE clock runs from
+// the latest of lastCheckedAt, its newest open assignment, its live session's
+// start and the end of its own pause.
+type TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus struct {
+	ChannelCheckFields `json:"-"`
+}
+
+// GetStatus returns TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus.Status, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) GetStatus() WorkerCheckState {
+	return v.ChannelCheckFields.Status
+}
+
+// GetPendingReason returns TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus.PendingReason, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) GetPendingReason() *WorkerPendingReason {
+	return v.ChannelCheckFields.PendingReason
+}
+
+// GetLastCheckedAt returns TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus.LastCheckedAt, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) GetLastCheckedAt() *string {
+	return v.ChannelCheckFields.LastCheckedAt
+}
+
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelCheckFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus struct {
+	Status WorkerCheckState `json:"status"`
+
+	PendingReason *WorkerPendingReason `json:"pendingReason"`
+
+	LastCheckedAt *string `json:"lastCheckedAt"`
+}
+
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) __premarshalJSON() (*__premarshalTeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus, error) {
+	var retval __premarshalTeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus
+
+	retval.Status = v.ChannelCheckFields.Status
+	retval.PendingReason = v.ChannelCheckFields.PendingReason
+	retval.LastCheckedAt = v.ChannelCheckFields.LastCheckedAt
+	return &retval, nil
 }
 
 // TeamRosterTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
@@ -46894,6 +47146,9 @@ func (v *UpdateAgentUpdateAgent) GetHasAiApiKey() bool { return v.AgentFields.Ha
 // GetPersonaRole returns UpdateAgentUpdateAgent.PersonaRole, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
 
+// GetUsesTasks returns UpdateAgentUpdateAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
 // GetCreatedAt returns UpdateAgentUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -46957,6 +47212,8 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	PersonaRole *string `json:"personaRole"`
 
+	UsesTasks bool `json:"usesTasks"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -46988,6 +47245,7 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -52081,6 +52339,11 @@ func (v *UpdateWorkerSigningUpdateWorker) GetLastActiveAt() *string {
 	return v.WorkerFields.LastActiveAt
 }
 
+// GetCheckStatus returns UpdateWorkerSigningUpdateWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
 // GetRetiredAt returns UpdateWorkerSigningUpdateWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerSigningUpdateWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -52159,6 +52422,8 @@ type __premarshalUpdateWorkerSigningUpdateWorker struct {
 
 	LastActiveAt *string `json:"lastActiveAt"`
 
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -52199,6 +52464,7 @@ func (v *UpdateWorkerSigningUpdateWorker) __premarshalJSON() (*__premarshalUpdat
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
 	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -52282,6 +52548,11 @@ func (v *UpdateWorkerUpdateWorker) GetHasLiveSession() *bool { return v.WorkerFi
 // GetLastActiveAt returns UpdateWorkerUpdateWorker.LastActiveAt, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerUpdateWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
 
+// GetCheckStatus returns UpdateWorkerUpdateWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
 // GetRetiredAt returns UpdateWorkerUpdateWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerUpdateWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -52360,6 +52631,8 @@ type __premarshalUpdateWorkerUpdateWorker struct {
 
 	LastActiveAt *string `json:"lastActiveAt"`
 
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -52400,6 +52673,7 @@ func (v *UpdateWorkerUpdateWorker) __premarshalJSON() (*__premarshalUpdateWorker
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
 	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -53101,6 +53375,27 @@ func (v *WorkerAvailabilitySetSetWorkerAvailabilityWorkerAgentTaskParty) __prema
 	return &retval, nil
 }
 
+// #2138 §3.4 (experimental) — a worker's check status. Draft spec: hrn:node:hadronmemory.com:hadron-dev-team-vera:work:2138-experiment-spec.
+type WorkerCheckState string
+
+const (
+	// No live session.
+	WorkerCheckStateNoSession WorkerCheckState = "NO_SESSION"
+	// Has a task and checked within failedChecksToOverdue × checkPeriodSeconds + 5 minutes.
+	WorkerCheckStateOk WorkerCheckState = "OK"
+	// Has a task and hasn't checked for longer than that. Long turns show here on purpose.
+	WorkerCheckStateOverdue WorkerCheckState = "OVERDUE"
+	// Not expected to check now; pendingReason says why.
+	WorkerCheckStatePending WorkerCheckState = "PENDING"
+)
+
+var AllWorkerCheckState = []WorkerCheckState{
+	WorkerCheckStateNoSession,
+	WorkerCheckStateOk,
+	WorkerCheckStateOverdue,
+	WorkerCheckStatePending,
+}
+
 // #1029. MISSING is deliberately not "no handoff": it means the PREVIOUS stint
 // did not write one, while `handoff` may still carry an older record. Silently
 // presenting a stale handoff as current is the failure this distinction exists
@@ -53256,6 +53551,10 @@ type WorkerFields struct {
 	// is derived from (#1114: that window DESCRIBES a session, it no longer ends
 	// one). Masked to null on deny, like heldByUserId.
 	LastActiveAt *string `json:"lastActiveAt"`
+	// #2138 §3.4 (experimental) — whether this worker is checking its team
+	// channel as expected, derived at read time. Masked to null on the same read
+	// gate as hasLiveSession.
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
 	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
 	RetiredAt *string `json:"retiredAt"`
 	RetiredBy *string `json:"retiredBy"`
@@ -53323,6 +53622,11 @@ func (v *WorkerFields) GetHasLiveSession() *bool { return v.HasLiveSession }
 // GetLastActiveAt returns WorkerFields.LastActiveAt, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetLastActiveAt() *string { return v.LastActiveAt }
 
+// GetCheckStatus returns WorkerFields.CheckStatus, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.CheckStatus
+}
+
 // GetRetiredAt returns WorkerFields.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetRetiredAt() *string { return v.RetiredAt }
 
@@ -53334,6 +53638,82 @@ func (v *WorkerFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetCreatedBy returns WorkerFields.CreatedBy, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// WorkerFieldsCheckStatusWorkerCheckStatus includes the requested fields of the GraphQL type WorkerCheckStatus.
+// The GraphQL type's documentation follows.
+//
+// #2138 §3.4 — a worker's check status. A worker HAS A TASK when an open task is
+// assigned to it or its Agent has usesTasks: false. The OVERDUE clock runs from
+// the latest of lastCheckedAt, its newest open assignment, its live session's
+// start and the end of its own pause.
+type WorkerFieldsCheckStatusWorkerCheckStatus struct {
+	ChannelCheckFields `json:"-"`
+}
+
+// GetStatus returns WorkerFieldsCheckStatusWorkerCheckStatus.Status, and is useful for accessing the field via an interface.
+func (v *WorkerFieldsCheckStatusWorkerCheckStatus) GetStatus() WorkerCheckState {
+	return v.ChannelCheckFields.Status
+}
+
+// GetPendingReason returns WorkerFieldsCheckStatusWorkerCheckStatus.PendingReason, and is useful for accessing the field via an interface.
+func (v *WorkerFieldsCheckStatusWorkerCheckStatus) GetPendingReason() *WorkerPendingReason {
+	return v.ChannelCheckFields.PendingReason
+}
+
+// GetLastCheckedAt returns WorkerFieldsCheckStatusWorkerCheckStatus.LastCheckedAt, and is useful for accessing the field via an interface.
+func (v *WorkerFieldsCheckStatusWorkerCheckStatus) GetLastCheckedAt() *string {
+	return v.ChannelCheckFields.LastCheckedAt
+}
+
+func (v *WorkerFieldsCheckStatusWorkerCheckStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkerFieldsCheckStatusWorkerCheckStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkerFieldsCheckStatusWorkerCheckStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelCheckFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkerFieldsCheckStatusWorkerCheckStatus struct {
+	Status WorkerCheckState `json:"status"`
+
+	PendingReason *WorkerPendingReason `json:"pendingReason"`
+
+	LastCheckedAt *string `json:"lastCheckedAt"`
+}
+
+func (v *WorkerFieldsCheckStatusWorkerCheckStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkerFieldsCheckStatusWorkerCheckStatus) __premarshalJSON() (*__premarshalWorkerFieldsCheckStatusWorkerCheckStatus, error) {
+	var retval __premarshalWorkerFieldsCheckStatusWorkerCheckStatus
+
+	retval.Status = v.ChannelCheckFields.Status
+	retval.PendingReason = v.ChannelCheckFields.PendingReason
+	retval.LastCheckedAt = v.ChannelCheckFields.LastCheckedAt
+	return &retval, nil
+}
 
 // WorkerFieldsReportsToWorker includes the requested fields of the GraphQL type Worker.
 // The GraphQL type's documentation follows.
@@ -53406,6 +53786,30 @@ func (v *WorkerFieldsReportsToWorker) __premarshalJSON() (*__premarshalWorkerFie
 	retval.Name = v.WorkerReportingRefFields.Name
 	retval.Urn = v.WorkerReportingRefFields.Urn
 	return &retval, nil
+}
+
+// #2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, PAUSED, ISOLATED, STANDBY, NO_TASK.
+type WorkerPendingReason string
+
+const (
+	// In isolation (unreachable until isolation is built).
+	WorkerPendingReasonIsolated WorkerPendingReason = "ISOLATED"
+	// No open task assigned, and its Agent uses tasks.
+	WorkerPendingReasonNoTask WorkerPendingReason = "NO_TASK"
+	// Its own pause (pausedUntil) is in force.
+	WorkerPendingReasonPaused WorkerPendingReason = "PAUSED"
+	// On standby (unreachable until standby is built).
+	WorkerPendingReasonStandby WorkerPendingReason = "STANDBY"
+	// A team pause is in force (App.teamPausedAt); the worker can't lift it.
+	WorkerPendingReasonTeamPaused WorkerPendingReason = "TEAM_PAUSED"
+)
+
+var AllWorkerPendingReason = []WorkerPendingReason{
+	WorkerPendingReasonIsolated,
+	WorkerPendingReasonNoTask,
+	WorkerPendingReasonPaused,
+	WorkerPendingReasonStandby,
+	WorkerPendingReasonTeamPaused,
 }
 
 // WorkerReportingRefFields includes the GraphQL fields of Worker requested by the fragment WorkerReportingRefFields.
@@ -54238,6 +54642,11 @@ func (v *WorkersWorkersWorkersPageItemsWorker) GetLastActiveAt() *string {
 	return v.WorkerFields.LastActiveAt
 }
 
+// GetCheckStatus returns WorkersWorkersWorkersPageItemsWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
 // GetRetiredAt returns WorkersWorkersWorkersPageItemsWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetRetiredAt() *string {
 	return v.WorkerFields.RetiredAt
@@ -54322,6 +54731,8 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	LastActiveAt *string `json:"lastActiveAt"`
 
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -54362,6 +54773,7 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
 	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -58219,6 +58631,7 @@ type __UpdateAgentInput struct {
 	Surfaces       []string         `json:"surfaces,omitempty"`
 	Urn            *string          `json:"urn,omitempty"`
 	PersonaRole    *string          `json:"personaRole,omitempty"`
+	UsesTasks      *bool            `json:"usesTasks,omitempty"`
 }
 
 // GetRef returns __UpdateAgentInput.Ref, and is useful for accessing the field via an interface.
@@ -58250,6 +58663,9 @@ func (v *__UpdateAgentInput) GetUrn() *string { return v.Urn }
 
 // GetPersonaRole returns __UpdateAgentInput.PersonaRole, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetUsesTasks returns __UpdateAgentInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetUsesTasks() *bool { return v.UsesTasks }
 
 // __UpdateAgentScheduleInput is used internally by genqlient
 type __UpdateAgentScheduleInput struct {
@@ -60938,6 +61354,7 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
+	usesTasks
 	createdAt
 }
 `
@@ -61885,6 +62302,9 @@ fragment WorkerFields on Worker {
 	heldAt
 	hasLiveSession
 	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
 	retiredAt
 	retiredBy
 	createdAt
@@ -61894,6 +62314,11 @@ fragment WorkerReportingRefFields on Worker {
 	id
 	name
 	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
 }
 `
 
@@ -62255,6 +62680,7 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
+	usesTasks
 	createdAt
 }
 `
@@ -62311,6 +62737,7 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
+	usesTasks
 	createdAt
 }
 `
@@ -62811,6 +63238,7 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
+	usesTasks
 	createdAt
 }
 `
@@ -66395,6 +66823,7 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
+	usesTasks
 	createdAt
 }
 `
@@ -67566,6 +67995,9 @@ fragment WorkerFields on Worker {
 	heldAt
 	hasLiveSession
 	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
 	retiredAt
 	retiredBy
 	createdAt
@@ -67575,6 +68007,11 @@ fragment WorkerReportingRefFields on Worker {
 	id
 	name
 	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
 }
 `
 
@@ -70456,6 +70893,7 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
+	usesTasks
 	createdAt
 }
 `
@@ -70822,6 +71260,9 @@ fragment WorkerFields on Worker {
 	heldAt
 	hasLiveSession
 	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
 	retiredAt
 	retiredBy
 	createdAt
@@ -70831,6 +71272,11 @@ fragment WorkerReportingRefFields on Worker {
 	id
 	name
 	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
 }
 `
 
@@ -71827,6 +72273,9 @@ fragment WorkerFields on Worker {
 	heldAt
 	hasLiveSession
 	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
 	retiredAt
 	retiredBy
 	createdAt
@@ -71836,6 +72285,11 @@ fragment WorkerReportingRefFields on Worker {
 	id
 	name
 	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
 }
 `
 
@@ -72974,6 +73428,7 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
+	usesTasks
 	createdAt
 }
 `
@@ -73034,6 +73489,7 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
+	usesTasks
 	createdAt
 }
 `
@@ -73104,6 +73560,9 @@ fragment WorkerFields on Worker {
 	heldAt
 	hasLiveSession
 	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
 	retiredAt
 	retiredBy
 	createdAt
@@ -73113,6 +73572,11 @@ fragment WorkerReportingRefFields on Worker {
 	id
 	name
 	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
 }
 `
 
@@ -74358,6 +74822,8 @@ fragment AppDeliverySettingsFields on AppDeliverySettings {
 	stuckWindowSeconds
 	standbyEnabled
 	standbyEffective
+	checkPeriodSeconds
+	failedChecksToOverdue
 }
 `
 
@@ -74399,6 +74865,8 @@ fragment AppDeliverySettingsFields on AppDeliverySettings {
 	stuckWindowSeconds
 	standbyEnabled
 	standbyEffective
+	checkPeriodSeconds
+	failedChecksToOverdue
 }
 `
 
@@ -74545,6 +75013,9 @@ query TeamRoster ($appRef: ID!) {
 			unavailableReason
 			unavailableUntil
 			lastActiveAt
+			checkStatus {
+				... ChannelCheckFields
+			}
 			lastAssignedAt
 			pendingTasks
 			startedTasks
@@ -74564,6 +75035,11 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 	kind
 	name
 	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
 }
 `
 
@@ -75259,8 +75735,8 @@ func UnsubscribeTicker(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks) {
 		... AgentFields
 	}
 }
@@ -75282,6 +75758,7 @@ fragment AgentFields on Agent {
 	aiModel
 	hasAiApiKey
 	personaRole
+	usesTasks
 	createdAt
 }
 `
@@ -75299,6 +75776,7 @@ func UpdateAgent(
 	surfaces []string,
 	urn *string,
 	personaRole *string,
+	usesTasks *bool,
 ) (data_ *UpdateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateAgent",
@@ -75314,6 +75792,7 @@ func UpdateAgent(
 			Surfaces:       surfaces,
 			Urn:            urn,
 			PersonaRole:    personaRole,
+			UsesTasks:      usesTasks,
 		},
 	}
 
@@ -77564,6 +78043,9 @@ fragment WorkerFields on Worker {
 	heldAt
 	hasLiveSession
 	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
 	retiredAt
 	retiredBy
 	createdAt
@@ -77573,6 +78055,11 @@ fragment WorkerReportingRefFields on Worker {
 	id
 	name
 	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
 }
 `
 
@@ -77651,6 +78138,9 @@ fragment WorkerFields on Worker {
 	heldAt
 	hasLiveSession
 	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
 	retiredAt
 	retiredBy
 	createdAt
@@ -77660,6 +78150,11 @@ fragment WorkerReportingRefFields on Worker {
 	id
 	name
 	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
 }
 `
 
@@ -78008,6 +78503,9 @@ fragment WorkerFields on Worker {
 	heldAt
 	hasLiveSession
 	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
 	retiredAt
 	retiredBy
 	createdAt
@@ -78017,6 +78515,11 @@ fragment WorkerReportingRefFields on Worker {
 	id
 	name
 	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
 }
 `
 

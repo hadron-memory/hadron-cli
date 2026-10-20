@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -171,5 +172,51 @@ func Test2138WorkerAndRosterPreserveServerCheckStatus(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func Test2138WorkerCheckTextDistinguishesUnavailable(t *testing.T) {
+	for _, tc := range []struct {
+		check any
+		want  string
+		never bool
+	}{
+		{map[string]any{"status": "PENDING", "pendingReason": "PAUSED", "lastCheckedAt": nil}, "check status: PENDING (PAUSED)", true},
+		{map[string]any{"status": "OVERDUE", "pendingReason": nil, "lastCheckedAt": "2026-10-20T00:00:00Z"}, "check status: OVERDUE", false},
+		{nil, "check status: —", false},
+	} {
+		var worker map[string]any
+		_ = json.Unmarshal([]byte(irisWorkerJSON), &worker)
+		worker["checkStatus"] = tc.check
+		raw, _ := json.Marshal(worker)
+		responses := taskResponses()
+		responses["GetWorker"] = `{"data":{"worker":` + string(raw) + `}}`
+		_, out, err := runTeamTask(t, responses, "team", "worker", "get", "hrn:worker:acme.com:eng-team:iris")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, tc.want) {
+			t.Fatalf("missing %q: %s", tc.want, out)
+		}
+		if strings.Contains(out, "last team-channel check: never") != tc.never {
+			t.Fatalf("never-checked disclosure: %s", out)
+		}
+	}
+}
+
+func Test2138CheckSettingsNumericRefusalAndServerLimits(t *testing.T) {
+	for _, flag := range []string{"--check-period-seconds", "--failed-checks-to-overdue"} {
+		for _, value := range []string{"", "1.5", "null", "default", "2147483648"} {
+			calls, _, err := runTeamTask(t, deliveryResponses(), "team", "delivery-settings", "set", flag, value)
+			if exitCodeFor(err) != 2 || len(*calls) != 0 {
+				t.Fatalf("%s %q: err=%v calls=%d", flag, value, err, len(*calls))
+			}
+		}
+		responses := deliveryResponses()
+		responses["TeamDeliverySettingsSet"] = `{"errors":[{"message":"The server's current lower bound refuses zero.","extensions":{"code":"DELIVERY_SETTINGS_OUT_OF_RANGE"}}]}`
+		calls, _, err := runTeamTask(t, responses, "team", "delivery-settings", "set", flag, "0")
+		if exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "current lower bound") || len(callsFor(calls, "TeamDeliverySettingsSet")) != 1 {
+			t.Fatalf("server limit not preserved: %v", err)
+		}
 	}
 }
