@@ -45660,12 +45660,15 @@ type TickerReason string
 const (
 	// Fires on every tick, with or without unread. The floor, budget, pause and dormancy still apply.
 	TickerReasonEveryTick TickerReason = "EVERY_TICK"
+	// #2138: fires when the subscriber has not checked its team channel within the ticker's cadence, whatever is unread, and never for a worker not expected to check (no task, isolated, paused, or a team pause).
+	TickerReasonLiveCheck TickerReason = "LIVE_CHECK"
 	// Fires only when the subscriber has relevant unread in the ticker's channels (what relevance counts is the ticker's relevance).
 	TickerReasonReadTeamChannel TickerReason = "READ_TEAM_CHANNEL"
 )
 
 var AllTickerReason = []TickerReason{
 	TickerReasonEveryTick,
+	TickerReasonLiveCheck,
 	TickerReasonReadTeamChannel,
 }
 

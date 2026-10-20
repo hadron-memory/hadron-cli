@@ -13949,6 +13949,11 @@ enum TickerReason {
   EVERY_TICK
 
   """
+  #2138: fires when the subscriber has not checked its team channel within the ticker's cadence, whatever is unread, and never for a worker not expected to check (no task, isolated, paused, or a team pause).
+  """
+  LIVE_CHECK
+
+  """
   Fires only when the subscriber has relevant unread in the ticker's channels (what relevance counts is the ticker's relevance).
   """
   READ_TEAM_CHANNEL
