@@ -625,7 +625,7 @@ their prompt from this field.`,
 	cmd.Flags().StringVar(&tasksIndex, "tasks-index", "", `the Agent's tasks index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().StringVar(&processesIndex, "processes-index", "", `the Agent's processes index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "read the shared prompt template from a file (multi-line safe); mutually exclusive with --system-prompt")
-	cmd.Flags().BoolVar(&usesTasks, "uses-tasks", true, "Whether workers from this Agent use assigned tasks; false keeps them expected to check the team channel without a task (omitted preserves)")
+	cmd.Flags().BoolVar(&usesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks; false keeps them expected to check the team channel without a task (omitted preserves)")
 	registerRetiredPersonaPromptFlags(cmd)
 	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
 	return cmd
