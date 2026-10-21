@@ -105,13 +105,14 @@ func writeTaskReceipt(w io.Writer, verb string, task taskDTO) error {
 
 // writeCloseSessionLine shows the task's effective close-when-done choice
 // (cor:agt:050:10) as the server returned it — never the flag the caller
-// passed, so a default or a server-side override reads truthfully. It says
-// what finishing will REQUEST; the platform, not this command, ends the
-// session, after its grace period.
+// passed, so a default or a server-side override reads truthfully. Only yes
+// explains itself — what finishing will REQUEST; the platform, not this
+// command, ends the session, and only through a live host ("may"). The spec
+// cite lives in the help, not at runtime (#979 UX P3s).
 func writeCloseSessionLine(w io.Writer, task taskDTO) error {
-	line := "  close session when done: no — finishing or cancelling does not ask the assignee to end its worker session\n"
+	line := "  close session when done: no\n"
 	if task.CloseSessionWhenDone {
-		line = "  close session when done: yes — finishing or cancelling asks the assignee to end its worker session; the platform ends it after a grace period (cor:agt:050:10)\n"
+		line = "  close session when done: yes — finishing or cancelling asks the assignee to end its worker session; the platform may end it after a grace period\n"
 	}
 	_, err := io.WriteString(w, line)
 	return err
@@ -147,8 +148,11 @@ the owner is the parent's assignee — naming a different owner is refused
 --family-in/--family-not-in, --exclude-worker) constrain the matcher.
 --start-by takes an RFC 3339 timestamp.
 
-By default finishing asks the assignee to end its worker session
-(cor:agt:050:10); --no-close-session turns that off.`,
+By default finishing or cancelling asks the assignee to end its worker
+session, and the platform ends it after a grace period through a live host
+(cor:agt:050:10). When the assignee's session must outlive the task (a
+long-lived reviewer or seat), pass --no-close-session at create: declining
+the end-session request is not enough.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -278,7 +282,7 @@ By default finishing asks the assignee to end its worker session
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families to exclude")
 	cmd.Flags().StringSliceVar(&excludeWorkers, "exclude-worker", nil, "worker the matcher must not pick (repeatable)")
 	cmd.Flags().StringVar(&status, "status", "", "create-time status: backlog (parked) or pending (the default)")
-	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "do not ask the assignee to end its session when it finishes")
+	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session")
 	return cmd
 }
 
@@ -351,8 +355,8 @@ assign (TASK_INVALID_TRANSITION).`,
 		},
 	}
 	cmd.Flags().StringVar(&assignee, "assignee", "", "party to assign the task to (worker:<…> / user:<…>)")
-	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing asks the assignee to end its worker session")
-	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing does not ask the assignee to end its worker session")
+	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing or cancelling asks the assignee to end its worker session")
+	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session")
 	return cmd
 }
 
