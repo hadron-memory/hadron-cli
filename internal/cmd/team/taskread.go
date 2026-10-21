@@ -212,7 +212,7 @@ func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 combine with AND: --status (repeatable, ` + taskStatusDoc + `), --assignee and
 --owner name a party, --queued keeps only pending tasks with no assignee,
 --roots-only drops children, --parent lists one task's children, --tag
-filters by tag. --limit/--offset page (server default 50, cap 200).`,
+filters by tag. --limit/--offset page (default 20, cap 200); a full default page says more may exist.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if err := checkTaskPage(limit, offset); err != nil {
@@ -253,6 +253,7 @@ filters by tag. --limit/--offset page (server default 50, cap 200).`,
 			return listTasks(ctx, f, scope, taskListQuery{
 				assignee: assigneeIn, owner: ownerIn, parent: optStr(parent), queued: optBool(queued),
 				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), limit: limit, offset: offset,
+				limitExplicit: cmd.Flags().Changed("limit"),
 			})
 		},
 	}
@@ -263,7 +264,7 @@ filters by tag. --limit/--offset page (server default 50, cap 200).`,
 	cmd.Flags().StringVar(&tag, "tag", "", "tag filter")
 	cmd.Flags().BoolVar(&queued, "queued", false, "only queued tasks (pending, no assignee)")
 	cmd.Flags().BoolVar(&rootsOnly, "roots-only", false, "drop child tasks")
-	cmd.Flags().IntVar(&limit, "limit", 50, "page size (server cap 200)")
+	cmd.Flags().IntVar(&limit, "limit", taskListDefaultLimit, "page size (default 20, server cap 200)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "page offset")
 	return cmd
 }
@@ -275,7 +276,14 @@ type taskListQuery struct {
 	queued, rootsOnly *bool
 	status            []gen.AgentTaskStatus
 	limit, offset     int
+	// limitExplicit is true when the user passed --limit: a full page of the
+	// default size is then their own page, not a silent truncation.
+	limitExplicit bool
 }
+
+// taskListDefaultLimit is the page `task list` and `task mine` ask for when
+// --limit is unset (cli#967: hidden defaults stay at 20 or less).
+const taskListDefaultLimit = 20
 
 func checkTaskPage(limit, offset int) error {
 	if limit < 1 || limit > teamEventPageCap {
@@ -304,6 +312,11 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		if t != nil {
 			tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
 		}
+	}
+	// agentTasks returns no total, so a full DEFAULT page cannot show that the
+	// list ended: say so on stderr (the output shape stays a bare array).
+	if !q.limitExplicit && len(resp.AgentTasks) >= q.limit {
+		_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Showing a full page of %d tasks; there may be more: --offset %d\n", q.limit, q.offset+q.limit)
 	}
 	return output.Write(f.IOStreams, f.JSON, tasks, func(w io.Writer) error {
 		// Unconditionally, and before the rows (#470): an empty list
@@ -340,7 +353,7 @@ func newCmdTeamTaskMine(f *cmdutil.Factory) *cobra.Command {
 		Long: `List the tasks assigned to this worktree's bound worker that are PENDING or
 STARTED — ` + "`task list --assignee worker:<bound worker> --status PENDING --status STARTED`" + `
 in the bound worker's App, with the same output. The filters are fixed.
---limit/--offset page (server default 50, cap 200).
+--limit/--offset page (default 20, cap 200); a full default page says more may exist.
 
 It needs a worker session binding: without one, start a session with
 ` + "`hadron team session start`" + `. --app may name the bound App (by id, URN
@@ -387,10 +400,12 @@ binding's server must be the one this call targets.`,
 				status:   []gen.AgentTaskStatus{gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted},
 				limit:    limit,
 				offset:   offset,
+
+				limitExplicit: cmd.Flags().Changed("limit"),
 			})
 		},
 	}
-	cmd.Flags().IntVar(&limit, "limit", 50, "page size (server cap 200)")
+	cmd.Flags().IntVar(&limit, "limit", taskListDefaultLimit, "page size (default 20, server cap 200)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "page offset")
 	return cmd
 }

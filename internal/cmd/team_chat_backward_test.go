@@ -359,7 +359,9 @@ func TestTeamChatReadAllWalksForwardToExhaustion(t *testing.T) {
 	srv, seen := chatServer(t,
 		teamChatPage(len(full), full...),
 		teamChatPage(len(second), second...),
-		teamChatPage(1, 2*team.TeamChatPageSize+1))
+		teamChatPage(1, 2*team.TeamChatPageSize+1),
+		// A short page is not the end (cli#967): only an empty one is.
+		teamChatPage(0))
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team",
@@ -367,8 +369,8 @@ func TestTeamChatReadAllWalksForwardToExhaustion(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(*seen) != 3 {
-		t.Fatalf("--all must page to exhaustion, got %d calls", len(*seen))
+	if len(*seen) != 4 {
+		t.Fatalf("--all must page to an empty page, got %d calls", len(*seen))
 	}
 	if got := (*seen)[0].SinceSeq; got == nil || *got != 0 || !(*seen)[0].SinceSeqPresent {
 		t.Errorf("--all must start with explicit sinceSeq:0, got %+v", (*seen)[0])

@@ -188,7 +188,7 @@ func TestTeamChatReadAllAttributesEveryPageWithoutEarlyMark(t *testing.T) {
 	for i := range seqs {
 		seqs[i] = i + 1
 	}
-	srv, seen := chatServer(t, teamChatPage(201, seqs...), teamChatPage(201, 201))
+	srv, seen := chatServer(t, teamChatPage(201, seqs...), teamChatPage(201, 201), teamChatPage(0))
 	setTeamBindingServer(t, srv.URL)
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -196,7 +196,7 @@ func TestTeamChatReadAllAttributesEveryPageWithoutEarlyMark(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if len(*seen) != 2 {
+	if len(*seen) != 3 {
 		t.Fatalf("pages=%d", len(*seen))
 	}
 	for _, p := range *seen {
@@ -260,7 +260,7 @@ func TestTeamChatReadUnsupportedLatchAndNoteCoverEveryWalkPage(t *testing.T) {
 	}
 	r["TeamChatReadHeadAttributed"] = missingReadSuppression
 	r["TeamChatReadHead"] = teamReadHeadFixture(teamChatPage(201, 201))
-	pages := []string{teamChatPage(201, seqs...), teamChatPage(201, 201)}
+	pages := []string{teamChatPage(201, seqs...), teamChatPage(201, 201), teamChatPage(0)}
 	page := 0
 	srv, calls := attnServerHook(t, r, func(op string) {
 		if op == "TeamChatMessages" {
@@ -280,7 +280,7 @@ func TestTeamChatReadUnsupportedLatchAndNoteCoverEveryWalkPage(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if page != 2 {
+	if page != 3 {
 		t.Fatalf("pages=%d", page)
 	}
 	attempts := 0

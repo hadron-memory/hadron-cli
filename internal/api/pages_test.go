@@ -128,3 +128,73 @@ func TestCollectAllStopsOnEmptyPageDespiteTotal(t *testing.T) {
 		t.Errorf("expected an immediate empty stop, got %d items in %d calls", len(items), calls)
 	}
 }
+
+// clampedPages serves items in windows capped at serve rows regardless of the
+// requested limit, so a short-but-non-empty page is NOT the last page.
+func clampedPages(total, serve int, totalKnown bool, calls *int) func(limit, offset int) ([]int, *int, error) {
+	return func(limit, offset int) ([]int, *int, error) {
+		*calls++
+		n := limit
+		if serve < n {
+			n = serve
+		}
+		items := []int{}
+		for i := offset; i < total && i < offset+n; i++ {
+			items = append(items, i)
+		}
+		if !totalKnown {
+			return items, nil, nil
+		}
+		return items, &total, nil
+	}
+}
+
+func TestCollectPagesNeverStopsOnShortPage(t *testing.T) {
+	// Server clamps every page to 20 although 500 were asked for.
+	for _, known := range []bool{false, true} {
+		var calls int
+		items, err := CollectPages(500, clampedPages(45, 20, known, &calls))
+		if err != nil {
+			t.Fatalf("known=%v: %v", known, err)
+		}
+		if len(items) != 45 {
+			t.Errorf("known=%v: want 45 rows, got %d", known, len(items))
+		}
+		for i, v := range items {
+			if v != i {
+				t.Fatalf("known=%v: row %d is %d (skipped or duplicated)", known, i, v)
+			}
+		}
+	}
+}
+
+func TestCollectPagesStopsOnTotalWithoutTrailingFetch(t *testing.T) {
+	var calls int
+	items, err := CollectPages(20, clampedPages(40, 20, true, &calls))
+	if err != nil || len(items) != 40 || calls != 2 {
+		t.Fatalf("items=%d calls=%d err=%v", len(items), calls, err)
+	}
+}
+
+func TestCollectPagesUnknownTotalStopsOnEmptyPage(t *testing.T) {
+	var calls int
+	items, err := CollectPages(20, clampedPages(40, 20, false, &calls))
+	if err != nil || len(items) != 40 || calls != 3 {
+		t.Fatalf("items=%d calls=%d err=%v", len(items), calls, err)
+	}
+}
+
+func TestCollectPagesPropagatesLaterPageError(t *testing.T) {
+	boom := errors.New("boom")
+	n := 0
+	items, err := CollectPages(20, func(limit, offset int) ([]int, *int, error) {
+		n++
+		if n == 2 {
+			return nil, nil, boom
+		}
+		return []int{1, 2, 3}, nil, nil
+	})
+	if !errors.Is(err, boom) || items != nil {
+		t.Fatalf("want nil items + boom, got %v %v", items, err)
+	}
+}

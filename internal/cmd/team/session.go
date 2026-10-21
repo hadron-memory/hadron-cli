@@ -165,21 +165,31 @@ const sessionPageSize = 200
 // exhausted. workerRef narrows server-side to one worker's sessions (#974).
 func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *string, visit func(gen.TeamSessionFields) bool) error {
 	limit := sessionPageSize
+	seen := map[string]bool{}
 	for offset := 0; ; {
 		off := offset
 		resp, err := gen.TeamSessions(ctx, client, repo, workerRef, &limit, &off)
 		if err != nil {
 			return api.MapError(err)
 		}
+		fresh := 0
 		for _, s := range resp.Sessions {
-			if s == nil {
+			if s == nil || seen[s.Id] {
 				continue
 			}
+			seen[s.Id] = true
+			fresh++
 			if !visit(s.TeamSessionFields) {
 				return nil
 			}
 		}
-		if len(resp.Sessions) < sessionPageSize {
+		// The list has no total, so only an EMPTY page proves the end: a page
+		// shorter than asked for may just be a server clamp (cli#967). A page
+		// of nothing but sessions already visited means the list is not
+		// advancing (a server ignoring the offset), so stop rather than loop;
+		// a row shifted onto the next page by a concurrent insert is skipped
+		// as the duplicate it is.
+		if len(resp.Sessions) == 0 || fresh == 0 {
 			return nil
 		}
 		offset += len(resp.Sessions)
@@ -2613,6 +2623,16 @@ from a later milestone's REPORTED MODEL.`,
 				if cmd.Flags().Changed("limit") && limit < len(sessions) {
 					sessions = sessions[:limit]
 				}
+			} else if !cmd.Flags().Changed("limit") && !cmd.Flags().Changed("offset") {
+				// No --limit/--offset: the whole list, not one server page
+				// (cli#967).
+				err = scanSessions(ctx, client, optStr(repo), asWorkerRef, func(s gen.TeamSessionFields) bool {
+					sessions = append(sessions, sessionDTOFromFields(s, nil))
+					return true
+				})
+				if err != nil {
+					return err
+				}
 			} else {
 				var lim, off *int
 				if cmd.Flags().Changed("limit") {
@@ -2678,8 +2698,8 @@ from a later milestone's REPORTED MODEL.`,
 	cmd.Flags().StringVar(&branch, "branch", "", "provenance query: sessions behind this branch")
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "explicit team-memory override for the provenance query (binding/--app are the defaults)")
 	cmd.MarkFlagsMutuallyExclusive("pr", "issue", "commit", "branch")
-	cmd.Flags().IntVar(&limit, "limit", 0, "max results (server default when unset)")
-	cmd.Flags().IntVar(&offset, "offset", 0, "results to skip")
+	cmd.Flags().IntVar(&limit, "limit", 0, "max results (one page of that size); unset lists everything")
+	cmd.Flags().IntVar(&offset, "offset", 0, "results to skip (one page, like --limit)")
 	return cmd
 }
 
@@ -2761,6 +2781,7 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 	pageSize := sessionPageSize
 	legacyWorklogSchema := false
 	for offset := 0; ; {
+		var total int
 		off := offset
 		var resp *gen.TeamWorkItemsResponse
 		var werr error
@@ -2779,6 +2800,7 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 			if lerr != nil {
 				return api.MapError(lerr)
 			}
+			total = legacy.TeamWorkItems.Total
 			for _, it := range legacy.TeamWorkItems.Items {
 				items = append(items, worklogHit{sessionID: it.SessionId, workerName: it.WorkerName, workerID: it.WorkerId,
 					milestone: worklogMilestoneDTO{NodeID: it.NodeId, Action: it.Action, At: it.At, Tool: it.Tool}})
@@ -2786,6 +2808,7 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 		} else if werr != nil {
 			return api.MapError(werr)
 		} else {
+			total = resp.TeamWorkItems.Total
 			for _, it := range resp.TeamWorkItems.Items {
 				items = append(items, worklogHit{sessionID: it.SessionId, workerName: it.WorkerName, workerID: it.WorkerId,
 					milestone: worklogMilestoneDTO{NodeID: it.NodeId, Action: it.Action, At: it.At, Tool: it.Tool, Model: it.Model}})
@@ -2808,8 +2831,10 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 		}
 		// Page to exhaustion — --pr promises the COMPLETE provenance set, and
 		// an unbounded read is one default page (the issue-#23 rule).
+		// Stop only on an empty page or a reached total, advancing by the rows
+		// served — a short page is not the last one (cli#967).
 		offset += len(items)
-		if len(items) < pageSize {
+		if len(items) == 0 || offset >= total {
 			break
 		}
 	}

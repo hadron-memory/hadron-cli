@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	hostOpsDefaultLimit = 50
+	hostOpsDefaultLimit = 20
 	// hostOpsPageCap is the server's page ceiling; a larger --limit would be
 	// clamped silently, so the CLI refuses it instead (like `team events`).
 	hostOpsPageCap = 200

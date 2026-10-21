@@ -418,6 +418,11 @@ local counts but are not reported to the server yet (no alarm/escalation).`,
 // changes.
 const TeamChatPageSize = 200
 
+// teamChatDefaultLimit is the page a bounded `chat read` asks for when --limit
+// is unset (cli#967: hidden defaults stay at 20 or less). --all is unaffected:
+// it walks every page in TeamChatPageSize chunks.
+const teamChatDefaultLimit = 20
+
 func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
 	var since, before, limit int
 	var all bool
@@ -436,7 +441,7 @@ prevBefore and nextSince are the respective cursors to pass next turn.
 forward to the end, starting at seq 0 unless --since is also given. --all
 cannot be combined with --before or --limit; those name a single page.
 
---limit sets the page size (default 200, the server's cap). --since and
+--limit sets the page size (default 20, at most 200, the server's cap); a full default page says more may exist on stderr. --all walks every page in 200-row chunks. --since and
 --before compose, so ` + "`--since 300 --before 340`" + ` reads one bounded slice.
 
 prevBefore is NULL when the page came back EMPTY, and that is the ONLY
@@ -608,6 +613,8 @@ them "(human)" / "(worker)".`,
 			pageSize := TeamChatPageSize
 			if cmd.Flags().Changed("limit") {
 				pageSize = limit
+			} else if !all {
+				pageSize = teamChatDefaultLimit
 			}
 			attribution := newChatReadAttribution(ctx, f, appRef, b)
 			state, err := probeChatReadState(ctx, f, client, appRef, b, attribution)
@@ -637,17 +644,33 @@ them "(human)" / "(worker)".`,
 				}
 				page := resp.TeamChatMessages.Items
 				lastPageCount = 0
+				pageMsgs := []teamChatMessageDTO{}
 				for _, m := range page {
 					if m == nil {
 						continue
 					}
 					lastPageCount++
-					msgs = append(msgs, teamChatMessageDTOFromFields(m.TeamChatMessageFields))
+					pageMsgs = append(pageMsgs, teamChatMessageDTOFromFields(m.TeamChatMessageFields))
 				}
-				if !all || lastPageCount < pageSize {
+				// A forward walk stops only on an EMPTY page: a page shorter
+				// than asked for may be a server clamp or a mention filter's
+				// window, not the end (cli#967). It also stops, without taking
+				// the page, when the cursor did not advance (a server ignoring
+				// sinceSeq) rather than looping on the same rows.
+				if all && lastPageCount > 0 && pageMsgs[len(pageMsgs)-1].Seq <= cursor && len(msgs) > 0 {
+					lastPageCount = 0
+					break
+				}
+				msgs = append(msgs, pageMsgs...)
+				if !all || lastPageCount == 0 {
 					break
 				}
 				cursor = msgs[len(msgs)-1].Seq
+			}
+			// A full DEFAULT page cannot show that the chat ended: say so on
+			// stderr (cli#967); an explicit --limit is the caller's own page.
+			if !all && !cmd.Flags().Changed("limit") && lastPageCount >= pageSize {
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Showing a full page of %d messages; more may exist (--limit up to %d, --before/--since to walk, --all to read every page).\n", pageSize, TeamChatPageSize)
 			}
 			next := since
 			for _, m := range msgs {
@@ -861,7 +884,7 @@ them "(human)" / "(worker)".`,
 	// (@copilot: the first wording said "newest first", which reads as
 	// ordering and contradicts the paragraph above it).
 	cmd.Flags().IntVar(&before, "before", 0, "one page of the messages just before this seq — the newest of those, still printed oldest-first")
-	cmd.Flags().IntVar(&limit, "limit", TeamChatPageSize, "messages in this page (1 to 200)")
+	cmd.Flags().IntVar(&limit, "limit", teamChatDefaultLimit, "messages in this page (1 to 200, default 20; --all walks every page)")
 	cmd.Flags().BoolVar(&all, "all", false, "walk every page forward (from seq 0, or --since)")
 	cmd.Flags().BoolVar(&mentionsMe, "mentions-me", false, "only messages mentioning the bound worker")
 	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this staff/App member (worker name or id, or user handle)")

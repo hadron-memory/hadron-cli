@@ -59,18 +59,11 @@ const lsPageSize = 500
 
 // paginateAllNodes runs a browse fetch to exhaustion, returning every node in
 // scope. The fetch is injected so the loop is unit-testable without a server.
-func paginateAllNodes(fetch func(limit, offset int) ([]*api.ListNode, error)) ([]*api.ListNode, error) {
-	var all []*api.ListNode
-	for offset := 0; ; offset += lsPageSize {
-		page, err := fetch(lsPageSize, offset)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, page...)
-		if len(page) < lsPageSize {
-			return all, nil
-		}
-	}
+// It stops only on an empty page or a reached total, advancing by the rows
+// actually received, so a server that serves fewer rows than lsPageSize per
+// page can neither end the scan early nor skip rows (cli#967).
+func paginateAllNodes(fetch func(limit, offset int) ([]*api.ListNode, *int, error)) ([]*api.ListNode, error) {
+	return api.CollectPages(lsPageSize, fetch)
 }
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
@@ -213,15 +206,20 @@ output either flag switches the table for a per-node block.`,
 			// seq filter/sort.
 			seqMode := seqGt > 0 || sortSeq != ""
 
+			// With neither --limit nor --offset the user asked for the list, not
+			// for "whatever one server page holds" (cli#967): drain it. An
+			// explicit --limit/--offset stays one deliberate page.
+			drain := seqMode || (!cmd.Flags().Changed("limit") && !cmd.Flags().Changed("offset"))
+
 			var rawNodes []*api.ListNode
-			if seqMode {
-				rawNodes, err = paginateAllNodes(func(lim, off int) ([]*api.ListNode, error) {
+			if drain {
+				rawNodes, err = paginateAllNodes(func(lim, off int) ([]*api.ListNode, *int, error) {
 					l, o := lim, off
 					page, err := api.FindNodesProjected(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, &l, &o, withProperties, withData)
 					if err != nil {
-						return nil, err
+						return nil, nil, err
 					}
-					return page.Nodes, nil
+					return page.Nodes, page.Total, nil
 				})
 			} else {
 				var page *api.FindNodesPage

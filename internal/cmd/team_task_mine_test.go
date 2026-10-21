@@ -63,8 +63,8 @@ func TestTeamTaskMineSendsTheBoundWorkersOpenFilter(t *testing.T) {
 			t.Fatalf("%s = %v: `task mine` sends no filter beyond assignee and status", k, v)
 		}
 	}
-	if c.Vars["limit"] != float64(50) || c.Vars["offset"] != float64(0) {
-		t.Fatalf("paging %v/%v, want the list defaults 50/0", c.Vars["limit"], c.Vars["offset"])
+	if c.Vars["limit"] != float64(20) || c.Vars["offset"] != float64(0) {
+		t.Fatalf("paging %v/%v, want the list defaults 20/0", c.Vars["limit"], c.Vars["offset"])
 	}
 	for _, c := range *calls {
 		if strings.HasPrefix(strings.TrimSpace(c.Query), "mutation") {
