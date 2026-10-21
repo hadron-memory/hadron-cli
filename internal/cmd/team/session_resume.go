@@ -187,7 +187,7 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 	if r.Outcome == gen.ResumeOutcomeStarted {
 		live = liveNo
 	}
-	return finishBind(cmd, f, client, s, w, path, lapsedBinding, existing, live, "", &outcome)
+	return finishBind(cmd, f, client, s, w, path, lapsedBinding, existing, live, "", &outcome, tool)
 }
 
 // sessionOr is the session's recorded value, or the flag when it has none.
