@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -105,5 +106,27 @@ func TestNodeImportTreeSkipFailsWhenTheExistingNodeScanFails(t *testing.T) {
 	root.SetArgs([]string{"node", "import", "-r", dir, "-m", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--on-conflict", "skip", "--json", "--server", srv.URL})
 	if err := root.Execute(); err == nil {
 		t.Fatalf("a failed existing-node scan must fail the import, got success: %.300s", out.String())
+	}
+}
+
+// Content-mode import (a non-document file) probes for an existing node through
+// nodeExists: a failed later probe page must fail it too, not read as absent
+// (cli#967 follow-up, Joshua's P3).
+func TestNodeImportContentModeFailsWhenTheOverwriteProbeFailsOnALaterPage(t *testing.T) {
+	gql, captured := pagedGraphQL(t, map[string]*pagedSource{
+		"FindNodes": {rows: probeRows(50), serve: 20, wrap: probePage, failAtCall: 2},
+	}, map[string]string{"ImportNode": importNodeResp("papers:x", "X", "info")})
+	f, _ := testFactory(t)
+	file := filepath.Join(t.TempDir(), "paper.pdf")
+	if err := os.WriteFile(file, []byte("%PDF-1.4\n\x00bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "import", file, "-m", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--loc", "papers:x", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("a failed overwrite-probe page must fail the content import, got success")
+	}
+	if n := len(captured["FindNodes"].Calls); n != 2 {
+		t.Errorf("want 2 probe requests (page 1, failing page 2), got %d", n)
 	}
 }
