@@ -136,7 +136,7 @@ func TestC962JSONWarningsArray(t *testing.T) {
 				t.Fatalf("warnings %+v\nwant %+v", dto.Warnings, want)
 			}
 			// The unknown code's register is an explicit null, not omitted.
-			if !strings.Contains(out, `"register":null`) {
+			if !strings.Contains(out, `"register": null`) {
 				t.Fatalf("register absent rather than null: %s", out)
 			}
 		})
