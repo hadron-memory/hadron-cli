@@ -103,6 +103,20 @@ func writeTaskReceipt(w io.Writer, verb string, task taskDTO) error {
 	return nil
 }
 
+// writeCloseSessionLine shows the task's effective close-when-done choice
+// (cor:agt:050:10) as the server returned it — never the flag the caller
+// passed, so a default or a server-side override reads truthfully. It says
+// what finishing will REQUEST; the platform, not this command, ends the
+// session, after its grace period.
+func writeCloseSessionLine(w io.Writer, task taskDTO) error {
+	line := "  close session when done: no — finishing or cancelling does not ask the assignee to end its worker session\n"
+	if task.CloseSessionWhenDone {
+		line = "  close session when done: yes — finishing or cancelling asks the assignee to end its worker session; the platform ends it after a grace period (cor:agt:050:10)\n"
+	}
+	_, err := io.WriteString(w, line)
+	return err
+}
+
 // ---- create ---------------------------------------------------------------
 
 func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
@@ -245,8 +259,10 @@ By default finishing asks the assignee to end its worker session
 				if appLabel != nil {
 					app = appLabel()
 				}
-				_, err := fmt.Fprintf(w, "  app: %s\n", app)
-				return err
+				if _, err := fmt.Fprintf(w, "  app: %s\n", app); err != nil {
+					return err
+				}
+				return writeCloseSessionLine(w, task)
 			})
 		},
 	}
@@ -327,13 +343,16 @@ assign (TASK_INVALID_TRANSITION).`,
 				task = taskDTOFrom(resp.AssignAgentTask.AgentTaskFields)
 			}
 			return writeTaskMutation(f, task, taskWarningsFor(sink, key), func(w io.Writer) error {
-				return writeTaskReceipt(w, verb+"ed", task)
+				if err := writeTaskReceipt(w, verb+"ed", task); err != nil {
+					return err
+				}
+				return writeCloseSessionLine(w, task)
 			})
 		},
 	}
 	cmd.Flags().StringVar(&assignee, "assignee", "", "party to assign the task to (worker:<…> / user:<…>)")
-	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing ends the assignee's worker session")
-	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing does not end the assignee's worker session")
+	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing asks the assignee to end its worker session")
+	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing does not ask the assignee to end its worker session")
 	return cmd
 }
 
