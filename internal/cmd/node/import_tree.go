@@ -436,24 +436,15 @@ func (e *treeExecutor) resolveExistingID(loc string) (string, bool) {
 			return resp.ResolveUrn.Id, true
 		}
 	}
-	limit := 200
 	filter := &gen.NodeFilter{MemoryIds: []string{e.memory}, LocPrefix: &loc}
 	sortLoc := gen.NodeSortLoc
-	for offset := 0; ; offset += limit {
-		off := offset
-		page, err := api.FindNodes(e.ctx, e.client, nil, nil, filter, &sortLoc, nil, &limit, &off)
+	return findExactLoc(loc, func(limit, offset int) ([]*api.ListNode, error) {
+		page, err := api.FindNodes(e.ctx, e.client, nil, nil, filter, &sortLoc, nil, &limit, &offset)
 		if err != nil {
-			return "", false
+			return nil, err
 		}
-		for _, nd := range page.Nodes {
-			if nd != nil && nd.Loc == loc {
-				return nd.Id, true
-			}
-		}
-		if len(page.Nodes) < limit {
-			return "", false
-		}
-	}
+		return page.Nodes, nil
+	})
 }
 
 // collectDryRun mirrors create's post-order walk without mutating: it appends a

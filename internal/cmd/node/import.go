@@ -798,24 +798,34 @@ func lookupNode(cmd *cobra.Command, client graphql.Client, memoryRef, loc string
 		return resp.ResolveUrn.Id, true
 	}
 	// A raw memory id: list by loc prefix and match the exact loc.
-	limit := 200
 	filter := &gen.NodeFilter{MemoryIds: []string{memoryRef}, LocPrefix: &loc}
 	sort := gen.NodeSortLoc
-	for offset := 0; ; offset += limit {
-		off := offset
-		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sort, nil, &limit, &off)
+	return findExactLoc(loc, func(limit, offset int) ([]*api.ListNode, error) {
+		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sort, nil, &limit, &offset)
 		if err != nil {
-			return "", false
+			return nil, err
 		}
-		for _, nd := range page.Nodes {
-			if nd != nil && nd.Loc == loc {
-				return nd.Id, true
-			}
+		return page.Nodes, nil
+	})
+}
+
+// findExactLoc scans a loc-prefix listing for the node whose loc is exactly
+// loc. It stops only on a match or an EMPTY page (a short page may be a server
+// clamp, cli#967), and any fetch error reads as "not found" — the overwrite
+// probe is best-effort, as before.
+func findExactLoc(loc string, fetch func(limit, offset int) ([]*api.ListNode, error)) (string, bool) {
+	id, found := "", false
+	err := api.PageNodes(200, fetch, func(nd *api.ListNode) bool {
+		if nd.Loc == loc {
+			id, found = nd.Id, true
+			return false
 		}
-		if len(page.Nodes) < limit {
-			return "", false
-		}
+		return true
+	})
+	if err != nil {
+		return "", false
 	}
+	return id, found
 }
 
 // nodeExistsByURN best-effort probes whether a fully-qualified node URN already
