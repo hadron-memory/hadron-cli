@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // serveListNodes answers over total nodes, never more than serve per page.
@@ -79,6 +81,9 @@ func TestPageNodesRefusesAPageThatDoesNotAdvance(t *testing.T) {
 	}, func(*ListNode) bool { visits++; return true })
 	if err == nil {
 		t.Fatal("a repeated non-empty page must be an error, not a successful partial list")
+	}
+	if code := exitcode.FromError(err); code != exitcode.Unavailable {
+		t.Fatalf("exit code = %d, want %d (Unavailable, exit 7)", code, exitcode.Unavailable)
 	}
 	if visits != 2 || calls != 2 {
 		t.Fatalf("visits=%d calls=%d, want each node once and a stop on the second page", visits, calls)
