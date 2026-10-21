@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // offsetIgnoringServer answers `op` with the same body for EVERY offset (a
@@ -39,8 +41,12 @@ func TestChatReadFailsWhenThePageDoesNotAdvance(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"chat", "read", "--node", "hrn:node:acme.com:tc:chats:api:messages", "--since", "0", "--json", "--server", srv.URL})
-	if err := root.Execute(); err == nil {
+	err := root.Execute()
+	if err == nil {
 		t.Fatalf("a non-advancing page must fail the read, got success: %.200s", out.String())
+	}
+	if exitCodeFor(err) != exitcode.Unavailable {
+		t.Errorf("exit code = %d, want %d (Unavailable)", exitCodeFor(err), exitcode.Unavailable)
 	}
 }
 
