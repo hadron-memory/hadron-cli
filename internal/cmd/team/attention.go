@@ -23,12 +23,13 @@ import (
 // attentionChannelDTO / attentionWorkerDTO / attentionDTO are the stable
 // --json shape of `team attention`.
 type attentionChannelDTO struct {
-	Channel        string `json:"channel"`
-	Name           string `json:"name"`
-	Unread         int    `json:"unread"`
-	UnreadMentions int    `json:"unreadMentions"`
-	FirstUnreadSeq *int   `json:"firstUnreadSeq"`
-	LastSeq        int    `json:"lastSeq"`
+	Channel         string `json:"channel"`
+	Name            string `json:"name"`
+	Unread          int    `json:"unread"`
+	UnreadMentions  int    `json:"unreadMentions"`
+	FirstUnreadSeq  *int   `json:"firstUnreadSeq"`
+	LastRelevantSeq *int   `json:"lastRelevantSeq"`
+	LastSeq         int    `json:"lastSeq"`
 }
 
 type attentionWorkerDTO struct {
@@ -61,7 +62,12 @@ Only live workers are listed. The server scans in bounded pages; this command
 drains them before printing a report or a token. An incomplete scan is an
 error, never a partial result a router could adopt.
 
-THE TOKEN. Every poll returns an opaque, server-signed token. Pass it back as
+JSON includes the nullable lastRelevantSeq supplied by the server, separate
+from firstUnreadSeq and the channel head lastSeq. Legacy fallback reports
+lastRelevantSeq as null. Human output keeps the existing table.
+
+THE TOKEN. Use --json to retrieve its value; human output prints a notice only.
+Every poll returns an opaque, server-signed token. Pass it back as
 --since on the next poll and a worker is listed only for relevant unread
 NEWER than it, so one backlog produces one nudge, not one per poll. Omit
 --since to list every worker with any relevant unread.
@@ -143,10 +149,10 @@ no server provenance; pass --app explicitly in that case.`,
 						return err
 					}
 				}
-				if _, err := fmt.Fprintf(w, "token: %s\n", dto.Token); err != nil {
+				if _, err := fmt.Fprintln(w, "token: returned (use --json to retrieve it)"); err != nil {
 					return err
 				}
-				_, err := fmt.Fprintln(w, "Pass it as --since only after every nudge was accepted; on any failure keep the previous token.")
+				_, err := fmt.Fprintln(w, "Pass the JSON token as --since only after every nudge was accepted; on any failure keep the previous token.")
 				return err
 			})
 		},
@@ -177,7 +183,7 @@ func legacyAttentionDTO(app string, p *gen.TeamAttentionTeamAttentionTeamAttenti
 	return dto
 }
 
-// collectAttention turns a complete server scan into the stable v1-shaped
+// collectAttention turns a complete server scan into the stable grouped
 // report. No partial page can carry an adoptable token or escape as output.
 func collectAttention(app string, since *string, fetch func(since, page *string) (*gen.TeamAttentionPageTeamAttentionPage, error)) (attentionDTO, error) {
 	dto := attentionDTO{App: app, Workers: []attentionWorkerDTO{}}
@@ -214,7 +220,7 @@ func collectAttention(app string, since *string, fetch func(since, page *string)
 			dto.Workers[i].Channels = append(dto.Workers[i].Channels, attentionChannelDTO{
 				Channel: item.Channel, Name: item.ChannelName, Unread: item.Unread,
 				UnreadMentions: item.UnreadMentions, FirstUnreadSeq: item.FirstUnreadSeq,
-				LastSeq: item.LastSeq,
+				LastSeq: item.LastSeq, LastRelevantSeq: item.LastRelevantSeq,
 			})
 		}
 		if p.ScanComplete {

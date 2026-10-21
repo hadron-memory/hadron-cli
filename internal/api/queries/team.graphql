@@ -1129,6 +1129,7 @@ query TeamAttentionPage(
       unread
       unreadMentions
       firstUnreadSeq
+      lastRelevantSeq
       lastSeq
     }
   }
