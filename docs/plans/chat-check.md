@@ -16,7 +16,11 @@ checks; cross-worktree checks may show duplicates, never roll back a cursor.
 The first suppressed team-chat envelope resolves the actual convenience channel
 (the server's oldest live team channel, which is not assumed to be App.defaultChannel).
 Sample cursor C, then committed message head H on that pinned channel/incarnation.
-Every subsequent page uses channelMessages, explicit sinceSeq C, beforeSeq,
+Use C as a scan floor only when cursorIncarnation matches the sampled incarnation.
+A legacy NULL or mismatched label selects floor0; preserve actual C and the label
+in the artifact/receipt, never relabel or roll back the server cursor. This can
+repeat messages until a later advancing mark records the current label.
+Every subsequent page uses channelMessages, explicit sinceSeq scan floor, beforeSeq,
 expectedIncarnation, bound worker mentionsRef and advanceReadState:false.
 The server performs canonical mention reach; the CLI never reparses @all/team.
 
@@ -53,7 +57,7 @@ Empty ranges print a short notice before advancing H and create no artifact.
 |1–8|existing failures; inspect receipt markStatus after any mark attempt|
 
 The bounded JSON receipt is a package DTO with error (null or code/message),
-outcome, sampledCursor, sampledHead, messageCount, artifactPath (null if absent),
+outcome, sampledCursor (actual stored value), scanCursor, cursorIncarnation, sampledHead, messageCount, artifactPath (null if absent),
 markAttempted, markStatus and markVerification. Errors before a snapshot use the
 ordinary root error envelope. Errors after it use this receipt with error set;
 no second JSON error is appended. A final receipt failure may follow a confirmed

@@ -39,8 +39,11 @@ func checkFailure(err error) error {
 func newCmdTeamChatCheck(f *cmdutil.Factory) *cobra.Command {
 	c := &cobra.Command{Use: "check", Short: "Write every tagged message to a private file, then mark the sampled head", Args: cobra.NoArgs,
 		Long: `Check all messages tagging this worktree's bound worker in its team channel.
-Sample the channel, incarnation, cursor C and committed head H once. Drain every
-matching message in (C,H], including server-selected @all/team tags. Every page
+Sample the channel, incarnation, stored cursor C and committed head H once.
+Trust C only when its stored incarnation matches; otherwise scan from zero,
+which can repeat messages. The receipt keeps stored C and the scan floor separate.
+Drain every
+matching message above that scan floor through H, including server-selected @all/team tags. Every page
 is fenced and acknowledgement-suppressed. New arrivals after H stay unmarked.
 
 For any messages, write the complete ordered JSON artifact to a private file
@@ -51,7 +54,8 @@ An empty tagged range also advances through H. No artifact is removed on success
 remove it yourself after reading. No delivery-batch inbox proofs are acknowledged.
 
 Exit 0: messages written and cursor coverage confirmed. Exit 9: nothing tagged,
-cursor coverage confirmed. Exit 10: mark outcome uncertain. Existing errors 1-8
+cursor coverage confirmed (9 is not an error; handle it explicitly in set -e scripts).
+Exit 10: mark outcome uncertain. Existing errors 1-8
 keep their meanings. Read/file/path-output errors before mark send no mutation,
 but served own-session reads may already count as checks. No stamp acknowledgement
 or roster OK status is asserted: inspect the roster CHECK column separately.
@@ -69,7 +73,7 @@ write failure can occur AFTER a confirmed mark; its diagnostic says so.`,
 			ctx := cmd.Context()
 			identity, err := inboxBoundIdentity(f)(ctx)
 			if err != nil {
-				return exitcode.Newf(exitcode.FromError(err), "check requires a complete binding on the selected App/server; check team session whoami --check")
+				return exitcode.Newf(exitcode.FromError(err), "check requires a complete binding on the selected App/server; run hadron team session whoami --check")
 			}
 			b, path, err := readBindingFile(ctx)
 			if err != nil || b == nil {
@@ -134,6 +138,7 @@ write failure can occur AFTER a confirmed mark; its diagnostic says so.`,
 				return err
 			}
 			s.Cursor = cursor.LastSeenSeq
+			s.CursorIncarnation = cursor.CursorIncarnation
 			if err = guard(); err != nil {
 				return err
 			}
@@ -167,7 +172,7 @@ write failure can occur AFTER a confirmed mark; its diagnostic says so.`,
 					if e := guard(); e != nil {
 						return nil, e
 					}
-					q, e := gen.CheckChatPage(api.WithSession(ctx, identity.SessionID), client, s.ChannelID, s.Incarnation, identity.WorkerID, s.Cursor, before)
+					q, e := gen.CheckChatPage(api.WithSession(ctx, identity.SessionID), client, s.ChannelID, s.Incarnation, identity.WorkerID, checkScanFloor(s), before)
 					if e != nil {
 						return nil, checkFailure(e)
 					}
@@ -185,7 +190,7 @@ write failure can occur AFTER a confirmed mark; its diagnostic says so.`,
 					return ms, nil
 				},
 				publish: func(ms []teamChatMessageDTO) (string, error) {
-					return publishCheckArtifact(cache, checkArtifact{Version: 1, WorkerID: identity.WorkerID, ChannelID: s.ChannelID, ChannelIncarnation: s.Incarnation, SampledCursor: s.Cursor, SampledHead: s.Head, Messages: ms}, f.IOStreams.ErrOut)
+					return publishCheckArtifact(cache, checkArtifact{Version: 1, WorkerID: identity.WorkerID, ChannelID: s.ChannelID, ChannelIncarnation: s.Incarnation, SampledCursor: s.Cursor, ScanCursor: checkScanFloor(s), CursorIncarnation: s.CursorIncarnation, SampledHead: s.Head, Messages: ms}, f.IOStreams.ErrOut)
 				},
 				mark: func(ctx context.Context) (bool, error) {
 					if e := guard(); e != nil {
@@ -220,12 +225,7 @@ write failure can occur AFTER a confirmed mark; its diagnostic says so.`,
 			// on failure so scripts can distinguish pre-mark errors from uncertainty.
 			streams := *f.IOStreams
 			streams.Out = checkFullWriter{streams.Out}
-			outputErr := output.Write(&streams, f.JSON, result, func(w io.Writer) error {
-				if result.Error != nil {
-					return writeCheckNotice(w, fmt.Sprintf("check failed: %s; mark %s.\n", result.Error.Message, result.MarkStatus))
-				}
-				return writeCheckNotice(w, fmt.Sprintf("%s: %d tagged messages; sampled #%d..#%d; mark %s (from the worktree binding).\n", result.Outcome, result.MessageCount, s.Cursor, s.Head, result.MarkStatus))
-			})
+			outputErr := output.Write(&streams, f.JSON, result, func(w io.Writer) error { return renderCheckReceipt(w, result) })
 			if outputErr != nil {
 				_ = writeCheckNotice(f.IOStreams.ErrOut, fmt.Sprintf("check receipt output failed; mark status %s (no rollback).\n", result.MarkStatus))
 				if result.MarkStatus == "uncertain" {
@@ -242,4 +242,35 @@ write failure can occur AFTER a confirmed mark; its diagnostic says so.`,
 			return nil
 		}}
 	return c
+}
+
+func renderCheckReceipt(w io.Writer, r checkResult) error {
+	if r.Error != nil {
+		status := "No mark was attempted."
+		switch r.MarkStatus {
+		case "refused":
+			status = "The mark was refused."
+		case "uncertain":
+			status = "The mark outcome is uncertain."
+		case "confirmed":
+			status = "Cursor coverage was confirmed."
+		}
+		rescue := ""
+		if r.ArtifactPath != nil {
+			rescue = fmt.Sprintf(" Messages remain at %q.", *r.ArtifactPath)
+		}
+		return writeCheckNotice(w, fmt.Sprintf("Check failed: %s. %s%s\n", r.Error.Message, status, rescue))
+	}
+	if r.MessageCount == 0 {
+		return writeCheckNotice(w, fmt.Sprintf("No tagged messages; marked through #%d (scanned above #%d; stored cursor #%d, from the worktree binding).\n", r.SampledHead, r.ScanCursor, r.SampledCursor))
+	}
+	word := "messages"
+	if r.MessageCount == 1 {
+		word = "message"
+	}
+	artifact := ""
+	if r.ArtifactPath != nil {
+		artifact = fmt.Sprintf(" to %q", *r.ArtifactPath)
+	}
+	return writeCheckNotice(w, fmt.Sprintf("Wrote %d tagged %s%s and marked through #%d (scanned above #%d; stored cursor #%d, from the worktree binding).\n", r.MessageCount, word, artifact, r.SampledHead, r.ScanCursor, r.SampledCursor))
 }

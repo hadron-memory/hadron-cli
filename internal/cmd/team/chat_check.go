@@ -19,6 +19,7 @@ var errCheckTransport = errors.New("check transport unavailable")
 type checkSnapshot struct {
 	ChannelID                 string
 	Incarnation, Cursor, Head int
+	CursorIncarnation         *int
 }
 type checkError struct {
 	Code    int    `json:"code"`
@@ -26,15 +27,17 @@ type checkError struct {
 }
 
 type checkResult struct {
-	Error            *checkError `json:"error"`
-	Outcome          string      `json:"outcome"`
-	SampledCursor    int         `json:"sampledCursor"`
-	SampledHead      int         `json:"sampledHead"`
-	MessageCount     int         `json:"messageCount"`
-	ArtifactPath     *string     `json:"artifactPath"`
-	MarkAttempted    bool        `json:"markAttempted"`
-	MarkStatus       string      `json:"markStatus"`
-	MarkVerification *string     `json:"markVerification"`
+	ScanCursor        int         `json:"scanCursor"`
+	CursorIncarnation *int        `json:"cursorIncarnation"`
+	Error             *checkError `json:"error"`
+	Outcome           string      `json:"outcome"`
+	SampledCursor     int         `json:"sampledCursor"`
+	SampledHead       int         `json:"sampledHead"`
+	MessageCount      int         `json:"messageCount"`
+	ArtifactPath      *string     `json:"artifactPath"`
+	MarkAttempted     bool        `json:"markAttempted"`
+	MarkStatus        string      `json:"markStatus"`
+	MarkVerification  *string     `json:"markVerification"`
 }
 type checkDeps struct {
 	// before is exclusive and decreases: the server's beforeSeq always pages backward.
@@ -45,8 +48,9 @@ type checkDeps struct {
 }
 
 func runChatCheck(ctx context.Context, s checkSnapshot, d checkDeps) (checkResult, error) {
-	r := checkResult{Outcome: "failed", SampledCursor: s.Cursor, SampledHead: s.Head, MarkStatus: "not_attempted"}
-	if s.Cursor < 0 || s.Head < s.Cursor || s.Head >= 2147483647 {
+	floor := checkScanFloor(s)
+	r := checkResult{Outcome: "failed", SampledCursor: s.Cursor, ScanCursor: floor, CursorIncarnation: s.CursorIncarnation, SampledHead: s.Head, MarkStatus: "not_attempted"}
+	if s.Cursor < 0 || s.Head < floor || s.Head >= 2147483647 {
 		return r, exitcode.Newf(exitcode.Conflict, "inconsistent channel sample; nothing marked")
 	}
 	messages := []teamChatMessageDTO{}
@@ -64,7 +68,7 @@ func runChatCheck(ctx context.Context, s checkSnapshot, d checkDeps) (checkResul
 		}
 		// Each bounded backward page is returned oldest-first. Reject duplicates,
 		// late arrivals, and any nonprogress; never trust total or short-page exhaustion.
-		previous := s.Cursor
+		previous := floor
 		for _, m := range page {
 			if m.Seq <= previous || m.Seq >= before {
 				return r, exitcode.Newf(exitcode.Unavailable, "invalid tagged page sequence; nothing marked")
@@ -118,4 +122,13 @@ func runChatCheck(ctx context.Context, s checkSnapshot, d checkDeps) (checkResul
 		r.Outcome = "empty_and_marked"
 	}
 	return r, nil
+}
+
+// A legacy or previous-incarnation cursor is not evidence of current coverage.
+// Scan the whole current incarnation, preserving the stored value for disclosure.
+func checkScanFloor(s checkSnapshot) int {
+	if s.CursorIncarnation == nil || *s.CursorIncarnation != s.Incarnation {
+		return 0
+	}
+	return s.Cursor
 }

@@ -25,7 +25,7 @@ type checkFixture struct {
 }
 
 func TestChatCheckProductionTransport(t *testing.T) {
-	for _, mode := range []string{"normal", "empty", "page_error", "path_error", "wrong_page_incarnation", "lost_confirmed", "lost_legacy_retry", "lost_twice", "lost_mismatch", "wrong_mark_incarnation", "mismatch", "binding_changed", "ended", "unavailable_metadata"} {
+	for _, mode := range []string{"normal", "empty", "page_error", "path_error", "wrong_page_incarnation", "lost_confirmed", "lost_legacy_retry", "lost_twice", "lost_mismatch", "wrong_mark_incarnation", "mismatch", "binding_changed", "ended", "unavailable_metadata", "null_cursor", "stale_cursor", "lost_old_label", "wrong_session_worker", "wrong_mark_worker", "low_mark_response", "wrong_head_incarnation", "binding_before_mark"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Setenv("HADRON_TOKEN", "fixture")
 			t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -55,7 +55,11 @@ func TestChatCheckProductionTransport(t *testing.T) {
 					if mode == "ended" {
 						ended = `"2026-01-01"`
 					}
-					fmt.Fprintf(w, `{"data":{"session":{"id":"s1","appId":"app","workerId":"worker","endedAt":%s,"isLive":true}}}`, ended)
+					worker := "worker"
+					if mode == "wrong_session_worker" {
+						worker = "other"
+					}
+					fmt.Fprintf(w, `{"data":{"session":{"id":"s1","appId":"app","workerId":%q,"endedAt":%s,"isLive":true}}}`, worker, ended)
 				case "CheckTeamChannel":
 					if mode == "unavailable_metadata" {
 						_, _ = io.WriteString(w, `{"data":{"teamChatMessages":{"channelId":null,"channelIncarnation":null}}}`)
@@ -68,7 +72,22 @@ func TestChatCheckProductionTransport(t *testing.T) {
 				case "CheckChatCursor":
 					state.cursors++
 					cursor := 10
-					label := "null"
+					label := "2"
+					if mode == "null_cursor" {
+						label = "null"
+					}
+					if mode == "stale_cursor" {
+						cursor = 9999
+						label = "1"
+					}
+					if state.cursors > 1 && mode == "lost_legacy_retry" {
+						label = "null"
+						cursor = 900
+					}
+					if state.cursors > 1 && mode == "lost_old_label" {
+						label = "1"
+						cursor = 900
+					}
 					currentInc := 2
 					if mode == "lost_mismatch" && state.cursors > 1 {
 						currentInc = 3
@@ -82,10 +101,19 @@ func TestChatCheckProductionTransport(t *testing.T) {
 					if !strings.Contains(q.Query, "advanceReadState: false") || string(q.Variables["incarnation"]) != "2" {
 						t.Error("head not fenced")
 					}
-					_, _ = io.WriteString(w, `{"data":{"channelMessages":{"channelId":"chan","channelIncarnation":2,"items":[{"seq":900}]}}}`)
+					headInc := 2
+					if mode == "wrong_head_incarnation" {
+						headInc = 3
+					}
+					_, _ = fmt.Fprintf(w, `{"data":{"channelMessages":{"channelId":"chan","channelIncarnation":%d,"items":[{"seq":900}]}}}`, headInc)
 				case "CheckChatPage":
 					state.pages++
-					if !strings.Contains(q.Query, "advanceReadState: false") || string(q.Variables["incarnation"]) != "2" || string(q.Variables["worker"]) != `"worker"` || string(q.Variables["since"]) != "10" {
+					if !strings.Contains(q.Query, "advanceReadState: false") || string(q.Variables["incarnation"]) != "2" || string(q.Variables["worker"]) != `"worker"` || string(q.Variables["since"]) != func() string {
+						if mode == "null_cursor" || mode == "stale_cursor" {
+							return "0"
+						}
+						return "10"
+					}() {
 						t.Error("missing page boundary")
 					}
 					if mode == "page_error" {
@@ -105,11 +133,15 @@ func TestChatCheckProductionTransport(t *testing.T) {
 						case "600":
 							ms = []map[string]any{{"seq": 80, "body": "oldest", "nodeId": "n80"}}
 						case "80":
+							if mode == "null_cursor" || mode == "stale_cursor" {
+								ms = []map[string]any{{"seq": 5, "body": "previously hidden tagged message", "nodeId": "n5"}}
+							}
+						case "5":
 						default:
 							t.Error("wrong backward boundary", string(q.Variables["before"]))
 						}
 					}
-					if mode == "binding_changed" {
+					if mode == "binding_changed" || (mode == "binding_before_mark" && len(ms) == 0) {
 						_ = os.WriteFile(boundFile, []byte(`{"appId":"app","workerId":"worker","sessionId":"s2","server":"http://localhost"}`), 0600)
 					}
 					_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"channelMessages": map[string]any{"channelId": "chan", "channelIncarnation": inc, "items": ms}}})
@@ -132,7 +164,13 @@ func TestChatCheckProductionTransport(t *testing.T) {
 						}
 						var a checkArtifact
 						_ = json.Unmarshal(data, &a)
-						if len(a.Messages) != 3 || a.Messages[0].Seq != 80 || a.Messages[2].Seq != 850 || a.SampledHead != 900 {
+						wantCount := 3
+						first := 80
+						if mode == "null_cursor" || mode == "stale_cursor" {
+							wantCount = 4
+							first = 5
+						}
+						if len(a.Messages) != wantCount || a.Messages[0].Seq != first || a.Messages[len(a.Messages)-1].Seq != 850 || a.SampledHead != 900 {
 							t.Errorf("incomplete artifact %+v", a)
 						}
 					}
@@ -140,7 +178,7 @@ func TestChatCheckProductionTransport(t *testing.T) {
 						_, _ = io.WriteString(w, `{"errors":[{"message":"PRIVATE_SENTINEL","extensions":{"code":"CHANNEL_INCARNATION_CHANGED"}}]}`)
 						return
 					}
-					if mode == "lost_twice" || (state.marks == 1 && (mode == "lost_confirmed" || mode == "lost_legacy_retry" || mode == "lost_mismatch")) {
+					if mode == "lost_twice" || (state.marks == 1 && (mode == "lost_confirmed" || mode == "lost_legacy_retry" || mode == "lost_mismatch" || mode == "lost_old_label")) {
 						w.WriteHeader(502)
 						return
 					}
@@ -148,7 +186,15 @@ func TestChatCheckProductionTransport(t *testing.T) {
 					if mode == "wrong_mark_incarnation" {
 						incarnation = 3
 					}
-					_, _ = fmt.Fprintf(w, `{"data":{"markOwnTeamChatRead":{"workerId":"worker","channelId":"chan","channelIncarnation":%d,"cursorIncarnation":null,"lastSeenSeq":900}}}`, incarnation)
+					markWorker := "worker"
+					if mode == "wrong_mark_worker" {
+						markWorker = "other"
+					}
+					through := 900
+					if mode == "low_mark_response" {
+						through = 899
+					}
+					_, _ = fmt.Fprintf(w, `{"data":{"markOwnTeamChatRead":{"workerId":%q,"channelId":"chan","channelIncarnation":%d,"cursorIncarnation":null,"lastSeenSeq":%d}}}`, markWorker, incarnation, through)
 				default:
 					t.Errorf("unexpected operation %s", q.OperationName)
 				}
@@ -176,28 +222,34 @@ func TestChatCheckProductionTransport(t *testing.T) {
 				want = 7
 			case "path_error":
 				want = 1
-			case "wrong_page_incarnation", "mismatch", "binding_changed", "ended":
+			case "wrong_page_incarnation", "mismatch", "binding_changed", "ended", "wrong_session_worker", "wrong_head_incarnation", "binding_before_mark":
 				want = 5
 			case "unavailable_metadata":
 				want = 4
-			case "lost_twice", "lost_mismatch", "wrong_mark_incarnation":
+			case "lost_twice", "lost_mismatch", "wrong_mark_incarnation", "wrong_mark_worker", "low_mark_response":
 				want = 10
 			}
 			if code != want {
 				t.Fatalf("exit=%d want=%d err=%v out=%s notice=%s", code, want, err, out.String(), notice.String())
 			}
 			switch mode {
-			case "path_error", "page_error", "wrong_page_incarnation", "binding_changed", "ended", "unavailable_metadata":
+			case "path_error", "page_error", "wrong_page_incarnation", "binding_changed", "ended", "unavailable_metadata", "wrong_session_worker", "wrong_head_incarnation", "binding_before_mark":
 				if state.marks != 0 {
 					t.Fatal("mark after pre-mark failure")
 				}
-			case "lost_twice", "lost_legacy_retry":
+			case "lost_twice", "lost_legacy_retry", "lost_old_label":
 				if state.marks != 2 {
 					t.Fatal(state.marks)
 				}
 			default:
 				if state.marks != 1 {
 					t.Fatal(state.marks)
+				}
+			}
+			if mode == "mismatch" {
+				var receipt checkResult
+				if json.Unmarshal(out.Bytes(), &receipt) != nil || receipt.MarkStatus != "refused" {
+					t.Fatal("definitive refusal status lost", out.String())
 				}
 			}
 			if strings.Contains(out.String()+notice.String(), "PRIVATE_SENTINEL") {

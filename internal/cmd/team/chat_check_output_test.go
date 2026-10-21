@@ -2,6 +2,7 @@ package team
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -95,5 +96,36 @@ func TestCheckArtifactPathFlushFailure(t *testing.T) {
 	}
 	if _, e = os.Stat(path); e != nil {
 		t.Fatal(e)
+	}
+}
+
+func TestCheckArtifactRejectsUnroundtrippablePath(t *testing.T) {
+	cache := filepath.Join(t.TempDir(), string([]byte{0xff}))
+	if _, e := publishCheckArtifact(cache, checkArtifact{Messages: []teamChatMessageDTO{{Seq: 1}}}, io.Discard); e == nil {
+		t.Fatal("accepted invalid UTF-8 path that JSON would replace")
+	}
+}
+
+func TestCheckArtifactDirectorySyncFailurePreventsOutputAndMark(t *testing.T) {
+	cache := t.TempDir()
+	var out bytes.Buffer
+	marks := 0
+	calls := 0
+	d := checkDeps{page: func(context.Context, int) ([]teamChatMessageDTO, error) {
+		calls++
+		if calls == 1 {
+			return []teamChatMessageDTO{{Seq: 1}}, nil
+		}
+		return nil, nil
+	}, publish: func(ms []teamChatMessageDTO) (string, error) {
+		return publishCheckArtifactWithSync(cache, checkArtifact{Messages: ms}, &out, func(string) error { return errors.New("directory sync failed") })
+	}, mark: func(context.Context) (bool, error) { marks++; return true, nil }}
+	_, e := runChatCheck(context.Background(), checkSnapshot{Head: 1}, d)
+	if e == nil || marks != 0 || out.Len() != 0 {
+		t.Fatal(e, marks, out.String())
+	}
+	entries, _ := os.ReadDir(cache)
+	if len(entries) != 0 {
+		t.Fatal("partial artifact retained", entries)
 	}
 }

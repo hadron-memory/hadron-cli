@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"errors"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"io"
 	"strings"
 	"testing"
@@ -138,5 +139,38 @@ func TestChatCheckInterleavedOrder(t *testing.T) {
 	}
 	if timeline.String() != "FILE_COMPLETE\nPATH_PRINTED\nMARK\n" {
 		t.Fatal(timeline.String())
+	}
+}
+
+func TestChatCheckBoundaryFailuresFailFast(t *testing.T) {
+	for _, mode := range []string{"equal_before", "duplicate"} {
+		t.Run(mode, func(t *testing.T) {
+			calls, marks := 0, 0
+			inc := 2
+			d := checkDeps{page: func(context.Context, int) ([]teamChatMessageDTO, error) {
+				calls++
+				if calls > 1 {
+					t.Fatal("nonprogress was not refused on first page")
+				}
+				if mode == "equal_before" {
+					return []teamChatMessageDTO{{Seq: 91}}, nil
+				}
+				return []teamChatMessageDTO{{Seq: 20}, {Seq: 20}}, nil
+			}, publish: func([]teamChatMessageDTO) (string, error) { t.Fatal("invalid page reached output"); return "", nil }, mark: func(context.Context) (bool, error) { marks++; return true, nil }}
+			_, e := runChatCheck(context.Background(), checkSnapshot{Incarnation: inc, CursorIncarnation: &inc, Cursor: 10, Head: 90}, d)
+			if exitcode.FromError(e) != exitcode.Unavailable || marks != 0 || calls != 1 {
+				t.Fatal(e, calls, marks)
+			}
+		})
+	}
+}
+
+func TestChatCheckHeadOverflowRefusesBeforePaging(t *testing.T) {
+	_, e := runChatCheck(context.Background(), checkSnapshot{Head: 2147483647}, checkDeps{page: func(context.Context, int) ([]teamChatMessageDTO, error) {
+		t.Fatal("overflow reached page")
+		return nil, nil
+	}})
+	if exitcode.FromError(e) != exitcode.Conflict {
+		t.Fatal(e)
 	}
 }

@@ -6,9 +6,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"unicode/utf8"
 )
 
 type checkArtifact struct {
+	ScanCursor         int                  `json:"scanCursor"`
+	CursorIncarnation  *int                 `json:"cursorIncarnation"`
 	Version            int                  `json:"version"`
 	WorkerID           string               `json:"workerId"`
 	ChannelID          string               `json:"channelId"`
@@ -22,10 +25,14 @@ type checkArtifact struct {
 // file or existing directory can redirect a write; the completed file is retained
 // if printing its path or the later mark fails.
 func publishCheckArtifact(cache string, a checkArtifact, notice io.Writer) (path string, err error) {
+	return publishCheckArtifactWithSync(cache, a, notice, syncCheckArtifactDirectory)
+}
+
+func publishCheckArtifactWithSync(cache string, a checkArtifact, notice io.Writer, syncDir func(string) error) (path string, err error) {
 	if len(a.Messages) == 0 {
-		return "", writeCheckNotice(notice, fmt.Sprintf("No tagged messages in (%d, %d]; preparing mark through #%d (including untagged messages).\n", a.SampledCursor, a.SampledHead, a.SampledHead))
+		return "", writeCheckNotice(notice, fmt.Sprintf("No tagged messages above #%d through #%d; preparing mark through #%d (including untagged messages).\n", a.ScanCursor, a.SampledHead, a.SampledHead))
 	}
-	if !filepath.IsAbs(cache) || len(cache) > 1024 {
+	if !filepath.IsAbs(cache) || len(cache) > 1024 || !utf8.ValidString(cache) {
 		return "", fmt.Errorf("private artifact cache path is not an absolute bounded path")
 	}
 	if err = os.MkdirAll(cache, 0700); err != nil {
@@ -34,6 +41,10 @@ func publishCheckArtifact(cache string, a checkArtifact, notice io.Writer) (path
 	dir, err := os.MkdirTemp(cache, "hadron-chat-check-")
 	if err != nil {
 		return "", fmt.Errorf("cannot create private artifact directory")
+	}
+	if e := os.Chmod(dir, 0700); e != nil {
+		_ = os.RemoveAll(dir)
+		return "", fmt.Errorf("cannot secure artifact directory")
 	}
 	complete := false
 	defer func() {
@@ -46,6 +57,10 @@ func publishCheckArtifact(cache string, a checkArtifact, notice io.Writer) (path
 	if err != nil {
 		return "", fmt.Errorf("cannot create private message artifact")
 	}
+	if e := file.Chmod(0600); e != nil {
+		_ = file.Close()
+		return "", fmt.Errorf("cannot secure message artifact")
+	}
 	if err = completeCheckFile(file, a); err != nil {
 		return "", err
 	}
@@ -53,18 +68,16 @@ func publishCheckArtifact(cache string, a checkArtifact, notice io.Writer) (path
 	if err = os.Rename(tmp, path); err != nil {
 		return "", fmt.Errorf("cannot finish message artifact")
 	}
-	handle, err := os.Open(dir)
-	if err != nil {
-		return "", fmt.Errorf("cannot open artifact directory")
-	}
-	syncErr := handle.Sync()
-	closeErr := handle.Close()
-	if syncErr != nil || closeErr != nil {
+	if err = syncDir(dir); err != nil {
 		return "", fmt.Errorf("cannot sync artifact directory")
 	}
 	complete = true
 	// JSON quoting keeps even an operator-supplied cache path on one diagnostic line.
-	if err = writeCheckNotice(notice, fmt.Sprintf("Tagged messages written to %q; open this file to read them. Preparing mark through #%d (including untagged messages).\n", path, a.SampledHead)); err != nil {
+	hint := ""
+	if a.CursorIncarnation == nil || *a.CursorIncarnation != a.ChannelIncarnation {
+		hint = fmt.Sprintf(" Stored cursor #%d is unverified for this incarnation; scanned from #%d.", a.SampledCursor, a.ScanCursor)
+	}
+	if err = writeCheckNotice(notice, fmt.Sprintf("Tagged messages written to %q; open this file to read them, and remove it when finished. Preparing mark through #%d (including untagged messages).%s\n", path, a.SampledHead, hint)); err != nil {
 		return path, err
 	}
 	return path, nil
@@ -126,4 +139,17 @@ func (w checkFullWriter) Write(p []byte) (int, error) {
 		err = io.ErrShortWrite
 	}
 	return n, err
+}
+
+func syncCheckArtifactDirectory(dir string) error {
+	handle, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	syncErr := handle.Sync()
+	closeErr := handle.Close()
+	if syncErr != nil {
+		return syncErr
+	}
+	return closeErr
 }
