@@ -67,3 +67,22 @@ func TestC959HelpDoesNotAdvertiseRecreateAsARemedy(t *testing.T) {
 		}
 	}
 }
+
+// Uma's #982 P3s: the help hedges enforcement like the runtime line does
+// ("may", the host side is #831), and names the second place the choice is
+// made — the assign that first names a queued task's assignee.
+func TestC959HelpHedgesEnforcementAndNamesFirstAssign(t *testing.T) {
+	create := helpText(t, "create")
+	if !strings.Contains(create, "the platform may end it through the worker's live host") {
+		t.Errorf("create help does not hedge enforcement:\n%s", create)
+	}
+	if strings.Contains(create, "the platform ends it") {
+		t.Errorf("create help promises enforcement:\n%s", create)
+	}
+	for _, verb := range []string{"create", "assign", "reassign"} {
+		out := helpText(t, verb)
+		if !strings.Contains(out, "or on the assign that first names the assignee of a queued task") {
+			t.Errorf("%s help omits the first-assign path:\n%s", verb, out)
+		}
+	}
+}
