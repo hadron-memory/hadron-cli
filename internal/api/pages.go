@@ -36,3 +36,25 @@ func CollectUntil[T any](fetch func(limit, offset int) ([]T, int, error), done f
 		}
 	}
 }
+
+// CollectPages drains a list whose total may be unknown (findNodes returns a
+// nullable total; sessions and revisions return none). fetch receives
+// (limit, offset) and returns one page plus the total when the server gave one.
+// It stops only on an empty page or when a known total is reached, and advances
+// by the rows actually received, so a server that clamps pages below pageSize
+// can neither end the scan early nor skip rows (cor:api:120:04). A fetch error
+// on any page fails the whole collection.
+func CollectPages[T any](pageSize int, fetch func(limit, offset int) ([]T, *int, error)) ([]T, error) {
+	items := make([]T, 0)
+	for offset := 0; ; {
+		page, total, err := fetch(pageSize, offset)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, page...)
+		offset += len(page)
+		if len(page) == 0 || (total != nil && len(items) >= *total) {
+			return items, nil
+		}
+	}
+}
