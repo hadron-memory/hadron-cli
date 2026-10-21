@@ -2,6 +2,7 @@ package guardedpush
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -354,5 +355,82 @@ func TestCombinedPayloadTooLargeHoldsBeforeClear(t *testing.T) {
 	r := e.Run(context.Background(), q, Defaults())
 	if r.Outcome != HeldUnknown || len(f.clears)+len(f.sends) != 0 {
 		t.Fatalf("%+v", r)
+	}
+}
+
+func TestConfirmationNeedsBusyEvenWithAttemptMarkerAndEmptyDraft(t *testing.T) {
+	f, e := harness()
+	f.confirm = false
+	f.observe = func(f *fake) {
+		if len(f.sends) > 0 {
+			f.frame.State = Idle
+			f.frame.Screen = f.sends[0]
+			f.frame.Draft = ""
+		}
+	}
+	r := run(e)
+	if r.Outcome != Unconfirmed || r.Reason != "turn-not-confirmed" || len(f.sends) != 1 {
+		t.Fatalf("%+v sends%d", r, len(f.sends))
+	}
+}
+func TestDraftWaitIndependentlyBoundsEligibility(t *testing.T) {
+	for _, c := range []struct{ wait, stable time.Duration }{{60 * time.Second, 30 * time.Second}, {30 * time.Second, 60 * time.Second}} {
+		f, e := harness()
+		f.frame.Draft = "draft"
+		f.frame.Empty = false
+		start := f.now
+		o := Defaults()
+		o.DraftWait = c.wait
+		o.Stable = c.stable
+		r := e.Run(context.Background(), request(), o)
+		if r.Outcome != SentWithDraft || f.now.Sub(start) < max(c.wait, c.stable) {
+			t.Fatalf("%+v duration%s", r, f.now.Sub(start))
+		}
+	}
+}
+func TestConfirmationIdentityAndOwnershipChangesCannotConfirm(t *testing.T) {
+	for _, change := range []string{"identity", "family", "lock"} {
+		f, e := harness()
+		f.observe = func(f *fake) {
+			if len(f.sends) > 0 {
+				if change == "identity" {
+					f.frame.Identity = "other"
+				}
+				if change == "family" {
+					f.frame.Family = "codex"
+				}
+			}
+		}
+		if change == "lock" {
+			e.Locked = func(_ string, work func(func() bool) Result) Result {
+				return work(func() bool { return len(f.sends) == 0 })
+			}
+		}
+		r := run(e)
+		if r.Outcome != Unconfirmed || len(f.sends) != 1 {
+			t.Fatalf("%s %+v", change, r)
+		}
+	}
+}
+func TestDraftPrivacyOnRefusalPaths(t *testing.T) {
+	for _, kind := range []string{"unsupported", "pre-send-change"} {
+		f, e := harness()
+		secret := "PRIVATE-DRAFT-CANARY"
+		f.frame.Draft = secret
+		f.frame.Empty = false
+		if kind == "unsupported" {
+			f.frame.Draft += "\x1b"
+		} else {
+			f.observe = func(f *fake) {
+				if f.now.Sub(time.Unix(1, 0)) >= 30*time.Second && f.reads > 123 {
+					f.frame.Draft = secret + "new"
+				}
+			}
+		}
+		r := run(e)
+		raw, _ := json.Marshal(r)
+		if strings.Contains(string(raw), secret) {
+			t.Fatal("draft escaped result")
+		}
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -24,7 +25,7 @@ import (
 
 // Command-level GraphQL and Orca transports are fakes. Only the disposable git binding directory is real.
 func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
-	for _, mode := range []string{"sent", "output-failure", "locked", "unknown", "busy", "unconfirmed", "wrong-tool", "ended", "foreign-app", "missing-server", "sender-ended", "server-error"} {
+	for _, mode := range []string{"sent", "output-failure", "locked", "unknown", "busy", "unconfirmed", "wrong-tool", "ended", "foreign-app", "missing-server", "sender-ended", "server-error", "other-worker-only", "two-recipient-terminals", "lapsed-sender", "lapsed-recipient", "missing-liveness", "unknown-liveness", "sender-lapses-before-input"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Setenv("HADRON_TOKEN", "hdr_user_FAKE_PRIVATE_KEY")
 			t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -36,6 +37,7 @@ func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
 			if out, err := exec.Command("git", "init", "-q", target).CombinedOutput(); err != nil {
 				t.Fatalf("git init %s: %v", out, err)
 			}
+			var senderLiveReads atomic.Int32
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method == http.MethodGet {
 					_, _ = io.WriteString(w, `{"capabilities":[]}`)
@@ -50,11 +52,26 @@ func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
 				}
 				w.Header().Set("Content-Type", "application/json")
 				switch q.OperationName {
+				case "GetBoundSessionLiveness":
+					id := q.Variables["id"].(string)
+					if mode == "unknown-liveness" {
+						_, _ = io.WriteString(w, `{"errors":[{"message":"PRIVATE-LIVENESS"}]}`)
+						return
+					}
+					if mode == "missing-liveness" {
+						_, _ = io.WriteString(w, `{"data":{"session":null}}`)
+						return
+					}
+					live := !(mode == "lapsed-sender" && id == "sender-session" || mode == "lapsed-recipient" && id == "recipient-session" || mode == "sender-lapses-before-input" && id == "sender-session" && senderLiveReads.Add(1) > 1)
+					_, _ = fmt.Fprintf(w, `{"data":{"session":{"id":%q,"endedAt":null,"isLive":%t}}}`, id, live)
 				case "GetTeamSession":
 					id := q.Variables["id"].(string)
 					worker := "recipient"
 					tool := "claude-code"
 					ended := "null"
+					if id == "other-session" {
+						worker = "other-worker"
+					}
 					if id == "sender-session" {
 						worker = "sender"
 					}
@@ -94,6 +111,10 @@ func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
 			}
 			b.WorkerID = "recipient"
 			b.SessionID = "recipient-session"
+			if mode == "other-worker-only" {
+				b.WorkerID = "other-worker"
+				b.SessionID = "other-session"
+			}
 			if mode == "missing-server" {
 				b.Server = ""
 			}
@@ -109,7 +130,11 @@ func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
 				return func(_ context.Context, args []string) orcaterm.Result {
 					switch args[1] {
 					case "list":
-						return envelope(map[string]any{"terminals": []any{map[string]any{"handle": "terminal", "worktreePath": target, "agentIdentity": "claude", "connected": true, "writable": true}}})
+						rows := []any{map[string]any{"handle": "terminal", "worktreePath": target, "agentIdentity": "claude", "connected": true, "writable": true}}
+						if mode == "two-recipient-terminals" {
+							rows = append(rows, map[string]any{"handle": "terminal2", "worktreePath": target, "agentIdentity": "claude", "connected": true, "writable": true})
+						}
+						return envelope(map[string]any{"terminals": rows})
 					case "send":
 						sends++
 						for i, a := range args {
@@ -178,7 +203,7 @@ func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
 			if mode == "unconfirmed" || mode == "output-failure" {
 				want = 12
 			}
-			if mode == "sender-ended" || mode == "server-error" {
+			if mode == "sender-ended" || mode == "server-error" || mode == "lapsed-sender" || mode == "missing-liveness" || mode == "unknown-liveness" {
 				want = 2
 			}
 			if mode == "foreign-app" {
