@@ -2,6 +2,7 @@ package hostpoller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -907,5 +908,32 @@ func TestWorktreeCreateRefusesAnotherWorkersToken(t *testing.T) {
 	}
 	if len(host.created) != 0 {
 		t.Error("nothing created")
+	}
+}
+
+// cli#968: a Step collects exactly once, even when the page comes back full.
+// A full page is not proof of progress or exhaustion (the oldest in-flight
+// page can refill it), so there is no same-step re-collect.
+func TestStepCollectsOncePerStepEvenOnAFullPage(t *testing.T) {
+	p, srv, host := testPoller(t)
+	full := make([]Operation, 50)
+	for i := range full {
+		full[i] = Operation{ID: fmt.Sprintf("o%d", i), Type: "shell.exec", WorkerID: "id-iris"}
+	}
+	srv.batches = [][]Operation{full, {{ID: "next", Type: "shell.exec", WorkerID: "id-iris"}}}
+	step(t, p)
+	srv.mu.Lock()
+	collects := srv.collects
+	srv.mu.Unlock()
+	if collects != 1 {
+		t.Fatalf("a Step collected %d times on a full page, want exactly 1", collects)
+	}
+	if len(host.created) != 0 {
+		t.Errorf("unexpected host work: %v", host.created)
+	}
+	for _, r := range srv.finalReports() {
+		if r.id == "next" {
+			t.Error("the second page must wait for the next Step")
+		}
 	}
 }
