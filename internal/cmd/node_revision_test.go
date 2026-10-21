@@ -44,8 +44,10 @@ func TestNodeRevisionListBareIDPassthrough(t *testing.T) {
 	if vars.NodeRef != "n1" {
 		t.Errorf("bare id should pass through as nodeRef, got %q", vars.NodeRef)
 	}
-	if vars.Limit != nil {
-		t.Errorf("unset --limit must be omitted, got %v", *vars.Limit)
+	// cli#967: an unset --limit is an explicit small default, not whatever the
+	// server happens to default to.
+	if vars.Limit == nil || *vars.Limit != 20 {
+		t.Errorf("unset --limit must send the explicit default 20, got %v", vars.Limit)
 	}
 }
 

@@ -210,3 +210,14 @@ func TestDeleteWithoutConfirmationNeverConnects(t *testing.T) {
 		t.Fatalf("err=%v connects=%d calls=%d", err, connections, c.calls)
 	}
 }
+
+// cli#967: an unset --limit asks for 20 threads, not a larger hidden page.
+func TestListDefaultsTo20Threads(t *testing.T) {
+	c := &capture{}
+	if _, _, err := execute(t, c, "list", "target", "-m", "hrn:mem:acme.com:kb"); err != nil {
+		t.Fatal(err)
+	}
+	if c.limit != 20 {
+		t.Fatalf("default limit sent as %d, want 20", c.limit)
+	}
+}

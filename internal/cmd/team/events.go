@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	teamEventsDefaultLimit = 50
+	teamEventsDefaultLimit = 20
 	// teamEventPageCap is the server's clampListTake ceiling; a larger
 	// --limit would be silently clamped, so the CLI refuses it instead and
 	// names the boundary (cycle 1, Diego P2-2).

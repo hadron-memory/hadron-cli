@@ -200,17 +200,26 @@ the AppAgent join.`,
 				if at != nil {
 					filter = &gen.PublicAgentFilter{Type: at}
 				}
-				resp, err := gen.PublicAgents(cmd.Context(), client, filter, lim, off)
+				// No --limit/--offset means the whole list (cli#967): drain to
+				// the total. An explicit flag is one deliberate page.
+				rows, err := listPages(lim, off, func(l, o *int) ([]*agentRow, int, error) {
+					resp, err := gen.PublicAgents(cmd.Context(), client, filter, l, o)
+					if err != nil || resp.PublicAgents == nil {
+						return nil, 0, err
+					}
+					out := make([]*agentRow, 0, len(resp.PublicAgents.Items))
+					for _, a := range resp.PublicAgents.Items {
+						if a != nil {
+							out = append(out, &agentRow{&a.AgentFields})
+						}
+					}
+					return out, resp.PublicAgents.Total, nil
+				})
 				if err != nil {
 					return api.MapError(err)
 				}
-				if resp.PublicAgents != nil {
-					for _, a := range resp.PublicAgents.Items {
-						if a == nil {
-							continue
-						}
-						agents = append(agents, agentDTOFromFields(a.AgentFields))
-					}
+				for _, a := range rows {
+					agents = append(agents, agentDTOFromFields(*a.AgentFields))
 				}
 			} else {
 				var filter *gen.AgentFilter
@@ -227,17 +236,24 @@ the AppAgent join.`,
 				if org != "" {
 					orgPtr = &org
 				}
-				resp, err := gen.Agents(cmd.Context(), client, orgPtr, filter, lim, off)
+				rows, err := listPages(lim, off, func(l, o *int) ([]*agentRow, int, error) {
+					resp, err := gen.Agents(cmd.Context(), client, orgPtr, filter, l, o)
+					if err != nil || resp.Agents == nil {
+						return nil, 0, err
+					}
+					out := make([]*agentRow, 0, len(resp.Agents.Items))
+					for _, a := range resp.Agents.Items {
+						if a != nil {
+							out = append(out, &agentRow{&a.AgentFields})
+						}
+					}
+					return out, resp.Agents.Total, nil
+				})
 				if err != nil {
 					return api.MapError(err)
 				}
-				if resp.Agents != nil {
-					for _, a := range resp.Agents.Items {
-						if a == nil {
-							continue
-						}
-						agents = append(agents, agentDTOFromFields(a.AgentFields))
-					}
+				for _, a := range rows {
+					agents = append(agents, agentDTOFromFields(*a.AgentFields))
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, agents, func(w io.Writer) error {
@@ -254,7 +270,7 @@ the AppAgent join.`,
 	cmd.Flags().StringVar(&vis, "visibility", "", "filter by visibility: ORGANIZATION, PERSONAL, or PUBLIC")
 	cmd.Flags().BoolVar(&public, "public", false, "list the cross-org PUBLIC marketplace slice instead of your member-scoped agents")
 	cmd.Flags().BoolVar(&ownedByMe, "owned-by-me", false, "list only the org-less agents you own")
-	cmd.Flags().IntVar(&limit, "limit", 0, "max results (server default when unset)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "max results (one page of that size); unset lists everything")
 	cmd.Flags().IntVar(&offset, "offset", 0, "results to skip")
 	return cmd
 }
@@ -1088,4 +1104,18 @@ manages the Agent may set its base (cor:dmo:050:13).`,
 	}
 	cmd.Flags().BoolVar(&clear, "clear", false, "remove the Agent's base instead of setting one")
 	return cmd
+}
+
+// agentRow carries the shared AgentFields of one list item.
+type agentRow struct{ *gen.AgentFields }
+
+// listPages runs one deliberate page when the user passed --limit/--offset,
+// and otherwise drains the whole list (cli#967): an unset limit never means
+// "whatever the server defaults to".
+func listPages(lim, off *int, fetch func(limit, offset *int) ([]*agentRow, int, error)) ([]*agentRow, error) {
+	if lim != nil || off != nil {
+		rows, _, err := fetch(lim, off)
+		return rows, err
+	}
+	return api.CollectAll(func(l, o int) ([]*agentRow, int, error) { return fetch(&l, &o) })
 }

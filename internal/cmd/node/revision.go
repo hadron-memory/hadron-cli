@@ -96,6 +96,10 @@ way to reach a soft-deleted node's history for cleanup.`,
 	return cmd
 }
 
+// revisionDefaultLimit is the page `revision list` asks for when --limit is
+// unset (cli#967: hidden defaults stay at 20 or less).
+const revisionDefaultLimit = 20
+
 func newCmdRevisionList(f *cmdutil.Factory) *cobra.Command {
 	var memory string
 	var limit int
@@ -118,10 +122,16 @@ func newCmdRevisionList(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var limitArg *int
-			if cmd.Flags().Changed("limit") {
-				limitArg = &limit
+			// nodeRevisions has no offset or total, so the history cannot be
+			// paged to its end (cli#967). An unset --limit sends the explicit
+			// default rather than the server's own, and a full default page is
+			// reported as "first N; more may exist" — a page of exactly N does
+			// not prove older revisions exist.
+			explicitLimit := cmd.Flags().Changed("limit")
+			if !explicitLimit {
+				limit = revisionDefaultLimit
 			}
+			limitArg := &limit
 			dtos := []revisionStampedDTO{}
 			stamped, err := gen.NodeRevisionsStamped(cmd.Context(), client, ref, limitArg)
 			switch {
@@ -148,6 +158,9 @@ func newCmdRevisionList(f *cmdutil.Factory) *cobra.Command {
 			default:
 				return api.MapError(err)
 			}
+			if !explicitLimit && len(dtos) >= limit {
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Showing the first %d revisions; more may exist. Pass --limit N for a larger page.\n", limit)
+			}
 			return output.Write(f.IOStreams, f.JSON, dtos, func(w io.Writer) error {
 				t := output.NewTable(w, "REVISION-ID", "CREATED", "NAME", "EDITED-BY", "LABEL", "VALIDATION")
 				for _, d := range dtos {
@@ -158,7 +171,7 @@ func newCmdRevisionList(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
-	cmd.Flags().IntVar(&limit, "limit", 0, "max revisions to return (server default when unset)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "max revisions to return (default 20; a full default page says more may exist)")
 	return cmd
 }
 
