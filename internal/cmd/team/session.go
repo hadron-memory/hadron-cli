@@ -1186,7 +1186,7 @@ ends the recovered session: run start again to pick it up.`,
 					"current holder, and `worker release` gives the name up if that is what you want.)",
 					err, s.Id, w.Name)
 			}
-			return finishBind(cmd, f, client, s, w, path, lapsedBinding, existing, live, repo, nil)
+			return finishBind(cmd, f, client, s, w, path, lapsedBinding, existing, live, repo, nil, tool)
 		},
 	}
 	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App; omit it (and any launch grant) to resume")
@@ -1214,7 +1214,7 @@ ends the recovered session: run start again to pick it up.`,
 // resume (hadron-cli#842) all end here, so a recovered worker is briefed
 // exactly as a bound one is. resumeOutcome is nil except on a resume.
 func finishBind(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, s gen.TeamSessionFields, w gen.WorkerFields,
-	path string, lapsedBinding bool, existing *binding, live liveness, repo string, resumeOutcome *string) error {
+	path string, lapsedBinding bool, existing *binding, live liveness, repo string, resumeOutcome *string, tool string) error {
 	ctx := cmd.Context()
 	// Read the handoff AFTER the bind. With --force, ending the old
 	// worktree session above may be the event that makes its handoff
@@ -1347,7 +1347,31 @@ func finishBind(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, s
 	// untouched, the session is already started and the binding
 	// already written by the time this runs.
 	warnRepoAffinity(cmd.Context(), f, client, w, repo)
+	warnNoTool(f, tool)
 	return nil
+}
+
+// warnNoTool says, at the bind, that the binding records no tool (cli#960).
+// `session log` sends the binding's tool and the server refuses a work-log row
+// without one, so a worker that omitted --tool used to find out late, while
+// recording a PR or merge. `tool` is the EFFECTIVE value the binding was
+// written with — for a resume that is the session's recorded tool, or the
+// flag only when the session lacks one — never the bare flag, so a known-tool
+// resume stays quiet when this invocation omits --tool.
+//
+// stderr only (a nudge, not session data: --json stdout is unchanged), a
+// WARNING never a refusal (the session is bound and nothing is retried,
+// overwritten or ended), and it prints neither the transcript path nor any
+// credential. It does not guess a tool and does not prescribe a repair for an
+// already-live legacy session: that is a stated limitation, not something this
+// command can fix.
+func warnNoTool(f *cmdutil.Factory, tool string) {
+	if strings.TrimSpace(tool) != "" {
+		return
+	}
+	_, _ = fmt.Fprintln(f.IOStreams.ErrOut, "warning: this binding has no tool recorded, so `hadron team session log` will refuse. "+
+		"Pass --tool <name> (for example `hadron team session start --as <worker> --tool claude-code`) when you start a session "+
+		"that will log work; this session is already bound and was left unchanged.")
 }
 
 // whoamiDTO is the stable --json shape of `session whoami`.
