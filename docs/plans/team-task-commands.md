@@ -65,7 +65,9 @@ plain: no header, no read-state effects.
   done: yes|no` (yes adds what finishing or cancelling will request; no is
   the bare line) (#958) — never the flag
   that was passed, so a default reads truthfully; `--json` already carried
-  the boolean.
+  the boolean. The help teaches the one supported path to keep a session
+  open — `--no-close-session` at create (#959): the choice has no in-place
+  setter, and same-party reassignment is refused with the choice unchanged.
 - **`task list` is newest-first with `ls` aliased** (the house rule every
   `list` carries); filters map 1:1 onto the query arguments; `--status` is
   validated client-side so a typo is a usage error, not an empty result.
