@@ -86,6 +86,10 @@ type WorkerConfig struct {
 	TUI string `yaml:"tui"`
 }
 
+// CanonicalFamily is the server's identity for an explicit model family
+// (hadron-server#2217). Stub for the red commit: it does not normalize yet.
+func CanonicalFamily(s string) string { return s }
+
 // tui is the interface delivery expects: the configured one, else a family
 // that names its own interface, else "" (the screen and Orca must agree).
 func (w WorkerConfig) tui() string {
