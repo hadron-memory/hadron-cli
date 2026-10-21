@@ -157,10 +157,14 @@ func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since
 			msgs = append(msgs, parseMessage(n.Loc, n.Seq, n.Content, n.Data))
 		}
 		// Stop only on an EMPTY page (a short page may be a server clamp,
-		// cli#967), or one that brought nothing new (a server ignoring the
-		// offset). Advance by the rows served.
-		if len(hits) == 0 || fresh == 0 {
+		// cli#967). A non-empty page that brought nothing new (a server
+		// ignoring the offset) is a failed read, not a complete one.
+		// Advance by the rows served.
+		if len(hits) == 0 {
 			break
+		}
+		if fresh == 0 {
+			return nil, api.ListNotAdvancing(offset)
 		}
 		offset += len(hits)
 	}

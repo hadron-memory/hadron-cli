@@ -160,11 +160,14 @@ func collectSpecFindResults(
 				break
 			}
 		}
-		// Stop on an EMPTY page, a page with nothing new (a server ignoring
-		// the offset) or a reached total — never on a short page, which may
+		// Stop on an EMPTY page or a reached total; a non-empty page with nothing new (a server
+		// ignoring the offset) is a failed read — never on a short page, which may
 		// be a server clamp (cli#967). Advance by the rows served.
-		if len(page.Nodes) == 0 || fresh == 0 {
+		if len(page.Nodes) == 0 {
 			break
+		}
+		if fresh == 0 {
+			return nil, nil, nil, api.ListNotAdvancing(offset)
 		}
 		offset += len(page.Nodes)
 		if page.Total != nil && offset >= *page.Total {

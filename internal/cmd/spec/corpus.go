@@ -860,10 +860,13 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 			}
 		}
 		// Stop only on an EMPTY page (a short page may be a server clamp, so a
-		// placeholder past it would read as resolved, cli#967) or a page with
-		// nothing new (a server ignoring the offset).
-		if len(resp.FindNodes.Hits) == 0 || fresh == 0 {
+		// placeholder past it would read as resolved, cli#967) ; a
+		// non-empty page with nothing new (a server ignoring the offset) is a failed read.
+		if len(resp.FindNodes.Hits) == 0 {
 			return info, nil
+		}
+		if fresh == 0 {
+			return info, api.ListNotAdvancing(offset)
 		}
 		offset += len(resp.FindNodes.Hits)
 	}

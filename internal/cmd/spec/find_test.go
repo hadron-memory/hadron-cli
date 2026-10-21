@@ -179,3 +179,14 @@ func TestCollectSpecFindResultsPastAClampedPage(t *testing.T) {
 		t.Fatalf("got %d specs, want all 3 across clamped pages", len(got))
 	}
 }
+
+// A provider returning the same non-empty page for every offset is a failed
+// read, not a successful partial result (cli#967, Gene's P2-1).
+func TestCollectSpecFindResultsFailsWhenThePageDoesNotAdvance(t *testing.T) {
+	_, _, _, err := collectSpecFindResults(5, func(limit, offset int) (*api.FindNodesPage, error) {
+		return &api.FindNodesPage{Nodes: []*api.ListNode{findNode("msg:010:01", "spec")}}, nil
+	})
+	if err == nil {
+		t.Fatal("a repeated non-empty page must be an error")
+	}
+}

@@ -2,10 +2,10 @@ package api
 
 import "github.com/hadron-memory/hadron-cli/internal/exitcode"
 
-// ErrListNotAdvancing is returned when a non-empty page brings nothing the scan
+// ListNotAdvancing is the error returned when a non-empty page brings nothing the scan
 // has not already read: the server is not honouring the offset. The list cannot
 // be certified complete, so this is a failed read, never a successful partial.
-func errListNotAdvancing(offset int) error {
+func ListNotAdvancing(offset int) error {
 	return exitcode.Newf(exitcode.Unavailable, "the server returned a page already read (offset %d): the list is not advancing, so it cannot be certified complete", offset)
 }
 
@@ -48,7 +48,7 @@ func PageNodes(pageSize int, fetch func(limit, offset int) ([]*ListNode, error),
 			return nil
 		}
 		if fresh == 0 {
-			return errListNotAdvancing(offset)
+			return ListNotAdvancing(offset)
 		}
 		offset += len(page)
 	}
