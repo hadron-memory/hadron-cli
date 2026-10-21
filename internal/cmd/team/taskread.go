@@ -112,6 +112,9 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 			return err
 		}
 	}
+	if err := writeCloseSessionLine(w, task); err != nil {
+		return err
+	}
 	if task.ParentTaskID != nil {
 		if err := line("  parent: %s", *task.ParentTaskID); err != nil {
 			return err
