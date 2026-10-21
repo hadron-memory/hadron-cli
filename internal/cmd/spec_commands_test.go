@@ -209,7 +209,7 @@ func TestSpecLsIncludesRoleOnlyBeforeApplyingLimit(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(translateFindNodes("FindNodes", `{"data":{"nodes":[`+nodes+`]}}`)))
+		_, _ = w.Write([]byte(translateFindNodesAt(body.Variables.Offset, "FindNodes", `{"data":{"nodes":[`+nodes+`]}}`)))
 	}))
 	t.Cleanup(gql.Close)
 
@@ -269,7 +269,7 @@ func TestSpecLsOldServerFallsBackToCompleteAccessGatedScan(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(translateFindNodes("FindNodes", resp)))
+		_, _ = w.Write([]byte(translateFindNodesAt(body.Variables.Offset, "FindNodes", resp)))
 	}))
 	t.Cleanup(gql.Close)
 
@@ -340,7 +340,7 @@ func roleOnlySpecScanServer(t *testing.T, loc, content string) (*httptest.Server
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
+		_, _ = w.Write([]byte(translateFindNodesAt(body.Variables.Offset, body.OperationName, resp)))
 	}))
 	t.Cleanup(server.Close)
 	return server, &tagCalls, &roleCalls
@@ -1494,7 +1494,7 @@ func TestSpecNewPathWiresEachNodeInline(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch body.OperationName {
 		case "FindNodes":
-			_, _ = w.Write([]byte(translateFindNodes("FindNodes", `{"data":{"nodes":[]}}`)))
+			_, _ = w.Write([]byte(translateFindNodesAt(offsetOfVars(body.Variables), "FindNodes", `{"data":{"nodes":[]}}`)))
 		case "CreateSpecNode":
 			creates = append(creates, body.Variables)
 			var v struct {
@@ -2215,7 +2215,8 @@ func TestSpecSupersedeUnresolvableEdgeCreatesNothing(t *testing.T) {
 		var body struct {
 			OperationName string `json:"operationName"`
 			Variables     struct {
-				Urn string `json:"urn"`
+				Urn    string `json:"urn"`
+				Offset *int   `json:"offset"`
 			} `json:"variables"`
 		}
 		raw, _ := io.ReadAll(r.Body)
@@ -2240,7 +2241,7 @@ func TestSpecSupersedeUnresolvableEdgeCreatesNothing(t *testing.T) {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
-		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
+		_, _ = w.Write([]byte(translateFindNodesAt(body.Variables.Offset, body.OperationName, resp)))
 	}))
 	defer srv.Close()
 
@@ -2597,7 +2598,8 @@ func supersedeLostRetireServer(t *testing.T, afterRetire string) *httptest.Serve
 	gets := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			OperationName string `json:"operationName"`
+			OperationName string        `json:"operationName"`
+			Variables     findNodesVars `json:"variables"`
 		}
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &body)
@@ -2624,7 +2626,7 @@ func supersedeLostRetireServer(t *testing.T, afterRetire string) *httptest.Serve
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, responses[body.OperationName])))
+		_, _ = w.Write([]byte(translateFindNodesAt(body.Variables.Offset, body.OperationName, responses[body.OperationName])))
 	}))
 	t.Cleanup(srv.Close)
 	return srv
@@ -2687,7 +2689,8 @@ func TestSpecSupersedeLostCreateNamesTheReconciliation(t *testing.T) {
 	var after []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			OperationName string `json:"operationName"`
+			OperationName string        `json:"operationName"`
+			Variables     findNodesVars `json:"variables"`
 		}
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &body)
@@ -2700,7 +2703,7 @@ func TestSpecSupersedeLostCreateNamesTheReconciliation(t *testing.T) {
 			after = append(after, body.OperationName)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, responses[body.OperationName])))
+		_, _ = w.Write([]byte(translateFindNodesAt(body.Variables.Offset, body.OperationName, responses[body.OperationName])))
 	}))
 	defer srv.Close()
 	f, _ := testFactory(t)
@@ -3191,7 +3194,8 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 		var body struct {
 			OperationName string `json:"operationName"`
 			Variables     struct {
-				Name string `json:"name"`
+				Name   string `json:"name"`
+				Offset *int   `json:"offset"`
 			} `json:"variables"`
 		}
 		raw, _ := io.ReadAll(r.Body)
@@ -3222,7 +3226,7 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
-		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
+		_, _ = w.Write([]byte(translateFindNodesAt(body.Variables.Offset, body.OperationName, resp)))
 	}))
 	defer srv.Close()
 

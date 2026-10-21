@@ -247,7 +247,7 @@ func TestSkillLintAllLintsAPublicOnlyMemory(t *testing.T) {
 		case "MemoriesSharedWithMe":
 			resp = `{"data":{"memories":{"total":0,"items":[]}}}`
 		case "FindNodes":
-			resp = translateFindNodes("FindNodes", `{"data":{"nodes":[{"id":"01a0a5ba59a377d2a01a8ea32ae98195","memoryId":"mempub","loc":"tasks:rotate","name":"rotate","nodeType":"task","tags":[],"isRunnable":true,"updatedAt":"2026-06-11T00:00:00Z"}]}}`)
+			resp = translateFindNodesAt(offsetOfVars(body.Variables), "FindNodes", `{"data":{"nodes":[{"id":"01a0a5ba59a377d2a01a8ea32ae98195","memoryId":"mempub","loc":"tasks:rotate","name":"rotate","nodeType":"task","tags":[],"isRunnable":true,"updatedAt":"2026-06-11T00:00:00Z"}]}}`)
 		case "NodeBatch":
 			resp = batchOf(node)
 		default:

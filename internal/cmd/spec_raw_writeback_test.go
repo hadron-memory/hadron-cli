@@ -192,7 +192,8 @@ func TestSpecSupersedeFailedRawReadIsADefiniteNotRetired(t *testing.T) {
 	gets, updated := 0, false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			OperationName string `json:"operationName"`
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
 		}
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &body)
@@ -212,7 +213,7 @@ func TestSpecSupersedeFailedRawReadIsADefiniteNotRetired(t *testing.T) {
 			}
 			_, _ = w.Write([]byte(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03")))
 		default:
-			_, _ = w.Write([]byte(translateFindNodes(body.OperationName, responses[body.OperationName])))
+			_, _ = w.Write([]byte(translateFindNodesAt(offsetOfVars(body.Variables), body.OperationName, responses[body.OperationName])))
 		}
 	}))
 	t.Cleanup(srv.Close)

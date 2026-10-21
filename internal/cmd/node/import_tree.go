@@ -410,7 +410,10 @@ func (e *treeExecutor) create(n *planNode) (string, error) {
 // the parent's edge.
 func (e *treeExecutor) skipExisting(n *planNode, edges []*gen.NodeEdgeInput) (string, error) {
 	e.existing = append(e.existing, n.loc)
-	id, found := e.resolveExistingID(n.loc)
+	id, found, rerr := e.resolveExistingID(n.loc)
+	if rerr != nil {
+		return "", api.MapError(rerr)
+	}
 	if !found {
 		e.unresolved = append(e.unresolved, n.loc)
 		return "", nil
@@ -430,10 +433,10 @@ func (e *treeExecutor) skipExisting(n *planNode, edges []*gen.NodeEdgeInput) (st
 // can't form a URN, so it falls back to a loc-prefix listing and an exact-loc
 // match (mirroring import.go's nodeExists). A pre-existing node has no creation
 // lag, so no retry is needed.
-func (e *treeExecutor) resolveExistingID(loc string) (string, bool) {
+func (e *treeExecutor) resolveExistingID(loc string) (string, bool, error) {
 	if urn := cmdutil.NodeURN(e.memory, loc); urn != "" {
 		if resp, err := gen.ResolveUrn(e.ctx, e.client, urn); err == nil && resp.ResolveUrn != nil && resp.ResolveUrn.Kind == "node" {
-			return resp.ResolveUrn.Id, true
+			return resp.ResolveUrn.Id, true, nil
 		}
 	}
 	filter := &gen.NodeFilter{MemoryIds: []string{e.memory}, LocPrefix: &loc}

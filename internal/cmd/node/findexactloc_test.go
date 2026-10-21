@@ -24,18 +24,28 @@ func locPages(total, serve int) func(limit, offset int) ([]*api.ListNode, error)
 
 // cli#967: the overwrite probe must find a node behind a clamped page.
 func TestFindExactLocPastAClampedPage(t *testing.T) {
-	id, ok := findExactLoc("p:120", locPages(130, 50))
-	if !ok || id != "id120" {
-		t.Fatalf("got %q %v, want id120 true (stopped on a short page)", id, ok)
+	id, ok, err := findExactLoc("p:120", locPages(130, 50))
+	if err != nil || !ok || id != "id120" {
+		t.Fatalf("got %q %v %v, want id120 true nil (stopped on a short page)", id, ok, err)
 	}
-	if _, ok := findExactLoc("p:999", locPages(130, 50)); ok {
-		t.Fatal("a loc that does not exist must read as not found")
+	if _, ok, err := findExactLoc("p:999", locPages(130, 50)); ok || err != nil {
+		t.Fatalf("a loc that does not exist must read as plain absence, got ok=%v err=%v", ok, err)
 	}
 }
 
-func TestFindExactLocFetchErrorReadsAsNotFound(t *testing.T) {
-	_, ok := findExactLoc("p:1", func(limit, offset int) ([]*api.ListNode, error) { return nil, errors.New("boom") })
-	if ok {
-		t.Fatal("a fetch error must read as not found (best-effort probe)")
+// A later-page failure is an error, distinct from true absence: the probe must
+// not tell an import it is safe to create (cli#967, Gene's P2-2).
+func TestFindExactLocLaterPageFailureIsAnErrorNotAbsence(t *testing.T) {
+	boom := errors.New("boom")
+	calls := 0
+	_, ok, err := findExactLoc("p:999", func(limit, offset int) ([]*api.ListNode, error) {
+		calls++
+		if calls == 2 {
+			return nil, boom
+		}
+		return locPages(130, 50)(limit, offset)
+	})
+	if ok || !errors.Is(err, boom) {
+		t.Fatalf("want ok=false err=boom, got ok=%v err=%v", ok, err)
 	}
 }

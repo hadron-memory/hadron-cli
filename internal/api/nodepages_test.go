@@ -68,14 +68,29 @@ func TestPageNodesLaterPageErrorPropagates(t *testing.T) {
 	}
 }
 
-// A server that ignores the offset returns the same page forever: stop, with
-// each node visited once.
-func TestPageNodesStopsWhenThePageRepeats(t *testing.T) {
-	visits := 0
+// A server that ignores the offset returns the same page forever. That is a
+// failed read, NOT a complete one: reporting success would let a complete-list
+// consumer certify a prefix (cli#967, Gene's P2-1).
+func TestPageNodesRefusesAPageThatDoesNotAdvance(t *testing.T) {
+	visits, calls := 0, 0
 	err := PageNodes(500, func(limit, offset int) ([]*ListNode, error) {
+		calls++
 		return []*ListNode{{Id: "a"}, {Id: "b"}}, nil
 	}, func(*ListNode) bool { visits++; return true })
-	if err != nil || visits != 2 {
-		t.Fatalf("err=%v visits=%d, want each node once", err, visits)
+	if err == nil {
+		t.Fatal("a repeated non-empty page must be an error, not a successful partial list")
+	}
+	if visits != 2 || calls != 2 {
+		t.Fatalf("visits=%d calls=%d, want each node once and a stop on the second page", visits, calls)
+	}
+}
+
+// A visitor that asks to stop is a legitimate early exit, never an error.
+func TestPageNodesVisitStopIsNotAnError(t *testing.T) {
+	err := PageNodes(500, func(limit, offset int) ([]*ListNode, error) {
+		return []*ListNode{{Id: "a"}}, nil
+	}, func(*ListNode) bool { return false })
+	if err != nil {
+		t.Fatalf("early stop by the visitor must succeed, got %v", err)
 	}
 }
