@@ -111,7 +111,7 @@ func readCmd(f *cmdutil.Factory, connect Connect, list bool) *cobra.Command {
 	if list {
 		cmd.Aliases = []string{"ls"}
 		cmd.Flags().StringSliceVar(&states, "state", nil, "OPEN or RESOLVED (comma-separated)")
-		cmd.Flags().IntVar(&limit, "limit", 50, "threads in this page (1 to 200)")
+		cmd.Flags().IntVar(&limit, "limit", 20, "threads in this page (1 to 200, default 20)")
 		cmd.Flags().IntVar(&offset, "offset", 0, "threads to skip")
 	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
