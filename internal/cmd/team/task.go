@@ -223,12 +223,13 @@ By default finishing asks the assignee to end its worker session
 			if err != nil {
 				return err
 			}
-			resp, err := gen.AgentTaskCreate(ctx, client, &input)
+			mctx, sink := api.WithWarningSink(ctx)
+			resp, err := gen.AgentTaskCreate(mctx, client, &input)
 			if err != nil {
 				return api.MapError(err)
 			}
 			task := taskDTOFrom(resp.CreateAgentTask.AgentTaskFields)
-			return output.Write(f.IOStreams, f.JSON, task, func(w io.Writer) error {
+			return writeTaskMutation(f, task, taskWarningsFor(sink, "createAgentTask"), func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ created task %s (%s)\n", task.ID, task.Status); err != nil {
 					return err
 				}
@@ -309,20 +310,23 @@ assign (TASK_INVALID_TRANSITION).`,
 				return err
 			}
 			var task taskDTO
+			mctx, sink := api.WithWarningSink(ctx)
+			key := "assignAgentTask"
 			if reassign {
-				resp, err := gen.AgentTaskReassign(ctx, client, taskId, party, closeWhenDone)
+				key = "reassignAgentTask"
+				resp, err := gen.AgentTaskReassign(mctx, client, taskId, party, closeWhenDone)
 				if err != nil {
 					return api.MapError(err)
 				}
 				task = taskDTOFrom(resp.ReassignAgentTask.AgentTaskFields)
 			} else {
-				resp, err := gen.AgentTaskAssign(ctx, client, taskId, party, closeWhenDone)
+				resp, err := gen.AgentTaskAssign(mctx, client, taskId, party, closeWhenDone)
 				if err != nil {
 					return api.MapError(err)
 				}
 				task = taskDTOFrom(resp.AssignAgentTask.AgentTaskFields)
 			}
-			return output.Write(f.IOStreams, f.JSON, task, func(w io.Writer) error {
+			return writeTaskMutation(f, task, taskWarningsFor(sink, key), func(w io.Writer) error {
 				return writeTaskReceipt(w, verb+"ed", task)
 			})
 		},
@@ -497,12 +501,13 @@ state.`,
 				Summary:  optStr(summary),
 				Evidence: optStr(evidence),
 			}
-			resp, err := gen.AgentTaskFinish(ctx, client, taskId, &result)
+			mctx, sink := api.WithWarningSink(ctx)
+			resp, err := gen.AgentTaskFinish(mctx, client, taskId, &result)
 			if err != nil {
 				return api.MapError(err)
 			}
 			task := taskDTOFrom(resp.FinishAgentTask.AgentTaskFields)
-			return output.Write(f.IOStreams, f.JSON, task, func(w io.Writer) error {
+			return writeTaskMutation(f, task, taskWarningsFor(sink, "finishAgentTask"), func(w io.Writer) error {
 				out := ""
 				if task.Result != nil {
 					out = task.Result.Outcome

@@ -484,6 +484,11 @@ type nullSafeGraphQLClient struct{ inner graphql.Client }
 
 func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
 	err := c.inner.MakeRequest(ctx, req, resp)
+	if err == nil {
+		// Only a successful response's warnings are kept (cli#962): a failed
+		// invocation reports its error, never a success warning.
+		collectWarnings(ctx, resp.Extensions)
+	}
 	switch e := err.(type) {
 	case gqlerror.List: // HTTP 200
 		clean := nonNullGraphQLErrors(e)
