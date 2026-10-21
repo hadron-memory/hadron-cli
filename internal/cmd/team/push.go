@@ -143,7 +143,12 @@ Source merge does not migrate unguarded callers, install or enable anything.`, A
 			case <-timer.C:
 				return nil
 			}
-		}, Observe: a.observe, Clear: a.clear, Submit: a.submit, Locked: func(id string, work func(func() bool) guardedpush.Result) guardedpush.Result {
+		}, Observe: func(ctx context.Context) (guardedpush.Frame, error) {
+			if !pushSenderCurrent(ctx, client, f, b) {
+				return guardedpush.Frame{}, errPushUnknown
+			}
+			return a.observe(ctx)
+		}, Clear: a.clear, Submit: a.submit, Locked: func(id string, work func(func() bool) guardedpush.Result) guardedpush.Result {
 			var r guardedpush.Result
 			sum := sha256.Sum256([]byte(strings.SplitN(id, "\x00", 2)[0]))
 			err := delivery.WithWorkerLock(filepath.Join(cfg, "hadron", "team-push"), hex.EncodeToString(sum[:]), func(owned func() bool) error { r = work(owned); return nil })
@@ -201,7 +206,7 @@ var errPushUnknown = errors.New("push observation unavailable")
 
 func pushSession(ctx context.Context, c graphql.Client, b *binding) bool {
 	r, err := gen.GetTeamSession(ctx, c, b.SessionID)
-	return err == nil && r.Session != nil && r.Session.Id == b.SessionID && r.Session.WorkerId != nil && *r.Session.WorkerId == b.WorkerID && r.Session.EndedAt == nil
+	return err == nil && r.Session != nil && r.Session.Id == b.SessionID && r.Session.WorkerId != nil && *r.Session.WorkerId == b.WorkerID && r.Session.EndedAt == nil && pushExactSessionLive(ctx, c, b)
 }
 func pushBinding(ctx context.Context, dir string) (*binding, error) {
 	if dir == "" || !filepath.IsAbs(dir) {
@@ -342,7 +347,7 @@ func pushSessionFamily(ctx context.Context, c graphql.Client, b *binding, family
 		return false
 	}
 	tool := *r.Session.Tool
-	return (family == "claude" && (tool == "claude-code" || tool == "claude")) || (family == "codex" && tool == "codex")
+	return ((family == "claude" && (tool == "claude-code" || tool == "claude")) || (family == "codex" && tool == "codex")) && pushExactSessionLive(ctx, c, b)
 }
 
 func pushOutcomeExit(k guardedpush.Outcome) int {
@@ -358,4 +363,18 @@ func pushOutcomeExit(k guardedpush.Outcome) int {
 	default:
 		return 12
 	}
+}
+
+// Open is not live. The provider judges this exact immutable session id; no
+// Worker.hasLiveSession, guessed timestamp or old-server fallback authorizes input.
+func pushExactSessionLive(ctx context.Context, c graphql.Client, b *binding) bool {
+	r, err := gen.GetBoundSessionLiveness(ctx, c, b.SessionID)
+	return err == nil && r.Session != nil && r.Session.Id == b.SessionID && r.Session.EndedAt == nil && r.Session.IsLive
+}
+
+// Waiting may outlive the initial sender proof. Every fresh observation, hence
+// every pre-clear/pre-submit check, also revalidates its unchanged binding/live session.
+func pushSenderCurrent(ctx context.Context, c graphql.Client, f *cmdutil.Factory, original *binding) bool {
+	current, _, err := readBindingFile(ctx)
+	return err == nil && current != nil && current.WorkerID == original.WorkerID && current.SessionID == original.SessionID && current.AppID == original.AppID && pushServerMatches(f, current) && pushSession(ctx, c, current)
 }

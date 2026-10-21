@@ -421,13 +421,24 @@ func TestDraftPrivacyOnRefusalPaths(t *testing.T) {
 		if kind == "unsupported" {
 			f.frame.Draft += "\x1b"
 		} else {
+			atReady := 0
 			f.observe = func(f *fake) {
-				if f.now.Sub(time.Unix(1, 0)) >= 30*time.Second && f.reads > 123 {
-					f.frame.Draft = secret + "new"
+				if f.now.Sub(time.Unix(1, 0)) >= 30*time.Second {
+					atReady++
+					if atReady >= 2 {
+						f.frame.Draft = secret + "new"
+					}
 				}
 			}
 		}
 		r := run(e)
+		want := "draft-unsupported"
+		if kind == "pre-send-change" {
+			want = "pre-send-changed"
+		}
+		if r.Outcome != HeldUnknown || r.Reason != want || len(f.clears)+len(f.sends) != 0 {
+			t.Fatalf("%s %+v", kind, r)
+		}
 		raw, _ := json.Marshal(r)
 		if strings.Contains(string(raw), secret) {
 			t.Fatal("draft escaped result")

@@ -25,7 +25,7 @@ import (
 
 // Command-level GraphQL and Orca transports are fakes. Only the disposable git binding directory is real.
 func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
-	for _, mode := range []string{"sent", "output-failure", "locked", "unknown", "busy", "unconfirmed", "wrong-tool", "ended", "foreign-app", "missing-server", "sender-ended", "server-error", "other-worker-only", "two-recipient-terminals", "lapsed-sender", "lapsed-recipient", "missing-liveness", "unknown-liveness", "sender-lapses-before-input"} {
+	for _, mode := range []string{"sent", "output-failure", "locked", "unknown", "busy", "unconfirmed", "wrong-tool", "ended", "foreign-app", "missing-server", "sender-ended", "server-error", "other-worker-only", "two-recipient-terminals", "lapsed-sender", "lapsed-recipient", "missing-liveness", "unknown-liveness", "sender-lapses-before-input", "sender-lapses-while-busy", "unsupported-draft"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Setenv("HADRON_TOKEN", "hdr_user_FAKE_PRIVATE_KEY")
 			t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -38,6 +38,7 @@ func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
 				t.Fatalf("git init %s: %v", out, err)
 			}
 			var senderLiveReads atomic.Int32
+			var observations atomic.Int32
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method == http.MethodGet {
 					_, _ = io.WriteString(w, `{"capabilities":[]}`)
@@ -62,7 +63,14 @@ func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
 						_, _ = io.WriteString(w, `{"data":{"session":null}}`)
 						return
 					}
-					live := !(mode == "lapsed-sender" && id == "sender-session" || mode == "lapsed-recipient" && id == "recipient-session" || mode == "sender-lapses-before-input" && id == "sender-session" && senderLiveReads.Add(1) > 1)
+					live := true
+					switch {
+					case mode == "sender-lapses-while-busy" && id == "sender-session" && observations.Load() >= 2,
+						mode == "lapsed-sender" && id == "sender-session",
+						mode == "lapsed-recipient" && id == "recipient-session",
+						mode == "sender-lapses-before-input" && id == "sender-session" && senderLiveReads.Add(1) > 1:
+						live = false
+					}
 					_, _ = fmt.Fprintf(w, `{"data":{"session":{"id":%q,"endedAt":null,"isLive":%t}}}`, id, live)
 				case "GetTeamSession":
 					id := q.Variables["id"].(string)
@@ -130,6 +138,7 @@ func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
 				return func(_ context.Context, args []string) orcaterm.Result {
 					switch args[1] {
 					case "list":
+						observations.Add(1)
 						rows := []any{map[string]any{"handle": "terminal", "worktreePath": target, "agentIdentity": "claude", "connected": true, "writable": true}}
 						if mode == "two-recipient-terminals" {
 							rows = append(rows, map[string]any{"handle": "terminal2", "worktreePath": target, "agentIdentity": "claude", "connected": true, "writable": true})
@@ -148,13 +157,17 @@ func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
 						if mode == "unknown" {
 							lines = []string{"PRIVATE-SCREEN unknown"}
 						}
-						if mode == "busy" {
+						if mode == "busy" || mode == "sender-lapses-while-busy" {
 							lines = append([]string{"Claude Code v2.1.303", "Working (1s)"}, lines[len(lines)-4:]...)
 						}
 						if sends > 0 && (mode == "sent" || mode == "output-failure") {
 							lines = append([]string{payload, "Working (1s)"}, lines[len(lines)-4:]...)
 						}
-						return envelope(map[string]any{"terminal": map[string]any{"source": "screen", "tail": lines, "draft": ""}})
+						draft := ""
+						if mode == "unsupported-draft" {
+							draft = "PRIVATE-DRAFT-CANARY\x1b"
+						}
+						return envelope(map[string]any{"terminal": map[string]any{"source": "screen", "tail": lines, "draft": draft}})
 					}
 					t.Error("unsupported fake operation")
 					return orcaterm.Result{Code: 1}
@@ -223,7 +236,7 @@ func TestPushCommandOutcomesPrivacyAndNoMutations(t *testing.T) {
 			if err != nil {
 				printed += err.Error()
 			}
-			for _, secret := range []string{"PRIVATE-MESSAGE-CANARY", "PRIVATE-SCREEN", "PRIVATE-SERVER-PAYLOAD", "hdr_user_FAKE_PRIVATE_KEY"} {
+			for _, secret := range []string{"PRIVATE-MESSAGE-CANARY", "PRIVATE-SCREEN", "PRIVATE-SERVER-PAYLOAD", "PRIVATE-DRAFT-CANARY", "hdr_user_FAKE_PRIVATE_KEY"} {
 				if strings.Contains(printed, secret) {
 					t.Fatalf("private sentinel escaped output")
 				}

@@ -6,10 +6,9 @@ mark a cursor, launch an agent, migrate callers, or install a binary. CHECKED:
 
 ## Boundaries
 
-The sender must have a nonempty server/App/worker/session binding and a live
-server session. Recipient resolution is App-scoped. Each observation re-lists
+The sender must have a nonempty server/App/worker/session binding and an authoritatively live exact server session. `GetBoundSessionLiveness` is required: open-but-lapsed, missing/unknown or old-server validation refusal never authorizes input. Every observation rechecks the unchanged sender binding/liveness, including before clear and submit; `Worker.hasLiveSession` is not a substitute. Recipient resolution is App-scoped. Each observation re-lists
 Orca terminals, reads the worktree's resolved git-dir binding, verifies that
-binding's server/App/worker/session against the server, and matches its open
+binding's server/App/worker/session against the server, and matches its exact authoritatively live
 session tool, Orca agentIdentity and recognized screen family. Exactly one
 connected/writable candidate is required. Titles and arbitrary terminal handles
 are not input flags. Malformed draft metadata or unknown screens hold. Orca omits the draft field on empty composers in the checked-in real captures: absent/null is accepted only with positive composer proof, never by itself.
@@ -17,7 +16,7 @@ Only Claude and Codex are supported. Current orcaterm screen/composer classifier
 
 The runtime terminal handle keys an own-attempt lock (the session stays part of each freshness comparison, not the lock key) via the existing delivery
 lock implementation (under the user's Hadron cache). This serializes this
-command, not a human, an old sender or another program. The recipient binding,
+command, not a human, an old sender or another program. In particular, host-poller delivery uses a different per-worker lock and is an external sender for this lock; this PR does not migrate or serialize it. The recipient binding,
 identity and screen are freshly checked before every clear/submission. Authority
 lookup failures reveal fixed classes only; no server error payload is printed.
 
@@ -80,7 +79,7 @@ human draft experiment is authorized. Independent compiled QA and scoped
 security remain required, with Claude BLIND for this Codex author.
 
 There is no atomic conditional Orca send. The final read-to-clear/send ms race
-remains. Capture is memory-only, so process death after clearing can lose the
+remains. If new human input or identity drift is detected after clearing, the old captured draft is neither restored over it nor delivered: an unconfirmed hold can therefore lose that captured draft even without process death. Capture is memory-only, so process death after clearing can lose the
 draft; successful fake tests do not prove durable recovery or atomic host safety.
 Per-interface evidence is limited to the documented modeled/proven sequence;
 new interfaces require evidence and a gate. No background resend or hold report.
@@ -102,3 +101,20 @@ Original incident draft bytes were not supplied; tests use clearly named
 synthetic sentinels plus the existing 2026-10-18 captured interface frames. They
 do not claim to replay Holger's private half-written text. Core transport rules
 and real-command output/privacy checks are distinct from independent QA seats.
+
+## Combined review fix
+
+The original head fdf36844 had a production liveness gap: endedAt alone allowed
+an exact session that was open but no longer live. Xan’s original probe plus
+command cases failed first at fdbc1d7; helpers now require the existing typed
+`GetBoundSessionLiveness` answer and sender proof is refreshed before input.
+
+Jack’s confirmation pin now distinguishes Idle+attempt-marker+empty-draft from a
+new Busy turn. Ralion command fixtures now distinguish another worker’s own live
+session and two genuine recipient terminals rather than mapping every session
+to the same worker. DraftWait is tested independently from Stable, and
+confirmation-identity/ownership plus draft-refusal privacy controls are pinned.
+No polling git-cost optimization is folded into this fix; repeated fresh reads
+are intentional for the current bounded scope, and can be optimized separately
+only while retaining freshness. There is no claim that fixture success proves
+live-host atomicity.
