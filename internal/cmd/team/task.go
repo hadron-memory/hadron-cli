@@ -149,10 +149,11 @@ the owner is the parent's assignee — naming a different owner is refused
 --start-by takes an RFC 3339 timestamp.
 
 By default finishing or cancelling asks the assignee to end its worker
-session, and the platform ends it after a grace period through a live host
-(cor:agt:050:10). When the assignee's session must outlive the task (a
-long-lived reviewer or seat), pass --no-close-session at create: declining
-the end-session request is not enough.`,
+session, and the platform ends it through the worker's live host after a
+10-minute grace period (cor:agt:050:10); declining the request does not
+prevent that. The choice cannot be changed in place afterwards, so when the
+assignee's session must outlive the task (a long-lived reviewer or seat),
+pass --no-close-session at create.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -300,8 +301,12 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 --close-session/--no-close-session replace the task's close-when-done choice
 (cor:agt:050:10); with neither, the task keeps its current value. Spell the
 choice as one of the two flags: ` + "`--close-session=false`" + ` is indistinguishable from absence here and also means "keep the current
-value". The server refuses a queued task to reassign and an assigned one to
-assign (TASK_INVALID_TRANSITION).`,
+value". The flags ride on a real assignment: there is no in-place setter,
+and reassigning a task to its current assignee is refused
+(TASK_INVALID_TRANSITION) with the choice unchanged. A task whose assignee's
+session must stay open is created with --no-close-session at create. The
+server refuses a queued task to reassign and an assigned one to assign
+(TASK_INVALID_TRANSITION).`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
