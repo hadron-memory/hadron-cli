@@ -9,7 +9,7 @@ implement the server contract at
 ## Commands and write semantics
 
 - `comment list <target> [-m memory] [--state OPEN,RESOLVED] [--limit N] [--offset N]`
-  reads one page of threads (default 50, range 1–200), preserving total and reply counts.
+  reads one page of threads (default 20, range 1–200), preserving total and reply counts.
 - `comment get <comment> [-m memory]` reads one comment or visible stub.
 - `comment create|add <target> --body text|--body-file path [--quote text]
   [--anchor-revision N]` starts a thread; omitted anchor uses current target revision.

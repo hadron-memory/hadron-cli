@@ -1,7 +1,7 @@
 package api
 
 // PageLimit is the server's hard cap on a single page of the uniform
-// paginated list queries (hadron-server#473: limit default 50, cap 200).
+// paginated list queries (hadron-server#473: cap 200; the server's own default is not relied on, cli#967).
 const PageLimit = 200
 
 // CollectAll drains a uniform paginated { items, total } list query

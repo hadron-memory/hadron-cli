@@ -18,22 +18,22 @@ func taskListN(n int) map[string]string {
 	return r
 }
 
-func runTeamTaskStderr(t *testing.T, responses map[string]string, argv ...string) (*[]attnCall, string, string, error) {
+func runTeamTaskStderr(t *testing.T, responses map[string]string, argv ...string) (*[]attnCall, string, error) {
 	t.Helper()
 	writeTeamBinding(t)
 	srv, calls := attnServer(t, responses)
 	setTeamBindingServer(t, srv.URL)
-	f, out := testFactory(t)
+	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"--server", srv.URL}, argv...))
 	err := root.Execute()
-	return calls, out.String(), f.IOStreams.ErrOut.(*strings.Builder).String(), err
+	return calls, f.IOStreams.ErrOut.(*strings.Builder).String(), err
 }
 
 func TestTeamTaskListAndMineDefaultTo20AndSayWhenThePageIsFull(t *testing.T) {
 	for _, argv := range [][]string{{"team", "task", "list"}, {"team", "task", "mine"}} {
 		name := strings.Join(argv, " ")
-		calls, _, errOut, err := runTeamTaskStderr(t, taskListN(20), argv...)
+		calls, errOut, err := runTeamTaskStderr(t, taskListN(20), argv...)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -50,11 +50,11 @@ func TestTeamTaskListAndMineDefaultTo20AndSayWhenThePageIsFull(t *testing.T) {
 }
 
 func TestTeamTaskListShortOrExplicitPageHasNoCue(t *testing.T) {
-	_, _, errOut, err := runTeamTaskStderr(t, taskListN(19), "team", "task", "list")
+	_, errOut, err := runTeamTaskStderr(t, taskListN(19), "team", "task", "list")
 	if err != nil || errOut != "" {
 		t.Errorf("19 of 20 is a complete list: err=%v cue=%q", err, errOut)
 	}
-	_, _, errOut, err = runTeamTaskStderr(t, taskListN(20), "team", "task", "list", "--limit", "20")
+	_, errOut, err = runTeamTaskStderr(t, taskListN(20), "team", "task", "list", "--limit", "20")
 	if err != nil || errOut != "" {
 		t.Errorf("an explicit --limit is the user's own page: err=%v cue=%q", err, errOut)
 	}

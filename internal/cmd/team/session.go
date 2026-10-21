@@ -2781,7 +2781,7 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 	pageSize := sessionPageSize
 	legacyWorklogSchema := false
 	for offset := 0; ; {
-		total := -1
+		var total int
 		off := offset
 		var resp *gen.TeamWorkItemsResponse
 		var werr error
@@ -2834,7 +2834,7 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 		// Stop only on an empty page or a reached total, advancing by the rows
 		// served — a short page is not the last one (cli#967).
 		offset += len(items)
-		if len(items) == 0 || (total >= 0 && offset >= total) {
+		if len(items) == 0 || offset >= total {
 			break
 		}
 	}

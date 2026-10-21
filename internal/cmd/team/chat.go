@@ -441,7 +441,7 @@ prevBefore and nextSince are the respective cursors to pass next turn.
 forward to the end, starting at seq 0 unless --since is also given. --all
 cannot be combined with --before or --limit; those name a single page.
 
---limit sets the page size (default 200, the server's cap). --since and
+--limit sets the page size (default 20, at most 200, the server's cap); a full default page says more may exist on stderr. --all walks every page in 200-row chunks. --since and
 --before compose, so ` + "`--since 300 --before 340`" + ` reads one bounded slice.
 
 prevBefore is NULL when the page came back EMPTY, and that is the ONLY
