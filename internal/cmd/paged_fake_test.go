@@ -2,10 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync"
 	"testing"
 )
@@ -94,11 +92,4 @@ func pagedGraphQL(t *testing.T, sources map[string]*pagedSource, static map[stri
 	}))
 	t.Cleanup(server.Close)
 	return server, records
-}
-
-// itemsEnvelope wraps a page as {"data":{field:{"total":N,"items":[...]}}}.
-func itemsEnvelope(field string) func([]string, int) string {
-	return func(page []string, total int) string {
-		return fmt.Sprintf(`{"data":{"%s":{"total":%d,"items":[%s]}}}`, field, total, strings.Join(page, ","))
-	}
 }
