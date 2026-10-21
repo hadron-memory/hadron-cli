@@ -81,8 +81,18 @@ func (s *hostServer) Register(ctx context.Context, r hostpoller.Registration) (h
 	return out, nil
 }
 
+// hostCollectBatch is the page a host asks collectHostOperations for. It is
+// today's EFFECTIVE batch, made explicit (cli#968): hadron-server omits it as
+// 50 (cap 200, resolvers.hostOperation.ts), and a default change there must not
+// silently shrink a host's page. It is an internal compatibility value, not a
+// flag and not a "whole backlog" claim: a Step still collects once, oldest
+// first, and a full page is not proof of progress or exhaustion (in-flight
+// operations can refill it; that limitation is unchanged and unfixed here).
+const hostCollectBatch = 50
+
 func (s *hostServer) Collect(ctx context.Context) ([]hostpoller.Operation, error) {
-	resp, err := gen.CollectHostOperations(ctx, s.client, s.app, nil)
+	first := hostCollectBatch
+	resp, err := gen.CollectHostOperations(ctx, s.client, s.app, &first)
 	if err != nil {
 		return nil, api.MapError(err)
 	}
