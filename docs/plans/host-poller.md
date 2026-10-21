@@ -39,6 +39,13 @@ hadron team session start (--as <worker> | --launch-grant <g>) …
 
 Every poll the poller:
 1. **Registers the whole worker list:** `{worker, family, worktrees}`. The
+   family is sent as the server's canonical identity (`CanonicalFamily`:
+   trim, lowercase, `anthropic`→`claude`, `openai`→`codex`; any other valid
+   token is itself), and a `worker.start` family is compared on both sides the
+   same way, so a host configured `openai` runs a `codex` operation (cli#971,
+   hadron-server#2217). A genuine mismatch, or an empty or malformed family,
+   still launches nothing. Config validation is unchanged: `Claude Code` fails
+   at load. The
    worktrees are the configured ones plus the ones this poller created. The
    server does not add a created worktree to the registration itself, so the
    host must list it next time. `workers` is always sent, `[]` included. An

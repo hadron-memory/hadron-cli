@@ -314,7 +314,7 @@ func TestTeamWorkerOnboardComparesAndQueuesTheCanonicalFamily971(t *testing.T) {
 				}
 			}
 			if !c.ok {
-				if err == nil || exitcode.FromError(err) != exitcode.Usage || !strings.Contains(err.Error(), "live host registration") {
+				if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "live host registration") {
 					t.Fatalf("flag %q vs registered %q must be refused: %v", c.flag, c.registered, err)
 				}
 				return

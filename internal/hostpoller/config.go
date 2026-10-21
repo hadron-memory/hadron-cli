@@ -86,9 +86,30 @@ type WorkerConfig struct {
 	TUI string `yaml:"tui"`
 }
 
-// CanonicalFamily is the server's identity for an explicit model family
-// (hadron-server#2217). Stub for the red commit: it does not normalize yet.
-func CanonicalFamily(s string) string { return s }
+// familyAliases are the provider names the server folds into the family a
+// host actually runs (hadron-server#2217): one identity per family, so a host
+// configured `openai` and an operation naming `codex` are the same family.
+var familyAliases = map[string]string{"anthropic": "claude", "openai": "codex"}
+
+// CanonicalFamily is the server's identity for an EXPLICIT family: trimmed,
+// lowercased, and a provider alias folded to its family. Every other token is
+// itself, so a custom family compares only to itself. It never infers a
+// family from a title or a model and does not validate: an empty or malformed
+// result is not a launch identity and callers must refuse it (familyRE).
+func CanonicalFamily(s string) string {
+	f := strings.ToLower(strings.TrimSpace(s))
+	if canon, ok := familyAliases[f]; ok {
+		return canon
+	}
+	return f
+}
+
+// SameFamily reports whether two explicit families are one launch identity.
+// An empty or malformed family is never one, even against itself.
+func SameFamily(a, b string) bool {
+	ca := CanonicalFamily(a)
+	return familyRE.MatchString(ca) && ca == CanonicalFamily(b)
+}
 
 // tui is the interface delivery expects: the configured one, else a family
 // that names its own interface, else "" (the screen and Orca must agree).
@@ -96,8 +117,8 @@ func (w WorkerConfig) tui() string {
 	if w.TUI != "" {
 		return w.TUI
 	}
-	if w.Family == "claude" || w.Family == "codex" {
-		return w.Family
+	if f := CanonicalFamily(w.Family); f == "claude" || f == "codex" {
+		return f
 	}
 	return ""
 }

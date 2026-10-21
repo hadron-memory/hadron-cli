@@ -154,7 +154,10 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.log("report-failed", op.ID, op.Type, Succeeded, err.Error()+"; not launching on an unclear answer")
 		return
 	}
-	if fam := argString(op, "family"); fam != w.Family {
+	// Compared as the server's canonical identity on BOTH sides (cli#971): a
+	// provider alias and its family are one family; a genuine mismatch, an
+	// empty family or a malformed one still launches nothing.
+	if fam := argString(op, "family"); !SameFamily(fam, w.Family) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("this host runs the worker as %q, not %q", w.Family, fam))
 		return
 	}

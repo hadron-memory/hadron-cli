@@ -56,7 +56,7 @@ type onboardOperationDTO struct {
 func (o onboardOptions) steps() []onboardStep {
 	return []onboardStep{
 		{Type: hostpoller.OpWorktreeCreate, Args: map[string]string{"repo": o.repo, "baseBranch": o.base, "branchName": o.branch, "label": o.label}},
-		{Type: hostpoller.OpWorkerStart, Args: map[string]string{"worktree": path.Base(o.repo) + "/" + o.label, "family": o.family}},
+		{Type: hostpoller.OpWorkerStart, Args: map[string]string{"worktree": path.Base(o.repo) + "/" + o.label, "family": hostpoller.CanonicalFamily(o.family)}},
 	}
 }
 
@@ -383,7 +383,7 @@ func onboardRegistration(ctx context.Context, c graphql.Client, app, host, worke
 			continue
 		}
 		for _, w := range h.Workers {
-			if w != nil && w.WorkerId == worker && w.Family == family {
+			if w != nil && w.WorkerId == worker && hostpoller.SameFamily(w.Family, family) {
 				return nil
 			}
 		}
