@@ -150,8 +150,8 @@ the owner is the parent's assignee — naming a different owner is refused
 
 By default finishing or cancelling asks the assignee to end its worker
 session, and the platform ends it through the worker's live host after a
-10-minute grace period (cor:agt:050:10); declining the request does not
-prevent that. The choice cannot be changed in place afterwards, so when the
+grace period, 10 minutes by default, set per App (cor:agt:050:10);
+declining the request does not prevent that. The choice cannot be changed in place afterwards, so when the
 assignee's session must outlive the task (a long-lived reviewer or seat),
 pass --no-close-session at create.`,
 		Args: cobra.ExactArgs(1),

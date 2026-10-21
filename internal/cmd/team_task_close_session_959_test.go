@@ -26,13 +26,19 @@ func helpText(t *testing.T, verb string) string {
 func TestC959CreateHelpStatesTheGracePeriodAndNoInPlaceChange(t *testing.T) {
 	out := helpText(t, "create")
 	for _, want := range []string{
-		"10-minute grace period",
+		"grace period, 10 minutes by default, set per App",
 		"cannot be changed in place",
 		"pass --no-close-session at create",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("create help missing %q:\n%s", want, out)
 		}
+	}
+	// The grace is per-App configurable (cor:agt:050:10, sessionEndGraceMinutes);
+	// a flat "10-minute grace" states the default as if it were fixed (#982
+	// Andi/Jack).
+	if strings.Contains(out, "10-minute") {
+		t.Errorf("create help states the default grace as fixed:\n%s", out)
 	}
 }
 
