@@ -160,7 +160,7 @@ func TestBusyThenIdle(t *testing.T) {
 	f.frame.State = Busy
 	start := f.now
 	f.observe = func(f *fake) {
-		if f.now.Sub(start) >= time.Second {
+		if f.now.Sub(start) >= time.Second && len(f.sends) == 0 {
 			f.frame.State = Idle
 		}
 	}
@@ -286,5 +286,73 @@ func TestInvalidTimingAndSizeNeverMutate(t *testing.T) {
 		if r.Outcome != HeldUnknown || len(f.clears)+len(f.sends) != 0 {
 			t.Fatalf("%s %+v", bad, r)
 		}
+	}
+}
+
+func TestLockLossBeforeMutationAndAfterClear(t *testing.T) {
+	for _, after := range []bool{false, true} {
+		f, e := harness()
+		if after {
+			f.frame.Draft = "draft"
+			f.frame.Empty = false
+		}
+		e.Locked = func(_ string, work func(func() bool) Result) Result {
+			return work(func() bool {
+				if after {
+					return len(f.clears) == 0
+				}
+				return f.reads < 3
+			})
+		}
+		r := run(e)
+		want := HeldUnknown
+		if after {
+			want = Unconfirmed
+		}
+		if r.Outcome != want || len(f.sends) != 0 {
+			t.Fatalf("after%t %+v", after, r)
+		}
+	}
+}
+func TestCancellationDuringConfirmationIsUnconfirmed(t *testing.T) {
+	f, e := harness()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	f.confirm = false
+	f.observe = func(f *fake) {
+		if len(f.sends) > 0 {
+			cancel()
+		}
+	}
+	r := e.Run(ctx, request(), Defaults())
+	if r.Outcome != Unconfirmed || len(f.sends) != 1 {
+		t.Fatalf("%+v", r)
+	}
+}
+func TestTerminalControlBytesAreNotTyped(t *testing.T) {
+	for _, draft := range []bool{false, true} {
+		f, e := harness()
+		q := request()
+		if draft {
+			f.frame.Draft = "\x1b[2K"
+			f.frame.Empty = false
+		} else {
+			q.Message = "\x03"
+		}
+		r := e.Run(context.Background(), q, Defaults())
+		if r.Outcome != HeldUnknown || len(f.clears)+len(f.sends) != 0 {
+			t.Fatalf("%+v", r)
+		}
+	}
+}
+func TestCombinedPayloadTooLargeHoldsBeforeClear(t *testing.T) {
+	f, e := harness()
+	f.frame.Draft = strings.Repeat("d", 130000)
+	f.frame.Empty = false
+	q := request()
+	q.Message = strings.Repeat("m", 2000)
+	r := e.Run(context.Background(), q, Defaults())
+	if r.Outcome != HeldUnknown || len(f.clears)+len(f.sends) != 0 {
+		t.Fatalf("%+v", r)
 	}
 }
