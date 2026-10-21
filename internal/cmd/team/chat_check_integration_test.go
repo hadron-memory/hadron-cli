@@ -257,7 +257,7 @@ func TestChatCheckProductionTransport(t *testing.T) {
 			}
 			if strings.Contains(mode, "mark_label") {
 				var receipt checkResult
-				if json.Unmarshal(out.Bytes(), &receipt) != nil || receipt.MarkStatus != "uncertain" || receipt.Outcome != "failed" || receipt.ArtifactPath == nil || state.cursors != func() int {
+				if json.Unmarshal(out.Bytes(), &receipt) != nil || receipt.MarkStatus != "uncertain" || receipt.Outcome != "failed" || receipt.ArtifactPath == nil || receipt.Error == nil || !strings.Contains(receipt.Error.Message, "Repeating check can return this same result") || strings.Contains(receipt.Error.Message, "run team chat check again") || state.cursors != func() int {
 					if strings.HasPrefix(mode, "retry_") {
 						return 2
 					}

@@ -70,7 +70,10 @@ A successful fenced response must have the expected channel, worker, current
 channel incarnation AND stored cursorIncarnation, with lastSeenSeq>=H. A NULL
 or stale cursor label on a no-op mark (including H=0) cannot prove current
 coverage: return exit10 with the artifact retained and no extra retry. The same
-predicate applies to the one permitted retry response. After response loss, readback requires stored
+predicate applies to the one permitted retry response. A returned NULL/stale
+label has its own exit10 guidance: repeating check may remain incomplete until
+an advancing mark writes the current label; do not loop on retries. This also
+applies to an empty legacy channel at H0. Read any retained artifact. After response loss, readback requires stored
 cursorIncarnation and current channelIncarnation both equal the sampled value,
 as well as the same channel id and lastSeenSeq>=H. Otherwise allow one identical
 fenced retry, never an observed mismatch or changed binding. If confirmation

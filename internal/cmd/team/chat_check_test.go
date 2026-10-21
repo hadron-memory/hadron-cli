@@ -180,3 +180,39 @@ func TestChatCheckHeadOverflowRefusesBeforePaging(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestChatCheckUnvouchedMarkGuidance(t *testing.T) {
+	for _, lost := range []bool{false, true} {
+		marks := 0
+		d := checkDeps{
+			page:    func(context.Context, int) ([]teamChatMessageDTO, error) { return nil, nil },
+			publish: func([]teamChatMessageDTO) (string, error) { return "", nil },
+			mark: func(context.Context) (bool, error) {
+				marks++
+				if lost && marks == 1 {
+					return false, errCheckTransport
+				}
+				return false, errCheckCursorLabel
+			},
+			readback: func(context.Context) (bool, error) { return false, nil },
+		}
+		r, err := runChatCheck(context.Background(), checkSnapshot{Head: 0}, d)
+		if exitcode.FromError(err) != checkUncertain || r.MarkStatus != "uncertain" || r.ArtifactPath != nil || marks != func() int {
+			if lost {
+				return 2
+			}
+			return 1
+		}() {
+			t.Fatal(r, err, marks)
+		}
+		r.Error = &checkError{Code: checkUncertain, Message: err.Error()}
+		var out strings.Builder
+		if e := renderCheckReceipt(&out, r); e != nil {
+			t.Fatal(e)
+		}
+		text := out.String()
+		if !strings.Contains(text, "Check incomplete:") || !strings.Contains(text, "do not loop on retries") || strings.Contains(text, "artifact") || strings.Contains(text, "Check failed") || strings.Contains(text, "run team chat check again") {
+			t.Fatal(text)
+		}
+	}
+}

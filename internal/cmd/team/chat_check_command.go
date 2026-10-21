@@ -62,8 +62,12 @@ or roster OK status is asserted: inspect the roster CHECK column separately.
 
 If a mark reply is lost, verify same-incarnation cursor coverage; if unconfirmed,
 retry exactly that fenced H mark ONCE, never an incarnation mismatch. There is no
-rollback. An uncertain result retains the artifact; rerun check from the current
-binding. No old-server, headerless or unguarded fallback is used.
+rollback. An uncertain result retains any artifact. If the server answers with
+an unlabelled or old-incarnation cursor, repeating check may return exit 10 until
+a mark advances that cursor in the current incarnation (including quiet legacy
+channels at H=0); do not loop on retries. Read any retained file. Other uncertain
+results may be checked again from the current binding. No old-server, headerless
+or unguarded fallback is used.
 
 --json emits a bounded result receipt; message bodies are always in the artifact,
 never stdout, so tool truncation cannot silently hide messages while marking.
@@ -207,7 +211,10 @@ write failure can occur AFTER a confirmed mark; its diagnostic says so.`,
 					if m == nil || m.ChannelId != s.ChannelID || m.WorkerId != identity.WorkerID || m.ChannelIncarnation != s.Incarnation {
 						return false, exitcode.Newf(checkUncertain, "mark response did not confirm sampled identity/incarnation; outcome uncertain, no retry sent")
 					}
-					return m.CursorIncarnation != nil && *m.CursorIncarnation == s.Incarnation && m.LastSeenSeq >= s.Head, nil
+					if m.CursorIncarnation == nil || *m.CursorIncarnation != s.Incarnation {
+						return false, errCheckCursorLabel
+					}
+					return m.LastSeenSeq >= s.Head, nil
 				},
 				readback: func(ctx context.Context) (bool, error) {
 					r, e := cursorRead(ctx)
@@ -258,6 +265,9 @@ func renderCheckReceipt(w io.Writer, r checkResult) error {
 		rescue := ""
 		if r.ArtifactPath != nil {
 			rescue = fmt.Sprintf(" Messages remain at %q.", *r.ArtifactPath)
+		}
+		if r.MarkStatus == "uncertain" {
+			return writeCheckNotice(w, fmt.Sprintf("Check incomplete: %s.%s\n", r.Error.Message, rescue))
 		}
 		return writeCheckNotice(w, fmt.Sprintf("Check failed: %s. %s%s\n", r.Error.Message, status, rescue))
 	}

@@ -14,6 +14,7 @@ const (
 )
 
 var errCheckIncarnation = errors.New("channel incarnation changed; run team chat check again to sample the current channel")
+var errCheckCursorLabel = errors.New("mark response cursor label does not confirm current coverage")
 var errCheckTransport = errors.New("check transport unavailable")
 
 type checkSnapshot struct {
@@ -104,6 +105,9 @@ func runChatCheck(ctx context.Context, s checkSnapshot, d checkDeps) (checkResul
 		}
 	}
 	if !confirmed {
+		if errors.Is(err, errCheckCursorLabel) {
+			return r, exitcode.Newf(checkUncertain, "the server answered the mark but its stored cursor label does not confirm coverage for this channel incarnation. Repeating check can return this same result until a mark advances the stored cursor under the current incarnation; do not loop on retries. No cursor rollback or relabel was attempted")
+		}
 		if err != nil && !errors.Is(err, errCheckTransport) {
 			if ambiguous {
 				return r, exitcode.Newf(checkUncertain, "mark outcome uncertain after a lost reply; %s", err)
