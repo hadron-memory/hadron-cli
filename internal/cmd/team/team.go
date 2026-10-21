@@ -91,6 +91,7 @@ from ` + "`hadron team --help`" + ` alone (#402).
 Check any of it with ` + "`hadron team worker list --app <app>`" + ` (the staff)
 and ` + "`hadron app agent list <app>`" + ` (the installed cast pool).`,
 	}
+	cmd.AddCommand(newCmdTeamPush(f))
 	cmd.AddCommand(newCmdInit(f))
 	cmd.AddCommand(newCmdWorker(f))
 	cmd.AddCommand(newCmdRole(f))
