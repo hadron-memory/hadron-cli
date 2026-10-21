@@ -350,19 +350,20 @@ func listDeclaredIDs(cmd *cobra.Command, client graphql.Client, memIDs []string)
 	filter := &gen.NodeFilter{MemoryIds: memIDs, Where: where}
 	sortBy := gen.NodeSortLoc
 	var ids []string
-	for offset := 0; ; offset += listPageSize {
-		limit, off := listPageSize, offset
-		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sortBy, nil, &limit, &off)
+	err := api.PageNodes(listPageSize, func(limit, offset int) ([]*api.ListNode, error) {
+		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sortBy, nil, &limit, &offset)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
-		for _, n := range page.Nodes {
-			ids = append(ids, n.Id)
-		}
-		if len(page.Nodes) < listPageSize {
-			return ids, nil
-		}
+		return page.Nodes, nil
+	}, func(n *api.ListNode) bool {
+		ids = append(ids, n.Id)
+		return true
+	})
+	if err != nil {
+		return nil, err
 	}
+	return ids, nil
 }
 
 // fetchNodes reads full nodes in batches, re-queuing byte-cap spillover, and

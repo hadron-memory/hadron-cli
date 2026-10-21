@@ -46,8 +46,9 @@ func rawAwareGraphQL(t *testing.T, respond func(op, content string) (string, boo
 			return
 		}
 		var body struct {
-			OperationName string `json:"operationName"`
-			Query         string `json:"query"`
+			OperationName string        `json:"operationName"`
+			Query         string        `json:"query"`
+			Variables     findNodesVars `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		mu.Lock()
@@ -66,7 +67,7 @@ func rawAwareGraphQL(t *testing.T, respond func(op, content string) (string, boo
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
+		_, _ = w.Write([]byte(translateFindNodesAt(body.Variables.Offset, body.OperationName, resp)))
 	}))
 	t.Cleanup(server.Close)
 	return server, queries

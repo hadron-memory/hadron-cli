@@ -62,7 +62,7 @@ func TestPaginateNodesExhaustsAllPages(t *testing.T) {
 	if len(got) != total {
 		t.Fatalf("got %d nodes, want %d (tail dropped → #23 regressed)", len(got), total)
 	}
-	if want := []int{0, nodesPageSize}; !sameInts(offsets, want) {
+	if want := []int{0, nodesPageSize, total}; !sameInts(offsets, want) {
 		t.Errorf("offsets requested = %v, want %v", offsets, want)
 	}
 	// The aggregated set must be the whole corpus, in order, not a repeated page.
@@ -74,8 +74,9 @@ func TestPaginateNodesExhaustsAllPages(t *testing.T) {
 }
 
 func TestPaginateNodesShortFirstPage(t *testing.T) {
-	// A corpus that fits in one page is a single request — no needless
-	// second round-trip when the first page already signals the tail.
+	// A short page is NOT the tail (a server may clamp below nodesPageSize,
+	// cli#967): even a corpus that fits in one page costs the empty probe that
+	// proves it ended.
 	server := fakeServer(12)
 	pages := 0
 	got, err := paginateNodes(func(limit, offset int) ([]*api.ListNode, error) {
@@ -85,8 +86,31 @@ func TestPaginateNodesShortFirstPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("paginateNodes: %v", err)
 	}
-	if len(got) != 12 || pages != 1 {
-		t.Errorf("got %d nodes in %d page(s), want 12 in 1", len(got), pages)
+	if len(got) != 12 || pages != 2 {
+		t.Errorf("got %d nodes in %d page(s), want 12 in 2 (one short + the empty probe)", len(got), pages)
+	}
+}
+
+// A server that clamps every page to 50 rows must not end the scan after one
+// page — the corpus scans (lint, list, the number allocator) depend on it.
+func TestPaginateNodesPastAClampedPage(t *testing.T) {
+	server := fakeServer(130)
+	got, err := paginateNodes(func(limit, offset int) ([]*api.ListNode, error) {
+		if limit > 50 {
+			limit = 50
+		}
+		return pageOf(server, offset, limit), nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 130 {
+		t.Fatalf("got %d nodes, want 130 (stopped on a short page)", len(got))
+	}
+	for i, n := range got {
+		if n.Loc != server[i].Loc {
+			t.Fatalf("node %d = %q, want %q", i, n.Loc, server[i].Loc)
+		}
 	}
 }
 

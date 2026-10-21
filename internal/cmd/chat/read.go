@@ -111,7 +111,8 @@ func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since
 	filter := &gen.NodeFilter{MemoryIds: []string{c.Memory}, LocPrefix: &prefix}
 
 	var msgs []Message
-	for offset := 0; ; offset += chatPageSize {
+	seenLoc := map[string]bool{}
+	for offset := 0; ; {
 		lim, off := chatPageSize, offset
 		resp, err := gen.ChatMessages(ctx, client, filter, &lim, &off)
 		if err != nil {
@@ -121,11 +122,17 @@ func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since
 			break
 		}
 		hits := resp.FindNodes.Hits
+		fresh := 0
 		for _, h := range hits {
 			if h == nil || h.Node == nil {
 				continue
 			}
 			n := h.Node
+			if seenLoc[n.Loc] {
+				continue
+			}
+			seenLoc[n.Loc] = true
+			fresh++
 			// #412: the message-PARENT container comes back from the prefix
 			// filter alongside its children, and parsed as a message it reads
 			// as `seq: null, author: "unknown", body: ""` — indistinguishable
@@ -149,9 +156,17 @@ func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since
 			}
 			msgs = append(msgs, parseMessage(n.Loc, n.Seq, n.Content, n.Data))
 		}
-		if len(hits) < chatPageSize {
+		// Stop only on an EMPTY page (a short page may be a server clamp,
+		// cli#967). A non-empty page that brought nothing new (a server
+		// ignoring the offset) is a failed read, not a complete one.
+		// Advance by the rows served.
+		if len(hits) == 0 {
 			break
 		}
+		if fresh == 0 {
+			return nil, api.ListNotAdvancing(offset)
+		}
+		offset += len(hits)
 	}
 
 	// The server sorts by seq, but a nil-seq legacy row or paging edge could

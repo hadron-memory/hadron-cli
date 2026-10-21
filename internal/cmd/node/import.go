@@ -323,7 +323,11 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 	// a live loc), so it skips the probe unless this is a dry run.
 	existingID, exists := "", false
 	if dryRun || !createOnly {
-		existingID, exists = lookupNode(cmd, client, memoryRef, targetLoc)
+		var lerr error
+		existingID, exists, lerr = lookupNode(cmd, client, memoryRef, targetLoc)
+		if lerr != nil {
+			return api.MapError(lerr)
+		}
 	}
 
 	input, err := buildCreateNodeInput(doc, memoryRef, targetLoc)
@@ -545,7 +549,12 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, o contentImportOpt
 	if nodeURN != "" {
 		overwrites, target = nodeExistsByURN(cmd, client, nodeURN), nodeURN
 	} else {
-		overwrites, target = nodeExists(cmd, client, memory, loc), overwriteTarget(memory, loc)
+		var nerr error
+		overwrites, nerr = nodeExists(cmd, client, memory, loc)
+		if nerr != nil {
+			return api.MapError(nerr)
+		}
+		target = overwriteTarget(memory, loc)
 	}
 	if overwrites {
 		if err := confirmOverwrite(f, o.yes, target); err != nil {
@@ -774,18 +783,18 @@ func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 	}
 }
 
-// nodeExists best-effort probes whether a node already lives at (memory, loc),
-// to label the import created vs updated. Any lookup error yields false: the
-// upsert that follows is authoritative for real failures (auth/transport), and
-// a dry run degrades to "would create".
-func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string) bool {
-	_, ok := lookupNode(cmd, client, memoryRef, loc)
-	return ok
+// nodeExists probes whether a node already lives at (memory, loc), to label the
+// import created vs updated. A failed listing scan is an error, not "absent"
+// (cli#967): the import must not proceed, or report "created", over a node the
+// scan never reached.
+func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string) (bool, error) {
+	_, ok, err := lookupNode(cmd, client, memoryRef, loc)
+	return ok, err
 }
 
 // lookupNode is nodeExists that also returns the node's id, so a caller that
 // must read the node (its kind, for routing) needs no second resolve.
-func lookupNode(cmd *cobra.Command, client graphql.Client, memoryRef, loc string) (string, bool) {
+func lookupNode(cmd *cobra.Command, client graphql.Client, memoryRef, loc string) (string, bool, error) {
 	// An org::memory-shaped ref composes an exact node URN in one round-trip.
 	// (cmdutil.NodeURN normalizes the separators — building the URN by hand as
 	// memoryRef+":"+loc produced a single-colon `org::memory:loc` that never
@@ -793,29 +802,40 @@ func lookupNode(cmd *cobra.Command, client graphql.Client, memoryRef, loc string
 	if urn := cmdutil.NodeURN(memoryRef, loc); urn != "" {
 		resp, err := gen.ResolveUrn(cmd.Context(), client, urn)
 		if err != nil || resp.ResolveUrn == nil || resp.ResolveUrn.Kind != "node" {
-			return "", false
+			return "", false, nil
 		}
-		return resp.ResolveUrn.Id, true
+		return resp.ResolveUrn.Id, true, nil
 	}
 	// A raw memory id: list by loc prefix and match the exact loc.
-	limit := 200
 	filter := &gen.NodeFilter{MemoryIds: []string{memoryRef}, LocPrefix: &loc}
 	sort := gen.NodeSortLoc
-	for offset := 0; ; offset += limit {
-		off := offset
-		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sort, nil, &limit, &off)
+	return findExactLoc(loc, func(limit, offset int) ([]*api.ListNode, error) {
+		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sort, nil, &limit, &offset)
 		if err != nil {
-			return "", false
+			return nil, err
 		}
-		for _, nd := range page.Nodes {
-			if nd != nil && nd.Loc == loc {
-				return nd.Id, true
-			}
+		return page.Nodes, nil
+	})
+}
+
+// findExactLoc scans a loc-prefix listing for the node whose loc is exactly
+// loc. It stops only on a match or an EMPTY page (a short page may be a server
+// clamp, cli#967). A fetch error on any page is RETURNED, distinct from true
+// absence: reading it as "not found" would let a dry run report "created" (or an
+// overwrite proceed unprompted) over a node the scan never reached.
+func findExactLoc(loc string, fetch func(limit, offset int) ([]*api.ListNode, error)) (string, bool, error) {
+	id, found := "", false
+	err := api.PageNodes(200, fetch, func(nd *api.ListNode) bool {
+		if nd.Loc == loc {
+			id, found = nd.Id, true
+			return false
 		}
-		if len(page.Nodes) < limit {
-			return "", false
-		}
+		return true
+	})
+	if err != nil {
+		return "", false, err
 	}
+	return id, found, nil
 }
 
 // nodeExistsByURN best-effort probes whether a fully-qualified node URN already

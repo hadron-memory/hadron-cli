@@ -95,7 +95,7 @@ func TestSpecReplaceUnionsRoleOnlySpecsBeforeDryRunAndNoMatch(t *testing.T) {
 					return
 				}
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(translateFindNodes(req.OperationName, resp)))
+				_, _ = w.Write([]byte(translateFindNodesAt(offsetOfVars(req.Variables), req.OperationName, resp)))
 			}))
 			t.Cleanup(gql.Close)
 

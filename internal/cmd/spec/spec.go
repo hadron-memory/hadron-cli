@@ -1278,22 +1278,21 @@ func sortLoc() *gen.NodeSort {
 }
 
 // paginateNodes drives the offset loop independently of the GraphQL layer so
-// the termination logic is unit-testable. It requests fixed-size pages until a
-// short (or empty) page signals the tail — a full page means there may be more,
-// so it never stops early on a default-capped response. fetch is called with
-// (limit, offset).
+// the termination logic is unit-testable. It requests fixed-size pages until an
+// EMPTY page: a short page may be a server clamp below nodesPageSize, and
+// treating it as the tail made the corpus scans (lint, list, the number
+// allocator) silently partial (cli#967). Each node is returned once.
+// fetch is called with (limit, offset).
 func paginateNodes(fetch func(limit, offset int) ([]*api.ListNode, error)) ([]*api.ListNode, error) {
 	var all []*api.ListNode
-	for offset := 0; ; offset += nodesPageSize {
-		page, err := fetch(nodesPageSize, offset)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, page...)
-		if len(page) < nodesPageSize {
-			return all, nil
-		}
+	err := api.PageNodes(nodesPageSize, fetch, func(n *api.ListNode) bool {
+		all = append(all, n)
+		return true
+	})
+	if err != nil {
+		return nil, err
 	}
+	return all, nil
 }
 
 // ---- the in-memory model the lint engine and renderers operate on ----

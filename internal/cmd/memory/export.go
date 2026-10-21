@@ -198,24 +198,26 @@ scatters hundreds of files among your own, and the overwrite is silent. Pass
 }
 
 // listAllNodeRefs pages the shallow nodes listing to exhaustion, returning a
-// ref (id, loc, nodeType) for every node in the memory. A short final page
-// signals the tail; a full page means there may be more (the server truncates
-// an unbounded query to one default page).
+// ref (id, loc, nodeType) for every node in the memory. The scan stops only on an
+// empty page — a short page may be a server clamp, not the tail (cli#967).
 func listAllNodeRefs(ctx context.Context, client graphql.Client, memID string) ([]*api.ListNode, error) {
 	filter := &gen.NodeFilter{MemoryIds: []string{memID}}
 	sort := gen.NodeSortLoc
 	var all []*api.ListNode
-	for offset := 0; ; offset += nodesPageSize {
-		limit, off := nodesPageSize, offset
-		page, err := api.FindNodes(ctx, client, nil, nil, filter, &sort, nil, &limit, &off)
+	err := api.PageNodes(nodesPageSize, func(limit, offset int) ([]*api.ListNode, error) {
+		page, err := api.FindNodes(ctx, client, nil, nil, filter, &sort, nil, &limit, &offset)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
-		all = append(all, page.Nodes...)
-		if len(page.Nodes) < nodesPageSize {
-			return all, nil
-		}
+		return page.Nodes, nil
+	}, func(n *api.ListNode) bool {
+		all = append(all, n)
+		return true
+	})
+	if err != nil {
+		return nil, err
 	}
+	return all, nil
 }
 
 // writeNodeMarkdown renders one node through the shared codec and writes it to

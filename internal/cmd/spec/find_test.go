@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -63,8 +64,12 @@ func TestCollectSpecFindResultsLimitsAfterSpecFiltering(t *testing.T) {
 
 func TestCollectSpecFindResultsStopsWhenExhausted(t *testing.T) {
 	got, _, _, err := collectSpecFindResults(3, func(limit, offset int) (*api.FindNodesPage, error) {
-		if offset != 0 {
-			t.Fatalf("should stop after a short page, got offset %d", offset)
+		if offset > 1 {
+			t.Fatalf("should stop after the empty page, got offset %d", offset)
+		}
+		if offset == 1 {
+			// A short page is not the end (cli#967): the empty probe is.
+			return &api.FindNodesPage{Nodes: []*api.ListNode{}}, nil
 		}
 		return &api.FindNodesPage{Nodes: []*api.ListNode{findNode("msg:010:01", "spec")}}, nil
 	})
@@ -93,6 +98,8 @@ func TestCollectSpecFindResultsCapsRawPageSize(t *testing.T) {
 			return &api.FindNodesPage{Total: &total, Nodes: nodes}, nil
 		case nodesPageSize:
 			return &api.FindNodesPage{Nodes: []*api.ListNode{findNode("msg:010:01", "spec")}}, nil
+		case nodesPageSize + 1:
+			return &api.FindNodesPage{Nodes: []*api.ListNode{}}, nil
 		default:
 			t.Fatalf("unexpected offset %d", offset)
 			return nil, nil
@@ -101,8 +108,10 @@ func TestCollectSpecFindResultsCapsRawPageSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collectSpecFindResults: %v", err)
 	}
-	if len(offsets) != 2 || offsets[0] != 0 || offsets[1] != nodesPageSize {
-		t.Fatalf("offsets = %v, want [0 %d]", offsets, nodesPageSize)
+	// The second page is short, which proves nothing (cli#967): the walk
+	// advances by the rows served and ends on the empty page after it.
+	if len(offsets) != 3 || offsets[0] != 0 || offsets[1] != nodesPageSize || offsets[2] != nodesPageSize+1 {
+		t.Fatalf("offsets = %v, want [0 %d %d]", offsets, nodesPageSize, nodesPageSize+1)
 	}
 	if len(got) != 1 || got[0].Citation != "msg:010:01" {
 		t.Fatalf("got %+v, want one spec from second capped page", got)
@@ -139,5 +148,45 @@ func TestIsSpecIgnoresLocShape(t *testing.T) {
 		if got := isSpec(c.tags, c.role); got != c.want {
 			t.Errorf("%s: isSpec = %v, want %v", c.name, got, c.want)
 		}
+	}
+}
+
+// A server that serves fewer rows than asked for must not hide specs behind
+// the first page (cli#967).
+func TestCollectSpecFindResultsPastAClampedPage(t *testing.T) {
+	var all []*api.ListNode
+	for i := 0; i < 30; i++ {
+		tag := "misc"
+		if i%10 == 9 {
+			tag = "spec"
+		}
+		all = append(all, findNode(fmt.Sprintf("loc:%02d", i), tag))
+	}
+	got, _, _, err := collectSpecFindResults(3, func(limit, offset int) (*api.FindNodesPage, error) {
+		end := offset + 7 // clamp every page to 7 rows
+		if end > len(all) {
+			end = len(all)
+		}
+		if offset >= len(all) {
+			return &api.FindNodesPage{Nodes: []*api.ListNode{}}, nil
+		}
+		return &api.FindNodesPage{Nodes: all[offset:end]}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("got %d specs, want all 3 across clamped pages", len(got))
+	}
+}
+
+// A provider returning the same non-empty page for every offset is a failed
+// read, not a successful partial result (cli#967, Gene's P2-1).
+func TestCollectSpecFindResultsFailsWhenThePageDoesNotAdvance(t *testing.T) {
+	_, _, _, err := collectSpecFindResults(5, func(limit, offset int) (*api.FindNodesPage, error) {
+		return &api.FindNodesPage{Nodes: []*api.ListNode{findNode("msg:010:01", "spec")}}, nil
+	})
+	if err == nil {
+		t.Fatal("a repeated non-empty page must be an error")
 	}
 }

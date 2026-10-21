@@ -33,7 +33,8 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 			t.Errorf("missing Bearer auth header, got %q", got)
 		}
 		var body struct {
-			OperationName string `json:"operationName"`
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		body.OperationName = legacyChatReadOperation(body.OperationName)
@@ -50,10 +51,29 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, pageBeyondFirst(body.OperationName, body.Variables, resp))))
 	}))
 	t.Cleanup(server.Close)
 	return server
+}
+
+// pageBeyondFirst models a real server for a STATIC list fixture: the fixture is
+// the whole list, so any request past offset 0 is an empty page. Without it a
+// fixture returned for every offset looks like a server that ignores the offset,
+// which the drains (rightly) refuse as a non-advancing list (cli#967).
+func pageBeyondFirst(op string, vars json.RawMessage, resp string) string {
+	switch op {
+	case "FindNodes", "ChatMessages", "SpecPlaceholderScan":
+	default:
+		return resp
+	}
+	var v struct {
+		Offset *int `json:"offset"`
+	}
+	if json.Unmarshal(vars, &v) != nil || v.Offset == nil || *v.Offset <= 0 {
+		return resp
+	}
+	return `{"data":{"findNodes":{"total":null,"degraded":null,"reason":null,"hits":[]}}}`
 }
 
 // unstubbedDefault answers the few operations a command sends only as an
@@ -379,4 +399,24 @@ func TestAgenticUsagePrintsDoc(t *testing.T) {
 	if !strings.Contains(out.String(), "Exit codes") {
 		t.Error("agentic-usage doc missing exit codes section")
 	}
+}
+
+// translateFindNodesAt is translateFindNodes for a handler that decoded the
+// request's offset: a static list fixture is the whole list, so any page past
+// offset 0 is empty (cli#967 — see pageBeyondFirst).
+func translateFindNodesAt(offset *int, op, resp string) string {
+	if offset != nil && *offset > 0 {
+		return `{"data":{"findNodes":{"total":null,"degraded":null,"reason":null,"hits":[]}}}`
+	}
+	return translateFindNodes(op, resp)
+}
+
+// offsetOfVars reads the request's offset out of raw variables, for handlers
+// that kept them as json.RawMessage.
+func offsetOfVars(vars json.RawMessage) *int {
+	var v struct {
+		Offset *int `json:"offset"`
+	}
+	_ = json.Unmarshal(vars, &v)
+	return v.Offset
 }

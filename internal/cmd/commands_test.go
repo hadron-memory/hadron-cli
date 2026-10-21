@@ -48,7 +48,7 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, pageBeyondFirst(body.OperationName, body.Variables, resp))))
 	}))
 	t.Cleanup(server.Close)
 	return server, captured
@@ -78,7 +78,7 @@ func captureGraphQLFunc(t *testing.T, respond func(op string) string) (*httptest
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		body.OperationName = legacyChatReadOperation(body.OperationName)
 		captured[body.OperationName] = body.Variables
-		resp := respond(body.OperationName)
+		resp := pageBeyondFirst(body.OperationName, body.Variables, respond(body.OperationName))
 		if resp == "" {
 			resp, _ = unstubbedDefault(body.OperationName)
 		}

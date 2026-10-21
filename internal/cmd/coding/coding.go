@@ -327,18 +327,22 @@ func fetchNodes(ctx context.Context, client graphql.Client, byID map[string]stri
 func scanPrefix(ctx context.Context, client graphql.Client, mem codingMemory, locPrefix string) ([]*api.ListNode, error) {
 	const pageSize = 200
 	var all []*api.ListNode
-	for offset := 0; ; offset += pageSize {
-		limit, off, pfx := pageSize, offset, locPrefix
+	pfx := locPrefix
+	err := api.PageNodes(pageSize, func(limit, offset int) ([]*api.ListNode, error) {
 		page, err := api.FindNodes(ctx, client, nil, nil,
-			&gen.NodeFilter{MemoryIds: []string{mem.Ref}, LocPrefix: &pfx}, nil, nil, &limit, &off)
+			&gen.NodeFilter{MemoryIds: []string{mem.Ref}, LocPrefix: &pfx}, nil, nil, &limit, &offset)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
-		all = append(all, page.Nodes...)
-		if len(page.Nodes) < pageSize {
-			return all, nil
-		}
+		return page.Nodes, nil
+	}, func(n *api.ListNode) bool {
+		all = append(all, n)
+		return true
+	})
+	if err != nil {
+		return nil, err
 	}
+	return all, nil
 }
 
 // hasTag reports whether tags contains want, case-insensitively.

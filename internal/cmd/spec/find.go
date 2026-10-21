@@ -130,7 +130,8 @@ func collectSpecFindResults(
 	}
 	specs := make([]specDTO, 0, resultLimit)
 	var degraded, reason *string
-	for offset := 0; len(specs) < resultLimit; offset += pageSize {
+	seen := map[string]bool{}
+	for offset := 0; len(specs) < resultLimit; {
 		page, err := fetch(pageSize, offset)
 		if err != nil {
 			return nil, nil, nil, err
@@ -144,8 +145,14 @@ func collectSpecFindResults(
 		if reason == nil && page.Reason != nil {
 			reason = page.Reason
 		}
+		fresh := 0
 		for _, n := range page.Nodes {
-			if n == nil || !isSpec(n.Tags, n.Role) {
+			if n == nil || seen[n.Id+"|"+n.Loc] {
+				continue
+			}
+			seen[n.Id+"|"+n.Loc] = true
+			fresh++
+			if !isSpec(n.Tags, n.Role) {
 				continue
 			}
 			specs = append(specs, specDTO{Citation: n.Loc, MemoryID: n.MemoryId, Name: n.Name, NodeType: n.NodeType, Tags: tagsOrEmpty(n.Tags), UpdatedAt: n.UpdatedAt})
@@ -153,10 +160,17 @@ func collectSpecFindResults(
 				break
 			}
 		}
-		if len(page.Nodes) < pageSize {
+		// Stop on an EMPTY page or a reached total; a non-empty page with nothing new (a server
+		// ignoring the offset) is a failed read — never on a short page, which may
+		// be a server clamp (cli#967). Advance by the rows served.
+		if len(page.Nodes) == 0 {
 			break
 		}
-		if page.Total != nil && offset+pageSize >= *page.Total {
+		if fresh == 0 {
+			return nil, nil, nil, api.ListNotAdvancing(offset)
+		}
+		offset += len(page.Nodes)
+		if page.Total != nil && offset >= *page.Total {
 			break
 		}
 	}

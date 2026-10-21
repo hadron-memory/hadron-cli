@@ -831,7 +831,8 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 	filter := newNodeFilter(&memRef, prefixArg, nil)
 	role := api.SpecNodeRole
 	filter.Role = &role
-	for offset := 0; ; offset += nodesPageSize {
+	seenLocs := map[string]bool{}
+	for offset := 0; ; {
 		resp, err := gen.SpecPlaceholderScan(ctx, client, filter, gen.NodeSortLoc, nodesPageSize, offset)
 		if err != nil {
 			// #1451 exposed corpusState before #1452 added isPlaceholder.
@@ -847,14 +848,27 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 		if resp.FindNodes == nil {
 			return info, nil
 		}
+		fresh := 0
 		for _, h := range resp.FindNodes.Hits {
-			if h != nil && h.Node != nil && h.Node.IsPlaceholder {
+			if h == nil || h.Node == nil || seenLocs[h.Node.Loc] {
+				continue
+			}
+			seenLocs[h.Node.Loc] = true
+			fresh++
+			if h.Node.IsPlaceholder {
 				info.Placeholders[h.Node.Loc] = true
 			}
 		}
-		if len(resp.FindNodes.Hits) < nodesPageSize {
+		// Stop only on an EMPTY page (a short page may be a server clamp, so a
+		// placeholder past it would read as resolved, cli#967) ; a
+		// non-empty page with nothing new (a server ignoring the offset) is a failed read.
+		if len(resp.FindNodes.Hits) == 0 {
 			return info, nil
 		}
+		if fresh == 0 {
+			return info, api.ListNotAdvancing(offset)
+		}
+		offset += len(resp.FindNodes.Hits)
 	}
 }
 
