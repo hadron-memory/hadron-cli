@@ -66,11 +66,18 @@ func TestC958TextShowsServerReturnedCloseSession(t *testing.T) {
 				if !strings.Contains(out, want) || strings.Contains(out, notWant) {
 					t.Fatalf("server returned %v; want %q in:\n%s", served, want, out)
 				}
-				if served && !strings.Contains(out, "asks the assignee to end its worker session") {
+				// yes explains what finishing requests, hedged on the host (the
+				// platform ends a session only through a live host); no is a
+				// terse key: value like the lines around it. Neither cites a
+				// spec at runtime — the help does (Uma's P3s on #979).
+				if served && !strings.Contains(out, closeSessionYes+" — finishing or cancelling asks the assignee to end its worker session; the platform may end it after a grace period\n") {
 					t.Fatalf("true does not say what finishing does:\n%s", out)
 				}
-				if !served && !strings.Contains(out, "does not ask the assignee to end its worker session") {
-					t.Fatalf("false does not say what finishing does:\n%s", out)
+				if !served && !strings.Contains(out, "  "+closeSessionNo+"\n") {
+					t.Fatalf("false is not the plain line:\n%s", out)
+				}
+				if strings.Contains(out, "cor:agt") {
+					t.Fatalf("runtime line cites a spec:\n%s", out)
 				}
 
 				// --json carries the same boolean the text showed.
@@ -104,5 +111,30 @@ func TestC958LifecycleReceiptsUnchanged(t *testing.T) {
 		if strings.Contains(out, "close session when done") {
 			t.Fatalf("%s receipt grew the close-session line:\n%s", verb, out)
 		}
+	}
+}
+
+// The help says what the receipt says — finishing OR cancelling — and tells a
+// caller who wants the assignee's session kept to opt out at create (#958
+// follow-up, Ada #29181).
+func TestC958HelpMatchesReceipt(t *testing.T) {
+	for _, verb := range []string{"create", "assign", "reassign"} {
+		_, out, err := runTeamTask(t, taskResponses(), "team", "task", verb, "--help")
+		if err != nil {
+			t.Fatalf("%s: %v", verb, err)
+		}
+		if strings.Contains(out, "finishing ends") || strings.Contains(out, "finishing does not") || strings.Contains(out, "finishing asks") {
+			t.Errorf("%s help says only finishing:\n%s", verb, out)
+		}
+		if !strings.Contains(out, "finishing or cancelling") {
+			t.Errorf("%s help omits cancelling:\n%s", verb, out)
+		}
+	}
+	_, out, err := runTeamTask(t, taskResponses(), "team", "task", "create", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "pass --no-close-session at create") {
+		t.Errorf("create help does not tell callers to opt out at create:\n%s", out)
 	}
 }
