@@ -1,0 +1,29 @@
+# #957: strict own-session reads. No old-schema/headerless fallback.
+query CheckTeamChannel($appRef: ID!) {
+ teamChatMessages(appRef:$appRef,beforeSeq:2147483647,limit:1,advanceReadState:false) {
+  channelId channelIncarnation
+ }
+}
+query CheckChatHead($channelRef: ID!, $incarnation: Int!) {
+ channelMessages(channelRef:$channelRef,expectedIncarnation:$incarnation,beforeSeq:2147483647,limit:1,advanceReadState:false) {
+  channelId channelIncarnation items { seq }
+ }
+}
+query CheckChatPage($channelRef: ID!, $incarnation: Int!, $worker: ID!, $since: Int!, $before: Int!) {
+ channelMessages(channelRef:$channelRef,expectedIncarnation:$incarnation,mentionsRef:$worker,sinceSeq:$since,beforeSeq:$before,limit:200,advanceReadState:false) {
+  channelId channelIncarnation items { ...TeamChatMessageFields }
+ }
+}
+query CheckChatCursor($channelRef: ID!, $worker: ID!, $appRef: ID!) {
+ channelReadState(channelRef:$channelRef,attendeeRef:$worker,appRef:$appRef) {
+  channelId channelIncarnation cursorIncarnation lastSeenSeq
+ }
+}
+mutation CheckChatMark($appRef: ID!, $session: ID!, $channelRef: ID!, $incarnation: Int!, $through: Int!) {
+ markOwnTeamChatRead(appRef:$appRef,sessionRef:$session,channelRef:$channelRef,expectedIncarnation:$incarnation,seq:$through) {
+  workerId channelId channelIncarnation cursorIncarnation lastSeenSeq
+ }
+}
+query CheckChatSession($session: ID!) {
+ session(id:$session) { id appId workerId endedAt isLive }
+}

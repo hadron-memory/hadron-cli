@@ -2043,6 +2043,13 @@ type Channel {
   createdAt: DateTime!
   description: String
   id: ID!
+
+  """
+  #2181 — which incarnation of the Channel this is. An opaque, stable integer that rises when a supported recreation
+  reuses the Channel under the same id; seqs and read cursors can survive it, so a pinned read or mark names this
+  value. Compare for equality only.
+  """
+  incarnation: Int!
   kind: ChannelKind!
   lastMessageAt: DateTime
 
@@ -2082,6 +2089,18 @@ App); advances are monotonic. Mute is session state, never here.
 type ChannelReadState {
   attendeeUrn: String
   channelId: ID!
+
+  """
+  #2181 — the Channel's CURRENT incarnation (the same value as Channel.incarnation).
+  """
+  channelIncarnation: Int!
+
+  """
+  #2181 — the incarnation the stored cursor was last RAISED under. NULL is a legacy cursor: it is never backfilled and
+  never relabelled. Treat your cursor as current only when this equals both channelIncarnation and the incarnation you
+  read, and lastSeenSeq >= your seq.
+  """
+  cursorIncarnation: Int
   lastSeenSeq: Int!
   updatedAt: DateTime!
 }
@@ -3374,6 +3393,22 @@ type DueChannel {
 }
 
 """
+#2022 — the stop-signal notice a STOP reason delivers. Acknowledging the wake records its delivery; it moves no chat mark.
+"""
+type DueStopReason {
+  """The notice; acknowledging the wake records delivery on it."""
+  eventId: ID!
+
+  """
+  True only for a halt's stop notice: the one notice that interrupts the worker.
+  """
+  interrupt: Boolean!
+  level: StopSignalLevel!
+  notice: StopNoticeKind!
+  signalId: ID!
+}
+
+"""
 #1708 — the task a TASK reason is for: shown only to a caller who may read the App's tasks (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 """
 type DueTaskReason {
@@ -3493,6 +3528,15 @@ type Edge {
   display label). Put the label you want seen in name (#1057).
   """
   description: String
+
+  """
+  The edge's OWN stored governed kind (#2124): null for an ordinary edge,
+  otherwise INCLUDE, COMMENT_ANCHOR or COMMENT_REPLY. Read-only; it rides
+  the same gate as the edge, is never inferred from name or loc, and no
+  edge write accepts it. A stored value this server does not support is an
+  UNSUPPORTED_EDGE_GOVERNED_KIND error, never null.
+  """
+  governedKind: EdgeGovernedKind
   id: ID!
 
   """
@@ -3554,6 +3598,23 @@ input EdgeFilter {
 
   """Edges arriving at this node."""
   targetNodeId: ID
+}
+
+"""
+Which server-owned mechanism governs an edge (#2124). A governed edge is
+written by its own path and refused by every ordinary edge write. A client
+must tolerate a value it does not know as read-only/unsupported, never as an
+ordinary edge: this list grows when the server adds a governed kind.
+"""
+enum EdgeGovernedKind {
+  """A comment's anchor edge to the node it comments on."""
+  COMMENT_ANCHOR
+
+  """A reply comment's edge to its thread root."""
+  COMMENT_REPLY
+
+  """Derived from an include tag in the source node's content (#2040)."""
+  INCLUDE
 }
 
 input EdgeInput {
@@ -3810,6 +3871,8 @@ input GrantCreditsInput {
 Slim edge projection for the graph view (issue #466) — endpoint IDs only.
 """
 type GraphEdge {
+  """The edge's governed kind (#2124); see Edge.governedKind."""
+  governedKind: EdgeGovernedKind
   id: ID!
   loc: String!
   name: String
@@ -4260,6 +4323,14 @@ if the user later re-joins the same App.
 type LeaveAppPayload {
   appId: ID!
   userId: ID!
+}
+
+type LiftStopSignalResult {
+  """
+  False when it had already ended: nothing changed and nobody was told again.
+  """
+  changed: Boolean!
+  signal: StopSignal!
 }
 
 """
@@ -5963,9 +6034,10 @@ type Mutation {
   Phase 0 D1); a soft-deleted node at the target loc is resurrected.
   'name' is required here and only here (D4).
   Include tags (#2040): content may carry {{> target settings}} tags. Writes
-  that make a tag malformed refuse INVALID_INCLUDE, one that would make the
-  node include itself INCLUDE_CYCLE, and a chain deeper than 10
-  INCLUDE_TOO_DEEP; nothing is written. Each tag's target gets a derived edge
+  that make a tag malformed refuse INVALID_INCLUDE, and one that would make
+  the node include itself INCLUDE_CYCLE; nothing is written. A chain deeper
+  than 10 is not refused: it saves, and reads show the broken-include notice
+  past level 10 (#2134). Each tag's target gets a derived edge
   (governed kind INCLUDE) that only the content owns: editing or deleting it
   directly refuses INCLUDE_EDGE_DERIVED.
   """
@@ -6820,6 +6892,12 @@ type Mutation {
   leaveApp(appId: ID!): LeaveAppPayload!
 
   """
+  #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:05, :06) — lift a stop signal. Whoever manages the App, any; a host key, a HALT on its own host.
+  Lifting one never ends another. changed is false when it had already ended. Refusals as setTeamStopSignal.
+  """
+  liftTeamStopSignal(appRef: String!, id: ID!): LiftStopSignalResult!
+
+  """
   Link a GitHub App installation to an organization (org ADMIN or platform ADMIN).
   
   Accepts the entity's ID or URN.
@@ -6856,7 +6934,21 @@ type Mutation {
   requires that session. Monotonic; a seq beyond the captured Channel
   watermark is refused.
   """
-  markOwnTeamChatRead(appRef: ID!, channelRef: ID!, seq: Int!, sessionRef: ID!): OwnTeamChatReadState!
+  markOwnTeamChatRead(
+    appRef: ID!
+    channelRef: ID!
+
+    """
+    #2181 — fence the mark to the incarnation you read. It runs in one transaction behind the Channel row lock: a
+    different incarnation is CHANNEL_INCARNATION_CHANGED (never repeat it; read again and pin the new incarnation)
+    and no cursor, check stamp or session resume is applied. A successful fenced response confirms
+    channelIncarnation = the incarnation you pinned and lastSeenSeq >= seq, even when an equal or lower mark left a legacy NULL
+    cursorIncarnation in place. Omitted: the mark is UNFENCED, as before.
+    """
+    expectedIncarnation: Int
+    seq: Int!
+    sessionRef: ID!
+  ): OwnTeamChatReadState!
 
   """
   Merge one memory (source) into another (target), returning the updated
@@ -7621,6 +7713,15 @@ type Mutation {
   setTeamPause(appRef: String!, paused: Boolean!): TeamPause!
 
   """
+  #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01, :06) — set a stop signal. Whoever manages the App: any level and
+  scope. A host key: a HALT on its own host only. Never replaces another signal. Refusals: APP_MANAGER_REQUIRED,
+  HOST_SCOPE_REQUIRED, STOP_SIGNAL_SCOPE_FORBIDDEN, STOP_SIGNAL_NOT_FOUND (the target), BAD_USER_INPUT, APP_NOT_FOUND.
+  #2173 (R95): until the stop-notice lane is in effect, setting ANY signal is refused with STOP_SIGNAL_UNAVAILABLE (a worker
+  would be stopped without being told); lifting and listing are unaffected, and the refusal lifts when the lane is turned on.
+  """
+  setTeamStopSignal(input: SetTeamStopSignalInput!): StopSignal!
+
+  """
   #1706 — set a worker's availability for work (hrn:node:hadronmemory.com:specs:cor:agt:060:08): the worker
   itself, acting through its session, and only to UNAVAILABLE; the person
   holding its name; or whoever manages the App. Writes availability.changed.
@@ -8047,9 +8148,10 @@ type Mutation {
   preserved ('name' included, D4; 'abstract' keeps its omit/null/string
   contract; omitted 'tags' are preserved, issue #235).
   Include tags (#2040): content may carry {{> target settings}} tags. Writes
-  that make a tag malformed refuse INVALID_INCLUDE, one that would make the
-  node include itself INCLUDE_CYCLE, and a chain deeper than 10
-  INCLUDE_TOO_DEEP; nothing is written. Each tag's target gets a derived edge
+  that make a tag malformed refuse INVALID_INCLUDE, and one that would make
+  the node include itself INCLUDE_CYCLE; nothing is written. A chain deeper
+  than 10 is not refused: it saves, and reads show the broken-include notice
+  past level 10 (#2134). Each tag's target gets a derived edge
   (governed kind INCLUDE) that only the content owns: editing or deleting it
   directly refuses INCLUDE_EDGE_DERIVED.
   """
@@ -9510,6 +9612,16 @@ type OrganizationsPage {
 """
 type OwnTeamChatReadState {
   channelId: ID!
+
+  """
+  #2181 — the Channel's CURRENT incarnation (with expectedIncarnation, the value that was fenced).
+  """
+  channelIncarnation: Int!
+
+  """
+  #2181 — the incarnation the stored cursor was last raised under; NULL is a legacy cursor. See ChannelReadState.cursorIncarnation.
+  """
+  cursorIncarnation: Int
   lastSeenSeq: Int!
   workerId: ID!
 }
@@ -10011,7 +10123,26 @@ type Query {
   TeamChatMessagesPage.total has the same cursor- and mention-filtered
   meaning as for teamChatMessages, before paging.
   """
-  channelMessages(beforeSeq: Int, channelRef: ID!, limit: Int, mentionsRef: ID, offset: Int, sinceSeq: Int): TeamChatMessagesPage!
+  channelMessages(
+    """
+    #2181 — as on teamChatMessages: only false suppresses automatic read-cursor advancement (session attribution, the
+    check stamp and the heartbeat remain), so a pinned page can be acknowledged explicitly after it is delivered.
+    """
+    advanceReadState: Boolean = true
+    beforeSeq: Int
+    channelRef: ID!
+
+    """
+    #2181 — pin the read to the Channel incarnation you read. A different incarnation, before or after the page is
+    read, is CHANNEL_INCARNATION_CHANGED with nothing returned and no cursor, check stamp or session resume applied;
+    the server never retargets. Omitted: the read is UNFENCED, as before.
+    """
+    expectedIncarnation: Int
+    limit: Int
+    mentionsRef: ID
+    offset: Int
+    sinceSeq: Int
+  ): TeamChatMessagesPage!
 
   """
   Spec 049 Phase 7 — an attendee's cursor on a Channel (attendeeRef: a Worker,
@@ -11224,6 +11355,13 @@ type Query {
   teamSpecSchema(apiVersion: String!, form: TeamSpecForm = SERVER): String!
 
   """
+  #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:07) — an App's stop signals, oldest set first. A person in the App sees
+  every signal (worker narrows to those covering that worker now); a worker's session sees the live ones covering it; a
+  host key sees its own host's. includeEnded adds ended ones (not for a worker's session). first: default 50, max 200.
+  """
+  teamStopSignals(after: String, appRef: String!, first: Int, includeEnded: Boolean, worker: String): StopSignalPage!
+
+  """
   Read a team App's worklog (#947) — the provenance query: which sessions
   (and transcripts) produced this PR? Newest first, as a uniform
   { items, total } page. ref accepts ANY accepted spelling (URL, short form,
@@ -11863,20 +12001,36 @@ enum ResumeOutcome {
 }
 
 """
-#1956 — resumeSession's optional input. Everything but `session` is provenance for a session the redemption starts.
+#1956 — resumeSession's optional input. Provenance for a session the redemption starts; on an open session it resumes, only `llmModel` and `family` are refreshed (#2086).
 """
 input ResumeSessionInput {
   """
   What the next session is about, when the redemption starts one (its plan).
   """
   description: String
+
+  """
+  Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Wins over the family a model implies; an invalid token is refused before any claim is spent.
+  """
   family: String
+
+  """Recorded on a session the redemption starts only."""
   host: String
+
+  """
+  Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Omitted or null never clears.
+  """
   llmModel: String
 
   """Pick one of a CHOOSE answer's candidates by its sessionId."""
   session: ID
+
+  """
+  Recorded on a session the redemption starts. Never replaces the tool of a session it resumes.
+  """
   tool: String
+
+  """Recorded on a session the redemption starts only."""
   transcriptPath: String
 }
 
@@ -12657,6 +12811,23 @@ input SetQuotaLimitInput {
   orgRef: String!
 }
 
+input SetTeamStopSignalInput {
+  appRef: String!
+
+  """
+  HOST: the host's id. A host key may omit it: its own host is taken from its binding.
+  """
+  host: String
+  level: StopSignalLevel!
+  scope: StopSignalScope!
+
+  """When it ends on its own; later than now. Omitted: until lifted."""
+  until: DateTime
+
+  """WORKER and TEAM: the target worker (a team by its head)."""
+  worker: String
+}
+
 input SetWorkerAvailabilityInput {
   appRef: ID
 
@@ -13340,6 +13511,87 @@ type StartImpersonationResult {
   token: String!
 }
 
+"""
+#2022 — whether a stop notice tells the worker to stop or that it may resume.
+"""
+enum StopNoticeKind {
+  RESUME
+  STOP
+}
+
+"""
+#2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01) — a stop signal. Ids and times only; it never changes once set, except that its end is recorded.
+"""
+type StopSignal {
+  endKind: StopSignalEndKind
+
+  """
+  When it was lifted, or its until (an expiry is in effect at its until).
+  """
+  endedAt: DateTime
+  endedByHostKey: Boolean!
+  endedByUserId: ID
+  id: ID!
+  level: StopSignalLevel!
+
+  """Not ended and its until, when given, still ahead."""
+  live: Boolean!
+  scope: StopSignalScope!
+  setAt: DateTime!
+  setByHostKey: Boolean!
+
+  """The person who set it; null when a host key did."""
+  setByUserId: ID
+
+  """HOST: the target host's id."""
+  targetHostId: String
+
+  """WORKER and TEAM: the target worker (a team by its head)."""
+  targetWorkerId: ID
+
+  """When it ends on its own, if set to."""
+  until: DateTime
+}
+
+enum StopSignalEndKind {
+  EXPIRED
+  LIFTED
+}
+
+"""
+#2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01) — a stop signal's level. Each stops everything the one before it does.
+"""
+enum StopSignalLevel {
+  """
+  Also interrupts each covered worker, to save its work and write a hand-off (the notice is recorded but not yet delivered: no interrupt happens yet).
+  """
+  HALT
+
+  """
+  Also stops ticks and stall time. Each covered worker is told to finish or stop at its next sub-task (the notice is recorded but not yet delivered).
+  """
+  PAUSE
+
+  """
+  Stops assignment only: matching skips the covered workers and a manual assignment to one is refused (TASK_STOPPED). Its coordinators are told (the notice is recorded but not yet delivered).
+  """
+  PAUSE_DISPATCH
+}
+
+type StopSignalPage {
+  pageInfo: DueWakePageInfo!
+  signals: [StopSignal!]!
+}
+
+"""
+#2022 — a stop signal's scope: one worker, a team (its head and the whole reporting tree under it), or the workers a host registration lists.
+"""
+enum StopSignalScope {
+  HOST
+  TEAM
+  WORKER
+}
+
 type SubscribeResult {
   """
   Set only when the call used the grant: whether the team-chat post went out.
@@ -13573,6 +13825,15 @@ type TeamChatMessage {
 }
 
 type TeamChatMessagesPage {
+  """
+  #2181 — the Channel this page was read from. NULL only when the App has no team channel yet.
+  """
+  channelId: ID
+
+  """
+  #2181 — that Channel's incarnation at the read; pin the next read or mark with expectedIncarnation.
+  """
+  channelIncarnation: Int
   items: [TeamChatMessage!]!
 
   """
@@ -14448,6 +14709,11 @@ enum WakeKind {
   MENTION
 
   """
+  #2022 — a stop-signal notice (hrn:node:hadronmemory.com:specs:cor:agt:090:04): ahead of everything else, past the floor, the busy delay and the budget's refusal. Not yet offered (DARK until the host consumer ships).
+  """
+  STOP
+
+  """
   #1708 — a task event the worker must act on (an assignment, a child's finish, an alarm's woken position, #1709 a request to end its session). Wakes at once, like a mention.
   """
   TASK
@@ -14456,6 +14722,9 @@ enum WakeKind {
 
 type WakeReason {
   kind: WakeKind!
+
+  """#2022 — set for kind STOP."""
+  stop: DueStopReason
 
   """Set for kind TASK."""
   task: DueTaskReason
@@ -14832,7 +15101,7 @@ enum WorkerContinuityStatus {
 }
 
 """
-#2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, PAUSED, ISOLATED, STANDBY, NO_TASK.
+#2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, STOPPED, PAUSED, ISOLATED, STANDBY, NO_TASK.
 """
 enum WorkerPendingReason {
   """In isolation (unreachable until isolation is built)."""
@@ -14846,6 +15115,11 @@ enum WorkerPendingReason {
 
   """On standby (unreachable until standby is built)."""
   STANDBY
+
+  """
+  #2022: a PAUSE or HALT stop signal covers the worker, so it is not ticked (hrn:node:hadronmemory.com:specs:cor:agt:090:03).
+  """
+  STOPPED
 
   """A team pause is in force (App.teamPausedAt); the worker can't lift it."""
   TEAM_PAUSED
