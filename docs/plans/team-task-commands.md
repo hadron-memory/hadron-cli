@@ -62,7 +62,8 @@ plain: no header, no read-state effects.
   "when given, replaces"). On create, only `--no-close-session` exists
   (the server default is true). The text receipts of create/assign/reassign
   and `task get` print the **server-returned** value as `close session when
-  done: yes|no` with what finishing will request (#958) — never the flag
+  done: yes|no` (yes adds what finishing or cancelling will request; no is
+  the bare line) (#958) — never the flag
   that was passed, so a default reads truthfully; `--json` already carried
   the boolean.
 - **`task list` is newest-first with `ls` aliased** (the house rule every
