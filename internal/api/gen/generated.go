@@ -9959,6 +9959,469 @@ func (v *ChatMessagesResponse) GetFindNodes() *ChatMessagesFindNodesFindNodesRes
 	return v.FindNodes
 }
 
+// CheckChatCursorChannelReadState includes the requested fields of the GraphQL type ChannelReadState.
+// The GraphQL type's documentation follows.
+//
+// Spec 049 Phase 7 — where an attendee is up to on a Channel (D-2026-09-13-009).
+// Outside the register; keyed on the ATTENDEE (a Worker, or an Agent in an
+// App); advances are monotonic. Mute is session state, never here.
+type CheckChatCursorChannelReadState struct {
+	ChannelId string `json:"channelId"`
+	// #2181 — the Channel's CURRENT incarnation (the same value as Channel.incarnation).
+	ChannelIncarnation int `json:"channelIncarnation"`
+	// #2181 — the incarnation the stored cursor was last RAISED under. NULL is a legacy cursor: it is never backfilled and
+	// never relabelled. Treat your cursor as current only when this equals both channelIncarnation and the incarnation you
+	// read, and lastSeenSeq >= your seq.
+	CursorIncarnation *int `json:"cursorIncarnation"`
+	LastSeenSeq       int  `json:"lastSeenSeq"`
+}
+
+// GetChannelId returns CheckChatCursorChannelReadState.ChannelId, and is useful for accessing the field via an interface.
+func (v *CheckChatCursorChannelReadState) GetChannelId() string { return v.ChannelId }
+
+// GetChannelIncarnation returns CheckChatCursorChannelReadState.ChannelIncarnation, and is useful for accessing the field via an interface.
+func (v *CheckChatCursorChannelReadState) GetChannelIncarnation() int { return v.ChannelIncarnation }
+
+// GetCursorIncarnation returns CheckChatCursorChannelReadState.CursorIncarnation, and is useful for accessing the field via an interface.
+func (v *CheckChatCursorChannelReadState) GetCursorIncarnation() *int { return v.CursorIncarnation }
+
+// GetLastSeenSeq returns CheckChatCursorChannelReadState.LastSeenSeq, and is useful for accessing the field via an interface.
+func (v *CheckChatCursorChannelReadState) GetLastSeenSeq() int { return v.LastSeenSeq }
+
+// CheckChatCursorResponse is returned by CheckChatCursor on success.
+type CheckChatCursorResponse struct {
+	// Spec 049 Phase 7 — an attendee's cursor on a Channel (attendeeRef: a Worker,
+	// or an Agent with appRef). Same gate as attendeeRegister; lastSeenSeq 0 when
+	// the attendee has never checkpointed there; null when unreadable or unknown.
+	// channelRef: the Channel's id or its address (`Channel.chatRootUrn`, #1171).
+	ChannelReadState *CheckChatCursorChannelReadState `json:"channelReadState"`
+}
+
+// GetChannelReadState returns CheckChatCursorResponse.ChannelReadState, and is useful for accessing the field via an interface.
+func (v *CheckChatCursorResponse) GetChannelReadState() *CheckChatCursorChannelReadState {
+	return v.ChannelReadState
+}
+
+// CheckChatHeadChannelMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type CheckChatHeadChannelMessagesTeamChatMessagesPage struct {
+	// #2181 — the Channel this page was read from. NULL only when the App has no team channel yet.
+	ChannelId *string `json:"channelId"`
+	// #2181 — that Channel's incarnation at the read; pin the next read or mark with expectedIncarnation.
+	ChannelIncarnation *int                                                                    `json:"channelIncarnation"`
+	Items              []*CheckChatHeadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetChannelId returns CheckChatHeadChannelMessagesTeamChatMessagesPage.ChannelId, and is useful for accessing the field via an interface.
+func (v *CheckChatHeadChannelMessagesTeamChatMessagesPage) GetChannelId() *string { return v.ChannelId }
+
+// GetChannelIncarnation returns CheckChatHeadChannelMessagesTeamChatMessagesPage.ChannelIncarnation, and is useful for accessing the field via an interface.
+func (v *CheckChatHeadChannelMessagesTeamChatMessagesPage) GetChannelIncarnation() *int {
+	return v.ChannelIncarnation
+}
+
+// GetItems returns CheckChatHeadChannelMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *CheckChatHeadChannelMessagesTeamChatMessagesPage) GetItems() []*CheckChatHeadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// CheckChatHeadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type CheckChatHeadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	// Ordering key, unique per chat, allocated atomically (ascending from 1).
+	Seq int `json:"seq"`
+}
+
+// GetSeq returns CheckChatHeadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *CheckChatHeadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.Seq
+}
+
+// CheckChatHeadResponse is returned by CheckChatHead on success.
+type CheckChatHeadResponse struct {
+	// Spec 049 Phase 8 — read ANY Channel by ref (its id, or its address —
+	// `Channel.chatRootUrn`, #1171), with teamChatMessages'
+	// cursors, mentions filter and paging; teamChatMessages is the
+	// appRef → App.defaultChannel convenience over this. Authorization is the
+	// host App's team-chat read gate; a Channel you may not read — or one that
+	// does not exist — is CHANNEL_NOT_FOUND, identically.
+	// TeamChatMessagesPage.total has the same cursor- and mention-filtered
+	// meaning as for teamChatMessages, before paging.
+	ChannelMessages *CheckChatHeadChannelMessagesTeamChatMessagesPage `json:"channelMessages"`
+}
+
+// GetChannelMessages returns CheckChatHeadResponse.ChannelMessages, and is useful for accessing the field via an interface.
+func (v *CheckChatHeadResponse) GetChannelMessages() *CheckChatHeadChannelMessagesTeamChatMessagesPage {
+	return v.ChannelMessages
+}
+
+// CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState includes the requested fields of the GraphQL type OwnTeamChatReadState.
+// The GraphQL type's documentation follows.
+//
+// #1353 — the exact Worker/Channel cursor advanced by markOwnTeamChatRead.
+type CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState struct {
+	WorkerId  string `json:"workerId"`
+	ChannelId string `json:"channelId"`
+	// #2181 — the Channel's CURRENT incarnation (with expectedIncarnation, the value that was fenced).
+	ChannelIncarnation int `json:"channelIncarnation"`
+	// #2181 — the incarnation the stored cursor was last raised under; NULL is a legacy cursor. See ChannelReadState.cursorIncarnation.
+	CursorIncarnation *int `json:"cursorIncarnation"`
+	LastSeenSeq       int  `json:"lastSeenSeq"`
+}
+
+// GetWorkerId returns CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState.WorkerId, and is useful for accessing the field via an interface.
+func (v *CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetChannelId returns CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState.ChannelId, and is useful for accessing the field via an interface.
+func (v *CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState) GetChannelId() string {
+	return v.ChannelId
+}
+
+// GetChannelIncarnation returns CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState.ChannelIncarnation, and is useful for accessing the field via an interface.
+func (v *CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState) GetChannelIncarnation() int {
+	return v.ChannelIncarnation
+}
+
+// GetCursorIncarnation returns CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState.CursorIncarnation, and is useful for accessing the field via an interface.
+func (v *CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState) GetCursorIncarnation() *int {
+	return v.CursorIncarnation
+}
+
+// GetLastSeenSeq returns CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState.LastSeenSeq, and is useful for accessing the field via an interface.
+func (v *CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState) GetLastSeenSeq() int {
+	return v.LastSeenSeq
+}
+
+// CheckChatMarkResponse is returned by CheckChatMark on success.
+type CheckChatMarkResponse struct {
+	// #1353: explicitly advance the cursor owned by one exact,
+	// caller-owned live Worker session on one readable registered Channel.
+	// Shares the MCP mark-read helper; unlike advanceChannelReadState this door
+	// requires that session. Monotonic; a seq beyond the captured Channel
+	// watermark is refused.
+	MarkOwnTeamChatRead *CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState `json:"markOwnTeamChatRead"`
+}
+
+// GetMarkOwnTeamChatRead returns CheckChatMarkResponse.MarkOwnTeamChatRead, and is useful for accessing the field via an interface.
+func (v *CheckChatMarkResponse) GetMarkOwnTeamChatRead() *CheckChatMarkMarkOwnTeamChatReadOwnTeamChatReadState {
+	return v.MarkOwnTeamChatRead
+}
+
+// CheckChatPageChannelMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type CheckChatPageChannelMessagesTeamChatMessagesPage struct {
+	// #2181 — the Channel this page was read from. NULL only when the App has no team channel yet.
+	ChannelId *string `json:"channelId"`
+	// #2181 — that Channel's incarnation at the read; pin the next read or mark with expectedIncarnation.
+	ChannelIncarnation *int                                                                    `json:"channelIncarnation"`
+	Items              []*CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetChannelId returns CheckChatPageChannelMessagesTeamChatMessagesPage.ChannelId, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPage) GetChannelId() *string { return v.ChannelId }
+
+// GetChannelIncarnation returns CheckChatPageChannelMessagesTeamChatMessagesPage.ChannelIncarnation, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPage) GetChannelIncarnation() *int {
+	return v.ChannelIncarnation
+}
+
+// GetItems returns CheckChatPageChannelMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPage) GetItems() []*CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	TeamChatMessageFields `json:"-"`
+}
+
+// GetNodeId returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetNodeId() string {
+	return v.TeamChatMessageFields.NodeId
+}
+
+// GetSeq returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.TeamChatMessageFields.Seq
+}
+
+// GetBody returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetBody() string {
+	return v.TeamChatMessageFields.Body
+}
+
+// GetAt returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAt() string {
+	return v.TeamChatMessageFields.At
+}
+
+// GetAuthorUserId returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorUserId() *string {
+	return v.TeamChatMessageFields.AuthorUserId
+}
+
+// GetAuthorWorkerId returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.TeamChatMessageFields.AuthorWorkerId
+}
+
+// GetAuthorName returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorName() *string {
+	return v.TeamChatMessageFields.AuthorName
+}
+
+// GetSessionId returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSessionId() *string {
+	return v.TeamChatMessageFields.SessionId
+}
+
+// GetReplyToSeq returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetReplyToSeq() *int {
+	return v.TeamChatMessageFields.ReplyToSeq
+}
+
+// GetMentions returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetMentions() []string {
+	return v.TeamChatMessageFields.Mentions
+}
+
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamChatMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	NodeId string `json:"nodeId"`
+
+	Seq int `json:"seq"`
+
+	Body string `json:"body"`
+
+	At string `json:"at"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorName *string `json:"authorName"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+}
+
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) __premarshalJSON() (*__premarshalCheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage, error) {
+	var retval __premarshalCheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage
+
+	retval.NodeId = v.TeamChatMessageFields.NodeId
+	retval.Seq = v.TeamChatMessageFields.Seq
+	retval.Body = v.TeamChatMessageFields.Body
+	retval.At = v.TeamChatMessageFields.At
+	retval.AuthorUserId = v.TeamChatMessageFields.AuthorUserId
+	retval.AuthorWorkerId = v.TeamChatMessageFields.AuthorWorkerId
+	retval.AuthorName = v.TeamChatMessageFields.AuthorName
+	retval.SessionId = v.TeamChatMessageFields.SessionId
+	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
+	retval.Mentions = v.TeamChatMessageFields.Mentions
+	return &retval, nil
+}
+
+// CheckChatPageResponse is returned by CheckChatPage on success.
+type CheckChatPageResponse struct {
+	// Spec 049 Phase 8 — read ANY Channel by ref (its id, or its address —
+	// `Channel.chatRootUrn`, #1171), with teamChatMessages'
+	// cursors, mentions filter and paging; teamChatMessages is the
+	// appRef → App.defaultChannel convenience over this. Authorization is the
+	// host App's team-chat read gate; a Channel you may not read — or one that
+	// does not exist — is CHANNEL_NOT_FOUND, identically.
+	// TeamChatMessagesPage.total has the same cursor- and mention-filtered
+	// meaning as for teamChatMessages, before paging.
+	ChannelMessages *CheckChatPageChannelMessagesTeamChatMessagesPage `json:"channelMessages"`
+}
+
+// GetChannelMessages returns CheckChatPageResponse.ChannelMessages, and is useful for accessing the field via an interface.
+func (v *CheckChatPageResponse) GetChannelMessages() *CheckChatPageChannelMessagesTeamChatMessagesPage {
+	return v.ChannelMessages
+}
+
+// CheckChatSessionResponse is returned by CheckChatSession on success.
+type CheckChatSessionResponse struct {
+	Session *CheckChatSessionSession `json:"session"`
+}
+
+// GetSession returns CheckChatSessionResponse.Session, and is useful for accessing the field via an interface.
+func (v *CheckChatSessionResponse) GetSession() *CheckChatSessionSession { return v.Session }
+
+// CheckChatSessionSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type CheckChatSessionSession struct {
+	Id    string  `json:"id"`
+	AppId *string `json:"appId"`
+	// #974 / cor:agt:020:03: the Worker (named casting) this session works as.
+	WorkerId *string `json:"workerId"`
+	EndedAt  *string `json:"endedAt"`
+	// hadron-cli#791 / hrn:node:hadronmemory.com:specs:cor:agt:020:11:
+	// whether THIS session is live: not ended
+	// or hard-expired (hrn:node:hadronmemory.com:specs:cor:agt:020:03),
+	// AND driven inside its type's idle window (activity is the latest of
+	// startedAt, the heartbeat updatedAt, and the latest attributed usage
+	// event, capped at endedAt). The same derived predicate as startSession's
+	// WORKER_TAKEN gate and Worker.hasLiveSession, so the three always agree.
+	// An unexpired open session that is not live has LAPSED: nobody drove it inside the
+	// window, so another driver may bind its worker; it is not ended, and can
+	// still be ended with a handoff. False for an ended or deleted session.
+	IsLive bool `json:"isLive"`
+}
+
+// GetId returns CheckChatSessionSession.Id, and is useful for accessing the field via an interface.
+func (v *CheckChatSessionSession) GetId() string { return v.Id }
+
+// GetAppId returns CheckChatSessionSession.AppId, and is useful for accessing the field via an interface.
+func (v *CheckChatSessionSession) GetAppId() *string { return v.AppId }
+
+// GetWorkerId returns CheckChatSessionSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *CheckChatSessionSession) GetWorkerId() *string { return v.WorkerId }
+
+// GetEndedAt returns CheckChatSessionSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *CheckChatSessionSession) GetEndedAt() *string { return v.EndedAt }
+
+// GetIsLive returns CheckChatSessionSession.IsLive, and is useful for accessing the field via an interface.
+func (v *CheckChatSessionSession) GetIsLive() bool { return v.IsLive }
+
+// CheckTeamChannelResponse is returned by CheckTeamChannel on success.
+type CheckTeamChannelResponse struct {
+	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
+	// { items, total } page. sinceSeq is a watermark cursor: only messages with
+	// seq STRICTLY GREATER than it are returned (pass the last seq you have
+	// seen). With neither cursor nor offset, the NEWEST page is returned, still
+	// ascending. Pass sinceSeq: 0 to start a forward walk at the oldest message.
+	// beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
+	// messages with seq STRICTLY LESS than it are considered, and the NEWEST
+	// limit of those come back -- the page immediately before the cursor, still
+	// ascending. The two compose, so passing both reads a bounded slice.
+	// TeamChatMessagesPage.total counts that cursor range and the mentionsRef
+	// filter before paging, not the whole team-chat history.
+	// An explicit offset retains oldest-first positional paging for existing
+	// clients; prefer cursors for new reads. offset is IGNORED when beforeSeq is
+	// given: a cursor exists precisely because a position is unstable while
+	// workers keep posting, and honouring both would put that race back.
+	// mentionsRef filters to messages whose stored envelope mentions the
+	// referenced worker (a Worker id or name of THIS App, retired included) or
+	// user (handle/id) — matching runs against the mention tokens extracted at
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
+	// staff or members (a Worker of the App, an AppMember, or the caller); an
+	// unresolvable or foreign mentionsRef yields the empty page identically (no
+	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
+	// total.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
+	// App's own key (a pure App-key principal may READ its team chat).
+	// Error codes (extensions.code): FORBIDDEN (an authenticated caller who is
+	// not a participant), UNAUTHENTICATED (no principal at all; checked before
+	// the App is resolved, so it answers identically whether or not the App
+	// exists).
+	//
+	// appRef and mentionsRef accept the entity's ID or URN.
+	TeamChatMessages *CheckTeamChannelTeamChatMessagesTeamChatMessagesPage `json:"teamChatMessages"`
+}
+
+// GetTeamChatMessages returns CheckTeamChannelResponse.TeamChatMessages, and is useful for accessing the field via an interface.
+func (v *CheckTeamChannelResponse) GetTeamChatMessages() *CheckTeamChannelTeamChatMessagesTeamChatMessagesPage {
+	return v.TeamChatMessages
+}
+
+// CheckTeamChannelTeamChatMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type CheckTeamChannelTeamChatMessagesTeamChatMessagesPage struct {
+	// #2181 — the Channel this page was read from. NULL only when the App has no team channel yet.
+	ChannelId *string `json:"channelId"`
+	// #2181 — that Channel's incarnation at the read; pin the next read or mark with expectedIncarnation.
+	ChannelIncarnation *int `json:"channelIncarnation"`
+}
+
+// GetChannelId returns CheckTeamChannelTeamChatMessagesTeamChatMessagesPage.ChannelId, and is useful for accessing the field via an interface.
+func (v *CheckTeamChannelTeamChatMessagesTeamChatMessagesPage) GetChannelId() *string {
+	return v.ChannelId
+}
+
+// GetChannelIncarnation returns CheckTeamChannelTeamChatMessagesTeamChatMessagesPage.ChannelIncarnation, and is useful for accessing the field via an interface.
+func (v *CheckTeamChannelTeamChatMessagesTeamChatMessagesPage) GetChannelIncarnation() *int {
+	return v.ChannelIncarnation
+}
+
 // ClearAgentProcessesIndexResponse is returned by ClearAgentProcessesIndex on success.
 type ClearAgentProcessesIndexResponse struct {
 	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15, hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - set or clear
@@ -15548,9 +16011,10 @@ type CreateNodeResponse struct {
 	// Phase 0 D1); a soft-deleted node at the target loc is resurrected.
 	// 'name' is required here and only here (D4).
 	// Include tags (#2040): content may carry {{> target settings}} tags. Writes
-	// that make a tag malformed refuse INVALID_INCLUDE, one that would make the
-	// node include itself INCLUDE_CYCLE, and a chain deeper than 10
-	// INCLUDE_TOO_DEEP; nothing is written. Each tag's target gets a derived edge
+	// that make a tag malformed refuse INVALID_INCLUDE, and one that would make
+	// the node include itself INCLUDE_CYCLE; nothing is written. A chain deeper
+	// than 10 is not refused: it saves, and reads show the broken-include notice
+	// past level 10 (#2134). Each tag's target gets a derived edge
 	// (governed kind INCLUDE) that only the content owns: editing or deleting it
 	// directly refuses INCLUDE_EDGE_DERIVED.
 	CreateNode *CreateNodeCreateNode `json:"createNode"`
@@ -35561,16 +36025,21 @@ var AllResumeOutcome = []ResumeOutcome{
 	ResumeOutcomeStarted,
 }
 
-// #1956 — resumeSession's optional input. Everything but `session` is provenance for a session the redemption starts.
+// #1956 — resumeSession's optional input. Provenance for a session the redemption starts; on an open session it resumes, only `llmModel` and `family` are refreshed (#2086).
 type ResumeSessionInput struct {
 	// What the next session is about, when the redemption starts one (its plan).
 	Description *string `json:"description,omitempty"`
-	Family      *string `json:"family,omitempty"`
-	Host        *string `json:"host,omitempty"`
-	LlmModel    *string `json:"llmModel,omitempty"`
+	// Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Wins over the family a model implies; an invalid token is refused before any claim is spent.
+	Family *string `json:"family,omitempty"`
+	// Recorded on a session the redemption starts only.
+	Host *string `json:"host,omitempty"`
+	// Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Omitted or null never clears.
+	LlmModel *string `json:"llmModel,omitempty"`
 	// Pick one of a CHOOSE answer's candidates by its sessionId.
-	Session        *string `json:"session,omitempty"`
-	Tool           *string `json:"tool,omitempty"`
+	Session *string `json:"session,omitempty"`
+	// Recorded on a session the redemption starts. Never replaces the tool of a session it resumes.
+	Tool *string `json:"tool,omitempty"`
+	// Recorded on a session the redemption starts only.
 	TranscriptPath *string `json:"transcriptPath,omitempty"`
 }
 
@@ -49096,9 +49565,10 @@ type UpdateNodeClearingRoleResponse struct {
 	// preserved ('name' included, D4; 'abstract' keeps its omit/null/string
 	// contract; omitted 'tags' are preserved, issue #235).
 	// Include tags (#2040): content may carry {{> target settings}} tags. Writes
-	// that make a tag malformed refuse INVALID_INCLUDE, one that would make the
-	// node include itself INCLUDE_CYCLE, and a chain deeper than 10
-	// INCLUDE_TOO_DEEP; nothing is written. Each tag's target gets a derived edge
+	// that make a tag malformed refuse INVALID_INCLUDE, and one that would make
+	// the node include itself INCLUDE_CYCLE; nothing is written. A chain deeper
+	// than 10 is not refused: it saves, and reads show the broken-include notice
+	// past level 10 (#2134). Each tag's target gets a derived edge
 	// (governed kind INCLUDE) that only the content owns: editing or deleting it
 	// directly refuses INCLUDE_EDGE_DERIVED.
 	UpdateNode *UpdateNodeClearingRoleUpdateNode `json:"updateNode"`
@@ -49394,9 +49864,10 @@ type UpdateNodeResponse struct {
 	// preserved ('name' included, D4; 'abstract' keeps its omit/null/string
 	// contract; omitted 'tags' are preserved, issue #235).
 	// Include tags (#2040): content may carry {{> target settings}} tags. Writes
-	// that make a tag malformed refuse INVALID_INCLUDE, one that would make the
-	// node include itself INCLUDE_CYCLE, and a chain deeper than 10
-	// INCLUDE_TOO_DEEP; nothing is written. Each tag's target gets a derived edge
+	// that make a tag malformed refuse INVALID_INCLUDE, and one that would make
+	// the node include itself INCLUDE_CYCLE; nothing is written. A chain deeper
+	// than 10 is not refused: it saves, and reads show the broken-include notice
+	// past level 10 (#2134). Each tag's target gets a derived edge
 	// (governed kind INCLUDE) that only the content owns: editing or deleting it
 	// directly refuses INCLUDE_EDGE_DERIVED.
 	UpdateNode *UpdateNodeUpdateNode `json:"updateNode"`
@@ -53791,7 +54262,7 @@ func (v *WorkerFieldsReportsToWorker) __premarshalJSON() (*__premarshalWorkerFie
 	return &retval, nil
 }
 
-// #2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, PAUSED, ISOLATED, STANDBY, NO_TASK.
+// #2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, STOPPED, PAUSED, ISOLATED, STANDBY, NO_TASK.
 type WorkerPendingReason string
 
 const (
@@ -53803,6 +54274,8 @@ const (
 	WorkerPendingReasonPaused WorkerPendingReason = "PAUSED"
 	// On standby (unreachable until standby is built).
 	WorkerPendingReasonStandby WorkerPendingReason = "STANDBY"
+	// #2022: a PAUSE or HALT stop signal covers the worker, so it is not ticked (hrn:node:hadronmemory.com:specs:cor:agt:090:03).
+	WorkerPendingReasonStopped WorkerPendingReason = "STOPPED"
 	// A team pause is in force (App.teamPausedAt); the worker can't lift it.
 	WorkerPendingReasonTeamPaused WorkerPendingReason = "TEAM_PAUSED"
 )
@@ -53812,6 +54285,7 @@ var AllWorkerPendingReason = []WorkerPendingReason{
 	WorkerPendingReasonNoTask,
 	WorkerPendingReasonPaused,
 	WorkerPendingReasonStandby,
+	WorkerPendingReasonStopped,
 	WorkerPendingReasonTeamPaused,
 }
 
@@ -55441,6 +55915,98 @@ func (v *__ChatMessagesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __ChatMessagesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ChatMessagesInput) GetOffset() *int { return v.Offset }
+
+// __CheckChatCursorInput is used internally by genqlient
+type __CheckChatCursorInput struct {
+	ChannelRef string `json:"channelRef"`
+	Worker     string `json:"worker"`
+	AppRef     string `json:"appRef"`
+}
+
+// GetChannelRef returns __CheckChatCursorInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__CheckChatCursorInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetWorker returns __CheckChatCursorInput.Worker, and is useful for accessing the field via an interface.
+func (v *__CheckChatCursorInput) GetWorker() string { return v.Worker }
+
+// GetAppRef returns __CheckChatCursorInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CheckChatCursorInput) GetAppRef() string { return v.AppRef }
+
+// __CheckChatHeadInput is used internally by genqlient
+type __CheckChatHeadInput struct {
+	ChannelRef  string `json:"channelRef"`
+	Incarnation int    `json:"incarnation"`
+}
+
+// GetChannelRef returns __CheckChatHeadInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__CheckChatHeadInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetIncarnation returns __CheckChatHeadInput.Incarnation, and is useful for accessing the field via an interface.
+func (v *__CheckChatHeadInput) GetIncarnation() int { return v.Incarnation }
+
+// __CheckChatMarkInput is used internally by genqlient
+type __CheckChatMarkInput struct {
+	AppRef      string `json:"appRef"`
+	Session     string `json:"session"`
+	ChannelRef  string `json:"channelRef"`
+	Incarnation int    `json:"incarnation"`
+	Through     int    `json:"through"`
+}
+
+// GetAppRef returns __CheckChatMarkInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CheckChatMarkInput) GetAppRef() string { return v.AppRef }
+
+// GetSession returns __CheckChatMarkInput.Session, and is useful for accessing the field via an interface.
+func (v *__CheckChatMarkInput) GetSession() string { return v.Session }
+
+// GetChannelRef returns __CheckChatMarkInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__CheckChatMarkInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetIncarnation returns __CheckChatMarkInput.Incarnation, and is useful for accessing the field via an interface.
+func (v *__CheckChatMarkInput) GetIncarnation() int { return v.Incarnation }
+
+// GetThrough returns __CheckChatMarkInput.Through, and is useful for accessing the field via an interface.
+func (v *__CheckChatMarkInput) GetThrough() int { return v.Through }
+
+// __CheckChatPageInput is used internally by genqlient
+type __CheckChatPageInput struct {
+	ChannelRef  string `json:"channelRef"`
+	Incarnation int    `json:"incarnation"`
+	Worker      string `json:"worker"`
+	Since       int    `json:"since"`
+	Before      int    `json:"before"`
+}
+
+// GetChannelRef returns __CheckChatPageInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__CheckChatPageInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetIncarnation returns __CheckChatPageInput.Incarnation, and is useful for accessing the field via an interface.
+func (v *__CheckChatPageInput) GetIncarnation() int { return v.Incarnation }
+
+// GetWorker returns __CheckChatPageInput.Worker, and is useful for accessing the field via an interface.
+func (v *__CheckChatPageInput) GetWorker() string { return v.Worker }
+
+// GetSince returns __CheckChatPageInput.Since, and is useful for accessing the field via an interface.
+func (v *__CheckChatPageInput) GetSince() int { return v.Since }
+
+// GetBefore returns __CheckChatPageInput.Before, and is useful for accessing the field via an interface.
+func (v *__CheckChatPageInput) GetBefore() int { return v.Before }
+
+// __CheckChatSessionInput is used internally by genqlient
+type __CheckChatSessionInput struct {
+	Session string `json:"session"`
+}
+
+// GetSession returns __CheckChatSessionInput.Session, and is useful for accessing the field via an interface.
+func (v *__CheckChatSessionInput) GetSession() string { return v.Session }
+
+// __CheckTeamChannelInput is used internally by genqlient
+type __CheckTeamChannelInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __CheckTeamChannelInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CheckTeamChannelInput) GetAppRef() string { return v.AppRef }
 
 // __ClearAgentProcessesIndexInput is used internally by genqlient
 type __ClearAgentProcessesIndexInput struct {
@@ -62647,6 +63213,265 @@ func ChatMessages(
 	}
 
 	data_ = &ChatMessagesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CheckChatCursor.
+const CheckChatCursor_Operation = `
+query CheckChatCursor ($channelRef: ID!, $worker: ID!, $appRef: ID!) {
+	channelReadState(channelRef: $channelRef, attendeeRef: $worker, appRef: $appRef) {
+		channelId
+		channelIncarnation
+		cursorIncarnation
+		lastSeenSeq
+	}
+}
+`
+
+func CheckChatCursor(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	channelRef string,
+	worker string,
+	appRef string,
+) (data_ *CheckChatCursorResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CheckChatCursor",
+		Query:  CheckChatCursor_Operation,
+		Variables: &__CheckChatCursorInput{
+			ChannelRef: channelRef,
+			Worker:     worker,
+			AppRef:     appRef,
+		},
+	}
+
+	data_ = &CheckChatCursorResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CheckChatHead.
+const CheckChatHead_Operation = `
+query CheckChatHead ($channelRef: ID!, $incarnation: Int!) {
+	channelMessages(channelRef: $channelRef, expectedIncarnation: $incarnation, beforeSeq: 2147483647, limit: 1, advanceReadState: false) {
+		channelId
+		channelIncarnation
+		items {
+			seq
+		}
+	}
+}
+`
+
+func CheckChatHead(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	channelRef string,
+	incarnation int,
+) (data_ *CheckChatHeadResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CheckChatHead",
+		Query:  CheckChatHead_Operation,
+		Variables: &__CheckChatHeadInput{
+			ChannelRef:  channelRef,
+			Incarnation: incarnation,
+		},
+	}
+
+	data_ = &CheckChatHeadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CheckChatMark.
+const CheckChatMark_Operation = `
+mutation CheckChatMark ($appRef: ID!, $session: ID!, $channelRef: ID!, $incarnation: Int!, $through: Int!) {
+	markOwnTeamChatRead(appRef: $appRef, sessionRef: $session, channelRef: $channelRef, expectedIncarnation: $incarnation, seq: $through) {
+		workerId
+		channelId
+		channelIncarnation
+		cursorIncarnation
+		lastSeenSeq
+	}
+}
+`
+
+func CheckChatMark(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	session string,
+	channelRef string,
+	incarnation int,
+	through int,
+) (data_ *CheckChatMarkResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CheckChatMark",
+		Query:  CheckChatMark_Operation,
+		Variables: &__CheckChatMarkInput{
+			AppRef:      appRef,
+			Session:     session,
+			ChannelRef:  channelRef,
+			Incarnation: incarnation,
+			Through:     through,
+		},
+	}
+
+	data_ = &CheckChatMarkResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CheckChatPage.
+const CheckChatPage_Operation = `
+query CheckChatPage ($channelRef: ID!, $incarnation: Int!, $worker: ID!, $since: Int!, $before: Int!) {
+	channelMessages(channelRef: $channelRef, expectedIncarnation: $incarnation, mentionsRef: $worker, sinceSeq: $since, beforeSeq: $before, limit: 200, advanceReadState: false) {
+		channelId
+		channelIncarnation
+		items {
+			... TeamChatMessageFields
+		}
+	}
+}
+fragment TeamChatMessageFields on TeamChatMessage {
+	nodeId
+	seq
+	body
+	at
+	authorUserId
+	authorWorkerId
+	authorName
+	sessionId
+	replyToSeq
+	mentions
+}
+`
+
+func CheckChatPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	channelRef string,
+	incarnation int,
+	worker string,
+	since int,
+	before int,
+) (data_ *CheckChatPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CheckChatPage",
+		Query:  CheckChatPage_Operation,
+		Variables: &__CheckChatPageInput{
+			ChannelRef:  channelRef,
+			Incarnation: incarnation,
+			Worker:      worker,
+			Since:       since,
+			Before:      before,
+		},
+	}
+
+	data_ = &CheckChatPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CheckChatSession.
+const CheckChatSession_Operation = `
+query CheckChatSession ($session: ID!) {
+	session(id: $session) {
+		id
+		appId
+		workerId
+		endedAt
+		isLive
+	}
+}
+`
+
+func CheckChatSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	session string,
+) (data_ *CheckChatSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CheckChatSession",
+		Query:  CheckChatSession_Operation,
+		Variables: &__CheckChatSessionInput{
+			Session: session,
+		},
+	}
+
+	data_ = &CheckChatSessionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CheckTeamChannel.
+const CheckTeamChannel_Operation = `
+query CheckTeamChannel ($appRef: ID!) {
+	teamChatMessages(appRef: $appRef, beforeSeq: 2147483647, limit: 1, advanceReadState: false) {
+		channelId
+		channelIncarnation
+	}
+}
+`
+
+// #957: strict own-session reads. No old-schema/headerless fallback.
+func CheckTeamChannel(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *CheckTeamChannelResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CheckTeamChannel",
+		Query:  CheckTeamChannel_Operation,
+		Variables: &__CheckTeamChannelInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &CheckTeamChannelResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
