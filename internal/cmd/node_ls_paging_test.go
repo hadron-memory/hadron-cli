@@ -64,7 +64,7 @@ func TestNodeLsDrainsPastAClampedPage(t *testing.T) {
 }
 
 func TestNodeLsExplicitLimitOrOffsetIsOneRequest(t *testing.T) {
-	for _, args := range [][]string{{"--limit", "5"}, {"--offset", "3"}, {"--limit", "5", "--offset", "2"}} {
+	for _, args := range [][]string{{"--limit", "5"}, {"--offset", "3"}, {"--limit", "5", "--offset", "2"}, {"--offset", "0"}, {"--limit", "0"}, {"--offset=0", "--limit=0"}} {
 		gql, rec := pagedGraphQL(t, map[string]*pagedSource{
 			"FindNodes": {rows: lsNodeRows(), serve: 20, wrap: findNodesNullTotal},
 		}, nil)
@@ -76,7 +76,7 @@ func TestNodeLsExplicitLimitOrOffsetIsOneRequest(t *testing.T) {
 			t.Errorf("%v: want one request, got %d", args, len(rec["FindNodes"].Calls))
 		}
 		if len(locs) == 0 || len(locs) > 20 {
-			t.Errorf("%v: unexpected page of %d", args, len(locs))
+			t.Errorf("%v: unexpected page of %d (an explicit flag, even 0, is one page)", args, len(locs))
 		}
 	}
 }

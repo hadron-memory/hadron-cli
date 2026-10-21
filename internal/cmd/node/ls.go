@@ -209,7 +209,7 @@ output either flag switches the table for a per-node block.`,
 			// With neither --limit nor --offset the user asked for the list, not
 			// for "whatever one server page holds" (cli#967): drain it. An
 			// explicit --limit/--offset stays one deliberate page.
-			drain := seqMode || (limit == 0 && offset == 0)
+			drain := seqMode || (!cmd.Flags().Changed("limit") && !cmd.Flags().Changed("offset"))
 
 			var rawNodes []*api.ListNode
 			if drain {
