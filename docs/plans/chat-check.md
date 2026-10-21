@@ -66,9 +66,11 @@ mark; stderr states the known mark status and there is no rollback.
 ## Response loss and lifecycle
 
 Mark only original H with channelRef and expectedIncarnation on both attempts.
-A successful fenced response with the expected channel/current incarnation and
-lastSeenSeq>=H proves coverage even when cursorIncarnation remains null on a
-legacy/no-op mark (including H=0). After response loss, readback requires stored
+A successful fenced response must have the expected channel, worker, current
+channel incarnation AND stored cursorIncarnation, with lastSeenSeq>=H. A NULL
+or stale cursor label on a no-op mark (including H=0) cannot prove current
+coverage: return exit10 with the artifact retained and no extra retry. The same
+predicate applies to the one permitted retry response. After response loss, readback requires stored
 cursorIncarnation and current channelIncarnation both equal the sampled value,
 as well as the same channel id and lastSeenSeq>=H. Otherwise allow one identical
 fenced retry, never an observed mismatch or changed binding. If confirmation

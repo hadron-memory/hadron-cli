@@ -54,7 +54,12 @@ func TestChatCheckPreMarkFailures(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			marks := 0
+			pages := 0
 			deps := checkDeps{page: func(context.Context, int) ([]teamChatMessageDTO, error) {
+				pages++
+				if pages > 1 {
+					t.Fatal("invalid page was not refused immediately")
+				}
 				switch mode {
 				case "page":
 					return nil, errors.New("read")
@@ -75,7 +80,8 @@ func TestChatCheckPreMarkFailures(t *testing.T) {
 				}
 				return "", nil
 			}, mark: func(context.Context) (bool, error) { marks++; return true, nil }}
-			_, err := runChatCheck(ctx, checkSnapshot{Cursor: 10, Head: 90}, deps)
+			inc := 2
+			_, err := runChatCheck(ctx, checkSnapshot{Incarnation: inc, CursorIncarnation: &inc, Cursor: 10, Head: 90}, deps)
 			if err == nil || marks != 0 {
 				t.Fatalf("err=%v marks=%d", err, marks)
 			}

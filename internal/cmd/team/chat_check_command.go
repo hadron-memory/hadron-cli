@@ -207,7 +207,7 @@ write failure can occur AFTER a confirmed mark; its diagnostic says so.`,
 					if m == nil || m.ChannelId != s.ChannelID || m.WorkerId != identity.WorkerID || m.ChannelIncarnation != s.Incarnation {
 						return false, exitcode.Newf(checkUncertain, "mark response did not confirm sampled identity/incarnation; outcome uncertain, no retry sent")
 					}
-					return m.LastSeenSeq >= s.Head, nil
+					return m.CursorIncarnation != nil && *m.CursorIncarnation == s.Incarnation && m.LastSeenSeq >= s.Head, nil
 				},
 				readback: func(ctx context.Context) (bool, error) {
 					r, e := cursorRead(ctx)

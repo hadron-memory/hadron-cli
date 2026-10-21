@@ -25,7 +25,7 @@ type checkFixture struct {
 }
 
 func TestChatCheckProductionTransport(t *testing.T) {
-	for _, mode := range []string{"normal", "empty", "page_error", "path_error", "wrong_page_incarnation", "lost_confirmed", "lost_legacy_retry", "lost_twice", "lost_mismatch", "wrong_mark_incarnation", "mismatch", "binding_changed", "ended", "unavailable_metadata", "null_cursor", "stale_cursor", "lost_old_label", "wrong_session_worker", "wrong_mark_worker", "low_mark_response", "wrong_head_incarnation", "binding_before_mark"} {
+	for _, mode := range []string{"normal", "empty", "page_error", "path_error", "wrong_page_incarnation", "lost_confirmed", "lost_legacy_retry", "lost_twice", "lost_mismatch", "wrong_mark_incarnation", "mismatch", "binding_changed", "ended", "unavailable_metadata", "null_cursor", "stale_cursor", "lost_old_label", "wrong_session_worker", "wrong_mark_worker", "low_mark_response", "wrong_head_incarnation", "binding_before_mark", "mark_label_null", "mark_label_stale", "retry_mark_label_null", "retry_mark_label_stale"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Setenv("HADRON_TOKEN", "fixture")
 			t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -76,7 +76,7 @@ func TestChatCheckProductionTransport(t *testing.T) {
 					if mode == "null_cursor" {
 						label = "null"
 					}
-					if mode == "stale_cursor" {
+					if mode == "stale_cursor" || strings.Contains(mode, "mark_label") {
 						cursor = 9999
 						label = "1"
 					}
@@ -109,7 +109,7 @@ func TestChatCheckProductionTransport(t *testing.T) {
 				case "CheckChatPage":
 					state.pages++
 					if !strings.Contains(q.Query, "advanceReadState: false") || string(q.Variables["incarnation"]) != "2" || string(q.Variables["worker"]) != `"worker"` || string(q.Variables["since"]) != func() string {
-						if mode == "null_cursor" || mode == "stale_cursor" {
+						if mode == "null_cursor" || mode == "stale_cursor" || strings.Contains(mode, "mark_label") {
 							return "0"
 						}
 						return "10"
@@ -133,7 +133,7 @@ func TestChatCheckProductionTransport(t *testing.T) {
 						case "600":
 							ms = []map[string]any{{"seq": 80, "body": "oldest", "nodeId": "n80"}}
 						case "80":
-							if mode == "null_cursor" || mode == "stale_cursor" {
+							if mode == "null_cursor" || mode == "stale_cursor" || strings.Contains(mode, "mark_label") {
 								ms = []map[string]any{{"seq": 5, "body": "previously hidden tagged message", "nodeId": "n5"}}
 							}
 						case "5":
@@ -166,7 +166,7 @@ func TestChatCheckProductionTransport(t *testing.T) {
 						_ = json.Unmarshal(data, &a)
 						wantCount := 3
 						first := 80
-						if mode == "null_cursor" || mode == "stale_cursor" {
+						if mode == "null_cursor" || mode == "stale_cursor" || strings.Contains(mode, "mark_label") {
 							wantCount = 4
 							first = 5
 						}
@@ -178,7 +178,7 @@ func TestChatCheckProductionTransport(t *testing.T) {
 						_, _ = io.WriteString(w, `{"errors":[{"message":"PRIVATE_SENTINEL","extensions":{"code":"CHANNEL_INCARNATION_CHANGED"}}]}`)
 						return
 					}
-					if mode == "lost_twice" || (state.marks == 1 && (mode == "lost_confirmed" || mode == "lost_legacy_retry" || mode == "lost_mismatch" || mode == "lost_old_label")) {
+					if mode == "lost_twice" || (state.marks == 1 && (mode == "lost_confirmed" || mode == "lost_legacy_retry" || mode == "lost_mismatch" || mode == "lost_old_label" || strings.HasPrefix(mode, "retry_mark_label"))) {
 						w.WriteHeader(502)
 						return
 					}
@@ -194,7 +194,16 @@ func TestChatCheckProductionTransport(t *testing.T) {
 					if mode == "low_mark_response" {
 						through = 899
 					}
-					_, _ = fmt.Fprintf(w, `{"data":{"markOwnTeamChatRead":{"workerId":%q,"channelId":"chan","channelIncarnation":%d,"cursorIncarnation":null,"lastSeenSeq":%d}}}`, markWorker, incarnation, through)
+					label := "2"
+					if strings.Contains(mode, "mark_label_null") {
+						label = "null"
+					} else if strings.Contains(mode, "mark_label_stale") {
+						label = "1"
+					}
+					if strings.Contains(mode, "mark_label") {
+						through = 9999
+					}
+					_, _ = fmt.Fprintf(w, `{"data":{"markOwnTeamChatRead":{"workerId":%q,"channelId":"chan","channelIncarnation":%d,"cursorIncarnation":%s,"lastSeenSeq":%d}}}`, markWorker, incarnation, label, through)
 				default:
 					t.Errorf("unexpected operation %s", q.OperationName)
 				}
@@ -226,7 +235,7 @@ func TestChatCheckProductionTransport(t *testing.T) {
 				want = 5
 			case "unavailable_metadata":
 				want = 4
-			case "lost_twice", "lost_mismatch", "wrong_mark_incarnation", "wrong_mark_worker", "low_mark_response":
+			case "lost_twice", "lost_mismatch", "wrong_mark_incarnation", "wrong_mark_worker", "low_mark_response", "mark_label_null", "mark_label_stale", "retry_mark_label_null", "retry_mark_label_stale":
 				want = 10
 			}
 			if code != want {
@@ -237,13 +246,24 @@ func TestChatCheckProductionTransport(t *testing.T) {
 				if state.marks != 0 {
 					t.Fatal("mark after pre-mark failure")
 				}
-			case "lost_twice", "lost_legacy_retry", "lost_old_label":
+			case "lost_twice", "lost_legacy_retry", "lost_old_label", "retry_mark_label_null", "retry_mark_label_stale":
 				if state.marks != 2 {
 					t.Fatal(state.marks)
 				}
 			default:
 				if state.marks != 1 {
 					t.Fatal(state.marks)
+				}
+			}
+			if strings.Contains(mode, "mark_label") {
+				var receipt checkResult
+				if json.Unmarshal(out.Bytes(), &receipt) != nil || receipt.MarkStatus != "uncertain" || receipt.Outcome != "failed" || receipt.ArtifactPath == nil || state.cursors != func() int {
+					if strings.HasPrefix(mode, "retry_") {
+						return 2
+					}
+					return 1
+				}() {
+					t.Fatal("unvouched mark response claimed coverage or retried", out.String(), state)
 				}
 			}
 			if mode == "mismatch" {

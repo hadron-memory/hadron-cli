@@ -5,7 +5,7 @@ Usage: python3 chat-check-fixture.py /absolute/path/to/hadron
 import http.server, json, os, pathlib, subprocess, sys, tempfile, threading
 
 binary = os.path.abspath(sys.argv[1])
-for mode, expected in [('messages',0),('empty',9),('lost',0),('uncertain',10),('refused',5),('legacy',0),('stale',0)]:
+for mode, expected in [('messages',0),('empty',9),('lost',0),('uncertain',10),('refused',5),('legacy',0),('stale',10)]:
     state = dict(marks=0,pages=0,ops=[],cursor_reads=0)
     class Handler(http.server.BaseHTTPRequestHandler):
         def log_message(self,*args): pass
@@ -33,7 +33,7 @@ for mode, expected in [('messages',0),('empty',9),('lost',0),('uncertain',10),('
                     self.send_response(502);self.end_headers();return
                 if mode=='refused':
                     self.send_response(200);self.end_headers();self.wfile.write(json.dumps({'errors':[{'message':'PRIVATE_SENTINEL','extensions':{'code':'CHANNEL_INCARNATION_CHANGED'}}]}).encode());return
-                data={'markOwnTeamChatRead':{'workerId':'worker','channelId':'chan','channelIncarnation':2,'cursorIncarnation':None,'lastSeenSeq':9999 if mode=='stale' else 900}}
+                data={'markOwnTeamChatRead':{'workerId':'worker','channelId':'chan','channelIncarnation':2,'cursorIncarnation':1 if mode=='stale' else 2,'lastSeenSeq':9999 if mode=='stale' else 900}}
             else: raise AssertionError(op)
             self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(json.dumps({'data':data}).encode())
     with tempfile.TemporaryDirectory() as scratch:
