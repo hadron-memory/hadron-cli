@@ -248,7 +248,7 @@ func (p *Poller) register(ctx context.Context) error {
 	for _, ref := range p.cfg.WorkerRefs() {
 		w := p.cfg.Workers[ref]
 		r.Workers = append(r.Workers, RegisteredWorker{
-			Worker: ref, Family: w.Family, Worktrees: p.state.worktreesFor(ref, w.Worktrees),
+			Worker: ref, Family: CanonicalFamily(w.Family), Worktrees: p.state.worktreesFor(ref, w.Worktrees),
 		})
 	}
 	ans, err := p.server.Register(ctx, r)

@@ -275,3 +275,65 @@ func TestTeamWorkerOnboardFailurePrintsPartialQueue837(t *testing.T) {
 		t.Fatalf("queue failure made direct calls %s", got)
 	}
 }
+
+// cli#971 / hadron-server#2217: the registration the server returns carries
+// the CANONICAL family (anthropic->claude, openai->codex, trim/lowercase), so
+// `--family` is compared and queued as that identity too. A genuinely
+// different family is still refused with nothing queued.
+func TestTeamWorkerOnboardComparesAndQueuesTheCanonicalFamily971(t *testing.T) {
+	for _, c := range []struct {
+		flag, registered, queued string
+		ok                       bool
+	}{
+		{"openai", "codex", "codex", true},
+		{"anthropic", "claude", "claude", true},
+		{"codex", "openai", "codex", true}, // a legacy registration spelling
+		{"claude", "anthropic", "claude", true},
+		{"Codex", "codex", "codex", true},
+		{"glm", "glm", "glm", true},
+		{"private.model-7", "private.model-7", "private.model-7", true},
+		{"openai", "claude", "", false},
+		{"anthropic", "codex", "", false},
+		{"glm", "claude", "", false},
+		{"claude-opus", "claude", "", false},
+		{"private.a", "private.b", "", false},
+	} {
+		t.Run(c.flag+"/"+c.registered, func(t *testing.T) {
+			r, args, _, _ := onboardFixture837(t, true)
+			r["HostRegistrations"] = `{"data":{"hostRegistrations":[` +
+				strings.Replace(hostRegJSON, `"family":"claude"`, `"family":"`+c.registered+`"`, 1) + `]}}`
+			for i, a := range args {
+				if a == "--family" {
+					args[i+1] = c.flag
+				}
+			}
+			calls, out, err := runTeamTask(t, r, args...)
+			for _, call := range *calls {
+				if call.Op == "IssueHostOperation" {
+					t.Fatalf("dry-run or refusal queued %s", call.Op)
+				}
+			}
+			if !c.ok {
+				if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "live host registration") {
+					t.Fatalf("flag %q vs registered %q must be refused: %v", c.flag, c.registered, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("flag %q vs registered %q: %v", c.flag, c.registered, err)
+			}
+			var dto struct {
+				Operations []struct {
+					Type string            `json:"type"`
+					Args map[string]string `json:"args"`
+				} `json:"operations"`
+			}
+			if err := json.Unmarshal([]byte(out), &dto); err != nil {
+				t.Fatal(err)
+			}
+			if len(dto.Operations) != 2 || dto.Operations[1].Type != "worker.start" || dto.Operations[1].Args["family"] != c.queued {
+				t.Fatalf("worker.start must carry %q: %s", c.queued, out)
+			}
+		})
+	}
+}
