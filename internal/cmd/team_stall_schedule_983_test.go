@@ -199,3 +199,40 @@ func TestC983NoValuesRefusalListsNewFlags(t *testing.T) {
 	}
 	assertNoSetCall(t, calls)
 }
+
+// Jane's and Anne's #986 P3: the platform defaults (10, 60) are also what a
+// hard-coded mapping would print, so pin values only the server could have
+// supplied — get text, get --json and set --json all render them.
+func TestC983RendersNonDefaultServerValues(t *testing.T) {
+	r := stallResponses()
+	nondefault := strings.NewReplacer(`"sessionEndGraceMinutes":10`, `"sessionEndGraceMinutes":37`,
+		`"hostReportTimeoutMinutes":60`, `"hostReportTimeoutMinutes":77`)
+	for _, op := range []string{"TeamStallSchedule", "TeamStallScheduleSet"} {
+		r[op] = nondefault.Replace(r[op])
+	}
+	_, out, err := runTeamTask(t, r, "team", "stall-schedule", "get")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"37 min", "77 min"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("get text missing %q:\n%s", want, out)
+		}
+	}
+	for _, argv := range [][]string{
+		{"team", "stall-schedule", "get", "--json"},
+		{"team", "stall-schedule", "set", "--session-end-grace-minutes", "37", "--json"},
+	} {
+		_, out, err := runTeamTask(t, r, argv...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var dto map[string]any
+		if err := json.Unmarshal([]byte(out), &dto); err != nil {
+			t.Fatalf("not JSON: %v\n%s", err, out)
+		}
+		if dto["sessionEndGraceMinutes"] != float64(37) || dto["hostReportTimeoutMinutes"] != float64(77) {
+			t.Fatalf("%v: want the server's 37/77, got %v/%v", argv, dto["sessionEndGraceMinutes"], dto["hostReportTimeoutMinutes"])
+		}
+	}
+}
