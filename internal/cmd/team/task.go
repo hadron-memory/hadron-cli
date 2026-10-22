@@ -312,8 +312,9 @@ value". The flags ride on a real assignment: there is no in-place setter,
 and reassigning a task to its current assignee is refused
 (TASK_INVALID_TRANSITION) with the choice unchanged. To have the assignee's
 session end with the task, pass --close-session at create, or on the
-assign that first names the assignee of a queued task. By default finishing or
-cancelling does not ask the assignee to end its worker session. The server refuses a queued task to reassign and an assigned one to assign
+assign that first names the assignee of a queued task. The default of not
+asking applies at creation; assign and reassign with neither flag keep the value
+the task already has. The server refuses a queued task to reassign and an assigned one to assign
 (TASK_INVALID_TRANSITION).`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

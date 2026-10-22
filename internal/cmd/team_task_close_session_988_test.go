@@ -89,3 +89,24 @@ func TestC988AgenticUsageDocumentsCloseSession(t *testing.T) {
 	}
 	t.Error("agentic-usage has no `hadron team task create` synopsis line")
 }
+
+// The no-ask default is a creation default: assign/reassign with neither flag
+// keep the stored value (Jane/Andi P3s on #989).
+func TestC988AssignHelpQualifiesTheDefaultAsCreationOnly(t *testing.T) {
+	for _, verb := range []string{"assign", "reassign"} {
+		out := helpText(t, verb)
+		if !strings.Contains(out, "The default of not asking applies at creation") {
+			t.Errorf("%s help does not qualify the default:\n%s", verb, out)
+		}
+	}
+}
+
+func TestC988AgenticUsageStatesTheDefaultAndPreserve(t *testing.T) {
+	data, err := os.ReadFile("agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "close-when-done defaults to NO at create") {
+		t.Error("agentic-usage does not state the create default")
+	}
+}
