@@ -59,14 +59,17 @@ plain: no header, no read-state effects.
 - **`closeSessionWhenDone` is tri-state.** `--close-session` /
   `--no-close-session` on assign/reassign send `true`/`false`; **neither
   flag sends nothing** — the task keeps its value (the mutation doc:
-  "when given, replaces"). On create, only `--no-close-session` exists
-  (the server default is true). The text receipts of create/assign/reassign
+  "when given, replaces"). On create both flags exist since #988 (the
+  server default flipped to NO in hadron-server#2249 / R182; before that only
+  `--no-close-session` existed because yes was the default), and passing both
+  is a usage error. The text receipts of create/assign/reassign
   and `task get` print the **server-returned** value as `close session when
   done: yes|no` (yes adds what finishing or cancelling will request; no is
   the bare line) (#958) — never the flag
   that was passed, so a default reads truthfully; `--json` already carried
-  the boolean. The help teaches the one supported path to keep a session
-  open — `--no-close-session` at create (#959): the choice has no in-place
+  the boolean. The help teaches the one supported path to end a session
+  with the task — `--close-session` at create (#959, #988; it taught
+  `--no-close-session` while yes was the default): the choice has no in-place
   setter, and same-party reassignment is refused with the choice unchanged.
 - **`task list` is newest-first with `ls` aliased** (the house rule every
   `list` carries); filters map 1:1 onto the query arguments; `--status` is

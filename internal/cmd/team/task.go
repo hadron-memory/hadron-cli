@@ -125,7 +125,7 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var tags []string
 	var requireRole, familyIn, familyNotIn string
 	var excludeWorkers []string
-	var noCloseSession bool
+	var closeSession, noCloseSession bool
 	cmd := &cobra.Command{
 		Use:   "create <title>",
 		Short: "Create a task",
@@ -148,12 +148,12 @@ the owner is the parent's assignee — naming a different owner is refused
 --family-in/--family-not-in, --exclude-worker) constrain the matcher.
 --start-by takes an RFC 3339 timestamp.
 
-By default finishing or cancelling asks the assignee to end its worker
-session, and the platform may end it through the worker's live host after
-a grace period, 10 minutes by default, set per App (cor:agt:050:10);
-declining the request does not prevent that. The choice cannot be changed
-in place afterwards, so when the assignee's session must outlive the task
-(a long-lived reviewer or seat), pass --no-close-session at create, or on
+By default finishing or cancelling does not ask the assignee to end its
+worker session. Pass --close-session to ask (cor:agt:050:10); the platform
+may end it through the worker's live host after a grace period, 10 minutes by
+default, set per App, and declining the request does not prevent that. --no-close-session states the default explicitly. The choice cannot be
+changed in place afterwards, so when the assignee's session should end with
+the task, pass --close-session at create, or on
 the assign that first names the assignee of a queued task.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -198,7 +198,12 @@ the assign that first names the assignee of a queued task.`,
 				Status:       createStatus,
 				Tags:         tags,
 			}
-			if noCloseSession {
+			if closeSession && noCloseSession {
+				return exitcode.Newf(exitcode.Usage, "--close-session and --no-close-session contradict each other")
+			}
+			if closeSession {
+				input.CloseSessionWhenDone = boolPtr(true)
+			} else if noCloseSession {
 				input.CloseSessionWhenDone = boolPtr(false)
 			}
 			if assignee != "" {
@@ -284,7 +289,8 @@ the assign that first names the assignee of a queued task.`,
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families to exclude")
 	cmd.Flags().StringSliceVar(&excludeWorkers, "exclude-worker", nil, "worker the matcher must not pick (repeatable)")
 	cmd.Flags().StringVar(&status, "status", "", "create-time status: backlog (parked) or pending (the default)")
-	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session")
+	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing or cancelling asks the assignee to end its worker session")
+	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session (the default)")
 	return cmd
 }
 
@@ -304,9 +310,10 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 choice as one of the two flags: ` + "`--close-session=false`" + ` is indistinguishable from absence here and also means "keep the current
 value". The flags ride on a real assignment: there is no in-place setter,
 and reassigning a task to its current assignee is refused
-(TASK_INVALID_TRANSITION) with the choice unchanged. A task whose assignee's
-session must stay open gets --no-close-session at create, or on the assign
-that first names the assignee of a queued task. The server refuses a queued task to reassign and an assigned one to assign
+(TASK_INVALID_TRANSITION) with the choice unchanged. To have the assignee's
+session end with the task, pass --close-session at create, or on the
+assign that first names the assignee of a queued task. By default finishing or
+cancelling does not ask the assignee to end its worker session. The server refuses a queued task to reassign and an assigned one to assign
 (TASK_INVALID_TRANSITION).`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
