@@ -371,8 +371,10 @@ mutation ModelFamilyAvailabilitySet($input: SetModelFamilyAvailabilityInput!) {
 }
 
 # An App's stall schedule (#864 over server #1706/#1707, #1863): the four
-# stall windows (cor:agt:050:14–:17) and the host-registration lapse count
-# (cor:agt:070:01). `team stall-schedule get` and `set` render it.
+# stall windows (cor:agt:050:14–:17), the host-registration lapse count
+# (cor:agt:070:01), and (#983) the session-end grace (cor:agt:050:10) and
+# host report timeout (cor:agt:070:02). `team stall-schedule get` and `set`
+# render it.
 fragment AgentTaskStallScheduleFields on AgentTaskStallSchedule {
   appId
   assignmentMinutes
@@ -380,6 +382,8 @@ fragment AgentTaskStallScheduleFields on AgentTaskStallSchedule {
   noProgressMinutes
   ownerReactionMinutes
   hostLapseCheckIns
+  sessionEndGraceMinutes
+  hostReportTimeoutMinutes
   updatedAt
 }
 

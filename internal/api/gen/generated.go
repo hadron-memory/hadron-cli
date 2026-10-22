@@ -4109,8 +4109,10 @@ func (v *AgentTaskResultInput) GetOutcome() string { return v.Outcome }
 func (v *AgentTaskResultInput) GetSummary() *string { return v.Summary }
 
 // An App's stall schedule (#864 over server #1706/#1707, #1863): the four
-// stall windows (cor:agt:050:14–:17) and the host-registration lapse count
-// (cor:agt:070:01). `team stall-schedule get` and `set` render it.
+// stall windows (cor:agt:050:14–:17), the host-registration lapse count
+// (cor:agt:070:01), and (#983) the session-end grace (cor:agt:050:10) and
+// host report timeout (cor:agt:070:02). `team stall-schedule get` and `set`
+// render it.
 type AgentTaskStallScheduleFields struct {
 	AppId string `json:"appId"`
 	// Couldn't be assigned (hrn:node:hadronmemory.com:specs:cor:agt:050:17).
@@ -4123,6 +4125,10 @@ type AgentTaskStallScheduleFields struct {
 	OwnerReactionMinutes int `json:"ownerReactionMinutes"`
 	// #1763 — how many of a host's own check-in intervals may pass without a refresh before its registration in this App lapses (hrn:node:hadronmemory.com:specs:cor:agt:070:01): 2 to 10, default 3.
 	HostLapseCheckIns int `json:"hostLapseCheckIns"`
+	// #1709 — how many minutes a worker asked to end its session on its task's finish or cancellation has before the platform ends it through its host (hrn:node:hadronmemory.com:specs:cor:agt:050:10): 1 to 1440, default 10.
+	SessionEndGraceMinutes int `json:"sessionEndGraceMinutes"`
+	// #1881 — how many minutes a host has to report an operation it collected before the platform fails it (hrn:node:hadronmemory.com:specs:cor:agt:070:02): 5 to 1440, default 60.
+	HostReportTimeoutMinutes int `json:"hostReportTimeoutMinutes"`
 	// When the App last changed them; null while every window is the default.
 	UpdatedAt *string `json:"updatedAt"`
 }
@@ -4144,6 +4150,16 @@ func (v *AgentTaskStallScheduleFields) GetOwnerReactionMinutes() int { return v.
 
 // GetHostLapseCheckIns returns AgentTaskStallScheduleFields.HostLapseCheckIns, and is useful for accessing the field via an interface.
 func (v *AgentTaskStallScheduleFields) GetHostLapseCheckIns() int { return v.HostLapseCheckIns }
+
+// GetSessionEndGraceMinutes returns AgentTaskStallScheduleFields.SessionEndGraceMinutes, and is useful for accessing the field via an interface.
+func (v *AgentTaskStallScheduleFields) GetSessionEndGraceMinutes() int {
+	return v.SessionEndGraceMinutes
+}
+
+// GetHostReportTimeoutMinutes returns AgentTaskStallScheduleFields.HostReportTimeoutMinutes, and is useful for accessing the field via an interface.
+func (v *AgentTaskStallScheduleFields) GetHostReportTimeoutMinutes() int {
+	return v.HostReportTimeoutMinutes
+}
 
 // GetUpdatedAt returns AgentTaskStallScheduleFields.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskStallScheduleFields) GetUpdatedAt() *string { return v.UpdatedAt }
@@ -45226,6 +45242,16 @@ func (v *TeamStallScheduleAgentTaskStallSchedule) GetHostLapseCheckIns() int {
 	return v.AgentTaskStallScheduleFields.HostLapseCheckIns
 }
 
+// GetSessionEndGraceMinutes returns TeamStallScheduleAgentTaskStallSchedule.SessionEndGraceMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleAgentTaskStallSchedule) GetSessionEndGraceMinutes() int {
+	return v.AgentTaskStallScheduleFields.SessionEndGraceMinutes
+}
+
+// GetHostReportTimeoutMinutes returns TeamStallScheduleAgentTaskStallSchedule.HostReportTimeoutMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleAgentTaskStallSchedule) GetHostReportTimeoutMinutes() int {
+	return v.AgentTaskStallScheduleFields.HostReportTimeoutMinutes
+}
+
 // GetUpdatedAt returns TeamStallScheduleAgentTaskStallSchedule.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *TeamStallScheduleAgentTaskStallSchedule) GetUpdatedAt() *string {
 	return v.AgentTaskStallScheduleFields.UpdatedAt
@@ -45269,6 +45295,10 @@ type __premarshalTeamStallScheduleAgentTaskStallSchedule struct {
 
 	HostLapseCheckIns int `json:"hostLapseCheckIns"`
 
+	SessionEndGraceMinutes int `json:"sessionEndGraceMinutes"`
+
+	HostReportTimeoutMinutes int `json:"hostReportTimeoutMinutes"`
+
 	UpdatedAt *string `json:"updatedAt"`
 }
 
@@ -45289,6 +45319,8 @@ func (v *TeamStallScheduleAgentTaskStallSchedule) __premarshalJSON() (*__premars
 	retval.NoProgressMinutes = v.AgentTaskStallScheduleFields.NoProgressMinutes
 	retval.OwnerReactionMinutes = v.AgentTaskStallScheduleFields.OwnerReactionMinutes
 	retval.HostLapseCheckIns = v.AgentTaskStallScheduleFields.HostLapseCheckIns
+	retval.SessionEndGraceMinutes = v.AgentTaskStallScheduleFields.SessionEndGraceMinutes
+	retval.HostReportTimeoutMinutes = v.AgentTaskStallScheduleFields.HostReportTimeoutMinutes
 	retval.UpdatedAt = v.AgentTaskStallScheduleFields.UpdatedAt
 	return &retval, nil
 }
@@ -45358,6 +45390,16 @@ func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) GetHostLapseCheckIns() i
 	return v.AgentTaskStallScheduleFields.HostLapseCheckIns
 }
 
+// GetSessionEndGraceMinutes returns TeamStallScheduleSetSetAgentTaskStallSchedule.SessionEndGraceMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) GetSessionEndGraceMinutes() int {
+	return v.AgentTaskStallScheduleFields.SessionEndGraceMinutes
+}
+
+// GetHostReportTimeoutMinutes returns TeamStallScheduleSetSetAgentTaskStallSchedule.HostReportTimeoutMinutes, and is useful for accessing the field via an interface.
+func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) GetHostReportTimeoutMinutes() int {
+	return v.AgentTaskStallScheduleFields.HostReportTimeoutMinutes
+}
+
 // GetUpdatedAt returns TeamStallScheduleSetSetAgentTaskStallSchedule.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) GetUpdatedAt() *string {
 	return v.AgentTaskStallScheduleFields.UpdatedAt
@@ -45401,6 +45443,10 @@ type __premarshalTeamStallScheduleSetSetAgentTaskStallSchedule struct {
 
 	HostLapseCheckIns int `json:"hostLapseCheckIns"`
 
+	SessionEndGraceMinutes int `json:"sessionEndGraceMinutes"`
+
+	HostReportTimeoutMinutes int `json:"hostReportTimeoutMinutes"`
+
 	UpdatedAt *string `json:"updatedAt"`
 }
 
@@ -45421,6 +45467,8 @@ func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) __premarshalJSON() (*__p
 	retval.NoProgressMinutes = v.AgentTaskStallScheduleFields.NoProgressMinutes
 	retval.OwnerReactionMinutes = v.AgentTaskStallScheduleFields.OwnerReactionMinutes
 	retval.HostLapseCheckIns = v.AgentTaskStallScheduleFields.HostLapseCheckIns
+	retval.SessionEndGraceMinutes = v.AgentTaskStallScheduleFields.SessionEndGraceMinutes
+	retval.HostReportTimeoutMinutes = v.AgentTaskStallScheduleFields.HostReportTimeoutMinutes
 	retval.UpdatedAt = v.AgentTaskStallScheduleFields.UpdatedAt
 	return &retval, nil
 }
@@ -75989,6 +76037,8 @@ fragment AgentTaskStallScheduleFields on AgentTaskStallSchedule {
 	noProgressMinutes
 	ownerReactionMinutes
 	hostLapseCheckIns
+	sessionEndGraceMinutes
+	hostReportTimeoutMinutes
 	updatedAt
 }
 `
@@ -76032,6 +76082,8 @@ fragment AgentTaskStallScheduleFields on AgentTaskStallSchedule {
 	noProgressMinutes
 	ownerReactionMinutes
 	hostLapseCheckIns
+	sessionEndGraceMinutes
+	hostReportTimeoutMinutes
 	updatedAt
 }
 `

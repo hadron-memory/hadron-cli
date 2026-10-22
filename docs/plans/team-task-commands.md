@@ -234,6 +234,10 @@ than re-widened.
 - Backlog/park verbs (`parkAgentTask`, `makeAgentTaskReady`) are still in
   review server-side (#1790); when they land they are a follow-up CLI slice
   alongside `--status BACKLOG`.
-- The stall-schedule tunables (`agentTaskStallSchedule`) have no command —
-  not in #830's scope; owner-facing surface can follow demand.
+- The stall-schedule tunables (`agentTaskStallSchedule`) were not in #830's
+  scope; they shipped later as `team stall-schedule get|set` (#864), which
+  #983 extended with the session-end grace (cor:agt:050:10, 1–1440) and the
+  host report timeout (cor:agt:070:02, 5–1440). Those two carry their range
+  client-side, so an out-of-range value sends nothing, while the windows'
+  and lapse count's ranges stay the server's rule.
 - `#839` (org names) waits on the urn-lib-go release per Eden (#8916).
