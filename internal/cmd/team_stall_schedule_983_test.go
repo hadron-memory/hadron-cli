@@ -16,24 +16,9 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// stallScheduleFullJSON is stallScheduleJSON plus the two #983 fields, at
-// their platform defaults as the server returns them.
-const stallScheduleFullJSON = `{"appId":"capp100000000000000000000",
-	"assignmentMinutes":30,"notStartedMinutes":60,"noProgressMinutes":120,
-	"ownerReactionMinutes":240,"hostLapseCheckIns":5,
-	"sessionEndGraceMinutes":10,"hostReportTimeoutMinutes":60,
-	"updatedAt":"2026-10-13T20:00:00Z"}`
-
-func stallFullResponses() map[string]string {
-	r := taskResponses()
-	r["TeamStallSchedule"] = `{"data":{"agentTaskStallSchedule":` + stallScheduleFullJSON + `}}`
-	r["TeamStallScheduleSet"] = `{"data":{"setAgentTaskStallSchedule":` + stallScheduleFullJSON + `}}`
-	return r
-}
-
 func runStallSet(t *testing.T, argv ...string) (*[]attnCall, string, error) {
 	t.Helper()
-	return runTeamTask(t, stallFullResponses(), append([]string{"team", "stall-schedule", "set"}, argv...)...)
+	return runTeamTask(t, stallResponses(), append([]string{"team", "stall-schedule", "set"}, argv...)...)
 }
 
 func assertNoSetCall(t *testing.T, calls *[]attnCall) {
@@ -159,7 +144,7 @@ func TestC983MixedWithOneInvalidSendsNothing(t *testing.T) {
 
 // D1: get shows the values the server returned, in text.
 func TestC983GetRendersServerReturnedValues(t *testing.T) {
-	_, out, err := runTeamTask(t, stallFullResponses(), "team", "stall-schedule", "get")
+	_, out, err := runTeamTask(t, stallResponses(), "team", "stall-schedule", "get")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +161,7 @@ func TestC983GetJSONCarriesBothFields(t *testing.T) {
 		{"team", "stall-schedule", "get", "--json"},
 		{"team", "stall-schedule", "set", "--session-end-grace-minutes", "10", "--json"},
 	} {
-		_, out, err := runTeamTask(t, stallFullResponses(), argv...)
+		_, out, err := runTeamTask(t, stallResponses(), argv...)
 		if err != nil {
 			t.Fatal(err)
 		}
