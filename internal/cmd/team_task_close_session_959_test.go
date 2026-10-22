@@ -28,7 +28,7 @@ func TestC959CreateHelpStatesTheGracePeriodAndNoInPlaceChange(t *testing.T) {
 	for _, want := range []string{
 		"grace period, 10 minutes by default, set per App",
 		"cannot be changed in place",
-		"pass --no-close-session at create",
+		"pass --close-session at create",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("create help missing %q:\n%s", want, out)
@@ -48,7 +48,7 @@ func TestC959AssignHelpRulesOutSamePartyReassignment(t *testing.T) {
 		for _, want := range []string{
 			"no in-place setter",
 			"reassigning a task to its current assignee is refused",
-			"--no-close-session at create",
+			"--close-session at create",
 		} {
 			if !strings.Contains(out, want) {
 				t.Errorf("%s help missing %q:\n%s", verb, want, out)

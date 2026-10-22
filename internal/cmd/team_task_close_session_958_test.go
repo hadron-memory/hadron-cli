@@ -116,7 +116,7 @@ func TestC958LifecycleReceiptsUnchanged(t *testing.T) {
 
 // The help says what the receipt says — finishing OR cancelling — and tells a
 // caller who wants the assignee's session kept to opt out at create (#958
-// follow-up, Ada #29181).
+// follow-up, Ada #29181); since #988 the opt-in is --close-session.
 func TestC958HelpMatchesReceipt(t *testing.T) {
 	for _, verb := range []string{"create", "assign", "reassign"} {
 		_, out, err := runTeamTask(t, taskResponses(), "team", "task", verb, "--help")
@@ -134,7 +134,7 @@ func TestC958HelpMatchesReceipt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "pass --no-close-session at create") {
-		t.Errorf("create help does not tell callers to opt out at create:\n%s", out)
+	if !strings.Contains(strings.Join(strings.Fields(out), " "), "pass --close-session at create") {
+		t.Errorf("create help does not tell callers to opt in at create:\n%s", out)
 	}
 }
