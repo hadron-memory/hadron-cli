@@ -367,7 +367,7 @@ absent, or this account may not recover it.`,
 				Description: n.Description,
 			}
 			if content {
-				body, err := recoveryContent(cmd, client, ref)
+				body, err := recoveryContent(cmd, client, n.Id)
 				if err != nil {
 					return err
 				}
@@ -396,10 +396,11 @@ absent, or this account may not recover it.`,
 	return cmd
 }
 
-// recoveryContent reads the body in its own operation, so the default point
-// read cannot fail on an unreadable key.
-func recoveryContent(cmd *cobra.Command, client graphql.Client, ref string) (*string, error) {
-	resp, err := gen.RecoveryNodeContent(cmd.Context(), client, ref)
+// recoveryContent reads the body by the stable node id from the first read (not
+// the mutable ref, which could re-resolve to another tombstone) in its own
+// operation, so the default point read cannot fail on an unreadable key.
+func recoveryContent(cmd *cobra.Command, client graphql.Client, id string) (*string, error) {
+	resp, err := gen.RecoveryNodeContent(cmd.Context(), client, id)
 	if err != nil {
 		return nil, api.MapError(err)
 	}

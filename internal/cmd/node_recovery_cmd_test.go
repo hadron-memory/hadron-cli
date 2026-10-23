@@ -350,6 +350,11 @@ func TestRecoveryGetContentIsASeparateOperationAndRawBytes(t *testing.T) {
 	if n := len(recOnly(t, calls(), "RecoveryNodeContent")); n != 1 {
 		t.Errorf("content is its own operation, got %d", n)
 	}
+	// The body is read by the stable id of the first read, never by the mutable
+	// ref, which could re-resolve to another tombstone.
+	if got := recOnly(t, calls(), "RecoveryNodeContent")[0].vars["nodeRef"]; got != "n1" {
+		t.Errorf("content must be read by the node id from the first read, got %v", got)
+	}
 	jsonOut, _, _, _ := recRun(t, srv, "node", "recovery", "get", recNodeURN, "--content", "--json")
 	var dto struct {
 		Content         *string `json:"content"`
@@ -509,9 +514,17 @@ func TestRestoreLostResponseIsNotRetriedAndSaysToVerify(t *testing.T) {
 
 func TestRecoveryNeverLeaksBodyOrDescriptionInErrors(t *testing.T) {
 	const sentinel = "PRIVATE-BODY-SENTINEL"
-	srv, _ := recoveryServer(t, func(c recCall) string { return `{"data":{"recoveryNode":null}}` })
-	out, errOut, _, _ := recRun(t, srv, "node", "recovery", "get", recNodeURN, "--content")
-	if strings.Contains(out+errOut, sentinel) {
+	srv, _ := recoveryServer(t, func(c recCall) string {
+		if c.op == "RecoveryNodeContent" {
+			return `{"errors":[{"message":"cannot decrypt"}],"data":null}`
+		}
+		return `{"data":{"recoveryNode":` + strings.Replace(recNodeJSON, `"description":`, `"description":"`+sentinel+`","x":`, 1) + `}}`
+	})
+	out, errOut, _, err := recRun(t, srv, "node", "recovery", "get", recNodeURN, "--content")
+	if err == nil {
+		t.Fatal("an unreadable body must be an error")
+	}
+	if strings.Contains(out+errOut+err.Error(), sentinel) {
 		t.Errorf("sentinel leaked")
 	}
 }
