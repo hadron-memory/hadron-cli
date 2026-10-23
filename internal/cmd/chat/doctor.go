@@ -336,7 +336,9 @@ func writeChannelCheck(w io.Writer, dto doctorDTO) {
 	}
 	fmt.Fprintln(w, "lifecycle: not provided by the server (no archived/live/superseded fact exists to report)")
 	if dto.OK {
-		fmt.Fprintln(w, "ok")
+		// Scoped to what was read: whether this is the chat your team actually
+		// uses is not something any field here can answer.
+		fmt.Fprintln(w, "ok: config parsed, chat resolved, Channel readable (not checked: whether this is the chat your team uses)")
 		return
 	}
 	for _, p := range dto.Problems {
