@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 76 unbound
+[Query] 73 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -65,9 +65,6 @@ nodeUsage  # deprecated by server #986 — never wrap it; usageEvents(loc:) is t
 previewAutomation  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 principalGrant
 quotaCounters
-recoveryEdges  # S1 schema refresh for cli#994; separate CLI parity, not part of the clone cut
-recoveryNode  # S1 schema refresh for cli#994; separate CLI parity, not part of the clone cut
-recoveryNodes  # S1 schema refresh for cli#994; separate CLI parity, not part of the clone cut
 renderRunNode
 resendSender
 resendSenders
@@ -83,7 +80,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 108 unbound
+[Mutation] 107 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -153,7 +150,6 @@ removeAppMember
 removeMemoryFromAgent
 repairAgentSystemMemory
 replaceSubtree  # server#1407: deprecated field; authorized calls return REPLACE_SUBTREE_RETIRED without writes
-restoreNode  # S1 schema refresh for cli#994; separate CLI parity, not part of the clone cut
 restoreRevision
 retryFailedEmbeddings
 revokeAgentOrgGrant
