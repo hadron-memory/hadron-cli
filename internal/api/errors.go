@@ -772,6 +772,17 @@ func codeForExtension(code string) int {
 		return exitcode.AuthRequired
 	case code == "NOT_FOUND" || strings.HasSuffix(code, "_NOT_FOUND") || code == "AiServiceConfigNotFoundError":
 		return exitcode.NotFound
+	// Boot-prompt pointer writes (cli#916 C2, hadron-server#2219 S8). The
+	// node is not a compiled prompt, has the wrong role, or sits in the wrong
+	// memory: an argument the caller fixes, so 2. (BOOT_PROMPT_POINTER_NOT_FOUND
+	// rides the _NOT_FOUND suffix above.) A pointer write from a bound worker
+	// session is refused because the manager must act as themselves (R23):
+	// a credential that is not permitted for this write, so 8.
+	case code == "BOOT_PROMPT_POINTER_NOT_COMPILED" || code == "BOOT_PROMPT_POINTER_WRONG_ROLE" ||
+		code == "BOOT_PROMPT_POINTER_WRONG_MEMORY":
+		return exitcode.Usage
+	case code == "BOOT_PROMPT_POINTER_SESSION_REFUSED":
+		return exitcode.Forbidden
 	// An include tag the write adds or changes whose target is missing,
 	// deleted or unreadable by the writer (hadron-server#2226, cor:dmo:150:04).
 	// The server gives the three one answer naming only the authored tag, so

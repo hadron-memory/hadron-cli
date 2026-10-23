@@ -20,6 +20,11 @@ fragment AgentFields on Agent {
   # #881: the base this Agent extends (cor:dmo:050:14), null when it
   # extends nothing.
   extendsAgentId
+  # cli#916 C2 (#2045 S8): the boot-prompt pointer and whether its target is
+  # deleted. BOTH NULL MEANS UNSET OR WITHHELD (masked for a caller who may not
+  # see it) — never proof that no pointer exists.
+  bootPromptRef
+  bootPromptTargetDeleted
   aiProvider
   aiModel
   hasAiApiKey
@@ -261,6 +266,17 @@ mutation CloneAgent(
   $slug: String
 ) {
   cloneAgent(source: $source, target: $target, name: $name, slug: $slug) {
+    ...AgentFields
+  }
+}
+
+# cli#916 C2 (#2045 S8, R23/R24): set or clear a boot-prompt pointer. nodeRef
+# deliberately has NO omitempty: the server reads an explicit null as the
+# clear and refuses an OMITTED one (BAD_USER_INPUT), so a nil pointer must go
+# out as null. GraphQL only; the manager acts as themselves, so these are not
+# on the session-attribution allowlist (team/write_attribution.go).
+mutation SetAgentBootPrompt($agentRef: String!, $nodeRef: String) {
+  setAgentBootPrompt(agentRef: $agentRef, nodeRef: $nodeRef) {
     ...AgentFields
   }
 }

@@ -131,6 +131,14 @@ query AppAgentRoster($appRef: ID!) {
       personaRole
       createdAt
     }
+    # cli#916 C2: each install's boot-prompt pointer (AppAgent.bootPromptRef,
+    # #2045 S8), joined onto the Agents above by agent id. agent is null when
+    # the caller may not read the definition, and such a row joins nothing.
+    appAgents {
+      agent { id }
+      bootPromptRef
+      bootPromptTargetDeleted
+    }
   }
 }
 
@@ -148,5 +156,16 @@ query GetAppSharedMemory($appRef: ID!) {
       class
       schema
     }
+  }
+}
+
+# cli#916 C2: an installed Agent's boot-prompt pointer for one App. nodeRef has
+# no omitempty, as SetAgentBootPrompt (agent.graphql) explains.
+mutation SetAppAgentBootPrompt($appRef: String!, $agentRef: String!, $nodeRef: String) {
+  setAppAgentBootPrompt(appRef: $appRef, agentRef: $agentRef, nodeRef: $nodeRef) {
+    agent { id urn name }
+    app { id urn name }
+    bootPromptRef
+    bootPromptTargetDeleted
   }
 }
