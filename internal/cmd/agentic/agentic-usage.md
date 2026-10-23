@@ -373,6 +373,7 @@ hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--p
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
 hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | balance <org> | ledger <org> [--limit N] [--offset N]   # spec-046 metering READS (cli#215); <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. No write commands (setting rates, granting credits) yet
 hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | list [--org <ref>] [--user <ref>] | revoke <id> --yes
+hadron email connections --org <id|urn> [--json]
 hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | list [--connection <ref>] | revoke <grant-id> --yes
 hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
 hadron secret create --name <n> --scope user|org [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | list --scope user|org [--owner <ref>] | rm <id> --yes
@@ -3381,3 +3382,14 @@ inventory. The report covers caller-visible data only.
   a prelookup. This differs from principal-action `hadron grant` and per-user
   Agent subscriptions. No subscribe/revoke/install/cleanup or implicit mine/agent
   scope is implemented by this read-only cut.
+
+
+`hadron email connections --org REF` reads connection metadata through the
+server's org-admin list gate. Explicit organization only; the server resolves
+the id or URN. This does not authorize mailbox reads, reconnects or sends.
+The existing unpaginated exchangeConnections list is used once; no page total
+or client completeness guarantee is invented. Empty JSON is []. Each row has
+{id,organizationId,userId,mailboxEmail,provider,displayName,syncEnabled,syncStatus,
+lastSyncAt,createdAt,updatedAt}; displayName/lastSyncAt preserve null. No credentials
+or lastError are selected. Text quotes external strings. Error mapping remains
+unchanged, including unknown tool failures; no guessed reconnect remedy.

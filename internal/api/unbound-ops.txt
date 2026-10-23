@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 70 unbound
+[Query] 69 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -35,7 +35,6 @@ dueWakes  # wake-surface v2; cli#828 tracks the paged attention surface, wake re
 edge
 edges
 effectiveActionPolicy
-exchangeConnections
 exchangeFolders
 exchangeMessages
 globalSearch
