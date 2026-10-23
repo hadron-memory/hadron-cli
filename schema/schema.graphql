@@ -1408,7 +1408,7 @@ type AppRun {
   """
   Total budgeted actions consumed (#832) — only actions actually admitted by
   the budget guard; a denied action counts nothing.
-
+  
   NULL means UNKNOWN, not zero: runs minted before the counter existed have
   no recorded action spend and, unlike tokens, no hop-trail signal to
   reconstruct one from. Reporting 0 would contradict their already-decremented
@@ -1505,17 +1505,17 @@ type AppRun {
   Total LLM tokens consumed by this run (#832). Unclamped, so it stays
   truthful when a hop overshoots the remaining budget — unlike
   budgetTokensInitial minus budgetTokens, whose decrement is clamped.
-
+  
   Counts every hop whose LLM call COMPLETED, including hops whose run later
   failed — strictly more than a sum over the hops trail, which has no element
   for a hop that did not complete.
-
+  
   KNOWN GAP: a hop aborted by the TOOL LOOP (a tool denied by policy, or a
   tool handler that threw) is NOT counted. The provider has already billed
   that call, but the tool-loop helper discards the accumulated usage when a
   tool throws, so the number is not available at the failure site. Such a run
   under-reports. Do not treat this as a billing figure.
-
+  
   NULL means UNKNOWN: a run minted before the counter existed, with no hop
   trail to back-fill from. 0 means it genuinely spent nothing.
   """
@@ -1684,11 +1684,11 @@ type Asset {
 
   """
   Stable, UNAUTHENTICATED hotlink to the bytes (GET /assets/<id>).
-
+  
   Anyone with this URL can fetch the file — there is no read gate on
   it. A deliberate, temporary posture; see src/api/assetPublic.ts. Do
   not present it in a UI as though it were access-controlled.
-
+  
   Null when the server has no BASE_URL configured (no canonical
   origin to build an absolute URL from), when the asset is not
   CLEAN, or when its memory is encrypted — encrypted memories are
@@ -1712,7 +1712,7 @@ type Asset {
   """
   The asset's URN, grammar v2 (cor:urn:010:01): hrn:asset:<root>:<mem...>:assets:<asset.id>,
   emitted by emitAssetUrnV2 from the holding memory's STORED urn.
-
+  
   <mem...> is one or more atoms, not always one. A per-user memory urn minted
   before the #697 Stage-3 flip is still compound (<root>:<agent>:app-user:<id>
   and friends), and each extra memory atom lengthens the asset URN with it —
@@ -1720,7 +1720,7 @@ type Asset {
   holding memory must take everything between the type word and that marker,
   never a fixed two-atom prefix. Prefer locating the LAST 'assets' atom and
   reading the id after it (assetIdFromRef does exactly this).
-
+  
   Two degraded shapes a parser must tolerate, both of which really occur:
     * hrn:asset:unknown:assets:<asset.id> — the holding memory row could not
       be loaded. Carries no memory identity at all.
@@ -1729,7 +1729,7 @@ type Asset {
       charset-invalid atom in the stored memory urn). It interpolates the
       stored memory urn verbatim, which is normally bare (<root>:<slug>), so
       this shape usually looks like acme.com:docs:assets:<id>.
-
+  
   A third oddity is reachable through the NORMAL branch, not a fallback: a
   legacy memories.urn row that predates the chk_memory_urn_not_prefixed
   guardrail can still hold a rendered hrn:mem:-prefixed value, and that
@@ -2083,7 +2083,7 @@ type Channel {
   node resolver takes (`urn:node:`, bare fully-qualified, canonical `::`);
   this field emits the one to copy. COPY it rather than composing one: a
   Channel a ref fails to name is indistinguishable from one you may not read.
-
+  
   NULL when the server has no flat-v2 address it can safely advertise —
   commonly a pre-v2 compound host memory URN, which flattens into a node URN
   that cannot be split back. It does NOT mean the Channel is unaddressable in
@@ -4648,7 +4648,7 @@ type Memory {
   double-colon chain, a legacy single-colon row and an already-v2 row all read
   back identically here. <slug...> is one atom for a migrated memory but still
   several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
-
+  
   The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
   chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
   field is the rendered view of it. When emission throws, the stored value is
@@ -4913,15 +4913,15 @@ input MemoryFilter {
   definition, so orgId is not consulted. App-key callers (no user context)
   and impersonated sessions get an empty page. Powers the portal's
   "My memories".
-
+  
   "Owns it" is PER CLASS, because Memory has two independent owner columns
   and the read gates already split on exactly this line (canReadMemoryRecord
   and the MCP canReadMemory both branch on personal/private FIRST and admit
   userId there, falling through to ownerUserId for every other class):
-
+  
     - personal / private → userId, the STRICT owner;
     - every other class  → ownerUserId, the spec-047 user TENANT owner.
-
+  
   This is where the memory filter is NECESSARILY wider than its Agent and
   App siblings, which have one owner column each and can say ownerUserId
   alone. Keying memories on ownerUserId alone would hand a personal memory
@@ -4929,12 +4929,12 @@ input MemoryFilter {
   nothing constrains them to agree — while memory(ref:) refuses that same
   caller. Keying on the class pair alone was the ORIGINAL defect: it was
   only ever a proxy for ownership, correct while the two coincided (#1176).
-
+  
   So a knowledge-class memory under a user root
   (hrn:mem:holger:holgers-gear) is in this slice, and an ORG-owned personal
   memory is not (it has an organizationId) — which matches what the
   portal's class-plus-client-side-repair query already returned.
-
+  
   Composes by AND like every other clause, so it only ever narrows:
   combined with visibility PUBLIC it is empty by construction (#758
   excludes user-owned rows from the marketplace slice), and combined with
@@ -5304,7 +5304,7 @@ type Mutation {
 
   """
   Acquire (or renew) the editor lock for an Agent's system memory.
-
+  
   Accepts the entity's ID or URN.
   """
   acquireEditorLock(agentId: ID!): EditorLockResult!
@@ -5312,7 +5312,7 @@ type Mutation {
   """
   DEPRECATED: use installAgentIntoApp. Carried for source-compat with
   pre-023 portal callers.
-
+  
   Accepts the entity's ID or URN.
   """
   addAgentToApp(agentRef: ID!, appRef: ID!, trainingMode: Boolean): App! @deprecated(reason: "Use installAgentIntoApp (spec 023-app-shape US1). Returns Payload type with the AppAgent row.")
@@ -5321,11 +5321,11 @@ type Mutation {
   023-app-shape US4 — add a team member to a group-class Memory.
   Idempotent on the (memoryId, userId) PK: re-calling with a
   different role upserts the role.
-
+  
   The caller MUST be an owner of the Memory (role = owner). The
   bootstrap case is handled by createMemory itself, which adds the
   creator as the first owner of a newly-created group memory.
-
+  
   Error codes (extensions.code, Error.name style):
     - UNAUTHENTICATED — no logged-in user in context.
     - FORBIDDEN — caller is not an owner of the memory. (Uniform
@@ -5355,7 +5355,7 @@ type Mutation {
 
   """
   Attach a Memory to an Agent.
-
+  
   Accepts the entity's ID or URN.
   """
   addMemoryToAgent(agentRef: ID!, memoryRef: ID!, role: String): Agent!
@@ -5396,7 +5396,7 @@ type Mutation {
   """
   #1334 — copy a template's rules into ONE memory's config. A one-off copy:
   later template edits never reach this memory, and re-applying is explicit.
-
+  
   Needs MANAGE on the memory (else MemoryNotFound) and on the template,
   which exists for you only if you manage its owner (else
   MEMORY_CONFIG_TEMPLATE_NOT_FOUND). The rules are validated as a whole,
@@ -5404,12 +5404,12 @@ type Mutation {
   references (NODE_NOT_FOUND for one you cannot read, NOT_A_TASK), and a
   template rule whose task was deleted refuses the whole apply
   (NODE_ROLE_RULE_REF_BROKEN). All-or-nothing per memory.
-
+  
   When the memory already has a rule for a role, a non-required template
   skips it and a required template replaces it. A LOCKED rule is only
   replaced by a caller with lock authority (see unlockNodeRoleRule);
   otherwise SKIPPED_LOCKED. Rules written by a required template are locked.
-
+  
   expectedTemplateRevision: CONFLICT (with currentRevision) if the template
   changed since you read it. dryRun: the same report with nothing written.
   """
@@ -5455,13 +5455,13 @@ type Mutation {
 
   """
   Attach an EXISTING free-standing memory to an App.
-
+  
   Applies only to 'personal'/'private' memories owned by the caller (an
   'app'-class memory can't be free-standing, so there is nothing to attach).
   Sets the App and Agent scope; the memory's URN, class, and owner are
   unchanged. memoryRef/appRef/agentRef accept an ID, bare URN, or prefixed
   URN; the Agent must be installed in the App. Requires App membership.
-
+  
   Typed errors: UNSUPPORTED_MEMORY_CLASS, MEMORY_ALREADY_APP_SCOPED,
   APP_UNINSTALLED, AGENT_NOT_INSTALLED, FORBIDDEN, ORGANIZATION_MISMATCH.
   """
@@ -5534,13 +5534,13 @@ type Mutation {
   Casting is opt-in, never requires a Team Agent (an explicit name skips the
   register entirely), and multiple castings of one agent per App are legal
   (Iris and Henry, both backend-engineer).
-
+  
   Agent resolution: agentRef when given (must be installed here —
   WORKER_AGENT_NOT_INSTALLED); otherwise role picks the single installed
   agent whose personaRole matches (zero / several candidates:
   WORKER_AGENT_NOT_FOUND / WORKER_AGENT_AMBIGUOUS, never a guess). The
   casting's role defaults to the agent's personaRole when role is omitted.
-
+  
   The name (cor:agt:020:02) is REQUIRED since #1050 — one attempt, and
   WORKER_NAME_TAKEN is the answer. There is no register to fall back to: a
   name is permanent within the App, so it is chosen and never derived, and a
@@ -5552,30 +5552,30 @@ type Mutation {
   caseless) must also be distinct within the App, including retired workers. A collision refuses
   WORKER_NAME_CONFUSABLE and names the existing worker; the chosen display
   spelling is preserved. Existing workers are not renamed or invalidated.
-
+  
   A worker-scoped working memory is provisioned in the App's container
   (Worker.memoryId; best-effort — a failed provision leaves it null for
   lazy provisioning).
-
+  
   Authorization: an org member with CONTRIBUTOR+ on the App's org, an
   AppMember of the App whose role is not 'reader', or the owner of a
   user-owned App. Pure App-key principals are denied.
-
+  
   Error codes (extensions.code): WORKER_NAME_TAKEN, WORKER_NAME_CONFUSABLE,
   WORKER_NAME_REQUIRED, WORKER_AGENT_NOT_INSTALLED,
   WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS, APP_UNINSTALLED.
-
+  
   #1050 also removed WORKER_ROLE_NOT_FOUND from this mutation: it fired only
   because a nameless cast had to find a roles:<role> node to read a register.
   An unrecognized role now resolves no agent (WORKER_AGENT_NOT_FOUND) or, with
   an explicit agentRef, is simply the casting's label.
-
+  
   #1050: the TEAM_AGENT_* and SESSION_EXPIRED refusals are gone from this
   mutation. They were reachable only because a nameless cast had to locate a
   Team Agent and read its (possibly encrypted) system memory to find a
   register. Casting now touches no system memory at all, so teamAgentRef is
   gone too rather than left accepted-and-ignored.
-
+  
   Accepts the entity's ID or URN for appRef and agentRef.
   """
   castWorker(
@@ -5597,12 +5597,12 @@ type Mutation {
 
   """
   Clear an Agent's AI provider config without returning or decrypting keys.
-
+  
   Clearing a user-owned Agent, by its owner or a platform ADMIN/OWNER,
   removes every named configuration, including disabled configurations.
   hrn:node:hadronmemory.com:specs:cor:dmo:050:13
   An org-owned Agent clear deletes only the configuration named 'default'.
-
+  
   Accepts the entity's ID or URN.
   """
   clearAgentAIConfig(agentId: ID!): Agent!
@@ -5631,23 +5631,23 @@ type Mutation {
 
   """
   Clone a Memory into a new Memory at `targetUrn`.
-
+  
   `ref` accepts the source's ID or URN. `targetUrn` is a fully-qualified
   "root:slug" memory URN naming the clone; its org segment MAY differ from
   the source's, cloning the memory into another organization. The clone's
   display name is derived from the target slug.
-
+  
   Copies the Memory row plus all live Nodes, Edges, and PendingEdges;
   references to the source memory's URN inside node content/abstract
   (canonical and legacy spellings) are rewritten to the clone's URN.
   Vector-index config carries over and the clone's nodes are stamped for
   re-embedding.
-
+  
   NOT copied: revision history, subscriptions, shares, group members
   (the caller is bootstrapped as a group clone's first owner), sessions,
   licenses, log entries, assets, and git-sync config (the clone starts
   DB-only).
-
+  
   Include tags (#2167; hrn:node:hadronmemory.com:specs:cor:dmo:150:04 and
   hrn:node:hadronmemory.com:specs:cor:dmo:150:06): every tag in every copied node
   counts as added, checked after the URN rewrite. A tag whose target is
@@ -5655,7 +5655,7 @@ type Mutation {
   INCLUDE_TARGET_UNAVAILABLE. A tag that closes a cycle among the copied
   nodes refuses with INCLUDE_CYCLE, at any chain length. Either refusal names
   only the authored tag and nothing is created.
-
+  
   Authorization: the SOURCE side mirrors deleteMemory (personal/private →
   owner only; knowledge/group → source-org ADMIN). When `targetUrn` names a
   DIFFERENT org, the caller must additionally be a non-reader member of that
@@ -5697,18 +5697,18 @@ type Mutation {
   URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
   v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
   (org XOR user).
-
+  
   personaRole and systemPrompt are the persona dressing (cor:agt:020:01) —
   the reusable role plus the '{{name}}'-templated prompt. The NAMED
   identity is a Worker, cast with castWorker; names never live on agents.
-
+  
   orgId accepts the org's ID or URN.
   """
   createAgent(description: String, name: String!, orgId: ID, personaRole: String, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, usesTasks: Boolean, visibility: AgentVisibility): Agent!
 
   """
   Subscribe an organization to a PUBLIC Agent without creating an App.
-
+  
   Accepts the entity's ID or URN.
   """
   createAgentOrgGrant(agentRef: ID!, orgRef: ID!): AgentOrgGrant!
@@ -5748,7 +5748,7 @@ type Mutation {
 
   """
   036-ai-service-config: create a named AI config on an owner entity.
-
+  
   apiKey semantics: non-empty = encrypted at rest with a masked preview.
   Omitted is accepted only where a run may use the server's own
   credential: a HADRON_SERVER config for openai, anthropic or bedrock at
@@ -5762,7 +5762,7 @@ type Mutation {
   Name must be 1-64 lower-case [a-z0-9_-], unique per
   owner. provider must be a known provider; params are validated per
   provider.
-
+  
   Auth: as aiServiceConfigs. ownerId accepts ID or URN
   (HADRON_SERVER: ID only).
   """
@@ -5791,7 +5791,7 @@ type Mutation {
   Create an App and install its initial Agent. With orgRef, the App is owned
   by that Organization and requires org ADMIN; without orgRef, it is owned by
   the authenticated User and remains owner-only.
-
+  
   An org-owned install auto-provisions an AgentOrgGrant only for its own
   Agent. A cross-org install requires an existing active grant; subscribe to
   a PUBLIC Agent through createAgentOrgGrant before creating the App.
@@ -5800,10 +5800,10 @@ type Mutation {
   Required AgentImports cascade automatically for org-owned Apps; optional
   imports cascade only when their id appears in installOptional. Personal
   Apps reject dependency cascades in v1.
-
+  
   Selected dependencies must also be licensed before any App is created.
   The server enforces this even when a caller bypasses the portal.
-
+  
   Accepts the entity's ID or URN.
   """
   createApp(
@@ -5866,7 +5866,7 @@ type Mutation {
   (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
   Never an App key, a bound worker session or an impersonated request; new keys hold no scopes.
   Granting or revoking scopes uses the same manager audience.
-
+  
   Accepts the entity's ID or URN.
   """
   createAppKey(appRef: ID!, label: String): AppKeyCreated!
@@ -5961,7 +5961,7 @@ type Mutation {
   """
   Create a memory in an organization. Accepts the entity's ID or URN
   for orgId.
-
+  
   Defaults to knowledge-class with ORGANIZATION visibility. Pass
   memoryClass: group + visibility: GROUP for a group-class memory
   (023-app-shape US4; the caller is auto-added as the first owner),
@@ -6040,17 +6040,17 @@ type Mutation {
 
   """
   Add a NEW memory to an App, born App-scoped.
-
+  
   Unlike createMemory (which only makes free-standing memories), this scopes
   the new memory to an App. memoryClass accepts only the App-associable
   classes: 'app', 'personal', or 'private' ('system'/'knowledge'/'group'
   forbid an app_id). appRef/agentRef accept an ID, bare URN, or prefixed URN;
   the Agent must be installed in the App.
-
+  
   Authorization is split by class: 'app' is shared deployment data and
   requires org OWNER/ADMIN; 'personal'/'private' are the caller's OWN memory
   and require only App membership (the caller becomes the owner).
-
+  
   Typed errors: UNSUPPORTED_MEMORY_CLASS, BAD_USER_INPUT (maxRevCount < 1),
   APP_UNINSTALLED, AGENT_NOT_INSTALLED, MEMORY_URN_CONFLICT, FORBIDDEN,
   UNAUTHENTICATED.
@@ -6063,23 +6063,23 @@ type Mutation {
   write access. Used for the per-pairing pattern (Alice's
   paired-with-Mentor-A memory is distinct from her
   paired-with-Mentor-B memory; each gets its own MemoryShare).
-
+  
   Upsert semantics: re-calling with a different role on an existing
   (memoryId, granteeId) pair updates the role rather than throwing.
-
+  
   For v1 the caller MUST be the principal themselves (memory.userId
   === ctx.userId). The Agent-mediated path (App backend acting on
   the principal's behalf via MCP) is supported by the access-control
   predicate but not by this GraphQL surface — see the deferred
   policy discussion linked from joinApp.ts.
-
+  
   Share-audience rule (#778): a plain ORG-OWNED personal memory
   (organizationId set, no agent scope) may be shared ONLY with a
   current member of that org; a FREE-STANDING (org-less) personal
   memory may be shared with any user. Agent-scoped personal memories
   (the spec-023 per-pairing App pattern) are exempt — their audience
   is governed by AppMember + AgentSubscription, not org membership.
-
+  
   Error codes (extensions.code, Error.name style):
     - UNAUTHENTICATED — no logged-in user in context.
     - FORBIDDEN — caller is not the Memory's principal. The
@@ -6114,7 +6114,7 @@ type Mutation {
 
   """
   Create a cross-org Memory subscription.
-
+  
   Accepts the entity's ID or URN.
   """
   createMemorySubscription(
@@ -6161,7 +6161,7 @@ type Mutation {
   An object IS a node; these ops are thin projections onto createNode /
   updateNodeProperties / deleteNode, inheriting all their invariants
   (auth, encryption, schema conformance, revisions, atomic merge).
-
+  
   Create an object in a collection. 'memoryRef' is a memory ID or
   fully-qualified URN (relative refs are rejected, spec 022). 'type' is the
   collection (node objectType); 'fields' are the flat, typed properties
@@ -6211,14 +6211,14 @@ type Mutation {
   #1201 — the CREATE door for the review kind. A write that would produce a
   node with role: 'review' or a dotted 'review.*' sub-role must come through here; the generic createNode
   refuses it.
-
+  
   PURE ROUTING: it validates nothing and knows nothing beyond which kind it is
   the door for. The authoring RULES stay in the tool that owns them ('hadron
   spec', 'hadron coding'), which is a closed-list exception on the audience
   ground.
-
+  
   STRENGTH: SECURITY. A review is not coding-specific — any work performed can be reviewed, and a review may be a SAFETY CHECK. So an attacker can modify a work assignment AND remove the reviews meant to catch that. Omitting the label is self-defeating in its own way: an unlabelled check is invisible to the review tooling, so it is not a check.
-
+  
   Exempt from its OWN kind only — it is fully subject to every other kind and
   to Channel address protection, so it cannot forge a chat message.
   This mutation is not itself an MCP tool; its MCP counterpart is the
@@ -6229,7 +6229,7 @@ type Mutation {
 
   """
   Snapshot an Agent's system memory as a new revision.
-
+  
   Accepts the entity's ID or URN.
   """
   createRevision(agentId: ID!, description: String): RevisionResult!
@@ -6267,14 +6267,14 @@ type Mutation {
   #1201 — the CREATE door for the spec kind. A write that would produce a
   node with role: 'spec' or a dotted 'spec.*' sub-role must come through here; the generic createNode
   refuses it.
-
+  
   PURE ROUTING: it validates nothing and knows nothing beyond which kind it is
   the door for. The authoring RULES stay in the tool that owns them ('hadron
   spec', 'hadron coding'), which is a closed-list exception on the audience
   ground.
-
+  
   STRENGTH: DILIGENCE. It guarantees a spec node was authored by the spec tool (#1152, and the corpus discipline resting on it). It does NOT claim a determined caller could not author one another way: the label is free to omit and a citation resolves without it. Specs are deliberately not treated as a security concern; the destructive half is closed by #1182/#1184, which made createNode mint-or-refuse and race-safe.
-
+  
   Exempt from its OWN kind only — it is fully subject to every other kind and
   to Channel address protection, so it cannot forge a chat message.
   Deliberately NOT an MCP tool: an agent's node surface is hadron_create_node,
@@ -6286,14 +6286,14 @@ type Mutation {
   #1201 — the CREATE door for the task kind. A write that would produce a
   node with isRunnable: true must come through here; the generic createNode
   refuses it.
-
+  
   PURE ROUTING: it validates nothing and knows nothing beyond which kind it is
   the door for. The authoring RULES stay in the tool that owns them ('hadron
   spec', 'hadron coding'), which is a closed-list exception on the audience
   ground.
-
+  
   STRENGTH: CAPABILITY. The only one of the three whose gate cannot be evaded by omission, which is why it carries the security case. It keys on 'isRunnable' rather than on 'role': a label is caller-set and freely dropped, while omitting the capability means the node does not run. The threat is a memory shared with someone who authors a runnable node that reads the owner's data when the OWNER runs it (#1202).
-
+  
   Exempt from its OWN kind only — it is fully subject to every other kind and
   to Channel address protection, so it cannot forge a chat message.
   This mutation is not itself an MCP tool; its MCP counterpart is the
@@ -6308,7 +6308,7 @@ type Mutation {
   the Team Agent's shared app-class memory, bootstrapped on first post.
   The message is written through the atomic chat-message allocator (#919),
   so racing posts get distinct consecutive seqs.
-
+  
   Author derivation (#974): with sessionRef, the message is authored by
   that session's bound Worker (the session must be writable by the caller, a
   session OF this App, active, and bound to a non-retired Worker OF this
@@ -6318,12 +6318,12 @@ type Mutation {
   mentioned by its slug, e.g. '@mary-jane') are extracted server-side at
   write time into the envelope. replyToSeq wires a replies-to edge to the
   cited message. body is capped at 65536 characters.
-
+  
   Authorization: an AppMember of the App (any role — every member of the
   host is a participant per cor:acl:030:01), an org member with
   CONTRIBUTOR+ on the App's org, or the owner of a user-owned App. Pure
   App-key principals cannot post.
-
+  
   Spec 049 Phase 8 (item J): the worker-App pin became the host-memory
   write check. A session's Worker authors here when its App is this one,
   OR when the session's on-behalf-of user may write the Channel's host
@@ -6331,7 +6331,7 @@ type Mutation {
   admitted only on the same-App branch. SESSION_NOT_IN_APP and
   SESSION_WORKER_NOT_IN_APP are retired; CHANNEL_HOST_NOT_WRITABLE is the
   successor code.
-
+  
   Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE,
   TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
   SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
@@ -6341,7 +6341,7 @@ type Mutation {
   caller who is not a participant), UNAUTHENTICATED (no principal at all: no
   token, an expired or unverifiable one; checked before the App is resolved,
   so it answers identically whether or not the App exists).
-
+  
   appRef accepts the entity's ID or URN; sessionRef is the session id.
   """
   createTeamChatMessage(appRef: ID!, body: String!, replyToSeq: Int, sessionRef: ID): TeamChatMessage!
@@ -6354,7 +6354,7 @@ type Mutation {
   definition-edit gate: whoever may write the agent's system memory through
   the generic node surface may write roles — the write delegates to that same
   seam (encryption, revision snapshot, git mirror included).
-
+  
   #1024 deliberately does NOT take `repos` here — set it with
   updateTeamRole. A create that also wrote data could not be made atomic: the
   write resurrects a tombstone through an unguarded upsert branch, and
@@ -6362,7 +6362,7 @@ type Mutation {
   between the halves (the role lands, the repo write refuses). Two explicit
   calls put that seam where the caller can see and retry it, instead of hiding
   a non-atomic pair inside one mutation.
-
+  
   #1050: a role definition no longer carries a NAME REGISTER. There is no
   names / nameRange / nameConvention / allowOutOfRange, and no register
   invariants to run, because names are not allocated — a cast supplies its
@@ -6390,7 +6390,7 @@ type Mutation {
 
   """
   User invitations (org ADMIN or platform ADMIN).
-
+  
   Accepts the entity's ID or URN.
   """
   createUserInvitation(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, memberRole: Role!, name: String, orgId: ID!): UserInvitation!
@@ -6399,9 +6399,9 @@ type Mutation {
   Soft-delete an Agent and its owned system memory. Refuses while a live
   App install or live parent Agent import references it, or a live Agent
   extends it as its base. AgentMemoryItem attachments do not block deletion.
-
+  
   See hrn:node:hadronmemory.com:specs:cor:dmo:050:14.
-
+  
   Accepts the entity's ID or URN.
   """
   deleteAgent(ref: ID!): Boolean!
@@ -6411,14 +6411,14 @@ type Mutation {
   """
   036-ai-service-config: delete a named AI config (hard delete; the
   resolution walk simply no longer finds it).
-
+  
   Auth: admin rights on the owning entity (as aiServiceConfigs).
   """
   deleteAiServiceConfig(id: ID!): Boolean!
 
   """
   Soft-delete an App.
-
+  
   Accepts the entity's ID or URN.
   """
   deleteApp(ref: ID!): Boolean!
@@ -6469,7 +6469,7 @@ type Mutation {
 
   """
   Soft-delete a Memory.
-
+  
   Accepts the entity's ID or URN.
   """
   deleteMemory(id: ID!): Boolean!
@@ -6483,7 +6483,7 @@ type Mutation {
   023-app-shape US3 — delete a MemoryShare. Per FR-022, revocation
   takes effect on the next read (there's no "deactivated" state;
   just a row delete). Renamed from revokeMemoryShare in #785.
-
+  
   Caller-authority rule (#785) — principal OR self, the same shape
   removeMemoryMember uses:
     - The memory's principal (memory.userId) may delete ANY grantee
@@ -6493,7 +6493,7 @@ type Mutation {
       stop-sharing-with-me / leave path. Omit granteeRef entirely and
       the mutation targets the caller's own share.
     - Everyone else gets FORBIDDEN.
-
+  
   On the self path the SHARE ROW itself is the authorization, so that
   path is idempotent only up to the row's lifetime: repeating a
   successful leave answers FORBIDDEN (you already left). That is what
@@ -6506,7 +6506,7 @@ type Mutation {
   users can be enumerated here. (A principal, who by definition
   already knows the memory exists, still gets NOT_FOUND for a
   granteeRef that resolves to nobody.)
-
+  
   A grantee may leave a memory whose owner has soft-deleted it (the
   row would otherwise be stranded); the principal path still treats a
   soft-deleted memory as FORBIDDEN.
@@ -6525,7 +6525,7 @@ type Mutation {
 
   """
   Delete a cross-org Memory subscription.
-
+  
   Accepts the entity's ID or URN.
   """
   deleteMemorySubscription(
@@ -6548,7 +6548,7 @@ type Mutation {
   remove the row entirely (cascades edges + NodeRevision via FK) —
   irreversible. #391. A re-delete of an already soft-deleted node is
   idempotent (the ref resolves through the tombstone).
-
+  
   If the node has descendants (nodes under its loc prefix), a plain delete
   REFUSES with NODE_HAS_DESCENDANTS (carrying the count) rather than silently
   orphaning the subtree — parity with the hadron_delete_node MCP tool. Pass
@@ -6556,7 +6556,7 @@ type Mutation {
   PLUS every descendant, matched on ':' path boundaries (so deleting 'auth'
   does not touch 'authoring'). The subtree lives in one memory, so the single
   write-access check covers it; 'hard' applies to the whole subtree.
-
+  
   A hard delete cascades edges on both endpoints via FK. If any affected node
   is on an edge that bridges this memory to another, the hard delete REFUSES
   with CROSS_MEMORY_EDGES (the caller may not own the other memory) unless
@@ -6584,7 +6584,7 @@ type Mutation {
 
   """
   Soft-delete an Organization.
-
+  
   Accepts the entity's ID or URN.
   """
   deleteOrganization(id: ID!): Boolean!
@@ -6617,13 +6617,13 @@ type Mutation {
   any sub-nodes under it (roles:<role>:notes is content OF the role), so the
   subtree is recoverable. Unknown role: WORKER_ROLE_NOT_FOUND. Same
   authorization as createTeamRole.
-
+  
   #1050: unconditional. The minted-name check, TEAM_ROLE_IN_USE, transferTo's
   one-step supersede, the post-delete recheck and the restore compensation
   all existed to protect the REGISTER as a ledger of which names had been
   allocated to this role; with no register there is no ledger to protect and
   no second write to compensate for.
-
+  
   What that machinery protected is unchanged, and was never the register's
   doing: a Worker's name is permanent per App (cor:agt:020:02, enforced by
   workers_app_name_uniq irrespective of any role), so deleting a role can no
@@ -6642,20 +6642,20 @@ type Mutation {
   Delete a user account (self-serve account deletion, Apple 5.1.1(v) /
   GDPR erasure posture). Requires a user credential (JWT or hdr_user key);
   App-key callers are rejected.
-
+  
   Omitting userRef deletes the CALLER's own account (no role needed).
   A platform ADMIN/OWNER may name another user; userRef accepts the
   user's ID, handle, or hrn:user:<handle> URN. Any other caller naming a
   target receives the same FORBIDDEN error whether or not that user
   exists (no user-enumeration oracle).
-
+  
   Org memberships auto-resolve: an org where the target is the only
   active OWNER but which still has OTHER active members BLOCKS deletion
   (error code SOLE_ORG_OWNER, extensions.organizations lists the
   blockers - transfer ownership first, nothing is deleted); an org where
   the target is the ONLY active member is soft-deleted with the account;
   plain memberships are revoked.
-
+  
   Owned data is hard-erased: personal/private and user-owned memories,
   user-owned Apps and Agents (with their standard delete cascades),
   sessions, OAuth/handoff codes, provider connections, grants, shares,
@@ -6722,7 +6722,7 @@ type Mutation {
   matching verifier; impersonation and sibling Apps grant no authority. Live and
   historical node fields are converted in bounded locked passes. One-way
   without the key: the server cannot recover the content.
-
+  
   Accepts the entity's ID or URN.
   """
   encryptMemory(dataKey: String, memoryId: ID!, passphrase: String): Memory!
@@ -6735,7 +6735,7 @@ type Mutation {
   hard expiresAt promised at session start has passed, never for going
   quiet. A client's chat session ending **does not end a worker session**, and
   never reaches this server (#1034).
-
+  
   It ends the SESSION, not any HOLD. Where a person bound the worker the name
   stays theirs until explicitly released (#1050,
   [`cor:agt:020:09`](hrn:node:hadronmemory.com:specs:cor:agt:020:09)), so
@@ -6744,24 +6744,24 @@ type Mutation {
   this returns: an eligible user may have forced a binding meanwhile and taken
   the name, and ending the App-key session leaves that hold and that session
   untouched.
-
+  
   Gate (#931): platform admin, the session's App, or the attributed user
   (not via impersonation). An App key ends only user-less sessions (never one
   a person is behind), never a host-launched one, and a key ever granted
   host:operate ends none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04);
   a host ends a launched session only by reporting its worker.end.
-
+  
   `handoff` is agent-composed prose: what landed, what is open, what is
   blocked, what the next driver should not repeat. The server owns where it
   goes (the worker's working memory, under the `handoffs` parent, at a
   lexically-ordered loc), so no client re-derives the convention.
-
+  
   `summary` is NOT a smaller `handoff` (#1100). It sets `Session.summary`,
   a label on the session row — readable back through `session` / `sessions`,
   but read by no worker-continuity path, so the next driver never sees it. The
   two sit side by side and only one of them reaches that driver, so a caller
   writing a closing note picks by name: it is `handoff`.
-
+  
   The two mistakes are not symmetric, and that is the whole hazard. Putting
   continuity prose in `summary` succeeds, returns a normal receipt, and
   produces NO handoff — discovered only once the context that could have
@@ -6770,14 +6770,14 @@ type Mutation {
   bind again and end THAT session with the prose. Putting a label in
   `handoff` is merely untidy: the row lacks its label and the text reaches
   the next driver anyway.
-
+  
   Written BEFORE the session ends, and a failed write REFUSES the end
   (HANDOFF_WRITE_FAILED) rather than ending anyway: a still-bound worker is
   recoverable — retry, or end without a handoff deliberately — while an ended
   session whose handoff evaporated is not, because the context that composed
   it is gone. Passing `handoff` on a session with no worker is refused rather
   than dropped; there is no sequence to write it to.
-
+  
   #1956: `resumeClaim: true` also writes a resume claim, after the handoff
   and before the end, so the fresh context of a rotation starts this worker's
   next session with resumeSession and no arguments (see createResumeClaim).
@@ -6792,7 +6792,7 @@ type Mutation {
   rejected if the App's current member count meets or exceeds the
   Agent's installationPolicy.maxMembers. Updating an existing member's
   role does NOT trigger the maxMembers check.
-
+  
   Accepts the entity's ID or URN.
   """
   ensureAppMember(
@@ -6824,26 +6824,26 @@ type Mutation {
   """
   Extract a parent node and its whole loc-subtree into a BRAND-NEW memory,
   making the parent the new memory's root.
-
+  
   The subtree is loc-prefix defined: the node at the parent's loc plus every
   live descendant (loc starting with 'parentLoc:'). Locs are REBASED so the
   parent becomes the root — 'findings:auth' becomes the memory slug and
   'findings:auth:oauth' becomes '<slug>:oauth'. Edges wholly inside the
   subtree carry over (their loc re-derived from the rebased endpoints);
   boundary-crossing edges and PendingEdges are dropped.
-
+  
   'parentRef' is the parent node's ID or fully-qualified URN. 'targetUrn' is
   a fully-qualified '<root>:<slug>' URN naming the new memory (it may land in
   a DIFFERENT org). 'move' = false (default) COPIES the subtree, leaving the
   source intact; 'move' = true relocates it, soft-deleting the source subtree
   (its nodes, the source memory's touching edges, and its pending edges).
-
+  
   The new memory PRESERVES the source's class so an extract never widens who
   can read the content: a member-restricted 'group' stays group, a
   personal/private source stays owner-owned, knowledge stays knowledge.
   Governance/config (requiresLicense, chunk dials, revision cap, acceptsUploads)
   carries over from the source.
-
+  
   Authorization: read access to the source memory (denial reads as
   NODE_NOT_FOUND). For knowledge/group sources the caller needs the SOURCE
   org's memory.clone grant (an export) AND the destination org's memory.create
@@ -6852,7 +6852,7 @@ type Mutation {
   'move' additionally requires source write access, and cannot target the
   source root (that would empty the source — clone + deleteMemory instead).
   Encrypted and system/app-class sources are rejected.
-
+  
   Include tags (#2167; hrn:node:hadronmemory.com:specs:cor:dmo:150:04 and
   hrn:node:hadronmemory.com:specs:cor:dmo:150:06): every tag in every copied node
   counts as added and is resolved where it lands in the new memory. First, a
@@ -6865,7 +6865,7 @@ type Mutation {
   whose loc equals a rebased loc also refuses (R188), and is never rewritten. A tag that closes a cycle refuses
   with INCLUDE_CYCLE. Either refusal names the tag as it stands in the copy,
   and nothing is created or moved.
-
+  
   v1 limitation: apart from include tags, node content is copied verbatim —
   because both the slug and node locs change, other URN references among the
   moved nodes WILL break; and
@@ -6916,7 +6916,7 @@ type Mutation {
   Install an Agent into an App (023-app-shape US1). Creates an AppAgent
   row joining the two. An App can have multiple Agents installed; one
   credential addresses all of them.
-
+  
   This is the ONE operation that attaches an EXISTING Agent to an EXISTING
   App — distinct from createApp (which makes a NEW App from an Agent). It
   is therefore also the re-attach that cor:dmo:050:03 promises: detaching an
@@ -6926,17 +6926,17 @@ type Mutation {
   agents are available); the App's STAFF are its Workers, cast from
   installed agents with castWorker. Worker rows survive uninstall
   (cor:dmo:050:11) — uninstalling severs future casting, not history.
-
+  
   Rejects with code DUPLICATE_APP_AGENT when the Agent is already
   installed in the App.
-
+  
   Authorization: the owner of a user-owned App, or an org member with
   CONTRIBUTOR+ on an org-owned App's org (platform admins included). NOT
   plain AppMembers: installing an existing Agent is itself a read grant on
   that Agent's design — its system memory becomes readable from every App
   context, and the returned Agent carries its systemPrompt — so this gate
   stays at the level that can already read the org's Agents.
-
+  
   Accepts the entity's ID or URN for both appRef and agentRef. Optional
   trainingMode flag updates the per-App training flag (applies to
   every installed Agent — training mode is per-App, not per-Agent,
@@ -6973,14 +6973,14 @@ type Mutation {
   joins the App as an AppMember. NO OrgMember check (spec 023 FR-009)
   so this works for B2C / consumer / therapy use cases where the
   end-user is not in the App's operator org.
-
+  
   #1714: self-join is closed by default. It is open only when the App's
   primary Agent declares installation_policy.selfJoinRole, which must be
   one of its memberRoles and is never "owner"; the joiner gets that role.
   Promotion to owner or any privileged role is ensureAppMember, by an App
   manager. Idempotent — if the user is already an AppMember of the App,
   the existing row is returned, before the gate is consulted.
-
+  
   Error codes (GraphQLError extensions.code, Error.name style):
     - UNAUTHENTICATED — no logged-in user in context.
     - AppNotFoundError — the App does not exist or is soft-deleted.
@@ -6995,7 +6995,7 @@ type Mutation {
     - InvalidRoleError — the picked default role isn't accepted by
       the Agent's policy (rare; would indicate a policy update
       race).
-
+  
   Accepts the entity's ID or URN.
   """
   joinApp(appId: ID!): JoinAppPayload!
@@ -7006,7 +7006,7 @@ type Mutation {
   leaves an App. Idempotent (no-op when not a member). The user's
   personal-class Memory at (appId, userId) is NOT cascade-deleted
   per spec 008 FR-015 — it re-attaches if the user later re-joins.
-
+  
   Accepts the entity's ID or URN.
   """
   leaveApp(appId: ID!): LeaveAppPayload!
@@ -7019,7 +7019,7 @@ type Mutation {
 
   """
   Link a GitHub App installation to an organization (org ADMIN or platform ADMIN).
-
+  
   Accepts the entity's ID or URN.
   """
   linkGithubApp(installationId: Int!, orgId: ID!): Organization!
@@ -7032,7 +7032,7 @@ type Mutation {
   per request; a second is BAD_UNLOCK_INPUT. After a committed claim,
   interrupted completion allows the strict owner or owning App key to call
   encryptMemory with the existing key. A registered holding cannot be linked again.
-
+  
   Accepts the entity's ID or URN.
   """
   linkMemoryToUser(externalUserId: String!, memoryId: ID!): Memory!
@@ -7085,7 +7085,7 @@ type Mutation {
   one that appears mid-merge refuses the batch it hits, and batches already
   committed stay committed (re-running completes the merge). Hard-delete the
   tombstone, or recreate a node there so it folds, then re-run.
-
+  
   The merge commits in batches, and is resumable. A refusal raised after
   some batches committed (#1686) says so: it carries
   extensions.partialMerge { applied, relocated, folded, edgesMoved,
@@ -7123,11 +7123,11 @@ type Mutation {
   The proof is single-use, consumed atomically before transfers, and recorded
   with the merge. Invalid or missing proof refuses MERGE_CONSENT_REQUIRED.
   There is no administrator substitute or recovery path.
-
+  
   Records the merge (#1715). User ids stored inside decisions and decision
   logs are never rewritten, since they are authenticated; readers follow
   them to the surviving account, so it is the asker or decider they name.
-
+  
   Refused with MERGE_USER_IN_OPEN_ALARMS (extension alarmCount; never the
   alarms, tasks or Apps, which the caller may not be able to read) while
   either account is named in the owner chain of an unacknowledged agent-task
@@ -7199,19 +7199,19 @@ type Mutation {
   Publish a dependency edge from a parent Agent to an imported Agent
   (008-agent-installation FR-005). v1 supports 1-level imports only:
   the imported Agent must not itself be a parent of any other import.
-
+  
   Authorization: ADMIN/OWNER of the parent Agent's owning org. The
   parent's owning org MUST hold an active AgentOrgGrant for the
   imported Agent — bundling requires the same kind of license that
   installation does.
-
+  
   Accepts the entity's ID or URN for both Agent ids.
   """
   publishAgentImport(importedAgentRef: ID!, parentAgentRef: ID!, position: Int!, required: Boolean = true): AgentImport!
 
   """
   Publish a revision and pin the Agent to it.
-
+  
   Accepts the entity's ID or URN.
   """
   publishRevision(agentId: ID!, revisionLoc: String!, versionLabel: String): RevisionResult!
@@ -7223,7 +7223,7 @@ type Mutation {
 
   """
   Push all nodes in a memory to its configured git repo.
-
+  
   Accepts the entity's ID or URN.
   """
   pushMemoryToGit(id: ID!): Boolean!
@@ -7263,22 +7263,22 @@ type Mutation {
   detail is an optional JSON bag of display extras (title, URL) — stored,
   never filtered on. Records are append-only: correct a wrong record by
   recording a newer one.
-
+  
   Authorization: an AppMember of the App (any role), an org member with
   CONTRIBUTOR+ on the App's org, or the owner of a user-owned App. A pure
   App-key principal may NOT record (read-only on the worklog).
-
+  
   A worker-bound session records under its Worker's name (#974,
   cor:agt:020:05) — the worker must belong to THIS App and not be retired
   (SESSION_WORKER_NOT_IN_APP / WORKER_RETIRED — a retired or foreign
   worker refuses rather than reshaping the attribution); an unbound
   session records under the attributed user's handle.
-
+  
   Typed refusals: WORK_REF_INVALID, SESSION_NOT_FOUND, SESSION_NOT_IN_APP,
   SESSION_WORKER_NOT_IN_APP, WORKER_RETIRED, TEAM_AGENT_NOT_FOUND /
   TEAM_AGENT_AMBIGUOUS (first-write bootstrap could not locate the Team
   Agent), APP_UNINSTALLED, FORBIDDEN, BAD_USER_INPUT.
-
+  
   appRef accepts the entity's ID or URN; sessionRef is the session id.
   """
   recordTeamWork(
@@ -7310,7 +7310,7 @@ type Mutation {
   fresh one. Only whoever manages the App, as themselves
   (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
   Never an App key, a bound worker session or an impersonated request. The replacement key holds no scopes.
-
+  
   Accepts the entity's ID or URN.
   """
   regenerateAppKey(appRef: ID!): AppCreated!
@@ -7326,45 +7326,45 @@ type Mutation {
 
   """
   Release the editor lock for an Agent's system memory.
-
+  
   Accepts the entity's ID or URN.
   """
   releaseEditorLock(agentId: ID!): Boolean!
 
   """
   #1050 — release a HELD name, so somebody else can hold it.
-
+  
   A name is held by a person until released; nothing else frees one, which
   is what makes availability a fact rather than a judgement about whether an
   idle driver is really gone. Two principals may call this, and they are
   different acts: the HOLDER, releasing their own name and owing nobody
   notice; or an App/org ADMIN, force-releasing somebody else's — the path
   that exists so a departed colleague's names are not held forever.
-
+  
   An admin force-release POSTS TO THE TEAM CHAT, naming who released what
   and from whom, because the incident this model answers is exactly the one
   where notice was owed and there was no way to give it. Best-effort: an
   unreachable chat never blocks the release.
-
+  
   Releasing does NOT retire the worker, free the name for a different
   casting, or touch its history — the name stays permanently allocated to
   this casting, and the handoff sequence and worklog travel with the worker
   to whoever holds it next. Idempotent: releasing an unheld worker returns
   it unchanged.
-
+  
   #1073 — OPTIONAL PRECONDITION. The two release paths are different acts:
   the holder's own release notifies nobody, an admin force-release announces
   itself in the team chat. A client that wants to tell its user which one it
   is about to perform can only classify from a pre-read, and the hold can
   change in between — so the act performed differs from the act described,
   and a hold taken in that interval is force-released silently.
-
+  
   State what you expect and the server refuses instead. Pass
   expectedHolderUserId to assert a specific holder, or expectUnheld: true to
   assert there is none; a mismatch refuses WORKER_HOLD_STALE carrying the
   holder actually found. Passing neither keeps the unconditional behaviour,
   so this is additive. Passing both is BAD_USER_INPUT.
-
+  
   Two arguments rather than one nullable id on purpose: distinguishing
   "expect nobody" from "no expectation" through a nullable argument would
   rest on KEY PRESENCE, and any layer that forwards the argument
@@ -7386,7 +7386,7 @@ type Mutation {
   """
   DEPRECATED: use uninstallAgentFromApp. Carried for source-compat
   with pre-023 portal callers.
-
+  
   Accepts the entity's ID or URN.
   """
   removeAgentFromApp(agentRef: ID!, appRef: ID!): App! @deprecated(reason: "Use uninstallAgentFromApp (spec 023-app-shape US1).")
@@ -7396,7 +7396,7 @@ type Mutation {
   the row doesn't exist). Apps that already installed the imported
   Agent are unaffected; removing the import only stops *future*
   parent installs from cascading the dep.
-
+  
   Accepts the entity's ID or URN.
   """
   removeAgentImport(importedAgentRef: ID!, parentAgentRef: ID!): Boolean!
@@ -7406,7 +7406,7 @@ type Mutation {
   Personal-class memory at (appId, userId) is retained as an orphan per
   FR-015 — re-attaches automatically if the user later rejoins the same
   App.
-
+  
   Accepts the entity's ID or URN.
   """
   removeAppMember(
@@ -7424,7 +7424,7 @@ type Mutation {
 
   """
   Detach a Memory from an Agent.
-
+  
   Accepts the entity's ID or URN.
   """
   removeMemoryFromAgent(agentRef: ID!, memoryRef: ID!): Agent!
@@ -7434,10 +7434,10 @@ type Mutation {
   the LAST owner is rejected with LastOwnerProtectedError (FR-038)
   — group memories must always have ≥1 owner; the path to fully
   empty one is to delete the Memory.
-
+  
   Removing the last non-owner does NOT delete the Memory (FR-031);
   the row persists with its remaining owner(s).
-
+  
   Caller-authority: either an owner of the Memory, or the member
   being removed (self-removal).
   """
@@ -7490,21 +7490,21 @@ type Mutation {
   """
   #949 — re-own an Agent's class=system memory to the Agent's own owner
   (org XOR user) and re-derive its URN as '<agent-urn>-system'.
-
+  
   The recovery path for a system memory that ended up owned by a different
   tenant. Access to a memory follows the MEMORY's owner, so such a row puts
   one tenant's Agent design (for a Team Agent: its 'roles:<role>'
   definitions and name registers) inside another tenant's audience. System
   memories are only ever created by Agent provisioning, so before this the
   only fix was to recreate the Agent.
-
+  
   Authorization: PLATFORM ADMIN only — the row being moved belongs to a
   different tenant than the Agent, so neither side's org admin is the right
   authority. Idempotent: an already-consistent pair is a no-op.
-
+  
   Error codes (extensions.code): FORBIDDEN, AGENT_HAS_NO_SYSTEM_MEMORY,
   SYSTEM_MEMORY_NOT_FOUND.
-
+  
   Accepts the entity's ID or URN.
   """
   repairAgentSystemMemory(agentRef: ID!): Agent!
@@ -7557,11 +7557,11 @@ type Mutation {
 
   """
   Restore a node to a previous revision (#617).
-
+  
   Default (truncate: false): snapshots the CURRENT node state into history
   first, then restores the node's fields to the revision — non-destructive,
   the restore itself becomes undoable.
-
+  
   truncate: true: restores the node's fields to the revision AND deletes
   every NodeRevision NEWER than the selected one (createdAt strictly greater),
   WITHOUT creating a pre-restore snapshot. Boundary is EXCLUSIVE of the
@@ -7574,7 +7574,7 @@ type Mutation {
 
   """
   Restore an Agent's system memory from a revision (auto-saves first).
-
+  
   Accepts the entity's ID or URN.
   """
   restoreRevision(agentId: ID!, revisionLoc: String!): RevisionResult!
@@ -7627,7 +7627,7 @@ type Mutation {
 
   """
   Revoke an organization's Agent subscription without deleting install state.
-
+  
   Accepts the entity's ID or URN.
   """
   revokeAgentOrgGrant(agentRef: ID!, orgRef: ID!): AgentOrgGrant!
@@ -7637,7 +7637,7 @@ type Mutation {
   AgentSubscription. Authorized for ADMIN/OWNER of the Agent's owning
   org. Side effect: empty personal Memory of (user, agent) is hard-
   deleted; non-empty is retained with userMemoryOfAgentId preserved.
-
+  
   Accepts the entity's ID or URN (agentId).
   """
   revokeAgentSubscription(
@@ -7708,13 +7708,13 @@ type Mutation {
 
   """
   Persist a caller-produced chat summary.
-
+  
   #1115 — READ THIS BEFORE CALLING. The summary is STORED and nothing reads
   it back as a summary: no query excludes the messages it covers, and the
   model-history builder has no summary branch, so the node is replayed as an
   ordinary user turn ALONGSIDE the messages it summarises. Calling this
   makes the transcript longer, never shorter.
-
+  
   The compression this was built for does not exist yet, and the trigger
   that used to request it (ChatPromptResult.summarizationNeeded) now always
   returns null. Kept working so existing callers do not break; re-arming it
@@ -7745,7 +7745,7 @@ type Mutation {
   #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set, change or clear the one base Agent this
   Agent extends. The Agent then inherits its base chain's system-memory
   nodes, except boot prompts. A null baseRef clears the base.
-
+  
   Whoever manages this Agent may call it. Extending another organization's
   Agent needs the organization's active AgentOrgGrant for it (a same-org base
   provisions one, never reactivating a revoked grant); a user-owned Agent
@@ -7753,7 +7753,7 @@ type Mutation {
   Refused, changing nothing, with AGENT_BASE_CYCLE when the base is this
   Agent or extends it, and AGENT_BASE_CHAIN_TOO_LONG when a chain through
   this Agent, its own or any Agent's that extends it, would hold more than 4.
-
+  
   Accepts each Agent's ID or URN.
   """
   setAgentBase(baseRef: ID, ref: ID!): Agent!
@@ -7763,7 +7763,7 @@ type Mutation {
   fully-qualified node URN) must name a COMPILED boot prompt in this Agent's own system memory; approval is not
   required here (it is checked when the prompt is served). nodeRef is REQUIRED: an explicit null clears, and an
   omitted one is refused with BAD_USER_INPUT.
-
+  
   Only the Agent's manager, acting as themselves (R23): a request bound to a worker session, the manager's own
   included, is refused BOOT_PROMPT_POINTER_SESSION_REFUSED; a non-manager, an App key, an impersonation or a
   run is FORBIDDEN. The gate runs before the target is looked at, so a refused caller learns nothing about it.
@@ -7835,7 +7835,7 @@ type Mutation {
 
   """
   Set encrypted source token for non-GitHub-App repos.
-
+  
   Accepts the entity's ID or URN.
   """
   setMemorySourceToken(expiresAt: String, id: ID!, token: String!): Memory!
@@ -7928,11 +7928,11 @@ type Mutation {
   compiled prompt). When called by a JWT user, the agent chat is created in
   that user's personal memory for the agent (provisioned lazily if
   needed).
-
+  
   #1034: an **agent chat** — deliberately not "chat session", which is
   reserved for the human's own conversation and names no row in this schema,
   and not the **team chat**, which is the App's shared channel.
-
+  
   Accepts the entity's ID or URN.
   """
   startChat(agentId: ID!, conversationName: String, isTestRun: Boolean = false, scope: ChatScope = private, userId: String): ChatStartResult!
@@ -7953,7 +7953,7 @@ type Mutation {
   """
   Open a session — and, when `input.workerRef` is given, a WORKER SESSION:
   the binding that makes the work attributable to that named teammate.
-
+  
   The binding is held server-side and is independent of the caller's CHAT
   SESSION (the human's Desktop window, Claude Code session or IDE chat).
   **Ending your chat session does not end a worker session** (#1034): a chat
@@ -7989,7 +7989,7 @@ type Mutation {
 
   """
   Trigger an on-demand sync for one memory (org ADMIN or CONTRIBUTOR).
-
+  
   Accepts the entity's ID or URN.
   """
   syncMemory(id: ID!): Memory!
@@ -8028,16 +8028,16 @@ type Mutation {
   per-(App, Agent, *) memories are NOT cascade-deleted (spec 023 FR-005);
   they persist as orphans and become reachable again if the same Agent
   is later reinstalled.
-
+  
   Idempotent — succeeds whether or not the AppAgent row exists.
-
+  
   Accepts the entity's ID or URN.
   """
   uninstallAgentFromApp(agentRef: ID!, appRef: ID!): UninstallAgentFromAppPayload!
 
   """
   Remove all GitHub App config from an organization.
-
+  
   Accepts the entity's ID or URN.
   """
   unlinkGithubApp(orgId: ID!): Organization!
@@ -8060,30 +8060,30 @@ type Mutation {
 
   """
   Update an Agent.
-
+  
   urn renames the slug (org-owned agents only). personaRole is normalized
   (explicit null or blank clears, omitted preserves). Worker castings
   referencing this agent are unaffected —
   the named identity lives on the Worker.
-
+  
   Accepts the entity's ID or URN.
   """
   updateAgent(description: String, listedOnMarketplace: Boolean, name: String, personaRole: String, ref: ID!, registerDefaults: RegisterDefaultsInput, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, usesTasks: Boolean, visibility: AgentVisibility): Agent!
 
   """
   Update an Agent's AI provider config. Key is encrypted at rest.
-
+  
   036-ai-service-config: upserts the Agent's registry config named
   'default'. Prefer createAiServiceConfig/updateAiServiceConfig for
   new callers.
-
+  
   Accepts the entity's ID or URN.
   """
   updateAgentAIConfig(agentId: ID!, apiKey: String, model: String!, provider: String!): Agent!
 
   """
   Update an Agent's role on an attached Memory.
-
+  
   Accepts the entity's ID or URN.
   """
   updateAgentMemoryRole(agentRef: ID!, memoryRef: ID!, role: String!): Agent!
@@ -8091,12 +8091,12 @@ type Mutation {
 
   """
   036-ai-service-config: update a named AI config. All fields optional.
-
+  
   apiKey semantics: omitted = keep the stored key; empty string =
   clear it; non-empty = replace (encrypted, preview recomputed). The
   RESULTING config is held to createAiServiceConfig's key rule, so
   clearing the key of a config that needs one is refused.
-
+  
   Auth: admin rights on the owning entity (as aiServiceConfigs).
   """
   updateAiServiceConfig(
@@ -8119,7 +8119,7 @@ type Mutation {
 
   """
   Update an App.
-
+  
   Accepts the entity's ID or URN.
   """
   updateApp(
@@ -8190,9 +8190,9 @@ type Mutation {
 
   """
   Update a Memory.
-
+  
   Accepts the entity's ID or URN.
-
+  
   Spec 033 FR-026: enabling `vectorIndexEnabled` on an `isEncrypted` memory
   requires `acknowledgeVectorInversionRisk: true` in the same call. Without
   the flag, an `EncryptedVectorIndexNotAcknowledgedError` is thrown carrying
@@ -8215,9 +8215,9 @@ type Mutation {
   Throws MemoryMemberNotFoundError when the row doesn't exist;
   use addMemoryMember to upsert. Throws LastOwnerProtectedError
   (FR-038) when demoting the sole remaining owner.
-
+  
   Caller-authority rule matches addMemoryMember.
-
+  
   Error codes (extensions.code, Error.name style):
     - UNAUTHENTICATED — no logged-in user in context.
     - FORBIDDEN — caller is not an owner of a live group memory.
@@ -8247,7 +8247,7 @@ type Mutation {
   023-app-shape US3 — change the role on an existing MemoryShare.
   Throws MemoryShareNotFoundError if the (memoryId, granteeId) row
   doesn't exist — use createMemoryShare to upsert.
-
+  
   Caller-authority rule matches createMemoryShare.
   """
   updateMemoryShareRole(
@@ -8263,7 +8263,7 @@ type Mutation {
 
   """
   Update a cross-org Memory subscription.
-
+  
   Accepts the entity's ID or URN.
   """
   updateMemorySubscription(
@@ -8331,7 +8331,7 @@ type Mutation {
   top-level keys are written over the node's existing 'properties' (patch
   wins on collision); unmentioned keys are preserved; a node with no
   'properties' takes the patch verbatim.
-
+  
   ONE EXCEPTION (#1227): an OBJECT under 'exports' - the per-host skill
   export declarations, keyed by host (D12) - is applied as a JSON Merge
   Patch (RFC 7396), not replaced. Hosts and their fields merge recursively,
@@ -8387,7 +8387,7 @@ type Mutation {
 
   """
   Set GitHub App credentials for an organization (encrypted at rest).
-
+  
   Accepts the entity's ID or URN.
   """
   updateOrgGithubApp(appId: String!, orgId: ID!, privateKey: String!): Organization!
@@ -8411,7 +8411,7 @@ type Mutation {
 
   """
   Update an Organization.
-
+  
   Accepts the entity's ID or URN.
   """
   updateOrganization(id: ID!, listedOnMarketplace: Boolean, name: String, policy: JSON, urn: String): Organization!
@@ -8430,12 +8430,12 @@ type Mutation {
   #1201 — the UPDATE door for the review kind, and the counterpart of
   createReviewNode. Same posture: pure routing, exempt from its own kind only;
   its MCP counterpart is hadron_update_review.
-
+  
   It is needed because the gate reads the RESULTING state: editing a node that
   already carries this kind still produces one, so the generic updateNode
   refuses it even when the edit touches neither signal. That is the point — a
   review node must not be rewritable through the generic surface.
-
+  
   Identical to updateNode otherwise, selectors included ('id' XOR 'memoryId' +
   'loc'); it never creates and never moves.
   """
@@ -8473,12 +8473,12 @@ type Mutation {
   #1201 — the UPDATE door for the spec kind, and the counterpart of
   createSpecNode. Same posture: pure routing, exempt from its own kind only,
   not an MCP tool.
-
+  
   It is needed because the gate reads the RESULTING state: editing a node that
   already carries this kind still produces one, so the generic updateNode
   refuses it even when the edit touches neither signal. That is the point — a
   spec node must not be rewritable through the generic surface.
-
+  
   Identical to updateNode otherwise, selectors included ('id' XOR 'memoryId' +
   'loc'); it never creates and never moves.
   """
@@ -8488,12 +8488,12 @@ type Mutation {
   #1201 — the UPDATE door for the task kind, and the counterpart of
   createTaskNode. Same posture: pure routing, exempt from its own kind only;
   its MCP counterpart is hadron_update_task.
-
+  
   It is needed because the gate reads the RESULTING state: editing a node that
   already carries this kind still produces one, so the generic updateNode
   refuses it even when the edit touches neither signal. That is the point — a
   task node must not be rewritable through the generic surface.
-
+  
   Identical to updateNode otherwise, selectors included ('id' XOR 'memoryId' +
   'loc'); it never creates and never moves.
   """
@@ -8504,7 +8504,7 @@ type Mutation {
   memory, converging a drifted declaration to the canonical definition
   (hadron-cli#401). Idempotent: 'changed' is false when the declaration
   already matched.
-
+  
   Why this exists as its own operation. recordTeamWork declares the worklog
   collection on first write, but deliberately leaves an ALREADY-declared one
   untouched — a deployment that tightened it governs that surface too, which
@@ -8515,18 +8515,18 @@ type Mutation {
   recordTeamWork(kind: 'repo') is refused by a rule nobody chose.
   Overriding silently would break real governance; this operation makes
   convergence an explicit act instead.
-
+  
   Only the server-owned collections are rewritten — every other collection
   on the memory is preserved.
-
+  
   Authorization: owner or org ADMIN on the memory, the same bar updateMemory
   applies to a schema edit. Team participation is deliberately NOT enough:
   it lets you record work, not redefine what a record is.
-
+  
   Typed refusals: APP_UNINSTALLED, UNAUTHENTICATED, TEAM_AGENT_NOT_FOUND /
   TEAM_AGENT_AMBIGUOUS (when the App's shared memory must still be
   bootstrapped).
-
+  
   Accepts the entity's ID or URN.
   """
   updateTeamCollections(appRef: ID!): TeamCollectionsPayload!
@@ -8534,7 +8534,7 @@ type Mutation {
   """
   #960 — edit a roles:<role> definition. Omitted fields preserve. Unknown
   role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole.
-
+  
   #1024: `repos` sets the role's repo affinity. Omitted PRESERVES; an empty
   array CLEARS; explicit `null` is treated as OMITTED, not as a clear — worth
   stating because a client whose variables default to null would otherwise
@@ -8545,7 +8545,7 @@ type Mutation {
   rather than silently reverting, since those surfaces do not take this one's
   lock. Retry after re-reading. A description-only edit carries no data and
   takes no guard.
-
+  
   #1050: with the register gone this otherwise edits the description alone,
   so the #987 expectedNames compare-and-swap is gone too — it existed solely
   to stop two concurrent wholesale register writes silently dropping each
@@ -8563,27 +8563,27 @@ type Mutation {
 
   """
   #1010 — amend a casting's individuality after the fact.
-
+  
   `promptOverride` is the per-worker escape hatch (cor:agt:020:01), but it
   could only be set at CASTING time — fixing a casting's individuality at the
   one moment nobody yet knows what makes it individual. The role agent's
   `systemPrompt` cannot stand in (it is SHARED by every casting of that
   role), and re-casting is barred by `WORKER_IN_USE` for any worker that has
   done work — precisely the ones with an identity to record.
-
+  
   Signature/trailer edits require an App manager; a bound worker is provisionally refused (H26).
   Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
   A mixed update is atomic. These values reach the next compose/bind via S4.
-
+  
   The other casting identity fields stay immutable: `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02)
   and `role`/`agent` define the casting itself. OMITTING promptOverride
   preserves it; explicit `null` or a blank string CLEARS it, matching the
   nullable column and castWorker's blank-is-absent normalization.
-
+  
   Refuses WORKER_RETIRED for a retired worker: an override is briefing text
   delivered at bind time, and a retired worker takes no new bindings, so the
   edit could never reach anyone.
-
+  
   promptOverride alone keeps castWorker staffing authorization. workerRef is the worker's id or URN (#991).
   """
   updateWorker(promptOverride: String, signature: String, trailer: String, workerRef: ID!): Worker!
@@ -8626,7 +8626,7 @@ type Node {
   The asset this node references, for a reference node created by
   createAssetReferenceNode or hadron_store_file (its data.asset
   points at one). Null for every ordinary node.
-
+  
   Also null when the pointer is DANGLING — the asset was deleted, or
   is soft-deleted. There is no schema-level Asset-to-Node foreign key
   (cor:dmo:060:10 reserves it), so data.asset.id is a soft reference
@@ -8771,7 +8771,7 @@ type Node {
   """
   The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
   retrieval and rendering.
-
+  
   NOT 'objectType', which says which domain COLLECTION a node belongs to, and
   NOT 'role', which says what the node is FOR. Three kind-ish fields is the
   accepted price of keeping retrieval stable while roles stay open, so each
@@ -8783,7 +8783,7 @@ type Node {
   #725 — the COLLECTION discriminator: which domain object this node is an
   instance of, e.g. "competitor" / "insight". Validated against the memory's
   property schema when it has one. NULL for an ordinary node.
-
+  
   NOT 'nodeType' (the platform-kind axis, which drives retrieval) and NOT
   'role' (what the node is for; role can be filtered explicitly but does not
   change default ranking or rendering).
@@ -8812,12 +8812,12 @@ type Node {
   """
   #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
   platform reads a small CLOSED subset and ignores every other value.
-
+  
   NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
   'objectType' (the collection discriminator, schema-validated). This field
   does not change default retrieval or ranking; NodeFilter.role explicitly
   selects its exact dotted family (#1322).
-
+  
   A GOVERNED family routes the write to that kind's own authoring door, and
   the generic node surface is refused: 'review' / 'review.*' and 'spec' /
   'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
@@ -9989,7 +9989,7 @@ type Query {
   App.agents nesting. Gate mirrors resolveUrn's agent branch: member of
   the Agent's org or platform ADMIN/OWNER; denied throws Forbidden,
   missing is null.
-
+  
   'ref' accepts the entity's ID or URN.
   """
   agent(ref: ID!): Agent
@@ -9997,10 +9997,10 @@ type Query {
   """
   Agent AI config (org ADMIN) — returns the decrypted API key so the
   portal backend can make LLM calls on behalf of the user.
-
+  
   036-ai-service-config: registry-backed (the Agent's config named
   'default'). Prefer resolveAIConfig for new callers.
-
+  
   Accepts the entity's ID or URN.
   """
   agentAIConfig(agentRef: ID!): AgentAIConfig
@@ -10021,7 +10021,7 @@ type Query {
   """
   005-agent-subscription FR-022: list all AgentSubscriptions for an
   Agent. Authorized for ADMIN/OWNER of the Agent's owning org.
-
+  
   Accepts the entity's ID or URN.
   """
   agentSubscriptions(agentRef: ID!): [AgentSubscription!]!
@@ -10133,12 +10133,12 @@ type Query {
   """
   036-ai-service-config: masked, paginated list of AI configs (#473).
   Never returns key material — only hasApiKey + apiKeyPreview.
-
+  
   filter names the owning entity. Auth: platform ADMIN/OWNER for
   HADRON_SERVER owners; org ADMIN of the owning org for ORGANIZATION /
   APP / AGENT owners. filter omitted entirely = the platform ADMIN/OWNER
   cross-owner view of every config (non-admin callers must filter).
-
+  
   Name-ascending order (id tiebreak); limit default 50 / cap 200;
   limit: 0 -> count only.
   """
@@ -10148,14 +10148,14 @@ type Query {
   Fetch an App (member of the App's org, or platform ADMIN — the myApps
   exposure bar; #473 relaxed this from org ADMIN for read parity with the
   list).
-
+  
   'ref' accepts the entity's ID or URN.
   """
   app(ref: ID!): App
 
   """
   Decrypted AI config for an App (org ADMIN of the App's org).
-
+  
   Accepts the entity's ID or URN.
   """
   appAIConfig(appRef: ID!): AppAIConfig
@@ -10169,7 +10169,7 @@ type Query {
   List keys for an App, only for whoever manages the App
   (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
   Never an App key, a bound worker session or an impersonated request.
-
+  
   Accepts the entity's ID or URN.
   """
   appKeys(appRef: ID!): [AppKey!]!
@@ -10177,9 +10177,9 @@ type Query {
   """
   All nodes accessible by an App: the union of every installed agent's
   system memory (read-only) and its knowledge memoryItems (#524).
-
+  
   Accepts the entity's ID or URN.
-
+  
   An optional NodeFilter pushes node-level predicates server-side — e.g.
   filter: { isRunnable: true } to list the App's runnable task nodes (#525).
   The App's memory scope is authoritative, so the filter's memory-scope
@@ -10203,7 +10203,7 @@ type Query {
 
   """
   The run audit list.
-
+  
   statuses (#836) is a disjunction — 'everything still in flight' is
   [PENDING, RUNNING] and 'what went wrong' is [FAILED, TIMED_OUT], neither of
   which the single-valued status arg could express. Per
@@ -10211,10 +10211,10 @@ type Query {
   an explicitly EMPTY list is the EMPTY scope and returns nothing - it never
   silently falls back to 'all'. Values are deduped; an unknown member is
   rejected by enum validation rather than dropped.
-
+  
   status is DEPRECATED in favour of statuses. Both are accepted for one
   release; when both are given, statuses wins.
-
+  
   sortBy / sortDir (#833) order the whole result set server-side, so a client
   table is no longer limited to sorting the page it happens to hold.
   """
@@ -10249,7 +10249,7 @@ type Query {
   which is every asset held by a memory they can read. The uniform
   find-many surface for assets (spec cor:api:120); memoryAssets stays
   as the per-memory one.
-
+  
   The three tabs of a top-level Assets section are filters over this,
   not separate queries: mine: true, no filter, and orgId respectively.
   """
@@ -10378,19 +10378,19 @@ type Query {
   """
   Message history for a saved chat. Returns plain role/content pairs
   suitable for feeding back into an LLM.
-
+  
   limit bounds the transcript to its MOST RECENT messages (default 100),
   and they are returned oldest-first. Stated because it was not: the window
   used to be taken from the other end, so a chat longer than the limit
   returned its opening forever (#1111), and a client author had no written
   contract to check that against. Contract: cor:cht:050:01.
-
+  
   beforeSeq (#1116) pages BACKWARD: only messages with seq strictly LESS
   than it are considered, and the window then returns the newest "limit"
   of those -- the page immediately preceding the cursor, still oldest-first.
   It is the mirror of teamChatMessages' sinceSeq: pass the OLDEST seq you
   hold, as you would pass the newest to page forward. Omit it for the tail.
-
+  
   There is no total -- the field returns the page and nothing else. A
   page SHORTER than the limit is a truthful end-of-data under that cursor,
   and only here: this resolver applies every filter inside the query and
@@ -10545,20 +10545,20 @@ type Query {
   the 'hadron access check <user> <resource>' audit command — one resolver
   that reuses the server's authorization rules instead of re-deriving them
   client-side.
-
+  
   'user' (the subject) accepts a User ID or a hrn:user:<handle> URN (spec
   cor:urn:010:01). 'resource' is dispatched on URN type the same way
   resolveUrn dispatches: a memory, node, app, agent, org, or user MUST be a
   fully-qualified hrn:<type>: URN (a bare id is ambiguous across those kinds).
   A bare id with no scheme prefix is treated as an AiServiceConfig id — the
   only URN-less resource kind.
-
+  
   Authorization (who may CALL this): the same visibility bar already
   enforced on the underlying grant tables — a platform ADMIN/OWNER, an
   ADMIN/OWNER of the resource's owning org, or (for a strict-owner memory)
   the memory's principal. Everyone else gets FORBIDDEN, NOT a silent empty
   result, so the command can't probe access it isn't allowed to audit.
-
+  
   A subject with no access is a SUCCESS with an empty grants list (all
   capabilities false, role null) — not NOT_FOUND. An unresolvable or
   unknown resource ref is NOT_FOUND.
@@ -10572,7 +10572,7 @@ type Query {
 
   """
   Exchange connections for an org.
-
+  
   Accepts the entity's ID or URN.
   """
   exchangeConnections(orgId: ID!): [ExchangeConnection!]!
@@ -10602,7 +10602,7 @@ type Query {
   mode: regex fails loudly on bad syntax. `filter` is the structured, AND-combined filter context
   (SYSTEM memory class excluded by default; explicit wins). Returns a
   scored-hit envelope. Access-scoped identically to the per-kind node queries.
-
+  
   orgId (optional) narrows the accessible scope to a single organization the
   caller is a member of; a non-member orgId returns an empty envelope
   (total 0, no existence disclosure). Combined with filter.isRunnable: true
@@ -10678,14 +10678,14 @@ type Query {
   """
   Cross-entity global search across organizations, memories, nodes, agents,
   apps, AiServiceConfigs, and users — one ranked, flat list of hits.
-
+  
   By default the query shape is smart-sniffed: a PK-shaped input does an exact
   id lookup, a URN-shaped input matches URNs, anything else matches name + URN.
   Pass `fields` to force specific fields (overrides the sniff) and
   `entityTypes` to restrict the kinds searched. Every hit is access-scoped to
   the caller exactly as the per-kind queries are. Distinct from `findNodes`,
   which is the node-only, vector-aware retrieval surface.
-
+  
   orgId (optional) narrows the org-anchored slices to a single organization:
   node/memory hits are confined to that org's memories and organization /
   agent / app / aiServiceConfig hits to that org. (The user slice is NOT
@@ -10693,7 +10693,7 @@ type Query {
   user-visibility as usual.) Omit for the cross-org union (default). A caller
   who is not a member of orgId gets an empty page (total: 0) — no
   org-existence disclosure; membership-gated for everyone, no admin bypass.
-
+  
   Paged in the repo standard idiom: limit (default 50, capped 200) + offset
   (default 0), with total in the envelope. NOTE: total is the ranked-match
   count WITHIN the per-entity candidate bound (a fixed cap per entity type),
@@ -10724,7 +10724,7 @@ type Query {
   email. Missing users, no holds, and holds confined to unreadable Apps all
   return the same empty page; total and pagination are computed only after
   the App authorization filter.
-
+  
   Retired castings are hidden unless includeRetired. hasLiveSession on each
   item uses the existing derived idle-window predicate — it means the worker
   is being driven now, not merely that an unended Session row exists.
@@ -10848,24 +10848,24 @@ type Query {
   """
   Uniform paginated memory list (#473) — replaces myMemories,
   publicMemories, and orgSystemMemories.
-
+  
   Default scope: the caller's union — (1) their OWN personal/private
   memories (always; they are user-owned and show in every org context),
   (2) memories their member orgs own, (3) memories their member orgs
   subscribe to. Per-user agent memories (userMemoryOfAgentId) are excluded.
   App-key callers get the union of their installed Agents' memory items.
-
+  
   filter.visibility: PUBLIC selects the public marketplace slice instead
   (every PUBLIC memory — the old publicMemories). filter.memoryClasses
   restricts to exactly the listed classes; omitted, the noisy agent system
   class is hidden by default (pass it explicitly to surface system
   memories, e.g. the old orgSystemMemories = orgId + memoryClasses:
   [system]).
-
+  
   orgId follows cor:api:100:01: member -> the "active organization" view
   (own personal/private + that org's owned + subscribed memories);
   non-member -> empty page, no existence disclosure, no admin bypass.
-
+  
   Name-ascending order (id tiebreak); limit default 50 / cap 200;
   limit: 0 -> count only.
   """
@@ -10876,7 +10876,7 @@ type Query {
   Missing and unreadable refs both return null without an error, so a caller
   cannot use this field to test whether a private memory exists. Malformed
   refs still fail as caller errors, and operational faults still propagate.
-
+  
   'ref' accepts the entity's ID or URN.
   """
   memory(ref: ID!): Memory
@@ -10885,10 +10885,10 @@ type Query {
   v2 (spec 006) — memory-addressed listing. Returns every asset
   attached to the memory; the gate is the memory's read access. The
   replacement for agentAssets in the v2 surface.
-
+  
   Set mine: true to narrow to the caller's own uploads — a filter on
   top of the read gate, not a substitute for it.
-
+  
   Accepts the entity's ID or URN.
   """
   memoryAssets(count: Int = 20, includeDeleted: Boolean = false, memoryId: ID!, mimeType: String, mine: Boolean = false, skip: Int = 0): AssetListResult!
@@ -10927,7 +10927,7 @@ type Query {
   tags) — no content / abstract / data / tokens / edges — so the payload is a
   fraction of the full node fragment. The graph view loads this to completion
   (page by page) and renders nodes, THEN loads memoryEdges to draw the links.
-
+  
   memoryRef accepts the memory's ID or URN; a memory the caller can't read
   returns an empty page (total 0, no existence disclosure). Paged via limit
   (default 1000, hard-capped 2000) + offset; total is the memory's full node
@@ -10940,7 +10940,7 @@ type Query {
 
   """
   Aggregated usage counts per node and type for a memory.
-
+  
   Accepts the entity's ID or URN.
   """
   memoryUsageSummary(memoryRef: ID!): [UsageSummaryEntry!]!
@@ -10959,7 +10959,7 @@ type Query {
   """
   Saved chats for the current user in their personal memory for an
   agent. Newest first.
-
+  
   Accepts the entity's ID or URN.
   """
   myChats(agentRef: ID!, limit: Int, offset: Int): [Chat!]!
@@ -10983,20 +10983,20 @@ type Query {
   """
   The next sibling node under a parent, ordered by seq (#817) — the GraphQL
   twin of hadron_get_next_node, so guided reading order is no longer MCP-only.
-
+  
   parentRef / currentRef take a node PK or a fully-qualified URN
   (cor:api:140). Omit currentRef to get the FIRST child.
-
+  
   Order: seq ascending; a NULL seq sorts LAST, after every explicitly ordered
   sibling; ties break on loc ascending. Identical to the MCP tool, so the two
   surfaces cannot present different reading orders.
-
+  
   Returns null at the end of the sibling chain, and for a parent that does
   not exist or the caller cannot read — denied and missing are indistinguishable. A
   currentRef that is not among the parent's direct children is likewise null
   rather than an error, so it cannot probe a node's parentage. A MALFORMED
   ref still throws: a shape error discloses nothing about what exists.
-
+  
   Stateless — this is a next-sibling read, not a session-backed cursor.
   """
   nextNode(currentRef: ID, parentRef: ID!, raw: Boolean): Node
@@ -11004,7 +11004,7 @@ type Query {
   """
   The uniform single-node read (#473) — subsumes the former nodeById(id:)
   and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
-
+  
     1. a primary key (the unambiguous read — the old nodeById),
     2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
        legacy `urn:` scheme accepted),
@@ -11015,7 +11015,7 @@ type Query {
        one (#335). An unprefixed 3+-segment ref whose first two segments
        name a readable memory is treated as form 2 (a full URN); pass
        'memoryRef' to force loc interpretation.
-
+  
   raw: true skips Mustache template compilation. Soft-deleted nodes do not
   resolve. Access: the caller's readable-memory set (same gate the old
   queries used); denied and missing are both null.
@@ -11060,7 +11060,7 @@ type Query {
 
   """
   A single node-revision snapshot by its id (#617 Display).
-
+  
   Access-gated on the snapshot's node memory (read): null when the revision
   does not exist OR the caller cannot read the node's current memory OR the
   memory the snapshot was captured in (per-snapshot gating mirrors
@@ -11073,7 +11073,7 @@ type Query {
 
   """
   Revision history for a node, most recent first.
-
+  
   Accepts the node's ID or URN. Access-gated on the node's memory: a node
   whose memory the caller can't read returns an empty list (no existence
   disclosure).
@@ -11083,28 +11083,28 @@ type Query {
   """
   DEPRECATED: use usageEvents(loc: <loc>). Carried for source-compat;
   there are no known callers (checked across portal / CLI / docs at #802).
-
+  
   Usage events for a node loc, most recent first.
-
+  
   The migration is a rename, not a rewrite — usageEvents' loc argument is
   the SAME verbatim exact nodeLoc match under the same gate, so
   nodeUsage(loc: "x", limit: n) becomes usageEvents(loc: "x", limit: n)
   with identical results and identical access scoping:
-
+  
     nodeUsage(loc: 'cor:acl:010:01', limit: 20)
     usageEvents(loc: 'cor:acl:010:01', limit: 20)
-
+  
   Do NOT migrate to usageEvents(nodeId: <loc>): nodeId is shape-classified,
   and a hierarchical loc with 3+ colon-separated segments (like the spec
   citation above) qualifies as node-URN shape and routes to ref resolution
   instead — NODE_NOT_FOUND, or another node's events (PR-986 review). The
   loc argument exists precisely so the migration needs no shape caveats.
-
+  
   usageEvents is a strict superset: nodeId accepts a PK or a fully-qualified
   node URN (memory-precise — a bare loc cannot disambiguate the same loc in
   two memories), plus type filtering, memoryId scoping and offset paging. It
   is also the surface that gets extended; nodeUsage will not grow arguments.
-
+  
   Access control is identical and unchanged (#802) — see usageEvents below.
   Deprecated for redundancy, NOT because this field is unsafe.
   """
@@ -11120,7 +11120,7 @@ type Query {
 
   """
   Fetch an Organization (org member or platform ADMIN).
-
+  
   'ref' accepts the entity's ID or URN.
   """
   organization(ref: ID!): Organization
@@ -11157,16 +11157,16 @@ type Query {
   hadron-portal#486). Kept SEPARATE from agents() on purpose: agents() stays
   bounded to the caller's own orgs, and the cross-org widening is this
   explicit, paginated surface rather than a value in a filter.
-
+  
   filter.type narrows by AgentType; filter.visibility is IGNORED (the slice
   is PUBLIC by definition).
-
+  
   Field-level exposure: a PUBLIC agent publishes its OWN definition
   (systemPrompt / systemMemoryId / memoryItems / imports) to every caller —
   that is what a marketplace listing is (#551). The fields that surface OTHER
   tenants (apps / appAgents / appCount / orgGrants / importedBy) are scoped to
   the caller's own access and come back empty for an outsider (#552, #757).
-
+  
   Name-ascending order (id tiebreak); limit default 50 / cap 200;
   limit: 0 -> count only.
   """
@@ -11220,29 +11220,29 @@ type Query {
   Render a run/action node WITHOUT executing it (#818) — the GraphQL twin of
   hadron_run_action, which despite its name executes nothing: it loads the
   node, resolves its dependency edges, and renders with args.
-
+  
   runTask covers the EXECUTE half. This is the render half, for previewing a
   task before running it (a task run --dry-run), for reading an action's
   assembled instructions when the CALLER is the executor, and for debugging
   template/dependency resolution without side effects.
-
+  
   A Query because it is side-effect-free, and unlike the MCP tool it records
   NO action-run UsageEvent — metering a preview would inflate the ledger with
   actions nobody took.
-
+  
   Uses the SAME assembler runTask executes (Mustache compilation via
   compileTemplate; flow-ROUTING edges skipped, since they are the walker's
   rails rather than references), so a dry run predicts the real prompt.
-
+  
   Two deliberate narrowings relative to execution, both fail-safe: a
   referenced node the caller cannot READ is omitted rather than inlined
   (an edge may cross memories), and an edge whose target was soft-deleted is
   skipped so a preview cannot resurrect removed instructions.
-
+  
   NOTE this is NOT the legacy MCP hadron_run_action bundle, which does a
   literal placeholder replace and inlines every outgoing edge. Where the two
   differ, this one matches execution.
-
+  
   nodeRef is a node PK or a fully-qualified URN (cor:api:140). Denied and
   missing both raise NODE_NOT_FOUND - no existence oracle.
   """
@@ -11262,7 +11262,7 @@ type Query {
   036-ai-service-config: resolve a config name for an execution context
   and return the DECRYPTED credentials (privileged; successor to
   agentAIConfig/appAIConfig).
-
+  
   Walk: App -> Agent -> Org (of the App, else of the Agent) ->
   HadronServer; disabled configs are skipped. When name is omitted,
   'default' is resolved. When an explicit name misses, resolution falls
@@ -11270,7 +11270,7 @@ type Query {
   NoAiConfigAvailableError. Consumers (webhooks, scheduled tasks, the
   portal chatbot) reference configs by name only — pass the name plus
   the execution context, never credentials.
-
+  
   Auth: a named App uses its own owner/org ADMIN gate, including strict
   owner-only access for a user-owned App. A named Agent must be installed
   in that App. Without an App, an org Agent requires org ADMIN; a host-only
@@ -11283,7 +11283,7 @@ type Query {
   A HADRON_SERVER fallback can back a server-side call, but only a platform
   ADMIN/OWNER may receive its plaintext key. Other callers get a typed
   refusal naming the resolved config and HADRON_SERVER level.
-
+  
   appRef/agentRef accept the entity's ID or URN.
   """
   resolveAIConfig(agentRef: ID, appRef: ID, name: String): ResolvedAiConfig!
@@ -11292,7 +11292,7 @@ type Query {
   036-ai-service-config: the MASKED set of configs RESOLVABLE in an
   execution context — every distinct config name a chat in this context
   could select. Populates a config picker in the chatbot UI.
-
+  
   Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
   the Agent) -> HadronServer), but returns ALL names instead of resolving
   one: configs are deduped by name with the innermost owner winning, so
@@ -11300,14 +11300,14 @@ type Query {
   the Agent named here contributes — sibling Agents installed in the same
   App are not consulted. Disabled configs are skipped. Never returns key
   material (hasApiKey + apiKeyPreview only).
-
+  
   Auth: scoped to one App's chat context. A non-admin caller MUST pass an
   appRef, be a member of that App, and (when an agentRef is given) the Agent
   must be installed in that App. Because the result is masked (no key
   material), App membership — not org admin — is the bar, unlike
   resolveAIConfig and the aiServiceConfigs management list. Platform
   ADMIN/OWNER are always allowed and may omit appRef.
-
+  
   appRef/agentRef accept the entity's ID or URN.
   """
   resolveAiServiceConfigs(agentRef: ID, appRef: ID): [AiServiceConfig!]!
@@ -11319,11 +11319,11 @@ type Query {
   per-kind queries — which throw `Forbidden` on no-access — this query
   deliberately collapses both not-found and no-access to null, so a
   redirect resolver can 404 uniformly without disclosing which case it was.
-
+  
   Per-kind access uses the SAME authorization rules as the dedicated
   queries (memory/org/agent: org membership; app: org ADMIN; node:
   memoryAccessFilter), only with the throw replaced by a null return.
-
+  
   The `hrn:<type>:` prefix (legacy `urn:<type>:` also accepted) is the
   dispatch key — bare URNs without a type prefix are ambiguous across kinds
   (`root:slug` could be a memory or an agent) and resolve to null.
@@ -11386,11 +11386,11 @@ type Query {
   GraphQL counterpart to the hadron_server_info MCP tool — both read the
   same getDeploymentInfo() helper, so MCP and GraphQL callers get one
   consistent answer to "which server/API am I talking to?".
-
+  
   'version' is HADRON_SERVER_VERSION — the MCP/API-surface contract
   version, bumped when the tool/query surface changes in a caller-visible
   way. It is intentionally NOT the repo's package.json release version.
-
+  
   Public — no authentication required. Does NOT expose the DATABASE_URL
   (it may carry credentials).
   """
@@ -11409,10 +11409,10 @@ type Query {
   Sessions bound to personal/private memories additionally require that
   memory's strict owner, with no admin or impersonation override. A pure App
   key may also read only the session it is itself bound to.
-
+  
   Unfiltered, this is also the GENERAL row of every `type`, worker-bound or
   not (#1034), so it is equally not a list of worker sessions.
-
+  
   workerRef (#974): only sessions bound to that Worker (by id), newest first
   - the 'taken right now' / 'last driven by' read (cor:agt:020:03). That
   filter is what narrows this to worker sessions.
@@ -11426,17 +11426,17 @@ type Query {
 
   """
   #1177 section 3 — the SKILL SEAM: the server judges, the client does I/O.
-
+  
   One surface serving skill lint, skill status and skill export. The client
   sends what it can see of each file on disk; the server returns a drift
   CLASS and the lint findings per declared node, plus the rendered body for
   anything the client is to write.
-
+  
   A QUERY, not a mutation, and that is the contract. Nothing here writes to a
   node — publishing is one-way, and the only writer in the feature is the
   client's own filesystem. So status and lint cannot write by construction
   rather than by promise.
-
+  
   The client cannot name a drift class: the vocabulary is the server's, so it
   cannot drift between clients. A node failing lint is never given a rendered
   body, so a client cannot write a file the server judged broken.
@@ -11546,7 +11546,7 @@ type Query {
   unresolvable or foreign mentionsRef yields the empty page identically (no
   existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
   total.
-
+  
   Authorization: an AppMember of the App (any role), an org member with
   CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
   App's own key (a pure App-key principal may READ its team chat).
@@ -11554,7 +11554,7 @@ type Query {
   not a participant), UNAUTHENTICATED (no principal at all; checked before
   the App is resolved, so it answers identically whether or not the App
   exists).
-
+  
   appRef and mentionsRef accept the entity's ID or URN.
   """
   teamChatMessages(
@@ -11577,7 +11577,7 @@ type Query {
   An App's role definitions (#960): every roles:<role> node in the Team
   Agent's system memory. Ordered by role slug. Same read authorization as
   workers.
-
+  
   #1050: no register projection. This once existed chiefly to answer "which
   names are still free", which needed the App's FULL roster and so could not
   be computed client-side — with names no longer allocated from a pool there
@@ -11620,11 +11620,11 @@ type Query {
   are equality filters; kind must be one of pr, issue, commit, branch, repo
   when given.
   limit defaults to 50 (cap 200); limit: 0 returns only total.
-
+  
   Authorization: an AppMember of the App (any role), an org member with
   CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
   App's own key (a pure App-key principal may READ its own App's worklog).
-
+  
   appRef accepts the entity's ID or URN; sessionRef is the session id.
   """
   teamWorkItems(
@@ -11641,7 +11641,7 @@ type Query {
     envelope stays correct. Without it a client must fan out over
     sessions(workerRef:) and merge, which cannot reproduce `total` or a
     stable offset on the one surface whose whole point is completeness.
-
+    
     Accepts a worker id, its URN, or its NAME within this App. A RETIRED
     worker still resolves — retirement ends the casting, not the history.
     Records from a session that was never worker-bound carry no worker and
@@ -11664,20 +11664,20 @@ type Query {
 
   """
   #796 — read/write activity counts, bucketed by time.
-
+  
   Default scope is the caller's OWN events across everything they touched;
   pass memoryRefs to switch to all users' events attributed to ANY of those
   memories (#805), each of which requires read access. The result is the
   UNION as a single read/write series, not a per-memory breakdown; since every
   event carries exactly one memory, the union equals the sum of the separate
   scopes with no double-counting.
-
+  
   A ref the caller cannot read — or that does not exist — is silently dropped
   from the union rather than failing the query, so the result never reveals
   which of the named memories exist. Passing an empty list therefore yields
   an empty result, NOT the caller's own activity. A malformed ref is still an
   error. At most 20 refs.
-
+  
   Only non-empty buckets are returned — zero-fill the window client-side.
   Counts only events of type read and write. Window bounds are ISO-8601
   strings: from is INCLUSIVE, to is EXCLUSIVE, so adjacent windows tile
@@ -11705,18 +11705,18 @@ type Query {
   """
   Usage events (most recent first), optionally filtered by type, memoryId,
   or nodeId.
-
+  
   Access control (#250): results are always scoped to memories the caller
   may read (org membership / subscriptions / public / owned personal+private
   per spec 034; ADMIN/OWNER see all EXCEPT another user's personal/private
   memories and, per spec 047, another user's user-owned memories). A
   memoryId the caller can't read returns [] (no existence leak); the global
   form (no memoryId) is bounded to the readable set, never cross-tenant.
-
+  
   memoryId is a memory identifier — accepts the memory's ID or URN. Results
   are scoped on the denormalized UsageEvent.memoryId column (#796), so an
   event stays attributed to its memory after its node is deleted.
-
+  
   nodeId is a node token accepting a PK, a fully-qualified URN, or a bare
   loc (no memoryId needed):
     - PK / URN  → resolved to a single node; scoped via its exact nodeId FK
@@ -11729,7 +11729,7 @@ type Query {
                   a comment that named an ungated sibling without anyone
                   following the pointer back. nodeUsage was gated in #802
                   and deprecated as redundant in the same issue.)
-
+  
   loc — the VERBATIM exact nodeLoc filter (never shape-sniffed, so every
   loc works, hierarchical spec citations included), bounded to readable
   memories; not existence-checked. The migration target for the deprecated
@@ -11763,12 +11763,12 @@ type Query {
   Memory health audit (#819) — the GraphQL twin of hadron_validate, which was
   MCP-only, so the CLI, the portal and CI had no way to answer "is this
   memory healthy?".
-
+  
   Every check is over server-owned state a client cannot compute:
   abstractOriginHash vs current content, embedding_failed_at (not projected
   on Node at all), and property-schema conformance. So unlike other gaps
   there is no slow client-side fallback.
-
+  
   Returns TYPED findings so a caller can branch and CI can gate on
   totalFindings. findings is capped by limit (default 200, max 1000) while
   totalFindings reports the true count - so a gate is never fooled by
@@ -11798,12 +11798,12 @@ type Query {
   App. Without appRef the ref must be an id or URN, and anything else refuses
   WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
   checked against it, so a typo'd URN never degrades into a roster search.
-
+  
   Selecting `prompt` re-renders the worker's boot briefing live from the
   role agent's template — the read that lets an agent recover a briefing it
   lost to a context compaction, instead of opening a second session or
   forcing a takeover of itself.
-
+  
   Authorization: an AppMember of the worker's App (any role), an org member
   with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
   own key. For the NAME form the gate runs BEFORE the lookup and a denial is
@@ -12092,12 +12092,12 @@ type ReleaseWorkerPayload {
   True when the caller released SOMEBODY ELSE'S hold — the admin
   force-release path, the one act that takes a name without its holder
   acting, and the one that posts to the team chat.
-
+  
   Computed server-side, from the authenticated principal and the hold the
   write ended in the same transaction. A client computing it would have to
   compare a value it was given against one it had to fetch, and that fetch
   fails on exactly the path where the answer matters.
-
+  
   false always means the holder was YOU, or that nothing was released
   (releasedFrom null) — never "the server could not tell".
   """
@@ -12105,13 +12105,13 @@ type ReleaseWorkerPayload {
 
   """
   Whether the team-chat notice was posted. THREE states, deliberately:
-
+  
   - null — no notice was owed. A self-release, or nothing released.
   - true — a notice was owed and posted.
   - false — a notice was OWED AND FAILED. The release still happened; an
     unreachable chat must not stop an admin recovering a departed
     colleague's names.
-
+  
   A plain boolean would collapse the first and last, and a client cannot
   render "we may have silently failed to announce this" honestly — so the
   only truthful UI would be to say nothing, throwing the field away.
@@ -12121,7 +12121,7 @@ type ReleaseWorkerPayload {
   """
   The holder the WRITE ended — not the one a pre-read saw. Null when nothing
   was released, i.e. the name was already unheld (the idempotent path).
-
+  
   This is the value the authorization decision was made against AND the value
   the guarded write matched on; #1084 made those the same user by
   construction, so this cannot name somebody other than whoever actually
@@ -12134,7 +12134,7 @@ type ReleaseWorkerPayload {
   team-chat notice — so the interval in which another caller could bind is as
   narrow as it can be made. It is NOT zero, and this is a re-read rather than
   a snapshot of the write.
-
+  
   So a non-null heldByUserId here is a LATER hold somebody else took, never a
   failed release. releasedFrom is what says the release happened; this field
   is current state, and the two answer different questions.
@@ -12923,7 +12923,7 @@ input SessionInput {
   non-member: FORBIDDEN. An App-key credential wins - if the caller
   authenticated as an App and appRef names a DIFFERENT App, the call is
   refused (SESSION_APP_MISMATCH).
-
+  
   Uninstalled Apps differ by ref form, because App URNs are only unique
   among ACTIVE rows (spec 021 FR-027: one live App plus N uninstalled
   history rows may share a URN). By URN an uninstalled App is simply not
@@ -12998,7 +12998,7 @@ input SessionInput {
   #974 / cor:agt:020:03: the Worker (named casting) this session works as.
   Three forms resolve, told apart by SHAPE (never by trying each in turn, so
   a typo'd URN can't silently fall through to a roster search):
-
+  
   - the worker's NAME ("Iris") — #990. Unique per App, case-insensitively,
     matched with the DATABASE's lower(), the expression
     workers_app_name_uniq indexes. Requires App context (appRef, an App-key
@@ -13007,7 +13007,7 @@ input SessionInput {
     than guessing across the caller's Apps. Gated on the STAFF READ GATE
     before the lookup runs — resolving a name discloses roster membership,
     which the id/URN forms never do.
-
+  
     Which refusal you get depends on WHERE the denial happens, and clients
     should not assume one code covers both: a caller who supplied appRef has
     already been checked against the same participant predicate, so an
@@ -13018,7 +13018,7 @@ input SessionInput {
   - the worker's URN (hrn:worker:<root>:<app-slug>:<slug>, #991); the URN's
     leaf is the derived slug, never the display name (cor:agt:020:02).
   - the worker's id.
-
+  
   Resolves to Session.workerId, and stamps Session.agentId with the worker's
   role-agent. The worker must belong to the session's App: with appRef (or an
   App-key credential) it must match the worker's App; without one, the
@@ -14204,14 +14204,14 @@ type TeamRole {
   `data.repos`. A SOFT signal for clients to warn on a role/repo mismatch at
   session start (hadron-cli#456): a worker bound as a server-engineer with
   `--repo …/hadron-cli` is usually a mistake and is sometimes deliberate.
-
+  
   NEVER a refusal, and never inferred. Cross-repo work is legitimate — a
   coordinator does it by definition, and sibling repos share code — so a hard
   gate would be wrong the first time someone makes a genuine cross-cutting
   change. Affinity is declared, not guessed from the role slug, which happens
   to work for `cli-engineer` → `hadron-cli` and breaks for any team whose repo
   names do not match their role names.
-
+  
   EMPTY AND UNSET ARE THE SAME: no affinity, never warn. A client cannot
   usefully act differently on the two, since "spans everything" and "not
   configured yet" both mean do-not-warn, and distinguishing them would make an
@@ -14919,7 +14919,7 @@ type User {
   address. Withheld (null) from a viewer who is not the user themselves, a
   platform admin, or a co-member of one of their orgs — the same #384 gate that
   name/email use.
-
+  
   Load-bearing for duplicate-account triage: mergeUsers adopts a source
   provider id only where the target column is null, and identityProvider
   records only which provider CREATED the row, so it cannot be used to infer
@@ -15119,7 +15119,7 @@ type Worker {
 
   """
   #1029 — what a fresh binding of this worker inherits from the last one.
-
+  
   Returned by startSession alongside the boot briefing (binding is briefing,
   so binding is handoff) and by the worker read, which is the recovery path
   after a context compaction — the reader who has most lost the handoff and
@@ -15142,12 +15142,12 @@ type Worker {
 
   """
   hadron-cli#487 — whether anyone is DRIVING this name right now.
-
+  
   Not availability: availability is the HOLD above (`cor:agt:020:09`), and an
   ended or idle session never frees a name. This says only whether someone is
   mid-stint, which is the question a coordinator asks about a name already
   theirs. Conflating the two is the CLI bug this field exists for.
-
+  
   #1114 — COMPUTED, never stored. It is "the session has not ended AND it was
   driven inside its type's idle window", not "a row is open". Nothing ends a
   session for inactivity any more, because silence is not evidence of
@@ -15156,16 +15156,16 @@ type Worker {
   time says exactly what the evidence supports; the previous design expressed
   the same judgement by ENDING the session, which wrote a guess into the
   record as a fact and destroyed the handoff that stint had not written yet.
-
+  
   A worker that reads false is not gone: its session is untouched, and it
   reads true again the moment it is driven.
-
+  
   Uses the SAME predicate startSession refuses WORKER_TAKEN on
   (`cor:agt:020:11`) — a reader must not be told a worker is busy that a
   binder can take, and since #1114 that is load-bearing rather than tidy:
   with nothing ending abandoned sessions, an `endedAt IS NULL` gate would
   refuse a bind forever and leave force as the only route.
-
+  
   Nullable BECAUSE of the read gate, not because the answer is unknown: this
   is a working-state field like heldByUserId, masked to null on deny rather
   than answering false, which would state a fact the server never computed.
@@ -15175,7 +15175,7 @@ type Worker {
   """
   When the current hold was taken. Null exactly when heldByUserId is — and
   likewise masked on deny.
-
+  
   #1034: "taken" here is the HOLD's timestamp, unrelated to `WORKER_TAKEN`
   (a live worker session) and to `TeamRoleName.taken` (a name allocated in
   the register). Three senses of one word across two types.
@@ -15184,12 +15184,12 @@ type Worker {
 
   """
   #1050 — the human HOLDING this name, or null when nobody does.
-
+  
   A name is held by a person, not by a live session: expiry, a reap, or a
   closed chat session never free it, and only an explicit release does. This
   is what separates the two meanings of "taken" — HELD is whose name it is,
   while a live session is only ever a question about your own worker.
-
+  
   WORKING-STATE field, behind the worker read gate and masked to null on
   deny — like promptOverride and memoryId, and NOT like name/role/urn.
   Session.worker reaches a Worker row through a wider gate that admits any
@@ -15205,7 +15205,7 @@ type Worker {
   point: a casting nobody picked up renders identically to one worked
   yesterday on every surface today, so a coordinator can dispatch into a
   channel no one reads and get no signal at all.
-
+  
   The instant is the platform's one derivation of session activity — the
   greatest of startedAt, updatedAt, and the newest attributed usage event — so
   it agrees with the takeover prompt and with the idle window hasLiveSession
@@ -15240,7 +15240,7 @@ type Worker {
   (#881), so a worker signing an artifact under #1008 hands over a URL
   instead of assembling one out of a URN spelling the /app/u route may not
   resolve.
-
+  
   Built from the SAME URN the urn field returns, so the two cannot diverge.
   Null on both arms and neither is an error: no configured portal origin
   means no link (a link to the wrong host is worse than none), and an App URN
@@ -15280,13 +15280,13 @@ type Worker {
   #1024 — the repo affinity of this worker's ROLE, resolved so a client that
   already holds the worker needs no second round-trip to teamRoles. The CLI
   warns on a role/repo mismatch at session start (hadron-cli#456).
-
+  
   WORKING-STATE field: behind the worker read gate and masked to [] on deny,
   like promptOverride and the holder — Session.worker reaches a Worker
   through a wider gate that admits any org member and survives a user leaving
   the App, so an ungated field would publish a team's repo list through any
   historical session.
-
+  
   Masking to [] costs nothing, because empty already means "no affinity,
   never warn": a denied caller simply gets no warning, which is the safe
   direction for a signal that must never become a refusal. Same reason a
@@ -15430,7 +15430,7 @@ type WorkerContinuity {
   """
   The worker's most recent ENDED session, as a SANITIZED projection — the
   three facts continuity needs, and deliberately not the Session object.
-
+  
   The worker read gate that admits this field is WIDER than the session read
   gate: an AppMember who is not an org member passes the first and fails the
   second. Returning a Session here would hand them another driver's

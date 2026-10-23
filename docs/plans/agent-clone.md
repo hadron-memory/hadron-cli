@@ -49,7 +49,7 @@ roll back the clone and does not initiate another mutation.
 
 The canonical SDL was exported by the repository exporter from an isolated
 checkout of merged provider c8da96c1393bc11170eb7ce83c94533dbe5dfbe1, explicitly
-selected through HADRON_SERVER_DIR. The export recipe strips trailing horizontal whitespace (`sed "s/[[:blank:]]*$//"`) before snapshotting; the upstream descriptions contain three whitespace-only lines. Generated client code is never hand edited.
+selected through HADRON_SERVER_DIR. The snapshot retains the canonical exporter output verbatim (including three whitespace-only description lines reported by git diff --check). Generated client code is never hand edited.
 The full refresh includes already-merged non-clone fields/descriptions (boot
 pointers, includes and task changes among them). Those are schema inventory,
 not client feature claims.
