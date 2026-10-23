@@ -249,11 +249,17 @@ func newestModel(f *os.File, size int64, kind adapter, nativeID string) (string,
 	if _, err := f.ReadAt(buf, start); err != nil && !errors.Is(err, io.EOF) {
 		return "", unavailable("transcript tail unreadable")
 	}
-	if i := bytes.LastIndexByte(buf, '\n'); i >= 0 {
-		buf = buf[:i] // drop a partial final line
-	} else {
+	i := bytes.LastIndexByte(buf, '\n')
+	if i < 0 {
 		return "", unavailable("no complete record in the read window")
 	}
+	// A partial final line is dropped (the writer may be mid-append) — but one
+	// already over the record budget is oversized input, not a partial write,
+	// and an older model must not be reported past it.
+	if len(buf)-i-1 > maxRecord {
+		return "", unavailable("record over budget")
+	}
+	buf = buf[:i]
 	ls := lines(buf)
 	if start > 0 {
 		ls = ls[1:] // the first line of a mid-file window may be cut

@@ -369,9 +369,10 @@ func TestSyncModelOversizedTrailingRecordZeroWrites(t *testing.T) {
 }
 
 func TestSetModelBindingReplacedOrRemovedBeforeWriteZeroWrites(t *testing.T) {
+	var serverURL string
 	for name, mutate := range map[string]func(path string){
 		"replaced": func(p string) {
-			swapped := strings.Replace(bindingWithTeamFixture, `"sessionId":"s-new"`, `"sessionId":"s-successor"`, 1)
+			swapped := strings.Replace(bindingWithTeamFixture, `"sessionId":"s-new"`, `"sessionId":"s-successor","server":"`+serverURL+`"`, 1)
 			_ = os.WriteFile(p, []byte(swapped), 0o600)
 		},
 		"removed": func(p string) { _ = os.Remove(p) },
@@ -385,6 +386,11 @@ func TestSetModelBindingReplacedOrRemovedBeforeWriteZeroWrites(t *testing.T) {
 				}
 				return modelLogSessionJSON
 			})
+			serverURL = gql.URL
+			// A binding that records its server is what makes the ended-session
+			// check (the round trip a rebind can land during) actually run.
+			bound := strings.Replace(bindingWithTeamFixture, `"sessionId":"s-new"`, `"sessionId":"s-new","server":"`+gql.URL+`"`, 1)
+			_ = os.WriteFile(env.binding, []byte(bound), 0o600)
 			_, err := runSync(t, "", gql.URL, "set-model", "gpt-5.1-codex")
 			if err == nil {
 				t.Error("a binding that changed before the write must be refused")

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -100,6 +101,9 @@ func errModelUnavailable() error {
 }
 
 func runSyncModel(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command, hook bool) error {
+	if f.IOStreams.IsInputTerminal() {
+		return exitcode.Newf(exitcode.Usage, "sync-model reads the hook JSON from stdin; pipe it in (a terminal would wait forever)")
+	}
 	raw, err := io.ReadAll(io.LimitReader(f.IOStreams.In, hookInputLimit+1))
 	var in hookInput
 	if err != nil || len(raw) > hookInputLimit || json.Unmarshal(raw, &in) != nil {
@@ -109,7 +113,7 @@ func runSyncModel(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command, h
 	if err != nil || b == nil || b.SessionID == "" {
 		return errModelUnavailable()
 	}
-	if checkBindingServer(f, b) != nil || !sameTree(in.Cwd) {
+	if checkBindingServer(f, b) != nil || !sameTree(ctx, in.Cwd) {
 		return errModelUnavailable()
 	}
 	client, err := f.GraphQLClient()
@@ -141,25 +145,27 @@ func runSyncModel(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command, h
 	return reportModel(ctx, f, cmd, client, b.SessionID, model, hook)
 }
 
-// sameTree reports whether the hook's cwd is the process's worktree, or inside
-// it or above it (a hook may run from a subdirectory).
-func sameTree(hookCwd string) bool {
+// sameTree reports whether the hook's cwd is the worktree this binding lives
+// in, or inside it. The worktree is the git top level of the process cwd; when
+// that cannot be read the process cwd stands in. A cwd ABOVE the worktree
+// (including /) is refused.
+func sameTree(ctx context.Context, hookCwd string) bool {
 	if hookCwd == "" {
 		return false
 	}
-	here, err := os.Getwd()
+	root, err := os.Getwd()
 	if err != nil {
 		return false
 	}
+	if out, err := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel").Output(); err == nil {
+		root = strings.TrimSpace(string(out))
+	}
 	a, err1 := filepath.EvalSymlinks(hookCwd)
-	b, err2 := filepath.EvalSymlinks(here)
+	b, err2 := filepath.EvalSymlinks(root)
 	if err1 != nil || err2 != nil {
 		return false
 	}
-	within := func(p, root string) bool {
-		return p == root || strings.HasPrefix(p, strings.TrimRight(root, string(filepath.Separator))+string(filepath.Separator))
-	}
-	return within(a, b) || within(b, a)
+	return a == b || strings.HasPrefix(a, strings.TrimRight(b, string(filepath.Separator))+string(filepath.Separator))
 }
 
 func reportModel(ctx context.Context, f *cmdutil.Factory, _ *cobra.Command, client graphql.Client, sessionID, model string, quiet bool) error {
@@ -206,6 +212,13 @@ this one.`,
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return api.MapError(err)
+			}
+			// readBinding's ended-session check above is a server round trip; a
+			// rebind can land during it. Re-read and refuse a changed binding
+			// rather than write the model onto the stale session.
+			again, _, err := readBindingFile(cmd.Context())
+			if err != nil || again == nil || again.SessionID != b.SessionID {
+				return exitcode.Newf(exitcode.Conflict, "this worktree's session binding changed while reporting — nothing was sent; rerun")
 			}
 			return reportModel(cmd.Context(), f, cmd, client, b.SessionID, model, false)
 		},
