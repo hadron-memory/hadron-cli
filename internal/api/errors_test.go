@@ -109,6 +109,13 @@ func TestMapError(t *testing.T) {
 		// #864: only whoever manages the App sets its stall schedule — a
 		// permission refusal, which must not ride the _REQUIRED → Usage rule.
 		{"app manager required", gqlErr("APP_MANAGER_REQUIRED"), exitcode.Forbidden},
+		// #911 B1 stop signals (server #2022/#2173): setting is refused until
+		// the notice lane is on (state, 5); the two scope codes name an
+		// authority, so they must not ride the _REQUIRED → Usage rule.
+		{"stop signal unavailable", gqlErr("STOP_SIGNAL_UNAVAILABLE"), exitcode.Conflict},
+		{"stop host scope required", gqlErr("HOST_SCOPE_REQUIRED"), exitcode.Forbidden},
+		{"stop signal scope forbidden", gqlErr("STOP_SIGNAL_SCOPE_FORBIDDEN"), exitcode.Forbidden},
+		{"stop signal not found", gqlErr("STOP_SIGNAL_NOT_FOUND"), exitcode.NotFound},
 		{"comment deleted", gqlErr("COMMENT_DELETED"), exitcode.Conflict},
 		{"comment merge folds threads", gqlErr("COMMENT_MERGE_FOLDS_THREADS"), exitcode.Usage},
 		{"unauthenticated", gqlErr("UNAUTHENTICATED"), exitcode.AuthRequired},
