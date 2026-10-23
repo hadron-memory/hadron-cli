@@ -248,6 +248,9 @@ func renderApprovalStatus(w io.Writer, indent string, s *approvalStatusDTO) {
 		return
 	}
 	switch s.State {
+	case string(gen.NodeApprovalStateNotApplicable):
+		fmt.Fprintf(w, "%sapproval: not applicable (encrypted memory)\n", indent)
+		return
 	case string(gen.NodeApprovalStateApproved):
 		if s.Approval != nil {
 			fmt.Fprintf(w, "%sapproval: APPROVED (approval recorded at revision %d by %s at %s)\n", indent,
