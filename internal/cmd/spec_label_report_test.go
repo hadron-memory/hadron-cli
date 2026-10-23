@@ -167,3 +167,49 @@ func TestSpecLabelReportUnavailableSemantics(t *testing.T) {
 		})
 	}
 }
+
+func TestSpecLabelReportExcludesVisibleNonDirectSources(t *testing.T) {
+	parent := `{"id":"p","memoryId":"mem1","loc":"msg:010","name":"Parent","tags":["spec"]}`
+	listing := `{"data":{"findNodes":{"hits":[{"node":` + parent + `}]}}}`
+	empty := `{"data":{"findNodes":{"hits":[]}}}`
+	batch := `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[{"id":"p","memoryId":"mem1","loc":"msg:010","name":"Parent","incomingEdges":[
+		{"id":"direct","name":"Keep editorial wording","source":{"id":"c","loc":"msg:010:02","memoryId":"mem1"}},
+		{"id":"grandchild","name":"Exclude grandchild","source":{"id":"g","loc":"msg:010:02:01","memoryId":"mem1"}},
+		{"id":"non-citation","name":"Exclude non-citation","source":{"id":"n","loc":"notes:ordinary","memoryId":"mem1"}}
+	]}]}}}`
+	for _, asJSON := range []bool{true, false} {
+		t.Run(map[bool]string{true: "json", false: "text"}[asJSON], func(t *testing.T) {
+			gql, calls := queueGraphQL(t, map[string][]string{"FindNodes": {listing, empty, empty}, "NodeBatch": {batch}})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"spec", "label-report", "-m", specMem, "--server", gql.URL}
+			if asJSON {
+				args = append(args, "--json")
+			}
+			root.SetArgs(args)
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(out.String(), "Exclude") || strings.Contains(out.String(), "grandchild") || strings.Contains(out.String(), "non-citation") {
+				t.Fatal("reported a visible non-direct source", out.String())
+			}
+			if !strings.Contains(out.String(), "Keep editorial wording") {
+				t.Fatal("lost direct-source positive control", out.String())
+			}
+			if asJSON {
+				var result struct{ Items []map[string]any }
+				if err := json.Unmarshal([]byte(out.String()), &result); err != nil {
+					t.Fatal(err)
+				}
+				if len(result.Items) != 1 || result.Items[0]["edgeId"] != "direct" || result.Items[0]["childId"] != "c" {
+					t.Fatal(out.String())
+				}
+			}
+			for op := range calls {
+				if op != "FindNodes" && op != "NodeBatch" {
+					t.Fatal("unexpected hidden read", op)
+				}
+			}
+		})
+	}
+}
