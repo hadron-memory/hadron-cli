@@ -28881,6 +28881,31 @@ func (v *MyUserApiKeysResponse) GetMyUserApiKeys() []*MyUserApiKeysMyUserApiKeys
 	return v.MyUserApiKeys
 }
 
+// NextNodeResponse is returned by NextNode on success.
+type NextNodeResponse struct {
+	// The next sibling node under a parent, ordered by seq (#817) — the GraphQL
+	// twin of hadron_get_next_node, so guided reading order is no longer MCP-only.
+	//
+	// parentRef / currentRef take a node PK or a fully-qualified URN
+	// (cor:api:140). Omit currentRef to get the FIRST child.
+	//
+	// Order: seq ascending; a NULL seq sorts LAST, after every explicitly ordered
+	// sibling; ties break on loc ascending. Identical to the MCP tool, so the two
+	// surfaces cannot present different reading orders.
+	//
+	// Returns null at the end of the sibling chain, and for a parent that does
+	// not exist or the caller cannot read — denied and missing are indistinguishable. A
+	// currentRef that is not among the parent's direct children is likewise null
+	// rather than an error, so it cannot probe a node's parentage. A MALFORMED
+	// ref still throws: a shape error discloses nothing about what exists.
+	//
+	// Stateless — this is a next-sibling read, not a session-backed cursor.
+	NextNode *GetNodeNode `json:"nextNode"`
+}
+
+// GetNextNode returns NextNodeResponse.NextNode, and is useful for accessing the field via an interface.
+func (v *NextNodeResponse) GetNextNode() *GetNodeNode { return v.NextNode }
+
 // NodeApprovalFields includes the GraphQL fields of NodeApproval requested by the fragment NodeApprovalFields.
 // The GraphQL type's documentation follows.
 //
@@ -59670,6 +59695,22 @@ func (v *__MoveNodeInput) GetTargetUrn() *string { return v.TargetUrn }
 // GetTargetMemoryRef returns __MoveNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
 func (v *__MoveNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
 
+// __NextNodeInput is used internally by genqlient
+type __NextNodeInput struct {
+	ParentRef  string  `json:"parentRef"`
+	CurrentRef *string `json:"currentRef,omitempty"`
+	Raw        bool    `json:"raw"`
+}
+
+// GetParentRef returns __NextNodeInput.ParentRef, and is useful for accessing the field via an interface.
+func (v *__NextNodeInput) GetParentRef() string { return v.ParentRef }
+
+// GetCurrentRef returns __NextNodeInput.CurrentRef, and is useful for accessing the field via an interface.
+func (v *__NextNodeInput) GetCurrentRef() *string { return v.CurrentRef }
+
+// GetRaw returns __NextNodeInput.Raw, and is useful for accessing the field via an interface.
+func (v *__NextNodeInput) GetRaw() bool { return v.Raw }
+
 // __NodeBatchInput is used internally by genqlient
 type __NodeBatchInput struct {
 	Refs      []string `json:"refs,omitempty"`
@@ -72702,6 +72743,92 @@ func MyUserApiKeys(
 	}
 
 	data_ = &MyUserApiKeysResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NextNode.
+const NextNode_Operation = `
+query NextNode ($parentRef: ID!, $currentRef: ID, $raw: Boolean!) {
+	nextNode(parentRef: $parentRef, currentRef: $currentRef, raw: $raw) {
+		id
+		urn
+		portalUrl
+		memoryId
+		memory {
+			urn
+		}
+		loc
+		name
+		description
+		abstract
+		abstractOriginHash
+		nodeType
+		role
+		objectType
+		tags
+		content
+		data
+		properties
+		seq
+		isRunnable
+		createdAt
+		updatedAt
+		outgoingEdges {
+			id
+			name
+			loc
+			isRunnable
+			priority
+			target {
+				id
+				loc
+				memoryId
+			}
+		}
+		incomingEdges {
+			id
+			name
+			loc
+			isRunnable
+			priority
+			source {
+				id
+				loc
+				memoryId
+			}
+		}
+	}
+}
+`
+
+// Stateless next sibling, cli#1009 / #102. Null deliberately conceals missing/denied.
+// Same projection and generated type as GetNode: genqlient rejects drift.
+func NextNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	parentRef string,
+	currentRef *string,
+	raw bool,
+) (data_ *NextNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NextNode",
+		Query:  NextNode_Operation,
+		Variables: &__NextNodeInput{
+			ParentRef:  parentRef,
+			CurrentRef: currentRef,
+			Raw:        raw,
+		},
+	}
+
+	data_ = &NextNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

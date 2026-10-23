@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 73 unbound
+[Query] 72 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -57,7 +57,6 @@ myAgentSubscriptions
 myApp
 myChats
 myPasskeys  # S1 schema refresh for cli#994; separate CLI parity, not part of the clone cut
-nextNode
 nodeUsage  # deprecated by server #986 — never wrap it; usageEvents(loc:) is the migration target
 previewAutomation  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 principalGrant

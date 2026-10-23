@@ -1,0 +1,79 @@
+# Stateless next sibling, cli#1009 / #102. Null deliberately conceals missing/denied.
+# Same projection and generated type as GetNode: genqlient rejects drift.
+query NextNode(
+  $parentRef: ID!
+  # @genqlient(omitempty: true)
+  $currentRef: ID
+  $raw: Boolean!
+) {
+  # Shared with GetNodeRaw below: one Go type, so a caller can hold either read.
+  # @genqlient(typename: "GetNodeNode")
+  nextNode(parentRef: $parentRef, currentRef: $currentRef, raw: $raw) {
+    id
+    # The fully-qualified URN and the portal link that opens it (#515).
+    #
+    # BOTH, from the one read, because cor:api:230:01 requires it: the surface
+    # prints an identifier and a link that opens it, and they derive from the
+    # same composition so they cannot disagree about what they address. Two
+    # independent composers is how a surface starts printing a link to a
+    # resource other than the one it just named.
+    #
+    # portalUrl is SERVER-BUILT and nullable, and on a NODE for exactly ONE
+    # reason: the deployment has no usable web origin. It renders as nothing.
+    # Never a locally-composed fallback: a link to a guessed origin fails
+    # silently for whoever clicks it, which is worse than the caller seeing
+    # none. The urn beside it is unaffected by the link's absence.
+    #
+    # The "or there is no identifier to build one from" arm belongs to WORKERS,
+    # not here — `Worker.urn` is nullable, `Node.urn` is `String!`. Stating the
+    # worker's reason on a node is how a reader inherits a nullability that
+    # cannot occur; it had leaked into three places before PR #526 swept it.
+    urn
+    portalUrl
+    memoryId
+    # The node's memory URN, so a caller naming a cross-memory target pays no GetMemory round trip (cli#463). Nullable: null when the caller may not read the memory record (hadron-server#2193) — fall back to memoryId, never slice or compose a URN locally.
+    memory {
+      urn
+    }
+    loc
+    name
+    description
+    abstract
+    abstractOriginHash
+    nodeType
+    role
+    objectType
+    tags
+    content
+    data
+    properties
+    seq
+    isRunnable
+    createdAt
+    updatedAt
+    outgoingEdges {
+      id
+      name
+      loc
+      isRunnable
+      priority
+      target {
+        id
+        loc
+        memoryId
+      }
+    }
+    incomingEdges {
+      id
+      name
+      loc
+      isRunnable
+      priority
+      source {
+        id
+        loc
+        memoryId
+      }
+    }
+  }
+}
