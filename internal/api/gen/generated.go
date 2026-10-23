@@ -21417,11 +21417,16 @@ type GetNodeNode struct {
 	// stable URN-alias route. NULL when the deployment has no portal origin
 	// configured (FRONTEND_URL) — a link to the wrong host is worse than none, so
 	// clients render the field only when present.
-	PortalUrl   *string `json:"portalUrl"`
-	MemoryId    string  `json:"memoryId"`
-	Loc         string  `json:"loc"`
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
+	PortalUrl *string `json:"portalUrl"`
+	MemoryId  string  `json:"memoryId"`
+	// #2193: this node's memory record, exactly as Query.memory answers it to the
+	// caller, or null when the caller may not read that record (or it is
+	// deleted). Seeing a node does not grant its memory's record, so use urn or
+	// memoryId for the address. Always null on an inherited node.
+	Memory      *GetNodeNodeMemory `json:"memory"`
+	Loc         string             `json:"loc"`
+	Name        string             `json:"name"`
+	Description *string            `json:"description"`
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
 	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
@@ -21488,6 +21493,9 @@ func (v *GetNodeNode) GetPortalUrl() *string { return v.PortalUrl }
 
 // GetMemoryId returns GetNodeNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetMemoryId() string { return v.MemoryId }
+
+// GetMemory returns GetNodeNode.Memory, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetMemory() *GetNodeNodeMemory { return v.Memory }
 
 // GetLoc returns GetNodeNode.Loc, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetLoc() string { return v.Loc }
@@ -21597,6 +21605,27 @@ func (v *GetNodeNodeIncomingEdgesEdgeSourceNode) GetLoc() string { return v.Loc 
 
 // GetMemoryId returns GetNodeNodeIncomingEdgesEdgeSourceNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeIncomingEdgesEdgeSourceNode) GetMemoryId() string { return v.MemoryId }
+
+// GetNodeNodeMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type GetNodeNodeMemory struct {
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn string `json:"urn"`
+}
+
+// GetUrn returns GetNodeNodeMemory.Urn, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeMemory) GetUrn() string { return v.Urn }
 
 // GetNodeNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type GetNodeNodeOutgoingEdgesEdge struct {
@@ -68465,6 +68494,9 @@ query GetNode ($ref: ID!) {
 		urn
 		portalUrl
 		memoryId
+		memory {
+			urn
+		}
 		loc
 		name
 		description
@@ -68546,6 +68578,9 @@ query GetNodeRaw ($ref: ID!) {
 		urn
 		portalUrl
 		memoryId
+		memory {
+			urn
+		}
 		loc
 		name
 		description
