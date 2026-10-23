@@ -84,6 +84,10 @@ func TestMapError(t *testing.T) {
 		{"boot prompt pointer wrong role", gqlErr("BOOT_PROMPT_POINTER_WRONG_ROLE"), exitcode.Usage},
 		{"boot prompt pointer wrong memory", gqlErr("BOOT_PROMPT_POINTER_WRONG_MEMORY"), exitcode.Usage},
 		{"boot prompt pointer session refused", gqlErr("BOOT_PROMPT_POINTER_SESSION_REFUSED"), exitcode.Forbidden},
+		// Include write refusals (cli#916 C5a, hadron-server#2226 / #2165).
+		{"include target unavailable", gqlErr("INCLUDE_TARGET_UNAVAILABLE"), exitcode.NotFound},
+		{"include cycle", gqlErr("INCLUDE_CYCLE"), exitcode.Usage},
+		{"include edge derived", gqlErr("INCLUDE_EDGE_DERIVED"), exitcode.Usage},
 		{"resume refused", gqlErr("RESUME_REFUSED"), exitcode.Conflict},
 		{"resume ambiguous", gqlErr("RESUME_AMBIGUOUS"), exitcode.Usage},
 		{"session ended", gqlErr("SESSION_ENDED"), exitcode.Conflict},

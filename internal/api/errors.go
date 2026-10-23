@@ -783,6 +783,13 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "BOOT_PROMPT_POINTER_SESSION_REFUSED":
 		return exitcode.Forbidden
+	// An include tag the write adds or changes whose target is missing,
+	// deleted or unreadable by the writer (hadron-server#2226, cor:dmo:150:04).
+	// The server gives the three one answer naming only the authored tag, so
+	// this is 4's "not found (or not visible to this principal)"; the CLI
+	// looks nothing up and infers nothing about which case it was (cli#916).
+	case code == "INCLUDE_TARGET_UNAVAILABLE":
+		return exitcode.NotFound
 	// URN_NOT_QUALIFIED (spec 022) is the server refusing a ref that is not
 	// a PK and not a fully-qualified URN — an argument the caller can fix.
 	// The CLI pre-checks App refs (cmdutil.CanonicalAppRef, #540), so this
@@ -846,6 +853,14 @@ func codeForExtension(code string) int {
 	// the reservation apart, without an exit split — visible through `hadron
 	// api`; the curated commands print the server's message, which says it.
 	case code == "LOC_PROTECTED":
+		return exitcode.Usage
+	// The other two include write refusals (hadron-server#2165, cli#916). A
+	// tag that would close a cycle is authored content that cannot be saved as
+	// given; a direct edit or delete of a derived INCLUDE edge is a wrong
+	// door (edit the tag in the content instead), like ROLE_GOVERNED, so not
+	// 8. Literal cases, not an INCLUDE_ family: each code is mapped where it
+	// has been read in the SDL. The server's message is kept whole.
+	case code == "INCLUDE_CYCLE" || code == "INCLUDE_EDGE_DERIVED":
 		return exitcode.Usage
 	// Transfer state refusals require a fresh preview or a change to the
 	// source/destination state; retrying the same apply cannot help.
