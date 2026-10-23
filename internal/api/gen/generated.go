@@ -27388,6 +27388,35 @@ var AllMemoryTransferHandling = []MemoryTransferHandling{
 	MemoryTransferHandlingRemove,
 }
 
+// MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry includes the requested fields of the GraphQL type UsageSummaryEntry.
+type MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry struct {
+	NodeLoc string `json:"nodeLoc"`
+	Type    string `json:"type"`
+	Count   int    `json:"count"`
+}
+
+// GetNodeLoc returns MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry.NodeLoc, and is useful for accessing the field via an interface.
+func (v *MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry) GetNodeLoc() string { return v.NodeLoc }
+
+// GetType returns MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry.Type, and is useful for accessing the field via an interface.
+func (v *MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry) GetType() string { return v.Type }
+
+// GetCount returns MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry.Count, and is useful for accessing the field via an interface.
+func (v *MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry) GetCount() int { return v.Count }
+
+// MemoryUsageSummaryResponse is returned by MemoryUsageSummary on success.
+type MemoryUsageSummaryResponse struct {
+	// Aggregated usage counts per node and type for a memory.
+	//
+	// Accepts the entity's ID or URN.
+	MemoryUsageSummary []*MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry `json:"memoryUsageSummary"`
+}
+
+// GetMemoryUsageSummary returns MemoryUsageSummaryResponse.MemoryUsageSummary, and is useful for accessing the field via an interface.
+func (v *MemoryUsageSummaryResponse) GetMemoryUsageSummary() []*MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry {
+	return v.MemoryUsageSummary
+}
+
 // One health check the validator runs (#819).
 type MemoryValidationCheck string
 
@@ -54453,6 +54482,103 @@ var AllUploadIntent = []UploadIntent{
 	UploadIntentUser,
 }
 
+// UsageEventsResponse is returned by UsageEvents on success.
+type UsageEventsResponse struct {
+	// Usage events (most recent first), optionally filtered by type, memoryId,
+	// or nodeId.
+	//
+	// Access control (#250): results are always scoped to memories the caller
+	// may read (org membership / subscriptions / public / owned personal+private
+	// per spec 034; ADMIN/OWNER see all EXCEPT another user's personal/private
+	// memories and, per spec 047, another user's user-owned memories). A
+	// memoryId the caller can't read returns [] (no existence leak); the global
+	// form (no memoryId) is bounded to the readable set, never cross-tenant.
+	//
+	// memoryId is a memory identifier — accepts the memory's ID or URN. Results
+	// are scoped on the denormalized UsageEvent.memoryId column (#796), so an
+	// event stays attributed to its memory after its node is deleted.
+	//
+	// nodeId is a node token accepting a PK, a fully-qualified URN, or a bare
+	// loc (no memoryId needed):
+	// - PK / URN  → resolved to a single node; scoped via its exact nodeId FK
+	// (memory-precise).
+	// - bare loc  → exact nodeLoc match, bounded to readable memories; not
+	// existence-checked. Shape-classified: a loc with 3+
+	// colon-separated segments qualifies as node-URN shape and
+	// takes the PK/URN branch instead — use loc for those.
+	// (This used to read "like nodeUsage but access-scoped" —
+	// a comment that named an ungated sibling without anyone
+	// following the pointer back. nodeUsage was gated in #802
+	// and deprecated as redundant in the same issue.)
+	//
+	// loc — the VERBATIM exact nodeLoc filter (never shape-sniffed, so every
+	// loc works, hierarchical spec citations included), bounded to readable
+	// memories; not existence-checked. The migration target for the deprecated
+	// nodeUsage(loc:) above — same match, same gate (PR-986 review, Codex P2).
+	// Mutually exclusive with nodeId (BAD_USER_INPUT when both are passed).
+	UsageEvents []*UsageEventsUsageEventsUsageEvent `json:"usageEvents"`
+}
+
+// GetUsageEvents returns UsageEventsResponse.UsageEvents, and is useful for accessing the field via an interface.
+func (v *UsageEventsResponse) GetUsageEvents() []*UsageEventsUsageEventsUsageEvent {
+	return v.UsageEvents
+}
+
+// UsageEventsUsageEventsUsageEvent includes the requested fields of the GraphQL type UsageEvent.
+type UsageEventsUsageEventsUsageEvent struct {
+	Id        string `json:"id"`
+	Type      string `json:"type"`
+	CreatedAt string `json:"createdAt"`
+	// Memory the event is attributed to (#796). Stored at write time, so it
+	// outlives the node — null only for events written before the backfill
+	// whose node was already deleted, or paths with no memory in scope.
+	MemoryId *string `json:"memoryId"`
+	NodeLoc  *string `json:"nodeLoc"`
+	Provider *string `json:"provider"`
+	Model    *string `json:"model"`
+	// Owner level of the API key that served the call
+	// (HADRON_SERVER means platform-paid; anything else is BYOK).
+	KeyOwnerType *string `json:"keyOwnerType"`
+	TokensIn     *int    `json:"tokensIn"`
+	TokensOut    *int    `json:"tokensOut"`
+	// Provider cost snapshot in micro-cents (1e-8 USD), as a base-10
+	// integer string. Null when the (provider, model) pair is unpriced.
+	CostMicroCents *string `json:"costMicroCents"`
+}
+
+// GetId returns UsageEventsUsageEventsUsageEvent.Id, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetId() string { return v.Id }
+
+// GetType returns UsageEventsUsageEventsUsageEvent.Type, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetType() string { return v.Type }
+
+// GetCreatedAt returns UsageEventsUsageEventsUsageEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetCreatedAt() string { return v.CreatedAt }
+
+// GetMemoryId returns UsageEventsUsageEventsUsageEvent.MemoryId, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetMemoryId() *string { return v.MemoryId }
+
+// GetNodeLoc returns UsageEventsUsageEventsUsageEvent.NodeLoc, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetNodeLoc() *string { return v.NodeLoc }
+
+// GetProvider returns UsageEventsUsageEventsUsageEvent.Provider, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetProvider() *string { return v.Provider }
+
+// GetModel returns UsageEventsUsageEventsUsageEvent.Model, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetModel() *string { return v.Model }
+
+// GetKeyOwnerType returns UsageEventsUsageEventsUsageEvent.KeyOwnerType, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetKeyOwnerType() *string { return v.KeyOwnerType }
+
+// GetTokensIn returns UsageEventsUsageEventsUsageEvent.TokensIn, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetTokensIn() *int { return v.TokensIn }
+
+// GetTokensOut returns UsageEventsUsageEventsUsageEvent.TokensOut, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetTokensOut() *int { return v.TokensOut }
+
+// GetCostMicroCents returns UsageEventsUsageEventsUsageEvent.CostMicroCents, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetCostMicroCents() *string { return v.CostMicroCents }
+
 // UserApiKeyFields includes the GraphQL fields of UserApiKey requested by the fragment UserApiKeyFields.
 // The GraphQL type's documentation follows.
 //
@@ -59063,6 +59189,14 @@ type __MemorySubscriptionsInput struct {
 // GetRef returns __MemorySubscriptionsInput.Ref, and is useful for accessing the field via an interface.
 func (v *__MemorySubscriptionsInput) GetRef() string { return v.Ref }
 
+// __MemoryUsageSummaryInput is used internally by genqlient
+type __MemoryUsageSummaryInput struct {
+	MemoryRef string `json:"memoryRef"`
+}
+
+// GetMemoryRef returns __MemoryUsageSummaryInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__MemoryUsageSummaryInput) GetMemoryRef() string { return v.MemoryRef }
+
 // __MergeNodesInput is used internally by genqlient
 type __MergeNodesInput struct {
 	Input *MergeNodesInput `json:"input,omitempty"`
@@ -61606,6 +61740,30 @@ func (v *__UpdateWorkerSigningInput) GetSignature() *string { return v.Signature
 
 // GetTrailer returns __UpdateWorkerSigningInput.Trailer, and is useful for accessing the field via an interface.
 func (v *__UpdateWorkerSigningInput) GetTrailer() *string { return v.Trailer }
+
+// __UsageEventsInput is used internally by genqlient
+type __UsageEventsInput struct {
+	MemoryId  *string `json:"memoryId,omitempty"`
+	Loc       *string `json:"loc,omitempty"`
+	EventType *string `json:"eventType,omitempty"`
+	Limit     int     `json:"limit"`
+	Offset    *int    `json:"offset,omitempty"`
+}
+
+// GetMemoryId returns __UsageEventsInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetMemoryId() *string { return v.MemoryId }
+
+// GetLoc returns __UsageEventsInput.Loc, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetLoc() *string { return v.Loc }
+
+// GetEventType returns __UsageEventsInput.EventType, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetEventType() *string { return v.EventType }
+
+// GetLimit returns __UsageEventsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __UsageEventsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetOffset() *int { return v.Offset }
 
 // __ValidateMemoryInput is used internally by genqlient
 type __ValidateMemoryInput struct {
@@ -71622,6 +71780,42 @@ func MemorySubscriptions(
 	return data_, err_
 }
 
+// The query executed by MemoryUsageSummary.
+const MemoryUsageSummary_Operation = `
+query MemoryUsageSummary ($memoryRef: ID!) {
+	memoryUsageSummary(memoryRef: $memoryRef) {
+		nodeLoc
+		type
+		count
+	}
+}
+`
+
+func MemoryUsageSummary(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+) (data_ *MemoryUsageSummaryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoryUsageSummary",
+		Query:  MemoryUsageSummary_Operation,
+		Variables: &__MemoryUsageSummaryInput{
+			MemoryRef: memoryRef,
+		},
+	}
+
+	data_ = &MemoryUsageSummaryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by MergeNodes.
 const MergeNodes_Operation = `
 mutation MergeNodes ($input: MergeNodesInput!) {
@@ -80751,6 +80945,59 @@ func UpdateWorkerSigning(
 	}
 
 	data_ = &UpdateWorkerSigningResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by UsageEvents.
+const UsageEvents_Operation = `
+query UsageEvents ($memoryId: ID, $loc: String, $eventType: String, $limit: Int!, $offset: Int) {
+	usageEvents(memoryId: $memoryId, loc: $loc, type: $eventType, limit: $limit, offset: $offset) {
+		id
+		type
+		createdAt
+		memoryId
+		nodeLoc
+		provider
+		model
+		keyOwnerType
+		tokensIn
+		tokensOut
+		costMicroCents
+	}
+}
+`
+
+// cli#65 read-only observability. No accounting mutation or deprecated nodeUsage.
+func UsageEvents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId *string,
+	loc *string,
+	eventType *string,
+	limit int,
+	offset *int,
+) (data_ *UsageEventsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UsageEvents",
+		Query:  UsageEvents_Operation,
+		Variables: &__UsageEventsInput{
+			MemoryId:  memoryId,
+			Loc:       loc,
+			EventType: eventType,
+			Limit:     limit,
+			Offset:    offset,
+		},
+	}
+
+	data_ = &UsageEventsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
