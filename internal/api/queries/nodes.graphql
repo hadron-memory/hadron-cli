@@ -210,6 +210,10 @@ query GetNode($ref: ID!) {
     urn
     portalUrl
     memoryId
+    # The node's memory URN, so a caller naming a cross-memory target pays no GetMemory round trip (cli#463). Nullable: null when the caller may not read the memory record (hadron-server#2193) — fall back to memoryId, never slice or compose a URN locally.
+    memory {
+      urn
+    }
     loc
     name
     description
@@ -275,6 +279,10 @@ query GetNodeRaw($ref: ID!) {
     urn
     portalUrl
     memoryId
+    # The node's memory URN, so a caller naming a cross-memory target pays no GetMemory round trip (cli#463). Nullable: null when the caller may not read the memory record (hadron-server#2193) — fall back to memoryId, never slice or compose a URN locally.
+    memory {
+      urn
+    }
     loc
     name
     description
