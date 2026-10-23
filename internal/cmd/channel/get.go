@@ -1,12 +1,15 @@
 package channel
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
+	"io"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
@@ -16,7 +19,12 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Show a Channel by its id or its address.
 
 Both forms are resolved BY THE SERVER — this command does not inspect the ref,
-so an address in any spelling the node resolver accepts works here too.`,
+so an address in any spelling the node resolver accepts works here too.
+
+Best-effort chat-root node URL: one authorized node read copies the server's
+portal URL verbatim. Missing, concealed or failed pointer reads yield null in
+JSON and no URL line in text. This is not a verified Team chat tab destination.
+No transcript is fetched, and channel list is unchanged.`,
 		Example: `  hadron channel get hrn:node:acme.com:team-shared:chats:team
   hadron channel get 01a0a702033c7099b23cbd358cd0c269`,
 		Args: cobra.ExactArgs(1),
@@ -36,8 +44,30 @@ so an address in any spelling the node resolver accepts works here too.`,
 				// is known.
 				return exitcode.Newf(exitcode.NotFound, "no Channel %q is readable here", args[0])
 			}
-			return writeChannel(f, dtoFrom(resp.Channel.ChannelFields, resp.Channel.ChannelMemory))
+			d := channelGetDTO{channelDTO: dtoFrom(resp.Channel.ChannelFields, resp.Channel.ChannelMemory)}
+			// The pointer is optional enrichment. Channel facts remain usable
+			// when its separately authorized node read is unavailable.
+			pointer, pointerErr := gen.NodePortal(cmd.Context(), client, d.ChatRootNodeID)
+			if pointerErr == nil && pointer != nil && pointer.Node != nil {
+				d.PortalURL = pointer.Node.PortalUrl
+			}
+			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+				if err := writeChannel(f, d.channelDTO); err != nil {
+					return err
+				}
+				if d.PortalURL != nil {
+					_, err := fmt.Fprintf(w, "  URL: %s\n", *d.PortalURL)
+					return err
+				}
+				return nil
+			})
 		},
 	}
 	return cmd
+}
+
+// Get-only enrichment: never add the field to list or mutation projections.
+type channelGetDTO struct {
+	channelDTO
+	PortalURL *string `json:"portalUrl"`
 }
