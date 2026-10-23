@@ -31,6 +31,7 @@ import (
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
 	grantcmd "github.com/hadron-memory/hadron-cli/internal/cmd/grant"
+	hacmd "github.com/hadron-memory/hadron-cli/internal/cmd/ha"
 	mcpservercmd "github.com/hadron-memory/hadron-cli/internal/cmd/mcpserver"
 	memorycmd "github.com/hadron-memory/hadron-cli/internal/cmd/memory"
 	nodecmd "github.com/hadron-memory/hadron-cli/internal/cmd/node"
@@ -135,6 +136,7 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.AddCommand(ticketcmd.NewCmdTicket(f))
 	root.AddCommand(grantcmd.NewCmdGrant(f))
 	root.AddCommand(connectioncmd.NewCmdConnection(f))
+	root.AddCommand(hacmd.NewCmdHa(f))
 	root.AddCommand(mcpservercmd.NewCmdMcpServer(f))
 	root.AddCommand(secretcmd.NewCmdSecret(f))
 	root.AddCommand(configcmd.NewCmdConfig(f))
