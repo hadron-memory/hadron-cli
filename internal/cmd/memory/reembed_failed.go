@@ -9,6 +9,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -60,10 +61,16 @@ gate applies (memory owner or org ADMIN), as do its limits on encrypted memories
 			if err != nil {
 				return api.MapError(err)
 			}
+			// 0 is a real answer; a missing/null result is not 0. The mutation
+			// was sent and its outcome did not reach us, so say so (Unavailable)
+			// and do not retry it for the caller.
+			if resp == nil || resp.RetryFailedEmbeddings == nil {
+				return exitcode.Newf(exitcode.Unavailable, "reembed-failed outcome unknown: the server's answer carried no re-stamped count (the request was sent once and is not retried; check with `hadron memory validate %s --check embed-failed`)", args[0])
+			}
 			dto := reembedFailedDTO{
 				Memory:    cmdutil.CanonicalMemoryRef(args[0]),
 				MemoryID:  memID,
-				Restamped: resp.RetryFailedEmbeddings,
+				Restamped: *resp.RetryFailedEmbeddings,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ re-stamped %d node(s) in %s for another embedding attempt (not a count of indexed nodes — confirm with `hadron memory validate %s --check embed-failed`)\n",
