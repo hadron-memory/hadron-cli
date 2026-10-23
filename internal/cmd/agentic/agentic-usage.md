@@ -193,6 +193,24 @@ list of commands: **any command that writes, deletes, moves, merges, copies or
 restores a node at or over a Channel's address exits 2 on it** (verified on
 `node add`, `node update` and `node rm`).
 
+**An include tag the server refuses exits by its class, not 1 (#916).** This
+CHANGED: all three include write refusals fell through to the generic 1. The
+message is the server's, kept whole, and names only the authored tag:
+- **`INCLUDE_TARGET_UNAVAILABLE` exits 4.** A tag the write adds or changes
+  names a target that is missing, deleted or not readable by you. The server
+  gives all three the same answer, and so does the CLI: it looks nothing up.
+  Tags already stored are not re-checked.
+- **`INCLUDE_CYCLE` exits 2.** The tag would make the node include itself,
+  directly or through other nodes. Change the content.
+- **`INCLUDE_EDGE_DERIVED` exits 2.** An INCLUDE edge belongs to its node's
+  content, so `edge update` and `edge rm` cannot change it. Edit or remove the
+  tag in the content instead.
+
+Like the rules around it, this is keyed on the refusal, not on a list of
+commands: any node write (`node add|update|import|merge|clone|revision
+restore`, `memory clone|extract`, `spec edit|replace`) exits this way, and
+nothing is written.
+
 **Writing a node at a loc that is already taken exits 5, not 1 (#608).** This
 CHANGED: it used to exit 1, because the server stamps that `extensions.code`
 from an Error class name (`NodeLocConflictError`) rather than from the
