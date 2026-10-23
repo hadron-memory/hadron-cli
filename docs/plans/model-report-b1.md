@@ -10,7 +10,7 @@ The bound session's server-recorded `Session.transcriptPath` is the only transcr
 1. recorded path present and under the tool's transcript roots (`$CLAUDE_CONFIG_DIR|~/.claude/projects`, `$CODEX_HOME|~/.codex/sessions`);
 2. hook path canonicalises to the same file;
 3. the file's own header carries the hook's native session id (Claude/GLM `sessionId`, Codex `session_meta.payload.id`; Codex also `payload.cwd` == hook cwd);
-4. the hook cwd is the worktree (git top level of the process cwd) or inside it; a cwd above it, including `/`, is refused.
+4. the hook cwd is the worktree (git top level of the process cwd) or inside it; a cwd above it, including `/`, is refused, and so is a cwd in a nested independent git repo (the hook cwd's own `git rev-parse --show-toplevel` must equal the CLI's).
 Any gap is "unavailable": nothing is sent. No "newest file" selection, no adoption.
 
 ## File safety

@@ -148,7 +148,7 @@ func runSyncModel(ctx context.Context, f *cmdutil.Factory, cmd *cobra.Command, h
 // sameTree reports whether the hook's cwd is the worktree this binding lives
 // in, or inside it. The worktree is the git top level of the process cwd; when
 // that cannot be read the process cwd stands in. A cwd ABOVE the worktree
-// (including /) is refused.
+// (including /) and a cwd in a nested, independent git repo are refused.
 func sameTree(ctx context.Context, hookCwd string) bool {
 	if hookCwd == "" {
 		return false
@@ -157,12 +157,26 @@ func sameTree(ctx context.Context, hookCwd string) bool {
 	if err != nil {
 		return false
 	}
+	a, err1 := filepath.EvalSymlinks(hookCwd)
+	if err1 != nil {
+		return false
+	}
 	if out, err := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel").Output(); err == nil {
 		root = strings.TrimSpace(string(out))
+		// A nested independent repo sits under the worktree's path but is not
+		// the worktree: the hook cwd's OWN git top level must be this one.
+		hookOut, herr := exec.CommandContext(ctx, "git", "-C", a, "rev-parse", "--show-toplevel").Output()
+		if herr != nil {
+			return false
+		}
+		hookTop, e1 := filepath.EvalSymlinks(strings.TrimSpace(string(hookOut)))
+		cliTop, e2 := filepath.EvalSymlinks(root)
+		if e1 != nil || e2 != nil || hookTop != cliTop {
+			return false
+		}
 	}
-	a, err1 := filepath.EvalSymlinks(hookCwd)
 	b, err2 := filepath.EvalSymlinks(root)
-	if err1 != nil || err2 != nil {
+	if err2 != nil {
 		return false
 	}
 	return a == b || strings.HasPrefix(a, strings.TrimRight(b, string(filepath.Separator))+string(filepath.Separator))

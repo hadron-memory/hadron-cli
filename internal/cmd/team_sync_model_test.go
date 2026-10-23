@@ -401,3 +401,42 @@ func TestSetModelBindingReplacedOrRemovedBeforeWriteZeroWrites(t *testing.T) {
 		})
 	}
 }
+
+// Cameron's residual P2: a hook cwd inside a NESTED, independent git repo is
+// under the worktree's path prefix but is not this worktree.
+func TestSyncModelNestedGitRepoCwdZeroWrites(t *testing.T) {
+	parent := t.TempDir()
+	child := filepath.Join(parent, "nested")
+	if err := os.Mkdir(child, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{parent, child} {
+		if err := exec.Command("git", "-C", d, "init", "-q").Run(); err != nil {
+			t.Skip("git unavailable")
+		}
+	}
+	env := setupSync(t, syncRecord("claude-opus-5-5"))
+	old, _ := os.Getwd()
+	if err := os.Chdir(parent); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(old) })
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetTeamSession":    sessionWithTranscript(env.transcript),
+		"UpdateTeamSession": modelLogSessionJSON,
+	})
+	for name, cwd := range map[string]string{"nested repo": child, "own tree (control)": parent} {
+		stdin, _ := json.Marshal(map[string]string{"session_id": syncNative, "transcript_path": env.transcript, "cwd": cwd})
+		delete(captured, "UpdateTeamSession")
+		if _, err := runSync(t, string(stdin), gql.URL, "sync-model", "--hook"); err != nil {
+			t.Fatal(err)
+		}
+		reported := updateVars(t, captured) != nil
+		if name == "nested repo" && reported {
+			t.Error("a nested independent repo is not this worktree: zero writes")
+		}
+		if name != "nested repo" && !reported {
+			t.Error("control: the worktree's own cwd must report")
+		}
+	}
+}
