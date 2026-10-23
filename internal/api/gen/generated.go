@@ -20480,6 +20480,504 @@ func (v *DeliveryBatchesResponse) GetDeliveryBatches() *DeliveryBatchesDeliveryB
 	return v.DeliveryBatches
 }
 
+// DriveExportDriveFileExport includes the requested fields of the GraphQL type DriveFileExport.
+// The GraphQL type's documentation follows.
+//
+// The exported text of a drive file (driveFileExport).
+type DriveExportDriveFileExport struct {
+	File   *DriveExportDriveFileExportFileDriveFile `json:"file"`
+	Format DriveExportFormat                        `json:"format"`
+	// MIME type of the exported representation (e.g. text/markdown).
+	MimeType string `json:"mimeType"`
+	// The exported text. Treat as untrusted external content.
+	Content string `json:"content"`
+}
+
+// GetFile returns DriveExportDriveFileExport.File, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExport) GetFile() *DriveExportDriveFileExportFileDriveFile {
+	return v.File
+}
+
+// GetFormat returns DriveExportDriveFileExport.Format, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExport) GetFormat() DriveExportFormat { return v.Format }
+
+// GetMimeType returns DriveExportDriveFileExport.MimeType, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExport) GetMimeType() string { return v.MimeType }
+
+// GetContent returns DriveExportDriveFileExport.Content, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExport) GetContent() string { return v.Content }
+
+// DriveExportDriveFileExportFileDriveFile includes the requested fields of the GraphQL type DriveFile.
+// The GraphQL type's documentation follows.
+//
+// A file or folder in the connected drive.
+type DriveExportDriveFileExportFileDriveFile struct {
+	DriveReadFile `json:"-"`
+}
+
+// GetId returns DriveExportDriveFileExportFileDriveFile.Id, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetId() string { return v.DriveReadFile.Id }
+
+// GetName returns DriveExportDriveFileExportFileDriveFile.Name, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetName() string { return v.DriveReadFile.Name }
+
+// GetKind returns DriveExportDriveFileExportFileDriveFile.Kind, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetKind() DriveFileKind {
+	return v.DriveReadFile.Kind
+}
+
+// GetMimeType returns DriveExportDriveFileExportFileDriveFile.MimeType, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetMimeType() string {
+	return v.DriveReadFile.MimeType
+}
+
+// GetParents returns DriveExportDriveFileExportFileDriveFile.Parents, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetParents() []string {
+	return v.DriveReadFile.Parents
+}
+
+// GetSize returns DriveExportDriveFileExportFileDriveFile.Size, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetSize() *float64 { return v.DriveReadFile.Size }
+
+// GetCreatedAt returns DriveExportDriveFileExportFileDriveFile.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetCreatedAt() *string {
+	return v.DriveReadFile.CreatedAt
+}
+
+// GetModifiedAt returns DriveExportDriveFileExportFileDriveFile.ModifiedAt, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetModifiedAt() *string {
+	return v.DriveReadFile.ModifiedAt
+}
+
+// GetWebLink returns DriveExportDriveFileExportFileDriveFile.WebLink, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetWebLink() *string {
+	return v.DriveReadFile.WebLink
+}
+
+func (v *DriveExportDriveFileExportFileDriveFile) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DriveExportDriveFileExportFileDriveFile
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DriveExportDriveFileExportFileDriveFile = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DriveReadFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDriveExportDriveFileExportFileDriveFile struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Kind DriveFileKind `json:"kind"`
+
+	MimeType string `json:"mimeType"`
+
+	Parents []string `json:"parents"`
+
+	Size *float64 `json:"size"`
+
+	CreatedAt *string `json:"createdAt"`
+
+	ModifiedAt *string `json:"modifiedAt"`
+
+	WebLink *string `json:"webLink"`
+}
+
+func (v *DriveExportDriveFileExportFileDriveFile) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DriveExportDriveFileExportFileDriveFile) __premarshalJSON() (*__premarshalDriveExportDriveFileExportFileDriveFile, error) {
+	var retval __premarshalDriveExportDriveFileExportFileDriveFile
+
+	retval.Id = v.DriveReadFile.Id
+	retval.Name = v.DriveReadFile.Name
+	retval.Kind = v.DriveReadFile.Kind
+	retval.MimeType = v.DriveReadFile.MimeType
+	retval.Parents = v.DriveReadFile.Parents
+	retval.Size = v.DriveReadFile.Size
+	retval.CreatedAt = v.DriveReadFile.CreatedAt
+	retval.ModifiedAt = v.DriveReadFile.ModifiedAt
+	retval.WebLink = v.DriveReadFile.WebLink
+	return &retval, nil
+}
+
+// Text representation a drive export can request.
+type DriveExportFormat string
+
+const (
+	DriveExportFormatHtml     DriveExportFormat = "HTML"
+	DriveExportFormatMarkdown DriveExportFormat = "MARKDOWN"
+	DriveExportFormatText     DriveExportFormat = "TEXT"
+)
+
+var AllDriveExportFormat = []DriveExportFormat{
+	DriveExportFormatHtml,
+	DriveExportFormatMarkdown,
+	DriveExportFormatText,
+}
+
+// DriveExportResponse is returned by DriveExport on success.
+type DriveExportResponse struct {
+	// Export a drive file as text: native documents convert (Docs export
+	// natively to MARKDOWN; spreadsheets to TEXT as CSV; presentations to
+	// TEXT), text files return verbatim. Binary files are refused (typed
+	// validation error). Size-capped with a typed file_too_large — never
+	// truncated. Grant scope: drive.read.
+	DriveFileExport *DriveExportDriveFileExport `json:"driveFileExport"`
+}
+
+// GetDriveFileExport returns DriveExportResponse.DriveFileExport, and is useful for accessing the field via an interface.
+func (v *DriveExportResponse) GetDriveFileExport() *DriveExportDriveFileExport {
+	return v.DriveFileExport
+}
+
+// Provider-neutral file kind (native document types vs plain files).
+type DriveFileKind string
+
+const (
+	DriveFileKindDocument     DriveFileKind = "DOCUMENT"
+	DriveFileKindFile         DriveFileKind = "FILE"
+	DriveFileKindFolder       DriveFileKind = "FOLDER"
+	DriveFileKindPresentation DriveFileKind = "PRESENTATION"
+	DriveFileKindSpreadsheet  DriveFileKind = "SPREADSHEET"
+)
+
+var AllDriveFileKind = []DriveFileKind{
+	DriveFileKindDocument,
+	DriveFileKindFile,
+	DriveFileKindFolder,
+	DriveFileKindPresentation,
+	DriveFileKindSpreadsheet,
+}
+
+// DriveGetDriveFile includes the requested fields of the GraphQL type DriveFile.
+// The GraphQL type's documentation follows.
+//
+// A file or folder in the connected drive.
+type DriveGetDriveFile struct {
+	DriveReadFile `json:"-"`
+}
+
+// GetId returns DriveGetDriveFile.Id, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetId() string { return v.DriveReadFile.Id }
+
+// GetName returns DriveGetDriveFile.Name, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetName() string { return v.DriveReadFile.Name }
+
+// GetKind returns DriveGetDriveFile.Kind, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetKind() DriveFileKind { return v.DriveReadFile.Kind }
+
+// GetMimeType returns DriveGetDriveFile.MimeType, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetMimeType() string { return v.DriveReadFile.MimeType }
+
+// GetParents returns DriveGetDriveFile.Parents, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetParents() []string { return v.DriveReadFile.Parents }
+
+// GetSize returns DriveGetDriveFile.Size, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetSize() *float64 { return v.DriveReadFile.Size }
+
+// GetCreatedAt returns DriveGetDriveFile.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetCreatedAt() *string { return v.DriveReadFile.CreatedAt }
+
+// GetModifiedAt returns DriveGetDriveFile.ModifiedAt, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetModifiedAt() *string { return v.DriveReadFile.ModifiedAt }
+
+// GetWebLink returns DriveGetDriveFile.WebLink, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetWebLink() *string { return v.DriveReadFile.WebLink }
+
+func (v *DriveGetDriveFile) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DriveGetDriveFile
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DriveGetDriveFile = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DriveReadFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDriveGetDriveFile struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Kind DriveFileKind `json:"kind"`
+
+	MimeType string `json:"mimeType"`
+
+	Parents []string `json:"parents"`
+
+	Size *float64 `json:"size"`
+
+	CreatedAt *string `json:"createdAt"`
+
+	ModifiedAt *string `json:"modifiedAt"`
+
+	WebLink *string `json:"webLink"`
+}
+
+func (v *DriveGetDriveFile) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DriveGetDriveFile) __premarshalJSON() (*__premarshalDriveGetDriveFile, error) {
+	var retval __premarshalDriveGetDriveFile
+
+	retval.Id = v.DriveReadFile.Id
+	retval.Name = v.DriveReadFile.Name
+	retval.Kind = v.DriveReadFile.Kind
+	retval.MimeType = v.DriveReadFile.MimeType
+	retval.Parents = v.DriveReadFile.Parents
+	retval.Size = v.DriveReadFile.Size
+	retval.CreatedAt = v.DriveReadFile.CreatedAt
+	retval.ModifiedAt = v.DriveReadFile.ModifiedAt
+	retval.WebLink = v.DriveReadFile.WebLink
+	return &retval, nil
+}
+
+// DriveGetResponse is returned by DriveGet on success.
+type DriveGetResponse struct {
+	// File metadata by id. Grant scope: drive.read.
+	DriveFile *DriveGetDriveFile `json:"driveFile"`
+}
+
+// GetDriveFile returns DriveGetResponse.DriveFile, and is useful for accessing the field via an interface.
+func (v *DriveGetResponse) GetDriveFile() *DriveGetDriveFile { return v.DriveFile }
+
+// DriveListDriveFilesDriveFilePage includes the requested fields of the GraphQL type DriveFilePage.
+// The GraphQL type's documentation follows.
+//
+// One page of a drive listing/search.
+type DriveListDriveFilesDriveFilePage struct {
+	Files []*DriveListDriveFilesDriveFilePageFilesDriveFile `json:"files"`
+	// Cursor for the next page; null on the last page.
+	NextPageToken *string `json:"nextPageToken"`
+}
+
+// GetFiles returns DriveListDriveFilesDriveFilePage.Files, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePage) GetFiles() []*DriveListDriveFilesDriveFilePageFilesDriveFile {
+	return v.Files
+}
+
+// GetNextPageToken returns DriveListDriveFilesDriveFilePage.NextPageToken, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePage) GetNextPageToken() *string { return v.NextPageToken }
+
+// DriveListDriveFilesDriveFilePageFilesDriveFile includes the requested fields of the GraphQL type DriveFile.
+// The GraphQL type's documentation follows.
+//
+// A file or folder in the connected drive.
+type DriveListDriveFilesDriveFilePageFilesDriveFile struct {
+	DriveReadFile `json:"-"`
+}
+
+// GetId returns DriveListDriveFilesDriveFilePageFilesDriveFile.Id, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetId() string { return v.DriveReadFile.Id }
+
+// GetName returns DriveListDriveFilesDriveFilePageFilesDriveFile.Name, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetName() string {
+	return v.DriveReadFile.Name
+}
+
+// GetKind returns DriveListDriveFilesDriveFilePageFilesDriveFile.Kind, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetKind() DriveFileKind {
+	return v.DriveReadFile.Kind
+}
+
+// GetMimeType returns DriveListDriveFilesDriveFilePageFilesDriveFile.MimeType, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetMimeType() string {
+	return v.DriveReadFile.MimeType
+}
+
+// GetParents returns DriveListDriveFilesDriveFilePageFilesDriveFile.Parents, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetParents() []string {
+	return v.DriveReadFile.Parents
+}
+
+// GetSize returns DriveListDriveFilesDriveFilePageFilesDriveFile.Size, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetSize() *float64 {
+	return v.DriveReadFile.Size
+}
+
+// GetCreatedAt returns DriveListDriveFilesDriveFilePageFilesDriveFile.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetCreatedAt() *string {
+	return v.DriveReadFile.CreatedAt
+}
+
+// GetModifiedAt returns DriveListDriveFilesDriveFilePageFilesDriveFile.ModifiedAt, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetModifiedAt() *string {
+	return v.DriveReadFile.ModifiedAt
+}
+
+// GetWebLink returns DriveListDriveFilesDriveFilePageFilesDriveFile.WebLink, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetWebLink() *string {
+	return v.DriveReadFile.WebLink
+}
+
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DriveListDriveFilesDriveFilePageFilesDriveFile
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DriveListDriveFilesDriveFilePageFilesDriveFile = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DriveReadFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDriveListDriveFilesDriveFilePageFilesDriveFile struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Kind DriveFileKind `json:"kind"`
+
+	MimeType string `json:"mimeType"`
+
+	Parents []string `json:"parents"`
+
+	Size *float64 `json:"size"`
+
+	CreatedAt *string `json:"createdAt"`
+
+	ModifiedAt *string `json:"modifiedAt"`
+
+	WebLink *string `json:"webLink"`
+}
+
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) __premarshalJSON() (*__premarshalDriveListDriveFilesDriveFilePageFilesDriveFile, error) {
+	var retval __premarshalDriveListDriveFilesDriveFilePageFilesDriveFile
+
+	retval.Id = v.DriveReadFile.Id
+	retval.Name = v.DriveReadFile.Name
+	retval.Kind = v.DriveReadFile.Kind
+	retval.MimeType = v.DriveReadFile.MimeType
+	retval.Parents = v.DriveReadFile.Parents
+	retval.Size = v.DriveReadFile.Size
+	retval.CreatedAt = v.DriveReadFile.CreatedAt
+	retval.ModifiedAt = v.DriveReadFile.ModifiedAt
+	retval.WebLink = v.DriveReadFile.WebLink
+	return &retval, nil
+}
+
+// DriveListResponse is returned by DriveList on success.
+type DriveListResponse struct {
+	// Browse or search the connected drive. With no search criteria, lists
+	// the children of folderId (default: the drive root), folders first.
+	// Any of query/nameContains/mimeType/modifiedAfter switches to a search,
+	// most recently modified first. Grant scope: drive.read.
+	DriveFiles *DriveListDriveFilesDriveFilePage `json:"driveFiles"`
+}
+
+// GetDriveFiles returns DriveListResponse.DriveFiles, and is useful for accessing the field via an interface.
+func (v *DriveListResponse) GetDriveFiles() *DriveListDriveFilesDriveFilePage { return v.DriveFiles }
+
+// DriveReadFile includes the GraphQL fields of DriveFile requested by the fragment DriveReadFile.
+// The GraphQL type's documentation follows.
+//
+// A file or folder in the connected drive.
+type DriveReadFile struct {
+	Id   string        `json:"id"`
+	Name string        `json:"name"`
+	Kind DriveFileKind `json:"kind"`
+	// The provider MIME type — informational; kind is the neutral field.
+	MimeType string `json:"mimeType"`
+	// Parent folder ids.
+	Parents []string `json:"parents"`
+	// Byte size; null for provider-native documents and folders.
+	Size       *float64 `json:"size"`
+	CreatedAt  *string  `json:"createdAt"`
+	ModifiedAt *string  `json:"modifiedAt"`
+	WebLink    *string  `json:"webLink"`
+}
+
+// GetId returns DriveReadFile.Id, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetId() string { return v.Id }
+
+// GetName returns DriveReadFile.Name, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetName() string { return v.Name }
+
+// GetKind returns DriveReadFile.Kind, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetKind() DriveFileKind { return v.Kind }
+
+// GetMimeType returns DriveReadFile.MimeType, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetMimeType() string { return v.MimeType }
+
+// GetParents returns DriveReadFile.Parents, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetParents() []string { return v.Parents }
+
+// GetSize returns DriveReadFile.Size, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetSize() *float64 { return v.Size }
+
+// GetCreatedAt returns DriveReadFile.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetCreatedAt() *string { return v.CreatedAt }
+
+// GetModifiedAt returns DriveReadFile.ModifiedAt, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetModifiedAt() *string { return v.ModifiedAt }
+
+// GetWebLink returns DriveReadFile.WebLink, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetWebLink() *string { return v.WebLink }
+
 // EditCommentEditComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
@@ -60455,6 +60953,70 @@ func (v *__DeliveryBatchesInput) GetFirst() int { return v.First }
 // GetAfter returns __DeliveryBatchesInput.After, and is useful for accessing the field via an interface.
 func (v *__DeliveryBatchesInput) GetAfter() *string { return v.After }
 
+// __DriveExportInput is used internally by genqlient
+type __DriveExportInput struct {
+	ConnectionRef string             `json:"connectionRef"`
+	FileId        string             `json:"fileId"`
+	Format        *DriveExportFormat `json:"format,omitempty"`
+}
+
+// GetConnectionRef returns __DriveExportInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__DriveExportInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetFileId returns __DriveExportInput.FileId, and is useful for accessing the field via an interface.
+func (v *__DriveExportInput) GetFileId() string { return v.FileId }
+
+// GetFormat returns __DriveExportInput.Format, and is useful for accessing the field via an interface.
+func (v *__DriveExportInput) GetFormat() *DriveExportFormat { return v.Format }
+
+// __DriveGetInput is used internally by genqlient
+type __DriveGetInput struct {
+	ConnectionRef string `json:"connectionRef"`
+	FileId        string `json:"fileId"`
+}
+
+// GetConnectionRef returns __DriveGetInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__DriveGetInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetFileId returns __DriveGetInput.FileId, and is useful for accessing the field via an interface.
+func (v *__DriveGetInput) GetFileId() string { return v.FileId }
+
+// __DriveListInput is used internally by genqlient
+type __DriveListInput struct {
+	ConnectionRef string  `json:"connectionRef"`
+	FolderId      *string `json:"folderId,omitempty"`
+	Query         *string `json:"query,omitempty"`
+	NameContains  *string `json:"nameContains,omitempty"`
+	MimeType      *string `json:"mimeType,omitempty"`
+	ModifiedAfter *string `json:"modifiedAfter,omitempty"`
+	Top           int     `json:"top"`
+	PageToken     *string `json:"pageToken,omitempty"`
+}
+
+// GetConnectionRef returns __DriveListInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetFolderId returns __DriveListInput.FolderId, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetFolderId() *string { return v.FolderId }
+
+// GetQuery returns __DriveListInput.Query, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetQuery() *string { return v.Query }
+
+// GetNameContains returns __DriveListInput.NameContains, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetNameContains() *string { return v.NameContains }
+
+// GetMimeType returns __DriveListInput.MimeType, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetMimeType() *string { return v.MimeType }
+
+// GetModifiedAfter returns __DriveListInput.ModifiedAfter, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetModifiedAfter() *string { return v.ModifiedAfter }
+
+// GetTop returns __DriveListInput.Top, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetTop() int { return v.Top }
+
+// GetPageToken returns __DriveListInput.PageToken, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetPageToken() *string { return v.PageToken }
+
 // __EditCommentInput is used internally by genqlient
 type __EditCommentInput struct {
 	Ref      string  `json:"ref"`
@@ -71039,6 +71601,169 @@ func DeliveryBatches(
 	}
 
 	data_ = &DeliveryBatchesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by DriveExport.
+const DriveExport_Operation = `
+query DriveExport ($connectionRef: ID!, $fileId: ID!, $format: DriveExportFormat) {
+	driveFileExport(connectionRef: $connectionRef, fileId: $fileId, format: $format) {
+		file {
+			... DriveReadFile
+		}
+		format
+		mimeType
+		content
+	}
+}
+fragment DriveReadFile on DriveFile {
+	id
+	name
+	kind
+	mimeType
+	parents
+	size
+	createdAt
+	modifiedAt
+	webLink
+}
+`
+
+func DriveExport(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	fileId string,
+	format *DriveExportFormat,
+) (data_ *DriveExportResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DriveExport",
+		Query:  DriveExport_Operation,
+		Variables: &__DriveExportInput{
+			ConnectionRef: connectionRef,
+			FileId:        fileId,
+			Format:        format,
+		},
+	}
+
+	data_ = &DriveExportResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by DriveGet.
+const DriveGet_Operation = `
+query DriveGet ($connectionRef: ID!, $fileId: ID!) {
+	driveFile(connectionRef: $connectionRef, fileId: $fileId) {
+		... DriveReadFile
+	}
+}
+fragment DriveReadFile on DriveFile {
+	id
+	name
+	kind
+	mimeType
+	parents
+	size
+	createdAt
+	modifiedAt
+	webLink
+}
+`
+
+func DriveGet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	fileId string,
+) (data_ *DriveGetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DriveGet",
+		Query:  DriveGet_Operation,
+		Variables: &__DriveGetInput{
+			ConnectionRef: connectionRef,
+			FileId:        fileId,
+		},
+	}
+
+	data_ = &DriveGetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by DriveList.
+const DriveList_Operation = `
+query DriveList ($connectionRef: ID!, $folderId: ID, $query: String, $nameContains: String, $mimeType: String, $modifiedAfter: String, $top: Int!, $pageToken: String) {
+	driveFiles(connectionRef: $connectionRef, folderId: $folderId, query: $query, nameContains: $nameContains, mimeType: $mimeType, modifiedAfter: $modifiedAfter, top: $top, pageToken: $pageToken) {
+		files {
+			... DriveReadFile
+		}
+		nextPageToken
+	}
+}
+fragment DriveReadFile on DriveFile {
+	id
+	name
+	kind
+	mimeType
+	parents
+	size
+	createdAt
+	modifiedAt
+	webLink
+}
+`
+
+func DriveList(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	folderId *string,
+	query *string,
+	nameContains *string,
+	mimeType *string,
+	modifiedAfter *string,
+	top int,
+	pageToken *string,
+) (data_ *DriveListResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DriveList",
+		Query:  DriveList_Operation,
+		Variables: &__DriveListInput{
+			ConnectionRef: connectionRef,
+			FolderId:      folderId,
+			Query:         query,
+			NameContains:  nameContains,
+			MimeType:      mimeType,
+			ModifiedAfter: modifiedAfter,
+			Top:           top,
+			PageToken:     pageToken,
+		},
+	}
+
+	data_ = &DriveListResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

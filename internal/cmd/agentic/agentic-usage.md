@@ -374,6 +374,7 @@ hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> 
 hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | balance <org> | ledger <org> [--limit N] [--offset N]   # spec-046 metering READS (cli#215); <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. No write commands (setting rates, granting credits) yet
 hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | list [--org <ref>] [--user <ref>] | revoke <id> --yes
 hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
+hadron drive list --connection <ref> [--folder <id>] [--query <text>] [--name-contains <text>] [--mime-type <type>] [--modified-after <RFC3339>] [--top 1..100] [--page-token <token>] | get <file-id> --connection <ref> | export <file-id> --connection <ref> [--format MARKDOWN|TEXT|HTML]
 hadron email connections --org <id|urn> [--json]
 hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | list [--connection <ref>] | revoke <grant-id> --yes
 hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
@@ -3414,3 +3415,22 @@ null, and supplied offsets/zones are preserved. Human mode labels pretty JSON
 as external data and identifies the connection source; --json is the DTO only.
 No create/update/delete/respond/notifications. Existing error mapping/refusal
 sentences remain; unknown errors do not imply reconnect/retry.
+
+
+`hadron drive` is read-only with explicit --connection and the server's existing
+owner/drive.read grant gate; org administration grants no mailbox access. List
+returns one bounded {files,nextPageToken} page, never --all or a completeness
+claim. Explicit top defaults to50 browse/25 search (query/nameContains/mimeType/
+modifiedAfter), range1..100; folder/token alone remains browse. Absent optional
+filters are omitted, blank supplied filters refused. Opaque page tokens are
+forwarded unchanged; nextPageToken null ends pagination. File DTO:
+{id,name,kind,mimeType,parents,size,createdAt,modifiedAt,webLink}; parents stays[],
+nullable Float size remains bytes/null with no integer guarantee. Modified-after
+requires RFC3339 with offset; no timezone guessed. Get/list text labels escaped
+JSON metadata as data and names the connection source. Export text writes only
+the original content bytes (no banner/newline/truncation/evaluation); JSON is
+{file,format,mimeType,content}. Format MARKDOWN/TEXT/HTML is case-normalized; absent
+format delegates the provider default. No local output-file or remote document
+creation option. Server delegates format/binary/size guarantees to its tool;
+file_too_large and unknown failures retain existing error mapping/refusal text,
+with no retry/reconnect guess. No hidden discovery, writes or uploads.
