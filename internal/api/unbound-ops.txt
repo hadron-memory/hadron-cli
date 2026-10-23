@@ -83,7 +83,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 111 unbound
+[Mutation] 108 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -164,9 +164,7 @@ saveChatSummary
 sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled
-setAgentBootPrompt  # S1 schema refresh for cli#994; separate CLI parity, not part of the clone cut
 setAiModelPrice
-setAppAgentBootPrompt  # S1 schema refresh for cli#994; separate CLI parity, not part of the clone cut
 setAppTickerSettings  # server ticker settings (named-heartbeats epic, in flight); CLI parity follows the surface settling
 setDashboardWidgets
 setDecisionLogDeciders  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
@@ -175,7 +173,6 @@ setMemorySourceToken
 setQuotaLimit
 setTeamPause  # #2138 server/MCP control; this dispatched CLI slice covers status, settings, live-check and usesTasks only
 setTeamStopSignal  # cli#911 stop slice remains separately gated
-setWorkerBootPrompt  # S1 schema refresh for cli#994; separate CLI parity, not part of the clone cut
 setWorkerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 startAgentSession
 startChat
