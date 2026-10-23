@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 62 unbound
+[Query] 59 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
