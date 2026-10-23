@@ -1,11 +1,9 @@
 package coding
 
 import (
-	"context"
 	"io"
 	"strings"
 
-	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -141,7 +139,7 @@ that already references the target is left alone.`,
 			// Cross-memory targets cannot use a bare wikilink (cor:urn:020:01).
 			link := wikiLink(target.Node.Loc)
 			if target.Node.MemoryId != router.Node.MemoryId {
-				link = crossMemoryLink(target.Node.Loc, memoryLabel(ctx, client, target.Node.MemoryId))
+				link = crossMemoryLink(target.Node.Loc, memoryLabel(target.Node.MemoryId, target.Node.Memory))
 			}
 			line := routingLineTo(routeSymptom(symptom, label), link, text)
 
@@ -251,20 +249,21 @@ that already references the target is left alone.`,
 
 // memoryLabel is what the routing line calls a cross-memory target's memory.
 //
-// It is LOOKED UP, not parsed out of the ref the caller typed. An earlier
-// version split the ref itself and got two spellings wrong: a prefixed legacy
-// ref (`hrn:node:acme.com::specs::tasks:x`) split on single colons to an empty
-// atom and emitted `hrn:mem:acme.com:`, and the `urn:node:` scheme the CLI also
-// accepts fell through to the opaque id. Since input is Postel-liberal by
-// design, every accepted spelling would have to be handled — whereas the server
-// already knows the answer and emits it canonically.
+// It is READ from the server's answer, not parsed out of the ref the caller
+// typed. An earlier version split the ref itself and got two spellings wrong: a
+// prefixed legacy ref (`hrn:node:acme.com::specs::tasks:x`) split on single
+// colons to an empty atom and emitted `hrn:mem:acme.com:`, and the `urn:node:`
+// scheme the CLI also accepts fell through to the opaque id. The server already
+// knows the answer and emits it canonically, and GetNode now carries it as
+// `memory { urn }` (cli#463), so naming the memory costs no second query.
 //
-// Decoration, never a gate: a memory the caller cannot read falls back to the
-// id rather than failing the command, because the route itself is fine.
-func memoryLabel(ctx context.Context, client graphql.Client, memoryID string) string {
-	resp, err := gen.GetMemory(ctx, client, memoryID)
-	if err != nil || resp.Memory == nil || resp.Memory.Urn == "" {
+// Decoration, never a gate: `memory` is null when the caller may not read that
+// record (hadron-server#2193), and the label then falls back to the opaque id
+// rather than failing the command, because the route itself is fine. Never
+// sliced or composed locally from the node's own urn.
+func memoryLabel(memoryID string, m *gen.GetNodeNodeMemory) string {
+	if m == nil || m.Urn == "" {
 		return memoryID
 	}
-	return resp.Memory.Urn
+	return m.Urn
 }
