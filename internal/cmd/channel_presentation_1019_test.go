@@ -17,7 +17,7 @@ func TestChannelPresentation1019Disclosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, text := range map[string]string{"help": out.String(), "agentic": string(body)} {
+	for name, text := range map[string]string{"help": out.String(), "agentic": strings.Split(strings.Split(string(body), "# channel get ")[1], "\n")[0]} {
 		for _, phrase := range []string{"records a node read", "may decrypt internally"} {
 			if !strings.Contains(text, phrase) {
 				t.Errorf("%s missing %q", name, phrase)

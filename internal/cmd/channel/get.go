@@ -1,9 +1,9 @@
 package channel
 
 import (
-	"fmt"
-	"github.com/spf13/cobra"
 	"io"
+
+	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -24,7 +24,9 @@ so an address in any spelling the node resolver accepts works here too.
 Best-effort chat-root node URL: one authorized node read copies the server's
 portal URL verbatim. Missing, concealed or failed pointer reads yield null in
 JSON and no URL line in text. This is not a verified Team chat tab destination.
-No transcript is fetched, and channel list is unchanged.`,
+The authorized root read records a node read and may decrypt internally even
+though this selection requests only identity and URL. No transcript is fetched,
+and channel list is unchanged.`,
 		Example: `  hadron channel get hrn:node:acme.com:team-shared:chats:team
   hadron channel get 01a0a702033c7099b23cbd358cd0c269`,
 		Args: cobra.ExactArgs(1),
@@ -52,14 +54,7 @@ No transcript is fetched, and channel list is unchanged.`,
 				d.PortalURL = pointer.Node.PortalUrl
 			}
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-				if err := writeChannel(f, d.channelDTO); err != nil {
-					return err
-				}
-				if d.PortalURL != nil {
-					_, err := fmt.Fprintf(w, "  URL: %s\n", *d.PortalURL)
-					return err
-				}
-				return nil
+				return writeChannelText(w, d.channelDTO, d.PortalURL)
 			})
 		},
 	}

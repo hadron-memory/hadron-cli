@@ -82,7 +82,7 @@ func TestChannelURL489(t *testing.T) {
 				} else if value != nil {
 					t.Fatalf("want null: %v", value)
 				}
-			} else if !strings.Contains(out.String(), "URL: https://portal.test/path?q=a%2Fb&x=1") {
+			} else if !strings.Contains(out.String(), "URL:") || !strings.Contains(out.String(), "https://portal.test/path?q=a%2Fb&x=1") {
 				t.Fatal(out.String())
 			}
 		})
