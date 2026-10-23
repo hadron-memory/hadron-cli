@@ -11060,6 +11060,17 @@ type CloneAgentResponse struct {
 	// PUBLIC source, or one you manage in its own organization. Refusals are typed (AGENT_NOT_PUBLIC,
 	// CLONE_*); a source that keeps changing answers CONFLICT with reason AGENT_CLONE_SOURCE_CHANGED
 	// (retryable). target must be an organization.
+	//
+	// Copied: name, description, systemPrompt, type, surfaces, usesTasks, registerDefaults, installationPolicy,
+	// memoryProvisioning, personaRole; the system memory graph (nodes, edges, pending edges) with the tasks and
+	// processes index pointers remapped; memory links (kept as links, not copied); imports and the base, re-pointed.
+	// NOT copied: visibility (the clone is PERSONAL), AI service config, boot-prompt pointers, node comments,
+	// decisions and decision logs, compiled boot-prompt nodes, derived include edges (re-derived), node revision
+	// history, embeddings (re-stamped), assets (their bytes stay with the source), git-sync config, the editor lock
+	// and published-revision pointer, Worker castings, App installs, and the source organization's subscriptions
+	// and grants. A base or import is licensed for the TARGET organization at clone time, or the clone refuses
+	// (BASE_UNUSABLE, IMPORT_UNUSABLE). A refusal's blocker subjects carry a name only when you can read the
+	// subject; otherwise only a position. The clone's origin is Agent.clonedFromAgentRef.
 	CloneAgent *CloneAgentCloneAgent `json:"cloneAgent"`
 }
 
