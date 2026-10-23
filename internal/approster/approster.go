@@ -21,6 +21,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
@@ -37,6 +38,11 @@ type MemberDTO struct {
 	Description    *string `json:"description"`
 	OrganizationID *string `json:"organizationId"`
 	CreatedAt      string  `json:"createdAt"`
+	// The install's boot-prompt pointer (cli#916 C2, AppAgent.bootPromptRef),
+	// joined by agent id. NOT omitempty: both null means unset, withheld, or
+	// no readable join row for this Agent.
+	BootPromptRef           *string `json:"bootPromptRef"`
+	BootPromptTargetDeleted *bool   `json:"bootPromptTargetDeleted"`
 }
 
 // Result is one App plus its installed agents.
@@ -57,6 +63,17 @@ func Fetch(ctx context.Context, client graphql.Client, appRef string) (*Result, 
 	if resp.App == nil {
 		return nil, exitcode.Newf(exitcode.NotFound, "App %q not found", appRef)
 	}
+	type pointer struct {
+		ref     *string
+		deleted *bool
+	}
+	pointers := map[string]pointer{}
+	for _, aa := range resp.App.AppAgents {
+		if aa == nil || aa.Agent == nil {
+			continue
+		}
+		pointers[aa.Agent.Id] = pointer{aa.BootPromptRef, aa.BootPromptTargetDeleted}
+	}
 	members := []MemberDTO{}
 	for _, a := range resp.App.Agents {
 		if a == nil {
@@ -66,7 +83,9 @@ func Fetch(ctx context.Context, client graphql.Client, appRef string) (*Result, 
 			ID: a.Id, URN: a.Urn, AgentName: a.Name,
 			PersonaRole: a.PersonaRole,
 			Description: a.Description, OrganizationID: a.OrganizationId,
-			CreatedAt: a.CreatedAt,
+			CreatedAt:               a.CreatedAt,
+			BootPromptRef:           pointers[a.Id].ref,
+			BootPromptTargetDeleted: pointers[a.Id].deleted,
 		})
 	}
 	return &Result{AppName: resp.App.Name, AppURN: resp.App.Urn, Members: members}, nil
@@ -79,9 +98,9 @@ func Render(w io.Writer, r *Result) error {
 	if _, err := fmt.Fprintf(w, "%s (%s) — %d installed\n", r.AppName, r.AppURN, len(r.Members)); err != nil {
 		return err
 	}
-	t := output.NewTable(w, "AGENT", "ROLE", "AGENT URN", "ID")
+	t := output.NewTable(w, "AGENT", "ROLE", "AGENT URN", "ID", "BOOT PROMPT")
 	for _, m := range r.Members {
-		t.Row(m.AgentName, dash(m.PersonaRole), m.URN, m.ID)
+		t.Row(m.AgentName, dash(m.PersonaRole), m.URN, m.ID, cmdutil.BootPromptLabel(m.BootPromptRef, m.BootPromptTargetDeleted))
 	}
 	return t.Flush()
 }

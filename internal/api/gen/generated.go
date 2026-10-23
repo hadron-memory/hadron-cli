@@ -656,9 +656,16 @@ type AgentFields struct {
 	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the id of the one base Agent this Agent extends,
 	// or null. Set, change or clear it with setAgentBase.
 	ExtendsAgentId *string `json:"extendsAgentId"`
-	AiProvider     *string `json:"aiProvider"`
-	AiModel        *string `json:"aiModel"`
-	HasAiApiKey    bool    `json:"hasAiApiKey"`
+	// #2045 — the canonical URN of the compiled boot prompt this Agent's pointer names now
+	// (a moved node shows its new URN; a hard-deleted one its URN at write time). Null when no pointer is set
+	// OR when the caller may not see it (only a caller who may read the Agent's system memory): null is not proof that no pointer exists.
+	BootPromptRef *string `json:"bootPromptRef"`
+	// #2045 — whether the pointer's target is deleted (soft or hard): true / false, and null when no pointer is set
+	// or the caller may not see it. Same gate as bootPromptRef. Nothing is served from a deleted target (R27).
+	BootPromptTargetDeleted *bool   `json:"bootPromptTargetDeleted"`
+	AiProvider              *string `json:"aiProvider"`
+	AiModel                 *string `json:"aiModel"`
+	HasAiApiKey             bool    `json:"hasAiApiKey"`
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
 	// #2138: false means every Worker cast from this Agent counts as having a task and is expected to check its team channel every period (coordinators, the lifecycle agent). Default true.
@@ -704,6 +711,12 @@ func (v *AgentFields) GetProcessesIndexRef() *string { return v.ProcessesIndexRe
 
 // GetExtendsAgentId returns AgentFields.ExtendsAgentId, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetExtendsAgentId() *string { return v.ExtendsAgentId }
+
+// GetBootPromptRef returns AgentFields.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetBootPromptRef() *string { return v.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns AgentFields.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetBootPromptTargetDeleted() *bool { return v.BootPromptTargetDeleted }
 
 // GetAiProvider returns AgentFields.AiProvider, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetAiProvider() *string { return v.AiProvider }
@@ -5845,6 +5858,16 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetExtendsAgentId() *string {
 	return v.AgentFields.ExtendsAgentId
 }
 
+// GetBootPromptRef returns AgentsAgentsAgentsPageItemsAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns AgentsAgentsAgentsPageItemsAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
 // GetAiProvider returns AgentsAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -5915,6 +5938,10 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	ExtendsAgentId *string `json:"extendsAgentId"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -5952,6 +5979,8 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -6558,6 +6587,10 @@ type AppAgentRosterApp struct {
 	// a soft-deprecated single-element synthesis; now returns the FULL
 	// multi-Agent set per spec 023 US1.
 	Agents []*AppAgentRosterAppAgentsAgent `json:"agents"`
+	// 023-app-shape US1: Agents installed in this App, via the AppAgent
+	// N:M join. Multiple Agents can be installed; one App credential
+	// routes to all of them via the URN supplied in the request.
+	AppAgents []*AppAgentRosterAppAppAgentsAppAgent `json:"appAgents"`
 }
 
 // GetId returns AppAgentRosterApp.Id, and is useful for accessing the field via an interface.
@@ -6571,6 +6604,9 @@ func (v *AppAgentRosterApp) GetName() string { return v.Name }
 
 // GetAgents returns AppAgentRosterApp.Agents, and is useful for accessing the field via an interface.
 func (v *AppAgentRosterApp) GetAgents() []*AppAgentRosterAppAgentsAgent { return v.Agents }
+
+// GetAppAgents returns AppAgentRosterApp.AppAgents, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetAppAgents() []*AppAgentRosterAppAppAgentsAppAgent { return v.AppAgents }
 
 // AppAgentRosterAppAgentsAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
@@ -6614,6 +6650,52 @@ func (v *AppAgentRosterAppAgentsAgent) GetPersonaRole() *string { return v.Perso
 
 // GetCreatedAt returns AppAgentRosterAppAgentsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AppAgentRosterAppAgentsAgent) GetCreatedAt() string { return v.CreatedAt }
+
+// AppAgentRosterAppAppAgentsAppAgent includes the requested fields of the GraphQL type AppAgent.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US1: the App↔Agent N:M join. Reintroduced after spec 008
+// collapsed it; per FR-003 it carries NO role column (system memory is
+// read-only to every App) and per FR-001 it carries NO trainingMode
+// column (training mode is per-App, on App.trainingMode).
+type AppAgentRosterAppAppAgentsAppAgent struct {
+	// The installed Agent when this caller may read its definition; an installation license alone does not grant that read.
+	Agent *AppAgentRosterAppAppAgentsAppAgentAgent `json:"agent"`
+	// #2045 — the canonical URN of the compiled boot prompt the install's pointer names now
+	// (a moved node shows its new URN; a hard-deleted one its URN at write time). Null when no pointer is set
+	// OR when the caller may not see it (the App's participants only): null is not proof that no pointer exists.
+	BootPromptRef *string `json:"bootPromptRef"`
+	// #2045 — whether the pointer's target is deleted (soft or hard): true / false, and null when no pointer is set
+	// or the caller may not see it. Same gate as bootPromptRef. Nothing is served from a deleted target (R27).
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+}
+
+// GetAgent returns AppAgentRosterAppAppAgentsAppAgent.Agent, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAppAgentsAppAgent) GetAgent() *AppAgentRosterAppAppAgentsAppAgentAgent {
+	return v.Agent
+}
+
+// GetBootPromptRef returns AppAgentRosterAppAppAgentsAppAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAppAgentsAppAgent) GetBootPromptRef() *string { return v.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns AppAgentRosterAppAppAgentsAppAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAppAgentsAppAgent) GetBootPromptTargetDeleted() *bool {
+	return v.BootPromptTargetDeleted
+}
+
+// AppAgentRosterAppAppAgentsAppAgentAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AppAgentRosterAppAppAgentsAppAgentAgent struct {
+	Id string `json:"id"`
+}
+
+// GetId returns AppAgentRosterAppAppAgentsAppAgentAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAppAgentsAppAgentAgent) GetId() string { return v.Id }
 
 // AppAgentRosterResponse is returned by AppAgentRoster on success.
 type AppAgentRosterResponse struct {
@@ -9007,6 +9089,14 @@ func (v *CastWorkerCastWorker) GetSignature() *string { return v.WorkerFields.Si
 // GetTrailer returns CastWorkerCastWorker.Trailer, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
 
+// GetBootPromptRef returns CastWorkerCastWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetBootPromptRef() *string { return v.WorkerFields.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns CastWorkerCastWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
 // GetRepos returns CastWorkerCastWorker.Repos, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetRepos() []string { return v.WorkerFields.Repos }
 
@@ -9096,6 +9186,10 @@ type __premarshalCastWorkerCastWorker struct {
 
 	Trailer *string `json:"trailer"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -9144,6 +9238,8 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -10535,6 +10631,16 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetExtendsAgentId() *st
 	return v.AgentFields.ExtendsAgentId
 }
 
+// GetBootPromptRef returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
 // GetAiProvider returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -10617,6 +10723,10 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	ExtendsAgentId *string `json:"extendsAgentId"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -10654,6 +10764,8 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -10747,6 +10859,16 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetExtendsAgentId() *string
 	return v.AgentFields.ExtendsAgentId
 }
 
+// GetBootPromptRef returns ClearAgentTasksIndexSetAgentIndexRefsAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns ClearAgentTasksIndexSetAgentIndexRefsAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
 // GetAiProvider returns ClearAgentTasksIndexSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -10829,6 +10951,10 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	ExtendsAgentId *string `json:"extendsAgentId"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -10866,6 +10992,8 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -10937,6 +11065,14 @@ func (v *CloneAgentCloneAgent) GetProcessesIndexRef() *string { return v.AgentFi
 // GetExtendsAgentId returns CloneAgentCloneAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
 
+// GetBootPromptRef returns CloneAgentCloneAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetBootPromptRef() *string { return v.AgentFields.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns CloneAgentCloneAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
 // GetAiProvider returns CloneAgentCloneAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -11007,6 +11143,10 @@ type __premarshalCloneAgentCloneAgent struct {
 
 	ExtendsAgentId *string `json:"extendsAgentId"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -11044,6 +11184,8 @@ func (v *CloneAgentCloneAgent) __premarshalJSON() (*__premarshalCloneAgentCloneA
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -13270,6 +13412,14 @@ func (v *CreateAgentCreateAgent) GetProcessesIndexRef() *string {
 // GetExtendsAgentId returns CreateAgentCreateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
 
+// GetBootPromptRef returns CreateAgentCreateAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetBootPromptRef() *string { return v.AgentFields.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns CreateAgentCreateAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
 // GetAiProvider returns CreateAgentCreateAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -13340,6 +13490,10 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	ExtendsAgentId *string `json:"extendsAgentId"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -13377,6 +13531,8 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -20514,6 +20670,14 @@ func (v *GetAgentAgent) GetProcessesIndexRef() *string { return v.AgentFields.Pr
 // GetExtendsAgentId returns GetAgentAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
 
+// GetBootPromptRef returns GetAgentAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetBootPromptRef() *string { return v.AgentFields.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns GetAgentAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
 // GetAiProvider returns GetAgentAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -20584,6 +20748,10 @@ type __premarshalGetAgentAgent struct {
 
 	ExtendsAgentId *string `json:"extendsAgentId"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -20621,6 +20789,8 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -23136,6 +23306,14 @@ func (v *GetWorkerWorker) GetSignature() *string { return v.WorkerFields.Signatu
 // GetTrailer returns GetWorkerWorker.Trailer, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
 
+// GetBootPromptRef returns GetWorkerWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetBootPromptRef() *string { return v.WorkerFields.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns GetWorkerWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
 // GetRepos returns GetWorkerWorker.Repos, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetRepos() []string { return v.WorkerFields.Repos }
 
@@ -23225,6 +23403,10 @@ type __premarshalGetWorkerWorker struct {
 
 	Trailer *string `json:"trailer"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -23273,6 +23455,8 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -32789,6 +32973,16 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetExtendsAgentId() *stri
 	return v.AgentFields.ExtendsAgentId
 }
 
+// GetBootPromptRef returns PublicAgentsPublicAgentsAgentsPageItemsAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns PublicAgentsPublicAgentsAgentsPageItemsAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
 // GetAiProvider returns PublicAgentsPublicAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -32871,6 +33065,10 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	ExtendsAgentId *string `json:"extendsAgentId"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -32908,6 +33106,8 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -34211,6 +34411,16 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetTrailer() *str
 	return v.WorkerFields.Trailer
 }
 
+// GetBootPromptRef returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetBootPromptRef() *string {
+	return v.WorkerFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
 // GetRepos returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Repos, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetRepos() []string {
 	return v.WorkerFields.Repos
@@ -34320,6 +34530,10 @@ type __premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker struct {
 
 	Trailer *string `json:"trailer"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -34368,6 +34582,8 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) __premarshalJSON(
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -36709,6 +36925,14 @@ func (v *RetireWorkerRetireWorker) GetSignature() *string { return v.WorkerField
 // GetTrailer returns RetireWorkerRetireWorker.Trailer, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
 
+// GetBootPromptRef returns RetireWorkerRetireWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetBootPromptRef() *string { return v.WorkerFields.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns RetireWorkerRetireWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
 // GetRepos returns RetireWorkerRetireWorker.Repos, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetRepos() []string { return v.WorkerFields.Repos }
 
@@ -36798,6 +37022,10 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	Trailer *string `json:"trailer"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -36846,6 +37074,8 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -39958,6 +40188,16 @@ func (v *SetAgentBaseSetAgentBaseAgent) GetExtendsAgentId() *string {
 	return v.AgentFields.ExtendsAgentId
 }
 
+// GetBootPromptRef returns SetAgentBaseSetAgentBaseAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns SetAgentBaseSetAgentBaseAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
 // GetAiProvider returns SetAgentBaseSetAgentBaseAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -40028,6 +40268,10 @@ type __premarshalSetAgentBaseSetAgentBaseAgent struct {
 
 	ExtendsAgentId *string `json:"extendsAgentId"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -40065,6 +40309,240 @@ func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgen
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// SetAgentBootPromptResponse is returned by SetAgentBootPrompt on success.
+type SetAgentBootPromptResponse struct {
+	// #2045 (S8) — set or clear an Agent's boot-prompt pointer. nodeRef (a node id or a
+	// fully-qualified node URN) must name a COMPILED boot prompt in this Agent's own system memory; approval is not
+	// required here (it is checked when the prompt is served). nodeRef is REQUIRED: an explicit null clears, and an
+	// omitted one is refused with BAD_USER_INPUT.
+	//
+	// Only the Agent's manager, acting as themselves (R23): a request bound to a worker session, the manager's own
+	// included, is refused BOOT_PROMPT_POINTER_SESSION_REFUSED; a non-manager, an App key, an impersonation or a
+	// run is FORBIDDEN. The gate runs before the target is looked at, so a refused caller learns nothing about it.
+	// Then: BOOT_PROMPT_POINTER_NOT_FOUND (missing, deleted or unreadable, alike), _NOT_COMPILED, _WRONG_ROLE,
+	// _WRONG_MEMORY. No MCP twin (R24).
+	SetAgentBootPrompt *SetAgentBootPromptSetAgentBootPromptAgent `json:"setAgentBootPrompt"`
+}
+
+// GetSetAgentBootPrompt returns SetAgentBootPromptResponse.SetAgentBootPrompt, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptResponse) GetSetAgentBootPrompt() *SetAgentBootPromptSetAgentBootPromptAgent {
+	return v.SetAgentBootPrompt
+}
+
+// SetAgentBootPromptSetAgentBootPromptAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type SetAgentBootPromptSetAgentBootPromptAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns SetAgentBootPromptSetAgentBootPromptAgent.Id, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns SetAgentBootPromptSetAgentBootPromptAgent.Urn, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns SetAgentBootPromptSetAgentBootPromptAgent.Name, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns SetAgentBootPromptSetAgentBootPromptAgent.Description, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns SetAgentBootPromptSetAgentBootPromptAgent.Type, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns SetAgentBootPromptSetAgentBootPromptAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns SetAgentBootPromptSetAgentBootPromptAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns SetAgentBootPromptSetAgentBootPromptAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns SetAgentBootPromptSetAgentBootPromptAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetSystemPrompt returns SetAgentBootPromptSetAgentBootPromptAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetSystemPrompt() *string {
+	return v.AgentFields.SystemPrompt
+}
+
+// GetTasksIndexRef returns SetAgentBootPromptSetAgentBootPromptAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns SetAgentBootPromptSetAgentBootPromptAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns SetAgentBootPromptSetAgentBootPromptAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns SetAgentBootPromptSetAgentBootPromptAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns SetAgentBootPromptSetAgentBootPromptAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns SetAgentBootPromptSetAgentBootPromptAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns SetAgentBootPromptSetAgentBootPromptAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetAiModel() *string {
+	return v.AgentFields.AiModel
+}
+
+// GetHasAiApiKey returns SetAgentBootPromptSetAgentBootPromptAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns SetAgentBootPromptSetAgentBootPromptAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns SetAgentBootPromptSetAgentBootPromptAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetUsesTasks() bool {
+	return v.AgentFields.UsesTasks
+}
+
+// GetCreatedAt returns SetAgentBootPromptSetAgentBootPromptAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetAgentBootPromptSetAgentBootPromptAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetAgentBootPromptSetAgentBootPromptAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetAgentBootPromptSetAgentBootPromptAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) __premarshalJSON() (*__premarshalSetAgentBootPromptSetAgentBootPromptAgent, error) {
+	var retval __premarshalSetAgentBootPromptSetAgentBootPromptAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -40158,6 +40636,16 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetExtendsAgentId() *string {
 	return v.AgentFields.ExtendsAgentId
 }
 
+// GetBootPromptRef returns SetAgentIndexRefsSetAgentIndexRefsAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns SetAgentIndexRefsSetAgentIndexRefsAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
 // GetAiProvider returns SetAgentIndexRefsSetAgentIndexRefsAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetAiProvider() *string {
 	return v.AgentFields.AiProvider
@@ -40236,6 +40724,10 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	ExtendsAgentId *string `json:"extendsAgentId"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -40273,6 +40765,8 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -40281,6 +40775,105 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
+
+// SetAppAgentBootPromptResponse is returned by SetAppAgentBootPrompt on success.
+type SetAppAgentBootPromptResponse struct {
+	// #2045 — set or clear an installed Agent's boot-prompt pointer for one App (AppAgent.bootPromptRef). The node
+	// must be compiled and sit in that App's install memory for that Agent. Only the App's manager, as themselves;
+	// otherwise as setAgentBootPrompt.
+	SetAppAgentBootPrompt *SetAppAgentBootPromptSetAppAgentBootPromptAppAgent `json:"setAppAgentBootPrompt"`
+}
+
+// GetSetAppAgentBootPrompt returns SetAppAgentBootPromptResponse.SetAppAgentBootPrompt, and is useful for accessing the field via an interface.
+func (v *SetAppAgentBootPromptResponse) GetSetAppAgentBootPrompt() *SetAppAgentBootPromptSetAppAgentBootPromptAppAgent {
+	return v.SetAppAgentBootPrompt
+}
+
+// SetAppAgentBootPromptSetAppAgentBootPromptAppAgent includes the requested fields of the GraphQL type AppAgent.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US1: the App↔Agent N:M join. Reintroduced after spec 008
+// collapsed it; per FR-003 it carries NO role column (system memory is
+// read-only to every App) and per FR-001 it carries NO trainingMode
+// column (training mode is per-App, on App.trainingMode).
+type SetAppAgentBootPromptSetAppAgentBootPromptAppAgent struct {
+	// The installed Agent when this caller may read its definition; an installation license alone does not grant that read.
+	Agent *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentAgent `json:"agent"`
+	// The App when this caller may read it; strict user ownership still applies.
+	App *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp `json:"app"`
+	// #2045 — the canonical URN of the compiled boot prompt the install's pointer names now
+	// (a moved node shows its new URN; a hard-deleted one its URN at write time). Null when no pointer is set
+	// OR when the caller may not see it (the App's participants only): null is not proof that no pointer exists.
+	BootPromptRef *string `json:"bootPromptRef"`
+	// #2045 — whether the pointer's target is deleted (soft or hard): true / false, and null when no pointer is set
+	// or the caller may not see it. Same gate as bootPromptRef. Nothing is served from a deleted target (R27).
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+}
+
+// GetAgent returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgent.Agent, and is useful for accessing the field via an interface.
+func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgent) GetAgent() *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentAgent {
+	return v.Agent
+}
+
+// GetApp returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgent.App, and is useful for accessing the field via an interface.
+func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgent) GetApp() *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp {
+	return v.App
+}
+
+// GetBootPromptRef returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgent) GetBootPromptRef() *string {
+	return v.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgent) GetBootPromptTargetDeleted() *bool {
+	return v.BootPromptTargetDeleted
+}
+
+// SetAppAgentBootPromptSetAppAgentBootPromptAppAgentAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type SetAppAgentBootPromptSetAppAgentBootPromptAppAgentAgent struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgentAgent.Id, and is useful for accessing the field via an interface.
+func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentAgent) GetId() string { return v.Id }
+
+// GetUrn returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgentAgent.Urn, and is useful for accessing the field via an interface.
+func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentAgent) GetUrn() string { return v.Urn }
+
+// GetName returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgentAgent.Name, and is useful for accessing the field via an interface.
+func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentAgent) GetName() string { return v.Name }
+
+// SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp.Id, and is useful for accessing the field via an interface.
+func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp) GetId() string { return v.Id }
+
+// GetUrn returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp.Urn, and is useful for accessing the field via an interface.
+func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp) GetUrn() string { return v.Urn }
+
+// GetName returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp.Name, and is useful for accessing the field via an interface.
+func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp) GetName() string { return v.Name }
 
 type SetModelFamilyAvailabilityInput struct {
 	AppRef string `json:"appRef"`
@@ -40331,6 +40924,278 @@ func (v *SetWorkerAvailabilityInput) GetUntil() *string { return v.Until }
 
 // GetWorker returns SetWorkerAvailabilityInput.Worker, and is useful for accessing the field via an interface.
 func (v *SetWorkerAvailabilityInput) GetWorker() string { return v.Worker }
+
+// SetWorkerBootPromptResponse is returned by SetWorkerBootPrompt on success.
+type SetWorkerBootPromptResponse struct {
+	// #2045 — set or clear a worker's boot-prompt pointer (for customised workers). The node must be compiled and
+	// sit in the worker's App's install memory for the worker's Agent. Only the App's manager, as themselves;
+	// otherwise as setAgentBootPrompt. workerRef is the worker's id or URN.
+	SetWorkerBootPrompt *SetWorkerBootPromptSetWorkerBootPromptWorker `json:"setWorkerBootPrompt"`
+}
+
+// GetSetWorkerBootPrompt returns SetWorkerBootPromptResponse.SetWorkerBootPrompt, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptResponse) GetSetWorkerBootPrompt() *SetWorkerBootPromptSetWorkerBootPromptWorker {
+	return v.SetWorkerBootPrompt
+}
+
+// SetWorkerBootPromptSetWorkerBootPromptWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type SetWorkerBootPromptSetWorkerBootPromptWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns SetWorkerBootPromptSetWorkerBootPromptWorker.Id, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns SetWorkerBootPromptSetWorkerBootPromptWorker.Urn, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetPortalUrl returns SetWorkerBootPromptSetWorkerBootPromptWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetPortalUrl() *string {
+	return v.WorkerFields.PortalUrl
+}
+
+// GetSlug returns SetWorkerBootPromptSetWorkerBootPromptWorker.Slug, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetSlug() string { return v.WorkerFields.Slug }
+
+// GetAppId returns SetWorkerBootPromptSetWorkerBootPromptWorker.AppId, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns SetWorkerBootPromptSetWorkerBootPromptWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetAgentId() string {
+	return v.WorkerFields.AgentId
+}
+
+// GetName returns SetWorkerBootPromptSetWorkerBootPromptWorker.Name, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetReportsTo returns SetWorkerBootPromptSetWorkerBootPromptWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns SetWorkerBootPromptSetWorkerBootPromptWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetReportsToRetired() bool {
+	return v.WorkerFields.ReportsToRetired
+}
+
+// GetRole returns SetWorkerBootPromptSetWorkerBootPromptWorker.Role, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns SetWorkerBootPromptSetWorkerBootPromptWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetPrompt() *string {
+	return v.WorkerFields.Prompt
+}
+
+// GetPromptOverride returns SetWorkerBootPromptSetWorkerBootPromptWorker.PromptOverride, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetPromptOverride() *string {
+	return v.WorkerFields.PromptOverride
+}
+
+// GetSignature returns SetWorkerBootPromptSetWorkerBootPromptWorker.Signature, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetSignature() *string {
+	return v.WorkerFields.Signature
+}
+
+// GetTrailer returns SetWorkerBootPromptSetWorkerBootPromptWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetTrailer() *string {
+	return v.WorkerFields.Trailer
+}
+
+// GetBootPromptRef returns SetWorkerBootPromptSetWorkerBootPromptWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetBootPromptRef() *string {
+	return v.WorkerFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns SetWorkerBootPromptSetWorkerBootPromptWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
+// GetRepos returns SetWorkerBootPromptSetWorkerBootPromptWorker.Repos, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetRepos() []string {
+	return v.WorkerFields.Repos
+}
+
+// GetMemoryId returns SetWorkerBootPromptSetWorkerBootPromptWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetMemoryId() *string {
+	return v.WorkerFields.MemoryId
+}
+
+// GetHeldByUserId returns SetWorkerBootPromptSetWorkerBootPromptWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetHeldByUserId() *string {
+	return v.WorkerFields.HeldByUserId
+}
+
+// GetHeldAt returns SetWorkerBootPromptSetWorkerBootPromptWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetHeldAt() *string {
+	return v.WorkerFields.HeldAt
+}
+
+// GetHasLiveSession returns SetWorkerBootPromptSetWorkerBootPromptWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetHasLiveSession() *bool {
+	return v.WorkerFields.HasLiveSession
+}
+
+// GetLastActiveAt returns SetWorkerBootPromptSetWorkerBootPromptWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetLastActiveAt() *string {
+	return v.WorkerFields.LastActiveAt
+}
+
+// GetCheckStatus returns SetWorkerBootPromptSetWorkerBootPromptWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
+// GetRetiredAt returns SetWorkerBootPromptSetWorkerBootPromptWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetRetiredAt() *string {
+	return v.WorkerFields.RetiredAt
+}
+
+// GetRetiredBy returns SetWorkerBootPromptSetWorkerBootPromptWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetRetiredBy() *string {
+	return v.WorkerFields.RetiredBy
+}
+
+// GetCreatedAt returns SetWorkerBootPromptSetWorkerBootPromptWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetCreatedAt() string {
+	return v.WorkerFields.CreatedAt
+}
+
+// GetCreatedBy returns SetWorkerBootPromptSetWorkerBootPromptWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetCreatedBy() *string {
+	return v.WorkerFields.CreatedBy
+}
+
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetWorkerBootPromptSetWorkerBootPromptWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetWorkerBootPromptSetWorkerBootPromptWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetWorkerBootPromptSetWorkerBootPromptWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	PromptOverride *string `json:"promptOverride"`
+
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	Repos []string `json:"repos"`
+
+	MemoryId *string `json:"memoryId"`
+
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) __premarshalJSON() (*__premarshalSetWorkerBootPromptSetWorkerBootPromptWorker, error) {
+	var retval __premarshalSetWorkerBootPromptSetWorkerBootPromptWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
+	retval.Slug = v.WorkerFields.Slug
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
+	retval.Repos = v.WorkerFields.Repos
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
 
 // SetWorkerReportsToResponse is returned by SetWorkerReportsTo on success.
 type SetWorkerReportsToResponse struct {
@@ -40422,6 +41287,16 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetSignature() *string {
 // GetTrailer returns SetWorkerReportsToSetWorkerReportsToWorker.Trailer, and is useful for accessing the field via an interface.
 func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetTrailer() *string {
 	return v.WorkerFields.Trailer
+}
+
+// GetBootPromptRef returns SetWorkerReportsToSetWorkerReportsToWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetBootPromptRef() *string {
+	return v.WorkerFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns SetWorkerReportsToSetWorkerReportsToWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
 }
 
 // GetRepos returns SetWorkerReportsToSetWorkerReportsToWorker.Repos, and is useful for accessing the field via an interface.
@@ -40531,6 +41406,10 @@ type __premarshalSetWorkerReportsToSetWorkerReportsToWorker struct {
 
 	Trailer *string `json:"trailer"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -40579,6 +41458,8 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -47898,6 +48779,14 @@ func (v *UpdateAgentUpdateAgent) GetProcessesIndexRef() *string {
 // GetExtendsAgentId returns UpdateAgentUpdateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
 
+// GetBootPromptRef returns UpdateAgentUpdateAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetBootPromptRef() *string { return v.AgentFields.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns UpdateAgentUpdateAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
 // GetAiProvider returns UpdateAgentUpdateAgent.AiProvider, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
 
@@ -47968,6 +48857,10 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	ExtendsAgentId *string `json:"extendsAgentId"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	AiProvider *string `json:"aiProvider"`
 
 	AiModel *string `json:"aiModel"`
@@ -48005,6 +48898,8 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
@@ -53092,6 +53987,16 @@ func (v *UpdateWorkerSigningUpdateWorker) GetSignature() *string { return v.Work
 // GetTrailer returns UpdateWorkerSigningUpdateWorker.Trailer, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerSigningUpdateWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
 
+// GetBootPromptRef returns UpdateWorkerSigningUpdateWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetBootPromptRef() *string {
+	return v.WorkerFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns UpdateWorkerSigningUpdateWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
 // GetRepos returns UpdateWorkerSigningUpdateWorker.Repos, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerSigningUpdateWorker) GetRepos() []string { return v.WorkerFields.Repos }
 
@@ -53187,6 +54092,10 @@ type __premarshalUpdateWorkerSigningUpdateWorker struct {
 
 	Trailer *string `json:"trailer"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -53235,6 +54144,8 @@ func (v *UpdateWorkerSigningUpdateWorker) __premarshalJSON() (*__premarshalUpdat
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -53306,6 +54217,14 @@ func (v *UpdateWorkerUpdateWorker) GetSignature() *string { return v.WorkerField
 
 // GetTrailer returns UpdateWorkerUpdateWorker.Trailer, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerUpdateWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
+
+// GetBootPromptRef returns UpdateWorkerUpdateWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetBootPromptRef() *string { return v.WorkerFields.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns UpdateWorkerUpdateWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
 
 // GetRepos returns UpdateWorkerUpdateWorker.Repos, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerUpdateWorker) GetRepos() []string { return v.WorkerFields.Repos }
@@ -53396,6 +54315,10 @@ type __premarshalUpdateWorkerUpdateWorker struct {
 
 	Trailer *string `json:"trailer"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -53444,6 +54367,8 @@ func (v *UpdateWorkerUpdateWorker) __premarshalJSON() (*__premarshalUpdateWorker
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -54249,6 +55174,13 @@ type WorkerFields struct {
 	Signature *string `json:"signature"`
 	// Per-worker commit trailer template, masked for nonreaders (hrn:node:hadronmemory.com:specs:cor:agt:040:04).
 	Trailer *string `json:"trailer"`
+	// #2045 — the canonical URN of the compiled boot prompt this worker's pointer names now
+	// (set for customised workers only). Null when no pointer is set OR when the caller may not see it (WORKING-STATE
+	// field, behind the worker read gate): null is not proof that no pointer exists.
+	BootPromptRef *string `json:"bootPromptRef"`
+	// #2045 — whether the pointer's target is deleted (soft or hard): true / false, and null when no pointer is set
+	// or the caller may not see it. Same gate as bootPromptRef. Nothing is served from a deleted target (R27).
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
 	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
 	// already holds the worker needs no second round-trip to teamRoles. The CLI
 	// warns on a role/repo mismatch at session start (hadron-cli#456).
@@ -54380,6 +55312,12 @@ func (v *WorkerFields) GetSignature() *string { return v.Signature }
 
 // GetTrailer returns WorkerFields.Trailer, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetTrailer() *string { return v.Trailer }
+
+// GetBootPromptRef returns WorkerFields.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetBootPromptRef() *string { return v.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns WorkerFields.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetBootPromptTargetDeleted() *bool { return v.BootPromptTargetDeleted }
 
 // GetRepos returns WorkerFields.Repos, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetRepos() []string { return v.Repos }
@@ -55398,6 +56336,16 @@ func (v *WorkersWorkersWorkersPageItemsWorker) GetSignature() *string {
 // GetTrailer returns WorkersWorkersWorkersPageItemsWorker.Trailer, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
 
+// GetBootPromptRef returns WorkersWorkersWorkersPageItemsWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetBootPromptRef() *string {
+	return v.WorkerFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns WorkersWorkersWorkersPageItemsWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
 // GetRepos returns WorkersWorkersWorkersPageItemsWorker.Repos, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetRepos() []string { return v.WorkerFields.Repos }
 
@@ -55499,6 +56447,10 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	Trailer *string `json:"trailer"`
 
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -55547,6 +56499,8 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
@@ -58961,6 +59915,18 @@ func (v *__SetAgentBaseInput) GetRef() string { return v.Ref }
 // GetBaseRef returns __SetAgentBaseInput.BaseRef, and is useful for accessing the field via an interface.
 func (v *__SetAgentBaseInput) GetBaseRef() *string { return v.BaseRef }
 
+// __SetAgentBootPromptInput is used internally by genqlient
+type __SetAgentBootPromptInput struct {
+	AgentRef string  `json:"agentRef"`
+	NodeRef  *string `json:"nodeRef"`
+}
+
+// GetAgentRef returns __SetAgentBootPromptInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__SetAgentBootPromptInput) GetAgentRef() string { return v.AgentRef }
+
+// GetNodeRef returns __SetAgentBootPromptInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__SetAgentBootPromptInput) GetNodeRef() *string { return v.NodeRef }
+
 // __SetAgentIndexRefsInput is used internally by genqlient
 type __SetAgentIndexRefsInput struct {
 	Ref               string  `json:"ref"`
@@ -58976,6 +59942,34 @@ func (v *__SetAgentIndexRefsInput) GetTasksIndexRef() *string { return v.TasksIn
 
 // GetProcessesIndexRef returns __SetAgentIndexRefsInput.ProcessesIndexRef, and is useful for accessing the field via an interface.
 func (v *__SetAgentIndexRefsInput) GetProcessesIndexRef() *string { return v.ProcessesIndexRef }
+
+// __SetAppAgentBootPromptInput is used internally by genqlient
+type __SetAppAgentBootPromptInput struct {
+	AppRef   string  `json:"appRef"`
+	AgentRef string  `json:"agentRef"`
+	NodeRef  *string `json:"nodeRef"`
+}
+
+// GetAppRef returns __SetAppAgentBootPromptInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SetAppAgentBootPromptInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __SetAppAgentBootPromptInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__SetAppAgentBootPromptInput) GetAgentRef() string { return v.AgentRef }
+
+// GetNodeRef returns __SetAppAgentBootPromptInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__SetAppAgentBootPromptInput) GetNodeRef() *string { return v.NodeRef }
+
+// __SetWorkerBootPromptInput is used internally by genqlient
+type __SetWorkerBootPromptInput struct {
+	WorkerRef string  `json:"workerRef"`
+	NodeRef   *string `json:"nodeRef"`
+}
+
+// GetWorkerRef returns __SetWorkerBootPromptInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__SetWorkerBootPromptInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetNodeRef returns __SetWorkerBootPromptInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__SetWorkerBootPromptInput) GetNodeRef() *string { return v.NodeRef }
 
 // __SetWorkerReportsToInput is used internally by genqlient
 type __SetWorkerReportsToInput struct {
@@ -62242,6 +63236,8 @@ fragment AgentFields on Agent {
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -62455,6 +63451,13 @@ query AppAgentRoster ($appRef: ID!) {
 			organizationId
 			personaRole
 			createdAt
+		}
+		appAgents {
+			agent {
+				id
+			}
+			bootPromptRef
+			bootPromptTargetDeleted
 		}
 	}
 }
@@ -63188,6 +64191,8 @@ fragment WorkerFields on Worker {
 	promptOverride
 	signature
 	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
 	repos
 	memoryId
 	heldByUserId
@@ -63827,6 +64832,8 @@ fragment AgentFields on Agent {
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -63884,6 +64891,8 @@ fragment AgentFields on Agent {
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -63979,6 +64988,8 @@ fragment AgentFields on Agent {
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -64447,6 +65458,8 @@ fragment AgentFields on Agent {
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -68035,6 +69048,8 @@ fragment AgentFields on Agent {
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -69205,6 +70220,8 @@ fragment WorkerFields on Worker {
 	promptOverride
 	signature
 	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
 	repos
 	memoryId
 	heldByUserId
@@ -72105,6 +73122,8 @@ fragment AgentFields on Agent {
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -72470,6 +73489,8 @@ fragment WorkerFields on Worker {
 	promptOverride
 	signature
 	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
 	repos
 	memoryId
 	heldByUserId
@@ -73483,6 +74504,8 @@ fragment WorkerFields on Worker {
 	promptOverride
 	signature
 	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
 	repos
 	memoryId
 	heldByUserId
@@ -74640,6 +75663,8 @@ fragment AgentFields on Agent {
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -74680,6 +75705,70 @@ func SetAgentBase(
 	return data_, err_
 }
 
+// The mutation executed by SetAgentBootPrompt.
+const SetAgentBootPrompt_Operation = `
+mutation SetAgentBootPrompt ($agentRef: String!, $nodeRef: String) {
+	setAgentBootPrompt(agentRef: $agentRef, nodeRef: $nodeRef) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	createdAt
+}
+`
+
+// cli#916 C2 (#2045 S8, R23/R24): set or clear a boot-prompt pointer. nodeRef
+// deliberately has NO omitempty: the server reads an explicit null as the
+// clear and refuses an OMITTED one (BAD_USER_INPUT), so a nil pointer must go
+// out as null. GraphQL only; the manager acts as themselves, so these are not
+// on the session-attribution allowlist (team/write_attribution.go).
+func SetAgentBootPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	nodeRef *string,
+) (data_ *SetAgentBootPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAgentBootPrompt",
+		Query:  SetAgentBootPrompt_Operation,
+		Variables: &__SetAgentBootPromptInput{
+			AgentRef: agentRef,
+			NodeRef:  nodeRef,
+		},
+	}
+
+	data_ = &SetAgentBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetAgentIndexRefs.
 const SetAgentIndexRefs_Operation = `
 mutation SetAgentIndexRefs ($ref: ID!, $tasksIndexRef: ID, $processesIndexRef: ID) {
@@ -74701,6 +75790,8 @@ fragment AgentFields on Agent {
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -74746,6 +75837,138 @@ func SetAgentIndexRefs(
 	return data_, err_
 }
 
+// The mutation executed by SetAppAgentBootPrompt.
+const SetAppAgentBootPrompt_Operation = `
+mutation SetAppAgentBootPrompt ($appRef: String!, $agentRef: String!, $nodeRef: String) {
+	setAppAgentBootPrompt(appRef: $appRef, agentRef: $agentRef, nodeRef: $nodeRef) {
+		agent {
+			id
+			urn
+			name
+		}
+		app {
+			id
+			urn
+			name
+		}
+		bootPromptRef
+		bootPromptTargetDeleted
+	}
+}
+`
+
+// cli#916 C2: an installed Agent's boot-prompt pointer for one App. nodeRef has
+// no omitempty, as SetAgentBootPrompt (agent.graphql) explains.
+func SetAppAgentBootPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef string,
+	nodeRef *string,
+) (data_ *SetAppAgentBootPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAppAgentBootPrompt",
+		Query:  SetAppAgentBootPrompt_Operation,
+		Variables: &__SetAppAgentBootPromptInput{
+			AppRef:   appRef,
+			AgentRef: agentRef,
+			NodeRef:  nodeRef,
+		},
+	}
+
+	data_ = &SetAppAgentBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetWorkerBootPrompt.
+const SetWorkerBootPrompt_Operation = `
+mutation SetWorkerBootPrompt ($workerRef: ID!, $nodeRef: String) {
+	setWorkerBootPrompt(workerRef: $workerRef, nodeRef: $nodeRef) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	urn
+	portalUrl
+	slug
+	appId
+	agentId
+	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
+	role
+	prompt
+	promptOverride
+	signature
+	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
+	repos
+	memoryId
+	heldByUserId
+	heldAt
+	hasLiveSession
+	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
+}
+`
+
+// cli#916 C2: a worker's boot-prompt pointer. nodeRef has no omitempty, as
+// SetAgentBootPrompt (agent.graphql) explains.
+func SetWorkerBootPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	nodeRef *string,
+) (data_ *SetWorkerBootPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetWorkerBootPrompt",
+		Query:  SetWorkerBootPrompt_Operation,
+		Variables: &__SetWorkerBootPromptInput{
+			WorkerRef: workerRef,
+			NodeRef:   nodeRef,
+		},
+	}
+
+	data_ = &SetWorkerBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetWorkerReportsTo.
 const SetWorkerReportsTo_Operation = `
 mutation SetWorkerReportsTo ($workerRef: ID!, $reportsTo: ID) {
@@ -74770,6 +75993,8 @@ fragment WorkerFields on Worker {
 	promptOverride
 	signature
 	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
 	repos
 	memoryId
 	heldByUserId
@@ -76974,6 +78199,8 @@ fragment AgentFields on Agent {
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
 	aiProvider
 	aiModel
 	hasAiApiKey
@@ -79257,6 +80484,8 @@ fragment WorkerFields on Worker {
 	promptOverride
 	signature
 	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
 	repos
 	memoryId
 	heldByUserId
@@ -79352,6 +80581,8 @@ fragment WorkerFields on Worker {
 	promptOverride
 	signature
 	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
 	repos
 	memoryId
 	heldByUserId
@@ -79717,6 +80948,8 @@ fragment WorkerFields on Worker {
 	promptOverride
 	signature
 	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
 	repos
 	memoryId
 	heldByUserId

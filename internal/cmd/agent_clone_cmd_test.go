@@ -64,10 +64,10 @@ func TestAgentClone994ReturnedDTOAndOptions(t *testing.T) {
 		if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 			t.Fatal(err)
 		}
-		if dto["urn"] != "hrn:agent:target.org:returned-clone" || len(dto) != 19 {
+		if dto["urn"] != "hrn:agent:target.org:returned-clone" || len(dto) != 21 {
 			t.Fatal(dto)
 		}
-		for _, key := range []string{"id", "urn", "name", "description", "type", "visibility", "organizationId", "surfaces", "systemMemoryId", "tasksIndexRef", "processesIndexRef", "extendsAgentId", "systemPrompt", "aiProvider", "aiModel", "hasAiApiKey", "personaRole", "usesTasks", "createdAt"} {
+		for _, key := range []string{"id", "urn", "name", "description", "type", "visibility", "organizationId", "surfaces", "systemMemoryId", "tasksIndexRef", "processesIndexRef", "extendsAgentId", "bootPromptRef", "bootPromptTargetDeleted", "systemPrompt", "aiProvider", "aiModel", "hasAiApiKey", "personaRole", "usesTasks", "createdAt"} {
 			if _, ok := dto[key]; !ok {
 				t.Fatalf("missing%s:%v", key, dto)
 			}

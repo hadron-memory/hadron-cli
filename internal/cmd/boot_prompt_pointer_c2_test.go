@@ -147,8 +147,9 @@ func TestC2SettersCarryNoWorkerSession(t *testing.T) {
 func TestC2BothOrNeitherIsUsageWithNoCall(t *testing.T) {
 	for _, s := range c2Setters {
 		for name, tail := range map[string][]string{
-			"both":    {c2NodeURN, "--clear"},
-			"neither": {},
+			"both":          {c2NodeURN, "--clear"},
+			"neither":       {},
+			"clear with -m": {"--clear", "-m", "hrn:mem:acme.com:eng-team-install"},
 		} {
 			t.Run(s.name+" "+name, func(t *testing.T) {
 				calls, _, err := runTeamTask(t, c2Responses(), append(s.argv, tail...)...)
@@ -269,7 +270,7 @@ func TestC2HumanRendering(t *testing.T) {
 		if !strings.Contains(out, v.want) {
 			t.Errorf("agent get must show %q:\n%s", v.want, out)
 		}
-		_, out, err = runTeamTask(t, map[string]string{"GetWorker": `{"data":{"worker":` + c2WorkerWith(v.ref, v.deleted) + `}}`}, "team", "worker", "get", "hrn:worker:acme.com:eng-team:iris")
+		_, out, err = runTeamTask(t, map[string]string{"GetWorker": `{"data":{"worker":` + c2WorkerWith(v.ref, v.deleted) + `}}`, "TeamAppIdentity": teamAppIdentityJSON}, "team", "worker", "get", "hrn:worker:acme.com:eng-team:iris")
 		if err != nil {
 			t.Fatal(err)
 		}

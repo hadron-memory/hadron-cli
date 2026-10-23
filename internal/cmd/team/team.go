@@ -166,6 +166,11 @@ type workerDTO struct {
 	// key must stay to carry the difference.
 	Signature *string `json:"signature"`
 	Trailer   *string `json:"trailer"`
+	// BootPromptRef / BootPromptTargetDeleted are the worker's boot-prompt
+	// pointer (cli#916 C2, #2045 S8). NOT omitempty: both null means unset OR
+	// withheld, and the CLI cannot tell which.
+	BootPromptRef           *string `json:"bootPromptRef"`
+	BootPromptTargetDeleted *bool   `json:"bootPromptTargetDeleted"`
 	// Repos is the ROLE's repo affinity, resolved (#1024). A SOFT signal —
 	// `session start` warns on a mismatch and never refuses. Empty is the
 	// answer to every uncertainty (no role, no definition, unreadable memory,
@@ -222,6 +227,7 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 		Name: w.Name, Role: w.Role,
 		Prompt: w.Prompt, PromptOverride: w.PromptOverride,
 		Signature: w.Signature, Trailer: w.Trailer,
+		BootPromptRef: w.BootPromptRef, BootPromptTargetDeleted: w.BootPromptTargetDeleted,
 		Repos: nonNilRepos(w.Repos), MemoryID: w.MemoryId,
 		HeldByUserID: w.HeldByUserId, HeldAt: w.HeldAt,
 		HasLiveSession: w.HasLiveSession, LastActiveAt: w.LastActiveAt,

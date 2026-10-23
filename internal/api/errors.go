@@ -772,6 +772,17 @@ func codeForExtension(code string) int {
 		return exitcode.AuthRequired
 	case code == "NOT_FOUND" || strings.HasSuffix(code, "_NOT_FOUND") || code == "AiServiceConfigNotFoundError":
 		return exitcode.NotFound
+	// Boot-prompt pointer writes (cli#916 C2, hadron-server#2219 S8). The
+	// node is not a compiled prompt, has the wrong role, or sits in the wrong
+	// memory: an argument the caller fixes, so 2. (BOOT_PROMPT_POINTER_NOT_FOUND
+	// rides the _NOT_FOUND suffix above.) A pointer write from a bound worker
+	// session is refused because the manager must act as themselves (R23):
+	// a credential that is not permitted for this write, so 8.
+	case code == "BOOT_PROMPT_POINTER_NOT_COMPILED" || code == "BOOT_PROMPT_POINTER_WRONG_ROLE" ||
+		code == "BOOT_PROMPT_POINTER_WRONG_MEMORY":
+		return exitcode.Usage
+	case code == "BOOT_PROMPT_POINTER_SESSION_REFUSED":
+		return exitcode.Forbidden
 	// URN_NOT_QUALIFIED (spec 022) is the server refusing a ref that is not
 	// a PK and not a fully-qualified URN — an argument the caller can fix.
 	// The CLI pre-checks App refs (cmdutil.CanonicalAppRef, #540), so this

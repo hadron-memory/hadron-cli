@@ -31,13 +31,18 @@ type agentDTO struct {
 	TasksIndexRef  *string  `json:"tasksIndexRef"`
 	ProcessesIndex *string  `json:"processesIndexRef"`
 	ExtendsAgentID *string  `json:"extendsAgentId"`
-	SystemPrompt   *string  `json:"systemPrompt"`
-	AiProvider     *string  `json:"aiProvider"`
-	AiModel        *string  `json:"aiModel"`
-	HasAiApiKey    bool     `json:"hasAiApiKey"`
-	PersonaRole    *string  `json:"personaRole"`
-	UsesTasks      bool     `json:"usesTasks"`
-	CreatedAt      string   `json:"createdAt"`
+	// BootPromptRef / BootPromptTargetDeleted are the Agent's boot-prompt
+	// pointer (cli#916 C2, #2045 S8). NOT omitempty: both null means unset OR
+	// withheld, and the key must stay to say it.
+	BootPromptRef           *string `json:"bootPromptRef"`
+	BootPromptTargetDeleted *bool   `json:"bootPromptTargetDeleted"`
+	SystemPrompt            *string `json:"systemPrompt"`
+	AiProvider              *string `json:"aiProvider"`
+	AiModel                 *string `json:"aiModel"`
+	HasAiApiKey             bool    `json:"hasAiApiKey"`
+	PersonaRole             *string `json:"personaRole"`
+	UsesTasks               bool    `json:"usesTasks"`
+	CreatedAt               string  `json:"createdAt"`
 }
 
 func agentDTOFromFields(a gen.AgentFields) agentDTO {
@@ -50,6 +55,7 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 		Type: string(a.Type), Visibility: string(a.Visibility), OrganizationID: a.OrganizationId,
 		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId, SystemPrompt: a.SystemPrompt,
 		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef, ExtendsAgentID: a.ExtendsAgentId,
+		BootPromptRef: a.BootPromptRef, BootPromptTargetDeleted: a.BootPromptTargetDeleted,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
 		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, CreatedAt: a.CreatedAt,
 	}
@@ -116,6 +122,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdAgentTasks(f))
 	cmd.AddCommand(newCmdAgentProcesses(f))
 	cmd.AddCommand(newCmdAgentSetBase(f))
+	cmd.AddCommand(newCmdAgentSetBootPrompt(f))
 	return cmd
 }
 
@@ -299,6 +306,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", dto.Name, dto.URN, dto.ID, dto.Type, dto.Visibility)
 				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  extends: %s\n  ai: %s/%s (key: %v)\n",
 					dash(dto.Description), dash(dto.SystemMemoryID), dash(dto.TasksIndexRef), dash(dto.ProcessesIndex), dash(dto.ExtendsAgentID), dash(dto.AiProvider), dash(dto.AiModel), dto.HasAiApiKey)
+				fmt.Fprintf(w, "  boot prompt: %s\n", cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
 				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
 				if len(dto.Surfaces) > 0 {
 					fmt.Fprintf(w, "  surfaces: %s\n", strings.Join(dto.Surfaces, ", "))
@@ -1104,6 +1112,70 @@ manages the Agent may set its base (cor:dmo:050:13).`,
 		},
 	}
 	cmd.Flags().BoolVar(&clear, "clear", false, "remove the Agent's base instead of setting one")
+	return cmd
+}
+
+// newCmdAgentSetBootPrompt backs `hadron agent set-boot-prompt` (cli#916 C2,
+// #2045 S8): point the Agent at a compiled boot prompt in its own system
+// memory, or clear the pointer with --clear. One mutation, nodeRef always on
+// the wire (an explicit null clears). The manager acts as themselves (R23),
+// so the write never carries a bound worktree's session.
+func newCmdAgentSetBootPrompt(f *cmdutil.Factory) *cobra.Command {
+	var clear bool
+	var memory string
+	cmd := &cobra.Command{
+		Use:   "set-boot-prompt <agent> (<node-ref> | --clear)",
+		Short: "Point the Agent at a compiled boot prompt, or clear the pointer",
+		Long: `Set the Agent's boot-prompt pointer to a compiled boot prompt, or remove it
+with --clear. The node must be a compiled boot prompt in this Agent's own system
+memory; the server checks that, and the CLI looks nothing up first. Setting the
+pointer does not approve the prompt: approval is checked when it is served.
+
+<node-ref> is a node id or a fully-qualified node URN, or a bare loc with
+-m/--memory. Only the Agent's manager may set it, acting as themselves: the
+command never sends a bound worktree's worker session, and the server refuses
+one (exit 8).
+
+Exit codes: 2 for a node that is not a compiled prompt, has the wrong role or
+is in the wrong memory; 4 when the node is missing or not readable (one answer
+for both); 8 when you may not manage the Agent.`,
+		Example: `  hadron agent set-boot-prompt hrn:agent:acme.com:iris hrn:node:acme.com:iris-system:boot:compiled
+  hadron agent set-boot-prompt hrn:agent:acme.com:iris boot:compiled -m hrn:mem:acme.com:iris-system
+  hadron agent set-boot-prompt hrn:agent:acme.com:iris --clear`,
+		Args: cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref := strings.TrimSpace(args[0])
+			if ref == "" {
+				return exitcode.Newf(exitcode.Usage, "the agent reference is empty")
+			}
+			nodeRef, err := cmdutil.BootPromptNodeRef(memory, args[1:], clear)
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.SetAgentBootPrompt(cmd.Context(), client, ref, nodeRef)
+			if err != nil {
+				return api.MapError(err)
+			}
+			if resp.SetAgentBootPrompt == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no agent")
+			}
+			dto := agentDTOFromFields(resp.SetAgentBootPrompt.AgentFields)
+			verb := "✓ set boot prompt of"
+			if clear {
+				verb = "✓ cleared boot prompt of"
+			}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "%s agent %s (%s)\n  boot prompt: %s\n", verb, dto.Name, dto.URN, cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
+				return err
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&clear, "clear", false, "remove the Agent's boot-prompt pointer instead of setting one")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory of a bare <node-ref> loc (hrn:mem:<root>:<slug>)")
 	return cmd
 }
 

@@ -60,6 +60,11 @@ fragment WorkerFields on Worker {
   # template is "". Not on the roster projection below.
   signature
   trailer
+  # cli#916 C2 (#2045 S8): the boot-prompt pointer and whether its target is
+  # deleted. BOTH NULL MEANS UNSET OR WITHHELD (masked for a caller who may not
+  # see it) — never proof that no pointer exists.
+  bootPromptRef
+  bootPromptTargetDeleted
   # #1024 — the repo affinity of this worker's ROLE, resolved server-side so a
   # caller already holding the worker needs no second trip to teamRoles.
   #
@@ -1298,6 +1303,11 @@ query TeamChatReadHeadAttributed($appRef: ID!) {
 # Clear intentionally sends null; do not add omitempty to reportsTo.
 mutation SetWorkerReportsTo($workerRef: ID!, $reportsTo: ID) {
  setWorkerReportsTo(workerRef: $workerRef, reportsTo: $reportsTo) { ...WorkerFields }
+}
+# cli#916 C2: a worker's boot-prompt pointer. nodeRef has no omitempty, as
+# SetAgentBootPrompt (agent.graphql) explains.
+mutation SetWorkerBootPrompt($workerRef: ID!, $nodeRef: String) {
+  setWorkerBootPrompt(workerRef: $workerRef, nodeRef: $nodeRef) { ...WorkerFields }
 }
 # Current worker relation, never cached in the worktree session binding.
 query WorkerReporting($ref: ID!) {

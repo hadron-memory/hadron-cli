@@ -46,6 +46,7 @@ worker in scripts.`,
 	cmd.AddCommand(newCmdWorkerGet(f))
 	cmd.AddCommand(newCmdWorkerUpdate(f))
 	cmd.AddCommand(newCmdWorkerSetReportsTo(f))
+	cmd.AddCommand(newCmdWorkerSetBootPrompt(f))
 	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))
@@ -561,6 +562,7 @@ check result stays unavailable. No local clock or task-count inference is made.`
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
 				}
+				fmt.Fprintf(out, "  boot prompt: %s\n", cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
 				fmt.Fprintf(out, "  created: %s\n", dto.CreatedAt)
 				// The RAW override, before the composed briefing and labelled
 				// separately (PR #588 review, @copilot).
