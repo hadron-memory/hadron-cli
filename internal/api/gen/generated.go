@@ -20185,6 +20185,102 @@ func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffective
 	return v.EffectiveAccess
 }
 
+// EmailConnectionsExchangeConnectionsExchangeConnection includes the requested fields of the GraphQL type ExchangeConnection.
+// The GraphQL type's documentation follows.
+//
+// A connected PROVIDER ACCOUNT (identity record) — despite the name, this
+// one type carries mailboxes, calendars and Drive accounts alike; the
+// provider field below says which, and each routes to its own capability
+// tool. Provider state lives in that tool, never here.
+//
+// Operations are identity-scoped: the connection's OWNER may perform them,
+// and an App/headless caller may perform those covered by a live
+// ConnectionGrant whose scopes include the operation's (requireEmailConnection
+// enforces both branches, fail-closed for an unmapped operation). list and
+// delete stay org-ADMIN management operations.
+type EmailConnectionsExchangeConnectionsExchangeConnection struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	UserId         string `json:"userId"`
+	MailboxEmail   string `json:"mailboxEmail"`
+	// Provider backing this connection. Dispatched per-connection through
+	// the tool registry: `ms-exchange`, `gmail`, `google-cal`,
+	// `google-drive`. (This said "'ms-exchange' today" until #1232 — true
+	// when written, and three providers out of date by the time it was
+	// published.)
+	Provider    string     `json:"provider"`
+	DisplayName *string    `json:"displayName"`
+	SyncEnabled bool       `json:"syncEnabled"`
+	SyncStatus  SyncStatus `json:"syncStatus"`
+	LastSyncAt  *string    `json:"lastSyncAt"`
+	CreatedAt   string     `json:"createdAt"`
+	UpdatedAt   string     `json:"updatedAt"`
+}
+
+// GetId returns EmailConnectionsExchangeConnectionsExchangeConnection.Id, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetId() string { return v.Id }
+
+// GetOrganizationId returns EmailConnectionsExchangeConnectionsExchangeConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetUserId returns EmailConnectionsExchangeConnectionsExchangeConnection.UserId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetUserId() string { return v.UserId }
+
+// GetMailboxEmail returns EmailConnectionsExchangeConnectionsExchangeConnection.MailboxEmail, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetMailboxEmail() string {
+	return v.MailboxEmail
+}
+
+// GetProvider returns EmailConnectionsExchangeConnectionsExchangeConnection.Provider, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetProvider() string {
+	return v.Provider
+}
+
+// GetDisplayName returns EmailConnectionsExchangeConnectionsExchangeConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetDisplayName() *string {
+	return v.DisplayName
+}
+
+// GetSyncEnabled returns EmailConnectionsExchangeConnectionsExchangeConnection.SyncEnabled, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetSyncEnabled() bool {
+	return v.SyncEnabled
+}
+
+// GetSyncStatus returns EmailConnectionsExchangeConnectionsExchangeConnection.SyncStatus, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetSyncStatus() SyncStatus {
+	return v.SyncStatus
+}
+
+// GetLastSyncAt returns EmailConnectionsExchangeConnectionsExchangeConnection.LastSyncAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetLastSyncAt() *string {
+	return v.LastSyncAt
+}
+
+// GetCreatedAt returns EmailConnectionsExchangeConnectionsExchangeConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns EmailConnectionsExchangeConnectionsExchangeConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// EmailConnectionsResponse is returned by EmailConnections on success.
+type EmailConnectionsResponse struct {
+	// Exchange connections for an org.
+	//
+	// Accepts the entity's ID or URN.
+	ExchangeConnections []*EmailConnectionsExchangeConnectionsExchangeConnection `json:"exchangeConnections"`
+}
+
+// GetExchangeConnections returns EmailConnectionsResponse.ExchangeConnections, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsResponse) GetExchangeConnections() []*EmailConnectionsExchangeConnectionsExchangeConnection {
+	return v.ExchangeConnections
+}
+
 // EncryptMemoryEncryptMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -59243,6 +59339,14 @@ func (v *__EffectiveAccessInput) GetUser() string { return v.User }
 // GetResource returns __EffectiveAccessInput.Resource, and is useful for accessing the field via an interface.
 func (v *__EffectiveAccessInput) GetResource() string { return v.Resource }
 
+// __EmailConnectionsInput is used internally by genqlient
+type __EmailConnectionsInput struct {
+	OrgId string `json:"orgId"`
+}
+
+// GetOrgId returns __EmailConnectionsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__EmailConnectionsInput) GetOrgId() string { return v.OrgId }
+
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
 	MemoryId string `json:"memoryId"`
@@ -69672,6 +69776,51 @@ func EffectiveAccess(
 	}
 
 	data_ = &EffectiveAccessResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EmailConnections.
+const EmailConnections_Operation = `
+query EmailConnections ($orgId: ID!) {
+	exchangeConnections(orgId: $orgId) {
+		id
+		organizationId
+		userId
+		mailboxEmail
+		provider
+		displayName
+		syncEnabled
+		syncStatus
+		lastSyncAt
+		createdAt
+		updatedAt
+	}
+}
+`
+
+// Explicit org-admin metadata read; never request credentials or lastError.
+func EmailConnections(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+) (data_ *EmailConnectionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailConnections",
+		Query:  EmailConnections_Operation,
+		Variables: &__EmailConnectionsInput{
+			OrgId: orgId,
+		},
+	}
+
+	data_ = &EmailConnectionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

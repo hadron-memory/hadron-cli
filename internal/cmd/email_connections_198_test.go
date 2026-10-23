@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 	"strings"
 	"testing"
 )
@@ -78,6 +81,52 @@ func TestEmailConnections198InvalidScope(t *testing.T) {
 		}
 		if len(ops) != 0 {
 			t.Fatal(ops)
+		}
+	}
+}
+
+func TestEmailConnections198Document(t *testing.T) {
+	doc, e := parser.ParseQuery(&ast.Source{Input: gen.EmailConnections_Operation})
+	if e != nil {
+		t.Fatal(e)
+	}
+	op := doc.Operations.ForName("EmailConnections")
+	if len(op.SelectionSet) != 1 {
+		t.Fatal("extra root selection")
+	}
+	field := op.SelectionSet[0].(*ast.Field)
+	if field.Name != "exchangeConnections" || len(field.Arguments) != 1 || field.Arguments.ForName("orgId").Value.Raw != "orgId" {
+		t.Fatal(field)
+	}
+	want := []string{"id", "organizationId", "userId", "mailboxEmail", "provider", "displayName", "syncEnabled", "syncStatus", "lastSyncAt", "createdAt", "updatedAt"}
+	if len(field.SelectionSet) != len(want) {
+		t.Fatal("expanded connection projection")
+	}
+	for i, s := range field.SelectionSet {
+		f := s.(*ast.Field)
+		if f.Name != want[i] || len(f.SelectionSet) != 0 {
+			t.Fatal(f)
+		}
+	}
+}
+
+func TestEmailConnections198Human(t *testing.T) {
+	for _, rows := range []string{`[]`, `[{"id":"c","organizationId":"o","userId":"u","mailboxEmail":"synthetic@example.test","provider":"gmail","displayName":"line\nescape\u001b[31m","syncEnabled":true,"syncStatus":"IDLE","lastSyncAt":null,"createdAt":"created","updatedAt":"updated","lastError":"PRIVATE"}]`} {
+		srv, _ := captureGraphQL(t, map[string]string{"EmailConnections": `{"data":{"exchangeConnections":` + rows + `}}`})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"email", "connections", "--org", " o ", "--server", srv.URL})
+		if e := root.Execute(); e != nil {
+			t.Fatal(e)
+		}
+		if !strings.Contains(out.String(), `organization: "o" (from --org`) || strings.Contains(out.String(), "PRIVATE") || strings.ContainsRune(out.String(), '\x1b') {
+			t.Fatal(out.String())
+		}
+		if rows == "[]" && !strings.Contains(out.String(), "No email connections returned to this caller.") {
+			t.Fatal(out.String())
+		}
+		if rows != "[]" && (!strings.Contains(out.String(), `line\nescape\x1b[31m`) || !strings.Contains(out.String(), "null")) {
+			t.Fatal(out.String())
 		}
 	}
 }
