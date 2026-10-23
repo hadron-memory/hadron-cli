@@ -3332,3 +3332,15 @@ nextNode read. No ordinary get/list behaviour changes.
   current URN, copied verbatim. Text prints `Cloned from:` only when non-null.
   Null does not distinguish non-clone, withheld, deleted or unrecorded origin.
   No extra source lookup; clone/list output and selections are unchanged.
+
+
+`hadron spec label-report [-m MEMORY] [--prefix CITATION] [--json]` is a read-only
+inventory, not lint. JSON is `{memoryRef,prefix,items:[]}` with
+`{parentId,parentLoc,edgeId,label,childId,childLoc,childName,status}` items.
+Only `available` rows are verified available direct same-memory citation-parent
+relationships; differing editorial labels are not defects. `unavailable` with
+edgeId present and null childId is an unclassified source-unavailable candidate;
+null edgeId is an unavailable-parent marker, not an invented edge. Null labels
+and names remain null. No hidden endpoint/history read, heuristic, rewrite or
+lint exit change; transport/protocol failures fail rather than return partial
+inventory. The report covers caller-visible data only.

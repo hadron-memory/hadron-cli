@@ -133,9 +133,37 @@ func TestSpecLabelReportUnavailableSemantics(t *testing.T) {
 					t.Fatal(row)
 				}
 			}
-			if len(calls["NodeBatch"]) != 1 || len(calls) != 3 {
+			if len(calls["NodeBatch"]) != 1 {
 				t.Fatal("hidden endpoint/history/mutation read", calls)
 			}
+			for op := range calls {
+				if op != "FindNodes" && op != "NodeBatch" && op != "ResolveUrn" {
+					t.Fatal("unexpected op", op)
+				}
+			}
+			var vars struct{ Refs []string }
+			_ = json.Unmarshal(calls["NodeBatch"][0], &vars)
+			if len(vars.Refs) != 2 || vars.Refs[0] != "p" || vars.Refs[1] != "c" {
+				t.Fatal("hidden batch refs", vars)
+			}
+			humanServer, _ := queueGraphQL(t, map[string][]string{"ResolveUrn": {resolveSpecJSON}, "FindNodes": {listing, empty, empty}, "NodeBatch": {batch}})
+			hf, hout := testFactory(t)
+			hr := NewRootCmd(hf)
+			hr.SetArgs([]string{"spec", "label-report", "-m", specMem, "--server", humanServer.URL})
+			if e := hr.Execute(); e != nil {
+				t.Fatal(e)
+			}
+			phrase := "unclassified candidate: source unavailable"
+			if mode == "parent" {
+				phrase = "unavailable-parent"
+			}
+			if mode == "child" {
+				phrase = "unavailable child: current name unavailable"
+			}
+			if !strings.Contains(hout.String(), phrase) || strings.Contains(hout.String(), "verified direct relationship") {
+				t.Fatal(hout.String())
+			}
+
 		})
 	}
 }

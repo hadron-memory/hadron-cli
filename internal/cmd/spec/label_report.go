@@ -34,7 +34,19 @@ type labelReportItem struct {
 
 func newCmdLabelReport(f *cmdutil.Factory) *cobra.Command {
 	var memory, prefix string
-	c := &cobra.Command{Use: "label-report", Short: "Inventory visible citation-parent edge labels without lint judgments", Args: cobra.NoArgs,
+	c := &cobra.Command{Use: "label-report", Short: "Inventory visible citation-parent edge labels without lint judgments",
+		Long: `Read-only inventory of the selected spec corpus, paging to exhaustion.
+Verified direct relationships require a readable same-memory source whose citation
+parent is this node. Unequal editorial labels are not defects. No history,
+heuristic, lint finding, edge rewrite or mutation is performed.
+
+Unavailable rows are not verified direct relationships: an edge with a concealed
+source is an unclassified candidate (child fields null); a listed parent that
+cannot be batch-read has a marker with edgeId/label/child fields null. Empty and
+null labels/names remain distinct. No hidden endpoint lookup is attempted.
+Transport/protocol failures fail the command, without printing a partial report.
+The report describes caller-visible data only, not complete hidden corpus coverage.
+--prefix selects the parent citation branch; a direct child may be beneath it.`, Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			prefix, err := validateSpecPrefix(prefix, cmd.Flags().Changed("prefix"))
 			if err != nil {
@@ -77,7 +89,7 @@ func newCmdLabelReport(f *cmdutil.Factory) *cobra.Command {
 				return r.NodeBatch, nil
 			})
 			if err != nil {
-				return exitcode.New(exitcode.Error, err)
+				return err
 			}
 			full := map[string]*gen.NodeBatchNodeBatchNodeBatchResultNodesNode{}
 			for _, n := range nodes {
@@ -88,10 +100,7 @@ func newCmdLabelReport(f *cmdutil.Factory) *cobra.Command {
 					full[n.Id] = n
 				}
 			}
-			items, err := collectLabelItems(scope, full)
-			if err != nil {
-				return err
-			}
+			items := collectLabelItems(scope, full)
 			result := labelReportDTO{MemoryRef: cmdutil.CanonicalMemoryRef(mem), Prefix: prefix, Items: items}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				if _, e := fmt.Fprintln(w, "Visible citation-parent labels (inventory only; unequal labels are not defects):"); e != nil {
@@ -102,6 +111,18 @@ func newCmdLabelReport(f *cmdutil.Factory) *cobra.Command {
 					return e
 				}
 				for _, i := range items {
+					qualifier := "verified direct relationship"
+					if i.Status == "unavailable" {
+						qualifier = "unavailable child: current name unavailable"
+					}
+					if i.EdgeID == nil {
+						qualifier = "unavailable-parent: edges unavailable"
+					} else if i.ChildID == nil {
+						qualifier = "unclassified candidate: source unavailable"
+					}
+					if _, e := fmt.Fprintf(w, "%s: ", qualifier); e != nil {
+						return e
+					}
 					if _, e := fmt.Fprintf(w, "%s edge=%s label=%s child=%s (%s) name=%s status=%s\n", i.ParentLoc, labelValue(i.EdgeID), labelValue(i.Label), labelValue(i.ChildLoc), labelValue(i.ChildID), labelValue(i.ChildName), i.Status); e != nil {
 						return e
 					}
@@ -121,19 +142,21 @@ func labelValue(s *string) string {
 	return strconv.Quote(*s)
 }
 
-func collectLabelItems(scope map[string]*api.ListNode, full map[string]*gen.NodeBatchNodeBatchNodeBatchResultNodesNode) ([]labelReportItem, error) {
+func collectLabelItems(scope map[string]*api.ListNode, full map[string]*gen.NodeBatchNodeBatchNodeBatchResultNodesNode) []labelReportItem {
 	items := []labelReportItem{}
 	for id, listed := range scope {
 		parent := full[id]
 		if parent == nil {
-			return nil, exitcode.Newf(exitcode.Unavailable, "listed parent %s is unavailable; report incomplete", listed.Loc)
+			items = append(items, labelReportItem{ParentID: id, ParentLoc: listed.Loc, Status: "unavailable"})
+			continue
 		}
 		for _, edge := range parent.IncomingEdges {
 			if edge == nil {
 				continue
 			}
 			if edge.Source == nil {
-				return nil, exitcode.Newf(exitcode.Unavailable, "incoming edge source unavailable; direct-parent scope cannot be classified")
+				items = append(items, labelReportItem{ParentID: parent.Id, ParentLoc: parent.Loc, EdgeID: &edge.Id, Label: edge.Name, Status: "unavailable"})
+				continue
 			}
 			src := edge.Source
 			if src.MemoryId != parent.MemoryId {
@@ -165,17 +188,17 @@ func collectLabelItems(scope map[string]*api.ListNode, full map[string]*gen.Node
 		}
 		return labelValue(a.EdgeID) < labelValue(b.EdgeID)
 	})
-	return items, nil
+	return items
 }
 
 // Use the existing marker union and pagination, but require a real listing
 // envelope: data:null is unavailable, not an empty corpus.
 func scanLabelSpecs(ctx context.Context, client graphql.Client, memory, prefix *string) ([]*api.ListNode, error) {
-	return collectSpecNodes(memory, prefix, func(filter *gen.NodeFilter) ([]*api.ListNode, error) {
+	nodes, err := collectSpecNodes(memory, prefix, func(filter *gen.NodeFilter) ([]*api.ListNode, error) {
 		return paginateNodes(func(limit, offset int) ([]*api.ListNode, error) {
 			r, e := gen.FindNodes(ctx, client, nil, nil, filter, sortLoc(), nil, &limit, &offset, false, false)
 			if e != nil {
-				return nil, api.MapError(e)
+				return nil, e
 			}
 			if r == nil || r.FindNodes == nil {
 				return nil, exitcode.Newf(exitcode.Unavailable, "server returned no listing; label report incomplete")
@@ -190,6 +213,7 @@ func scanLabelSpecs(ctx context.Context, client graphql.Client, memory, prefix *
 			return out, nil
 		})
 	})
+	return nodes, api.MapError(err)
 }
 
 // Spillover must strictly partition a requested chunk. Reject foreign/repeated
@@ -229,6 +253,9 @@ func validateLabelBatch(chunk []string, r *gen.NodeBatchNodeBatchNodeBatchResult
 	}
 	if len(r.Omitted) > 0 && !r.Truncated {
 		return exitcode.Newf(exitcode.Unavailable, "batch omitted references without spillover; label report incomplete")
+	}
+	if len(pending) > 0 {
+		return exitcode.Newf(exitcode.Unavailable, "batch did not account for every requested reference; label report incomplete")
 	}
 	return nil
 }
