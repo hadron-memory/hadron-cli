@@ -5,7 +5,9 @@ citation-parent labels for editorial review. It never judges whether different
 wording is stale, reads history, rewrites edges, or adds lint findings. Lint is
 unchanged. Unequal editorial labels are legitimate.
 
-The existing selected-spec-memory resolution applies. Prefix selects the parent
+The existing selected-spec-memory resolution applies. Human output names the
+resolved memory and whether --memory or the selected spec memory supplied it,
+even for an empty report. Prefix selects the parent
 branch (boundary-aware), and both legacy-tag and spec-role listing streams page
 to empty before deduplication. Only syntactically valid citations enter the
 report. Full reads use CollectNodeBatch's cap and byte spillover; only IDs from

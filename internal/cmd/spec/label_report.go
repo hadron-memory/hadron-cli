@@ -3,11 +3,11 @@ package spec
 import (
 	"context"
 	"fmt"
-	"github.com/Khan/genqlient/graphql"
 	"io"
 	"sort"
 	"strconv"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -103,6 +103,13 @@ The report describes caller-visible data only, not complete hidden corpus covera
 			items := collectLabelItems(scope, full)
 			result := labelReportDTO{MemoryRef: cmdutil.CanonicalMemoryRef(mem), Prefix: prefix, Items: items}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+				source := "the selected spec memory"
+				if memory != "" {
+					source = "--memory"
+				}
+				if _, e := fmt.Fprintf(w, "memory: %s (from %s)\n", result.MemoryRef, source); e != nil {
+					return e
+				}
 				if _, e := fmt.Fprintln(w, "Visible citation-parent labels (inventory only; unequal labels are not defects):"); e != nil {
 					return e
 				}
