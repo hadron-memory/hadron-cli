@@ -282,3 +282,14 @@ func TestDiagnosticsCarryNoPath(t *testing.T) {
 		t.Fatalf("error leaks path: %v", err)
 	}
 }
+
+func TestOversizedIncompleteSuffixUnavailable(t *testing.T) {
+	big := strings.Repeat("x", maxRecord+10)
+	root := t.TempDir()
+	p := write(t, root, "a.jsonl", claudeLine("m-old", "")+`{"type":"assistant","sessionId":"`+nid+`","message":{"model":"m-new","pad":"`+big)
+	got, err := Read(opts(root, p))
+	wantUnavailable(t, got, err)
+	p2 := write(t, root, "r.jsonl", codexMeta(nid, "/work/tree")+codexTurn("old")+`{"type":"turn_context","payload":{"model":"new","pad":"`+big)
+	got, err = Read(opts(root, p2))
+	wantUnavailable(t, got, err)
+}

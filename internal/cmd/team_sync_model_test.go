@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -68,14 +69,20 @@ func hookJSON(t *testing.T, env syncEnv) string {
 
 func runSync(t *testing.T, stdin string, gqlURL string, args ...string) (string, error) {
 	t.Helper()
-	f, _ := testFactory(t)
+	_, errOut, err := runSyncOut(t, stdin, gqlURL, args...)
+	return errOut, err
+}
+
+func runSyncOut(t *testing.T, stdin string, gqlURL string, args ...string) (string, string, error) {
+	t.Helper()
+	f, out := testFactory(t)
 	var errOut bytes.Buffer
 	f.IOStreams.In = strings.NewReader(stdin)
 	f.IOStreams.ErrOut = &errOut
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"team", "session"}, append(args, "--server", gqlURL)...))
 	err := root.Execute()
-	return errOut.String(), err
+	return out.String(), errOut.String(), err
 }
 
 func updateVars(t *testing.T, captured map[string]json.RawMessage) map[string]any {
@@ -279,5 +286,112 @@ func TestSetModelNoBindingIsUsageError(t *testing.T) {
 	_, err := runSync(t, "", gql.URL, "set-model", "m")
 	if err == nil {
 		t.Fatal("want an error with no binding")
+	}
+}
+
+func TestSyncModelRefusesTerminalStdin(t *testing.T) {
+	env := setupSync(t, syncRecord("m"))
+	_ = env
+	gql, captured := captureGraphQL(t, map[string]string{"UpdateTeamSession": modelLogSessionJSON})
+	f, _, _ := testFactoryTTY(t, "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "sync-model", "--server", gql.URL})
+	err := root.Execute()
+	var ce *exitcode.CodedError
+	if !errors.As(err, &ce) || ce.Code != exitcode.Usage {
+		t.Fatalf("manual run on a terminal: want usage refusal, got %v", err)
+	}
+	if updateVars(t, captured) != nil || len(captured) != 0 {
+		t.Errorf("no request may be made: %v", captured)
+	}
+}
+
+func TestSyncModelHookModeStdoutStaysEmpty(t *testing.T) {
+	env := setupSync(t, syncRecord("claude-opus-5-5"))
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetTeamSession":    sessionWithTranscript(env.transcript),
+		"UpdateTeamSession": modelLogSessionJSON,
+	})
+	out, _, err := runSyncOut(t, hookJSON(t, env), gql.URL, "sync-model", "--hook")
+	if err != nil || out != "" {
+		t.Errorf("success: stdout %q err %v", out, err)
+	}
+	out, _, err = runSyncOut(t, "garbage", gql.URL, "sync-model", "--hook")
+	if err != nil || out != "" {
+		t.Errorf("failure: stdout %q err %v", out, err)
+	}
+}
+
+func TestSyncModelCwdMustBeInsideTheWorktree(t *testing.T) {
+	top, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		t.Skip("not in a git worktree")
+	}
+	for name, cwd := range map[string]string{"root": "/", "above the worktree": filepath.Dir(strings.TrimSpace(string(top)))} {
+		t.Run(name, func(t *testing.T) {
+			env := setupSync(t, syncRecord("claude-opus-5-5"))
+			stdin := strings.Replace(hookJSON(t, env), `"cwd":"`, `"cwd":"`+cwd+`","x":"`, 1)
+			gql, captured := captureGraphQL(t, map[string]string{
+				"GetTeamSession":    sessionWithTranscript(env.transcript),
+				"UpdateTeamSession": modelLogSessionJSON,
+			})
+			if _, err := runSync(t, stdin, gql.URL, "sync-model", "--hook"); err != nil {
+				t.Fatal(err)
+			}
+			if updateVars(t, captured) != nil {
+				t.Errorf("cwd %q must report nothing", cwd)
+			}
+		})
+	}
+}
+
+func TestSyncModelOversizedTrailingRecordZeroWrites(t *testing.T) {
+	big := strings.Repeat("x", (1<<20)+10)
+	for name, body := range map[string]string{
+		"claude": syncRecord("claude-old") + `{"type":"assistant","sessionId":"` + syncNative + `","message":{"model":"claude-new","pad":"` + big,
+		"codex":  `{"type":"session_meta","payload":{"id":"` + syncNative + `","cwd":"CWD"}}` + "\n" + `{"type":"turn_context","payload":{"model":"old"}}` + "\n" + `{"type":"turn_context","payload":{"model":"new","pad":"` + big,
+	} {
+		t.Run(name, func(t *testing.T) {
+			wd, _ := os.Getwd()
+			env := setupSync(t, strings.Replace(body, "CWD", wd, 1))
+			gql, captured := captureGraphQL(t, map[string]string{
+				"GetTeamSession":    sessionWithTranscript(env.transcript),
+				"UpdateTeamSession": modelLogSessionJSON,
+			})
+			if _, err := runSync(t, hookJSON(t, env), gql.URL, "sync-model", "--hook"); err != nil {
+				t.Fatal(err)
+			}
+			if updateVars(t, captured) != nil {
+				t.Error("oversized input: zero writes, not the older model")
+			}
+		})
+	}
+}
+
+func TestSetModelBindingReplacedOrRemovedBeforeWriteZeroWrites(t *testing.T) {
+	for name, mutate := range map[string]func(path string){
+		"replaced": func(p string) {
+			swapped := strings.Replace(bindingWithTeamFixture, `"sessionId":"s-new"`, `"sessionId":"s-successor"`, 1)
+			_ = os.WriteFile(p, []byte(swapped), 0o600)
+		},
+		"removed": func(p string) { _ = os.Remove(p) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			env := setupSync(t, "")
+			gql, captured := captureGraphQLFunc(t, func(op string) string {
+				if op == "GetBoundSessionEnd" {
+					mutate(env.binding)
+					return `{"data":{"session":{"endedAt":null}}}`
+				}
+				return modelLogSessionJSON
+			})
+			_, err := runSync(t, "", gql.URL, "set-model", "gpt-5.1-codex")
+			if err == nil {
+				t.Error("a binding that changed before the write must be refused")
+			}
+			if updateVars(t, captured) != nil {
+				t.Error("must write nothing for the stale binding")
+			}
+		})
 	}
 }
