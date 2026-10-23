@@ -23,11 +23,13 @@ includeEnded, first, after): StopSignalPage!`,
   partial list would read as complete. `--worker` and `--include-ended` are
   omitted unless passed. `--worker` means the signals covering that worker now
   (Victor's FIT point 1), never "targeting".
+  The empty-list line names only what was read: live signals (or live and
+  ended), covering the named worker when filtered, visible to this caller.
 - `team stop set --scope worker|team|host --level pause-dispatch|pause|halt
   [--worker <ref> | --host <id>] [--until <RFC3339>]`. Worker and team scopes
   need `--worker`; host scope takes `--host`, which may be omitted so that a
   host key's own host is resolved by the server. Wrong-scope target flags,
-  empty targets, unknown levels or scopes, and an `--until` without an offset
+  empty or whitespace-only targets, unknown levels or scopes, and an `--until` without an offset
   refuse locally (exit 2) before any request. `--until` is parsed with
   RFC3339Nano and sent as UTC without rounding. Omitted, it is not sent (until
   lifted), and an explicit null is never sent: genqlient `omitempty` on
@@ -69,8 +71,9 @@ Exit classes in `api/errors.go`:
 `stop.go` prints `CODE: <fixed sentence>` for each known code (the stop codes,
 plus BAD_USER_INPUT, APP_NOT_FOUND, FORBIDDEN, UNAUTHENTICATED and
 GRAPHQL_VALIDATION_FAILED); NOT_FOUND and BAD_USER_INPUT have a sentence per
-command. The server's free text is never printed, and an unknown code prints a
-generic line with MapError's exit class. A lost answer on set or lift keeps
+command. The server's free text is never printed. An unrecognised error prints
+a generic line with MapError's exit class; on set or lift that line says the
+outcome is unknown, because only a known refusal proves nothing was written. A lost answer on set or lift keeps
 the CLI's own transport sentence (exit 7), adds "check with hadron team stop
 list --include-ended before retrying", and is never retried.
 

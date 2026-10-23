@@ -117,8 +117,8 @@ never attached. The server decides who may set what and refuses the rest.
 					return exitcode.Newf(exitcode.Usage, "--scope host names a host with --host; --worker belongs to worker and team scopes")
 				}
 				if cmd.Flags().Changed("host") {
-					if host == "" {
-						return exitcode.Newf(exitcode.Usage, "--host takes the host's id; omit it only with a host key acting on its own host")
+					if strings.TrimSpace(host) == "" {
+						return exitcode.Newf(exitcode.Usage, "--host is empty (an unset variable?); it takes the host's id, and only a host key acting on its own host omits it")
 					}
 					input.Host = &host
 				}
@@ -126,8 +126,8 @@ never attached. The server decides who may set what and refuses the rest.
 				if cmd.Flags().Changed("host") {
 					return exitcode.Newf(exitcode.Usage, "--host belongs to --scope host; --scope %s names a worker with --worker", strings.ToLower(scope))
 				}
-				if worker == "" {
-					return exitcode.Newf(exitcode.Usage, "--scope %s needs --worker <id, URN or name> (a team is named by its head)", strings.ToLower(scope))
+				if strings.TrimSpace(worker) == "" {
+					return exitcode.Newf(exitcode.Usage, "--scope %s needs a non-empty --worker <id, URN or name> (a team is named by its head; an unset variable?)", strings.ToLower(scope))
 				}
 				input.Worker = &worker
 			}
@@ -192,9 +192,9 @@ This is the person's write: a bound worktree's worker session is never attached.
 ` + stopHelp,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id := args[0]
-			if strings.TrimSpace(id) == "" {
-				return exitcode.Newf(exitcode.Usage, "lift takes the signal's id, as hadron team stop list prints it")
+			id := strings.TrimSpace(args[0])
+			if id == "" {
+				return exitcode.Newf(exitcode.Usage, "the signal id is empty (an unset variable?); lift takes the id hadron team stop list prints")
 			}
 			ctx := cmd.Context()
 			b, err := readBindingOrNilWithApp(ctx, f)
@@ -271,8 +271,8 @@ attaches no worker session.
 			}
 			var workerIn *string
 			if cmd.Flags().Changed("worker") {
-				if worker == "" {
-					return exitcode.Newf(exitcode.Usage, "--worker takes the worker's id, URN or name")
+				if strings.TrimSpace(worker) == "" {
+					return exitcode.Newf(exitcode.Usage, "--worker is empty (an unset variable?); it takes the worker's id, URN or name")
 				}
 				workerIn = &worker
 			}
@@ -310,12 +310,19 @@ attaches no worker session.
 					return err
 				}
 				if len(signals) == 0 {
-					_, err := fmt.Fprintln(w, "No stop signals.")
+					msg := "No live stop signals"
+					if includeIn != nil && *includeIn {
+						msg = "No stop signals, live or ended"
+					}
+					if workerIn != nil {
+						msg += " covering " + *workerIn + " now"
+					}
+					_, err := fmt.Fprintln(w, msg+" visible to this caller.")
 					return err
 				}
 				t := output.NewTable(w, "ID", "LEVEL", "SCOPE", "TARGET", "SET AT", "UNTIL", "STATE")
 				for _, s := range signals {
-					t.Row(s.ID, s.Level, s.Scope, stopTarget(s), s.SetAt, stopValue(s.Until), stopState(s))
+					t.Row(s.ID, s.Level, s.Scope, stopTarget(s), s.SetAt, stopUntil(s), stopState(s))
 				}
 				return t.Flush()
 			})
@@ -338,7 +345,7 @@ func writeStopSignal(w io.Writer, s stopSignalDTO) error {
 		setBy = "host key"
 	}
 	t.Row("set by", setBy)
-	t.Row("until", stopValue(s.Until))
+	t.Row("until", stopUntil(s))
 	t.Row("state", stopState(s))
 	if s.EndedAt != nil {
 		t.Row("ended at", *s.EndedAt)
@@ -353,6 +360,8 @@ func writeStopSignal(w io.Writer, s stopSignalDTO) error {
 
 func stopTarget(s stopSignalDTO) string {
 	switch {
+	case s.TargetWorkerID != nil && s.Scope == string(gen.StopSignalScopeTeam):
+		return "team headed by " + *s.TargetWorkerID
 	case s.TargetWorkerID != nil:
 		return "worker " + *s.TargetWorkerID
 	case s.TargetHostID != nil:
@@ -369,6 +378,13 @@ func stopState(s stopSignalDTO) string {
 		return "ended (" + strings.ToLower(*s.EndKind) + ")"
 	}
 	return "ended"
+}
+
+func stopUntil(s stopSignalDTO) string {
+	if s.Until == nil {
+		return "until lifted"
+	}
+	return *s.Until
 }
 
 func stopValue(s *string) string {
@@ -434,5 +450,9 @@ func stopFailure(err error, op string) error {
 	case exitcode.AuthRequired:
 		return exitcode.Newf(exit, "%s", stopRefusals["UNAUTHENTICATED"])
 	}
-	return exitcode.Newf(exit, "the server refused the stop-signal %s", op)
+	if op == "list" {
+		return exitcode.Newf(exit, "the stop-signal list failed with an error this CLI does not recognise")
+	}
+	// Not a known refusal, so nothing says the write did not happen.
+	return exitcode.Newf(exit, "the stop-signal %s failed with an error this CLI does not recognise; its outcome is unknown. Check with hadron team stop list --include-ended before retrying", op)
 }

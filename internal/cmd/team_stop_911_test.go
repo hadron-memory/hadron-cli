@@ -111,8 +111,10 @@ func TestTeamStopSet911LocalRefusalsSendNothing(t *testing.T) {
 		{"--scope", "host", "--level", "halt", "--worker", "w"},                                     // worker on a host scope
 		{"--scope", "worker", "--level", "halt", "--worker", "w", "--until", "tomorrow"},            // not a timestamp
 		{"--scope", "worker", "--level", "halt", "--worker", "w", "--until", "2026-12-01T10:00:00"}, // no offset
-		{"--scope", "worker", "--level", "halt", "--worker", ""},                                    // empty target
-		{"--scope", "worker", "--level", "halt", "--worker", "w", "extra"},                          // stray argument
+		{"--scope", "worker", "--level", "halt", "--worker", ""},
+		{"--scope", "team", "--level", "halt", "--worker", "  "},           // whitespace target
+		{"--scope", "host", "--level", "halt", "--host", " "},              // whitespace host                                    // empty target
+		{"--scope", "worker", "--level", "halt", "--worker", "w", "extra"}, // stray argument
 	} {
 		calls, out, err := runTeamTask(t, stopResponses(), append([]string{"team", "stop", "set"}, args...)...)
 		if code := exitCodeFor(err); code != exitcode.Usage {
@@ -132,7 +134,7 @@ func TestTeamStopSet911TextReceiptClaimsOnlyStoredState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"sig1", "PAUSE_DISPATCH", "TEAM", "wkr1", "2026-12-01T08:00:00Z", "stored", "not delivered"} {
+	for _, want := range []string{"sig1", "PAUSE_DISPATCH", "TEAM", "team headed by wkr1", "2026-12-01T08:00:00Z", "stored", "not delivered"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("receipt missing %q:\n%s", want, out)
 		}
@@ -183,7 +185,7 @@ func TestTeamStopLift911(t *testing.T) {
 		}
 	}
 
-	for _, args := range [][]string{{}, {"a", "b"}, {""}} {
+	for _, args := range [][]string{{}, {"a", "b"}, {""}, {"  "}} {
 		calls, _, err := runTeamTask(t, stopResponses(), append([]string{"team", "stop", "lift"}, args...)...)
 		if exitCodeFor(err) != exitcode.Usage || len(stopCalls(calls, "TeamStopSignalLift")) != 0 {
 			t.Errorf("lift %v: err %v", args, err)
@@ -287,7 +289,7 @@ func TestTeamStop911RefusalsUseFixedSentences(t *testing.T) {
 		{"APP_NOT_FOUND", []string{"list"}, exitcode.NotFound, "App"},
 		{"FORBIDDEN", []string{"list"}, exitcode.Forbidden, "not permitted"},
 		{"UNAUTHENTICATED", []string{"lift", "sig9"}, exitcode.AuthRequired, "auth login"},
-		{"SOMETHING_NEW", setArgs, exitcode.Error, "refused"},
+		{"SOMETHING_NEW", setArgs, exitcode.Error, "outcome is unknown"},
 	} {
 		r := stopResponses()
 		body := `{"errors":[{"message":"` + upstreamSentinel + `","extensions":{"code":"` + tc.code + `"}}]}`
@@ -379,5 +381,34 @@ func TestTeamStop911HelpKeepsTheNoUseHoldAndDarkNotices(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "covering that worker now") {
 		t.Errorf("list --worker must say coverage, not targeting:\n%s", out.String())
+	}
+}
+
+func TestTeamStopLift911SendsTheTrimmedID(t *testing.T) {
+	calls, _, err := runTeamTask(t, stopResponses(), "team", "stop", "lift", " sig2 ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lifts := stopCalls(calls, "TeamStopSignalLift"); len(lifts) != 1 || lifts[0].Vars["id"] != "sig2" {
+		t.Fatalf("lift %+v", lifts)
+	}
+}
+
+// The empty-list line claims only what the read covered.
+func TestTeamStopList911EmptyTextMatchesTheRead(t *testing.T) {
+	r := stopResponses()
+	r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[],"pageInfo":{"endCursor":null,"hasNextPage":false}}}}`
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{nil, "No live stop signals visible to this caller."},
+		{[]string{"--include-ended"}, "No stop signals, live or ended visible to this caller."},
+		{[]string{"--worker", "Liam"}, "No live stop signals covering Liam now visible to this caller."},
+	} {
+		_, out, err := runTeamTask(t, r, append([]string{"team", "stop", "list"}, tc.args...)...)
+		if err != nil || !strings.Contains(out, tc.want) {
+			t.Errorf("%v: err %v out %q", tc.args, err, out)
+		}
 	}
 }
