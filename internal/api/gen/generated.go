@@ -33336,6 +33336,77 @@ var AllNodeTextField = []NodeTextField{
 	NodeTextFieldTags,
 }
 
+// OrgAgentGrantsOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
+type OrgAgentGrantsOrganization struct {
+	// 008-agent-installation: this org's grants for using/bundling Agents.
+	// Resolvable to ADMIN/OWNER of the org only.
+	AgentOrgGrants []*OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant `json:"agentOrgGrants"`
+}
+
+// GetAgentOrgGrants returns OrgAgentGrantsOrganization.AgentOrgGrants, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganization) GetAgentOrgGrants() []*OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant {
+	return v.AgentOrgGrants
+}
+
+// OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant includes the requested fields of the GraphQL type AgentOrgGrant.
+// The GraphQL type's documentation follows.
+//
+// 008-agent-installation: Org↔Agent license. Authorizes (a) creating an App
+// in this Org that uses this Agent, and (b) bundling this Agent in an
+// AgentImport edge of an Agent the Org owns. Sibling to AgentSubscription.
+type OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant struct {
+	AgentId     string  `json:"agentId"`
+	OrgId       string  `json:"orgId"`
+	IsActive    bool    `json:"isActive"`
+	CreatedAt   string  `json:"createdAt"`
+	ActivatedAt *string `json:"activatedAt"`
+	ExpiresAt   *string `json:"expiresAt"`
+	RevokedAt   *string `json:"revokedAt"`
+}
+
+// GetAgentId returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.AgentId, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetAgentId() string { return v.AgentId }
+
+// GetOrgId returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.OrgId, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetOrgId() string { return v.OrgId }
+
+// GetIsActive returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.IsActive, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetIsActive() bool { return v.IsActive }
+
+// GetCreatedAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetActivatedAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetActivatedAt() *string {
+	return v.ActivatedAt
+}
+
+// GetExpiresAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetExpiresAt() *string {
+	return v.ExpiresAt
+}
+
+// GetRevokedAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetRevokedAt() *string {
+	return v.RevokedAt
+}
+
+// OrgAgentGrantsResponse is returned by OrgAgentGrants on success.
+type OrgAgentGrantsResponse struct {
+	// Fetch an Organization (org member or platform ADMIN).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Organization *OrgAgentGrantsOrganization `json:"organization"`
+}
+
+// GetOrganization returns OrgAgentGrantsResponse.Organization, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsResponse) GetOrganization() *OrgAgentGrantsOrganization { return v.Organization }
+
 // OrgFields includes the GraphQL fields of Organization requested by the fragment OrgFields.
 // The GraphQL type's documentation follows.
 //
@@ -60503,6 +60574,14 @@ func (v *__NodeSigningRequestsInput) GetState() *SigningRequestState { return v.
 // GetFirst returns __NodeSigningRequestsInput.First, and is useful for accessing the field via an interface.
 func (v *__NodeSigningRequestsInput) GetFirst() *int { return v.First }
 
+// __OrgAgentGrantsInput is used internally by genqlient
+type __OrgAgentGrantsInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __OrgAgentGrantsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__OrgAgentGrantsInput) GetRef() string { return v.Ref }
+
 // __OrgMembersInput is used internally by genqlient
 type __OrgMembersInput struct {
 	Ref string `json:"ref"`
@@ -74663,6 +74742,49 @@ func NodeSigningRequests(
 	}
 
 	data_ = &NodeSigningRequestsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by OrgAgentGrants.
+const OrgAgentGrants_Operation = `
+query OrgAgentGrants ($ref: ID!) {
+	organization(ref: $ref) {
+		agentOrgGrants {
+			agentId
+			orgId
+			isActive
+			createdAt
+			activatedAt
+			expiresAt
+			revokedAt
+		}
+	}
+}
+`
+
+// One explicitly selected organization; no nested Agent/customer/config traversal.
+func OrgAgentGrants(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *OrgAgentGrantsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "OrgAgentGrants",
+		Query:  OrgAgentGrants_Operation,
+		Variables: &__OrgAgentGrantsInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &OrgAgentGrantsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
