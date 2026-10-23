@@ -1,0 +1,94 @@
+# Deleted-node recovery (hadron-server#2234, cli#985). A separate operation set
+# on purpose: the ordinary node reads are live-only and must stay so, so nothing
+# here is a flag on them.
+#
+# limit is always sent explicitly (the server default is not relied on, cli#967);
+# a zero offset is omitted rather than sent as an explicit value.
+
+query RecoveryNodes(
+  $memoryRef: ID!
+  $limit: Int!
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  recoveryNodes(memoryRef: $memoryRef, limit: $limit, offset: $offset) {
+    total
+    items {
+      id
+      urn
+      memoryId
+      loc
+      name
+      nodeType
+      deletedAt
+    }
+  }
+}
+
+# The point read never selects `content`: the server's field resolver decrypts
+# it and throws on an unreadable key, so a default read must not be able to fail
+# on one. Content is the separate RecoveryNodeContent operation below.
+query RecoveryNode($nodeRef: ID!) {
+  recoveryNode(nodeRef: $nodeRef) {
+    id
+    urn
+    memoryId
+    loc
+    name
+    nodeType
+    description
+    deletedAt
+  }
+}
+
+query RecoveryNodeContent($nodeRef: ID!) {
+  recoveryNode(nodeRef: $nodeRef) {
+    id
+    content
+  }
+}
+
+query RecoveryEdges(
+  $memoryRef: ID!
+  $limit: Int!
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  recoveryEdges(memoryRef: $memoryRef, limit: $limit, offset: $offset) {
+    total
+    items {
+      id
+      name
+      source {
+        id
+        urn
+        loc
+        name
+        deletedAt
+      }
+      target {
+        id
+        urn
+        loc
+        name
+        deletedAt
+      }
+    }
+  }
+}
+
+# Selects ONLY identity and timestamps. Never content, description or edges: the
+# restored Node's content field would be template/include-expanded, and a
+# restore receipt has no business reading a body.
+mutation RestoreNode($nodeRef: ID!) {
+  restoreNode(nodeRef: $nodeRef) {
+    id
+    urn
+    memoryId
+    loc
+    name
+    nodeType
+    updatedAt
+    deletedAt
+  }
+}

@@ -854,6 +854,18 @@ func codeForExtension(code string) int {
 	// api`; the curated commands print the server's message, which says it.
 	case code == "LOC_PROTECTED":
 		return exitcode.Usage
+	// Deleted-node recovery (hadron-server#2234, cli#985). A restore under a
+	// still-deleted ancestor needs a state change first (restore the ancestor,
+	// whose URN the server's message names), so 5. A compiled boot prompt is a
+	// wrong-door refusal like ROLE_GOVERNED, so 2. The role-writer refusals are
+	// permission, so 8 — and they must precede the _REQUIRED suffix rule below,
+	// which would otherwise file ROLE_WRITER_LEVEL_REQUIRED under usage.
+	case code == "NODE_PARENT_DELETED":
+		return exitcode.Conflict
+	case code == "BOOT_PROMPT_COMPILED_WRITE":
+		return exitcode.Usage
+	case code == "ROLE_WRITER_LEVEL_REQUIRED" || code == "ROLE_WRITERS_UNSUPPORTED":
+		return exitcode.Forbidden
 	// The other two include write refusals (hadron-server#2165, cli#916). A
 	// tag that would close a cycle is authored content that cannot be saved as
 	// given; a direct edit or delete of a derived INCLUDE edge is a wrong

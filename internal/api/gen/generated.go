@@ -33750,6 +33750,272 @@ func (v *RecordTeamWorkResponse) GetRecordTeamWork() *RecordTeamWorkRecordTeamWo
 	return v.RecordTeamWork
 }
 
+// RecoveryEdgesRecoveryEdgesRecoveryEdgesPage includes the requested fields of the GraphQL type RecoveryEdgesPage.
+type RecoveryEdgesRecoveryEdgesRecoveryEdgesPage struct {
+	Total int                                                                  `json:"total"`
+	Items []*RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge `json:"items"`
+}
+
+// GetTotal returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPage.Total, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPage) GetTotal() int { return v.Total }
+
+// GetItems returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPage.Items, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPage) GetItems() []*RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge {
+	return v.Items
+}
+
+// RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge includes the requested fields of the GraphQL type RecoveryGraphEdge.
+type RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge struct {
+	Id     string                                                                                   `json:"id"`
+	Name   *string                                                                                  `json:"name"`
+	Source *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint `json:"source"`
+	Target *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint `json:"target"`
+}
+
+// GetId returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge.Id, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge) GetId() string {
+	return v.Id
+}
+
+// GetName returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge.Name, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge) GetName() *string {
+	return v.Name
+}
+
+// GetSource returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge.Source, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge) GetSource() *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint {
+	return v.Source
+}
+
+// GetTarget returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge.Target, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdge) GetTarget() *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint {
+	return v.Target
+}
+
+// RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint includes the requested fields of the GraphQL type RecoveryEndpoint.
+type RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint struct {
+	Id        string  `json:"id"`
+	Urn       string  `json:"urn"`
+	Loc       string  `json:"loc"`
+	Name      string  `json:"name"`
+	DeletedAt *string `json:"deletedAt"`
+}
+
+// GetId returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint.Id, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint) GetId() string {
+	return v.Id
+}
+
+// GetUrn returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint.Urn, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint) GetUrn() string {
+	return v.Urn
+}
+
+// GetLoc returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint.Loc, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint) GetLoc() string {
+	return v.Loc
+}
+
+// GetName returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint.Name, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint) GetName() string {
+	return v.Name
+}
+
+// GetDeletedAt returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint.DeletedAt, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeSourceRecoveryEndpoint) GetDeletedAt() *string {
+	return v.DeletedAt
+}
+
+// RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint includes the requested fields of the GraphQL type RecoveryEndpoint.
+type RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint struct {
+	Id        string  `json:"id"`
+	Urn       string  `json:"urn"`
+	Loc       string  `json:"loc"`
+	Name      string  `json:"name"`
+	DeletedAt *string `json:"deletedAt"`
+}
+
+// GetId returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint.Id, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint) GetId() string {
+	return v.Id
+}
+
+// GetUrn returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint.Urn, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint) GetUrn() string {
+	return v.Urn
+}
+
+// GetLoc returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint.Loc, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint) GetLoc() string {
+	return v.Loc
+}
+
+// GetName returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint.Name, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint) GetName() string {
+	return v.Name
+}
+
+// GetDeletedAt returns RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint.DeletedAt, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTargetRecoveryEndpoint) GetDeletedAt() *string {
+	return v.DeletedAt
+}
+
+// RecoveryEdgesResponse is returned by RecoveryEdges on success.
+type RecoveryEdgesResponse struct {
+	// Inspect live edges and accessible deleted endpoints in one memory you can read and write. Default 20, maximum 200. hrn:node:hadronmemory.com:specs:cor:api:110:02
+	RecoveryEdges *RecoveryEdgesRecoveryEdgesRecoveryEdgesPage `json:"recoveryEdges"`
+}
+
+// GetRecoveryEdges returns RecoveryEdgesResponse.RecoveryEdges, and is useful for accessing the field via an interface.
+func (v *RecoveryEdgesResponse) GetRecoveryEdges() *RecoveryEdgesRecoveryEdgesRecoveryEdgesPage {
+	return v.RecoveryEdges
+}
+
+// RecoveryNodeContentRecoveryNode includes the requested fields of the GraphQL type RecoveryNode.
+// The GraphQL type's documentation follows.
+//
+// Explicit writer-only tombstone content; no generic entity relations. hrn:node:hadronmemory.com:specs:cor:dmo:010:04
+type RecoveryNodeContentRecoveryNode struct {
+	Id      string  `json:"id"`
+	Content *string `json:"content"`
+}
+
+// GetId returns RecoveryNodeContentRecoveryNode.Id, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeContentRecoveryNode) GetId() string { return v.Id }
+
+// GetContent returns RecoveryNodeContentRecoveryNode.Content, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeContentRecoveryNode) GetContent() *string { return v.Content }
+
+// RecoveryNodeContentResponse is returned by RecoveryNodeContent on success.
+type RecoveryNodeContentResponse struct {
+	// Read a retained deleted node in a live memory that you can read and write. Returns the stored body without expanding templates or includes. hrn:node:hadronmemory.com:specs:cor:dmo:010:04
+	RecoveryNode *RecoveryNodeContentRecoveryNode `json:"recoveryNode"`
+}
+
+// GetRecoveryNode returns RecoveryNodeContentResponse.RecoveryNode, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeContentResponse) GetRecoveryNode() *RecoveryNodeContentRecoveryNode {
+	return v.RecoveryNode
+}
+
+// RecoveryNodeRecoveryNode includes the requested fields of the GraphQL type RecoveryNode.
+// The GraphQL type's documentation follows.
+//
+// Explicit writer-only tombstone content; no generic entity relations. hrn:node:hadronmemory.com:specs:cor:dmo:010:04
+type RecoveryNodeRecoveryNode struct {
+	Id          string  `json:"id"`
+	Urn         string  `json:"urn"`
+	MemoryId    string  `json:"memoryId"`
+	Loc         string  `json:"loc"`
+	Name        string  `json:"name"`
+	NodeType    string  `json:"nodeType"`
+	Description *string `json:"description"`
+	DeletedAt   string  `json:"deletedAt"`
+}
+
+// GetId returns RecoveryNodeRecoveryNode.Id, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeRecoveryNode) GetId() string { return v.Id }
+
+// GetUrn returns RecoveryNodeRecoveryNode.Urn, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeRecoveryNode) GetUrn() string { return v.Urn }
+
+// GetMemoryId returns RecoveryNodeRecoveryNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeRecoveryNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns RecoveryNodeRecoveryNode.Loc, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeRecoveryNode) GetLoc() string { return v.Loc }
+
+// GetName returns RecoveryNodeRecoveryNode.Name, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeRecoveryNode) GetName() string { return v.Name }
+
+// GetNodeType returns RecoveryNodeRecoveryNode.NodeType, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeRecoveryNode) GetNodeType() string { return v.NodeType }
+
+// GetDescription returns RecoveryNodeRecoveryNode.Description, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeRecoveryNode) GetDescription() *string { return v.Description }
+
+// GetDeletedAt returns RecoveryNodeRecoveryNode.DeletedAt, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeRecoveryNode) GetDeletedAt() string { return v.DeletedAt }
+
+// RecoveryNodeResponse is returned by RecoveryNode on success.
+type RecoveryNodeResponse struct {
+	// Read a retained deleted node in a live memory that you can read and write. Returns the stored body without expanding templates or includes. hrn:node:hadronmemory.com:specs:cor:dmo:010:04
+	RecoveryNode *RecoveryNodeRecoveryNode `json:"recoveryNode"`
+}
+
+// GetRecoveryNode returns RecoveryNodeResponse.RecoveryNode, and is useful for accessing the field via an interface.
+func (v *RecoveryNodeResponse) GetRecoveryNode() *RecoveryNodeRecoveryNode { return v.RecoveryNode }
+
+// RecoveryNodesRecoveryNodesRecoveryNodesPage includes the requested fields of the GraphQL type RecoveryNodesPage.
+type RecoveryNodesRecoveryNodesRecoveryNodesPage struct {
+	Total int                                                                    `json:"total"`
+	Items []*RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary `json:"items"`
+}
+
+// GetTotal returns RecoveryNodesRecoveryNodesRecoveryNodesPage.Total, and is useful for accessing the field via an interface.
+func (v *RecoveryNodesRecoveryNodesRecoveryNodesPage) GetTotal() int { return v.Total }
+
+// GetItems returns RecoveryNodesRecoveryNodesRecoveryNodesPage.Items, and is useful for accessing the field via an interface.
+func (v *RecoveryNodesRecoveryNodesRecoveryNodesPage) GetItems() []*RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary {
+	return v.Items
+}
+
+// RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary includes the requested fields of the GraphQL type RecoveryNodeSummary.
+type RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary struct {
+	Id        string `json:"id"`
+	Urn       string `json:"urn"`
+	MemoryId  string `json:"memoryId"`
+	Loc       string `json:"loc"`
+	Name      string `json:"name"`
+	NodeType  string `json:"nodeType"`
+	DeletedAt string `json:"deletedAt"`
+}
+
+// GetId returns RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary.Id, and is useful for accessing the field via an interface.
+func (v *RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary) GetId() string {
+	return v.Id
+}
+
+// GetUrn returns RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary.Urn, and is useful for accessing the field via an interface.
+func (v *RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary) GetUrn() string {
+	return v.Urn
+}
+
+// GetMemoryId returns RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary.MemoryId, and is useful for accessing the field via an interface.
+func (v *RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetLoc returns RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary.Loc, and is useful for accessing the field via an interface.
+func (v *RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary) GetLoc() string {
+	return v.Loc
+}
+
+// GetName returns RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary.Name, and is useful for accessing the field via an interface.
+func (v *RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary) GetName() string {
+	return v.Name
+}
+
+// GetNodeType returns RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary.NodeType, and is useful for accessing the field via an interface.
+func (v *RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary) GetNodeType() string {
+	return v.NodeType
+}
+
+// GetDeletedAt returns RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary.DeletedAt, and is useful for accessing the field via an interface.
+func (v *RecoveryNodesRecoveryNodesRecoveryNodesPageItemsRecoveryNodeSummary) GetDeletedAt() string {
+	return v.DeletedAt
+}
+
+// RecoveryNodesResponse is returned by RecoveryNodes on success.
+type RecoveryNodesResponse struct {
+	// Page through retained deleted nodes you can recover. Default 20, maximum 200; total counts all accessible results. No timed purge. hrn:node:hadronmemory.com:specs:cor:api:120:04
+	RecoveryNodes *RecoveryNodesRecoveryNodesRecoveryNodesPage `json:"recoveryNodes"`
+}
+
+// GetRecoveryNodes returns RecoveryNodesResponse.RecoveryNodes, and is useful for accessing the field via an interface.
+func (v *RecoveryNodesResponse) GetRecoveryNodes() *RecoveryNodesRecoveryNodesRecoveryNodesPage {
+	return v.RecoveryNodes
+}
+
 // RegisterEntriesRegisterEntriesRegisterEntriesPage includes the requested fields of the GraphQL type RegisterEntriesPage.
 type RegisterEntriesRegisterEntriesRegisterEntriesPage struct {
 	Total int                                                                    `json:"total"`
@@ -36434,6 +36700,60 @@ func (v *RestoreAssetRestoreAsset) GetFilename() string { return v.Filename }
 
 // GetDeletedAt returns RestoreAssetRestoreAsset.DeletedAt, and is useful for accessing the field via an interface.
 func (v *RestoreAssetRestoreAsset) GetDeletedAt() *string { return v.DeletedAt }
+
+// RestoreNodeResponse is returned by RestoreNode on success.
+type RestoreNodeResponse struct {
+	// Restore one retained deleted node in a live memory you can read and write. Restore deleted ancestors first; governed nodes, comments, compiled boot prompts and protected internal addresses refuse. Does not restore descendants or revisions. hrn:node:hadronmemory.com:specs:cor:acl:130:02
+	RestoreNode *RestoreNodeRestoreNode `json:"restoreNode"`
+}
+
+// GetRestoreNode returns RestoreNodeResponse.RestoreNode, and is useful for accessing the field via an interface.
+func (v *RestoreNodeResponse) GetRestoreNode() *RestoreNodeRestoreNode { return v.RestoreNode }
+
+// RestoreNodeRestoreNode includes the requested fields of the GraphQL type Node.
+type RestoreNodeRestoreNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn      string `json:"urn"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType  string `json:"nodeType"`
+	UpdatedAt string `json:"updatedAt"`
+	// Deletion marker. Ordinary reads still omit tombstones; explicit recovery is writer-only.
+	DeletedAt *string `json:"deletedAt"`
+}
+
+// GetId returns RestoreNodeRestoreNode.Id, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRestoreNode) GetId() string { return v.Id }
+
+// GetUrn returns RestoreNodeRestoreNode.Urn, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRestoreNode) GetUrn() string { return v.Urn }
+
+// GetMemoryId returns RestoreNodeRestoreNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRestoreNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns RestoreNodeRestoreNode.Loc, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRestoreNode) GetLoc() string { return v.Loc }
+
+// GetName returns RestoreNodeRestoreNode.Name, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRestoreNode) GetName() string { return v.Name }
+
+// GetNodeType returns RestoreNodeRestoreNode.NodeType, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRestoreNode) GetNodeType() string { return v.NodeType }
+
+// GetUpdatedAt returns RestoreNodeRestoreNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRestoreNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetDeletedAt returns RestoreNodeRestoreNode.DeletedAt, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRestoreNode) GetDeletedAt() *string { return v.DeletedAt }
 
 // RestoreNodeRevisionResponse is returned by RestoreNodeRevision on success.
 type RestoreNodeRevisionResponse struct {
@@ -59402,6 +59722,54 @@ func (v *__RecordTeamWorkLegacyInput) GetAction() string { return v.Action }
 // GetDetail returns __RecordTeamWorkLegacyInput.Detail, and is useful for accessing the field via an interface.
 func (v *__RecordTeamWorkLegacyInput) GetDetail() *json.RawMessage { return v.Detail }
 
+// __RecoveryEdgesInput is used internally by genqlient
+type __RecoveryEdgesInput struct {
+	MemoryRef string `json:"memoryRef"`
+	Limit     int    `json:"limit"`
+	Offset    *int   `json:"offset,omitempty"`
+}
+
+// GetMemoryRef returns __RecoveryEdgesInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__RecoveryEdgesInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetLimit returns __RecoveryEdgesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__RecoveryEdgesInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __RecoveryEdgesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__RecoveryEdgesInput) GetOffset() *int { return v.Offset }
+
+// __RecoveryNodeContentInput is used internally by genqlient
+type __RecoveryNodeContentInput struct {
+	NodeRef string `json:"nodeRef"`
+}
+
+// GetNodeRef returns __RecoveryNodeContentInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__RecoveryNodeContentInput) GetNodeRef() string { return v.NodeRef }
+
+// __RecoveryNodeInput is used internally by genqlient
+type __RecoveryNodeInput struct {
+	NodeRef string `json:"nodeRef"`
+}
+
+// GetNodeRef returns __RecoveryNodeInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__RecoveryNodeInput) GetNodeRef() string { return v.NodeRef }
+
+// __RecoveryNodesInput is used internally by genqlient
+type __RecoveryNodesInput struct {
+	MemoryRef string `json:"memoryRef"`
+	Limit     int    `json:"limit"`
+	Offset    *int   `json:"offset,omitempty"`
+}
+
+// GetMemoryRef returns __RecoveryNodesInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__RecoveryNodesInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetLimit returns __RecoveryNodesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__RecoveryNodesInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __RecoveryNodesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__RecoveryNodesInput) GetOffset() *int { return v.Offset }
+
 // __RegisterEntriesInput is used internally by genqlient
 type __RegisterEntriesInput struct {
 	Filter *RegisterEntryFilter `json:"filter,omitempty"`
@@ -59605,6 +59973,14 @@ type __RestoreAssetInput struct {
 
 // GetAssetId returns __RestoreAssetInput.AssetId, and is useful for accessing the field via an interface.
 func (v *__RestoreAssetInput) GetAssetId() string { return v.AssetId }
+
+// __RestoreNodeInput is used internally by genqlient
+type __RestoreNodeInput struct {
+	NodeRef string `json:"nodeRef"`
+}
+
+// GetNodeRef returns __RestoreNodeInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__RestoreNodeInput) GetNodeRef() string { return v.NodeRef }
 
 // __RestoreNodeRevisionInput is used internally by genqlient
 type __RestoreNodeRevisionInput struct {
@@ -73354,6 +73730,188 @@ func RecordTeamWorkLegacy(
 	return data_, err_
 }
 
+// The query executed by RecoveryEdges.
+const RecoveryEdges_Operation = `
+query RecoveryEdges ($memoryRef: ID!, $limit: Int!, $offset: Int) {
+	recoveryEdges(memoryRef: $memoryRef, limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			name
+			source {
+				id
+				urn
+				loc
+				name
+				deletedAt
+			}
+			target {
+				id
+				urn
+				loc
+				name
+				deletedAt
+			}
+		}
+	}
+}
+`
+
+func RecoveryEdges(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	limit int,
+	offset *int,
+) (data_ *RecoveryEdgesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecoveryEdges",
+		Query:  RecoveryEdges_Operation,
+		Variables: &__RecoveryEdgesInput{
+			MemoryRef: memoryRef,
+			Limit:     limit,
+			Offset:    offset,
+		},
+	}
+
+	data_ = &RecoveryEdgesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RecoveryNode.
+const RecoveryNode_Operation = `
+query RecoveryNode ($nodeRef: ID!) {
+	recoveryNode(nodeRef: $nodeRef) {
+		id
+		urn
+		memoryId
+		loc
+		name
+		nodeType
+		description
+		deletedAt
+	}
+}
+`
+
+// The point read never selects `content`: the server's field resolver decrypts
+// it and throws on an unreadable key, so a default read must not be able to fail
+// on one. Content is the separate RecoveryNodeContent operation below.
+func RecoveryNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+) (data_ *RecoveryNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecoveryNode",
+		Query:  RecoveryNode_Operation,
+		Variables: &__RecoveryNodeInput{
+			NodeRef: nodeRef,
+		},
+	}
+
+	data_ = &RecoveryNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RecoveryNodeContent.
+const RecoveryNodeContent_Operation = `
+query RecoveryNodeContent ($nodeRef: ID!) {
+	recoveryNode(nodeRef: $nodeRef) {
+		id
+		content
+	}
+}
+`
+
+func RecoveryNodeContent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+) (data_ *RecoveryNodeContentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecoveryNodeContent",
+		Query:  RecoveryNodeContent_Operation,
+		Variables: &__RecoveryNodeContentInput{
+			NodeRef: nodeRef,
+		},
+	}
+
+	data_ = &RecoveryNodeContentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RecoveryNodes.
+const RecoveryNodes_Operation = `
+query RecoveryNodes ($memoryRef: ID!, $limit: Int!, $offset: Int) {
+	recoveryNodes(memoryRef: $memoryRef, limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			urn
+			memoryId
+			loc
+			name
+			nodeType
+			deletedAt
+		}
+	}
+}
+`
+
+func RecoveryNodes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	limit int,
+	offset *int,
+) (data_ *RecoveryNodesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecoveryNodes",
+		Query:  RecoveryNodes_Operation,
+		Variables: &__RecoveryNodesInput{
+			MemoryRef: memoryRef,
+			Limit:     limit,
+			Offset:    offset,
+		},
+	}
+
+	data_ = &RecoveryNodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by RegisterEntries.
 const RegisterEntries_Operation = `
 query RegisterEntries ($filter: RegisterEntryFilter, $limit: Int, $offset: Int, $orgId: ID) {
@@ -74359,6 +74917,50 @@ func RestoreAsset(
 	}
 
 	data_ = &RestoreAssetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RestoreNode.
+const RestoreNode_Operation = `
+mutation RestoreNode ($nodeRef: ID!) {
+	restoreNode(nodeRef: $nodeRef) {
+		id
+		urn
+		memoryId
+		loc
+		name
+		nodeType
+		updatedAt
+		deletedAt
+	}
+}
+`
+
+// Selects ONLY identity and timestamps. Never content, description or edges: the
+// restored Node's content field would be template/include-expanded, and a
+// restore receipt has no business reading a body.
+func RestoreNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+) (data_ *RestoreNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RestoreNode",
+		Query:  RestoreNode_Operation,
+		Variables: &__RestoreNodeInput{
+			NodeRef: nodeRef,
+		},
+	}
+
+	data_ = &RestoreNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
