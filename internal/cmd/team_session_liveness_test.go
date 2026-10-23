@@ -186,7 +186,7 @@ func TestTeamSessionStartNotLiveBindsOverAnOpenSession(t *testing.T) {
 	// The open row is REPORTED — it is somebody's unfinished stint and this
 	// bind leaves it alone — but not as a takeover.
 	note := stderr()
-	for _, want := range []string{"not live", "still open", "does not end it", "s-old"} {
+	for _, want := range []string{"not live", "earlier session is open", "supersedes it if it is your own", "s-old"} {
 		if !strings.Contains(note, want) {
 			t.Errorf("stderr must account for the open session (%q): %s", want, note)
 		}
