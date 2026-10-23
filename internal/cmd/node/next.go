@@ -41,7 +41,7 @@ fields are null because this command does not fetch those separate snapshots.`,
 			if cmd.Flags().Changed("memory") && strings.TrimSpace(memory) == "" {
 				return exitcode.Newf(exitcode.Usage, "-m/--memory must not be empty")
 			}
-			parent, err := cmdutil.BatchNodeRef(memory, args[0])
+			parent, err := nextNodeRef(memory, args[0])
 			if err != nil {
 				return err
 			}
@@ -50,7 +50,7 @@ fields are null because this command does not fetch those separate snapshots.`,
 				if strings.TrimSpace(after) == "" {
 					return exitcode.Newf(exitcode.Usage, "--after must not be empty; omit it to read the first child")
 				}
-				ref, err := cmdutil.BatchNodeRef(memory, after)
+				ref, err := nextNodeRef(memory, after)
 				if err != nil {
 					return err
 				}
@@ -79,4 +79,13 @@ fields are null because this command does not fetch those separate snapshots.`,
 	cmd.Flags().StringVar(&after, "after", "", "current direct child; omit to read the first child")
 	cmd.Flags().BoolVar(&raw, "raw", false, "read stored content instead of rendered content")
 	return cmd
+}
+
+// Memory scopes a bare loc only; qualified refs already name their own memory.
+// Keep this local to nextNode so the fix does not change other callers.
+func nextNodeRef(memory, ref string) (string, error) {
+	if cmdutil.IsQualifiedNodeRef(ref) {
+		memory = ""
+	}
+	return cmdutil.BatchNodeRef(memory, ref)
 }

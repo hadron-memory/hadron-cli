@@ -152,3 +152,29 @@ func TestNodeNext1009EmptyAfterGuidance(t *testing.T) {
 		t.Fatalf("code%d stderr%q calls%v", code, stderr, calls)
 	}
 }
+
+// Finder Joshua6359069720: -m scopes bare locs only, never a qualified ref.
+func TestNodeNext1009MixedQualifiedAndBareRefs(t *testing.T) {
+	for _, tc := range []struct{ parent, after string }{
+		{"p", "hrn:node:acme.com:kb:p:c"},
+		{"hrn:node:acme.com:kb:p", "p:c"},
+		{"hrn:node:acme.com:kb:p", "hrn:node:acme.com:kb:p:c"},
+		{"urn:node:acme.com::kb::p", "hrn:node:acme.com:kb:p:c"},
+	} {
+		_, _, code, calls := runNext1009(t, `{"data":{"nextNode":null}}`, tc.parent, "-m", "acme.com:kb", "--after", tc.after)
+		if code != 0 || len(calls) != 1 {
+			t.Fatalf("%+v code%d calls%v", tc, code, calls)
+		}
+		parent := tc.parent
+		if parent == "p" {
+			parent = "hrn:node:acme.com:kb:p"
+		}
+		after := tc.after
+		if after == "p:c" {
+			after = "hrn:node:acme.com:kb:p:c"
+		}
+		if calls[0].vars["parentRef"] != parent || calls[0].vars["currentRef"] != after {
+			t.Fatalf("mixed refs mangled: %+v", calls[0].vars)
+		}
+	}
+}
