@@ -357,14 +357,43 @@ func TestChatDoctorUnavailableChannelExitsNotFound(t *testing.T) {
 	}
 }
 
+// cli#1029 BLIND (Joost, P2): a failed Channel read is a failed CHECK, not an
+// early return — the report still prints, with the channel marked "error",
+// and the server's mapped code is the exit only when it is the first failure.
 func TestChatDoctorRefusedReadKeepsTheServersCode(t *testing.T) {
 	chatConfigDir(t, `{"chat":{"node":"hrn:node:acme.com:tc:chats:api:messages"}}`)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetChannel": `{"errors":[{"message":"not allowed","extensions":{"code":"FORBIDDEN"}}],"data":null}`,
 	})
-	_, err := runChat(t, "chat", "doctor", "--json", "--server", gql.URL)
+	out, err := runChat(t, "chat", "doctor", "--json", "--server", gql.URL)
 	if code := exitCodeFor(err); code != exitcode.Forbidden {
 		t.Fatalf("exit = %d (%v), want Forbidden", code, err)
+	}
+	var dto chatDoctor
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("the report must still print: %v (%q)", err, out)
+	}
+	if dto.OK || dto.Resolved == nil || dto.Channel.Status != "error" || dto.Channel.Ref == nil ||
+		len(dto.Problems) != 1 || dto.Problems[0].Check != "channel" || dto.Channel.Lifecycle != "not-provided" {
+		t.Errorf("doctor = %+v", dto)
+	}
+}
+
+func TestChatDoctorEarlierConfigFailureOutranksARefusedRead(t *testing.T) {
+	chatConfigDir(t, `{"chat": `)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetChannel": `{"errors":[{"message":"not allowed","extensions":{"code":"FORBIDDEN"}}],"data":null}`,
+	})
+	out, err := runChat(t, "chat", "doctor", "--node", "hrn:node:acme.com:tc:chats:api:messages", "--json", "--server", gql.URL)
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("exit = %d (%v), want Usage (the config check fails first)", code, err)
+	}
+	var dto chatDoctor
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("the report must still print: %v (%q)", err, out)
+	}
+	if len(dto.Problems) != 2 || dto.Problems[0].Check != "config" || dto.Problems[1].Check != "channel" || dto.Channel.Status != "error" {
+		t.Errorf("problems = %+v channel = %+v", dto.Problems, dto.Channel)
 	}
 }
 

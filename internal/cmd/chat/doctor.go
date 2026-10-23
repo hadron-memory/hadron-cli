@@ -78,7 +78,7 @@ type configShowDTO struct {
 // as a proxy for one — an old timestamp is a quiet chat, not a retired one.
 type channelCheckDTO struct {
 	Ref         *string `json:"ref"`
-	Status      string  `json:"status"` // readable | unavailable | not-checked
+	Status      string  `json:"status"` // readable | unavailable | error | not-checked
 	ID          *string `json:"id"`
 	Name        *string `json:"name"`
 	ChatRootUrn *string `json:"chatRootUrn"`
@@ -245,9 +245,11 @@ first use), and never edits config.
 
 Exit 0 only when the config file (if any) parsed, the coordinates resolved and
 the Channel is readable. Otherwise the report still prints, and the exit is the
-first failing check's: 2 for a malformed or unreadable config file or
-unresolvable coordinates, 4 when no Channel is readable at the chat root. A
-server refusal or transport failure exits with its own code (e.g. 8, 7).
+first failing check's, in the order config, coordinates, channel: 2 for a
+malformed or unreadable config file or unresolvable coordinates, 4 when no
+Channel is readable at the chat root. A channel read that fails outright
+(not signed in, a refusal, a transport failure) is channel status "error" and
+exits with its own code (e.g. 3, 8, 7) when it is the first failure.
 
 "unavailable" covers a Channel that does not exist, a ref naming nothing, and
 one whose host memory you may not read — the server answers all three
@@ -279,20 +281,14 @@ guess one from its last-message time.`,
 			}
 			if resolveErr != nil {
 				problem("coordinates", resolveErr.Error(), exitcode.Usage)
+			} else if resp, err := readChannel(cmd, f, c, &dto.Channel); err != nil {
+				// A failed read is a failed CHECK, not an early return: the
+				// report still prints, and an earlier config failure keeps
+				// the exit (cli#1029 BLIND, Joost P2).
+				dto.Channel.Status = "error"
+				problem("channel", err.Error(), exitcode.FromError(err))
 			} else {
-				client, err := f.GraphQLClient()
-				if err != nil {
-					return err
-				}
-				ref, err := chatRootRef(cmd.Context(), client, c)
-				if err != nil {
-					return err
-				}
-				dto.Channel.Ref = &ref
-				resp, err := gen.GetChannel(cmd.Context(), client, ref)
-				if err != nil {
-					return api.MapError(err)
-				}
+				ref := *dto.Channel.Ref
 				if resp == nil || resp.Channel == nil {
 					dto.Channel.Status = "unavailable"
 					problem("channel", fmt.Sprintf("no Channel is readable at %s — it does not exist, the ref names nothing, or you may not read its host memory (the server does not say which)", ref), exitcode.NotFound)
@@ -321,6 +317,26 @@ guess one from its last-message time.`,
 	return cmd
 }
 
+// readChannel makes doctor's one Channel read, recording the ref it composed
+// on ch. Every failure comes back mapped, so its exit class is the CLI's
+// documented one.
+func readChannel(cmd *cobra.Command, f *cmdutil.Factory, c Coords, ch *channelCheckDTO) (*gen.GetChannelResponse, error) {
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return nil, err
+	}
+	ref, err := chatRootRef(cmd.Context(), client, c)
+	if err != nil {
+		return nil, err
+	}
+	ch.Ref = &ref
+	resp, err := gen.GetChannel(cmd.Context(), client, ref)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	return resp, nil
+}
+
 func writeChannelCheck(w io.Writer, dto doctorDTO) {
 	switch dto.Channel.Status {
 	case "readable":
@@ -331,6 +347,8 @@ func writeChannelCheck(w io.Writer, dto doctorDTO) {
 		fmt.Fprintln(w)
 	case "unavailable":
 		fmt.Fprintf(w, "channel: unavailable at %s\n", *dto.Channel.Ref)
+	case "error":
+		fmt.Fprintln(w, "channel: the read failed (see problem)")
 	default:
 		fmt.Fprintln(w, "channel: not checked")
 	}

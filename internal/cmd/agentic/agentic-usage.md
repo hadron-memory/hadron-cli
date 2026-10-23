@@ -324,7 +324,7 @@ hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>] | upload <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>] | rm <asset-ref> [--yes] | restore <asset-ref> | link <asset-ref> --node <new-node-urn> [--name <n>] [--description <d>]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
-hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--session <id>] [--reply-to <seq|loc>] | config show [--node <urn> | -m <memory> --messages-loc <prefix>] (offline, exit 0) | doctor [same coordinate flags] (read-only Channel check; exit 0 ok, 2 bad config/coords, 4 Channel unavailable)
+hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--session <id>] [--reply-to <seq|loc>] | config show [--node <urn> | -m <memory> --messages-loc <prefix>] (offline, exit 0) | doctor [same coordinate flags] (read-only Channel check, report always printed; exit 0 ok, else first failing check: 2 bad config/coords, 4 Channel unavailable, or a failed read's own code)
 hadron channel list [--owner-app <ref>] [-m <memory>] | get <id|address> | create <name> -m <memory> --loc <loc> [--description <d>] | update <id|address> [--name <n>] [--description <d>] | rm <id|address> [--yes] | read <id|address> [--since <seq>] [--before <seq>] [--limit N] [--offset N] [--mentions <ref>] | post <id|address> <body|-> (--session <id> | --as-me) [--reply-to <seq>] | mark-read <id|address> --attendee <ref> --seq N [--owner-app <ref>] | read-state <id|address> --attendee <ref> [--owner-app <ref>] | register list [--channel <ref>] [--attendee <ref>] [--owner <ref>] [--org <id>] [--limit N] [--offset N] | register add --channel <ref> --owner <ref> (--attendee <ref> | --all-attendees) [--role both|post|watch] [--mention-only] [--description <d>] | register set <entry-id> (--role <r> | --mention-only[=false] | --description <d>)... | register rm <entry-id> [--yes]   # post REQUIRES --session or --as-me (the server records the human silently otherwise); read --since is strictly-greater and the output reports nextSince; a ref is the Channel id OR its address (chatRootUrn, printed by list); chatRootUrn is NULL for some Channels — the id always works.
 # channel get records a node read and may decrypt internally during its optional authorized root read; identity/URL selection does not imply no provider read effects. It also emits a best-effort chat-root node portalUrl (nullable JSON key; text URL: only when supplied). One authorized node read by chatRootNodeId; missing/concealed/failed pointer read gives null without failing the Channel read. List is unchanged; no transcript fetch. Portal-tab destination and default-team shortcut are not delivered by this pointer.
 
@@ -1241,10 +1241,12 @@ Conventions:
   and any legacy `handle`/`identity`/`role` under `deprecated` with
   `effect:"none"`. Only those known keys are printed — never `appKey` or any
   other key in the file. `chat doctor` adds ONE read of the Channel at the chat
-  root: `channel.status` `readable|unavailable|not-checked`, `ok`, and
-  `problems[{check,detail}]`; it exits with the first failing check's code (2
-  config/coordinates, 4 Channel) after printing the report, and a server refusal
-  keeps its own code. `unavailable` does not distinguish absent from unreadable
+  root: `channel.status` `readable|unavailable|error|not-checked`, `ok`, and
+  `problems[{check,detail}]`; it ALWAYS prints the report, then exits with the
+  first failing check's code in the order config, coordinates, channel (2
+  config/coordinates, 4 Channel unavailable; a read that fails outright —
+  not signed in, a refusal, transport — is `error` with its own code, e.g. 3,
+  8, 7). `unavailable` does not distinguish absent from unreadable
   (the server answers both identically), and `channel.lifecycle` is always
   `"not-provided"`: a Channel has no archived/live/superseded fact, so neither
   command infers one from its last message. Neither posts, creates a Channel or

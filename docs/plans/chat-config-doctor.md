@@ -57,21 +57,27 @@ operation other than `GetChannel`.
   - `unavailable`: the read returned null. That null covers a missing Channel,
     a ref that names nothing, and a host memory the caller may not read; the
     server answers all three identically, so doctor does not say which.
+  - `error`: the read failed outright (not signed in, a refusal, a transport
+    failure). The mapped error is the problem's detail.
   - `not-checked`: the coordinates did not resolve, so no read was made.
 - `channel.lifecycle` is always `"not-provided"`. The Channel SDL has no
   archived/live/superseded fact. `lastSeq` and `lastMessageAt` are left out
   rather than offered as a proxy: an old timestamp means a quiet chat, not a
   retired one.
-- Exit codes: doctor prints the report first, then exits with the first
-  failing check's code.
+- Exit codes: doctor ALWAYS prints the report, then exits with the first
+  failing check's code, in the order config, coordinates, channel.
   - 2: a malformed or skipped config file, or unresolvable coordinates.
   - 4: no readable Channel.
+  - A failed read's own mapped code (for example 3, 8 or 7), when the channel
+    is the first failing check.
   - 0: every check passed.
 
   A malformed file fails doctor even when flags resolve the chat, because that
-  file is what a bare post silently ignores. A server refusal or transport
-  failure returns its own mapped code (for example 8 or 7), and no report is
-  printed.
+  file is what a bare post silently ignores; it keeps exit 2 even when the
+  Channel read is then refused. Every failure is a check recorded in
+  `problems`, never an early return (Joost's BLIND P2 on cli#1029: the first
+  freeze returned on a failed read, losing the report and overriding an
+  earlier config failure).
 
 `config show` never fails on any of these conditions. It reports them and
 exits 0; doctor is the pass/fail check.
