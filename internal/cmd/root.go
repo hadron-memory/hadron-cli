@@ -288,6 +288,9 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
 		}
+		if cloneDetails := api.CloneAgentDetails(err); cloneDetails != nil {
+			details = cloneDetails
+		}
 		if details != nil {
 			failure["extensions"] = details
 		}
@@ -310,7 +313,7 @@ func renderError(f *cmdutil.Factory, err error) int {
 			// Payload already in flight; keep stdout a single valid document.
 			_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
 		default:
-			message := err.Error()
+			message := err.Error() + api.CloneAgentDetailText(err)
 			if reporting := api.WorkerReportingDetails(err); reporting != nil {
 				message += fmt.Sprintf(" (server code: %v)", reporting["code"])
 			}

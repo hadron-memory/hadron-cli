@@ -330,6 +330,11 @@ query GetNodeRaw($ref: ID!) {
 # @genqlient(for: "CreateNodeInput.contentType", omitempty: true)
 # @genqlient(for: "CreateNodeInput.data", omitempty: true)
 # @genqlient(for: "CreateNodeInput.description", omitempty: true)
+# #994 schema refresh picks up the provider's optional install target (#2044).
+# Existing CLI node writers still always supply memoryId: retain their string
+# binding and omit the unused install alternative, with no caller/wire change.
+# @genqlient(for: "CreateNodeInput.memoryId", pointer: false)
+# @genqlient(for: "CreateNodeInput.install", omitempty: true)
 # @genqlient(for: "CreateNodeInput.edges", omitempty: true)
 # @genqlient(for: "CreateNodeInput.id", omitempty: true)
 # @genqlient(for: "CreateNodeInput.isRunnable", omitempty: true)
