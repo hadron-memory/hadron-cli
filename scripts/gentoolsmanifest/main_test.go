@@ -99,3 +99,47 @@ func TestGeneratorOutputIsSorted(t *testing.T) {
 		}
 	}
 }
+
+func TestGeneratorLocaleIndependentBytes(t *testing.T) {
+	root := fixture(t)
+	write(t, root, "src/mcp/locale.ts", "server.tool('hadron_re_adopt_automation', 'x', {}, h);\n")
+	locales, err := exec.Command("locale", "-a").Output()
+	if err != nil || !strings.Contains(strings.ToLower(string(locales)), "en_us.utf8") {
+		t.Skip("en_US.utf8 unavailable; TestGeneratorPinsByteCollation checks the controlled sort environment")
+	}
+	var first string
+	for _, locale := range []string{"C", "en_US.utf8"} {
+		cmd := exec.Command("bash", "../gen-tools-manifest.sh")
+		cmd.Env = append(os.Environ(), "HADRON_SERVER_DIR="+root, "LC_ALL="+locale)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%s: %v\n%s", locale, err, out)
+		}
+		if first == "" {
+			first = string(out)
+		} else if first != string(out) {
+			t.Fatalf("generator bytes depend on %s", locale)
+		}
+	}
+}
+
+func TestGeneratorPinsByteCollation(t *testing.T) {
+	root := fixture(t)
+	sortPath, err := exec.LookPath("sort")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	// A controlled sort shim observes the environment at the actual pipeline
+	// boundary, so this guard also runs on CI images lacking a second locale.
+	shim := "#!/bin/sh\n[ \"$LC_ALL\" = C ] || { echo 'sort must use LC_ALL=C' >&2; exit 42; }\nexec \"$REAL_SORT\" \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "sort"), []byte(shim), 0755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", "../gen-tools-manifest.sh")
+	cmd.Env = append(os.Environ(), "HADRON_SERVER_DIR="+root, "LC_ALL=C.utf8", "REAL_SORT="+sortPath, "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("byte-collation guard: %v\n%s", err, out)
+	}
+}

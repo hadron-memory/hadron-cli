@@ -34,6 +34,7 @@ cat <<'HEADER'
 #
 HEADER
 
+# Byte collation is part of the generated artifact, independent of caller locale.
 {
   # MCP tools: the name is the first argument to server.tool(, on the line that
   # immediately follows the call opener (or on the same line). Every non-test
@@ -53,4 +54,4 @@ HEADER
   if [ -d "$runner" ]; then
     grep -rhoE "name:[[:space:]]*['\"]hadron_[a-z0-9_]+['\"]" "$runner" | grep -oE "hadron_[a-z0-9_]+" || :
   fi
-} | sort -u
+} | LC_ALL=C sort -u
