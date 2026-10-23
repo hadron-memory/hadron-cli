@@ -1,0 +1,4 @@
+# Node-only canonical portal pointer. No content/body/edges or ordinary resolve.
+query NodePortal($ref: ID!) {
+  node(ref: $ref) { id urn portalUrl }
+}

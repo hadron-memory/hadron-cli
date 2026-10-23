@@ -31158,6 +31158,55 @@ func (v *NodeMintStatusFieldsMintedByNodeRevisionEditor) GetHandle() *string { r
 // GetUrn returns NodeMintStatusFieldsMintedByNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
 func (v *NodeMintStatusFieldsMintedByNodeRevisionEditor) GetUrn() *string { return v.Urn }
 
+// NodePortalNode includes the requested fields of the GraphQL type Node.
+type NodePortalNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+	// #881 — the portal URL that opens this node, built server-side so no client
+	// ever has to construct one (constructing means guessing which URN spelling
+	// the /app/u/<urn> route resolves, and the legacy '::' forms in circulation
+	// make that guess wrong). Form: <portal-origin>/app/u/<urn>, the portal's
+	// stable URN-alias route. NULL when the deployment has no portal origin
+	// configured (FRONTEND_URL) — a link to the wrong host is worse than none, so
+	// clients render the field only when present.
+	PortalUrl *string `json:"portalUrl"`
+}
+
+// GetId returns NodePortalNode.Id, and is useful for accessing the field via an interface.
+func (v *NodePortalNode) GetId() string { return v.Id }
+
+// GetUrn returns NodePortalNode.Urn, and is useful for accessing the field via an interface.
+func (v *NodePortalNode) GetUrn() string { return v.Urn }
+
+// GetPortalUrl returns NodePortalNode.PortalUrl, and is useful for accessing the field via an interface.
+func (v *NodePortalNode) GetPortalUrl() *string { return v.PortalUrl }
+
+// NodePortalResponse is returned by NodePortal on success.
+type NodePortalResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a readable memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
+	// resolve. Access: the caller's readable-memory set (same gate the old
+	// queries used); denied and missing are both null.
+	Node *NodePortalNode `json:"node"`
+}
+
+// GetNode returns NodePortalResponse.Node, and is useful for accessing the field via an interface.
+func (v *NodePortalResponse) GetNode() *NodePortalNode { return v.Node }
+
 // NodeRevisionNodeRevision includes the requested fields of the GraphQL type NodeRevision.
 type NodeRevisionNodeRevision struct {
 	RevisionFields `json:"-"`
@@ -59904,6 +59953,14 @@ func (v *__NodeLiveRevisionsStampedInput) GetMemory() *string { return v.Memory 
 // GetLocPrefix returns __NodeLiveRevisionsStampedInput.LocPrefix, and is useful for accessing the field via an interface.
 func (v *__NodeLiveRevisionsStampedInput) GetLocPrefix() *string { return v.LocPrefix }
 
+// __NodePortalInput is used internally by genqlient
+type __NodePortalInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __NodePortalInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodePortalInput) GetRef() string { return v.Ref }
+
 // __NodeRevisionInput is used internally by genqlient
 type __NodeRevisionInput struct {
 	RevisionId string `json:"revisionId"`
@@ -73535,6 +73592,43 @@ func NodeLiveRevisionsStamped(
 	}
 
 	data_ = &NodeLiveRevisionsStampedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodePortal.
+const NodePortal_Operation = `
+query NodePortal ($ref: ID!) {
+	node(ref: $ref) {
+		id
+		urn
+		portalUrl
+	}
+}
+`
+
+// Node-only canonical portal pointer. No content/body/edges or ordinary resolve.
+func NodePortal(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *NodePortalResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodePortal",
+		Query:  NodePortal_Operation,
+		Variables: &__NodePortalInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &NodePortalResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
