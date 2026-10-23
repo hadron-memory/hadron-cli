@@ -618,8 +618,13 @@ mutation UpdateTeamSession(
   $prNumber: Int
   # @genqlient(omitempty: true)
   $branch: String
+  # #995 B1: the holder-reported model. Omitted, never null — null would CLEAR
+  # the stored model. `family` is deliberately not a variable: the server
+  # derives family and tier from the model itself.
+  # @genqlient(omitempty: true)
+  $llmModel: String
 ) {
-  updateSession(id: $id, prNumber: $prNumber, branch: $branch) {
+  updateSession(id: $id, prNumber: $prNumber, branch: $branch, llmModel: $llmModel) {
     ...TeamSessionFields
   }
 }

@@ -60476,6 +60476,7 @@ type __UpdateTeamSessionInput struct {
 	Id       string  `json:"id"`
 	PrNumber *int    `json:"prNumber,omitempty"`
 	Branch   *string `json:"branch,omitempty"`
+	LlmModel *string `json:"llmModel,omitempty"`
 }
 
 // GetId returns __UpdateTeamSessionInput.Id, and is useful for accessing the field via an interface.
@@ -60486,6 +60487,9 @@ func (v *__UpdateTeamSessionInput) GetPrNumber() *int { return v.PrNumber }
 
 // GetBranch returns __UpdateTeamSessionInput.Branch, and is useful for accessing the field via an interface.
 func (v *__UpdateTeamSessionInput) GetBranch() *string { return v.Branch }
+
+// GetLlmModel returns __UpdateTeamSessionInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamSessionInput) GetLlmModel() *string { return v.LlmModel }
 
 // __UpdateTickerInput is used internally by genqlient
 type __UpdateTickerInput struct {
@@ -79035,8 +79039,8 @@ func UpdateTeamRoleMeta(
 
 // The mutation executed by UpdateTeamSession.
 const UpdateTeamSession_Operation = `
-mutation UpdateTeamSession ($id: ID!, $prNumber: Int, $branch: String) {
-	updateSession(id: $id, prNumber: $prNumber, branch: $branch) {
+mutation UpdateTeamSession ($id: ID!, $prNumber: Int, $branch: String, $llmModel: String) {
+	updateSession(id: $id, prNumber: $prNumber, branch: $branch, llmModel: $llmModel) {
 		... TeamSessionFields
 	}
 }
@@ -79085,6 +79089,7 @@ func UpdateTeamSession(
 	id string,
 	prNumber *int,
 	branch *string,
+	llmModel *string,
 ) (data_ *UpdateTeamSessionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateTeamSession",
@@ -79093,6 +79098,7 @@ func UpdateTeamSession(
 			Id:       id,
 			PrNumber: prNumber,
 			Branch:   branch,
+			LlmModel: llmModel,
 		},
 	}
 
