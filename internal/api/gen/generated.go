@@ -9037,6 +9037,645 @@ func (v *BeginAssetUploadResponse) GetBeginAssetUploadV2() *BeginAssetUploadBegi
 	return v.BeginAssetUploadV2
 }
 
+// Provider-neutral attendee response. NONE = invited, not yet answered.
+type CalendarEventResponse string
+
+const (
+	CalendarEventResponseAccepted  CalendarEventResponse = "ACCEPTED"
+	CalendarEventResponseDeclined  CalendarEventResponse = "DECLINED"
+	CalendarEventResponseNone      CalendarEventResponse = "NONE"
+	CalendarEventResponseTentative CalendarEventResponse = "TENTATIVE"
+)
+
+var AllCalendarEventResponse = []CalendarEventResponse{
+	CalendarEventResponseAccepted,
+	CalendarEventResponseDeclined,
+	CalendarEventResponseNone,
+	CalendarEventResponseTentative,
+}
+
+// CalendarEventsCalendarEventsCalendarEvent includes the requested fields of the GraphQL type CalendarEvent.
+type CalendarEventsCalendarEventsCalendarEvent struct {
+	CalendarReadEvent `json:"-"`
+}
+
+// GetId returns CalendarEventsCalendarEventsCalendarEvent.Id, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetId() string { return v.CalendarReadEvent.Id }
+
+// GetCalendarId returns CalendarEventsCalendarEventsCalendarEvent.CalendarId, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetCalendarId() string {
+	return v.CalendarReadEvent.CalendarId
+}
+
+// GetTitle returns CalendarEventsCalendarEventsCalendarEvent.Title, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetTitle() *string {
+	return v.CalendarReadEvent.Title
+}
+
+// GetDescription returns CalendarEventsCalendarEventsCalendarEvent.Description, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetDescription() *string {
+	return v.CalendarReadEvent.Description
+}
+
+// GetLocation returns CalendarEventsCalendarEventsCalendarEvent.Location, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetLocation() *string {
+	return v.CalendarReadEvent.Location
+}
+
+// GetStart returns CalendarEventsCalendarEventsCalendarEvent.Start, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetStart() *CalendarReadEventStartCalendarEventTime {
+	return v.CalendarReadEvent.Start
+}
+
+// GetEnd returns CalendarEventsCalendarEventsCalendarEvent.End, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetEnd() *CalendarReadEventEndCalendarEventTime {
+	return v.CalendarReadEvent.End
+}
+
+// GetIsAllDay returns CalendarEventsCalendarEventsCalendarEvent.IsAllDay, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetIsAllDay() bool {
+	return v.CalendarReadEvent.IsAllDay
+}
+
+// GetStatus returns CalendarEventsCalendarEventsCalendarEvent.Status, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetStatus() string {
+	return v.CalendarReadEvent.Status
+}
+
+// GetOrganizer returns CalendarEventsCalendarEventsCalendarEvent.Organizer, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetOrganizer() *CalendarReadEventOrganizerCalendarPerson {
+	return v.CalendarReadEvent.Organizer
+}
+
+// GetAttendees returns CalendarEventsCalendarEventsCalendarEvent.Attendees, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetAttendees() []*CalendarReadEventAttendeesCalendarAttendee {
+	return v.CalendarReadEvent.Attendees
+}
+
+// GetWebLink returns CalendarEventsCalendarEventsCalendarEvent.WebLink, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetWebLink() *string {
+	return v.CalendarReadEvent.WebLink
+}
+
+// GetSeriesId returns CalendarEventsCalendarEventsCalendarEvent.SeriesId, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetSeriesId() *string {
+	return v.CalendarReadEvent.SeriesId
+}
+
+// GetIsOrganizer returns CalendarEventsCalendarEventsCalendarEvent.IsOrganizer, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetIsOrganizer() bool {
+	return v.CalendarReadEvent.IsOrganizer
+}
+
+// GetMyResponse returns CalendarEventsCalendarEventsCalendarEvent.MyResponse, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetMyResponse() *CalendarEventResponse {
+	return v.CalendarReadEvent.MyResponse
+}
+
+// GetCreatedAt returns CalendarEventsCalendarEventsCalendarEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetCreatedAt() *string {
+	return v.CalendarReadEvent.CreatedAt
+}
+
+// GetUpdatedAt returns CalendarEventsCalendarEventsCalendarEvent.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetUpdatedAt() *string {
+	return v.CalendarReadEvent.UpdatedAt
+}
+
+func (v *CalendarEventsCalendarEventsCalendarEvent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CalendarEventsCalendarEventsCalendarEvent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CalendarEventsCalendarEventsCalendarEvent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CalendarReadEvent)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCalendarEventsCalendarEventsCalendarEvent struct {
+	Id string `json:"id"`
+
+	CalendarId string `json:"calendarId"`
+
+	Title *string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Location *string `json:"location"`
+
+	Start *CalendarReadEventStartCalendarEventTime `json:"start"`
+
+	End *CalendarReadEventEndCalendarEventTime `json:"end"`
+
+	IsAllDay bool `json:"isAllDay"`
+
+	Status string `json:"status"`
+
+	Organizer *CalendarReadEventOrganizerCalendarPerson `json:"organizer"`
+
+	Attendees []*CalendarReadEventAttendeesCalendarAttendee `json:"attendees"`
+
+	WebLink *string `json:"webLink"`
+
+	SeriesId *string `json:"seriesId"`
+
+	IsOrganizer bool `json:"isOrganizer"`
+
+	MyResponse *CalendarEventResponse `json:"myResponse"`
+
+	CreatedAt *string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *CalendarEventsCalendarEventsCalendarEvent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CalendarEventsCalendarEventsCalendarEvent) __premarshalJSON() (*__premarshalCalendarEventsCalendarEventsCalendarEvent, error) {
+	var retval __premarshalCalendarEventsCalendarEventsCalendarEvent
+
+	retval.Id = v.CalendarReadEvent.Id
+	retval.CalendarId = v.CalendarReadEvent.CalendarId
+	retval.Title = v.CalendarReadEvent.Title
+	retval.Description = v.CalendarReadEvent.Description
+	retval.Location = v.CalendarReadEvent.Location
+	retval.Start = v.CalendarReadEvent.Start
+	retval.End = v.CalendarReadEvent.End
+	retval.IsAllDay = v.CalendarReadEvent.IsAllDay
+	retval.Status = v.CalendarReadEvent.Status
+	retval.Organizer = v.CalendarReadEvent.Organizer
+	retval.Attendees = v.CalendarReadEvent.Attendees
+	retval.WebLink = v.CalendarReadEvent.WebLink
+	retval.SeriesId = v.CalendarReadEvent.SeriesId
+	retval.IsOrganizer = v.CalendarReadEvent.IsOrganizer
+	retval.MyResponse = v.CalendarReadEvent.MyResponse
+	retval.CreatedAt = v.CalendarReadEvent.CreatedAt
+	retval.UpdatedAt = v.CalendarReadEvent.UpdatedAt
+	return &retval, nil
+}
+
+// CalendarEventsResponse is returned by CalendarEvents on success.
+type CalendarEventsResponse struct {
+	// Events in a time window (recurring events expand to instances, ordered
+	// chronologically). start/end are RFC 3339; calendarId defaults to the
+	// account's primary calendar. Grant scope: calendar.read.
+	CalendarEvents []*CalendarEventsCalendarEventsCalendarEvent `json:"calendarEvents"`
+}
+
+// GetCalendarEvents returns CalendarEventsResponse.CalendarEvents, and is useful for accessing the field via an interface.
+func (v *CalendarEventsResponse) GetCalendarEvents() []*CalendarEventsCalendarEventsCalendarEvent {
+	return v.CalendarEvents
+}
+
+// CalendarFreeBusyCalendarScheduleScheduleFreeBusy includes the requested fields of the GraphQL type ScheduleFreeBusy.
+// The GraphQL type's documentation follows.
+//
+// Free/busy intervals for one requested schedule (calendarSchedule).
+type CalendarFreeBusyCalendarScheduleScheduleFreeBusy struct {
+	Id string `json:"id"`
+	// Set when the provider could not resolve this schedule; the query still succeeds for the others.
+	Error *string                                                                     `json:"error"`
+	Busy  []*CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval `json:"busy"`
+}
+
+// GetId returns CalendarFreeBusyCalendarScheduleScheduleFreeBusy.Id, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyCalendarScheduleScheduleFreeBusy) GetId() string { return v.Id }
+
+// GetError returns CalendarFreeBusyCalendarScheduleScheduleFreeBusy.Error, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyCalendarScheduleScheduleFreeBusy) GetError() *string { return v.Error }
+
+// GetBusy returns CalendarFreeBusyCalendarScheduleScheduleFreeBusy.Busy, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyCalendarScheduleScheduleFreeBusy) GetBusy() []*CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval {
+	return v.Busy
+}
+
+// CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval includes the requested fields of the GraphQL type ScheduleBusyInterval.
+type CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+// GetStart returns CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval.Start, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval) GetStart() string {
+	return v.Start
+}
+
+// GetEnd returns CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval.End, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval) GetEnd() string {
+	return v.End
+}
+
+// CalendarFreeBusyResponse is returned by CalendarFreeBusy on success.
+type CalendarFreeBusyResponse struct {
+	// Free/busy intervals for one or more schedules (calendar ids or addresses
+	// the account can read; defaults to the account's primary calendar).
+	// Structurally capped at yes/no busy windows — never event contents.
+	// Grant scope: calendar.freebusy.
+	CalendarSchedule []*CalendarFreeBusyCalendarScheduleScheduleFreeBusy `json:"calendarSchedule"`
+}
+
+// GetCalendarSchedule returns CalendarFreeBusyResponse.CalendarSchedule, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyResponse) GetCalendarSchedule() []*CalendarFreeBusyCalendarScheduleScheduleFreeBusy {
+	return v.CalendarSchedule
+}
+
+// CalendarGetEventCalendarEvent includes the requested fields of the GraphQL type CalendarEvent.
+type CalendarGetEventCalendarEvent struct {
+	CalendarReadEvent `json:"-"`
+}
+
+// GetId returns CalendarGetEventCalendarEvent.Id, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetId() string { return v.CalendarReadEvent.Id }
+
+// GetCalendarId returns CalendarGetEventCalendarEvent.CalendarId, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetCalendarId() string { return v.CalendarReadEvent.CalendarId }
+
+// GetTitle returns CalendarGetEventCalendarEvent.Title, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetTitle() *string { return v.CalendarReadEvent.Title }
+
+// GetDescription returns CalendarGetEventCalendarEvent.Description, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetDescription() *string {
+	return v.CalendarReadEvent.Description
+}
+
+// GetLocation returns CalendarGetEventCalendarEvent.Location, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetLocation() *string { return v.CalendarReadEvent.Location }
+
+// GetStart returns CalendarGetEventCalendarEvent.Start, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetStart() *CalendarReadEventStartCalendarEventTime {
+	return v.CalendarReadEvent.Start
+}
+
+// GetEnd returns CalendarGetEventCalendarEvent.End, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetEnd() *CalendarReadEventEndCalendarEventTime {
+	return v.CalendarReadEvent.End
+}
+
+// GetIsAllDay returns CalendarGetEventCalendarEvent.IsAllDay, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetIsAllDay() bool { return v.CalendarReadEvent.IsAllDay }
+
+// GetStatus returns CalendarGetEventCalendarEvent.Status, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetStatus() string { return v.CalendarReadEvent.Status }
+
+// GetOrganizer returns CalendarGetEventCalendarEvent.Organizer, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetOrganizer() *CalendarReadEventOrganizerCalendarPerson {
+	return v.CalendarReadEvent.Organizer
+}
+
+// GetAttendees returns CalendarGetEventCalendarEvent.Attendees, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetAttendees() []*CalendarReadEventAttendeesCalendarAttendee {
+	return v.CalendarReadEvent.Attendees
+}
+
+// GetWebLink returns CalendarGetEventCalendarEvent.WebLink, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetWebLink() *string { return v.CalendarReadEvent.WebLink }
+
+// GetSeriesId returns CalendarGetEventCalendarEvent.SeriesId, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetSeriesId() *string { return v.CalendarReadEvent.SeriesId }
+
+// GetIsOrganizer returns CalendarGetEventCalendarEvent.IsOrganizer, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetIsOrganizer() bool { return v.CalendarReadEvent.IsOrganizer }
+
+// GetMyResponse returns CalendarGetEventCalendarEvent.MyResponse, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetMyResponse() *CalendarEventResponse {
+	return v.CalendarReadEvent.MyResponse
+}
+
+// GetCreatedAt returns CalendarGetEventCalendarEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetCreatedAt() *string { return v.CalendarReadEvent.CreatedAt }
+
+// GetUpdatedAt returns CalendarGetEventCalendarEvent.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetUpdatedAt() *string { return v.CalendarReadEvent.UpdatedAt }
+
+func (v *CalendarGetEventCalendarEvent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CalendarGetEventCalendarEvent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CalendarGetEventCalendarEvent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CalendarReadEvent)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCalendarGetEventCalendarEvent struct {
+	Id string `json:"id"`
+
+	CalendarId string `json:"calendarId"`
+
+	Title *string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Location *string `json:"location"`
+
+	Start *CalendarReadEventStartCalendarEventTime `json:"start"`
+
+	End *CalendarReadEventEndCalendarEventTime `json:"end"`
+
+	IsAllDay bool `json:"isAllDay"`
+
+	Status string `json:"status"`
+
+	Organizer *CalendarReadEventOrganizerCalendarPerson `json:"organizer"`
+
+	Attendees []*CalendarReadEventAttendeesCalendarAttendee `json:"attendees"`
+
+	WebLink *string `json:"webLink"`
+
+	SeriesId *string `json:"seriesId"`
+
+	IsOrganizer bool `json:"isOrganizer"`
+
+	MyResponse *CalendarEventResponse `json:"myResponse"`
+
+	CreatedAt *string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *CalendarGetEventCalendarEvent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CalendarGetEventCalendarEvent) __premarshalJSON() (*__premarshalCalendarGetEventCalendarEvent, error) {
+	var retval __premarshalCalendarGetEventCalendarEvent
+
+	retval.Id = v.CalendarReadEvent.Id
+	retval.CalendarId = v.CalendarReadEvent.CalendarId
+	retval.Title = v.CalendarReadEvent.Title
+	retval.Description = v.CalendarReadEvent.Description
+	retval.Location = v.CalendarReadEvent.Location
+	retval.Start = v.CalendarReadEvent.Start
+	retval.End = v.CalendarReadEvent.End
+	retval.IsAllDay = v.CalendarReadEvent.IsAllDay
+	retval.Status = v.CalendarReadEvent.Status
+	retval.Organizer = v.CalendarReadEvent.Organizer
+	retval.Attendees = v.CalendarReadEvent.Attendees
+	retval.WebLink = v.CalendarReadEvent.WebLink
+	retval.SeriesId = v.CalendarReadEvent.SeriesId
+	retval.IsOrganizer = v.CalendarReadEvent.IsOrganizer
+	retval.MyResponse = v.CalendarReadEvent.MyResponse
+	retval.CreatedAt = v.CalendarReadEvent.CreatedAt
+	retval.UpdatedAt = v.CalendarReadEvent.UpdatedAt
+	return &retval, nil
+}
+
+// CalendarGetEventResponse is returned by CalendarGetEvent on success.
+type CalendarGetEventResponse struct {
+	// One event by id. Grant scope: calendar.read.
+	CalendarEvent *CalendarGetEventCalendarEvent `json:"calendarEvent"`
+}
+
+// GetCalendarEvent returns CalendarGetEventResponse.CalendarEvent, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventResponse) GetCalendarEvent() *CalendarGetEventCalendarEvent {
+	return v.CalendarEvent
+}
+
+// CalendarListCalendarsCalendarInfo includes the requested fields of the GraphQL type CalendarInfo.
+// The GraphQL type's documentation follows.
+//
+// One calendar the connected account can see.
+type CalendarListCalendarsCalendarInfo struct {
+	Id          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	TimeZone    *string `json:"timeZone"`
+	// True for the account's primary calendar (the default calendarId).
+	IsPrimary bool `json:"isPrimary"`
+	// True when the connected account may create/modify events here.
+	CanEdit bool `json:"canEdit"`
+}
+
+// GetId returns CalendarListCalendarsCalendarInfo.Id, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetId() string { return v.Id }
+
+// GetName returns CalendarListCalendarsCalendarInfo.Name, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetName() string { return v.Name }
+
+// GetDescription returns CalendarListCalendarsCalendarInfo.Description, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetDescription() *string { return v.Description }
+
+// GetTimeZone returns CalendarListCalendarsCalendarInfo.TimeZone, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetTimeZone() *string { return v.TimeZone }
+
+// GetIsPrimary returns CalendarListCalendarsCalendarInfo.IsPrimary, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetIsPrimary() bool { return v.IsPrimary }
+
+// GetCanEdit returns CalendarListCalendarsCalendarInfo.CanEdit, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetCanEdit() bool { return v.CanEdit }
+
+// CalendarListResponse is returned by CalendarList on success.
+type CalendarListResponse struct {
+	// Calendars the connected account can see. Grant scope: calendar.read.
+	Calendars []*CalendarListCalendarsCalendarInfo `json:"calendars"`
+}
+
+// GetCalendars returns CalendarListResponse.Calendars, and is useful for accessing the field via an interface.
+func (v *CalendarListResponse) GetCalendars() []*CalendarListCalendarsCalendarInfo {
+	return v.Calendars
+}
+
+// CalendarReadEvent includes the GraphQL fields of CalendarEvent requested by the fragment CalendarReadEvent.
+type CalendarReadEvent struct {
+	Id          string                                   `json:"id"`
+	CalendarId  string                                   `json:"calendarId"`
+	Title       *string                                  `json:"title"`
+	Description *string                                  `json:"description"`
+	Location    *string                                  `json:"location"`
+	Start       *CalendarReadEventStartCalendarEventTime `json:"start"`
+	End         *CalendarReadEventEndCalendarEventTime   `json:"end"`
+	IsAllDay    bool                                     `json:"isAllDay"`
+	// confirmed, tentative, or cancelled (provider-neutral vocabulary).
+	Status    string                                        `json:"status"`
+	Organizer *CalendarReadEventOrganizerCalendarPerson     `json:"organizer"`
+	Attendees []*CalendarReadEventAttendeesCalendarAttendee `json:"attendees"`
+	WebLink   *string                                       `json:"webLink"`
+	// Series id when this is an instance of a recurring event.
+	SeriesId *string `json:"seriesId"`
+	// True when the connected account organized the event.
+	IsOrganizer bool `json:"isOrganizer"`
+	// The connected account's own response; null when it is not an attendee.
+	MyResponse *CalendarEventResponse `json:"myResponse"`
+	CreatedAt  *string                `json:"createdAt"`
+	UpdatedAt  *string                `json:"updatedAt"`
+}
+
+// GetId returns CalendarReadEvent.Id, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetId() string { return v.Id }
+
+// GetCalendarId returns CalendarReadEvent.CalendarId, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetCalendarId() string { return v.CalendarId }
+
+// GetTitle returns CalendarReadEvent.Title, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetTitle() *string { return v.Title }
+
+// GetDescription returns CalendarReadEvent.Description, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetDescription() *string { return v.Description }
+
+// GetLocation returns CalendarReadEvent.Location, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetLocation() *string { return v.Location }
+
+// GetStart returns CalendarReadEvent.Start, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetStart() *CalendarReadEventStartCalendarEventTime { return v.Start }
+
+// GetEnd returns CalendarReadEvent.End, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetEnd() *CalendarReadEventEndCalendarEventTime { return v.End }
+
+// GetIsAllDay returns CalendarReadEvent.IsAllDay, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetIsAllDay() bool { return v.IsAllDay }
+
+// GetStatus returns CalendarReadEvent.Status, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetStatus() string { return v.Status }
+
+// GetOrganizer returns CalendarReadEvent.Organizer, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetOrganizer() *CalendarReadEventOrganizerCalendarPerson {
+	return v.Organizer
+}
+
+// GetAttendees returns CalendarReadEvent.Attendees, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetAttendees() []*CalendarReadEventAttendeesCalendarAttendee {
+	return v.Attendees
+}
+
+// GetWebLink returns CalendarReadEvent.WebLink, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetWebLink() *string { return v.WebLink }
+
+// GetSeriesId returns CalendarReadEvent.SeriesId, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetSeriesId() *string { return v.SeriesId }
+
+// GetIsOrganizer returns CalendarReadEvent.IsOrganizer, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetIsOrganizer() bool { return v.IsOrganizer }
+
+// GetMyResponse returns CalendarReadEvent.MyResponse, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetMyResponse() *CalendarEventResponse { return v.MyResponse }
+
+// GetCreatedAt returns CalendarReadEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetCreatedAt() *string { return v.CreatedAt }
+
+// GetUpdatedAt returns CalendarReadEvent.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// CalendarReadEventAttendeesCalendarAttendee includes the requested fields of the GraphQL type CalendarAttendee.
+type CalendarReadEventAttendeesCalendarAttendee struct {
+	Address  string                `json:"address"`
+	Name     *string               `json:"name"`
+	Optional bool                  `json:"optional"`
+	Response CalendarEventResponse `json:"response"`
+}
+
+// GetAddress returns CalendarReadEventAttendeesCalendarAttendee.Address, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventAttendeesCalendarAttendee) GetAddress() string { return v.Address }
+
+// GetName returns CalendarReadEventAttendeesCalendarAttendee.Name, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventAttendeesCalendarAttendee) GetName() *string { return v.Name }
+
+// GetOptional returns CalendarReadEventAttendeesCalendarAttendee.Optional, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventAttendeesCalendarAttendee) GetOptional() bool { return v.Optional }
+
+// GetResponse returns CalendarReadEventAttendeesCalendarAttendee.Response, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventAttendeesCalendarAttendee) GetResponse() CalendarEventResponse {
+	return v.Response
+}
+
+// CalendarReadEventEndCalendarEventTime includes the requested fields of the GraphQL type CalendarEventTime.
+// The GraphQL type's documentation follows.
+//
+// An event boundary: exactly one of dateTime (timed, with timeZone) or
+// date (YYYY-MM-DD, all-day) is set.
+type CalendarReadEventEndCalendarEventTime struct {
+	// Calendar date for an all-day event, as YYYY-MM-DD. Deliberately String
+	// and NOT DateTime (#205): an all-day event has no instant, and widening it
+	// to a timestamp would force a timezone the provider never supplied.
+	Date *string `json:"date"`
+	// Instant for a timed event. Exactly one of dateTime / date is set.
+	DateTime *string `json:"dateTime"`
+	TimeZone *string `json:"timeZone"`
+}
+
+// GetDate returns CalendarReadEventEndCalendarEventTime.Date, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventEndCalendarEventTime) GetDate() *string { return v.Date }
+
+// GetDateTime returns CalendarReadEventEndCalendarEventTime.DateTime, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventEndCalendarEventTime) GetDateTime() *string { return v.DateTime }
+
+// GetTimeZone returns CalendarReadEventEndCalendarEventTime.TimeZone, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventEndCalendarEventTime) GetTimeZone() *string { return v.TimeZone }
+
+// CalendarReadEventOrganizerCalendarPerson includes the requested fields of the GraphQL type CalendarPerson.
+type CalendarReadEventOrganizerCalendarPerson struct {
+	Address *string `json:"address"`
+	Name    *string `json:"name"`
+}
+
+// GetAddress returns CalendarReadEventOrganizerCalendarPerson.Address, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventOrganizerCalendarPerson) GetAddress() *string { return v.Address }
+
+// GetName returns CalendarReadEventOrganizerCalendarPerson.Name, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventOrganizerCalendarPerson) GetName() *string { return v.Name }
+
+// CalendarReadEventStartCalendarEventTime includes the requested fields of the GraphQL type CalendarEventTime.
+// The GraphQL type's documentation follows.
+//
+// An event boundary: exactly one of dateTime (timed, with timeZone) or
+// date (YYYY-MM-DD, all-day) is set.
+type CalendarReadEventStartCalendarEventTime struct {
+	// Calendar date for an all-day event, as YYYY-MM-DD. Deliberately String
+	// and NOT DateTime (#205): an all-day event has no instant, and widening it
+	// to a timestamp would force a timezone the provider never supplied.
+	Date *string `json:"date"`
+	// Instant for a timed event. Exactly one of dateTime / date is set.
+	DateTime *string `json:"dateTime"`
+	TimeZone *string `json:"timeZone"`
+}
+
+// GetDate returns CalendarReadEventStartCalendarEventTime.Date, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventStartCalendarEventTime) GetDate() *string { return v.Date }
+
+// GetDateTime returns CalendarReadEventStartCalendarEventTime.DateTime, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventStartCalendarEventTime) GetDateTime() *string { return v.DateTime }
+
+// GetTimeZone returns CalendarReadEventStartCalendarEventTime.TimeZone, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventStartCalendarEventTime) GetTimeZone() *string { return v.TimeZone }
+
 // CancelAppRunCancelAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
 //
@@ -20183,6 +20822,102 @@ type EffectiveAccessResponse struct {
 // GetEffectiveAccess returns EffectiveAccessResponse.EffectiveAccess, and is useful for accessing the field via an interface.
 func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffectiveAccess {
 	return v.EffectiveAccess
+}
+
+// EmailConnectionsExchangeConnectionsExchangeConnection includes the requested fields of the GraphQL type ExchangeConnection.
+// The GraphQL type's documentation follows.
+//
+// A connected PROVIDER ACCOUNT (identity record) — despite the name, this
+// one type carries mailboxes, calendars and Drive accounts alike; the
+// provider field below says which, and each routes to its own capability
+// tool. Provider state lives in that tool, never here.
+//
+// Operations are identity-scoped: the connection's OWNER may perform them,
+// and an App/headless caller may perform those covered by a live
+// ConnectionGrant whose scopes include the operation's (requireEmailConnection
+// enforces both branches, fail-closed for an unmapped operation). list and
+// delete stay org-ADMIN management operations.
+type EmailConnectionsExchangeConnectionsExchangeConnection struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	UserId         string `json:"userId"`
+	MailboxEmail   string `json:"mailboxEmail"`
+	// Provider backing this connection. Dispatched per-connection through
+	// the tool registry: `ms-exchange`, `gmail`, `google-cal`,
+	// `google-drive`. (This said "'ms-exchange' today" until #1232 — true
+	// when written, and three providers out of date by the time it was
+	// published.)
+	Provider    string     `json:"provider"`
+	DisplayName *string    `json:"displayName"`
+	SyncEnabled bool       `json:"syncEnabled"`
+	SyncStatus  SyncStatus `json:"syncStatus"`
+	LastSyncAt  *string    `json:"lastSyncAt"`
+	CreatedAt   string     `json:"createdAt"`
+	UpdatedAt   string     `json:"updatedAt"`
+}
+
+// GetId returns EmailConnectionsExchangeConnectionsExchangeConnection.Id, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetId() string { return v.Id }
+
+// GetOrganizationId returns EmailConnectionsExchangeConnectionsExchangeConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetUserId returns EmailConnectionsExchangeConnectionsExchangeConnection.UserId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetUserId() string { return v.UserId }
+
+// GetMailboxEmail returns EmailConnectionsExchangeConnectionsExchangeConnection.MailboxEmail, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetMailboxEmail() string {
+	return v.MailboxEmail
+}
+
+// GetProvider returns EmailConnectionsExchangeConnectionsExchangeConnection.Provider, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetProvider() string {
+	return v.Provider
+}
+
+// GetDisplayName returns EmailConnectionsExchangeConnectionsExchangeConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetDisplayName() *string {
+	return v.DisplayName
+}
+
+// GetSyncEnabled returns EmailConnectionsExchangeConnectionsExchangeConnection.SyncEnabled, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetSyncEnabled() bool {
+	return v.SyncEnabled
+}
+
+// GetSyncStatus returns EmailConnectionsExchangeConnectionsExchangeConnection.SyncStatus, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetSyncStatus() SyncStatus {
+	return v.SyncStatus
+}
+
+// GetLastSyncAt returns EmailConnectionsExchangeConnectionsExchangeConnection.LastSyncAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetLastSyncAt() *string {
+	return v.LastSyncAt
+}
+
+// GetCreatedAt returns EmailConnectionsExchangeConnectionsExchangeConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns EmailConnectionsExchangeConnectionsExchangeConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// EmailConnectionsResponse is returned by EmailConnections on success.
+type EmailConnectionsResponse struct {
+	// Exchange connections for an org.
+	//
+	// Accepts the entity's ID or URN.
+	ExchangeConnections []*EmailConnectionsExchangeConnectionsExchangeConnection `json:"exchangeConnections"`
+}
+
+// GetExchangeConnections returns EmailConnectionsResponse.ExchangeConnections, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsResponse) GetExchangeConnections() []*EmailConnectionsExchangeConnectionsExchangeConnection {
+	return v.ExchangeConnections
 }
 
 // EncryptMemoryEncryptMemory includes the requested fields of the GraphQL type Memory.
@@ -58268,6 +59003,78 @@ func (v *__BeginAssetUploadInput) GetIntent() UploadIntent { return v.Intent }
 // GetDescription returns __BeginAssetUploadInput.Description, and is useful for accessing the field via an interface.
 func (v *__BeginAssetUploadInput) GetDescription() *string { return v.Description }
 
+// __CalendarEventsInput is used internally by genqlient
+type __CalendarEventsInput struct {
+	ConnectionRef string  `json:"connectionRef"`
+	CalendarId    *string `json:"calendarId,omitempty"`
+	Start         *string `json:"start,omitempty"`
+	End           *string `json:"end,omitempty"`
+	Query         *string `json:"query,omitempty"`
+	Top           int     `json:"top"`
+}
+
+// GetConnectionRef returns __CalendarEventsInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetCalendarId returns __CalendarEventsInput.CalendarId, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetCalendarId() *string { return v.CalendarId }
+
+// GetStart returns __CalendarEventsInput.Start, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetStart() *string { return v.Start }
+
+// GetEnd returns __CalendarEventsInput.End, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetEnd() *string { return v.End }
+
+// GetQuery returns __CalendarEventsInput.Query, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetQuery() *string { return v.Query }
+
+// GetTop returns __CalendarEventsInput.Top, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetTop() int { return v.Top }
+
+// __CalendarFreeBusyInput is used internally by genqlient
+type __CalendarFreeBusyInput struct {
+	ConnectionRef string   `json:"connectionRef"`
+	Start         string   `json:"start"`
+	End           string   `json:"end"`
+	Schedules     []string `json:"schedules,omitempty"`
+}
+
+// GetConnectionRef returns __CalendarFreeBusyInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__CalendarFreeBusyInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetStart returns __CalendarFreeBusyInput.Start, and is useful for accessing the field via an interface.
+func (v *__CalendarFreeBusyInput) GetStart() string { return v.Start }
+
+// GetEnd returns __CalendarFreeBusyInput.End, and is useful for accessing the field via an interface.
+func (v *__CalendarFreeBusyInput) GetEnd() string { return v.End }
+
+// GetSchedules returns __CalendarFreeBusyInput.Schedules, and is useful for accessing the field via an interface.
+func (v *__CalendarFreeBusyInput) GetSchedules() []string { return v.Schedules }
+
+// __CalendarGetEventInput is used internally by genqlient
+type __CalendarGetEventInput struct {
+	ConnectionRef string  `json:"connectionRef"`
+	EventId       string  `json:"eventId"`
+	CalendarId    *string `json:"calendarId,omitempty"`
+}
+
+// GetConnectionRef returns __CalendarGetEventInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__CalendarGetEventInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetEventId returns __CalendarGetEventInput.EventId, and is useful for accessing the field via an interface.
+func (v *__CalendarGetEventInput) GetEventId() string { return v.EventId }
+
+// GetCalendarId returns __CalendarGetEventInput.CalendarId, and is useful for accessing the field via an interface.
+func (v *__CalendarGetEventInput) GetCalendarId() *string { return v.CalendarId }
+
+// __CalendarListInput is used internally by genqlient
+type __CalendarListInput struct {
+	ConnectionRef string `json:"connectionRef"`
+}
+
+// GetConnectionRef returns __CalendarListInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__CalendarListInput) GetConnectionRef() string { return v.ConnectionRef }
+
 // __CancelAppRunInput is used internally by genqlient
 type __CancelAppRunInput struct {
 	Id string `json:"id"`
@@ -59679,6 +60486,14 @@ func (v *__EffectiveAccessInput) GetUser() string { return v.User }
 
 // GetResource returns __EffectiveAccessInput.Resource, and is useful for accessing the field via an interface.
 func (v *__EffectiveAccessInput) GetResource() string { return v.Resource }
+
+// __EmailConnectionsInput is used internally by genqlient
+type __EmailConnectionsInput struct {
+	OrgId string `json:"orgId"`
+}
+
+// GetOrgId returns __EmailConnectionsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__EmailConnectionsInput) GetOrgId() string { return v.OrgId }
 
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
@@ -65530,6 +66345,242 @@ func BeginAssetUpload(
 	return data_, err_
 }
 
+// The query executed by CalendarEvents.
+const CalendarEvents_Operation = `
+query CalendarEvents ($connectionRef: ID!, $calendarId: String, $start: String, $end: String, $query: String, $top: Int!) {
+	calendarEvents(connectionRef: $connectionRef, calendarId: $calendarId, start: $start, end: $end, query: $query, top: $top) {
+		... CalendarReadEvent
+	}
+}
+fragment CalendarReadEvent on CalendarEvent {
+	id
+	calendarId
+	title
+	description
+	location
+	start {
+		date
+		dateTime
+		timeZone
+	}
+	end {
+		date
+		dateTime
+		timeZone
+	}
+	isAllDay
+	status
+	organizer {
+		address
+		name
+	}
+	attendees {
+		address
+		name
+		optional
+		response
+	}
+	webLink
+	seriesId
+	isOrganizer
+	myResponse
+	createdAt
+	updatedAt
+}
+`
+
+func CalendarEvents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	calendarId *string,
+	start *string,
+	end *string,
+	query *string,
+	top int,
+) (data_ *CalendarEventsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CalendarEvents",
+		Query:  CalendarEvents_Operation,
+		Variables: &__CalendarEventsInput{
+			ConnectionRef: connectionRef,
+			CalendarId:    calendarId,
+			Start:         start,
+			End:           end,
+			Query:         query,
+			Top:           top,
+		},
+	}
+
+	data_ = &CalendarEventsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CalendarFreeBusy.
+const CalendarFreeBusy_Operation = `
+query CalendarFreeBusy ($connectionRef: ID!, $start: String!, $end: String!, $schedules: [String!]) {
+	calendarSchedule(connectionRef: $connectionRef, start: $start, end: $end, schedules: $schedules) {
+		id
+		error
+		busy {
+			start
+			end
+		}
+	}
+}
+`
+
+func CalendarFreeBusy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	start string,
+	end string,
+	schedules []string,
+) (data_ *CalendarFreeBusyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CalendarFreeBusy",
+		Query:  CalendarFreeBusy_Operation,
+		Variables: &__CalendarFreeBusyInput{
+			ConnectionRef: connectionRef,
+			Start:         start,
+			End:           end,
+			Schedules:     schedules,
+		},
+	}
+
+	data_ = &CalendarFreeBusyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CalendarGetEvent.
+const CalendarGetEvent_Operation = `
+query CalendarGetEvent ($connectionRef: ID!, $eventId: ID!, $calendarId: String) {
+	calendarEvent(connectionRef: $connectionRef, eventId: $eventId, calendarId: $calendarId) {
+		... CalendarReadEvent
+	}
+}
+fragment CalendarReadEvent on CalendarEvent {
+	id
+	calendarId
+	title
+	description
+	location
+	start {
+		date
+		dateTime
+		timeZone
+	}
+	end {
+		date
+		dateTime
+		timeZone
+	}
+	isAllDay
+	status
+	organizer {
+		address
+		name
+	}
+	attendees {
+		address
+		name
+		optional
+		response
+	}
+	webLink
+	seriesId
+	isOrganizer
+	myResponse
+	createdAt
+	updatedAt
+}
+`
+
+func CalendarGetEvent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	eventId string,
+	calendarId *string,
+) (data_ *CalendarGetEventResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CalendarGetEvent",
+		Query:  CalendarGetEvent_Operation,
+		Variables: &__CalendarGetEventInput{
+			ConnectionRef: connectionRef,
+			EventId:       eventId,
+			CalendarId:    calendarId,
+		},
+	}
+
+	data_ = &CalendarGetEventResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CalendarList.
+const CalendarList_Operation = `
+query CalendarList ($connectionRef: ID!) {
+	calendars(connectionRef: $connectionRef) {
+		id
+		name
+		description
+		timeZone
+		isPrimary
+		canEdit
+	}
+}
+`
+
+func CalendarList(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+) (data_ *CalendarListResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CalendarList",
+		Query:  CalendarList_Operation,
+		Variables: &__CalendarListInput{
+			ConnectionRef: connectionRef,
+		},
+	}
+
+	data_ = &CalendarListResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CancelAppRun.
 const CancelAppRun_Operation = `
 mutation CancelAppRun ($id: ID!) {
@@ -70141,6 +71192,51 @@ func EffectiveAccess(
 	}
 
 	data_ = &EffectiveAccessResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EmailConnections.
+const EmailConnections_Operation = `
+query EmailConnections ($orgId: ID!) {
+	exchangeConnections(orgId: $orgId) {
+		id
+		organizationId
+		userId
+		mailboxEmail
+		provider
+		displayName
+		syncEnabled
+		syncStatus
+		lastSyncAt
+		createdAt
+		updatedAt
+	}
+}
+`
+
+// Explicit org-admin metadata read; never request credentials or lastError.
+func EmailConnections(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+) (data_ *EmailConnectionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailConnections",
+		Query:  EmailConnections_Operation,
+		Variables: &__EmailConnectionsInput{
+			OrgId: orgId,
+		},
+	}
+
+	data_ = &EmailConnectionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

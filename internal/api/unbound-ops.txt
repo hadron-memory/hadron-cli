@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 67 unbound
+[Query] 62 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -16,10 +16,6 @@ appKeys
 appNodes
 appTickerSettings  # server ticker settings (named-heartbeats epic, in flight — #1750/#1791 cycle); CLI parity follows the surface settling
 assets
-calendarEvent
-calendarEvents
-calendarSchedule
-calendars
 chatHistory
 connectionGrant
 dashboardWidgetData
@@ -35,7 +31,6 @@ dueWakes  # wake-surface v2; cli#828 tracks the paged attention surface, wake re
 edge
 edges
 effectiveActionPolicy
-exchangeConnections
 exchangeFolders
 exchangeMessages
 globalSearch
