@@ -71,7 +71,7 @@ func TestNodeOpen1015TransportStillUnavailable(t *testing.T) {
 			return
 		}
 		calls.Add(1)
-		http.Error(w, "bad gateway", 502)
+		http.Error(w, "bad gateway", http.StatusBadGateway)
 	}))
 	defer srv.Close()
 	f, _ := testFactory(t)
