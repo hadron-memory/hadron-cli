@@ -283,6 +283,10 @@ attaches no worker session.
 			first := stopListPageSize
 			signals := []stopSignalDTO{}
 			var after *string
+			// Every cursor already sent, not just the last one: a → b → a
+			// cycles as surely as a → a, and would reprint the cycle's rows
+			// (cli#1026 BLIND, Jane P2).
+			seen := map[string]bool{}
 			for {
 				resp, err := gen.TeamStopSignals(ctx, client, appScope.Ref, workerIn, includeIn, &first, after)
 				if err != nil {
@@ -299,9 +303,10 @@ attaches no worker session.
 					break
 				}
 				next := page.PageInfo.EndCursor
-				if next == nil || *next == "" || (after != nil && *next == *after) {
+				if next == nil || *next == "" || seen[*next] {
 					return exitcode.Newf(exitcode.Error, "the server's stop-signal pages did not advance; the list is incomplete, so none is shown")
 				}
+				seen[*next] = true
 				after = next
 			}
 			label := lazyAppLabel(ctx, f, appScope)
@@ -433,6 +438,13 @@ var stopRefusalCodes = []string{"STOP_SIGNAL_UNAVAILABLE", "APP_MANAGER_REQUIRED
 func stopFailure(err error, op string) error {
 	mapped := api.MapError(err)
 	exit := exitcode.FromError(mapped)
+	// A scope refusal arrives as FORBIDDEN but maps to 3: the remedy is a
+	// different credential, not someone's permission, so FORBIDDEN's fixed
+	// sentence would name the wrong fix (cli#1026 SECURITY P3). Checked
+	// before the code table; the remedy is the CLI's own text.
+	if kind := api.OAuthScopeRefusal(err); kind != "" {
+		return exitcode.Newf(exitcode.AuthRequired, "this credential's OAuth scope cannot use the stop-signal API. %s", api.ScopeRefusalRemedy(kind))
+	}
 	for _, code := range stopRefusalCodes {
 		if api.HasErrorCode(err, code) {
 			text, _ := stopRefusalText(op, code)

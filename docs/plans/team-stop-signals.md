@@ -19,8 +19,9 @@ includeEnded, first, after): StopSignalPage!`,
 
 - `team stop list [--worker <ref>] [--include-ended]` (alias `ls`). Sends
   `first: 200` (the server maximum) and pages to the end. A next page with a
-  null, empty or repeated cursor refuses (exit 1) and prints nothing, since a
-  partial list would read as complete. `--worker` and `--include-ended` are
+  null or empty cursor, or one already sent on an earlier page (a → b → a
+  cycles as surely as a → a; Jane's BLIND P2), refuses (exit 1) and prints
+  nothing, since a partial or repeated list would read as complete. `--worker` and `--include-ended` are
   omitted unless passed. `--worker` means the signals covering that worker now
   (Victor's FIT point 1), never "targeting".
   The empty-list line names only what was read: live signals (or live and
@@ -71,7 +72,9 @@ Exit classes in `api/errors.go`:
 `stop.go` prints `CODE: <fixed sentence>` for each known code (the stop codes,
 plus BAD_USER_INPUT, APP_NOT_FOUND, FORBIDDEN, UNAUTHENTICATED and
 GRAPHQL_VALIDATION_FAILED); NOT_FOUND and BAD_USER_INPUT have a sentence per
-command. The server's free text is never printed. An unrecognised error prints
+command. An OAuth scope refusal (FORBIDDEN with an `OAUTH_SCOPE_*` reason) is
+checked first: it exits 3, and its sentence names the credential plus the CLI's
+own re-login remedy, not FORBIDDEN's permission wording (Ralion's §10 P3). The server's free text is never printed. An unrecognised error prints
 a generic line with MapError's exit class; on set or lift that line says the
 outcome is unknown, because only a known refusal proves nothing was written. A lost answer on set or lift keeps
 the CLI's own transport sentence (exit 7), adds "check with hadron team stop

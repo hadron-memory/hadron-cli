@@ -271,6 +271,38 @@ func TestTeamStopList911RefusesAStalledCursor(t *testing.T) {
 	}
 }
 
+// cli#1026 BLIND (Jane, P2): a cursor that returns to any EARLIER one cycles
+// just as surely as an adjacent repeat. a → b → a must refuse on the third
+// page with no output, not print the cycle's rows again and exit 0.
+func TestTeamStopList911RefusesACursorCycle(t *testing.T) {
+	writeTeamBinding(t)
+	r := stopResponses()
+	page := 0
+	srv, calls := attnServerHook(t, r, func(op string) {
+		if op != "TeamStopSignals" {
+			return
+		}
+		page++
+		cursor := map[int]string{1: "a", 2: "b"}[page]
+		if cursor == "" {
+			cursor = "a"
+		}
+		if page >= 4 {
+			r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[` + stopSignalJSON + `],"pageInfo":{"endCursor":null,"hasNextPage":false}}}}`
+			return
+		}
+		r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[` + stopSignalJSON + `],"pageInfo":{"endCursor":"` + cursor + `","hasNextPage":true}}}}`
+	})
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "stop", "list", "--json"})
+	err := root.Execute()
+	if exitCodeFor(err) != exitcode.Error || out.String() != "" || len(stopCalls(calls, "TeamStopSignals")) != 3 {
+		t.Fatalf("cursor cycle: err %v out %q calls %d", err, out.String(), len(stopCalls(calls, "TeamStopSignals")))
+	}
+}
+
 func TestTeamStop911RefusalsUseFixedSentences(t *testing.T) {
 	setArgs := []string{"set", "--scope", "worker", "--level", "halt", "--worker", "w"}
 	for _, tc := range []struct {
@@ -316,6 +348,42 @@ func TestTeamStop911RefusalsUseFixedSentences(t *testing.T) {
 			if n := len(stopCalls(calls, op)); n > 1 {
 				t.Errorf("%s: %s sent %d times", name, op, n)
 			}
+		}
+	}
+}
+
+// cli#1026 SECURITY P3 (Ralion): an MCP-only or unsupported-scope key is
+// refused with FORBIDDEN + a scope reason. That exits 3 (a different
+// credential), so the sentence must name the credential, not FORBIDDEN's
+// "ask for access" — and must still carry no server text. An unknown code on
+// list keeps its own fixed sentence.
+func TestTeamStop911ScopeRefusalAndUnknownListCode(t *testing.T) {
+	for _, tc := range []struct {
+		name, ext string
+		args      []string
+		exit      int
+		want      string
+	}{
+		{"mcp-only set", `{"code":"FORBIDDEN","reason":"OAUTH_SCOPE_INSUFFICIENT"}`, []string{"set", "--scope", "worker", "--level", "halt", "--worker", "w"}, exitcode.AuthRequired, "OAuth scope"},
+		{"unsupported list", `{"code":"FORBIDDEN","reason":"OAUTH_SCOPE_UNSUPPORTED"}`, []string{"list"}, exitcode.AuthRequired, "OAuth scope"},
+		{"unknown list", `{"code":"SOMETHING_NEW"}`, []string{"list"}, exitcode.Error, "does not recognise"},
+	} {
+		r := stopResponses()
+		body := `{"errors":[{"message":"` + upstreamSentinel + `","extensions":` + tc.ext + `}]}`
+		for _, op := range []string{"TeamStopSignalSet", "TeamStopSignalLift", "TeamStopSignals"} {
+			r[op] = body
+		}
+		_, out, err := runTeamTask(t, r, append([]string{"team", "stop"}, tc.args...)...)
+		if got := exitCodeFor(err); got != tc.exit {
+			t.Errorf("%s: exit %d, want %d (%v)", tc.name, got, tc.exit, err)
+			continue
+		}
+		msg := err.Error()
+		if !strings.Contains(msg, tc.want) || strings.Contains(msg, upstreamSentinel) || strings.Contains(msg, "SOMETHING_NEW") || out != "" {
+			t.Errorf("%s: message %q out %q", tc.name, msg, out)
+		}
+		if tc.exit == exitcode.AuthRequired && strings.Contains(msg, "not permitted") {
+			t.Errorf("%s: a scope refusal must not read as a permission refusal: %q", tc.name, msg)
 		}
 	}
 }
