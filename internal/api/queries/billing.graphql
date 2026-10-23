@@ -1,0 +1,76 @@
+# Spec 046 metering reads (cli#215). Money fields are base-10 integer strings
+# of micro-cents (1e-8 USD); the CLI never parses them. Writes (setAiModelPrice,
+# grantCredits) are a separate, separately gated cut.
+
+fragment AiModelPriceFields on AiModelPrice {
+  id
+  provider
+  model
+  tier
+  inputMicroCentsPerMTok
+  outputMicroCentsPerMTok
+  markupBasisPoints
+  effectiveAt
+  createdAt
+  createdBy
+}
+
+fragment CreditLedgerEntryFields on CreditLedgerEntry {
+  id
+  organizationId
+  kind
+  amountMicroCents
+  expiresAt
+  sourceType
+  sourceId
+  note
+  createdAt
+  createdBy
+}
+
+# Rate rows, provider/model/tier then newest effective first. Authenticated
+# read. An unset filter is omitted (the server treats "" as no filter, so the
+# command refuses an empty one rather than send it).
+query AiModelPrices(
+  # @genqlient(omitempty: true)
+  $provider: String
+  # @genqlient(omitempty: true)
+  $model: String
+  # @genqlient(omitempty: true)
+  $tier: Int
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  aiModelPrices(provider: $provider, model: $model, tier: $tier, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...AiModelPriceFields
+    }
+  }
+}
+
+# One org's balance: the SUM over its append-only ledger. Org-ADMIN.
+query CreditBalance($orgRef: String!) {
+  creditBalance(orgRef: $orgRef) {
+    organizationId
+    balanceMicroCents
+  }
+}
+
+# One org's ledger page, newest first. Org-ADMIN.
+query CreditLedgerEntries(
+  $orgRef: String!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  creditLedgerEntries(orgRef: $orgRef, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...CreditLedgerEntryFields
+    }
+  }
+}
