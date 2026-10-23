@@ -6023,6 +6023,212 @@ var AllAiConfigOwnerType = []AiConfigOwnerType{
 	AiConfigOwnerTypeOrganization,
 }
 
+// AiModelPriceFields includes the GraphQL fields of AiModelPrice requested by the fragment AiModelPriceFields.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: effective-dated provider rate row. Prices are
+// micro-cents (1e-8 USD) per MILLION tokens, as base-10 integer strings.
+type AiModelPriceFields struct {
+	Id       string `json:"id"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	// Pricing tier 1-3; tier 1 is the default everything resolves today.
+	Tier                    int    `json:"tier"`
+	InputMicroCentsPerMTok  string `json:"inputMicroCentsPerMTok"`
+	OutputMicroCentsPerMTok string `json:"outputMicroCentsPerMTok"`
+	// Per-tier debit markup in basis points (2500 = 25%). Null falls back
+	// to the CREDIT_MARKUP_PERCENT env default.
+	MarkupBasisPoints *int    `json:"markupBasisPoints"`
+	EffectiveAt       string  `json:"effectiveAt"`
+	CreatedAt         string  `json:"createdAt"`
+	CreatedBy         *string `json:"createdBy"`
+}
+
+// GetId returns AiModelPriceFields.Id, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetId() string { return v.Id }
+
+// GetProvider returns AiModelPriceFields.Provider, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetProvider() string { return v.Provider }
+
+// GetModel returns AiModelPriceFields.Model, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetModel() string { return v.Model }
+
+// GetTier returns AiModelPriceFields.Tier, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetTier() int { return v.Tier }
+
+// GetInputMicroCentsPerMTok returns AiModelPriceFields.InputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetInputMicroCentsPerMTok() string { return v.InputMicroCentsPerMTok }
+
+// GetOutputMicroCentsPerMTok returns AiModelPriceFields.OutputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetOutputMicroCentsPerMTok() string { return v.OutputMicroCentsPerMTok }
+
+// GetMarkupBasisPoints returns AiModelPriceFields.MarkupBasisPoints, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetMarkupBasisPoints() *int { return v.MarkupBasisPoints }
+
+// GetEffectiveAt returns AiModelPriceFields.EffectiveAt, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetEffectiveAt() string { return v.EffectiveAt }
+
+// GetCreatedAt returns AiModelPriceFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetCreatedBy returns AiModelPriceFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// AiModelPricesAiModelPricesAiModelPriceList includes the requested fields of the GraphQL type AiModelPriceList.
+type AiModelPricesAiModelPricesAiModelPriceList struct {
+	Total int                                                            `json:"total"`
+	Items []*AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice `json:"items"`
+}
+
+// GetTotal returns AiModelPricesAiModelPricesAiModelPriceList.Total, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceList) GetTotal() int { return v.Total }
+
+// GetItems returns AiModelPricesAiModelPricesAiModelPriceList.Items, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceList) GetItems() []*AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice {
+	return v.Items
+}
+
+// AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice includes the requested fields of the GraphQL type AiModelPrice.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: effective-dated provider rate row. Prices are
+// micro-cents (1e-8 USD) per MILLION tokens, as base-10 integer strings.
+type AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice struct {
+	AiModelPriceFields `json:"-"`
+}
+
+// GetId returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.Id, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetId() string {
+	return v.AiModelPriceFields.Id
+}
+
+// GetProvider returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.Provider, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetProvider() string {
+	return v.AiModelPriceFields.Provider
+}
+
+// GetModel returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.Model, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetModel() string {
+	return v.AiModelPriceFields.Model
+}
+
+// GetTier returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.Tier, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetTier() int {
+	return v.AiModelPriceFields.Tier
+}
+
+// GetInputMicroCentsPerMTok returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.InputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetInputMicroCentsPerMTok() string {
+	return v.AiModelPriceFields.InputMicroCentsPerMTok
+}
+
+// GetOutputMicroCentsPerMTok returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.OutputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetOutputMicroCentsPerMTok() string {
+	return v.AiModelPriceFields.OutputMicroCentsPerMTok
+}
+
+// GetMarkupBasisPoints returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.MarkupBasisPoints, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetMarkupBasisPoints() *int {
+	return v.AiModelPriceFields.MarkupBasisPoints
+}
+
+// GetEffectiveAt returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.EffectiveAt, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetEffectiveAt() string {
+	return v.AiModelPriceFields.EffectiveAt
+}
+
+// GetCreatedAt returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetCreatedAt() string {
+	return v.AiModelPriceFields.CreatedAt
+}
+
+// GetCreatedBy returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetCreatedBy() *string {
+	return v.AiModelPriceFields.CreatedBy
+}
+
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiModelPriceFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice struct {
+	Id string `json:"id"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	Tier int `json:"tier"`
+
+	InputMicroCentsPerMTok string `json:"inputMicroCentsPerMTok"`
+
+	OutputMicroCentsPerMTok string `json:"outputMicroCentsPerMTok"`
+
+	MarkupBasisPoints *int `json:"markupBasisPoints"`
+
+	EffectiveAt string `json:"effectiveAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) __premarshalJSON() (*__premarshalAiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice, error) {
+	var retval __premarshalAiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice
+
+	retval.Id = v.AiModelPriceFields.Id
+	retval.Provider = v.AiModelPriceFields.Provider
+	retval.Model = v.AiModelPriceFields.Model
+	retval.Tier = v.AiModelPriceFields.Tier
+	retval.InputMicroCentsPerMTok = v.AiModelPriceFields.InputMicroCentsPerMTok
+	retval.OutputMicroCentsPerMTok = v.AiModelPriceFields.OutputMicroCentsPerMTok
+	retval.MarkupBasisPoints = v.AiModelPriceFields.MarkupBasisPoints
+	retval.EffectiveAt = v.AiModelPriceFields.EffectiveAt
+	retval.CreatedAt = v.AiModelPriceFields.CreatedAt
+	retval.CreatedBy = v.AiModelPriceFields.CreatedBy
+	return &retval, nil
+}
+
+// AiModelPricesResponse is returned by AiModelPrices on success.
+type AiModelPricesResponse struct {
+	// Provider rate rows, newest effective first, optional provider/model filter (spec 046). Authenticated read.
+	AiModelPrices *AiModelPricesAiModelPricesAiModelPriceList `json:"aiModelPrices"`
+}
+
+// GetAiModelPrices returns AiModelPricesResponse.AiModelPrices, and is useful for accessing the field via an interface.
+func (v *AiModelPricesResponse) GetAiModelPrices() *AiModelPricesAiModelPricesAiModelPriceList {
+	return v.AiModelPrices
+}
+
 // AiProviderEndpointsAiProviderEndpointsAiProviderEndpoint includes the requested fields of the GraphQL type AiProviderEndpoint.
 // The GraphQL type's documentation follows.
 //
@@ -18650,6 +18856,232 @@ type CreateUserInvitationResponse struct {
 func (v *CreateUserInvitationResponse) GetCreateUserInvitation() *CreateUserInvitationCreateUserInvitation {
 	return v.CreateUserInvitation
 }
+
+// CreditBalanceCreditBalance includes the requested fields of the GraphQL type CreditBalance.
+type CreditBalanceCreditBalance struct {
+	OrganizationId    string `json:"organizationId"`
+	BalanceMicroCents string `json:"balanceMicroCents"`
+}
+
+// GetOrganizationId returns CreditBalanceCreditBalance.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreditBalanceCreditBalance) GetOrganizationId() string { return v.OrganizationId }
+
+// GetBalanceMicroCents returns CreditBalanceCreditBalance.BalanceMicroCents, and is useful for accessing the field via an interface.
+func (v *CreditBalanceCreditBalance) GetBalanceMicroCents() string { return v.BalanceMicroCents }
+
+// CreditBalanceResponse is returned by CreditBalance on success.
+type CreditBalanceResponse struct {
+	// One org's credit balance - SUM over the append-only ledger (spec 046). Org-ADMIN.
+	CreditBalance *CreditBalanceCreditBalance `json:"creditBalance"`
+}
+
+// GetCreditBalance returns CreditBalanceResponse.CreditBalance, and is useful for accessing the field via an interface.
+func (v *CreditBalanceResponse) GetCreditBalance() *CreditBalanceCreditBalance {
+	return v.CreditBalance
+}
+
+// CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList includes the requested fields of the GraphQL type CreditLedgerEntryList.
+type CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList struct {
+	Total int                                                                                  `json:"total"`
+	Items []*CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry `json:"items"`
+}
+
+// GetTotal returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList.Total, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList) GetTotal() int { return v.Total }
+
+// GetItems returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList.Items, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList) GetItems() []*CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry {
+	return v.Items
+}
+
+// CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry includes the requested fields of the GraphQL type CreditLedgerEntry.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: append-only org credit ledger row. Signed
+// micro-cents as a base-10 integer string (grants +, debits -).
+type CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry struct {
+	CreditLedgerEntryFields `json:"-"`
+}
+
+// GetId returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.Id, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetId() string {
+	return v.CreditLedgerEntryFields.Id
+}
+
+// GetOrganizationId returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetOrganizationId() string {
+	return v.CreditLedgerEntryFields.OrganizationId
+}
+
+// GetKind returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.Kind, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetKind() string {
+	return v.CreditLedgerEntryFields.Kind
+}
+
+// GetAmountMicroCents returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.AmountMicroCents, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetAmountMicroCents() string {
+	return v.CreditLedgerEntryFields.AmountMicroCents
+}
+
+// GetExpiresAt returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetExpiresAt() *string {
+	return v.CreditLedgerEntryFields.ExpiresAt
+}
+
+// GetSourceType returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.SourceType, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetSourceType() *string {
+	return v.CreditLedgerEntryFields.SourceType
+}
+
+// GetSourceId returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.SourceId, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetSourceId() *string {
+	return v.CreditLedgerEntryFields.SourceId
+}
+
+// GetNote returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.Note, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetNote() *string {
+	return v.CreditLedgerEntryFields.Note
+}
+
+// GetCreatedAt returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetCreatedAt() string {
+	return v.CreditLedgerEntryFields.CreatedAt
+}
+
+// GetCreatedBy returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetCreatedBy() *string {
+	return v.CreditLedgerEntryFields.CreatedBy
+}
+
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CreditLedgerEntryFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Kind string `json:"kind"`
+
+	AmountMicroCents string `json:"amountMicroCents"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	SourceType *string `json:"sourceType"`
+
+	SourceId *string `json:"sourceId"`
+
+	Note *string `json:"note"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) __premarshalJSON() (*__premarshalCreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry, error) {
+	var retval __premarshalCreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry
+
+	retval.Id = v.CreditLedgerEntryFields.Id
+	retval.OrganizationId = v.CreditLedgerEntryFields.OrganizationId
+	retval.Kind = v.CreditLedgerEntryFields.Kind
+	retval.AmountMicroCents = v.CreditLedgerEntryFields.AmountMicroCents
+	retval.ExpiresAt = v.CreditLedgerEntryFields.ExpiresAt
+	retval.SourceType = v.CreditLedgerEntryFields.SourceType
+	retval.SourceId = v.CreditLedgerEntryFields.SourceId
+	retval.Note = v.CreditLedgerEntryFields.Note
+	retval.CreatedAt = v.CreditLedgerEntryFields.CreatedAt
+	retval.CreatedBy = v.CreditLedgerEntryFields.CreatedBy
+	return &retval, nil
+}
+
+// CreditLedgerEntriesResponse is returned by CreditLedgerEntries on success.
+type CreditLedgerEntriesResponse struct {
+	// One org's append-only credit-ledger page, newest first (spec 046). Org-ADMIN.
+	CreditLedgerEntries *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList `json:"creditLedgerEntries"`
+}
+
+// GetCreditLedgerEntries returns CreditLedgerEntriesResponse.CreditLedgerEntries, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesResponse) GetCreditLedgerEntries() *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList {
+	return v.CreditLedgerEntries
+}
+
+// CreditLedgerEntryFields includes the GraphQL fields of CreditLedgerEntry requested by the fragment CreditLedgerEntryFields.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: append-only org credit ledger row. Signed
+// micro-cents as a base-10 integer string (grants +, debits -).
+type CreditLedgerEntryFields struct {
+	Id               string  `json:"id"`
+	OrganizationId   string  `json:"organizationId"`
+	Kind             string  `json:"kind"`
+	AmountMicroCents string  `json:"amountMicroCents"`
+	ExpiresAt        *string `json:"expiresAt"`
+	SourceType       *string `json:"sourceType"`
+	SourceId         *string `json:"sourceId"`
+	Note             *string `json:"note"`
+	CreatedAt        string  `json:"createdAt"`
+	CreatedBy        *string `json:"createdBy"`
+}
+
+// GetId returns CreditLedgerEntryFields.Id, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetId() string { return v.Id }
+
+// GetOrganizationId returns CreditLedgerEntryFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetKind returns CreditLedgerEntryFields.Kind, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetKind() string { return v.Kind }
+
+// GetAmountMicroCents returns CreditLedgerEntryFields.AmountMicroCents, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetAmountMicroCents() string { return v.AmountMicroCents }
+
+// GetExpiresAt returns CreditLedgerEntryFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetSourceType returns CreditLedgerEntryFields.SourceType, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetSourceType() *string { return v.SourceType }
+
+// GetSourceId returns CreditLedgerEntryFields.SourceId, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetSourceId() *string { return v.SourceId }
+
+// GetNote returns CreditLedgerEntryFields.Note, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetNote() *string { return v.Note }
+
+// GetCreatedAt returns CreditLedgerEntryFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetCreatedBy returns CreditLedgerEntryFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetCreatedBy() *string { return v.CreatedBy }
 
 // DeleteAgentResponse is returned by DeleteAgent on success.
 type DeleteAgentResponse struct {
@@ -56913,6 +57345,30 @@ func (v *__AgentsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AgentsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentsInput) GetOffset() *int { return v.Offset }
 
+// __AiModelPricesInput is used internally by genqlient
+type __AiModelPricesInput struct {
+	Provider *string `json:"provider,omitempty"`
+	Model    *string `json:"model,omitempty"`
+	Tier     *int    `json:"tier,omitempty"`
+	Limit    *int    `json:"limit,omitempty"`
+	Offset   *int    `json:"offset,omitempty"`
+}
+
+// GetProvider returns __AiModelPricesInput.Provider, and is useful for accessing the field via an interface.
+func (v *__AiModelPricesInput) GetProvider() *string { return v.Provider }
+
+// GetModel returns __AiModelPricesInput.Model, and is useful for accessing the field via an interface.
+func (v *__AiModelPricesInput) GetModel() *string { return v.Model }
+
+// GetTier returns __AiModelPricesInput.Tier, and is useful for accessing the field via an interface.
+func (v *__AiModelPricesInput) GetTier() *int { return v.Tier }
+
+// GetLimit returns __AiModelPricesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AiModelPricesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AiModelPricesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AiModelPricesInput) GetOffset() *int { return v.Offset }
+
 // __AiProviderEndpointsInput is used internally by genqlient
 type __AiProviderEndpointsInput struct {
 	Provider string `json:"provider"`
@@ -58196,6 +58652,30 @@ func (v *__CreateUserInvitationInput) GetExpiresInDays() *int { return v.Expires
 
 // GetMaxActivations returns __CreateUserInvitationInput.MaxActivations, and is useful for accessing the field via an interface.
 func (v *__CreateUserInvitationInput) GetMaxActivations() *int { return v.MaxActivations }
+
+// __CreditBalanceInput is used internally by genqlient
+type __CreditBalanceInput struct {
+	OrgRef string `json:"orgRef"`
+}
+
+// GetOrgRef returns __CreditBalanceInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreditBalanceInput) GetOrgRef() string { return v.OrgRef }
+
+// __CreditLedgerEntriesInput is used internally by genqlient
+type __CreditLedgerEntriesInput struct {
+	OrgRef string `json:"orgRef"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetOrgRef returns __CreditLedgerEntriesInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreditLedgerEntriesInput) GetOrgRef() string { return v.OrgRef }
+
+// GetLimit returns __CreditLedgerEntriesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__CreditLedgerEntriesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __CreditLedgerEntriesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__CreditLedgerEntriesInput) GetOffset() *int { return v.Offset }
 
 // __DeleteAgentInput is used internally by genqlient
 type __DeleteAgentInput struct {
@@ -63348,6 +63828,66 @@ func Agents(
 	return data_, err_
 }
 
+// The query executed by AiModelPrices.
+const AiModelPrices_Operation = `
+query AiModelPrices ($provider: String, $model: String, $tier: Int, $limit: Int, $offset: Int) {
+	aiModelPrices(provider: $provider, model: $model, tier: $tier, limit: $limit, offset: $offset) {
+		total
+		items {
+			... AiModelPriceFields
+		}
+	}
+}
+fragment AiModelPriceFields on AiModelPrice {
+	id
+	provider
+	model
+	tier
+	inputMicroCentsPerMTok
+	outputMicroCentsPerMTok
+	markupBasisPoints
+	effectiveAt
+	createdAt
+	createdBy
+}
+`
+
+// Rate rows, provider/model/tier then newest effective first. Authenticated
+// read. An unset filter is omitted (the server treats "" as no filter, so the
+// command refuses an empty one rather than send it).
+func AiModelPrices(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	provider *string,
+	model *string,
+	tier *int,
+	limit *int,
+	offset *int,
+) (data_ *AiModelPricesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AiModelPrices",
+		Query:  AiModelPrices_Operation,
+		Variables: &__AiModelPricesInput{
+			Provider: provider,
+			Model:    model,
+			Tier:     tier,
+			Limit:    limit,
+			Offset:   offset,
+		},
+	}
+
+	data_ = &AiModelPricesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AiProviderEndpoints.
 const AiProviderEndpoints_Operation = `
 query AiProviderEndpoints ($provider: String!) {
@@ -67596,6 +68136,96 @@ func CreateUserInvitation(
 	}
 
 	data_ = &CreateUserInvitationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CreditBalance.
+const CreditBalance_Operation = `
+query CreditBalance ($orgRef: String!) {
+	creditBalance(orgRef: $orgRef) {
+		organizationId
+		balanceMicroCents
+	}
+}
+`
+
+// One org's balance: the SUM over its append-only ledger. Org-ADMIN.
+func CreditBalance(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+) (data_ *CreditBalanceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreditBalance",
+		Query:  CreditBalance_Operation,
+		Variables: &__CreditBalanceInput{
+			OrgRef: orgRef,
+		},
+	}
+
+	data_ = &CreditBalanceResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CreditLedgerEntries.
+const CreditLedgerEntries_Operation = `
+query CreditLedgerEntries ($orgRef: String!, $limit: Int, $offset: Int) {
+	creditLedgerEntries(orgRef: $orgRef, limit: $limit, offset: $offset) {
+		total
+		items {
+			... CreditLedgerEntryFields
+		}
+	}
+}
+fragment CreditLedgerEntryFields on CreditLedgerEntry {
+	id
+	organizationId
+	kind
+	amountMicroCents
+	expiresAt
+	sourceType
+	sourceId
+	note
+	createdAt
+	createdBy
+}
+`
+
+// One org's ledger page, newest first. Org-ADMIN.
+func CreditLedgerEntries(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	limit *int,
+	offset *int,
+) (data_ *CreditLedgerEntriesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreditLedgerEntries",
+		Query:  CreditLedgerEntries_Operation,
+		Variables: &__CreditLedgerEntriesInput{
+			OrgRef: orgRef,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &CreditLedgerEntriesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -5,12 +5,11 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 76 unbound
+[Query] 73 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
 aiModelPrice
-aiModelPrices
 aiServiceConfigs
 appAIConfig
 appKeys
@@ -23,8 +22,6 @@ calendarSchedule
 calendars
 chatHistory
 connectionGrant
-creditBalance
-creditLedgerEntries
 dashboardWidgetData
 dashboardWidgetPresets
 dashboardWidgets

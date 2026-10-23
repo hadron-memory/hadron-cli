@@ -29,14 +29,14 @@ const ledgerGrantJSON = `{"id":"l2","organizationId":"org1","kind":"GRANT",
 	"amountMicroCents":"` + bigMicroCents + `","expiresAt":"2027-01-01T00:00:00.000Z","sourceType":null,
 	"sourceId":null,"note":"trial","createdAt":"2026-07-11T00:00:00.000Z","createdBy":"u1"}`
 
-func runBilling(t *testing.T, responses map[string]string, args ...string) (string, error, map[string]json.RawMessage) {
+func runBilling(t *testing.T, responses map[string]string, args ...string) (string, map[string]json.RawMessage, error) {
 	t.Helper()
 	gql, captured := captureGraphQL(t, responses)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append(args, "--server", gql.URL))
 	err := root.Execute()
-	return out.String(), err, captured
+	return out.String(), captured, err
 }
 
 func billingVars(t *testing.T, raw json.RawMessage) map[string]any {
@@ -51,7 +51,7 @@ func billingVars(t *testing.T, raw json.RawMessage) map[string]any {
 }
 
 func TestBillingPricesForwardsFiltersAndOnePage(t *testing.T) {
-	out, err, captured := runBilling(t, map[string]string{
+	out, captured, err := runBilling(t, map[string]string{
 		"AiModelPrices": `{"data":{"aiModelPrices":{"total":40,"items":[` + aiModelPriceJSON + `]}}}`,
 	}, "billing", "prices", "--provider", "anthropic", "--model", "claude-opus-5-5", "--tier", "2",
 		"--limit", "5", "--offset", "10", "--json")
@@ -84,7 +84,7 @@ func TestBillingPricesForwardsFiltersAndOnePage(t *testing.T) {
 }
 
 func TestBillingPricesUnfilteredOmitsFilters(t *testing.T) {
-	out, err, captured := runBilling(t, map[string]string{
+	out, captured, err := runBilling(t, map[string]string{
 		"AiModelPrices": `{"data":{"aiModelPrices":{"total":1,"items":[` + aiModelPriceJSON + `]}}}`,
 	}, "billing", "prices")
 	if err != nil {
@@ -103,7 +103,7 @@ func TestBillingPricesUnfilteredOmitsFilters(t *testing.T) {
 
 func TestBillingPricesRefusesEmptyFilters(t *testing.T) {
 	for _, flag := range []string{"--provider=", "--model="} {
-		_, err, captured := runBilling(t, map[string]string{}, "billing", "prices", flag)
+		_, captured, err := runBilling(t, map[string]string{}, "billing", "prices", flag)
 		if got := exitCodeFor(err); got != exitcode.Usage {
 			t.Errorf("%s must exit %d (an empty filter is not an absent one), got %d (%v)", flag, exitcode.Usage, got, err)
 		}
@@ -118,7 +118,7 @@ func TestBillingRefusesNegativePaging(t *testing.T) {
 		{"billing", "prices", "--limit", "-1"},
 		{"billing", "ledger", "org1", "--offset", "-1"},
 	} {
-		_, err, _ := runBilling(t, map[string]string{}, args...)
+		_, _, err := runBilling(t, map[string]string{}, args...)
 		if got := exitCodeFor(err); got != exitcode.Usage {
 			t.Errorf("%v must exit %d, got %d (%v)", args, exitcode.Usage, got, err)
 		}
@@ -129,7 +129,7 @@ func TestBillingBalance(t *testing.T) {
 	resp := map[string]string{
 		"CreditBalance": `{"data":{"creditBalance":{"organizationId":"org1","balanceMicroCents":"-` + bigMicroCents + `"}}}`,
 	}
-	out, err, captured := runBilling(t, resp, "billing", "balance", "hrn:org:acme.com", "--json")
+	out, captured, err := runBilling(t, resp, "billing", "balance", "hrn:org:acme.com", "--json")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestBillingBalance(t *testing.T) {
 		t.Errorf("organizationId: %v", dto)
 	}
 
-	out, err, _ = runBilling(t, resp, "billing", "balance", "org1")
+	out, _, err = runBilling(t, resp, "billing", "balance", "org1")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestBillingLedger(t *testing.T) {
 	resp := map[string]string{
 		"CreditLedgerEntries": `{"data":{"creditLedgerEntries":{"total":2,"items":[` + ledgerDebitJSON + `,` + ledgerGrantJSON + `]}}}`,
 	}
-	out, err, captured := runBilling(t, resp, "billing", "ledger", "hrn:org:acme.com", "--limit", "2", "--offset", "4", "--json")
+	out, captured, err := runBilling(t, resp, "billing", "ledger", "hrn:org:acme.com", "--limit", "2", "--offset", "4", "--json")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestBillingLedger(t *testing.T) {
 		t.Errorf("grant row: %v", rows[1])
 	}
 
-	out, err, _ = runBilling(t, resp, "billing", "ledger", "org1")
+	out, _, err = runBilling(t, resp, "billing", "ledger", "org1")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
