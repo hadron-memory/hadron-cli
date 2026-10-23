@@ -24798,6 +24798,443 @@ func (v *GrantAppKeyScopeResponse) GetGrantAppKeyScope() *GrantAppKeyScopeGrantA
 	return v.GrantAppKeyScope
 }
 
+// HomeAssistantInstanceFields includes the GraphQL fields of HomeAssistantInstance requested by the fragment HomeAssistantInstanceFields.
+// The GraphQL type's documentation follows.
+//
+// One registered Home Assistant instance (hadrontool-home-assistant
+// registry, hadron-server#640). Org-owned. The long-lived access token
+// is encrypted at rest and WRITE-ONLY: no field here ever returns it.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.ha__<slug>__<op>' plus the run's action budget.
+type HomeAssistantInstanceFields struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	// Run-tool name segment (ha__<slug>__<op>); lowercase [a-z0-9-], unique per org, immutable.
+	Slug string `json:"slug"`
+	Name string `json:"name"`
+	// Home Assistant base URL (e.g. https://ha.example.com or a Nabu Casa remote URL).
+	Url string `json:"url"`
+	// Disabled instances fail run-tool resolution loud, same as an unregistered slug.
+	Enabled bool `json:"enabled"`
+	// Exposed-op allowlist over the closed op catalog; empty = every op. Lets an admin register a read-only instance.
+	OpAllowlist []string `json:"opAllowlist"`
+	CreatedAt   string   `json:"createdAt"`
+	UpdatedAt   string   `json:"updatedAt"`
+	CreatedBy   *string  `json:"createdBy"`
+	UpdatedBy   *string  `json:"updatedBy"`
+}
+
+// GetId returns HomeAssistantInstanceFields.Id, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetId() string { return v.Id }
+
+// GetOrganizationId returns HomeAssistantInstanceFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetSlug returns HomeAssistantInstanceFields.Slug, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetSlug() string { return v.Slug }
+
+// GetName returns HomeAssistantInstanceFields.Name, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetName() string { return v.Name }
+
+// GetUrl returns HomeAssistantInstanceFields.Url, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetUrl() string { return v.Url }
+
+// GetEnabled returns HomeAssistantInstanceFields.Enabled, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetEnabled() bool { return v.Enabled }
+
+// GetOpAllowlist returns HomeAssistantInstanceFields.OpAllowlist, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetOpAllowlist() []string { return v.OpAllowlist }
+
+// GetCreatedAt returns HomeAssistantInstanceFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns HomeAssistantInstanceFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetCreatedBy returns HomeAssistantInstanceFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetUpdatedBy returns HomeAssistantInstanceFields.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetUpdatedBy() *string { return v.UpdatedBy }
+
+// HomeAssistantInstanceHomeAssistantInstance includes the requested fields of the GraphQL type HomeAssistantInstance.
+// The GraphQL type's documentation follows.
+//
+// One registered Home Assistant instance (hadrontool-home-assistant
+// registry, hadron-server#640). Org-owned. The long-lived access token
+// is encrypted at rest and WRITE-ONLY: no field here ever returns it.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.ha__<slug>__<op>' plus the run's action budget.
+type HomeAssistantInstanceHomeAssistantInstance struct {
+	HomeAssistantInstanceFields `json:"-"`
+}
+
+// GetId returns HomeAssistantInstanceHomeAssistantInstance.Id, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetId() string {
+	return v.HomeAssistantInstanceFields.Id
+}
+
+// GetOrganizationId returns HomeAssistantInstanceHomeAssistantInstance.OrganizationId, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetOrganizationId() string {
+	return v.HomeAssistantInstanceFields.OrganizationId
+}
+
+// GetSlug returns HomeAssistantInstanceHomeAssistantInstance.Slug, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetSlug() string {
+	return v.HomeAssistantInstanceFields.Slug
+}
+
+// GetName returns HomeAssistantInstanceHomeAssistantInstance.Name, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetName() string {
+	return v.HomeAssistantInstanceFields.Name
+}
+
+// GetUrl returns HomeAssistantInstanceHomeAssistantInstance.Url, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetUrl() string {
+	return v.HomeAssistantInstanceFields.Url
+}
+
+// GetEnabled returns HomeAssistantInstanceHomeAssistantInstance.Enabled, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetEnabled() bool {
+	return v.HomeAssistantInstanceFields.Enabled
+}
+
+// GetOpAllowlist returns HomeAssistantInstanceHomeAssistantInstance.OpAllowlist, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetOpAllowlist() []string {
+	return v.HomeAssistantInstanceFields.OpAllowlist
+}
+
+// GetCreatedAt returns HomeAssistantInstanceHomeAssistantInstance.CreatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetCreatedAt() string {
+	return v.HomeAssistantInstanceFields.CreatedAt
+}
+
+// GetUpdatedAt returns HomeAssistantInstanceHomeAssistantInstance.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetUpdatedAt() string {
+	return v.HomeAssistantInstanceFields.UpdatedAt
+}
+
+// GetCreatedBy returns HomeAssistantInstanceHomeAssistantInstance.CreatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetCreatedBy() *string {
+	return v.HomeAssistantInstanceFields.CreatedBy
+}
+
+// GetUpdatedBy returns HomeAssistantInstanceHomeAssistantInstance.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetUpdatedBy() *string {
+	return v.HomeAssistantInstanceFields.UpdatedBy
+}
+
+func (v *HomeAssistantInstanceHomeAssistantInstance) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*HomeAssistantInstanceHomeAssistantInstance
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.HomeAssistantInstanceHomeAssistantInstance = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HomeAssistantInstanceFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalHomeAssistantInstanceHomeAssistantInstance struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Slug string `json:"slug"`
+
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	Enabled bool `json:"enabled"`
+
+	OpAllowlist []string `json:"opAllowlist"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *HomeAssistantInstanceHomeAssistantInstance) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *HomeAssistantInstanceHomeAssistantInstance) __premarshalJSON() (*__premarshalHomeAssistantInstanceHomeAssistantInstance, error) {
+	var retval __premarshalHomeAssistantInstanceHomeAssistantInstance
+
+	retval.Id = v.HomeAssistantInstanceFields.Id
+	retval.OrganizationId = v.HomeAssistantInstanceFields.OrganizationId
+	retval.Slug = v.HomeAssistantInstanceFields.Slug
+	retval.Name = v.HomeAssistantInstanceFields.Name
+	retval.Url = v.HomeAssistantInstanceFields.Url
+	retval.Enabled = v.HomeAssistantInstanceFields.Enabled
+	retval.OpAllowlist = v.HomeAssistantInstanceFields.OpAllowlist
+	retval.CreatedAt = v.HomeAssistantInstanceFields.CreatedAt
+	retval.UpdatedAt = v.HomeAssistantInstanceFields.UpdatedAt
+	retval.CreatedBy = v.HomeAssistantInstanceFields.CreatedBy
+	retval.UpdatedBy = v.HomeAssistantInstanceFields.UpdatedBy
+	return &retval, nil
+}
+
+// HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp includes the requested fields of the GraphQL type HomeAssistantOp.
+// The GraphQL type's documentation follows.
+//
+// One op of the CLOSED Home Assistant op catalog, as admitted by a
+// registry row's allowlist — what this query returns IS what a run can
+// declare in data.tools. The catalog is static (no upstream round-trip).
+type HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp struct {
+	// The op segment, e.g. call_service.
+	Op string `json:"op"`
+	// The run-tool / policy name: ha__<slug>__<op>.
+	RunToolName string `json:"runToolName"`
+	Description string `json:"description"`
+	// The op's argument JSON Schema.
+	InputSchema *json.RawMessage `json:"inputSchema"`
+}
+
+// GetOp returns HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp.Op, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp) GetOp() string { return v.Op }
+
+// GetRunToolName returns HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp.RunToolName, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp) GetRunToolName() string {
+	return v.RunToolName
+}
+
+// GetDescription returns HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp.Description, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp) GetDescription() string {
+	return v.Description
+}
+
+// GetInputSchema returns HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp.InputSchema, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp) GetInputSchema() *json.RawMessage {
+	return v.InputSchema
+}
+
+// HomeAssistantInstanceOpsResponse is returned by HomeAssistantInstanceOps on success.
+type HomeAssistantInstanceOpsResponse struct {
+	// The ops one registered instance exposes (the closed catalog filtered
+	// by the row's allowlist) — what authors browse to pick data.tools
+	// entries; what this returns IS what a run can call. Null when the row
+	// does not exist or the caller is not a member of its org; a disabled
+	// instance errors with HA_INSTANCE_DISABLED.
+	HomeAssistantInstanceOps []*HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp `json:"homeAssistantInstanceOps"`
+}
+
+// GetHomeAssistantInstanceOps returns HomeAssistantInstanceOpsResponse.HomeAssistantInstanceOps, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceOpsResponse) GetHomeAssistantInstanceOps() []*HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp {
+	return v.HomeAssistantInstanceOps
+}
+
+// HomeAssistantInstanceResponse is returned by HomeAssistantInstance on success.
+type HomeAssistantInstanceResponse struct {
+	// Fetch one registered Home Assistant instance (org member). Null when
+	// the row does not exist OR the caller is not a member of its org — no
+	// existence disclosure.
+	HomeAssistantInstance *HomeAssistantInstanceHomeAssistantInstance `json:"homeAssistantInstance"`
+}
+
+// GetHomeAssistantInstance returns HomeAssistantInstanceResponse.HomeAssistantInstance, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceResponse) GetHomeAssistantInstance() *HomeAssistantInstanceHomeAssistantInstance {
+	return v.HomeAssistantInstance
+}
+
+// HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage includes the requested fields of the GraphQL type HomeAssistantInstancesPage.
+// The GraphQL type's documentation follows.
+//
+// Uniform paginated list shape (cor:api:120).
+type HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage struct {
+	Items []*HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance `json:"items"`
+	Total int                                                                                                 `json:"total"`
+}
+
+// GetItems returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage.Items, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage) GetItems() []*HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance {
+	return v.Items
+}
+
+// GetTotal returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage.Total, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage) GetTotal() int {
+	return v.Total
+}
+
+// HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance includes the requested fields of the GraphQL type HomeAssistantInstance.
+// The GraphQL type's documentation follows.
+//
+// One registered Home Assistant instance (hadrontool-home-assistant
+// registry, hadron-server#640). Org-owned. The long-lived access token
+// is encrypted at rest and WRITE-ONLY: no field here ever returns it.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.ha__<slug>__<op>' plus the run's action budget.
+type HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance struct {
+	HomeAssistantInstanceFields `json:"-"`
+}
+
+// GetId returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.Id, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetId() string {
+	return v.HomeAssistantInstanceFields.Id
+}
+
+// GetOrganizationId returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.OrganizationId, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetOrganizationId() string {
+	return v.HomeAssistantInstanceFields.OrganizationId
+}
+
+// GetSlug returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.Slug, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetSlug() string {
+	return v.HomeAssistantInstanceFields.Slug
+}
+
+// GetName returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.Name, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetName() string {
+	return v.HomeAssistantInstanceFields.Name
+}
+
+// GetUrl returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.Url, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetUrl() string {
+	return v.HomeAssistantInstanceFields.Url
+}
+
+// GetEnabled returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.Enabled, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetEnabled() bool {
+	return v.HomeAssistantInstanceFields.Enabled
+}
+
+// GetOpAllowlist returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.OpAllowlist, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetOpAllowlist() []string {
+	return v.HomeAssistantInstanceFields.OpAllowlist
+}
+
+// GetCreatedAt returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.CreatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetCreatedAt() string {
+	return v.HomeAssistantInstanceFields.CreatedAt
+}
+
+// GetUpdatedAt returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetUpdatedAt() string {
+	return v.HomeAssistantInstanceFields.UpdatedAt
+}
+
+// GetCreatedBy returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.CreatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetCreatedBy() *string {
+	return v.HomeAssistantInstanceFields.CreatedBy
+}
+
+// GetUpdatedBy returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetUpdatedBy() *string {
+	return v.HomeAssistantInstanceFields.UpdatedBy
+}
+
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HomeAssistantInstanceFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalHomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Slug string `json:"slug"`
+
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	Enabled bool `json:"enabled"`
+
+	OpAllowlist []string `json:"opAllowlist"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) __premarshalJSON() (*__premarshalHomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance, error) {
+	var retval __premarshalHomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance
+
+	retval.Id = v.HomeAssistantInstanceFields.Id
+	retval.OrganizationId = v.HomeAssistantInstanceFields.OrganizationId
+	retval.Slug = v.HomeAssistantInstanceFields.Slug
+	retval.Name = v.HomeAssistantInstanceFields.Name
+	retval.Url = v.HomeAssistantInstanceFields.Url
+	retval.Enabled = v.HomeAssistantInstanceFields.Enabled
+	retval.OpAllowlist = v.HomeAssistantInstanceFields.OpAllowlist
+	retval.CreatedAt = v.HomeAssistantInstanceFields.CreatedAt
+	retval.UpdatedAt = v.HomeAssistantInstanceFields.UpdatedAt
+	retval.CreatedBy = v.HomeAssistantInstanceFields.CreatedBy
+	retval.UpdatedBy = v.HomeAssistantInstanceFields.UpdatedBy
+	return &retval, nil
+}
+
+// HomeAssistantInstancesResponse is returned by HomeAssistantInstances on success.
+type HomeAssistantInstancesResponse struct {
+	// Uniform paginated Home Assistant instance list (cor:api:120). Default
+	// scope: the caller's member orgs. orgId follows cor:api:100:01 (member
+	// -> that org, non-member -> empty page, no disclosure, no admin
+	// bypass). Slug-ascending order (id tiebreak); limit default 50 / cap
+	// 200; limit: 0 -> count only.
+	HomeAssistantInstances *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage `json:"homeAssistantInstances"`
+}
+
+// GetHomeAssistantInstances returns HomeAssistantInstancesResponse.HomeAssistantInstances, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesResponse) GetHomeAssistantInstances() *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage {
+	return v.HomeAssistantInstances
+}
+
 // HostOperationFields includes the GraphQL fields of HostOperation requested by the fragment HostOperationFields.
 // The GraphQL type's documentation follows.
 //
@@ -60382,6 +60819,38 @@ func (v *__GrantAppKeyScopeInput) GetScope() string { return v.Scope }
 // GetHostId returns __GrantAppKeyScopeInput.HostId, and is useful for accessing the field via an interface.
 func (v *__GrantAppKeyScopeInput) GetHostId() *string { return v.HostId }
 
+// __HomeAssistantInstanceInput is used internally by genqlient
+type __HomeAssistantInstanceInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __HomeAssistantInstanceInput.Ref, and is useful for accessing the field via an interface.
+func (v *__HomeAssistantInstanceInput) GetRef() string { return v.Ref }
+
+// __HomeAssistantInstanceOpsInput is used internally by genqlient
+type __HomeAssistantInstanceOpsInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __HomeAssistantInstanceOpsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__HomeAssistantInstanceOpsInput) GetRef() string { return v.Ref }
+
+// __HomeAssistantInstancesInput is used internally by genqlient
+type __HomeAssistantInstancesInput struct {
+	OrgId  *string `json:"orgId,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+	Offset *int    `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __HomeAssistantInstancesInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__HomeAssistantInstancesInput) GetOrgId() *string { return v.OrgId }
+
+// GetLimit returns __HomeAssistantInstancesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__HomeAssistantInstancesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __HomeAssistantInstancesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__HomeAssistantInstancesInput) GetOffset() *int { return v.Offset }
+
 // __HostOperationsInput is used internally by genqlient
 type __HostOperationsInput struct {
 	AppRef string               `json:"appRef"`
@@ -72512,6 +72981,148 @@ func GrantAppKeyScope(
 	}
 
 	data_ = &GrantAppKeyScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HomeAssistantInstance.
+const HomeAssistantInstance_Operation = `
+query HomeAssistantInstance ($ref: ID!) {
+	homeAssistantInstance(ref: $ref) {
+		... HomeAssistantInstanceFields
+	}
+}
+fragment HomeAssistantInstanceFields on HomeAssistantInstance {
+	id
+	organizationId
+	slug
+	name
+	url
+	enabled
+	opAllowlist
+	createdAt
+	updatedAt
+	createdBy
+	updatedBy
+}
+`
+
+// Null when the row is absent OR the caller is not a member of its org.
+func HomeAssistantInstance(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *HomeAssistantInstanceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HomeAssistantInstance",
+		Query:  HomeAssistantInstance_Operation,
+		Variables: &__HomeAssistantInstanceInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &HomeAssistantInstanceResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HomeAssistantInstanceOps.
+const HomeAssistantInstanceOps_Operation = `
+query HomeAssistantInstanceOps ($ref: ID!) {
+	homeAssistantInstanceOps(ref: $ref) {
+		op
+		runToolName
+		description
+		inputSchema
+	}
+}
+`
+
+// Null when absent/denied; a disabled instance errors HA_INSTANCE_DISABLED.
+func HomeAssistantInstanceOps(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *HomeAssistantInstanceOpsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HomeAssistantInstanceOps",
+		Query:  HomeAssistantInstanceOps_Operation,
+		Variables: &__HomeAssistantInstanceOpsInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &HomeAssistantInstanceOpsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HomeAssistantInstances.
+const HomeAssistantInstances_Operation = `
+query HomeAssistantInstances ($orgId: ID, $limit: Int, $offset: Int) {
+	homeAssistantInstances(orgId: $orgId, limit: $limit, offset: $offset) {
+		items {
+			... HomeAssistantInstanceFields
+		}
+		total
+	}
+}
+fragment HomeAssistantInstanceFields on HomeAssistantInstance {
+	id
+	organizationId
+	slug
+	name
+	url
+	enabled
+	opAllowlist
+	createdAt
+	updatedAt
+	createdBy
+	updatedBy
+}
+`
+
+// One explicit page (uniform { items, total }). Callers pass their own limit,
+// so the server default (50) never applies silently.
+func HomeAssistantInstances(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	limit *int,
+	offset *int,
+) (data_ *HomeAssistantInstancesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HomeAssistantInstances",
+		Query:  HomeAssistantInstances_Operation,
+		Variables: &__HomeAssistantInstancesInput{
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &HomeAssistantInstancesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
