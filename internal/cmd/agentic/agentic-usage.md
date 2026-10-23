@@ -331,7 +331,7 @@ hadron channel list [--owner-app <ref>] [-m <memory>] | get <id|address> | creat
 hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--comments-only] [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
-hadron spec list [-m <memory>] | get <citation> [--body-only] |--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> [--content-file <path>] [--force] [--dry-run] [--expected-revision N --expected-node-id ID --expected-proposal-hash HASH] | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> [--to <loc>] | import spec-kit|code | reserve <citation> [--name <name>] | renumber <from> <to> [--dry-run] | backlinks <citation> | unresolved | mint [--dry-run] [--yes]
+hadron spec list [-m <memory>] | get <citation> [--body-only] |--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> [--content-file <path>] [--title <title>] [--force] [--dry-run] [--expected-revision N --expected-node-id ID --expected-proposal-hash HASH] | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> [--to <loc>] | import spec-kit|code | reserve <citation> [--name <name>] | renumber <from> <to> [--dry-run] | backlinks <citation> | unresolved | mint [--dry-run] [--yes]
 hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--node <ref>...] [--dry-run] [--force] [--prune] [--json] | plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | agent set-boot-prompt <app> <agent> (<node-ref> [-m <memory>] | --clear) | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref> | key scope grant <key-id> <scope> [--host-id <host>] | key scope revoke <key-id> <scope>   # scopes: attention:deliver, host:operate; the App manager's, as themselves (never a worker session); host:operate names ONE host (exit 5 APP_KEY_SCOPE_HOST_CONFLICT: revoke first); output never carries key material
@@ -1502,8 +1502,17 @@ Conventions:
   non-interactively from `--content -`/`--content-file` and/or
   `--abstract -`/`--abstract-file`. Use `--description`/`--description-file`
   to change the description shown in spec lists and search through the same
-  guarded write. The description is not in the editor buffer. Only changed
-  fields are written; the rest are preserved. An abstract replacement is
+  guarded write. The description is not in the editor buffer. `--title <text>`
+  (cli#810) retitles the spec through the same guarded write: it sets
+  `Node.name` to `<citation> — <text>` (pass the text only; a value starting with
+  the citation prefix, a blank one or a multi-line one is refused, exit 2), alone
+  it opens no editor, and a title equal to the stored one writes nothing. The
+  title is an approval-hash field (`cor:dmo:120:01`), so a retitle supersedes an
+  existing approval: after a save, `--json` carries `titleChanged` and
+  `approvalStatus` (`{state, approval}`) read back from the server (omitted on a
+  dry run, where only a note says so, and when the status read fails or the server
+  predates approvals); a returned name that differs from the one sent exits 1.
+  Only changed fields are written; the rest are preserved. An abstract replacement is
   limited to 2000 UTF-16 code units, including whitespace and newlines;
   both preview and save reject an over-limit proposal. `spec edit` reads the
   body **raw** (as stored, `{{…}}` placeholders intact), so the editor, the preview and the
@@ -1512,7 +1521,7 @@ Conventions:
   note, and `--copy-body`) and `spec extract --strip-source` (cli#742). **`--dry-run` shows the
   change itself and writes nothing:** the terminal prints a unified diff per
   field, and `--json` carries `changes[]`, one entry per field written, each
-  `{field: content|abstract|description, change: replaced|cleared|reaffirmed, before, after,
+  `{field: content|abstract|description|name, change: replaced|cleared|reaffirmed, before, after,
   diff}` (`before`/`after` byte-exact; `diff` is `""` for `reaffirmed`, which
   re-sends the same text; `cleared` also covers a whitespace-only abstract,
   which the server stores as null). A no-op is `changed: false` with
