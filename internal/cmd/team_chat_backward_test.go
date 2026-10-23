@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
@@ -58,6 +59,13 @@ type chatVars struct {
 func chatServer(t *testing.T, pages ...string) (*httptest.Server, *[]chatVars) {
 	t.Helper()
 	seen := &[]chatVars{}
+	// mu serializes the page queue. The page is CLAIMED (index advanced) before
+	// a byte is written: a response over the net/http buffer (a 200-message
+	// page) reaches the client at Write, which may issue its next request
+	// before this handler resumes, so advancing after the Write let that
+	// request claim the same page (cli#976). Claiming first makes request
+	// attribution independent of scheduling.
+	var mu sync.Mutex
 	i := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -77,16 +85,19 @@ func chatServer(t *testing.T, pages ...string) (*httptest.Server, *[]chatVars) {
 			var raw map[string]json.RawMessage
 			_ = json.Unmarshal(body.Variables, &raw)
 			_, vars.SinceSeqPresent = raw["sinceSeq"]
+			mu.Lock()
 			*seen = append(*seen, vars)
-			if i < len(pages) {
-				_, _ = w.Write([]byte(pages[i]))
-				i++
+			claimed := i
+			i++
+			mu.Unlock()
+			if claimed < len(pages) {
+				_, _ = w.Write([]byte(pages[claimed]))
 				return
 			}
 			// Running off the end is a TEST bug — an exhaustive loop that did
 			// not terminate — so say so rather than quietly answering empty and
 			// letting the loop look bounded.
-			t.Errorf("TeamChatMessages called %d times, only %d pages queued", i+1, len(pages))
+			t.Errorf("TeamChatMessages called %d times, only %d pages queued", claimed+1, len(pages))
 			_, _ = w.Write([]byte(teamChatPage(0)))
 		case "TeamChatReadHead", "TeamChatReadMetadata":
 			_, _ = w.Write([]byte(teamReadHeadFixture(pages...)))
