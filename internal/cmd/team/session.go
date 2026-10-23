@@ -62,6 +62,8 @@ holds nothing), so it has nothing to release.`,
 	cmd.AddCommand(newCmdSessionEnd(f))
 	cmd.AddCommand(newCmdSessionResumeClaim(f))
 	cmd.AddCommand(newCmdSessionList(f))
+	cmd.AddCommand(newCmdSessionSyncModel(f))
+	cmd.AddCommand(newCmdSessionSetModel(f))
 	return cmd
 }
 
@@ -2036,7 +2038,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				_, branchName, _ := strings.Cut(canonical, ":")
 				branchArg = &branchName
 			}
-			if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg); err != nil {
+			if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil); err != nil {
 				return api.MapError(err)
 			}
 			recorded := "session"
