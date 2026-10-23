@@ -101,21 +101,21 @@ func TestTeamStopSet911OmitsAbsentFields(t *testing.T) {
 
 func TestTeamStopSet911LocalRefusalsSendNothing(t *testing.T) {
 	for _, args := range [][]string{
-		{"--level", "halt", "--worker", "w"},                                                      // no --scope
-		{"--scope", "team", "--worker", "w"},                                                      // no --level
-		{"--scope", "team", "--level", "stop", "--worker", "w"},                                   // bad level
-		{"--scope", "org", "--level", "halt", "--worker", "w"},                                    // bad scope
-		{"--scope", "worker", "--level", "halt"},                                                  // worker scope, no target
-		{"--scope", "team", "--level", "halt"},                                                    // team scope, no head
-		{"--scope", "worker", "--level", "halt", "--worker", "w", "--host", "h"},                  // host on a worker scope
-		{"--scope", "host", "--level", "halt", "--worker", "w"},                                   // worker on a host scope
-		{"--scope", "worker", "--level", "halt", "--worker", "w", "--until", "tomorrow"},          // not a timestamp
+		{"--level", "halt", "--worker", "w"},                                                        // no --scope
+		{"--scope", "team", "--worker", "w"},                                                        // no --level
+		{"--scope", "team", "--level", "stop", "--worker", "w"},                                     // bad level
+		{"--scope", "org", "--level", "halt", "--worker", "w"},                                      // bad scope
+		{"--scope", "worker", "--level", "halt"},                                                    // worker scope, no target
+		{"--scope", "team", "--level", "halt"},                                                      // team scope, no head
+		{"--scope", "worker", "--level", "halt", "--worker", "w", "--host", "h"},                    // host on a worker scope
+		{"--scope", "host", "--level", "halt", "--worker", "w"},                                     // worker on a host scope
+		{"--scope", "worker", "--level", "halt", "--worker", "w", "--until", "tomorrow"},            // not a timestamp
 		{"--scope", "worker", "--level", "halt", "--worker", "w", "--until", "2026-12-01T10:00:00"}, // no offset
-		{"--scope", "worker", "--level", "halt", "--worker", ""},                                  // empty target
-		{"--scope", "worker", "--level", "halt", "--worker", "w", "extra"},                        // stray argument
+		{"--scope", "worker", "--level", "halt", "--worker", ""},                                    // empty target
+		{"--scope", "worker", "--level", "halt", "--worker", "w", "extra"},                          // stray argument
 	} {
 		calls, out, err := runTeamTask(t, stopResponses(), append([]string{"team", "stop", "set"}, args...)...)
-		if code := exitcode.FromError(err); code != exitcode.Usage {
+		if code := exitCodeFor(err); code != exitcode.Usage {
 			t.Errorf("%v: exit %d (%v), want %d", args, code, err, exitcode.Usage)
 		}
 		if n := len(stopCalls(calls, "TeamStopSignalSet")); n != 0 {
@@ -174,7 +174,7 @@ func TestTeamStopLift911(t *testing.T) {
 	if !strings.Contains(out, "already ended") || strings.Contains(out, "Lifted") {
 		t.Fatalf("unchanged lift text:\n%s", out)
 	}
-	if !strings.Contains(out, "other stop signals") {
+	if !strings.Contains(strings.ToLower(out), "other stop signals") {
 		t.Fatalf("lift text must say other signals may remain:\n%s", out)
 	}
 	for _, never := range []string{"resumed", "all workers"} {
@@ -185,7 +185,7 @@ func TestTeamStopLift911(t *testing.T) {
 
 	for _, args := range [][]string{{}, {"a", "b"}, {""}} {
 		calls, _, err := runTeamTask(t, stopResponses(), append([]string{"team", "stop", "lift"}, args...)...)
-		if exitcode.FromError(err) != exitcode.Usage || len(stopCalls(calls, "TeamStopSignalLift")) != 0 {
+		if exitCodeFor(err) != exitcode.Usage || len(stopCalls(calls, "TeamStopSignalLift")) != 0 {
 			t.Errorf("lift %v: err %v", args, err)
 		}
 	}
@@ -250,7 +250,7 @@ func TestTeamStopList911RefusesAStalledCursor(t *testing.T) {
 		r := stopResponses()
 		r["TeamStopSignals"] = `{"data":{"teamStopSignals":{"signals":[` + stopSignalJSON + `],"pageInfo":` + pageInfo + `}}}`
 		_, out, err := runTeamTask(t, r, "team", "stop", "list", "--json")
-		if exitcode.FromError(err) != exitcode.Error || out != "" {
+		if exitCodeFor(err) != exitcode.Error || out != "" {
 			t.Fatalf("%s: err %v out %q", pageInfo, err, out)
 		}
 	}
@@ -264,7 +264,7 @@ func TestTeamStopList911RefusesAStalledCursor(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"--server", srv.URL, "team", "stop", "list", "--json"})
 	err := root.Execute()
-	if exitcode.FromError(err) != exitcode.Error || out.String() != "" || len(stopCalls(calls, "TeamStopSignals")) != 2 {
+	if exitCodeFor(err) != exitcode.Error || out.String() != "" || len(stopCalls(calls, "TeamStopSignals")) != 2 {
 		t.Fatalf("repeated cursor: err %v out %q calls %d", err, out.String(), len(stopCalls(calls, "TeamStopSignals")))
 	}
 }
@@ -296,7 +296,7 @@ func TestTeamStop911RefusalsUseFixedSentences(t *testing.T) {
 		}
 		calls, out, err := runTeamTask(t, r, append([]string{"team", "stop"}, tc.args...)...)
 		name := tc.code + " " + tc.args[0]
-		if got := exitcode.FromError(err); got != tc.exit {
+		if got := exitCodeFor(err); got != tc.exit {
 			t.Errorf("%s: exit %d, want %d (%v)", name, got, tc.exit, err)
 			continue
 		}
@@ -347,8 +347,8 @@ func TestTeamStop911AmbiguousWriteIsSentOnce(t *testing.T) {
 		root := NewRootCmd(f)
 		root.SetArgs(append([]string{"--server", srv.URL, "team", "stop"}, args...))
 		err := root.Execute()
-		if exitcode.FromError(err) != exitcode.Unavailable || writes != 1 || out.String() != "" {
-			t.Fatalf("%v: exit %d writes %d out %q", args, exitcode.FromError(err), writes, out.String())
+		if exitCodeFor(err) != exitcode.Unavailable || writes != 1 || out.String() != "" {
+			t.Fatalf("%v: exit %d writes %d out %q", args, exitCodeFor(err), writes, out.String())
 		}
 		if !strings.Contains(err.Error(), "team stop list") {
 			t.Fatalf("%v: ambiguous outcome must point at a read: %v", args, err)
