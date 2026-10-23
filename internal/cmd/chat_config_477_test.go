@@ -400,3 +400,42 @@ func TestChatDoctorMalformedConfigFailsEvenWhenFlagsResolve(t *testing.T) {
 		t.Errorf("doctor = %+v", dto)
 	}
 }
+
+// An unreadable nearer file is walked past to an ancestor, as read and post
+// do; show reports it and doctor fails on it.
+func TestChatConfigUnreadableNearerFileIsSkippedAndReported(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads a 0o000 file")
+	}
+	dir := chatConfigDir(t, `{"chat":{"node":"hrn:node:acme.com:tc:chats:api:messages"}}`)
+	near := filepath.Join(dir, "a", ".hadron", "config.json")
+	if err := os.MkdirAll(filepath.Dir(near), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(near, []byte(`{"appKey":"`+chatConfigSecret+`"}`), 0o000); err != nil {
+		t.Fatal(err)
+	}
+	out, err := runChat(t, "chat", "config", "show", "--json", "--server", "http://127.0.0.1:1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto chatConfigShow
+	_ = json.Unmarshal([]byte(out), &dto)
+	if len(dto.Config.Skipped) != 1 || dto.Config.Skipped[0].Path != near {
+		t.Errorf("skipped = %+v, want %s", dto.Config.Skipped, near)
+	}
+	if dto.Config.Path == nil || *dto.Config.Path != filepath.Join(dir, ".hadron", "config.json") || dto.Resolved == nil {
+		t.Errorf("the ancestor must still resolve: %+v / %+v", dto.Config, dto.Resolved)
+	}
+
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetChannel": `{"data":{"channel":` + doctorChannelJSON + `}}`,
+	})
+	out, err = runChat(t, "chat", "doctor", "--json", "--server", gql.URL)
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("exit = %d (%v), want Usage", code, err)
+	}
+	if strings.Contains(out, chatConfigSecret) {
+		t.Error("the unreadable file's bytes leaked")
+	}
+}
