@@ -58,6 +58,7 @@ shows the derived corpus state and counts per-node approval and mint status.
 Every subcommand takes -m/--memory.`,
 	}
 	cmd.AddCommand(newCmdLs(f))
+	cmd.AddCommand(newCmdLabelReport(f))
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdDescribe(f))
 	cmd.AddCommand(newCmdRegister(f))

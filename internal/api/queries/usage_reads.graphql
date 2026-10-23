@@ -1,0 +1,20 @@
+# cli#65 read-only observability. No accounting mutation or deprecated nodeUsage.
+query UsageEvents(
+  # @genqlient(omitempty: true)
+  $memoryId: ID
+  # @genqlient(omitempty: true)
+  $loc: String
+  # @genqlient(omitempty: true)
+  $eventType: String
+  $limit: Int!
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  usageEvents(memoryId: $memoryId, loc: $loc, type: $eventType, limit: $limit, offset: $offset) {
+    id type createdAt memoryId nodeLoc provider model keyOwnerType
+    tokensIn tokensOut costMicroCents
+  }
+}
+query MemoryUsageSummary($memoryRef: ID!) {
+  memoryUsageSummary(memoryRef: $memoryRef) { nodeLoc type count }
+}

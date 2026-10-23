@@ -133,20 +133,28 @@ func itoa(n int) string {
 // writeChannel renders one Channel in both branches.
 func writeChannel(f *cmdutil.Factory, d channelDTO) error {
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-		t := output.NewTable(w, "FIELD", "VALUE")
-		t.Row("name", d.Name)
-		t.Row("id", d.ID)
-		if d.ChatRootURN != nil && *d.ChatRootURN != "" {
-			t.Row("address", *d.ChatRootURN)
-		} else {
-			t.Row("address", "(none advertised — use the id)")
-		}
-		t.Row("memory", d.MemoryURN)
-		t.Row("loc", d.Loc)
-		if d.Description != nil && *d.Description != "" {
-			t.Row("description", *d.Description)
-		}
-		t.Row("last seq", itoa(d.LastSeq))
-		return t.Flush()
+		return writeChannelText(w, d, nil)
 	})
+}
+
+// Optional URL is get-only; other callers retain the original table.
+func writeChannelText(w io.Writer, d channelDTO, portalURL *string) error {
+	t := output.NewTable(w, "FIELD", "VALUE")
+	t.Row("name", d.Name)
+	t.Row("id", d.ID)
+	if d.ChatRootURN != nil && *d.ChatRootURN != "" {
+		t.Row("address", *d.ChatRootURN)
+	} else {
+		t.Row("address", "(none advertised — use the id)")
+	}
+	t.Row("memory", d.MemoryURN)
+	t.Row("loc", d.Loc)
+	if d.Description != nil && *d.Description != "" {
+		t.Row("description", *d.Description)
+	}
+	t.Row("last seq", itoa(d.LastSeq))
+	if portalURL != nil {
+		t.Row("URL:", *portalURL)
+	}
+	return t.Flush()
 }

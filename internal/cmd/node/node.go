@@ -168,6 +168,8 @@ func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
+	cmd.AddCommand(newCmdOpen(f))
+	cmd.AddCommand(newCmdNext(f))
 	cmd.AddCommand(newCmdAdd(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdMove(f))

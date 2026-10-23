@@ -360,6 +360,18 @@ may have at most 2000 UTF-16 code units, including whitespace and newlines;
 `spec list` and search, use `--description` or `--description-file` on the same
 guarded `spec edit` command. The description is not in the editor buffer.
 
+To correct a spec's title (the text after `<citation> — ` in its name), use
+`--title "<text>"` on the same guarded command: pass the text only, the citation
+prefix is kept for you. `--title` alone opens no editor, and a title equal to the
+stored one writes nothing. The title is one of the approval-hash fields, so a
+retitle supersedes an existing approval; after a save the command prints the
+approval status the server reports, and `--dry-run` shows the name change as a
+diff first.
+
+```sh
+hadron spec edit cor:dmo:110:03 -m $M --title "Writers may comment" --dry-run
+```
+
 Use `extract` when part of a fat rule deserves its own citation. Pipe or pass
 the moved chunk as the new body; `--strip-source` trims it from the old body only
 when it matches verbatim.

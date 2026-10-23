@@ -6023,6 +6023,212 @@ var AllAiConfigOwnerType = []AiConfigOwnerType{
 	AiConfigOwnerTypeOrganization,
 }
 
+// AiModelPriceFields includes the GraphQL fields of AiModelPrice requested by the fragment AiModelPriceFields.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: effective-dated provider rate row. Prices are
+// micro-cents (1e-8 USD) per MILLION tokens, as base-10 integer strings.
+type AiModelPriceFields struct {
+	Id       string `json:"id"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	// Pricing tier 1-3; tier 1 is the default everything resolves today.
+	Tier                    int    `json:"tier"`
+	InputMicroCentsPerMTok  string `json:"inputMicroCentsPerMTok"`
+	OutputMicroCentsPerMTok string `json:"outputMicroCentsPerMTok"`
+	// Per-tier debit markup in basis points (2500 = 25%). Null falls back
+	// to the CREDIT_MARKUP_PERCENT env default.
+	MarkupBasisPoints *int    `json:"markupBasisPoints"`
+	EffectiveAt       string  `json:"effectiveAt"`
+	CreatedAt         string  `json:"createdAt"`
+	CreatedBy         *string `json:"createdBy"`
+}
+
+// GetId returns AiModelPriceFields.Id, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetId() string { return v.Id }
+
+// GetProvider returns AiModelPriceFields.Provider, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetProvider() string { return v.Provider }
+
+// GetModel returns AiModelPriceFields.Model, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetModel() string { return v.Model }
+
+// GetTier returns AiModelPriceFields.Tier, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetTier() int { return v.Tier }
+
+// GetInputMicroCentsPerMTok returns AiModelPriceFields.InputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetInputMicroCentsPerMTok() string { return v.InputMicroCentsPerMTok }
+
+// GetOutputMicroCentsPerMTok returns AiModelPriceFields.OutputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetOutputMicroCentsPerMTok() string { return v.OutputMicroCentsPerMTok }
+
+// GetMarkupBasisPoints returns AiModelPriceFields.MarkupBasisPoints, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetMarkupBasisPoints() *int { return v.MarkupBasisPoints }
+
+// GetEffectiveAt returns AiModelPriceFields.EffectiveAt, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetEffectiveAt() string { return v.EffectiveAt }
+
+// GetCreatedAt returns AiModelPriceFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetCreatedBy returns AiModelPriceFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AiModelPriceFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// AiModelPricesAiModelPricesAiModelPriceList includes the requested fields of the GraphQL type AiModelPriceList.
+type AiModelPricesAiModelPricesAiModelPriceList struct {
+	Total int                                                            `json:"total"`
+	Items []*AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice `json:"items"`
+}
+
+// GetTotal returns AiModelPricesAiModelPricesAiModelPriceList.Total, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceList) GetTotal() int { return v.Total }
+
+// GetItems returns AiModelPricesAiModelPricesAiModelPriceList.Items, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceList) GetItems() []*AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice {
+	return v.Items
+}
+
+// AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice includes the requested fields of the GraphQL type AiModelPrice.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: effective-dated provider rate row. Prices are
+// micro-cents (1e-8 USD) per MILLION tokens, as base-10 integer strings.
+type AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice struct {
+	AiModelPriceFields `json:"-"`
+}
+
+// GetId returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.Id, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetId() string {
+	return v.AiModelPriceFields.Id
+}
+
+// GetProvider returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.Provider, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetProvider() string {
+	return v.AiModelPriceFields.Provider
+}
+
+// GetModel returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.Model, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetModel() string {
+	return v.AiModelPriceFields.Model
+}
+
+// GetTier returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.Tier, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetTier() int {
+	return v.AiModelPriceFields.Tier
+}
+
+// GetInputMicroCentsPerMTok returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.InputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetInputMicroCentsPerMTok() string {
+	return v.AiModelPriceFields.InputMicroCentsPerMTok
+}
+
+// GetOutputMicroCentsPerMTok returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.OutputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetOutputMicroCentsPerMTok() string {
+	return v.AiModelPriceFields.OutputMicroCentsPerMTok
+}
+
+// GetMarkupBasisPoints returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.MarkupBasisPoints, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetMarkupBasisPoints() *int {
+	return v.AiModelPriceFields.MarkupBasisPoints
+}
+
+// GetEffectiveAt returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.EffectiveAt, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetEffectiveAt() string {
+	return v.AiModelPriceFields.EffectiveAt
+}
+
+// GetCreatedAt returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetCreatedAt() string {
+	return v.AiModelPriceFields.CreatedAt
+}
+
+// GetCreatedBy returns AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) GetCreatedBy() *string {
+	return v.AiModelPriceFields.CreatedBy
+}
+
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiModelPriceFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice struct {
+	Id string `json:"id"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	Tier int `json:"tier"`
+
+	InputMicroCentsPerMTok string `json:"inputMicroCentsPerMTok"`
+
+	OutputMicroCentsPerMTok string `json:"outputMicroCentsPerMTok"`
+
+	MarkupBasisPoints *int `json:"markupBasisPoints"`
+
+	EffectiveAt string `json:"effectiveAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice) __premarshalJSON() (*__premarshalAiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice, error) {
+	var retval __premarshalAiModelPricesAiModelPricesAiModelPriceListItemsAiModelPrice
+
+	retval.Id = v.AiModelPriceFields.Id
+	retval.Provider = v.AiModelPriceFields.Provider
+	retval.Model = v.AiModelPriceFields.Model
+	retval.Tier = v.AiModelPriceFields.Tier
+	retval.InputMicroCentsPerMTok = v.AiModelPriceFields.InputMicroCentsPerMTok
+	retval.OutputMicroCentsPerMTok = v.AiModelPriceFields.OutputMicroCentsPerMTok
+	retval.MarkupBasisPoints = v.AiModelPriceFields.MarkupBasisPoints
+	retval.EffectiveAt = v.AiModelPriceFields.EffectiveAt
+	retval.CreatedAt = v.AiModelPriceFields.CreatedAt
+	retval.CreatedBy = v.AiModelPriceFields.CreatedBy
+	return &retval, nil
+}
+
+// AiModelPricesResponse is returned by AiModelPrices on success.
+type AiModelPricesResponse struct {
+	// Provider rate rows, newest effective first, optional provider/model filter (spec 046). Authenticated read.
+	AiModelPrices *AiModelPricesAiModelPricesAiModelPriceList `json:"aiModelPrices"`
+}
+
+// GetAiModelPrices returns AiModelPricesResponse.AiModelPrices, and is useful for accessing the field via an interface.
+func (v *AiModelPricesResponse) GetAiModelPrices() *AiModelPricesAiModelPricesAiModelPriceList {
+	return v.AiModelPrices
+}
+
 // AiProviderEndpointsAiProviderEndpointsAiProviderEndpoint includes the requested fields of the GraphQL type AiProviderEndpoint.
 // The GraphQL type's documentation follows.
 //
@@ -18651,6 +18857,232 @@ func (v *CreateUserInvitationResponse) GetCreateUserInvitation() *CreateUserInvi
 	return v.CreateUserInvitation
 }
 
+// CreditBalanceCreditBalance includes the requested fields of the GraphQL type CreditBalance.
+type CreditBalanceCreditBalance struct {
+	OrganizationId    string `json:"organizationId"`
+	BalanceMicroCents string `json:"balanceMicroCents"`
+}
+
+// GetOrganizationId returns CreditBalanceCreditBalance.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreditBalanceCreditBalance) GetOrganizationId() string { return v.OrganizationId }
+
+// GetBalanceMicroCents returns CreditBalanceCreditBalance.BalanceMicroCents, and is useful for accessing the field via an interface.
+func (v *CreditBalanceCreditBalance) GetBalanceMicroCents() string { return v.BalanceMicroCents }
+
+// CreditBalanceResponse is returned by CreditBalance on success.
+type CreditBalanceResponse struct {
+	// One org's credit balance - SUM over the append-only ledger (spec 046). Org-ADMIN.
+	CreditBalance *CreditBalanceCreditBalance `json:"creditBalance"`
+}
+
+// GetCreditBalance returns CreditBalanceResponse.CreditBalance, and is useful for accessing the field via an interface.
+func (v *CreditBalanceResponse) GetCreditBalance() *CreditBalanceCreditBalance {
+	return v.CreditBalance
+}
+
+// CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList includes the requested fields of the GraphQL type CreditLedgerEntryList.
+type CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList struct {
+	Total int                                                                                  `json:"total"`
+	Items []*CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry `json:"items"`
+}
+
+// GetTotal returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList.Total, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList) GetTotal() int { return v.Total }
+
+// GetItems returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList.Items, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList) GetItems() []*CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry {
+	return v.Items
+}
+
+// CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry includes the requested fields of the GraphQL type CreditLedgerEntry.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: append-only org credit ledger row. Signed
+// micro-cents as a base-10 integer string (grants +, debits -).
+type CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry struct {
+	CreditLedgerEntryFields `json:"-"`
+}
+
+// GetId returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.Id, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetId() string {
+	return v.CreditLedgerEntryFields.Id
+}
+
+// GetOrganizationId returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetOrganizationId() string {
+	return v.CreditLedgerEntryFields.OrganizationId
+}
+
+// GetKind returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.Kind, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetKind() string {
+	return v.CreditLedgerEntryFields.Kind
+}
+
+// GetAmountMicroCents returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.AmountMicroCents, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetAmountMicroCents() string {
+	return v.CreditLedgerEntryFields.AmountMicroCents
+}
+
+// GetExpiresAt returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetExpiresAt() *string {
+	return v.CreditLedgerEntryFields.ExpiresAt
+}
+
+// GetSourceType returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.SourceType, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetSourceType() *string {
+	return v.CreditLedgerEntryFields.SourceType
+}
+
+// GetSourceId returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.SourceId, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetSourceId() *string {
+	return v.CreditLedgerEntryFields.SourceId
+}
+
+// GetNote returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.Note, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetNote() *string {
+	return v.CreditLedgerEntryFields.Note
+}
+
+// GetCreatedAt returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetCreatedAt() string {
+	return v.CreditLedgerEntryFields.CreatedAt
+}
+
+// GetCreatedBy returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetCreatedBy() *string {
+	return v.CreditLedgerEntryFields.CreatedBy
+}
+
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CreditLedgerEntryFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Kind string `json:"kind"`
+
+	AmountMicroCents string `json:"amountMicroCents"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	SourceType *string `json:"sourceType"`
+
+	SourceId *string `json:"sourceId"`
+
+	Note *string `json:"note"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) __premarshalJSON() (*__premarshalCreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry, error) {
+	var retval __premarshalCreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry
+
+	retval.Id = v.CreditLedgerEntryFields.Id
+	retval.OrganizationId = v.CreditLedgerEntryFields.OrganizationId
+	retval.Kind = v.CreditLedgerEntryFields.Kind
+	retval.AmountMicroCents = v.CreditLedgerEntryFields.AmountMicroCents
+	retval.ExpiresAt = v.CreditLedgerEntryFields.ExpiresAt
+	retval.SourceType = v.CreditLedgerEntryFields.SourceType
+	retval.SourceId = v.CreditLedgerEntryFields.SourceId
+	retval.Note = v.CreditLedgerEntryFields.Note
+	retval.CreatedAt = v.CreditLedgerEntryFields.CreatedAt
+	retval.CreatedBy = v.CreditLedgerEntryFields.CreatedBy
+	return &retval, nil
+}
+
+// CreditLedgerEntriesResponse is returned by CreditLedgerEntries on success.
+type CreditLedgerEntriesResponse struct {
+	// One org's append-only credit-ledger page, newest first (spec 046). Org-ADMIN.
+	CreditLedgerEntries *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList `json:"creditLedgerEntries"`
+}
+
+// GetCreditLedgerEntries returns CreditLedgerEntriesResponse.CreditLedgerEntries, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesResponse) GetCreditLedgerEntries() *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList {
+	return v.CreditLedgerEntries
+}
+
+// CreditLedgerEntryFields includes the GraphQL fields of CreditLedgerEntry requested by the fragment CreditLedgerEntryFields.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: append-only org credit ledger row. Signed
+// micro-cents as a base-10 integer string (grants +, debits -).
+type CreditLedgerEntryFields struct {
+	Id               string  `json:"id"`
+	OrganizationId   string  `json:"organizationId"`
+	Kind             string  `json:"kind"`
+	AmountMicroCents string  `json:"amountMicroCents"`
+	ExpiresAt        *string `json:"expiresAt"`
+	SourceType       *string `json:"sourceType"`
+	SourceId         *string `json:"sourceId"`
+	Note             *string `json:"note"`
+	CreatedAt        string  `json:"createdAt"`
+	CreatedBy        *string `json:"createdBy"`
+}
+
+// GetId returns CreditLedgerEntryFields.Id, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetId() string { return v.Id }
+
+// GetOrganizationId returns CreditLedgerEntryFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetKind returns CreditLedgerEntryFields.Kind, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetKind() string { return v.Kind }
+
+// GetAmountMicroCents returns CreditLedgerEntryFields.AmountMicroCents, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetAmountMicroCents() string { return v.AmountMicroCents }
+
+// GetExpiresAt returns CreditLedgerEntryFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetSourceType returns CreditLedgerEntryFields.SourceType, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetSourceType() *string { return v.SourceType }
+
+// GetSourceId returns CreditLedgerEntryFields.SourceId, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetSourceId() *string { return v.SourceId }
+
+// GetNote returns CreditLedgerEntryFields.Note, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetNote() *string { return v.Note }
+
+// GetCreatedAt returns CreditLedgerEntryFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetCreatedBy returns CreditLedgerEntryFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetCreatedBy() *string { return v.CreatedBy }
+
 // DeleteAgentResponse is returned by DeleteAgent on success.
 type DeleteAgentResponse struct {
 	// Soft-delete an Agent and its owned system memory. Refuses while a live
@@ -19753,6 +20185,102 @@ func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffective
 	return v.EffectiveAccess
 }
 
+// EmailConnectionsExchangeConnectionsExchangeConnection includes the requested fields of the GraphQL type ExchangeConnection.
+// The GraphQL type's documentation follows.
+//
+// A connected PROVIDER ACCOUNT (identity record) — despite the name, this
+// one type carries mailboxes, calendars and Drive accounts alike; the
+// provider field below says which, and each routes to its own capability
+// tool. Provider state lives in that tool, never here.
+//
+// Operations are identity-scoped: the connection's OWNER may perform them,
+// and an App/headless caller may perform those covered by a live
+// ConnectionGrant whose scopes include the operation's (requireEmailConnection
+// enforces both branches, fail-closed for an unmapped operation). list and
+// delete stay org-ADMIN management operations.
+type EmailConnectionsExchangeConnectionsExchangeConnection struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	UserId         string `json:"userId"`
+	MailboxEmail   string `json:"mailboxEmail"`
+	// Provider backing this connection. Dispatched per-connection through
+	// the tool registry: `ms-exchange`, `gmail`, `google-cal`,
+	// `google-drive`. (This said "'ms-exchange' today" until #1232 — true
+	// when written, and three providers out of date by the time it was
+	// published.)
+	Provider    string     `json:"provider"`
+	DisplayName *string    `json:"displayName"`
+	SyncEnabled bool       `json:"syncEnabled"`
+	SyncStatus  SyncStatus `json:"syncStatus"`
+	LastSyncAt  *string    `json:"lastSyncAt"`
+	CreatedAt   string     `json:"createdAt"`
+	UpdatedAt   string     `json:"updatedAt"`
+}
+
+// GetId returns EmailConnectionsExchangeConnectionsExchangeConnection.Id, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetId() string { return v.Id }
+
+// GetOrganizationId returns EmailConnectionsExchangeConnectionsExchangeConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetUserId returns EmailConnectionsExchangeConnectionsExchangeConnection.UserId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetUserId() string { return v.UserId }
+
+// GetMailboxEmail returns EmailConnectionsExchangeConnectionsExchangeConnection.MailboxEmail, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetMailboxEmail() string {
+	return v.MailboxEmail
+}
+
+// GetProvider returns EmailConnectionsExchangeConnectionsExchangeConnection.Provider, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetProvider() string {
+	return v.Provider
+}
+
+// GetDisplayName returns EmailConnectionsExchangeConnectionsExchangeConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetDisplayName() *string {
+	return v.DisplayName
+}
+
+// GetSyncEnabled returns EmailConnectionsExchangeConnectionsExchangeConnection.SyncEnabled, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetSyncEnabled() bool {
+	return v.SyncEnabled
+}
+
+// GetSyncStatus returns EmailConnectionsExchangeConnectionsExchangeConnection.SyncStatus, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetSyncStatus() SyncStatus {
+	return v.SyncStatus
+}
+
+// GetLastSyncAt returns EmailConnectionsExchangeConnectionsExchangeConnection.LastSyncAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetLastSyncAt() *string {
+	return v.LastSyncAt
+}
+
+// GetCreatedAt returns EmailConnectionsExchangeConnectionsExchangeConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns EmailConnectionsExchangeConnectionsExchangeConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// EmailConnectionsResponse is returned by EmailConnections on success.
+type EmailConnectionsResponse struct {
+	// Exchange connections for an org.
+	//
+	// Accepts the entity's ID or URN.
+	ExchangeConnections []*EmailConnectionsExchangeConnectionsExchangeConnection `json:"exchangeConnections"`
+}
+
+// GetExchangeConnections returns EmailConnectionsResponse.ExchangeConnections, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsResponse) GetExchangeConnections() []*EmailConnectionsExchangeConnectionsExchangeConnection {
+	return v.ExchangeConnections
+}
+
 // EncryptMemoryEncryptMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -20640,7 +21168,13 @@ func (v *FindObjectsResponse) GetFindObjects() *FindObjectsFindObjectsObjectList
 // not the Agent, is the org- or user-owned caller identity and deployment.
 type GetAgentAgent struct {
 	AgentFields `json:"-"`
+	// #2281 - the URN of the Agent this one was cloned from (cloneAgent), as that Agent's current URN. Null when
+	// this is not a clone, when you cannot read the source, when the source was deleted, or when the clone's origin identity is not recorded: those cases are indistinguishable by design. Never an id or an object.
+	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
 }
+
+// GetClonedFromAgentRef returns GetAgentAgent.ClonedFromAgentRef, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetClonedFromAgentRef() *string { return v.ClonedFromAgentRef }
 
 // GetId returns GetAgentAgent.Id, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetId() string { return v.AgentFields.Id }
@@ -20733,6 +21267,8 @@ func (v *GetAgentAgent) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalGetAgentAgent struct {
+	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
+
 	Id string `json:"id"`
 
 	Urn string `json:"urn"`
@@ -20787,6 +21323,7 @@ func (v *GetAgentAgent) MarshalJSON() ([]byte, error) {
 func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	var retval __premarshalGetAgentAgent
 
+	retval.ClonedFromAgentRef = v.ClonedFromAgentRef
 	retval.Id = v.AgentFields.Id
 	retval.Urn = v.AgentFields.Urn
 	retval.Name = v.AgentFields.Name
@@ -27388,6 +27925,35 @@ var AllMemoryTransferHandling = []MemoryTransferHandling{
 	MemoryTransferHandlingRemove,
 }
 
+// MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry includes the requested fields of the GraphQL type UsageSummaryEntry.
+type MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry struct {
+	NodeLoc string `json:"nodeLoc"`
+	Type    string `json:"type"`
+	Count   int    `json:"count"`
+}
+
+// GetNodeLoc returns MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry.NodeLoc, and is useful for accessing the field via an interface.
+func (v *MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry) GetNodeLoc() string { return v.NodeLoc }
+
+// GetType returns MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry.Type, and is useful for accessing the field via an interface.
+func (v *MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry) GetType() string { return v.Type }
+
+// GetCount returns MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry.Count, and is useful for accessing the field via an interface.
+func (v *MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry) GetCount() int { return v.Count }
+
+// MemoryUsageSummaryResponse is returned by MemoryUsageSummary on success.
+type MemoryUsageSummaryResponse struct {
+	// Aggregated usage counts per node and type for a memory.
+	//
+	// Accepts the entity's ID or URN.
+	MemoryUsageSummary []*MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry `json:"memoryUsageSummary"`
+}
+
+// GetMemoryUsageSummary returns MemoryUsageSummaryResponse.MemoryUsageSummary, and is useful for accessing the field via an interface.
+func (v *MemoryUsageSummaryResponse) GetMemoryUsageSummary() []*MemoryUsageSummaryMemoryUsageSummaryUsageSummaryEntry {
+	return v.MemoryUsageSummary
+}
+
 // One health check the validator runs (#819).
 type MemoryValidationCheck string
 
@@ -28448,6 +29014,31 @@ type MyUserApiKeysResponse struct {
 func (v *MyUserApiKeysResponse) GetMyUserApiKeys() []*MyUserApiKeysMyUserApiKeysUserApiKey {
 	return v.MyUserApiKeys
 }
+
+// NextNodeResponse is returned by NextNode on success.
+type NextNodeResponse struct {
+	// The next sibling node under a parent, ordered by seq (#817) — the GraphQL
+	// twin of hadron_get_next_node, so guided reading order is no longer MCP-only.
+	//
+	// parentRef / currentRef take a node PK or a fully-qualified URN
+	// (cor:api:140). Omit currentRef to get the FIRST child.
+	//
+	// Order: seq ascending; a NULL seq sorts LAST, after every explicitly ordered
+	// sibling; ties break on loc ascending. Identical to the MCP tool, so the two
+	// surfaces cannot present different reading orders.
+	//
+	// Returns null at the end of the sibling chain, and for a parent that does
+	// not exist or the caller cannot read — denied and missing are indistinguishable. A
+	// currentRef that is not among the parent's direct children is likewise null
+	// rather than an error, so it cannot probe a node's parentage. A MALFORMED
+	// ref still throws: a shape error discloses nothing about what exists.
+	//
+	// Stateless — this is a next-sibling read, not a session-backed cursor.
+	NextNode *GetNodeNode `json:"nextNode"`
+}
+
+// GetNextNode returns NextNodeResponse.NextNode, and is useful for accessing the field via an interface.
+func (v *NextNodeResponse) GetNextNode() *GetNodeNode { return v.NextNode }
 
 // NodeApprovalFields includes the GraphQL fields of NodeApproval requested by the fragment NodeApprovalFields.
 // The GraphQL type's documentation follows.
@@ -30672,6 +31263,55 @@ func (v *NodeMintStatusFieldsMintedByNodeRevisionEditor) GetHandle() *string { r
 // GetUrn returns NodeMintStatusFieldsMintedByNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
 func (v *NodeMintStatusFieldsMintedByNodeRevisionEditor) GetUrn() *string { return v.Urn }
 
+// NodePortalNode includes the requested fields of the GraphQL type Node.
+type NodePortalNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+	// #881 — the portal URL that opens this node, built server-side so no client
+	// ever has to construct one (constructing means guessing which URN spelling
+	// the /app/u/<urn> route resolves, and the legacy '::' forms in circulation
+	// make that guess wrong). Form: <portal-origin>/app/u/<urn>, the portal's
+	// stable URN-alias route. NULL when the deployment has no portal origin
+	// configured (FRONTEND_URL) — a link to the wrong host is worse than none, so
+	// clients render the field only when present.
+	PortalUrl *string `json:"portalUrl"`
+}
+
+// GetId returns NodePortalNode.Id, and is useful for accessing the field via an interface.
+func (v *NodePortalNode) GetId() string { return v.Id }
+
+// GetUrn returns NodePortalNode.Urn, and is useful for accessing the field via an interface.
+func (v *NodePortalNode) GetUrn() string { return v.Urn }
+
+// GetPortalUrl returns NodePortalNode.PortalUrl, and is useful for accessing the field via an interface.
+func (v *NodePortalNode) GetPortalUrl() *string { return v.PortalUrl }
+
+// NodePortalResponse is returned by NodePortal on success.
+type NodePortalResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a readable memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
+	// resolve. Access: the caller's readable-memory set (same gate the old
+	// queries used); denied and missing are both null.
+	Node *NodePortalNode `json:"node"`
+}
+
+// GetNode returns NodePortalResponse.Node, and is useful for accessing the field via an interface.
+func (v *NodePortalResponse) GetNode() *NodePortalNode { return v.Node }
+
 // NodeRevisionNodeRevision includes the requested fields of the GraphQL type NodeRevision.
 type NodeRevisionNodeRevision struct {
 	RevisionFields `json:"-"`
@@ -32354,6 +32994,77 @@ var AllNodeTextField = []NodeTextField{
 	NodeTextFieldName,
 	NodeTextFieldTags,
 }
+
+// OrgAgentGrantsOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
+type OrgAgentGrantsOrganization struct {
+	// 008-agent-installation: this org's grants for using/bundling Agents.
+	// Resolvable to ADMIN/OWNER of the org only.
+	AgentOrgGrants []*OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant `json:"agentOrgGrants"`
+}
+
+// GetAgentOrgGrants returns OrgAgentGrantsOrganization.AgentOrgGrants, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganization) GetAgentOrgGrants() []*OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant {
+	return v.AgentOrgGrants
+}
+
+// OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant includes the requested fields of the GraphQL type AgentOrgGrant.
+// The GraphQL type's documentation follows.
+//
+// 008-agent-installation: Org↔Agent license. Authorizes (a) creating an App
+// in this Org that uses this Agent, and (b) bundling this Agent in an
+// AgentImport edge of an Agent the Org owns. Sibling to AgentSubscription.
+type OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant struct {
+	AgentId     string  `json:"agentId"`
+	OrgId       string  `json:"orgId"`
+	IsActive    bool    `json:"isActive"`
+	CreatedAt   string  `json:"createdAt"`
+	ActivatedAt *string `json:"activatedAt"`
+	ExpiresAt   *string `json:"expiresAt"`
+	RevokedAt   *string `json:"revokedAt"`
+}
+
+// GetAgentId returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.AgentId, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetAgentId() string { return v.AgentId }
+
+// GetOrgId returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.OrgId, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetOrgId() string { return v.OrgId }
+
+// GetIsActive returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.IsActive, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetIsActive() bool { return v.IsActive }
+
+// GetCreatedAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetActivatedAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetActivatedAt() *string {
+	return v.ActivatedAt
+}
+
+// GetExpiresAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetExpiresAt() *string {
+	return v.ExpiresAt
+}
+
+// GetRevokedAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetRevokedAt() *string {
+	return v.RevokedAt
+}
+
+// OrgAgentGrantsResponse is returned by OrgAgentGrants on success.
+type OrgAgentGrantsResponse struct {
+	// Fetch an Organization (org member or platform ADMIN).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Organization *OrgAgentGrantsOrganization `json:"organization"`
+}
+
+// GetOrganization returns OrgAgentGrantsResponse.Organization, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsResponse) GetOrganization() *OrgAgentGrantsOrganization { return v.Organization }
 
 // OrgFields includes the GraphQL fields of Organization requested by the fragment OrgFields.
 // The GraphQL type's documentation follows.
@@ -54773,6 +55484,103 @@ var AllUploadIntent = []UploadIntent{
 	UploadIntentUser,
 }
 
+// UsageEventsResponse is returned by UsageEvents on success.
+type UsageEventsResponse struct {
+	// Usage events (most recent first), optionally filtered by type, memoryId,
+	// or nodeId.
+	//
+	// Access control (#250): results are always scoped to memories the caller
+	// may read (org membership / subscriptions / public / owned personal+private
+	// per spec 034; ADMIN/OWNER see all EXCEPT another user's personal/private
+	// memories and, per spec 047, another user's user-owned memories). A
+	// memoryId the caller can't read returns [] (no existence leak); the global
+	// form (no memoryId) is bounded to the readable set, never cross-tenant.
+	//
+	// memoryId is a memory identifier — accepts the memory's ID or URN. Results
+	// are scoped on the denormalized UsageEvent.memoryId column (#796), so an
+	// event stays attributed to its memory after its node is deleted.
+	//
+	// nodeId is a node token accepting a PK, a fully-qualified URN, or a bare
+	// loc (no memoryId needed):
+	// - PK / URN  → resolved to a single node; scoped via its exact nodeId FK
+	// (memory-precise).
+	// - bare loc  → exact nodeLoc match, bounded to readable memories; not
+	// existence-checked. Shape-classified: a loc with 3+
+	// colon-separated segments qualifies as node-URN shape and
+	// takes the PK/URN branch instead — use loc for those.
+	// (This used to read "like nodeUsage but access-scoped" —
+	// a comment that named an ungated sibling without anyone
+	// following the pointer back. nodeUsage was gated in #802
+	// and deprecated as redundant in the same issue.)
+	//
+	// loc — the VERBATIM exact nodeLoc filter (never shape-sniffed, so every
+	// loc works, hierarchical spec citations included), bounded to readable
+	// memories; not existence-checked. The migration target for the deprecated
+	// nodeUsage(loc:) above — same match, same gate (PR-986 review, Codex P2).
+	// Mutually exclusive with nodeId (BAD_USER_INPUT when both are passed).
+	UsageEvents []*UsageEventsUsageEventsUsageEvent `json:"usageEvents"`
+}
+
+// GetUsageEvents returns UsageEventsResponse.UsageEvents, and is useful for accessing the field via an interface.
+func (v *UsageEventsResponse) GetUsageEvents() []*UsageEventsUsageEventsUsageEvent {
+	return v.UsageEvents
+}
+
+// UsageEventsUsageEventsUsageEvent includes the requested fields of the GraphQL type UsageEvent.
+type UsageEventsUsageEventsUsageEvent struct {
+	Id        string `json:"id"`
+	Type      string `json:"type"`
+	CreatedAt string `json:"createdAt"`
+	// Memory the event is attributed to (#796). Stored at write time, so it
+	// outlives the node — null only for events written before the backfill
+	// whose node was already deleted, or paths with no memory in scope.
+	MemoryId *string `json:"memoryId"`
+	NodeLoc  *string `json:"nodeLoc"`
+	Provider *string `json:"provider"`
+	Model    *string `json:"model"`
+	// Owner level of the API key that served the call
+	// (HADRON_SERVER means platform-paid; anything else is BYOK).
+	KeyOwnerType *string `json:"keyOwnerType"`
+	TokensIn     *int    `json:"tokensIn"`
+	TokensOut    *int    `json:"tokensOut"`
+	// Provider cost snapshot in micro-cents (1e-8 USD), as a base-10
+	// integer string. Null when the (provider, model) pair is unpriced.
+	CostMicroCents *string `json:"costMicroCents"`
+}
+
+// GetId returns UsageEventsUsageEventsUsageEvent.Id, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetId() string { return v.Id }
+
+// GetType returns UsageEventsUsageEventsUsageEvent.Type, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetType() string { return v.Type }
+
+// GetCreatedAt returns UsageEventsUsageEventsUsageEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetCreatedAt() string { return v.CreatedAt }
+
+// GetMemoryId returns UsageEventsUsageEventsUsageEvent.MemoryId, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetMemoryId() *string { return v.MemoryId }
+
+// GetNodeLoc returns UsageEventsUsageEventsUsageEvent.NodeLoc, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetNodeLoc() *string { return v.NodeLoc }
+
+// GetProvider returns UsageEventsUsageEventsUsageEvent.Provider, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetProvider() *string { return v.Provider }
+
+// GetModel returns UsageEventsUsageEventsUsageEvent.Model, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetModel() *string { return v.Model }
+
+// GetKeyOwnerType returns UsageEventsUsageEventsUsageEvent.KeyOwnerType, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetKeyOwnerType() *string { return v.KeyOwnerType }
+
+// GetTokensIn returns UsageEventsUsageEventsUsageEvent.TokensIn, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetTokensIn() *int { return v.TokensIn }
+
+// GetTokensOut returns UsageEventsUsageEventsUsageEvent.TokensOut, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetTokensOut() *int { return v.TokensOut }
+
+// GetCostMicroCents returns UsageEventsUsageEventsUsageEvent.CostMicroCents, and is useful for accessing the field via an interface.
+func (v *UsageEventsUsageEventsUsageEvent) GetCostMicroCents() *string { return v.CostMicroCents }
+
 // UserApiKeyFields includes the GraphQL fields of UserApiKey requested by the fragment UserApiKeyFields.
 // The GraphQL type's documentation follows.
 //
@@ -57233,6 +58041,30 @@ func (v *__AgentsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AgentsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentsInput) GetOffset() *int { return v.Offset }
 
+// __AiModelPricesInput is used internally by genqlient
+type __AiModelPricesInput struct {
+	Provider *string `json:"provider,omitempty"`
+	Model    *string `json:"model,omitempty"`
+	Tier     *int    `json:"tier,omitempty"`
+	Limit    *int    `json:"limit,omitempty"`
+	Offset   *int    `json:"offset,omitempty"`
+}
+
+// GetProvider returns __AiModelPricesInput.Provider, and is useful for accessing the field via an interface.
+func (v *__AiModelPricesInput) GetProvider() *string { return v.Provider }
+
+// GetModel returns __AiModelPricesInput.Model, and is useful for accessing the field via an interface.
+func (v *__AiModelPricesInput) GetModel() *string { return v.Model }
+
+// GetTier returns __AiModelPricesInput.Tier, and is useful for accessing the field via an interface.
+func (v *__AiModelPricesInput) GetTier() *int { return v.Tier }
+
+// GetLimit returns __AiModelPricesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AiModelPricesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AiModelPricesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AiModelPricesInput) GetOffset() *int { return v.Offset }
+
 // __AiProviderEndpointsInput is used internally by genqlient
 type __AiProviderEndpointsInput struct {
 	Provider string `json:"provider"`
@@ -58517,6 +59349,30 @@ func (v *__CreateUserInvitationInput) GetExpiresInDays() *int { return v.Expires
 // GetMaxActivations returns __CreateUserInvitationInput.MaxActivations, and is useful for accessing the field via an interface.
 func (v *__CreateUserInvitationInput) GetMaxActivations() *int { return v.MaxActivations }
 
+// __CreditBalanceInput is used internally by genqlient
+type __CreditBalanceInput struct {
+	OrgRef string `json:"orgRef"`
+}
+
+// GetOrgRef returns __CreditBalanceInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreditBalanceInput) GetOrgRef() string { return v.OrgRef }
+
+// __CreditLedgerEntriesInput is used internally by genqlient
+type __CreditLedgerEntriesInput struct {
+	OrgRef string `json:"orgRef"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetOrgRef returns __CreditLedgerEntriesInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreditLedgerEntriesInput) GetOrgRef() string { return v.OrgRef }
+
+// GetLimit returns __CreditLedgerEntriesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__CreditLedgerEntriesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __CreditLedgerEntriesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__CreditLedgerEntriesInput) GetOffset() *int { return v.Offset }
+
 // __DeleteAgentInput is used internally by genqlient
 type __DeleteAgentInput struct {
 	Ref string `json:"ref"`
@@ -58802,6 +59658,14 @@ func (v *__EffectiveAccessInput) GetUser() string { return v.User }
 
 // GetResource returns __EffectiveAccessInput.Resource, and is useful for accessing the field via an interface.
 func (v *__EffectiveAccessInput) GetResource() string { return v.Resource }
+
+// __EmailConnectionsInput is used internally by genqlient
+type __EmailConnectionsInput struct {
+	OrgId string `json:"orgId"`
+}
+
+// GetOrgId returns __EmailConnectionsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__EmailConnectionsInput) GetOrgId() string { return v.OrgId }
 
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
@@ -59383,6 +60247,14 @@ type __MemorySubscriptionsInput struct {
 // GetRef returns __MemorySubscriptionsInput.Ref, and is useful for accessing the field via an interface.
 func (v *__MemorySubscriptionsInput) GetRef() string { return v.Ref }
 
+// __MemoryUsageSummaryInput is used internally by genqlient
+type __MemoryUsageSummaryInput struct {
+	MemoryRef string `json:"memoryRef"`
+}
+
+// GetMemoryRef returns __MemoryUsageSummaryInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__MemoryUsageSummaryInput) GetMemoryRef() string { return v.MemoryRef }
+
 // __MergeNodesInput is used internally by genqlient
 type __MergeNodesInput struct {
 	Input *MergeNodesInput `json:"input,omitempty"`
@@ -59460,6 +60332,22 @@ func (v *__MoveNodeInput) GetTargetUrn() *string { return v.TargetUrn }
 
 // GetTargetMemoryRef returns __MoveNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
 func (v *__MoveNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
+
+// __NextNodeInput is used internally by genqlient
+type __NextNodeInput struct {
+	ParentRef  string  `json:"parentRef"`
+	CurrentRef *string `json:"currentRef,omitempty"`
+	Raw        bool    `json:"raw"`
+}
+
+// GetParentRef returns __NextNodeInput.ParentRef, and is useful for accessing the field via an interface.
+func (v *__NextNodeInput) GetParentRef() string { return v.ParentRef }
+
+// GetCurrentRef returns __NextNodeInput.CurrentRef, and is useful for accessing the field via an interface.
+func (v *__NextNodeInput) GetCurrentRef() *string { return v.CurrentRef }
+
+// GetRaw returns __NextNodeInput.Raw, and is useful for accessing the field via an interface.
+func (v *__NextNodeInput) GetRaw() bool { return v.Raw }
 
 // __NodeBatchInput is used internally by genqlient
 type __NodeBatchInput struct {
@@ -59569,6 +60457,14 @@ func (v *__NodeLiveRevisionsStampedInput) GetMemory() *string { return v.Memory 
 // GetLocPrefix returns __NodeLiveRevisionsStampedInput.LocPrefix, and is useful for accessing the field via an interface.
 func (v *__NodeLiveRevisionsStampedInput) GetLocPrefix() *string { return v.LocPrefix }
 
+// __NodePortalInput is used internally by genqlient
+type __NodePortalInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __NodePortalInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodePortalInput) GetRef() string { return v.Ref }
+
 // __NodeRevisionInput is used internally by genqlient
 type __NodeRevisionInput struct {
 	RevisionId string `json:"revisionId"`
@@ -59632,6 +60528,14 @@ func (v *__NodeSigningRequestsInput) GetState() *SigningRequestState { return v.
 
 // GetFirst returns __NodeSigningRequestsInput.First, and is useful for accessing the field via an interface.
 func (v *__NodeSigningRequestsInput) GetFirst() *int { return v.First }
+
+// __OrgAgentGrantsInput is used internally by genqlient
+type __OrgAgentGrantsInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __OrgAgentGrantsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__OrgAgentGrantsInput) GetRef() string { return v.Ref }
 
 // __OrgMembersInput is used internally by genqlient
 type __OrgMembersInput struct {
@@ -61983,6 +62887,30 @@ func (v *__UpdateWorkerSigningInput) GetSignature() *string { return v.Signature
 // GetTrailer returns __UpdateWorkerSigningInput.Trailer, and is useful for accessing the field via an interface.
 func (v *__UpdateWorkerSigningInput) GetTrailer() *string { return v.Trailer }
 
+// __UsageEventsInput is used internally by genqlient
+type __UsageEventsInput struct {
+	MemoryId  *string `json:"memoryId,omitempty"`
+	Loc       *string `json:"loc,omitempty"`
+	EventType *string `json:"eventType,omitempty"`
+	Limit     int     `json:"limit"`
+	Offset    *int    `json:"offset,omitempty"`
+}
+
+// GetMemoryId returns __UsageEventsInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetMemoryId() *string { return v.MemoryId }
+
+// GetLoc returns __UsageEventsInput.Loc, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetLoc() *string { return v.Loc }
+
+// GetEventType returns __UsageEventsInput.EventType, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetEventType() *string { return v.EventType }
+
+// GetLimit returns __UsageEventsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __UsageEventsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetOffset() *int { return v.Offset }
+
 // __ValidateMemoryInput is used internally by genqlient
 type __ValidateMemoryInput struct {
 	MemoryRef string `json:"memoryRef"`
@@ -63713,6 +64641,66 @@ func Agents(
 	}
 
 	data_ = &AgentsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AiModelPrices.
+const AiModelPrices_Operation = `
+query AiModelPrices ($provider: String, $model: String, $tier: Int, $limit: Int, $offset: Int) {
+	aiModelPrices(provider: $provider, model: $model, tier: $tier, limit: $limit, offset: $offset) {
+		total
+		items {
+			... AiModelPriceFields
+		}
+	}
+}
+fragment AiModelPriceFields on AiModelPrice {
+	id
+	provider
+	model
+	tier
+	inputMicroCentsPerMTok
+	outputMicroCentsPerMTok
+	markupBasisPoints
+	effectiveAt
+	createdAt
+	createdBy
+}
+`
+
+// Rate rows, provider/model/tier then newest effective first. Authenticated
+// read. An unset filter is omitted (the server treats "" as no filter, so the
+// command refuses an empty one rather than send it).
+func AiModelPrices(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	provider *string,
+	model *string,
+	tier *int,
+	limit *int,
+	offset *int,
+) (data_ *AiModelPricesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AiModelPrices",
+		Query:  AiModelPrices_Operation,
+		Variables: &__AiModelPricesInput{
+			Provider: provider,
+			Model:    model,
+			Tier:     tier,
+			Limit:    limit,
+			Offset:   offset,
+		},
+	}
+
+	data_ = &AiModelPricesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -67983,6 +68971,96 @@ func CreateUserInvitation(
 	return data_, err_
 }
 
+// The query executed by CreditBalance.
+const CreditBalance_Operation = `
+query CreditBalance ($orgRef: String!) {
+	creditBalance(orgRef: $orgRef) {
+		organizationId
+		balanceMicroCents
+	}
+}
+`
+
+// One org's balance: the SUM over its append-only ledger. Org-ADMIN.
+func CreditBalance(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+) (data_ *CreditBalanceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreditBalance",
+		Query:  CreditBalance_Operation,
+		Variables: &__CreditBalanceInput{
+			OrgRef: orgRef,
+		},
+	}
+
+	data_ = &CreditBalanceResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CreditLedgerEntries.
+const CreditLedgerEntries_Operation = `
+query CreditLedgerEntries ($orgRef: String!, $limit: Int, $offset: Int) {
+	creditLedgerEntries(orgRef: $orgRef, limit: $limit, offset: $offset) {
+		total
+		items {
+			... CreditLedgerEntryFields
+		}
+	}
+}
+fragment CreditLedgerEntryFields on CreditLedgerEntry {
+	id
+	organizationId
+	kind
+	amountMicroCents
+	expiresAt
+	sourceType
+	sourceId
+	note
+	createdAt
+	createdBy
+}
+`
+
+// One org's ledger page, newest first. Org-ADMIN.
+func CreditLedgerEntries(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	limit *int,
+	offset *int,
+) (data_ *CreditLedgerEntriesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreditLedgerEntries",
+		Query:  CreditLedgerEntries_Operation,
+		Variables: &__CreditLedgerEntriesInput{
+			OrgRef: orgRef,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &CreditLedgerEntriesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteAgent.
 const DeleteAgent_Operation = `
 mutation DeleteAgent ($ref: ID!) {
@@ -69085,6 +70163,51 @@ func EffectiveAccess(
 	return data_, err_
 }
 
+// The query executed by EmailConnections.
+const EmailConnections_Operation = `
+query EmailConnections ($orgId: ID!) {
+	exchangeConnections(orgId: $orgId) {
+		id
+		organizationId
+		userId
+		mailboxEmail
+		provider
+		displayName
+		syncEnabled
+		syncStatus
+		lastSyncAt
+		createdAt
+		updatedAt
+	}
+}
+`
+
+// Explicit org-admin metadata read; never request credentials or lastError.
+func EmailConnections(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+) (data_ *EmailConnectionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailConnections",
+		Query:  EmailConnections_Operation,
+		Variables: &__EmailConnectionsInput{
+			OrgId: orgId,
+		},
+	}
+
+	data_ = &EmailConnectionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by EncryptMemory.
 const EncryptMemory_Operation = `
 mutation EncryptMemory ($memoryId: ID!, $dataKey: String!) {
@@ -69478,6 +70601,7 @@ const GetAgent_Operation = `
 query GetAgent ($ref: ID!) {
 	agent(ref: $ref) {
 		... AgentFields
+		clonedFromAgentRef
 	}
 }
 fragment AgentFields on Agent {
@@ -71998,6 +73122,42 @@ func MemorySubscriptions(
 	return data_, err_
 }
 
+// The query executed by MemoryUsageSummary.
+const MemoryUsageSummary_Operation = `
+query MemoryUsageSummary ($memoryRef: ID!) {
+	memoryUsageSummary(memoryRef: $memoryRef) {
+		nodeLoc
+		type
+		count
+	}
+}
+`
+
+func MemoryUsageSummary(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+) (data_ *MemoryUsageSummaryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoryUsageSummary",
+		Query:  MemoryUsageSummary_Operation,
+		Variables: &__MemoryUsageSummaryInput{
+			MemoryRef: memoryRef,
+		},
+	}
+
+	data_ = &MemoryUsageSummaryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by MergeNodes.
 const MergeNodes_Operation = `
 mutation MergeNodes ($input: MergeNodesInput!) {
@@ -72391,6 +73551,92 @@ func MyUserApiKeys(
 	}
 
 	data_ = &MyUserApiKeysResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NextNode.
+const NextNode_Operation = `
+query NextNode ($parentRef: ID!, $currentRef: ID, $raw: Boolean!) {
+	nextNode(parentRef: $parentRef, currentRef: $currentRef, raw: $raw) {
+		id
+		urn
+		portalUrl
+		memoryId
+		memory {
+			urn
+		}
+		loc
+		name
+		description
+		abstract
+		abstractOriginHash
+		nodeType
+		role
+		objectType
+		tags
+		content
+		data
+		properties
+		seq
+		isRunnable
+		createdAt
+		updatedAt
+		outgoingEdges {
+			id
+			name
+			loc
+			isRunnable
+			priority
+			target {
+				id
+				loc
+				memoryId
+			}
+		}
+		incomingEdges {
+			id
+			name
+			loc
+			isRunnable
+			priority
+			source {
+				id
+				loc
+				memoryId
+			}
+		}
+	}
+}
+`
+
+// Stateless next sibling, cli#1009 / #102. Null deliberately conceals missing/denied.
+// Same projection and generated type as GetNode: genqlient rejects drift.
+func NextNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	parentRef string,
+	currentRef *string,
+	raw bool,
+) (data_ *NextNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NextNode",
+		Query:  NextNode_Operation,
+		Variables: &__NextNodeInput{
+			ParentRef:  parentRef,
+			CurrentRef: currentRef,
+			Raw:        raw,
+		},
+	}
+
+	data_ = &NextNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -72971,6 +74217,43 @@ func NodeLiveRevisionsStamped(
 	return data_, err_
 }
 
+// The query executed by NodePortal.
+const NodePortal_Operation = `
+query NodePortal ($ref: ID!) {
+	node(ref: $ref) {
+		id
+		urn
+		portalUrl
+	}
+}
+`
+
+// Node-only canonical portal pointer. No content/body/edges or ordinary resolve.
+func NodePortal(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *NodePortalResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodePortal",
+		Query:  NodePortal_Operation,
+		Variables: &__NodePortalInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &NodePortalResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by NodeRevision.
 const NodeRevision_Operation = `
 query NodeRevision ($revisionId: ID!) {
@@ -73373,6 +74656,49 @@ func NodeSigningRequests(
 	}
 
 	data_ = &NodeSigningRequestsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by OrgAgentGrants.
+const OrgAgentGrants_Operation = `
+query OrgAgentGrants ($ref: ID!) {
+	organization(ref: $ref) {
+		agentOrgGrants {
+			agentId
+			orgId
+			isActive
+			createdAt
+			activatedAt
+			expiresAt
+			revokedAt
+		}
+	}
+}
+`
+
+// One explicitly selected organization; no nested Agent/customer/config traversal.
+func OrgAgentGrants(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *OrgAgentGrantsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "OrgAgentGrants",
+		Query:  OrgAgentGrants_Operation,
+		Variables: &__OrgAgentGrantsInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &OrgAgentGrantsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -81353,6 +82679,59 @@ func UpdateWorkerSigning(
 	}
 
 	data_ = &UpdateWorkerSigningResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by UsageEvents.
+const UsageEvents_Operation = `
+query UsageEvents ($memoryId: ID, $loc: String, $eventType: String, $limit: Int!, $offset: Int) {
+	usageEvents(memoryId: $memoryId, loc: $loc, type: $eventType, limit: $limit, offset: $offset) {
+		id
+		type
+		createdAt
+		memoryId
+		nodeLoc
+		provider
+		model
+		keyOwnerType
+		tokensIn
+		tokensOut
+		costMicroCents
+	}
+}
+`
+
+// cli#65 read-only observability. No accounting mutation or deprecated nodeUsage.
+func UsageEvents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId *string,
+	loc *string,
+	eventType *string,
+	limit int,
+	offset *int,
+) (data_ *UsageEventsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UsageEvents",
+		Query:  UsageEvents_Operation,
+		Variables: &__UsageEventsInput{
+			MemoryId:  memoryId,
+			Loc:       loc,
+			EventType: eventType,
+			Limit:     limit,
+			Offset:    offset,
+		},
+	}
+
+	data_ = &UsageEventsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

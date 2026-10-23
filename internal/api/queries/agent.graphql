@@ -38,6 +38,7 @@ fragment AgentFields on Agent {
 query GetAgent($ref: ID!) {
   agent(ref: $ref) {
     ...AgentFields
+    clonedFromAgentRef
   }
 }
 

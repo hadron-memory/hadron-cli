@@ -41,6 +41,7 @@ func TestChannelRefIsPassedThroughUnexamined(t *testing.T) {
 	for _, ref := range refs {
 		t.Run(ref, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
+				"NodePortal": `{"data":{"node":null}}`,
 				"GetChannel": `{"data":{"channel":` + channelJSON + `}}`,
 			})
 			f, _ := testFactory(t)
@@ -84,6 +85,7 @@ func TestChannelListPrintsWhatGetAccepts(t *testing.T) {
 	}
 
 	gql2, captured := captureGraphQL(t, map[string]string{
+		"NodePortal": `{"data":{"node":null}}`,
 		"GetChannel": `{"data":{"channel":` + channelJSON + `}}`,
 	})
 	f2, _ := testFactory(t)
@@ -108,6 +110,7 @@ func TestChannelListPrintsWhatGetAccepts(t *testing.T) {
 func TestChannelWithoutAnAddressStillWorks(t *testing.T) {
 	t.Run("json reports null, not a missing key", func(t *testing.T) {
 		gql, _ := captureGraphQL(t, map[string]string{
+			"NodePortal": `{"data":{"node":null}}`,
 			"GetChannel": `{"data":{"channel":` + channelNoAddressJSON + `}}`,
 		})
 		f, out := testFactory(t)
@@ -153,7 +156,8 @@ func TestChannelWithoutAnAddressStillWorks(t *testing.T) {
 // exist", "names nothing" and "you may not read its host memory" with the SAME
 // null, so it is never an existence oracle. The message must not claim more.
 func TestChannelUnreadableSaysOnlyWhatIsKnown(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{"GetChannel": `{"data":{"channel":null}}`})
+	gql, _ := captureGraphQL(t, map[string]string{"NodePortal": `{"data":{"node":null}}`,
+		"GetChannel": `{"data":{"channel":null}}`})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"channel", "get", "whatever", "--server", gql.URL})

@@ -22,6 +22,7 @@ import (
 	appcmd "github.com/hadron-memory/hadron-cli/internal/cmd/app"
 	assetcmd "github.com/hadron-memory/hadron-cli/internal/cmd/asset"
 	authcmd "github.com/hadron-memory/hadron-cli/internal/cmd/auth"
+	billingcmd "github.com/hadron-memory/hadron-cli/internal/cmd/billing"
 	channelcmd "github.com/hadron-memory/hadron-cli/internal/cmd/channel"
 	chatcmd "github.com/hadron-memory/hadron-cli/internal/cmd/chat"
 	codingcmd "github.com/hadron-memory/hadron-cli/internal/cmd/coding"
@@ -29,6 +30,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
+	emailcmd "github.com/hadron-memory/hadron-cli/internal/cmd/email"
 	grantcmd "github.com/hadron-memory/hadron-cli/internal/cmd/grant"
 	mcpservercmd "github.com/hadron-memory/hadron-cli/internal/cmd/mcpserver"
 	memorycmd "github.com/hadron-memory/hadron-cli/internal/cmd/memory"
@@ -48,6 +50,7 @@ import (
 	teamcmd "github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	tickercmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticker"
 	ticketcmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticket"
+	usagecmd "github.com/hadron-memory/hadron-cli/internal/cmd/usage"
 	usercmd "github.com/hadron-memory/hadron-cli/internal/cmd/user"
 	versioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/version"
 	webhookcmd "github.com/hadron-memory/hadron-cli/internal/cmd/webhook"
@@ -102,6 +105,7 @@ Supporting servers record the worker and agent alongside the authenticated user.
 
 	root.AddCommand(authcmd.NewCmdAuth(f))
 	root.AddCommand(memorycmd.NewCmdMemory(f))
+	root.AddCommand(usagecmd.NewCmdUsage(f))
 	root.AddCommand(nodecmd.NewCmdNode(f))
 	root.AddCommand(objectcmd.NewCmdObject(f))
 	root.AddCommand(assetcmd.NewCmdAsset(f))
@@ -125,12 +129,14 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.AddCommand(usercmd.NewCmdProfile(f))
 	root.AddCommand(accesscmd.NewCmdAccess(f))
 	root.AddCommand(aiconfigcmd.NewCmdAiConfig(f))
+	root.AddCommand(billingcmd.NewCmdBilling(f))
 	root.AddCommand(runcmd.NewCmdRun(f))
 	root.AddCommand(schedulecmd.NewCmdSchedule(f))
 	root.AddCommand(webhookcmd.NewCmdWebhook(f))
 	root.AddCommand(ticketcmd.NewCmdTicket(f))
 	root.AddCommand(grantcmd.NewCmdGrant(f))
 	root.AddCommand(connectioncmd.NewCmdConnection(f))
+	root.AddCommand(emailcmd.NewCmdEmail(f))
 	root.AddCommand(mcpservercmd.NewCmdMcpServer(f))
 	root.AddCommand(secretcmd.NewCmdSecret(f))
 	root.AddCommand(configcmd.NewCmdConfig(f))

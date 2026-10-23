@@ -115,6 +115,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
+	cmd.AddCommand(newCmdSubscription(f))
 	cmd.AddCommand(newCmdCreate(f))
 	cmd.AddCommand(newCmdClone(f))
 	cmd.AddCommand(newCmdUpdate(f))
@@ -283,10 +284,20 @@ the AppAgent join.`,
 	return cmd
 }
 
+// Origin is get-only; null deliberately does not identify a concealment reason.
+type agentGetDTO struct {
+	agentDTO
+	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
+}
+
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:     "get <ref>",
-		Short:   "Show an agent (by ID or URN)",
+		Use:   "get <ref>",
+		Short: "Show an agent (by ID or URN)",
+		Long: `Show an agent by ID or URN. A readable clone origin is printed as the
+source's current URN returned by the server. A null origin prints no line:
+non-clone, withheld, deleted and unrecorded origins are indistinguishable.
+JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
 		Example: `  hadron agent get hrn:agent:acme.com:support-bot --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -301,12 +312,15 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 			if resp.Agent == nil {
 				return exitcode.Newf(exitcode.NotFound, "agent %q not found", args[0])
 			}
-			dto := agentDTOFromFields(resp.Agent.AgentFields)
+			dto := agentGetDTO{agentDTO: agentDTOFromFields(resp.Agent.AgentFields), ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", dto.Name, dto.URN, dto.ID, dto.Type, dto.Visibility)
 				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  extends: %s\n  ai: %s/%s (key: %v)\n",
 					dash(dto.Description), dash(dto.SystemMemoryID), dash(dto.TasksIndexRef), dash(dto.ProcessesIndex), dash(dto.ExtendsAgentID), dash(dto.AiProvider), dash(dto.AiModel), dto.HasAiApiKey)
 				fmt.Fprintf(w, "  boot prompt: %s\n", cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
+				if dto.ClonedFromAgentRef != nil {
+					fmt.Fprintf(w, "  Cloned from: %s\n", *dto.ClonedFromAgentRef)
+				}
 				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
 				if len(dto.Surfaces) > 0 {
 					fmt.Fprintf(w, "  surfaces: %s\n", strings.Join(dto.Surfaces, ", "))

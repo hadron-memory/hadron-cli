@@ -10,6 +10,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/usage"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -111,6 +112,7 @@ func NewCmdMemory(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdLinkUser(f))
 	cmd.AddCommand(newCmdValidate(f))
 	cmd.AddCommand(newCmdReembedFailed(f))
+	cmd.AddCommand(usage.NewCmdMemoryUsage(f))
 	cmd.AddCommand(newCmdApproveAll(f))
 	cmd.AddCommand(newCmdConfig(f))
 	annotateMemoryRefHelp(cmd)

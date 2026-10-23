@@ -318,17 +318,20 @@ non-zero naming the nodes it already created, each complete with its edges.
 
 ```
 hadron auth login | logout | whoami | status | token create|list|validate|revoke <id>
-hadron memory list [--shared-with-me | [--owned-by-me] [--include-agent-system]] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--draft-corpus] [--schema <json> | --schema-file <path>] [--listed-on-marketplace[=false]] (update only, cli#592: the opt-in marketplace catalogue flag, cor:acl:080:04, advertisement not access; omitted preserves it; `get` shows it as `marketplace: listed|not listed` and `--json` `listedOnMarketplace`, also on a `set` update's receipt) | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn hrn:mem:<root>:<slug> | transfer <memoryRef> (--org <ref> | --user <ref>) [--class <c>] [--reset-group-members] [--apply | --yes] | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | approve-all -m <memory> [--yes] | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings] | reembed-failed <memoryRef> | config get <memoryRef> | config rule add|update <memoryRef> <role> [--author-task <ref>] [--validation-task <ref>] [--description-node <ref>] [--writers all|admin|owner] [--validate-by agent|platform] [--strict-sub-roles[=false]] [--enabled[=false]] | config rule rm <memoryRef> <role> --yes | config rule unlock <memoryRef> <role> [--yes] | config template list [--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>] | config template get <templateId> | config template create --file <path> (--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>) | config template update <templateId> --file <path> [--expected-revision <n>] | config template rm <templateId> --yes | config template apply <templateId> <memoryRef> [--dry-run] [--expected-revision <n>] [--yes]
-hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... [--raw] | get <loc>... -m <memory> [--raw] | get <urn>|<loc> -m <memory> --body-only | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--content <text|-> | --content-file <path|->] [--force] [--dry-run] [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | approve <node-ref> [-m <memory>] [--revision N] | verify <node-ref> [-m <memory>] | mint -m <memory> [--dry-run] [--yes] | sign <node-ref> [-m <memory>] [--revision N] [--signer <user-id>] | signatures <node-ref> [-m <memory>] [--check] | signing-request get <request-id> | signing-request list <node-ref> [-m <memory>] [--state open|completed|declined|expired|stale|withdrawn] [--limit 1-100] | signing-request withdraw <request-id> | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes] | recovery list -m <memory> [--limit 1-200] [--offset N | --all] | recovery get <node-urn>|<node-id>|<loc> [-m <memory>] [--content] | recovery graph -m <memory> [--limit 1-200] [--offset N | --all] | restore <node-urn>|<node-id>|<loc> [-m <memory>]
+hadron usage events [--memory <ref>] [--loc <loc>] [--type <type>] [--limit 1-200] [--offset N]
+hadron memory list [--shared-with-me | [--owned-by-me] [--include-agent-system]] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--draft-corpus] [--schema <json> | --schema-file <path>] [--listed-on-marketplace[=false]] (update only, cli#592: the opt-in marketplace catalogue flag, cor:acl:080:04, advertisement not access; omitted preserves it; `get` shows it as `marketplace: listed|not listed` and `--json` `listedOnMarketplace`, also on a `set` update's receipt) | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn hrn:mem:<root>:<slug> | transfer <memoryRef> (--org <ref> | --user <ref>) [--class <c>] [--reset-group-members] [--apply | --yes] | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | approve-all -m <memory> [--yes] | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings] | reembed-failed <memoryRef> | config get <memoryRef> | config rule add|update <memoryRef> <role> [--author-task <ref>] [--validation-task <ref>] [--description-node <ref>] [--writers all|admin|owner] [--validate-by agent|platform] [--strict-sub-roles[=false]] [--enabled[=false]] | config rule rm <memoryRef> <role> --yes | config rule unlock <memoryRef> <role> [--yes] | config template list [--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>] | config template get <templateId> | config template create --file <path> (--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>) | config template update <templateId> --file <path> [--expected-revision <n>] | config template rm <templateId> --yes | config template apply <templateId> <memoryRef> [--dry-run] [--expected-revision <n>] [--yes] | usage <memoryRef>
+hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... [--raw] | get <loc>... -m <memory> [--raw] | get <urn>|<loc> -m <memory> --body-only | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--content <text|-> | --content-file <path|->] [--force] [--dry-run] [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | approve <node-ref> [-m <memory>] [--revision N] | verify <node-ref> [-m <memory>] | mint -m <memory> [--dry-run] [--yes] | sign <node-ref> [-m <memory>] [--revision N] [--signer <user-id>] | signatures <node-ref> [-m <memory>] [--check] | signing-request get <request-id> | signing-request list <node-ref> [-m <memory>] [--state open|completed|declined|expired|stale|withdrawn] [--limit 1-100] | signing-request withdraw <request-id> | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes] | recovery list -m <memory> [--limit 1-200] [--offset N | --all] | recovery get <node-urn>|<node-id>|<loc> [-m <memory>] [--content] | recovery graph -m <memory> [--limit 1-200] [--offset N | --all] | restore <node-urn>|<node-id>|<loc> [-m <memory>] | next <parent> [--after <current>] [-m <memory>] [--raw] | open <node-ref> [-m <memory>] [--print]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>] | upload <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>] | rm <asset-ref> [--yes] | restore <asset-ref> | link <asset-ref> --node <new-node-urn> [--name <n>] [--description <d>]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
-hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--session <id>] [--reply-to <seq|loc>]
+hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--session <id>] [--reply-to <seq|loc>] | config show [--node <urn> | -m <memory> --messages-loc <prefix>] (offline, exit 0) | doctor [same coordinate flags] (read-only Channel check, report always printed; exit 0 ok, else first failing check: 2 bad config/coords, 4 Channel unavailable, or a failed read's own code)
 hadron channel list [--owner-app <ref>] [-m <memory>] | get <id|address> | create <name> -m <memory> --loc <loc> [--description <d>] | update <id|address> [--name <n>] [--description <d>] | rm <id|address> [--yes] | read <id|address> [--since <seq>] [--before <seq>] [--limit N] [--offset N] [--mentions <ref>] | post <id|address> <body|-> (--session <id> | --as-me) [--reply-to <seq>] | mark-read <id|address> --attendee <ref> --seq N [--owner-app <ref>] | read-state <id|address> --attendee <ref> [--owner-app <ref>] | register list [--channel <ref>] [--attendee <ref>] [--owner <ref>] [--org <id>] [--limit N] [--offset N] | register add --channel <ref> --owner <ref> (--attendee <ref> | --all-attendees) [--role both|post|watch] [--mention-only] [--description <d>] | register set <entry-id> (--role <r> | --mention-only[=false] | --description <d>)... | register rm <entry-id> [--yes]   # post REQUIRES --session or --as-me (the server records the human silently otherwise); read --since is strictly-greater and the output reports nextSince; a ref is the Channel id OR its address (chatRootUrn, printed by list); chatRootUrn is NULL for some Channels — the id always works.
+# channel get records a node read and may decrypt internally during its optional authorized root read; identity/URL selection does not imply no provider read effects. It also emits a best-effort chat-root node portalUrl (nullable JSON key; text URL: only when supplied). One authorized node read by chatRootNodeId; missing/concealed/failed pointer read gives null without failing the Channel read. List is unchanged; no transcript fetch. Portal-tab destination and default-team shortcut are not delivered by this pointer.
+
 hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--comments-only] [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
-hadron spec list [-m <memory>] | get <citation> [--body-only] |--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> [--content-file <path>] [--force] [--dry-run] [--expected-revision N --expected-node-id ID --expected-proposal-hash HASH] | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> [--to <loc>] | import spec-kit|code | reserve <citation> [--name <name>] | renumber <from> <to> [--dry-run] | backlinks <citation> | unresolved | mint [--dry-run] [--yes]
+hadron spec label-report [-m <memory>] [--prefix <citation>] | list [-m <memory>] | get <citation> [--body-only] |--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> [--content-file <path>] [--title <title>] [--force] [--dry-run] [--expected-revision N --expected-node-id ID --expected-proposal-hash HASH] | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> [--to <loc>] | import spec-kit|code | reserve <citation> [--name <name>] | renumber <from> <to> [--dry-run] | backlinks <citation> | unresolved | mint [--dry-run] [--yes]
 hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--node <ref>...] [--dry-run] [--force] [--prune] [--json] | plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | agent set-boot-prompt <app> <agent> (<node-ref> [-m <memory>] | --clear) | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref> | key scope grant <key-id> <scope> [--host-id <host>] | key scope revoke <key-id> <scope>   # scopes: attention:deliver, host:operate; the App manager's, as themselves (never a worker session); host:operate names ONE host (exit 5 APP_KEY_SCOPE_HOST_CONFLICT: revoke first); output never carries key material
@@ -369,7 +372,9 @@ hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | list --app <ref> | update <id> ... | rm <id> --yes
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | list --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
+hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | balance <org> | ledger <org> [--limit N] [--offset N]   # spec-046 metering READS (cli#215); <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. No write commands (setting rates, granting credits) yet
 hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | list [--org <ref>] [--user <ref>] | revoke <id> --yes
+hadron email connections --org <id|urn> [--json]
 hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | list [--connection <ref>] | revoke <grant-id> --yes
 hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
 hadron secret create --name <n> --scope user|org [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | list --scope user|org [--owner <ref>] | rm <id> --yes
@@ -1228,6 +1233,26 @@ Conventions:
   `HADRON_CHAT_*`, then `.hadron/config.json` (`chat.node`, or
   `chat.memory`+`chat.messagesLoc`), so a configured agent's whole turn is
   `chat read --since <seq>` / `chat post --session <id> --body "…"`.
+  **`chat config show` and `chat doctor` (#477) say which chat that is.** A stale
+  `.hadron/config.json` posts into the wrong chat without any error, so `config
+  show` reports, offline, the file found (nearest ancestor; `config.status`
+  `loaded|malformed|absent`, plus unreadable nearer files under `skipped` —
+  read and post walk past those and ignore a malformed one), every supplied
+  coordinate with its `source` (`flag|env|config`), `name` and whether it was
+  `used`, the `resolved` `{form,memory,messagesLoc}` (or `null` with `problem`),
+  and any legacy `handle`/`identity`/`role` under `deprecated` with
+  `effect:"none"`. Only those known keys are printed — never `appKey` or any
+  other key in the file. `chat doctor` adds ONE read of the Channel at the chat
+  root: `channel.status` `readable|unavailable|error|not-checked`, `ok`, and
+  `problems[{check,detail}]`; it ALWAYS prints the report, then exits with the
+  first failing check's code in the order config, coordinates, channel (2
+  config/coordinates, 4 Channel unavailable; a read that fails outright —
+  not signed in, a refusal, transport — is `error` with its own code, e.g. 3,
+  8, 7). `unavailable` does not distinguish absent from unreadable
+  (the server answers both identically), and `channel.lifecycle` is always
+  `"not-provided"`: a Channel has no archived/live/superseded fact, so neither
+  command infers one from its last message. Neither posts, creates a Channel or
+  writes config.
   A message body read from `-` (`chat post --body -`, `team chat post -`,
   `channel post <address> -`) is for a PIPE and is **refused (exit 2) when
   stdin is an interactive terminal** (#648), like `--content -`: use
@@ -1499,8 +1524,17 @@ Conventions:
   non-interactively from `--content -`/`--content-file` and/or
   `--abstract -`/`--abstract-file`. Use `--description`/`--description-file`
   to change the description shown in spec lists and search through the same
-  guarded write. The description is not in the editor buffer. Only changed
-  fields are written; the rest are preserved. An abstract replacement is
+  guarded write. The description is not in the editor buffer. `--title <text>`
+  (cli#810) retitles the spec through the same guarded write: it sets
+  `Node.name` to `<citation> — <text>` (pass the text only; a value starting with
+  the citation prefix, a blank one or a multi-line one is refused, exit 2), alone
+  it opens no editor, and a title equal to the stored one writes nothing. The
+  title is an approval-hash field (`cor:dmo:120:01`), so a retitle supersedes an
+  existing approval: after a save, `--json` carries `titleChanged` and
+  `approvalStatus` (`{state, approval}`) read back from the server (omitted on a
+  dry run, where only a note says so, and when the status read fails or the server
+  predates approvals); a returned name that differs from the one sent exits 1.
+  Only changed fields are written; the rest are preserved. An abstract replacement is
   limited to 2000 UTF-16 code units, including whitespace and newlines;
   both preview and save reject an over-limit proposal. `spec edit` reads the
   body **raw** (as stored, `{{…}}` placeholders intact), so the editor, the preview and the
@@ -1509,7 +1543,7 @@ Conventions:
   note, and `--copy-body`) and `spec extract --strip-source` (cli#742). **`--dry-run` shows the
   change itself and writes nothing:** the terminal prints a unified diff per
   field, and `--json` carries `changes[]`, one entry per field written, each
-  `{field: content|abstract|description, change: replaced|cleared|reaffirmed, before, after,
+  `{field: content|abstract|description|name, change: replaced|cleared|reaffirmed, before, after,
   diff}` (`before`/`after` byte-exact; `diff` is `""` for `reaffirmed`, which
   re-sends the same text; `cleared` also covers a whitespace-only abstract,
   which the server stores as null). A no-op is `changed: false` with
@@ -3276,3 +3310,87 @@ kept whole.
 never proof that no pointer exists. Human output says
 `— (unset or not visible to you)`. A deleted target shows its URN with
 `(deleted: clear or repoint)`; nothing is served from it.
+
+## Canonical node portal pointer (cli#1015, Refs #29)
+
+`hadron node open <node-ref> [-m <memory>] [--print]` reads only the node's
+returned id/urn/portalUrl. It never constructs a portal route. Interactive
+text output requests the platform launcher using argv; no shell is used.
+JSON, non-terminal stdout and --print only print the pointer, with no launcher.
+JSON is {id,urn,portalUrl}; text is the exact returned URL. Launcher success
+means the launch request was accepted, not that a page loaded. Failure is an
+error. Missing/unreadable node is exit 4; unavailable/null/invalid URL is exit 1,
+a deterministic answered failure, with no guessed fallback or blind retry.
+The query selects identity/URL only; the server still records a node read and
+may decrypt internally. URL validation requires http(s), a host, no userinfo.
+Memory/Agent/App open are not delivered; their canonical URL provider gap is
+hadron-server#2309. No real navigation is required for automated tests.
+
+## Usage reporting (read-only #65)
+
+`hadron usage events [--memory <ref>] [--loc <loc>] [--type <type>] [--limit N] [--offset N]`
+returns one newest-first page (default20, local1-200, offset>=0), with access
+owned by the server. JSON is an array; empty is []. Filter flags are optional;
+explicit empty is Usage2. Loc is an exact verbatim loc, never shape-classified
+as nodeId. No --since or total is available. Stderr labels the page offset and
+limit; a full page says more may exist. No automatic drain or cost aggregation.
+`costMicroCents` is a nullable base-10 integer STRING, units1e-8USD; keep every
+digit, never convert to float. Null is unpriced (human: unpriced), not zero.
+Token nulls are unknown. Action arguments/caller payloads are not selected.
+
+`hadron memory usage <memoryRef>` returns the provider's per-loc/type counts
+(JSON array of {nodeLoc,type,count}, empty []). These are not billing balances
+or client sums over event pages. Historical unattributable events can be absent.
+No recordUsage, deprecated nodeUsage or accounting write is exposed.
+
+## Ordered next sibling (cli#1009)
+
+`hadron node next <parent> [--after <current>] [-m <memory>] [--raw]`
+reads the first child, or the sibling after the named direct child. The server
+orders by seq ascending (null seq last), then loc. This is stateless, with no
+session start/end. Node ids and qualified/legacy URNs go directly to nextNode;
+`-m` composes bare locs locally, including compound memory refs.
+
+End, missing/denied parent and a current ref outside its direct children share
+one exit-0 result: `end of sibling chain` (JSON null). It proves no parent
+existence or permission. Malformed refs and provider errors remain errors.
+A returned node uses ordinary node-detail JSON/text; rendered is true by
+default, false with --raw. Separate advisory revision/stamp/comment/signature
+snapshots are not fetched and remain null; content/edges come from the one
+nextNode read. No ordinary get/list behaviour changes.
+
+- `agent get` alone adds nullable `clonedFromAgentRef`: the server-returned source
+  current URN, copied verbatim. Text prints `Cloned from:` only when non-null.
+  Null does not distinguish non-clone, withheld, deleted or unrecorded origin.
+  No extra source lookup; clone/list output and selections are unchanged.
+
+
+`hadron spec label-report [-m MEMORY] [--prefix CITATION] [--json]` is a read-only
+inventory, not lint. JSON is `{memoryRef,prefix,items:[]}` with
+`{parentId,parentLoc,edgeId,label,childId,childLoc,childName,status}` items.
+Only `available` rows are verified available direct same-memory citation-parent
+relationships; differing editorial labels are not defects. `unavailable` with
+edgeId present and null childId is an unclassified source-unavailable candidate;
+null edgeId is an unavailable-parent marker, not an invented edge. Null labels
+and names remain null. No hidden endpoint/history read, heuristic, rewrite or
+lint exit change; transport/protocol failures fail rather than return partial
+inventory. The report covers caller-visible data only.
+- `agent subscription list --org <id|urn>` reads one explicitly
+  selected organization's visible Agent licenses. It preserves all provider rows,
+  server `isActive`, and nullable lifecycle timestamps. The unpaginated field has
+  no client completeness guarantee: empty `[]` can be a concealed projection,
+  never proof that no grants exist globally. Caller org ref passes through without
+  a prelookup. This differs from principal-action `hadron grant` and per-user
+  Agent subscriptions. No subscribe/revoke/install/cleanup or implicit mine/agent
+  scope is implemented by this read-only cut.
+
+
+`hadron email connections --org REF` reads connection metadata through the
+server's org-admin list gate. Explicit organization only; the server resolves
+the id or URN. This does not authorize mailbox reads, reconnects or sends.
+The existing unpaginated exchangeConnections list is used once; no page total
+or client completeness guarantee is invented. Empty JSON is []. Each row has
+{id,organizationId,userId,mailboxEmail,provider,displayName,syncEnabled,syncStatus,
+lastSyncAt,createdAt,updatedAt}; displayName/lastSyncAt preserve null. No credentials
+or lastError are selected. Text quotes external strings. Error mapping remains
+unchanged, including unknown tool failures; no guessed reconnect remedy.
