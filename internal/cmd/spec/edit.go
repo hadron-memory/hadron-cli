@@ -33,6 +33,15 @@ type editResultDTO struct {
 	BodyChanged        bool   `json:"bodyChanged"`
 	AbstractChanged    bool   `json:"abstractChanged"`
 	DescriptionChanged bool   `json:"descriptionChanged"`
+	// TitleChanged reports a --title edit (cli#810): Node.name is rewritten as
+	// "<citation> — <title>". Additive; counted into Changed.
+	TitleChanged bool `json:"titleChanged"`
+	// ApprovalStatus is the server's approval state for the spec AFTER a title
+	// write, read back from the provider (the title is an approval-hash field,
+	// cor:dmo:120:01, so a retitle can supersede an approval). Never computed
+	// here. Omitted on a dry run, when no title was written, and when the status
+	// read failed or the server predates approvals.
+	ApprovalStatus *specApprovalDTO `json:"approvalStatus,omitempty"`
 	// AbstractReaffirmed reports that the abstract was re-sent UNCHANGED to
 	// re-fingerprint it against the current body (#612). Additive, and it is
 	// counted into Changed because the call really does write — a `changed:
@@ -69,7 +78,7 @@ type editResultDTO struct {
 // fieldChangeDTO is one field of a proposed edit: the text as stored (read
 // raw, placeholders intact), the text proposed, and a unified diff of the two.
 type fieldChangeDTO struct {
-	Field string `json:"field"` // "content", "abstract" or "description"
+	Field string `json:"field"` // "content", "abstract", "description" or "name"
 	// Change is "replaced", "cleared" (the proposed text is empty) or
 	// "reaffirmed" (--abstract-still-accurate: the same text re-sent so it is
 	// re-fingerprinted against the body; Before == After and Diff is "").
@@ -85,7 +94,10 @@ type fieldChangeDTO struct {
 type editProposal struct {
 	curBody, curAbstract, curDescription string
 	newBody, newAbstract, newDescription string
-	reaffirm                             bool
+	// curName/newName are the full node names ("<citation> — <title>"); equal
+	// when --title is omitted or names the stored title (a no-op).
+	curName, newName string
+	reaffirm         bool
 	// originHash is the stored abstract's fingerprint (spec 032), nil when it
 	// was never fingerprinted.
 	originHash *string
@@ -97,6 +109,7 @@ type editProposal struct {
 
 func (p editProposal) bodyChanged() bool        { return p.newBody != p.curBody }
 func (p editProposal) descriptionChanged() bool { return p.newDescription != p.curDescription }
+func (p editProposal) nameChanged() bool        { return p.newName != p.curName }
 
 // abstractChanged: the server stores an empty or whitespace-only abstract as
 // null, so blank → blank is no change (and writes nothing).
@@ -131,6 +144,9 @@ func (p editProposal) changes() []fieldChangeDTO {
 	}
 	if p.descriptionChanged() {
 		out = append(out, fieldChange("description", p.curDescription, p.newDescription))
+	}
+	if p.nameChanged() {
+		out = append(out, fieldChange("name", p.curName, p.newName))
 	}
 	switch {
 	case p.abstractChanged():
@@ -173,6 +189,10 @@ func (p editProposal) input() gen.UpdateNodeInput {
 	if p.descriptionChanged() {
 		description := p.newDescription
 		in.Description = &description
+	}
+	if p.nameChanged() {
+		name := p.newName
+		in.Name = &name
 	}
 	switch {
 	case p.abstractChanged():
@@ -230,6 +250,7 @@ func newCmdEdit(f *cmdutil.Factory) *cobra.Command {
 		abstractFile    string
 		description     string
 		descriptionFile string
+		title           string
 		stillAccurate   bool
 		dryRun          bool
 		force           bool
@@ -239,7 +260,7 @@ func newCmdEdit(f *cmdutil.Factory) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "edit <citation>",
-		Short: "Edit a spec's body, abstract and description with guarded writes",
+		Short: "Edit a spec's body, abstract, description and title with guarded writes",
 		// "update" is the intuitive verb for this and reads nothing
 		// like "edit", so distance-based suggestion never finds it.
 		SuggestFor: []string{"update", "modify", "change", "set"},
@@ -261,6 +282,15 @@ The description shown by spec list and search is edited with --description or
 --description-file, through the same guarded spec write. It is not part of the
 default editor buffer; supply its flag to edit it alone or together with the
 body and abstract. The description is preserved when its flag is omitted.
+
+The title (the part of the spec's name after "<citation> — ") is edited with
+--title, through the same guarded write; the citation prefix is composed from
+the spec itself and kept, so pass the title text only. --title alone is a
+complete non-interactive edit (no editor opens), and a title equal to the stored
+one writes nothing. The title is an approval-hash field (cor:dmo:120:01): a
+retitle supersedes an existing approval, and after a save the command prints the
+approval status the server reports. --dry-run shows the name change as a field
+diff and reads no status. Blank or multi-line titles are refused.
 
 An abstract replacement may contain at most 2000 characters as counted by the
 server (UTF-16 code units, including surrounding whitespace and newlines).
@@ -321,7 +351,8 @@ replacement over the cap is rejected.`,
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --abstract-file abstract.md
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --description-file description.md
   hadron spec edit cor:agt:020 -m hrn:mem:hadronmemory.com:specs --content-file body.md --abstract-still-accurate
-  hadron spec edit cor:agt:020 -m hrn:mem:hadronmemory.com:specs --abstract-still-accurate`,
+  hadron spec edit cor:agt:020 -m hrn:mem:hadronmemory.com:specs --abstract-still-accurate
+  hadron spec edit cor:dmo:110:03 -m hrn:mem:hadronmemory.com:specs --title "Writers may comment" --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if _, err := validateSpecLoc(args[0]); err != nil {
@@ -366,6 +397,14 @@ replacement over the cap is rejected.`,
 					return err
 				}
 			}
+			// --title (cli#810): rejected before the node is read or an editor
+			// opens. The caller supplies the title only; the citation prefix is
+			// composed from the resolved spec, never typed or rewritten here.
+			if changed("title") {
+				if err := validateEditTitle(title, args[0]); err != nil {
+					return err
+				}
+			}
 			if changed("expected-revision") && expectedRev < 1 {
 				return exitcode.Newf(exitcode.Usage,
 					"--expected-revision must be a positive revision number — use it with --expected-node-id and --expected-proposal-hash from the same `spec edit --dry-run`")
@@ -380,10 +419,13 @@ replacement over the cap is rejected.`,
 			contentProvided := changed("content") || changed("content-file")
 			abstractProvided := changed("abstract") || changed("abstract-file")
 			descriptionProvided := changed("description") || changed("description-file")
+			titleProvided := changed("title")
 			// The assertion on its own is a complete, non-interactive operation:
 			// it is the way to clear an `abstract-stale` marker without editing
 			// anything, which is the half of #612 the command had no answer for.
-			nonInteractive := contentProvided || abstractProvided || descriptionProvided || stillAccurate
+			// A title-only edit is likewise complete on its own: it must not drop
+			// the user into the body editor.
+			nonInteractive := contentProvided || abstractProvided || descriptionProvided || titleProvided || stillAccurate
 
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -464,11 +506,18 @@ replacement over the cap is rejected.`,
 				}
 			}
 
+			// The name is composed on the STORED loc (node.Loc), the same citation
+			// the write targets by immutable id; omitted --title preserves it.
+			newName := node.Name
+			if titleProvided {
+				newName = specNameAt(node.Loc, strings.TrimSpace(title))
+			}
 			// Re-affirming is only meaningful when the abstract is NOT also
 			// being replaced — a replacement is fingerprinted on its own.
 			proposal := editProposal{
 				curBody: curBody, curAbstract: curAbstract, curDescription: curDescription,
 				newBody: newBody, newAbstract: newAbstract, newDescription: newDescription,
+				curName: node.Name, newName: newName,
 				reaffirm:     stillAccurate && newAbstract == curAbstract,
 				originHash:   node.AbstractOriginHash,
 				baseNodeID:   node.Id,
@@ -508,6 +557,7 @@ replacement over the cap is rejected.`,
 				BodyChanged:        proposal.bodyChanged(),
 				AbstractChanged:    proposal.abstractChanged(),
 				DescriptionChanged: proposal.descriptionChanged(),
+				TitleChanged:       proposal.nameChanged(),
 				AbstractReaffirmed: proposal.reaffirm,
 				DryRun:             dryRun,
 				Changes:            proposal.changes(),
@@ -541,7 +591,7 @@ replacement over the cap is rejected.`,
 				return exitcode.Newf(exitcode.Usage,
 					"%s has no abstract, so there is nothing to re-affirm — --abstract-still-accurate would clear the field rather than re-fingerprint it; write one with --abstract/--abstract-file instead", node.Loc)
 			}
-			result.Changed = result.BodyChanged || result.AbstractChanged || result.DescriptionChanged || result.AbstractReaffirmed
+			result.Changed = result.BodyChanged || result.AbstractChanged || result.DescriptionChanged || result.TitleChanged || result.AbstractReaffirmed
 
 			if !result.Changed {
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
@@ -588,6 +638,17 @@ replacement over the cap is rejected.`,
 			if resp == nil || resp.UpdateSpecNode == nil {
 				return exitcode.Newf(exitcode.Error, "updateSpecNode returned no node for %s — the write can't be confirmed; check with `hadron spec get %s -m %s`", node.Loc, node.Loc, checkMemory)
 			}
+			if proposal.nameChanged() {
+				// Report the name the server STORED, not the one asked for: a
+				// response that disagrees is not a write this command can vouch
+				// for (cli#810).
+				if resp.UpdateSpecNode.Name != newName {
+					return exitcode.Newf(exitcode.Error, "%s was written, but the server returned the name %q, not the requested %q — the retitle can't be confirmed; check with `hadron spec get %s -m %s`",
+						node.Loc, resp.UpdateSpecNode.Name, newName, node.Loc, checkMemory)
+				}
+				result.Name = resp.UpdateSpecNode.Name
+				result.ApprovalStatus = approvalAfterRetitle(cmd, client, node.Id, f.IOStreams.ErrOut)
+			}
 			if !proposal.reaffirm {
 				return render()
 			}
@@ -622,6 +683,7 @@ replacement over the cap is rejected.`,
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "replace the abstract with a file's contents (max 2000 UTF-16 code units incl whitespace/newlines)")
 	cmd.Flags().StringVar(&description, "description", "", `replace the description with this value ("-" reads piped stdin, refused from a terminal) through the guarded spec write`)
 	cmd.Flags().StringVar(&descriptionFile, "description-file", "", "replace the description with a file's contents through the guarded spec write")
+	cmd.Flags().StringVar(&title, "title", "", "replace the title (the part after the citation in the spec's name) through the guarded spec write; the citation prefix is kept")
 	// No backticks in this usage string: cobra's UnquoteUsage reads backquoted
 	// text as the flag's placeholder name, so "clearing `abstract-stale`" would
 	// rename the flag's argument in --help (review:backticks-in-flag-usage-become-the-placeholder).
@@ -906,6 +968,17 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 	if r.DescriptionChanged {
 		fmt.Fprintln(w, "  description: updated")
 	}
+	if r.TitleChanged {
+		fmt.Fprintln(w, "  title: updated")
+		switch {
+		case r.DryRun:
+			fmt.Fprintf(w, "  note: the title is part of the approval hash (cor:dmo:120:01), so saving this supersedes an existing approval of %s\n", r.Citation)
+		case r.ApprovalStatus != nil:
+			renderSpecApproval(&indentWriter{w: w}, r.ApprovalStatus)
+		default:
+			fmt.Fprintf(w, "  note: the title is part of the approval hash (cor:dmo:120:01); the approval status could not be read back — check with `hadron spec get %s -m %s`\n", r.Citation, checkMemory)
+		}
+	}
 	if r.AbstractReaffirmed {
 		switch {
 		case r.DryRun:
@@ -952,6 +1025,51 @@ func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string
 		fmt.Fprintln(w, revisionLine(r.Revision, r.NodeID, r.ProposalHash))
 	}
 	return nil
+}
+
+// validateEditTitle refuses a --title the write must not carry (cli#810): blank,
+// multi-line, or one that already starts with this spec's citation prefix,
+// which would be composed in front of it a second time. The caller's text is
+// otherwise kept as typed (trimmed), never rewritten.
+func validateEditTitle(title, citation string) error {
+	t := strings.TrimSpace(title)
+	switch {
+	case t == "":
+		return exitcode.Newf(exitcode.Usage, "--title must not be empty; omit the flag to keep the title")
+	case strings.ContainsAny(t, "\r\n"):
+		return exitcode.Newf(exitcode.Usage, "--title must be a single line")
+	case strings.HasPrefix(t, strings.TrimSpace(citation)+" — "):
+		return exitcode.Newf(exitcode.Usage, "--title is the text AFTER the citation: %q is added automatically, so drop it from the value", strings.TrimSpace(citation)+" — ")
+	}
+	return nil
+}
+
+// approvalAfterRetitle reads the spec's approval state back from the server
+// after a title write. The title is an approval-hash field (cor:dmo:120:01), so
+// the retitle may have superseded an approval; the status is the provider's,
+// never derived here. The write has already landed, so a failed read is
+// reported on stderr and yields nil rather than failing the command.
+func approvalAfterRetitle(cmd *cobra.Command, client graphql.Client, nodeID string, errOut io.Writer) *specApprovalDTO {
+	approvals, _, supported, _, err := specStatuses(cmd.Context(), client, []string{nodeID})
+	if err != nil {
+		fmt.Fprintf(errOut, "warning: the retitle was saved, but the approval status could not be read: %v\n", err)
+		return nil
+	}
+	if !supported {
+		return nil
+	}
+	return approvals[nodeID]
+}
+
+// indentWriter indents each line written through it by two spaces, so a shared
+// status renderer fits the edit receipt's field list.
+type indentWriter struct{ w io.Writer }
+
+func (i *indentWriter) Write(p []byte) (int, error) {
+	if _, err := io.WriteString(i.w, "  "+string(p)); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }
 
 // The outcomes of a written re-affirmation (cli#750), for
