@@ -79,3 +79,63 @@ func TestSpecLabelReportEmptyAndFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestSpecLabelReportUnavailableSemantics(t *testing.T) {
+	for _, mode := range []string{"source", "parent", "child"} {
+		t.Run(mode, func(t *testing.T) {
+			parent := `{"id":"p","memoryId":"mem1","loc":"msg:010","name":"Parent","tags":["spec"]}`
+			child := `{"id":"c","memoryId":"mem1","loc":"msg:010:02","name":"Child","tags":["spec"]}`
+			listing := `{"data":{"findNodes":{"hits":[{"node":` + parent + `},{"node":` + child + `}]}}}`
+			empty := `{"data":{"findNodes":{"hits":[]}}}`
+			edge := `{"id":"e","name":null,"source":null}`
+			if mode == "child" {
+				edge = `{"id":"e","name":null,"source":{"id":"c","loc":"msg:010:02","memoryId":"mem1"}}`
+			}
+			p := `{"id":"p","memoryId":"mem1","loc":"msg:010","name":"Parent","incomingEdges":[` + edge + `,{"id":"foreign","name":"outside","source":{"id":"f","loc":"msg:010:02","memoryId":"another-memory"}}]}`
+			nodes := p + `,` + child
+			unavail := `[]`
+			if mode == "parent" {
+				nodes = child
+				unavail = `["p"]`
+			}
+			if mode == "child" {
+				nodes = p
+				unavail = `["c"]`
+			}
+			batch := `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":` + unavail + `,"nodes":[` + nodes + `]}}}`
+			gql, calls := queueGraphQL(t, map[string][]string{"ResolveUrn": {resolveSpecJSON}, "FindNodes": {listing, empty, empty}, "NodeBatch": {batch}})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"spec", "label-report", "-m", specMem, "--server", gql.URL, "--json"})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			var result struct{ Items []map[string]any }
+			if err := json.Unmarshal([]byte(out.String()), &result); err != nil {
+				t.Fatal(err)
+			}
+			want := 1
+			if mode == "child" {
+				want = 2
+			}
+			if len(result.Items) != want {
+				t.Fatal(out.String())
+			}
+			for _, row := range result.Items {
+				if row["status"] != "unavailable" || row["label"] != nil || row["childName"] != nil || len(row) != 8 {
+					t.Fatal(row)
+				}
+				if row["edgeId"] == nil {
+					if row["childId"] != nil || row["childLoc"] != nil {
+						t.Fatal(row)
+					}
+				} else if mode == "source" && (row["childId"] != nil || row["childLoc"] != nil) {
+					t.Fatal(row)
+				}
+			}
+			if len(calls["NodeBatch"]) != 1 || len(calls) != 3 {
+				t.Fatal("hidden endpoint/history/mutation read", calls)
+			}
+		})
+	}
+}
