@@ -37450,6 +37450,24 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	return &retval, nil
 }
 
+// RetryFailedEmbeddingsResponse is returned by RetryFailedEmbeddings on success.
+type RetryFailedEmbeddingsResponse struct {
+	// #882 — re-drive every FAILED embed in a memory (the operator recovery
+	// surface; previously hand-written SQL). Re-stamps each live node whose
+	// `embeddingFailedAt` is set — permanent-class failures whose pending
+	// marker was cleared, and backed-off retryable failures (made immediately
+	// eligible) — resetting the failure state exactly like a fresh write, then
+	// wakes the embedding worker. Returns the count re-stamped; 0 when the
+	// memory is not vector-indexed. `memoryRef` accepts the memory's ID or
+	// URN. Requires memory-owner or org-ADMIN (same gate as updateMemory).
+	RetryFailedEmbeddings int `json:"retryFailedEmbeddings"`
+}
+
+// GetRetryFailedEmbeddings returns RetryFailedEmbeddingsResponse.RetryFailedEmbeddings, and is useful for accessing the field via an interface.
+func (v *RetryFailedEmbeddingsResponse) GetRetryFailedEmbeddings() int {
+	return v.RetryFailedEmbeddings
+}
+
 // Shared projection for list / single-snapshot / label reads.
 type RevisionFields struct {
 	Id          string   `json:"id"`
@@ -60039,6 +60057,14 @@ type __RetireWorkerInput struct {
 // GetWorkerRef returns __RetireWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__RetireWorkerInput) GetWorkerRef() string { return v.WorkerRef }
 
+// __RetryFailedEmbeddingsInput is used internally by genqlient
+type __RetryFailedEmbeddingsInput struct {
+	MemoryRef string `json:"memoryRef"`
+}
+
+// GetMemoryRef returns __RetryFailedEmbeddingsInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__RetryFailedEmbeddingsInput) GetMemoryRef() string { return v.MemoryRef }
+
 // __RevokeAppKeyScopeInput is used internally by genqlient
 type __RevokeAppKeyScopeInput struct {
 	Id    string `json:"id"`
@@ -75201,6 +75227,43 @@ func RetireWorker(
 	}
 
 	data_ = &RetireWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RetryFailedEmbeddings.
+const RetryFailedEmbeddings_Operation = `
+mutation RetryFailedEmbeddings ($memoryRef: ID!) {
+	retryFailedEmbeddings(memoryRef: $memoryRef)
+}
+`
+
+// Re-stamp every live node whose embedding failed so the embedding worker tries
+// it again (hadron-server retryFailedEmbeddings, cli#356). The Int is how many
+// were RE-STAMPED, never how many ended up indexed. Not idempotent-by-contract
+// for a client: a transport error leaves the outcome unknown, so the caller does
+// not retry it.
+func RetryFailedEmbeddings(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+) (data_ *RetryFailedEmbeddingsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RetryFailedEmbeddings",
+		Query:  RetryFailedEmbeddings_Operation,
+		Variables: &__RetryFailedEmbeddingsInput{
+			MemoryRef: memoryRef,
+		},
+	}
+
+	data_ = &RetryFailedEmbeddingsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

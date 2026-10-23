@@ -449,3 +449,12 @@ query ValidateMemory(
     }
   }
 }
+
+# Re-stamp every live node whose embedding failed so the embedding worker tries
+# it again (hadron-server retryFailedEmbeddings, cli#356). The Int is how many
+# were RE-STAMPED, never how many ended up indexed. Not idempotent-by-contract
+# for a client: a transport error leaves the outcome unknown, so the caller does
+# not retry it.
+mutation RetryFailedEmbeddings($memoryRef: ID!) {
+  retryFailedEmbeddings(memoryRef: $memoryRef)
+}

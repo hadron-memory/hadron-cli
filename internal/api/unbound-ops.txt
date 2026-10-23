@@ -151,7 +151,6 @@ removeMemoryFromAgent
 repairAgentSystemMemory
 replaceSubtree  # server#1407: deprecated field; authorized calls return REPLACE_SUBTREE_RETIRED without writes
 restoreRevision
-retryFailedEmbeddings
 revokeAgentOrgGrant
 revokeAgentSubscription
 revokeAppGrant  # server#1747 worker App grants; CLI parity slice to follow
