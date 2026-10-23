@@ -3,6 +3,7 @@ package ha
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -47,8 +48,14 @@ says how to fetch the next page; the --json output stays a bare array.`, maxLimi
 			if err != nil {
 				return err
 			}
+			// An explicit --org must name an org: a blank value would be
+			// dropped as "omitted" and silently widen the list to every org the
+			// caller belongs to, so it is refused instead (before any request).
 			var orgRef *string
-			if org != "" {
+			if cmd.Flags().Changed("org") {
+				if strings.TrimSpace(org) == "" {
+					return exitcode.Newf(exitcode.Usage, "--org must not be blank")
+				}
 				orgRef = &org
 			}
 			// limit is always sent; offset 0 is omitted (a nil pointer).

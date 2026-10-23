@@ -108,6 +108,9 @@ func TestHaListRefusesBadPagingBeforeAnyRequest(t *testing.T) {
 		{"list", "--limit", "201"},
 		{"list", "--limit", "-1"},
 		{"list", "--offset", "-1"},
+		// A blank --org must not collapse to "omitted" (the caller's whole union).
+		{"list", "--org="},
+		{"list", "--org", "  "},
 	} {
 		_, _, code, vars := runHA(t, map[string]string{}, args...)
 		if code != 2 || len(vars) != 0 {
