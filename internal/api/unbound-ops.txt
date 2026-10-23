@@ -32,9 +32,6 @@ exchangeFolders
 exchangeMessages
 globalSearch
 heldWorkers  # server#1347 (in via the #1360 merge re-export, cli#733): a `team worker` parity item, not part of #716 — reported to the coordinator for routing
-homeAssistantInstance
-homeAssistantInstanceOps
-homeAssistantInstances
 impersonationSession
 impersonationSessions
 installMemory  # S1 schema refresh for cli#994; separate CLI parity, not part of the clone cut

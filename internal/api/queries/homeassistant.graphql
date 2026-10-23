@@ -1,0 +1,53 @@
+# Home Assistant instance registry (hadrontool-home-assistant; hadron-server#640).
+# Org-owned HomeAssistantInstance rows. The long-lived access token is
+# encrypted and WRITE-ONLY: no field here ever returns it, and this cut only
+# reads the registry — it never contacts a Home Assistant host.
+
+fragment HomeAssistantInstanceFields on HomeAssistantInstance {
+  id
+  organizationId
+  slug
+  name
+  url
+  enabled
+  opAllowlist
+  createdAt
+  updatedAt
+  createdBy
+  updatedBy
+}
+
+# One explicit page (uniform { items, total }). Callers pass their own limit,
+# so the server default (50) never applies silently.
+query HomeAssistantInstances(
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  homeAssistantInstances(orgId: $orgId, limit: $limit, offset: $offset) {
+    items {
+      ...HomeAssistantInstanceFields
+    }
+    total
+  }
+}
+
+# Null when the row is absent OR the caller is not a member of its org.
+query HomeAssistantInstance($ref: ID!) {
+  homeAssistantInstance(ref: $ref) {
+    ...HomeAssistantInstanceFields
+  }
+}
+
+# Null when absent/denied; a disabled instance errors HA_INSTANCE_DISABLED.
+query HomeAssistantInstanceOps($ref: ID!) {
+  homeAssistantInstanceOps(ref: $ref) {
+    op
+    runToolName
+    description
+    inputSchema
+  }
+}
