@@ -66,6 +66,9 @@ func TestNodeNext1009FirstAndAfter(t *testing.T) {
 			t.Fatal(v)
 		}
 		if tail == nil {
+			if v["raw"] != false {
+				t.Fatal(v)
+			}
 			if _, ok := v["currentRef"]; ok {
 				t.Fatal(v)
 			}
@@ -120,5 +123,32 @@ func TestNodeNext1009InvalidAndRefusal(t *testing.T) {
 	out, stderr, code, calls := runNext1009(t, `{"errors":[{"message":"provider refused","extensions":{"code":"FORBIDDEN"}}]}`, "hrn:node:acme.com:kb:p")
 	if code != 8 || out != "" || !strings.Contains(stderr, "provider refused") || len(calls) != 1 {
 		t.Fatalf("%d %q %q %v", code, out, stderr, calls)
+	}
+}
+
+func TestNodeNext1009NullArraysAndText(t *testing.T) {
+	body := strings.Replace(nodeDetailJSON, `"tags":["ci"]`, `"tags":null`, 1)
+	if body == nodeDetailJSON {
+		t.Fatal("null tags fixture edit did not land")
+	}
+	out, _, code, _ := runNext1009(t, `{"data":{"nextNode":`+body+`}}`, "hrn:node:acme.com:kb:p", "--json")
+	if code != 0 {
+		t.Fatal(out)
+	}
+	for _, key := range []string{"tags", "outgoingEdges", "incomingEdges"} {
+		if strings.Contains(out, `"`+key+`": null`) {
+			t.Fatal(out)
+		}
+	}
+	text, _, code, _ := runNext1009(t, `{"data":{"nextNode":`+nodeDetailJSON+`}}`, "hrn:node:acme.com:kb:p")
+	if code != 0 || !strings.Contains(text, "Flaky CI") {
+		t.Fatalf("text %q code%d", text, code)
+	}
+}
+
+func TestNodeNext1009EmptyAfterGuidance(t *testing.T) {
+	_, stderr, code, calls := runNext1009(t, `{}`, "hrn:node:acme.com:kb:p", "--after=")
+	if code != 2 || len(calls) != 0 || !strings.Contains(stderr, "--after must not be empty") {
+		t.Fatalf("code%d stderr%q calls%v", code, stderr, calls)
 	}
 }
