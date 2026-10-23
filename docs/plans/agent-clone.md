@@ -52,7 +52,7 @@ checkout of merged provider c8da96c1393bc11170eb7ce83c94533dbe5dfbe1, explicitly
 selected through HADRON_SERVER_DIR. The snapshot retains the canonical exporter output verbatim (including three whitespace-only description lines reported by git diff --check). Generated client code is never hand edited.
 The full refresh includes already-merged non-clone fields/descriptions (boot
 pointers, includes and task changes among them). Those are schema inventory,
-not client feature claims.
+not client feature claims. The unbound-operation inventory records the nine newly visible unwrapped operations with explicit out-of-scope annotations; CLI parity is not implemented here.
 
 Provider#2044 makes CreateNodeInput.memoryId optional beside a new install
 alternative. Existing CLI node writers always pass memoryId: a genqlient
