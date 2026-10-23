@@ -250,3 +250,17 @@ mutation SetAgentBase(
     ...AgentFields
   }
 }
+
+# #994: one mutation, no origin/readiness field or client prelookup.
+mutation CloneAgent(
+  $source: ID!
+  $target: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $slug: String
+) {
+  cloneAgent(source: $source, target: $target, name: $name, slug: $slug) {
+    ...AgentFields
+  }
+}

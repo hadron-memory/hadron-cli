@@ -110,6 +110,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdCreate(f))
+	cmd.AddCommand(newCmdClone(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdAgentTasks(f))

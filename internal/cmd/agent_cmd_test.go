@@ -35,7 +35,7 @@ func TestAgentOperationsValidateAgainstCutoverSchema(t *testing.T) {
 	for name, operation := range map[string]string{
 		"GetAgent": gen.GetAgent_Operation, "Agents": gen.Agents_Operation,
 		"PublicAgents": gen.PublicAgents_Operation, "CreateAgent": gen.CreateAgent_Operation,
-		"UpdateAgent": gen.UpdateAgent_Operation,
+		"UpdateAgent": gen.UpdateAgent_Operation, "CloneAgent": gen.CloneAgent_Operation,
 	} {
 		t.Run(name, func(t *testing.T) {
 			doc, err := parser.ParseQuery(&ast.Source{Name: name, Input: operation})

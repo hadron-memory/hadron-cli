@@ -752,6 +752,7 @@ func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 	name := in.Name
 	return &gen.UpdateNodeInput{
 		MemoryId:    &in.MemoryId,
+		Install:     in.Install, // schema refresh: retain every shared input field
 		Loc:         &in.Loc,
 		Name:        &name,
 		Content:     in.Content,

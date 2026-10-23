@@ -62,6 +62,9 @@ func TestClearRoleOtherFieldsAndOmission(t *testing.T) {
 							f.Set(reflect.ValueOf(&raw))
 						case reflect.TypeOf([]string{}):
 							f.Set(reflect.ValueOf([]string{"tag"}))
+						case reflect.TypeOf((*gen.InstallTargetInput)(nil)):
+							// No CLI install-target flag; the dedicated clear rejects
+							// this alternative separately instead of dropping it.
 						case reflect.TypeOf([]*gen.NodeEdgeInput{}):
 							f.Set(reflect.ValueOf([]*gen.NodeEdgeInput{{}}))
 						default:
@@ -132,5 +135,14 @@ func TestClearRoleCurrentAndResultingKindsMustShareDoor(t *testing.T) {
 		&gen.UpdateNodeInput{IsRunnable: &runnable}, NodeKindState{Role: &role})
 	if err == nil || !strings.Contains(err.Error(), "two governed kinds") {
 		t.Fatalf("expected union refusal: %v", err)
+	}
+}
+
+func TestClearRoleRefusesUnsupportedInstallInsteadOfDropping(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Error("unsupported install sent a mutation") }))
+	defer srv.Close()
+	_, err := UpdateNodeClearingRoleByKind(context.Background(), graphql.NewClient(srv.URL, srv.Client()), &gen.UpdateNodeInput{Install: &gen.InstallTargetInput{AppRef: "app", AgentRef: "agent"}}, NodeKindState{})
+	if err == nil || !strings.Contains(err.Error(), "install target") {
+		t.Fatalf("expected local refusal: %v", err)
 	}
 }

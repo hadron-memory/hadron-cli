@@ -1353,7 +1353,7 @@ type AgentTaskAssignResponse struct {
 	// #1705 — assign a task with no assignee — a queued task (pending) or a BACKLOG task: the
 	// task's owner, a worker the owner reports to, or whoever manages the App
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09). closeSessionWhenDone, when
-	// given, replaces the task's value. Assigning a BACKLOG task moves it to
+	// given, replaces the task's value; omitted, the stored value is kept. Assigning a BACKLOG task moves it to
 	// pending (hrn:node:hadronmemory.com:specs:cor:agt:050:02, #1754). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (already assigned: use
 	// reassignAgentTask), TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
@@ -1817,6 +1817,17 @@ type AgentTaskCreateResponse struct {
 	// in, alike), APP_UNINSTALLED, FORBIDDEN (impersonation), BAD_USER_INPUT.
 	// Every write re-checks the caller's participation and the App's state
 	// inside its transaction.
+	// #2198 (experiment): createAgentTask, assignAgentTask, reassignAgentTask and
+	// finishAgentTask may succeed WITH warnings, in the response's
+	// `extensions.warnings` (not in `errors`): a list of
+	// { path (the mutation's response key), code, text, register? }. Codes are a
+	// closed list per release (task.create.no-source, task.assign.assignee-unavailable,
+	// task.assign.assignee-busy, task.assign.assignee-paused,
+	// task.finish.open-children); a client must tolerate unknown codes. `text` is
+	// fixed per code. `register` appears only for a caller that has an Agent:
+	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved }. A warning never
+	// blocks and never reveals another worker's state to a caller who could not
+	// already see it on the roster.
 	CreateAgentTask *AgentTaskCreateCreateAgentTask `json:"createAgentTask"`
 }
 
@@ -10876,6 +10887,185 @@ type ClearNodeHistoryResponse struct {
 // GetClearNodeHistory returns ClearNodeHistoryResponse.ClearNodeHistory, and is useful for accessing the field via an interface.
 func (v *ClearNodeHistoryResponse) GetClearNodeHistory() int { return v.ClearNodeHistory }
 
+// CloneAgentCloneAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type CloneAgentCloneAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns CloneAgentCloneAgent.Id, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns CloneAgentCloneAgent.Urn, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns CloneAgentCloneAgent.Name, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns CloneAgentCloneAgent.Description, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns CloneAgentCloneAgent.Type, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns CloneAgentCloneAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetVisibility() AgentVisibility { return v.AgentFields.Visibility }
+
+// GetOrganizationId returns CloneAgentCloneAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetOrganizationId() *string { return v.AgentFields.OrganizationId }
+
+// GetSurfaces returns CloneAgentCloneAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns CloneAgentCloneAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
+
+// GetSystemPrompt returns CloneAgentCloneAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
+
+// GetTasksIndexRef returns CloneAgentCloneAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
+
+// GetProcessesIndexRef returns CloneAgentCloneAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetProcessesIndexRef() *string { return v.AgentFields.ProcessesIndexRef }
+
+// GetExtendsAgentId returns CloneAgentCloneAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
+
+// GetAiProvider returns CloneAgentCloneAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns CloneAgentCloneAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns CloneAgentCloneAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetPersonaRole returns CloneAgentCloneAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
+
+// GetUsesTasks returns CloneAgentCloneAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
+// GetCreatedAt returns CloneAgentCloneAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *CloneAgentCloneAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CloneAgentCloneAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CloneAgentCloneAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCloneAgentCloneAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CloneAgentCloneAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CloneAgentCloneAgent) __premarshalJSON() (*__premarshalCloneAgentCloneAgent, error) {
+	var retval __premarshalCloneAgentCloneAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// CloneAgentResponse is returned by CloneAgent on success.
+type CloneAgentResponse struct {
+	// Clone an Agent into an organization you administer: a new PERSONAL-draft Agent
+	// with its own copy of the source's system memory, its links and imports, and a recorded origin. Needs a
+	// PUBLIC source, or one you manage in its own organization. Refusals are typed (AGENT_NOT_PUBLIC,
+	// CLONE_*); a source that keeps changing answers CONFLICT with reason AGENT_CLONE_SOURCE_CHANGED
+	// (retryable). target must be an organization.
+	CloneAgent *CloneAgentCloneAgent `json:"cloneAgent"`
+}
+
+// GetCloneAgent returns CloneAgentResponse.CloneAgent, and is useful for accessing the field via an interface.
+func (v *CloneAgentResponse) GetCloneAgent() *CloneAgentCloneAgent { return v.CloneAgent }
+
 // CloneMemoryCloneMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -10959,6 +11149,14 @@ type CloneMemoryResponse struct {
 	// (the caller is bootstrapped as a group clone's first owner), sessions,
 	// licenses, log entries, assets, and git-sync config (the clone starts
 	// DB-only).
+	//
+	// Include tags (#2167; hrn:node:hadronmemory.com:specs:cor:dmo:150:04 and
+	// hrn:node:hadronmemory.com:specs:cor:dmo:150:06): every tag in every copied node
+	// counts as added, checked after the URN rewrite. A tag whose target is
+	// missing or that the caller can't read refuses with
+	// INCLUDE_TARGET_UNAVAILABLE. A tag that closes a cycle among the copied
+	// nodes refuses with INCLUDE_CYCLE, at any chain length. Either refusal names
+	// only the authored tag and nothing is created.
 	//
 	// Authorization: the SOURCE side mirrors deleteMemory (personal/private →
 	// owner only; knowledge/group → source-org ADMIN). When `targetUrn` names a
@@ -13469,7 +13667,7 @@ type CreateAgentTaskInput struct {
 	AppRef *string `json:"appRef"`
 	// Omit to leave the task queued.
 	Assignee *AgentTaskPartyInput `json:"assignee,omitempty"`
-	// Defaults to true (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
+	// Defaults to false: the assignee's session ends only when whoever assigns the task asks (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
 	CloseSessionWhenDone *bool   `json:"closeSessionWhenDone"`
 	Description          *string `json:"description"`
 	// Defaults to the creator. A root task's creator may name any other
@@ -14880,9 +15078,9 @@ type CreateEdgeCreateEdge struct {
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
 	Priority int `json:"priority"`
-	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
+	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
 	Source *CreateEdgeCreateEdgeSourceNode `json:"source"`
-	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
 	Target *CreateEdgeCreateEdgeTargetNode `json:"target"`
 }
 
@@ -15911,9 +16109,10 @@ func (v *CreateNodeCreateNode) GetRole() *string { return v.Role }
 // GetUpdatedAt returns CreateNodeCreateNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CreateNodeCreateNode) GetUpdatedAt() string { return v.UpdatedAt }
 
-// Input for createNode. 'memoryId', 'loc', and 'name' are required; creating
-// is create-only — a live node at (memoryId, loc) rejects with
-// NodeLocConflictError (spec 039 Phase 0 D1/D4).
+// Input for createNode. 'loc' and 'name' are required, plus EITHER 'memoryId'
+// or 'install' (an App's install memory, #2044) — both or neither is an
+// error (BAD_USER_INPUT). Creating is create-only — a live node at (memoryId,
+// loc) rejects with NodeLocConflictError (spec 039 Phase 0 D1/D4).
 type CreateNodeInput struct {
 	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Optional. Empty + whitespace-only normalize to null. Cap is 2000 characters.
 	Abstract *string `json:"abstract,omitempty"`
@@ -15928,6 +16127,8 @@ type CreateNodeInput struct {
 	Edges []*NodeEdgeInput `json:"edges,omitempty"`
 	// Forced PK (importer/sync use case, e.g. a stable UUIDv7). Only ever a create-id here — never a selector (D2). Omit to mint.
 	Id *string `json:"id,omitempty"`
+	// #2044 — an App's install memory as the target, instead of 'memoryId'. See InstallTargetInput.
+	Install *InstallTargetInput `json:"install,omitempty"`
 	// Whether this node can be run as a task by hadron_run_task (cor:api:060).
 	IsRunnable *bool   `json:"isRunnable,omitempty"`
 	LlmModel   *string `json:"llmModel,omitempty"`
@@ -15981,6 +16182,9 @@ func (v *CreateNodeInput) GetEdges() []*NodeEdgeInput { return v.Edges }
 // GetId returns CreateNodeInput.Id, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetId() *string { return v.Id }
 
+// GetInstall returns CreateNodeInput.Install, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetInstall() *InstallTargetInput { return v.Install }
+
 // GetIsRunnable returns CreateNodeInput.IsRunnable, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetIsRunnable() *bool { return v.IsRunnable }
 
@@ -16027,10 +16231,13 @@ type CreateNodeResponse struct {
 	// Phase 0 D1); a soft-deleted node at the target loc is resurrected.
 	// 'name' is required here and only here (D4).
 	// Include tags (#2040): content may carry {{> target settings}} tags. Writes
-	// that make a tag malformed refuse INVALID_INCLUDE, and one that would make
-	// the node include itself INCLUDE_CYCLE; nothing is written. A chain deeper
-	// than 10 is not refused: it saves, and reads show the broken-include notice
-	// past level 10 (#2134). Each tag's target gets a derived edge
+	// that make a tag malformed refuse INVALID_INCLUDE; a tag the write adds or
+	// changes whose target is missing, deleted or not readable by the writer
+	// refuses INCLUDE_TARGET_UNAVAILABLE (one error for all three; tags already
+	// stored are not re-checked, #2041); and one that would make the node include
+	// itself INCLUDE_CYCLE; nothing is written. A chain deeper than 10 is not
+	// refused: it saves, and reads show the broken-include notice past level 10
+	// (#2134). Each tag's target gets a derived edge
 	// (governed kind INCLUDE) that only the content owns: editing or deleting it
 	// directly refuses INCLUDE_EDGE_DERIVED.
 	CreateNode *CreateNodeCreateNode `json:"createNode"`
@@ -20023,8 +20230,22 @@ type ExtractParentNodeToMemoryResponse struct {
 	// source root (that would empty the source — clone + deleteMemory instead).
 	// Encrypted and system/app-class sources are rejected.
 	//
-	// v1 limitation: node content is copied verbatim — because both the slug and
-	// node locs change, URN references among the moved nodes WILL break; and
+	// Include tags (#2167; hrn:node:hadronmemory.com:specs:cor:dmo:150:04 and
+	// hrn:node:hadronmemory.com:specs:cor:dmo:150:06): every tag in every copied node
+	// counts as added and is resolved where it lands in the new memory. First, a
+	// tag naming a copied node is rewritten to that node's rebased loc (a URN tag
+	// to the source memory becomes the new memory's URN); only the target
+	// changes, and a rewritten node loses its contentHash and authorship. A tag
+	// naming anything else stays as written, so a relative tag naming a node
+	// left behind refuses with INCLUDE_TARGET_UNAVAILABLE (a URN tag to a memory
+	// the copier can read passes unchanged). A relative tag outside the subtree
+	// whose loc equals a rebased loc also refuses (R188), and is never rewritten. A tag that closes a cycle refuses
+	// with INCLUDE_CYCLE. Either refusal names the tag as it stands in the copy,
+	// and nothing is created or moved.
+	//
+	// v1 limitation: apart from include tags, node content is copied verbatim —
+	// because both the slug and node locs change, other URN references among the
+	// moved nodes WILL break; and
 	// unresolved PendingEdges within the subtree are dropped.
 	ExtractParentNodeToMemory *ExtractParentNodeToMemoryExtractParentNodeToMemory `json:"extractParentNodeToMemory"`
 }
@@ -21337,7 +21558,7 @@ type GetNodeNodeIncomingEdgesEdge struct {
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
 	Priority int `json:"priority"`
-	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
+	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
 	Source *GetNodeNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
 
@@ -21392,7 +21613,7 @@ type GetNodeNodeOutgoingEdgesEdge struct {
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
 	Priority int `json:"priority"`
-	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
 	Target *GetNodeNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
 
@@ -24051,6 +24272,25 @@ type InstallAgentIntoAppResponse struct {
 func (v *InstallAgentIntoAppResponse) GetInstallAgentIntoApp() *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayload {
 	return v.InstallAgentIntoApp
 }
+
+// #2044 (hrn:node:hadronmemory.com:specs:cor:agt:040:06) — names an App's INSTALL MEMORY by the pair that
+// identifies it: the App and the Agent it customises. Both are ID-or-URN refs
+// like every other entity ref (relative URNs are refused, URN_NOT_QUALIFIED).
+// Accepted by createNode / updateNode in place of 'memoryId'. The install memory
+// is created by the App's first customisation: a createNode through this target
+// finds-or-creates it in the same transaction as the write, so a refused write
+// leaves nothing behind. Only whoever manages the App may write through it, and
+// only while the App is live and the Agent installed.
+type InstallTargetInput struct {
+	AgentRef string `json:"agentRef"`
+	AppRef   string `json:"appRef"`
+}
+
+// GetAgentRef returns InstallTargetInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *InstallTargetInput) GetAgentRef() string { return v.AgentRef }
+
+// GetAppRef returns InstallTargetInput.AppRef, and is useful for accessing the field via an interface.
+func (v *InstallTargetInput) GetAppRef() string { return v.AppRef }
 
 // InvitationFields includes the GraphQL fields of UserInvitation requested by the fragment InvitationFields.
 // The GraphQL type's documentation follows.
@@ -28422,7 +28662,7 @@ type NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge struct {
 	// If true, this edge can be executed/run (task automation, conversation
 	// transitions). Mirrors Node.isRunnable.
 	IsRunnable *bool `json:"isRunnable"`
-	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
+	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
 	Source *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
 
@@ -28503,7 +28743,7 @@ type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge struct {
 	// one of them — a count and a category error in one sentence.
 	// See hadron-docs/docs/reference/edge-conditions.md.
 	Condition *json.RawMessage `json:"condition"`
-	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
 	Target *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
 
@@ -28849,10 +29089,14 @@ var AllNodeExportFormat = []NodeExportFormat{
 
 // NodeExportMetaNode includes the requested fields of the GraphQL type Node.
 type NodeExportMetaNode struct {
-	Loc      string                    `json:"loc"`
-	Name     string                    `json:"name"`
-	MemoryId string                    `json:"memoryId"`
-	Memory   *NodeExportMetaNodeMemory `json:"memory"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	MemoryId string `json:"memoryId"`
+	// #2193: this node's memory record, exactly as Query.memory answers it to the
+	// caller, or null when the caller may not read that record (or it is
+	// deleted). Seeing a node does not grant its memory's record, so use urn or
+	// memoryId for the address. Always null on an inherited node.
+	Memory *NodeExportMetaNodeMemory `json:"memory"`
 }
 
 // GetLoc returns NodeExportMetaNode.Loc, and is useful for accessing the field via an interface.
@@ -48311,9 +48555,9 @@ type UpdateEdgeUpdateEdge struct {
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
 	Priority int `json:"priority"`
-	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
+	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
 	Source *UpdateEdgeUpdateEdgeSourceNode `json:"source"`
-	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
 	Target *UpdateEdgeUpdateEdgeTargetNode `json:"target"`
 }
 
@@ -49613,10 +49857,13 @@ type UpdateNodeClearingRoleResponse struct {
 	// preserved ('name' included, D4; 'abstract' keeps its omit/null/string
 	// contract; omitted 'tags' are preserved, issue #235).
 	// Include tags (#2040): content may carry {{> target settings}} tags. Writes
-	// that make a tag malformed refuse INVALID_INCLUDE, and one that would make
-	// the node include itself INCLUDE_CYCLE; nothing is written. A chain deeper
-	// than 10 is not refused: it saves, and reads show the broken-include notice
-	// past level 10 (#2134). Each tag's target gets a derived edge
+	// that make a tag malformed refuse INVALID_INCLUDE; a tag the write adds or
+	// changes whose target is missing, deleted or not readable by the writer
+	// refuses INCLUDE_TARGET_UNAVAILABLE (one error for all three; tags already
+	// stored are not re-checked, #2041); and one that would make the node include
+	// itself INCLUDE_CYCLE; nothing is written. A chain deeper than 10 is not
+	// refused: it saves, and reads show the broken-include notice past level 10
+	// (#2134). Each tag's target gets a derived edge
 	// (governed kind INCLUDE) that only the content owns: editing or deleting it
 	// directly refuses INCLUDE_EDGE_DERIVED.
 	UpdateNode *UpdateNodeClearingRoleUpdateNode `json:"updateNode"`
@@ -49804,6 +50051,8 @@ type UpdateNodeInput struct {
 	ExpectedRevision *int `json:"expectedRevision,omitempty"`
 	// The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryId+loc.
 	Id *string `json:"id,omitempty"`
+	// #2044 — selector, with 'loc', in place of 'memoryId': the App's install memory. Creates nothing (the first createNode does). XOR with 'id'.
+	Install *InstallTargetInput `json:"install,omitempty"`
 	// Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve.
 	IsRunnable *bool   `json:"isRunnable,omitempty"`
 	LlmModel   *string `json:"llmModel,omitempty"`
@@ -49863,6 +50112,9 @@ func (v *UpdateNodeInput) GetExpectedRevision() *int { return v.ExpectedRevision
 // GetId returns UpdateNodeInput.Id, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetId() *string { return v.Id }
 
+// GetInstall returns UpdateNodeInput.Install, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetInstall() *InstallTargetInput { return v.Install }
+
 // GetIsRunnable returns UpdateNodeInput.IsRunnable, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetIsRunnable() *bool { return v.IsRunnable }
 
@@ -49912,10 +50164,13 @@ type UpdateNodeResponse struct {
 	// preserved ('name' included, D4; 'abstract' keeps its omit/null/string
 	// contract; omitted 'tags' are preserved, issue #235).
 	// Include tags (#2040): content may carry {{> target settings}} tags. Writes
-	// that make a tag malformed refuse INVALID_INCLUDE, and one that would make
-	// the node include itself INCLUDE_CYCLE; nothing is written. A chain deeper
-	// than 10 is not refused: it saves, and reads show the broken-include notice
-	// past level 10 (#2134). Each tag's target gets a derived edge
+	// that make a tag malformed refuse INVALID_INCLUDE; a tag the write adds or
+	// changes whose target is missing, deleted or not readable by the writer
+	// refuses INCLUDE_TARGET_UNAVAILABLE (one error for all three; tags already
+	// stored are not re-checked, #2041); and one that would make the node include
+	// itself INCLUDE_CYCLE; nothing is written. A chain deeper than 10 is not
+	// refused: it saves, and reads show the broken-include notice past level 10
+	// (#2134). Each tag's target gets a derived edge
 	// (governed kind INCLUDE) that only the content owns: editing or deleting it
 	// directly refuses INCLUDE_EDGE_DERIVED.
 	UpdateNode *UpdateNodeUpdateNode `json:"updateNode"`
@@ -56087,6 +56342,26 @@ type __ClearNodeHistoryInput struct {
 
 // GetNodeRef returns __ClearNodeHistoryInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__ClearNodeHistoryInput) GetNodeRef() string { return v.NodeRef }
+
+// __CloneAgentInput is used internally by genqlient
+type __CloneAgentInput struct {
+	Source string  `json:"source"`
+	Target string  `json:"target"`
+	Name   *string `json:"name,omitempty"`
+	Slug   *string `json:"slug,omitempty"`
+}
+
+// GetSource returns __CloneAgentInput.Source, and is useful for accessing the field via an interface.
+func (v *__CloneAgentInput) GetSource() string { return v.Source }
+
+// GetTarget returns __CloneAgentInput.Target, and is useful for accessing the field via an interface.
+func (v *__CloneAgentInput) GetTarget() string { return v.Target }
+
+// GetName returns __CloneAgentInput.Name, and is useful for accessing the field via an interface.
+func (v *__CloneAgentInput) GetName() *string { return v.Name }
+
+// GetSlug returns __CloneAgentInput.Slug, and is useful for accessing the field via an interface.
+func (v *__CloneAgentInput) GetSlug() *string { return v.Slug }
 
 // __CloneMemoryInput is used internally by genqlient
 type __CloneMemoryInput struct {
@@ -63683,6 +63958,68 @@ func ClearNodeHistory(
 	return data_, err_
 }
 
+// The mutation executed by CloneAgent.
+const CloneAgent_Operation = `
+mutation CloneAgent ($source: ID!, $target: ID!, $name: String, $slug: String) {
+	cloneAgent(source: $source, target: $target, name: $name, slug: $slug) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	createdAt
+}
+`
+
+// #994: one mutation, no origin/readiness field or client prelookup.
+func CloneAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	source string,
+	target string,
+	name *string,
+	slug *string,
+) (data_ *CloneAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CloneAgent",
+		Query:  CloneAgent_Operation,
+		Variables: &__CloneAgentInput{
+			Source: source,
+			Target: target,
+			Name:   name,
+			Slug:   slug,
+		},
+	}
+
+	data_ = &CloneAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CloneMemory.
 const CloneMemory_Operation = `
 mutation CloneMemory ($ref: ID!, $targetUrn: String!) {
@@ -65275,6 +65612,9 @@ mutation CreateNode ($input: CreateNodeInput!) {
 // already at (memoryId, loc) rejects with extensions.code NodeLocConflictError.
 // Optional fields the caller leaves unset must be omitted from the wire, not
 // serialized as null — hence the per-field omitempty annotations.
+// #994 schema refresh picks up the provider's optional install target (#2044).
+// Existing CLI node writers still always supply memoryId: retain their string
+// binding and omit the unused install alternative, with no caller/wire change.
 func CreateNode(
 	ctx_ context.Context,
 	client_ graphql.Client,
