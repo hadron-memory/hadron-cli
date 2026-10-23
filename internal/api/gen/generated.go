@@ -21072,7 +21072,13 @@ func (v *FindObjectsResponse) GetFindObjects() *FindObjectsFindObjectsObjectList
 // not the Agent, is the org- or user-owned caller identity and deployment.
 type GetAgentAgent struct {
 	AgentFields `json:"-"`
+	// #2281 - the URN of the Agent this one was cloned from (cloneAgent), as that Agent's current URN. Null when
+	// this is not a clone, when you cannot read the source, when the source was deleted, or when the clone's origin identity is not recorded: those cases are indistinguishable by design. Never an id or an object.
+	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
 }
+
+// GetClonedFromAgentRef returns GetAgentAgent.ClonedFromAgentRef, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetClonedFromAgentRef() *string { return v.ClonedFromAgentRef }
 
 // GetId returns GetAgentAgent.Id, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetId() string { return v.AgentFields.Id }
@@ -21165,6 +21171,8 @@ func (v *GetAgentAgent) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalGetAgentAgent struct {
+	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
+
 	Id string `json:"id"`
 
 	Urn string `json:"urn"`
@@ -21219,6 +21227,7 @@ func (v *GetAgentAgent) MarshalJSON() ([]byte, error) {
 func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	var retval __premarshalGetAgentAgent
 
+	retval.ClonedFromAgentRef = v.ClonedFromAgentRef
 	retval.Id = v.AgentFields.Id
 	retval.Urn = v.AgentFields.Urn
 	retval.Name = v.AgentFields.Name
@@ -69988,6 +69997,7 @@ const GetAgent_Operation = `
 query GetAgent ($ref: ID!) {
 	agent(ref: $ref) {
 		... AgentFields
+		clonedFromAgentRef
 	}
 }
 fragment AgentFields on Agent {

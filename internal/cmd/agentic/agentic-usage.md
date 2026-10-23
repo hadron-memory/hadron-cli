@@ -3327,3 +3327,8 @@ A returned node uses ordinary node-detail JSON/text; rendered is true by
 default, false with --raw. Separate advisory revision/stamp/comment/signature
 snapshots are not fetched and remain null; content/edges come from the one
 nextNode read. No ordinary get/list behaviour changes.
+
+- `agent get` alone adds nullable `clonedFromAgentRef`: the server-returned source
+  current URN, copied verbatim. Text prints `Cloned from:` only when non-null.
+  Null does not distinguish non-clone, withheld, deleted or unrecorded origin.
+  No extra source lookup; clone/list output and selections are unchanged.
