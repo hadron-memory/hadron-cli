@@ -3332,3 +3332,12 @@ nextNode read. No ordinary get/list behaviour changes.
   current URN, copied verbatim. Text prints `Cloned from:` only when non-null.
   Null does not distinguish non-clone, withheld, deleted or unrecorded origin.
   No extra source lookup; clone/list output and selections are unchanged.
+
+- `agent subscription list --org <id|urn>` reads one explicitly
+  selected organization's visible Agent licenses. It preserves all provider rows,
+  server `isActive`, and nullable lifecycle timestamps. The unpaginated field has
+  no client completeness guarantee: empty `[]` can be a concealed projection,
+  never proof that no grants exist globally. Caller org ref passes through without
+  a prelookup. This differs from principal-action `hadron grant` and per-user
+  Agent subscriptions. No subscribe/revoke/install/cleanup or implicit mine/agent
+  scope is implemented by this read-only cut.

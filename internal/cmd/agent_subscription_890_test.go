@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 	"strings"
 	"testing"
 )
@@ -36,5 +39,37 @@ func TestAgentSubscription890(t *testing.T) {
 				t.Fatal(out.String())
 			}
 		})
+	}
+}
+
+func TestAgentSubscription890Document(t *testing.T) {
+	doc, err := parser.ParseQuery(&ast.Source{Input: gen.OrgAgentGrants_Operation})
+	if err != nil {
+		t.Fatal(err)
+	}
+	op := doc.Operations.ForName("OrgAgentGrants")
+	if len(op.SelectionSet) != 1 {
+		t.Fatal("extra root read")
+	}
+	org := op.SelectionSet[0].(*ast.Field)
+	if org.Name != "organization" || len(org.Arguments) != 1 || org.Arguments.ForName("ref").Value.Raw != "ref" {
+		t.Fatal(org)
+	}
+	if len(org.SelectionSet) != 1 {
+		t.Fatal("extra org fields")
+	}
+	grants := org.SelectionSet[0].(*ast.Field)
+	if grants.Name != "agentOrgGrants" || len(grants.Arguments) != 0 {
+		t.Fatal(grants)
+	}
+	want := []string{"agentId", "orgId", "isActive", "createdAt", "activatedAt", "expiresAt", "revokedAt"}
+	if len(grants.SelectionSet) != len(want) {
+		t.Fatal("expanded projection")
+	}
+	for i, f := range grants.SelectionSet {
+		field := f.(*ast.Field)
+		if field.Name != want[i] || len(field.SelectionSet) != 0 {
+			t.Fatal("nested/full entity selection", field)
+		}
 	}
 }
