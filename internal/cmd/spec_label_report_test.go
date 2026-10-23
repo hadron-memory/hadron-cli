@@ -48,3 +48,34 @@ func TestSpecLabelReportPagesAndSpilloverReadOnly(t *testing.T) {
 		t.Fatal("invented label quality", out.String())
 	}
 }
+
+func TestSpecLabelReportEmptyAndFailure(t *testing.T) {
+	for _, mode := range []string{"empty", "null_listing", "transport", "null_batch"} {
+		t.Run(mode, func(t *testing.T) {
+			empty := `{"data":{"findNodes":{"hits":[]}}}`
+			page := `{"data":{"findNodes":{"hits":[{"node":{"id":"p","memoryId":"mem1","loc":"msg:010","name":"Parent","tags":["spec"]}}]}}}`
+			m := map[string][]string{"ResolveUrn": {resolveSpecJSON}, "FindNodes": {empty, empty}}
+			switch mode {
+			case "null_listing":
+				m["FindNodes"] = []string{`{"data":{"findNodes":null}}`}
+			case "transport":
+				m["FindNodes"] = []string{`{"errors":[{"message":"unavailable","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`}
+			case "null_batch":
+				m["FindNodes"] = []string{page, empty, empty}
+				m["NodeBatch"] = []string{`{"data":{"nodeBatch":null}}`}
+			}
+			gql, _ := queueGraphQL(t, m)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"spec", "label-report", "-m", specMem, "--server", gql.URL, "--json"})
+			err := root.Execute()
+			if mode == "empty" {
+				if err != nil || !strings.Contains(out.String(), `"items": []`) {
+					t.Fatal(err, out.String())
+				}
+			} else if err == nil || strings.Contains(out.String(), `"items"`) {
+				t.Fatal("failure appeared complete", err, out.String())
+			}
+		})
+	}
+}
