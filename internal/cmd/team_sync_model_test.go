@@ -66,16 +66,16 @@ func hookJSON(t *testing.T, env syncEnv) string {
 	return string(b)
 }
 
-func runSync(t *testing.T, stdin string, gqlURL string, args ...string) (string, string, error) {
+func runSync(t *testing.T, stdin string, gqlURL string, args ...string) (string, error) {
 	t.Helper()
-	f, out := testFactory(t)
+	f, _ := testFactory(t)
 	var errOut bytes.Buffer
 	f.IOStreams.In = strings.NewReader(stdin)
 	f.IOStreams.ErrOut = &errOut
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"team", "session"}, append(args, "--server", gqlURL)...))
 	err := root.Execute()
-	return out.String(), errOut.String(), err
+	return errOut.String(), err
 }
 
 func updateVars(t *testing.T, captured map[string]json.RawMessage) map[string]any {
@@ -97,7 +97,7 @@ func TestSyncModelReportsOneModelOnlyWrite(t *testing.T) {
 		"GetTeamSession":    sessionWithTranscript(env.transcript),
 		"UpdateTeamSession": modelLogSessionJSON,
 	})
-	if _, _, err := runSync(t, hookJSON(t, env), gql.URL, "sync-model", "--hook"); err != nil {
+	if _, err := runSync(t, hookJSON(t, env), gql.URL, "sync-model", "--hook"); err != nil {
 		t.Fatal(err)
 	}
 	v := updateVars(t, captured)
@@ -160,7 +160,7 @@ func TestSyncModelZeroReports(t *testing.T) {
 			stdin := hookJSON(t, env)
 			resp := mutate(t, &env, &stdin)
 			gql, captured := captureGraphQL(t, map[string]string{"GetTeamSession": resp, "UpdateTeamSession": modelLogSessionJSON})
-			_, errOut, err := runSync(t, stdin, gql.URL, "sync-model", "--hook")
+			errOut, err := runSync(t, stdin, gql.URL, "sync-model", "--hook")
 			if err != nil {
 				t.Fatalf("hook mode must exit 0: %v", err)
 			}
@@ -180,7 +180,7 @@ func TestSyncModelNoBindingZeroReports(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{"UpdateTeamSession": modelLogSessionJSON})
-	if _, _, err := runSync(t, hookJSON(t, env), gql.URL, "sync-model", "--hook"); err != nil {
+	if _, err := runSync(t, hookJSON(t, env), gql.URL, "sync-model", "--hook"); err != nil {
 		t.Fatal(err)
 	}
 	if updateVars(t, captured) != nil {
@@ -204,7 +204,7 @@ func TestSyncModelBindingReplacedDuringReadDiscards(t *testing.T) {
 		}
 		return ""
 	})
-	if _, _, err := runSync(t, hookJSON(t, env), gql.URL, "sync-model", "--hook"); err != nil {
+	if _, err := runSync(t, hookJSON(t, env), gql.URL, "sync-model", "--hook"); err != nil {
 		t.Fatal(err)
 	}
 	if calls != 1 {
@@ -218,10 +218,10 @@ func TestSyncModelBindingReplacedDuringReadDiscards(t *testing.T) {
 func TestSyncModelManualUnavailableStatusAndHookExit(t *testing.T) {
 	env := setupSync(t, syncRecord("m"))
 	gql, captured := captureGraphQL(t, map[string]string{"GetTeamSession": sessionWithTranscript(""), "UpdateTeamSession": modelLogSessionJSON})
-	_, _, err := runSync(t, hookJSON(t, env), gql.URL, "sync-model")
+	_, err := runSync(t, hookJSON(t, env), gql.URL, "sync-model")
 	var ce *exitcode.CodedError
-	if !errors.As(err, &ce) || ce.Code != exitcode.ModelUnavailable {
-		t.Fatalf("manual run: want exit %d, got %v", exitcode.ModelUnavailable, err)
+	if !errors.As(err, &ce) || ce.Code != 11 {
+		t.Fatalf("manual run: want exit %d, got %v", 11, err)
 	}
 	if updateVars(t, captured) != nil {
 		t.Error("zero reports")
@@ -231,7 +231,7 @@ func TestSyncModelManualUnavailableStatusAndHookExit(t *testing.T) {
 func TestSyncModelMalformedStdin(t *testing.T) {
 	env := setupSync(t, syncRecord("m"))
 	gql, captured := captureGraphQL(t, map[string]string{"UpdateTeamSession": modelLogSessionJSON})
-	if _, _, err := runSync(t, "not json", gql.URL, "sync-model", "--hook"); err != nil {
+	if _, err := runSync(t, "not json", gql.URL, "sync-model", "--hook"); err != nil {
 		t.Fatalf("hook mode exits 0: %v", err)
 	}
 	_ = env
@@ -243,7 +243,7 @@ func TestSyncModelMalformedStdin(t *testing.T) {
 func TestSetModelSendsModelOnly(t *testing.T) {
 	setupSync(t, "")
 	gql, captured := captureGraphQL(t, map[string]string{"UpdateTeamSession": modelLogSessionJSON})
-	if _, _, err := runSync(t, "", gql.URL, "set-model", "gpt-5.1-codex"); err != nil {
+	if _, err := runSync(t, "", gql.URL, "set-model", "gpt-5.1-codex"); err != nil {
 		t.Fatal(err)
 	}
 	v := updateVars(t, captured)
@@ -261,7 +261,7 @@ func TestSetModelRejectsUnboundedModel(t *testing.T) {
 	setupSync(t, "")
 	gql, captured := captureGraphQL(t, map[string]string{"UpdateTeamSession": modelLogSessionJSON})
 	for _, bad := range []string{strings.Repeat("a", 129), "a\nb", " "} {
-		_, _, err := runSync(t, "", gql.URL, "set-model", bad)
+		_, err := runSync(t, "", gql.URL, "set-model", bad)
 		var ce *exitcode.CodedError
 		if !errors.As(err, &ce) || ce.Code != exitcode.Usage {
 			t.Errorf("%q: want usage error, got %v", bad, err)
@@ -276,7 +276,7 @@ func TestSetModelNoBindingIsUsageError(t *testing.T) {
 	env := setupSync(t, "")
 	_ = os.Remove(env.binding)
 	gql, _ := captureGraphQL(t, map[string]string{"UpdateTeamSession": modelLogSessionJSON})
-	_, _, err := runSync(t, "", gql.URL, "set-model", "m")
+	_, err := runSync(t, "", gql.URL, "set-model", "m")
 	if err == nil {
 		t.Fatal("want an error with no binding")
 	}
