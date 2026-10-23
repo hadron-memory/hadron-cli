@@ -36,8 +36,10 @@ URL. --print, --json and non-terminal stdout only print the pointer and never
 launch. JSON is {id,urn,portalUrl}. A successful launcher request is not proof
 that a browser loaded the page. A launcher failure is an error, not success.
 
-Missing or unreadable nodes share exit4. A missing/null or invalid canonical
-URL exits7 (unavailable), without constructing a fallback. No content is read.
+Missing or unreadable nodes share exit 4. A missing/null or invalid canonical
+URL exits 1: the server answered, so retrying blindly will not fix it. No
+fallback is constructed. This query selects only id, urn and portalUrl; the
+server still records a node read and may decrypt internally.
 Only node open is delivered here; memory/agent/app open wait for their provider
 canonical URL fields (hadron-server#2309).`,
 		Args: cobra.ExactArgs(1),
@@ -65,7 +67,7 @@ canonical URL fields (hadron-server#2309).`,
 				return exitcode.Newf(exitcode.NotFound, "node is missing or not readable")
 			}
 			if resp.Node.PortalUrl == nil {
-				return exitcode.Newf(exitcode.Unavailable, "canonical portal URL unavailable: the server did not supply one")
+				return exitcode.Newf(exitcode.Error, "canonical portal URL unavailable: the server did not supply one")
 			}
 			dto := nodePortalDTO{ID: resp.Node.Id, URN: resp.Node.Urn, PortalURL: *resp.Node.PortalUrl}
 			return writeNodePortal(f, dto, printOnly, f.IOStreams.IsTerminal(), auth.OpenInBrowser)
@@ -81,11 +83,11 @@ canonical URL fields (hadron-server#2309).`,
 func writeNodePortal(f *cmdutil.Factory, dto nodePortalDTO, printOnly, terminal bool, open func(string) error) error {
 	parsed, err := url.Parse(dto.PortalURL)
 	if err != nil || parsed.Host == "" || parsed.Hostname() == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Opaque != "" {
-		return exitcode.Newf(exitcode.Unavailable, "canonical portal URL unavailable: the server returned an invalid http(s) URL")
+		return exitcode.Newf(exitcode.Error, "canonical portal URL unavailable: the server returned an invalid http(s) URL")
 	}
 	if !f.JSON && !printOnly && terminal {
 		if err := open(dto.PortalURL); err != nil {
-			return exitcode.Newf(exitcode.Error, "browser launcher failed: %v; use --print to read the URL without navigation", err)
+			return exitcode.Newf(exitcode.Error, "browser launcher failed: %v; canonical URL: %s (use --print for pointer-only output)", err, dto.PortalURL)
 		}
 	}
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { _, err := fmt.Fprintln(w, dto.PortalURL); return err })

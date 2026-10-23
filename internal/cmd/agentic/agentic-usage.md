@@ -3285,7 +3285,9 @@ text output requests the platform launcher using argv; no shell is used.
 JSON, non-terminal stdout and --print only print the pointer, with no launcher.
 JSON is {id,urn,portalUrl}; text is the exact returned URL. Launcher success
 means the launch request was accepted, not that a page loaded. Failure is an
-error. Missing/unreadable node is exit4; unavailable/null/invalid URL is exit7,
-with no guessed fallback. URL validation requires http(s), a host, no userinfo.
+error. Missing/unreadable node is exit 4; unavailable/null/invalid URL is exit 1,
+a deterministic answered failure, with no guessed fallback or blind retry.
+The query selects identity/URL only; the server still records a node read and
+may decrypt internally. URL validation requires http(s), a host, no userinfo.
 Memory/Agent/App open are not delivered; their canonical URL provider gap is
 hadron-server#2309. No real navigation is required for automated tests.

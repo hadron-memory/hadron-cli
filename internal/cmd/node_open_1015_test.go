@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -48,7 +51,7 @@ func TestNodeOpen1015UnavailableRefusalAndValidation(t *testing.T) {
 	for _, tc := range []struct {
 		response string
 		code     int
-	}{{`{"data":{"node":null}}`, 4}, {`{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:x","portalUrl":null}}}`, 7}, {`{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:x","portalUrl":"javascript:bad"}}}`, 7}, {`{"errors":[{"message":"refused","extensions":{"code":"FORBIDDEN"}}]}`, 8}} {
+	}{{`{"data":{"node":null}}`, 4}, {`{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:x","portalUrl":null}}}`, 1}, {`{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:x","portalUrl":"javascript:bad"}}}`, 1}, {`{"errors":[{"message":"refused","extensions":{"code":"FORBIDDEN"}}]}`, 8}} {
 		out, stderr, code, calls := nodeOpen1015(t, tc.response, "hrn:node:acme.com:kb:x")
 		if code != tc.code || out != "" || stderr == "" || len(calls) != 1 {
 			t.Fatalf("%d %q %q %v", code, out, stderr, calls)
@@ -57,5 +60,25 @@ func TestNodeOpen1015UnavailableRefusalAndValidation(t *testing.T) {
 	_, _, code, calls := nodeOpen1015(t, `{}`, "not:a:qualified:ref")
 	if code != 2 || len(calls) != 0 {
 		t.Fatalf("%d %v", code, calls)
+	}
+}
+
+func TestNodeOpen1015TransportStillUnavailable(t *testing.T) {
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
+		calls.Add(1)
+		http.Error(w, "bad gateway", 502)
+	}))
+	defer srv.Close()
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "open", "hrn:node:acme.com:kb:x", "--server", srv.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != 7 || calls.Load() != 1 {
+		t.Fatalf("transport code%d requests%d", exitCodeFor(err), calls.Load())
 	}
 }

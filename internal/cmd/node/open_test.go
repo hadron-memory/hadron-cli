@@ -35,7 +35,7 @@ func TestNodeOpenFakeLauncher1015(t *testing.T) {
 				t.Fatal(calls)
 			}
 			if tc.fail {
-				if err == nil || !strings.Contains(err.Error(), "browser launcher failed") || out.String() != "" {
+				if err == nil || (!strings.Contains(err.Error(), "browser launcher failed") || !strings.Contains(err.Error(), target)) || out.String() != "" {
 					t.Fatalf("%v %s", err, out.String())
 				}
 			} else if err != nil || out.String() == "" {
@@ -50,7 +50,7 @@ func TestNodeOpenInvalidURLNeverLaunches1015(t *testing.T) {
 		f := &cmdutil.Factory{IOStreams: streams}
 		calls := 0
 		err := writeNodePortal(f, nodePortalDTO{PortalURL: target}, false, true, func(string) error { calls++; return nil })
-		if exitcode.FromError(err) != 7 || calls != 0 || out.String() != "" {
+		if exitcode.FromError(err) != 1 || calls != 0 || out.String() != "" {
 			t.Fatalf("invalidURL calls%d err%v out%s", calls, err, out.String())
 		}
 	}
