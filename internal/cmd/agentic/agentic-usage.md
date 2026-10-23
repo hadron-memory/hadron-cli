@@ -373,6 +373,7 @@ hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--p
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
 hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | balance <org> | ledger <org> [--limit N] [--offset N]   # spec-046 metering READS (cli#215); <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. No write commands (setting rates, granting credits) yet
 hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | list [--org <ref>] [--user <ref>] | revoke <id> --yes
+hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
 hadron email connections --org <id|urn> [--json]
 hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | list [--connection <ref>] | revoke <grant-id> --yes
 hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
@@ -3393,3 +3394,22 @@ or client completeness guarantee is invented. Empty JSON is []. Each row has
 lastSyncAt,createdAt,updatedAt}; displayName/lastSyncAt preserve null. No credentials
 or lastError are selected. Text quotes external strings. Error mapping remains
 unchanged, including unknown tool failures; no guessed reconnect remedy.
+
+
+`hadron calendar` is read-only: explicit --connection, no discovery fallback or
+org-admin mailbox entitlement. `events` sends top=25 by default (1..100), one
+bounded bare list with no total/continuation. Absent optional calendar/query/time
+filters are omitted; explicit empty values are refused before requests. Bounds
+are RFC3339 instants with offsets; both supplied bounds must increase. Freebusy
+requires both and returns schedules/windows/error only, never event contents.
+CalendarInfo DTO: {id,name,description,timeZone,isPrimary,canEdit}. Event DTO:
+{id,calendarId,title,description,location,start,end,isAllDay,status,organizer,
+attendees,webLink,seriesId,isOrganizer,myResponse,createdAt,updatedAt}. Boundaries
+are {date,dateTime,timeZone}; date-only YYYY-MM-DD strings stay dates. Organizer
+is null or {address,name}, attendees is [] or {address,name,optional,response}
+rows; enum strings including NONE and nullable myResponse stay as returned.
+Freebusy DTO: [{id,error,busy:[{start,end}]}]. Arrays are [], nullable fields are
+null, and supplied offsets/zones are preserved. Human mode labels pretty JSON
+as external data and identifies the connection source; --json is the DTO only.
+No create/update/delete/respond/notifications. Existing error mapping/refusal
+sentences remain; unknown errors do not imply reconnect/retry.
