@@ -1,0 +1,103 @@
+package cmd
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func usage65Run(t *testing.T, response string, args ...string) (string, string, int, map[string]json.RawMessage) {
+	t.Helper()
+	srv, calls := captureGraphQLFunc(t, func(op string) string {
+		if op != "UsageEvents" && op != "MemoryUsageSummary" {
+			t.Errorf("unexpected %s", op)
+		}
+		return response
+	})
+	f, out := testFactory(t)
+	stderr := &strings.Builder{}
+	f.IOStreams.ErrOut = stderr
+	root := NewRootCmd(f)
+	root.SetArgs(append(args, "--server", srv.URL))
+	err := root.Execute()
+	code := 0
+	if err != nil {
+		code = renderError(f, err)
+	}
+	return out.String(), stderr.String(), code, calls
+}
+
+const usage65Event = `{"id":"e1","type":"read","createdAt":"2026-10-23T00:00:00Z","memoryId":"m1","nodeLoc":"a:b:c:d","provider":"p","model":"m","keyOwnerType":null,"tokensIn":null,"tokensOut":3,"costMicroCents":null}`
+
+func TestUsage65LocAndNullableCost(t *testing.T) {
+	response := `{"data":{"usageEvents":[` + usage65Event + `]}}`
+	out, stderr, code, calls := usage65Run(t, response, "usage", "events", "--loc", "a:b:c:d", "--memory", "acme.com:kb", "--type", "read", "--limit", "1", "--json")
+	if code != 0 {
+		t.Fatalf("%s %s", out, stderr)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(calls["UsageEvents"], &vars)
+	if vars["loc"] != "a:b:c:d" || vars["memoryId"] != "hrn:mem:acme.com:kb" || vars["type"] != "read" || vars["limit"] != float64(1) {
+		t.Fatal(vars)
+	}
+	for _, k := range []string{"nodeId", "offset"} {
+		if _, ok := vars[k]; ok {
+			t.Fatal(vars)
+		}
+	}
+	if !strings.Contains(out, `"costMicroCents": null`) || !strings.Contains(out, `"tokensIn": null`) {
+		t.Fatal(out)
+	}
+	if !strings.Contains(stderr, "no total available") || !strings.Contains(stderr, "more may exist") {
+		t.Fatal(stderr)
+	}
+	text, _, code, _ := usage65Run(t, response, "usage", "events")
+	if code != 0 || !strings.Contains(text, "unpriced") {
+		t.Fatal(text)
+	}
+}
+func TestUsage65BigintAndPage(t *testing.T) {
+	big := "123456789012345678901234567890"
+	response := `{"data":{"usageEvents":[` + strings.Replace(usage65Event, `"costMicroCents":null`, `"costMicroCents":"`+big+`"`, 1) + `]}}`
+	out, stderr, code, calls := usage65Run(t, response, "usage", "events", "--offset", "40", "--json")
+	if code != 0 || !strings.Contains(out, `"`+big+`"`) || strings.Contains(stderr, "more may exist") {
+		t.Fatalf("%d %s %s", code, out, stderr)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(calls["UsageEvents"], &vars)
+	if vars["offset"] != float64(40) || vars["limit"] != float64(20) {
+		t.Fatal(vars)
+	}
+	for _, k := range []string{"loc", "memoryId", "type", "nodeId"} {
+		if _, ok := vars[k]; ok {
+			t.Fatal(vars)
+		}
+	}
+}
+func TestUsage65EmptyAndMemorySummary(t *testing.T) {
+	out, _, code, _ := usage65Run(t, `{"data":{"usageEvents":[]}}`, "usage", "events", "--json")
+	if code != 0 || strings.TrimSpace(out) != "[]" {
+		t.Fatal(out)
+	}
+	out, _, code, calls := usage65Run(t, `{"data":{"memoryUsageSummary":[{"nodeLoc":"a:b","type":"read","count":4}]}}`, "memory", "usage", "acme.com:kb", "--json")
+	if code != 0 || !strings.Contains(out, `"count": 4`) {
+		t.Fatal(out)
+	}
+	var v map[string]any
+	_ = json.Unmarshal(calls["MemoryUsageSummary"], &v)
+	if v["memoryRef"] != "hrn:mem:acme.com:kb" {
+		t.Fatal(v)
+	}
+}
+func TestUsage65InvalidAndRefusal(t *testing.T) {
+	for _, args := range [][]string{{"usage", "events", "--loc="}, {"usage", "events", "--memory="}, {"usage", "events", "--type="}, {"usage", "events", "--limit", "0"}, {"usage", "events", "--offset", "-1"}, {"usage", "events", "--since", "yesterday"}, {"memory", "usage", ""}} {
+		_, stderr, code, calls := usage65Run(t, `{}`, args...)
+		if code != 2 || len(calls) != 0 {
+			t.Fatalf("%v %d %s %v", args, code, stderr, calls)
+		}
+	}
+	out, stderr, code, _ := usage65Run(t, `{"errors":[{"message":"denied or missing","extensions":{"code":"MEMORY_NOT_FOUND"}}]}`, "memory", "usage", "acme.com:kb")
+	if code != 4 || out != "" || !strings.Contains(stderr, "denied or missing") {
+		t.Fatalf("%d %s %s", code, out, stderr)
+	}
+}
