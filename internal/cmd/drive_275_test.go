@@ -6,6 +6,7 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -152,7 +153,14 @@ func TestDrive275Failures(t *testing.T) {
 					}
 					wire = `{"errors":[{"message":"synthetic refusal","extensions":{"code":"` + code + `","emailErrorCode":"` + emailCode + `"}}]}`
 				}
-				srv, ops := captureGraphQL(t, map[string]string{tc.op: wire})
+				var requests atomic.Int32
+				srv, _ := captureGraphQLFunc(t, func(op string) string {
+					requests.Add(1)
+					if op != tc.op {
+						t.Errorf("unexpected operation %q", op)
+					}
+					return wire
+				})
 				f, out := testFactory(t)
 				r := NewRootCmd(f)
 				a := append([]string{"drive"}, tc.args...)
@@ -160,8 +168,8 @@ func TestDrive275Failures(t *testing.T) {
 				if e := r.Execute(); exitCodeFor(e) != want {
 					t.Fatal(e, out.String())
 				}
-				if out.Len() != 0 || len(ops) != 1 {
-					t.Fatal("partial output or retry", out.String(), ops)
+				if out.Len() != 0 || requests.Load() != 1 {
+					t.Fatal("partial output or retry", out.String(), requests.Load())
 				}
 			})
 		}
@@ -209,6 +217,27 @@ func TestDrive275MalformedRows(t *testing.T) {
 			r.SetArgs(append(a, "--connection", "c", "--server", srv.URL))
 			if e := r.Execute(); exitCodeFor(e) != 7 || out.Len() != 0 {
 				t.Fatal(e, out.String())
+			}
+		})
+	}
+}
+
+func TestDrive275HumanMetadata(t *testing.T) {
+	for _, token := range []string{`null`, `"next"`} {
+		t.Run(token, func(t *testing.T) {
+			row := strings.Replace(driveFile275, `"Synthetic"`, `"file\u001b[31m"`, 1)
+			srv, _ := captureGraphQL(t, map[string]string{"DriveList": `{"data":{"driveFiles":{"files":[` + row + `],"nextPageToken":` + token + `}}}`})
+			f, out := testFactory(t)
+			r := NewRootCmd(f)
+			r.SetArgs([]string{"drive", "list", "--connection", "c", "--server", srv.URL})
+			if e := r.Execute(); e != nil {
+				t.Fatal(e)
+			}
+			if strings.Contains(out.String(), "\x1b") || !strings.Contains(out.String(), `\u001b[31m`) {
+				t.Fatalf("metadata not escaped: %q", out.String())
+			}
+			if got := strings.Contains(out.String(), "Next page available"); got != (token != "null") {
+				t.Fatalf("incorrect next-page hint: %q", out.String())
 			}
 		})
 	}
