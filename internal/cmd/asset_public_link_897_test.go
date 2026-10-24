@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"net/http"
 	"net/http/httptest"
@@ -100,7 +101,7 @@ func TestAssetPublicLink897Refusals(t *testing.T) {
 	for _, tc := range []struct {
 		code string
 		want int
-	}{{"FORBIDDEN", 8}, {"NOT_FOUND", 4}, {"GRAPHQL_VALIDATION_FAILED", 7}} {
+	}{{"FORBIDDEN", 8}, {"PERMISSION_DENIED", 8}, {"NOT_FOUND", 4}, {"GRAPHQL_VALIDATION_FAILED", 2}} {
 		t.Run(tc.code, func(t *testing.T) {
 			gql := fakeGraphQL(t, map[string]string{"SetAssetPublicLink": `{"errors":[{"message":"server refusal sentinel","extensions":{"code":"` + tc.code + `"}}]}`})
 			defer gql.Close()
@@ -111,7 +112,7 @@ func TestAssetPublicLink897Refusals(t *testing.T) {
 			if exitCodeFor(err) != tc.want {
 				t.Fatalf("%v", err)
 			}
-			if tc.code == "FORBIDDEN" && !strings.Contains(err.Error(), "server refusal sentinel") {
+			if (tc.code == "FORBIDDEN" || tc.code == "PERMISSION_DENIED") && !strings.Contains(err.Error(), "server refusal sentinel") {
 				t.Fatal(err)
 			}
 		})
@@ -150,5 +151,89 @@ func TestAssetPublicLink897ListReadback(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestAssetPublicLink897Confirmation(t *testing.T) {
+	for _, answer := range []string{"yes\n", "no\n"} {
+		t.Run(strings.TrimSpace(answer), func(t *testing.T) {
+			var mu sync.Mutex
+			calls := 0
+			gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
+				calls++
+				mu.Unlock()
+				fmt.Fprint(w, `{"data":{"setAssetPublicLink":{"id":"a1","publicLinkEnabled":true,"canManagePublicLink":true,"publicLinkAvailable":true,"publicUrl":"https://example.test/assets/a1"}}}`)
+			}))
+			defer gql.Close()
+			f, out, stderr := testFactoryTTY(t, answer)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"asset", "public-link", "a1", "--on", "--server", gql.URL})
+			err := root.Execute()
+			if !strings.Contains(stderr.String(), "anyone with the link") {
+				t.Fatal(stderr.String())
+			}
+			mu.Lock()
+			n := calls
+			mu.Unlock()
+			if answer == "yes\n" {
+				if err != nil || n != 1 || !strings.Contains(out.String(), "https://example.test/assets/a1") {
+					t.Fatalf("%v calls%d out%s", err, n, out)
+				}
+			} else if exitCodeFor(err) != exitcode.Cancelled || n != 0 {
+				t.Fatalf("%v calls%d", err, n)
+			}
+		})
+	}
+}
+func TestAssetPublicLink897URLState(t *testing.T) {
+	for _, tc := range []struct {
+		enabled, available bool
+		want               string
+	}{{false, true, "public link: off"}, {true, false, "serving disabled"}, {true, true, "no public URL on this server"}} {
+		t.Run(tc.want, func(t *testing.T) {
+			row := strings.TrimSuffix(assetJSON("a1", "logo.png", "image/png", 7, "CLEAN", "null"), "}") + fmt.Sprintf(`,"publicLinkEnabled":%v,"canManagePublicLink":false,"publicLinkAvailable":%v}`, tc.enabled, tc.available)
+			gql := fakeGraphQL(t, map[string]string{"MemoryAssets": assetListResp(1, false, row)})
+			defer gql.Close()
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"asset", "url", "a1", "-m", "mem1", "--json", "--server", gql.URL})
+			err := root.Execute()
+			if exitCodeFor(err) != exitcode.Conflict {
+				t.Fatal(err)
+			}
+			var dto map[string]any
+			if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+				t.Fatal(err)
+			}
+			if dto["publicLinkEnabled"] != tc.enabled || dto["publicLinkAvailable"] != tc.available || !strings.Contains(fmt.Sprint(dto["reason"]), tc.want) {
+				t.Fatal(out.String())
+			}
+		})
+	}
+}
+
+func TestAssetPublicLink897Selections(t *testing.T) {
+	for _, doc := range []string{gen.MemoryAssets_Operation, gen.SetAssetPublicLink_Operation} {
+		for _, field := range []string{"publicLinkEnabled", "canManagePublicLink", "publicLinkAvailable", "publicUrl"} {
+			found := false
+			for _, line := range strings.Split(doc, "\n") {
+				if strings.TrimSpace(line) == field {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("missing selected field %s", field)
+			}
+		}
+	}
+	raw, err := json.Marshal(gen.RegisterHostInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(raw, &vars)
+	if _, present := vars["capabilities"]; present {
+		t.Fatalf("schema-refresh capability must stay omitted: %s", raw)
 	}
 }

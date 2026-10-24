@@ -3085,7 +3085,7 @@ type AgentTaskListResponse struct {
 	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
 	// owner / assignee name a party of the App (a ref naming nobody matches
 	// nothing). queued selects pending tasks with no assignee; rootsOnly selects roots. These
-	// take precedence over status and parentTaskId respectively. limit defaults to 50 (cap 200).
+	// take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
 	// Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
 	// without a session binding (#1755).
 	// An App you do not participate in answers APP_NOT_FOUND, exactly like an
@@ -5295,7 +5295,7 @@ type AgentTeamEventsResponse struct {
 	// order. To read the next page pass after: the id of the last event you
 	// read; the cursor is the (createdAt, id) pair, so events sharing a
 	// timestamp are never skipped. since is a coarse time filter (strictly
-	// after), not a continuation. limit defaults to 50 (cap 200).
+	// after), not a continuation. limit defaults to 20 (cap 200).
 	AgentTeamEvents []*AgentTeamEventsAgentTeamEventsAgentTeamEvent `json:"agentTeamEvents"`
 }
 
@@ -6000,7 +6000,7 @@ type AgentsResponse struct {
 	// disclosure, no admin bypass). filter narrows by type / visibility.
 	// filter.ownedByMe (#782) narrows to the caller's own user-owned (org-less)
 	// agents for every caller including platform admins. Name-ascending order
-	// (id tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+	// (id tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
 	Agents *AgentsAgentsAgentsPage `json:"agents"`
 }
 
@@ -8482,7 +8482,7 @@ type AppsResponse struct {
 	// doesn't carry a userId, so org membership is the routing); platform
 	// ADMIN/OWNER unscoped get every live App. orgId follows cor:api:100:01
 	// (member -> scope, non-member -> empty page, no disclosure, no admin
-	// bypass). Name-ascending order (id tiebreak); limit default 50 / cap 200;
+	// bypass). Name-ascending order (id tiebreak); limit default 20 / cap 200;
 	// limit: 0 -> count only. filter.ownedByMe (#782) narrows to the caller's own
 	// user-owned (org-less) Apps for every caller including platform admins.
 	Apps *AppsAppsAppsPage `json:"apps"`
@@ -8904,13 +8904,16 @@ const (
 	AvailabilityReasonHostDown    AvailabilityReason = "HOST_DOWN"
 	AvailabilityReasonOther       AvailabilityReason = "OTHER"
 	AvailabilityReasonOutOfTokens AvailabilityReason = "OUT_OF_TOKENS"
-	AvailabilityReasonStalled     AvailabilityReason = "STALLED"
+	// #2162 — a context reset is in progress (hrn:node:hadronmemory.com:specs:cor:agt:050:27). Set only by the platform; no caller sets it.
+	AvailabilityReasonResetting AvailabilityReason = "RESETTING"
+	AvailabilityReasonStalled   AvailabilityReason = "STALLED"
 )
 
 var AllAvailabilityReason = []AvailabilityReason{
 	AvailabilityReasonHostDown,
 	AvailabilityReasonOther,
 	AvailabilityReasonOutOfTokens,
+	AvailabilityReasonResetting,
 	AvailabilityReasonStalled,
 }
 
@@ -8920,6 +8923,8 @@ type AvailabilitySetter string
 const (
 	// Whoever manages the App.
 	AvailabilitySetterAppManager AvailabilitySetter = "APP_MANAGER"
+	// #2162 — the platform's context reset (hrn:node:hadronmemory.com:specs:cor:agt:050:27): it set RESETTING, or released it.
+	AvailabilitySetterContextReset AvailabilitySetter = "CONTEXT_RESET"
 	// The person holding the worker's name.
 	AvailabilitySetterHolder AvailabilitySetter = "HOLDER"
 	// A host that registered the worker (the host-operations slice).
@@ -8936,6 +8941,7 @@ const (
 
 var AllAvailabilitySetter = []AvailabilitySetter{
 	AvailabilitySetterAppManager,
+	AvailabilitySetterContextReset,
 	AvailabilitySetterHolder,
 	AvailabilitySetterHost,
 	AvailabilitySetterLapse,
@@ -10845,7 +10851,7 @@ func (v *ChannelsChannelsChannelsPageItemsChannel) __premarshalJSON() (*__premar
 type ChannelsResponse struct {
 	// Spec 049 Phase 4 — Channels whose host memory you may read, narrowed by an
 	// App (its host memories' Channels) or by one memory, and by the cor:api:100:01
-	// orgId. Loc-ascending (id tiebreak); limit default 50 / cap 200.
+	// orgId. Loc-ascending (id tiebreak); limit default 20 / cap 200.
 	Channels *ChannelsChannelsChannelsPage `json:"channels"`
 }
 
@@ -11361,7 +11367,7 @@ type CheckTeamChannelResponse struct {
 	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
-	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
+	// existence oracle). limit defaults to 20 (cap 200); limit: 0 returns only
 	// total.
 	//
 	// Authorization: an AppMember of the App (any role), an org member with
@@ -12273,10 +12279,11 @@ func (v *CloneNodeResponse) GetCloneNode() *CloneNodeCloneNode { return v.CloneN
 // The GraphQL type's documentation follows.
 //
 // #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
-// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove; args are its typed arguments (ids and name
-// tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName, label}; worker.start
-// {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end {workerId,
-// sessionId}; worktree.remove {workerId, worktree}. The per-type arguments are #1709's design, Proposed.
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove, worker.reset-context; args are its typed
+// arguments (ids and name tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName,
+// label}; worker.start {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end
+// {workerId, sessionId}; worktree.remove {workerId, worktree}; worker.reset-context {workerId, sessionId, taskId,
+// resetId} (#2162). The per-type arguments are #1709's design, Proposed.
 type CollectHostOperationsCollectHostOperationsHostOperation struct {
 	HostOperationFields `json:"-"`
 	// #1709 — worker.start only, and only in collectHostOperations' answer: the single-use launch grant to pass to the
@@ -12469,7 +12476,7 @@ type CollectHostOperationsResponse struct {
 	// #1709 — a host collects its own operations, oldest first: those still ISSUED (now marked COLLECTED) and those it
 	// collected and has not reported, except a worker.start whose launch grant is still live (#1928: a re-collection never
 	// revokes a launch in flight). Only its own host's, in its own App (hrn:node:hadronmemory.com:specs:cor:agt:070:04).
-	// first: at most 200, default 50.
+	// first: at most 200, default 20.
 	CollectHostOperations []*CollectHostOperationsCollectHostOperationsHostOperation `json:"collectHostOperations"`
 }
 
@@ -13934,10 +13941,11 @@ type CompleteAssetUploadCompleteAssetUploadAsset struct {
 	// it. A deliberate, temporary posture; see src/api/assetPublic.ts. Do
 	// not present it in a UI as though it were access-controlled.
 	//
-	// Null when the server has no BASE_URL configured (no canonical
-	// origin to build an absolute URL from), when the asset is not
-	// CLEAN, or when its memory is encrypted — encrypted memories are
-	// never hotlinkable, since an anonymous request holds no session key.
+	// Null unless the asset would be served right now: its per-asset
+	// switch (publicLinkEnabled) is on, the deployment switch is on, and it is
+	// CLEAN in a live unencrypted memory. Also null when the server has no
+	// BASE_URL configured (no canonical origin to build an absolute URL from)
+	// even though it would be served, so null is NEVER proof the switch is off.
 	PublicUrl *string `json:"publicUrl"`
 }
 
@@ -25807,7 +25815,7 @@ type HomeAssistantInstancesResponse struct {
 	// Uniform paginated Home Assistant instance list (cor:api:120). Default
 	// scope: the caller's member orgs. orgId follows cor:api:100:01 (member
 	// -> that org, non-member -> empty page, no disclosure, no admin
-	// bypass). Slug-ascending order (id tiebreak); limit default 50 / cap
+	// bypass). Slug-ascending order (id tiebreak); limit default 20 / cap
 	// 200; limit: 0 -> count only.
 	HomeAssistantInstances *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage `json:"homeAssistantInstances"`
 }
@@ -25821,10 +25829,11 @@ func (v *HomeAssistantInstancesResponse) GetHomeAssistantInstances() *HomeAssist
 // The GraphQL type's documentation follows.
 //
 // #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
-// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove; args are its typed arguments (ids and name
-// tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName, label}; worker.start
-// {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end {workerId,
-// sessionId}; worktree.remove {workerId, worktree}. The per-type arguments are #1709's design, Proposed.
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove, worker.reset-context; args are its typed
+// arguments (ids and name tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName,
+// label}; worker.start {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end
+// {workerId, sessionId}; worktree.remove {workerId, worktree}; worker.reset-context {workerId, sessionId, taskId,
+// resetId} (#2162). The per-type arguments are #1709's design, Proposed.
 type HostOperationFields struct {
 	Id               string                     `json:"id"`
 	AppId            string                     `json:"appId"`
@@ -25984,10 +25993,11 @@ func (v *HostOperationsHostOperationsHostOperationPage) GetEndCursor() *string {
 // The GraphQL type's documentation follows.
 //
 // #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
-// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove; args are its typed arguments (ids and name
-// tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName, label}; worker.start
-// {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end {workerId,
-// sessionId}; worktree.remove {workerId, worktree}. The per-type arguments are #1709's design, Proposed.
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove, worker.reset-context; args are its typed
+// arguments (ids and name tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName,
+// label}; worker.start {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end
+// {workerId, sessionId}; worktree.remove {workerId, worktree}; worker.reset-context {workerId, sessionId, taskId,
+// resetId} (#2162). The per-type arguments are #1709's design, Proposed.
 type HostOperationsHostOperationsHostOperationPageItemsHostOperation struct {
 	HostOperationFields `json:"-"`
 }
@@ -26797,10 +26807,11 @@ func (v *IssueHostOperationInput) GetWorker() string { return v.Worker }
 // The GraphQL type's documentation follows.
 //
 // #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
-// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove; args are its typed arguments (ids and name
-// tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName, label}; worker.start
-// {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end {workerId,
-// sessionId}; worktree.remove {workerId, worktree}. The per-type arguments are #1709's design, Proposed.
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove, worker.reset-context; args are its typed
+// arguments (ids and name tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName,
+// label}; worker.start {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end
+// {workerId, sessionId}; worktree.remove {workerId, worktree}; worker.reset-context {workerId, sessionId, taskId,
+// resetId} (#2162). The per-type arguments are #1709's design, Proposed.
 type IssueHostOperationIssueHostOperation struct {
 	HostOperationFields `json:"-"`
 }
@@ -26978,7 +26989,8 @@ type IssueHostOperationResponse struct {
 	// flight, in a worktree and family the live host registers for it (WORKER_NOT_HELD, WORKER_LIVE,
 	// WORKER_START_PENDING). worker.end: whoever manages the App only (else HOST_OPERATION_NOT_PERMITTED), naming an open
 	// session of the worker on a host that registers it (else BAD_HOST_OPERATION_ARGS). worker.deliver is the one type
-	// not issued yet, HOST_OPERATION_NOT_ISSUABLE until a host has a delivery path for it (hadron-cli#829). An App key
+	// not issued yet, HOST_OPERATION_NOT_ISSUABLE until a host has a delivery path for it (hadron-cli#829).
+	// worker.reset-context is HOST_OPERATION_NOT_ISSUABLE here: the platform issues it when a task ends (#2162). An App key
 	// issues nothing (FORBIDDEN). An unregistered host is HOST_NOT_FOUND.
 	IssueHostOperation *IssueHostOperationIssueHostOperation `json:"issueHostOperation"`
 }
@@ -27661,7 +27673,7 @@ type McpServersResponse struct {
 	// Uniform paginated MCP-server list (cor:api:120). Default scope: the
 	// caller's member orgs. orgId follows cor:api:100:01 (member -> that
 	// org, non-member -> empty page, no disclosure, no admin bypass).
-	// Slug-ascending order (id tiebreak); limit default 50 / cap 200;
+	// Slug-ascending order (id tiebreak); limit default 20 / cap 200;
 	// limit: 0 -> count only.
 	McpServers *McpServersMcpServersMcpServersPage `json:"mcpServers"`
 }
@@ -27833,7 +27845,7 @@ type MemoriesResponse struct {
 	// (own personal/private + that org's owned + subscribed memories);
 	// non-member -> empty page, no existence disclosure, no admin bypass.
 	//
-	// Name-ascending order (id tiebreak); limit default 50 / cap 200;
+	// Name-ascending order (id tiebreak); limit default 20 / cap 200;
 	// limit: 0 -> count only.
 	Memories *MemoriesMemoriesMemoriesPage `json:"memories"`
 }
@@ -28070,7 +28082,7 @@ type MemoriesSharedWithMeResponse struct {
 	// (own personal/private + that org's owned + subscribed memories);
 	// non-member -> empty page, no existence disclosure, no admin bypass.
 	//
-	// Name-ascending order (id tiebreak); limit default 50 / cap 200;
+	// Name-ascending order (id tiebreak); limit default 20 / cap 200;
 	// limit: 0 -> count only.
 	Memories *MemoriesSharedWithMeMemoriesMemoriesPage `json:"memories"`
 }
@@ -28145,11 +28157,27 @@ type MemoryAssetsMemoryAssetsAssetListResultAssetsAsset struct {
 	// it. A deliberate, temporary posture; see src/api/assetPublic.ts. Do
 	// not present it in a UI as though it were access-controlled.
 	//
-	// Null when the server has no BASE_URL configured (no canonical
-	// origin to build an absolute URL from), when the asset is not
-	// CLEAN, or when its memory is encrypted — encrypted memories are
-	// never hotlinkable, since an anonymous request holds no session key.
+	// Null unless the asset would be served right now: its per-asset
+	// switch (publicLinkEnabled) is on, the deployment switch is on, and it is
+	// CLEAN in a live unencrypted memory. Also null when the server has no
+	// BASE_URL configured (no canonical origin to build an absolute URL from)
+	// even though it would be served, so null is NEVER proof the switch is off.
 	PublicUrl *string `json:"publicUrl"`
+	// #1667 — the per-asset public-link opt-in. STORED POLICY, not
+	// proof of publication: the anonymous link also needs the deployment switch
+	// (publicLinkAvailable) and a live, CLEAN asset in an unencrypted memory.
+	// Every asset starts false. Reading it grants no Asset read right.
+	PublicLinkEnabled bool `json:"publicLinkEnabled"`
+	// Whether THE CALLER may switch this asset's public link right now: the
+	// memory's manager under the shared class-manager predicate, never a mere
+	// writer, and strictly the owner in a personal or private memory. False in a
+	// session's memory and in an encrypted memory. Not a download capability.
+	CanManagePublicLink bool `json:"canManagePublicLink"`
+	// Whether this deployment serves public links at all
+	// (ASSET_PUBLIC_HOTLINK_ENABLED). Independent of the stored opt-in, of who is
+	// asking, of the scan state and of whether a canonical origin is configured.
+	// Hide the switch when false; never infer this from publicUrl.
+	PublicLinkAvailable bool `json:"publicLinkAvailable"`
 }
 
 // GetId returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.Id, and is useful for accessing the field via an interface.
@@ -28203,6 +28231,21 @@ func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetMemoryId() strin
 // GetPublicUrl returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.PublicUrl, and is useful for accessing the field via an interface.
 func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetPublicUrl() *string {
 	return v.PublicUrl
+}
+
+// GetPublicLinkEnabled returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.PublicLinkEnabled, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetPublicLinkEnabled() bool {
+	return v.PublicLinkEnabled
+}
+
+// GetCanManagePublicLink returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.CanManagePublicLink, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetCanManagePublicLink() bool {
+	return v.CanManagePublicLink
+}
+
+// GetPublicLinkAvailable returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.PublicLinkAvailable, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetPublicLinkAvailable() bool {
+	return v.PublicLinkAvailable
 }
 
 // MemoryAssetsResponse is returned by MemoryAssets on success.
@@ -29073,7 +29116,7 @@ func (v *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPageItem
 
 // MemoryConfigTemplatesResponse is returned by MemoryConfigTemplates on success.
 type MemoryConfigTemplatesResponse struct {
-	// #1325 part (c) — the templates you manage, name-ascending. Default page 50,
+	// #1325 part (c) — the templates you manage, name-ascending. Default page 20,
 	// at most 200; limit 0 returns the count only.
 	MemoryConfigTemplates *MemoryConfigTemplatesMemoryConfigTemplatesMemoryConfigTemplatesPage `json:"memoryConfigTemplates"`
 }
@@ -35096,7 +35139,7 @@ type OrganizationsResponse struct {
 	// get every live org (the established admin unscoped reach) unless
 	// filter.memberOnly restricts the list to their own memberships (the old
 	// myOrganizations view, as a slice-as-filter). Name-ascending order (id
-	// tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+	// tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
 	Organizations *OrganizationsOrganizationsOrganizationsPage `json:"organizations"`
 }
 
@@ -35573,7 +35616,7 @@ type PublicAgentsResponse struct {
 	// tenants (apps / appAgents / appCount / orgGrants / importedBy) are scoped to
 	// the caller's own access and come back empty for an outsider (#552, #757).
 	//
-	// Name-ascending order (id tiebreak); limit default 50 / cap 200;
+	// Name-ascending order (id tiebreak); limit default 20 / cap 200;
 	// limit: 0 -> count only.
 	PublicAgents *PublicAgentsPublicAgentsAgentsPage `json:"publicAgents"`
 }
@@ -36612,7 +36655,7 @@ type RegisterEntriesResponse struct {
 	// Spec 049 Phase 5 — register entries you may read (§8.6), narrowed by owner
 	// (an App or an organization), Channel, or attendee (a Worker or an Agent),
 	// and by the cor:api:100:01 orgId. A filter naming something foreign returns
-	// the same empty page as one naming nothing. Oldest first; limit default 50 / cap 200.
+	// the same empty page as one naming nothing. Oldest first; limit default 20 / cap 200.
 	RegisterEntries *RegisterEntriesRegisterEntriesRegisterEntriesPage `json:"registerEntries"`
 }
 
@@ -36707,7 +36750,9 @@ func (v *RegisterEntryFilter) GetOwnerRef() *string { return v.OwnerRef }
 
 type RegisterHostInput struct {
 	AppRef string `json:"appRef"`
-	Label  string `json:"label"`
+	// #2162 — the capability-gated operation types this host performs, in full at every refresh: worker.reset-context. Omitted means none. Anything else is BAD_HOST_REGISTRATION.
+	Capabilities []string `json:"capabilities,omitempty"`
+	Label        string   `json:"label"`
 	// How often the host checks in; it lapses after the App's count of these without one.
 	PollIntervalSeconds int `json:"pollIntervalSeconds"`
 	// The whole list: it replaces the last registration's.
@@ -36716,6 +36761,9 @@ type RegisterHostInput struct {
 
 // GetAppRef returns RegisterHostInput.AppRef, and is useful for accessing the field via an interface.
 func (v *RegisterHostInput) GetAppRef() string { return v.AppRef }
+
+// GetCapabilities returns RegisterHostInput.Capabilities, and is useful for accessing the field via an interface.
+func (v *RegisterHostInput) GetCapabilities() []string { return v.Capabilities }
 
 // GetLabel returns RegisterHostInput.Label, and is useful for accessing the field via an interface.
 func (v *RegisterHostInput) GetLabel() string { return v.Label }
@@ -38050,10 +38098,11 @@ func (v *ReportHostOperationInput) GetWorktree() *string { return v.Worktree }
 // The GraphQL type's documentation follows.
 //
 // #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
-// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove; args are its typed arguments (ids and name
-// tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName, label}; worker.start
-// {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end {workerId,
-// sessionId}; worktree.remove {workerId, worktree}. The per-type arguments are #1709's design, Proposed.
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove, worker.reset-context; args are its typed
+// arguments (ids and name tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName,
+// label}; worker.start {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end
+// {workerId, sessionId}; worktree.remove {workerId, worktree}; worker.reset-context {workerId, sessionId, taskId,
+// resetId} (#2162). The per-type arguments are #1709's design, Proposed.
 type ReportHostOperationReportHostOperation struct {
 	HostOperationFields `json:"-"`
 }
@@ -41102,7 +41151,7 @@ type ScopesResponse struct {
 	// Spec 049 Phase 2 — paginated list of the scopes you may read, optionally
 	// narrowed by owner, by an App's resolution context, by name, and by the
 	// cor:api:100:01 orgId (member-gated, no admin bypass; non-member ⇒ empty
-	// page). Name-ascending (id tiebreak); limit default 50 / cap 200; limit: 0
+	// page). Name-ascending (id tiebreak); limit default 20 / cap 200; limit: 0
 	// ⇒ count only.
 	Scopes *ScopesScopesScopesPage `json:"scopes"`
 }
@@ -41802,7 +41851,7 @@ type SearchUsersResponse struct {
 	// githubUsername by substring, email by exact match, and name for platform
 	// admins or users sharing one of the viewer's active org memberships.
 	// Name-ascending order (id
-	// tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+	// tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
 	Users *SearchUsersUsersUsersPage `json:"users"`
 }
 
@@ -42008,7 +42057,7 @@ type SecretsResponse struct {
 	// surface). ownerRef accepts ID or URN (cor:api:140) and defaults to the
 	// caller for ownerType user. An unresolvable ref or a non-entitled owner
 	// yields an empty page — no disclosure. Name-ascending order (id
-	// tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+	// tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
 	Secrets *SecretsSecretsSecretsPage `json:"secrets"`
 }
 
@@ -43660,6 +43709,72 @@ func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp) GetUrn() string 
 
 // GetName returns SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp.Name, and is useful for accessing the field via an interface.
 func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp) GetName() string { return v.Name }
+
+// SetAssetPublicLinkResponse is returned by SetAssetPublicLink on success.
+type SetAssetPublicLinkResponse struct {
+	// #1667 — switch an asset's anonymous public link on or off. Only whoever
+	// manages the asset's memory; a refused request changes
+	// nothing. Returns the asset.
+	SetAssetPublicLink *SetAssetPublicLinkSetAssetPublicLinkAsset `json:"setAssetPublicLink"`
+}
+
+// GetSetAssetPublicLink returns SetAssetPublicLinkResponse.SetAssetPublicLink, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkResponse) GetSetAssetPublicLink() *SetAssetPublicLinkSetAssetPublicLinkAsset {
+	return v.SetAssetPublicLink
+}
+
+// SetAssetPublicLinkSetAssetPublicLinkAsset includes the requested fields of the GraphQL type Asset.
+type SetAssetPublicLinkSetAssetPublicLinkAsset struct {
+	Id string `json:"id"`
+	// #1667 — the per-asset public-link opt-in. STORED POLICY, not
+	// proof of publication: the anonymous link also needs the deployment switch
+	// (publicLinkAvailable) and a live, CLEAN asset in an unencrypted memory.
+	// Every asset starts false. Reading it grants no Asset read right.
+	PublicLinkEnabled bool `json:"publicLinkEnabled"`
+	// Whether THE CALLER may switch this asset's public link right now: the
+	// memory's manager under the shared class-manager predicate, never a mere
+	// writer, and strictly the owner in a personal or private memory. False in a
+	// session's memory and in an encrypted memory. Not a download capability.
+	CanManagePublicLink bool `json:"canManagePublicLink"`
+	// Whether this deployment serves public links at all
+	// (ASSET_PUBLIC_HOTLINK_ENABLED). Independent of the stored opt-in, of who is
+	// asking, of the scan state and of whether a canonical origin is configured.
+	// Hide the switch when false; never infer this from publicUrl.
+	PublicLinkAvailable bool `json:"publicLinkAvailable"`
+	// Stable, UNAUTHENTICATED hotlink to the bytes (GET /assets/<id>).
+	//
+	// Anyone with this URL can fetch the file — there is no read gate on
+	// it. A deliberate, temporary posture; see src/api/assetPublic.ts. Do
+	// not present it in a UI as though it were access-controlled.
+	//
+	// Null unless the asset would be served right now: its per-asset
+	// switch (publicLinkEnabled) is on, the deployment switch is on, and it is
+	// CLEAN in a live unencrypted memory. Also null when the server has no
+	// BASE_URL configured (no canonical origin to build an absolute URL from)
+	// even though it would be served, so null is NEVER proof the switch is off.
+	PublicUrl *string `json:"publicUrl"`
+}
+
+// GetId returns SetAssetPublicLinkSetAssetPublicLinkAsset.Id, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetId() string { return v.Id }
+
+// GetPublicLinkEnabled returns SetAssetPublicLinkSetAssetPublicLinkAsset.PublicLinkEnabled, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicLinkEnabled() bool {
+	return v.PublicLinkEnabled
+}
+
+// GetCanManagePublicLink returns SetAssetPublicLinkSetAssetPublicLinkAsset.CanManagePublicLink, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetCanManagePublicLink() bool {
+	return v.CanManagePublicLink
+}
+
+// GetPublicLinkAvailable returns SetAssetPublicLinkSetAssetPublicLinkAsset.PublicLinkAvailable, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicLinkAvailable() bool {
+	return v.PublicLinkAvailable
+}
+
+// GetPublicUrl returns SetAssetPublicLinkSetAssetPublicLinkAsset.PublicUrl, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicUrl() *string { return v.PublicUrl }
 
 type SetModelFamilyAvailabilityInput struct {
 	AppRef string `json:"appRef"`
@@ -47250,7 +47365,7 @@ type TeamChatMessagesAttributedResponse struct {
 	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
-	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
+	// existence oracle). limit defaults to 20 (cap 200); limit: 0 returns only
 	// total.
 	//
 	// Authorization: an AppMember of the App (any role), an org member with
@@ -47451,7 +47566,7 @@ type TeamChatMessagesResponse struct {
 	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
-	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
+	// existence oracle). limit defaults to 20 (cap 200); limit: 0 returns only
 	// total.
 	//
 	// Authorization: an AppMember of the App (any role), an org member with
@@ -47650,7 +47765,7 @@ type TeamChatReadHeadAttributedResponse struct {
 	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
-	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
+	// existence oracle). limit defaults to 20 (cap 200); limit: 0 returns only
 	// total.
 	//
 	// Authorization: an AppMember of the App (any role), an org member with
@@ -47727,7 +47842,7 @@ type TeamChatReadHeadResponse struct {
 	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
 	// staff or members (a Worker of the App, an AppMember, or the caller); an
 	// unresolvable or foreign mentionsRef yields the empty page identically (no
-	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
+	// existence oracle). limit defaults to 20 (cap 200); limit: 0 returns only
 	// total.
 	//
 	// Authorization: an AppMember of the App (any role), an org member with
@@ -49899,7 +50014,7 @@ func (v *TeamStopSignalSetSetTeamStopSignal) __premarshalJSON() (*__premarshalTe
 type TeamStopSignalsResponse struct {
 	// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:07) — an App's stop signals, oldest set first. A person in the App sees
 	// every signal (worker narrows to those covering that worker now); a worker's session sees the live ones covering it; a
-	// host key sees its own host's. includeEnded adds ended ones (not for a worker's session). first: default 50, max 200.
+	// host key sees its own host's. includeEnded adds ended ones (not for a worker's session). first: default 20, max 200.
 	TeamStopSignals *TeamStopSignalsTeamStopSignalsStopSignalPage `json:"teamStopSignals"`
 }
 
@@ -50234,7 +50349,7 @@ type TeamWorkItemsLegacyResponse struct {
 	// verbatim spelling; with no tool it matches either. sessionRef / tool / kind
 	// are equality filters; kind must be one of pr, issue, commit, branch, repo
 	// when given.
-	// limit defaults to 50 (cap 200); limit: 0 returns only total.
+	// limit defaults to 20 (cap 200); limit: 0 returns only total.
 	//
 	// Authorization: an AppMember of the App (any role), an org member with
 	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
@@ -50410,7 +50525,7 @@ type TeamWorkItemsResponse struct {
 	// verbatim spelling; with no tool it matches either. sessionRef / tool / kind
 	// are equality filters; kind must be one of pr, issue, commit, branch, repo
 	// when given.
-	// limit defaults to 50 (cap 200); limit: 0 returns only total.
+	// limit defaults to 20 (cap 200); limit: 0 returns only total.
 	//
 	// Authorization: an AppMember of the App (any role), an org member with
 	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
@@ -63951,6 +64066,18 @@ func (v *__SetAppAgentBootPromptInput) GetAgentRef() string { return v.AgentRef 
 // GetNodeRef returns __SetAppAgentBootPromptInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__SetAppAgentBootPromptInput) GetNodeRef() *string { return v.NodeRef }
 
+// __SetAssetPublicLinkInput is used internally by genqlient
+type __SetAssetPublicLinkInput struct {
+	AssetRef string `json:"assetRef"`
+	Enabled  bool   `json:"enabled"`
+}
+
+// GetAssetRef returns __SetAssetPublicLinkInput.AssetRef, and is useful for accessing the field via an interface.
+func (v *__SetAssetPublicLinkInput) GetAssetRef() string { return v.AssetRef }
+
+// GetEnabled returns __SetAssetPublicLinkInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__SetAssetPublicLinkInput) GetEnabled() bool { return v.Enabled }
+
 // __SetWorkerBootPromptInput is used internally by genqlient
 type __SetWorkerBootPromptInput struct {
 	WorkerRef string  `json:"workerRef"`
@@ -75961,6 +76088,9 @@ query MemoryAssets ($memoryId: ID!, $mimeType: String, $mine: Boolean, $includeD
 			deletedAt
 			memoryId
 			publicUrl
+			publicLinkEnabled
+			canManagePublicLink
+			publicLinkAvailable
 		}
 	}
 }
@@ -81153,6 +81283,47 @@ func SetAppAgentBootPrompt(
 	}
 
 	data_ = &SetAppAgentBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetAssetPublicLink.
+const SetAssetPublicLink_Operation = `
+mutation SetAssetPublicLink ($assetRef: ID!, $enabled: Boolean!) {
+	setAssetPublicLink(assetRef: $assetRef, enabled: $enabled) {
+		id
+		publicLinkEnabled
+		canManagePublicLink
+		publicLinkAvailable
+		publicUrl
+	}
+}
+`
+
+// Server-owned policy, capability and deployment availability are independent.
+func SetAssetPublicLink(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	assetRef string,
+	enabled bool,
+) (data_ *SetAssetPublicLinkResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAssetPublicLink",
+		Query:  SetAssetPublicLink_Operation,
+		Variables: &__SetAssetPublicLinkInput{
+			AssetRef: assetRef,
+			Enabled:  enabled,
+		},
+	}
+
+	data_ = &SetAssetPublicLinkResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

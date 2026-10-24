@@ -45,6 +45,7 @@ within its retention window.`,
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdRestore(f))
 	cmd.AddCommand(newCmdLink(f))
+	cmd.AddCommand(newCmdPublicLink(f))
 	return cmd
 }
 

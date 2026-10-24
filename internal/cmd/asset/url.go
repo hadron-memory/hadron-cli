@@ -18,11 +18,14 @@ import (
 // pointer so "no hotlink" is distinguishable from an empty string, and Reason
 // explains a null rather than leaving the caller to guess.
 type assetURLDTO struct {
-	ID        string  `json:"id"`
-	URN       string  `json:"urn"`
-	Filename  string  `json:"filename"`
-	PublicURL *string `json:"publicUrl"`
-	Reason    string  `json:"reason,omitempty"`
+	ID                  string  `json:"id"`
+	URN                 string  `json:"urn"`
+	Filename            string  `json:"filename"`
+	PublicURL           *string `json:"publicUrl"`
+	Reason              string  `json:"reason,omitempty"`
+	PublicLinkEnabled   bool    `json:"publicLinkEnabled"`
+	CanManagePublicLink bool    `json:"canManagePublicLink"`
+	PublicLinkAvailable bool    `json:"publicLinkAvailable"`
 }
 
 func newCmdURL(f *cmdutil.Factory) *cobra.Command {
@@ -41,12 +44,13 @@ command needs to know the holding memory: pass the asset's URN (which carries
 it) or add -m.
 
 The URL is absent — and this command says why, as far as it can tell — when
-the asset is not yet scanned CLEAN, or, for a CLEAN asset: when the deployment
+the stored public-link switch is off, the asset is not yet scanned CLEAN, or,
+for a CLEAN asset: when the deployment
 has public hotlinks switched off (the server's default), when it has no valid
 public origin configured (missing, or not an http/https URL), or when the asset's memory is encrypted (an anonymous
 request holds no session key, so an encrypted memory is never hotlinkable).
-The server does not say which of those three applies, so neither can this
-command. Never construct the URL yourself from the id; an absent hotlink means
+The server reports stored opt-in and deployment availability separately; neither
+is inferred from an absent URL. Never construct the URL yourself from the id; an absent hotlink means
 there is genuinely nothing safe to hand out.`,
 		Example: `  hadron asset url hrn:asset:acme.com:kb:assets:01j2x…
   hadron asset url 01j2x… -m hrn:mem:acme.com:kb`,
@@ -74,9 +78,12 @@ there is genuinely nothing safe to hand out.`,
 				return err
 			}
 
-			dto := assetURLDTO{ID: found.Id, URN: found.Urn, Filename: found.Filename, PublicURL: found.PublicUrl}
+			dto := assetURLDTO{ID: found.Id, URN: found.Urn, Filename: found.Filename, PublicURL: found.PublicUrl, PublicLinkEnabled: found.PublicLinkEnabled, CanManagePublicLink: found.CanManagePublicLink, PublicLinkAvailable: found.PublicLinkAvailable}
 			if found.PublicUrl == nil {
-				dto.Reason = hotlinkAbsentReason(string(found.ScanStatus))
+				dto.Reason = publicLinkState(found.PublicLinkEnabled, found.PublicLinkAvailable, found.PublicUrl)
+				if found.PublicLinkEnabled && found.PublicLinkAvailable || string(found.ScanStatus) != "CLEAN" {
+					dto.Reason += "; " + hotlinkAbsentReason(string(found.ScanStatus))
+				}
 			}
 
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -107,14 +114,9 @@ there is genuinely nothing safe to hand out.`,
 	return cmd
 }
 
-// hotlinkAbsentReason turns a null publicUrl into the actionable half of the
-// answer. Scan status is the one cause the caller can read off the asset.
-// For a CLEAN asset the server returns null for three reasons it does not
-// distinguish (hadron-server Asset.publicUrl → publicAssetUrl): public
-// hotlinks disabled — ASSET_PUBLIC_HOTLINK_ENABLED unset, the default since
-// server#897 — a BASE_URL that is missing or not an http(s) URL, or an
-// encrypted memory. So all three are
-// named, and none is asserted (#731).
+// hotlinkAbsentReason explains scan/eligibility after separately reporting
+// the server-owned stored policy and deployment gate. An absent URL does not
+// let the CLI choose between encryption and an unconfigured origin.
 func hotlinkAbsentReason(scan string) string {
 	switch scan {
 	case "PENDING":
@@ -122,7 +124,7 @@ func hotlinkAbsentReason(scan string) string {
 	case "BLOCKED":
 		return "its virus scan blocked the file, so it is never served"
 	default:
-		return "this deployment has public hotlinks switched off (the server's default) or no valid public origin configured, " +
+		return "no valid public origin configured, " +
 			"or the asset's memory is encrypted (never hotlinkable) — the server does not say which"
 	}
 }
