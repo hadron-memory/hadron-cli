@@ -117,6 +117,7 @@ func run1044(t *testing.T, roster []string, pages [][]task1044, argv ...string) 
 	t.Helper()
 	writeTeamBinding(t)
 	responses := rosterResponses993(roster...)
+	responses["TeamReportingLines"] = responses["TeamRoster"]
 	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[]}}`
 	n := 0
 	setPage := func() {
@@ -434,7 +435,7 @@ func TestTeamTaskListTeamUsageRefusals(t *testing.T) {
 				t.Fatalf("exit %d (%v), want usage", exitOf(err), err)
 			}
 			for _, c := range *calls {
-				if c.Op == "AgentTaskList" || c.Op == "TeamRoster" {
+				if c.Op == "AgentTaskList" || c.Op == "TeamRoster" || c.Op == "TeamReportingLines" {
 					t.Fatalf("a usage error sent %s", c.Op)
 				}
 			}

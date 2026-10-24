@@ -48269,6 +48269,223 @@ type TeamMemoryAppResponse struct {
 // GetMemory returns TeamMemoryAppResponse.Memory, and is useful for accessing the field via an interface.
 func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memory }
 
+// TeamReportingLinesResponse is returned by TeamReportingLines on success.
+type TeamReportingLinesResponse struct {
+	// #1707 — every worker's derived state in an App (plan design:agent-tasks
+	// §7.4), computed server-side so the CLI and portal render one answer. Plan-
+	// derived, not a spec (hrn:node:hadronmemory.com:specs:cor:agt:050 leaves the roster out of scope). Readers:
+	// the App's task audience (hrn:node:hadronmemory.com:specs:cor:agt:050:21). Retired workers are left out.
+	TeamRoster *TeamReportingLinesTeamRoster `json:"teamRoster"`
+}
+
+// GetTeamRoster returns TeamReportingLinesResponse.TeamRoster, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesResponse) GetTeamRoster() *TeamReportingLinesTeamRoster {
+	return v.TeamRoster
+}
+
+// TeamReportingLinesTeamRoster includes the requested fields of the GraphQL type TeamRoster.
+// The GraphQL type's documentation follows.
+//
+// #1707 — the team roster of one App.
+type TeamReportingLinesTeamRoster struct {
+	AppId   string                                                `json:"appId"`
+	Workers []*TeamReportingLinesTeamRosterWorkersTeamRosterEntry `json:"workers"`
+}
+
+// GetAppId returns TeamReportingLinesTeamRoster.AppId, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRoster) GetAppId() string { return v.AppId }
+
+// GetWorkers returns TeamReportingLinesTeamRoster.Workers, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRoster) GetWorkers() []*TeamReportingLinesTeamRosterWorkersTeamRosterEntry {
+	return v.Workers
+}
+
+// TeamReportingLinesTeamRosterWorkersTeamRosterEntry includes the requested fields of the GraphQL type TeamRosterEntry.
+// The GraphQL type's documentation follows.
+//
+// #1707 — one worker on the team roster.
+type TeamReportingLinesTeamRosterWorkersTeamRosterEntry struct {
+	Worker *TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty `json:"worker"`
+	// #1726 — the worker it reports to; group by this for the team's structure. Read it with lastActiveAt: nothing clears a claim automatically.
+	ReportsTo *TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty `json:"reportsTo"`
+}
+
+// GetWorker returns TeamReportingLinesTeamRosterWorkersTeamRosterEntry.Worker, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntry) GetWorker() *TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty {
+	return v.Worker
+}
+
+// GetReportsTo returns TeamReportingLinesTeamRosterWorkersTeamRosterEntry.ReportsTo, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntry) GetReportsTo() *TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty {
+	return v.ReportsTo
+}
+
+// TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty struct {
+	AgentTaskPartyFields `json:"-"`
+}
+
+// GetId returns TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty) GetId() string {
+	return v.AgentTaskPartyFields.Id
+}
+
+// GetKind returns TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.AgentTaskPartyFields.Kind
+}
+
+// GetName returns TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty) GetName() *string {
+	return v.AgentTaskPartyFields.Name
+}
+
+// GetUrn returns TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty) GetUrn() *string {
+	return v.AgentTaskPartyFields.Urn
+}
+
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskPartyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty struct {
+	Id string `json:"id"`
+
+	Kind AgentTaskPartyKind `json:"kind"`
+
+	Name *string `json:"name"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty) __premarshalJSON() (*__premarshalTeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty, error) {
+	var retval __premarshalTeamReportingLinesTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty
+
+	retval.Id = v.AgentTaskPartyFields.Id
+	retval.Kind = v.AgentTaskPartyFields.Kind
+	retval.Name = v.AgentTaskPartyFields.Name
+	retval.Urn = v.AgentTaskPartyFields.Urn
+	return &retval, nil
+}
+
+// TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty struct {
+	AgentTaskPartyFields `json:"-"`
+}
+
+// GetId returns TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetId() string {
+	return v.AgentTaskPartyFields.Id
+}
+
+// GetKind returns TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.AgentTaskPartyFields.Kind
+}
+
+// GetName returns TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetName() *string {
+	return v.AgentTaskPartyFields.Name
+}
+
+// GetUrn returns TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetUrn() *string {
+	return v.AgentTaskPartyFields.Urn
+}
+
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskPartyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty struct {
+	Id string `json:"id"`
+
+	Kind AgentTaskPartyKind `json:"kind"`
+
+	Name *string `json:"name"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) __premarshalJSON() (*__premarshalTeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty, error) {
+	var retval __premarshalTeamReportingLinesTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty
+
+	retval.Id = v.AgentTaskPartyFields.Id
+	retval.Kind = v.AgentTaskPartyFields.Kind
+	retval.Name = v.AgentTaskPartyFields.Name
+	retval.Urn = v.AgentTaskPartyFields.Urn
+	return &retval, nil
+}
+
 // ── Role definitions (#403 / hadron-server#960) — the pre-cast read.
 //
 // The register projection this fragment was built around (register / freeCount
@@ -64443,6 +64660,14 @@ type __TeamMemoryAppInput struct {
 
 // GetRef returns __TeamMemoryAppInput.Ref, and is useful for accessing the field via an interface.
 func (v *__TeamMemoryAppInput) GetRef() string { return v.Ref }
+
+// __TeamReportingLinesInput is used internally by genqlient
+type __TeamReportingLinesInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamReportingLinesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamReportingLinesInput) GetAppRef() string { return v.AppRef }
 
 // __TeamRolesInput is used internally by genqlient
 type __TeamRolesInput struct {
@@ -82858,6 +83083,57 @@ func TeamMemoryApp(
 	}
 
 	data_ = &TeamMemoryAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamReportingLines.
+const TeamReportingLines_Operation = `
+query TeamReportingLines ($appRef: ID!) {
+	teamRoster(appRef: $appRef) {
+		appId
+		workers {
+			worker {
+				... AgentTaskPartyFields
+			}
+			reportsTo {
+				... AgentTaskPartyFields
+			}
+		}
+	}
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// The roster's reporting lines only: `task list --team` (#1044) joins on
+// these and nothing else, so it does not inherit the full roster's newer
+// fields (and their schema skew on an older server).
+func TeamReportingLines(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamReportingLinesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamReportingLines",
+		Query:  TeamReportingLines_Operation,
+		Variables: &__TeamReportingLinesInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamReportingLinesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

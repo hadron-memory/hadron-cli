@@ -412,3 +412,20 @@ mutation TeamStallScheduleSet($appRef: ID!, $input: AgentTaskStallScheduleInput!
     ...AgentTaskStallScheduleFields
   }
 }
+
+# The roster's reporting lines only: `task list --team` (#1044) joins on
+# these and nothing else, so it does not inherit the full roster's newer
+# fields (and their schema skew on an older server).
+query TeamReportingLines($appRef: ID!) {
+  teamRoster(appRef: $appRef) {
+    appId
+    workers {
+      worker {
+        ...AgentTaskPartyFields
+      }
+      reportsTo {
+        ...AgentTaskPartyFields
+      }
+    }
+  }
+}
