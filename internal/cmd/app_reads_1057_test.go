@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 const appRead1057 = "hrn:app:acme.com:support"
@@ -41,21 +43,7 @@ func TestAppReads1057(t *testing.T) {
 						if req.OperationName != op || len(req.Variables) != 1 || req.Variables[arg] != appRead1057 {
 							t.Errorf("unexpected lookup/write %+v", req)
 						}
-						// Compare the actual field list, not substrings or a variable recorder.
-						lines := []string{}
-						for _, l := range strings.Split(req.Query, "\n") {
-							l = strings.TrimSpace(l)
-							if l != "" && !strings.ContainsAny(l, "{}#") {
-								lines = append(lines, l)
-							}
-						}
-						want := []string{"id", "urn", "name", "appType", "description"}
-						if keys {
-							want = []string{"id", "keyPreview", "label", "createdAt", "lastUsedAt", "revokedAt"}
-						}
-						if !reflect.DeepEqual(lines, want) {
-							t.Errorf("selection=%v want%v; query=%s", lines, want, req.Query)
-						}
+						assertApp1057Document(t, req.Query, keys)
 						description, label, lastUsed, revoked := `"description value"`, `"primary"`, `"2026-01-02T00:00:00Z"`, `"2026-01-03T00:00:00Z"`
 						if nulls {
 							description, label, lastUsed, revoked = "null", "null", "null", "null"
@@ -122,6 +110,23 @@ func TestAppReads1057(t *testing.T) {
 						if !reflect.DeepEqual(gotKeys, want) {
 							t.Fatalf("JSON keys %v", gotKeys)
 						}
+						expected := map[string]any{"id": "app-id", "urn": appRead1057, "name": "Support", "appType": "CHATBOT", "description": "description value"}
+						if keys {
+							expected = map[string]any{"id": "key-id", "keyPreview": "hdr_...abcd", "label": "primary", "createdAt": "2026-01-01T00:00:00Z", "lastUsedAt": "2026-01-02T00:00:00Z", "revokedAt": "2026-01-03T00:00:00Z"}
+						}
+						if nulls {
+							if keys {
+								for _, k := range []string{"label", "lastUsedAt", "revokedAt"} {
+									expected[k] = nil
+								}
+							} else {
+								expected["description"] = nil
+							}
+						}
+						if !reflect.DeepEqual(a, expected) {
+							t.Fatalf("metadata output=%v want%v", a, expected)
+						}
+
 						if nulls {
 							fields := []string{"description"}
 							if keys {
@@ -144,6 +149,20 @@ func TestAppReads1057(t *testing.T) {
 						if strings.Contains(out.String(), "not shown to you") {
 							t.Fatal("invented withholding reason")
 						}
+						if nulls {
+							if !keys {
+								if !strings.Contains(out.String(), "description: -") {
+									t.Fatal(out.String())
+								}
+							} else {
+								lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+								row := strings.Fields(lines[len(lines)-1])
+								if len(row) != 6 || row[2] != "-" || row[4] != "-" || row[5] != "-" {
+									t.Fatalf("null text=%s", out)
+								}
+							}
+						}
+
 					}
 				})
 			}
@@ -245,6 +264,104 @@ func TestAppReads1057InvalidRefNoHTTP(t *testing.T) {
 					t.Fatalf("exit%d", got)
 				}
 			})
+		}
+	}
+}
+
+func TestAppReads1057CanonicalRefs(t *testing.T) {
+	for _, ref := range []string{"acme.com:support", "acme.com::support", "urn:app:acme.com::support", "0123456789abcdef0123456789abcdef"} {
+		for _, keys := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/%v", ref, keys), func(t *testing.T) {
+				want := appRead1057
+				if !strings.Contains(ref, ":") {
+					want = ref
+				}
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					var q struct {
+						OperationName string
+						Variables     map[string]any
+					}
+					_ = json.NewDecoder(r.Body).Decode(&q)
+					arg := "ref"
+					if keys {
+						arg = "appRef"
+					}
+					if len(q.Variables) != 1 || q.Variables[arg] != want {
+						t.Errorf("ref changed: %+v", q)
+					}
+					w.Header().Set("Content-Type", "application/json")
+					if keys {
+						fmt.Fprint(w, `{"data":{"appKeys":[]}}`)
+					} else {
+						fmt.Fprintf(w, `{"data":{"app":{"id":"app-id","urn":%q,"name":"Support","appType":"CHATBOT","description":null}}}`, appRead1057)
+					}
+				}))
+				defer srv.Close()
+				f, _ := testFactory(t)
+				root := NewRootCmd(f)
+				args := []string{"app", "get", ref}
+				if keys {
+					args = []string{"app", "key", "ls", ref}
+				}
+				root.SetArgs(append(args, "--server", srv.URL, "--json"))
+				if err := root.Execute(); err != nil {
+					t.Fatal(err)
+				}
+			})
+		}
+	}
+}
+func TestAppReads1057InvalidRowNoPartialOutput(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{"AppKeysMetadata": `{"data":{"appKeys":[{"id":"key-id","keyPreview":"hdr_...abcd","label":null,"createdAt":"2026-01-01T00:00:00Z","lastUsedAt":null,"revokedAt":null},null]}}`})
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "key", "ls", appRead1057, "--json", "--server", gql.URL})
+	if got := exitCodeFor(root.Execute()); got != 1 {
+		t.Fatalf("exit=%d", got)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("partial success: %s", out)
+	}
+}
+
+func assertApp1057Document(t *testing.T, query string, keys bool) {
+	t.Helper()
+	doc, err := parser.ParseQuery(&ast.Source{Input: query})
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	opName, field, arg := "GetAppMetadata", "app", "ref"
+	want := []string{"id", "urn", "name", "appType", "description"}
+	if keys {
+		opName, field, arg = "AppKeysMetadata", "appKeys", "appRef"
+		want = []string{"id", "keyPreview", "label", "createdAt", "lastUsedAt", "revokedAt"}
+	}
+	op := doc.Operations.ForName(opName)
+	if op == nil || op.Operation != ast.Query || len(doc.Operations) != 1 || len(op.SelectionSet) != 1 || len(op.VariableDefinitions) != 1 {
+		t.Error("not one bounded query")
+		return
+	}
+	root, ok := op.SelectionSet[0].(*ast.Field)
+	if !ok || root.Name != field || (root.Alias != "" && root.Alias != field) || len(root.Arguments) != 1 {
+		t.Error("wrong root")
+		return
+	}
+	argument := root.Arguments.ForName(arg)
+	if argument == nil || argument.Value.Kind != ast.Variable || argument.Value.Raw != arg {
+		t.Error("wrong argument")
+		return
+	}
+	if len(root.SelectionSet) != len(want) {
+		t.Errorf("expanded projection: %s", query)
+		return
+	}
+	for i, selection := range root.SelectionSet {
+		f, ok := selection.(*ast.Field)
+		if !ok || f.Name != want[i] || (f.Alias != "" && f.Alias != want[i]) || len(f.SelectionSet) != 0 || len(f.Arguments) != 0 || len(f.Directives) != 0 {
+			t.Errorf("unexpected metadata projection %s", query)
+			return
 		}
 	}
 }

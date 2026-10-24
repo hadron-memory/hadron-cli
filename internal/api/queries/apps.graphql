@@ -169,3 +169,27 @@ mutation SetAppAgentBootPrompt($appRef: String!, $agentRef: String!, $nodeRef: S
     bootPromptTargetDeleted
   }
 }
+
+# cli#1057: minimal single-App identity, no settings or nested keys.
+query GetAppMetadata($ref: ID!) {
+  app(ref: $ref) {
+    id
+    urn
+    name
+    appType
+    description
+  }
+}
+
+# cli#1057: manager-authorized, active-only metadata inventory. No raw key,
+# nested App.keys, host usage, or scope mutations.
+query AppKeysMetadata($appRef: ID!) {
+  appKeys(appRef: $appRef) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+  }
+}
