@@ -3082,10 +3082,12 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 
 // AgentTaskListResponse is returned by AgentTaskList on success.
 type AgentTaskListResponse struct {
-	// #1705 — a team App's agent tasks, newest first. Filters combine with AND;
+	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
 	// owner / assignee name a party of the App (a ref naming nobody matches
-	// nothing). queued: pending with no assignee. limit defaults to 50 (cap 200).
-	// Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21); a pure App key is refused.
+	// nothing). queued selects pending tasks with no assignee; rootsOnly selects roots. These
+	// take precedence over status and parentTaskId respectively. limit defaults to 50 (cap 200).
+	// Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
+	// without a session binding (#1755).
 	// An App you do not participate in answers APP_NOT_FOUND, exactly like an
 	// absent one.
 	AgentTasks []*AgentTaskListAgentTasksAgentTask `json:"agentTasks"`
@@ -4082,7 +4084,7 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 
 // AgentTaskReassignResponse is returned by AgentTaskReassign on success.
 type AgentTaskReassignResponse struct {
-	// #1705 — move a task to another assignee: the task's owner, or whoever
+	// #1705 — move a task to another assignee: the task's owner, a worker the owner reports to, or whoever
 	// manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:09). A started task stays started; the former
 	// assignee can no longer move it. Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (no assignee yet, or the same one),
@@ -6572,13 +6574,14 @@ func (v *AiServiceConfigWithEndpointAiServiceConfig) __premarshalJSON() (*__prem
 
 // AiServiceConfigWithEndpointResponse is returned by AiServiceConfigWithEndpoint on success.
 type AiServiceConfigWithEndpointResponse struct {
-	// The uniform single-config read (#473). 'ref' is the config's ID —
-	// AiServiceConfig is the one URN-less entity (matching resolveUrn /
-	// effectiveAccess dispatch). Masked: never returns key material, only
-	// hasApiKey + apiKeyPreview (resolveAIConfig is the privileged decrypted
-	// read). Auth mirrors the list: platform ADMIN/OWNER for
-	// HADRON_SERVER-owned configs, org ADMIN of the owning org otherwise;
-	// denied throws Forbidden, missing is null.
+	// The uniform single-config read. 'ref' is the config's ID (not a URN).
+	// Masked: never returns key material, only hasApiKey + apiKeyPreview
+	// (resolveAIConfig is the privileged decrypted read). Auth mirrors the list:
+	// platform ADMIN/OWNER for HADRON_SERVER; org ADMIN for ORGANIZATION;
+	// the App/Agent's owner or owning-org ADMIN for APP/AGENT. User-owned
+	// Apps and Agents use their strict owner-only credential gate, even for
+	// platform admins. Denied throws Forbidden, except an unreadable owning
+	// Agent answers AGENT_NOT_FOUND. A missing config returns null.
 	AiServiceConfig *AiServiceConfigWithEndpointAiServiceConfig `json:"aiServiceConfig"`
 }
 
@@ -7639,8 +7642,9 @@ type AppRunsResponse struct {
 	// silently falls back to 'all'. Values are deduped; an unknown member is
 	// rejected by enum validation rather than dropped.
 	//
-	// status is DEPRECATED in favour of statuses. Both are accepted for one
-	// release; when both are given, statuses wins.
+	// status is DEPRECATED in favour of statuses but remains accepted.
+	// When statuses is non-null it wins, including an empty list; omitted or
+	// null statuses falls back to status. No removal date is promised here.
 	//
 	// sortBy / sortDir (#833) order the whole result set server-side, so a client
 	// table is no longer limited to sorting the page it happens to hold.
@@ -8099,7 +8103,7 @@ type ApplyMemoryConfigTemplateResponse struct {
 	// MEMORY_CONFIG_TEMPLATE_NOT_FOUND). The rules are validated as a whole,
 	// under a share lock, as createNodeRoleRule validates a new rule's
 	// references (NODE_NOT_FOUND for one you cannot read, NOT_A_TASK), and a
-	// template rule whose task was deleted refuses the whole apply
+	// template rule whose required task was deleted refuses the whole apply
 	// (NODE_ROLE_RULE_REF_BROKEN). All-or-nothing per memory.
 	//
 	// When the memory already has a rule for a role, a non-required template
@@ -8400,10 +8404,13 @@ func (v *ApproveNodeApproveNodeNodeApprovalReceiptApprovalNodeApproval) __premar
 type ApproveNodeResponse struct {
 	// #1591 — approve the node's CURRENT revision: record who, when, and the
 	// approval hash of its title/abstract/content. Pass revision to approve only
-	// if it is still the one you read (REVISION_MISMATCH otherwise). Any writer of
-	// the memory may approve, the author included. Idempotent: an approved
+	// if it is still the one you read (REVISION_MISMATCH otherwise). A memory
+	// writer may approve ordinary nodes, the author included; placed boot prompts
+	// also require their dedicated manager-as-self gate. Comments and
+	// decision-family nodes are refused. Idempotent: an approved
 	// revision keeps its existing approval. Refuses NODE_IS_PLACEHOLDER, and
-	// SESSION_EXPIRED on an encrypted memory without its session key.
+	// ENCRYPTED_MEMORY_NOT_APPLICABLE on any encrypted memory, even with a
+	// cached session key.
 	ApproveNode *ApproveNodeApproveNodeNodeApprovalReceipt `json:"approveNode"`
 }
 
@@ -10148,7 +10155,7 @@ type CastWorkerPreviewResponse struct {
 	// Dry-run castWorker (#964): run the cast's exact resolution — same
 	// arguments, same typed refusals (WORKER_AGENT_NOT_FOUND / _AMBIGUOUS /
 	// _NOT_INSTALLED, WORKER_NAME_REQUIRED, WORKER_NAME_TAKEN,
-	// WORKER_NAME_CONFUSABLE, APP_UNINSTALLED),
+	// WORKER_NAME_CONFUSABLE, WORKER_NAME_RESERVED, APP_UNINSTALLED),
 	// same MINT gate — up to but not
 	// including the writes, and return what would be created. A Query, not a
 	// dryRun flag: casting a name is the one irreversible act in the team
@@ -10188,6 +10195,8 @@ type CastWorkerResponse struct {
 	// identifier nobody picked. The workers_app_name_uniq constraint IS the
 	// arbiter. Names are unique per App, case-insensitively, FOREVER (two Apps
 	// may each have an Iris; retirement and uninstall never free a name).
+	// Names whose mention token is a broadcast word are refused
+	// WORKER_NAME_RESERVED; choose a name whose token does not broadcast.
 	// #1677: NFKC-normalized Unicode 16 UTS #39 skeletons (original-case and
 	// caseless) must also be distinct within the App, including retired workers. A collision refuses
 	// WORKER_NAME_CONFUSABLE and names the existing worker; the chosen display
@@ -10202,7 +10211,7 @@ type CastWorkerResponse struct {
 	// user-owned App. Pure App-key principals are denied.
 	//
 	// Error codes (extensions.code): WORKER_NAME_TAKEN, WORKER_NAME_CONFUSABLE,
-	// WORKER_NAME_REQUIRED, WORKER_AGENT_NOT_INSTALLED,
+	// WORKER_NAME_REQUIRED, WORKER_NAME_RESERVED, WORKER_AGENT_NOT_INSTALLED,
 	// WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS, APP_UNINSTALLED.
 	//
 	// #1050 also removed WORKER_ROLE_NOT_FOUND from this mutation: it fired only
@@ -12137,8 +12146,10 @@ type CloneMemoryResponse struct {
 	// the source's, cloning the memory into another organization. The clone's
 	// display name is derived from the target slug.
 	//
-	// Copies the Memory row plus all live Nodes, Edges, and PendingEdges;
-	// references to the source memory's URN inside node content/abstract
+	// Copies the Memory row and its eligible live graph. Comment nodes,
+	// compiled boot-prompt nodes and decision-family nodes are excluded;
+	// derived INCLUDE edges are re-derived rather than copied. References to
+	// the source memory's URN inside node content/abstract
 	// (canonical and legacy spellings) are rewritten to the clone's URN.
 	// Vector-index config carries over and the clone's nodes are stamped for
 	// re-embedding.
@@ -12156,8 +12167,8 @@ type CloneMemoryResponse struct {
 	// nodes refuses with INCLUDE_CYCLE, at any chain length. Either refusal names
 	// only the authored tag and nothing is created.
 	//
-	// Authorization: the SOURCE side mirrors deleteMemory (personal/private →
-	// owner only; knowledge/group → source-org ADMIN). When `targetUrn` names a
+	// Authorization: the SOURCE side requires (personal/private →
+	// owner only; knowledge/group → source-org memory.clone grant). When `targetUrn` names a
 	// DIFFERENT org, the caller must additionally be a non-reader member of that
 	// target org. system/app-class sources and encrypted memories are rejected.
 	CloneMemory *CloneMemoryCloneMemory `json:"cloneMemory"`
@@ -12182,8 +12193,9 @@ type CloneNodeCloneNode struct {
 	// accepted price of keeping retrieval stable while roles stay open, so each
 	// one says what it is not — mixing them up is the predictable failure.
 	NodeType string `json:"nodeType"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -12192,9 +12204,11 @@ type CloneNodeCloneNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role *string  `json:"role"`
 	Tags []string `json:"tags"`
 	Seq  *int     `json:"seq"`
@@ -15028,20 +15042,22 @@ type CreateAiServiceConfigResponse struct {
 	//
 	// apiKey semantics: non-empty = encrypted at rest with a masked preview.
 	// Omitted is accepted only where a run may use the server's own
-	// credential: a HADRON_SERVER config for openai, anthropic or bedrock at
-	// their default host (no endpoint). Every ORGANIZATION, APP and AGENT
+	// credential: a HADRON_SERVER config with no explicit endpoint.
+	// Eligible process-credential providers: openai, anthropic, bedrock;
+	// every other provider needs its own key. Every ORGANIZATION, APP and AGENT
 	// config needs its own key: the platform credential is platform spend
-	// (#1390). Any other provider (glm, openai-compatible), and any config
-	// with an endpoint, needs one too, because the SDK would otherwise send
-	// the server's credential to a host that didn't issue it (#1389). All of
+	// (#1390). Any config with an endpoint needs one too, because the SDK would
+	// otherwise send the server's credential to a host that didn't issue it (#1389). All of
 	// these are refused with AiConfigValidationError. A host that checks no
 	// key takes any placeholder.
-	// Name must be 1-64 lower-case [a-z0-9_-], unique per
-	// owner. provider must be a known provider; params are validated per
-	// provider.
+	// Name is trimmed, must be 1-64 lower-case [a-z0-9_-] starting with a
+	// letter or digit, and is unique per owner. provider must be a known
+	// provider; params are validated per provider.
 	//
-	// Auth: as aiServiceConfigs. ownerId accepts ID or URN
-	// (HADRON_SERVER: ID only).
+	// Auth: platform ADMIN/OWNER for HADRON_SERVER; org ADMIN for ORGANIZATION;
+	// the App/Agent's strict owner or owning-org ADMIN for APP/AGENT. A platform
+	// role does not bypass a user-owned App/Agent's credential gate.
+	// ownerId accepts ID or URN (HADRON_SERVER: ID only).
 	CreateAiServiceConfig *CreateAiServiceConfigCreateAiServiceConfig `json:"createAiServiceConfig"`
 }
 
@@ -15223,20 +15239,22 @@ type CreateAiServiceConfigWithEndpointResponse struct {
 	//
 	// apiKey semantics: non-empty = encrypted at rest with a masked preview.
 	// Omitted is accepted only where a run may use the server's own
-	// credential: a HADRON_SERVER config for openai, anthropic or bedrock at
-	// their default host (no endpoint). Every ORGANIZATION, APP and AGENT
+	// credential: a HADRON_SERVER config with no explicit endpoint.
+	// Eligible process-credential providers: openai, anthropic, bedrock;
+	// every other provider needs its own key. Every ORGANIZATION, APP and AGENT
 	// config needs its own key: the platform credential is platform spend
-	// (#1390). Any other provider (glm, openai-compatible), and any config
-	// with an endpoint, needs one too, because the SDK would otherwise send
-	// the server's credential to a host that didn't issue it (#1389). All of
+	// (#1390). Any config with an endpoint needs one too, because the SDK would
+	// otherwise send the server's credential to a host that didn't issue it (#1389). All of
 	// these are refused with AiConfigValidationError. A host that checks no
 	// key takes any placeholder.
-	// Name must be 1-64 lower-case [a-z0-9_-], unique per
-	// owner. provider must be a known provider; params are validated per
-	// provider.
+	// Name is trimmed, must be 1-64 lower-case [a-z0-9_-] starting with a
+	// letter or digit, and is unique per owner. provider must be a known
+	// provider; params are validated per provider.
 	//
-	// Auth: as aiServiceConfigs. ownerId accepts ID or URN
-	// (HADRON_SERVER: ID only).
+	// Auth: platform ADMIN/OWNER for HADRON_SERVER; org ADMIN for ORGANIZATION;
+	// the App/Agent's strict owner or owning-org ADMIN for APP/AGENT. A platform
+	// role does not bypass a user-owned App/Agent's credential gate.
+	// ownerId accepts ID or URN (HADRON_SERVER: ID only).
 	CreateAiServiceConfig *CreateAiServiceConfigWithEndpointCreateAiServiceConfig `json:"createAiServiceConfig"`
 }
 
@@ -15929,7 +15947,8 @@ func (v *CreateCommentCreateComment) __premarshalJSON() (*__premarshalCreateComm
 // CreateCommentResponse is returned by CreateComment on success.
 type CreateCommentResponse struct {
 	// #1606 — start a thread on a node (hrn:node:hadronmemory.com:specs:cor:dmo:110). Needs write access to the
-	// target's memory. anchorRevision defaults to the target's current revision;
+	// target's memory. Commentable classes: app, knowledge, personal, group, system;
+	// private memories are not commentable. anchorRevision defaults to the target's current revision;
 	// an older one anchors there while its text is still retained. The anchor
 	// hash is computed by the server. Typed refusals: COMMENT_TARGET_NOT_FOUND,
 	// COMMENT_FORBIDDEN, COMMENT_TARGET_IS_COMMENT, COMMENT_MEMORY_NOT_COMMENTABLE,
@@ -16063,10 +16082,12 @@ func (v *CreateConnectionGrantCreateConnectionGrant) __premarshalJSON() (*__prem
 
 // CreateConnectionGrantResponse is returned by CreateConnectionGrant on success.
 type CreateConnectionGrantResponse struct {
-	// Grant an App install scoped access to a connection you OWN. scopes must be a
-	// subset of {mail.read, mail.send, calendar.freebusy, calendar.read, drive.read};
-	// expiresAt (ISO-8601) is optional and must be in the future. appRef is a PK or
-	// App URN.
+	// Grant an App install scoped access to a connection you OWN, using your own
+	// user credential with no App context (no App-key or on-behalf-of-run path). scopes must
+	// be a non-empty subset of {mail.read, mail.send, calendar.freebusy, calendar.read, drive.read};
+	// duplicates are collapsed. expiresAt is optional; when supplied it must be
+	// a future ISO-8601 timestamp with an explicit timezone. appRef is a PK or
+	// App URN. A missing or unreadable connection answers NOT_FOUND.
 	CreateConnectionGrant *CreateConnectionGrantCreateConnectionGrant `json:"createConnectionGrant"`
 }
 
@@ -16702,15 +16723,18 @@ func (v *CreateMemoryDraftCreateMemory) GetUpdatedAt() string { return v.Updated
 
 // CreateMemoryDraftResponse is returned by CreateMemoryDraft on success.
 type CreateMemoryDraftResponse struct {
-	// Create a memory in an organization. Accepts the entity's ID or URN
-	// for orgId.
-	//
-	// Defaults to knowledge-class with ORGANIZATION visibility. Pass
+	// Create a free-standing memory. orgId accepts an organization's ID or URN.
+	// With orgId, the default is knowledge-class with ORGANIZATION visibility;
+	// knowledge/group creation requires the org's memory.create grant. Omitting
+	// orgId (or passing null) creates a user-owned memory in the authenticated
+	// caller's namespace and requires an explicit personal/private memoryClass.
+	// The default knowledge class is refused without orgId. Pass
 	// memoryClass: group + visibility: GROUP for a group-class memory
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
-	// caller owns (spec 034 — free-standing, no app/agent; the caller
-	// must be a member of the org container). system- and app-class
+	// caller owns (free-standing, no app/agent). An org-anchored personal/private
+	// memory requires actual membership of that org container; the org-less
+	// owner-only path requires no org membership. system- and app-class
 	// memories are NOT created here — they auto-provision via
 	// Agent.systemMemoryId / the App install path.
 	CreateMemory *CreateMemoryDraftCreateMemory `json:"createMemory"`
@@ -16797,13 +16821,17 @@ type CreateMemoryInAppResponse struct {
 	//
 	// Unlike createMemory (which only makes free-standing memories), this scopes
 	// the new memory to an App. memoryClass accepts only the App-associable
-	// classes: 'app', 'personal', or 'private' ('system'/'knowledge'/'group'
-	// forbid an app_id). appRef/agentRef accept an ID, bare URN, or prefixed URN;
+	// classes: 'app', 'knowledge', 'personal', or 'private'. This door rejects
+	// 'system' and 'group'; this is its allowlist, not a claim that the database
+	// forbids app_id for every rejected class. appRef/agentRef accept an ID, bare URN, or prefixed URN;
 	// the Agent must be installed in the App.
 	//
-	// Authorization is split by class: 'app' is shared deployment data and
-	// requires org OWNER/ADMIN; 'personal'/'private' are the caller's OWN memory
-	// and require only App membership (the caller becomes the owner).
+	// Authorization is split by class: 'app'/'knowledge' are shared data and
+	// require the App's user-owner or owning-org OWNER/ADMIN. Personal/private
+	// require the caller's actual App membership (the caller becomes the owner),
+	// with no platform-admin membership bypass; they are not yet supported for
+	// a user-owned App. The install is rechecked as live and licensed in the
+	// deciding transaction. Live name collisions are aliased to a free URN.
 	//
 	// Typed errors: UNSUPPORTED_MEMORY_CLASS, BAD_USER_INPUT (maxRevCount < 1),
 	// APP_UNINSTALLED, AGENT_NOT_INSTALLED, MEMORY_URN_CONFLICT, FORBIDDEN,
@@ -16818,15 +16846,18 @@ func (v *CreateMemoryInAppResponse) GetCreateMemoryInApp() *CreateMemoryInAppCre
 
 // CreateMemoryResponse is returned by CreateMemory on success.
 type CreateMemoryResponse struct {
-	// Create a memory in an organization. Accepts the entity's ID or URN
-	// for orgId.
-	//
-	// Defaults to knowledge-class with ORGANIZATION visibility. Pass
+	// Create a free-standing memory. orgId accepts an organization's ID or URN.
+	// With orgId, the default is knowledge-class with ORGANIZATION visibility;
+	// knowledge/group creation requires the org's memory.create grant. Omitting
+	// orgId (or passing null) creates a user-owned memory in the authenticated
+	// caller's namespace and requires an explicit personal/private memoryClass.
+	// The default knowledge class is refused without orgId. Pass
 	// memoryClass: group + visibility: GROUP for a group-class memory
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
-	// caller owns (spec 034 — free-standing, no app/agent; the caller
-	// must be a member of the org container). system- and app-class
+	// caller owns (free-standing, no app/agent). An org-anchored personal/private
+	// memory requires actual membership of that org container; the org-less
+	// owner-only path requires no org membership. system- and app-class
 	// memories are NOT created here — they auto-provision via
 	// Agent.systemMemoryId / the App install path.
 	CreateMemory *CreateMemoryCreateMemory `json:"createMemory"`
@@ -16975,19 +17006,19 @@ type CreateMemoryShareResponse struct {
 	// - UNAUTHENTICATED — no logged-in user in context.
 	// - FORBIDDEN — caller is not the Memory's principal. The
 	// caller-authority guard runs first and deliberately does not
-	// differentiate between "memory doesn't exist", "memory is not
-	// personal-class", and "caller isn't the principal" — all three
-	// return FORBIDDEN so memory metadata isn't leaked to
-	// non-principals.
+	// differentiate between a missing/deleted memory and a memory the
+	// caller does not own — both return FORBIDDEN before grantee lookup.
+	// An owner of a wrong-class memory (for example private) can pass that
+	// principal check and receive InvalidMemoryClassForShareError.
 	// - MemoryShareGranteeMissingError — granteeId doesn't resolve to
 	// an existing User. Only reachable when the caller passes the
 	// principal guard.
 	// - CrossOrgShareNotAllowedError — the grantee is not a member of an
 	// org-owned personal memory's org (the #778 audience rule above).
-	// - InvalidMemoryClassForShareError / MemoryNotFoundForShareError —
-	// defined on the controller for completeness; functionally
-	// unreachable via this GraphQL mutation in v1 because the
-	// caller-authority guard short-circuits to FORBIDDEN first.
+	// - InvalidMemoryClassForShareError — the principal addressed a memory
+	// whose class is not personal; private memories cannot be shared.
+	// - MemoryNotFoundForShareError — retained controller-level lifecycle
+	// refusal; the ordinary GraphQL principal precheck conceals absence.
 	CreateMemoryShare *CreateMemoryShareCreateMemoryShareCreateMemorySharePayload `json:"createMemoryShare"`
 }
 
@@ -17074,8 +17105,9 @@ type CreateNodeCreateNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -17084,9 +17116,11 @@ type CreateNodeCreateNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -17147,7 +17181,7 @@ type CreateNodeInput struct {
 	Loc        string  `json:"loc"`
 	// Memory reference. Accepts the entity's ID (CUID / 32-char hex) or its
 	// URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
-	// qualified (org:memory) per spec 022 — relative-form URNs are
+	// qualified (hrn:mem:<root>:<memory>) per spec 022 — relative-form URNs are
 	// rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
 	MemoryId string  `json:"memoryId"`
 	Name     string  `json:"name"`
@@ -17160,8 +17194,8 @@ type CreateNodeInput struct {
 	Reason *string `json:"reason,omitempty"`
 	// #1201 — what this node is FOR (open string). NOT 'nodeType' (the
 	// platform-kind axis) and NOT 'objectType' (the collection discriminator).
-	// A GOVERNED value ('review', 'spec') requires that kind's own door; the
-	// generic createNode refuses it.
+	// A GOVERNED family ('review', 'spec', 'decision', including dotted descendants)
+	// requires that kind's own door; generic createNode refuses it.
 	Role *string  `json:"role,omitempty"`
 	Seq  *int     `json:"seq,omitempty"`
 	Tags []string `json:"tags,omitempty"`
@@ -17241,7 +17275,9 @@ type CreateNodeResponse struct {
 	// Create a single node. Rejects with NodeLocConflictError when a live node
 	// already exists at (memoryId, loc) — creating is create-only (spec 039
 	// Phase 0 D1); a soft-deleted node at the target loc is resurrected.
-	// 'name' is required here and only here (D4).
+	// 'name' is required on creation, unlike updateNode. Target an explicit
+	// memoryId, or use install to create in an App's Agent install memory;
+	// supplying both targets is BAD_USER_INPUT.
 	// Include tags (#2040): content may carry {{> target settings}} tags. Writes
 	// that make a tag malformed refuse INVALID_INCLUDE; a tag the write adds or
 	// changes whose target is missing, deleted or not readable by the writer
@@ -17666,8 +17702,8 @@ type CreateObjectResponse struct {
 	// (validated against the memory schema when the collection is declared). The
 	// node's loc is auto-derived (<type>:<key ?? generated-id>) and hidden; pass
 	// 'key' for a human-meaningful id (a single segment, no ':'), 'name' to
-	// override the derived node name. 'id' and 'type' are reserved and cannot be
-	// field names. Returns the flat object.
+	// override the derived node name. Reserved object field names: id, type;
+	// these cannot be supplied in fields. Returns the flat object.
 	CreateObject json.RawMessage `json:"createObject"`
 }
 
@@ -18131,7 +18167,8 @@ type CreateResumeClaimResponse struct {
 	// session. For a rotation, pass endSession(resumeClaim: true) instead, which
 	// writes it with the handoff, before the end. Someone else's session answers
 	// as an absent one; an ended session refuses SESSION_ENDED; a session with no
-	// worker refuses SESSION_NOT_WORKER_BOUND.
+	// worker refuses SESSION_NOT_WORKER_BOUND. An App key without a user or an
+	// impersonation caller receives the same absent-session answer.
 	CreateResumeClaim *CreateResumeClaimCreateResumeClaimResumeClaimReceipt `json:"createResumeClaim"`
 }
 
@@ -18162,8 +18199,9 @@ type CreateReviewNodeCreateReviewNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -18172,9 +18210,11 @@ type CreateReviewNodeCreateReviewNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -18559,8 +18599,9 @@ type CreateSpecNodeCreateSpecNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -18569,9 +18610,11 @@ type CreateSpecNodeCreateSpecNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -18617,7 +18660,7 @@ type CreateSpecNodeResponse struct {
 	// spec', 'hadron coding'), which is a closed-list exception on the audience
 	// ground.
 	//
-	// STRENGTH: DILIGENCE. It guarantees a spec node was authored by the spec tool (#1152, and the corpus discipline resting on it). It does NOT claim a determined caller could not author one another way: the label is free to omit and a citation resolves without it. Specs are deliberately not treated as a security concern; the destructive half is closed by #1182/#1184, which made createNode mint-or-refuse and race-safe.
+	// STRENGTH: DILIGENCE. This is the intended authoring door for spec tools (#1152); the server does not attest which client binary called it. A determined caller may omit the label, and a citation resolves without it. Specs are deliberately not treated as a security concern; the destructive half is closed by #1182/#1184, which made createNode mint-or-refuse and race-safe.
 	//
 	// Exempt from its OWN kind only — it is fully subject to every other kind and
 	// to Channel address protection, so it cannot forge a chat message.
@@ -18653,8 +18696,9 @@ type CreateTaskNodeCreateTaskNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -18663,9 +18707,11 @@ type CreateTaskNodeCreateTaskNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -18868,11 +18914,12 @@ type CreateTeamChatMessageResponse struct {
 	// so racing posts get distinct consecutive seqs.
 	//
 	// Author derivation (#974): with sessionRef, the message is authored by
-	// that session's bound Worker (the session must be writable by the caller, a
-	// session OF this App, active, and bound to a non-retired Worker OF this
-	// App — the worker-App pin, checked at post time so retirement revokes) and
-	// the envelope records the driving sessionId; without it, by the calling
-	// human. Mentions ('@worker-name' / '@handle'; a multi-word name is
+	// that session's bound non-retired Worker. The session must be writable by
+	// the caller and live (or eligible for the shared lapsed-session resume).
+	// Its Worker belongs to this App, or its on-behalf-of user may write the
+	// Channel's host memory (item J below). The envelope records the driving
+	// sessionId; without it, the author is the calling human. Mentions
+	// ('@worker-name' / '@handle'; a multi-word name is
 	// mentioned by its slug, e.g. '@mary-jane') are extracted server-side at
 	// write time into the envelope. replyToSeq wires a replies-to edge to the
 	// cited message. body is capped at 65536 characters.
@@ -18892,6 +18939,7 @@ type CreateTeamChatMessageResponse struct {
 	//
 	// Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE,
 	// TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
+	// SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume),
 	// SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
 	// SESSION_EXPIRED (encrypted team memory without an active session key),
 	// TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
@@ -19334,8 +19382,11 @@ type CreateUserApiKeyResponse struct {
 	// 025-oauth-for-mcp FR-004: mint a new user-scoped API key for the
 	// calling User. Returns the raw key exactly once (the server stores
 	// only the SHA-256 hash). Rejected with UNAUTHENTICATED for AppKey-
-	// resolved callers (no user in context). Per Clarifications, label
-	// is optional (portal defaults to a placeholder when omitted).
+	// resolved callers (no user in context). Impersonation is refused; an
+	// MCP-only OAuth credential cannot mint API keys. label is optional and
+	// limited to 200 JavaScript string code units. Minting from a user API key
+	// retains its minting-key ancestry and sign-in root; an ended sign-in root
+	// refuses minting.
 	CreateUserApiKey *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult `json:"createUserApiKey"`
 }
 
@@ -19724,7 +19775,8 @@ func (v *CreditLedgerEntryFields) GetCreatedBy() *string { return v.CreatedBy }
 
 // DeleteAgentResponse is returned by DeleteAgent on success.
 type DeleteAgentResponse struct {
-	// Soft-delete an Agent and its owned system memory. Refuses while a live
+	// Soft-delete an Agent and its owned system memory. Requires management
+	// access to the readable Agent. Refuses while a live
 	// App install or live parent Agent import references it, or a live Agent
 	// extends it as its base. AgentMemoryItem attachments do not block deletion.
 	//
@@ -20639,11 +20691,12 @@ var AllDriveExportFormat = []DriveExportFormat{
 
 // DriveExportResponse is returned by DriveExport on success.
 type DriveExportResponse struct {
-	// Export a drive file as text: native documents convert (Docs export
-	// natively to MARKDOWN; spreadsheets to TEXT as CSV; presentations to
-	// TEXT), text files return verbatim. Binary files are refused (typed
-	// validation error). Size-capped with a typed file_too_large — never
-	// truncated. Grant scope: drive.read.
+	// Export a drive file through the connection's provider tool. Grant scope:
+	// drive.read is required for an App context's covering connection grant.
+	// Without an App context, the caller must own the connection; org
+	// administration alone does not grant access. The server delegates format conversion, binary-file refusal
+	// and size validation to that tool; it does not independently enforce those
+	// provider guarantees here. Returns the tool's content, MIME type and format.
 	DriveFileExport *DriveExportDriveFileExport `json:"driveFileExport"`
 }
 
@@ -21305,15 +21358,16 @@ type EffectiveAccessResponse struct {
 	// A bare id with no scheme prefix is treated as an AiServiceConfig id — the
 	// only URN-less resource kind.
 	//
-	// Authorization (who may CALL this): the same visibility bar already
-	// enforced on the underlying grant tables — a platform ADMIN/OWNER, an
-	// ADMIN/OWNER of the resource's owning org, or (for a strict-owner memory)
-	// the memory's principal. Everyone else gets FORBIDDEN, NOT a silent empty
-	// result, so the command can't probe access it isn't allowed to audit.
+	// Self-audits are allowed subject to resource visibility. Cross-subject audits require
+	// platform administration, resource-org ADMIN/OWNER authority, or the applicable user-owner
+	// authority (including a strict-owner memory's principal). A forbidden audit is FORBIDDEN.
+	// Before that caller gate, unreadable memory/node/Agent resources are concealed as NOT_FOUND;
+	// self-audits conceal any unreadable resource the same way. Impersonation is restricted to
+	// the shared org and refuses identity-scoped or other-org resources with FORBIDDEN.
 	//
-	// A subject with no access is a SUCCESS with an empty grants list (all
-	// capabilities false, role null) — not NOT_FOUND. An unresolvable or
-	// unknown resource ref is NOT_FOUND.
+	// Once admitted, a subject with no access is a SUCCESS with an empty grants list
+	// (all capabilities false, role null). Unknown subjects and unresolvable resource refs
+	// are NOT_FOUND. This query's supported resource kinds are not every resolveUrn kind.
 	EffectiveAccess *EffectiveAccessEffectiveAccess `json:"effectiveAccess"`
 }
 
@@ -21645,11 +21699,10 @@ func (v *EndTeamSessionEndSession) __premarshalJSON() (*__premarshalEndTeamSessi
 // EndTeamSessionResponse is returned by EndTeamSession on success.
 type EndTeamSessionResponse struct {
 	// End a session, and — for a worker-bound one — write its closing handoff
-	// (#1029). This is the CLIENT operation that ends a worker session. Since
-	// #1114 it is very nearly the ONLY one: the reaper ends a session only when a
-	// hard expiresAt promised at session start has passed, never for going
-	// quiet. A client's chat session ending **does not end a worker session**, and
-	// never reaches this server (#1034).
+	// (#1029). Ending a client's chat session does not end its worker session
+	// or call this operation. Inactivity alone never ends a session; the reaper
+	// enforces a hard expiresAt promised at session start. Other explicit
+	// platform lifecycle operations can also end sessions.
 	//
 	// It ends the SESSION, not any HOLD. Where a person bound the worker the name
 	// stays theirs until explicitly released (#1050,
@@ -21681,7 +21734,8 @@ type EndTeamSessionResponse struct {
 	// continuity prose in `summary` succeeds, returns a normal receipt, and
 	// produces NO handoff — discovered only once the context that could have
 	// written one is gone, and not correctable in place, since the sequence is
-	// append-only and the stint has ended (re-ending is refused). The remedy is to
+	// append-only and adding a handoff to an ended session is refused. A repeat
+	// end without a new handoff preserves the first end. The remedy is to
 	// bind again and end THAT session with the prose. Putting a label in
 	// `handoff` is merely untidy: the row lacks its label and the text reaches
 	// the next driver anyway.
@@ -21893,11 +21947,10 @@ func (v *EndTeamSessionWithResumeClaimEndSession) __premarshalJSON() (*__premars
 // EndTeamSessionWithResumeClaimResponse is returned by EndTeamSessionWithResumeClaim on success.
 type EndTeamSessionWithResumeClaimResponse struct {
 	// End a session, and — for a worker-bound one — write its closing handoff
-	// (#1029). This is the CLIENT operation that ends a worker session. Since
-	// #1114 it is very nearly the ONLY one: the reaper ends a session only when a
-	// hard expiresAt promised at session start has passed, never for going
-	// quiet. A client's chat session ending **does not end a worker session**, and
-	// never reaches this server (#1034).
+	// (#1029). Ending a client's chat session does not end its worker session
+	// or call this operation. Inactivity alone never ends a session; the reaper
+	// enforces a hard expiresAt promised at session start. Other explicit
+	// platform lifecycle operations can also end sessions.
 	//
 	// It ends the SESSION, not any HOLD. Where a person bound the worker the name
 	// stays theirs until explicitly released (#1050,
@@ -21929,7 +21982,8 @@ type EndTeamSessionWithResumeClaimResponse struct {
 	// continuity prose in `summary` succeeds, returns a normal receipt, and
 	// produces NO handoff — discovered only once the context that could have
 	// written one is gone, and not correctable in place, since the sequence is
-	// append-only and the stint has ended (re-ending is refused). The remedy is to
+	// append-only and adding a handoff to an ended session is refused. A repeat
+	// end without a new handoff preserves the first end. The remedy is to
 	// bind again and end THAT session with the prose. Putting a label in
 	// `handoff` is merely untidy: the row lacks its label and the text reaches
 	// the next driver anyway.
@@ -22047,9 +22101,10 @@ type ExtractParentNodeToMemoryResponse struct {
 	// source intact; 'move' = true relocates it, soft-deleting the source subtree
 	// (its nodes, the source memory's touching edges, and its pending edges).
 	//
-	// The new memory PRESERVES the source's class so an extract never widens who
-	// can read the content: a member-restricted 'group' stays group, a
-	// personal/private source stays owner-owned, knowledge stays knowledge.
+	// The new memory PRESERVES the source's class: group stays group (the
+	// caller is bootstrapped as its first owner), personal/private stays
+	// owner-owned, and knowledge stays knowledge. Class preservation alone is
+	// not a claim that the new memory has an identical membership audience.
 	// Governance/config (requiresLicense, chunk dials, revision cap, acceptsUploads)
 	// carries over from the source.
 	//
@@ -22058,8 +22113,10 @@ type ExtractParentNodeToMemoryResponse struct {
 	// org's memory.clone grant (an export) AND the destination org's memory.create
 	// (plus a non-reader membership for a cross-org drop); a personal/private
 	// extract instead requires the owner to be a member of the destination org.
-	// 'move' additionally requires source write access, and cannot target the
-	// source root (that would empty the source — clone + deleteMemory instead).
+	// 'move' additionally requires source write access and must leave a live
+	// node outside the extracted subtree; otherwise it would empty the source
+	// (clone + deleteMemory instead). The guard uses node membership, not the
+	// source memory's mutable name.
 	// Encrypted and system/app-class sources are rejected.
 	//
 	// Include tags (#2167; hrn:node:hadronmemory.com:specs:cor:dmo:150:04 and
@@ -22162,8 +22219,9 @@ type FindNodesFindNodesFindNodesResultHitsNodeHitNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -22172,9 +22230,11 @@ type FindNodesFindNodesFindNodesResultHitsNodeHitNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role       *string          `json:"role"`
 	UpdatedAt  string           `json:"updatedAt"`
 	Properties *json.RawMessage `json:"properties"`
@@ -22487,11 +22547,10 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 
 // GetAgentResponse is returned by GetAgent on success.
 type GetAgentResponse struct {
-	// The uniform single-agent read (#473) — the first top-level Agent query;
-	// previously Agents were reachable only via Organization.agents /
-	// App.agents nesting. Gate mirrors resolveUrn's agent branch: member of
-	// the Agent's org or platform ADMIN/OWNER; denied throws Forbidden,
-	// missing is null.
+	// The uniform single-agent read. Uses the shared Agent read gate, including
+	// PUBLIC visibility and owner-aware access to user-owned Agents. An absent
+	// or unreadable Agent returns null; malformed or under-qualified refs remain
+	// input errors. Nested fields keep their own exposure gates.
 	//
 	// 'ref' accepts the entity's ID or URN.
 	Agent *GetAgentAgent `json:"agent"`
@@ -23294,8 +23353,9 @@ type GetNodeNode struct {
 	// accepted price of keeping retrieval stable while roles stay open, so each
 	// one says what it is not — mixing them up is the predictable failure.
 	NodeType string `json:"nodeType"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -23304,9 +23364,11 @@ type GetNodeNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role *string `json:"role"`
 	// #725 — the COLLECTION discriminator: which domain object this node is an
 	// instance of, e.g. "competitor" / "insight". Validated against the memory's
@@ -23550,12 +23612,16 @@ type GetNodeRawResponse struct {
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
-	// name a readable memory is treated as form 2 (a full URN); pass
+	// name a live memory is treated as form 2 (a full URN); pass
 	// 'memoryRef' to force loc interpretation.
 	//
-	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
-	// resolve. Access: the caller's readable-memory set (same gate the old
-	// queries used); denied and missing are both null.
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
 	Node *GetNodeNode `json:"node"`
 }
 
@@ -23575,12 +23641,16 @@ type GetNodeResponse struct {
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
-	// name a readable memory is treated as form 2 (a full URN); pass
+	// name a live memory is treated as form 2 (a full URN); pass
 	// 'memoryRef' to force loc interpretation.
 	//
-	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
-	// resolve. Access: the caller's readable-memory set (same gate the old
-	// queries used); denied and missing are both null.
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
 	Node *GetNodeNode `json:"node"`
 }
 
@@ -24155,8 +24225,9 @@ type GetSpecNodeForEditNode struct {
 	Name        string   `json:"name"`
 	Description *string  `json:"description"`
 	Tags        []string `json:"tags"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -24165,9 +24236,11 @@ type GetSpecNodeForEditNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role *string `json:"role"`
 	// The node's text. Include tags and data variables resolve for the reader
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
@@ -24228,12 +24301,16 @@ type GetSpecNodeForEditResponse struct {
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
-	// name a readable memory is treated as form 2 (a full URN); pass
+	// name a live memory is treated as form 2 (a full URN); pass
 	// 'memoryRef' to force loc interpretation.
 	//
-	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
-	// resolve. Access: the caller's readable-memory set (same gate the old
-	// queries used); denied and missing are both null.
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
 	Node *GetSpecNodeForEditNode `json:"node"`
 }
 
@@ -24247,8 +24324,9 @@ type GetSpecNodeRawNode struct {
 	Loc      string   `json:"loc"`
 	Name     string   `json:"name"`
 	Tags     []string `json:"tags"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -24257,9 +24335,11 @@ type GetSpecNodeRawNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role *string `json:"role"`
 	// The node's text. Include tags and data variables resolve for the reader
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
@@ -24312,12 +24392,16 @@ type GetSpecNodeRawResponse struct {
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
-	// name a readable memory is treated as form 2 (a full URN); pass
+	// name a live memory is treated as form 2 (a full URN); pass
 	// 'memoryRef' to force loc interpretation.
 	//
-	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
-	// resolve. Access: the caller's readable-memory set (same gate the old
-	// queries used); denied and missing are both null.
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
 	Node *GetSpecNodeRawNode `json:"node"`
 }
 
@@ -29609,8 +29693,9 @@ type MergeNodesMergeNodesNode struct {
 	// accepted price of keeping retrieval stable while roles stay open, so each
 	// one says what it is not — mixing them up is the predictable failure.
 	NodeType string `json:"nodeType"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -29619,9 +29704,11 @@ type MergeNodesMergeNodesNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role *string  `json:"role"`
 	Tags []string `json:"tags"`
 	// Whether this node can be run as a task (nullable; #513) — it drives the tree
@@ -29801,8 +29888,10 @@ type MergeUsersResponse struct {
 	// Consolidate a duplicate account into a surviving user. Source-only
 	// identities and relationships move; duplicate role-bearing relationships
 	// preserve the strongest live entitlement. The source is soft-deleted.
-	// Platform admin with an unbound user JWT only; API keys, Apps, impersonation
-	// and session-bound callers refuse FORBIDDEN. The resulting merge is global;
+	// Requires platform administration, both accounts' consent proof, and an
+	// unbound user JWT; API keys, Apps, impersonation and session-bound callers
+	// cannot authorize a merge. The platform-role and missing-proof checks run
+	// before the credential-shape check. The resulting merge is global;
 	// organization administration does not authorize account consolidation. Both accounts must
 	// approve the exact ordered pair after fresh login, within 15 minutes.
 	// The proof is single-use, consumed atomically before transfers, and recorded
@@ -29817,7 +29906,8 @@ type MergeUsersResponse struct {
 	// alarms, tasks or Apps, which the caller may not be able to read) while
 	// either account is named in the owner chain of an unacknowledged agent-task
 	// alarm, whose sealed chain cannot follow a merge yet. Acknowledge
-	// the alarms, then merge.
+	// the alarms, then merge. A source account with an unrevoked passkey refuses
+	// MERGE_SOURCE_HAS_PASSKEYS; revoke those passkeys before merging.
 	MergeUsers *MergeUsersMergeUsersUser `json:"mergeUsers"`
 }
 
@@ -29874,7 +29964,7 @@ func (v *MintActionTicketsResponse) GetMintActionTickets() int { return v.MintAc
 type MintMemoryNodesMintMemoryNodesSpecCorpusMintReport struct {
 	MemoryId string `json:"memoryId"`
 	DryRun   bool   `json:"dryRun"`
-	// True when this call minted the corpus.
+	// True when this call stamped nodes in its mint scope; false for a dry run or an empty scope.
 	Minted bool `json:"minted"`
 	// #1591 — how many nodes this call minted (0 on a dry run or refusal).
 	MintedCount int `json:"mintedCount"`
@@ -30039,12 +30129,13 @@ func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMin
 
 // MintMemoryNodesResponse is returned by MintMemoryNodes on success.
 type MintMemoryNodesResponse struct {
-	// #1591 — mint every unminted live node of a memory, at once. Each node is
+	// #1591 — mint the unminted live nodes of a memory, at once, excluding
+	// comment nodes and the decision role family. Each node is
 	// stamped with its current revision and that revision's approval hash
 	// (Node.mintStatus); a minted node's moves then record URN aliases. Refuses
 	// SPEC_CORPUS_MINT_BLOCKED while any blocker remains among the unminted
 	// nodes: a placeholder, an unresolved reference, a structural lint error over
-	// the citation-shaped nodes (nodetype-info, tag-spec, serialization-leak,
+	// spec-marked or citation-shaped nodes (nodetype-info, tag-spec, serialization-leak,
 	// duplicate-loc), a stale abstract once staleAbstractsBlock is true,
 	// NOT_APPROVED (the current revision is not approved), TAMPERED (approved
 	// text changed outside the revision system), or CITES_UNMINTED (an
@@ -30073,7 +30164,7 @@ func (v *MintMemoryNodesResponse) GetMintMemoryNodes() *MintMemoryNodesMintMemor
 type MintSpecCorpusMintSpecCorpusSpecCorpusMintReport struct {
 	MemoryId string `json:"memoryId"`
 	DryRun   bool   `json:"dryRun"`
-	// True when this call minted the corpus.
+	// True when this call stamped nodes in its mint scope; false for a dry run or an empty scope.
 	Minted              bool                                                                                  `json:"minted"`
 	StaleAbstractsBlock bool                                                                                  `json:"staleAbstractsBlock"`
 	Blockers            []*MintSpecCorpusMintSpecCorpusSpecCorpusMintReportBlockersSpecMintFinding            `json:"blockers"`
@@ -30393,8 +30484,9 @@ type MoveNodeMoveNode struct {
 	// accepted price of keeping retrieval stable while roles stay open, so each
 	// one says what it is not — mixing them up is the predictable failure.
 	NodeType string `json:"nodeType"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -30403,9 +30495,11 @@ type MoveNodeMoveNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role *string  `json:"role"`
 	Tags []string `json:"tags"`
 	Seq  *int     `json:"seq"`
@@ -30579,8 +30673,7 @@ type MyUserApiKeysResponse struct {
 	// 025-oauth-for-mcp FR-004: list the calling User's API keys (active
 	// + revoked, createdAt DESC). Powers Phase 3's portal revocation UI
 	// (SC-006). Rejected with UNAUTHENTICATED for AppKey-resolved
-	// callers (no user in context). PR-137 review delta D5 — Query
-	// not present in PR 137.
+	// callers (no user in context). Impersonation is refused with Forbidden.
 	MyUserApiKeys []*MyUserApiKeysMyUserApiKeysUserApiKey `json:"myUserApiKeys"`
 }
 
@@ -30911,8 +31004,9 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	// accepted price of keeping retrieval stable while roles stay open, so each
 	// one says what it is not — mixing them up is the predictable failure.
 	NodeType string `json:"nodeType"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -30921,9 +31015,11 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role *string `json:"role"`
 	// #725 — the COLLECTION discriminator: which domain object this node is an
 	// instance of, e.g. "competitor" / "insight". Validated against the memory's
@@ -31534,12 +31630,16 @@ type NodeExportMetaResponse struct {
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
-	// name a readable memory is treated as form 2 (a full URN); pass
+	// name a live memory is treated as form 2 (a full URN); pass
 	// 'memoryRef' to force loc interpretation.
 	//
-	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
-	// resolve. Access: the caller's readable-memory set (same gate the old
-	// queries used); denied and missing are both null.
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
 	Node *NodeExportMetaNode `json:"node"`
 }
 
@@ -32874,12 +32974,16 @@ type NodePortalResponse struct {
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
-	// name a readable memory is treated as form 2 (a full URN); pass
+	// name a live memory is treated as form 2 (a full URN); pass
 	// 'memoryRef' to force loc interpretation.
 	//
-	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
-	// resolve. Access: the caller's readable-memory set (same gate the old
-	// queries used); denied and missing are both null.
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
 	Node *NodePortalNode `json:"node"`
 }
 
@@ -33953,8 +34057,9 @@ func (v *NodeRoleRuleFieldsSourceTemplateNodeRoleRuleSourceTemplate) GetDeleted(
 // configured. OK: the node is live and you can read it; its id is given, and
 // its URN too unless the node's memory has a legacy URN that cannot address it
 // (#697), when the URN is null and the id is the ref to use. BROKEN: configured,
-// but the node was deleted, so operations relying on the rule are refused until
-// a manager repoints it (fail-closed). UNREADABLE: the node exists but you may
+// but its node or memory is gone, so operations relying on a procedural rule
+// are refused until a manager repoints it (fail-closed). Missing description
+// documentation instead reports NONE through descriptionNodeState. UNREADABLE: the node exists but you may
 // not read it, so its URN and id are withheld.
 type NodeRoleRuleRefState string
 
@@ -34316,12 +34421,16 @@ type NodeSignatureStatusResponse struct {
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
-	// name a readable memory is treated as form 2 (a full URN); pass
+	// name a live memory is treated as form 2 (a full URN); pass
 	// 'memoryRef' to force loc interpretation.
 	//
-	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
-	// resolve. Access: the caller's readable-memory set (same gate the old
-	// queries used); denied and missing are both null.
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
 	Node *NodeSignatureStatusNode `json:"node"`
 }
 
@@ -34518,12 +34627,16 @@ type NodeSigningRequestsResponse struct {
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
-	// name a readable memory is treated as form 2 (a full URN); pass
+	// name a live memory is treated as form 2 (a full URN); pass
 	// 'memoryRef' to force loc interpretation.
 	//
-	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
-	// resolve. Access: the caller's readable-memory set (same gate the old
-	// queries used); denied and missing are both null.
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
 	Node *NodeSigningRequestsNode `json:"node"`
 }
 
@@ -36455,7 +36568,7 @@ func (v *RegisterHostRegisterHostHostRegistration) __premarshalJSON() (*__premar
 // RegisterHostResponse is returned by RegisterHost on success.
 type RegisterHostResponse struct {
 	// #1709 — a host registers, or refreshes, which of its App's workers it can launch, as which model family, and in
-	// which existing worktrees (hrn:node:hadronmemory.com:specs:cor:agt:070:01). A host key only: an App key holding
+	// which worktrees it declares (hrn:node:hadronmemory.com:specs:cor:agt:070:01). The server validates their tokens, not filesystem existence. A host key only: an App key holding
 	// host:operate, which names the host; the request names none (hrn:node:hadronmemory.com:specs:cor:agt:070:04). Refreshing within the App's lapse count
 	// of poll intervals keeps it live. Refused HOST_KEY_REQUIRED for anyone else, APP_KEY_SCOPE_REQUIRED without the
 	// scope, APP_KEY_SESSION_BOUND with a session, BAD_HOST_REGISTRATION for a bad shape or a worker not of the App.
@@ -38027,8 +38140,9 @@ type ReserveSpecCitationReserveSpecCitationNode struct {
 	Id   string `json:"id"`
 	Loc  string `json:"loc"`
 	Name string `json:"name"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -38037,14 +38151,17 @@ type ReserveSpecCitationReserveSpecCitationNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role *string `json:"role"`
-	// #1450 — true for a RESERVED spec citation that has no spec written yet (a
-	// placeholder in a draft corpus, created by reserveSpecCitation). Set only by
-	// the server, never inferred from an empty body; writing real content through
-	// updateSpecNode clears it. Minting refuses while any remain.
+	// #1450 — a server-recorded placeholder awaiting authored content, such as a
+	// RESERVED spec citation created by reserveSpecCitation. A placeholder may
+	// exist in any memory; it is never inferred from an empty body. Writing real
+	// nonblank content through the spec door or shared mirror write path clears
+	// it. Placeholders block minting.
 	IsPlaceholder bool `json:"isPlaceholder"`
 }
 
@@ -38177,7 +38294,8 @@ type ResolveAiServiceConfigsResponse struct {
 	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
 	// the Agent) -> HadronServer), but returns ALL names instead of resolving
 	// one: configs are deduped by name with the innermost owner winning, so
-	// each entry is the row resolveAIConfig would return for that name. Only
+	// each entry is the row the resolution walk selects for that name; this
+	// masked listing does not grant permission to decrypt it. Only
 	// the Agent named here contributes — sibling Agents installed in the same
 	// App are not consulted. Disabled configs are skipped. Never returns key
 	// material (hasApiKey + apiKeyPreview only).
@@ -38374,7 +38492,8 @@ type ResolveAiServiceConfigsWithEndpointResponse struct {
 	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
 	// the Agent) -> HadronServer), but returns ALL names instead of resolving
 	// one: configs are deduped by name with the innermost owner winning, so
-	// each entry is the row resolveAIConfig would return for that name. Only
+	// each entry is the row the resolution walk selects for that name; this
+	// masked listing does not grant permission to decrypt it. Only
 	// the Agent named here contributes — sibling Agents installed in the same
 	// App are not consulted. Disabled configs are skipped. Never returns key
 	// material (hasApiKey + apiKeyPreview only).
@@ -38677,19 +38796,18 @@ func (v *ResolveUrnResolveUrnUrnResolution) GetMemoryId() *string { return v.Mem
 // ResolveUrnResponse is returned by ResolveUrn on success.
 type ResolveUrnResponse struct {
 	// Resolve a fully-qualified, `hrn:<type>:`-prefixed Hadron URN (legacy `urn:` scheme also accepted) to the ids
-	// needed to reach its canonical page. Returns null when the URN is
-	// unresolvable (not found) OR the caller lacks access. Unlike the dedicated
-	// per-kind queries — which throw `Forbidden` on no-access — this query
-	// deliberately collapses both not-found and no-access to null, so a
-	// redirect resolver can 404 uniformly without disclosing which case it was.
+	// needed to reach its canonical page. Missing or inaccessible targets normally return null.
+	// Ambiguous legacy node references can instead refuse with extensions.code AmbiguousLegacyUrnError.
 	//
-	// Per-kind access uses the SAME authorization rules as the dedicated
-	// queries (memory/org/agent: org membership; app: org ADMIN; node:
-	// memoryAccessFilter), only with the throw replaced by a null return.
+	// Access is checked by kind: memory records use the memory-record read gate; nodes use the
+	// readable-memory set; organizations require membership (or platform administration);
+	// agents admit public visibility or owner/org access; Apps admit owner/org access;
+	// workers use the shared worker-read gate. App runs require org access, and node
+	// revisions use their captured memory (falling back to the current node's memory).
+	// A retired worker still resolves. Dedicated queries can have different refusal shapes.
 	//
-	// The `hrn:<type>:` prefix (legacy `urn:<type>:` also accepted) is the
-	// dispatch key — bare URNs without a type prefix are ambiguous across kinds
-	// (`root:slug` could be a memory or an agent) and resolve to null.
+	// The type prefix is the dispatch key; an untyped root:slug is ambiguous across kinds
+	// and returns null. The optional #data fragment is supported only for nodes and App runs.
 	ResolveUrn *ResolveUrnResolveUrnUrnResolution `json:"resolveUrn"`
 }
 
@@ -40951,7 +41069,7 @@ func (v *SearchNodesFindNodesFindNodesResultHitsNodeHitVectorNodeVectorMeta) Get
 //
 // Spec 049 — the scope a search ran under (every result discloses it,
 // D-2026-09-13-002). `kind`: scope | app | global | user-owned. `source`:
-// call | session | active-app | active-org. `memoryUrns` lists only the
+// call | session | active-app | active-org | trigger (a headless run snapshot). `memoryUrns` lists only the
 // memories YOU may read; `droppedCount` is how many the scope lists that you
 // may not — a count, never their names.
 type SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo struct {
@@ -41361,8 +41479,9 @@ type SearchUsersResponse struct {
 	// and searchUsers. Platform ADMIN/OWNER: every live user, filter.query
 	// optional. Everyone else: filter.query is REQUIRED (blank/omitted -> empty
 	// page) and matching is enumeration-safe per cor:acl:070:02 — handle /
-	// githubUsername by substring, email by exact match, name only where the
-	// viewer may see it (self/admin/co-member). Name-ascending order (id
+	// githubUsername by substring, email by exact match, and name for platform
+	// admins or users sharing one of the viewer's active org memberships.
+	// Name-ascending order (id
 	// tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
 	Users *SearchUsersUsersUsersPage `json:"users"`
 }
@@ -42349,12 +42468,15 @@ type SessionInput struct {
 	//
 	// - the worker's NAME ("Iris") — #990. Unique per App, case-insensitively,
 	// matched with the DATABASE's lower(), the expression
-	// workers_app_name_uniq indexes. Requires App context (appRef, an App-key
-	// credential, or an MCP active-App selection): a name means nothing without
-	// one, so a nameless-App call refuses SESSION_WORKER_NAME_NEEDS_APP rather
-	// than guessing across the caller's Apps. Gated on the STAFF READ GATE
-	// before the lookup runs — resolving a name discloses roster membership,
-	// which the id/URN forms never do.
+	// workers_app_name_uniq indexes. With appRef, an App-key credential or an
+	// MCP active-App selection, lookup stays within that App. With no App,
+	// #1597 searches only live Apps the caller may bind into: exactly one
+	// non-retired match binds; none refuses WORKER_NOT_FOUND; several refuse
+	// SESSION_WORKER_NAME_AMBIGUOUS with candidates (worker id/URN, name, App,
+	// role and holder). Nothing is bound on ambiguity: choose an id or URN.
+	// Candidate discovery reuses App participation and user-owned-App holding
+	// rules; it grants no new bind authority. The staff read gate precedes
+	// name lookup (hrn:node:hadronmemory.com:specs:cor:agt:020:00).
 	//
 	// Which refusal you get depends on WHERE the denial happens, and clients
 	// should not assume one code covers both: a caller who supplied appRef has
@@ -42375,8 +42497,9 @@ type SessionInput struct {
 	// naming a worker in an App the caller cannot read refuses exactly like an
 	// absent ref (WORKER_NOT_FOUND, same message and extensions), so no other
 	// refusal here tells an outsider the worker exists. The one exception is the
-	// worker the caller's own launchGrant names (see launchGrant). #940: a worker with an
-	// ACTIVE session refuses WORKER_TAKEN — extensions carry workerId, sessionId,
+	// worker the caller's own launchGrant names (see launchGrant). #940: a worker
+	// with a LIVE session (the shared derived liveness predicate) refuses
+	// WORKER_TAKEN — extensions carry workerId, sessionId,
 	// lastDriver, lastSeenAt, everything the takeover prompt needs — unless
 	// force is true (informed takeover, cor:agt:020:03: show who last drove it,
 	// proceed only on explicit override, never silently).
@@ -44556,7 +44679,7 @@ type SkillPlanInput struct {
 	Files []*SkillFileFactsInput `json:"files,omitempty"`
 	// With EXPORT only, explicitly override local-edit or missing-provenance-ID protection for this invocation.
 	Force *bool `json:"force,omitempty"`
-	// Target host, named by its D12 declaration key verbatim: claudeSkill (the default) or codexSkill. One host per call; the plan reads that host's declaration and applies its limits, and the retired top-level skill/claudeSkill keys alias to claudeSkill only. An unknown host is refused with BAD_USER_INPUT naming the supported hosts, never judged as another host and never answered with an empty plan.
+	// Target host, named by its D12 declaration key verbatim. Supported hosts: claudeSkill, codexSkill. Default: claudeSkill. One host per call; the plan reads that host's declaration and applies its limits, and the retired top-level skill/claudeSkill keys alias to claudeSkill only. An unknown host is refused with BAD_USER_INPUT naming the supported hosts, never judged as another host and never answered with an empty plan.
 	Host   *string         `json:"host,omitempty"`
 	Intent SkillPlanIntent `json:"intent"`
 	// Memory refs for LINT/STATUS only. EXPORT refuses this field, even an empty list.
@@ -44971,10 +45094,11 @@ func (v *SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHit) GetNode() *Spec
 // SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
 type SpecPlaceholderScanFindNodesFindNodesResultHitsNodeHitNode struct {
 	Loc string `json:"loc"`
-	// #1450 — true for a RESERVED spec citation that has no spec written yet (a
-	// placeholder in a draft corpus, created by reserveSpecCitation). Set only by
-	// the server, never inferred from an empty body; writing real content through
-	// updateSpecNode clears it. Minting refuses while any remain.
+	// #1450 — a server-recorded placeholder awaiting authored content, such as a
+	// RESERVED spec citation created by reserveSpecCitation. A placeholder may
+	// exist in any memory; it is never inferred from an empty body. Writing real
+	// nonblank content through the spec door or shared mirror write path clears
+	// it. Placeholders block minting.
 	IsPlaceholder bool `json:"isPlaceholder"`
 }
 
@@ -45065,10 +45189,12 @@ var AllSpecRewriteStatus = []SpecRewriteStatus{
 	SpecRewriteStatusUnchanged,
 }
 
-// Replace text in explicit nodes of one DRAFT spec corpus. A dry run returns
-// plan; apply must present that exact plan and refuses if any selected row,
-// protection, match, or corpus state changed. Minted corpora are never edited
-// through this door. Generic replacement keeps its governed-node protections.
+// Replace text in explicit unminted nodes of one memory. A dry run returns
+// a plan; apply must present that exact plan and refuses if any selected row,
+// protection, match, or mint state changed. A minted target node is refused,
+// even when other nodes in the memory are unminted. Other governed kinds and
+// protected addresses are skipped; ordinary nodes need not carry the spec role.
+// Generic replacement keeps its governed-node protections.
 type SpecSearchReplaceInput struct {
 	CaseInsensitive *bool `json:"caseInsensitive"`
 	DryRun          *bool `json:"dryRun"`
@@ -45211,8 +45337,9 @@ type StartImpersonationResponse struct {
 	// OWNER-equivalent), the target a live member, PEER-OR-BELOW (an org ADMIN
 	// may not impersonate an org OWNER), never self. Returns the audit session
 	// and a short-TTL token (returned exactly once) whose requests run
-	// READ-ONLY as the target, scoped to this one org: other orgs and all
-	// personal-class resources stay invisible, and every mutation except
+	// READ-ONLY as the target. Org-scoped reads are restricted to this one org;
+	// personal/private memories and identity-based owner grants are excluded. Public-resource
+	// read gates remain applicable. Every mutation except
 	// stopImpersonation is rejected. Every request re-validates the session
 	// row, so stopping it (or demoting the admin) kills the token immediately.
 	StartImpersonation *StartImpersonationStartImpersonationStartImpersonationResult `json:"startImpersonation"`
@@ -47679,14 +47806,11 @@ func (v *TeamDeliverySettingsSetSetAppDeliverySettings) __premarshalJSON() (*__p
 // A Hadron memory (git repo + branch settings).
 type TeamMemoryAppMemory struct {
 	Id string `json:"id"`
-	// The App this memory is scoped to. REQUIRED for `class='app'`,
-	// FORBIDDEN for `class='system'` (an agent's own definition is never
-	// App-scoped), and OPTIONAL for `knowledge` / `group` / `personal` /
-	// `private` — set when provisioned inside an App, NULL when the memory
-	// is free-standing. Enforced by `chk_memory_class_app_id`. (034 relaxed
-	// the personal case and #653 moved knowledge + group from forbidden to
-	// optional; this said "required for app/personal, NULL otherwise" until
-	// #1232.)
+	// The App this memory is scoped to. Required for app-class memories.
+	// A system-class Agent definition has no App; a system-class INSTALL MEMORY
+	// has an App and isInstallMemory=true, including after its Agent link is
+	// detached. Other classes (knowledge, group, personal, private) may be
+	// App-scoped or free-standing. Enforced by chk_memory_class_app_id.
 	AppId *string `json:"appId"`
 }
 
@@ -47994,6 +48118,12 @@ type TeamRosterTeamRosterWorkersTeamRosterEntry struct {
 	LiveSession bool `json:"liveSession"`
 	// The binding's model family: its newest open session's (hrn:node:hadronmemory.com:specs:cor:agt:060:04), kept while the session is quiet. Null when unbound or none was reported.
 	Family *string `json:"family"`
+	// Self-reported model of the same newest open binding as family, retained while quiet. Null when unbound or unreported; advisory, never authorization.
+	Model *string `json:"model"`
+	// When that binding last reported its model; null when unbound or never reported. Not inferred from session activity.
+	ModelReportedAt *string `json:"modelReportedAt"`
+	// Coarse tier from the server model mapping: high, mid or low. Null when unbound, unreported or unmapped; advisory, never authorization.
+	Tier *string `json:"tier"`
 	// Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05).
 	FreeForWork bool `json:"freeForWork"`
 	// The families it is free for work as now; empty when not free.
@@ -48047,6 +48177,17 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetLiveSession() bool { ret
 
 // GetFamily returns TeamRosterTeamRosterWorkersTeamRosterEntry.Family, and is useful for accessing the field via an interface.
 func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetFamily() *string { return v.Family }
+
+// GetModel returns TeamRosterTeamRosterWorkersTeamRosterEntry.Model, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetModel() *string { return v.Model }
+
+// GetModelReportedAt returns TeamRosterTeamRosterWorkersTeamRosterEntry.ModelReportedAt, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetModelReportedAt() *string {
+	return v.ModelReportedAt
+}
+
+// GetTier returns TeamRosterTeamRosterWorkersTeamRosterEntry.Tier, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetTier() *string { return v.Tier }
 
 // GetFreeForWork returns TeamRosterTeamRosterWorkersTeamRosterEntry.FreeForWork, and is useful for accessing the field via an interface.
 func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetFreeForWork() bool { return v.FreeForWork }
@@ -48492,17 +48633,11 @@ type TeamSessionFieldsWorker struct {
 	// mid-stint, which is the question a coordinator asks about a name already
 	// theirs. Conflating the two is the CLI bug this field exists for.
 	//
-	// #1114 — COMPUTED, never stored. It is "the session has not ended AND it was
-	// driven inside its type's idle window", not "a row is open". Nothing ends a
-	// session for inactivity any more, because silence is not evidence of
-	// abandonment — an agent used once a year is not abandoned in month two — so
-	// an open row proves only that nobody closed it. Deriving the answer at read
-	// time says exactly what the evidence supports; the previous design expressed
-	// the same judgement by ENDING the session, which wrote a guess into the
-	// record as a fact and destroyed the handoff that stint had not written yet.
-	//
-	// A worker that reads false is not gone: its session is untouched, and it
-	// reads true again the moment it is driven.
+	// #1114 — COMPUTED, never stored: an unended session driven inside its
+	// type's idle window, with no promised hard expiry at or before now.
+	// An open row alone is insufficient. Inactivity does not end the session
+	// or release a human-held name. An eligible act may resume a lapsed session;
+	// a dormant or terminal session cannot be revived by an agent act.
 	//
 	// Uses the SAME predicate startSession refuses WORKER_TAKEN on
 	// (`cor:agt:020:11`) — a reader must not be told a worker is busy that a
@@ -51962,11 +52097,13 @@ type UpdateAiServiceConfigResponse struct {
 	// 036-ai-service-config: update a named AI config. All fields optional.
 	//
 	// apiKey semantics: omitted = keep the stored key; empty string =
-	// clear it; non-empty = replace (encrypted, preview recomputed). The
-	// RESULTING config is held to createAiServiceConfig's key rule, so
+	// clear it (explicit null also clears); non-empty = replace (encrypted,
+	// preview recomputed). The RESULTING config is held to createAiServiceConfig's key rule, so
 	// clearing the key of a config that needs one is refused.
 	//
-	// Auth: admin rights on the owning entity (as aiServiceConfigs).
+	// Auth: the same owner-aware credential gate as createAiServiceConfig;
+	// managing a user-owned Agent through a platform role alone does not grant
+	// access to its stored credential.
 	UpdateAiServiceConfig *UpdateAiServiceConfigUpdateAiServiceConfig `json:"updateAiServiceConfig"`
 }
 
@@ -52131,11 +52268,13 @@ type UpdateAiServiceConfigWithEndpointResponse struct {
 	// 036-ai-service-config: update a named AI config. All fields optional.
 	//
 	// apiKey semantics: omitted = keep the stored key; empty string =
-	// clear it; non-empty = replace (encrypted, preview recomputed). The
-	// RESULTING config is held to createAiServiceConfig's key rule, so
+	// clear it (explicit null also clears); non-empty = replace (encrypted,
+	// preview recomputed). The RESULTING config is held to createAiServiceConfig's key rule, so
 	// clearing the key of a config that needs one is refused.
 	//
-	// Auth: admin rights on the owning entity (as aiServiceConfigs).
+	// Auth: the same owner-aware credential gate as createAiServiceConfig;
+	// managing a user-owned Agent through a platform role alone does not grant
+	// access to its stored credential.
 	UpdateAiServiceConfig *UpdateAiServiceConfigWithEndpointUpdateAiServiceConfig `json:"updateAiServiceConfig"`
 }
 
@@ -53793,8 +53932,10 @@ func (v *UpdateMyProfileUpdateMyProfileUser) __premarshalJSON() (*__premarshalUp
 // UpdateNodeClearingRoleResponse is returned by UpdateNodeClearingRole on success.
 type UpdateNodeClearingRoleResponse struct {
 	// Update an existing node. Identify it by 'id' (PK or fully-qualified node
-	// URN) XOR the ('memoryId', 'loc') combo — supplying both selectors, or
-	// neither, is an error (D2). Rejects with NODE_NOT_FOUND when the target
+	// URN) XOR the ('memoryId', 'loc') combo, or by ('install', 'loc') for an
+	// App's Agent install memory. Supplying install together with id or
+	// memoryId is BAD_USER_INPUT; the ordinary selectors remain mutually
+	// exclusive and one selector is required. Rejects with NODE_NOT_FOUND when the target
 	// does not exist; updateNode never creates and never moves (relocation is
 	// moveNode's job, D3). Every content field is optional — omitted fields are
 	// preserved ('name' included, D4; 'abstract' keeps its omit/null/string
@@ -53839,8 +53980,9 @@ type UpdateNodeClearingRoleUpdateNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -53849,9 +53991,11 @@ type UpdateNodeClearingRoleUpdateNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -53925,8 +54069,9 @@ type UpdateNodeDataUpdateNodeDataNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -53935,9 +54080,11 @@ type UpdateNodeDataUpdateNodeDataNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -53987,7 +54134,7 @@ type UpdateNodeInput struct {
 	Edges []*NodeEdgeInput `json:"edges,omitempty"`
 	// Optional optimistic-concurrency precondition (#937). When supplied, the
 	// update is applied only while the node's current live revision still equals
-	// this positive integer. A mismatch refuses atomically with
+	// this positive 32-bit integer. A mismatch refuses atomically with
 	// NODE_WRITE_CONFLICT; omitting it or passing null preserves last-write-wins
 	// compatibility.
 	// Read the baseline from Node.revision.
@@ -54100,8 +54247,10 @@ func (v *UpdateNodeInput) GetTags() []string { return v.Tags }
 // UpdateNodeResponse is returned by UpdateNode on success.
 type UpdateNodeResponse struct {
 	// Update an existing node. Identify it by 'id' (PK or fully-qualified node
-	// URN) XOR the ('memoryId', 'loc') combo — supplying both selectors, or
-	// neither, is an error (D2). Rejects with NODE_NOT_FOUND when the target
+	// URN) XOR the ('memoryId', 'loc') combo, or by ('install', 'loc') for an
+	// App's Agent install memory. Supplying install together with id or
+	// memoryId is BAD_USER_INPUT; the ordinary selectors remain mutually
+	// exclusive and one selector is required. Rejects with NODE_NOT_FOUND when the target
 	// does not exist; updateNode never creates and never moves (relocation is
 	// moveNode's job, D3). Every content field is optional — omitted fields are
 	// preserved ('name' included, D4; 'abstract' keeps its omit/null/string
@@ -55038,8 +55187,9 @@ type UpdateNodeUpdateNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -55048,9 +55198,11 @@ type UpdateNodeUpdateNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -55572,8 +55724,9 @@ type UpdateReviewNodeClearingRoleUpdateReviewNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -55582,9 +55735,11 @@ type UpdateReviewNodeClearingRoleUpdateReviewNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -55662,8 +55817,9 @@ type UpdateReviewNodeUpdateReviewNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -55672,9 +55828,11 @@ type UpdateReviewNodeUpdateReviewNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -55906,8 +56064,9 @@ type UpdateSpecNodeClearingRoleUpdateSpecNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -55916,9 +56075,11 @@ type UpdateSpecNodeClearingRoleUpdateSpecNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -55996,8 +56157,9 @@ type UpdateSpecNodeUpdateSpecNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -56006,9 +56168,11 @@ type UpdateSpecNodeUpdateSpecNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
@@ -56091,8 +56255,9 @@ type UpdateTaskNodeClearingRoleUpdateTaskNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -56101,9 +56266,11 @@ type UpdateTaskNodeClearingRoleUpdateTaskNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -56181,8 +56348,9 @@ type UpdateTaskNodeUpdateTaskNode struct {
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
 	IsRunnable *bool `json:"isRunnable"`
-	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
-	// platform reads a small CLOSED subset and ignores every other value.
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
 	//
 	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
 	// 'objectType' (the collection discriminator, schema-validated). This field
@@ -56191,9 +56359,11 @@ type UpdateTaskNodeUpdateTaskNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' today, alongside the task kind, which is gated on 'isRunnable'
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other values are inert unless a caller explicitly filters for them.
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
 	Role      *string `json:"role"`
 	UpdatedAt string  `json:"updatedAt"`
 }
@@ -57995,7 +58165,8 @@ func (v *WithdrawSigningRequestWithdrawSigningRequest) __premarshalJSON() (*__pr
 type WorkerAvailabilitySetResponse struct {
 	// #1706 — set a worker's availability for work (hrn:node:hadronmemory.com:specs:cor:agt:060:08): the worker
 	// itself, acting through its session, and only to UNAVAILABLE; the person
-	// holding its name; or whoever manages the App. Writes availability.changed.
+	// holding its name; or whoever manages the App. A worker another reports to directly may also clear only a
+	// stall-rule unavailable mark (the stall rule must have set it), never set another worker unavailable. Writes availability.changed.
 	// Refusals: WORKER_NOT_FOUND, AVAILABILITY_NOT_PERMITTED, WORKER_RETIRED,
 	// BAD_USER_INPUT, SESSION_NOT_BOUND, APP_UNINSTALLED.
 	SetWorkerAvailability *WorkerAvailabilitySetSetWorkerAvailability `json:"setWorkerAvailability"`
@@ -58327,8 +58498,9 @@ type WorkerFields struct {
 	// or the caller may not see it. Same gate as bootPromptRef. Nothing is served from a deleted target (R27).
 	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
 	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
-	// already holds the worker needs no second round-trip to teamRoles. The CLI
-	// warns on a role/repo mismatch at session start (hadron-cli#456).
+	// already holds the worker needs no second round-trip to teamRoles. Clients
+	// may use it to warn on a role/repo mismatch at session start; the server
+	// does not enforce a repo-affinity refusal.
 	//
 	// WORKING-STATE field: behind the worker read gate and masked to [] on deny,
 	// like promptOverride and the holder — Session.worker reaches a Worker
@@ -58371,17 +58543,11 @@ type WorkerFields struct {
 	// mid-stint, which is the question a coordinator asks about a name already
 	// theirs. Conflating the two is the CLI bug this field exists for.
 	//
-	// #1114 — COMPUTED, never stored. It is "the session has not ended AND it was
-	// driven inside its type's idle window", not "a row is open". Nothing ends a
-	// session for inactivity any more, because silence is not evidence of
-	// abandonment — an agent used once a year is not abandoned in month two — so
-	// an open row proves only that nobody closed it. Deriving the answer at read
-	// time says exactly what the evidence supports; the previous design expressed
-	// the same judgement by ENDING the session, which wrote a guess into the
-	// record as a fact and destroyed the handoff that stint had not written yet.
-	//
-	// A worker that reads false is not gone: its session is untouched, and it
-	// reads true again the moment it is driven.
+	// #1114 — COMPUTED, never stored: an unended session driven inside its
+	// type's idle window, with no promised hard expiry at or before now.
+	// An open row alone is insufficient. Inactivity does not end the session
+	// or release a human-held name. An eligible act may resume a lapsed session;
+	// a dormant or terminal session cannot be revived by an agent act.
 	//
 	// Uses the SAME predicate startSession refuses WORKER_TAKEN on
 	// (`cor:agt:020:11`) — a reader must not be told a worker is busy that a
@@ -58749,17 +58915,11 @@ type WorkerReportingWorker struct {
 	// mid-stint, which is the question a coordinator asks about a name already
 	// theirs. Conflating the two is the CLI bug this field exists for.
 	//
-	// #1114 — COMPUTED, never stored. It is "the session has not ended AND it was
-	// driven inside its type's idle window", not "a row is open". Nothing ends a
-	// session for inactivity any more, because silence is not evidence of
-	// abandonment — an agent used once a year is not abandoned in month two — so
-	// an open row proves only that nobody closed it. Deriving the answer at read
-	// time says exactly what the evidence supports; the previous design expressed
-	// the same judgement by ENDING the session, which wrote a guess into the
-	// record as a fact and destroyed the handoff that stint had not written yet.
-	//
-	// A worker that reads false is not gone: its session is untouched, and it
-	// reads true again the moment it is driven.
+	// #1114 — COMPUTED, never stored: an unended session driven inside its
+	// type's idle window, with no promised hard expiry at or before now.
+	// An open row alone is insufficient. Inactivity does not end the session
+	// or release a human-held name. An eligible act may resume a lapsed session;
+	// a dormant or terminal session cannot be revived by an agent act.
 	//
 	// Uses the SAME predicate startSession refuses WORKER_TAKEN on
 	// (`cor:agt:020:11`) — a reader must not be told a worker is busy that a
@@ -58919,8 +59079,9 @@ type WorkerRosterFields struct {
 	// Per-worker individuality layered over the agent's template prompt.
 	PromptOverride *string `json:"promptOverride"`
 	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
-	// already holds the worker needs no second round-trip to teamRoles. The CLI
-	// warns on a role/repo mismatch at session start (hadron-cli#456).
+	// already holds the worker needs no second round-trip to teamRoles. Clients
+	// may use it to warn on a role/repo mismatch at session start; the server
+	// does not enforce a repo-affinity refusal.
 	//
 	// WORKING-STATE field: behind the worker read gate and masked to [] on deny,
 	// like promptOverride and the holder — Session.worker reaches a Worker
@@ -58963,17 +59124,11 @@ type WorkerRosterFields struct {
 	// mid-stint, which is the question a coordinator asks about a name already
 	// theirs. Conflating the two is the CLI bug this field exists for.
 	//
-	// #1114 — COMPUTED, never stored. It is "the session has not ended AND it was
-	// driven inside its type's idle window", not "a row is open". Nothing ends a
-	// session for inactivity any more, because silence is not evidence of
-	// abandonment — an agent used once a year is not abandoned in month two — so
-	// an open row proves only that nobody closed it. Deriving the answer at read
-	// time says exactly what the evidence supports; the previous design expressed
-	// the same judgement by ENDING the session, which wrote a guess into the
-	// record as a fact and destroyed the handoff that stint had not written yet.
-	//
-	// A worker that reads false is not gone: its session is untouched, and it
-	// reads true again the moment it is driven.
+	// #1114 — COMPUTED, never stored: an unended session driven inside its
+	// type's idle window, with no promised hard expiry at or before now.
+	// An open row alone is insufficient. Inactivity does not end the session
+	// or release a human-held name. An eligible act may resume a lapsed session;
+	// a dormant or terminal session cannot be revived by an agent act.
 	//
 	// Uses the SAME predicate startSession refuses WORKER_TAKEN on
 	// (`cor:agt:020:11`) — a reader must not be told a worker is busy that a
@@ -58999,6 +59154,17 @@ type WorkerRosterFields struct {
 	LastActiveAt *string `json:"lastActiveAt"`
 	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
 	RetiredAt *string `json:"retiredAt"`
+	// #2252 — the model this worker's binding last reported: its newest open session's, the same fold, gate and
+	// lifecycle as family. Null when unbound, when the binding reported none (an older session's is never
+	// inherited), or on the same read gate as hasLiveSession. Self-declared: advisory, never authorization.
+	Model *string `json:"model"`
+	// #2252 — when model was self-reported (a bind, a resume or an updateSession carrying a model; a repeat of the
+	// same model counts). Null when the session never reported one. A report time, not verified detection.
+	ModelReportedAt *string `json:"modelReportedAt"`
+	// #2252 (R189) — the coarse tier of model from the platform's one model-to-tier mapping: high (opus-class),
+	// mid (sonnet-class), low (haiku-class); null when the model is unmapped (no guessed equivalence for another
+	// family). Advisory: a coordinator's reading aid, never an authorization or routing input in this slice.
+	Tier      *string `json:"tier"`
 	RetiredBy *string `json:"retiredBy"`
 	CreatedAt string  `json:"createdAt"`
 	CreatedBy *string `json:"createdBy"`
@@ -59057,6 +59223,15 @@ func (v *WorkerRosterFields) GetLastActiveAt() *string { return v.LastActiveAt }
 
 // GetRetiredAt returns WorkerRosterFields.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetRetiredAt() *string { return v.RetiredAt }
+
+// GetModel returns WorkerRosterFields.Model, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetModel() *string { return v.Model }
+
+// GetModelReportedAt returns WorkerRosterFields.ModelReportedAt, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetModelReportedAt() *string { return v.ModelReportedAt }
+
+// GetTier returns WorkerRosterFields.Tier, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetTier() *string { return v.Tier }
 
 // GetRetiredBy returns WorkerRosterFields.RetiredBy, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetRetiredBy() *string { return v.RetiredBy }
@@ -59282,6 +59457,21 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRetiredAt() *string {
 	return v.WorkerRosterFields.RetiredAt
 }
 
+// GetModel returns WorkersRosterWorkersWorkersPageItemsWorker.Model, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetModel() *string {
+	return v.WorkerRosterFields.Model
+}
+
+// GetModelReportedAt returns WorkersRosterWorkersWorkersPageItemsWorker.ModelReportedAt, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetModelReportedAt() *string {
+	return v.WorkerRosterFields.ModelReportedAt
+}
+
+// GetTier returns WorkersRosterWorkersWorkersPageItemsWorker.Tier, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetTier() *string {
+	return v.WorkerRosterFields.Tier
+}
+
 // GetRetiredBy returns WorkersRosterWorkersWorkersPageItemsWorker.RetiredBy, and is useful for accessing the field via an interface.
 func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRetiredBy() *string {
 	return v.WorkerRosterFields.RetiredBy
@@ -59359,6 +59549,12 @@ type __premarshalWorkersRosterWorkersWorkersPageItemsWorker struct {
 
 	RetiredAt *string `json:"retiredAt"`
 
+	Model *string `json:"model"`
+
+	ModelReportedAt *string `json:"modelReportedAt"`
+
+	Tier *string `json:"tier"`
+
 	RetiredBy *string `json:"retiredBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -59395,6 +59591,9 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) __premarshalJSON() (*__prem
 	retval.HasLiveSession = v.WorkerRosterFields.HasLiveSession
 	retval.LastActiveAt = v.WorkerRosterFields.LastActiveAt
 	retval.RetiredAt = v.WorkerRosterFields.RetiredAt
+	retval.Model = v.WorkerRosterFields.Model
+	retval.ModelReportedAt = v.WorkerRosterFields.ModelReportedAt
+	retval.Tier = v.WorkerRosterFields.Tier
 	retval.RetiredBy = v.WorkerRosterFields.RetiredBy
 	retval.CreatedAt = v.WorkerRosterFields.CreatedAt
 	retval.CreatedBy = v.WorkerRosterFields.CreatedBy
@@ -81922,6 +82121,9 @@ query TeamRoster ($appRef: ID!) {
 			bound
 			liveSession
 			family
+			model
+			modelReportedAt
+			tier
 			freeForWork
 			freeFamilies
 			launchableFamilies
@@ -85740,6 +85942,9 @@ fragment WorkerRosterFields on Worker {
 	hasLiveSession
 	lastActiveAt
 	retiredAt
+	model
+	modelReportedAt
+	tier
 	retiredBy
 	createdAt
 	createdBy

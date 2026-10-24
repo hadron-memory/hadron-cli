@@ -418,7 +418,7 @@ reads as MORE idle than it was, never less.`,
 					return describeHolder(ctx, client, id)
 				})
 				now := time.Now()
-				t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST RECORDED ACTIVITY", "RETIRED", "URN", "ID")
+				t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST RECORDED ACTIVITY", "MODEL", "TIER", "RETIRED", "URN", "ID")
 				for _, wk := range workers {
 					retired := "—"
 					if wk.RetiredAt != nil {
@@ -427,6 +427,7 @@ reads as MORE idle than it was, never less.`,
 					t.Row(wk.Name, dash(wk.Role), reportsToLabel(wk.ReportsTo, wk.ReportsToRetired, wk.ReportsTo != nil || workingStateVisible(wk.HasLiveSession)),
 						renderHeldBy(wk.HeldByUserID, wk.HasLiveSession, selfID, label),
 						renderLastDriven(wk.HasLiveSession, wk.LastActiveAt, now),
+						dash(wk.Model), dash(wk.Tier),
 						retired, dash(wk.URN), wk.ID)
 				}
 				return t.Flush()

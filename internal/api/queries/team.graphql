@@ -363,6 +363,11 @@ fragment WorkerRosterFields on Worker {
   hasLiveSession
   lastActiveAt
   retiredAt
+  # hadron-cli#993: self-reported model and the server-derived advisory tier,
+  # beside the other roster facts. Copied as the server sends them.
+  model
+  modelReportedAt
+  tier
   retiredBy
   createdAt
   createdBy
