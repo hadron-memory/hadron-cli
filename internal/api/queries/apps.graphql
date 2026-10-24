@@ -193,3 +193,34 @@ query AppKeysMetadata($appRef: ID!) {
     revokedAt
   }
 }
+
+# cli#1058 — bounded App update. Omitted = preserve, so every optional variable
+# carries omitempty and a nil never reaches the wire. description and
+# systemPrompt additionally have an explicit CLEAR (a JSON null): they bind to
+# json.RawMessage, where nil is omitted, `null` is sent as null and a quoted
+# string (including "") is sent as that string — a *string cannot express all
+# three. name and sessionTimeoutSeconds have no null-clear and stay pointers.
+mutation UpdateApp(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $description: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $systemPrompt: String
+  # @genqlient(omitempty: true)
+  $sessionTimeoutSeconds: Int
+) {
+  updateApp(
+    ref: $ref
+    name: $name
+    description: $description
+    systemPrompt: $systemPrompt
+    sessionTimeoutSeconds: $sessionTimeoutSeconds
+  ) {
+    id
+    urn
+    name
+    sessionTimeoutSeconds
+  }
+}
