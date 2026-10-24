@@ -116,9 +116,9 @@ func TestTeamRosterJSONAdditiveModelTier(t *testing.T) {
 func TestTeamRosterCapacityTalliesFreeForWorkByTier(t *testing.T) {
 	_, out, err := runTeamTask(t, rosterResponses993(
 		rosterRow993("a", "AVAILABLE", true, `"m"`, `"high"`),
-		rosterRow993("b", "WORKING", true, `"m"`, `"high"`),    // free though not AVAILABLE: counts
-		rosterRow993("c", "AVAILABLE", false, `"m"`, `"high"`), // AVAILABLE but NOT free: must not count
-		rosterRow993("d", "NO_FAMILY", false, `"m"`, `"mid"`),  // not free
+		rosterRow993("b", "WORKING", true, `"m"`, `"high"`),   // free though not AVAILABLE: counts
+		rosterRow993("c", "AVAILABLE", false, `"m"`, `"low"`), // AVAILABLE but NOT free: must not count (its own tier, so it cannot cancel b)
+		rosterRow993("d", "NO_FAMILY", false, `"m"`, `"mid"`), // not free
 		rosterRow993("e", "AVAILABLE", true, `"m"`, `"mid"`),
 		rosterRow993("f", "AVAILABLE", true, `"m"`, `"low"`),
 		rosterRow993("g", "AVAILABLE", true, `"m"`, `"ultra"`), // unrecognised
