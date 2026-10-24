@@ -1738,7 +1738,8 @@ deadline, and an open one not driven for months is open, not stale. --json adds
 ` + "`live`, `lapsesAt`, `state` (live|lapsed|dormant|ended|unknown)" + ` and
 ` + "`candidateStates`" + `; ` + "`active`" + ` keeps its stable meaning (the row is
 not ended) and is NOT liveness. A server that predates Session.state answers
-state "unknown". Plain whoami (no --check) stays local and reads nothing.
+state "unknown". Plain whoami (no --check) makes no session-state read (it still
+reads the worker reporting line).
 
 The fallback lists only sessions that are attributed to YOU, worker-bound, and
 still open. The server's session list is deliberately wider than that — it

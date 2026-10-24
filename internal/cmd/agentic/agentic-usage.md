@@ -2391,8 +2391,8 @@ Conventions:
   are **null** without `--check`; a server that predates `Session.state`
   answers `state: "unknown"` (never guessed) and a transport/auth failure on
   the state read is an error, not "unknown". The CLI derives none of it — no
-  clock, no idle or dormancy policy. Plain `whoami` stays local and reads
-  nothing. **`active` is unchanged and is not liveness**: since
+  clock, no idle or dormancy policy. Plain `whoami` makes no session-state
+  read (it still reads the worker's reporting line). **`active` is unchanged and is not liveness**: since
   hadron-server#1114 a developer session has no inactivity deadline, so use
   `state` for "is it driven". **Most of the
   time, do not end a session at all**: they are meant to be long-lived

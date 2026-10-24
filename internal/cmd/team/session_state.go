@@ -110,7 +110,7 @@ func stateLine(d whoamiDTO) string {
 	}
 	// unknown: the previous answer, honestly labelled.
 	if d.Active != nil && *d.Active {
-		return "open (live state unknown — the server predates session state)"
+		return "open (live state unknown — the server did not report it; an older server predates session state)"
 	}
 	return livenessLine(d)
 }

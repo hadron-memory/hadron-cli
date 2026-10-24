@@ -254,7 +254,8 @@ func TestWhoamiCheckNullStateSessionIsUnknown(t *testing.T) {
 	}
 }
 
-// Plain whoami stays local: no network at all, and the new keys are null / [].
+// Plain whoami makes no session-state read (the existing reporting read stays),
+// and the new keys are null / [].
 func TestWhoamiPlainMakesNoCallAndStateIsNull(t *testing.T) {
 	bindState815(t)
 	fk := newStateFake(t, whoamiCheckSession("", ""), nil, func(string) string { return whoamiStateJSON("LIVE", true, "") })
@@ -342,7 +343,7 @@ func TestWhoamiCheckServerFallbackStatesPerCandidate(t *testing.T) {
 			t.Errorf("candidateStates = %s (%v)", raw["candidateStates"], err)
 		}
 	})
-	t.Run("no --check reads nothing", func(t *testing.T) {
+	t.Run("no --check makes no state read", func(t *testing.T) {
 		teamGitDir(t)
 		fk := newStateFake(t, "", list(whoamiSession("s-a", "wkr1", "u-me", "Jonas", false)),
 			func(string) string { return whoamiStateJSON("LIVE", true, "") })
