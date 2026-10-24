@@ -57,6 +57,7 @@ is no --since, automatic paging, cost sum or billing balance.
 costMicroCents stays an arbitrary-size base-10 integer string (units: 1e-8 USD),
 not a floating point value. Null means unpriced and prints unpriced, never 0.
 Token nulls remain unknown. JSON is an array of metadata objects; empty is [].
+A malformed null event row fails before any rows or page note are printed.
 Action arguments and caller identity payloads are not selected. No accounting
 record is written and no model/provider call is made.`,
 		Args: cobra.NoArgs,
@@ -98,7 +99,7 @@ record is written and no model/provider call is made.`,
 			rows := []eventDTO{}
 			for _, e := range resp.UsageEvents {
 				if e == nil {
-					continue
+					return exitcode.Newf(exitcode.Error, "the server returned an invalid usage-event row")
 				}
 				rows = append(rows, eventDTO{ID: e.Id, Type: e.Type, CreatedAt: e.CreatedAt, MemoryID: e.MemoryId, NodeLoc: e.NodeLoc, Provider: e.Provider, Model: e.Model, KeyOwnerType: e.KeyOwnerType, TokensIn: e.TokensIn, TokensOut: e.TokensOut, CostMicroCents: e.CostMicroCents})
 			}

@@ -3358,6 +3358,8 @@ owned by the server. JSON is an array; empty is []. Filter flags are optional;
 explicit empty is Usage2. Loc is an exact verbatim loc, never shape-classified
 as nodeId. No --since or total is available. Stderr labels the page offset and
 limit; a full page says more may exist. No automatic drain or cost aggregation.
+A malformed null event row fails with Error1 before any successful rows or page
+note; JSON uses the normal error envelope. Valid empty results remain [].
 `costMicroCents` is a nullable base-10 integer STRING, units1e-8USD; keep every
 digit, never convert to float. Null is unpriced (human: unpriced), not zero.
 Token nulls are unknown. Action arguments/caller payloads are not selected.
