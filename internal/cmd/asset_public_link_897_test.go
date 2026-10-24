@@ -237,3 +237,29 @@ func TestAssetPublicLink897Selections(t *testing.T) {
 		t.Fatalf("schema-refresh capability must stay omitted: %s", raw)
 	}
 }
+
+// The new command's permission contract must not change legacy asset exits.
+func TestAssetPublicLink897LegacyPermissionUnchanged(t *testing.T) {
+	for _, tc := range []struct {
+		op   string
+		args []string
+	}{
+		{"SoftDeleteAsset", []string{"asset", "rm", "a1", "--yes"}},
+		{"RestoreAsset", []string{"asset", "restore", "a1"}},
+	} {
+		t.Run(tc.op, func(t *testing.T) {
+			gql := fakeGraphQL(t, map[string]string{tc.op: `{"errors":[{"message":"legacy permission sentinel","extensions":{"code":"PERMISSION_DENIED"}}]}`})
+			defer gql.Close()
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", gql.URL))
+			err := root.Execute()
+			if got := exitCodeFor(err); got != exitcode.Error {
+				t.Fatalf("legacy exit=%d want1: %v", got, err)
+			}
+			if err == nil || !strings.Contains(err.Error(), "legacy permission sentinel") {
+				t.Fatalf("legacy refusal lost: %v", err)
+			}
+		})
+	}
+}
