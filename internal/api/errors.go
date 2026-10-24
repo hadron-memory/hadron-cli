@@ -923,6 +923,15 @@ func codeForExtension(code string) int {
 	// rule below, which would read it as a usage error.
 	case code == "APP_MANAGER_REQUIRED":
 		return exitcode.Forbidden
+	// Stop signals (#911 B1 over server #2022): HOST_SCOPE_REQUIRED (a host
+	// key acting beyond a HALT on its own host) and STOP_SIGNAL_SCOPE_FORBIDDEN
+	// name an authority, not a missing argument, so they also precede the
+	// _REQUIRED rule. STOP_SIGNAL_UNAVAILABLE (#2173) refuses every set until
+	// the notice lane is on: the platform's state, which no input changes.
+	case code == "HOST_SCOPE_REQUIRED" || code == "STOP_SIGNAL_SCOPE_FORBIDDEN":
+		return exitcode.Forbidden
+	case code == "STOP_SIGNAL_UNAVAILABLE":
+		return exitcode.Conflict
 	// The host poller's credential refusals (hadron-cli#831 over server #1876,
 	// cor:agt:070:04): a person calling a host-only surface, and a key without a
 	// live host:operate scope. Both name a CREDENTIAL that is not permitted, not

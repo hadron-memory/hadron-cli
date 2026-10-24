@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 56 unbound
+[Query] 55 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -57,13 +57,12 @@ secret
 slackConnection
 slackConnections
 teamSpecSchema  # cli#811 team-from-JSON consumer, outside cli#807 comments/search
-teamStopSignals  # cli#911 stop slice remains separately gated
 usageActivity
 verifyDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 106 unbound
+[Mutation] 104 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -115,7 +114,6 @@ isolateWorker  # typed-refused until deferred S7b (#2130); no CLI activation sur
 joinApp
 joinWaitingList
 leaveApp
-liftTeamStopSignal  # cli#911 stop slice remains separately gated
 linkGithubApp
 mergeMemories
 processChatResponse
@@ -150,7 +148,6 @@ setHostWorkerAvailability  # host-side OUT_OF_TOKENS/HOST_DOWN marks: the cli#83
 setMemorySourceToken
 setQuotaLimit
 setTeamPause  # #2138 server/MCP control; this dispatched CLI slice covers status, settings, live-check and usesTasks only
-setTeamStopSignal  # cli#911 stop slice remains separately gated
 setWorkerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 startAgentSession
 startChat
