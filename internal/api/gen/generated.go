@@ -7053,6 +7053,47 @@ func (v *AppKeyScopesFieldsScopesAppKeyScope) GetGrantedAt() string { return v.G
 // GetGrantedBy returns AppKeyScopesFieldsScopesAppKeyScope.GrantedBy, and is useful for accessing the field via an interface.
 func (v *AppKeyScopesFieldsScopesAppKeyScope) GetGrantedBy() string { return v.GrantedBy }
 
+// AppKeysMetadataAppKeysAppKey includes the requested fields of the GraphQL type AppKey.
+type AppKeysMetadataAppKeysAppKey struct {
+	Id         string  `json:"id"`
+	KeyPreview string  `json:"keyPreview"`
+	Label      *string `json:"label"`
+	CreatedAt  string  `json:"createdAt"`
+	LastUsedAt *string `json:"lastUsedAt"`
+	RevokedAt  *string `json:"revokedAt"`
+}
+
+// GetId returns AppKeysMetadataAppKeysAppKey.Id, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataAppKeysAppKey) GetId() string { return v.Id }
+
+// GetKeyPreview returns AppKeysMetadataAppKeysAppKey.KeyPreview, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataAppKeysAppKey) GetKeyPreview() string { return v.KeyPreview }
+
+// GetLabel returns AppKeysMetadataAppKeysAppKey.Label, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataAppKeysAppKey) GetLabel() *string { return v.Label }
+
+// GetCreatedAt returns AppKeysMetadataAppKeysAppKey.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataAppKeysAppKey) GetCreatedAt() string { return v.CreatedAt }
+
+// GetLastUsedAt returns AppKeysMetadataAppKeysAppKey.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataAppKeysAppKey) GetLastUsedAt() *string { return v.LastUsedAt }
+
+// GetRevokedAt returns AppKeysMetadataAppKeysAppKey.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataAppKeysAppKey) GetRevokedAt() *string { return v.RevokedAt }
+
+// AppKeysMetadataResponse is returned by AppKeysMetadata on success.
+type AppKeysMetadataResponse struct {
+	// List keys for an App, only for whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
+	// Never an App key, a bound worker session or an impersonated request.
+	//
+	// Accepts the entity's ID or URN.
+	AppKeys []*AppKeysMetadataAppKeysAppKey `json:"appKeys"`
+}
+
+// GetAppKeys returns AppKeysMetadataResponse.AppKeys, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataResponse) GetAppKeys() []*AppKeysMetadataAppKeysAppKey { return v.AppKeys }
+
 // AppRunAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
 //
@@ -22566,6 +22607,50 @@ type GetAgentResponse struct {
 
 // GetAgent returns GetAgentResponse.Agent, and is useful for accessing the field via an interface.
 func (v *GetAgentResponse) GetAgent() *GetAgentAgent { return v.Agent }
+
+// GetAppMetadataApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type GetAppMetadataApp struct {
+	Id          string  `json:"id"`
+	Urn         string  `json:"urn"`
+	Name        string  `json:"name"`
+	AppType     AppType `json:"appType"`
+	Description *string `json:"description"`
+}
+
+// GetId returns GetAppMetadataApp.Id, and is useful for accessing the field via an interface.
+func (v *GetAppMetadataApp) GetId() string { return v.Id }
+
+// GetUrn returns GetAppMetadataApp.Urn, and is useful for accessing the field via an interface.
+func (v *GetAppMetadataApp) GetUrn() string { return v.Urn }
+
+// GetName returns GetAppMetadataApp.Name, and is useful for accessing the field via an interface.
+func (v *GetAppMetadataApp) GetName() string { return v.Name }
+
+// GetAppType returns GetAppMetadataApp.AppType, and is useful for accessing the field via an interface.
+func (v *GetAppMetadataApp) GetAppType() AppType { return v.AppType }
+
+// GetDescription returns GetAppMetadataApp.Description, and is useful for accessing the field via an interface.
+func (v *GetAppMetadataApp) GetDescription() *string { return v.Description }
+
+// GetAppMetadataResponse is returned by GetAppMetadata on success.
+type GetAppMetadataResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *GetAppMetadataApp `json:"app"`
+}
+
+// GetApp returns GetAppMetadataResponse.App, and is useful for accessing the field via an interface.
+func (v *GetAppMetadataResponse) GetApp() *GetAppMetadataApp { return v.App }
 
 // GetAppSharedMemoryApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
@@ -60991,6 +61076,14 @@ type __AppAgentRosterInput struct {
 // GetAppRef returns __AppAgentRosterInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppAgentRosterInput) GetAppRef() string { return v.AppRef }
 
+// __AppKeysMetadataInput is used internally by genqlient
+type __AppKeysMetadataInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AppKeysMetadataInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppKeysMetadataInput) GetAppRef() string { return v.AppRef }
+
 // __AppRunInput is used internally by genqlient
 type __AppRunInput struct {
 	Ref string `json:"ref"`
@@ -62836,6 +62929,14 @@ type __GetAgentInput struct {
 
 // GetRef returns __GetAgentInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetAgentInput) GetRef() string { return v.Ref }
+
+// __GetAppMetadataInput is used internally by genqlient
+type __GetAppMetadataInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetAppMetadataInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetAppMetadataInput) GetRef() string { return v.Ref }
 
 // __GetAppSharedMemoryInput is used internally by genqlient
 type __GetAppSharedMemoryInput struct {
@@ -68067,6 +68168,47 @@ func AppAgentRoster(
 	}
 
 	data_ = &AppAgentRosterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppKeysMetadata.
+const AppKeysMetadata_Operation = `
+query AppKeysMetadata ($appRef: ID!) {
+	appKeys(appRef: $appRef) {
+		id
+		keyPreview
+		label
+		createdAt
+		lastUsedAt
+		revokedAt
+	}
+}
+`
+
+// cli#1057: manager-authorized, active-only metadata inventory. No raw key,
+// nested App.keys, host usage, or scope mutations.
+func AppKeysMetadata(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AppKeysMetadataResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppKeysMetadata",
+		Query:  AppKeysMetadata_Operation,
+		Variables: &__AppKeysMetadataInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AppKeysMetadataResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -74192,6 +74334,45 @@ func GetAgent(
 	}
 
 	data_ = &GetAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetAppMetadata.
+const GetAppMetadata_Operation = `
+query GetAppMetadata ($ref: ID!) {
+	app(ref: $ref) {
+		id
+		urn
+		name
+		appType
+		description
+	}
+}
+`
+
+// cli#1057: minimal single-App identity, no settings or nested keys.
+func GetAppMetadata(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetAppMetadataResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAppMetadata",
+		Query:  GetAppMetadata_Operation,
+		Variables: &__GetAppMetadataInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetAppMetadataResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
