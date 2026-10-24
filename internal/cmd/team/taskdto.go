@@ -245,6 +245,18 @@ type rosterEntryDTO struct {
 	Alarms              []string         `json:"alarms"`
 	ReportsTo           *taskPartyDTO    `json:"reportsTo"`
 	ReportsToRetired    bool             `json:"reportsToRetired"`
+	HeldBy              *rosterHolderDTO `json:"heldBy"`
+	HeldAt              *string          `json:"heldAt"`
+}
+
+// rosterHolderDTO is the sanitized person holding a worker's name (server#2223).
+// Name is null both when the server withheld it and when it is unset; the CLI
+// renders what it is given and adds no masking of its own (cli#1032).
+type rosterHolderDTO struct {
+	ID     string  `json:"id"`
+	Handle *string `json:"handle"`
+	URN    *string `json:"urn"`
+	Name   *string `json:"name"`
 }
 
 type rosterDTO struct {
