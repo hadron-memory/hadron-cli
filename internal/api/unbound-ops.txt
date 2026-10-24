@@ -68,7 +68,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 104 unbound
+[Mutation] 110 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -76,12 +76,14 @@ addMemoryToAgent
 amendDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 approveMergeUsersConsent  # server#1642 account-merge consent; parity follows the server surface settling
 askDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
+authorizeContextResetStop  # server#2162 schema refresh; host reset protocol belongs to cli#1043, outside asset companion #897
 beginAssetUpload
 beginMergeUsersConsent  # server#1642 account-merge consent; parity follows the server surface settling
 calendarCreateEvent
 calendarDeleteEvent
 calendarRespondToEvent
 calendarUpdateEvent
+claimContextReset  # server#2162 schema refresh; host reset protocol belongs to cli#1043, outside asset companion #897
 clearAgentAIConfig
 clearWorkerIsolation  # S7a remains inert; isolation CLI commands are outside the #2138 experiment slice
 createAgentOrgGrant
@@ -130,6 +132,7 @@ pushMemoryToGit
 reAdoptAutomation  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 recordUsage
 regenerateAppKey
+registerContextResetRecovery  # server#2162 schema refresh; host reset protocol belongs to cli#1043, outside asset companion #897
 releaseEditorLock
 removeAgentFromApp
 removeAgentImport
@@ -137,6 +140,9 @@ removeAppMember
 removeMemoryFromAgent
 repairAgentSystemMemory
 replaceSubtree  # server#1407: deprecated field; authorized calls return REPLACE_SUBTREE_RETIRED without writes
+reportContextResetAgentStopped  # server#2162 schema refresh; host reset protocol belongs to cli#1043, outside asset companion #897
+reportContextResetRelaunchFailed  # server#2162 schema refresh; host reset protocol belongs to cli#1043, outside asset companion #897
+reportContextResetRelaunched  # server#2162 schema refresh; host reset protocol belongs to cli#1043, outside asset companion #897
 restoreRevision
 revokeAgentOrgGrant
 revokeAgentSubscription
