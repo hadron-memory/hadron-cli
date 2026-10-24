@@ -53148,6 +53148,44 @@ func (v *UpdateAiServiceConfigWithEndpointUpdateAiServiceConfig) __premarshalJSO
 	return &retval, nil
 }
 
+// UpdateAppResponse is returned by UpdateApp on success.
+type UpdateAppResponse struct {
+	// Update an App.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateApp *UpdateAppUpdateApp `json:"updateApp"`
+}
+
+// GetUpdateApp returns UpdateAppResponse.UpdateApp, and is useful for accessing the field via an interface.
+func (v *UpdateAppResponse) GetUpdateApp() *UpdateAppUpdateApp { return v.UpdateApp }
+
+// UpdateAppUpdateApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type UpdateAppUpdateApp struct {
+	Id                    string `json:"id"`
+	Urn                   string `json:"urn"`
+	Name                  string `json:"name"`
+	SessionTimeoutSeconds int    `json:"sessionTimeoutSeconds"`
+}
+
+// GetId returns UpdateAppUpdateApp.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAppUpdateApp) GetId() string { return v.Id }
+
+// GetUrn returns UpdateAppUpdateApp.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateAppUpdateApp) GetUrn() string { return v.Urn }
+
+// GetName returns UpdateAppUpdateApp.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAppUpdateApp) GetName() string { return v.Name }
+
+// GetSessionTimeoutSeconds returns UpdateAppUpdateApp.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateAppUpdateApp) GetSessionTimeoutSeconds() int { return v.SessionTimeoutSeconds }
+
 type UpdateChannelInput struct {
 	Description *string `json:"description,omitempty"`
 	Name        *string `json:"name,omitempty"`
@@ -65066,6 +65104,30 @@ func (v *__UpdateAiServiceConfigWithEndpointInput) GetParams() *json.RawMessage 
 
 // GetEndpoint returns __UpdateAiServiceConfigWithEndpointInput.Endpoint, and is useful for accessing the field via an interface.
 func (v *__UpdateAiServiceConfigWithEndpointInput) GetEndpoint() *string { return v.Endpoint }
+
+// __UpdateAppInput is used internally by genqlient
+type __UpdateAppInput struct {
+	Ref                   string          `json:"ref"`
+	Name                  *string         `json:"name,omitempty"`
+	Description           json.RawMessage `json:"description,omitempty"`
+	SystemPrompt          json.RawMessage `json:"systemPrompt,omitempty"`
+	SessionTimeoutSeconds *int            `json:"sessionTimeoutSeconds,omitempty"`
+}
+
+// GetRef returns __UpdateAppInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateAppInput) GetRef() string { return v.Ref }
+
+// GetName returns __UpdateAppInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateAppInput) GetName() *string { return v.Name }
+
+// GetDescription returns __UpdateAppInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateAppInput) GetDescription() json.RawMessage { return v.Description }
+
+// GetSystemPrompt returns __UpdateAppInput.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *__UpdateAppInput) GetSystemPrompt() json.RawMessage { return v.SystemPrompt }
+
+// GetSessionTimeoutSeconds returns __UpdateAppInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *__UpdateAppInput) GetSessionTimeoutSeconds() *int { return v.SessionTimeoutSeconds }
 
 // __UpdateChannelInput is used internally by genqlient
 type __UpdateChannelInput struct {
@@ -84382,6 +84444,57 @@ func UpdateAiServiceConfigWithEndpoint(
 	}
 
 	data_ = &UpdateAiServiceConfigWithEndpointResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateApp.
+const UpdateApp_Operation = `
+mutation UpdateApp ($ref: ID!, $name: String, $description: String, $systemPrompt: String, $sessionTimeoutSeconds: Int) {
+	updateApp(ref: $ref, name: $name, description: $description, systemPrompt: $systemPrompt, sessionTimeoutSeconds: $sessionTimeoutSeconds) {
+		id
+		urn
+		name
+		sessionTimeoutSeconds
+	}
+}
+`
+
+// cli#1058 — bounded App update. Omitted = preserve, so every optional variable
+// carries omitempty and a nil never reaches the wire. description and
+// systemPrompt additionally have an explicit CLEAR (a JSON null): they bind to
+// json.RawMessage, where nil is omitted, `null` is sent as null and a quoted
+// string (including "") is sent as that string — a *string cannot express all
+// three. name and sessionTimeoutSeconds have no null-clear and stay pointers.
+func UpdateApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	name *string,
+	description json.RawMessage,
+	systemPrompt json.RawMessage,
+	sessionTimeoutSeconds *int,
+) (data_ *UpdateAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateApp",
+		Query:  UpdateApp_Operation,
+		Variables: &__UpdateAppInput{
+			Ref:                   ref,
+			Name:                  name,
+			Description:           description,
+			SystemPrompt:          systemPrompt,
+			SessionTimeoutSeconds: sessionTimeoutSeconds,
+		},
+	}
+
+	data_ = &UpdateAppResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
