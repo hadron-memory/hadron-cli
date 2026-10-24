@@ -623,6 +623,9 @@ replacement over the cap is rejected.`,
 					if proposal.descriptionChanged() {
 						proposalText = "<!-- Proposed description (--description-file): -->\n" + newDescription + "\n\n" + proposalText
 					}
+					if proposal.nameChanged() {
+						proposalText = "Proposed title: " + strings.TrimSpace(title) + "\n\n" + proposalText
+					}
 					return conflictRefusal(node.Loc, base, proposalText)
 				}
 				if unsupportedGuard(err) {

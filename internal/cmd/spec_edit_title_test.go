@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -208,13 +211,57 @@ func TestSpecEditTitleGuardsRefuseBeforeWrite(t *testing.T) {
 }
 
 func TestSpecEditTitleServerConflictKeepsProposal(t *testing.T) {
-	conflict := `{"errors":[{"message":"changed","extensions":{"code":"NODE_WRITE_CONFLICT"}}]}`
-	_, captured, err := runSpecEdit(t, guardMocks(conflict), "", "--title", "New title")
-	if got := exitCodeFor(err); got != exitcode.Conflict {
-		t.Fatalf("exit = %d, want %d (%v)", got, exitcode.Conflict, err)
-	}
-	if len(captured["UpdateSpecNode"]) != 1 {
-		t.Fatal("exactly one write attempt")
+	for _, tc := range []struct {
+		name               string
+		title, description bool
+	}{
+		{"title only", true, false}, {"description only", false, true}, {"title and description", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("TMPDIR", t.TempDir())
+			conflict := `{"errors":[{"message":"changed","extensions":{"code":"NODE_WRITE_CONFLICT"}}]}`
+			args := []string{}
+			if tc.title {
+				args = append(args, "--title", "New title")
+			}
+			if tc.description {
+				path := filepath.Join(t.TempDir(), "description.txt")
+				if err := os.WriteFile(path, []byte("My proposed description"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				args = append(args, "--description-file", path)
+			}
+			_, captured, err := runSpecEdit(t, guardMocks(conflict), "", args...)
+			if got := exitCodeFor(err); got != exitcode.Conflict {
+				t.Fatalf("exit = %d, want 5 (%v)", got, err)
+			}
+			if len(captured["UpdateSpecNode"]) != 1 {
+				t.Fatal("exactly one write attempt")
+			}
+			match := regexp.MustCompile(`saved at (\S+?\.md)`).FindStringSubmatch(err.Error())
+			if match == nil {
+				t.Fatalf("no saved proposal: %v", err)
+			}
+			kept, readErr := os.ReadFile(match[1])
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			titleHeader := "Proposed title: New title"
+			if strings.Contains(string(kept), titleHeader) != tc.title {
+				t.Fatalf("title preservation: %s", kept)
+			}
+			descriptionHeader := "<!-- Proposed description (--description-file): -->\nMy proposed description"
+			if strings.Contains(string(kept), descriptionHeader) != tc.description {
+				t.Fatalf("description preservation: %s", kept)
+			}
+			info, statErr := os.Stat(match[1])
+			if statErr != nil {
+				t.Fatal(statErr)
+			}
+			if info.Mode().Perm() != 0600 {
+				t.Fatalf("spill mode: %v", info.Mode())
+			}
+		})
 	}
 }
 
