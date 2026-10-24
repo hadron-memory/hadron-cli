@@ -52,7 +52,13 @@ OFF needs no confirmation. Management rights and refusals come from the server.`
 			}
 			resp, err := gen.SetAssetPublicLink(cmd.Context(), client, ref.ID, on)
 			if err != nil {
-				return api.MapError(err)
+				// Only this new command promises exit 8 for the asset manager
+				// refusal. Preserve the shared mapping used by legacy asset writes.
+				mapped := api.MapError(err)
+				if api.HasErrorCode(err, "PERMISSION_DENIED") {
+					return exitcode.New(exitcode.Forbidden, mapped)
+				}
+				return mapped
 			}
 			a := resp.SetAssetPublicLink
 			if a == nil {
