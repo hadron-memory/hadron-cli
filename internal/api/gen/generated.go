@@ -43365,6 +43365,36 @@ func (v *SetModelFamilyAvailabilityInput) GetState() AvailabilityState { return 
 // GetUntil returns SetModelFamilyAvailabilityInput.Until, and is useful for accessing the field via an interface.
 func (v *SetModelFamilyAvailabilityInput) GetUntil() *string { return v.Until }
 
+type SetTeamStopSignalInput struct {
+	AppRef string `json:"appRef"`
+	// HOST: the host's id. A host key may omit it: its own host is taken from its binding.
+	Host  *string         `json:"host,omitempty"`
+	Level StopSignalLevel `json:"level"`
+	Scope StopSignalScope `json:"scope"`
+	// When it ends on its own; later than now. Omitted: until lifted.
+	Until *string `json:"until,omitempty"`
+	// WORKER and TEAM: the target worker (a team by its head).
+	Worker *string `json:"worker,omitempty"`
+}
+
+// GetAppRef returns SetTeamStopSignalInput.AppRef, and is useful for accessing the field via an interface.
+func (v *SetTeamStopSignalInput) GetAppRef() string { return v.AppRef }
+
+// GetHost returns SetTeamStopSignalInput.Host, and is useful for accessing the field via an interface.
+func (v *SetTeamStopSignalInput) GetHost() *string { return v.Host }
+
+// GetLevel returns SetTeamStopSignalInput.Level, and is useful for accessing the field via an interface.
+func (v *SetTeamStopSignalInput) GetLevel() StopSignalLevel { return v.Level }
+
+// GetScope returns SetTeamStopSignalInput.Scope, and is useful for accessing the field via an interface.
+func (v *SetTeamStopSignalInput) GetScope() StopSignalScope { return v.Scope }
+
+// GetUntil returns SetTeamStopSignalInput.Until, and is useful for accessing the field via an interface.
+func (v *SetTeamStopSignalInput) GetUntil() *string { return v.Until }
+
+// GetWorker returns SetTeamStopSignalInput.Worker, and is useful for accessing the field via an interface.
+func (v *SetTeamStopSignalInput) GetWorker() *string { return v.Worker }
+
 type SetWorkerAvailabilityInput struct {
 	AppRef *string `json:"appRef"`
 	// Required when UNAVAILABLE; refused when AVAILABLE.
@@ -45681,6 +45711,119 @@ func (v *StopImpersonationStopImpersonationImpersonationSession) GetId() string 
 // GetEndedAt returns StopImpersonationStopImpersonationImpersonationSession.EndedAt, and is useful for accessing the field via an interface.
 func (v *StopImpersonationStopImpersonationImpersonationSession) GetEndedAt() *string {
 	return v.EndedAt
+}
+
+type StopSignalEndKind string
+
+const (
+	StopSignalEndKindExpired StopSignalEndKind = "EXPIRED"
+	StopSignalEndKindLifted  StopSignalEndKind = "LIFTED"
+)
+
+var AllStopSignalEndKind = []StopSignalEndKind{
+	StopSignalEndKindExpired,
+	StopSignalEndKindLifted,
+}
+
+// C5 slice B1 (#911): stop signals (server #2022/#2166, cor:agt:090). Ids and
+// times only. The CLI computes no coverage: the server owns who a signal
+// covers, its expiry and every effect.
+type StopSignalFields struct {
+	Id    string          `json:"id"`
+	Level StopSignalLevel `json:"level"`
+	Scope StopSignalScope `json:"scope"`
+	// WORKER and TEAM: the target worker (a team by its head).
+	TargetWorkerId *string `json:"targetWorkerId"`
+	// HOST: the target host's id.
+	TargetHostId *string `json:"targetHostId"`
+	SetAt        string  `json:"setAt"`
+	// When it ends on its own, if set to.
+	Until *string `json:"until"`
+	// The person who set it; null when a host key did.
+	SetByUserId  *string `json:"setByUserId"`
+	SetByHostKey bool    `json:"setByHostKey"`
+	// Not ended and its until, when given, still ahead.
+	Live bool `json:"live"`
+	// When it was lifted, or its until (an expiry is in effect at its until).
+	EndedAt        *string            `json:"endedAt"`
+	EndKind        *StopSignalEndKind `json:"endKind"`
+	EndedByUserId  *string            `json:"endedByUserId"`
+	EndedByHostKey bool               `json:"endedByHostKey"`
+}
+
+// GetId returns StopSignalFields.Id, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetId() string { return v.Id }
+
+// GetLevel returns StopSignalFields.Level, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetLevel() StopSignalLevel { return v.Level }
+
+// GetScope returns StopSignalFields.Scope, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetScope() StopSignalScope { return v.Scope }
+
+// GetTargetWorkerId returns StopSignalFields.TargetWorkerId, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetTargetWorkerId() *string { return v.TargetWorkerId }
+
+// GetTargetHostId returns StopSignalFields.TargetHostId, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetTargetHostId() *string { return v.TargetHostId }
+
+// GetSetAt returns StopSignalFields.SetAt, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetSetAt() string { return v.SetAt }
+
+// GetUntil returns StopSignalFields.Until, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetUntil() *string { return v.Until }
+
+// GetSetByUserId returns StopSignalFields.SetByUserId, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetSetByUserId() *string { return v.SetByUserId }
+
+// GetSetByHostKey returns StopSignalFields.SetByHostKey, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetSetByHostKey() bool { return v.SetByHostKey }
+
+// GetLive returns StopSignalFields.Live, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetLive() bool { return v.Live }
+
+// GetEndedAt returns StopSignalFields.EndedAt, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetEndedAt() *string { return v.EndedAt }
+
+// GetEndKind returns StopSignalFields.EndKind, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetEndKind() *StopSignalEndKind { return v.EndKind }
+
+// GetEndedByUserId returns StopSignalFields.EndedByUserId, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetEndedByUserId() *string { return v.EndedByUserId }
+
+// GetEndedByHostKey returns StopSignalFields.EndedByHostKey, and is useful for accessing the field via an interface.
+func (v *StopSignalFields) GetEndedByHostKey() bool { return v.EndedByHostKey }
+
+// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01) — a stop signal's level. Each stops everything the one before it does.
+type StopSignalLevel string
+
+const (
+	// Also interrupts each covered worker, to save its work and write a hand-off (the notice is recorded but not yet delivered: no interrupt happens yet).
+	StopSignalLevelHalt StopSignalLevel = "HALT"
+	// Also stops ticks and stall time. Each covered worker is told to finish or stop at its next sub-task (the notice is recorded but not yet delivered).
+	StopSignalLevelPause StopSignalLevel = "PAUSE"
+	// Stops assignment only: matching skips the covered workers and a manual assignment to one is refused (TASK_STOPPED). Its coordinators are told (the notice is recorded but not yet delivered).
+	StopSignalLevelPauseDispatch StopSignalLevel = "PAUSE_DISPATCH"
+)
+
+var AllStopSignalLevel = []StopSignalLevel{
+	StopSignalLevelHalt,
+	StopSignalLevelPause,
+	StopSignalLevelPauseDispatch,
+}
+
+// #2022 — a stop signal's scope: one worker, a team (its head and the whole reporting tree under it), or the workers a host registration lists.
+type StopSignalScope string
+
+const (
+	StopSignalScopeHost   StopSignalScope = "HOST"
+	StopSignalScopeTeam   StopSignalScope = "TEAM"
+	StopSignalScopeWorker StopSignalScope = "WORKER"
+)
+
+var AllStopSignalScope = []StopSignalScope{
+	StopSignalScopeHost,
+	StopSignalScopeTeam,
+	StopSignalScopeWorker,
 }
 
 // SubscribeTickerResponse is returned by SubscribeTicker on success.
@@ -49073,6 +49216,568 @@ func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) __premarshalJSON() (*__p
 	retval.SessionEndGraceMinutes = v.AgentTaskStallScheduleFields.SessionEndGraceMinutes
 	retval.HostReportTimeoutMinutes = v.AgentTaskStallScheduleFields.HostReportTimeoutMinutes
 	retval.UpdatedAt = v.AgentTaskStallScheduleFields.UpdatedAt
+	return &retval, nil
+}
+
+// TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult includes the requested fields of the GraphQL type LiftStopSignalResult.
+type TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult struct {
+	// False when it had already ended: nothing changed and nobody was told again.
+	Changed bool                                                                      `json:"changed"`
+	Signal  *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal `json:"signal"`
+}
+
+// GetChanged returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult.Changed, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult) GetChanged() bool {
+	return v.Changed
+}
+
+// GetSignal returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult.Signal, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult) GetSignal() *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal {
+	return v.Signal
+}
+
+// TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal includes the requested fields of the GraphQL type StopSignal.
+// The GraphQL type's documentation follows.
+//
+// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01) — a stop signal. Ids and times only; it never changes once set, except that its end is recorded.
+type TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal struct {
+	StopSignalFields `json:"-"`
+}
+
+// GetId returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.Id, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetId() string {
+	return v.StopSignalFields.Id
+}
+
+// GetLevel returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.Level, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetLevel() StopSignalLevel {
+	return v.StopSignalFields.Level
+}
+
+// GetScope returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.Scope, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetScope() StopSignalScope {
+	return v.StopSignalFields.Scope
+}
+
+// GetTargetWorkerId returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.TargetWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetTargetWorkerId() *string {
+	return v.StopSignalFields.TargetWorkerId
+}
+
+// GetTargetHostId returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.TargetHostId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetTargetHostId() *string {
+	return v.StopSignalFields.TargetHostId
+}
+
+// GetSetAt returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.SetAt, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetSetAt() string {
+	return v.StopSignalFields.SetAt
+}
+
+// GetUntil returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.Until, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetUntil() *string {
+	return v.StopSignalFields.Until
+}
+
+// GetSetByUserId returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.SetByUserId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetSetByUserId() *string {
+	return v.StopSignalFields.SetByUserId
+}
+
+// GetSetByHostKey returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.SetByHostKey, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetSetByHostKey() bool {
+	return v.StopSignalFields.SetByHostKey
+}
+
+// GetLive returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.Live, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetLive() bool {
+	return v.StopSignalFields.Live
+}
+
+// GetEndedAt returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetEndedAt() *string {
+	return v.StopSignalFields.EndedAt
+}
+
+// GetEndKind returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.EndKind, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetEndKind() *StopSignalEndKind {
+	return v.StopSignalFields.EndKind
+}
+
+// GetEndedByUserId returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.EndedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetEndedByUserId() *string {
+	return v.StopSignalFields.EndedByUserId
+}
+
+// GetEndedByHostKey returns TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.EndedByHostKey, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetEndedByHostKey() bool {
+	return v.StopSignalFields.EndedByHostKey
+}
+
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.StopSignalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal struct {
+	Id string `json:"id"`
+
+	Level StopSignalLevel `json:"level"`
+
+	Scope StopSignalScope `json:"scope"`
+
+	TargetWorkerId *string `json:"targetWorkerId"`
+
+	TargetHostId *string `json:"targetHostId"`
+
+	SetAt string `json:"setAt"`
+
+	Until *string `json:"until"`
+
+	SetByUserId *string `json:"setByUserId"`
+
+	SetByHostKey bool `json:"setByHostKey"`
+
+	Live bool `json:"live"`
+
+	EndedAt *string `json:"endedAt"`
+
+	EndKind *StopSignalEndKind `json:"endKind"`
+
+	EndedByUserId *string `json:"endedByUserId"`
+
+	EndedByHostKey bool `json:"endedByHostKey"`
+}
+
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) __premarshalJSON() (*__premarshalTeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal, error) {
+	var retval __premarshalTeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal
+
+	retval.Id = v.StopSignalFields.Id
+	retval.Level = v.StopSignalFields.Level
+	retval.Scope = v.StopSignalFields.Scope
+	retval.TargetWorkerId = v.StopSignalFields.TargetWorkerId
+	retval.TargetHostId = v.StopSignalFields.TargetHostId
+	retval.SetAt = v.StopSignalFields.SetAt
+	retval.Until = v.StopSignalFields.Until
+	retval.SetByUserId = v.StopSignalFields.SetByUserId
+	retval.SetByHostKey = v.StopSignalFields.SetByHostKey
+	retval.Live = v.StopSignalFields.Live
+	retval.EndedAt = v.StopSignalFields.EndedAt
+	retval.EndKind = v.StopSignalFields.EndKind
+	retval.EndedByUserId = v.StopSignalFields.EndedByUserId
+	retval.EndedByHostKey = v.StopSignalFields.EndedByHostKey
+	return &retval, nil
+}
+
+// TeamStopSignalLiftResponse is returned by TeamStopSignalLift on success.
+type TeamStopSignalLiftResponse struct {
+	// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:05, :06) — lift a stop signal. Whoever manages the App, any; a host key, a HALT on its own host.
+	// Lifting one never ends another. changed is false when it had already ended. Refusals as setTeamStopSignal.
+	LiftTeamStopSignal *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult `json:"liftTeamStopSignal"`
+}
+
+// GetLiftTeamStopSignal returns TeamStopSignalLiftResponse.LiftTeamStopSignal, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftResponse) GetLiftTeamStopSignal() *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult {
+	return v.LiftTeamStopSignal
+}
+
+// TeamStopSignalSetResponse is returned by TeamStopSignalSet on success.
+type TeamStopSignalSetResponse struct {
+	// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01, :06) — set a stop signal. Whoever manages the App: any level and
+	// scope. A host key: a HALT on its own host only. Never replaces another signal. Refusals: APP_MANAGER_REQUIRED,
+	// HOST_SCOPE_REQUIRED, STOP_SIGNAL_SCOPE_FORBIDDEN, STOP_SIGNAL_NOT_FOUND (the target), BAD_USER_INPUT, APP_NOT_FOUND.
+	// #2173 (R95): until the stop-notice lane is in effect, setting ANY signal is refused with STOP_SIGNAL_UNAVAILABLE (a worker
+	// would be stopped without being told); lifting and listing are unaffected, and the refusal lifts when the lane is turned on.
+	SetTeamStopSignal *TeamStopSignalSetSetTeamStopSignal `json:"setTeamStopSignal"`
+}
+
+// GetSetTeamStopSignal returns TeamStopSignalSetResponse.SetTeamStopSignal, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetResponse) GetSetTeamStopSignal() *TeamStopSignalSetSetTeamStopSignal {
+	return v.SetTeamStopSignal
+}
+
+// TeamStopSignalSetSetTeamStopSignal includes the requested fields of the GraphQL type StopSignal.
+// The GraphQL type's documentation follows.
+//
+// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01) — a stop signal. Ids and times only; it never changes once set, except that its end is recorded.
+type TeamStopSignalSetSetTeamStopSignal struct {
+	StopSignalFields `json:"-"`
+}
+
+// GetId returns TeamStopSignalSetSetTeamStopSignal.Id, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetId() string { return v.StopSignalFields.Id }
+
+// GetLevel returns TeamStopSignalSetSetTeamStopSignal.Level, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetLevel() StopSignalLevel {
+	return v.StopSignalFields.Level
+}
+
+// GetScope returns TeamStopSignalSetSetTeamStopSignal.Scope, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetScope() StopSignalScope {
+	return v.StopSignalFields.Scope
+}
+
+// GetTargetWorkerId returns TeamStopSignalSetSetTeamStopSignal.TargetWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetTargetWorkerId() *string {
+	return v.StopSignalFields.TargetWorkerId
+}
+
+// GetTargetHostId returns TeamStopSignalSetSetTeamStopSignal.TargetHostId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetTargetHostId() *string {
+	return v.StopSignalFields.TargetHostId
+}
+
+// GetSetAt returns TeamStopSignalSetSetTeamStopSignal.SetAt, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetSetAt() string { return v.StopSignalFields.SetAt }
+
+// GetUntil returns TeamStopSignalSetSetTeamStopSignal.Until, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetUntil() *string { return v.StopSignalFields.Until }
+
+// GetSetByUserId returns TeamStopSignalSetSetTeamStopSignal.SetByUserId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetSetByUserId() *string {
+	return v.StopSignalFields.SetByUserId
+}
+
+// GetSetByHostKey returns TeamStopSignalSetSetTeamStopSignal.SetByHostKey, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetSetByHostKey() bool {
+	return v.StopSignalFields.SetByHostKey
+}
+
+// GetLive returns TeamStopSignalSetSetTeamStopSignal.Live, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetLive() bool { return v.StopSignalFields.Live }
+
+// GetEndedAt returns TeamStopSignalSetSetTeamStopSignal.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetEndedAt() *string { return v.StopSignalFields.EndedAt }
+
+// GetEndKind returns TeamStopSignalSetSetTeamStopSignal.EndKind, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetEndKind() *StopSignalEndKind {
+	return v.StopSignalFields.EndKind
+}
+
+// GetEndedByUserId returns TeamStopSignalSetSetTeamStopSignal.EndedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetEndedByUserId() *string {
+	return v.StopSignalFields.EndedByUserId
+}
+
+// GetEndedByHostKey returns TeamStopSignalSetSetTeamStopSignal.EndedByHostKey, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetSetTeamStopSignal) GetEndedByHostKey() bool {
+	return v.StopSignalFields.EndedByHostKey
+}
+
+func (v *TeamStopSignalSetSetTeamStopSignal) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamStopSignalSetSetTeamStopSignal
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamStopSignalSetSetTeamStopSignal = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.StopSignalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamStopSignalSetSetTeamStopSignal struct {
+	Id string `json:"id"`
+
+	Level StopSignalLevel `json:"level"`
+
+	Scope StopSignalScope `json:"scope"`
+
+	TargetWorkerId *string `json:"targetWorkerId"`
+
+	TargetHostId *string `json:"targetHostId"`
+
+	SetAt string `json:"setAt"`
+
+	Until *string `json:"until"`
+
+	SetByUserId *string `json:"setByUserId"`
+
+	SetByHostKey bool `json:"setByHostKey"`
+
+	Live bool `json:"live"`
+
+	EndedAt *string `json:"endedAt"`
+
+	EndKind *StopSignalEndKind `json:"endKind"`
+
+	EndedByUserId *string `json:"endedByUserId"`
+
+	EndedByHostKey bool `json:"endedByHostKey"`
+}
+
+func (v *TeamStopSignalSetSetTeamStopSignal) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamStopSignalSetSetTeamStopSignal) __premarshalJSON() (*__premarshalTeamStopSignalSetSetTeamStopSignal, error) {
+	var retval __premarshalTeamStopSignalSetSetTeamStopSignal
+
+	retval.Id = v.StopSignalFields.Id
+	retval.Level = v.StopSignalFields.Level
+	retval.Scope = v.StopSignalFields.Scope
+	retval.TargetWorkerId = v.StopSignalFields.TargetWorkerId
+	retval.TargetHostId = v.StopSignalFields.TargetHostId
+	retval.SetAt = v.StopSignalFields.SetAt
+	retval.Until = v.StopSignalFields.Until
+	retval.SetByUserId = v.StopSignalFields.SetByUserId
+	retval.SetByHostKey = v.StopSignalFields.SetByHostKey
+	retval.Live = v.StopSignalFields.Live
+	retval.EndedAt = v.StopSignalFields.EndedAt
+	retval.EndKind = v.StopSignalFields.EndKind
+	retval.EndedByUserId = v.StopSignalFields.EndedByUserId
+	retval.EndedByHostKey = v.StopSignalFields.EndedByHostKey
+	return &retval, nil
+}
+
+// TeamStopSignalsResponse is returned by TeamStopSignals on success.
+type TeamStopSignalsResponse struct {
+	// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:07) — an App's stop signals, oldest set first. A person in the App sees
+	// every signal (worker narrows to those covering that worker now); a worker's session sees the live ones covering it; a
+	// host key sees its own host's. includeEnded adds ended ones (not for a worker's session). first: default 50, max 200.
+	TeamStopSignals *TeamStopSignalsTeamStopSignalsStopSignalPage `json:"teamStopSignals"`
+}
+
+// GetTeamStopSignals returns TeamStopSignalsResponse.TeamStopSignals, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsResponse) GetTeamStopSignals() *TeamStopSignalsTeamStopSignalsStopSignalPage {
+	return v.TeamStopSignals
+}
+
+// TeamStopSignalsTeamStopSignalsStopSignalPage includes the requested fields of the GraphQL type StopSignalPage.
+type TeamStopSignalsTeamStopSignalsStopSignalPage struct {
+	Signals  []*TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal     `json:"signals"`
+	PageInfo *TeamStopSignalsTeamStopSignalsStopSignalPagePageInfoDueWakePageInfo `json:"pageInfo"`
+}
+
+// GetSignals returns TeamStopSignalsTeamStopSignalsStopSignalPage.Signals, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPage) GetSignals() []*TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal {
+	return v.Signals
+}
+
+// GetPageInfo returns TeamStopSignalsTeamStopSignalsStopSignalPage.PageInfo, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPage) GetPageInfo() *TeamStopSignalsTeamStopSignalsStopSignalPagePageInfoDueWakePageInfo {
+	return v.PageInfo
+}
+
+// TeamStopSignalsTeamStopSignalsStopSignalPagePageInfoDueWakePageInfo includes the requested fields of the GraphQL type DueWakePageInfo.
+type TeamStopSignalsTeamStopSignalsStopSignalPagePageInfoDueWakePageInfo struct {
+	EndCursor   *string `json:"endCursor"`
+	HasNextPage bool    `json:"hasNextPage"`
+}
+
+// GetEndCursor returns TeamStopSignalsTeamStopSignalsStopSignalPagePageInfoDueWakePageInfo.EndCursor, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPagePageInfoDueWakePageInfo) GetEndCursor() *string {
+	return v.EndCursor
+}
+
+// GetHasNextPage returns TeamStopSignalsTeamStopSignalsStopSignalPagePageInfoDueWakePageInfo.HasNextPage, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPagePageInfoDueWakePageInfo) GetHasNextPage() bool {
+	return v.HasNextPage
+}
+
+// TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal includes the requested fields of the GraphQL type StopSignal.
+// The GraphQL type's documentation follows.
+//
+// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01) — a stop signal. Ids and times only; it never changes once set, except that its end is recorded.
+type TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal struct {
+	StopSignalFields `json:"-"`
+}
+
+// GetId returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.Id, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetId() string {
+	return v.StopSignalFields.Id
+}
+
+// GetLevel returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.Level, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetLevel() StopSignalLevel {
+	return v.StopSignalFields.Level
+}
+
+// GetScope returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.Scope, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetScope() StopSignalScope {
+	return v.StopSignalFields.Scope
+}
+
+// GetTargetWorkerId returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.TargetWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetTargetWorkerId() *string {
+	return v.StopSignalFields.TargetWorkerId
+}
+
+// GetTargetHostId returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.TargetHostId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetTargetHostId() *string {
+	return v.StopSignalFields.TargetHostId
+}
+
+// GetSetAt returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.SetAt, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetSetAt() string {
+	return v.StopSignalFields.SetAt
+}
+
+// GetUntil returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.Until, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetUntil() *string {
+	return v.StopSignalFields.Until
+}
+
+// GetSetByUserId returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.SetByUserId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetSetByUserId() *string {
+	return v.StopSignalFields.SetByUserId
+}
+
+// GetSetByHostKey returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.SetByHostKey, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetSetByHostKey() bool {
+	return v.StopSignalFields.SetByHostKey
+}
+
+// GetLive returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.Live, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetLive() bool {
+	return v.StopSignalFields.Live
+}
+
+// GetEndedAt returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetEndedAt() *string {
+	return v.StopSignalFields.EndedAt
+}
+
+// GetEndKind returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.EndKind, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetEndKind() *StopSignalEndKind {
+	return v.StopSignalFields.EndKind
+}
+
+// GetEndedByUserId returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.EndedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetEndedByUserId() *string {
+	return v.StopSignalFields.EndedByUserId
+}
+
+// GetEndedByHostKey returns TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal.EndedByHostKey, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) GetEndedByHostKey() bool {
+	return v.StopSignalFields.EndedByHostKey
+}
+
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.StopSignalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal struct {
+	Id string `json:"id"`
+
+	Level StopSignalLevel `json:"level"`
+
+	Scope StopSignalScope `json:"scope"`
+
+	TargetWorkerId *string `json:"targetWorkerId"`
+
+	TargetHostId *string `json:"targetHostId"`
+
+	SetAt string `json:"setAt"`
+
+	Until *string `json:"until"`
+
+	SetByUserId *string `json:"setByUserId"`
+
+	SetByHostKey bool `json:"setByHostKey"`
+
+	Live bool `json:"live"`
+
+	EndedAt *string `json:"endedAt"`
+
+	EndKind *StopSignalEndKind `json:"endKind"`
+
+	EndedByUserId *string `json:"endedByUserId"`
+
+	EndedByHostKey bool `json:"endedByHostKey"`
+}
+
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal) __premarshalJSON() (*__premarshalTeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal, error) {
+	var retval __premarshalTeamStopSignalsTeamStopSignalsStopSignalPageSignalsStopSignal
+
+	retval.Id = v.StopSignalFields.Id
+	retval.Level = v.StopSignalFields.Level
+	retval.Scope = v.StopSignalFields.Scope
+	retval.TargetWorkerId = v.StopSignalFields.TargetWorkerId
+	retval.TargetHostId = v.StopSignalFields.TargetHostId
+	retval.SetAt = v.StopSignalFields.SetAt
+	retval.Until = v.StopSignalFields.Until
+	retval.SetByUserId = v.StopSignalFields.SetByUserId
+	retval.SetByHostKey = v.StopSignalFields.SetByHostKey
+	retval.Live = v.StopSignalFields.Live
+	retval.EndedAt = v.StopSignalFields.EndedAt
+	retval.EndKind = v.StopSignalFields.EndKind
+	retval.EndedByUserId = v.StopSignalFields.EndedByUserId
+	retval.EndedByHostKey = v.StopSignalFields.EndedByHostKey
 	return &retval, nil
 }
 
@@ -63259,6 +63964,50 @@ func (v *__TeamStallScheduleSetInput) GetAppRef() string { return v.AppRef }
 func (v *__TeamStallScheduleSetInput) GetInput() *gqltypes.AgentTaskStallScheduleInput {
 	return v.Input
 }
+
+// __TeamStopSignalLiftInput is used internally by genqlient
+type __TeamStopSignalLiftInput struct {
+	AppRef string `json:"appRef"`
+	Id     string `json:"id"`
+}
+
+// GetAppRef returns __TeamStopSignalLiftInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalLiftInput) GetAppRef() string { return v.AppRef }
+
+// GetId returns __TeamStopSignalLiftInput.Id, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalLiftInput) GetId() string { return v.Id }
+
+// __TeamStopSignalSetInput is used internally by genqlient
+type __TeamStopSignalSetInput struct {
+	Input *SetTeamStopSignalInput `json:"input,omitempty"`
+}
+
+// GetInput returns __TeamStopSignalSetInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalSetInput) GetInput() *SetTeamStopSignalInput { return v.Input }
+
+// __TeamStopSignalsInput is used internally by genqlient
+type __TeamStopSignalsInput struct {
+	AppRef       string  `json:"appRef"`
+	Worker       *string `json:"worker,omitempty"`
+	IncludeEnded *bool   `json:"includeEnded,omitempty"`
+	First        *int    `json:"first,omitempty"`
+	After        *string `json:"after,omitempty"`
+}
+
+// GetAppRef returns __TeamStopSignalsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalsInput) GetAppRef() string { return v.AppRef }
+
+// GetWorker returns __TeamStopSignalsInput.Worker, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalsInput) GetWorker() *string { return v.Worker }
+
+// GetIncludeEnded returns __TeamStopSignalsInput.IncludeEnded, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalsInput) GetIncludeEnded() *bool { return v.IncludeEnded }
+
+// GetFirst returns __TeamStopSignalsInput.First, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalsInput) GetFirst() *int { return v.First }
+
+// GetAfter returns __TeamStopSignalsInput.After, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalsInput) GetAfter() *string { return v.After }
 
 // __TeamWorkItemsInput is used internally by genqlient
 type __TeamWorkItemsInput struct {
@@ -81599,6 +82348,175 @@ func TeamStallScheduleSet(
 	}
 
 	data_ = &TeamStallScheduleSetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamStopSignalLift.
+const TeamStopSignalLift_Operation = `
+mutation TeamStopSignalLift ($appRef: String!, $id: ID!) {
+	liftTeamStopSignal(appRef: $appRef, id: $id) {
+		changed
+		signal {
+			... StopSignalFields
+		}
+	}
+}
+fragment StopSignalFields on StopSignal {
+	id
+	level
+	scope
+	targetWorkerId
+	targetHostId
+	setAt
+	until
+	setByUserId
+	setByHostKey
+	live
+	endedAt
+	endKind
+	endedByUserId
+	endedByHostKey
+}
+`
+
+func TeamStopSignalLift(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	id string,
+) (data_ *TeamStopSignalLiftResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamStopSignalLift",
+		Query:  TeamStopSignalLift_Operation,
+		Variables: &__TeamStopSignalLiftInput{
+			AppRef: appRef,
+			Id:     id,
+		},
+	}
+
+	data_ = &TeamStopSignalLiftResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamStopSignalSet.
+const TeamStopSignalSet_Operation = `
+mutation TeamStopSignalSet ($input: SetTeamStopSignalInput!) {
+	setTeamStopSignal(input: $input) {
+		... StopSignalFields
+	}
+}
+fragment StopSignalFields on StopSignal {
+	id
+	level
+	scope
+	targetWorkerId
+	targetHostId
+	setAt
+	until
+	setByUserId
+	setByHostKey
+	live
+	endedAt
+	endKind
+	endedByUserId
+	endedByHostKey
+}
+`
+
+func TeamStopSignalSet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetTeamStopSignalInput,
+) (data_ *TeamStopSignalSetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamStopSignalSet",
+		Query:  TeamStopSignalSet_Operation,
+		Variables: &__TeamStopSignalSetInput{
+			Input: input,
+		},
+	}
+
+	data_ = &TeamStopSignalSetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamStopSignals.
+const TeamStopSignals_Operation = `
+query TeamStopSignals ($appRef: String!, $worker: String, $includeEnded: Boolean, $first: Int, $after: String) {
+	teamStopSignals(appRef: $appRef, worker: $worker, includeEnded: $includeEnded, first: $first, after: $after) {
+		signals {
+			... StopSignalFields
+		}
+		pageInfo {
+			endCursor
+			hasNextPage
+		}
+	}
+}
+fragment StopSignalFields on StopSignal {
+	id
+	level
+	scope
+	targetWorkerId
+	targetHostId
+	setAt
+	until
+	setByUserId
+	setByHostKey
+	live
+	endedAt
+	endKind
+	endedByUserId
+	endedByHostKey
+}
+`
+
+func TeamStopSignals(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	worker *string,
+	includeEnded *bool,
+	first *int,
+	after *string,
+) (data_ *TeamStopSignalsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamStopSignals",
+		Query:  TeamStopSignals_Operation,
+		Variables: &__TeamStopSignalsInput{
+			AppRef:       appRef,
+			Worker:       worker,
+			IncludeEnded: includeEnded,
+			First:        first,
+			After:        after,
+		},
+	}
+
+	data_ = &TeamStopSignalsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

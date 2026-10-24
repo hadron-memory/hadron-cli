@@ -1350,3 +1350,53 @@ mutation TeamDeliverySettingsSet(
 ) {
   setAppDeliverySettings(appRef: $appRef, input: $input) { ...AppDeliverySettingsFields }
 }
+
+# C5 slice B1 (#911): stop signals (server #2022/#2166, cor:agt:090). Ids and
+# times only. The CLI computes no coverage: the server owns who a signal
+# covers, its expiry and every effect.
+fragment StopSignalFields on StopSignal {
+  id
+  level
+  scope
+  targetWorkerId
+  targetHostId
+  setAt
+  until
+  setByUserId
+  setByHostKey
+  live
+  endedAt
+  endKind
+  endedByUserId
+  endedByHostKey
+}
+query TeamStopSignals(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $worker: String
+  # @genqlient(omitempty: true)
+  $includeEnded: Boolean
+  # @genqlient(omitempty: true)
+  $first: Int
+  # @genqlient(omitempty: true)
+  $after: String
+) {
+  teamStopSignals(appRef: $appRef, worker: $worker, includeEnded: $includeEnded, first: $first, after: $after) {
+    signals { ...StopSignalFields }
+    pageInfo { endCursor hasNextPage }
+  }
+}
+# @genqlient(for: "SetTeamStopSignalInput.worker", omitempty: true)
+# @genqlient(for: "SetTeamStopSignalInput.host", omitempty: true)
+# @genqlient(for: "SetTeamStopSignalInput.until", omitempty: true)
+mutation TeamStopSignalSet(
+  $input: SetTeamStopSignalInput!
+) {
+  setTeamStopSignal(input: $input) { ...StopSignalFields }
+}
+mutation TeamStopSignalLift($appRef: String!, $id: ID!) {
+  liftTeamStopSignal(appRef: $appRef, id: $id) {
+    changed
+    signal { ...StopSignalFields }
+  }
+}
