@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+// #1016 reports a synthetic full page with a null entry; no original provider
+// payload was retained. These fixtures reconstruct that documented shape.
 func TestUsage1016MalformedPageIsNotSuccess(t *testing.T) {
 	for _, payload := range []struct{ name, rows string }{
 		{"full-null-last", usage65Event + `,null`},
@@ -23,13 +25,23 @@ func TestUsage1016MalformedPageIsNotSuccess(t *testing.T) {
 				if code != 1 {
 					t.Fatalf("exit=%d want1; stdout=%q stderr=%q", code, out, stderr)
 				}
-				if out != "" {
+				if asJSON {
+					var envelope struct {
+						Error struct {
+							Code    int    `json:"code"`
+							Message string `json:"message"`
+						} `json:"error"`
+					}
+					if err := json.Unmarshal([]byte(out), &envelope); err != nil || envelope.Error.Code != 1 || envelope.Error.Message != "the server returned an invalid usage-event row" {
+						t.Fatalf("expected error envelope, got %q (%v)", out, err)
+					}
+				} else if out != "" {
 					t.Fatalf("malformed page emitted success: %q", out)
 				}
 				if strings.Contains(stderr, "no total available") || strings.Contains(stderr, "more may exist") {
 					t.Fatalf("malformed page emitted page note: %q", stderr)
 				}
-				if !strings.Contains(stderr, "invalid usage-event row") {
+				if !asJSON && !strings.Contains(stderr, "invalid usage-event row") {
 					t.Fatalf("missing fixed malformed-response diagnostic: %q", stderr)
 				}
 			})
@@ -69,6 +81,9 @@ func TestUsage1016ValidPagesKeepSemantics(t *testing.T) {
 					t.Fatal(vars)
 				}
 				if asJSON {
+					if tc.count == 0 && strings.TrimSpace(out) != "[]" {
+						t.Fatalf("empty array: %q", out)
+					}
 					var rows []map[string]any
 					if err := json.Unmarshal([]byte(out), &rows); err != nil {
 						t.Fatal(err)
