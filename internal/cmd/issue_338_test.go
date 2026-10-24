@@ -182,7 +182,7 @@ func TestMemorySetRejectsUnqualifiedMemoryURNLocally(t *testing.T) {
 
 func TestMemoryGetAcceptsLegacyCompoundReference(t *testing.T) {
 	const ref = "hrn:memory:micromentor.org::coding-app::coding-agent::app-mem"
-	gql, sent := captureGraphQL(t, map[string]string{"GetMemory": `{"data":{"memory":` + memoryJSON + `}}`})
+	gql, sent := captureGraphQL(t, map[string]string{"GetMemoryDetail": `{"data":{"memory":` + memoryJSON + `}}`})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"memory", "get", ref, "--server", gql.URL})
@@ -192,7 +192,7 @@ func TestMemoryGetAcceptsLegacyCompoundReference(t *testing.T) {
 	var vars struct {
 		Ref string `json:"ref"`
 	}
-	if err := json.Unmarshal(sent["GetMemory"], &vars); err != nil {
+	if err := json.Unmarshal(sent["GetMemoryDetail"], &vars); err != nil {
 		t.Fatal(err)
 	}
 	if vars.Ref != ref {

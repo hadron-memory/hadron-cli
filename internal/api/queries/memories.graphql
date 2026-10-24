@@ -289,6 +289,38 @@ mutation UpdateMemory(
   }
 }
 
+# GetMemoryDetail is `memory get`'s read: GetMemory plus the sync outcome
+# (hadron-cli#1014, provider hadron-server#2366). Kept apart from the shared
+# GetMemory, which a dozen commands resolve through, so a server that predates
+# lastSyncReport fails only `memory get`, not every memory-ref lookup.
+query GetMemoryDetail($ref: ID!) {
+  memory(ref: $ref) {
+    id
+    urn
+    name
+    shortDescription
+    description
+    class
+    visibility
+    organizationId
+    isEncrypted
+    tags
+    source
+    syncStatus
+    lastSyncedAt
+    syncError
+    # Version 1 JSON text, or null after a clean completed sync. Parsed and
+    # validated client-side (internal/cmd/memory/syncreport.go).
+    lastSyncReport
+    vectorIndexEnabled
+    maxRevCount
+    listedOnMarketplace
+    schema
+    createdAt
+    updatedAt
+  }
+}
+
 mutation DeleteMemory($id: ID!) {
   deleteMemory(id: $id)
 }

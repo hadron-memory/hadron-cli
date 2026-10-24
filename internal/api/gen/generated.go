@@ -23294,6 +23294,131 @@ func (v *GetInvitationResponse) GetInvitation() *GetInvitationInvitationPublicIn
 	return v.Invitation
 }
 
+// GetMemoryDetailMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type GetMemoryDetailMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	Description      *string `json:"description"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
+	Tags           []string          `json:"tags"`
+	Source         *string           `json:"source"`
+	SyncStatus     SyncStatus        `json:"syncStatus"`
+	LastSyncedAt   *string           `json:"lastSyncedAt"`
+	SyncError      *string           `json:"syncError"`
+	// Version 1 JSON outcome of the last sync: partial, failed or unknown. Null after a completed clean sync; consult lastSyncedAt/syncStatus for a never-synced memory. Same Memory-record read gate applies. Git sync: hrn:node:hadronmemory.com:specs:cor:int:010:01.
+	LastSyncReport     *string `json:"lastSyncReport"`
+	VectorIndexEnabled bool    `json:"vectorIndexEnabled"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int `json:"maxRevCount"`
+	// cor:acl:080:04 — opt-in marketplace catalogue flag (advertisement, not access).
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+	// #725 — opt-in per-memory property schema (declared collections + typed fields). NULL = unstructured. Authored via updateMemory; well-formedness validated server-side.
+	Schema    *json.RawMessage `json:"schema"`
+	CreatedAt string           `json:"createdAt"`
+	UpdatedAt string           `json:"updatedAt"`
+}
+
+// GetId returns GetMemoryDetailMemory.Id, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetId() string { return v.Id }
+
+// GetUrn returns GetMemoryDetailMemory.Urn, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetUrn() string { return v.Urn }
+
+// GetName returns GetMemoryDetailMemory.Name, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns GetMemoryDetailMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetShortDescription() *string { return v.ShortDescription }
+
+// GetDescription returns GetMemoryDetailMemory.Description, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetDescription() *string { return v.Description }
+
+// GetClass returns GetMemoryDetailMemory.Class, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns GetMemoryDetailMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetOrganizationId returns GetMemoryDetailMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetIsEncrypted returns GetMemoryDetailMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetTags returns GetMemoryDetailMemory.Tags, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetTags() []string { return v.Tags }
+
+// GetSource returns GetMemoryDetailMemory.Source, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetSource() *string { return v.Source }
+
+// GetSyncStatus returns GetMemoryDetailMemory.SyncStatus, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetSyncStatus() SyncStatus { return v.SyncStatus }
+
+// GetLastSyncedAt returns GetMemoryDetailMemory.LastSyncedAt, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetLastSyncedAt() *string { return v.LastSyncedAt }
+
+// GetSyncError returns GetMemoryDetailMemory.SyncError, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetSyncError() *string { return v.SyncError }
+
+// GetLastSyncReport returns GetMemoryDetailMemory.LastSyncReport, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetLastSyncReport() *string { return v.LastSyncReport }
+
+// GetVectorIndexEnabled returns GetMemoryDetailMemory.VectorIndexEnabled, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetVectorIndexEnabled() bool { return v.VectorIndexEnabled }
+
+// GetMaxRevCount returns GetMemoryDetailMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetListedOnMarketplace returns GetMemoryDetailMemory.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetListedOnMarketplace() bool { return v.ListedOnMarketplace }
+
+// GetSchema returns GetMemoryDetailMemory.Schema, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetSchema() *json.RawMessage { return v.Schema }
+
+// GetCreatedAt returns GetMemoryDetailMemory.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns GetMemoryDetailMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetMemoryDetailResponse is returned by GetMemoryDetail on success.
+type GetMemoryDetailResponse struct {
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Memory *GetMemoryDetailMemory `json:"memory"`
+}
+
+// GetMemory returns GetMemoryDetailResponse.Memory, and is useful for accessing the field via an interface.
+func (v *GetMemoryDetailResponse) GetMemory() *GetMemoryDetailMemory { return v.Memory }
+
 // GetMemoryMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -62986,6 +63111,14 @@ type __GetInvitationInput struct {
 // GetSlug returns __GetInvitationInput.Slug, and is useful for accessing the field via an interface.
 func (v *__GetInvitationInput) GetSlug() string { return v.Slug }
 
+// __GetMemoryDetailInput is used internally by genqlient
+type __GetMemoryDetailInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetMemoryDetailInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetMemoryDetailInput) GetRef() string { return v.Ref }
+
 // __GetMemoryInput is used internally by genqlient
 type __GetMemoryInput struct {
 	Ref string `json:"ref"`
@@ -74757,6 +74890,64 @@ func GetMemory(
 	}
 
 	data_ = &GetMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetMemoryDetail.
+const GetMemoryDetail_Operation = `
+query GetMemoryDetail ($ref: ID!) {
+	memory(ref: $ref) {
+		id
+		urn
+		name
+		shortDescription
+		description
+		class
+		visibility
+		organizationId
+		isEncrypted
+		tags
+		source
+		syncStatus
+		lastSyncedAt
+		syncError
+		lastSyncReport
+		vectorIndexEnabled
+		maxRevCount
+		listedOnMarketplace
+		schema
+		createdAt
+		updatedAt
+	}
+}
+`
+
+// GetMemoryDetail is `memory get`'s read: GetMemory plus the sync outcome
+// (hadron-cli#1014, provider hadron-server#2366). Kept apart from the shared
+// GetMemory, which a dozen commands resolve through, so a server that predates
+// lastSyncReport fails only `memory get`, not every memory-ref lookup.
+func GetMemoryDetail(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetMemoryDetailResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetMemoryDetail",
+		Query:  GetMemoryDetail_Operation,
+		Variables: &__GetMemoryDetailInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetMemoryDetailResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
