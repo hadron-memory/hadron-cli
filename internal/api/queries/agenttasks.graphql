@@ -278,6 +278,11 @@ query TeamRoster($appRef: ID!) {
       bound
       liveSession
       family
+      # Self-reported model and the server-derived coarse tier (hadron-server
+      # #2252 slice A/C). Advisory display only; never authorization.
+      model
+      modelReportedAt
+      tier
       freeForWork
       freeFamilies
       launchableFamilies

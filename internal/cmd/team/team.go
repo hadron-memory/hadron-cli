@@ -283,11 +283,16 @@ type workerRosterDTO struct {
 	HeldAt         *string `json:"heldAt,omitempty"`
 	HasLiveSession *bool   `json:"hasLiveSession"`
 	LastActiveAt   *string `json:"lastActiveAt"`
-	RetiredAt      *string `json:"retiredAt"`
-	RetiredBy      *string `json:"retiredBy"`
-	CreatedAt      string  `json:"createdAt"`
-	CreatedBy      *string `json:"createdBy"`
-	Retired        bool    `json:"retired"`
+	// hadron-cli#993: self-reported model and the server-derived advisory
+	// tier, as the server sends them (null stays null).
+	Model           *string `json:"model"`
+	ModelReportedAt *string `json:"modelReportedAt"`
+	Tier            *string `json:"tier"`
+	RetiredAt       *string `json:"retiredAt"`
+	RetiredBy       *string `json:"retiredBy"`
+	CreatedAt       string  `json:"createdAt"`
+	CreatedBy       *string `json:"createdBy"`
+	Retired         bool    `json:"retired"`
 }
 
 func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
@@ -300,7 +305,8 @@ func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
 		HeldAt:         w.HeldAt,
 		HasLiveSession: w.HasLiveSession,
 		LastActiveAt:   w.LastActiveAt,
-		RetiredAt:      w.RetiredAt, RetiredBy: w.RetiredBy,
+		Model:          w.Model, ModelReportedAt: w.ModelReportedAt, Tier: w.Tier,
+		RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
 		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
 		Retired: w.RetiredAt != nil,
 	}
