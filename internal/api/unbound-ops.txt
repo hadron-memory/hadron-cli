@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 59 unbound
+[Query] 65 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -20,6 +20,7 @@ chatHistory
 connectionGrant
 dashboardWidgetData
 dashboardWidgetPresets
+dashboardWidgetPresetsPage
 dashboardWidgets
 decision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 decisionLog  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
@@ -28,6 +29,7 @@ dueWakes  # wake-surface v2; cli#828 tracks the paged attention surface, wake re
 edge
 edges
 effectiveActionPolicy
+exchangeConnectionsPage
 exchangeFolders
 exchangeMessages
 globalSearch
@@ -45,6 +47,7 @@ myAgentSubscriptions
 myApp
 myChats
 myPasskeys  # S1 schema refresh for cli#994; separate CLI parity, not part of the clone cut
+nodeRevisionsPage
 nodeUsage  # deprecated by server #986 — never wrap it; usageEvents(loc:) is the migration target
 previewAutomation  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 principalGrant
@@ -57,11 +60,14 @@ resendSender
 resendSenders
 resolveAIConfig
 secret
+sessionsPage
 slackConnection
 slackConnections
 teamSpecSchema  # cli#811 team-from-JSON consumer, outside cli#807 comments/search
 teamStopSignals  # cli#911 stop slice remains separately gated
+tickersPage
 usageActivity
+usageEventsPage
 verifyDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it

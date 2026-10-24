@@ -225,6 +225,9 @@ type rosterEntryDTO struct {
 	Bound               bool             `json:"bound"`
 	LiveSession         bool             `json:"liveSession"`
 	Family              *string          `json:"family"`
+	Model               *string          `json:"model"`
+	ModelReportedAt     *string          `json:"modelReportedAt"`
+	Tier                *string          `json:"tier"`
 	FreeForWork         bool             `json:"freeForWork"`
 	FreeFamilies        []string         `json:"freeFamilies"`
 	LaunchableFamilies  []string         `json:"launchableFamilies"`

@@ -38,6 +38,13 @@ NO_SESSION, PENDING (with its reason), OK or OVERDUE. A dash means the
 server did not make the result available. This experiment adds no overdue
 alarm, and the CLI does not calculate the status from local time or tasks.
 
+MODEL is what the worker's newest open binding SELF-REPORTED and TIER is the
+server's coarse high/mid/low mapping of it (a dash: unbound, unreported or
+unmapped). Both are advisory display, like FAMILY — never authorization and
+never inferred here. The "free for work by tier" line tallies the rows the
+server marked freeForWork (not state AVAILABLE) by that tier; a null or
+unrecognised tier counts as unknown. Needs a server that serves these fields.
+
 Read it with lastActiveAt: nothing clears a reportsTo claim automatically,
 and a state is a fact about now, not a judgement.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -87,6 +94,9 @@ and a state is a fact about now, not a judgement.`,
 					Bound:               w.Bound,
 					LiveSession:         w.LiveSession,
 					Family:              w.Family,
+					Model:               w.Model,
+					ModelReportedAt:     w.ModelReportedAt,
+					Tier:                w.Tier,
 					FreeForWork:         w.FreeForWork,
 					FreeFamilies:        strListOrEmpty(w.FreeFamilies),
 					LaunchableFamilies:  strListOrEmpty(w.LaunchableFamilies),
@@ -111,7 +121,7 @@ and a state is a fact about now, not a judgement.`,
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 					return err
 				}
-				t := output.NewTable(w, "WORKER", "STATE", "CHECK", "ROLE", "FAMILY", "LIVE", "TASKS", "ALARMS")
+				t := output.NewTable(w, "WORKER", "STATE", "CHECK", "ROLE", "FAMILY", "MODEL", "TIER", "LIVE", "TASKS", "ALARMS")
 				for _, e := range dto.Workers {
 					name := e.Worker.ID
 					if e.Worker.Name != nil {
@@ -126,9 +136,12 @@ and a state is a fact about now, not a judgement.`,
 					}
 					tasks := fmt.Sprintf("P%d S%d", len(e.PendingTasks), len(e.StartedTasks))
 					alarms := fmt.Sprintf("%d", len(e.Alarms))
-					t.Row(name, e.State, channelCheckLabel(e.CheckStatus), strOr(e.Role), family, live, tasks, alarms)
+					t.Row(name, e.State, channelCheckLabel(e.CheckStatus), strOr(e.Role), family, strOr(e.Model), strOr(e.Tier), live, tasks, alarms)
 				}
 				if err := t.Flush(); err != nil {
+					return err
+				}
+				if _, err := fmt.Fprintln(w, capacityLine(dto.Workers)); err != nil {
 					return err
 				}
 				_, err := fmt.Fprintf(w, "as of %s — states are plan-derived (design:agent-tasks §7.4), not a spec\n", dto.AsOf)
@@ -137,4 +150,30 @@ and a state is a fact about now, not a judgement.`,
 		},
 	}
 	return cmd
+}
+
+// capacityLine tallies the roster rows the SERVER marked freeForWork, grouped
+// by the server's tier (hadron-cli#993). It counts rendered rows only: it does
+// not derive availability (state is not consulted — a worker can be AVAILABLE
+// and still not free) and it does not infer a tier. Anything that is not
+// exactly high, mid or low — a null, or a tier a newer server adds — lands in
+// "unknown" rather than being folded into a real bucket.
+func capacityLine(workers []rosterEntryDTO) string {
+	var high, mid, low, unknown int
+	for _, e := range workers {
+		if !e.FreeForWork {
+			continue
+		}
+		switch {
+		case e.Tier != nil && *e.Tier == "high":
+			high++
+		case e.Tier != nil && *e.Tier == "mid":
+			mid++
+		case e.Tier != nil && *e.Tier == "low":
+			low++
+		default:
+			unknown++
+		}
+	}
+	return fmt.Sprintf("free for work by tier: high %d · mid %d · low %d · unknown %d (model is self-reported and tier is advisory, never authorization)", high, mid, low, unknown)
 }
