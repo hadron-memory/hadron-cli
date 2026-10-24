@@ -9,6 +9,8 @@ package team
 import (
 	"fmt"
 	"io"
+	"strconv"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -44,6 +46,12 @@ unmapped). Both are advisory display, like FAMILY — never authorization and
 never inferred here. The "free for work by tier" line tallies the rows the
 server marked freeForWork (not state AVAILABLE) by that tier; a null or
 unrecognised tier counts as unknown. Needs a server that serves these fields.
+
+HELD BY / SINCE show who holds the worker's name and since when (heldBy /
+heldAt; in --json heldBy is {id, handle, urn, name} or null). The server
+withholds the holder's name from readers it does not trust with it: a
+withheld name arrives as null, exactly like an unset one, and the CLI renders
+it the same way (the handle) without masking or filling anything itself.
 
 Read it with lastActiveAt: nothing clears a reportsTo claim automatically,
 and a state is a fact about now, not a judgement.`,
@@ -113,6 +121,8 @@ and a state is a fact about now, not a judgement.`,
 					Alarms:              strListOrEmpty(w.Alarms),
 					ReportsTo:           partyDTO(w.ReportsTo),
 					ReportsToRetired:    w.ReportsToRetired,
+					HeldBy:              rosterHolder(w.HeldBy),
+					HeldAt:              w.HeldAt,
 				})
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -121,7 +131,7 @@ and a state is a fact about now, not a judgement.`,
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 					return err
 				}
-				t := output.NewTable(w, "WORKER", "STATE", "CHECK", "ROLE", "FAMILY", "MODEL", "TIER", "LIVE", "TASKS", "ALARMS")
+				t := output.NewTable(w, "WORKER", "STATE", "CHECK", "ROLE", "FAMILY", "MODEL", "TIER", "LIVE", "TASKS", "ALARMS", "HELD BY", "SINCE")
 				for _, e := range dto.Workers {
 					name := e.Worker.ID
 					if e.Worker.Name != nil {
@@ -136,7 +146,7 @@ and a state is a fact about now, not a judgement.`,
 					}
 					tasks := fmt.Sprintf("P%d S%d", len(e.PendingTasks), len(e.StartedTasks))
 					alarms := fmt.Sprintf("%d", len(e.Alarms))
-					t.Row(name, e.State, channelCheckLabel(e.CheckStatus), strOr(e.Role), family, strOr(e.Model), strOr(e.Tier), live, tasks, alarms)
+					t.Row(name, e.State, channelCheckLabel(e.CheckStatus), strOr(e.Role), family, strOr(e.Model), strOr(e.Tier), live, tasks, alarms, holderLabel(e.HeldBy), cellSafe(strOr(e.HeldAt)))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -176,4 +186,39 @@ func capacityLine(workers []rosterEntryDTO) string {
 		}
 	}
 	return fmt.Sprintf("free for work by tier: high %d · mid %d · low %d · unknown %d (model is self-reported and tier is advisory, never authorization)", high, mid, low, unknown)
+}
+
+// holderLabel names the holder: the name when the server sent one, else the
+// handle. A withheld name and an unset one both arrive as null and so render
+// identically (cli#1032) — no local masking, no local fill.
+func holderLabel(h *rosterHolderDTO) string {
+	if h == nil {
+		return "—"
+	}
+	if h.Name != nil && *h.Name != "" {
+		return cellSafe(*h.Name)
+	}
+	if h.Handle != nil && *h.Handle != "" {
+		return cellSafe("@" + *h.Handle)
+	}
+	return "—"
+}
+
+// cellSafe quotes a server-supplied string that carries control characters
+// (newline, tab, ESC…) so it cannot split a table row or reach the terminal as
+// an escape sequence (#1047). Text only: --json keeps the source value.
+func cellSafe(s string) string {
+	for _, r := range s {
+		if unicode.IsControl(r) {
+			return strconv.Quote(s)
+		}
+	}
+	return s
+}
+
+func rosterHolder(h *gen.TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder) *rosterHolderDTO {
+	if h == nil {
+		return nil
+	}
+	return &rosterHolderDTO{ID: h.Id, Handle: h.Handle, URN: h.Urn, Name: h.Name}
 }

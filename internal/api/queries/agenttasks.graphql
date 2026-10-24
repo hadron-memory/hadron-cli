@@ -302,6 +302,13 @@ query TeamRoster($appRef: ID!) {
         ...AgentTaskPartyFields
       }
       reportsToRetired
+      heldBy {
+        id
+        handle
+        urn
+        name
+      }
+      heldAt
     }
   }
 }

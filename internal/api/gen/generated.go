@@ -48476,6 +48476,12 @@ type TeamRosterTeamRosterWorkersTeamRosterEntry struct {
 	ReportsTo *TeamRosterTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty `json:"reportsTo"`
 	// #1726 — it reports to a worker that has since retired (retirement leaves the claim; the roster flags it).
 	ReportsToRetired bool `json:"reportsToRetired"`
+	// #2223 — the person holding this worker's name (hrn:node:hadronmemory.com:specs:cor:agt:020:09), or null:
+	// nobody holds it, the holder is deleted, or the reader fails the worker working-state gate (the same gate
+	// as Worker.heldByUserId, which is narrower than the roster's audience).
+	HeldBy *TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder `json:"heldBy"`
+	// When the current hold was taken. Null exactly when heldBy is; masked the same way.
+	HeldAt *string `json:"heldAt"`
 }
 
 // GetWorker returns TeamRosterTeamRosterWorkersTeamRosterEntry.Worker, and is useful for accessing the field via an interface.
@@ -48584,6 +48590,14 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetReportsToRetired() bool 
 	return v.ReportsToRetired
 }
 
+// GetHeldBy returns TeamRosterTeamRosterWorkersTeamRosterEntry.HeldBy, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetHeldBy() *TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder {
+	return v.HeldBy
+}
+
+// GetHeldAt returns TeamRosterTeamRosterWorkersTeamRosterEntry.HeldAt, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetHeldAt() *string { return v.HeldAt }
+
 // TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus includes the requested fields of the GraphQL type WorkerCheckStatus.
 // The GraphQL type's documentation follows.
 //
@@ -48658,6 +48672,38 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus)
 	retval.PendingReason = v.ChannelCheckFields.PendingReason
 	retval.LastCheckedAt = v.ChannelCheckFields.LastCheckedAt
 	return &retval, nil
+}
+
+// TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder includes the requested fields of the GraphQL type WorkerHolder.
+// The GraphQL type's documentation follows.
+//
+// #2223 — a sanitized identity for the person holding a worker's name. A closed projection, never User:
+// User's default-resolved tail (policy, identityProvider, externalId, githubId, roles, maxReferrals) must
+// not come along (hrn:node:hadronmemory.com:specs:cor:acl:110:01). The same four fields as ReleasedFromUser.
+type TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	// Canonical hrn:user:<handle> URN (hrn:node:hadronmemory.com:specs:cor:urn:010:01). Null for a handle-less user.
+	Urn *string `json:"urn"`
+	// Behind the #384 gate, as User.name: the holder, a platform admin, or a co-member of one of their orgs.
+	// Null both when withheld and when unset, so a masked name cannot be told from an unnamed user.
+	Name *string `json:"name"`
+}
+
+// GetId returns TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder.Id, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder) GetId() string { return v.Id }
+
+// GetHandle returns TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder.Handle, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder) GetHandle() *string {
+	return v.Handle
+}
+
+// GetUrn returns TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder.Urn, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder) GetUrn() *string { return v.Urn }
+
+// GetName returns TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder.Name, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder) GetName() *string {
+	return v.Name
 }
 
 // TeamRosterTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
@@ -82747,6 +82793,13 @@ query TeamRoster ($appRef: ID!) {
 				... AgentTaskPartyFields
 			}
 			reportsToRetired
+			heldBy {
+				id
+				handle
+				urn
+				name
+			}
+			heldAt
 		}
 	}
 }
