@@ -40,9 +40,11 @@ Verified direct relationships require a readable same-memory source whose citati
 parent is this node. Unequal editorial labels are not defects. No history,
 heuristic, lint finding, edge rewrite or mutation is performed.
 
-Unavailable rows are not verified direct relationships: an edge with a concealed
-source is an unclassified candidate (child fields null); a listed parent that
-cannot be batch-read has a marker with edgeId/label/child fields null. Empty and
+A visible same-memory direct citation source establishes the relationship even when its current name cannot be read; in that case unavailable describes the current name.
+Every incoming edge satisfying that source condition is inventoried, regardless of its editorial label; no special edge kind is selected.
+
+An edge with a concealed source is an unclassified candidate (child fields null);
+a listed parent that cannot be batch-read has a marker with edgeId/label/child fields null. Empty and
 null labels/names remain distinct. No hidden endpoint lookup is attempted.
 Transport/protocol failures fail the command, without printing a partial report.
 The report describes caller-visible data only, not complete hidden corpus coverage.

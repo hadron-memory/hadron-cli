@@ -3380,8 +3380,10 @@ nextNode read. No ordinary get/list behaviour changes.
 `hadron spec label-report [-m MEMORY] [--prefix CITATION] [--json]` is a read-only
 inventory, not lint. JSON is `{memoryRef,prefix,items:[]}` with
 `{parentId,parentLoc,edgeId,label,childId,childLoc,childName,status}` items.
-Only `available` rows are verified available direct same-memory citation-parent
-relationships; differing editorial labels are not defects. `unavailable` with
+`available` rows carry a current readable child name; differing editorial labels
+are not defects.
+A visible same-memory direct citation source establishes the relationship even when its current name cannot be read; in that case unavailable describes the current name.
+Every incoming edge satisfying that source condition is inventoried, regardless of its editorial label; no special edge kind is selected. `unavailable` with
 edgeId present and null childId is an unclassified source-unavailable candidate;
 null edgeId is an unavailable-parent marker, not an invented edge. Null labels
 and names remain null. No hidden endpoint/history read, heuristic, rewrite or
