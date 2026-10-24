@@ -458,7 +458,7 @@ func checkExistingBinding(ctx context.Context, f *cmdutil.Factory, existing *bin
 			existing.WorkerName, existing.SessionID, resp.Session.StartedAt, separate)
 	default:
 		// Ended or lapsed: a normal bind can replace the local pointer. The
-		// lapsed row remains open for its own driver to leave a handoff.
+		// bind then supersedes it server-side if it is the caller's own (#894).
 		return resp.Session.EndedAt == nil, nil
 	}
 }
@@ -994,10 +994,13 @@ ends the recovered session: run start again to pick it up.`,
 				case live == liveNo && active != nil:
 					// The ordinary post-#1114 shape, and worth naming rather than
 					// calling a takeover: the name is free, and the open row is
-					// somebody's unfinished stint. Binding here takes nothing from
-					// them and does not end it — their handoff stays theirs to
-					// write, which is exactly what leaving the row open preserves.
-					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is not live; an earlier session is still open (%s) and this bind does not end it\n", w.Name, describeSession(active))
+					// somebody's unfinished stint. Binding takes nothing from another
+					// driver, but the server supersedes the SAME person's other open
+					// sessions on the worker at bind (hadron-server#1617 C, #894).
+					// This response cannot show whether the row is the caller's, and
+					// the bind has not happened yet, so the line names both outcomes
+					// and claims neither as done.
+					fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is not live; an earlier session is open (%s). A successful bind supersedes it if it is your own (it then takes no handoff); another driver's session is left open for them\n", w.Name, describeSession(active))
 				case active != nil:
 					// live == liveUnknown. State the row, claim nothing about it:
 					// "not live" would be a fact the server declined to show us.
@@ -1238,7 +1241,7 @@ func finishBind(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, s
 		fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read worker continuity after bind (%v)\n", api.MapError(continuityErr))
 	}
 	if lapsedBinding {
-		fmt.Fprintf(f.IOStreams.ErrOut, "note: replaced lapsed local binding for session %s; that session remains open for its driver to end with a handoff\n", existing.SessionID)
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: replaced lapsed local binding for session %s; if it was your own session on this worker, the server superseded it with this bind (no handoff possible now), otherwise it stays open for its driver\n", existing.SessionID)
 	}
 	result := struct {
 		Session sessionDTO `json:"session"`

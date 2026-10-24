@@ -1,0 +1,14 @@
+# One explicitly selected organization; no nested Agent/customer/config traversal.
+query OrgAgentGrants($ref: ID!) {
+  organization(ref: $ref) {
+    agentOrgGrants {
+      agentId
+      orgId
+      isActive
+      createdAt
+      activatedAt
+      expiresAt
+      revokedAt
+    }
+  }
+}

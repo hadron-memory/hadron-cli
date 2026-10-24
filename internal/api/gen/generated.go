@@ -9037,6 +9037,645 @@ func (v *BeginAssetUploadResponse) GetBeginAssetUploadV2() *BeginAssetUploadBegi
 	return v.BeginAssetUploadV2
 }
 
+// Provider-neutral attendee response. NONE = invited, not yet answered.
+type CalendarEventResponse string
+
+const (
+	CalendarEventResponseAccepted  CalendarEventResponse = "ACCEPTED"
+	CalendarEventResponseDeclined  CalendarEventResponse = "DECLINED"
+	CalendarEventResponseNone      CalendarEventResponse = "NONE"
+	CalendarEventResponseTentative CalendarEventResponse = "TENTATIVE"
+)
+
+var AllCalendarEventResponse = []CalendarEventResponse{
+	CalendarEventResponseAccepted,
+	CalendarEventResponseDeclined,
+	CalendarEventResponseNone,
+	CalendarEventResponseTentative,
+}
+
+// CalendarEventsCalendarEventsCalendarEvent includes the requested fields of the GraphQL type CalendarEvent.
+type CalendarEventsCalendarEventsCalendarEvent struct {
+	CalendarReadEvent `json:"-"`
+}
+
+// GetId returns CalendarEventsCalendarEventsCalendarEvent.Id, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetId() string { return v.CalendarReadEvent.Id }
+
+// GetCalendarId returns CalendarEventsCalendarEventsCalendarEvent.CalendarId, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetCalendarId() string {
+	return v.CalendarReadEvent.CalendarId
+}
+
+// GetTitle returns CalendarEventsCalendarEventsCalendarEvent.Title, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetTitle() *string {
+	return v.CalendarReadEvent.Title
+}
+
+// GetDescription returns CalendarEventsCalendarEventsCalendarEvent.Description, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetDescription() *string {
+	return v.CalendarReadEvent.Description
+}
+
+// GetLocation returns CalendarEventsCalendarEventsCalendarEvent.Location, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetLocation() *string {
+	return v.CalendarReadEvent.Location
+}
+
+// GetStart returns CalendarEventsCalendarEventsCalendarEvent.Start, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetStart() *CalendarReadEventStartCalendarEventTime {
+	return v.CalendarReadEvent.Start
+}
+
+// GetEnd returns CalendarEventsCalendarEventsCalendarEvent.End, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetEnd() *CalendarReadEventEndCalendarEventTime {
+	return v.CalendarReadEvent.End
+}
+
+// GetIsAllDay returns CalendarEventsCalendarEventsCalendarEvent.IsAllDay, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetIsAllDay() bool {
+	return v.CalendarReadEvent.IsAllDay
+}
+
+// GetStatus returns CalendarEventsCalendarEventsCalendarEvent.Status, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetStatus() string {
+	return v.CalendarReadEvent.Status
+}
+
+// GetOrganizer returns CalendarEventsCalendarEventsCalendarEvent.Organizer, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetOrganizer() *CalendarReadEventOrganizerCalendarPerson {
+	return v.CalendarReadEvent.Organizer
+}
+
+// GetAttendees returns CalendarEventsCalendarEventsCalendarEvent.Attendees, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetAttendees() []*CalendarReadEventAttendeesCalendarAttendee {
+	return v.CalendarReadEvent.Attendees
+}
+
+// GetWebLink returns CalendarEventsCalendarEventsCalendarEvent.WebLink, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetWebLink() *string {
+	return v.CalendarReadEvent.WebLink
+}
+
+// GetSeriesId returns CalendarEventsCalendarEventsCalendarEvent.SeriesId, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetSeriesId() *string {
+	return v.CalendarReadEvent.SeriesId
+}
+
+// GetIsOrganizer returns CalendarEventsCalendarEventsCalendarEvent.IsOrganizer, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetIsOrganizer() bool {
+	return v.CalendarReadEvent.IsOrganizer
+}
+
+// GetMyResponse returns CalendarEventsCalendarEventsCalendarEvent.MyResponse, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetMyResponse() *CalendarEventResponse {
+	return v.CalendarReadEvent.MyResponse
+}
+
+// GetCreatedAt returns CalendarEventsCalendarEventsCalendarEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetCreatedAt() *string {
+	return v.CalendarReadEvent.CreatedAt
+}
+
+// GetUpdatedAt returns CalendarEventsCalendarEventsCalendarEvent.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarEventsCalendarEventsCalendarEvent) GetUpdatedAt() *string {
+	return v.CalendarReadEvent.UpdatedAt
+}
+
+func (v *CalendarEventsCalendarEventsCalendarEvent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CalendarEventsCalendarEventsCalendarEvent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CalendarEventsCalendarEventsCalendarEvent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CalendarReadEvent)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCalendarEventsCalendarEventsCalendarEvent struct {
+	Id string `json:"id"`
+
+	CalendarId string `json:"calendarId"`
+
+	Title *string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Location *string `json:"location"`
+
+	Start *CalendarReadEventStartCalendarEventTime `json:"start"`
+
+	End *CalendarReadEventEndCalendarEventTime `json:"end"`
+
+	IsAllDay bool `json:"isAllDay"`
+
+	Status string `json:"status"`
+
+	Organizer *CalendarReadEventOrganizerCalendarPerson `json:"organizer"`
+
+	Attendees []*CalendarReadEventAttendeesCalendarAttendee `json:"attendees"`
+
+	WebLink *string `json:"webLink"`
+
+	SeriesId *string `json:"seriesId"`
+
+	IsOrganizer bool `json:"isOrganizer"`
+
+	MyResponse *CalendarEventResponse `json:"myResponse"`
+
+	CreatedAt *string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *CalendarEventsCalendarEventsCalendarEvent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CalendarEventsCalendarEventsCalendarEvent) __premarshalJSON() (*__premarshalCalendarEventsCalendarEventsCalendarEvent, error) {
+	var retval __premarshalCalendarEventsCalendarEventsCalendarEvent
+
+	retval.Id = v.CalendarReadEvent.Id
+	retval.CalendarId = v.CalendarReadEvent.CalendarId
+	retval.Title = v.CalendarReadEvent.Title
+	retval.Description = v.CalendarReadEvent.Description
+	retval.Location = v.CalendarReadEvent.Location
+	retval.Start = v.CalendarReadEvent.Start
+	retval.End = v.CalendarReadEvent.End
+	retval.IsAllDay = v.CalendarReadEvent.IsAllDay
+	retval.Status = v.CalendarReadEvent.Status
+	retval.Organizer = v.CalendarReadEvent.Organizer
+	retval.Attendees = v.CalendarReadEvent.Attendees
+	retval.WebLink = v.CalendarReadEvent.WebLink
+	retval.SeriesId = v.CalendarReadEvent.SeriesId
+	retval.IsOrganizer = v.CalendarReadEvent.IsOrganizer
+	retval.MyResponse = v.CalendarReadEvent.MyResponse
+	retval.CreatedAt = v.CalendarReadEvent.CreatedAt
+	retval.UpdatedAt = v.CalendarReadEvent.UpdatedAt
+	return &retval, nil
+}
+
+// CalendarEventsResponse is returned by CalendarEvents on success.
+type CalendarEventsResponse struct {
+	// Events in a time window (recurring events expand to instances, ordered
+	// chronologically). start/end are RFC 3339; calendarId defaults to the
+	// account's primary calendar. Grant scope: calendar.read.
+	CalendarEvents []*CalendarEventsCalendarEventsCalendarEvent `json:"calendarEvents"`
+}
+
+// GetCalendarEvents returns CalendarEventsResponse.CalendarEvents, and is useful for accessing the field via an interface.
+func (v *CalendarEventsResponse) GetCalendarEvents() []*CalendarEventsCalendarEventsCalendarEvent {
+	return v.CalendarEvents
+}
+
+// CalendarFreeBusyCalendarScheduleScheduleFreeBusy includes the requested fields of the GraphQL type ScheduleFreeBusy.
+// The GraphQL type's documentation follows.
+//
+// Free/busy intervals for one requested schedule (calendarSchedule).
+type CalendarFreeBusyCalendarScheduleScheduleFreeBusy struct {
+	Id string `json:"id"`
+	// Set when the provider could not resolve this schedule; the query still succeeds for the others.
+	Error *string                                                                     `json:"error"`
+	Busy  []*CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval `json:"busy"`
+}
+
+// GetId returns CalendarFreeBusyCalendarScheduleScheduleFreeBusy.Id, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyCalendarScheduleScheduleFreeBusy) GetId() string { return v.Id }
+
+// GetError returns CalendarFreeBusyCalendarScheduleScheduleFreeBusy.Error, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyCalendarScheduleScheduleFreeBusy) GetError() *string { return v.Error }
+
+// GetBusy returns CalendarFreeBusyCalendarScheduleScheduleFreeBusy.Busy, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyCalendarScheduleScheduleFreeBusy) GetBusy() []*CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval {
+	return v.Busy
+}
+
+// CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval includes the requested fields of the GraphQL type ScheduleBusyInterval.
+type CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+// GetStart returns CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval.Start, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval) GetStart() string {
+	return v.Start
+}
+
+// GetEnd returns CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval.End, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyCalendarScheduleScheduleFreeBusyBusyScheduleBusyInterval) GetEnd() string {
+	return v.End
+}
+
+// CalendarFreeBusyResponse is returned by CalendarFreeBusy on success.
+type CalendarFreeBusyResponse struct {
+	// Free/busy intervals for one or more schedules (calendar ids or addresses
+	// the account can read; defaults to the account's primary calendar).
+	// Structurally capped at yes/no busy windows — never event contents.
+	// Grant scope: calendar.freebusy.
+	CalendarSchedule []*CalendarFreeBusyCalendarScheduleScheduleFreeBusy `json:"calendarSchedule"`
+}
+
+// GetCalendarSchedule returns CalendarFreeBusyResponse.CalendarSchedule, and is useful for accessing the field via an interface.
+func (v *CalendarFreeBusyResponse) GetCalendarSchedule() []*CalendarFreeBusyCalendarScheduleScheduleFreeBusy {
+	return v.CalendarSchedule
+}
+
+// CalendarGetEventCalendarEvent includes the requested fields of the GraphQL type CalendarEvent.
+type CalendarGetEventCalendarEvent struct {
+	CalendarReadEvent `json:"-"`
+}
+
+// GetId returns CalendarGetEventCalendarEvent.Id, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetId() string { return v.CalendarReadEvent.Id }
+
+// GetCalendarId returns CalendarGetEventCalendarEvent.CalendarId, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetCalendarId() string { return v.CalendarReadEvent.CalendarId }
+
+// GetTitle returns CalendarGetEventCalendarEvent.Title, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetTitle() *string { return v.CalendarReadEvent.Title }
+
+// GetDescription returns CalendarGetEventCalendarEvent.Description, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetDescription() *string {
+	return v.CalendarReadEvent.Description
+}
+
+// GetLocation returns CalendarGetEventCalendarEvent.Location, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetLocation() *string { return v.CalendarReadEvent.Location }
+
+// GetStart returns CalendarGetEventCalendarEvent.Start, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetStart() *CalendarReadEventStartCalendarEventTime {
+	return v.CalendarReadEvent.Start
+}
+
+// GetEnd returns CalendarGetEventCalendarEvent.End, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetEnd() *CalendarReadEventEndCalendarEventTime {
+	return v.CalendarReadEvent.End
+}
+
+// GetIsAllDay returns CalendarGetEventCalendarEvent.IsAllDay, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetIsAllDay() bool { return v.CalendarReadEvent.IsAllDay }
+
+// GetStatus returns CalendarGetEventCalendarEvent.Status, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetStatus() string { return v.CalendarReadEvent.Status }
+
+// GetOrganizer returns CalendarGetEventCalendarEvent.Organizer, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetOrganizer() *CalendarReadEventOrganizerCalendarPerson {
+	return v.CalendarReadEvent.Organizer
+}
+
+// GetAttendees returns CalendarGetEventCalendarEvent.Attendees, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetAttendees() []*CalendarReadEventAttendeesCalendarAttendee {
+	return v.CalendarReadEvent.Attendees
+}
+
+// GetWebLink returns CalendarGetEventCalendarEvent.WebLink, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetWebLink() *string { return v.CalendarReadEvent.WebLink }
+
+// GetSeriesId returns CalendarGetEventCalendarEvent.SeriesId, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetSeriesId() *string { return v.CalendarReadEvent.SeriesId }
+
+// GetIsOrganizer returns CalendarGetEventCalendarEvent.IsOrganizer, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetIsOrganizer() bool { return v.CalendarReadEvent.IsOrganizer }
+
+// GetMyResponse returns CalendarGetEventCalendarEvent.MyResponse, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetMyResponse() *CalendarEventResponse {
+	return v.CalendarReadEvent.MyResponse
+}
+
+// GetCreatedAt returns CalendarGetEventCalendarEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetCreatedAt() *string { return v.CalendarReadEvent.CreatedAt }
+
+// GetUpdatedAt returns CalendarGetEventCalendarEvent.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventCalendarEvent) GetUpdatedAt() *string { return v.CalendarReadEvent.UpdatedAt }
+
+func (v *CalendarGetEventCalendarEvent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CalendarGetEventCalendarEvent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CalendarGetEventCalendarEvent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CalendarReadEvent)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCalendarGetEventCalendarEvent struct {
+	Id string `json:"id"`
+
+	CalendarId string `json:"calendarId"`
+
+	Title *string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Location *string `json:"location"`
+
+	Start *CalendarReadEventStartCalendarEventTime `json:"start"`
+
+	End *CalendarReadEventEndCalendarEventTime `json:"end"`
+
+	IsAllDay bool `json:"isAllDay"`
+
+	Status string `json:"status"`
+
+	Organizer *CalendarReadEventOrganizerCalendarPerson `json:"organizer"`
+
+	Attendees []*CalendarReadEventAttendeesCalendarAttendee `json:"attendees"`
+
+	WebLink *string `json:"webLink"`
+
+	SeriesId *string `json:"seriesId"`
+
+	IsOrganizer bool `json:"isOrganizer"`
+
+	MyResponse *CalendarEventResponse `json:"myResponse"`
+
+	CreatedAt *string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *CalendarGetEventCalendarEvent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CalendarGetEventCalendarEvent) __premarshalJSON() (*__premarshalCalendarGetEventCalendarEvent, error) {
+	var retval __premarshalCalendarGetEventCalendarEvent
+
+	retval.Id = v.CalendarReadEvent.Id
+	retval.CalendarId = v.CalendarReadEvent.CalendarId
+	retval.Title = v.CalendarReadEvent.Title
+	retval.Description = v.CalendarReadEvent.Description
+	retval.Location = v.CalendarReadEvent.Location
+	retval.Start = v.CalendarReadEvent.Start
+	retval.End = v.CalendarReadEvent.End
+	retval.IsAllDay = v.CalendarReadEvent.IsAllDay
+	retval.Status = v.CalendarReadEvent.Status
+	retval.Organizer = v.CalendarReadEvent.Organizer
+	retval.Attendees = v.CalendarReadEvent.Attendees
+	retval.WebLink = v.CalendarReadEvent.WebLink
+	retval.SeriesId = v.CalendarReadEvent.SeriesId
+	retval.IsOrganizer = v.CalendarReadEvent.IsOrganizer
+	retval.MyResponse = v.CalendarReadEvent.MyResponse
+	retval.CreatedAt = v.CalendarReadEvent.CreatedAt
+	retval.UpdatedAt = v.CalendarReadEvent.UpdatedAt
+	return &retval, nil
+}
+
+// CalendarGetEventResponse is returned by CalendarGetEvent on success.
+type CalendarGetEventResponse struct {
+	// One event by id. Grant scope: calendar.read.
+	CalendarEvent *CalendarGetEventCalendarEvent `json:"calendarEvent"`
+}
+
+// GetCalendarEvent returns CalendarGetEventResponse.CalendarEvent, and is useful for accessing the field via an interface.
+func (v *CalendarGetEventResponse) GetCalendarEvent() *CalendarGetEventCalendarEvent {
+	return v.CalendarEvent
+}
+
+// CalendarListCalendarsCalendarInfo includes the requested fields of the GraphQL type CalendarInfo.
+// The GraphQL type's documentation follows.
+//
+// One calendar the connected account can see.
+type CalendarListCalendarsCalendarInfo struct {
+	Id          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	TimeZone    *string `json:"timeZone"`
+	// True for the account's primary calendar (the default calendarId).
+	IsPrimary bool `json:"isPrimary"`
+	// True when the connected account may create/modify events here.
+	CanEdit bool `json:"canEdit"`
+}
+
+// GetId returns CalendarListCalendarsCalendarInfo.Id, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetId() string { return v.Id }
+
+// GetName returns CalendarListCalendarsCalendarInfo.Name, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetName() string { return v.Name }
+
+// GetDescription returns CalendarListCalendarsCalendarInfo.Description, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetDescription() *string { return v.Description }
+
+// GetTimeZone returns CalendarListCalendarsCalendarInfo.TimeZone, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetTimeZone() *string { return v.TimeZone }
+
+// GetIsPrimary returns CalendarListCalendarsCalendarInfo.IsPrimary, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetIsPrimary() bool { return v.IsPrimary }
+
+// GetCanEdit returns CalendarListCalendarsCalendarInfo.CanEdit, and is useful for accessing the field via an interface.
+func (v *CalendarListCalendarsCalendarInfo) GetCanEdit() bool { return v.CanEdit }
+
+// CalendarListResponse is returned by CalendarList on success.
+type CalendarListResponse struct {
+	// Calendars the connected account can see. Grant scope: calendar.read.
+	Calendars []*CalendarListCalendarsCalendarInfo `json:"calendars"`
+}
+
+// GetCalendars returns CalendarListResponse.Calendars, and is useful for accessing the field via an interface.
+func (v *CalendarListResponse) GetCalendars() []*CalendarListCalendarsCalendarInfo {
+	return v.Calendars
+}
+
+// CalendarReadEvent includes the GraphQL fields of CalendarEvent requested by the fragment CalendarReadEvent.
+type CalendarReadEvent struct {
+	Id          string                                   `json:"id"`
+	CalendarId  string                                   `json:"calendarId"`
+	Title       *string                                  `json:"title"`
+	Description *string                                  `json:"description"`
+	Location    *string                                  `json:"location"`
+	Start       *CalendarReadEventStartCalendarEventTime `json:"start"`
+	End         *CalendarReadEventEndCalendarEventTime   `json:"end"`
+	IsAllDay    bool                                     `json:"isAllDay"`
+	// confirmed, tentative, or cancelled (provider-neutral vocabulary).
+	Status    string                                        `json:"status"`
+	Organizer *CalendarReadEventOrganizerCalendarPerson     `json:"organizer"`
+	Attendees []*CalendarReadEventAttendeesCalendarAttendee `json:"attendees"`
+	WebLink   *string                                       `json:"webLink"`
+	// Series id when this is an instance of a recurring event.
+	SeriesId *string `json:"seriesId"`
+	// True when the connected account organized the event.
+	IsOrganizer bool `json:"isOrganizer"`
+	// The connected account's own response; null when it is not an attendee.
+	MyResponse *CalendarEventResponse `json:"myResponse"`
+	CreatedAt  *string                `json:"createdAt"`
+	UpdatedAt  *string                `json:"updatedAt"`
+}
+
+// GetId returns CalendarReadEvent.Id, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetId() string { return v.Id }
+
+// GetCalendarId returns CalendarReadEvent.CalendarId, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetCalendarId() string { return v.CalendarId }
+
+// GetTitle returns CalendarReadEvent.Title, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetTitle() *string { return v.Title }
+
+// GetDescription returns CalendarReadEvent.Description, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetDescription() *string { return v.Description }
+
+// GetLocation returns CalendarReadEvent.Location, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetLocation() *string { return v.Location }
+
+// GetStart returns CalendarReadEvent.Start, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetStart() *CalendarReadEventStartCalendarEventTime { return v.Start }
+
+// GetEnd returns CalendarReadEvent.End, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetEnd() *CalendarReadEventEndCalendarEventTime { return v.End }
+
+// GetIsAllDay returns CalendarReadEvent.IsAllDay, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetIsAllDay() bool { return v.IsAllDay }
+
+// GetStatus returns CalendarReadEvent.Status, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetStatus() string { return v.Status }
+
+// GetOrganizer returns CalendarReadEvent.Organizer, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetOrganizer() *CalendarReadEventOrganizerCalendarPerson {
+	return v.Organizer
+}
+
+// GetAttendees returns CalendarReadEvent.Attendees, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetAttendees() []*CalendarReadEventAttendeesCalendarAttendee {
+	return v.Attendees
+}
+
+// GetWebLink returns CalendarReadEvent.WebLink, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetWebLink() *string { return v.WebLink }
+
+// GetSeriesId returns CalendarReadEvent.SeriesId, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetSeriesId() *string { return v.SeriesId }
+
+// GetIsOrganizer returns CalendarReadEvent.IsOrganizer, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetIsOrganizer() bool { return v.IsOrganizer }
+
+// GetMyResponse returns CalendarReadEvent.MyResponse, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetMyResponse() *CalendarEventResponse { return v.MyResponse }
+
+// GetCreatedAt returns CalendarReadEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetCreatedAt() *string { return v.CreatedAt }
+
+// GetUpdatedAt returns CalendarReadEvent.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CalendarReadEvent) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// CalendarReadEventAttendeesCalendarAttendee includes the requested fields of the GraphQL type CalendarAttendee.
+type CalendarReadEventAttendeesCalendarAttendee struct {
+	Address  string                `json:"address"`
+	Name     *string               `json:"name"`
+	Optional bool                  `json:"optional"`
+	Response CalendarEventResponse `json:"response"`
+}
+
+// GetAddress returns CalendarReadEventAttendeesCalendarAttendee.Address, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventAttendeesCalendarAttendee) GetAddress() string { return v.Address }
+
+// GetName returns CalendarReadEventAttendeesCalendarAttendee.Name, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventAttendeesCalendarAttendee) GetName() *string { return v.Name }
+
+// GetOptional returns CalendarReadEventAttendeesCalendarAttendee.Optional, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventAttendeesCalendarAttendee) GetOptional() bool { return v.Optional }
+
+// GetResponse returns CalendarReadEventAttendeesCalendarAttendee.Response, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventAttendeesCalendarAttendee) GetResponse() CalendarEventResponse {
+	return v.Response
+}
+
+// CalendarReadEventEndCalendarEventTime includes the requested fields of the GraphQL type CalendarEventTime.
+// The GraphQL type's documentation follows.
+//
+// An event boundary: exactly one of dateTime (timed, with timeZone) or
+// date (YYYY-MM-DD, all-day) is set.
+type CalendarReadEventEndCalendarEventTime struct {
+	// Calendar date for an all-day event, as YYYY-MM-DD. Deliberately String
+	// and NOT DateTime (#205): an all-day event has no instant, and widening it
+	// to a timestamp would force a timezone the provider never supplied.
+	Date *string `json:"date"`
+	// Instant for a timed event. Exactly one of dateTime / date is set.
+	DateTime *string `json:"dateTime"`
+	TimeZone *string `json:"timeZone"`
+}
+
+// GetDate returns CalendarReadEventEndCalendarEventTime.Date, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventEndCalendarEventTime) GetDate() *string { return v.Date }
+
+// GetDateTime returns CalendarReadEventEndCalendarEventTime.DateTime, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventEndCalendarEventTime) GetDateTime() *string { return v.DateTime }
+
+// GetTimeZone returns CalendarReadEventEndCalendarEventTime.TimeZone, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventEndCalendarEventTime) GetTimeZone() *string { return v.TimeZone }
+
+// CalendarReadEventOrganizerCalendarPerson includes the requested fields of the GraphQL type CalendarPerson.
+type CalendarReadEventOrganizerCalendarPerson struct {
+	Address *string `json:"address"`
+	Name    *string `json:"name"`
+}
+
+// GetAddress returns CalendarReadEventOrganizerCalendarPerson.Address, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventOrganizerCalendarPerson) GetAddress() *string { return v.Address }
+
+// GetName returns CalendarReadEventOrganizerCalendarPerson.Name, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventOrganizerCalendarPerson) GetName() *string { return v.Name }
+
+// CalendarReadEventStartCalendarEventTime includes the requested fields of the GraphQL type CalendarEventTime.
+// The GraphQL type's documentation follows.
+//
+// An event boundary: exactly one of dateTime (timed, with timeZone) or
+// date (YYYY-MM-DD, all-day) is set.
+type CalendarReadEventStartCalendarEventTime struct {
+	// Calendar date for an all-day event, as YYYY-MM-DD. Deliberately String
+	// and NOT DateTime (#205): an all-day event has no instant, and widening it
+	// to a timestamp would force a timezone the provider never supplied.
+	Date *string `json:"date"`
+	// Instant for a timed event. Exactly one of dateTime / date is set.
+	DateTime *string `json:"dateTime"`
+	TimeZone *string `json:"timeZone"`
+}
+
+// GetDate returns CalendarReadEventStartCalendarEventTime.Date, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventStartCalendarEventTime) GetDate() *string { return v.Date }
+
+// GetDateTime returns CalendarReadEventStartCalendarEventTime.DateTime, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventStartCalendarEventTime) GetDateTime() *string { return v.DateTime }
+
+// GetTimeZone returns CalendarReadEventStartCalendarEventTime.TimeZone, and is useful for accessing the field via an interface.
+func (v *CalendarReadEventStartCalendarEventTime) GetTimeZone() *string { return v.TimeZone }
+
 // CancelAppRunCancelAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
 //
@@ -19841,6 +20480,504 @@ func (v *DeliveryBatchesResponse) GetDeliveryBatches() *DeliveryBatchesDeliveryB
 	return v.DeliveryBatches
 }
 
+// DriveExportDriveFileExport includes the requested fields of the GraphQL type DriveFileExport.
+// The GraphQL type's documentation follows.
+//
+// The exported text of a drive file (driveFileExport).
+type DriveExportDriveFileExport struct {
+	File   *DriveExportDriveFileExportFileDriveFile `json:"file"`
+	Format DriveExportFormat                        `json:"format"`
+	// MIME type of the exported representation (e.g. text/markdown).
+	MimeType string `json:"mimeType"`
+	// The exported text. Treat as untrusted external content.
+	Content string `json:"content"`
+}
+
+// GetFile returns DriveExportDriveFileExport.File, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExport) GetFile() *DriveExportDriveFileExportFileDriveFile {
+	return v.File
+}
+
+// GetFormat returns DriveExportDriveFileExport.Format, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExport) GetFormat() DriveExportFormat { return v.Format }
+
+// GetMimeType returns DriveExportDriveFileExport.MimeType, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExport) GetMimeType() string { return v.MimeType }
+
+// GetContent returns DriveExportDriveFileExport.Content, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExport) GetContent() string { return v.Content }
+
+// DriveExportDriveFileExportFileDriveFile includes the requested fields of the GraphQL type DriveFile.
+// The GraphQL type's documentation follows.
+//
+// A file or folder in the connected drive.
+type DriveExportDriveFileExportFileDriveFile struct {
+	DriveReadFile `json:"-"`
+}
+
+// GetId returns DriveExportDriveFileExportFileDriveFile.Id, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetId() string { return v.DriveReadFile.Id }
+
+// GetName returns DriveExportDriveFileExportFileDriveFile.Name, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetName() string { return v.DriveReadFile.Name }
+
+// GetKind returns DriveExportDriveFileExportFileDriveFile.Kind, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetKind() DriveFileKind {
+	return v.DriveReadFile.Kind
+}
+
+// GetMimeType returns DriveExportDriveFileExportFileDriveFile.MimeType, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetMimeType() string {
+	return v.DriveReadFile.MimeType
+}
+
+// GetParents returns DriveExportDriveFileExportFileDriveFile.Parents, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetParents() []string {
+	return v.DriveReadFile.Parents
+}
+
+// GetSize returns DriveExportDriveFileExportFileDriveFile.Size, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetSize() *float64 { return v.DriveReadFile.Size }
+
+// GetCreatedAt returns DriveExportDriveFileExportFileDriveFile.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetCreatedAt() *string {
+	return v.DriveReadFile.CreatedAt
+}
+
+// GetModifiedAt returns DriveExportDriveFileExportFileDriveFile.ModifiedAt, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetModifiedAt() *string {
+	return v.DriveReadFile.ModifiedAt
+}
+
+// GetWebLink returns DriveExportDriveFileExportFileDriveFile.WebLink, and is useful for accessing the field via an interface.
+func (v *DriveExportDriveFileExportFileDriveFile) GetWebLink() *string {
+	return v.DriveReadFile.WebLink
+}
+
+func (v *DriveExportDriveFileExportFileDriveFile) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DriveExportDriveFileExportFileDriveFile
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DriveExportDriveFileExportFileDriveFile = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DriveReadFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDriveExportDriveFileExportFileDriveFile struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Kind DriveFileKind `json:"kind"`
+
+	MimeType string `json:"mimeType"`
+
+	Parents []string `json:"parents"`
+
+	Size *float64 `json:"size"`
+
+	CreatedAt *string `json:"createdAt"`
+
+	ModifiedAt *string `json:"modifiedAt"`
+
+	WebLink *string `json:"webLink"`
+}
+
+func (v *DriveExportDriveFileExportFileDriveFile) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DriveExportDriveFileExportFileDriveFile) __premarshalJSON() (*__premarshalDriveExportDriveFileExportFileDriveFile, error) {
+	var retval __premarshalDriveExportDriveFileExportFileDriveFile
+
+	retval.Id = v.DriveReadFile.Id
+	retval.Name = v.DriveReadFile.Name
+	retval.Kind = v.DriveReadFile.Kind
+	retval.MimeType = v.DriveReadFile.MimeType
+	retval.Parents = v.DriveReadFile.Parents
+	retval.Size = v.DriveReadFile.Size
+	retval.CreatedAt = v.DriveReadFile.CreatedAt
+	retval.ModifiedAt = v.DriveReadFile.ModifiedAt
+	retval.WebLink = v.DriveReadFile.WebLink
+	return &retval, nil
+}
+
+// Text representation a drive export can request.
+type DriveExportFormat string
+
+const (
+	DriveExportFormatHtml     DriveExportFormat = "HTML"
+	DriveExportFormatMarkdown DriveExportFormat = "MARKDOWN"
+	DriveExportFormatText     DriveExportFormat = "TEXT"
+)
+
+var AllDriveExportFormat = []DriveExportFormat{
+	DriveExportFormatHtml,
+	DriveExportFormatMarkdown,
+	DriveExportFormatText,
+}
+
+// DriveExportResponse is returned by DriveExport on success.
+type DriveExportResponse struct {
+	// Export a drive file as text: native documents convert (Docs export
+	// natively to MARKDOWN; spreadsheets to TEXT as CSV; presentations to
+	// TEXT), text files return verbatim. Binary files are refused (typed
+	// validation error). Size-capped with a typed file_too_large — never
+	// truncated. Grant scope: drive.read.
+	DriveFileExport *DriveExportDriveFileExport `json:"driveFileExport"`
+}
+
+// GetDriveFileExport returns DriveExportResponse.DriveFileExport, and is useful for accessing the field via an interface.
+func (v *DriveExportResponse) GetDriveFileExport() *DriveExportDriveFileExport {
+	return v.DriveFileExport
+}
+
+// Provider-neutral file kind (native document types vs plain files).
+type DriveFileKind string
+
+const (
+	DriveFileKindDocument     DriveFileKind = "DOCUMENT"
+	DriveFileKindFile         DriveFileKind = "FILE"
+	DriveFileKindFolder       DriveFileKind = "FOLDER"
+	DriveFileKindPresentation DriveFileKind = "PRESENTATION"
+	DriveFileKindSpreadsheet  DriveFileKind = "SPREADSHEET"
+)
+
+var AllDriveFileKind = []DriveFileKind{
+	DriveFileKindDocument,
+	DriveFileKindFile,
+	DriveFileKindFolder,
+	DriveFileKindPresentation,
+	DriveFileKindSpreadsheet,
+}
+
+// DriveGetDriveFile includes the requested fields of the GraphQL type DriveFile.
+// The GraphQL type's documentation follows.
+//
+// A file or folder in the connected drive.
+type DriveGetDriveFile struct {
+	DriveReadFile `json:"-"`
+}
+
+// GetId returns DriveGetDriveFile.Id, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetId() string { return v.DriveReadFile.Id }
+
+// GetName returns DriveGetDriveFile.Name, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetName() string { return v.DriveReadFile.Name }
+
+// GetKind returns DriveGetDriveFile.Kind, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetKind() DriveFileKind { return v.DriveReadFile.Kind }
+
+// GetMimeType returns DriveGetDriveFile.MimeType, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetMimeType() string { return v.DriveReadFile.MimeType }
+
+// GetParents returns DriveGetDriveFile.Parents, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetParents() []string { return v.DriveReadFile.Parents }
+
+// GetSize returns DriveGetDriveFile.Size, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetSize() *float64 { return v.DriveReadFile.Size }
+
+// GetCreatedAt returns DriveGetDriveFile.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetCreatedAt() *string { return v.DriveReadFile.CreatedAt }
+
+// GetModifiedAt returns DriveGetDriveFile.ModifiedAt, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetModifiedAt() *string { return v.DriveReadFile.ModifiedAt }
+
+// GetWebLink returns DriveGetDriveFile.WebLink, and is useful for accessing the field via an interface.
+func (v *DriveGetDriveFile) GetWebLink() *string { return v.DriveReadFile.WebLink }
+
+func (v *DriveGetDriveFile) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DriveGetDriveFile
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DriveGetDriveFile = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DriveReadFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDriveGetDriveFile struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Kind DriveFileKind `json:"kind"`
+
+	MimeType string `json:"mimeType"`
+
+	Parents []string `json:"parents"`
+
+	Size *float64 `json:"size"`
+
+	CreatedAt *string `json:"createdAt"`
+
+	ModifiedAt *string `json:"modifiedAt"`
+
+	WebLink *string `json:"webLink"`
+}
+
+func (v *DriveGetDriveFile) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DriveGetDriveFile) __premarshalJSON() (*__premarshalDriveGetDriveFile, error) {
+	var retval __premarshalDriveGetDriveFile
+
+	retval.Id = v.DriveReadFile.Id
+	retval.Name = v.DriveReadFile.Name
+	retval.Kind = v.DriveReadFile.Kind
+	retval.MimeType = v.DriveReadFile.MimeType
+	retval.Parents = v.DriveReadFile.Parents
+	retval.Size = v.DriveReadFile.Size
+	retval.CreatedAt = v.DriveReadFile.CreatedAt
+	retval.ModifiedAt = v.DriveReadFile.ModifiedAt
+	retval.WebLink = v.DriveReadFile.WebLink
+	return &retval, nil
+}
+
+// DriveGetResponse is returned by DriveGet on success.
+type DriveGetResponse struct {
+	// File metadata by id. Grant scope: drive.read.
+	DriveFile *DriveGetDriveFile `json:"driveFile"`
+}
+
+// GetDriveFile returns DriveGetResponse.DriveFile, and is useful for accessing the field via an interface.
+func (v *DriveGetResponse) GetDriveFile() *DriveGetDriveFile { return v.DriveFile }
+
+// DriveListDriveFilesDriveFilePage includes the requested fields of the GraphQL type DriveFilePage.
+// The GraphQL type's documentation follows.
+//
+// One page of a drive listing/search.
+type DriveListDriveFilesDriveFilePage struct {
+	Files []*DriveListDriveFilesDriveFilePageFilesDriveFile `json:"files"`
+	// Cursor for the next page; null on the last page.
+	NextPageToken *string `json:"nextPageToken"`
+}
+
+// GetFiles returns DriveListDriveFilesDriveFilePage.Files, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePage) GetFiles() []*DriveListDriveFilesDriveFilePageFilesDriveFile {
+	return v.Files
+}
+
+// GetNextPageToken returns DriveListDriveFilesDriveFilePage.NextPageToken, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePage) GetNextPageToken() *string { return v.NextPageToken }
+
+// DriveListDriveFilesDriveFilePageFilesDriveFile includes the requested fields of the GraphQL type DriveFile.
+// The GraphQL type's documentation follows.
+//
+// A file or folder in the connected drive.
+type DriveListDriveFilesDriveFilePageFilesDriveFile struct {
+	DriveReadFile `json:"-"`
+}
+
+// GetId returns DriveListDriveFilesDriveFilePageFilesDriveFile.Id, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetId() string { return v.DriveReadFile.Id }
+
+// GetName returns DriveListDriveFilesDriveFilePageFilesDriveFile.Name, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetName() string {
+	return v.DriveReadFile.Name
+}
+
+// GetKind returns DriveListDriveFilesDriveFilePageFilesDriveFile.Kind, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetKind() DriveFileKind {
+	return v.DriveReadFile.Kind
+}
+
+// GetMimeType returns DriveListDriveFilesDriveFilePageFilesDriveFile.MimeType, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetMimeType() string {
+	return v.DriveReadFile.MimeType
+}
+
+// GetParents returns DriveListDriveFilesDriveFilePageFilesDriveFile.Parents, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetParents() []string {
+	return v.DriveReadFile.Parents
+}
+
+// GetSize returns DriveListDriveFilesDriveFilePageFilesDriveFile.Size, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetSize() *float64 {
+	return v.DriveReadFile.Size
+}
+
+// GetCreatedAt returns DriveListDriveFilesDriveFilePageFilesDriveFile.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetCreatedAt() *string {
+	return v.DriveReadFile.CreatedAt
+}
+
+// GetModifiedAt returns DriveListDriveFilesDriveFilePageFilesDriveFile.ModifiedAt, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetModifiedAt() *string {
+	return v.DriveReadFile.ModifiedAt
+}
+
+// GetWebLink returns DriveListDriveFilesDriveFilePageFilesDriveFile.WebLink, and is useful for accessing the field via an interface.
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) GetWebLink() *string {
+	return v.DriveReadFile.WebLink
+}
+
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DriveListDriveFilesDriveFilePageFilesDriveFile
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DriveListDriveFilesDriveFilePageFilesDriveFile = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DriveReadFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDriveListDriveFilesDriveFilePageFilesDriveFile struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Kind DriveFileKind `json:"kind"`
+
+	MimeType string `json:"mimeType"`
+
+	Parents []string `json:"parents"`
+
+	Size *float64 `json:"size"`
+
+	CreatedAt *string `json:"createdAt"`
+
+	ModifiedAt *string `json:"modifiedAt"`
+
+	WebLink *string `json:"webLink"`
+}
+
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DriveListDriveFilesDriveFilePageFilesDriveFile) __premarshalJSON() (*__premarshalDriveListDriveFilesDriveFilePageFilesDriveFile, error) {
+	var retval __premarshalDriveListDriveFilesDriveFilePageFilesDriveFile
+
+	retval.Id = v.DriveReadFile.Id
+	retval.Name = v.DriveReadFile.Name
+	retval.Kind = v.DriveReadFile.Kind
+	retval.MimeType = v.DriveReadFile.MimeType
+	retval.Parents = v.DriveReadFile.Parents
+	retval.Size = v.DriveReadFile.Size
+	retval.CreatedAt = v.DriveReadFile.CreatedAt
+	retval.ModifiedAt = v.DriveReadFile.ModifiedAt
+	retval.WebLink = v.DriveReadFile.WebLink
+	return &retval, nil
+}
+
+// DriveListResponse is returned by DriveList on success.
+type DriveListResponse struct {
+	// Browse or search the connected drive. With no search criteria, lists
+	// the children of folderId (default: the drive root), folders first.
+	// Any of query/nameContains/mimeType/modifiedAfter switches to a search,
+	// most recently modified first. Grant scope: drive.read.
+	DriveFiles *DriveListDriveFilesDriveFilePage `json:"driveFiles"`
+}
+
+// GetDriveFiles returns DriveListResponse.DriveFiles, and is useful for accessing the field via an interface.
+func (v *DriveListResponse) GetDriveFiles() *DriveListDriveFilesDriveFilePage { return v.DriveFiles }
+
+// DriveReadFile includes the GraphQL fields of DriveFile requested by the fragment DriveReadFile.
+// The GraphQL type's documentation follows.
+//
+// A file or folder in the connected drive.
+type DriveReadFile struct {
+	Id   string        `json:"id"`
+	Name string        `json:"name"`
+	Kind DriveFileKind `json:"kind"`
+	// The provider MIME type — informational; kind is the neutral field.
+	MimeType string `json:"mimeType"`
+	// Parent folder ids.
+	Parents []string `json:"parents"`
+	// Byte size; null for provider-native documents and folders.
+	Size       *float64 `json:"size"`
+	CreatedAt  *string  `json:"createdAt"`
+	ModifiedAt *string  `json:"modifiedAt"`
+	WebLink    *string  `json:"webLink"`
+}
+
+// GetId returns DriveReadFile.Id, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetId() string { return v.Id }
+
+// GetName returns DriveReadFile.Name, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetName() string { return v.Name }
+
+// GetKind returns DriveReadFile.Kind, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetKind() DriveFileKind { return v.Kind }
+
+// GetMimeType returns DriveReadFile.MimeType, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetMimeType() string { return v.MimeType }
+
+// GetParents returns DriveReadFile.Parents, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetParents() []string { return v.Parents }
+
+// GetSize returns DriveReadFile.Size, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetSize() *float64 { return v.Size }
+
+// GetCreatedAt returns DriveReadFile.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetCreatedAt() *string { return v.CreatedAt }
+
+// GetModifiedAt returns DriveReadFile.ModifiedAt, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetModifiedAt() *string { return v.ModifiedAt }
+
+// GetWebLink returns DriveReadFile.WebLink, and is useful for accessing the field via an interface.
+func (v *DriveReadFile) GetWebLink() *string { return v.WebLink }
+
 // EditCommentEditComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
@@ -20183,6 +21320,102 @@ type EffectiveAccessResponse struct {
 // GetEffectiveAccess returns EffectiveAccessResponse.EffectiveAccess, and is useful for accessing the field via an interface.
 func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffectiveAccess {
 	return v.EffectiveAccess
+}
+
+// EmailConnectionsExchangeConnectionsExchangeConnection includes the requested fields of the GraphQL type ExchangeConnection.
+// The GraphQL type's documentation follows.
+//
+// A connected PROVIDER ACCOUNT (identity record) — despite the name, this
+// one type carries mailboxes, calendars and Drive accounts alike; the
+// provider field below says which, and each routes to its own capability
+// tool. Provider state lives in that tool, never here.
+//
+// Operations are identity-scoped: the connection's OWNER may perform them,
+// and an App/headless caller may perform those covered by a live
+// ConnectionGrant whose scopes include the operation's (requireEmailConnection
+// enforces both branches, fail-closed for an unmapped operation). list and
+// delete stay org-ADMIN management operations.
+type EmailConnectionsExchangeConnectionsExchangeConnection struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	UserId         string `json:"userId"`
+	MailboxEmail   string `json:"mailboxEmail"`
+	// Provider backing this connection. Dispatched per-connection through
+	// the tool registry: `ms-exchange`, `gmail`, `google-cal`,
+	// `google-drive`. (This said "'ms-exchange' today" until #1232 — true
+	// when written, and three providers out of date by the time it was
+	// published.)
+	Provider    string     `json:"provider"`
+	DisplayName *string    `json:"displayName"`
+	SyncEnabled bool       `json:"syncEnabled"`
+	SyncStatus  SyncStatus `json:"syncStatus"`
+	LastSyncAt  *string    `json:"lastSyncAt"`
+	CreatedAt   string     `json:"createdAt"`
+	UpdatedAt   string     `json:"updatedAt"`
+}
+
+// GetId returns EmailConnectionsExchangeConnectionsExchangeConnection.Id, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetId() string { return v.Id }
+
+// GetOrganizationId returns EmailConnectionsExchangeConnectionsExchangeConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetUserId returns EmailConnectionsExchangeConnectionsExchangeConnection.UserId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetUserId() string { return v.UserId }
+
+// GetMailboxEmail returns EmailConnectionsExchangeConnectionsExchangeConnection.MailboxEmail, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetMailboxEmail() string {
+	return v.MailboxEmail
+}
+
+// GetProvider returns EmailConnectionsExchangeConnectionsExchangeConnection.Provider, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetProvider() string {
+	return v.Provider
+}
+
+// GetDisplayName returns EmailConnectionsExchangeConnectionsExchangeConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetDisplayName() *string {
+	return v.DisplayName
+}
+
+// GetSyncEnabled returns EmailConnectionsExchangeConnectionsExchangeConnection.SyncEnabled, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetSyncEnabled() bool {
+	return v.SyncEnabled
+}
+
+// GetSyncStatus returns EmailConnectionsExchangeConnectionsExchangeConnection.SyncStatus, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetSyncStatus() SyncStatus {
+	return v.SyncStatus
+}
+
+// GetLastSyncAt returns EmailConnectionsExchangeConnectionsExchangeConnection.LastSyncAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetLastSyncAt() *string {
+	return v.LastSyncAt
+}
+
+// GetCreatedAt returns EmailConnectionsExchangeConnectionsExchangeConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns EmailConnectionsExchangeConnectionsExchangeConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// EmailConnectionsResponse is returned by EmailConnections on success.
+type EmailConnectionsResponse struct {
+	// Exchange connections for an org.
+	//
+	// Accepts the entity's ID or URN.
+	ExchangeConnections []*EmailConnectionsExchangeConnectionsExchangeConnection `json:"exchangeConnections"`
+}
+
+// GetExchangeConnections returns EmailConnectionsResponse.ExchangeConnections, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsResponse) GetExchangeConnections() []*EmailConnectionsExchangeConnectionsExchangeConnection {
+	return v.ExchangeConnections
 }
 
 // EncryptMemoryEncryptMemory includes the requested fields of the GraphQL type Memory.
@@ -24061,6 +25294,443 @@ type GrantAppKeyScopeResponse struct {
 // GetGrantAppKeyScope returns GrantAppKeyScopeResponse.GrantAppKeyScope, and is useful for accessing the field via an interface.
 func (v *GrantAppKeyScopeResponse) GetGrantAppKeyScope() *GrantAppKeyScopeGrantAppKeyScopeAppKey {
 	return v.GrantAppKeyScope
+}
+
+// HomeAssistantInstanceFields includes the GraphQL fields of HomeAssistantInstance requested by the fragment HomeAssistantInstanceFields.
+// The GraphQL type's documentation follows.
+//
+// One registered Home Assistant instance (hadrontool-home-assistant
+// registry, hadron-server#640). Org-owned. The long-lived access token
+// is encrypted at rest and WRITE-ONLY: no field here ever returns it.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.ha__<slug>__<op>' plus the run's action budget.
+type HomeAssistantInstanceFields struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	// Run-tool name segment (ha__<slug>__<op>); lowercase [a-z0-9-], unique per org, immutable.
+	Slug string `json:"slug"`
+	Name string `json:"name"`
+	// Home Assistant base URL (e.g. https://ha.example.com or a Nabu Casa remote URL).
+	Url string `json:"url"`
+	// Disabled instances fail run-tool resolution loud, same as an unregistered slug.
+	Enabled bool `json:"enabled"`
+	// Exposed-op allowlist over the closed op catalog; empty = every op. Lets an admin register a read-only instance.
+	OpAllowlist []string `json:"opAllowlist"`
+	CreatedAt   string   `json:"createdAt"`
+	UpdatedAt   string   `json:"updatedAt"`
+	CreatedBy   *string  `json:"createdBy"`
+	UpdatedBy   *string  `json:"updatedBy"`
+}
+
+// GetId returns HomeAssistantInstanceFields.Id, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetId() string { return v.Id }
+
+// GetOrganizationId returns HomeAssistantInstanceFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetSlug returns HomeAssistantInstanceFields.Slug, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetSlug() string { return v.Slug }
+
+// GetName returns HomeAssistantInstanceFields.Name, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetName() string { return v.Name }
+
+// GetUrl returns HomeAssistantInstanceFields.Url, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetUrl() string { return v.Url }
+
+// GetEnabled returns HomeAssistantInstanceFields.Enabled, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetEnabled() bool { return v.Enabled }
+
+// GetOpAllowlist returns HomeAssistantInstanceFields.OpAllowlist, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetOpAllowlist() []string { return v.OpAllowlist }
+
+// GetCreatedAt returns HomeAssistantInstanceFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns HomeAssistantInstanceFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetCreatedBy returns HomeAssistantInstanceFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetUpdatedBy returns HomeAssistantInstanceFields.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceFields) GetUpdatedBy() *string { return v.UpdatedBy }
+
+// HomeAssistantInstanceHomeAssistantInstance includes the requested fields of the GraphQL type HomeAssistantInstance.
+// The GraphQL type's documentation follows.
+//
+// One registered Home Assistant instance (hadrontool-home-assistant
+// registry, hadron-server#640). Org-owned. The long-lived access token
+// is encrypted at rest and WRITE-ONLY: no field here ever returns it.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.ha__<slug>__<op>' plus the run's action budget.
+type HomeAssistantInstanceHomeAssistantInstance struct {
+	HomeAssistantInstanceFields `json:"-"`
+}
+
+// GetId returns HomeAssistantInstanceHomeAssistantInstance.Id, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetId() string {
+	return v.HomeAssistantInstanceFields.Id
+}
+
+// GetOrganizationId returns HomeAssistantInstanceHomeAssistantInstance.OrganizationId, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetOrganizationId() string {
+	return v.HomeAssistantInstanceFields.OrganizationId
+}
+
+// GetSlug returns HomeAssistantInstanceHomeAssistantInstance.Slug, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetSlug() string {
+	return v.HomeAssistantInstanceFields.Slug
+}
+
+// GetName returns HomeAssistantInstanceHomeAssistantInstance.Name, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetName() string {
+	return v.HomeAssistantInstanceFields.Name
+}
+
+// GetUrl returns HomeAssistantInstanceHomeAssistantInstance.Url, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetUrl() string {
+	return v.HomeAssistantInstanceFields.Url
+}
+
+// GetEnabled returns HomeAssistantInstanceHomeAssistantInstance.Enabled, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetEnabled() bool {
+	return v.HomeAssistantInstanceFields.Enabled
+}
+
+// GetOpAllowlist returns HomeAssistantInstanceHomeAssistantInstance.OpAllowlist, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetOpAllowlist() []string {
+	return v.HomeAssistantInstanceFields.OpAllowlist
+}
+
+// GetCreatedAt returns HomeAssistantInstanceHomeAssistantInstance.CreatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetCreatedAt() string {
+	return v.HomeAssistantInstanceFields.CreatedAt
+}
+
+// GetUpdatedAt returns HomeAssistantInstanceHomeAssistantInstance.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetUpdatedAt() string {
+	return v.HomeAssistantInstanceFields.UpdatedAt
+}
+
+// GetCreatedBy returns HomeAssistantInstanceHomeAssistantInstance.CreatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetCreatedBy() *string {
+	return v.HomeAssistantInstanceFields.CreatedBy
+}
+
+// GetUpdatedBy returns HomeAssistantInstanceHomeAssistantInstance.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceHomeAssistantInstance) GetUpdatedBy() *string {
+	return v.HomeAssistantInstanceFields.UpdatedBy
+}
+
+func (v *HomeAssistantInstanceHomeAssistantInstance) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*HomeAssistantInstanceHomeAssistantInstance
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.HomeAssistantInstanceHomeAssistantInstance = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HomeAssistantInstanceFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalHomeAssistantInstanceHomeAssistantInstance struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Slug string `json:"slug"`
+
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	Enabled bool `json:"enabled"`
+
+	OpAllowlist []string `json:"opAllowlist"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *HomeAssistantInstanceHomeAssistantInstance) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *HomeAssistantInstanceHomeAssistantInstance) __premarshalJSON() (*__premarshalHomeAssistantInstanceHomeAssistantInstance, error) {
+	var retval __premarshalHomeAssistantInstanceHomeAssistantInstance
+
+	retval.Id = v.HomeAssistantInstanceFields.Id
+	retval.OrganizationId = v.HomeAssistantInstanceFields.OrganizationId
+	retval.Slug = v.HomeAssistantInstanceFields.Slug
+	retval.Name = v.HomeAssistantInstanceFields.Name
+	retval.Url = v.HomeAssistantInstanceFields.Url
+	retval.Enabled = v.HomeAssistantInstanceFields.Enabled
+	retval.OpAllowlist = v.HomeAssistantInstanceFields.OpAllowlist
+	retval.CreatedAt = v.HomeAssistantInstanceFields.CreatedAt
+	retval.UpdatedAt = v.HomeAssistantInstanceFields.UpdatedAt
+	retval.CreatedBy = v.HomeAssistantInstanceFields.CreatedBy
+	retval.UpdatedBy = v.HomeAssistantInstanceFields.UpdatedBy
+	return &retval, nil
+}
+
+// HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp includes the requested fields of the GraphQL type HomeAssistantOp.
+// The GraphQL type's documentation follows.
+//
+// One op of the CLOSED Home Assistant op catalog, as admitted by a
+// registry row's allowlist — what this query returns IS what a run can
+// declare in data.tools. The catalog is static (no upstream round-trip).
+type HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp struct {
+	// The op segment, e.g. call_service.
+	Op string `json:"op"`
+	// The run-tool / policy name: ha__<slug>__<op>.
+	RunToolName string `json:"runToolName"`
+	Description string `json:"description"`
+	// The op's argument JSON Schema.
+	InputSchema *json.RawMessage `json:"inputSchema"`
+}
+
+// GetOp returns HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp.Op, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp) GetOp() string { return v.Op }
+
+// GetRunToolName returns HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp.RunToolName, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp) GetRunToolName() string {
+	return v.RunToolName
+}
+
+// GetDescription returns HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp.Description, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp) GetDescription() string {
+	return v.Description
+}
+
+// GetInputSchema returns HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp.InputSchema, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp) GetInputSchema() *json.RawMessage {
+	return v.InputSchema
+}
+
+// HomeAssistantInstanceOpsResponse is returned by HomeAssistantInstanceOps on success.
+type HomeAssistantInstanceOpsResponse struct {
+	// The ops one registered instance exposes (the closed catalog filtered
+	// by the row's allowlist) — what authors browse to pick data.tools
+	// entries; what this returns IS what a run can call. Null when the row
+	// does not exist or the caller is not a member of its org; a disabled
+	// instance errors with HA_INSTANCE_DISABLED.
+	HomeAssistantInstanceOps []*HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp `json:"homeAssistantInstanceOps"`
+}
+
+// GetHomeAssistantInstanceOps returns HomeAssistantInstanceOpsResponse.HomeAssistantInstanceOps, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceOpsResponse) GetHomeAssistantInstanceOps() []*HomeAssistantInstanceOpsHomeAssistantInstanceOpsHomeAssistantOp {
+	return v.HomeAssistantInstanceOps
+}
+
+// HomeAssistantInstanceResponse is returned by HomeAssistantInstance on success.
+type HomeAssistantInstanceResponse struct {
+	// Fetch one registered Home Assistant instance (org member). Null when
+	// the row does not exist OR the caller is not a member of its org — no
+	// existence disclosure.
+	HomeAssistantInstance *HomeAssistantInstanceHomeAssistantInstance `json:"homeAssistantInstance"`
+}
+
+// GetHomeAssistantInstance returns HomeAssistantInstanceResponse.HomeAssistantInstance, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstanceResponse) GetHomeAssistantInstance() *HomeAssistantInstanceHomeAssistantInstance {
+	return v.HomeAssistantInstance
+}
+
+// HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage includes the requested fields of the GraphQL type HomeAssistantInstancesPage.
+// The GraphQL type's documentation follows.
+//
+// Uniform paginated list shape (cor:api:120).
+type HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage struct {
+	Items []*HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance `json:"items"`
+	Total int                                                                                                 `json:"total"`
+}
+
+// GetItems returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage.Items, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage) GetItems() []*HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance {
+	return v.Items
+}
+
+// GetTotal returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage.Total, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage) GetTotal() int {
+	return v.Total
+}
+
+// HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance includes the requested fields of the GraphQL type HomeAssistantInstance.
+// The GraphQL type's documentation follows.
+//
+// One registered Home Assistant instance (hadrontool-home-assistant
+// registry, hadron-server#640). Org-owned. The long-lived access token
+// is encrypted at rest and WRITE-ONLY: no field here ever returns it.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.ha__<slug>__<op>' plus the run's action budget.
+type HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance struct {
+	HomeAssistantInstanceFields `json:"-"`
+}
+
+// GetId returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.Id, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetId() string {
+	return v.HomeAssistantInstanceFields.Id
+}
+
+// GetOrganizationId returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.OrganizationId, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetOrganizationId() string {
+	return v.HomeAssistantInstanceFields.OrganizationId
+}
+
+// GetSlug returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.Slug, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetSlug() string {
+	return v.HomeAssistantInstanceFields.Slug
+}
+
+// GetName returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.Name, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetName() string {
+	return v.HomeAssistantInstanceFields.Name
+}
+
+// GetUrl returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.Url, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetUrl() string {
+	return v.HomeAssistantInstanceFields.Url
+}
+
+// GetEnabled returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.Enabled, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetEnabled() bool {
+	return v.HomeAssistantInstanceFields.Enabled
+}
+
+// GetOpAllowlist returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.OpAllowlist, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetOpAllowlist() []string {
+	return v.HomeAssistantInstanceFields.OpAllowlist
+}
+
+// GetCreatedAt returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.CreatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetCreatedAt() string {
+	return v.HomeAssistantInstanceFields.CreatedAt
+}
+
+// GetUpdatedAt returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetUpdatedAt() string {
+	return v.HomeAssistantInstanceFields.UpdatedAt
+}
+
+// GetCreatedBy returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.CreatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetCreatedBy() *string {
+	return v.HomeAssistantInstanceFields.CreatedBy
+}
+
+// GetUpdatedBy returns HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) GetUpdatedBy() *string {
+	return v.HomeAssistantInstanceFields.UpdatedBy
+}
+
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HomeAssistantInstanceFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalHomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Slug string `json:"slug"`
+
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	Enabled bool `json:"enabled"`
+
+	OpAllowlist []string `json:"opAllowlist"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance) __premarshalJSON() (*__premarshalHomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance, error) {
+	var retval __premarshalHomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageItemsHomeAssistantInstance
+
+	retval.Id = v.HomeAssistantInstanceFields.Id
+	retval.OrganizationId = v.HomeAssistantInstanceFields.OrganizationId
+	retval.Slug = v.HomeAssistantInstanceFields.Slug
+	retval.Name = v.HomeAssistantInstanceFields.Name
+	retval.Url = v.HomeAssistantInstanceFields.Url
+	retval.Enabled = v.HomeAssistantInstanceFields.Enabled
+	retval.OpAllowlist = v.HomeAssistantInstanceFields.OpAllowlist
+	retval.CreatedAt = v.HomeAssistantInstanceFields.CreatedAt
+	retval.UpdatedAt = v.HomeAssistantInstanceFields.UpdatedAt
+	retval.CreatedBy = v.HomeAssistantInstanceFields.CreatedBy
+	retval.UpdatedBy = v.HomeAssistantInstanceFields.UpdatedBy
+	return &retval, nil
+}
+
+// HomeAssistantInstancesResponse is returned by HomeAssistantInstances on success.
+type HomeAssistantInstancesResponse struct {
+	// Uniform paginated Home Assistant instance list (cor:api:120). Default
+	// scope: the caller's member orgs. orgId follows cor:api:100:01 (member
+	// -> that org, non-member -> empty page, no disclosure, no admin
+	// bypass). Slug-ascending order (id tiebreak); limit default 50 / cap
+	// 200; limit: 0 -> count only.
+	HomeAssistantInstances *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage `json:"homeAssistantInstances"`
+}
+
+// GetHomeAssistantInstances returns HomeAssistantInstancesResponse.HomeAssistantInstances, and is useful for accessing the field via an interface.
+func (v *HomeAssistantInstancesResponse) GetHomeAssistantInstances() *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPage {
+	return v.HomeAssistantInstances
 }
 
 // HostOperationFields includes the GraphQL fields of HostOperation requested by the fragment HostOperationFields.
@@ -32899,6 +34569,77 @@ var AllNodeTextField = []NodeTextField{
 	NodeTextFieldTags,
 }
 
+// OrgAgentGrantsOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
+type OrgAgentGrantsOrganization struct {
+	// 008-agent-installation: this org's grants for using/bundling Agents.
+	// Resolvable to ADMIN/OWNER of the org only.
+	AgentOrgGrants []*OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant `json:"agentOrgGrants"`
+}
+
+// GetAgentOrgGrants returns OrgAgentGrantsOrganization.AgentOrgGrants, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganization) GetAgentOrgGrants() []*OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant {
+	return v.AgentOrgGrants
+}
+
+// OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant includes the requested fields of the GraphQL type AgentOrgGrant.
+// The GraphQL type's documentation follows.
+//
+// 008-agent-installation: Org↔Agent license. Authorizes (a) creating an App
+// in this Org that uses this Agent, and (b) bundling this Agent in an
+// AgentImport edge of an Agent the Org owns. Sibling to AgentSubscription.
+type OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant struct {
+	AgentId     string  `json:"agentId"`
+	OrgId       string  `json:"orgId"`
+	IsActive    bool    `json:"isActive"`
+	CreatedAt   string  `json:"createdAt"`
+	ActivatedAt *string `json:"activatedAt"`
+	ExpiresAt   *string `json:"expiresAt"`
+	RevokedAt   *string `json:"revokedAt"`
+}
+
+// GetAgentId returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.AgentId, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetAgentId() string { return v.AgentId }
+
+// GetOrgId returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.OrgId, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetOrgId() string { return v.OrgId }
+
+// GetIsActive returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.IsActive, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetIsActive() bool { return v.IsActive }
+
+// GetCreatedAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetActivatedAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetActivatedAt() *string {
+	return v.ActivatedAt
+}
+
+// GetExpiresAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetExpiresAt() *string {
+	return v.ExpiresAt
+}
+
+// GetRevokedAt returns OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsOrganizationAgentOrgGrantsAgentOrgGrant) GetRevokedAt() *string {
+	return v.RevokedAt
+}
+
+// OrgAgentGrantsResponse is returned by OrgAgentGrants on success.
+type OrgAgentGrantsResponse struct {
+	// Fetch an Organization (org member or platform ADMIN).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Organization *OrgAgentGrantsOrganization `json:"organization"`
+}
+
+// GetOrganization returns OrgAgentGrantsResponse.Organization, and is useful for accessing the field via an interface.
+func (v *OrgAgentGrantsResponse) GetOrganization() *OrgAgentGrantsOrganization { return v.Organization }
+
 // OrgFields includes the GraphQL fields of Organization requested by the fragment OrgFields.
 // The GraphQL type's documentation follows.
 //
@@ -37684,11 +39425,11 @@ type RetryFailedEmbeddingsResponse struct {
 	// wakes the embedding worker. Returns the count re-stamped; 0 when the
 	// memory is not vector-indexed. `memoryRef` accepts the memory's ID or
 	// URN. Requires memory-owner or org-ADMIN (same gate as updateMemory).
-	RetryFailedEmbeddings int `json:"retryFailedEmbeddings"`
+	RetryFailedEmbeddings *int `json:"retryFailedEmbeddings"`
 }
 
 // GetRetryFailedEmbeddings returns RetryFailedEmbeddingsResponse.RetryFailedEmbeddings, and is useful for accessing the field via an interface.
-func (v *RetryFailedEmbeddingsResponse) GetRetryFailedEmbeddings() int {
+func (v *RetryFailedEmbeddingsResponse) GetRetryFailedEmbeddings() *int {
 	return v.RetryFailedEmbeddings
 }
 
@@ -58465,6 +60206,78 @@ func (v *__BeginAssetUploadInput) GetIntent() UploadIntent { return v.Intent }
 // GetDescription returns __BeginAssetUploadInput.Description, and is useful for accessing the field via an interface.
 func (v *__BeginAssetUploadInput) GetDescription() *string { return v.Description }
 
+// __CalendarEventsInput is used internally by genqlient
+type __CalendarEventsInput struct {
+	ConnectionRef string  `json:"connectionRef"`
+	CalendarId    *string `json:"calendarId,omitempty"`
+	Start         *string `json:"start,omitempty"`
+	End           *string `json:"end,omitempty"`
+	Query         *string `json:"query,omitempty"`
+	Top           int     `json:"top"`
+}
+
+// GetConnectionRef returns __CalendarEventsInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetCalendarId returns __CalendarEventsInput.CalendarId, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetCalendarId() *string { return v.CalendarId }
+
+// GetStart returns __CalendarEventsInput.Start, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetStart() *string { return v.Start }
+
+// GetEnd returns __CalendarEventsInput.End, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetEnd() *string { return v.End }
+
+// GetQuery returns __CalendarEventsInput.Query, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetQuery() *string { return v.Query }
+
+// GetTop returns __CalendarEventsInput.Top, and is useful for accessing the field via an interface.
+func (v *__CalendarEventsInput) GetTop() int { return v.Top }
+
+// __CalendarFreeBusyInput is used internally by genqlient
+type __CalendarFreeBusyInput struct {
+	ConnectionRef string   `json:"connectionRef"`
+	Start         string   `json:"start"`
+	End           string   `json:"end"`
+	Schedules     []string `json:"schedules,omitempty"`
+}
+
+// GetConnectionRef returns __CalendarFreeBusyInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__CalendarFreeBusyInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetStart returns __CalendarFreeBusyInput.Start, and is useful for accessing the field via an interface.
+func (v *__CalendarFreeBusyInput) GetStart() string { return v.Start }
+
+// GetEnd returns __CalendarFreeBusyInput.End, and is useful for accessing the field via an interface.
+func (v *__CalendarFreeBusyInput) GetEnd() string { return v.End }
+
+// GetSchedules returns __CalendarFreeBusyInput.Schedules, and is useful for accessing the field via an interface.
+func (v *__CalendarFreeBusyInput) GetSchedules() []string { return v.Schedules }
+
+// __CalendarGetEventInput is used internally by genqlient
+type __CalendarGetEventInput struct {
+	ConnectionRef string  `json:"connectionRef"`
+	EventId       string  `json:"eventId"`
+	CalendarId    *string `json:"calendarId,omitempty"`
+}
+
+// GetConnectionRef returns __CalendarGetEventInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__CalendarGetEventInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetEventId returns __CalendarGetEventInput.EventId, and is useful for accessing the field via an interface.
+func (v *__CalendarGetEventInput) GetEventId() string { return v.EventId }
+
+// GetCalendarId returns __CalendarGetEventInput.CalendarId, and is useful for accessing the field via an interface.
+func (v *__CalendarGetEventInput) GetCalendarId() *string { return v.CalendarId }
+
+// __CalendarListInput is used internally by genqlient
+type __CalendarListInput struct {
+	ConnectionRef string `json:"connectionRef"`
+}
+
+// GetConnectionRef returns __CalendarListInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__CalendarListInput) GetConnectionRef() string { return v.ConnectionRef }
+
 // __CancelAppRunInput is used internally by genqlient
 type __CancelAppRunInput struct {
 	Id string `json:"id"`
@@ -59845,6 +61658,70 @@ func (v *__DeliveryBatchesInput) GetFirst() int { return v.First }
 // GetAfter returns __DeliveryBatchesInput.After, and is useful for accessing the field via an interface.
 func (v *__DeliveryBatchesInput) GetAfter() *string { return v.After }
 
+// __DriveExportInput is used internally by genqlient
+type __DriveExportInput struct {
+	ConnectionRef string             `json:"connectionRef"`
+	FileId        string             `json:"fileId"`
+	Format        *DriveExportFormat `json:"format,omitempty"`
+}
+
+// GetConnectionRef returns __DriveExportInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__DriveExportInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetFileId returns __DriveExportInput.FileId, and is useful for accessing the field via an interface.
+func (v *__DriveExportInput) GetFileId() string { return v.FileId }
+
+// GetFormat returns __DriveExportInput.Format, and is useful for accessing the field via an interface.
+func (v *__DriveExportInput) GetFormat() *DriveExportFormat { return v.Format }
+
+// __DriveGetInput is used internally by genqlient
+type __DriveGetInput struct {
+	ConnectionRef string `json:"connectionRef"`
+	FileId        string `json:"fileId"`
+}
+
+// GetConnectionRef returns __DriveGetInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__DriveGetInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetFileId returns __DriveGetInput.FileId, and is useful for accessing the field via an interface.
+func (v *__DriveGetInput) GetFileId() string { return v.FileId }
+
+// __DriveListInput is used internally by genqlient
+type __DriveListInput struct {
+	ConnectionRef string  `json:"connectionRef"`
+	FolderId      *string `json:"folderId,omitempty"`
+	Query         *string `json:"query,omitempty"`
+	NameContains  *string `json:"nameContains,omitempty"`
+	MimeType      *string `json:"mimeType,omitempty"`
+	ModifiedAfter *string `json:"modifiedAfter,omitempty"`
+	Top           int     `json:"top"`
+	PageToken     *string `json:"pageToken,omitempty"`
+}
+
+// GetConnectionRef returns __DriveListInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetFolderId returns __DriveListInput.FolderId, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetFolderId() *string { return v.FolderId }
+
+// GetQuery returns __DriveListInput.Query, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetQuery() *string { return v.Query }
+
+// GetNameContains returns __DriveListInput.NameContains, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetNameContains() *string { return v.NameContains }
+
+// GetMimeType returns __DriveListInput.MimeType, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetMimeType() *string { return v.MimeType }
+
+// GetModifiedAfter returns __DriveListInput.ModifiedAfter, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetModifiedAfter() *string { return v.ModifiedAfter }
+
+// GetTop returns __DriveListInput.Top, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetTop() int { return v.Top }
+
+// GetPageToken returns __DriveListInput.PageToken, and is useful for accessing the field via an interface.
+func (v *__DriveListInput) GetPageToken() *string { return v.PageToken }
+
 // __EditCommentInput is used internally by genqlient
 type __EditCommentInput struct {
 	Ref      string  `json:"ref"`
@@ -59876,6 +61753,14 @@ func (v *__EffectiveAccessInput) GetUser() string { return v.User }
 
 // GetResource returns __EffectiveAccessInput.Resource, and is useful for accessing the field via an interface.
 func (v *__EffectiveAccessInput) GetResource() string { return v.Resource }
+
+// __EmailConnectionsInput is used internally by genqlient
+type __EmailConnectionsInput struct {
+	OrgId string `json:"orgId"`
+}
+
+// GetOrgId returns __EmailConnectionsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__EmailConnectionsInput) GetOrgId() string { return v.OrgId }
 
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
@@ -60200,6 +62085,38 @@ func (v *__GrantAppKeyScopeInput) GetScope() string { return v.Scope }
 
 // GetHostId returns __GrantAppKeyScopeInput.HostId, and is useful for accessing the field via an interface.
 func (v *__GrantAppKeyScopeInput) GetHostId() *string { return v.HostId }
+
+// __HomeAssistantInstanceInput is used internally by genqlient
+type __HomeAssistantInstanceInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __HomeAssistantInstanceInput.Ref, and is useful for accessing the field via an interface.
+func (v *__HomeAssistantInstanceInput) GetRef() string { return v.Ref }
+
+// __HomeAssistantInstanceOpsInput is used internally by genqlient
+type __HomeAssistantInstanceOpsInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __HomeAssistantInstanceOpsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__HomeAssistantInstanceOpsInput) GetRef() string { return v.Ref }
+
+// __HomeAssistantInstancesInput is used internally by genqlient
+type __HomeAssistantInstancesInput struct {
+	OrgId  *string `json:"orgId,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+	Offset *int    `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __HomeAssistantInstancesInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__HomeAssistantInstancesInput) GetOrgId() *string { return v.OrgId }
+
+// GetLimit returns __HomeAssistantInstancesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__HomeAssistantInstancesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __HomeAssistantInstancesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__HomeAssistantInstancesInput) GetOffset() *int { return v.Offset }
 
 // __HostOperationsInput is used internally by genqlient
 type __HostOperationsInput struct {
@@ -60738,6 +62655,14 @@ func (v *__NodeSigningRequestsInput) GetState() *SigningRequestState { return v.
 
 // GetFirst returns __NodeSigningRequestsInput.First, and is useful for accessing the field via an interface.
 func (v *__NodeSigningRequestsInput) GetFirst() *int { return v.First }
+
+// __OrgAgentGrantsInput is used internally by genqlient
+type __OrgAgentGrantsInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __OrgAgentGrantsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__OrgAgentGrantsInput) GetRef() string { return v.Ref }
 
 // __OrgMembersInput is used internally by genqlient
 type __OrgMembersInput struct {
@@ -65731,6 +67656,242 @@ func BeginAssetUpload(
 	return data_, err_
 }
 
+// The query executed by CalendarEvents.
+const CalendarEvents_Operation = `
+query CalendarEvents ($connectionRef: ID!, $calendarId: String, $start: String, $end: String, $query: String, $top: Int!) {
+	calendarEvents(connectionRef: $connectionRef, calendarId: $calendarId, start: $start, end: $end, query: $query, top: $top) {
+		... CalendarReadEvent
+	}
+}
+fragment CalendarReadEvent on CalendarEvent {
+	id
+	calendarId
+	title
+	description
+	location
+	start {
+		date
+		dateTime
+		timeZone
+	}
+	end {
+		date
+		dateTime
+		timeZone
+	}
+	isAllDay
+	status
+	organizer {
+		address
+		name
+	}
+	attendees {
+		address
+		name
+		optional
+		response
+	}
+	webLink
+	seriesId
+	isOrganizer
+	myResponse
+	createdAt
+	updatedAt
+}
+`
+
+func CalendarEvents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	calendarId *string,
+	start *string,
+	end *string,
+	query *string,
+	top int,
+) (data_ *CalendarEventsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CalendarEvents",
+		Query:  CalendarEvents_Operation,
+		Variables: &__CalendarEventsInput{
+			ConnectionRef: connectionRef,
+			CalendarId:    calendarId,
+			Start:         start,
+			End:           end,
+			Query:         query,
+			Top:           top,
+		},
+	}
+
+	data_ = &CalendarEventsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CalendarFreeBusy.
+const CalendarFreeBusy_Operation = `
+query CalendarFreeBusy ($connectionRef: ID!, $start: String!, $end: String!, $schedules: [String!]) {
+	calendarSchedule(connectionRef: $connectionRef, start: $start, end: $end, schedules: $schedules) {
+		id
+		error
+		busy {
+			start
+			end
+		}
+	}
+}
+`
+
+func CalendarFreeBusy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	start string,
+	end string,
+	schedules []string,
+) (data_ *CalendarFreeBusyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CalendarFreeBusy",
+		Query:  CalendarFreeBusy_Operation,
+		Variables: &__CalendarFreeBusyInput{
+			ConnectionRef: connectionRef,
+			Start:         start,
+			End:           end,
+			Schedules:     schedules,
+		},
+	}
+
+	data_ = &CalendarFreeBusyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CalendarGetEvent.
+const CalendarGetEvent_Operation = `
+query CalendarGetEvent ($connectionRef: ID!, $eventId: ID!, $calendarId: String) {
+	calendarEvent(connectionRef: $connectionRef, eventId: $eventId, calendarId: $calendarId) {
+		... CalendarReadEvent
+	}
+}
+fragment CalendarReadEvent on CalendarEvent {
+	id
+	calendarId
+	title
+	description
+	location
+	start {
+		date
+		dateTime
+		timeZone
+	}
+	end {
+		date
+		dateTime
+		timeZone
+	}
+	isAllDay
+	status
+	organizer {
+		address
+		name
+	}
+	attendees {
+		address
+		name
+		optional
+		response
+	}
+	webLink
+	seriesId
+	isOrganizer
+	myResponse
+	createdAt
+	updatedAt
+}
+`
+
+func CalendarGetEvent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	eventId string,
+	calendarId *string,
+) (data_ *CalendarGetEventResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CalendarGetEvent",
+		Query:  CalendarGetEvent_Operation,
+		Variables: &__CalendarGetEventInput{
+			ConnectionRef: connectionRef,
+			EventId:       eventId,
+			CalendarId:    calendarId,
+		},
+	}
+
+	data_ = &CalendarGetEventResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CalendarList.
+const CalendarList_Operation = `
+query CalendarList ($connectionRef: ID!) {
+	calendars(connectionRef: $connectionRef) {
+		id
+		name
+		description
+		timeZone
+		isPrimary
+		canEdit
+	}
+}
+`
+
+func CalendarList(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+) (data_ *CalendarListResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CalendarList",
+		Query:  CalendarList_Operation,
+		Variables: &__CalendarListInput{
+			ConnectionRef: connectionRef,
+		},
+	}
+
+	data_ = &CalendarListResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CancelAppRun.
 const CancelAppRun_Operation = `
 mutation CancelAppRun ($id: ID!) {
@@ -70200,6 +72361,169 @@ func DeliveryBatches(
 	return data_, err_
 }
 
+// The query executed by DriveExport.
+const DriveExport_Operation = `
+query DriveExport ($connectionRef: ID!, $fileId: ID!, $format: DriveExportFormat) {
+	driveFileExport(connectionRef: $connectionRef, fileId: $fileId, format: $format) {
+		file {
+			... DriveReadFile
+		}
+		format
+		mimeType
+		content
+	}
+}
+fragment DriveReadFile on DriveFile {
+	id
+	name
+	kind
+	mimeType
+	parents
+	size
+	createdAt
+	modifiedAt
+	webLink
+}
+`
+
+func DriveExport(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	fileId string,
+	format *DriveExportFormat,
+) (data_ *DriveExportResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DriveExport",
+		Query:  DriveExport_Operation,
+		Variables: &__DriveExportInput{
+			ConnectionRef: connectionRef,
+			FileId:        fileId,
+			Format:        format,
+		},
+	}
+
+	data_ = &DriveExportResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by DriveGet.
+const DriveGet_Operation = `
+query DriveGet ($connectionRef: ID!, $fileId: ID!) {
+	driveFile(connectionRef: $connectionRef, fileId: $fileId) {
+		... DriveReadFile
+	}
+}
+fragment DriveReadFile on DriveFile {
+	id
+	name
+	kind
+	mimeType
+	parents
+	size
+	createdAt
+	modifiedAt
+	webLink
+}
+`
+
+func DriveGet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	fileId string,
+) (data_ *DriveGetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DriveGet",
+		Query:  DriveGet_Operation,
+		Variables: &__DriveGetInput{
+			ConnectionRef: connectionRef,
+			FileId:        fileId,
+		},
+	}
+
+	data_ = &DriveGetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by DriveList.
+const DriveList_Operation = `
+query DriveList ($connectionRef: ID!, $folderId: ID, $query: String, $nameContains: String, $mimeType: String, $modifiedAfter: String, $top: Int!, $pageToken: String) {
+	driveFiles(connectionRef: $connectionRef, folderId: $folderId, query: $query, nameContains: $nameContains, mimeType: $mimeType, modifiedAfter: $modifiedAfter, top: $top, pageToken: $pageToken) {
+		files {
+			... DriveReadFile
+		}
+		nextPageToken
+	}
+}
+fragment DriveReadFile on DriveFile {
+	id
+	name
+	kind
+	mimeType
+	parents
+	size
+	createdAt
+	modifiedAt
+	webLink
+}
+`
+
+func DriveList(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	folderId *string,
+	query *string,
+	nameContains *string,
+	mimeType *string,
+	modifiedAfter *string,
+	top int,
+	pageToken *string,
+) (data_ *DriveListResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DriveList",
+		Query:  DriveList_Operation,
+		Variables: &__DriveListInput{
+			ConnectionRef: connectionRef,
+			FolderId:      folderId,
+			Query:         query,
+			NameContains:  nameContains,
+			MimeType:      mimeType,
+			ModifiedAfter: modifiedAfter,
+			Top:           top,
+			PageToken:     pageToken,
+		},
+	}
+
+	data_ = &DriveListResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by EditComment.
 const EditComment_Operation = `
 mutation EditComment ($ref: ID!, $body: String, $quote: String, $expected: Int!) {
@@ -70342,6 +72666,51 @@ func EffectiveAccess(
 	}
 
 	data_ = &EffectiveAccessResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EmailConnections.
+const EmailConnections_Operation = `
+query EmailConnections ($orgId: ID!) {
+	exchangeConnections(orgId: $orgId) {
+		id
+		organizationId
+		userId
+		mailboxEmail
+		provider
+		displayName
+		syncEnabled
+		syncStatus
+		lastSyncAt
+		createdAt
+		updatedAt
+	}
+}
+`
+
+// Explicit org-admin metadata read; never request credentials or lastError.
+func EmailConnections(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+) (data_ *EmailConnectionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailConnections",
+		Query:  EmailConnections_Operation,
+		Variables: &__EmailConnectionsInput{
+			OrgId: orgId,
+		},
+	}
+
+	data_ = &EmailConnectionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -72086,6 +74455,148 @@ func GrantAppKeyScope(
 	}
 
 	data_ = &GrantAppKeyScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HomeAssistantInstance.
+const HomeAssistantInstance_Operation = `
+query HomeAssistantInstance ($ref: ID!) {
+	homeAssistantInstance(ref: $ref) {
+		... HomeAssistantInstanceFields
+	}
+}
+fragment HomeAssistantInstanceFields on HomeAssistantInstance {
+	id
+	organizationId
+	slug
+	name
+	url
+	enabled
+	opAllowlist
+	createdAt
+	updatedAt
+	createdBy
+	updatedBy
+}
+`
+
+// Null when the row is absent OR the caller is not a member of its org.
+func HomeAssistantInstance(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *HomeAssistantInstanceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HomeAssistantInstance",
+		Query:  HomeAssistantInstance_Operation,
+		Variables: &__HomeAssistantInstanceInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &HomeAssistantInstanceResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HomeAssistantInstanceOps.
+const HomeAssistantInstanceOps_Operation = `
+query HomeAssistantInstanceOps ($ref: ID!) {
+	homeAssistantInstanceOps(ref: $ref) {
+		op
+		runToolName
+		description
+		inputSchema
+	}
+}
+`
+
+// Null when absent/denied; a disabled instance errors HA_INSTANCE_DISABLED.
+func HomeAssistantInstanceOps(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *HomeAssistantInstanceOpsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HomeAssistantInstanceOps",
+		Query:  HomeAssistantInstanceOps_Operation,
+		Variables: &__HomeAssistantInstanceOpsInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &HomeAssistantInstanceOpsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HomeAssistantInstances.
+const HomeAssistantInstances_Operation = `
+query HomeAssistantInstances ($orgId: ID, $limit: Int, $offset: Int) {
+	homeAssistantInstances(orgId: $orgId, limit: $limit, offset: $offset) {
+		items {
+			... HomeAssistantInstanceFields
+		}
+		total
+	}
+}
+fragment HomeAssistantInstanceFields on HomeAssistantInstance {
+	id
+	organizationId
+	slug
+	name
+	url
+	enabled
+	opAllowlist
+	createdAt
+	updatedAt
+	createdBy
+	updatedBy
+}
+`
+
+// One explicit page (uniform { items, total }). Callers pass their own limit,
+// so the server default (50) never applies silently.
+func HomeAssistantInstances(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	limit *int,
+	offset *int,
+) (data_ *HomeAssistantInstancesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HomeAssistantInstances",
+		Query:  HomeAssistantInstances_Operation,
+		Variables: &__HomeAssistantInstancesInput{
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &HomeAssistantInstancesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -74812,6 +77323,49 @@ func NodeSigningRequests(
 	return data_, err_
 }
 
+// The query executed by OrgAgentGrants.
+const OrgAgentGrants_Operation = `
+query OrgAgentGrants ($ref: ID!) {
+	organization(ref: $ref) {
+		agentOrgGrants {
+			agentId
+			orgId
+			isActive
+			createdAt
+			activatedAt
+			expiresAt
+			revokedAt
+		}
+	}
+}
+`
+
+// One explicitly selected organization; no nested Agent/customer/config traversal.
+func OrgAgentGrants(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *OrgAgentGrantsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "OrgAgentGrants",
+		Query:  OrgAgentGrants_Operation,
+		Variables: &__OrgAgentGrantsInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &OrgAgentGrantsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by OrgMembers.
 const OrgMembers_Operation = `
 query OrgMembers ($ref: ID!) {
@@ -76452,6 +79006,10 @@ mutation RetryFailedEmbeddings ($memoryRef: ID!) {
 // were RE-STAMPED, never how many ended up indexed. Not idempotent-by-contract
 // for a client: a transport error leaves the outcome unknown, so the caller does
 // not retry it.
+//
+// pointer: true so a missing/null result stays nil instead of decoding to 0 —
+// 0 is a legitimate answer ("nothing to re-stamp"), absence is an unknown
+// outcome (cli#1008).
 func RetryFailedEmbeddings(
 	ctx_ context.Context,
 	client_ graphql.Client,
