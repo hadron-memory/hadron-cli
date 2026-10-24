@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -177,5 +178,52 @@ func TestMemoryReembedFailedTransportFailureSentOnce(t *testing.T) {
 	defer mu.Unlock()
 	if calls != 1 {
 		t.Errorf("an ambiguous transport failure must not be retried; request sent %d times", calls)
+	}
+}
+
+// cli#1008: a missing/null result is NOT a legitimate 0. The generated Int
+// used to default to 0, so `data:null` (or an absent/null field) printed
+// "re-stamped 0 node(s)" as success. It is an unknown outcome: Unavailable (7),
+// no success text or DTO, and the mutation is not sent again.
+func TestMemoryReembedFailedMissingResultIsUnknownOutcome(t *testing.T) {
+	for _, tc := range []struct{ name, resp string }{
+		{"data null", `{"data":null}`},
+		{"field absent", `{"data":{}}`},
+		{"field null", `{"data":{"retryFailedEmbeddings":null}}`},
+		{"malformed", `{"data":{"retryFailedEmbeddings":"many"}}`},
+	} {
+		for _, asJSON := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s json=%v", tc.name, asJSON), func(t *testing.T) {
+				srv, ops, _ := opLog(t, map[string]string{"RetryFailedEmbeddings": tc.resp})
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				args := []string{"memory", "reembed-failed", reembedMemID, "--server", srv.URL}
+				if asJSON {
+					args = append(args, "--json")
+				}
+				root.SetArgs(args)
+				err := root.Execute()
+				if err == nil {
+					t.Fatalf("a missing result must be an error, got success: %q", out.String())
+				}
+				code := renderError(f, err)
+				if tc.name == "malformed" {
+					// A decode failure takes the client's existing error class.
+					if code == 0 {
+						t.Errorf("malformed result must exit nonzero")
+					}
+				} else if code != 7 {
+					t.Errorf("want exit 7 (unavailable, outcome unknown), got %d", code)
+				}
+				// Success output is "✓ re-stamped N ..." or a DTO with "restamped";
+				// an error envelope carries neither.
+				if strings.Contains(out.String(), "✓") || strings.Contains(out.String(), `"restamped"`) || strings.Contains(out.String(), `"memoryId"`) {
+					t.Errorf("no success text or DTO on an unknown outcome, got %q", out.String())
+				}
+				if n := countOp(ops(), "RetryFailedEmbeddings"); n != 1 {
+					t.Errorf("must not retry; sent %d times", n)
+				}
+			})
+		}
 	}
 }

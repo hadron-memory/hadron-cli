@@ -564,6 +564,9 @@ Conventions:
   <memoryRef> --check embed-failed`. A mutation kept apart from the read-only
   `validate`; running it is the request, so no prompt. Sent once, never
   retried: a transport error leaves the outcome unknown — re-run it yourself.
+  A response with a missing/null count (`data:null`, absent field) is the same
+  unknown outcome: exit 7, NO success output, never a fabricated `restamped: 0`
+  (cli#1008; only a returned integer, including 0, is success).
   Server gate (memory owner / org ADMIN) and its encrypted-memory limits apply.
 - `memory encrypt <memory> --data-key -` converts a plaintext memory to
   encrypted-at-rest: you provide the data key (read from stdin via `--data-key -`

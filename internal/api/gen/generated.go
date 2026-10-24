@@ -39745,11 +39745,11 @@ type RetryFailedEmbeddingsResponse struct {
 	// wakes the embedding worker. Returns the count re-stamped; 0 when the
 	// memory is not vector-indexed. `memoryRef` accepts the memory's ID or
 	// URN. Requires memory-owner or org-ADMIN (same gate as updateMemory).
-	RetryFailedEmbeddings int `json:"retryFailedEmbeddings"`
+	RetryFailedEmbeddings *int `json:"retryFailedEmbeddings"`
 }
 
 // GetRetryFailedEmbeddings returns RetryFailedEmbeddingsResponse.RetryFailedEmbeddings, and is useful for accessing the field via an interface.
-func (v *RetryFailedEmbeddingsResponse) GetRetryFailedEmbeddings() int {
+func (v *RetryFailedEmbeddingsResponse) GetRetryFailedEmbeddings() *int {
 	return v.RetryFailedEmbeddings
 }
 
@@ -78859,6 +78859,10 @@ mutation RetryFailedEmbeddings ($memoryRef: ID!) {
 // were RE-STAMPED, never how many ended up indexed. Not idempotent-by-contract
 // for a client: a transport error leaves the outcome unknown, so the caller does
 // not retry it.
+//
+// pointer: true so a missing/null result stays nil instead of decoding to 0 —
+// 0 is a legitimate answer ("nothing to re-stamp"), absence is an unknown
+// outcome (cli#1008).
 func RetryFailedEmbeddings(
 	ctx_ context.Context,
 	client_ graphql.Client,
