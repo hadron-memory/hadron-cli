@@ -118,7 +118,7 @@ func TestAssetPublicLinkRefusals(t *testing.T) {
 	for _, tc := range []struct {
 		code string
 		exit int
-	}{{"FORBIDDEN", exitcode.Forbidden}, {"NOT_FOUND", exitcode.NotFound}, {"GRAPHQL_VALIDATION_FAILED", exitcode.Usage}} {
+	}{{"PERMISSION_DENIED", exitcode.Forbidden}, {"NOT_FOUND", exitcode.NotFound}, {"GRAPHQL_VALIDATION_FAILED", exitcode.Usage}} {
 		message := "server refusal"
 		if tc.code == "GRAPHQL_VALIDATION_FAILED" {
 			message = `Cannot query field "setAssetPublicLink" on type "Mutation".`

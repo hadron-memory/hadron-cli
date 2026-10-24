@@ -1171,7 +1171,7 @@ func codeForExtension(code string) int {
 	// would document an exit no caller can ever observe, which is the trap
 	// review:map-new-server-error-codes names and which #619's own first draft
 	// fell into with CHANNEL_DELETED (also an enum member, also never a code).
-	case code == "FORBIDDEN" || code == "CHANNEL_HOST_NOT_WRITABLE":
+	case code == "FORBIDDEN" || code == "PERMISSION_DENIED" || code == "CHANNEL_HOST_NOT_WRITABLE":
 		return exitcode.Forbidden
 	// Team attention errors from the legacy and paged server operations.
 	//

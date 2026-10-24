@@ -162,6 +162,7 @@ func TestMapError(t *testing.T) {
 		// #619 — the permission-denied class. Both reached scripts as the
 		// generic 1 before exitcode.Forbidden existed.
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
+		{"asset public-link management refusal", gqlErr("PERMISSION_DENIED"), exitcode.Forbidden},
 		{"channel host not writable", gqlErr("CHANNEL_HOST_NOT_WRITABLE"), exitcode.Forbidden},
 		{"guarded write conflict", gqlErr("NODE_WRITE_CONFLICT"), exitcode.Conflict}, // cli#738
 		{"transfer stale preview", gqlErr("STALE_TRANSFER_PREVIEW"), exitcode.Conflict},
