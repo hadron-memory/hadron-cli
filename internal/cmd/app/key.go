@@ -53,6 +53,7 @@ func newCmdKey(f *cmdutil.Factory) *cobra.Command {
 		Short: "Work with an App's keys",
 	}
 	cmd.AddCommand(newCmdKeyScope(f))
+	cmd.AddCommand(newCmdKeyList(f))
 	return cmd
 }
 

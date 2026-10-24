@@ -5,14 +5,13 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 61 unbound
+[Query] 60 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
 aiModelPrice
 aiServiceConfigs
 appAIConfig
-appKeys
 appNodes
 appTickerSettings  # server ticker settings (named-heartbeats epic, in flight — #1750/#1791 cycle); CLI parity follows the surface settling
 assets
