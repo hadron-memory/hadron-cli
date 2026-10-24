@@ -168,6 +168,11 @@ func TestMemoryGetUnreadableReportIsUnavailable(t *testing.T) {
 		"bad recordedAt":      `{"version":1,"outcome":"partial","recordedAt":"yesterday\u001b[2J","entries":[]}`,
 		"entry of wrong type": `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[{"kind":"protected","loc":7,"code":"PROTECTED_LOC"}]}`,
 		"entry missing loc":   `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":[{"kind":"protected","code":"PROTECTED_LOC"}]}`,
+		// v1 requires the entries array (Diego, cli#1067 BLIND P2): an omitted or
+		// null one is not an empty report. An explicit [] stays valid.
+		"missing entries":   `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `"}`,
+		"null entries":      `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":null}`,
+		"entries not array": `{"version":1,"outcome":"partial","recordedAt":"` + recordedAt + `","entries":{}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			m := syncMemoryJSON(t, sp(gitSource), sp(syncedAt), nil, sp(report), "OK")
@@ -310,6 +315,32 @@ func TestMemoryGetSyncStringsAreQuotedAndUnknownVocabularyIsOther(t *testing.T) 
 	entries, _ := rep["entries"].([]any)
 	if e, _ := entries[1].(map[string]any); e == nil || e["kind"] != "new_kind\x1b]0;x\a" || e["code"] != "NEW_CODE" {
 		t.Errorf("--json passes unknown vocabulary through as-is: %v", entries)
+	}
+}
+
+// The two guards Rodolfo's §10 mutants showed unpinned (cli#1067): an unknown
+// report-level code in the failed summary is quoted, and syncError is capped.
+// Also: a password with an unencoded @ is masked whole, not up to its first @.
+func TestMemoryGetFailedSummaryAndSyncErrorAreGuarded(t *testing.T) {
+	report := `{"version":1,"outcome":"failed","recordedAt":"` + recordedAt + `","entries":[],"code":"NEW\u001b[31m"}`
+	syncErr := "fetch https://user:p@ss@github.com/acme/kb.git failed " + strings.Repeat("e", 600)
+	m := syncMemoryJSON(t, sp(gitSource), sp(syncedAt), sp(syncErr), sp(report), "ERROR")
+	out, err := runMemoryGetSync(t, m, false)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out, `sync: last sync failed (other "NEW\x1b[31m")`) || strings.Contains(out, "\x1b") {
+		t.Errorf("an unknown report code is quoted under other:\n%s", out)
+	}
+	if strings.Contains(out, "ss@github.com") || !strings.Contains(out, "https://[redacted]@github.com/acme/kb.git") {
+		t.Errorf("the whole userinfo is masked, up to the last @:\n%s", out)
+	}
+	if strings.Contains(out, strings.Repeat("e", 501)) || !strings.Contains(out, `"…`) {
+		t.Errorf("syncError is capped at 500 runes with a … marker:\n%s", out)
+	}
+	dto := memoryGetSyncJSON(t, m)
+	if s, _ := dto["syncError"].(string); strings.Contains(s, "ss@github.com") {
+		t.Errorf("--json masks the whole userinfo too: %q", s)
 	}
 }
 
