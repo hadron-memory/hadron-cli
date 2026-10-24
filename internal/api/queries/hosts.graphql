@@ -134,6 +134,8 @@ fragment HostRegistrationFields on HostRegistration {
 # ALWAYS sent, an empty list included: omitting it would not clear a host
 # whose workers were all removed from its configuration.
 # @genqlient(for: "RegisterHostInput.workers", omitempty: false)
+# Schema refresh: this companion does not opt hosts into new capabilities.
+# @genqlient(for: "RegisterHostInput.capabilities", omitempty: true)
 mutation RegisterHost(
   $input: RegisterHostInput!
 ) {

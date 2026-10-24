@@ -18,11 +18,14 @@ import (
 // pointer so "no hotlink" is distinguishable from an empty string, and Reason
 // explains a null rather than leaving the caller to guess.
 type assetURLDTO struct {
-	ID        string  `json:"id"`
-	URN       string  `json:"urn"`
-	Filename  string  `json:"filename"`
-	PublicURL *string `json:"publicUrl"`
-	Reason    string  `json:"reason,omitempty"`
+	ID                  string  `json:"id"`
+	URN                 string  `json:"urn"`
+	Filename            string  `json:"filename"`
+	PublicURL           *string `json:"publicUrl"`
+	Reason              string  `json:"reason,omitempty"`
+	PublicLinkEnabled   bool    `json:"publicLinkEnabled"`
+	PublicLinkAvailable bool    `json:"publicLinkAvailable"`
+	CanManagePublicLink bool    `json:"canManagePublicLink"`
 }
 
 func newCmdURL(f *cmdutil.Factory) *cobra.Command {
@@ -40,14 +43,11 @@ The hotlink comes from the asset listing, which is memory-addressed, so this
 command needs to know the holding memory: pass the asset's URN (which carries
 it) or add -m.
 
-The URL is absent — and this command says why, as far as it can tell — when
-the asset is not yet scanned CLEAN, or, for a CLEAN asset: when the deployment
-has public hotlinks switched off (the server's default), when it has no valid
-public origin configured (missing, or not an http/https URL), or when the asset's memory is encrypted (an anonymous
-request holds no session key, so an encrypted memory is never hotlinkable).
-The server does not say which of those three applies, so neither can this
-command. Never construct the URL yourself from the id; an absent hotlink means
-there is genuinely nothing safe to hand out.`,
+The stored public-link switch and deployment serving availability are reported
+independently. OFF means no anonymous link; ON with serving disabled records
+an opt-in without publishing. When both are on, a null publicUrl can still mean
+an unfinished/blocked scan, encrypted memory, or no valid canonical origin.
+Never infer OFF from a null URL, and never construct a URL yourself.`,
 		Example: `  hadron asset url hrn:asset:acme.com:kb:assets:01j2x…
   hadron asset url 01j2x… -m hrn:mem:acme.com:kb`,
 		Args: cobra.ExactArgs(1),
@@ -74,9 +74,16 @@ there is genuinely nothing safe to hand out.`,
 				return err
 			}
 
-			dto := assetURLDTO{ID: found.Id, URN: found.Urn, Filename: found.Filename, PublicURL: found.PublicUrl}
+			dto := assetURLDTO{ID: found.Id, URN: found.Urn, Filename: found.Filename, PublicURL: found.PublicUrl, PublicLinkEnabled: found.PublicLinkEnabled, PublicLinkAvailable: found.PublicLinkAvailable, CanManagePublicLink: found.CanManagePublicLink}
 			if found.PublicUrl == nil {
-				dto.Reason = hotlinkAbsentReason(string(found.ScanStatus))
+				switch {
+				case !found.PublicLinkEnabled:
+					dto.Reason = "public link: off"
+				case !found.PublicLinkAvailable:
+					dto.Reason = "public link: on, serving disabled on this deployment"
+				default:
+					dto.Reason = publicLinkStatus(true, true, nil) + " — " + hotlinkAbsentReason(string(found.ScanStatus))
+				}
 			}
 
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -107,14 +114,10 @@ there is genuinely nothing safe to hand out.`,
 	return cmd
 }
 
-// hotlinkAbsentReason turns a null publicUrl into the actionable half of the
-// answer. Scan status is the one cause the caller can read off the asset.
-// For a CLEAN asset the server returns null for three reasons it does not
-// distinguish (hadron-server Asset.publicUrl → publicAssetUrl): public
-// hotlinks disabled — ASSET_PUBLIC_HOTLINK_ENABLED unset, the default since
-// server#897 — a BASE_URL that is missing or not an http(s) URL, or an
-// encrypted memory. So all three are
-// named, and none is asserted (#731).
+// hotlinkAbsentReason explains remaining eligibility failures after the caller
+// has checked the explicit stored switch and deployment availability fields.
+// A CLEAN row still cannot distinguish a missing canonical origin from an
+// encrypted memory, so neither is asserted as the unique cause.
 func hotlinkAbsentReason(scan string) string {
 	switch scan {
 	case "PENDING":
@@ -122,7 +125,7 @@ func hotlinkAbsentReason(scan string) string {
 	case "BLOCKED":
 		return "its virus scan blocked the file, so it is never served"
 	default:
-		return "this deployment has public hotlinks switched off (the server's default) or no valid public origin configured, " +
+		return "no valid public origin configured, " +
 			"or the asset's memory is encrypted (never hotlinkable) — the server does not say which"
 	}
 }

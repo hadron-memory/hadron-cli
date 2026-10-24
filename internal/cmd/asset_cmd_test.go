@@ -25,7 +25,7 @@ func assetJSON(id, name, mime string, size int, scan, publicURL string) string {
 	return `{"id":"` + id + `","urn":"hrn:asset:acme.com:kb:assets:` + id + `","filename":"` + name +
 		`","mimeType":"` + mime + `","sizeBytes":` + itoaT(size) + `,"description":null,"scanStatus":"` + scan +
 		`","scanSignature":` + sig +
-		`,"uploadedAt":"2026-08-06T00:00:00Z","uploadedBy":"u1","deletedAt":null,"memoryId":"mem1","publicUrl":` + publicURL + `}`
+		`,"publicLinkEnabled":true,"publicLinkAvailable":true,"canManagePublicLink":true,"uploadedAt":"2026-08-06T00:00:00Z","uploadedBy":"u1","deletedAt":null,"memoryId":"mem1","publicUrl":` + publicURL + `}`
 }
 
 func itoaT(n int) string {
@@ -236,11 +236,9 @@ func TestAssetURLPrintsHotlinkAndWarns(t *testing.T) {
 	}
 }
 
-// #731: a CLEAN asset with no hotlink. The server returns null for three
-// reasons it does not tell apart — hotlinks switched off (its default), no
-// valid public origin (missing OR malformed BASE_URL), an encrypted memory — so the reason must name all three and
-// assert none. It was naming only the last two, both false on a default
-// deployment.
+// A CLEAN asset with opt-in and deployment serving ON can still lack a URL:
+// no canonical origin or encrypted memory. The server does not distinguish
+// those remaining causes, so describe both without inferring switch state.
 func TestAssetURLCleanButAbsentNamesEveryPossibleCause(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		gql := fakeGraphQL(t, map[string]string{
@@ -275,7 +273,7 @@ func TestAssetURLCleanButAbsentNamesEveryPossibleCause(t *testing.T) {
 		} else if strings.TrimSpace(out.String()) != "" {
 			t.Errorf("stdout must stay empty with no hotlink; got %q", out.String())
 		}
-		for _, cause := range []string{"hotlinks switched off", "no valid public origin", "encrypted", "does not say which"} {
+		for _, cause := range []string{"no valid public origin", "encrypted", "does not say which"} {
 			if !strings.Contains(reason, cause) {
 				t.Errorf("json=%v: reason should name %q; got %q", jsonMode, cause, reason)
 			}

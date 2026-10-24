@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -105,7 +106,7 @@ func TestAssetPublicLinkReadback(t *testing.T) {
 					if dto["publicLinkEnabled"] != tc.enabled || dto["publicLinkAvailable"] != tc.available || dto["canManagePublicLink"] != false {
 						t.Fatalf("missing/additive fields: %s", out)
 					}
-				} else if !strings.Contains(out.String(), tc.text) {
+				} else if !strings.Contains(out.String()+f.IOStreams.ErrOut.(*strings.Builder).String(), tc.text) {
 					t.Fatalf("want %q: %s", tc.text, out)
 				}
 			}
@@ -130,6 +131,55 @@ func TestAssetPublicLinkRefusals(t *testing.T) {
 		err := root.Execute()
 		if exitCodeFor(err) != tc.exit {
 			t.Fatalf("%s: %v (%d)", tc.code, err, exitCodeFor(err))
+		}
+		if err == nil || !strings.Contains(err.Error(), message) {
+			t.Fatalf("server text lost: %v", err)
+		}
+		if tc.code == "GRAPHQL_VALIDATION_FAILED" && !strings.Contains(err.Error(), "out of sync") {
+			t.Fatalf("no version-skew guidance: %v", err)
+		}
+	}
+}
+
+func TestAssetSchemaRefreshOmitsUnsetHostCapabilities(t *testing.T) {
+	b, err := json.Marshal(gen.RegisterHostInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(b, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := fields["capabilities"]; ok {
+		t.Fatalf("unrelated host opt-in leaked on schema refresh: %s", b)
+	}
+}
+
+func TestAssetPublicLinkTTYConfirmation(t *testing.T) {
+	for _, yes := range []bool{true, false} {
+		answer := "n\n"
+		if yes {
+			answer = "y\n"
+		}
+		gql, requests := captureGraphQL(t, map[string]string{"SetAssetPublicLink": `{"data":{"setAssetPublicLink":` + publicLinkRow(true, false, true) + `}}`})
+		f, out, prompt := testFactoryTTY(t, answer)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"asset", "public-link", "a1", "--on", "--server", gql.URL})
+		err := root.Execute()
+		if yes {
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out.String(), "serving disabled") {
+				t.Fatal(out)
+			}
+		} else {
+			if exitCodeFor(err) != exitcode.Cancelled || len(requests) != 0 {
+				t.Fatalf("decline: %v, %v", err, requests)
+			}
+		}
+		if !strings.Contains(strings.ToLower(prompt.String()), "anyone with the link") || !strings.Contains(prompt.String(), "serving disabled") {
+			t.Fatalf("prompt: %s", prompt)
 		}
 	}
 }

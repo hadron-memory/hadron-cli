@@ -41,6 +41,7 @@ within its retention window.`,
 	cmd.AddCommand(newCmdList(f))
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdURL(f))
+	cmd.AddCommand(newCmdPublicLink(f))
 	cmd.AddCommand(newCmdUpload(f))
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdRestore(f))

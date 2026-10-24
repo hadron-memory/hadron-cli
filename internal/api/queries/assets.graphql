@@ -47,10 +47,13 @@ query MemoryAssets(
       uploadedBy
       deletedAt
       memoryId
-      # The UNAUTHENTICATED hotlink. Null when the server has no BASE_URL, when
-      # the asset is not CLEAN, or when its memory is encrypted. Never build
+      # The UNAUTHENTICATED hotlink. Null when opt-in or serving is off, no
+      # canonical origin exists, or scan/encryption eligibility fails. Never build
       # this client-side — a guessed URL is worse than an absent one.
       publicUrl
+      publicLinkEnabled
+      publicLinkAvailable
+      canManagePublicLink
     }
   }
 }
@@ -65,5 +68,18 @@ query AssetDownloadUrl($assetId: ID!, $ttlSeconds: Int) {
     mimeType
     sizeBytes
     expiresAt
+  }
+}
+
+# The server owns management rights, exclusions, and audit.
+mutation SetAssetPublicLink($assetRef: ID!, $enabled: Boolean!) {
+  setAssetPublicLink(assetRef: $assetRef, enabled: $enabled) {
+    id
+    urn
+    filename
+    publicLinkEnabled
+    publicLinkAvailable
+    canManagePublicLink
+    publicUrl
   }
 }

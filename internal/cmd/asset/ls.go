@@ -22,8 +22,9 @@ const assetPageSize = 100
 // assetDTO is the stable --json shape for one asset.
 //
 // PublicURL and Description are pointers because the server genuinely returns
-// null for both — publicUrl when the deployment has no BASE_URL, the asset is
-// not CLEAN, or its memory is encrypted. Flattening to "" would read as "the
+// null for both — publicUrl when its switch or deployment serving is off,
+// the deployment has no canonical origin, the asset is not CLEAN, or its memory
+// is encrypted. Flattening to "" would read as "the
 // asset has an empty hotlink" rather than "there is no hotlink".
 type assetDTO struct {
 	ID          string  `json:"id"`
@@ -37,12 +38,15 @@ type assetDTO struct {
 	// BLOCKED (#896) — the row is kept as an audit tombstone after its bytes
 	// are deleted. A pointer, and null on every non-BLOCKED row: "" would read
 	// as "scanned, matched nothing named", which is not what a CLEAN row means.
-	ScanSignature *string `json:"scanSignature"`
-	UploadedAt    string  `json:"uploadedAt"`
-	UploadedBy    *string `json:"uploadedBy"`
-	DeletedAt     *string `json:"deletedAt"`
-	MemoryID      string  `json:"memoryId"`
-	PublicURL     *string `json:"publicUrl"`
+	ScanSignature       *string `json:"scanSignature"`
+	UploadedAt          string  `json:"uploadedAt"`
+	UploadedBy          *string `json:"uploadedBy"`
+	DeletedAt           *string `json:"deletedAt"`
+	MemoryID            string  `json:"memoryId"`
+	PublicURL           *string `json:"publicUrl"`
+	PublicLinkEnabled   bool    `json:"publicLinkEnabled"`
+	PublicLinkAvailable bool    `json:"publicLinkAvailable"`
+	CanManagePublicLink bool    `json:"canManagePublicLink"`
 }
 
 // assetListDTO is the stable --json shape for a listing.
@@ -135,6 +139,7 @@ or --offset to fetch a single explicit page instead.`,
 						UploadedAt: a.UploadedAt,
 						UploadedBy: a.UploadedBy, DeletedAt: a.DeletedAt,
 						MemoryID: a.MemoryId, PublicURL: a.PublicUrl,
+						PublicLinkEnabled: a.PublicLinkEnabled, PublicLinkAvailable: a.PublicLinkAvailable, CanManagePublicLink: a.CanManagePublicLink,
 					})
 				}
 				if single || !page.HasMore || len(page.Assets) == 0 {
@@ -157,7 +162,7 @@ or --offset to fetch a single explicit page instead.`,
 					fmt.Fprintf(w, "no assets in %s\n", dto.Memory)
 					return nil
 				}
-				t := output.NewTable(w, "ID", "FILENAME", "TYPE", "SIZE", "SCAN", "UPLOADED")
+				t := output.NewTable(w, "ID", "FILENAME", "TYPE", "SIZE", "SCAN", "UPLOADED", "PUBLIC LINK", "CAN MANAGE", "PUBLIC URL")
 				for _, a := range dto.Assets {
 					scan := a.ScanStatus
 					// The signature is what makes a BLOCKED row actionable —
@@ -169,7 +174,11 @@ or --offset to fetch a single explicit page instead.`,
 					if a.DeletedAt != nil {
 						scan += " (deleted)"
 					}
-					t.Row(a.ID, a.Filename, a.MimeType, humanSize(a.SizeBytes), scan, a.UploadedAt)
+					url := "none"
+					if a.PublicURL != nil {
+						url = *a.PublicURL
+					}
+					t.Row(a.ID, a.Filename, a.MimeType, humanSize(a.SizeBytes), scan, a.UploadedAt, publicLinkStatus(a.PublicLinkEnabled, a.PublicLinkAvailable, a.PublicURL), fmt.Sprint(a.CanManagePublicLink), url)
 				}
 				return t.Flush()
 			})
