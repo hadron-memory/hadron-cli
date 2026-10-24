@@ -42,7 +42,8 @@ const (
 
 // parseSyncReport reads the stored string. A nil input is "none"; anything
 // that is not a well-formed v1 report (bad JSON, another version, a non-object,
-// an outcome or field outside v1) is "unavailable" with no report. Unknown
+// an outcome or field outside v1, an omitted or null entries array) is
+// "unavailable" with no report. Unknown
 // entry kinds and codes are NOT a reason to refuse: the server may add
 // vocabulary within v1, and those render as "other".
 func parseSyncReport(raw *string) (*syncReportDTO, string) {
@@ -53,7 +54,7 @@ func parseSyncReport(raw *string) (*syncReportDTO, string) {
 		Version    *int    `json:"version"`
 		Outcome    *string `json:"outcome"`
 		RecordedAt *string `json:"recordedAt"`
-		Entries    []struct {
+		Entries    *[]struct {
 			Kind    *string `json:"kind"`
 			Loc     *string `json:"loc"`
 			FromLoc *string `json:"fromLoc"`
@@ -65,7 +66,7 @@ func parseSyncReport(raw *string) (*syncReportDTO, string) {
 	if len(trimmed) == 0 || trimmed[0] != '{' || json.Unmarshal(trimmed, &wire) != nil {
 		return nil, syncReportUnavailable
 	}
-	if wire.Version == nil || *wire.Version != 1 || wire.Outcome == nil || wire.RecordedAt == nil {
+	if wire.Version == nil || *wire.Version != 1 || wire.Outcome == nil || wire.RecordedAt == nil || wire.Entries == nil {
 		return nil, syncReportUnavailable
 	}
 	switch *wire.Outcome {
@@ -84,7 +85,7 @@ func parseSyncReport(raw *string) (*syncReportDTO, string) {
 		Entries:    []syncReportEntryDTO{},
 		Code:       wire.Code,
 	}
-	for _, e := range wire.Entries {
+	for _, e := range *wire.Entries {
 		if e.Kind == nil || e.Loc == nil || e.Code == nil {
 			return nil, syncReportUnavailable
 		}
@@ -144,11 +145,13 @@ func kindLabel(kind string) string {
 	return vocab(kind, false)
 }
 
-// urlUserinfo matches the credentials part of a URL (`scheme://user:pass@`).
-// syncError is a server-stored message; the server already replaces git
+// urlUserinfo matches the credentials part of a URL (`scheme://user:pass@`),
+// up to the LAST @ before the host so an unencoded @ in a password is masked
+// whole. syncError is a server-stored message; the server already replaces git
 // failures with a fixed text, and this keeps any other error that quotes an
-// authenticated remote from printing its token.
-var urlUserinfo = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/\s@]+@`)
+// authenticated remote from printing its token. Scheme-less scp-style remotes
+// (`user:token@host:path`) are not masked: the mask covers URL remotes only.
+var urlUserinfo = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/\s?#]+@`)
 
 func maskSyncError(s *string) *string {
 	if s == nil {

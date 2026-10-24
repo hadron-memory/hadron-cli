@@ -26,6 +26,7 @@ Design as built. The gate is Xan's CHECKED stamp on hadron-cli#1014 (Patrick's P
 - a `version` other than 1, or a missing one;
 - an outcome outside `partial|failed|unknown`;
 - a `recordedAt` that is not RFC 3339;
+- an `entries` that is omitted, null or not an array (an explicit `[]` is valid);
 - an entry missing `kind`, `loc` or `code`, or an entry with a field of the wrong type.
 
 The CLI never repairs a report.
@@ -58,7 +59,7 @@ The `ERROR`, `SYNCING` and `PENDING` rows cover rows written before the provider
   - `syncError` is capped at 500 runes.
   - The text view prints at most 50 entries, then `… and N more`.
   - `--json` is uncapped: it is the machine contract.
-- **`syncError` redaction.** The server already replaces git command failures with a fixed text (`GitCommandError`, `execGit.ts`), but other errors' messages are stored raw. As defense in depth, the CLI masks URL userinfo (`scheme://user:pass@` → `scheme://[redacted]@`) in both the text and `--json` output. It cannot know the token itself, so this is the only credential shape it can recognise.
+- **`syncError` redaction.** The server already replaces git command failures with a fixed text (`GitCommandError`, `execGit.ts`), but other errors' messages are stored raw. As defense in depth, the CLI masks URL userinfo (`scheme://user:pass@` → `scheme://[redacted]@`, up to the last `@` before the host, so an unencoded `@` in a password does not leak its tail) in both the text and `--json` output. It cannot know the token itself, so this is the only credential shape it can recognise. Scheme-less scp-style remotes (`user:token@host:path`) are not masked.
 
 ## Out of scope
 
