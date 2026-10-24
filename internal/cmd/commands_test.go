@@ -1896,7 +1896,7 @@ func TestMemoryAttachRequiresAppAndAgent(t *testing.T) {
 func TestMemoryGetShortFormNormalizes(t *testing.T) {
 	for _, short := range []string{"acme.com:kb", "acme.com::kb"} {
 		gql, captured := captureGraphQL(t, map[string]string{
-			"GetMemory": `{"data":{"memory":` + memoryJSON + `}}`,
+			"GetMemoryDetail": `{"data":{"memory":` + memoryJSON + `}}`,
 		})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
@@ -1907,7 +1907,7 @@ func TestMemoryGetShortFormNormalizes(t *testing.T) {
 		var vars struct {
 			Ref string `json:"ref"`
 		}
-		_ = json.Unmarshal(captured["GetMemory"], &vars)
+		_ = json.Unmarshal(captured["GetMemoryDetail"], &vars)
 		if vars.Ref != "hrn:mem:acme.com:kb" {
 			t.Errorf("memory get %q should send canonical ref, got %q", short, vars.Ref)
 		}
@@ -1993,7 +1993,7 @@ func TestMemorySetRejectsMaxRevCountBelowOne(t *testing.T) {
 // `memory get` displays maxRevCount.
 func TestMemoryGetShowsMaxRevCount(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetMemory": `{"data":{"memory":` + memoryJSON + `}}`,
+		"GetMemoryDetail": `{"data":{"memory":` + memoryJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
