@@ -28,6 +28,20 @@ your OS keychain). Same shape as `gh auth login`; the portal is never involved.
 The provider flag only selects the server's login route — Google credentials
 remain on the server and are never stored by the CLI.
 
+The server's sign-in page offers the methods that server supports (GitHub,
+Google or email). If the server requires a passkey for email sign-in, its page
+asks for one before the CLI receives anything; where it offers passkey
+registration, it emails a second link, which you open in the same browser.
+Otherwise use `--provider github|google`. The CLI runs no passkey step itself,
+so an agent cannot complete one: agents use `HADRON_TOKEN` or `--with-token`.
+The browser step must finish within 15 minutes, a limit the CLI sets for
+itself; on timeout it exits 6 and stores nothing.
+
+If the server later refuses a **stored** credential, commands exit 3 with
+"your stored credential was refused; run `hadron auth login`". The CLI does
+not retry, does not delete the stored token, and does not guess why it was
+refused.
+
 The CLI requests the `account` OAuth scope (`cor:aut:010:02`): it uses the
 server's data API, which refuses a key limited to `mcp`. If the server refuses
 `account` or grants a narrower scope, login fails with exit 1 and stores
