@@ -1424,6 +1424,26 @@ type whoamiDTO struct {
 	// (#484). Both null on a live session and on an unchecked read.
 	EndedAt       *string `json:"endedAt"`
 	AutoExpiredAt *string `json:"autoExpiredAt"`
+	// Live, LapsesAt and State are the server's own per-session state
+	// (Session.isLive / lapsesAt / state, cor:agt:020:13), additive beside the
+	// keys above and null unless --check ran (State is "unknown", never null,
+	// when --check ran against a server that predates the field). The CLI
+	// derives none of them: no clock, no idle or dormancy policy. Active keeps
+	// its stable meaning (open row), and is NOT replaced by these.
+	Live     *bool   `json:"live"`
+	LapsesAt *string `json:"lapsesAt"`
+	State    *string `json:"state"`
+	// CandidateStates answers the same for every candidate of the server
+	// fallback under --check (several sessions have no single answer above). It
+	// is [] and never null everywhere else, so a consumer can iterate it blind.
+	CandidateStates []candidateStateDTO `json:"candidateStates"`
+}
+
+// setState records the server's state answer on the DTO.
+func (d *whoamiDTO) setState(st sessionStateDTO) {
+	d.Live, d.LapsesAt = st.Live, st.LapsesAt
+	state := st.State
+	d.State = &state
 }
 
 // livenessLine renders --check's answer, and distinguishes the two ways a
@@ -1462,11 +1482,10 @@ type livenessResult struct {
 // clears only the binding of the worktree it ran in. Every other worktree's
 // file keeps describing a session that is gone.
 //
-// It deliberately reports nothing about IDLENESS. An open session not driven
-// for months is correctly open under #1114. Since #791 the server does expose
-// Session.isLive, but this command's stable `active` answer means OPEN, not
-// recently driven. `session start` reads the separate liveness field for its
-// binding guard; `whoami --check` keeps its narrower ended-state contract.
+// This answers only OPEN (endedAt IS NULL), the stable `active` meaning: an
+// open session not driven for months is correctly open under #1114. Liveness is
+// a separate question the server answers as Session.state, which the caller
+// reads through fetchSessionState (cli#815); nothing here derives it.
 func checkSessionLiveness(cmd *cobra.Command, f *cmdutil.Factory, b *binding) (livenessResult, error) {
 	// A binding from another deployment describes a session this server has
 	// never heard of, and "not found" would read as "ended". Refuse with the
@@ -1572,8 +1591,18 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 			"%s, and you have no open worker session on the server — `hadron team session start --as <name>` opens one",
 			noBindingReason(inWorktree))
 	}
-	dto := whoamiDTO{binding: &binding{PRNumbers: []int{}}, Source: "server", Candidates: mine}
+	dto := whoamiDTO{binding: &binding{PRNumbers: []int{}}, Source: "server", Candidates: mine, CandidateStates: []candidateStateDTO{}}
 	if check {
+		// One state read per candidate: --check is the one network path, and
+		// "every listed session" is the acceptance. Sequential and bounded by
+		// the number of open sessions the caller holds.
+		for _, s := range mine {
+			st, serr := fetchSessionState(cmd.Context(), client, s.ID)
+			if serr != nil {
+				return serr
+			}
+			dto.CandidateStates = append(dto.CandidateStates, candidateStateDTO{SessionID: s.ID, Live: st.Live, LapsesAt: st.LapsesAt, State: st.State})
+		}
 		// --check must not be SILENTLY downgraded here (@copilot on PR #626).
 		// Its answer would otherwise depend on whether the local cache happens
 		// to exist, which is the opposite of what the flag is for.
@@ -1589,6 +1618,8 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 			// several leaves Active null exactly as it leaves sessionId empty.
 			open := true
 			dto.Active = &open
+			only := dto.CandidateStates[0]
+			dto.setState(sessionStateDTO{Live: only.Live, LapsesAt: only.LapsesAt, State: only.State})
 		}
 	}
 	if len(mine) == 1 {
@@ -1622,15 +1653,26 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 			if r := strOrEmpty(s.Repo); r != "" {
 				fmt.Fprintf(w, "  repo: %s\n", r)
 			}
+			if check {
+				fmt.Fprintf(w, "  server: %s\n", stateLine(dto))
+			}
 		} else {
 			// A TABLE, because several is the ordinary case rather than the
 			// exception — one driver with a worker per worktree had 17 open at
 			// once, measured. Seventeen detail blocks is not a list anyone can
 			// pick from, and picking is the whole purpose here.
 			fmt.Fprintf(w, "%d open worker sessions are yours; none is bound here, so pick one by SESSION.\n\n", len(mine))
-			t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "REPO", "STARTED", "SESSION")
-			for _, s := range mine {
-				t.Row(dash(s.WorkerName), dash(s.WorkerRole), reportsToLabel(s.ReportsTo, s.ReportsToRetired, s.ReportingKnown), dash(s.Repo), s.StartedAt, s.ID)
+			header := []string{"WORKER", "ROLE", "REPORTS TO", "REPO", "STARTED", "SESSION"}
+			if check {
+				header = append(header, "STATE")
+			}
+			t := output.NewTable(w, header...)
+			for i, s := range mine {
+				row := []string{dash(s.WorkerName), dash(s.WorkerRole), reportsToLabel(s.ReportsTo, s.ReportsToRetired, s.ReportingKnown), dash(s.Repo), s.StartedAt, s.ID}
+				if check {
+					row = append(row, stateCell(dto.CandidateStates[i]))
+				}
+				t.Row(row...)
 			}
 			if err := t.Flush(); err != nil {
 				return err
@@ -1675,7 +1717,7 @@ left a session open with its only local handle gone.
 --json carries "source": "worktree" when the binding answered, "server" when
 the fallback did.
 
---check ASKS THE SERVER whether the bound session is still open (#484). The
+--check ASKS THE SERVER about the bound session (#484). The
 binding identity remains available locally for compaction recovery. The default
 also reads the worker's CURRENT reports-to relation (best effort, at most five
 seconds); failed or masked reads show ? (unavailable), not nobody. It never
@@ -1687,13 +1729,16 @@ a person ending it, says so: endedAt answers WHETHER, autoExpiredAt answers HOW.
 The --json answer is "active" (the endedAt-IS-NULL predicate, as everywhere
 else here), never "live" — an active session is not necessarily a driven one.
 
---check is not a health check for idleness. Since hadron-server#1114 a
-developer session has no inactivity deadline, so an open session that has not
-been driven in months is CORRECTLY open, and nothing here calls it stale. The
-server exposes Session.isLive since hadron-server#1547, but this command deliberately
-answers only whether the bound session is open. Its --json ` + "`active`" + ` key
-keeps that stable meaning; use ` + "`session start`" + ` for the exact liveness
-guard when rebinding.
+--check asks the server about the session and shows its own state, never one
+the CLI works out: "live, lapses at <instant>", "LAPSED at <instant>" (open but
+not live; rebind), "DORMANT" (no agent act resumes it; its human holder must
+rebind) or "ENDED" (also shown when a session has hard-expired but is not yet
+reaped). Since hadron-server#1114 a developer session has no inactivity
+deadline, and an open one not driven for months is open, not stale. --json adds
+` + "`live`, `lapsesAt`, `state` (live|lapsed|dormant|ended|unknown)" + ` and
+` + "`candidateStates`" + `; ` + "`active`" + ` keeps its stable meaning (the row is
+not ended) and is NOT liveness. A server that predates Session.state answers
+state "unknown". Plain whoami (no --check) stays local and reads nothing.
 
 The fallback lists only sessions that are attributed to YOU, worker-bound, and
 still open. The server's session list is deliberately wider than that — it
@@ -1730,7 +1775,7 @@ binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
 			if b == nil {
 				return whoamiFromServer(cmd, f, true, check)
 			}
-			result := whoamiDTO{binding: b, BindingPath: path, Source: "worktree", Candidates: []sessionDTO{}}
+			result := whoamiDTO{binding: b, BindingPath: path, Source: "worktree", Candidates: []sessionDTO{}, CandidateStates: []candidateStateDTO{}}
 			if check {
 				live, cerr := checkSessionLiveness(cmd, f, b)
 				if cerr != nil {
@@ -1740,6 +1785,17 @@ binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
 				result.Active = &live.active
 				result.EndedAt = live.endedAt
 				result.AutoExpiredAt = live.autoExpiredAt
+				// The state read is its own operation (an older server degrades
+				// to "unknown"); the open-row answer above is already in hand.
+				client, cerr := f.GraphQLClient()
+				if cerr != nil {
+					return cerr
+				}
+				st, cerr := fetchSessionState(cmd.Context(), client, b.SessionID)
+				if cerr != nil {
+					return cerr
+				}
+				result.setState(st)
 			}
 			loadReporting(cmd.Context(), f, b, &result)
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
@@ -1762,13 +1818,13 @@ binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
 					fmt.Fprintf(w, "  prs: %s\n", strings.Join(prs, " "))
 				}
 				if result.Checked {
-					fmt.Fprintf(w, "  server: %s\n", livenessLine(result))
+					fmt.Fprintf(w, "  server: %s\n", stateLine(result))
 				}
 				return nil
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open")
+	cmd.Flags().BoolVar(&check, "check", false, "ask the server about the bound session: live, lapsed, dormant or ended")
 	return cmd
 }
 

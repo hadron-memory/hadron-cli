@@ -22847,6 +22847,82 @@ func (v *GetBoundSessionLivenessSession) GetEndedAt() *string { return v.EndedAt
 // GetIsLive returns GetBoundSessionLivenessSession.IsLive, and is useful for accessing the field via an interface.
 func (v *GetBoundSessionLivenessSession) GetIsLive() bool { return v.IsLive }
 
+// GetBoundSessionStateResponse is returned by GetBoundSessionState on success.
+type GetBoundSessionStateResponse struct {
+	Session *GetBoundSessionStateSession `json:"session"`
+}
+
+// GetSession returns GetBoundSessionStateResponse.Session, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionStateResponse) GetSession() *GetBoundSessionStateSession { return v.Session }
+
+// GetBoundSessionStateSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type GetBoundSessionStateSession struct {
+	Id string `json:"id"`
+	// hadron-cli#791 / hrn:node:hadronmemory.com:specs:cor:agt:020:11:
+	// whether THIS session is live: not ended
+	// or hard-expired (hrn:node:hadronmemory.com:specs:cor:agt:020:03),
+	// AND driven inside its type's idle window (activity is the latest of
+	// startedAt, the heartbeat updatedAt, and the latest attributed usage
+	// event, capped at endedAt). The same derived predicate as startSession's
+	// WORKER_TAKEN gate and Worker.hasLiveSession, so the three always agree.
+	// An unexpired open session that is not live has LAPSED: nobody drove it inside the
+	// window, so another driver may bind its worker; it is not ended, and can
+	// still be ended with a handoff. False for an ended or deleted session.
+	IsLive bool `json:"isLive"`
+	// #1617 / #1036: the earlier of last activity plus the type's idle window
+	// and a promised expiresAt (hrn:node:hadronmemory.com:specs:cor:agt:020:03).
+	// The idle deadline is inclusive; a hard expiry is exclusive: the session
+	// is expired at now >= expiresAt, even before the reaper runs. Driving it
+	// can renew its idle deadline, never its promised expiry. Null for an
+	// ended or deleted session.
+	LapsesAt *string `json:"lapsesAt"`
+	// #2288 / hrn:node:hadronmemory.com:specs:cor:agt:020:13:
+	// this session's derived state, using its own App's dormancy period (platform
+	// default when App-less), never the viewer's App. ENDED means terminal: an
+	// explicit/reaped end, deletion, or now >= promised expiresAt before reap.
+	// It does not assert an explicit ending act. Otherwise DORMANT uses the same
+	// activity and strict older-than threshold as the resume refusal. At exact
+	// dormancy equality it is not dormant. LIVE includes idle deadline equality;
+	// hard expiry is exclusive even when the deadlines coincide. The remaining
+	// open sessions are LAPSED. Reading state never drives or resumes a session.
+	State SessionState `json:"state"`
+}
+
+// GetId returns GetBoundSessionStateSession.Id, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionStateSession) GetId() string { return v.Id }
+
+// GetIsLive returns GetBoundSessionStateSession.IsLive, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionStateSession) GetIsLive() bool { return v.IsLive }
+
+// GetLapsesAt returns GetBoundSessionStateSession.LapsesAt, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionStateSession) GetLapsesAt() *string { return v.LapsesAt }
+
+// GetState returns GetBoundSessionStateSession.State, and is useful for accessing the field via an interface.
+func (v *GetBoundSessionStateSession) GetState() SessionState { return v.State }
+
 // GetChannelChannel includes the requested fields of the GraphQL type Channel.
 // The GraphQL type's documentation follows.
 //
@@ -43023,6 +43099,23 @@ func (v *SessionInput) GetType() *string { return v.Type }
 // GetWorkerRef returns SessionInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetWorkerRef() *string { return v.WorkerRef }
 
+// #2288: derived per-session state; ENDED means terminal, not necessarily an explicit end.
+type SessionState string
+
+const (
+	SessionStateDormant SessionState = "DORMANT"
+	SessionStateEnded   SessionState = "ENDED"
+	SessionStateLapsed  SessionState = "LAPSED"
+	SessionStateLive    SessionState = "LIVE"
+)
+
+var AllSessionState = []SessionState{
+	SessionStateDormant,
+	SessionStateEnded,
+	SessionStateLapsed,
+	SessionStateLive,
+}
+
 // SetAgentBaseResponse is returned by SetAgentBase on success.
 type SetAgentBaseResponse struct {
 	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set, change or clear the one base Agent this
@@ -62962,6 +63055,14 @@ type __GetBoundSessionLivenessInput struct {
 // GetId returns __GetBoundSessionLivenessInput.Id, and is useful for accessing the field via an interface.
 func (v *__GetBoundSessionLivenessInput) GetId() string { return v.Id }
 
+// __GetBoundSessionStateInput is used internally by genqlient
+type __GetBoundSessionStateInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __GetBoundSessionStateInput.Id, and is useful for accessing the field via an interface.
+func (v *__GetBoundSessionStateInput) GetId() string { return v.Id }
+
 // __GetChannelInput is used internally by genqlient
 type __GetChannelInput struct {
 	Ref string `json:"ref"`
@@ -74501,6 +74602,50 @@ func GetBoundSessionLiveness(
 	}
 
 	data_ = &GetBoundSessionLivenessResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetBoundSessionState.
+const GetBoundSessionState_Operation = `
+query GetBoundSessionState ($id: ID!) {
+	session(id: $id) {
+		id
+		isLive
+		lapsesAt
+		state
+	}
+}
+`
+
+// cli#815 (server #2307, spec cor:agt:020:13): the canonical per-session state
+// — LIVE | LAPSED | DORMANT | ENDED — and the lapse deadline, for
+// `whoami --check`. A SEPARATE operation for the same reason as
+// GetBoundSessionLiveness: an older server rejects the unknown field at
+// validation, and the display then degrades to "unknown" while the ordinary
+// GetTeamSession answer (active/endedAt) is unchanged. Reading it never
+// drives or resumes a session.
+func GetBoundSessionState(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *GetBoundSessionStateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetBoundSessionState",
+		Query:  GetBoundSessionState_Operation,
+		Variables: &__GetBoundSessionStateInput{
+			Id: id,
+		},
+	}
+
+	data_ = &GetBoundSessionStateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -2363,8 +2363,8 @@ Conventions:
   may merely SEE — and with several open it reports them all and leaves
   `sessionId` empty rather than guessing. **`git worktree remove` deletes the
   binding and does NOT end the session**; recover the id with `whoami` and end it
-  with `session end --session <id>`. **`whoami --check` asks the server whether
-  the bound session is still open (#484)**. Binding identity stays available
+  with `session end --session <id>`. **`whoami --check` asks the server about
+  the bound session (#484, state since cli#815)**. Binding identity stays available
   locally for compaction recovery. The default now also makes a best-effort
   worker read for its CURRENT reporting relation; a failed, masked or unavailable
   read reports `reportingKnown: false` / `? (unavailable)`, preserving recovery
@@ -2379,11 +2379,22 @@ Conventions:
   `--check` is honoured on the server-fallback path too, where the openness is
   already the server's word. `endedAt`
   answers WHETHER it ended and `autoExpiredAt` answers HOW — non-null only when
-  the server reaped it rather than a person ending it. **`--check` says nothing
-  about idleness**: since hadron-server#1114 a developer session has no
-  inactivity deadline, so an open session undriven for months is correctly open,
-  and `active` keeps its open/ended meaning even though the server now exposes
-  per-session `isLive` for the `session start` binding guard. **Most of the
+  the server reaped it rather than a person ending it. **`--check` also shows
+  the server's own session state (cli#815, `Session.state`)**: text `server:`
+  reads `live, lapses at <instant>`, `LAPSED at <instant>` (open but not live;
+  rebind), `DORMANT` (no agent act resumes it; its human holder must rebind) or
+  `ENDED` (also when a session hard-expired and is not yet reaped, where
+  `active` is still true). `--json` adds `live`, `lapsesAt`, `state`
+  (`live|lapsed|dormant|ended|unknown`) and `candidateStates` (`[]` unless the
+  server fallback ran under `--check`; one `{sessionId, live, lapsesAt, state}`
+  per candidate, also a STATE column in the table). `live`/`lapsesAt`/`state`
+  are **null** without `--check`; a server that predates `Session.state`
+  answers `state: "unknown"` (never guessed) and a transport/auth failure on
+  the state read is an error, not "unknown". The CLI derives none of it — no
+  clock, no idle or dormancy policy. Plain `whoami` stays local and reads
+  nothing. **`active` is unchanged and is not liveness**: since
+  hadron-server#1114 a developer session has no inactivity deadline, so use
+  `state` for "is it driven". **Most of the
   time, do not end a session at all**: they are meant to be long-lived
   (hadron-server#1114 removed the idle reaper), so ending is for when the WORK
   ends, not when a chat session, branch

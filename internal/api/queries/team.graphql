@@ -746,6 +746,22 @@ query GetBoundSessionLiveness($id: ID!) {
   }
 }
 
+# cli#815 (server #2307, spec cor:agt:020:13): the canonical per-session state
+# — LIVE | LAPSED | DORMANT | ENDED — and the lapse deadline, for
+# `whoami --check`. A SEPARATE operation for the same reason as
+# GetBoundSessionLiveness: an older server rejects the unknown field at
+# validation, and the display then degrades to "unknown" while the ordinary
+# GetTeamSession answer (active/endedAt) is unchanged. Reading it never
+# drives or resumes a session.
+query GetBoundSessionState($id: ID!) {
+  session(id: $id) {
+    id
+    isLive
+    lapsesAt
+    state
+  }
+}
+
 # hadron-cli#914 (Holger R1/R2 over server #1156, cor:dmo:070:05): the
 # ended-binding notice reads the bound session's end and its closed cause.
 # A SEPARATE operation: an older server rejects the unknown endReason field
