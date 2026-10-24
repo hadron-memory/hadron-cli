@@ -51,6 +51,9 @@ query MemoryAssets(
       # the asset is not CLEAN, or when its memory is encrypted. Never build
       # this client-side — a guessed URL is worse than an absent one.
       publicUrl
+      publicLinkEnabled
+      canManagePublicLink
+      publicLinkAvailable
     }
   }
 }
@@ -65,5 +68,16 @@ query AssetDownloadUrl($assetId: ID!, $ttlSeconds: Int) {
     mimeType
     sizeBytes
     expiresAt
+  }
+}
+
+# Server-owned policy, capability and deployment availability are independent.
+mutation SetAssetPublicLink($assetRef: ID!, $enabled: Boolean!) {
+  setAssetPublicLink(assetRef: $assetRef, enabled: $enabled) {
+    id
+    publicLinkEnabled
+    canManagePublicLink
+    publicLinkAvailable
+    publicUrl
   }
 }
