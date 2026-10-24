@@ -1,0 +1,65 @@
+fragment CalendarReadEvent on CalendarEvent {
+  id
+  calendarId
+  title
+  description
+  location
+  start { date dateTime timeZone }
+  end { date dateTime timeZone }
+  isAllDay
+  status
+  organizer { address name }
+  attendees { address name optional response }
+  webLink
+  seriesId
+  isOrganizer
+  myResponse
+  createdAt
+  updatedAt
+}
+
+query CalendarList($connectionRef: ID!) {
+  calendars(connectionRef: $connectionRef) {
+    id name description timeZone isPrimary canEdit
+  }
+}
+
+query CalendarEvents(
+ $connectionRef: ID!
+ # @genqlient(omitempty: true)
+ $calendarId: String
+ # @genqlient(omitempty: true)
+ $start: String
+ # @genqlient(omitempty: true)
+ $end: String
+ # @genqlient(omitempty: true)
+ $query: String
+ $top: Int!
+) {
+  calendarEvents(connectionRef: $connectionRef, calendarId: $calendarId, start: $start, end: $end, query: $query, top: $top) {
+    ...CalendarReadEvent
+  }
+}
+
+query CalendarGetEvent(
+ $connectionRef: ID!
+ $eventId: ID!
+ # @genqlient(omitempty: true)
+ $calendarId: String
+) {
+  calendarEvent(connectionRef: $connectionRef, eventId: $eventId, calendarId: $calendarId) {
+    ...CalendarReadEvent
+  }
+}
+
+query CalendarFreeBusy(
+ $connectionRef: ID!
+ $start: String!
+ $end: String!
+ # @genqlient(omitempty: true)
+ $schedules: [String!]
+) {
+  calendarSchedule(connectionRef: $connectionRef, start: $start, end: $end, schedules: $schedules) {
+    id error busy { start end }
+  }
+}

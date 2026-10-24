@@ -23,15 +23,18 @@ import (
 	assetcmd "github.com/hadron-memory/hadron-cli/internal/cmd/asset"
 	authcmd "github.com/hadron-memory/hadron-cli/internal/cmd/auth"
 	billingcmd "github.com/hadron-memory/hadron-cli/internal/cmd/billing"
+	calendarcmd "github.com/hadron-memory/hadron-cli/internal/cmd/calendar"
 	channelcmd "github.com/hadron-memory/hadron-cli/internal/cmd/channel"
 	chatcmd "github.com/hadron-memory/hadron-cli/internal/cmd/chat"
 	codingcmd "github.com/hadron-memory/hadron-cli/internal/cmd/coding"
 	commentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/comment"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
+	drivecmd "github.com/hadron-memory/hadron-cli/internal/cmd/drive"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
 	emailcmd "github.com/hadron-memory/hadron-cli/internal/cmd/email"
 	grantcmd "github.com/hadron-memory/hadron-cli/internal/cmd/grant"
+	hacmd "github.com/hadron-memory/hadron-cli/internal/cmd/ha"
 	mcpservercmd "github.com/hadron-memory/hadron-cli/internal/cmd/mcpserver"
 	memorycmd "github.com/hadron-memory/hadron-cli/internal/cmd/memory"
 	nodecmd "github.com/hadron-memory/hadron-cli/internal/cmd/node"
@@ -136,7 +139,10 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.AddCommand(ticketcmd.NewCmdTicket(f))
 	root.AddCommand(grantcmd.NewCmdGrant(f))
 	root.AddCommand(connectioncmd.NewCmdConnection(f))
+	root.AddCommand(hacmd.NewCmdHa(f))
 	root.AddCommand(emailcmd.NewCmdEmail(f))
+	root.AddCommand(drivecmd.NewCmdDrive(f))
+	root.AddCommand(calendarcmd.NewCmdCalendar(f))
 	root.AddCommand(mcpservercmd.NewCmdMcpServer(f))
 	root.AddCommand(secretcmd.NewCmdSecret(f))
 	root.AddCommand(configcmd.NewCmdConfig(f))

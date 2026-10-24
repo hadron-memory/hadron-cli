@@ -374,9 +374,12 @@ hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--p
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
 hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | balance <org> | ledger <org> [--limit N] [--offset N]   # spec-046 metering READS (cli#215); <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. No write commands (setting rates, granting credits) yet
 hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | list [--org <ref>] [--user <ref>] | revoke <id> --yes
+hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
+hadron drive list --connection <ref> [--folder <id>] [--query <text>] [--name-contains <text>] [--mime-type <type>] [--modified-after <RFC3339>] [--top 1..100] [--page-token <token>] | get <file-id> --connection <ref> | export <file-id> --connection <ref> [--format MARKDOWN|TEXT|HTML]
 hadron email connections --org <id|urn> [--json]
 hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | list [--connection <ref>] | revoke <grant-id> --yes
 hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
+hadron ha list [--org <ref>] [--limit 1..200] [--offset N] | get <id> | ops <id>   # Home Assistant registry READS only (cli#231). list is ONE explicit page (default --limit 20, sent explicitly; the server default is 50), slug-ascending; --json is a bare array and, when more rows exist, stderr prints `showing N of TOTAL; next page: --offset M --limit L`. get/ops: null = absent OR not visible to you (one answer, exit 4; no existence proof). opAllowlist [] means EVERY op, not deny-all. runToolName/inputSchema are the provider's strings. A disabled instance's `ops` is refused by the server (HA_INSTANCE_DISABLED), message shown unchanged. The access token is write-only and never shown; no host/device is contacted. No create/update/delete yet (separately gated)
 hadron secret create --name <n> --scope user|org [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | list --scope user|org [--owner <ref>] | rm <id> --yes
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
@@ -3394,3 +3397,41 @@ or client completeness guarantee is invented. Empty JSON is []. Each row has
 lastSyncAt,createdAt,updatedAt}; displayName/lastSyncAt preserve null. No credentials
 or lastError are selected. Text quotes external strings. Error mapping remains
 unchanged, including unknown tool failures; no guessed reconnect remedy.
+
+
+`hadron calendar` is read-only: explicit --connection, no discovery fallback or
+org-admin mailbox entitlement. `events` sends top=25 by default (1..100), one
+bounded bare list with no total/continuation. Absent optional calendar/query/time
+filters are omitted; explicit empty values are refused before requests. Bounds
+are RFC3339 instants with offsets; both supplied bounds must increase. Freebusy
+requires both and returns schedules/windows/error only, never event contents.
+CalendarInfo DTO: {id,name,description,timeZone,isPrimary,canEdit}. Event DTO:
+{id,calendarId,title,description,location,start,end,isAllDay,status,organizer,
+attendees,webLink,seriesId,isOrganizer,myResponse,createdAt,updatedAt}. Boundaries
+are {date,dateTime,timeZone}; date-only YYYY-MM-DD strings stay dates. Organizer
+is null or {address,name}, attendees is [] or {address,name,optional,response}
+rows; enum strings including NONE and nullable myResponse stay as returned.
+Freebusy DTO: [{id,error,busy:[{start,end}]}]. Arrays are [], nullable fields are
+null, and supplied offsets/zones are preserved. Human mode labels pretty JSON
+as external data and identifies the connection source; --json is the DTO only.
+No create/update/delete/respond/notifications. Existing error mapping/refusal
+sentences remain; unknown errors do not imply reconnect/retry.
+
+
+`hadron drive` is read-only with explicit --connection and the server's existing
+owner/drive.read grant gate; org administration grants no mailbox access. List
+returns one bounded {files,nextPageToken} page, never --all or a completeness
+claim. Explicit top defaults to50 browse/25 search (query/nameContains/mimeType/
+modifiedAfter), range1..100; folder/token alone remains browse. Absent optional
+filters are omitted, blank supplied filters refused. Opaque page tokens are
+forwarded unchanged; nextPageToken null ends pagination. File DTO:
+{id,name,kind,mimeType,parents,size,createdAt,modifiedAt,webLink}; parents stays[],
+nullable Float size remains bytes/null with no integer guarantee. Modified-after
+requires RFC3339 with offset; no timezone guessed. Get/list text labels escaped
+JSON metadata as data and names the connection source. Export text writes only
+the original content bytes (no banner/newline/truncation/evaluation); JSON is
+{file,format,mimeType,content}. Format MARKDOWN/TEXT/HTML is case-normalized; absent
+format delegates the provider default. No local output-file or remote document
+creation option. Server delegates format/binary/size guarantees to its tool;
+file_too_large and unknown failures retain existing error mapping/refusal text,
+with no retry/reconnect guess. No hidden discovery, writes or uploads.
