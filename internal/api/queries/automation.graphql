@@ -1,0 +1,76 @@
+# Automation approval (#1071, hadron-server#2441). The server derives every
+# sentence, state and hash; the CLI binds the wire names and never computes any
+# of them. The list carries UNADOPTED/ADOPTED only — CHANGED exists on the
+# detail projection alone.
+
+# One page of the adoptable schedules and webhooks of an App. `omitted` names the
+# trigger kinds the list never carries (MANUAL: consent is per run). The first
+# page omits `after` rather than sending null.
+query AutomationApprovals(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $after: String
+) {
+  automationApprovals(appRef: $appRef, after: $after) {
+    rows {
+      triggerKind
+      triggerRef
+      name
+      state
+      headline
+    }
+    nextCursor
+    omitted {
+      triggerKind
+      reason
+    }
+  }
+}
+
+# What an adopter reviews before approving: state, the hash to approve, and the
+# plain summary.
+fragment AutomationApprovalFields on AutomationApproval {
+  state
+  hash
+  summary {
+    name
+    schedule
+    reads
+    writes
+    tools
+    limits
+    cannotDo
+    flows {
+      name
+      urn
+      tools
+      writes
+    }
+  }
+}
+
+# Selected WITHOUT the graph depth.
+query AutomationApproval($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
+  automationApproval(triggerKind: $triggerKind, triggerRef: $triggerRef) {
+    ...AutomationApprovalFields
+  }
+}
+
+# The same projection plus the graph (`depth`), for `approval --depth`.
+query AutomationApprovalDepth($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
+  automationApproval(triggerKind: $triggerKind, triggerRef: $triggerRef) {
+    ...AutomationApprovalFields
+    depth
+  }
+}
+
+# Adopts the automation by the hash the adopter just reviewed. A changed
+# automation answers AUTOMATION_CHANGED; the CLI never retries with a new hash.
+mutation ApproveAutomation($triggerKind: AutomationTriggerKind!, $triggerRef: String!, $expectedHash: String!) {
+  approveAutomation(triggerKind: $triggerKind, triggerRef: $triggerRef, expectedHash: $expectedHash)
+}
+
+# Takes NO hash: decline only removes authority.
+mutation DeclineAutomation($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
+  declineAutomation(triggerKind: $triggerKind, triggerRef: $triggerRef)
+}

@@ -69,6 +69,11 @@ func TestMapError(t *testing.T) {
 		{"app member invalid role", gqlErr("InvalidRoleError"), exitcode.Usage},
 		{"app member cap", gqlErr("MaxMembersExceededError"), exitcode.Conflict},
 		{"app member orphan", gqlErr("OrphanAppError"), exitcode.Conflict},
+		// Automation approval (cli#1071, hadron-server#2441): both need the adopter
+		// to look again, so a state conflict. The read refusals #2434 added ride
+		// FORBIDDEN, which was already mapped.
+		{"automation changed", gqlErr("AUTOMATION_CHANGED"), exitcode.Conflict},
+		{"automation unadopted", gqlErr("AUTOMATION_UNADOPTED"), exitcode.Conflict},
 		{"reports to self", gqlErr("WORKER_REPORTS_TO_SELF"), exitcode.Usage},
 		// Host poller and launch refusals (cli#831).
 		{"host key required", gqlErr("HOST_KEY_REQUIRED"), exitcode.Forbidden},

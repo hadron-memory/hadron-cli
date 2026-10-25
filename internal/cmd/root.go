@@ -22,6 +22,7 @@ import (
 	appcmd "github.com/hadron-memory/hadron-cli/internal/cmd/app"
 	assetcmd "github.com/hadron-memory/hadron-cli/internal/cmd/asset"
 	authcmd "github.com/hadron-memory/hadron-cli/internal/cmd/auth"
+	automationcmd "github.com/hadron-memory/hadron-cli/internal/cmd/automation"
 	billingcmd "github.com/hadron-memory/hadron-cli/internal/cmd/billing"
 	calendarcmd "github.com/hadron-memory/hadron-cli/internal/cmd/calendar"
 	channelcmd "github.com/hadron-memory/hadron-cli/internal/cmd/channel"
@@ -123,6 +124,7 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.AddCommand(skillcmd.NewCmdSkill(f))
 	root.AddCommand(codingcmd.NewCmdCoding(f))
 	root.AddCommand(appcmd.NewCmdApp(f))
+	root.AddCommand(automationcmd.NewCmdAutomation(f))
 	root.AddCommand(orgcmd.NewCmdOrg(f))
 	root.AddCommand(scopecmd.NewCmdScope(f))
 	root.AddCommand(agentcmd.NewCmdAgent(f))
