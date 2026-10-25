@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -23,6 +24,7 @@ const autoApp = "hrn:app:acme.com:ops"
 type autoReply struct {
 	status int // 0 = 200
 	body   string
+	abort  bool // drop the connection without answering
 }
 
 // autoServer answers by operation name, counts calls, and records the
@@ -76,6 +78,14 @@ func newAutoServer(t *testing.T, replies map[string]func(vars map[string]any) au
 			return
 		}
 		rep := fn(body.Variables)
+		if rep.abort {
+			if hj, ok := w.(http.Hijacker); ok {
+				if conn, _, err := hj.Hijack(); err == nil {
+					_ = conn.Close()
+				}
+			}
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if rep.status != 0 {
 			w.WriteHeader(rep.status)
@@ -804,6 +814,215 @@ func TestAutomationLegacyOperationsStayUnbound(t *testing.T) {
 	for _, op := range []string{"automationApprovals", "automationApproval", "approveAutomation", "declineAutomation"} {
 		if strings.Contains(string(b), "\n"+op+" ") || strings.Contains(string(b), "\n"+op+"\n") {
 			t.Errorf("%s is bound by this slice and must not be listed unbound", op)
+		}
+	}
+}
+
+// --- fix-head pins (BLIND/LOCAL/UX/§10 findings at 0b732c8c) ---
+
+type autoFailingWriter struct{}
+
+func (autoFailingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write /dev/full: no space left on device")
+}
+
+// A consent display nobody received is not a consent display: with stderr
+// failing, no mutation may be sent, --yes or not.
+func TestAutomationFailedDisplayNeverMutates(t *testing.T) {
+	for _, verb := range []string{"approve", "decline"} {
+		t.Run(verb, func(t *testing.T) {
+			s := oneRowServer(t, "ADOPTED", nil)
+			f, out := testFactory(t)
+			f.IOStreams.ErrOut = autoFailingWriter{}
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"automation", verb, "nightly", "--yes", "--app", autoApp, "--server", s.URL})
+			err := root.Execute()
+			if err == nil || s.count("ApproveAutomation")+s.count("DeclineAutomation") != 0 || out.String() != "" {
+				t.Fatalf("a failed display must stop before any mutation: err=%v out=%q", err, out.String())
+			}
+		})
+	}
+}
+
+// Approval must never conceal part of the authority being approved: a summary
+// that cannot be shown in full is refused, and --json carries all of it.
+func TestAutomationApproveRefusesAnIncompleteDisplay(t *testing.T) {
+	many := make([]string, 250)
+	for i := range many {
+		many[i] = fmt.Sprintf("permission %d", i)
+	}
+	manyJSON, _ := json.Marshal(many)
+	longFact := strings.Repeat("y", 3000)
+	for name, reads := range map[string]string{"more than the list cap": string(manyJSON), "a fact over the bound": jq(longFact)} {
+		body := strings.Replace(autoDetail("UNADOPTED"), `"reads":["what the App can read in this App"]`, `"reads":[`+strings.Trim(reads, "[]")+`]`, 1)
+		if name == "a fact over the bound" {
+			body = strings.Replace(autoDetail("UNADOPTED"), `"reads":["what the App can read in this App"]`, `"reads":[`+reads+`]`, 1)
+		}
+		t.Run(name, func(t *testing.T) {
+			s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{"AutomationApproval": fixed(body)})
+			r := runAuto(t, s, false, "", "approve", "nightly", "--yes", "--json")
+			if r.code != exitcode.Unavailable || s.count("ApproveAutomation") != 0 || r.out != "" {
+				t.Fatalf("an incomplete display must refuse approval: code=%d err=%v", r.code, r.err)
+			}
+			if !strings.Contains(r.err.Error(), "--json") {
+				t.Errorf("the refusal must say how to read all of it: %v", r.err)
+			}
+			// approval --json is complete, approval text says it was cut.
+			j := runAuto(t, s, false, "", "approval", "nightly", "--json")
+			if !strings.Contains(j.out, "permission 249") && !strings.Contains(j.out, longFact) {
+				t.Errorf("--json must carry everything")
+			}
+			tx := runAuto(t, s, false, "", "approval", "nightly")
+			if !strings.Contains(tx.out, "cut for display") {
+				t.Errorf("approval text must say it was cut:\n%s", tx.out)
+			}
+		})
+	}
+}
+
+func TestAutomationRecoveryHintsAreTerminalSafe(t *testing.T) {
+	evil := "evil\x1b[31m\nname\u202e"
+	rows := autoPage([]string{autoRow("SCHEDULE", "s1", evil, "UNADOPTED", "h")}, "", true)
+	for name, rep := range map[string]string{
+		"stale":       memberGQLError("changed", "AUTOMATION_CHANGED"),
+		"unconfirmed": `{"data":{"approveAutomation":false}}`,
+		"partial":     `{"data":{"approveAutomation":true},"errors":[{"message":"x","extensions":{"code":"FORBIDDEN"}}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{
+				"AutomationApprovals": fixed(rows), "ApproveAutomation": fixed(rep)})
+			r := runAuto(t, s, false, "", "approve", evil, "--yes")
+			if r.err == nil {
+				t.Fatal("want an error")
+			}
+			msg := r.err.Error()
+			for _, bad := range []string{"\x1b", "\n\n", "\u202e", "evil\x1b"} {
+				if strings.Contains(msg, bad) {
+					t.Errorf("hint carries %q:\n%q", bad, msg)
+				}
+			}
+			if strings.Contains(msg, "automation approval evil") {
+				t.Errorf("a command whose target sanitizing would change must not be offered:\n%q", msg)
+			}
+		})
+	}
+	t.Run("a --run id with controls", func(t *testing.T) {
+		s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{
+			"ApproveAutomation": fixed(`{"data":{"approveAutomation":false}}`)})
+		r := runAuto(t, s, false, "", "approve", "--run", "r\x1b[2Jun", "--yes")
+		if r.err == nil || strings.Contains(r.err.Error(), "\x1b") {
+			t.Errorf("run-id hint must be terminal-safe: %v", r.err)
+		}
+	})
+}
+
+func TestAutomationFormatAndBidiCharactersAreStripped(t *testing.T) {
+	nasty := "a\u202eb\u2066c\u200bd\u2028e"
+	body := strings.Replace(autoDetail("UNADOPTED"), `"tools":["hadron_find_nodes"],"limits"`, `"tools":[`+jq(nasty)+`],"limits"`, 1)
+	s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{"AutomationApproval": fixed(body)})
+	r := runAuto(t, s, false, "", "approval", "nightly")
+	for _, bad := range []string{"\u202e", "\u2066", "\u200b", "\u2028"} {
+		if strings.Contains(r.out, bad) {
+			t.Errorf("format character %U survived:\n%q", []rune(bad)[0], r.out)
+		}
+	}
+}
+
+// Sanitizing sites that nothing pinned: the ambiguity headline, per-flow tools
+// and writes, and the --depth graph.
+func TestAutomationEveryServerStringSiteIsSanitizedAndBounded(t *testing.T) {
+	evil := "x\x1b[31m\x07y"
+	t.Run("ambiguity headline", func(t *testing.T) {
+		s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{"AutomationApprovals": fixed(autoPage([]string{
+			autoRow("SCHEDULE", "a", "dup", "UNADOPTED", evil), autoRow("WEBHOOK", "b", "dup", "UNADOPTED", strings.Repeat("h", 2000))}, "", true))})
+		r := runAuto(t, s, false, "", "approval", "dup")
+		if r.err == nil || strings.ContainsAny(r.err.Error(), "\x1b\x07") || strings.Contains(r.err.Error(), strings.Repeat("h", 2000)) {
+			t.Errorf("ambiguity headline must be sanitized and bounded: %q", r.err)
+		}
+	})
+	t.Run("flow tools and writes", func(t *testing.T) {
+		body := strings.Replace(autoDetail("UNADOPTED"), `"tools":["hadron_find_nodes"],"writes":[]}]`, `"tools":[`+jq(evil)+`],"writes":[`+jq(evil)+`]}]`, 1)
+		s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{"AutomationApproval": fixed(body)})
+		r := runAuto(t, s, false, "", "approval", "nightly")
+		if strings.ContainsAny(r.out, "\x1b\x07") || !strings.Contains(r.out, "x") {
+			t.Errorf("flow lists must be sanitized: %q", r.out)
+		}
+	})
+	t.Run("depth graph is bounded", func(t *testing.T) {
+		big := strings.Repeat("z", 30000)
+		body := strings.Replace(autoDetail("ADOPTED"), `"state":`, `"depth":{"blob":`+jq(big)+`},"state":`, 1)
+		s := oneRowServer(t, "ADOPTED", map[string]func(map[string]any) autoReply{"AutomationApprovalDepth": fixed(body)})
+		r := runAuto(t, s, false, "", "approval", "nightly", "--depth")
+		if strings.Contains(r.out, big) || !strings.Contains(r.out, "truncated") {
+			t.Errorf("--depth graph must be bounded with a notice")
+		}
+	})
+}
+
+func TestAutomationConsentWording(t *testing.T) {
+	t.Run("empty facts say none listed, never a claim", func(t *testing.T) {
+		body := strings.Replace(autoDetail("UNADOPTED"), `"cannotDo":["never a private memory"]`, `"cannotDo":[]`, 1)
+		s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{"AutomationApproval": fixed(body)})
+		r := runAuto(t, s, false, "", "approval", "nightly")
+		if strings.Contains(r.out, "(none)") || !strings.Contains(r.out, "Cannot do: none listed") {
+			t.Errorf("empty list wording:\n%s", r.out)
+		}
+	})
+	t.Run("an unapproved decline warns about a concurrent approval", func(t *testing.T) {
+		s := oneRowServer(t, "UNADOPTED", nil)
+		r := runAuto(t, s, true, "n\n", "decline", "nightly")
+		if !strings.Contains(r.errOut, "approves it before this runs") || !strings.Contains(r.errOut, "revoke") {
+			t.Errorf("unapproved decline:\n%s", r.errOut)
+		}
+	})
+	t.Run("approving a CHANGED automation says so", func(t *testing.T) {
+		s := oneRowServer(t, "CHANGED", nil)
+		r := runAuto(t, s, true, "n\n", "approve", "nightly")
+		if !strings.Contains(r.errOut, "changed since it was approved") || !strings.Contains(r.errOut, "(y/N)") {
+			t.Errorf("CHANGED prompt:\n%s", r.errOut)
+		}
+		if i := strings.LastIndex(r.errOut, "Approve"); i < 0 || !strings.Contains(r.errOut[i:], "changed") {
+			t.Errorf("the prompt itself must say it changed:\n%s", r.errOut)
+		}
+	})
+	t.Run("a decline of an approved automation says it switches it off", func(t *testing.T) {
+		s := oneRowServer(t, "ADOPTED", nil)
+		r := runAuto(t, s, true, "n\n", "decline", "nightly")
+		if i := strings.LastIndex(r.errOut, "Decline"); i < 0 || !strings.Contains(r.errOut[i:], "switches it off") {
+			t.Errorf("the decline prompt must say it switches the automation off:\n%s", r.errOut)
+		}
+	})
+	t.Run("zero match says not visible too", func(t *testing.T) {
+		s := oneRowServer(t, "UNADOPTED", nil)
+		r := runAuto(t, s, false, "", "approve", "nope", "--yes")
+		if !strings.Contains(r.err.Error(), "not visible to you") {
+			t.Errorf("zero match: %v", r.err)
+		}
+	})
+	t.Run("a MANUAL prompt does not claim an App it cannot verify", func(t *testing.T) {
+		for _, verb := range []string{"approve", "decline"} {
+			s := oneRowServer(t, "UNADOPTED", nil)
+			r := runAuto(t, s, true, "n\n", verb, "--run", "run-1")
+			i := strings.LastIndex(r.errOut, "(y/N)")
+			prompt := r.errOut[strings.LastIndex(r.errOut[:i], "\n")+1 : i]
+			if strings.Contains(prompt, autoApp) || !strings.Contains(prompt, "run id") {
+				t.Errorf("%s: a MANUAL prompt must say it is found by run id only, not name the App: %q", verb, prompt)
+			}
+		}
+	})
+}
+
+// The client never retries a write: a connection dropped mid-approve is sent
+// exactly once and is outcome unknown.
+func TestAutomationLostApproveIsSentOnce(t *testing.T) {
+	for _, verb := range []string{"approve", "decline"} {
+		s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{
+			"ApproveAutomation": func(map[string]any) autoReply { return autoReply{abort: true} },
+			"DeclineAutomation": func(map[string]any) autoReply { return autoReply{abort: true} },
+		})
+		r := runAuto(t, s, false, "", verb, "nightly", "--yes")
+		if r.code != exitcode.Unavailable || s.count("ApproveAutomation")+s.count("DeclineAutomation") != 1 || r.out != "" {
+			t.Errorf("%s: want exit 7, one mutation, empty stdout: code=%d calls=%d", verb, r.code, s.count("ApproveAutomation")+s.count("DeclineAutomation"))
 		}
 	}
 }
