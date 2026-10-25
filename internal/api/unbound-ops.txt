@@ -67,7 +67,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 109 unbound
+[Mutation] 107 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -110,7 +110,6 @@ emailSaveDraft
 emailSendDraft
 emailUpdateDraft
 endAgentSession
-ensureAppMember
 exchangeMoveMessage
 exchangeReply
 exportNodeToGoogleDoc
@@ -135,7 +134,6 @@ registerContextResetRecovery  # server#2162 context-reset host protocol; host ru
 releaseEditorLock
 removeAgentFromApp
 removeAgentImport
-removeAppMember
 removeMemoryFromAgent
 repairAgentSystemMemory
 replaceSubtree  # server#1407: deprecated field; authorized calls return REPLACE_SUBTREE_RETIRED without writes

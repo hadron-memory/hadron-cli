@@ -768,6 +768,13 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "TICKER_NAME_TAKEN" || code == "TICKER_LIMIT_REACHED":
 		return exitcode.Conflict
+	// App member writes (cli#956, cor:dmo:050:04): a role the primary Agent's
+	// policy does not list is an argument the caller fixes; the member cap and
+	// the last-owner guard hold until the App's membership changes.
+	case code == "InvalidRoleError":
+		return exitcode.Usage
+	case code == "MaxMembersExceededError" || code == "OrphanAppError":
+		return exitcode.Conflict
 	case code == "UNAUTHENTICATED":
 		return exitcode.AuthRequired
 	case code == "NOT_FOUND" || strings.HasSuffix(code, "_NOT_FOUND") || code == "AiServiceConfigNotFoundError":
@@ -1217,6 +1224,45 @@ func IsUnknownGraphQLArgument(err error, argument, field string) bool {
 		}
 		code := extensionCode(e)
 		if code != "" && code != "GRAPHQL_VALIDATION_FAILED" {
+			return false
+		}
+	}
+	return true
+}
+
+// AppMemberWriteRefused reports whether err is a DEFINITE refusal of an
+// ensureAppMember / removeAppMember call: the server threw before the write,
+// inside the authorized transaction, so nothing changed. Anything else —
+// transport failures, a data+errors partial, a masked INTERNAL_SERVER_ERROR —
+// is outcome unknown, because ensureAppMember re-reads the row AFTER commit and
+// a failure there is reported although the upsert committed (#956).
+//
+// The typed refusals are InvalidRoleError, MaxMembersExceededError and
+// OrphanAppError; the server's `Forbidden: …` arrives as plain text under
+// INTERNAL_SERVER_ERROR, so it is recognised by its message prefix. EVERY error
+// in the list must qualify; one unrecognized entry keeps the answer ambiguous.
+//
+// An error is a root refusal only when its path names no field below the
+// mutation itself: a nested-field error (path ["ensureAppMember","user",…]) means
+// the resolver RAN and returned a row, so the write may have committed whatever
+// code the nested error carries. Callers must also treat a populated result next
+// to an error as unknown (see memberWriteError) — this function sees only errors.
+// Like EndRefusedBeforeCommit, call it BEFORE MapError wraps.
+func AppMemberWriteRefused(err error) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		if e == nil || len(e.Path) > 1 {
+			return false
+		}
+		switch extensionCode(e) {
+		case "InvalidRoleError", "MaxMembersExceededError", "OrphanAppError",
+			"NOT_FOUND", "UNAUTHENTICATED", "BAD_USER_INPUT", "FORBIDDEN":
+			continue
+		}
+		if !strings.HasPrefix(strings.TrimSpace(e.Message), "Forbidden:") {
 			return false
 		}
 	}
