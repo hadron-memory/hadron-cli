@@ -3460,3 +3460,17 @@ format delegates the provider default. No local output-file or remote document
 creation option. Server delegates format/binary/size guarantees to its tool;
 file_too_large and unknown failures retain existing error mapping/refusal text,
 with no retry/reconnect guess. No hidden discovery, writes or uploads.
+
+## Default team channel location (#489)
+
+`hadron team channel [--app <ref>]` answers where the default team channel lives.
+It uses the existing team App resolution (--app, configured context, binding),
+reports that source, and copies the server-built URL verbatim. The destination
+is the channel root node's own page and channel view, not an App conversation
+selector. No route is composed. JSON is {app,appSource,channelId,portalUrl};
+portalUrl is present and nullable. Text prints URL: only when supplied, otherwise
+says no channel URL is available. One metadata read and one best-effort authorized
+root node read, no transcript fetch or cursor/binding write. The root read records
+a read and may decrypt internally. A concealed/missing/failed root read leaves
+the URL null; initial lookup failures remain errors. Existing channel get/list
+commands are unchanged.

@@ -7,6 +7,8 @@ import (
 	"github.com/vektah/gqlparser/v2/parser"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -51,14 +53,14 @@ func TestTeamChannel489(t *testing.T) {
 						}
 						fields := doc.Operations[0].SelectionSet
 						app := fields[0].(*ast.Field)
-						if len(fields) != 1 || app.Name != "app" || len(app.SelectionSet) != 2 {
+						if len(fields) != 1 || app.Name != "app" || len(app.SelectionSet) != 3 {
 							t.Fatal(req.Query)
 						}
-						channel := app.SelectionSet[1].(*ast.Field)
-						if app.SelectionSet[0].(*ast.Field).Name != "id" || channel.Name != "defaultChannel" || len(channel.SelectionSet) != 2 || channel.SelectionSet[0].(*ast.Field).Name != "id" || channel.SelectionSet[1].(*ast.Field).Name != "chatRootNodeId" {
+						channel := app.SelectionSet[2].(*ast.Field)
+						if app.SelectionSet[0].(*ast.Field).Name != "id" || app.SelectionSet[1].(*ast.Field).Name != "urn" || channel.Name != "defaultChannel" || len(channel.SelectionSet) != 2 || channel.SelectionSet[0].(*ast.Field).Name != "id" || channel.SelectionSet[1].(*ast.Field).Name != "chatRootNodeId" {
 							t.Error(req.Query)
 						}
-						fmt.Fprint(w, `{"data":{"app":{"id":"actual-app","defaultChannel":{"id":"channel-id","chatRootNodeId":"root-id","chatRootUrn":null}}}}`)
+						fmt.Fprint(w, `{"data":{"app":{"id":"actual-app","urn":"hrn:app:acme.com:resolved","defaultChannel":{"id":"channel-id","chatRootNodeId":"root-id","chatRootUrn":null}}}}`)
 					case "NodePortal":
 						if len(req.Variables) != 1 || req.Variables["ref"] != "root-id" {
 							t.Error(req.Variables)
@@ -100,7 +102,7 @@ func TestTeamChannel489(t *testing.T) {
 					if err := json.Unmarshal([]byte(out.String()), &d); err != nil {
 						t.Fatal(err)
 					}
-					if len(d) != 4 || d["app"] != "actual-app" || d["appSource"] != "from --app" || d["channelId"] != "channel-id" {
+					if len(d) != 4 || d["app"] != "hrn:app:acme.com:resolved" || d["appSource"] != "from --app" || d["channelId"] != "channel-id" {
 						t.Fatal(d)
 					}
 					v, ok := d["portalUrl"]
@@ -162,5 +164,49 @@ func TestTeamChannel489FailuresAndHelp(t *testing.T) {
 	}
 	if strings.Contains(strings.ToLower(out.String()), "chat") || !strings.Contains(out.String(), "server-built") {
 		t.Fatal(out.String())
+	}
+}
+
+func TestTeamChannel489BindingAndContext(t *testing.T) {
+	for _, configured := range []bool{false, true} {
+		t.Run(fmt.Sprint(configured), func(t *testing.T) {
+			dir := teamGitDir(t)
+			if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0600); err != nil {
+				t.Fatal(err)
+			}
+			srv, calls := captureGraphQL(t, map[string]string{"TeamChannelLocation": `{"data":{"app":{"id":"returned-app","urn":"hrn:app:acme.com:resolved","defaultChannel":{"id":"default-id","chatRootNodeId":"root-id"}}}}`, "NodePortal": `{"data":{"node":{"portalUrl":null}}}`})
+			f, out := testFactory(t)
+			if configured {
+				cfg, err := f.Config()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := cfg.Set("app", "acme.com:configured"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "channel", "--json", "--server", srv.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			var vars map[string]any
+			if err := json.Unmarshal(calls["TeamChannelLocation"], &vars); err != nil {
+				t.Fatal(err)
+			}
+			expected := "capp100000000000000000000"
+			source := "from the worktree binding"
+			if configured {
+				expected = "hrn:app:acme.com:configured"
+				source = "from the App context"
+			}
+			if vars["appRef"] != expected || !strings.Contains(out.String(), source) {
+				t.Fatalf("%v %s", vars, out.String())
+			}
+			data, err := os.ReadFile(filepath.Join(dir, "hadron-team-session.json"))
+			if err != nil || string(data) != bindingFixture {
+				t.Fatal("binding changed", err)
+			}
+		})
 	}
 }
