@@ -1975,8 +1975,8 @@ Conventions:
   projection prints "none listed" (what the server listed, not a guarantee).
   `approve` refuses (exit 7, nothing sent) when the summary cannot be shown in
   full (a fact over 1000 characters or a list over 200 entries): read all of it
-  with `approval --json`. A failed write of the display (stderr closed or full)
-  stops before any mutation, `--yes` or not. A `--run` prompt says the run is
+  with `approval --json`. A failed write of the display or of the confirmation
+  prompt (stderr closed or full) stops before any mutation, `--yes` or not. A `--run` prompt says the run is
   found by run id only: the server takes no App for it, so the CLI does not claim
   one. Recovery hints never carry a name that sanitizing would change. Exit codes: `FORBIDDEN` (including the read-access
   refusals) 8, `NOT_FOUND` 4, `AUTOMATION_CHANGED` and `AUTOMATION_UNADOPTED` 5,
