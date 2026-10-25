@@ -7094,6 +7094,76 @@ type AppKeysMetadataResponse struct {
 // GetAppKeys returns AppKeysMetadataResponse.AppKeys, and is useful for accessing the field via an interface.
 func (v *AppKeysMetadataResponse) GetAppKeys() []*AppKeysMetadataAppKeysAppKey { return v.AppKeys }
 
+// AppMembersApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type AppMembersApp struct {
+	Id      string                           `json:"id"`
+	Urn     string                           `json:"urn"`
+	Members []*AppMembersAppMembersAppMember `json:"members"`
+}
+
+// GetId returns AppMembersApp.Id, and is useful for accessing the field via an interface.
+func (v *AppMembersApp) GetId() string { return v.Id }
+
+// GetUrn returns AppMembersApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppMembersApp) GetUrn() string { return v.Urn }
+
+// GetMembers returns AppMembersApp.Members, and is useful for accessing the field via an interface.
+func (v *AppMembersApp) GetMembers() []*AppMembersAppMembersAppMember { return v.Members }
+
+// AppMembersAppMembersAppMember includes the requested fields of the GraphQL type AppMember.
+type AppMembersAppMembersAppMember struct {
+	Role      string                             `json:"role"`
+	CreatedAt string                             `json:"createdAt"`
+	User      *AppMembersAppMembersAppMemberUser `json:"user"`
+}
+
+// GetRole returns AppMembersAppMembersAppMember.Role, and is useful for accessing the field via an interface.
+func (v *AppMembersAppMembersAppMember) GetRole() string { return v.Role }
+
+// GetCreatedAt returns AppMembersAppMembersAppMember.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppMembersAppMembersAppMember) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUser returns AppMembersAppMembersAppMember.User, and is useful for accessing the field via an interface.
+func (v *AppMembersAppMembersAppMember) GetUser() *AppMembersAppMembersAppMemberUser { return v.User }
+
+// AppMembersAppMembersAppMemberUser includes the requested fields of the GraphQL type User.
+type AppMembersAppMembersAppMemberUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
+	// handle; null for a handle-less user (who has no URN).
+	Urn *string `json:"urn"`
+}
+
+// GetId returns AppMembersAppMembersAppMemberUser.Id, and is useful for accessing the field via an interface.
+func (v *AppMembersAppMembersAppMemberUser) GetId() string { return v.Id }
+
+// GetHandle returns AppMembersAppMembersAppMemberUser.Handle, and is useful for accessing the field via an interface.
+func (v *AppMembersAppMembersAppMemberUser) GetHandle() *string { return v.Handle }
+
+// GetUrn returns AppMembersAppMembersAppMemberUser.Urn, and is useful for accessing the field via an interface.
+func (v *AppMembersAppMembersAppMemberUser) GetUrn() *string { return v.Urn }
+
+// AppMembersResponse is returned by AppMembers on success.
+type AppMembersResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *AppMembersApp `json:"app"`
+}
+
+// GetApp returns AppMembersResponse.App, and is useful for accessing the field via an interface.
+func (v *AppMembersResponse) GetApp() *AppMembersApp { return v.App }
+
 // AppRunAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
 //
@@ -22054,6 +22124,62 @@ type EndTeamSessionWithResumeClaimResponse struct {
 // GetEndSession returns EndTeamSessionWithResumeClaimResponse.EndSession, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionWithResumeClaimResponse) GetEndSession() *EndTeamSessionWithResumeClaimEndSession {
 	return v.EndSession
+}
+
+// EnsureAppMemberEnsureAppMember includes the requested fields of the GraphQL type AppMember.
+type EnsureAppMemberEnsureAppMember struct {
+	Role      string                              `json:"role"`
+	CreatedAt string                              `json:"createdAt"`
+	User      *EnsureAppMemberEnsureAppMemberUser `json:"user"`
+}
+
+// GetRole returns EnsureAppMemberEnsureAppMember.Role, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberEnsureAppMember) GetRole() string { return v.Role }
+
+// GetCreatedAt returns EnsureAppMemberEnsureAppMember.CreatedAt, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberEnsureAppMember) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUser returns EnsureAppMemberEnsureAppMember.User, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberEnsureAppMember) GetUser() *EnsureAppMemberEnsureAppMemberUser { return v.User }
+
+// EnsureAppMemberEnsureAppMemberUser includes the requested fields of the GraphQL type User.
+type EnsureAppMemberEnsureAppMemberUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
+	// handle; null for a handle-less user (who has no URN).
+	Urn *string `json:"urn"`
+}
+
+// GetId returns EnsureAppMemberEnsureAppMemberUser.Id, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberEnsureAppMemberUser) GetId() string { return v.Id }
+
+// GetHandle returns EnsureAppMemberEnsureAppMemberUser.Handle, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberEnsureAppMemberUser) GetHandle() *string { return v.Handle }
+
+// GetUrn returns EnsureAppMemberEnsureAppMemberUser.Urn, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberEnsureAppMemberUser) GetUrn() *string { return v.Urn }
+
+// EnsureAppMemberResponse is returned by EnsureAppMember on success.
+type EnsureAppMemberResponse struct {
+	// Idempotent UPSERT of an AppMember row. Per spec 008-agent-installation
+	// FR-004 / FR-016. The role MUST be a value present in the parent
+	// Agent's installationPolicy.memberRoles. Creating a new member is
+	// rejected if the App's current member count meets or exceeds the
+	// Agent's installationPolicy.maxMembers. Updating an existing member's
+	// role does NOT trigger the maxMembers check. The primary installed Agent
+	// (the oldest AppAgent) supplies this policy; no installed Agent refuses
+	// OrphanAppError. Only an App member manager may call this: the user-owner,
+	// an owner-role AppMember, or owning-org ADMIN (including platform admins
+	// for org-owned Apps). The manager gate runs before target-user lookup.
+	//
+	// Accepts the entity's ID or URN.
+	EnsureAppMember *EnsureAppMemberEnsureAppMember `json:"ensureAppMember"`
+}
+
+// GetEnsureAppMember returns EnsureAppMemberResponse.EnsureAppMember, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberResponse) GetEnsureAppMember() *EnsureAppMemberEnsureAppMember {
+	return v.EnsureAppMember
 }
 
 // ExtractParentNodeToMemoryExtractParentNodeToMemory includes the requested fields of the GraphQL type Memory.
@@ -37608,6 +37734,20 @@ type ReleaseWorkerResponse struct {
 func (v *ReleaseWorkerResponse) GetReleaseWorker() *ReleaseWorkerReleaseWorkerReleaseWorkerPayload {
 	return v.ReleaseWorker
 }
+
+// RemoveAppMemberResponse is returned by RemoveAppMember on success.
+type RemoveAppMemberResponse struct {
+	// Delete an AppMember row. Idempotent (no-op when the row doesn't exist).
+	// Personal-class memory at (appId, userId) is retained as an orphan per
+	// FR-015 — re-attaches automatically if the user later rejoins the same
+	// App.
+	//
+	// Accepts the entity's ID or URN.
+	RemoveAppMember bool `json:"removeAppMember"`
+}
+
+// GetRemoveAppMember returns RemoveAppMemberResponse.RemoveAppMember, and is useful for accessing the field via an interface.
+func (v *RemoveAppMemberResponse) GetRemoveAppMember() bool { return v.RemoveAppMember }
 
 // RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload includes the requested fields of the GraphQL type RemoveMemoryMemberPayload.
 type RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload struct {
@@ -61271,6 +61411,14 @@ type __AppKeysMetadataInput struct {
 // GetAppRef returns __AppKeysMetadataInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysMetadataInput) GetAppRef() string { return v.AppRef }
 
+// __AppMembersInput is used internally by genqlient
+type __AppMembersInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AppMembersInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppMembersInput) GetAppRef() string { return v.AppRef }
+
 // __AppRunInput is used internally by genqlient
 type __AppRunInput struct {
 	Ref string `json:"ref"`
@@ -63021,6 +63169,22 @@ func (v *__EndTeamSessionWithResumeClaimInput) GetSummary() *string { return v.S
 // GetHandoff returns __EndTeamSessionWithResumeClaimInput.Handoff, and is useful for accessing the field via an interface.
 func (v *__EndTeamSessionWithResumeClaimInput) GetHandoff() *string { return v.Handoff }
 
+// __EnsureAppMemberInput is used internally by genqlient
+type __EnsureAppMemberInput struct {
+	AppRef  string `json:"appRef"`
+	UserRef string `json:"userRef"`
+	Role    string `json:"role"`
+}
+
+// GetAppRef returns __EnsureAppMemberInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__EnsureAppMemberInput) GetAppRef() string { return v.AppRef }
+
+// GetUserRef returns __EnsureAppMemberInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__EnsureAppMemberInput) GetUserRef() string { return v.UserRef }
+
+// GetRole returns __EnsureAppMemberInput.Role, and is useful for accessing the field via an interface.
+func (v *__EnsureAppMemberInput) GetRole() string { return v.Role }
+
 // __ExtractParentNodeToMemoryInput is used internally by genqlient
 type __ExtractParentNodeToMemoryInput struct {
 	ParentRef string `json:"parentRef"`
@@ -64122,6 +64286,18 @@ func (v *__ReleaseWorkerInput) GetExpectedHolderUserId() *string { return v.Expe
 
 // GetExpectUnheld returns __ReleaseWorkerInput.ExpectUnheld, and is useful for accessing the field via an interface.
 func (v *__ReleaseWorkerInput) GetExpectUnheld() *bool { return v.ExpectUnheld }
+
+// __RemoveAppMemberInput is used internally by genqlient
+type __RemoveAppMemberInput struct {
+	AppRef  string `json:"appRef"`
+	UserRef string `json:"userRef"`
+}
+
+// GetAppRef returns __RemoveAppMemberInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RemoveAppMemberInput) GetAppRef() string { return v.AppRef }
+
+// GetUserRef returns __RemoveAppMemberInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__RemoveAppMemberInput) GetUserRef() string { return v.UserRef }
 
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
@@ -68412,6 +68588,53 @@ func AppKeysMetadata(
 	}
 
 	data_ = &AppKeysMetadataResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppMembers.
+const AppMembers_Operation = `
+query AppMembers ($appRef: ID!) {
+	app(ref: $appRef) {
+		id
+		urn
+		members {
+			role
+			createdAt
+			user {
+				id
+				handle
+				urn
+			}
+		}
+	}
+}
+`
+
+// The visible members only. User.name / User.email are null when withheld, and
+// are deliberately not selected. App.members is [] when the App's nested read is
+// unavailable, so an empty list never proves the App has no members.
+func AppMembers(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AppMembersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppMembers",
+		Query:  AppMembers_Operation,
+		Variables: &__AppMembersInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AppMembersResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -74305,6 +74528,52 @@ func EndTeamSessionWithResumeClaim(
 	return data_, err_
 }
 
+// The mutation executed by EnsureAppMember.
+const EnsureAppMember_Operation = `
+mutation EnsureAppMember ($appRef: String!, $userRef: String!, $role: String!) {
+	ensureAppMember(appRef: $appRef, userRef: $userRef, role: $role) {
+		role
+		createdAt
+		user {
+			id
+			handle
+			urn
+		}
+	}
+}
+`
+
+// An idempotent upsert: the same role is a repeat, a different role changes the
+// membership. The selection is the smallest that names the row.
+func EnsureAppMember(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	userRef string,
+	role string,
+) (data_ *EnsureAppMemberResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EnsureAppMember",
+		Query:  EnsureAppMember_Operation,
+		Variables: &__EnsureAppMemberInput{
+			AppRef:  appRef,
+			UserRef: userRef,
+			Role:    role,
+		},
+	}
+
+	data_ = &EnsureAppMemberResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ExtractParentNodeToMemory.
 const ExtractParentNodeToMemory_Operation = `
 mutation ExtractParentNodeToMemory ($parentRef: ID!, $targetUrn: String!, $move: Boolean) {
@@ -79669,6 +79938,42 @@ func ReleaseWorker(
 	}
 
 	data_ = &ReleaseWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RemoveAppMember.
+const RemoveAppMember_Operation = `
+mutation RemoveAppMember ($appRef: String!, $userRef: String!) {
+	removeAppMember(appRef: $appRef, userRef: $userRef)
+}
+`
+
+// true whether or not a row existed (a deleteMany server-side), so the result
+// says nothing about prior membership.
+func RemoveAppMember(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	userRef string,
+) (data_ *RemoveAppMemberResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RemoveAppMember",
+		Query:  RemoveAppMember_Operation,
+		Variables: &__RemoveAppMemberInput{
+			AppRef:  appRef,
+			UserRef: userRef,
+		},
+	}
+
+	data_ = &RemoveAppMemberResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

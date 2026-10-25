@@ -1,0 +1,44 @@
+# App human-member management (#956). userRef is an id / email / handle /
+# hrn:user: URN passed through unchanged — the server resolves it, and the CLI
+# never pre-resolves one (that would make a lookup a user-existence oracle).
+# The role is a free string validated against the primary Agent's policy, so
+# the CLI never lists or checks roles itself.
+
+# An idempotent upsert: the same role is a repeat, a different role changes the
+# membership. The selection is the smallest that names the row.
+mutation EnsureAppMember($appRef: String!, $userRef: String!, $role: String!) {
+  ensureAppMember(appRef: $appRef, userRef: $userRef, role: $role) {
+    role
+    createdAt
+    user {
+      id
+      handle
+      urn
+    }
+  }
+}
+
+# true whether or not a row existed (a deleteMany server-side), so the result
+# says nothing about prior membership.
+mutation RemoveAppMember($appRef: String!, $userRef: String!) {
+  removeAppMember(appRef: $appRef, userRef: $userRef)
+}
+
+# The visible members only. User.name / User.email are null when withheld, and
+# are deliberately not selected. App.members is [] when the App's nested read is
+# unavailable, so an empty list never proves the App has no members.
+query AppMembers($appRef: ID!) {
+  app(ref: $appRef) {
+    id
+    urn
+    members {
+      role
+      createdAt
+      user {
+        id
+        handle
+        urn
+      }
+    }
+  }
+}

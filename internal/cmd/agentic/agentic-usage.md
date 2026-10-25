@@ -1910,6 +1910,36 @@ Conventions:
   changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`
   requires `--yes`. `<ref>` is an agent ID **or** a fully-qualified URN
   (`hrn:agent:acme.com:support-bot`) — no need to resolve an ID first. Memory-attach, AI-config wiring, and app-wiring land next.
+- `app member add --user <ref> --role <role>` / `remove --user <ref>` / `list`
+  (`ensureAppMember` / `removeAppMember` / `App.members`, `cor:dmo:050:04`)
+  manage an App's HUMAN members. The App is the root `--app` flag, else the
+  active App; there is no positional App, and an explicit blank `--app ""`
+  refuses (exit 2) rather than falling back to the active App. `--user` is an
+  id, email, handle or `hrn:user:` URN passed to the server UNCHANGED — never
+  resolved or trimmed client-side. `--role` is required on `add` (no default)
+  and is a server-owned string: help lists no roles, and an invalid role is
+  refused with the server's own list. `add` is an idempotent upsert (the same
+  role repeats; a different role changes the membership) and does no pre-read,
+  so EVERY `add` and `remove` is confirmed (the prompt names the App and whether
+  it came from `--app` or the active App; remove is reversible, so it says nothing
+  of "cannot be undone"): `--yes` skips the prompt, a
+  non-interactive call without it exits 2 with ZERO requests sent, and a
+  declined/EOF prompt exits 6. `remove` succeeds whether or not a row existed,
+  so `--json` reports `status: "absent"` (the state now), never "removed"; a
+  non-manager may remove only themselves, and any other target gets the
+  server's `Forbidden:` text as-is (no "user not found" — that would be an
+  existence oracle). A definite refusal keeps the server text and exits by code:
+  `InvalidRoleError` 2, `MaxMembersExceededError` and `OrphanAppError` 5,
+  not-found 4, auth 3, and the plain-text `Forbidden:` 1. ANY other failure of a write
+  — transport error, `data` plus `errors`, a masked internal error, an empty
+  payload — exits 7 with "outcome unknown", prints no success DTO, and is never
+  retried: `ensureAppMember` re-reads the row after commit, so the write may
+  have landed; check with `app member list`. `list --json` is
+  `{appId, appUrn, members: [{user: {id, handle, urn}, role, createdAt}]}`
+  with `members: []` (never null) when empty. The server returns `[]` when the
+  member list is unreadable by you, so an empty list means "no members visible
+  to you", NOT "no members"; a null App is exit 4, a malformed row is an error.
+  User names and emails are withheld by the server and not selected.
 - `app agent add <app> <agent>` / `remove <app> <agent>` wrap
   `installAgentIntoApp` / `uninstallAgentFromApp` — the AppAgent join
   (`cor:dmo:050:03`), and the only way to attach an Agent to an App you

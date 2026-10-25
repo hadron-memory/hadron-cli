@@ -66,6 +66,9 @@ func TestMapError(t *testing.T) {
 		{"ticker quiet hours", gqlErr("TICKER_QUIET_HOURS_INVALID"), exitcode.Usage},
 		{"ticker name", gqlErr("TICKER_NAME_TAKEN"), exitcode.Conflict},
 		{"ticker cap", gqlErr("TICKER_LIMIT_REACHED"), exitcode.Conflict},
+		{"app member invalid role", gqlErr("InvalidRoleError"), exitcode.Usage},
+		{"app member cap", gqlErr("MaxMembersExceededError"), exitcode.Conflict},
+		{"app member orphan", gqlErr("OrphanAppError"), exitcode.Conflict},
 		{"reports to self", gqlErr("WORKER_REPORTS_TO_SELF"), exitcode.Usage},
 		// Host poller and launch refusals (cli#831).
 		{"host key required", gqlErr("HOST_KEY_REQUIRED"), exitcode.Forbidden},
