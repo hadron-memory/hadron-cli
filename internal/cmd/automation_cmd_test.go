@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1025,4 +1026,55 @@ func TestAutomationLostApproveIsSentOnce(t *testing.T) {
 			t.Errorf("%s: want exit 7, one mutation, empty stdout: code=%d calls=%d", verb, r.code, s.count("ApproveAutomation")+s.count("DeclineAutomation"))
 		}
 	}
+}
+
+// failsOnPrompt fails only the write that carries the confirmation prompt.
+type failsOnPrompt struct{ w io.Writer }
+
+func (f failsOnPrompt) Write(p []byte) (int, error) {
+	if strings.Contains(string(p), "(y/N)") {
+		return 0, errors.New("write: broken pipe")
+	}
+	return f.w.Write(p)
+}
+
+// A prompt nobody saw is not consent: when only the prompt write fails and a
+// "y" arrives on stdin anyway, nothing is sent (LOCAL delta P2).
+func TestAutomationFailedPromptNeverMutates(t *testing.T) {
+	for _, verb := range []string{"approve", "decline"} {
+		t.Run(verb, func(t *testing.T) {
+			s := oneRowServer(t, "ADOPTED", nil)
+			f, out, eo := testFactoryTTY(t, "y\n")
+			f.IOStreams.ErrOut = failsOnPrompt{w: eo}
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"automation", verb, "nightly", "--app", autoApp, "--server", s.URL})
+			err := root.Execute()
+			if err == nil || s.count("ApproveAutomation")+s.count("DeclineAutomation") != 0 || out.String() != "" {
+				t.Fatalf("a failed prompt write must stop before any mutation: err=%v out=%q", err, out.String())
+			}
+		})
+	}
+}
+
+// The oversized-summary recovery command names the App and, when the trigger name
+// would not survive sanitizing, offers a placeholder instead of a copy of it.
+func TestAutomationOversizeRecoveryCommand(t *testing.T) {
+	big := strings.Replace(autoDetail("UNADOPTED"), `"reads":["what the App can read in this App"]`, `"reads":[`+jq(strings.Repeat("y", 3000))+`]`, 1)
+	t.Run("names the App", func(t *testing.T) {
+		s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{"AutomationApproval": fixed(big)})
+		r := runAuto(t, s, false, "", "approve", "nightly", "--yes")
+		if r.err == nil || !strings.Contains(r.err.Error(), "approval schedule/nightly --json --app "+autoApp) {
+			t.Errorf("recovery command must carry --app: %v", r.err)
+		}
+	})
+	t.Run("an unsafe name becomes a placeholder", func(t *testing.T) {
+		evil := "ev\x1b[31mil"
+		s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{
+			"AutomationApproval":  fixed(big),
+			"AutomationApprovals": fixed(autoPage([]string{autoRow("SCHEDULE", "s1", evil, "UNADOPTED", "h")}, "", true))})
+		r := runAuto(t, s, false, "", "approve", evil, "--yes")
+		if r.err == nil || strings.ContainsAny(r.err.Error(), "\x1b") || !strings.Contains(r.err.Error(), "approval <name> --json") {
+			t.Errorf("unsafe name must be a placeholder: %q", r.err)
+		}
+	})
 }
