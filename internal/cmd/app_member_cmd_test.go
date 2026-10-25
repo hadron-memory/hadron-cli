@@ -383,6 +383,8 @@ func TestAppMemberOutcomeUnknown(t *testing.T) {
 		"data and errors":                    partial,
 		"no code":                            `{"errors":[{"message":"mystery"}]}`,
 		"null payload":                       `{"data":{"ensureAppMember":null}}`,
+		"null user in row":                   `{"data":{"ensureAppMember":{"role":"member","createdAt":"2026-10-25T00:00:00Z","user":null}}}`,
+		"forbidden mid-text":                 memberGQLError("Internal: wrapped Forbidden: detail", "INTERNAL_SERVER_ERROR"),
 		"mixed with a refusal":               `{"errors":[{"message":"x","extensions":{"code":"InvalidRoleError"}},{"message":"y","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
 	}
 	for name, resp := range cases {
@@ -414,6 +416,16 @@ func TestAppMemberOutcomeUnknown(t *testing.T) {
 		err := root.Execute()
 		if err == nil || out.String() != "" || !strings.Contains(err.Error(), "outcome unknown") || calls("RemoveAppMember") != 1 {
 			t.Fatalf("want outcome unknown: err=%v out=%q", err, out.String())
+		}
+	})
+	t.Run("remove answered false", func(t *testing.T) {
+		srv, calls, _ := countingGraphQL(t, map[string]string{"RemoveAppMember": `{"data":{"removeAppMember":false}}`})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"app", "member", "remove", "--user", "ada", "--app", memberApp, "--yes", "--json", "--server", srv.URL})
+		err := root.Execute()
+		if err == nil || out.String() != "" || !strings.Contains(err.Error(), "outcome unknown") || calls("RemoveAppMember") != 1 {
+			t.Fatalf("a false answer must not report absent: err=%v out=%q", err, out.String())
 		}
 	})
 	t.Run("transport failure", func(t *testing.T) {
