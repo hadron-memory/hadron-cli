@@ -19,8 +19,10 @@ mutation EnsureAppMember($appRef: String!, $userRef: String!, $role: String!) {
 }
 
 # true whether or not a row existed (a deleteMany server-side), so the result
-# says nothing about prior membership.
+# says nothing about prior membership. A pointer so an absent answer (null,
+# e.g. beside an error) stays distinguishable from an answered false.
 mutation RemoveAppMember($appRef: String!, $userRef: String!) {
+  # @genqlient(pointer: true)
   removeAppMember(appRef: $appRef, userRef: $userRef)
 }
 

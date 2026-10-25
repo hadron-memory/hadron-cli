@@ -316,9 +316,9 @@ without --yes is refused before anything is sent.`,
 			}
 			resp, err := gen.RemoveAppMember(cmd.Context(), client, appRef, user)
 			if err != nil {
-				return memberWriteError(err, resp != nil && resp.RemoveAppMember, appRef)
+				return memberWriteError(err, resp != nil && resp.RemoveAppMember != nil, appRef)
 			}
-			if resp == nil || !resp.RemoveAppMember {
+			if resp == nil || resp.RemoveAppMember == nil || !*resp.RemoveAppMember {
 				return exitcode.Newf(exitcode.Unavailable,
 					"outcome unknown: the server did not confirm the removal. Run %s to check (a list showing no row is not proof: rows you cannot see are withheld)", memberListHint(appRef))
 			}

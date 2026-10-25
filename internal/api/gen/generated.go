@@ -37743,11 +37743,11 @@ type RemoveAppMemberResponse struct {
 	// App.
 	//
 	// Accepts the entity's ID or URN.
-	RemoveAppMember bool `json:"removeAppMember"`
+	RemoveAppMember *bool `json:"removeAppMember"`
 }
 
 // GetRemoveAppMember returns RemoveAppMemberResponse.RemoveAppMember, and is useful for accessing the field via an interface.
-func (v *RemoveAppMemberResponse) GetRemoveAppMember() bool { return v.RemoveAppMember }
+func (v *RemoveAppMemberResponse) GetRemoveAppMember() *bool { return v.RemoveAppMember }
 
 // RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload includes the requested fields of the GraphQL type RemoveMemoryMemberPayload.
 type RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload struct {
@@ -79957,7 +79957,8 @@ mutation RemoveAppMember ($appRef: String!, $userRef: String!) {
 `
 
 // true whether or not a row existed (a deleteMany server-side), so the result
-// says nothing about prior membership.
+// says nothing about prior membership. A pointer so an absent answer (null,
+// e.g. beside an error) stays distinguishable from an answered false.
 func RemoveAppMember(
 	ctx_ context.Context,
 	client_ graphql.Client,

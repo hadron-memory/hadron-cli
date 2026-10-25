@@ -418,6 +418,16 @@ func TestAppMemberOutcomeUnknown(t *testing.T) {
 			t.Fatalf("want outcome unknown: err=%v out=%q", err, out.String())
 		}
 	})
+	t.Run("remove false beside a refusal", func(t *testing.T) {
+		srv, calls, _ := countingGraphQL(t, map[string]string{"RemoveAppMember": `{"data":{"removeAppMember":false},"errors":[{"message":"Forbidden: x","extensions":{"code":"FORBIDDEN"}}]}`})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"app", "member", "remove", "--user", "ada", "--app", memberApp, "--yes", "--server", srv.URL})
+		err := root.Execute()
+		if err == nil || out.String() != "" || !strings.Contains(err.Error(), "outcome unknown") || calls("RemoveAppMember") != 1 {
+			t.Fatalf("a false result beside an error is partial data, not a definite refusal: err=%v out=%q", err, out.String())
+		}
+	})
 	t.Run("remove answered false", func(t *testing.T) {
 		srv, calls, _ := countingGraphQL(t, map[string]string{"RemoveAppMember": `{"data":{"removeAppMember":false}}`})
 		f, out := testFactory(t)
