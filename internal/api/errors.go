@@ -1241,6 +1241,12 @@ func IsUnknownGraphQLArgument(err error, argument, field string) bool {
 // OrphanAppError; the server's `Forbidden: …` arrives as plain text under
 // INTERNAL_SERVER_ERROR, so it is recognised by its message prefix. EVERY error
 // in the list must qualify; one unrecognized entry keeps the answer ambiguous.
+//
+// An error is a root refusal only when its path names no field below the
+// mutation itself: a nested-field error (path ["ensureAppMember","user",…]) means
+// the resolver RAN and returned a row, so the write may have committed whatever
+// code the nested error carries. Callers must also treat a populated result next
+// to an error as unknown (see memberWriteError) — this function sees only errors.
 // Like EndRefusedBeforeCommit, call it BEFORE MapError wraps.
 func AppMemberWriteRefused(err error) bool {
 	list := graphQLErrors(err)
@@ -1248,7 +1254,7 @@ func AppMemberWriteRefused(err error) bool {
 		return false
 	}
 	for _, e := range list {
-		if e == nil {
+		if e == nil || len(e.Path) > 1 {
 			return false
 		}
 		switch extensionCode(e) {

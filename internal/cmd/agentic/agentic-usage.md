@@ -1930,11 +1930,11 @@ Conventions:
   server's `Forbidden:` text as-is (no "user not found" — that would be an
   existence oracle). A definite refusal keeps the server text and exits by code:
   `InvalidRoleError` 2, `MaxMembersExceededError` and `OrphanAppError` 5,
-  not-found 4, auth 3, and the plain-text `Forbidden:` 1. ANY other failure of a write
+  not-found 4, auth 3, and the plain-text `Forbidden:` 1. ANY other failure of a write, or any result returned next to an error,
   — transport error, `data` plus `errors`, a masked internal error, an empty
   payload — exits 7 with "outcome unknown", prints no success DTO, and is never
   retried: `ensureAppMember` re-reads the row after commit, so the write may
-  have landed; check with `app member list`. `list --json` is
+  have landed; check with `app member list --app <the App you targeted>`. `list --json` is
   `{appId, appUrn, members: [{user: {id, handle, urn}, role, createdAt}]}`
   with `members: []` (never null) when empty. The server returns `[]` when the
   member list is unreadable by you, so an empty list means "no members visible

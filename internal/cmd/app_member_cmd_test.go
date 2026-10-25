@@ -374,12 +374,16 @@ func TestAppMemberDefiniteRefusalsKeepServerText(t *testing.T) {
 // points at `app member list`.
 func TestAppMemberOutcomeUnknown(t *testing.T) {
 	partial := `{"data":{"ensureAppMember":null},"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`
+	nested := `{"data":{"ensureAppMember":{"role":"member","createdAt":"2026-10-25T00:00:00Z","user":{"id":"u","handle":null,"urn":"hrn:user:ada"}}},` +
+		`"errors":[{"message":"Forbidden: nested field not readable","path":["ensureAppMember","user","handle"],"extensions":{"code":"FORBIDDEN"}}]}`
 	cases := map[string]string{
-		"post-write internal error": memberGQLError("Internal server error", "INTERNAL_SERVER_ERROR"),
-		"data and errors":           partial,
-		"no code":                   `{"errors":[{"message":"mystery"}]}`,
-		"null payload":              `{"data":{"ensureAppMember":null}}`,
-		"mixed with a refusal":      `{"errors":[{"message":"x","extensions":{"code":"InvalidRoleError"}},{"message":"y","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+		"partial data with nested FORBIDDEN": nested,
+		"nested-path error alone":            `{"data":{"ensureAppMember":null},"errors":[{"message":"Forbidden: x","path":["ensureAppMember","user"],"extensions":{"code":"FORBIDDEN"}}]}`,
+		"post-write internal error":          memberGQLError("Internal server error", "INTERNAL_SERVER_ERROR"),
+		"data and errors":                    partial,
+		"no code":                            `{"errors":[{"message":"mystery"}]}`,
+		"null payload":                       `{"data":{"ensureAppMember":null}}`,
+		"mixed with a refusal":               `{"errors":[{"message":"x","extensions":{"code":"InvalidRoleError"}},{"message":"y","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
 	}
 	for name, resp := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -394,7 +398,7 @@ func TestAppMemberOutcomeUnknown(t *testing.T) {
 			if out.String() != "" {
 				t.Errorf("no success DTO on stdout: %q", out.String())
 			}
-			if !strings.Contains(err.Error(), "outcome unknown") || !strings.Contains(err.Error(), "app member list") {
+			if !strings.Contains(err.Error(), "outcome unknown") || !strings.Contains(err.Error(), "app member list --app "+memberApp) {
 				t.Errorf("must say outcome unknown and point at list: %v", err)
 			}
 			if calls("EnsureAppMember") != 1 {
@@ -402,6 +406,16 @@ func TestAppMemberOutcomeUnknown(t *testing.T) {
 			}
 		})
 	}
+	t.Run("partial remove result", func(t *testing.T) {
+		srv, calls, _ := countingGraphQL(t, map[string]string{"RemoveAppMember": `{"data":{"removeAppMember":true},"errors":[{"message":"Forbidden: x","extensions":{"code":"FORBIDDEN"}}]}`})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"app", "member", "remove", "--user", "ada", "--app", memberApp, "--yes", "--server", srv.URL})
+		err := root.Execute()
+		if err == nil || out.String() != "" || !strings.Contains(err.Error(), "outcome unknown") || calls("RemoveAppMember") != 1 {
+			t.Fatalf("want outcome unknown: err=%v out=%q", err, out.String())
+		}
+	})
 	t.Run("transport failure", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/capabilities" {
