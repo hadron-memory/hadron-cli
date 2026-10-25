@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strings"
 
@@ -19,27 +20,28 @@ import (
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory         string
-		name           string
-		content        string
-		contentFile    string
-		nodeType       string
-		objectType     string
-		role           string
-		description    string
-		abstract       string
-		abstractFile   string
-		data           string
-		dataFile       string
-		dataMerge      string
-		dataMergeFile  string
-		properties     string
-		propertiesFile string
-		runnable       bool
-		force          bool
-		dryRun         bool
-		reason         string
-		tags           []string
+		memory           string
+		name             string
+		content          string
+		contentFile      string
+		nodeType         string
+		objectType       string
+		role             string
+		description      string
+		abstract         string
+		abstractFile     string
+		data             string
+		dataFile         string
+		dataMerge        string
+		dataMergeFile    string
+		properties       string
+		propertiesFile   string
+		runnable         bool
+		force            bool
+		dryRun           bool
+		expectedRevision int
+		reason           string
+		tags             []string
 	)
 	cmd := &cobra.Command{
 		Use:   "update <node-urn> | <loc> -m <memory>",
@@ -62,6 +64,14 @@ The data bag can be written two ways:
 
 Replace and merge are different operations, so --data and --data-merge are
 mutually exclusive.
+
+--expected-revision requires the node's live revision to match your supplied
+positive 32-bit baseline. Omitted means last-write-wins. A mismatch is a conflict
+(exit 5); re-read and retry deliberately. Drift can advance a revision without
+another user edit. The CLI never refreshes the baseline or retries a write.
+This guard cannot be used with --data-merge or --data-merge-file; use --data
+for a guarded full replacement. In --dry-run it is advisory, not validated by
+the server, and reserves no revision.
 
 EDITING EXISTING CONTENT: read it with ` + "`node get <ref> --body-only`" + `, which
 prints the stored body byte for byte (#873). A plain ` + "`node get`" + ` compiles the
@@ -125,6 +135,14 @@ schema-governed memory the server validates the result and rejects a violation.)
 			// Replace and merge are different operations (distinct mutations).
 			if replaceData && mergeData {
 				return exitcode.Newf(exitcode.Usage, "--data (replace) and --data-merge (merge) are mutually exclusive")
+			}
+			if changed("expected-revision") {
+				if expectedRevision < 1 || expectedRevision > math.MaxInt32 {
+					return exitcode.Newf(exitcode.Usage, "--expected-revision must be between 1 and 2147483647")
+				}
+				if mergeData {
+					return exitcode.Newf(exitcode.Usage, "--expected-revision cannot guard --data-merge or --data-merge-file; use --data to replace the bag through the guarded update")
+				}
 			}
 			// The inline/-file pairs are mutually exclusive. Guard on Changed()
 			// (not the resolved value): an explicit --X "" would otherwise slip past
@@ -271,6 +289,9 @@ schema-governed memory the server validates the result and rejects a violation.)
 				input := gen.UpdateNodeInput{
 					Id: &nodeID,
 				}
+				if changed("expected-revision") {
+					input.ExpectedRevision = &expectedRevision
+				}
 				if changed("name") {
 					input.Name = &name
 				}
@@ -350,7 +371,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 					}
 				}
 				if dryRun {
-					return writeUpdatePreview(f, stored, changed, body, contentChanged, warnings)
+					return writeUpdatePreview(f, stored, changed, body, contentChanged, warnings, input.ExpectedRevision)
 				}
 				for _, w := range warnings {
 					fmt.Fprintf(f.IOStreams.ErrOut, "warning: %s\n", w)
@@ -426,6 +447,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 	cmd.Flags().StringVar(&properties, "properties", "", `replace the structured-storage JSON properties (#725; "null" clears)`)
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "read the replacement JSON properties object from a file")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run' (--runnable=false clears it; omit to preserve)")
+	cmd.Flags().IntVar(&expectedRevision, "expected-revision", 0, "require the supplied live revision (1-2147483647); omit for last-write-wins; unavailable with data merge")
 	cmd.Flags().StringVar(&reason, "reason", "", "why this change was made (recorded in version history)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
 	return cmd
@@ -485,13 +507,14 @@ var updateFields = []struct {
 // updatePreviewDTO is `node update --dry-run --json` (#873). content is null
 // unless the body changes; warnings is always a list.
 type updatePreviewDTO struct {
-	DryRun   bool               `json:"dryRun"`
-	ID       string             `json:"id"`
-	URN      string             `json:"urn"`
-	Loc      string             `json:"loc"`
-	Fields   []string           `json:"fields"`
-	Content  *contentPreviewDTO `json:"content"`
-	Warnings []string           `json:"warnings"`
+	DryRun           bool               `json:"dryRun"`
+	ID               string             `json:"id"`
+	URN              string             `json:"urn"`
+	Loc              string             `json:"loc"`
+	Fields           []string           `json:"fields"`
+	Content          *contentPreviewDTO `json:"content"`
+	Warnings         []string           `json:"warnings"`
+	ExpectedRevision *int               `json:"expectedRevision"`
 }
 
 // contentPreviewDTO is the body change: stored (raw) → proposed, and their
@@ -502,8 +525,11 @@ type contentPreviewDTO struct {
 	Diff   string `json:"diff"`
 }
 
-func writeUpdatePreview(f *cmdutil.Factory, stored *gen.GetNodeNode, changed func(string) bool, body string, contentChanged bool, warnings []string) error {
-	dto := updatePreviewDTO{DryRun: true, ID: stored.Id, URN: stored.Urn, Loc: stored.Loc, Fields: []string{}, Warnings: warnings}
+func writeUpdatePreview(f *cmdutil.Factory, stored *gen.GetNodeNode, changed func(string) bool, body string, contentChanged bool, warnings []string, expectedRevision *int) error {
+	if expectedRevision != nil {
+		warnings = append(warnings, fmt.Sprintf("expected revision %d is advisory and not validated by the server in a dry run", *expectedRevision))
+	}
+	dto := updatePreviewDTO{DryRun: true, ID: stored.Id, URN: stored.Urn, Loc: stored.Loc, Fields: []string{}, Warnings: warnings, ExpectedRevision: expectedRevision}
 	for _, uf := range updateFields {
 		for _, fl := range uf.flags {
 			if changed(fl) {
