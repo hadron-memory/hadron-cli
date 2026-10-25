@@ -157,6 +157,9 @@ func TestNodeExpectedRevision820EarlyRefusals(t *testing.T) {
 			if code != 2 || len(requests) != 0 || reads != 0 {
 				t.Fatalf("exit%d requests%d stdin%d: %s", code, len(requests), reads, stderr)
 			}
+			if strings.Contains(strings.Join(args, " "), "--data-merge") && !strings.Contains(stderr, "cannot guard") {
+				t.Fatalf("merge failed for wrong reason: %s", stderr)
+			}
 			if len(args) == 2 && !strings.Contains(stderr, "nothing to update") {
 				t.Fatal(stderr)
 			}
@@ -222,5 +225,31 @@ func TestNodeExpectedRevision820Conflict(t *testing.T) {
 				t.Fatal(stderr)
 			}
 		})
+	}
+}
+
+func TestNodeExpectedRevision820Replacement(t *testing.T) {
+	out, stderr, code, requests, _ := revision820Run(t, "", false, "--data", `{"x":1}`, "--expected-revision", "7", "--json")
+	if code != 0 {
+		t.Fatalf("%d %s %s", code, out, stderr)
+	}
+	mutations := 0
+	for _, q := range requests {
+		if strings.HasPrefix(q.OperationName, "Update") {
+			mutations++
+			if q.OperationName != "UpdateNode" {
+				t.Fatal(q.OperationName)
+			}
+			var input map[string]json.RawMessage
+			if err := json.Unmarshal(q.Variables["input"], &input); err != nil {
+				t.Fatal(err)
+			}
+			if string(input["expectedRevision"]) != "7" || string(input["data"]) != `{"x":1}` {
+				t.Fatal(input)
+			}
+		}
+	}
+	if mutations != 1 {
+		t.Fatal(mutations)
 	}
 }
