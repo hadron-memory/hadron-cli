@@ -9046,106 +9046,72 @@ var AllAutomationAdoptionState = []AutomationAdoptionState{
 //
 // #2441: what an adopter reviews before approving. depth carries only what previewAutomation returns to the same caller, plus the registered resources with URL userinfo and query removed.
 type AutomationApprovalAutomationApproval struct {
-	State   AutomationAdoptionState                                       `json:"state"`
-	Hash    string                                                        `json:"hash"`
-	Summary *AutomationApprovalAutomationApprovalSummaryAutomationSummary `json:"summary"`
+	AutomationApprovalFields `json:"-"`
 }
 
 // GetState returns AutomationApprovalAutomationApproval.State, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApproval) GetState() AutomationAdoptionState { return v.State }
+func (v *AutomationApprovalAutomationApproval) GetState() AutomationAdoptionState {
+	return v.AutomationApprovalFields.State
+}
 
 // GetHash returns AutomationApprovalAutomationApproval.Hash, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApproval) GetHash() string { return v.Hash }
+func (v *AutomationApprovalAutomationApproval) GetHash() string {
+	return v.AutomationApprovalFields.Hash
+}
 
 // GetSummary returns AutomationApprovalAutomationApproval.Summary, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApproval) GetSummary() *AutomationApprovalAutomationApprovalSummaryAutomationSummary {
-	return v.Summary
+func (v *AutomationApprovalAutomationApproval) GetSummary() *AutomationApprovalFieldsSummaryAutomationSummary {
+	return v.AutomationApprovalFields.Summary
 }
 
-// AutomationApprovalAutomationApprovalSummaryAutomationSummary includes the requested fields of the GraphQL type AutomationSummary.
-// The GraphQL type's documentation follows.
-//
-// #2441: plain-language facts derived from the previewed automation. A fact the pin cannot show says not stated; nothing here is a maximum the approval enforces.
-type AutomationApprovalAutomationApprovalSummaryAutomationSummary struct {
-	Name     string                                                                                    `json:"name"`
-	Schedule *string                                                                                   `json:"schedule"`
-	Reads    []string                                                                                  `json:"reads"`
-	Writes   []string                                                                                  `json:"writes"`
-	Tools    []string                                                                                  `json:"tools"`
-	Limits   []string                                                                                  `json:"limits"`
-	CannotDo []string                                                                                  `json:"cannotDo"`
-	Flows    []*AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary `json:"flows"`
+func (v *AutomationApprovalAutomationApproval) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AutomationApprovalAutomationApproval
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AutomationApprovalAutomationApproval = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AutomationApprovalFields)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-// GetName returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Name, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetName() string {
-	return v.Name
+type __premarshalAutomationApprovalAutomationApproval struct {
+	State AutomationAdoptionState `json:"state"`
+
+	Hash string `json:"hash"`
+
+	Summary *AutomationApprovalFieldsSummaryAutomationSummary `json:"summary"`
 }
 
-// GetSchedule returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Schedule, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetSchedule() *string {
-	return v.Schedule
+func (v *AutomationApprovalAutomationApproval) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
 }
 
-// GetReads returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Reads, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetReads() []string {
-	return v.Reads
-}
+func (v *AutomationApprovalAutomationApproval) __premarshalJSON() (*__premarshalAutomationApprovalAutomationApproval, error) {
+	var retval __premarshalAutomationApprovalAutomationApproval
 
-// GetWrites returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Writes, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetWrites() []string {
-	return v.Writes
-}
-
-// GetTools returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Tools, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetTools() []string {
-	return v.Tools
-}
-
-// GetLimits returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Limits, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetLimits() []string {
-	return v.Limits
-}
-
-// GetCannotDo returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.CannotDo, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetCannotDo() []string {
-	return v.CannotDo
-}
-
-// GetFlows returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Flows, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetFlows() []*AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary {
-	return v.Flows
-}
-
-// AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary includes the requested fields of the GraphQL type AutomationFlowSummary.
-// The GraphQL type's documentation follows.
-//
-// #2441: one flow of an automation (the entry flow or a flow it routes to).
-type AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary struct {
-	Name   string   `json:"name"`
-	Urn    string   `json:"urn"`
-	Tools  []string `json:"tools"`
-	Writes []string `json:"writes"`
-}
-
-// GetName returns AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Name, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetName() string {
-	return v.Name
-}
-
-// GetUrn returns AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Urn, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetUrn() string {
-	return v.Urn
-}
-
-// GetTools returns AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Tools, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetTools() []string {
-	return v.Tools
-}
-
-// GetWrites returns AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Writes, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetWrites() []string {
-	return v.Writes
+	retval.State = v.AutomationApprovalFields.State
+	retval.Hash = v.AutomationApprovalFields.Hash
+	retval.Summary = v.AutomationApprovalFields.Summary
+	return &retval, nil
 }
 
 // AutomationApprovalDepthAutomationApproval includes the requested fields of the GraphQL type AutomationApproval.
@@ -9153,112 +9119,79 @@ func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutoma
 //
 // #2441: what an adopter reviews before approving. depth carries only what previewAutomation returns to the same caller, plus the registered resources with URL userinfo and query removed.
 type AutomationApprovalDepthAutomationApproval struct {
-	State   AutomationAdoptionState                                            `json:"state"`
-	Hash    string                                                             `json:"hash"`
-	Depth   json.RawMessage                                                    `json:"depth"`
-	Summary *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary `json:"summary"`
+	AutomationApprovalFields `json:"-"`
+	Depth                    json.RawMessage `json:"depth"`
 }
-
-// GetState returns AutomationApprovalDepthAutomationApproval.State, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApproval) GetState() AutomationAdoptionState {
-	return v.State
-}
-
-// GetHash returns AutomationApprovalDepthAutomationApproval.Hash, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApproval) GetHash() string { return v.Hash }
 
 // GetDepth returns AutomationApprovalDepthAutomationApproval.Depth, and is useful for accessing the field via an interface.
 func (v *AutomationApprovalDepthAutomationApproval) GetDepth() json.RawMessage { return v.Depth }
 
+// GetState returns AutomationApprovalDepthAutomationApproval.State, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApproval) GetState() AutomationAdoptionState {
+	return v.AutomationApprovalFields.State
+}
+
+// GetHash returns AutomationApprovalDepthAutomationApproval.Hash, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApproval) GetHash() string {
+	return v.AutomationApprovalFields.Hash
+}
+
 // GetSummary returns AutomationApprovalDepthAutomationApproval.Summary, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApproval) GetSummary() *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary {
-	return v.Summary
+func (v *AutomationApprovalDepthAutomationApproval) GetSummary() *AutomationApprovalFieldsSummaryAutomationSummary {
+	return v.AutomationApprovalFields.Summary
 }
 
-// AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary includes the requested fields of the GraphQL type AutomationSummary.
-// The GraphQL type's documentation follows.
-//
-// #2441: plain-language facts derived from the previewed automation. A fact the pin cannot show says not stated; nothing here is a maximum the approval enforces.
-type AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary struct {
-	Name     string                                                                                         `json:"name"`
-	Schedule *string                                                                                        `json:"schedule"`
-	Reads    []string                                                                                       `json:"reads"`
-	Writes   []string                                                                                       `json:"writes"`
-	Tools    []string                                                                                       `json:"tools"`
-	Limits   []string                                                                                       `json:"limits"`
-	CannotDo []string                                                                                       `json:"cannotDo"`
-	Flows    []*AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary `json:"flows"`
+func (v *AutomationApprovalDepthAutomationApproval) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AutomationApprovalDepthAutomationApproval
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AutomationApprovalDepthAutomationApproval = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AutomationApprovalFields)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-// GetName returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Name, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetName() string {
-	return v.Name
+type __premarshalAutomationApprovalDepthAutomationApproval struct {
+	Depth json.RawMessage `json:"depth"`
+
+	State AutomationAdoptionState `json:"state"`
+
+	Hash string `json:"hash"`
+
+	Summary *AutomationApprovalFieldsSummaryAutomationSummary `json:"summary"`
 }
 
-// GetSchedule returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Schedule, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetSchedule() *string {
-	return v.Schedule
+func (v *AutomationApprovalDepthAutomationApproval) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
 }
 
-// GetReads returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Reads, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetReads() []string {
-	return v.Reads
-}
+func (v *AutomationApprovalDepthAutomationApproval) __premarshalJSON() (*__premarshalAutomationApprovalDepthAutomationApproval, error) {
+	var retval __premarshalAutomationApprovalDepthAutomationApproval
 
-// GetWrites returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Writes, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetWrites() []string {
-	return v.Writes
-}
-
-// GetTools returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Tools, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetTools() []string {
-	return v.Tools
-}
-
-// GetLimits returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Limits, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetLimits() []string {
-	return v.Limits
-}
-
-// GetCannotDo returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.CannotDo, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetCannotDo() []string {
-	return v.CannotDo
-}
-
-// GetFlows returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Flows, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetFlows() []*AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary {
-	return v.Flows
-}
-
-// AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary includes the requested fields of the GraphQL type AutomationFlowSummary.
-// The GraphQL type's documentation follows.
-//
-// #2441: one flow of an automation (the entry flow or a flow it routes to).
-type AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary struct {
-	Name   string   `json:"name"`
-	Urn    string   `json:"urn"`
-	Tools  []string `json:"tools"`
-	Writes []string `json:"writes"`
-}
-
-// GetName returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Name, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetName() string {
-	return v.Name
-}
-
-// GetUrn returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Urn, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetUrn() string {
-	return v.Urn
-}
-
-// GetTools returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Tools, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetTools() []string {
-	return v.Tools
-}
-
-// GetWrites returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Writes, and is useful for accessing the field via an interface.
-func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetWrites() []string {
-	return v.Writes
+	retval.Depth = v.Depth
+	retval.State = v.AutomationApprovalFields.State
+	retval.Hash = v.AutomationApprovalFields.Hash
+	retval.Summary = v.AutomationApprovalFields.Summary
+	return &retval, nil
 }
 
 // AutomationApprovalDepthResponse is returned by AutomationApprovalDepth on success.
@@ -9270,6 +9203,97 @@ type AutomationApprovalDepthResponse struct {
 // GetAutomationApproval returns AutomationApprovalDepthResponse.AutomationApproval, and is useful for accessing the field via an interface.
 func (v *AutomationApprovalDepthResponse) GetAutomationApproval() *AutomationApprovalDepthAutomationApproval {
 	return v.AutomationApproval
+}
+
+// What an adopter reviews before approving: state, the hash to approve, and the
+// plain summary.
+type AutomationApprovalFields struct {
+	State   AutomationAdoptionState                           `json:"state"`
+	Hash    string                                            `json:"hash"`
+	Summary *AutomationApprovalFieldsSummaryAutomationSummary `json:"summary"`
+}
+
+// GetState returns AutomationApprovalFields.State, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFields) GetState() AutomationAdoptionState { return v.State }
+
+// GetHash returns AutomationApprovalFields.Hash, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFields) GetHash() string { return v.Hash }
+
+// GetSummary returns AutomationApprovalFields.Summary, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFields) GetSummary() *AutomationApprovalFieldsSummaryAutomationSummary {
+	return v.Summary
+}
+
+// AutomationApprovalFieldsSummaryAutomationSummary includes the requested fields of the GraphQL type AutomationSummary.
+// The GraphQL type's documentation follows.
+//
+// #2441: plain-language facts derived from the previewed automation. A fact the pin cannot show says not stated; nothing here is a maximum the approval enforces.
+type AutomationApprovalFieldsSummaryAutomationSummary struct {
+	Name     string                                                                        `json:"name"`
+	Schedule *string                                                                       `json:"schedule"`
+	Reads    []string                                                                      `json:"reads"`
+	Writes   []string                                                                      `json:"writes"`
+	Tools    []string                                                                      `json:"tools"`
+	Limits   []string                                                                      `json:"limits"`
+	CannotDo []string                                                                      `json:"cannotDo"`
+	Flows    []*AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary `json:"flows"`
+}
+
+// GetName returns AutomationApprovalFieldsSummaryAutomationSummary.Name, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummary) GetName() string { return v.Name }
+
+// GetSchedule returns AutomationApprovalFieldsSummaryAutomationSummary.Schedule, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummary) GetSchedule() *string { return v.Schedule }
+
+// GetReads returns AutomationApprovalFieldsSummaryAutomationSummary.Reads, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummary) GetReads() []string { return v.Reads }
+
+// GetWrites returns AutomationApprovalFieldsSummaryAutomationSummary.Writes, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummary) GetWrites() []string { return v.Writes }
+
+// GetTools returns AutomationApprovalFieldsSummaryAutomationSummary.Tools, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummary) GetTools() []string { return v.Tools }
+
+// GetLimits returns AutomationApprovalFieldsSummaryAutomationSummary.Limits, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummary) GetLimits() []string { return v.Limits }
+
+// GetCannotDo returns AutomationApprovalFieldsSummaryAutomationSummary.CannotDo, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummary) GetCannotDo() []string { return v.CannotDo }
+
+// GetFlows returns AutomationApprovalFieldsSummaryAutomationSummary.Flows, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummary) GetFlows() []*AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary {
+	return v.Flows
+}
+
+// AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary includes the requested fields of the GraphQL type AutomationFlowSummary.
+// The GraphQL type's documentation follows.
+//
+// #2441: one flow of an automation (the entry flow or a flow it routes to).
+type AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary struct {
+	Name   string   `json:"name"`
+	Urn    string   `json:"urn"`
+	Tools  []string `json:"tools"`
+	Writes []string `json:"writes"`
+}
+
+// GetName returns AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary.Name, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary.Urn, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary) GetUrn() string {
+	return v.Urn
+}
+
+// GetTools returns AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary.Tools, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary) GetTools() []string {
+	return v.Tools
+}
+
+// GetWrites returns AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary.Writes, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalFieldsSummaryAutomationSummaryFlowsAutomationFlowSummary) GetWrites() []string {
+	return v.Writes
 }
 
 // AutomationApprovalResponse is returned by AutomationApproval on success.
@@ -61984,7 +62008,7 @@ func (v *__AutomationApprovalInput) GetTriggerRef() string { return v.TriggerRef
 // __AutomationApprovalsInput is used internally by genqlient
 type __AutomationApprovalsInput struct {
 	AppRef string  `json:"appRef"`
-	After  *string `json:"after"`
+	After  *string `json:"after,omitempty"`
 }
 
 // GetAppRef returns __AutomationApprovalsInput.AppRef, and is useful for accessing the field via an interface.
@@ -69705,29 +69729,31 @@ func AuthContext(
 const AutomationApproval_Operation = `
 query AutomationApproval ($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
 	automationApproval(triggerKind: $triggerKind, triggerRef: $triggerRef) {
-		state
-		hash
-		summary {
+		... AutomationApprovalFields
+	}
+}
+fragment AutomationApprovalFields on AutomationApproval {
+	state
+	hash
+	summary {
+		name
+		schedule
+		reads
+		writes
+		tools
+		limits
+		cannotDo
+		flows {
 			name
-			schedule
-			reads
-			writes
+			urn
 			tools
-			limits
-			cannotDo
-			flows {
-				name
-				urn
-				tools
-				writes
-			}
+			writes
 		}
 	}
 }
 `
 
-// What an adopter reviews before approving: state, the hash to approve, and the
-// plain summary. Selected WITHOUT the graph depth.
+// Selected WITHOUT the graph depth.
 func AutomationApproval(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -69759,23 +69785,26 @@ func AutomationApproval(
 const AutomationApprovalDepth_Operation = `
 query AutomationApprovalDepth ($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
 	automationApproval(triggerKind: $triggerKind, triggerRef: $triggerRef) {
-		state
-		hash
+		... AutomationApprovalFields
 		depth
-		summary {
+	}
+}
+fragment AutomationApprovalFields on AutomationApproval {
+	state
+	hash
+	summary {
+		name
+		schedule
+		reads
+		writes
+		tools
+		limits
+		cannotDo
+		flows {
 			name
-			schedule
-			reads
-			writes
+			urn
 			tools
-			limits
-			cannotDo
-			flows {
-				name
-				urn
-				tools
-				writes
-			}
+			writes
 		}
 	}
 }
@@ -69830,7 +69859,8 @@ query AutomationApprovals ($appRef: String!, $after: String) {
 `
 
 // One page of the adoptable schedules and webhooks of an App. `omitted` names the
-// trigger kinds the list never carries (MANUAL: consent is per run).
+// trigger kinds the list never carries (MANUAL: consent is per run). The first
+// page omits `after` rather than sending null.
 func AutomationApprovals(
 	ctx_ context.Context,
 	client_ graphql.Client,

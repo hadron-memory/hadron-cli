@@ -372,6 +372,7 @@ hadron server-info
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
 hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [--reasons read-team-channel,every-tick,live-check] | update <id-or-URN> [--reasons <list>] | delete <id-or-URN> --yes | subscribe <id-or-URN> --worker <id-or-URN> | unsubscribe <id-or-URN> --worker <id-or-URN>
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | list --app <ref> | update <id> ... | rm <id> --yes
+hadron automation list | approval (<name> | --run <run-id>) [--depth] | approve (<name> | --run <run-id>) [--yes] | decline (<name> | --run <run-id>) [--yes]   # cli#1071: an App owner reviews and approves schedules/webhooks without a row id or hash; name is schedule/<name>, webhook/<name> or a bare <name> that exactly one trigger has; --app on every subcommand
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | list --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
 hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | balance <org> | ledger <org> [--limit N] [--offset N]   # spec-046 metering READS (cli#215); <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. No write commands (setting rates, granting credits) yet
@@ -1940,6 +1941,43 @@ Conventions:
   member list is unreadable by you, so an empty list means "no members visible
   to you", NOT "no members"; a null App is exit 4, a malformed row is an error.
   User names and emails are withheld by the server and not selected.
+- `automation list|approval|approve|decline` (`automationApprovals` /
+  `automationApproval` / `approveAutomation` / `declineAutomation`,
+  `cor:agt:010:01`, hadron-server#2441) let an App owner review and approve the
+  schedules and webhooks of an App with no row id and no hash. The App is `--app`,
+  else the active App (an explicit blank `--app ""` refuses, exit 2). A trigger is
+  named `schedule/<name>`, `webhook/<name>`, or a bare `<name>` that exactly one
+  trigger of the App has; nothing is ever picked for you: no match exits 4 (one
+  line, no dump of other automations), several exit 2 listing only the matches.
+  A MANUAL origin is `--run <run-id>` (the id the refused run printed), exclusive
+  with a name, never guessed or listed. **`list`** follows `nextCursor` to the end
+  in the server's order; rows are `UNADOPTED`/`ADOPTED` only, printed "not
+  approved"/"approved" — **never** "up to date": CHANGED exists on `approval`
+  alone. `--json` is `{app, rows: [{triggerKind, triggerRef, name, state,
+  headline}], omitted: [{triggerKind, reason}]}`, both arrays `[]` never null;
+  MANUAL is always `omitted` ("Manual runs are approved from the run that needs
+  them"). **`approval`** prints the server's plain summary; `--depth` adds the
+  graph and the hash; `--json` is `{app, trigger, state, hash, summary: {name,
+  schedule, reads, writes, tools, limits, cannotDo, flows}, depth?}`. **`approve`**
+  fetches ONE projection, shows it on stderr (also under `--yes`: `--yes` skips the
+  prompt, never the display), confirms, and sends the hash it just showed;
+  `AUTOMATION_CHANGED` exits 5 and is never retried — run `approval` again.
+  **`decline`** sends kind and ref only (no hash: it only removes authority) and
+  never reads the projection, so an unreadable automation can still be declined;
+  the prompt says an approved automation is switched off ("its next run will fail
+  until it is approved again", including a newer approval someone else just gave)
+  and that an unapproved one only records the decline. Display and prompt go to
+  stderr; stdout carries only the result (`{app, trigger, status:
+  "approved"|"declined", hash?}` under `--json`). A "no"/EOF exits 6 and a
+  non-interactive call without `--yes` exits 2, both with ZERO mutations. Server
+  text is stripped of terminal escapes and bounded in text mode; `--json` passes
+  it through unchanged. Exit codes: `FORBIDDEN` (including the read-access
+  refusals) 8, `NOT_FOUND` 4, `AUTOMATION_CHANGED` and `AUTOMATION_UNADOPTED` 5,
+  bad selection 2, cancelled 6, and 7 for a malformed projection (a null required
+  list, empty hash, unknown state — never an empty success), a server without these
+  operations ("this server does not support automation approval", before any
+  prompt), or a write that is not confirmed (outcome unknown: check with
+  `automation approval`). `previewAutomation`/`reAdoptAutomation` stay unbound.
 - `app agent add <app> <agent>` / `remove <app> <agent>` wrap
   `installAgentIntoApp` / `uninstallAgentFromApp` — the AppAgent join
   (`cor:dmo:050:03`), and the only way to attach an Agent to an App you

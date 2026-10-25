@@ -91,8 +91,14 @@ func fixed(body string) func(map[string]any) autoReply {
 	return func(map[string]any) autoReply { return autoReply{body: body} }
 }
 
+// jq quotes s as a JSON string (Go's %q is not JSON for control characters).
+func jq(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
+}
+
 func autoRow(kind, ref, name, state, headline string) string {
-	return fmt.Sprintf(`{"triggerKind":%q,"triggerRef":%q,"name":%q,"state":%q,"headline":%q}`, kind, ref, name, state, headline)
+	return fmt.Sprintf(`{"triggerKind":%s,"triggerRef":%s,"name":%s,"state":%s,"headline":%s}`, jq(kind), jq(ref), jq(name), jq(state), jq(headline))
 }
 
 func autoPage(rows []string, next string, omitted bool) string {
@@ -107,21 +113,26 @@ func autoPage(rows []string, next string, omitted bool) string {
 	return fmt.Sprintf(`{"data":{"automationApprovals":{"rows":[%s],"nextCursor":%s,"omitted":%s}}}`, strings.Join(rows, ","), cur, om)
 }
 
-func autoDetail(state, hash, name string) string {
-	return fmt.Sprintf(`{"data":{"automationApproval":{"state":%q,"hash":%q,"summary":{"name":%q,"schedule":"every night at 02:00",
+func autoDetail(state string) string {
+	return fmt.Sprintf(`{"data":{"automationApproval":{"state":%q,"hash":%q,"summary":{"name":"nightly","schedule":"every night at 02:00",
 		"reads":["what the App can read in this App"],"writes":["a new node runs:<runId> beside the entry"],
 		"tools":["hadron_find_nodes"],"limits":["set by the platform at run start"],"cannotDo":["never a private memory"],
-		"flows":[{"name":"main","urn":"hrn:node:acme.com:ops:flows:main","tools":["hadron_find_nodes"],"writes":[]}]}}}}`, state, hash, name)
+		"flows":[{"name":"main","urn":"hrn:node:acme.com:ops:flows:main","tools":["hadron_find_nodes"],"writes":[]}]}}}}`, state, autoHash)
 }
 
 const autoHash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 func oneRowServer(t *testing.T, state string, extra map[string]func(map[string]any) autoReply) *autoServer {
 	t.Helper()
+	// The list never carries CHANGED (it exists on the detail projection only).
+	listState := state
+	if listState == "CHANGED" {
+		listState = "ADOPTED"
+	}
 	rep := map[string]func(map[string]any) autoReply{
-		"AutomationApprovals":     fixed(autoPage([]string{autoRow("SCHEDULE", "sch1", "nightly", state, "Runs nightly")}, "", true)),
-		"AutomationApproval":      fixed(autoDetail(state, autoHash, "nightly")),
-		"AutomationApprovalDepth": fixed(strings.Replace(autoDetail(state, autoHash, "nightly"), `"state":`, `"depth":{"nodes":[{"loc":"flows:main"}]},"state":`, 1)),
+		"AutomationApprovals":     fixed(autoPage([]string{autoRow("SCHEDULE", "sch1", "nightly", listState, "Runs nightly")}, "", true)),
+		"AutomationApproval":      fixed(autoDetail(state)),
+		"AutomationApprovalDepth": fixed(strings.Replace(autoDetail(state), `"state":`, `"depth":{"nodes":[{"loc":"flows:main"}]},"state":`, 1)),
 		"ApproveAutomation":       fixed(`{"data":{"approveAutomation":true}}`),
 		"DeclineAutomation":       fixed(`{"data":{"declineAutomation":true}}`),
 	}
@@ -342,6 +353,15 @@ func TestAutomationSelection(t *testing.T) {
 		}
 		if s.count("ApproveAutomation") != 0 || s.count("AutomationApprovals") != 0 {
 			t.Errorf("a bad selection must send nothing")
+		}
+	})
+	t.Run("an explicit blank --run refuses, with or without a name", func(t *testing.T) {
+		for _, args := range [][]string{{"approve", "--run", "", "--yes"}, {"approve", "nightly", "--run", " ", "--yes"}, {"decline", "--run=", "--yes"}, {"approval", "nightly", "--run", ""}} {
+			s := srv(t)
+			r := runAuto(t, s, false, "", args...)
+			if r.code != exitcode.Usage || s.count("ApproveAutomation")+s.count("DeclineAutomation")+s.count("AutomationApproval")+s.count("AutomationApprovals") != 0 {
+				t.Errorf("%v: want exit 2 and nothing sent, got %d (%v)", args, r.code, r.err)
+			}
 		}
 	})
 	t.Run("--run names a MANUAL origin without listing", func(t *testing.T) {
@@ -565,14 +585,14 @@ func TestAutomationApprovalDisplay(t *testing.T) {
 func TestAutomationServerTextIsTerminalSafeAndBounded(t *testing.T) {
 	evil := "evil\x1b[31mred\x1b]0;owned\x07\nsecond line\x00end"
 	long := strings.Repeat("x", 5000)
-	detail := fmt.Sprintf(`{"data":{"automationApproval":{"state":"UNADOPTED","hash":%q,"summary":{"name":%q,"schedule":null,
-		"reads":[%q],"writes":[],"tools":[],"limits":[],"cannotDo":[],"flows":[]}}}}`, autoHash, evil, long)
+	detail := fmt.Sprintf(`{"data":{"automationApproval":{"state":"UNADOPTED","hash":%s,"summary":{"name":%s,"schedule":null,
+		"reads":[%s],"writes":[],"tools":[],"limits":[],"cannotDo":[],"flows":[]}}}}`, jq(autoHash), jq(evil), jq(long))
 	s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{
 		"AutomationApproval": fixed(detail),
 		"AutomationApprovals": fixed(autoPage([]string{
 			autoRow("SCHEDULE", "s1", evil, "UNADOPTED", evil)}, "", true)),
 	})
-	for _, args := range [][]string{{"approval", "evil"}, {"ls"}, {"approve", "evil"}} {
+	for _, args := range [][]string{{"approval", evil}, {"ls"}, {"approve", evil}} {
 		r := runAuto(t, s, true, "n\n", args...)
 		all := r.out + r.errOut
 		for _, bad := range []string{"\x1b", "\x07", "\x00"} {
@@ -585,26 +605,26 @@ func TestAutomationServerTextIsTerminalSafeAndBounded(t *testing.T) {
 		}
 	}
 	// --json passes the server's strings through unchanged.
-	r := runAuto(t, s, false, "", "approval", "evil", "--json")
+	r := runAuto(t, s, false, "", "approval", evil, "--json")
 	var got struct {
 		Summary struct {
 			Name string `json:"name"`
 		} `json:"summary"`
 	}
 	if err := json.Unmarshal([]byte(r.out), &got); err != nil || got.Summary.Name != evil {
-		t.Errorf("--json must not alter server text: %v %q", err, got.Summary.Name)
+		t.Errorf("--json must not alter server text: %v %q (cmd err %v)", err, got.Summary.Name, r.err)
 	}
 }
 
 func TestAutomationMalformedProjectionIsUnavailable(t *testing.T) {
 	cases := map[string]string{
-		"empty hash":        strings.Replace(autoDetail("UNADOPTED", autoHash, "nightly"), autoHash, "", 1),
-		"unknown state":     autoDetail("MAYBE", autoHash, "nightly"),
-		"null reads":        strings.Replace(autoDetail("UNADOPTED", autoHash, "nightly"), `"reads":["what the App can read in this App"]`, `"reads":null`, 1),
+		"empty hash":        strings.Replace(autoDetail("UNADOPTED"), autoHash, "", 1),
+		"unknown state":     autoDetail("MAYBE"),
+		"null reads":        strings.Replace(autoDetail("UNADOPTED"), `"reads":["what the App can read in this App"]`, `"reads":null`, 1),
 		"null summary":      fmt.Sprintf(`{"data":{"automationApproval":{"state":"UNADOPTED","hash":%q,"summary":null}}}`, autoHash),
-		"null cannotDo":     strings.Replace(autoDetail("UNADOPTED", autoHash, "nightly"), `"cannotDo":["never a private memory"]`, `"cannotDo":null`, 1),
-		"null flows":        strings.Replace(autoDetail("UNADOPTED", autoHash, "nightly"), `"flows":[{"name":"main","urn":"hrn:node:acme.com:ops:flows:main","tools":["hadron_find_nodes"],"writes":[]}]`, `"flows":null`, 1),
-		"null flow writes":  strings.Replace(autoDetail("UNADOPTED", autoHash, "nightly"), `"writes":[]}]`, `"writes":null}]`, 1),
+		"null cannotDo":     strings.Replace(autoDetail("UNADOPTED"), `"cannotDo":["never a private memory"]`, `"cannotDo":null`, 1),
+		"null flows":        strings.Replace(autoDetail("UNADOPTED"), `"flows":[{"name":"main","urn":"hrn:node:acme.com:ops:flows:main","tools":["hadron_find_nodes"],"writes":[]}]`, `"flows":null`, 1),
+		"null flow writes":  strings.Replace(autoDetail("UNADOPTED"), `"writes":[]}]`, `"writes":null}]`, 1),
 		"data null no err":  `{"data":null}`,
 		"approval null":     `{"data":{"automationApproval":null}}`,
 		"empty object body": `{"data":{}}`,
@@ -613,7 +633,11 @@ func TestAutomationMalformedProjectionIsUnavailable(t *testing.T) {
 		for _, verb := range []string{"approval", "approve"} {
 			t.Run(name+"/"+verb, func(t *testing.T) {
 				s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{"AutomationApproval": fixed(body)})
-				r := runAuto(t, s, false, "", verb, "nightly", "--yes")
+				args := []string{verb, "nightly"}
+				if verb == "approve" {
+					args = append(args, "--yes")
+				}
+				r := runAuto(t, s, false, "", args...)
 				if r.code != exitcode.Unavailable || s.count("ApproveAutomation") != 0 || r.out != "" {
 					t.Fatalf("want exit 7, nothing approved, empty stdout: code=%d err=%v out=%q", r.code, r.err, r.out)
 				}

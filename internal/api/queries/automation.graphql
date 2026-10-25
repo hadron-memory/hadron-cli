@@ -4,8 +4,13 @@
 # detail projection alone.
 
 # One page of the adoptable schedules and webhooks of an App. `omitted` names the
-# trigger kinds the list never carries (MANUAL: consent is per run).
-query AutomationApprovals($appRef: String!, $after: String) {
+# trigger kinds the list never carries (MANUAL: consent is per run). The first
+# page omits `after` rather than sending null.
+query AutomationApprovals(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $after: String
+) {
   automationApprovals(appRef: $appRef, after: $after) {
     rows {
       triggerKind
@@ -23,50 +28,39 @@ query AutomationApprovals($appRef: String!, $after: String) {
 }
 
 # What an adopter reviews before approving: state, the hash to approve, and the
-# plain summary. Selected WITHOUT the graph depth.
+# plain summary.
+fragment AutomationApprovalFields on AutomationApproval {
+  state
+  hash
+  summary {
+    name
+    schedule
+    reads
+    writes
+    tools
+    limits
+    cannotDo
+    flows {
+      name
+      urn
+      tools
+      writes
+    }
+  }
+}
+
+# Selected WITHOUT the graph depth.
 query AutomationApproval($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
   automationApproval(triggerKind: $triggerKind, triggerRef: $triggerRef) {
-    state
-    hash
-    summary {
-      name
-      schedule
-      reads
-      writes
-      tools
-      limits
-      cannotDo
-      flows {
-        name
-        urn
-        tools
-        writes
-      }
-    }
+    ...AutomationApprovalFields
   }
 }
 
 # The same projection plus the graph (`depth`), for `approval --depth`.
 query AutomationApprovalDepth($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
   automationApproval(triggerKind: $triggerKind, triggerRef: $triggerRef) {
-    state
-    hash
+    ...AutomationApprovalFields
     depth
-    summary {
-      name
-      schedule
-      reads
-      writes
-      tools
-      limits
-      cannotDo
-      flows {
-        name
-        urn
-        tools
-        writes
-      }
-    }
   }
 }
 

@@ -459,6 +459,12 @@ func IsGraphQLValidationFor(err error, name string) bool {
 	return false
 }
 
+// IsSchemaSkew reports whether err is the server rejecting a query this build
+// sends (a GraphQL validation failure) — the server lacks an operation or
+// field. A command that needs a more specific sentence than MapError's generic
+// skew hint (and a different exit code) asks this before mapping.
+func IsSchemaSkew(err error) bool { return isSchemaSkew(err) }
+
 // isSchemaSkew reports whether err is a GraphQL validation failure — the server
 // rejecting a query that references a field/operation it doesn't have.
 func isSchemaSkew(err error) bool {
@@ -774,6 +780,12 @@ func codeForExtension(code string) int {
 	case code == "InvalidRoleError":
 		return exitcode.Usage
 	case code == "MaxMembersExceededError" || code == "OrphanAppError":
+		return exitcode.Conflict
+	// Automation approval (cli#1071, hadron-server#2441): the automation changed
+	// since the adopter looked, or nothing is adopted. Neither is fixed by
+	// retrying the same call; the adopter has to run `automation approval`
+	// again. The read-access refusals (#2434) carry FORBIDDEN.
+	case code == "AUTOMATION_CHANGED" || code == "AUTOMATION_UNADOPTED":
 		return exitcode.Conflict
 	case code == "UNAUTHENTICATED":
 		return exitcode.AuthRequired
