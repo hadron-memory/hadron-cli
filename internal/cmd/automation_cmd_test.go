@@ -342,7 +342,7 @@ func TestAutomationSelection(t *testing.T) {
 			t.Fatalf("want exit 4 and nothing sent: code=%d err=%v", r.code, r.err)
 		}
 		msg := r.err.Error()
-		if !strings.Contains(msg, `no automation named "nope"`) || !strings.Contains(msg, autoApp) || !strings.Contains(msg, "hadron automation ls") {
+		if !strings.Contains(msg, `no automation named "nope"`) || !strings.Contains(msg, autoApp) || !strings.Contains(msg, "hadron automation list") {
 			t.Errorf("zero-match message: %s", msg)
 		}
 		for _, bad := range []string{"nightly", "weekly", "hook"} {

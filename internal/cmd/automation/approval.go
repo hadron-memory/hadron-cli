@@ -12,75 +12,113 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-func printList(w io.Writer, label string, items []string) {
-	if len(items) == 0 {
-		fmt.Fprintf(w, "%s: (none)\n", label)
+// projectionWriter renders the consent projection. It remembers the first write
+// error and whether anything was cut for display: a caller must not ask for
+// consent after either (the person has not been shown what they are approving).
+type projectionWriter struct {
+	w          io.Writer
+	err        error
+	incomplete bool
+}
+
+func (p *projectionWriter) printf(format string, a ...any) {
+	if p.err != nil {
 		return
 	}
-	fmt.Fprintf(w, "%s:\n", label)
+	_, p.err = fmt.Fprintf(p.w, format, a...)
+}
+
+// fact is one server string, sanitized and bounded; a cut marks the display incomplete.
+func (p *projectionWriter) fact(s string, max int) string {
+	out, cut := safeTextCut(s, max)
+	if cut {
+		p.incomplete = true
+	}
+	return out
+}
+
+func (p *projectionWriter) list(label string, items []string) {
+	if len(items) == 0 {
+		p.printf("%s: none listed\n", label)
+		return
+	}
+	p.printf("%s:\n", label)
 	for i, it := range items {
-		if i == maxItems {
-			fmt.Fprintf(w, "  … and %d more (`--json` has them all)\n", len(items)-maxItems)
+		if i == maxFacts {
+			p.incomplete = true
+			p.printf("  … and %d more\n", len(items)-maxFacts)
 			break
 		}
-		fmt.Fprintf(w, "  - %s\n", safeText(it, maxLine))
+		p.printf("  - %s\n", p.fact(it, maxFact))
 	}
 }
 
-// writeProjection renders what an adopter reviews. Every server string passes
-// safeText; the hash and graph appear only with the depth.
-func writeProjection(w io.Writer, display string, d *approvalDTO, withDepth bool) {
-	fmt.Fprintf(w, "Automation %s in %s\n", display, d.App)
-	fmt.Fprintf(w, "State: %s\n", stateWord(d.State))
-	s := d.Summary
-	fmt.Fprintf(w, "Name: %s\n", safeText(s.Name, maxName))
-	if s.Schedule != nil {
-		fmt.Fprintf(w, "Schedule: %s\n", safeText(*s.Schedule, maxLine))
-	}
-	printList(w, "Reads", s.Reads)
-	printList(w, "Writes", s.Writes)
-	printList(w, "Tools", s.Tools)
-	printList(w, "Limits", s.Limits)
-	printList(w, "Cannot do", s.CannotDo)
-	if len(s.Flows) == 0 {
-		fmt.Fprintln(w, "Flows: (none)")
-	} else {
-		fmt.Fprintln(w, "Flows:")
-		for i, fl := range s.Flows {
-			if i == maxItems {
-				fmt.Fprintf(w, "  … and %d more (`--json` has them all)\n", len(s.Flows)-maxItems)
-				break
-			}
-			fmt.Fprintf(w, "  - %s (%s)\n", safeText(fl.Name, maxName), safeText(fl.URN, maxLine))
-			printFlowList(w, "tools", fl.Tools)
-			printFlowList(w, "writes", fl.Writes)
-		}
-	}
-	if withDepth {
-		fmt.Fprintf(w, "Hash: %s\n", safeText(d.Hash, maxLine))
-		var pretty bytes.Buffer
-		if err := json.Indent(&pretty, d.Depth, "", "  "); err != nil {
-			pretty.Reset()
-			pretty.Write(d.Depth)
-		}
-		fmt.Fprintf(w, "Graph:\n%s\n", safeBlock(pretty.String(), maxDepth))
-	}
-}
-
-func printFlowList(w io.Writer, label string, items []string) {
+func (p *projectionWriter) flowList(label string, items []string) {
 	if len(items) == 0 {
 		return
 	}
 	shown := items
 	more := ""
-	if len(items) > maxItems {
-		shown, more = items[:maxItems], fmt.Sprintf(", … and %d more", len(items)-maxItems)
+	if len(items) > maxFacts {
+		shown, more = items[:maxFacts], fmt.Sprintf(", … and %d more", len(items)-maxFacts)
+		p.incomplete = true
 	}
 	out := make([]string, len(shown))
 	for i, it := range shown {
-		out[i] = safeText(it, maxLine)
+		out[i] = p.fact(it, maxFact)
 	}
-	fmt.Fprintf(w, "      %s: %s%s\n", label, joinComma(out), more)
+	p.printf("      %s: %s%s\n", label, joinComma(out), more)
+}
+
+// writeProjection renders what an adopter reviews. Every server string passes
+// safeText; the hash and graph appear only with the depth. It returns the first
+// write error, and incomplete=true when any fact or list was cut to fit.
+func writeProjection(w io.Writer, display string, d *approvalDTO, withDepth bool) (incomplete bool, err error) {
+	p := &projectionWriter{w: w}
+	p.printf("Automation %s\n", display)
+	p.printf("State: %s\n", stateWord(d.State))
+	s := d.Summary
+	p.printf("Name: %s\n", p.fact(s.Name, maxName))
+	if s.Schedule != nil {
+		p.printf("Schedule: %s\n", p.fact(*s.Schedule, maxFact))
+	}
+	p.list("Reads", s.Reads)
+	p.list("Writes", s.Writes)
+	p.list("Tools", s.Tools)
+	p.list("Limits", s.Limits)
+	p.list("Cannot do", s.CannotDo)
+	if len(s.Flows) == 0 {
+		p.printf("Flows: none listed\n")
+	} else {
+		p.printf("Flows:\n")
+		for i, fl := range s.Flows {
+			if i == maxFacts {
+				p.incomplete = true
+				p.printf("  … and %d more\n", len(s.Flows)-maxFacts)
+				break
+			}
+			p.printf("  - %s (%s)\n", p.fact(fl.Name, maxName), p.fact(fl.URN, maxFact))
+			p.flowList("tools", fl.Tools)
+			p.flowList("writes", fl.Writes)
+		}
+	}
+	if withDepth {
+		p.printf("Hash: %s\n", p.fact(d.Hash, maxFact))
+		var pretty bytes.Buffer
+		if err := json.Indent(&pretty, d.Depth, "", "  "); err != nil {
+			pretty.Reset()
+			pretty.Write(d.Depth)
+		}
+		block := safeBlock(pretty.String(), maxDepth)
+		if len([]rune(pretty.String())) > maxDepth {
+			p.incomplete = true
+		}
+		p.printf("Graph:\n%s\n", block)
+	}
+	if p.incomplete {
+		p.printf("(some of this was cut for display; `--json` has all of it)\n")
+	}
+	return p.incomplete, p.err
 }
 
 func joinComma(s []string) string {
@@ -104,7 +142,8 @@ func newCmdApproval(f *cmdutil.Factory) *cobra.Command {
 what it reads, writes and calls, and what it cannot do. Every sentence is the
 server's; a fact the server cannot show says "not stated".
 
---depth adds the graph and the hash. State is one of: not approved, approved, or
+An empty list is printed "none listed": it is what the server listed, not a
+guarantee that nothing applies. --depth adds the graph and the hash. State is one of: not approved, approved, or
 changed since it was approved (its next run fails until it is approved again).`,
 		Example: `  hadron automation approval schedule/nightly
   hadron automation approval nightly --depth --json
@@ -127,8 +166,8 @@ changed since it was approved (its next run fails until it is approved again).`,
 				return err
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				writeProjection(w, sel.Display, dto, depth)
-				return nil
+				_, err := writeProjection(w, sel.Display+inApp(sel, app), dto, depth)
+				return err
 			})
 		},
 	}

@@ -47,3 +47,17 @@ and `declineAutomation` and derives nothing.
 - **Legacy**: `previewAutomation` and `reAdoptAutomation` have no call site and
   stay in `unbound-ops.txt`. The schema refresh also lists the unrelated
   operations the snapshot was behind on.
+
+## Review fold (PR #1076, head after 0b732c8c)
+
+BLIND/LOCAL/UX/§10 findings folded into one head: the display error is returned
+and stops before any mutation; approve refuses when the summary was cut (the
+consent projection uses the large bounds, 1000 characters per fact and 200 per
+list, and `approval --json` is the way to read all of it); recovery hints use the
+sanitized form or point at `list` when sanitizing would change the target;
+Unicode format characters (bidi, zero-width, U+2028/9) are stripped; empty
+facts print "none listed"; the unapproved-decline warning names the concurrent
+approval it would revoke; a CHANGED approve prompt says so; a MANUAL prompt says
+"found by run id only" because the server takes no App for a run. Left as is
+(P3): redundant Name/App header lines, and "approved" in a list for an
+automation that may have changed (the footer and help say it).

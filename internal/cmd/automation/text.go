@@ -11,11 +11,18 @@ import (
 // escape in it must not run, and a huge value must not flood the screen.
 // Text mode strips and bounds every server string it prints; --json passes the
 // server's value through unchanged.
+//
+// Two sets of bounds. Names, headlines and table cells use the small ones. The
+// CONSENT projection (approval/approve) uses the large ones, and when anything
+// in it would still be cut, approve refuses instead of letting a person confirm
+// a hash over authority they were not shown (BLIND P2 on cli#1076).
 const (
-	maxName  = 120 // trigger and flow names
-	maxLine  = 300 // one sentence or headline
-	maxItems = 25  // entries printed from one list before "and N more"
+	maxName  = 120 // trigger and flow names, table cells
+	maxLine  = 300 // a headline in a list or an ambiguity refusal
 	maxDepth = 8000
+
+	maxFact  = 1000 // one sentence of the consent projection
+	maxFacts = 200  // entries of one list of the consent projection
 )
 
 var (
@@ -26,27 +33,41 @@ var (
 	reESC = regexp.MustCompile(`\x1b.?`)
 )
 
-// safeText returns s with terminal escape sequences removed, every remaining
-// control character (newline, tab, NUL, C1…) turned into a space, and the result
-// cut to max runes with an ellipsis.
+// hidden reports a character that must not reach a terminal as itself: a
+// control (newline, tab, NUL, C1…), a Unicode format character (bidi overrides
+// and isolates, zero-width), or a line/paragraph separator. Graph-authored text
+// could otherwise reorder or hide what an approval display says.
+func hidden(r rune) bool {
+	return unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp)
+}
+
+// safeText returns s with terminal escape sequences removed, every hidden
+// character turned into a space, and the result cut to max runes with an
+// ellipsis.
 func safeText(s string, max int) string {
+	out, _ := safeTextCut(s, max)
+	return out
+}
+
+// safeTextCut is safeText that also reports whether it cut the text.
+func safeTextCut(s string, max int) (string, bool) {
 	s = reOSC.ReplaceAllString(s, "")
 	s = reCSI.ReplaceAllString(s, "")
 	s = reESC.ReplaceAllString(s, "")
 	var b strings.Builder
 	n := 0
 	for _, r := range s {
-		if unicode.IsControl(r) {
+		if hidden(r) {
 			r = ' '
 		}
 		if n == max {
 			b.WriteString("…")
-			return b.String()
+			return b.String(), true
 		}
 		b.WriteRune(r)
 		n++
 	}
-	return b.String()
+	return b.String(), false
 }
 
 // safeBlock is safeText for a multi-line value (the pretty-printed graph):
@@ -58,7 +79,7 @@ func safeBlock(s string, max int) string {
 	var b strings.Builder
 	n := 0
 	for _, r := range s {
-		if r != '\n' && unicode.IsControl(r) {
+		if r != '\n' && hidden(r) {
 			r = ' '
 		}
 		if n == max {

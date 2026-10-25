@@ -21,11 +21,33 @@ type resultDTO struct {
 	Hash    string     `json:"hash,omitempty"`
 }
 
-// approvalHint is the copy-pasteable re-read after a refusal.
+// inApp is the " in <app>" tail of a header or prompt. A MANUAL origin is found
+// by its run id alone — the server's projection and mutations take no App for it
+// — so the CLI must not claim the run belongs to the App it was run against.
+func inApp(sel *selection, app string) string {
+	if sel.Kind == gen.AutomationTriggerKindManual {
+		return " (found by run id only; which App it belongs to is not checked here)"
+	}
+	return " in " + app
+}
+
+// terminalSafe reports whether s survives sanitizing unchanged — the condition
+// for putting it in a command a person may copy.
+func terminalSafe(s string) bool { return safeText(s, 4*maxFact) == s }
+
+// approvalHint is the copy-pasteable re-read after a refusal. A trigger or run
+// name that sanitizing would change is never put in a command (the copy would
+// name a different target, or carry terminal controls): the hint then points
+// at the list instead.
 func approvalHint(sel *selection, app string) string {
 	target := "--run " + shellQuote(sel.Trigger.Ref)
+	raw := sel.Trigger.Ref
 	if sel.Trigger.Name != "" {
-		target = shellQuote(kindWord(sel.Kind) + "/" + sel.Trigger.Name)
+		raw = kindWord(sel.Kind) + "/" + sel.Trigger.Name
+		target = shellQuote(raw)
+	}
+	if !terminalSafe(raw) || !terminalSafe(app) {
+		return "`hadron automation list` and review it again (the name contains characters that cannot be shown safely)"
 	}
 	return "`hadron automation approval " + target + " --app " + shellQuote(app) + "`"
 }
@@ -49,6 +71,23 @@ func mutationError(err error, partial bool, verb string, sel *selection, app str
 			approvalHint(sel, app))
 	}
 	return api.MapError(err)
+}
+
+// approvalTarget is the name argument for a copy-pasteable `approval` command
+// (terminal-safe only; otherwise the placeholder).
+func approvalTarget(sel *selection) string {
+	raw := "--run " + sel.Trigger.Ref
+	name := kindWord(sel.Kind) + "/" + sel.Trigger.Name
+	if sel.Trigger.Name != "" {
+		raw = name
+	}
+	if !terminalSafe(raw) {
+		return "<name>"
+	}
+	if sel.Trigger.Name != "" {
+		return shellQuote(name)
+	}
+	return "--run " + shellQuote(sel.Trigger.Ref)
 }
 
 func notConfirmed(verb string, sel *selection, app string) error {
@@ -90,10 +129,25 @@ Display and prompt go to stderr, so stdout carries only the result.`,
 			if err != nil {
 				return err
 			}
-			writeProjection(f.IOStreams.ErrOut, sel.Display, dto, false)
-			prompt := fmt.Sprintf("Approve %s in %s (%s) as shown above?", sel.Display, app, source)
-			if dto.State == string(gen.AutomationAdoptionStateAdopted) {
-				prompt = fmt.Sprintf("Approve %s in %s (%s) again as shown above? (It is already approved; this records another approval.)", sel.Display, app, source)
+			incomplete, err := writeProjection(f.IOStreams.ErrOut, sel.Display+inApp(sel, app), dto, false)
+			if err != nil {
+				return exitcode.Newf(exitcode.Error, "could not show the summary (%v); nothing was approved", err)
+			}
+			if incomplete {
+				return exitcode.Newf(exitcode.Unavailable,
+					"unavailable: the summary is too large to show in full, so nothing was approved (approval needs the whole summary on screen). Read all of it with `hadron automation approval %s --json`",
+					approvalTarget(sel))
+			}
+			where := inApp(sel, app)
+			if sel.Kind != gen.AutomationTriggerKindManual {
+				where += " (" + source + ")"
+			}
+			prompt := fmt.Sprintf("Approve %s%s as shown above?", sel.Display, where)
+			switch dto.State {
+			case string(gen.AutomationAdoptionStateAdopted):
+				prompt = fmt.Sprintf("Approve %s%s again as shown above? (It is already approved; this records another approval.)", sel.Display, where)
+			case string(gen.AutomationAdoptionStateChanged):
+				prompt = fmt.Sprintf("Approve %s%s as it is now, shown above? (It changed since it was approved; its next run fails until you approve it again.)", sel.Display, where)
 			}
 			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
@@ -124,7 +178,7 @@ func declineWarning(sel *selection) string {
 	case sel.State == string(gen.AutomationAdoptionStateAdopted):
 		return "Declining switches this automation off: its next run will fail until it is approved again. This revokes the current approval, including a newer approval another person may have just given. Runs already started keep what they were approved with."
 	default:
-		return "This automation is not approved. Declining records your decline and changes nothing else."
+		return "This automation is not approved. Declining records your decline and changes nothing else — unless someone approves it before this runs: decline carries no hash, so it would revoke that approval too."
 	}
 }
 
@@ -163,8 +217,18 @@ before anything is sent, and "no" or end-of-input exits 6.`,
 					return err
 				}
 			}
-			fmt.Fprintf(f.IOStreams.ErrOut, "Automation %s in %s\n%s\n", sel.Display, app, declineWarning(sel))
-			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Decline %s in %s (%s)?", sel.Display, app, source)); err != nil {
+			if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "Automation %s%s\n%s\n", sel.Display, inApp(sel, app), declineWarning(sel)); err != nil {
+				return exitcode.Newf(exitcode.Error, "could not show the warning (%v); nothing was declined", err)
+			}
+			where := inApp(sel, app)
+			if sel.Kind != gen.AutomationTriggerKindManual {
+				where += " (" + source + ")"
+			}
+			question := fmt.Sprintf("Decline %s%s?", sel.Display, where)
+			if sel.State == string(gen.AutomationAdoptionStateAdopted) && sel.Kind != gen.AutomationTriggerKindManual {
+				question = fmt.Sprintf("Decline %s%s? This switches it off.", sel.Display, where)
+			}
+			if err := cmdutil.Confirm(f.IOStreams, yes, question); err != nil {
 				return err
 			}
 			resp, err := gen.DeclineAutomation(cmd.Context(), client, sel.Kind, sel.Trigger.Ref)

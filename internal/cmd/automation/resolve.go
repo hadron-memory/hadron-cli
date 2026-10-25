@@ -72,7 +72,7 @@ func resolveSelection(ctx context.Context, client graphql.Client, app string, ar
 	}
 	switch len(matches) {
 	case 0:
-		return nil, exitcode.Newf(exitcode.NotFound, "no automation named %s in %s; run `hadron automation ls`", strconv.Quote(safeText(name, maxName)), app)
+		return nil, exitcode.Newf(exitcode.NotFound, "no automation named %s in %s, or it is not visible to you; run `hadron automation list`", strconv.Quote(safeText(name, maxName)), app)
 	case 1:
 		r := matches[0]
 		return &selection{
