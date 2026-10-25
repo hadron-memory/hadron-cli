@@ -47490,6 +47490,68 @@ func (v *TeamAvailabilityTeamAvailabilityWorkersWorkerAvailabilityWorkerAgentTas
 	return &retval, nil
 }
 
+// TeamChannelLocationApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type TeamChannelLocationApp struct {
+	Id  string `json:"id"`
+	Urn string `json:"urn"`
+	// Spec 049 Phase 4: the App's default Channel — the row its team chat became (null until provisioned).
+	DefaultChannel *TeamChannelLocationAppDefaultChannel `json:"defaultChannel"`
+}
+
+// GetId returns TeamChannelLocationApp.Id, and is useful for accessing the field via an interface.
+func (v *TeamChannelLocationApp) GetId() string { return v.Id }
+
+// GetUrn returns TeamChannelLocationApp.Urn, and is useful for accessing the field via an interface.
+func (v *TeamChannelLocationApp) GetUrn() string { return v.Urn }
+
+// GetDefaultChannel returns TeamChannelLocationApp.DefaultChannel, and is useful for accessing the field via an interface.
+func (v *TeamChannelLocationApp) GetDefaultChannel() *TeamChannelLocationAppDefaultChannel {
+	return v.DefaultChannel
+}
+
+// TeamChannelLocationAppDefaultChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type TeamChannelLocationAppDefaultChannel struct {
+	Id string `json:"id"`
+	// The chat root node this Channel IS the entity for (one-to-one).
+	ChatRootNodeId string `json:"chatRootNodeId"`
+}
+
+// GetId returns TeamChannelLocationAppDefaultChannel.Id, and is useful for accessing the field via an interface.
+func (v *TeamChannelLocationAppDefaultChannel) GetId() string { return v.Id }
+
+// GetChatRootNodeId returns TeamChannelLocationAppDefaultChannel.ChatRootNodeId, and is useful for accessing the field via an interface.
+func (v *TeamChannelLocationAppDefaultChannel) GetChatRootNodeId() string { return v.ChatRootNodeId }
+
+// TeamChannelLocationResponse is returned by TeamChannelLocation on success.
+type TeamChannelLocationResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *TeamChannelLocationApp `json:"app"`
+}
+
+// GetApp returns TeamChannelLocationResponse.App, and is useful for accessing the field via an interface.
+func (v *TeamChannelLocationResponse) GetApp() *TeamChannelLocationApp { return v.App }
+
 // TeamChatMessageFields includes the GraphQL fields of TeamChatMessage requested by the fragment TeamChatMessageFields.
 // The GraphQL type's documentation follows.
 //
@@ -64816,6 +64878,14 @@ type __TeamAvailabilityInput struct {
 
 // GetAppRef returns __TeamAvailabilityInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamAvailabilityInput) GetAppRef() string { return v.AppRef }
+
+// __TeamChannelLocationInput is used internally by genqlient
+type __TeamChannelLocationInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamChannelLocationInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamChannelLocationInput) GetAppRef() string { return v.AppRef }
 
 // __TeamChatMessagesAttributedInput is used internally by genqlient
 type __TeamChatMessagesAttributedInput struct {
@@ -83115,6 +83185,46 @@ func TeamAvailability(
 	}
 
 	data_ = &TeamAvailabilityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamChannelLocation.
+const TeamChannelLocation_Operation = `
+query TeamChannelLocation ($appRef: ID!) {
+	app(ref: $appRef) {
+		id
+		urn
+		defaultChannel {
+			id
+			chatRootNodeId
+		}
+	}
+}
+`
+
+// Default-channel identity only, no transcript/cursor read or cursor mutation.
+func TeamChannelLocation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamChannelLocationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamChannelLocation",
+		Query:  TeamChannelLocation_Operation,
+		Variables: &__TeamChannelLocationInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamChannelLocationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

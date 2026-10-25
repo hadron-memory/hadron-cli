@@ -1400,3 +1400,15 @@ mutation TeamStopSignalLift($appRef: String!, $id: ID!) {
     signal { ...StopSignalFields }
   }
 }
+
+# Default-channel identity only, no transcript/cursor read or cursor mutation.
+query TeamChannelLocation($appRef: ID!) {
+  app(ref: $appRef) {
+    id
+    urn
+    defaultChannel {
+      id
+      chatRootNodeId
+    }
+  }
+}
