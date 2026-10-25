@@ -1364,7 +1364,7 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 // AgentTaskAssignResponse is returned by AgentTaskAssign on success.
 type AgentTaskAssignResponse struct {
 	// #1705 — assign a task with no assignee — a queued task (pending) or a BACKLOG task: the
-	// task's owner, a worker the owner reports to, or whoever manages the App
+	// task's owner, a worker the owner reports to, directly or up the reportsTo chain, or whoever manages the App
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09). closeSessionWhenDone, when
 	// given, replaces the task's value; omitted, the stored value is kept. Assigning a BACKLOG task moves it to
 	// pending (hrn:node:hadronmemory.com:specs:cor:agt:050:02, #1754). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
@@ -1593,7 +1593,7 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 // AgentTaskCancelResponse is returned by AgentTaskCancel on success.
 type AgentTaskCancelResponse struct {
 	// #1705 — cancel a pending, started or backlog task: its owner, a worker the owner reports
-	// to, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:09; a backlog task directly,
+	// to, directly or up the reportsTo chain, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:09; a backlog task directly,
 	// Holger team chat #8150). Refusals:
 	// TASK_NOT_FOUND, TASK_NOT_OWNER, TASK_ENDED, SESSION_NOT_BOUND, APP_UNINSTALLED.
 	CancelAgentTask *AgentTaskCancelCancelAgentTask `json:"cancelAgentTask"`
@@ -3309,7 +3309,7 @@ type AgentTaskParkResponse struct {
 	// #1754 — park a queued task in the backlog (hrn:node:hadronmemory.com:specs:cor:agt:050:02): pending
 	// with no assignee becomes BACKLOG — unassigned, never matched, never waited
 	// on, no alarms. Whoever may assign a task may park it: its owner, a worker
-	// the owner reports to, or whoever manages the App
+	// the owner reports to, directly or up the reportsTo chain, or whoever manages the App
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (not pending, or an assignee),
 	// SESSION_NOT_BOUND, APP_UNINSTALLED.
@@ -3849,7 +3849,7 @@ type AgentTaskReadyResponse struct {
 	// #1754 — make a backlog task ready to be worked
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:02): BACKLOG becomes PENDING and the task enters
 	// the queue. Whoever may assign a task may make it ready: its owner, a worker
-	// the owner reports to, or whoever manages the App
+	// the owner reports to, directly or up the reportsTo chain, or whoever manages the App
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (not backlog), SESSION_NOT_BOUND, APP_UNINSTALLED.
 	MakeAgentTaskReady *AgentTaskReadyMakeAgentTaskReadyAgentTask `json:"makeAgentTaskReady"`
@@ -4084,7 +4084,7 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 
 // AgentTaskReassignResponse is returned by AgentTaskReassign on success.
 type AgentTaskReassignResponse struct {
-	// #1705 — move a task to another assignee: the task's owner, a worker the owner reports to, or whoever
+	// #1705 — move a task to another assignee: the task's owner, a worker the owner reports to, directly or up the reportsTo chain, or whoever
 	// manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:09). A started task stays started; the former
 	// assignee can no longer move it. Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (no assignee yet, or the same one),
@@ -6992,6 +6992,12 @@ func (v *AppDeliverySettingsInput) GetStuckWindowSeconds() *int { return v.Stuck
 
 // Filter for the uniform apps() list (#473). Clauses AND-combine.
 type AppFilter struct {
+	// #2343 — restricts the list to Apps that install this Agent (the AppAgent
+	// join; an App has no separate primary-agent column to match). Accepts an ID
+	// or a fully-qualified URN. The Agent must be one the caller can read: an
+	// unreadable, deleted, unresolvable or nonexistent Agent yields an empty page,
+	// never a not-found or forbidden error. Combines with ownedByMe and orgId.
+	AgentId *string `json:"agentId"`
 	// #782 — true restricts the list to the caller's OWN user-owned (org-less)
 	// apps: organizationId IS NULL AND ownerUserId = the caller. For ALL callers
 	// INCLUDING platform ADMIN/OWNER (owner scope is never an admin-bypass
@@ -7000,6 +7006,9 @@ type AppFilter struct {
 	// user context) get an empty page. Powers the portal's "My apps".
 	OwnedByMe *bool `json:"ownedByMe,omitempty"`
 }
+
+// GetAgentId returns AppFilter.AgentId, and is useful for accessing the field via an interface.
+func (v *AppFilter) GetAgentId() *string { return v.AgentId }
 
 // GetOwnedByMe returns AppFilter.OwnedByMe, and is useful for accessing the field via an interface.
 func (v *AppFilter) GetOwnedByMe() *bool { return v.OwnedByMe }
@@ -8232,6 +8241,15 @@ func (v *ApplyMemoryConfigTemplateResponse) GetApplyMemoryConfigTemplate() *Appl
 	return v.ApplyMemoryConfigTemplate
 }
 
+// ApproveAutomationResponse is returned by ApproveAutomation on success.
+type ApproveAutomationResponse struct {
+	// #2441: adopt the automation by the hash the adopter reviewed (automationApproval.hash). Same door as reAdoptAutomation: one APPROVE event per successful call, even when nothing changed. A changed automation answers AUTOMATION_CHANGED.
+	ApproveAutomation bool `json:"approveAutomation"`
+}
+
+// GetApproveAutomation returns ApproveAutomationResponse.ApproveAutomation, and is useful for accessing the field via an interface.
+func (v *ApproveAutomationResponse) GetApproveAutomation() bool { return v.ApproveAutomation }
+
 // ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult includes the requested fields of the GraphQL type ApproveMemoryNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -8388,7 +8406,7 @@ func (v *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResultApprovedNod
 
 // ApproveMemoryNodesResponse is returned by ApproveMemoryNodes on success.
 type ApproveMemoryNodesResponse struct {
-	// #1591 — approve the current revision of every live, unminted node of a memory (ID or fully-qualified URN) that isn't approved yet, in one transaction. Placeholders are skipped and reported.
+	// #1591 — approve the current revision of every live node of a memory (ID or fully-qualified URN) in the mint scope (unminted, or minted and changed since or with no recorded minted revision, #1612) that isn't approved yet, in one transaction. Placeholders are skipped and reported.
 	ApproveMemoryNodes *ApproveMemoryNodesApproveMemoryNodesApproveMemoryNodesResult `json:"approveMemoryNodes"`
 }
 
@@ -9007,6 +9025,360 @@ type AuthContextResponse struct {
 
 // GetAuthContext returns AuthContextResponse.AuthContext, and is useful for accessing the field via an interface.
 func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return v.AuthContext }
+
+// #2441: UNADOPTED = no valid adoption; ADOPTED = a valid adoption; CHANGED = the automation differs from what was adopted (computed on open only), so the next run fails AUTOMATION_CHANGED.
+type AutomationAdoptionState string
+
+const (
+	AutomationAdoptionStateAdopted   AutomationAdoptionState = "ADOPTED"
+	AutomationAdoptionStateChanged   AutomationAdoptionState = "CHANGED"
+	AutomationAdoptionStateUnadopted AutomationAdoptionState = "UNADOPTED"
+)
+
+var AllAutomationAdoptionState = []AutomationAdoptionState{
+	AutomationAdoptionStateAdopted,
+	AutomationAdoptionStateChanged,
+	AutomationAdoptionStateUnadopted,
+}
+
+// AutomationApprovalAutomationApproval includes the requested fields of the GraphQL type AutomationApproval.
+// The GraphQL type's documentation follows.
+//
+// #2441: what an adopter reviews before approving. depth carries only what previewAutomation returns to the same caller, plus the registered resources with URL userinfo and query removed.
+type AutomationApprovalAutomationApproval struct {
+	State   AutomationAdoptionState                                       `json:"state"`
+	Hash    string                                                        `json:"hash"`
+	Summary *AutomationApprovalAutomationApprovalSummaryAutomationSummary `json:"summary"`
+}
+
+// GetState returns AutomationApprovalAutomationApproval.State, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApproval) GetState() AutomationAdoptionState { return v.State }
+
+// GetHash returns AutomationApprovalAutomationApproval.Hash, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApproval) GetHash() string { return v.Hash }
+
+// GetSummary returns AutomationApprovalAutomationApproval.Summary, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApproval) GetSummary() *AutomationApprovalAutomationApprovalSummaryAutomationSummary {
+	return v.Summary
+}
+
+// AutomationApprovalAutomationApprovalSummaryAutomationSummary includes the requested fields of the GraphQL type AutomationSummary.
+// The GraphQL type's documentation follows.
+//
+// #2441: plain-language facts derived from the previewed automation. A fact the pin cannot show says not stated; nothing here is a maximum the approval enforces.
+type AutomationApprovalAutomationApprovalSummaryAutomationSummary struct {
+	Name     string                                                                                    `json:"name"`
+	Schedule *string                                                                                   `json:"schedule"`
+	Reads    []string                                                                                  `json:"reads"`
+	Writes   []string                                                                                  `json:"writes"`
+	Tools    []string                                                                                  `json:"tools"`
+	Limits   []string                                                                                  `json:"limits"`
+	CannotDo []string                                                                                  `json:"cannotDo"`
+	Flows    []*AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary `json:"flows"`
+}
+
+// GetName returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Name, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetName() string {
+	return v.Name
+}
+
+// GetSchedule returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Schedule, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetSchedule() *string {
+	return v.Schedule
+}
+
+// GetReads returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Reads, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetReads() []string {
+	return v.Reads
+}
+
+// GetWrites returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Writes, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetWrites() []string {
+	return v.Writes
+}
+
+// GetTools returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Tools, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetTools() []string {
+	return v.Tools
+}
+
+// GetLimits returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Limits, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetLimits() []string {
+	return v.Limits
+}
+
+// GetCannotDo returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.CannotDo, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetCannotDo() []string {
+	return v.CannotDo
+}
+
+// GetFlows returns AutomationApprovalAutomationApprovalSummaryAutomationSummary.Flows, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummary) GetFlows() []*AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary {
+	return v.Flows
+}
+
+// AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary includes the requested fields of the GraphQL type AutomationFlowSummary.
+// The GraphQL type's documentation follows.
+//
+// #2441: one flow of an automation (the entry flow or a flow it routes to).
+type AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary struct {
+	Name   string   `json:"name"`
+	Urn    string   `json:"urn"`
+	Tools  []string `json:"tools"`
+	Writes []string `json:"writes"`
+}
+
+// GetName returns AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Name, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Urn, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetUrn() string {
+	return v.Urn
+}
+
+// GetTools returns AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Tools, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetTools() []string {
+	return v.Tools
+}
+
+// GetWrites returns AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Writes, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetWrites() []string {
+	return v.Writes
+}
+
+// AutomationApprovalDepthAutomationApproval includes the requested fields of the GraphQL type AutomationApproval.
+// The GraphQL type's documentation follows.
+//
+// #2441: what an adopter reviews before approving. depth carries only what previewAutomation returns to the same caller, plus the registered resources with URL userinfo and query removed.
+type AutomationApprovalDepthAutomationApproval struct {
+	State   AutomationAdoptionState                                            `json:"state"`
+	Hash    string                                                             `json:"hash"`
+	Depth   json.RawMessage                                                    `json:"depth"`
+	Summary *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary `json:"summary"`
+}
+
+// GetState returns AutomationApprovalDepthAutomationApproval.State, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApproval) GetState() AutomationAdoptionState {
+	return v.State
+}
+
+// GetHash returns AutomationApprovalDepthAutomationApproval.Hash, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApproval) GetHash() string { return v.Hash }
+
+// GetDepth returns AutomationApprovalDepthAutomationApproval.Depth, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApproval) GetDepth() json.RawMessage { return v.Depth }
+
+// GetSummary returns AutomationApprovalDepthAutomationApproval.Summary, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApproval) GetSummary() *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary {
+	return v.Summary
+}
+
+// AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary includes the requested fields of the GraphQL type AutomationSummary.
+// The GraphQL type's documentation follows.
+//
+// #2441: plain-language facts derived from the previewed automation. A fact the pin cannot show says not stated; nothing here is a maximum the approval enforces.
+type AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary struct {
+	Name     string                                                                                         `json:"name"`
+	Schedule *string                                                                                        `json:"schedule"`
+	Reads    []string                                                                                       `json:"reads"`
+	Writes   []string                                                                                       `json:"writes"`
+	Tools    []string                                                                                       `json:"tools"`
+	Limits   []string                                                                                       `json:"limits"`
+	CannotDo []string                                                                                       `json:"cannotDo"`
+	Flows    []*AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary `json:"flows"`
+}
+
+// GetName returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Name, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetName() string {
+	return v.Name
+}
+
+// GetSchedule returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Schedule, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetSchedule() *string {
+	return v.Schedule
+}
+
+// GetReads returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Reads, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetReads() []string {
+	return v.Reads
+}
+
+// GetWrites returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Writes, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetWrites() []string {
+	return v.Writes
+}
+
+// GetTools returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Tools, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetTools() []string {
+	return v.Tools
+}
+
+// GetLimits returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Limits, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetLimits() []string {
+	return v.Limits
+}
+
+// GetCannotDo returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.CannotDo, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetCannotDo() []string {
+	return v.CannotDo
+}
+
+// GetFlows returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary.Flows, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummary) GetFlows() []*AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary {
+	return v.Flows
+}
+
+// AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary includes the requested fields of the GraphQL type AutomationFlowSummary.
+// The GraphQL type's documentation follows.
+//
+// #2441: one flow of an automation (the entry flow or a flow it routes to).
+type AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary struct {
+	Name   string   `json:"name"`
+	Urn    string   `json:"urn"`
+	Tools  []string `json:"tools"`
+	Writes []string `json:"writes"`
+}
+
+// GetName returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Name, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Urn, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetUrn() string {
+	return v.Urn
+}
+
+// GetTools returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Tools, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetTools() []string {
+	return v.Tools
+}
+
+// GetWrites returns AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary.Writes, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthAutomationApprovalSummaryAutomationSummaryFlowsAutomationFlowSummary) GetWrites() []string {
+	return v.Writes
+}
+
+// AutomationApprovalDepthResponse is returned by AutomationApprovalDepth on success.
+type AutomationApprovalDepthResponse struct {
+	// #2441: state, hash, plain summary and graph depth for one trigger. MANUAL takes the origin run id. Same gate as approveAutomation.
+	AutomationApproval *AutomationApprovalDepthAutomationApproval `json:"automationApproval"`
+}
+
+// GetAutomationApproval returns AutomationApprovalDepthResponse.AutomationApproval, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalDepthResponse) GetAutomationApproval() *AutomationApprovalDepthAutomationApproval {
+	return v.AutomationApproval
+}
+
+// AutomationApprovalResponse is returned by AutomationApproval on success.
+type AutomationApprovalResponse struct {
+	// #2441: state, hash, plain summary and graph depth for one trigger. MANUAL takes the origin run id. Same gate as approveAutomation.
+	AutomationApproval *AutomationApprovalAutomationApproval `json:"automationApproval"`
+}
+
+// GetAutomationApproval returns AutomationApprovalResponse.AutomationApproval, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalResponse) GetAutomationApproval() *AutomationApprovalAutomationApproval {
+	return v.AutomationApproval
+}
+
+// AutomationApprovalsAutomationApprovalsAutomationApprovalPage includes the requested fields of the GraphQL type AutomationApprovalPage.
+type AutomationApprovalsAutomationApprovalsAutomationApprovalPage struct {
+	Rows       []*AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow         `json:"rows"`
+	NextCursor *string                                                                                          `json:"nextCursor"`
+	Omitted    []*AutomationApprovalsAutomationApprovalsAutomationApprovalPageOmittedAutomationApprovalOmission `json:"omitted"`
+}
+
+// GetRows returns AutomationApprovalsAutomationApprovalsAutomationApprovalPage.Rows, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalsAutomationApprovalsAutomationApprovalPage) GetRows() []*AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow {
+	return v.Rows
+}
+
+// GetNextCursor returns AutomationApprovalsAutomationApprovalsAutomationApprovalPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalsAutomationApprovalsAutomationApprovalPage) GetNextCursor() *string {
+	return v.NextCursor
+}
+
+// GetOmitted returns AutomationApprovalsAutomationApprovalsAutomationApprovalPage.Omitted, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalsAutomationApprovalsAutomationApprovalPage) GetOmitted() []*AutomationApprovalsAutomationApprovalsAutomationApprovalPageOmittedAutomationApprovalOmission {
+	return v.Omitted
+}
+
+// AutomationApprovalsAutomationApprovalsAutomationApprovalPageOmittedAutomationApprovalOmission includes the requested fields of the GraphQL type AutomationApprovalOmission.
+type AutomationApprovalsAutomationApprovalsAutomationApprovalPageOmittedAutomationApprovalOmission struct {
+	TriggerKind AutomationTriggerKind `json:"triggerKind"`
+	Reason      string                `json:"reason"`
+}
+
+// GetTriggerKind returns AutomationApprovalsAutomationApprovalsAutomationApprovalPageOmittedAutomationApprovalOmission.TriggerKind, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalsAutomationApprovalsAutomationApprovalPageOmittedAutomationApprovalOmission) GetTriggerKind() AutomationTriggerKind {
+	return v.TriggerKind
+}
+
+// GetReason returns AutomationApprovalsAutomationApprovalsAutomationApprovalPageOmittedAutomationApprovalOmission.Reason, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalsAutomationApprovalsAutomationApprovalPageOmittedAutomationApprovalOmission) GetReason() string {
+	return v.Reason
+}
+
+// AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow includes the requested fields of the GraphQL type AutomationApprovalRow.
+type AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow struct {
+	TriggerKind AutomationTriggerKind   `json:"triggerKind"`
+	TriggerRef  string                  `json:"triggerRef"`
+	Name        string                  `json:"name"`
+	State       AutomationAdoptionState `json:"state"`
+	Headline    string                  `json:"headline"`
+}
+
+// GetTriggerKind returns AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow.TriggerKind, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow) GetTriggerKind() AutomationTriggerKind {
+	return v.TriggerKind
+}
+
+// GetTriggerRef returns AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow.TriggerRef, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow) GetTriggerRef() string {
+	return v.TriggerRef
+}
+
+// GetName returns AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow.Name, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow) GetName() string {
+	return v.Name
+}
+
+// GetState returns AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow.State, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow) GetState() AutomationAdoptionState {
+	return v.State
+}
+
+// GetHeadline returns AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow.Headline, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalsAutomationApprovalsAutomationApprovalPageRowsAutomationApprovalRow) GetHeadline() string {
+	return v.Headline
+}
+
+// AutomationApprovalsResponse is returned by AutomationApprovals on success.
+type AutomationApprovalsResponse struct {
+	// #2441: the schedules and webhooks of an App that the caller may adopt, with their adoption state. Authorization first, then ordered by (name, kind, id) and paged: limit defaults to 20, maximum 50; after is the previous page's nextCursor. MANUAL triggers are never listed (consent is per run); omitted says so. Only an adopter sees any row.
+	AutomationApprovals *AutomationApprovalsAutomationApprovalsAutomationApprovalPage `json:"automationApprovals"`
+}
+
+// GetAutomationApprovals returns AutomationApprovalsResponse.AutomationApprovals, and is useful for accessing the field via an interface.
+func (v *AutomationApprovalsResponse) GetAutomationApprovals() *AutomationApprovalsAutomationApprovalsAutomationApprovalPage {
+	return v.AutomationApprovals
+}
+
+type AutomationTriggerKind string
+
+const (
+	AutomationTriggerKindManual   AutomationTriggerKind = "MANUAL"
+	AutomationTriggerKindSchedule AutomationTriggerKind = "SCHEDULE"
+	AutomationTriggerKindWebhook  AutomationTriggerKind = "WEBHOOK"
+)
+
+var AllAutomationTriggerKind = []AutomationTriggerKind{
+	AutomationTriggerKindManual,
+	AutomationTriggerKindSchedule,
+	AutomationTriggerKindWebhook,
+}
 
 // Why a worker or a model family is unavailable for work (hrn:node:hadronmemory.com:specs:cor:agt:060:02; held was dropped, team chat #7449).
 type AvailabilityReason string
@@ -19892,12 +20264,26 @@ func (v *CreditLedgerEntryFields) GetCreatedAt() string { return v.CreatedAt }
 // GetCreatedBy returns CreditLedgerEntryFields.CreatedBy, and is useful for accessing the field via an interface.
 func (v *CreditLedgerEntryFields) GetCreatedBy() *string { return v.CreatedBy }
 
+// DeclineAutomationResponse is returned by DeclineAutomation on success.
+type DeclineAutomationResponse struct {
+	// #2441: decline. An adopted trigger is revoked, so its next run fails AUTOMATION_UNADOPTED (REVOKE event); with nothing adopted it changes no state (DECLINE event). A MANUAL origin deletes its consent row. Runs already started keep their snapshot.
+	DeclineAutomation bool `json:"declineAutomation"`
+}
+
+// GetDeclineAutomation returns DeclineAutomationResponse.DeclineAutomation, and is useful for accessing the field via an interface.
+func (v *DeclineAutomationResponse) GetDeclineAutomation() bool { return v.DeclineAutomation }
+
 // DeleteAgentResponse is returned by DeleteAgent on success.
 type DeleteAgentResponse struct {
 	// Soft-delete an Agent and its owned system memory. Requires management
 	// access to the readable Agent. Refuses while a live
 	// App install or live parent Agent import references it, or a live Agent
 	// extends it as its base. AgentMemoryItem attachments do not block deletion.
+	//
+	// Also refused with DECISION_CONTAINED (#1641) while the Agent's system memory holds a decision or a
+	// decision log: removing the memory would remove them, so the Agent is kept. This guard is live
+	// whether or not minted-corpus permanence is enforced; the separate minted-corpus refusal applies only
+	// when that enforcement is on.
 	//
 	// See hrn:node:hadronmemory.com:specs:cor:dmo:050:14.
 	//
@@ -19952,8 +20338,10 @@ func (v *DeleteAppResponse) GetDeleteApp() bool { return v.DeleteApp }
 // DeleteChannelResponse is returned by DeleteChannel on success.
 type DeleteChannelResponse struct {
 	// Spec 049 Phase 4 — soft-delete a Channel AND its chat root together (the
-	// protection holds while either exists, so the address stays reserved and a
-	// restore brings both back). Host memory write access required. An App's
+	// protection holds while either exists). There is no restore: creating a
+	// Channel at the same address adopts it and starts clean, so the old
+	// transcript does not come back (#1257, #1226). Host memory write access
+	// required. An App's
 	// default Channel is unlinked from the App. ref: its id or its address
 	// (`Channel.chatRootUrn`, #1171).
 	DeleteChannel bool `json:"deleteChannel"`
@@ -27320,7 +27708,7 @@ type IssueHostOperationResponse struct {
 	// #1709 — issue an operation to one of the App's registered hosts (hrn:node:hadronmemory.com:specs:cor:agt:070:05).
 	// A type outside the closed set is HOST_OPERATION_TYPE_UNKNOWN (hrn:node:hadronmemory.com:specs:cor:agt:070:03), a
 	// missing, extra or malformed argument BAD_HOST_OPERATION_ARGS. worktree.create and worktree.remove: the worker's
-	// holder, the worker it reports to, or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED). worker.start:
+	// holder, the worker it reports to directly (not further up the chain), or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED). worker.start:
 	// whoever manages the App only, with an optional taskId, for a held worker with no live session and no start in
 	// flight, in a worktree and family the live host registers for it (WORKER_NOT_HELD, WORKER_LIVE,
 	// WORKER_START_PENDING). worker.end: whoever manages the App only (else HOST_OPERATION_NOT_PERMITTED), naming an open
@@ -30347,7 +30735,7 @@ type MintMemoryNodesMintMemoryNodesSpecCorpusMintReport struct {
 	Minted bool `json:"minted"`
 	// #1591 — how many nodes this call minted (0 on a dry run or refusal).
 	MintedCount int `json:"mintedCount"`
-	// #1591 — the locs this call minted, or would mint on a dry run, ordered by loc.
+	// #1591 — the locs of NEW nodes this call minted, or would mint on a dry run, ordered by loc.
 	MintLocs            []string                                                                                `json:"mintLocs"`
 	StaleAbstractsBlock bool                                                                                    `json:"staleAbstractsBlock"`
 	Blockers            []*MintMemoryNodesMintMemoryNodesSpecCorpusMintReportBlockersSpecMintFinding            `json:"blockers"`
@@ -30508,18 +30896,21 @@ func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMin
 
 // MintMemoryNodesResponse is returned by MintMemoryNodes on success.
 type MintMemoryNodesResponse struct {
-	// #1591 — mint the unminted live nodes of a memory, at once, excluding
-	// comment nodes and the decision role family. Each node is
+	// #1591 — mint the live nodes of a memory in the mint scope, at once,
+	// excluding comment nodes and the decision role family. The scope is the
+	// unminted nodes plus (#1612) minted nodes whose content changed since their
+	// minted revision or that have no recorded minted revision; a re-mint keeps
+	// the first mint's time and minter. Each node is
 	// stamped with its current revision and that revision's approval hash
 	// (Node.mintStatus); a minted node's moves then record URN aliases. Refuses
-	// SPEC_CORPUS_MINT_BLOCKED while any blocker remains among the unminted
-	// nodes: a placeholder, an unresolved reference, a structural lint error over
+	// SPEC_CORPUS_MINT_BLOCKED while any blocker remains among the nodes in
+	// scope: a placeholder, an unresolved reference, a structural lint error over
 	// spec-marked or citation-shaped nodes (nodetype-info, tag-spec, serialization-leak,
 	// duplicate-loc), a stale abstract once staleAbstractsBlock is true,
 	// NOT_APPROVED (the current revision is not approved), TAMPERED (approved
 	// text changed outside the revision system), or CITES_UNMINTED (an
-	// edge into another memory's node that is not minted). Nodes minted earlier
-	// are not re-checked. dryRun returns the full report without minting. Any
+	// edge into another memory's node that is not minted). Minted nodes outside
+	// the scope are not re-checked. dryRun returns the full report without minting. Any
 	// writer of the memory. memoryRef accepts the ID or URN. A real run holds
 	// every write to the memory off while it checks and stamps, and refuses
 	// SPEC_CORPUS_BUSY (retryable) if a write is already in flight. Encrypted
@@ -39467,9 +39858,14 @@ type ResolveUrnResponse struct {
 	// Access is checked by kind: memory records use the memory-record read gate; nodes use the
 	// readable-memory set; organizations require membership (or platform administration);
 	// agents admit public visibility or owner/org access; Apps admit owner/org access;
-	// workers use the shared worker-read gate. App runs require org access, and node
-	// revisions use their captured memory (falling back to the current node's memory).
-	// A retired worker still resolves. Dedicated queries can have different refusal shapes.
+	// workers use the shared worker-read gate. Users resolve for themselves, a platform
+	// administrator, or a caller who shares an organization with them. App runs require org
+	// access, and node revisions use their captured memory (falling back to the current
+	// node's memory); a retracted comment's revision history resolves only for memory
+	// managers. Under impersonation only the support session's shared organization admits
+	// organizations, Apps, non-public Agents, workers and App runs, and a user-owned App or
+	// non-public Agent is not visible; a PUBLIC Agent still resolves. A retired worker still resolves. The kinds above are checked by kind,
+	// not an exhaustive promise. Dedicated queries can have different refusal shapes.
 	//
 	// The type prefix is the dispatch key; an untyped root:slug is ambiguous across kinds
 	// and returns null. The optional #data fragment is supported only for nodes and App runs.
@@ -40935,8 +41331,11 @@ func (v *RouterRegisterResponse) GetAttendeeRegister() []*RouterRegisterAttendee
 
 // RunTaskResponse is returned by RunTask on success.
 type RunTaskResponse struct {
-	// Run a task — a runnable node (isRunnable=true) — identified by a single
-	// nodeRef (a node PK or a fully-qualified node URN, hrn:node:<root>:<memory>:<loc>),
+	// Render or execute a node identified by a single nodeRef (a node PK or a
+	// fully-qualified node URN, hrn:node:<root>:<memory>:<loc>). This explicit-reference
+	// operation does not require isRunnable=true. The runnable flag governs by-name
+	// task discovery, resolution and listing (hrn:node:hadronmemory.com:specs:cor:api:060:01).
+	// The reference is
 	// resolved by the shared resolveNodeRef (#542). A bare loc without a memory
 	// is rejected — pass a full URN or an ID. For loose-name matching and
 	// interactive task selection use the MCP hadron_run_task tool, which
@@ -45821,7 +46220,7 @@ func (v *SpecCorpusStateResponse) GetMemory() *SpecCorpusStateMemory { return v.
 type SpecMintFindingKind string
 
 const (
-	// #1591 — an edge into another memory's node that is not minted yet (targetLoc is its URN).
+	// #1591 — an edge, live pending edge or text citation (a prefixed node URN) into another memory's node that is not minted yet (targetLoc is its URN).
 	SpecMintFindingKindCitesUnminted SpecMintFindingKind = "CITES_UNMINTED"
 	// A structural lint error (rule: nodetype-info | tag-spec | serialization-leak | duplicate-loc).
 	SpecMintFindingKindLint SpecMintFindingKind = "LINT"
@@ -46582,11 +46981,11 @@ func (v *StopSignalFields) GetEndedByHostKey() bool { return v.EndedByHostKey }
 type StopSignalLevel string
 
 const (
-	// Also interrupts each covered worker, to save its work and write a hand-off (the notice is recorded but not yet delivered: no interrupt happens yet).
+	// Also tells each covered worker to save its work and write a hand-off now. The notice is typed as an ordinary message into a verified-empty input, with no interrupt key (Holger, option A, 2026-10-24); one that cannot be typed is logged and flagged to the coordinator.
 	StopSignalLevelHalt StopSignalLevel = "HALT"
-	// Also stops ticks and stall time. Each covered worker is told to finish or stop at its next sub-task (the notice is recorded but not yet delivered).
+	// Also stops ticks and stall time. Each covered worker is told to finish or stop at its next sub-task, by a consumer that has declared its lane (a set is refused until one has).
 	StopSignalLevelPause StopSignalLevel = "PAUSE"
-	// Stops assignment only: matching skips the covered workers and a manual assignment to one is refused (TASK_STOPPED). Its coordinators are told (the notice is recorded but not yet delivered).
+	// Stops assignment only: matching skips the covered workers and a manual assignment to one is refused (TASK_STOPPED). Its coordinators are told, by a consumer that has declared their lane (a set is refused until one has).
 	StopSignalLevelPauseDispatch StopSignalLevel = "PAUSE_DISPATCH"
 )
 
@@ -50524,8 +50923,9 @@ type TeamStopSignalSetResponse struct {
 	// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01, :06) — set a stop signal. Whoever manages the App: any level and
 	// scope. A host key: a HALT on its own host only. Never replaces another signal. Refusals: APP_MANAGER_REQUIRED,
 	// HOST_SCOPE_REQUIRED, STOP_SIGNAL_SCOPE_FORBIDDEN, STOP_SIGNAL_NOT_FOUND (the target), BAD_USER_INPUT, APP_NOT_FOUND.
-	// #2173 (R95): until the stop-notice lane is in effect, setting ANY signal is refused with STOP_SIGNAL_UNAVAILABLE (a worker
-	// would be stopped without being told); lifting and listing are unaffected, and the refusal lifts when the lane is turned on.
+	// #2173/#2169 (R95): setting ANY signal is refused with STOP_SIGNAL_UNAVAILABLE while a worker it would cover is on a lane with
+	// no fresh stop-consumer declaration (a worker would be stopped without being told; the extensions name the worker count and the
+	// lanes). A consumer declares a lane by polling dueWakes with accepts: [STOP]. Lifting and listing are unaffected.
 	SetTeamStopSignal *TeamStopSignalSetSetTeamStopSignal `json:"setTeamStopSignal"`
 }
 
@@ -61473,6 +61873,22 @@ func (v *__ApplyMemoryConfigTemplateInput) GetExpectedTemplateRevision() *int {
 // GetDryRun returns __ApplyMemoryConfigTemplateInput.DryRun, and is useful for accessing the field via an interface.
 func (v *__ApplyMemoryConfigTemplateInput) GetDryRun() bool { return v.DryRun }
 
+// __ApproveAutomationInput is used internally by genqlient
+type __ApproveAutomationInput struct {
+	TriggerKind  AutomationTriggerKind `json:"triggerKind"`
+	TriggerRef   string                `json:"triggerRef"`
+	ExpectedHash string                `json:"expectedHash"`
+}
+
+// GetTriggerKind returns __ApproveAutomationInput.TriggerKind, and is useful for accessing the field via an interface.
+func (v *__ApproveAutomationInput) GetTriggerKind() AutomationTriggerKind { return v.TriggerKind }
+
+// GetTriggerRef returns __ApproveAutomationInput.TriggerRef, and is useful for accessing the field via an interface.
+func (v *__ApproveAutomationInput) GetTriggerRef() string { return v.TriggerRef }
+
+// GetExpectedHash returns __ApproveAutomationInput.ExpectedHash, and is useful for accessing the field via an interface.
+func (v *__ApproveAutomationInput) GetExpectedHash() string { return v.ExpectedHash }
+
 // __ApproveMemoryNodesInput is used internally by genqlient
 type __ApproveMemoryNodesInput struct {
 	MemoryRef string `json:"memoryRef"`
@@ -61540,6 +61956,42 @@ func (v *__AttachMemoryToAppInput) GetAppRef() string { return v.AppRef }
 
 // GetAgentRef returns __AttachMemoryToAppInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__AttachMemoryToAppInput) GetAgentRef() string { return v.AgentRef }
+
+// __AutomationApprovalDepthInput is used internally by genqlient
+type __AutomationApprovalDepthInput struct {
+	TriggerKind AutomationTriggerKind `json:"triggerKind"`
+	TriggerRef  string                `json:"triggerRef"`
+}
+
+// GetTriggerKind returns __AutomationApprovalDepthInput.TriggerKind, and is useful for accessing the field via an interface.
+func (v *__AutomationApprovalDepthInput) GetTriggerKind() AutomationTriggerKind { return v.TriggerKind }
+
+// GetTriggerRef returns __AutomationApprovalDepthInput.TriggerRef, and is useful for accessing the field via an interface.
+func (v *__AutomationApprovalDepthInput) GetTriggerRef() string { return v.TriggerRef }
+
+// __AutomationApprovalInput is used internally by genqlient
+type __AutomationApprovalInput struct {
+	TriggerKind AutomationTriggerKind `json:"triggerKind"`
+	TriggerRef  string                `json:"triggerRef"`
+}
+
+// GetTriggerKind returns __AutomationApprovalInput.TriggerKind, and is useful for accessing the field via an interface.
+func (v *__AutomationApprovalInput) GetTriggerKind() AutomationTriggerKind { return v.TriggerKind }
+
+// GetTriggerRef returns __AutomationApprovalInput.TriggerRef, and is useful for accessing the field via an interface.
+func (v *__AutomationApprovalInput) GetTriggerRef() string { return v.TriggerRef }
+
+// __AutomationApprovalsInput is used internally by genqlient
+type __AutomationApprovalsInput struct {
+	AppRef string  `json:"appRef"`
+	After  *string `json:"after"`
+}
+
+// GetAppRef returns __AutomationApprovalsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AutomationApprovalsInput) GetAppRef() string { return v.AppRef }
+
+// GetAfter returns __AutomationApprovalsInput.After, and is useful for accessing the field via an interface.
+func (v *__AutomationApprovalsInput) GetAfter() *string { return v.After }
 
 // __BeginAssetUploadInput is used internally by genqlient
 type __BeginAssetUploadInput struct {
@@ -62766,6 +63218,18 @@ func (v *__CreditLedgerEntriesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __CreditLedgerEntriesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__CreditLedgerEntriesInput) GetOffset() *int { return v.Offset }
+
+// __DeclineAutomationInput is used internally by genqlient
+type __DeclineAutomationInput struct {
+	TriggerKind AutomationTriggerKind `json:"triggerKind"`
+	TriggerRef  string                `json:"triggerRef"`
+}
+
+// GetTriggerKind returns __DeclineAutomationInput.TriggerKind, and is useful for accessing the field via an interface.
+func (v *__DeclineAutomationInput) GetTriggerKind() AutomationTriggerKind { return v.TriggerKind }
+
+// GetTriggerRef returns __DeclineAutomationInput.TriggerRef, and is useful for accessing the field via an interface.
+func (v *__DeclineAutomationInput) GetTriggerRef() string { return v.TriggerRef }
 
 // __DeleteAgentInput is used internally by genqlient
 type __DeleteAgentInput struct {
@@ -68880,6 +69344,44 @@ func ApplyMemoryConfigTemplate(
 	return data_, err_
 }
 
+// The mutation executed by ApproveAutomation.
+const ApproveAutomation_Operation = `
+mutation ApproveAutomation ($triggerKind: AutomationTriggerKind!, $triggerRef: String!, $expectedHash: String!) {
+	approveAutomation(triggerKind: $triggerKind, triggerRef: $triggerRef, expectedHash: $expectedHash)
+}
+`
+
+// Adopts the automation by the hash the adopter just reviewed. A changed
+// automation answers AUTOMATION_CHANGED; the CLI never retries with a new hash.
+func ApproveAutomation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	triggerKind AutomationTriggerKind,
+	triggerRef string,
+	expectedHash string,
+) (data_ *ApproveAutomationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ApproveAutomation",
+		Query:  ApproveAutomation_Operation,
+		Variables: &__ApproveAutomationInput{
+			TriggerKind:  triggerKind,
+			TriggerRef:   triggerRef,
+			ExpectedHash: expectedHash,
+		},
+	}
+
+	data_ = &ApproveAutomationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ApproveMemoryNodes.
 const ApproveMemoryNodes_Operation = `
 mutation ApproveMemoryNodes ($memoryRef: String!) {
@@ -69188,6 +69690,163 @@ func AuthContext(
 	}
 
 	data_ = &AuthContextResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AutomationApproval.
+const AutomationApproval_Operation = `
+query AutomationApproval ($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
+	automationApproval(triggerKind: $triggerKind, triggerRef: $triggerRef) {
+		state
+		hash
+		summary {
+			name
+			schedule
+			reads
+			writes
+			tools
+			limits
+			cannotDo
+			flows {
+				name
+				urn
+				tools
+				writes
+			}
+		}
+	}
+}
+`
+
+// What an adopter reviews before approving: state, the hash to approve, and the
+// plain summary. Selected WITHOUT the graph depth.
+func AutomationApproval(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	triggerKind AutomationTriggerKind,
+	triggerRef string,
+) (data_ *AutomationApprovalResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AutomationApproval",
+		Query:  AutomationApproval_Operation,
+		Variables: &__AutomationApprovalInput{
+			TriggerKind: triggerKind,
+			TriggerRef:  triggerRef,
+		},
+	}
+
+	data_ = &AutomationApprovalResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AutomationApprovalDepth.
+const AutomationApprovalDepth_Operation = `
+query AutomationApprovalDepth ($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
+	automationApproval(triggerKind: $triggerKind, triggerRef: $triggerRef) {
+		state
+		hash
+		depth
+		summary {
+			name
+			schedule
+			reads
+			writes
+			tools
+			limits
+			cannotDo
+			flows {
+				name
+				urn
+				tools
+				writes
+			}
+		}
+	}
+}
+`
+
+// The same projection plus the graph (`depth`), for `approval --depth`.
+func AutomationApprovalDepth(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	triggerKind AutomationTriggerKind,
+	triggerRef string,
+) (data_ *AutomationApprovalDepthResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AutomationApprovalDepth",
+		Query:  AutomationApprovalDepth_Operation,
+		Variables: &__AutomationApprovalDepthInput{
+			TriggerKind: triggerKind,
+			TriggerRef:  triggerRef,
+		},
+	}
+
+	data_ = &AutomationApprovalDepthResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AutomationApprovals.
+const AutomationApprovals_Operation = `
+query AutomationApprovals ($appRef: String!, $after: String) {
+	automationApprovals(appRef: $appRef, after: $after) {
+		rows {
+			triggerKind
+			triggerRef
+			name
+			state
+			headline
+		}
+		nextCursor
+		omitted {
+			triggerKind
+			reason
+		}
+	}
+}
+`
+
+// One page of the adoptable schedules and webhooks of an App. `omitted` names the
+// trigger kinds the list never carries (MANUAL: consent is per run).
+func AutomationApprovals(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	after *string,
+) (data_ *AutomationApprovalsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AutomationApprovals",
+		Query:  AutomationApprovals_Operation,
+		Variables: &__AutomationApprovalsInput{
+			AppRef: appRef,
+			After:  after,
+		},
+	}
+
+	data_ = &AutomationApprovalsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -73004,6 +73663,41 @@ func CreditLedgerEntries(
 	}
 
 	data_ = &CreditLedgerEntriesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeclineAutomation.
+const DeclineAutomation_Operation = `
+mutation DeclineAutomation ($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
+	declineAutomation(triggerKind: $triggerKind, triggerRef: $triggerRef)
+}
+`
+
+// Takes NO hash: decline only removes authority.
+func DeclineAutomation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	triggerKind AutomationTriggerKind,
+	triggerRef string,
+) (data_ *DeclineAutomationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeclineAutomation",
+		Query:  DeclineAutomation_Operation,
+		Variables: &__DeclineAutomationInput{
+			TriggerKind: triggerKind,
+			TriggerRef:  triggerRef,
+		},
+	}
+
+	data_ = &DeclineAutomationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
