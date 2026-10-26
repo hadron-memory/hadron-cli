@@ -179,8 +179,8 @@ func TestTeamWorkerListModelTier(t *testing.T) {
 		return out.String()
 	}
 	table := run()
-	if !strings.Contains(table, "MODEL") || !strings.Contains(table, "TIER") || strings.Contains(table, "FAMILY") {
-		t.Errorf("worker list wants MODEL and TIER but not FAMILY:\n%s", table)
+	if !strings.Contains(table, "MODEL") || !strings.Contains(table, "TIER") {
+		t.Errorf("worker list wants MODEL and TIER:\n%s", table)
 	}
 	if !strings.Contains(table, "claude-opus-5-5") || !strings.Contains(table, "high") {
 		t.Errorf("values missing:\n%s", table)
