@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"strings"
 	"testing"
 )
@@ -84,7 +85,15 @@ func TestTeamCompositionTextRendersLanesAsReturned(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Eden", "Gone (retired)", "unassigned", "Jack", "Cedric", "engineer", "claude", "glm", "as of 2026-10-26T06:00:00Z"} {
+	for _, want := range []string{
+		"Eden", "Gone (retired)", "unassigned", "Jack", "Cedric", "engineer", "claude", "glm", "as of 2026-10-26T06:00:00Z",
+		// the server's canonical URNs, coordinator and worker alike (gate: text and JSON preserve them)
+		"hrn:worker:acme.com:eng-team:eden", "hrn:worker:acme.com:eng-team:gone",
+		"hrn:worker:acme.com:eng-team:jack", "hrn:worker:acme.com:eng-team:cedric",
+		// plain headcounts, null buckets as dashes, worker id fallback, live/quiet/unbound
+		"role engineer: 2", "role —: 1", "role engineer · family claude: 1", "role engineer · family —: 1", "role — · family —: 1", "role qa · family glm: 1",
+		"w-nil", "live", "quiet", "unbound",
+	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("text missing %q:\n%s", want, out)
 		}
@@ -100,6 +109,7 @@ func TestTeamCompositionRefusedReadIsAFailureNotAnEmptyTeam(t *testing.T) {
 		"unsupported": `{"errors":[{"message":"Cannot query field \"teamComposition\" on type \"Query\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
 		"null result": `{"data":{"teamComposition":null}}`,
 	}
+	wantExit := map[string]int{"refused": exitcode.Forbidden, "unsupported": exitcode.Usage, "null result": exitcode.Unavailable}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
 			for _, args := range [][]string{{"team", "composition"}, {"team", "composition", "--json"}} {
@@ -107,8 +117,11 @@ func TestTeamCompositionRefusedReadIsAFailureNotAnEmptyTeam(t *testing.T) {
 				if err == nil {
 					t.Fatalf("%v must fail, got success:\n%s", args, out)
 				}
-				if strings.Contains(out, "lanes") || strings.Contains(out, "no lanes") {
-					t.Errorf("a failure must not render a team:\n%s", out)
+				if out != "" {
+					t.Errorf("a failure must not render any team output:\n%s", out)
+				}
+				if got, want := exitcode.FromError(err), wantExit[name]; got != want {
+					t.Errorf("%s %v: exit code %d, want %d (%v)", name, args, got, want, err)
 				}
 			}
 		})
@@ -138,7 +151,7 @@ func TestTeamRosterTextShowsReportsTo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"REPORTS TO", "Eden", "Gone (retired)"} {
+	for _, want := range []string{"REPORTS TO", "Eden", "Gone (retired)", "—"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("roster text missing %q:\n%s", want, out)
 		}
