@@ -930,40 +930,55 @@ refused) and the CLI sends the value as given.`,
 			if ref == "" {
 				return exitcode.Newf(exitcode.Usage, "the agent reference is empty")
 			}
-			// Both are sent as given (cor:api:240:01): the server validates
-			// them. Unset flags stay nil so the request carries neither.
-			var symptom *string
-			var limit *int
-			searching := cmd.Flags().Changed("symptom")
-			if searching {
-				symptom = &symptomFlag
-				if cmd.Flags().Changed("limit") {
-					limit = &limitFlag
-				}
-			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			resp, err := gen.AgentTaskIndexList(cmd.Context(), client, ref, symptom, limit)
-			if err != nil {
-				return api.MapError(err)
-			}
-			rows := make([]listedTaskDTO, 0, len(resp.AgentTaskList))
-			for _, row := range resp.AgentTaskList {
-				dto := listedTaskDTO{
-					Node: listedNodeDTO{
-						ID:            row.Node.Id,
-						URN:           row.Node.Urn,
-						Name:          row.Node.Name,
-						InheritedFrom: taskInheritedFromDTO(row.Node.InheritedFrom),
-					},
-					Trigger: row.Trigger,
+			// --symptom is a separate document on the same server field, so a
+			// plain list never sends the new arguments to an older server. The
+			// limit is sent as given (cor:api:240:01): the server validates it.
+			searching := cmd.Flags().Changed("symptom")
+			rows := []listedTaskDTO{}
+			if searching {
+				var limit *int
+				if cmd.Flags().Changed("limit") {
+					limit = &limitFlag
 				}
-				if searching && row.MatchedBy != nil {
-					dto.MatchedBy = string(*row.MatchedBy)
+				resp, err := gen.AgentTaskSymptomSearch(cmd.Context(), client, ref, symptomFlag, limit)
+				if err != nil {
+					return api.MapError(err)
 				}
-				rows = append(rows, dto)
+				for _, row := range resp.AgentTaskList {
+					dto := listedTaskDTO{
+						Node: listedNodeDTO{
+							ID:            row.Node.Id,
+							URN:           row.Node.Urn,
+							Name:          row.Node.Name,
+							InheritedFrom: symptomInheritedFromDTO(row.Node.InheritedFrom),
+						},
+						Trigger: row.Trigger,
+					}
+					if row.MatchedBy != nil {
+						dto.MatchedBy = string(*row.MatchedBy)
+					}
+					rows = append(rows, dto)
+				}
+			} else {
+				resp, err := gen.AgentTaskIndexList(cmd.Context(), client, ref)
+				if err != nil {
+					return api.MapError(err)
+				}
+				for _, row := range resp.AgentTaskList {
+					rows = append(rows, listedTaskDTO{
+						Node: listedNodeDTO{
+							ID:            row.Node.Id,
+							URN:           row.Node.Urn,
+							Name:          row.Node.Name,
+							InheritedFrom: taskInheritedFromDTO(row.Node.InheritedFrom),
+						},
+						Trigger: row.Trigger,
+					})
+				}
 			}
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 				if !searching {
@@ -1047,9 +1062,17 @@ and blank for INVOLVED; INHERITED FROM names the base Agent where it applies.`,
 
 // The generated row types are deeply nested; alias the ones reused here.
 type taskListedInherited = gen.AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom
+type symptomListedInherited = gen.AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom
 type processListedInherited = gen.AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom
 
 func taskInheritedFromDTO(inherited *taskListedInherited) *inheritedFromDTO {
+	if inherited == nil {
+		return nil
+	}
+	return &inheritedFromDTO{AgentID: inherited.AgentId, AgentUrn: inherited.AgentUrn}
+}
+
+func symptomInheritedFromDTO(inherited *symptomListedInherited) *inheritedFromDTO {
 	if inherited == nil {
 		return nil
 	}

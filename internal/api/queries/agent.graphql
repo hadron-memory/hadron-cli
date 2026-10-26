@@ -178,13 +178,30 @@ mutation DeleteAgent($ref: ID!) {
 # returns. Each row's node carries its own address and, where it applies, the
 # base it was inherited from.
 
-# symptom/limit are the #2421 experiment: omitempty so a nil pointer is omitted
-# (no flag => the request is byte-identical to the plain list). The server owns
-# the limit rules (default 3, clamp, BAD_USER_INPUT); the CLI sends them as given.
-query AgentTaskIndexList(
+query AgentTaskIndexList($ref: ID!) {
+  agentTaskList(ref: $ref) {
+    node {
+      id
+      urn
+      name
+      inheritedFrom {
+        agentId
+        agentUrn
+      }
+    }
+    trigger
+  }
+}
+
+# #2421 experiment: the symptom search is its OWN document on the same server
+# field, so the plain list above stays valid against a server that predates
+# symptom/limit/matchedBy (the document, not just the variables, is unchanged).
+# limit is omitempty: nil is omitted so the server's default applies; the server
+# owns the limit rules (default 3, clamp, BAD_USER_INPUT) and the CLI sends it
+# as given.
+query AgentTaskSymptomSearch(
   $ref: ID!
-  # @genqlient(pointer: true, omitempty: true)
-  $symptom: String
+  $symptom: String!
   # @genqlient(pointer: true, omitempty: true)
   $limit: Int
 ) {

@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -22,7 +24,7 @@ const symptomRowsJSON = `{"data":{"agentTaskList":[
 // request variables and the error.
 func runTasksList(t *testing.T, resp string, extra ...string) (string, map[string]json.RawMessage, error) {
 	t.Helper()
-	gql, captured := captureGraphQL(t, map[string]string{"AgentTaskIndexList": resp})
+	gql, captured := captureGraphQL(t, map[string]string{"AgentTaskIndexList": resp, "AgentTaskSymptomSearch": resp})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"agent", "tasks", "list", "hrn:agent:acme.com:support", "--server", gql.URL}, extra...))
@@ -32,9 +34,13 @@ func runTasksList(t *testing.T, resp string, extra ...string) (string, map[strin
 
 func taskListVars(t *testing.T, captured map[string]json.RawMessage) map[string]any {
 	t.Helper()
+	raw, ok := captured["AgentTaskSymptomSearch"]
+	if !ok {
+		raw = captured["AgentTaskIndexList"]
+	}
 	var vars map[string]any
-	if err := json.Unmarshal(captured["AgentTaskIndexList"], &vars); err != nil {
-		t.Fatalf("variables: %v (%s)", err, captured["AgentTaskIndexList"])
+	if err := json.Unmarshal(raw, &vars); err != nil {
+		t.Fatalf("variables: %v (%s)", err, raw)
 	}
 	return vars
 }
@@ -63,6 +69,9 @@ func TestAgentTasksListNoSymptomLeavesRequestUnchanged(t *testing.T) {
 	}
 	want := `{"ref":"hrn:agent:acme.com:support"}`
 	for name, got := range map[string]json.RawMessage{"no flags": plain["AgentTaskIndexList"], "--limit only": limited["AgentTaskIndexList"]} {
+		if _, searched := plain["AgentTaskSymptomSearch"]; searched {
+			t.Errorf("%s: the plain list must not use the symptom document", name)
+		}
 		if string(got) != want {
 			t.Errorf("%s: variables = %s, want %s", name, got, want)
 		}
@@ -84,7 +93,7 @@ func TestAgentTasksListLimitSentAsGiven(t *testing.T) {
 	// No --limit: the variable is omitted so the server's default applies.
 	_, captured, _ := runTasksList(t, symptomRowsJSON, "--symptom", "x")
 	if _, ok := taskListVars(t, captured)["limit"]; ok {
-		t.Errorf("an unset --limit must be omitted: %s", captured["AgentTaskIndexList"])
+		t.Errorf("an unset --limit must be omitted: %s", captured["AgentTaskSymptomSearch"])
 	}
 }
 
@@ -140,7 +149,7 @@ func TestAgentTasksListEmptySymptomIsSentNotDropped(t *testing.T) {
 	// refuses it) rather than silently fall back to the plain list.
 	_, captured, _ := runTasksList(t, memberGQLError("symptom must not be empty", "BAD_USER_INPUT"), "--symptom", "")
 	if v, ok := taskListVars(t, captured)["symptom"]; !ok || v != "" {
-		t.Errorf("empty symptom must be sent: %s", captured["AgentTaskIndexList"])
+		t.Errorf("empty symptom must be sent: %s", captured["AgentTaskSymptomSearch"])
 	}
 }
 
@@ -169,5 +178,41 @@ func TestAgentTasksListHelpWording(t *testing.T) {
 	}
 	if strings.Contains(help, "runnable") {
 		t.Errorf("help must not say \"runnable\" (Victor's wording fix):\n%s", out.String())
+	}
+}
+
+// The plain list's DOCUMENT (not only its variables) must stay free of the new
+// symptom/limit/matchedBy names: an older server validates the document and
+// would reject it even with no flag set. --limit alone is the same plain list.
+func TestAgentTasksListPlainDocumentHasNoSymptomNames(t *testing.T) {
+	for _, extra := range [][]string{nil, {"--limit", "2"}} {
+		var query string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Query string `json:"query"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if strings.Contains(body.Query, "agentTaskList") {
+				query = body.Query
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"data":{"agentTaskList":[]}}`))
+		}))
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"agent", "tasks", "list", "agt1", "--server", srv.URL}, extra...))
+		err := root.Execute()
+		srv.Close()
+		if err != nil {
+			t.Fatalf("%v: %v", extra, err)
+		}
+		if query == "" {
+			t.Fatalf("%v: no agentTaskList document captured", extra)
+		}
+		for _, name := range []string{"symptom", "limit", "matchedBy"} {
+			if strings.Contains(query, name) {
+				t.Errorf("%v: the plain document must not mention %q:\n%s", extra, name, query)
+			}
+		}
 	}
 }

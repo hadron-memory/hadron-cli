@@ -2787,8 +2787,6 @@ type AgentTaskIndexListAgentTaskListAgentListedTask struct {
 	Node *AgentTaskIndexListAgentTaskListAgentListedTaskNode `json:"node"`
 	// The name of the index edge that lists it; null for a task no index edge lists.
 	Trigger *string `json:"trigger"`
-	// #2421 experimental symptom search: which retriever ranked this task; null on the unfiltered list.
-	MatchedBy *AgentTaskMatchedBy `json:"matchedBy"`
 }
 
 // GetNode returns AgentTaskIndexListAgentTaskListAgentListedTask.Node, and is useful for accessing the field via an interface.
@@ -2798,11 +2796,6 @@ func (v *AgentTaskIndexListAgentTaskListAgentListedTask) GetNode() *AgentTaskInd
 
 // GetTrigger returns AgentTaskIndexListAgentTaskListAgentListedTask.Trigger, and is useful for accessing the field via an interface.
 func (v *AgentTaskIndexListAgentTaskListAgentListedTask) GetTrigger() *string { return v.Trigger }
-
-// GetMatchedBy returns AgentTaskIndexListAgentTaskListAgentListedTask.MatchedBy, and is useful for accessing the field via an interface.
-func (v *AgentTaskIndexListAgentTaskListAgentListedTask) GetMatchedBy() *AgentTaskMatchedBy {
-	return v.MatchedBy
-}
 
 // AgentTaskIndexListAgentTaskListAgentListedTaskNode includes the requested fields of the GraphQL type Node.
 type AgentTaskIndexListAgentTaskListAgentListedTaskNode struct {
@@ -4462,6 +4455,104 @@ var AllAgentTaskStatus = []AgentTaskStatus{
 	AgentTaskStatusFinished,
 	AgentTaskStatusPending,
 	AgentTaskStatusStarted,
+}
+
+// AgentTaskSymptomSearchAgentTaskListAgentListedTask includes the requested fields of the GraphQL type AgentListedTask.
+// The GraphQL type's documentation follows.
+//
+// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - one task on an Agent's task list.
+type AgentTaskSymptomSearchAgentTaskListAgentListedTask struct {
+	// The task. A base's task, listed through the Agent, keeps its own URN and carries inheritedFrom.
+	Node *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode `json:"node"`
+	// The name of the index edge that lists it; null for a task no index edge lists.
+	Trigger *string `json:"trigger"`
+	// #2421 experimental symptom search: which retriever ranked this task; null on the unfiltered list.
+	MatchedBy *AgentTaskMatchedBy `json:"matchedBy"`
+}
+
+// GetNode returns AgentTaskSymptomSearchAgentTaskListAgentListedTask.Node, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTask) GetNode() *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode {
+	return v.Node
+}
+
+// GetTrigger returns AgentTaskSymptomSearchAgentTaskListAgentListedTask.Trigger, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTask) GetTrigger() *string { return v.Trigger }
+
+// GetMatchedBy returns AgentTaskSymptomSearchAgentTaskListAgentListedTask.MatchedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTask) GetMatchedBy() *AgentTaskMatchedBy {
+	return v.MatchedBy
+}
+
+// AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode includes the requested fields of the GraphQL type Node.
+type AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set when this node
+	// was read through an Agent that extends a base: the node belongs to that
+	// base's system memory and comes into the Agent's effective system memory by
+	// inheritance. The node keeps its own address (its urn is the base's); this
+	// names the base it comes from. Null for a node read in its own memory.
+	InheritedFrom *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom `json:"inheritedFrom"`
+}
+
+// GetId returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetId() string { return v.Id }
+
+// GetUrn returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.Urn, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetUrn() string { return v.Urn }
+
+// GetName returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.Name, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetName() string { return v.Name }
+
+// GetInheritedFrom returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.InheritedFrom, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetInheritedFrom() *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom {
+	return v.InheritedFrom
+}
+
+// AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom includes the requested fields of the GraphQL type InheritedFrom.
+// The GraphQL type's documentation follows.
+//
+// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the base Agent an
+// inherited node comes from.
+type AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom struct {
+	AgentId string `json:"agentId"`
+	// The base Agent's URN, fully qualified.
+	AgentUrn string `json:"agentUrn"`
+}
+
+// GetAgentId returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom.AgentId, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom) GetAgentId() string {
+	return v.AgentId
+}
+
+// GetAgentUrn returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom.AgentUrn, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom) GetAgentUrn() string {
+	return v.AgentUrn
+}
+
+// AgentTaskSymptomSearchResponse is returned by AgentTaskSymptomSearch on success.
+type AgentTaskSymptomSearchResponse struct {
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - an Agent's tasks, across its base chain:
+	// every runnable node in its effective system memory, and every task the
+	// tasks index of an Agent in the chain lists, each once. A task an index
+	// lists carries that edge's name as its trigger, the nearest index's where
+	// two list it. Readable by whoever may read the Agent's system memory; a
+	// listed task outside the chain's memories is returned only when its own
+	// memory is readable too. Refused as AGENT_NOT_FOUND otherwise. The MCP tool
+	// hadron_agent_tasks returns the same list. Accepts the Agent's ID or URN.
+	// #2421 experiment: optional symptom ranks only runnable effective-chain tasks
+	// with non-empty abstracts; summary vectors and abstract-only lexical matches
+	// share hybrid ranking. At most 3 candidates (limit defaults to 3, larger
+	// values clamp); empty symptom or non-positive limit is BAD_USER_INPUT.
+	// Without symptom the list is unchanged. matchedBy identifies ranking inputs.
+	AgentTaskList []*AgentTaskSymptomSearchAgentTaskListAgentListedTask `json:"agentTaskList"`
+}
+
+// GetAgentTaskList returns AgentTaskSymptomSearchResponse.AgentTaskList, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchResponse) GetAgentTaskList() []*AgentTaskSymptomSearchAgentTaskListAgentListedTask {
+	return v.AgentTaskList
 }
 
 // AgentTaskTreeAgentTaskTreeAgentTask includes the requested fields of the GraphQL type AgentTask.
@@ -62012,19 +62103,11 @@ func (v *__AgentTaskGetInput) GetId() string { return v.Id }
 
 // __AgentTaskIndexListInput is used internally by genqlient
 type __AgentTaskIndexListInput struct {
-	Ref     string  `json:"ref"`
-	Symptom *string `json:"symptom,omitempty"`
-	Limit   *int    `json:"limit,omitempty"`
+	Ref string `json:"ref"`
 }
 
 // GetRef returns __AgentTaskIndexListInput.Ref, and is useful for accessing the field via an interface.
 func (v *__AgentTaskIndexListInput) GetRef() string { return v.Ref }
-
-// GetSymptom returns __AgentTaskIndexListInput.Symptom, and is useful for accessing the field via an interface.
-func (v *__AgentTaskIndexListInput) GetSymptom() *string { return v.Symptom }
-
-// GetLimit returns __AgentTaskIndexListInput.Limit, and is useful for accessing the field via an interface.
-func (v *__AgentTaskIndexListInput) GetLimit() *int { return v.Limit }
 
 // __AgentTaskListInput is used internally by genqlient
 type __AgentTaskListInput struct {
@@ -62117,6 +62200,22 @@ type __AgentTaskStartInput struct {
 
 // GetTaskId returns __AgentTaskStartInput.TaskId, and is useful for accessing the field via an interface.
 func (v *__AgentTaskStartInput) GetTaskId() string { return v.TaskId }
+
+// __AgentTaskSymptomSearchInput is used internally by genqlient
+type __AgentTaskSymptomSearchInput struct {
+	Ref     string `json:"ref"`
+	Symptom string `json:"symptom"`
+	Limit   *int   `json:"limit,omitempty"`
+}
+
+// GetRef returns __AgentTaskSymptomSearchInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AgentTaskSymptomSearchInput) GetRef() string { return v.Ref }
+
+// GetSymptom returns __AgentTaskSymptomSearchInput.Symptom, and is useful for accessing the field via an interface.
+func (v *__AgentTaskSymptomSearchInput) GetSymptom() string { return v.Symptom }
+
+// GetLimit returns __AgentTaskSymptomSearchInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskSymptomSearchInput) GetLimit() *int { return v.Limit }
 
 // __AgentTaskTreeInput is used internally by genqlient
 type __AgentTaskTreeInput struct {
@@ -68353,8 +68452,8 @@ func AgentTaskGet(
 
 // The query executed by AgentTaskIndexList.
 const AgentTaskIndexList_Operation = `
-query AgentTaskIndexList ($ref: ID!, $symptom: String, $limit: Int) {
-	agentTaskList(ref: $ref, symptom: $symptom, limit: $limit) {
+query AgentTaskIndexList ($ref: ID!) {
+	agentTaskList(ref: $ref) {
 		node {
 			id
 			urn
@@ -68365,28 +68464,20 @@ query AgentTaskIndexList ($ref: ID!, $symptom: String, $limit: Int) {
 			}
 		}
 		trigger
-		matchedBy
 	}
 }
 `
 
-// symptom/limit are the #2421 experiment: omitempty so a nil pointer is omitted
-// (no flag => the request is byte-identical to the plain list). The server owns
-// the limit rules (default 3, clamp, BAD_USER_INPUT); the CLI sends them as given.
 func AgentTaskIndexList(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ref string,
-	symptom *string,
-	limit *int,
 ) (data_ *AgentTaskIndexListResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AgentTaskIndexList",
 		Query:  AgentTaskIndexList_Operation,
 		Variables: &__AgentTaskIndexListInput{
-			Ref:     ref,
-			Symptom: symptom,
-			Limit:   limit,
+			Ref: ref,
 		},
 	}
 
@@ -68914,6 +69005,60 @@ func AgentTaskStart(
 	}
 
 	data_ = &AgentTaskStartResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentTaskSymptomSearch.
+const AgentTaskSymptomSearch_Operation = `
+query AgentTaskSymptomSearch ($ref: ID!, $symptom: String!, $limit: Int) {
+	agentTaskList(ref: $ref, symptom: $symptom, limit: $limit) {
+		node {
+			id
+			urn
+			name
+			inheritedFrom {
+				agentId
+				agentUrn
+			}
+		}
+		trigger
+		matchedBy
+	}
+}
+`
+
+// #2421 experiment: the symptom search is its OWN document on the same server
+// field, so the plain list above stays valid against a server that predates
+// symptom/limit/matchedBy (the document, not just the variables, is unchanged).
+// limit is omitempty: nil is omitted so the server's default applies; the server
+// owns the limit rules (default 3, clamp, BAD_USER_INPUT) and the CLI sends it
+// as given.
+func AgentTaskSymptomSearch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	symptom string,
+	limit *int,
+) (data_ *AgentTaskSymptomSearchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskSymptomSearch",
+		Query:  AgentTaskSymptomSearch_Operation,
+		Variables: &__AgentTaskSymptomSearchInput{
+			Ref:     ref,
+			Symptom: symptom,
+			Limit:   limit,
+		},
+	}
+
+	data_ = &AgentTaskSymptomSearchResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
