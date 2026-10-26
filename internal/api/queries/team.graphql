@@ -1425,3 +1425,26 @@ query TeamChannelLocation($appRef: ID!) {
     }
   }
 }
+
+# #2061 / cli#1085: direct-report lanes, rendered as returned. A thin read —
+# the CLI joins nothing and judges nothing.
+query TeamComposition($appRef: ID!) {
+  teamComposition(appRef: $appRef) {
+    appId
+    asOf
+    lanes {
+      coordinator { id kind name urn }
+      coordinatorRetired
+      countsByRole { role count }
+      countsByRoleFamily { role family count }
+      workers {
+        worker { id kind name urn }
+        role
+        family
+        bound
+        liveSession
+        state
+      }
+    }
+  }
+}
