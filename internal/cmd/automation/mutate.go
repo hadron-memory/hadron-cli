@@ -90,37 +90,6 @@ func approvalTarget(sel *selection) string {
 	return "--run " + shellQuote(sel.Trigger.Ref)
 }
 
-// stickyWriter remembers the first failed write to the stream it wraps.
-type stickyWriter struct {
-	w   io.Writer
-	err error
-}
-
-func (s *stickyWriter) Write(p []byte) (int, error) {
-	n, err := s.w.Write(p)
-	if err != nil && s.err == nil {
-		s.err = err
-	}
-	return n, err
-}
-
-// confirm is cmdutil.Confirm that also refuses when the PROMPT could not be
-// written: a "y" given to a question nobody saw is not consent, and Confirm
-// itself ignores a failed prompt write (LOCAL delta P2 on cli#1076).
-func confirm(streams *output.IOStreams, yes bool, prompt string) error {
-	orig := streams.ErrOut
-	sw := &stickyWriter{w: orig}
-	streams.ErrOut = sw
-	defer func() { streams.ErrOut = orig }()
-	if err := cmdutil.Confirm(streams, yes, prompt); err != nil {
-		return err
-	}
-	if sw.err != nil {
-		return exitcode.Newf(exitcode.Error, "could not show the confirmation prompt (%v); nothing was sent", sw.err)
-	}
-	return nil
-}
-
 // approvalAppFlag is " --app <app>" for a copy-pasteable command, or nothing when
 // the App ref would not survive sanitizing.
 func approvalAppFlag(app string) string {
@@ -189,7 +158,7 @@ Display and prompt go to stderr, so stdout carries only the result.`,
 			case string(gen.AutomationAdoptionStateChanged):
 				prompt = fmt.Sprintf("Approve %s%s as it is now, shown above? (It changed since it was approved; its next run fails until you approve it again.)", sel.Display, where)
 			}
-			if err := confirm(f.IOStreams, yes, prompt); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
 			}
 			resp, err := gen.ApproveAutomation(cmd.Context(), client, sel.Kind, sel.Trigger.Ref, dto.Hash)
@@ -268,7 +237,7 @@ before anything is sent, and "no" or end-of-input exits 6.`,
 			if sel.State == string(gen.AutomationAdoptionStateAdopted) && sel.Kind != gen.AutomationTriggerKindManual {
 				question = fmt.Sprintf("Decline %s%s? This switches it off.", sel.Display, where)
 			}
-			if err := confirm(f.IOStreams, yes, question); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, question); err != nil {
 				return err
 			}
 			resp, err := gen.DeclineAutomation(cmd.Context(), client, sel.Kind, sel.Trigger.Ref)
