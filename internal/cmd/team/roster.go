@@ -131,7 +131,7 @@ and a state is a fact about now, not a judgement.`,
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 					return err
 				}
-				t := output.NewTable(w, "WORKER", "STATE", "CHECK", "ROLE", "FAMILY", "MODEL", "TIER", "LIVE", "TASKS", "ALARMS", "HELD BY", "SINCE")
+				t := output.NewTable(w, "WORKER", "STATE", "CHECK", "ROLE", "FAMILY", "MODEL", "TIER", "LIVE", "TASKS", "ALARMS", "REPORTS TO", "HELD BY", "SINCE")
 				for _, e := range dto.Workers {
 					name := e.Worker.ID
 					if e.Worker.Name != nil {
@@ -146,7 +146,7 @@ and a state is a fact about now, not a judgement.`,
 					}
 					tasks := fmt.Sprintf("P%d S%d", len(e.PendingTasks), len(e.StartedTasks))
 					alarms := fmt.Sprintf("%d", len(e.Alarms))
-					t.Row(name, e.State, channelCheckLabel(e.CheckStatus), strOr(e.Role), family, strOr(e.Model), strOr(e.Tier), live, tasks, alarms, holderLabel(e.HeldBy), cellSafe(strOr(e.HeldAt)))
+					t.Row(name, e.State, channelCheckLabel(e.CheckStatus), strOr(e.Role), family, strOr(e.Model), strOr(e.Tier), live, tasks, alarms, rosterReportsToLabel(e), holderLabel(e.HeldBy), cellSafe(strOr(e.HeldAt)))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -186,6 +186,19 @@ func capacityLine(workers []rosterEntryDTO) string {
 		}
 	}
 	return fmt.Sprintf("free for work by tier: high %d · mid %d · low %d · unknown %d (model is self-reported and tier is advisory, never authorization)", high, mid, low, unknown)
+}
+
+// rosterReportsToLabel shows the server's reportsTo claim, marked when that
+// coordinator is retired. No claim is a dash; nothing is inferred (cli#1085).
+func rosterReportsToLabel(e rosterEntryDTO) string {
+	if e.ReportsTo == nil {
+		return "—"
+	}
+	label := partyLabel(*e.ReportsTo)
+	if e.ReportsToRetired {
+		label += " (retired)"
+	}
+	return label
 }
 
 // holderLabel names the holder: the name when the server sent one, else the

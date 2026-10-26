@@ -48871,6 +48871,232 @@ type TeamChatReadMetadataResponse struct {
 // GetApp returns TeamChatReadMetadataResponse.App, and is useful for accessing the field via an interface.
 func (v *TeamChatReadMetadataResponse) GetApp() *TeamChatReadMetadataApp { return v.App }
 
+// TeamCompositionResponse is returned by TeamComposition on success.
+type TeamCompositionResponse struct {
+	// #2061 — direct-report lanes from the same roster projection and read gate as teamRoster.
+	// One bounded RepeatableRead snapshot per call; no hierarchy rollups or role exclusions.
+	TeamComposition *TeamCompositionTeamComposition `json:"teamComposition"`
+}
+
+// GetTeamComposition returns TeamCompositionResponse.TeamComposition, and is useful for accessing the field via an interface.
+func (v *TeamCompositionResponse) GetTeamComposition() *TeamCompositionTeamComposition {
+	return v.TeamComposition
+}
+
+// TeamCompositionTeamComposition includes the requested fields of the GraphQL type TeamComposition.
+// The GraphQL type's documentation follows.
+//
+// #2061 — active roster workers grouped by their direct reportsTo claim.
+type TeamCompositionTeamComposition struct {
+	AppId string `json:"appId"`
+	AsOf  string `json:"asOf"`
+	// Lanes ordered by coordinator name (case-insensitive), then URN; the unassigned lane is last. Empty teams have no lanes.
+	Lanes []*TeamCompositionTeamCompositionLanesTeamCompositionLane `json:"lanes"`
+}
+
+// GetAppId returns TeamCompositionTeamComposition.AppId, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamComposition) GetAppId() string { return v.AppId }
+
+// GetAsOf returns TeamCompositionTeamComposition.AsOf, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamComposition) GetAsOf() string { return v.AsOf }
+
+// GetLanes returns TeamCompositionTeamComposition.Lanes, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamComposition) GetLanes() []*TeamCompositionTeamCompositionLanesTeamCompositionLane {
+	return v.Lanes
+}
+
+// TeamCompositionTeamCompositionLanesTeamCompositionLane includes the requested fields of the GraphQL type TeamCompositionLane.
+// The GraphQL type's documentation follows.
+//
+// A direct-report group, not a hierarchy rollup. A coordinator's own row belongs only in its own reportsTo lane.
+type TeamCompositionTeamCompositionLanesTeamCompositionLane struct {
+	// Sanitized coordinator identity, including retired coordinators; null for the single unassigned lane.
+	Coordinator        *TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty `json:"coordinator"`
+	CoordinatorRetired bool                                                                             `json:"coordinatorRetired"`
+	// Plain headcounts, role ascending with null last; null is its own bucket.
+	CountsByRole []*TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleTeamRoleCount `json:"countsByRole"`
+	// Plain headcounts by role then family, null last in each dimension; nulls are retained as their own buckets.
+	CountsByRoleFamily []*TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleFamilyTeamRoleFamilyCount `json:"countsByRoleFamily"`
+	// Non-retired workers only, retaining roster name order. No role, including saas-pm, is excluded.
+	Workers []*TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker `json:"workers"`
+}
+
+// GetCoordinator returns TeamCompositionTeamCompositionLanesTeamCompositionLane.Coordinator, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLane) GetCoordinator() *TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty {
+	return v.Coordinator
+}
+
+// GetCoordinatorRetired returns TeamCompositionTeamCompositionLanesTeamCompositionLane.CoordinatorRetired, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLane) GetCoordinatorRetired() bool {
+	return v.CoordinatorRetired
+}
+
+// GetCountsByRole returns TeamCompositionTeamCompositionLanesTeamCompositionLane.CountsByRole, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLane) GetCountsByRole() []*TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleTeamRoleCount {
+	return v.CountsByRole
+}
+
+// GetCountsByRoleFamily returns TeamCompositionTeamCompositionLanesTeamCompositionLane.CountsByRoleFamily, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLane) GetCountsByRoleFamily() []*TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleFamilyTeamRoleFamilyCount {
+	return v.CountsByRoleFamily
+}
+
+// GetWorkers returns TeamCompositionTeamCompositionLanesTeamCompositionLane.Workers, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLane) GetWorkers() []*TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker {
+	return v.Workers
+}
+
+// TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty struct {
+	Id   string             `json:"id"`
+	Kind AgentTaskPartyKind `json:"kind"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+	// The Worker's URN; null for a person.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty) GetId() string {
+	return v.Id
+}
+
+// GetKind returns TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.Kind
+}
+
+// GetName returns TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty) GetName() *string {
+	return v.Name
+}
+
+// GetUrn returns TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneCoordinatorAgentTaskParty) GetUrn() *string {
+	return v.Urn
+}
+
+// TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleFamilyTeamRoleFamilyCount includes the requested fields of the GraphQL type TeamRoleFamilyCount.
+type TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleFamilyTeamRoleFamilyCount struct {
+	Role   *string `json:"role"`
+	Family *string `json:"family"`
+	Count  int     `json:"count"`
+}
+
+// GetRole returns TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleFamilyTeamRoleFamilyCount.Role, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleFamilyTeamRoleFamilyCount) GetRole() *string {
+	return v.Role
+}
+
+// GetFamily returns TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleFamilyTeamRoleFamilyCount.Family, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleFamilyTeamRoleFamilyCount) GetFamily() *string {
+	return v.Family
+}
+
+// GetCount returns TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleFamilyTeamRoleFamilyCount.Count, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleFamilyTeamRoleFamilyCount) GetCount() int {
+	return v.Count
+}
+
+// TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleTeamRoleCount includes the requested fields of the GraphQL type TeamRoleCount.
+type TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleTeamRoleCount struct {
+	Role  *string `json:"role"`
+	Count int     `json:"count"`
+}
+
+// GetRole returns TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleTeamRoleCount.Role, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleTeamRoleCount) GetRole() *string {
+	return v.Role
+}
+
+// GetCount returns TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleTeamRoleCount.Count, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneCountsByRoleTeamRoleCount) GetCount() int {
+	return v.Count
+}
+
+// TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker includes the requested fields of the GraphQL type TeamCompositionWorker.
+// The GraphQL type's documentation follows.
+//
+// A closed roster projection; no task, holder or raw Worker fields.
+type TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker struct {
+	Worker      *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty `json:"worker"`
+	Role        *string                                                                                                 `json:"role"`
+	Family      *string                                                                                                 `json:"family"`
+	Bound       bool                                                                                                    `json:"bound"`
+	LiveSession bool                                                                                                    `json:"liveSession"`
+	State       TeamRosterState                                                                                         `json:"state"`
+}
+
+// GetWorker returns TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker.Worker, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker) GetWorker() *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty {
+	return v.Worker
+}
+
+// GetRole returns TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker.Role, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker) GetRole() *string {
+	return v.Role
+}
+
+// GetFamily returns TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker.Family, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker) GetFamily() *string {
+	return v.Family
+}
+
+// GetBound returns TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker.Bound, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker) GetBound() bool {
+	return v.Bound
+}
+
+// GetLiveSession returns TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker.LiveSession, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker) GetLiveSession() bool {
+	return v.LiveSession
+}
+
+// GetState returns TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker.State, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorker) GetState() TeamRosterState {
+	return v.State
+}
+
+// TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty struct {
+	Id   string             `json:"id"`
+	Kind AgentTaskPartyKind `json:"kind"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+	// The Worker's URN; null for a person.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty) GetId() string {
+	return v.Id
+}
+
+// GetKind returns TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.Kind
+}
+
+// GetName returns TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty) GetName() *string {
+	return v.Name
+}
+
+// GetUrn returns TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompositionWorkerWorkerAgentTaskParty) GetUrn() *string {
+	return v.Urn
+}
+
 // TeamDefaultChannelApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -65780,6 +66006,14 @@ type __TeamChatReadMetadataInput struct {
 
 // GetAppRef returns __TeamChatReadMetadataInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamChatReadMetadataInput) GetAppRef() string { return v.AppRef }
+
+// __TeamCompositionInput is used internally by genqlient
+type __TeamCompositionInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamCompositionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamCompositionInput) GetAppRef() string { return v.AppRef }
 
 // __TeamDefaultChannelInput is used internally by genqlient
 type __TeamDefaultChannelInput struct {
@@ -84657,6 +84891,74 @@ func TeamChatReadMetadata(
 	}
 
 	data_ = &TeamChatReadMetadataResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamComposition.
+const TeamComposition_Operation = `
+query TeamComposition ($appRef: ID!) {
+	teamComposition(appRef: $appRef) {
+		appId
+		asOf
+		lanes {
+			coordinator {
+				id
+				kind
+				name
+				urn
+			}
+			coordinatorRetired
+			countsByRole {
+				role
+				count
+			}
+			countsByRoleFamily {
+				role
+				family
+				count
+			}
+			workers {
+				worker {
+					id
+					kind
+					name
+					urn
+				}
+				role
+				family
+				bound
+				liveSession
+				state
+			}
+		}
+	}
+}
+`
+
+// #2061 / cli#1085: direct-report lanes, rendered as returned. A thin read —
+// the CLI joins nothing and judges nothing.
+func TeamComposition(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamCompositionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamComposition",
+		Query:  TeamComposition_Operation,
+		Variables: &__TeamCompositionInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamCompositionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
