@@ -29,8 +29,8 @@ func remedyArgs(t *testing.T, errText string) []string {
 }
 
 // printedCommand is the backtick-wrapped command starting with prefix. The
-// closing backtick is the first one outside single quotes, since a quoted
-// label may itself contain a backtick.
+// closing backtick is the first one outside single quotes and not escaped,
+// since a quoted label may itself contain a backtick.
 func printedCommand(t *testing.T, text, prefix string) string {
 	t.Helper()
 	i := strings.Index(text, "`"+prefix)
@@ -38,11 +38,13 @@ func printedCommand(t *testing.T, text, prefix string) string {
 		t.Fatalf("no `%s…` command in %q", prefix, text)
 	}
 	rest, quoted := text[i+1:], false
-	for j, r := range rest {
-		switch {
-		case r == '\'':
+	for j := 0; j < len(rest); j++ {
+		switch c := rest[j]; {
+		case c == '\'':
 			quoted = !quoted
-		case r == '`' && !quoted:
+		case c == '\\' && !quoted:
+			j++ // an escaped character, such as the \' in '\''
+		case c == '`' && !quoted:
 			return rest[:j]
 		}
 	}

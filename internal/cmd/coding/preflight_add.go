@@ -277,8 +277,8 @@ usage error, not a half-finished write.`,
 			if dto.BackEdge && !landed[router.Node.Id] {
 				dto.BackEdge = false
 				missing = append(missing, fmt.Sprintf(
-					"the back-edge to %q (`hadron edge create -m %s --from %s --to %s --name %q`)",
-					root, mem.raw, dto.Loc, root, label))
+					"the back-edge to %q (`hadron edge create -m %s --from %s --to %s --name %s`)",
+					root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label)))
 			}
 			kept := []linkDTO{}
 			for i, l := range outLinks {
@@ -287,8 +287,8 @@ usage error, not a half-finished write.`,
 					continue
 				}
 				missing = append(missing, fmt.Sprintf(
-					"the --link to %q (`hadron edge create -m %s --from %s --to %s --name %q`)",
-					l.Target, mem.raw, dto.Loc, l.Target, l.Label))
+					"the --link to %q (`hadron edge create -m %s --from %s --to %s --name %s`)",
+					l.Target, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(l.Target), cmdutil.ShellQuote(l.Label)))
 			}
 			dto.Links = kept
 
@@ -299,8 +299,8 @@ usage error, not a half-finished write.`,
 				// which exits 1 by contract so a caller branching on the exit
 				// code never reads an unreachable node as done.
 				return partialRoute(f, dto, true, err,
-					"created %s but the route from %q was not written — nothing leads to it; wire it with `hadron edge create -m %s --from %s --to %s --name %q`",
-					dto.Loc, root, mem.raw, root, dto.Loc, label)
+					"created %s but the route from %q was not written — nothing leads to it; wire it with `hadron edge create -m %s --from %s --to %s --name %s`",
+					dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(root), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(label))
 			}
 			if edgeResp.CreateEdge != nil {
 				dto.EdgeID = edgeResp.CreateEdge.Id

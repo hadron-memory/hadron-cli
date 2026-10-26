@@ -6,6 +6,7 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -61,8 +62,8 @@ func unwiredFindings(nodes []specNode, memURN string, exists func(loc string) (b
 			}
 			fs = append(fs, lintFindingDTO{
 				Citation: n.Loc, Rule: "unwired", Severity: sevInfo,
-				Message: fmt.Sprintf("has no %s edge to %s, which `spec new` plans for it; add it with `hadron spec link %s %s -m %s --label %q`",
-					w.kind, w.target, n.Loc, w.target, memURN, label),
+				Message: fmt.Sprintf("has no %s edge to %s, which `spec new` plans for it; add it with `hadron spec link %s %s -m %s --label %s`",
+					w.kind, w.target, cmdutil.ShellQuote(n.Loc), cmdutil.ShellQuote(w.target), cmdutil.ShellQuote(memURN), cmdutil.ShellQuote(label)),
 			})
 		}
 	}

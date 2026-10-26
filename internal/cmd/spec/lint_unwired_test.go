@@ -81,7 +81,7 @@ func TestUnwiredPlansWhatSpecNewPlans(t *testing.T) {
 
 func TestUnwiredParentLabelIsTheTitle(t *testing.T) {
 	fs, _ := unwiredFindings([]specNode{wired("msg:010:02", "msg:010:02 — Win back")}, lintMem, existsIn("msg:010"))
-	if len(fs) != 1 || !strings.Contains(fs[0].Message, `-m `+lintMem+` --label "Win back"`+"`") {
+	if len(fs) != 1 || !strings.Contains(fs[0].Message, `-m `+lintMem+` --label 'Win back'`+"`") {
 		t.Errorf("the parent edge is labelled with the spec's title, as spec new labels it: %+v", fs)
 	}
 }

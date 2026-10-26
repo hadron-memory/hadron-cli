@@ -206,8 +206,8 @@ that already references the target is left alone.`,
 					nil, nil, nil, nil, nil, nil); err != nil {
 					dto.BackEdge = false
 					return partialRoute(f, dto, false, err,
-						"routed %s, but its back-edge to %q did not land — the route only works from the index; add it with `hadron edge create -m %s --from %s --to %s --name %q`",
-						dto.Loc, root, mem.raw, dto.Loc, root, label)
+						"routed %s, but its back-edge to %q did not land — the route only works from the index; add it with `hadron edge create -m %s --from %s --to %s --name %s`",
+						dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label))
 				}
 			}
 

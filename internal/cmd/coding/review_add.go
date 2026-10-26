@@ -245,8 +245,8 @@ edit through the review door for you.`,
 				// under-linked, and a caller branching on the exit code must
 				// not read that as complete.
 				return exitcode.Newf(exitcode.Error,
-					"created %s but its edge to %q is missing — the check is invisible to tasks:review-changes; wire it with `hadron edge create -m %s --from %s --to %s --name %q`",
-					dto.Loc, root, mem.raw, dto.Loc, root, label)
+					"created %s but its edge to %q is missing — the check is invisible to tasks:review-changes; wire it with `hadron edge create -m %s --from %s --to %s --name %s`",
+					dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label))
 			}
 			return nil
 		},
