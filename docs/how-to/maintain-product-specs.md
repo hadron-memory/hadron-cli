@@ -252,7 +252,7 @@ hadron spec find "backpressure" -m $M          # semantic search, filtered to sp
 hadron spec grep h-read-node -m $M             # body+abstract search, citation:line: text (exhaustive)
 hadron spec lint --product cli -m $M           # lint one product
 hadron spec lint --all -m $M --strict          # lint the whole corpus, warnings = errors
-hadron spec lint --all -m $M --unwired         # also list missing planned edges, with the spec link that adds each
+hadron spec lint --all -m $M --unwired         # also list missing planned edges, with the command that adds each
 hadron spec register -m $M                      # derived number ledger (next-free at each tier)
 ```
 

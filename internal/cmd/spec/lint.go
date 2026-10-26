@@ -113,8 +113,8 @@ create that failed half way, #687). It looks only at legacy-grammar citations
 and reports, as info, each edge legacy "spec new" (--product/--module/
 --feature) plans that the spec lacks: the table-of-contents edge to its parent
 and the inheritance edge to its contract, each when that target exists. Every
-finding prints the exact "spec link" that adds the edge; lint itself writes
-nothing. Info never fails --strict: a spec created at a loc on purpose, with no
+finding prints the exact command that adds the edge ("spec link", or "edge
+create" when the target is not a spec); lint itself writes nothing. Info never fails --strict: a spec created at a loc on purpose, with no
 edges, is not an error.
 
 In a DRAFT corpus (one with no minted node yet — hadron-server#1591), a reserved
@@ -287,7 +287,7 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 				findings = append(findings, unresolved...)
 			}
 			if unwired {
-				fs, err := unwiredFindings(nodes, memURN, specLocExists(cmd, client, memURN, inScope))
+				fs, err := unwiredFindings(nodes, memURN, specLocExists(cmd, client, memURN, inScope, nodes))
 				if err != nil {
 					return err
 				}
@@ -334,7 +334,7 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 	cmd.Flags().StringVar(&module, "module", "", "lint every spec under this module (optionally within --product)")
 	cmd.Flags().BoolVar(&all, "all", false, "lint every spec in the memory")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
-	cmd.Flags().BoolVar(&unwired, "unwired", false, "also report (as info) each legacy-citation spec missing an edge legacy spec new plans, with the spec link command that adds it")
+	cmd.Flags().BoolVar(&unwired, "unwired", false, "also report (as info) each legacy-citation spec missing an edge legacy spec new plans, with the command that adds it")
 	return cmd
 }
 

@@ -1686,7 +1686,8 @@ Conventions:
   `--strict`), each edge legacy `spec new` plans that the spec lacks (the
   table-of-contents edge to its parent, the inheritance edge to its contract,
   when that target exists), and the message carries the exact `spec link`
-  that adds it; lint writes nothing. `spec lint` also
+  that adds it (`edge create` when the target is not a spec); lint writes
+  nothing. `spec lint` also
   warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
   (`--strict` promotes warnings to errors, exit 5). Two more warnings check

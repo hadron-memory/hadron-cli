@@ -24,11 +24,17 @@ import (
 // A parent edge counts under any label, since spec new labels it with the
 // child's title and a renamed spec keeps its edge; the inheritance edge counts
 // only under inheritEdgeLabel, since any other edge to a contract is an
-// ordinary cross-reference. exists says whether a target loc is a live node.
+// ordinary cross-reference. exists says whether a target loc is a live node
+// and whether it is a spec.
+//
+// spec new wires a target whatever node holds its loc, but spec link takes
+// only specs, so a non-spec target's remedy is the edge create that runs. A
+// non-spec source is skipped: lint reports it as missing its spec tag, and
+// once tagged it is a spec this check covers.
 func unwiredFindings(nodes []specNode, memURN string, exists func(loc string) (found, spec bool, err error)) ([]lintFindingDTO, error) {
 	fs := []lintFindingDTO{}
 	for _, n := range nodes {
-		if n.Unavailable {
+		if n.Unavailable || !isSpec(n.Tags, n.Role) {
 			continue
 		}
 		c, err := ParseCitation(n.Loc)
@@ -47,7 +53,7 @@ func unwiredFindings(nodes []specNode, memURN string, exists func(loc string) (f
 			if hasOutEdge(n, w.target, w.label) {
 				continue
 			}
-			ok, _, err := exists(w.target)
+			ok, spec, err := exists(w.target)
 			if err != nil {
 				return nil, err
 			}
@@ -60,10 +66,16 @@ func unwiredFindings(nodes []specNode, memURN string, exists func(loc string) (f
 					label = n.Loc
 				}
 			}
+			fix := fmt.Sprintf("hadron spec link %s %s -m %s --label %s",
+				cmdutil.ShellQuote(n.Loc), cmdutil.ShellQuote(w.target), cmdutil.ShellQuote(memURN), cmdutil.ShellQuote(label))
+			if !spec {
+				fix = fmt.Sprintf("hadron edge create -m %s --from %s --to %s --name %s",
+					cmdutil.ShellQuote(memURN), cmdutil.ShellQuote(n.Loc), cmdutil.ShellQuote(w.target), cmdutil.ShellQuote(label))
+			}
 			fs = append(fs, lintFindingDTO{
 				Citation: n.Loc, Rule: "unwired", Severity: sevInfo,
-				Message: fmt.Sprintf("has no %s edge to %s, which `spec new` plans for it; add it with `hadron spec link %s %s -m %s --label %s`",
-					w.kind, w.target, cmdutil.ShellQuote(n.Loc), cmdutil.ShellQuote(w.target), cmdutil.ShellQuote(memURN), cmdutil.ShellQuote(label)),
+				Message: fmt.Sprintf("has no %s edge to %s, which `spec new` plans for it; add it with `%s`",
+					w.kind, w.target, fix),
 			})
 		}
 	}
@@ -83,25 +95,32 @@ func hasOutEdge(n specNode, target, label string) bool {
 }
 
 // specLocExists answers unwiredFindings' exists: a loc in scope is known
-// without a request; any other is resolved once and remembered.
-func specLocExists(cmd *cobra.Command, client graphql.Client, memURN string, inScope map[string]bool) func(string) (bool, bool, error) {
-	seen := map[string]bool{}
+// without a request (a spec unless its read says otherwise); any other is
+// read once and remembered.
+func specLocExists(cmd *cobra.Command, client graphql.Client, memURN string, inScope map[string]bool, nodes []specNode) func(string) (bool, bool, error) {
+	type state struct{ found, spec bool }
+	seen := map[string]state{}
+	for _, n := range nodes {
+		if !n.Unavailable {
+			seen[n.Loc] = state{true, isSpec(n.Tags, n.Role)}
+		}
+	}
 	return func(loc string) (bool, bool, error) {
+		if v, ok := seen[loc]; ok {
+			return v.found, v.spec, nil
+		}
 		if inScope[loc] {
 			return true, true, nil
 		}
-		if v, ok := seen[loc]; ok {
-			return v, true, nil
-		}
-		_, err := resolveSpecNode(cmd, client, memURN, loc)
+		n, err := fetchSpecNode(cmd, client, memURN, loc)
 		switch {
 		case err == nil:
-			seen[loc] = true
+			seen[loc] = state{true, isSpec(n.Tags, n.Role)}
 		case exitcode.FromError(err) == exitcode.NotFound:
-			seen[loc] = false
+			seen[loc] = state{}
 		default:
 			return false, false, err
 		}
-		return seen[loc], true, nil
+		return seen[loc].found, seen[loc].spec, nil
 	}
 }
