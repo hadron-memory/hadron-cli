@@ -2856,6 +2856,11 @@ type AgentTaskIndexListResponse struct {
 	// listed task outside the chain's memories is returned only when its own
 	// memory is readable too. Refused as AGENT_NOT_FOUND otherwise. The MCP tool
 	// hadron_agent_tasks returns the same list. Accepts the Agent's ID or URN.
+	// #2421 experiment: optional symptom ranks only runnable effective-chain tasks
+	// with non-empty abstracts; summary vectors and abstract-only lexical matches
+	// share hybrid ranking. At most 3 candidates (limit defaults to 3, larger
+	// values clamp); empty symptom or non-positive limit is BAD_USER_INPUT.
+	// Without symptom the list is unchanged. matchedBy identifies ranking inputs.
 	AgentTaskList []*AgentTaskIndexListAgentTaskListAgentListedTask `json:"agentTaskList"`
 }
 
@@ -3098,6 +3103,24 @@ type AgentTaskListResponse struct {
 // GetAgentTasks returns AgentTaskListResponse.AgentTasks, and is useful for accessing the field via an interface.
 func (v *AgentTaskListResponse) GetAgentTasks() []*AgentTaskListAgentTasksAgentTask {
 	return v.AgentTasks
+}
+
+// #2421 experimental symptom search: membership in the hybrid ranking inputs.
+type AgentTaskMatchedBy string
+
+const (
+	// Ranked by both retrievers.
+	AgentTaskMatchedByBoth AgentTaskMatchedBy = "BOTH"
+	// Ranked by the keyword retriever.
+	AgentTaskMatchedByKeyword AgentTaskMatchedBy = "KEYWORD"
+	// Ranked by the vector retriever.
+	AgentTaskMatchedByVector AgentTaskMatchedBy = "VECTOR"
+)
+
+var AllAgentTaskMatchedBy = []AgentTaskMatchedBy{
+	AgentTaskMatchedByBoth,
+	AgentTaskMatchedByKeyword,
+	AgentTaskMatchedByVector,
 }
 
 // AgentTaskParkParkAgentTask includes the requested fields of the GraphQL type AgentTask.
@@ -4432,6 +4455,104 @@ var AllAgentTaskStatus = []AgentTaskStatus{
 	AgentTaskStatusFinished,
 	AgentTaskStatusPending,
 	AgentTaskStatusStarted,
+}
+
+// AgentTaskSymptomSearchAgentTaskListAgentListedTask includes the requested fields of the GraphQL type AgentListedTask.
+// The GraphQL type's documentation follows.
+//
+// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - one task on an Agent's task list.
+type AgentTaskSymptomSearchAgentTaskListAgentListedTask struct {
+	// The task. A base's task, listed through the Agent, keeps its own URN and carries inheritedFrom.
+	Node *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode `json:"node"`
+	// The name of the index edge that lists it; null for a task no index edge lists.
+	Trigger *string `json:"trigger"`
+	// #2421 experimental symptom search: which retriever ranked this task; null on the unfiltered list.
+	MatchedBy *AgentTaskMatchedBy `json:"matchedBy"`
+}
+
+// GetNode returns AgentTaskSymptomSearchAgentTaskListAgentListedTask.Node, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTask) GetNode() *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode {
+	return v.Node
+}
+
+// GetTrigger returns AgentTaskSymptomSearchAgentTaskListAgentListedTask.Trigger, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTask) GetTrigger() *string { return v.Trigger }
+
+// GetMatchedBy returns AgentTaskSymptomSearchAgentTaskListAgentListedTask.MatchedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTask) GetMatchedBy() *AgentTaskMatchedBy {
+	return v.MatchedBy
+}
+
+// AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode includes the requested fields of the GraphQL type Node.
+type AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set when this node
+	// was read through an Agent that extends a base: the node belongs to that
+	// base's system memory and comes into the Agent's effective system memory by
+	// inheritance. The node keeps its own address (its urn is the base's); this
+	// names the base it comes from. Null for a node read in its own memory.
+	InheritedFrom *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom `json:"inheritedFrom"`
+}
+
+// GetId returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetId() string { return v.Id }
+
+// GetUrn returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.Urn, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetUrn() string { return v.Urn }
+
+// GetName returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.Name, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetName() string { return v.Name }
+
+// GetInheritedFrom returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.InheritedFrom, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetInheritedFrom() *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom {
+	return v.InheritedFrom
+}
+
+// AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom includes the requested fields of the GraphQL type InheritedFrom.
+// The GraphQL type's documentation follows.
+//
+// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the base Agent an
+// inherited node comes from.
+type AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom struct {
+	AgentId string `json:"agentId"`
+	// The base Agent's URN, fully qualified.
+	AgentUrn string `json:"agentUrn"`
+}
+
+// GetAgentId returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom.AgentId, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom) GetAgentId() string {
+	return v.AgentId
+}
+
+// GetAgentUrn returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom.AgentUrn, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom) GetAgentUrn() string {
+	return v.AgentUrn
+}
+
+// AgentTaskSymptomSearchResponse is returned by AgentTaskSymptomSearch on success.
+type AgentTaskSymptomSearchResponse struct {
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - an Agent's tasks, across its base chain:
+	// every runnable node in its effective system memory, and every task the
+	// tasks index of an Agent in the chain lists, each once. A task an index
+	// lists carries that edge's name as its trigger, the nearest index's where
+	// two list it. Readable by whoever may read the Agent's system memory; a
+	// listed task outside the chain's memories is returned only when its own
+	// memory is readable too. Refused as AGENT_NOT_FOUND otherwise. The MCP tool
+	// hadron_agent_tasks returns the same list. Accepts the Agent's ID or URN.
+	// #2421 experiment: optional symptom ranks only runnable effective-chain tasks
+	// with non-empty abstracts; summary vectors and abstract-only lexical matches
+	// share hybrid ranking. At most 3 candidates (limit defaults to 3, larger
+	// values clamp); empty symptom or non-positive limit is BAD_USER_INPUT.
+	// Without symptom the list is unchanged. matchedBy identifies ranking inputs.
+	AgentTaskList []*AgentTaskSymptomSearchAgentTaskListAgentListedTask `json:"agentTaskList"`
+}
+
+// GetAgentTaskList returns AgentTaskSymptomSearchResponse.AgentTaskList, and is useful for accessing the field via an interface.
+func (v *AgentTaskSymptomSearchResponse) GetAgentTaskList() []*AgentTaskSymptomSearchAgentTaskListAgentListedTask {
+	return v.AgentTaskList
 }
 
 // AgentTaskTreeAgentTaskTreeAgentTask includes the requested fields of the GraphQL type AgentTask.
@@ -7181,7 +7302,7 @@ func (v *AppMembersResponse) GetApp() *AppMembersApp { return v.App }
 //
 // One headless run — the audit record AND (v1) the activation: policy
 // snapshot, live budgets (zeroing halts the run), lifecycle, trigger
-// provenance. Spec cor:agt:010:02.
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type AppRunAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -7370,7 +7491,7 @@ func (v *AppRunAppRun) __premarshalJSON() (*__premarshalAppRunAppRun, error) {
 //
 // One headless run — the audit record AND (v1) the activation: policy
 // snapshot, live budgets (zeroing halts the run), lifecycle, trigger
-// provenance. Spec cor:agt:010:02.
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type AppRunFields struct {
 	Id             string            `json:"id"`
 	OrganizationId string            `json:"organizationId"`
@@ -7541,7 +7662,7 @@ func (v *AppRunsAppRunsAppRunsPage) GetItems() []*AppRunsAppRunsAppRunsPageItems
 //
 // One headless run — the audit record AND (v1) the activation: policy
 // snapshot, live budgets (zeroing halts the run), lifecycle, trigger
-// provenance. Spec cor:agt:010:02.
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type AppRunsAppRunsAppRunsPageItemsAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -10204,7 +10325,7 @@ func (v *CalendarReadEventStartCalendarEventTime) GetTimeZone() *string { return
 //
 // One headless run — the audit record AND (v1) the activation: policy
 // snapshot, live budgets (zeroing halts the run), lifecycle, trigger
-// provenance. Spec cor:agt:010:02.
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type CancelAppRunCancelAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -10677,7 +10798,8 @@ type CastWorkerPreviewResponse struct {
 	// Dry-run castWorker (#964): run the cast's exact resolution — same
 	// arguments, same typed refusals (WORKER_AGENT_NOT_FOUND / _AMBIGUOUS /
 	// _NOT_INSTALLED, WORKER_NAME_REQUIRED, WORKER_NAME_TAKEN,
-	// WORKER_NAME_CONFUSABLE, WORKER_NAME_RESERVED, APP_UNINSTALLED),
+	// WORKER_NAME_CONFUSABLE, WORKER_NAME_RESERVED, WORKER_NAME_RESERVED_TEAM_PREFIX
+	// (only while TEAM_TAGS_ENABLED), APP_UNINSTALLED),
 	// same MINT gate — up to but not
 	// including the writes, and return what would be created. A Query, not a
 	// dryRun flag: casting a name is the one irreversible act in the team
@@ -10741,8 +10863,10 @@ type CastWorkerResponse struct {
 	// user-owned App. Pure App-key principals are denied.
 	//
 	// Error codes (extensions.code): WORKER_NAME_TAKEN, WORKER_NAME_CONFUSABLE,
-	// WORKER_NAME_REQUIRED, WORKER_NAME_RESERVED, WORKER_AGENT_NOT_INSTALLED,
-	// WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS, APP_UNINSTALLED.
+	// WORKER_NAME_REQUIRED, WORKER_NAME_RESERVED, WORKER_NAME_RESERVED_TEAM_PREFIX
+	// (a mention token starting team., refused only while TEAM_TAGS_ENABLED),
+	// WORKER_AGENT_NOT_INSTALLED, WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS,
+	// APP_UNINSTALLED.
 	//
 	// #1050 also removed WORKER_ROLE_NOT_FOUND from this mutation: it fired only
 	// because a nameless cast had to find a roles:<role> node to read a register.
@@ -10886,6 +11010,10 @@ var AllChannelKind = []ChannelKind{
 // lives without a second read — two Channels named `team` at loc `chats:team`
 // are distinguishable only by this.
 type ChannelMemory struct {
+	// #2509: this memory's record, exactly as Query.memory answers it to the
+	// caller, or null when the caller may not read that record (or it is
+	// deleted). Seeing this channel does not grant its memory's record, so use
+	// memoryId for the address.
 	Memory *ChannelMemoryMemory `json:"memory"`
 }
 
@@ -16238,7 +16366,9 @@ type CreateChannelMessageResponse struct {
 	// Spec 049 Phase 8 — post into ANY Channel by ref (its id, or its address —
 	// `Channel.chatRootUrn`, #1171): the
 	// createTeamChatMessage contract (author derivation, mentions, replyToSeq,
-	// the body cap, item J) addressed by Channel. createTeamChatMessage is the
+	// the body cap, item J) addressed by Channel. While TEAM_TAGS_ENABLED (default
+	// off) a post also carries the sender's team tags, and an invalid
+	// `@team.<head>.all` target refuses the whole post TEAM_CHAT_TEAM_HEAD_INVALID. createTeamChatMessage is the
 	// appRef → App.defaultChannel convenience over this — one gate, two entry
 	// points. A Channel you may not read is CHANNEL_NOT_FOUND; one you may read
 	// but not post into is FORBIDDEN.
@@ -44984,7 +45114,7 @@ type SetWorkerReportsToResponse struct {
 	// when one person holds both, or placed under any worker by its own holder
 	// (interim, pending a ruling). WORKER_REPORTS_TO_FORBIDDEN otherwise. A worker acts through its bound
 	// session, with a person behind the request. Each change is a
-	// `worker.reports-to` team event; setting the current value changes nothing.
+	// `worker.reports-to` team event. An explicit clear records NO_TEAM, including a previously UNSET line; repeating the recorded choice changes nothing.
 	SetWorkerReportsTo *SetWorkerReportsToSetWorkerReportsToWorker `json:"setWorkerReportsTo"`
 }
 
@@ -52791,7 +52921,7 @@ func (v *TriggerAppRunResponse) GetTriggerAppRun() *TriggerAppRunTriggerAppRun {
 //
 // One headless run — the audit record AND (v1) the activation: policy
 // snapshot, live budgets (zeroing halts the run), lifecycle, trigger
-// provenance. Spec cor:agt:010:02.
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type TriggerAppRunTriggerAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -62071,6 +62201,22 @@ type __AgentTaskStartInput struct {
 // GetTaskId returns __AgentTaskStartInput.TaskId, and is useful for accessing the field via an interface.
 func (v *__AgentTaskStartInput) GetTaskId() string { return v.TaskId }
 
+// __AgentTaskSymptomSearchInput is used internally by genqlient
+type __AgentTaskSymptomSearchInput struct {
+	Ref     string `json:"ref"`
+	Symptom string `json:"symptom"`
+	Limit   *int   `json:"limit,omitempty"`
+}
+
+// GetRef returns __AgentTaskSymptomSearchInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AgentTaskSymptomSearchInput) GetRef() string { return v.Ref }
+
+// GetSymptom returns __AgentTaskSymptomSearchInput.Symptom, and is useful for accessing the field via an interface.
+func (v *__AgentTaskSymptomSearchInput) GetSymptom() string { return v.Symptom }
+
+// GetLimit returns __AgentTaskSymptomSearchInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskSymptomSearchInput) GetLimit() *int { return v.Limit }
+
 // __AgentTaskTreeInput is used internally by genqlient
 type __AgentTaskTreeInput struct {
 	Root string `json:"root"`
@@ -68859,6 +69005,60 @@ func AgentTaskStart(
 	}
 
 	data_ = &AgentTaskStartResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentTaskSymptomSearch.
+const AgentTaskSymptomSearch_Operation = `
+query AgentTaskSymptomSearch ($ref: ID!, $symptom: String!, $limit: Int) {
+	agentTaskList(ref: $ref, symptom: $symptom, limit: $limit) {
+		node {
+			id
+			urn
+			name
+			inheritedFrom {
+				agentId
+				agentUrn
+			}
+		}
+		trigger
+		matchedBy
+	}
+}
+`
+
+// #2421 experiment: the symptom search is its OWN document on the same server
+// field, so the plain list above stays valid against a server that predates
+// symptom/limit/matchedBy (the document, not just the variables, is unchanged).
+// limit is omitempty: nil is omitted so the server's default applies; the server
+// owns the limit rules (default 3, clamp, BAD_USER_INPUT) and the CLI sends it
+// as given.
+func AgentTaskSymptomSearch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	symptom string,
+	limit *int,
+) (data_ *AgentTaskSymptomSearchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskSymptomSearch",
+		Query:  AgentTaskSymptomSearch_Operation,
+		Variables: &__AgentTaskSymptomSearchInput{
+			Ref:     ref,
+			Symptom: symptom,
+			Limit:   limit,
+		},
+	}
+
+	data_ = &AgentTaskSymptomSearchResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

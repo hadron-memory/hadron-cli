@@ -193,6 +193,33 @@ query AgentTaskIndexList($ref: ID!) {
   }
 }
 
+# #2421 experiment: the symptom search is its OWN document on the same server
+# field, so the plain list above stays valid against a server that predates
+# symptom/limit/matchedBy (the document, not just the variables, is unchanged).
+# limit is omitempty: nil is omitted so the server's default applies; the server
+# owns the limit rules (default 3, clamp, BAD_USER_INPUT) and the CLI sends it
+# as given.
+query AgentTaskSymptomSearch(
+  $ref: ID!
+  $symptom: String!
+  # @genqlient(pointer: true, omitempty: true)
+  $limit: Int
+) {
+  agentTaskList(ref: $ref, symptom: $symptom, limit: $limit) {
+    node {
+      id
+      urn
+      name
+      inheritedFrom {
+        agentId
+        agentUrn
+      }
+    }
+    trigger
+    matchedBy
+  }
+}
+
 query AgentProcessIndexList($ref: ID!) {
   agentProcessList(ref: $ref) {
     node {

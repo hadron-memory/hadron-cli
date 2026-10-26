@@ -861,9 +861,12 @@ type listedNodeDTO struct {
 }
 
 // listedTaskDTO is one `agent tasks list` row: the server shape unchanged.
+// matchedBy appears only on a --symptom search (the unfiltered list's JSON is
+// unchanged) and carries the server's VECTOR/KEYWORD/BOTH as given.
 type listedTaskDTO struct {
-	Node    listedNodeDTO `json:"node"`
-	Trigger *string       `json:"trigger"`
+	Node      listedNodeDTO `json:"node"`
+	Trigger   *string       `json:"trigger"`
+	MatchedBy string        `json:"matchedBy,omitempty"`
 }
 
 // listedProcessDTO is one `agent processes list` row; kind keeps the server's
@@ -901,6 +904,10 @@ func newCmdAgentTasks(f *cmdutil.Factory) *cobra.Command {
 }
 
 func newCmdAgentTasksList(f *cmdutil.Factory) *cobra.Command {
+	var (
+		symptomFlag string
+		limitFlag   int
+	)
 	cmd := &cobra.Command{
 		Use:     "list <agentRef>",
 		Aliases: []string{"ls"},
@@ -909,7 +916,14 @@ func newCmdAgentTasksList(f *cmdutil.Factory) *cobra.Command {
 edge lists plus everything inherited from the base it extends, deduped by
 the server (cor:dmo:050:15). TRIGGER is the index edge that lists the task
 (blank when none does); INHERITED FROM names the base Agent for a task that
-comes through inheritance (blank for the Agent's own).`,
+comes through inheritance (blank for the Agent's own).
+
+--symptom is experimental (hadron-server#2421): it returns up to 3 tasks from
+the Agent's effective system memory, matched on the abstract, and adds a
+MATCHED BY column (VECTOR, KEYWORD or BOTH). --limit applies only with
+--symptom (without it the flag is ignored and the request is unchanged); the
+server owns its rules (default 3, larger values clamp to 3, below 1 is
+refused) and the CLI sends the value as given.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])
@@ -920,31 +934,70 @@ comes through inheritance (blank for the Agent's own).`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.AgentTaskIndexList(cmd.Context(), client, ref)
-			if err != nil {
-				return api.MapError(err)
-			}
-			rows := make([]listedTaskDTO, 0, len(resp.AgentTaskList))
-			for _, row := range resp.AgentTaskList {
-				rows = append(rows, listedTaskDTO{
-					Node: listedNodeDTO{
-						ID:            row.Node.Id,
-						URN:           row.Node.Urn,
-						Name:          row.Node.Name,
-						InheritedFrom: taskInheritedFromDTO(row.Node.InheritedFrom),
-					},
-					Trigger: row.Trigger,
-				})
+			// --symptom is a separate document on the same server field, so a
+			// plain list never sends the new arguments to an older server. The
+			// limit is sent as given (cor:api:240:01): the server validates it.
+			searching := cmd.Flags().Changed("symptom")
+			rows := []listedTaskDTO{}
+			if searching {
+				var limit *int
+				if cmd.Flags().Changed("limit") {
+					limit = &limitFlag
+				}
+				resp, err := gen.AgentTaskSymptomSearch(cmd.Context(), client, ref, symptomFlag, limit)
+				if err != nil {
+					return api.MapError(err)
+				}
+				for _, row := range resp.AgentTaskList {
+					dto := listedTaskDTO{
+						Node: listedNodeDTO{
+							ID:            row.Node.Id,
+							URN:           row.Node.Urn,
+							Name:          row.Node.Name,
+							InheritedFrom: symptomInheritedFromDTO(row.Node.InheritedFrom),
+						},
+						Trigger: row.Trigger,
+					}
+					if row.MatchedBy != nil {
+						dto.MatchedBy = string(*row.MatchedBy)
+					}
+					rows = append(rows, dto)
+				}
+			} else {
+				resp, err := gen.AgentTaskIndexList(cmd.Context(), client, ref)
+				if err != nil {
+					return api.MapError(err)
+				}
+				for _, row := range resp.AgentTaskList {
+					rows = append(rows, listedTaskDTO{
+						Node: listedNodeDTO{
+							ID:            row.Node.Id,
+							URN:           row.Node.Urn,
+							Name:          row.Node.Name,
+							InheritedFrom: taskInheritedFromDTO(row.Node.InheritedFrom),
+						},
+						Trigger: row.Trigger,
+					})
+				}
 			}
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
-				t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM")
+				if !searching {
+					t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM")
+					for _, row := range rows {
+						t.Row(triggerCell(row.Trigger), row.Node.Name, row.Node.URN, inheritedCell(row.Node))
+					}
+					return t.Flush()
+				}
+				t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM", "MATCHED BY")
 				for _, row := range rows {
-					t.Row(triggerCell(row.Trigger), row.Node.Name, row.Node.URN, inheritedCell(row.Node))
+					t.Row(triggerCell(row.Trigger), row.Node.Name, row.Node.URN, inheritedCell(row.Node), row.MatchedBy)
 				}
 				return t.Flush()
 			})
 		},
 	}
+	cmd.Flags().StringVar(&symptomFlag, "symptom", "", "experimental: find tasks matching this symptom (up to 3, matched on the abstract)")
+	cmd.Flags().IntVar(&limitFlag, "limit", 0, "with --symptom only: how many results to ask for (server default and maximum 3); ignored without --symptom")
 	return cmd
 }
 
@@ -1009,9 +1062,17 @@ and blank for INVOLVED; INHERITED FROM names the base Agent where it applies.`,
 
 // The generated row types are deeply nested; alias the ones reused here.
 type taskListedInherited = gen.AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom
+type symptomListedInherited = gen.AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom
 type processListedInherited = gen.AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom
 
 func taskInheritedFromDTO(inherited *taskListedInherited) *inheritedFromDTO {
+	if inherited == nil {
+		return nil
+	}
+	return &inheritedFromDTO{AgentID: inherited.AgentId, AgentUrn: inherited.AgentUrn}
+}
+
+func symptomInheritedFromDTO(inherited *symptomListedInherited) *inheritedFromDTO {
 	if inherited == nil {
 		return nil
 	}
