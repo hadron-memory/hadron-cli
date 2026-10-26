@@ -67,13 +67,15 @@ server recorded** rather than the one requested.
 Spec 049 item J marks a post that crossed Apps; the transcript keeps the mark,
 because dropping it misrepresents who was speaking where.
 
-## 6. `rm` is a SOFT delete
+## 6. `rm` has no restore
 
-`deleteChannel` soft-deletes the Channel and its chat root together; the address
-stays reserved while either exists and a restore brings both back. So `rm` uses
-`cmdutil.Confirm` with accurate wording, **not** `ConfirmDeletion`, whose prompt
-says *"This cannot be undone"* — telling an operator that a recoverable action
-is permanent makes them refuse a safe change, which is its own harm.
+`deleteChannel` deletes the Channel and its chat root together. There is no
+restore: creating a Channel at the same address adopts it and starts clean, so
+the old transcript does not come back (hadron-server#2382, `cor:dmo:090:03`;
+corrected in #1049 — the help once promised a restore and a reserved address).
+So `rm` uses `cmdutil.Confirm` with that wording, **not** `ConfirmDeletion`,
+whose prompt says *"This cannot be undone"* — the address stays usable, and
+saying otherwise makes an operator refuse a safe change.
 
 It also returns a **boolean**: `false` means nothing was deleted. That is checked
 (as `schedule rm` and `webhook rm` do, and as `org rm` does not), because

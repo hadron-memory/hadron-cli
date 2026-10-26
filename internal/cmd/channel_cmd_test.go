@@ -446,13 +446,15 @@ func TestChannelReadStateAbsentIsNotAnError(t *testing.T) {
 	}
 }
 
-// TestChannelRmPromptSaysItIsRecoverable — @copilot on #598.
+// TestChannelRmWordingMatchesServer — #1049.
 //
-// deleteChannel is a SOFT delete: the address stays reserved and a restore
-// brings the Channel back. ConfirmDeletion's prompt says "This cannot be
-// undone", which is false here — and telling an operator a recoverable action
-// is permanent makes them refuse a safe change.
-func TestChannelRmPromptSaysItIsRecoverable(t *testing.T) {
+// There is no restore for a deleted Channel, and creating a Channel at the
+// same address adopts it and starts clean, so the old transcript does not come
+// back (hadron-server#2382, cor:dmo:090:03). The prompt and the help must say
+// that, and never promise a restore or a reserved address. It still must not
+// say "cannot be undone": the address is reusable, which ConfirmDeletion's
+// wording would deny (@copilot, #598).
+func TestChannelRmWordingMatchesServer(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"DeleteChannel": `{"data":{"deleteChannel":true}}`,
 	})
@@ -462,11 +464,29 @@ func TestChannelRmPromptSaysItIsRecoverable(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	prompt := errOut.String()
-	if strings.Contains(prompt, "cannot be undone") {
-		t.Errorf("a soft delete must not be described as permanent: %s", prompt)
+	help := channelRmHelp(t)
+	for name, text := range map[string]string{"prompt": errOut.String(), "help": help} {
+		low := strings.ToLower(text)
+		for _, bad := range []string{"cannot be undone", "can be restored", "restore brings", "stays reserved", "soft delete"} {
+			if strings.Contains(low, bad) {
+				t.Errorf("%s must not say %q:\n%s", name, bad, text)
+			}
+		}
+		for _, want := range []string{"no restore", "starts clean"} {
+			if !strings.Contains(low, want) {
+				t.Errorf("%s must say %q:\n%s", name, want, text)
+			}
+		}
 	}
-	if !strings.Contains(prompt, "restored") {
-		t.Errorf("the prompt should say it is recoverable: %s", prompt)
+}
+
+func channelRmHelp(t *testing.T) string {
+	t.Helper()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"channel", "rm", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("help: %v", err)
 	}
+	return out.String()
 }
