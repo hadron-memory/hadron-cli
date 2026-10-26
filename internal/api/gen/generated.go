@@ -3083,8 +3083,10 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 // AgentTaskListResponse is returned by AgentTaskList on success.
 type AgentTaskListResponse struct {
 	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
-	// owner / assignee name a party of the App (a ref naming nobody matches
-	// nothing). queued selects pending tasks with no assignee; rootsOnly selects roots. These
+	// owner / assignee / creator name a party of the App (a ref naming nobody matches
+	// nothing; a retired worker is no party to name, so it matches nothing). creator is
+	// the task's creator as createdBy projects it: a worker, or a person for a task they created
+	// themselves (not one their worker created, #2370). queued selects pending tasks with no assignee; rootsOnly selects roots. These
 	// take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
 	// Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
 	// without a session binding (#1755).
@@ -7147,7 +7149,8 @@ type AppMembersAppMembersAppMemberUser struct {
 	Id     string  `json:"id"`
 	Handle *string `json:"handle"`
 	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
-	// handle; null for a handle-less user (who has no URN).
+	// handle; null for a handle-less user and for a user whose handle is
+	// not-URN-legal (neither has a URN).
 	Urn *string `json:"urn"`
 }
 
@@ -10635,7 +10638,7 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 type CastWorkerPreviewCastWorkerPreview struct {
 	// The name the cast would take — the caller's, checked free against the App's FULL roster (retired names stay taken). Required since #1050; a nameless preview refuses exactly where the cast would.
 	Name string `json:"name"`
-	// The casting's role: explicit, else the agent's personaRole dressing.
+	// The casting's role: the agent's personaRole (it cannot be overridden, R222).
 	Role *string `json:"role"`
 	// The role-agent the casting would bind.
 	AgentId   string `json:"agentId"`
@@ -10705,7 +10708,15 @@ type CastWorkerResponse struct {
 	// WORKER_AGENT_NOT_INSTALLED); otherwise role picks the single installed
 	// agent whose personaRole matches (zero / several candidates:
 	// WORKER_AGENT_NOT_FOUND / WORKER_AGENT_AMBIGUOUS, never a guess). The
-	// casting's role defaults to the agent's personaRole when role is omitted.
+	// casting's role is the agent's personaRole and cannot be overridden
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:11, R222): beside an agentRef,
+	// a role that is not that agent's refuses WORKER_ROLE_OVERRIDE_REFUSED.
+	//
+	// The casting check (#2458) is shared with changeWorkerAgent: the App's
+	// holder must be licensed for the agent (AGENT_ORG_GRANT_INACTIVE /
+	// AGENT_ORG_GRANT_REQUIRED; a missing same-organization grant is no refusal
+	// and a revoked one is) and for every Agent its served boot prompt
+	// includes from (BOOT_PROMPT_GRANT_REQUIRED / BOOT_PROMPT_INCLUDE_UNAVAILABLE).
 	//
 	// The name (cor:agt:020:02) is REQUIRED since #1050 — one attempt, and
 	// WORKER_NAME_TAKEN is the answer. There is no register to fall back to: a
@@ -22565,7 +22576,8 @@ type EnsureAppMemberEnsureAppMemberUser struct {
 	Id     string  `json:"id"`
 	Handle *string `json:"handle"`
 	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
-	// handle; null for a handle-less user (who has no URN).
+	// handle; null for a handle-less user and for a user whose handle is
+	// not-URN-legal (neither has a URN).
 	Urn *string `json:"urn"`
 }
 
@@ -58708,8 +58720,8 @@ type UpdateWorkerResponse struct {
 	// Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
 	// A mixed update is atomic. These values reach the next compose/bind via S4.
 	//
-	// The other casting identity fields stay immutable: `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02)
-	// and `role`/`agent` define the casting itself. OMITTING promptOverride
+	// `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02). The agent
+	// (and with it the role) is changed by changeWorkerAgent, not here. OMITTING promptOverride
 	// preserves it; explicit `null` or a blank string CLEARS it, matching the
 	// nullable column and castWorker's blank-is-absent normalization.
 	//
@@ -58739,8 +58751,8 @@ type UpdateWorkerSigningResponse struct {
 	// Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
 	// A mixed update is atomic. These values reach the next compose/bind via S4.
 	//
-	// The other casting identity fields stay immutable: `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02)
-	// and `role`/`agent` define the casting itself. OMITTING promptOverride
+	// `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02). The agent
+	// (and with it the role) is changed by changeWorkerAgent, not here. OMITTING promptOverride
 	// preserves it; explicit `null` or a blank string CLEARS it, matching the
 	// nullable column and castWorker's blank-is-absent normalization.
 	//
@@ -59388,7 +59400,8 @@ func (v *UserApiKeyFields) GetRevokedAt() *string { return v.RevokedAt }
 type UserFields struct {
 	Id string `json:"id"`
 	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
-	// handle; null for a handle-less user (who has no URN).
+	// handle; null for a handle-less user and for a user whose handle is
+	// not-URN-legal (neither has a URN).
 	Urn            *string `json:"urn"`
 	Name           *string `json:"name"`
 	Email          *string `json:"email"`
