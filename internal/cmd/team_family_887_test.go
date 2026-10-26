@@ -12,7 +12,8 @@ import (
 // cli#887: `team worker list|get` show the server's Worker.family as sent, and
 // `team session set-model --family` is the one deliberate path that sends it.
 
-func withFamily(worker, family string) string {
+func withFamily(family string) string {
+	worker := irisWorkerJSON
 	out := strings.Replace(worker, `"memoryId":"mw1"`, `"memoryId":"mw1","family":`+family, 1)
 	if out == worker {
 		panic("withFamily matched nothing — fixture shape changed")
@@ -24,12 +25,12 @@ func runWorkerList887(t *testing.T, extra ...string) string {
 	t.Helper()
 	teamGitDir(t)
 	rows := []string{
-		withFamily(irisWorkerJSON, `"claude"`),
-		strings.Replace(withFamily(irisWorkerJSON, `null`), `"id":"wkr1"`, `"id":"wkr2"`, 1),
-		strings.Replace(withFamily(irisWorkerJSON, `"zeta-unmapped"`), `"id":"wkr1"`, `"id":"wkr3"`, 1),
+		withFamily(`"claude"`),
+		strings.Replace(withFamily(`null`), `"id":"wkr1"`, `"id":"wkr2"`, 1),
+		strings.Replace(withFamily(`"zeta-unmapped"`), `"id":"wkr1"`, `"id":"wkr3"`, 1),
 	}
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Workers":         `{"data":{"workers":{"total":3,"items":[` + strings.Join(rows, ",") + `]}}}`,
+		"WorkersRoster":   `{"data":{"workers":{"total":3,"items":[` + strings.Join(rows, ",") + `]}}}`,
 		"TeamAppIdentity": teamAppIdentityJSON,
 		"AuthContext":     authContextHolgerJSON,
 	})
@@ -79,7 +80,7 @@ func TestTeamWorkerListTableShowsFamilyBesideModel(t *testing.T) {
 // A null family is a dash; the host in a tool name never fills it in.
 func TestTeamWorkerGetFamilyNullIsUnknown(t *testing.T) {
 	teamGitDir(t)
-	w := withFamily(irisWorkerJSON, `null`)
+	w := withFamily(`null`)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":       `{"data":{"worker":` + w + `}}`,
 		"TeamAppIdentity": teamAppIdentityJSON,
@@ -160,7 +161,7 @@ func TestSetModelModelAloneSendsNoFamily(t *testing.T) {
 	if strings.Contains(out, `"family"`) {
 		t.Errorf("model-only receipt keeps its old shape: %s", out)
 	}
-	if !strings.Contains(out, `"model":"glm-4.6"`) {
+	if !strings.Contains(out, `"model": "glm-4.6"`) {
 		t.Errorf("receipt = %s", out)
 	}
 }
