@@ -24,6 +24,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		name             string
 		content          string
 		contentFile      string
+		allowEmpty       bool
 		nodeType         string
 		objectType       string
 		role             string
@@ -202,7 +203,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 			// carrying the get header is refused without a round trip (#873).
 			var body string
 			if contentChanged {
-				b, err := resolveContent(content, contentFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
+				b, err := resolveContent(content, contentFile, f.IOStreams.In, f.IOStreams.IsInputTerminal(), allowEmpty)
 				if err != nil {
 					return err
 				}
@@ -427,6 +428,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 	cmd.Flags().StringVar(&name, "name", "", "new node name")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `new content ("-" reads stdin)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", `read new content from a file ("-" reads piped stdin)`)
+	cmd.Flags().BoolVar(&allowEmpty, "allow-empty", false, "accept a zero-byte --content-file (or empty piped stdin) as a deliberately empty body; without it that is refused, since a failed upstream command leaves exactly that file")
 	cmd.Flags().BoolVar(&force, "force", false, "write a new body even though it starts with the metadata header a text-mode node get prints")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would change, with a diff of the body, without writing")
 	cmd.Flags().StringVar(&nodeType, "type", "", "new node type (comments cannot be retyped; use hadron comment edit)")

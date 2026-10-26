@@ -22,6 +22,7 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		name           string
 		content        string
 		contentFile    string
+		allowEmpty     bool
 		nodeType       string
 		objectType     string
 		description    string
@@ -67,7 +68,7 @@ schema and rejects a violation.`,
 				return err
 			}
 
-			body, err := resolveContent(content, contentFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
+			body, err := resolveContent(content, contentFile, f.IOStreams.In, f.IOStreams.IsInputTerminal(), allowEmpty)
 			if err != nil {
 				return err
 			}
@@ -162,6 +163,7 @@ schema and rejects a violation.`,
 	cmd.Flags().StringVar(&name, "name", "", "node name (required)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `node content ("-" reads stdin)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", `read node content from a file ("-" reads piped stdin)`)
+	cmd.Flags().BoolVar(&allowEmpty, "allow-empty", false, "accept a zero-byte --content-file (or empty piped stdin) as a deliberately empty body; without it that is refused, since a failed upstream command leaves exactly that file")
 	cmd.Flags().StringVar(&nodeType, "type", "", "node type (defaults to the server default; comments use hadron comment create)")
 	cmd.Flags().StringVar(&objectType, "object-type", "", "collection this node belongs to (#725; e.g. competitor), orthogonal to --type")
 	cmd.Flags().StringVar(&description, "description", "", "one-line description")
@@ -185,19 +187,28 @@ schema and rejects a violation.`,
 // The stdin path goes through cmdutil.ReadDocumentStdin, which refuses an
 // interactive terminal — see there for why a node body is a document read and
 // `--data-key -` is not (#643).
-func resolveContent(content, contentFile string, stdin io.Reader, stdinIsTerminal bool) (string, error) {
+//
+// A zero-byte --content-file (or empty piped `--content-file -`) is refused
+// unless allowEmpty (#1035): it is the signature of a failed upstream command,
+// and an empty body is a real clear on the wire. `--content ""` and `--content -`
+// are unchanged.
+func resolveContent(content, contentFile string, stdin io.Reader, stdinIsTerminal, allowEmpty bool) (string, error) {
 	if content != "" && contentFile != "" {
 		return "", exitcode.Newf(exitcode.Usage, "--content and --content-file are mutually exclusive")
 	}
 	if contentFile == "-" {
-		return cmdutil.ReadDocumentStdin(stdin, stdinIsTerminal, "--content-file -", "--content-file")
+		body, err := cmdutil.ReadDocumentStdin(stdin, stdinIsTerminal, "--content-file -", "--content-file")
+		if err != nil {
+			return "", err
+		}
+		return body, cmdutil.RefuseEmptyFileInput(body, "stdin", "--content-file -", "--allow-empty", allowEmpty)
 	}
 	if contentFile != "" {
 		data, err := os.ReadFile(contentFile)
 		if err != nil {
 			return "", exitcode.Newf(exitcode.Usage, "reading --content-file: %v", err)
 		}
-		return string(data), nil
+		return string(data), cmdutil.RefuseEmptyFileInput(string(data), "file "+contentFile, "--content-file", "--allow-empty", allowEmpty)
 	}
 	if content == "-" {
 		return cmdutil.ReadDocumentStdin(stdin, stdinIsTerminal, "--content -", "--content-file")
