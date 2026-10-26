@@ -25,7 +25,7 @@ const selectHelp = "name an automation (`schedule/<name>`, `webhook/<name>` or a
 // addSelectionArgs wires the optional <name> positional and --run.
 func addSelectionArgs(cmd *cobra.Command, run *string) {
 	cmd.Args = cobra.MaximumNArgs(1)
-	cmd.Flags().StringVar(run, "run", "", "the manual run whose approval this is (the run id printed by the refused run); instead of a name")
+	cmd.Flags().StringVar(run, "run", "", "the manual run whose approval this is (the run id printed by the refused run); instead of a name; --app is ignored for this lookup")
 }
 
 // resolveSelection turns what the person typed into one listed trigger. A
