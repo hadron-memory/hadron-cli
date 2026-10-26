@@ -10468,6 +10468,9 @@ func (v *CastWorkerCastWorker) GetRepos() []string { return v.WorkerFields.Repos
 // GetMemoryId returns CastWorkerCastWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
+// GetFamily returns CastWorkerCastWorker.Family, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetFamily() *string { return v.WorkerFields.Family }
+
 // GetHeldByUserId returns CastWorkerCastWorker.HeldByUserId, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
 
@@ -10559,6 +10562,8 @@ type __premarshalCastWorkerCastWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	Family *string `json:"family"`
+
 	HeldByUserId *string `json:"heldByUserId"`
 
 	HeldAt *string `json:"heldAt"`
@@ -10607,6 +10612,7 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
@@ -25874,6 +25880,9 @@ func (v *GetWorkerWorker) GetRepos() []string { return v.WorkerFields.Repos }
 // GetMemoryId returns GetWorkerWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
+// GetFamily returns GetWorkerWorker.Family, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetFamily() *string { return v.WorkerFields.Family }
+
 // GetHeldByUserId returns GetWorkerWorker.HeldByUserId, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
 
@@ -25965,6 +25974,8 @@ type __premarshalGetWorkerWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	Family *string `json:"family"`
+
 	HeldByUserId *string `json:"heldByUserId"`
 
 	HeldAt *string `json:"heldAt"`
@@ -26013,6 +26024,7 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
@@ -37934,6 +37946,11 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetMemoryId() *st
 	return v.WorkerFields.MemoryId
 }
 
+// GetFamily returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Family, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetFamily() *string {
+	return v.WorkerFields.Family
+}
+
 // GetHeldByUserId returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.HeldByUserId, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetHeldByUserId() *string {
 	return v.WorkerFields.HeldByUserId
@@ -38041,6 +38058,8 @@ type __premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	Family *string `json:"family"`
+
 	HeldByUserId *string `json:"heldByUserId"`
 
 	HeldAt *string `json:"heldAt"`
@@ -38089,6 +38108,7 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) __premarshalJSON(
 	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
@@ -40521,6 +40541,9 @@ func (v *RetireWorkerRetireWorker) GetRepos() []string { return v.WorkerFields.R
 // GetMemoryId returns RetireWorkerRetireWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
+// GetFamily returns RetireWorkerRetireWorker.Family, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetFamily() *string { return v.WorkerFields.Family }
+
 // GetHeldByUserId returns RetireWorkerRetireWorker.HeldByUserId, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
 
@@ -40612,6 +40635,8 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	Family *string `json:"family"`
+
 	HeldByUserId *string `json:"heldByUserId"`
 
 	HeldAt *string `json:"heldAt"`
@@ -40660,6 +40685,7 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
@@ -44734,6 +44760,11 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetMemoryId() *string {
 	return v.WorkerFields.MemoryId
 }
 
+// GetFamily returns SetWorkerBootPromptSetWorkerBootPromptWorker.Family, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetFamily() *string {
+	return v.WorkerFields.Family
+}
+
 // GetHeldByUserId returns SetWorkerBootPromptSetWorkerBootPromptWorker.HeldByUserId, and is useful for accessing the field via an interface.
 func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetHeldByUserId() *string {
 	return v.WorkerFields.HeldByUserId
@@ -44841,6 +44872,8 @@ type __premarshalSetWorkerBootPromptSetWorkerBootPromptWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	Family *string `json:"family"`
+
 	HeldByUserId *string `json:"heldByUserId"`
 
 	HeldAt *string `json:"heldAt"`
@@ -44889,6 +44922,7 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) __premarshalJSON() (*__pr
 	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
@@ -45011,6 +45045,11 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetMemoryId() *string {
 	return v.WorkerFields.MemoryId
 }
 
+// GetFamily returns SetWorkerReportsToSetWorkerReportsToWorker.Family, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetFamily() *string {
+	return v.WorkerFields.Family
+}
+
 // GetHeldByUserId returns SetWorkerReportsToSetWorkerReportsToWorker.HeldByUserId, and is useful for accessing the field via an interface.
 func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetHeldByUserId() *string {
 	return v.WorkerFields.HeldByUserId
@@ -45118,6 +45157,8 @@ type __premarshalSetWorkerReportsToSetWorkerReportsToWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	Family *string `json:"family"`
+
 	HeldByUserId *string `json:"heldByUserId"`
 
 	HeldAt *string `json:"heldAt"`
@@ -45166,6 +45207,7 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
@@ -58793,6 +58835,9 @@ func (v *UpdateWorkerSigningUpdateWorker) GetRepos() []string { return v.WorkerF
 // GetMemoryId returns UpdateWorkerSigningUpdateWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerSigningUpdateWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
+// GetFamily returns UpdateWorkerSigningUpdateWorker.Family, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetFamily() *string { return v.WorkerFields.Family }
+
 // GetHeldByUserId returns UpdateWorkerSigningUpdateWorker.HeldByUserId, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerSigningUpdateWorker) GetHeldByUserId() *string {
 	return v.WorkerFields.HeldByUserId
@@ -58890,6 +58935,8 @@ type __premarshalUpdateWorkerSigningUpdateWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	Family *string `json:"family"`
+
 	HeldByUserId *string `json:"heldByUserId"`
 
 	HeldAt *string `json:"heldAt"`
@@ -58938,6 +58985,7 @@ func (v *UpdateWorkerSigningUpdateWorker) __premarshalJSON() (*__premarshalUpdat
 	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
@@ -59021,6 +59069,9 @@ func (v *UpdateWorkerUpdateWorker) GetRepos() []string { return v.WorkerFields.R
 
 // GetMemoryId returns UpdateWorkerUpdateWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerUpdateWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+
+// GetFamily returns UpdateWorkerUpdateWorker.Family, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetFamily() *string { return v.WorkerFields.Family }
 
 // GetHeldByUserId returns UpdateWorkerUpdateWorker.HeldByUserId, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerUpdateWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
@@ -59113,6 +59164,8 @@ type __premarshalUpdateWorkerUpdateWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	Family *string `json:"family"`
+
 	HeldByUserId *string `json:"heldByUserId"`
 
 	HeldAt *string `json:"heldAt"`
@@ -59161,6 +59214,7 @@ func (v *UpdateWorkerUpdateWorker) __premarshalJSON() (*__premarshalUpdateWorker
 	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
@@ -60088,6 +60142,13 @@ type WorkerFields struct {
 	Repos []string `json:"repos"`
 	// The worker-scoped working memory in the App's container (null until provisioned).
 	MemoryId *string `json:"memoryId"`
+	// #1707 — the model family of this worker's binding (hrn:node:hadronmemory.com:specs:cor:agt:060:04):
+	// its newest open session's family. It follows the binding, not activity: a
+	// quiet session keeps it, and it is cleared when the session ends or replaced
+	// by a newer bind. Null when unbound, when the binding reported none, or on
+	// the same read gate as hasLiveSession. A matching input, never an
+	// authorization input.
+	Family *string `json:"family"`
 	// #1050 — the human HOLDING this name, or null when nobody does.
 	//
 	// A name is held by a person, not by a live session: expiry, a reap, or a
@@ -60207,6 +60268,9 @@ func (v *WorkerFields) GetRepos() []string { return v.Repos }
 
 // GetMemoryId returns WorkerFields.MemoryId, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetMemoryId() *string { return v.MemoryId }
+
+// GetFamily returns WorkerFields.Family, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetFamily() *string { return v.Family }
 
 // GetHeldByUserId returns WorkerFields.HeldByUserId, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetHeldByUserId() *string { return v.HeldByUserId }
@@ -60726,6 +60790,13 @@ type WorkerRosterFields struct {
 	LastActiveAt *string `json:"lastActiveAt"`
 	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
 	RetiredAt *string `json:"retiredAt"`
+	// #1707 — the model family of this worker's binding (hrn:node:hadronmemory.com:specs:cor:agt:060:04):
+	// its newest open session's family. It follows the binding, not activity: a
+	// quiet session keeps it, and it is cleared when the session ends or replaced
+	// by a newer bind. Null when unbound, when the binding reported none, or on
+	// the same read gate as hasLiveSession. A matching input, never an
+	// authorization input.
+	Family *string `json:"family"`
 	// #2252 — the model this worker's binding last reported: its newest open session's, the same fold, gate and
 	// lifecycle as family. Null when unbound, when the binding reported none (an older session's is never
 	// inherited), or on the same read gate as hasLiveSession. Self-declared: advisory, never authorization.
@@ -60795,6 +60866,9 @@ func (v *WorkerRosterFields) GetLastActiveAt() *string { return v.LastActiveAt }
 
 // GetRetiredAt returns WorkerRosterFields.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetRetiredAt() *string { return v.RetiredAt }
+
+// GetFamily returns WorkerRosterFields.Family, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetFamily() *string { return v.Family }
 
 // GetModel returns WorkerRosterFields.Model, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetModel() *string { return v.Model }
@@ -61029,6 +61103,11 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRetiredAt() *string {
 	return v.WorkerRosterFields.RetiredAt
 }
 
+// GetFamily returns WorkersRosterWorkersWorkersPageItemsWorker.Family, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetFamily() *string {
+	return v.WorkerRosterFields.Family
+}
+
 // GetModel returns WorkersRosterWorkersWorkersPageItemsWorker.Model, and is useful for accessing the field via an interface.
 func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetModel() *string {
 	return v.WorkerRosterFields.Model
@@ -61121,6 +61200,8 @@ type __premarshalWorkersRosterWorkersWorkersPageItemsWorker struct {
 
 	RetiredAt *string `json:"retiredAt"`
 
+	Family *string `json:"family"`
+
 	Model *string `json:"model"`
 
 	ModelReportedAt *string `json:"modelReportedAt"`
@@ -61163,6 +61244,7 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) __premarshalJSON() (*__prem
 	retval.HasLiveSession = v.WorkerRosterFields.HasLiveSession
 	retval.LastActiveAt = v.WorkerRosterFields.LastActiveAt
 	retval.RetiredAt = v.WorkerRosterFields.RetiredAt
+	retval.Family = v.WorkerRosterFields.Family
 	retval.Model = v.WorkerRosterFields.Model
 	retval.ModelReportedAt = v.WorkerRosterFields.ModelReportedAt
 	retval.Tier = v.WorkerRosterFields.Tier
@@ -61268,6 +61350,9 @@ func (v *WorkersWorkersWorkersPageItemsWorker) GetRepos() []string { return v.Wo
 // GetMemoryId returns WorkersWorkersWorkersPageItemsWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
+// GetFamily returns WorkersWorkersWorkersPageItemsWorker.Family, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetFamily() *string { return v.WorkerFields.Family }
+
 // GetHeldByUserId returns WorkersWorkersWorkersPageItemsWorker.HeldByUserId, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetHeldByUserId() *string {
 	return v.WorkerFields.HeldByUserId
@@ -61371,6 +61456,8 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	Family *string `json:"family"`
+
 	HeldByUserId *string `json:"heldByUserId"`
 
 	HeldAt *string `json:"heldAt"`
@@ -61419,6 +61506,7 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
 	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.HasLiveSession = v.WorkerFields.HasLiveSession
@@ -66935,6 +67023,7 @@ type __UpdateTeamSessionInput struct {
 	PrNumber *int    `json:"prNumber,omitempty"`
 	Branch   *string `json:"branch,omitempty"`
 	LlmModel *string `json:"llmModel,omitempty"`
+	Family   *string `json:"family,omitempty"`
 }
 
 // GetId returns __UpdateTeamSessionInput.Id, and is useful for accessing the field via an interface.
@@ -66948,6 +67037,9 @@ func (v *__UpdateTeamSessionInput) GetBranch() *string { return v.Branch }
 
 // GetLlmModel returns __UpdateTeamSessionInput.LlmModel, and is useful for accessing the field via an interface.
 func (v *__UpdateTeamSessionInput) GetLlmModel() *string { return v.LlmModel }
+
+// GetFamily returns __UpdateTeamSessionInput.Family, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamSessionInput) GetFamily() *string { return v.Family }
 
 // __UpdateTickerInput is used internally by genqlient
 type __UpdateTickerInput struct {
@@ -70272,6 +70364,7 @@ fragment WorkerFields on Worker {
 	bootPromptTargetDeleted
 	repos
 	memoryId
+	family
 	heldByUserId
 	heldAt
 	hasLiveSession
@@ -76784,6 +76877,7 @@ fragment WorkerFields on Worker {
 	bootPromptTargetDeleted
 	repos
 	memoryId
+	family
 	heldByUserId
 	heldAt
 	hasLiveSession
@@ -80582,6 +80676,7 @@ fragment WorkerFields on Worker {
 	bootPromptTargetDeleted
 	repos
 	memoryId
+	family
 	heldByUserId
 	heldAt
 	hasLiveSession
@@ -81678,6 +81773,7 @@ fragment WorkerFields on Worker {
 	bootPromptTargetDeleted
 	repos
 	memoryId
+	family
 	heldByUserId
 	heldAt
 	hasLiveSession
@@ -83168,6 +83264,7 @@ fragment WorkerFields on Worker {
 	bootPromptTargetDeleted
 	repos
 	memoryId
+	family
 	heldByUserId
 	heldAt
 	hasLiveSession
@@ -83249,6 +83346,7 @@ fragment WorkerFields on Worker {
 	bootPromptTargetDeleted
 	repos
 	memoryId
+	family
 	heldByUserId
 	heldAt
 	hasLiveSession
@@ -87835,8 +87933,8 @@ func UpdateTeamRoleMeta(
 
 // The mutation executed by UpdateTeamSession.
 const UpdateTeamSession_Operation = `
-mutation UpdateTeamSession ($id: ID!, $prNumber: Int, $branch: String, $llmModel: String) {
-	updateSession(id: $id, prNumber: $prNumber, branch: $branch, llmModel: $llmModel) {
+mutation UpdateTeamSession ($id: ID!, $prNumber: Int, $branch: String, $llmModel: String, $family: String) {
+	updateSession(id: $id, prNumber: $prNumber, branch: $branch, llmModel: $llmModel, family: $family) {
 		... TeamSessionFields
 	}
 }
@@ -87886,6 +87984,7 @@ func UpdateTeamSession(
 	prNumber *int,
 	branch *string,
 	llmModel *string,
+	family *string,
 ) (data_ *UpdateTeamSessionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateTeamSession",
@@ -87895,6 +87994,7 @@ func UpdateTeamSession(
 			PrNumber: prNumber,
 			Branch:   branch,
 			LlmModel: llmModel,
+			Family:   family,
 		},
 	}
 
@@ -88063,6 +88163,7 @@ fragment WorkerFields on Worker {
 	bootPromptTargetDeleted
 	repos
 	memoryId
+	family
 	heldByUserId
 	heldAt
 	hasLiveSession
@@ -88160,6 +88261,7 @@ fragment WorkerFields on Worker {
 	bootPromptTargetDeleted
 	repos
 	memoryId
+	family
 	heldByUserId
 	heldAt
 	hasLiveSession
@@ -88580,6 +88682,7 @@ fragment WorkerFields on Worker {
 	bootPromptTargetDeleted
 	repos
 	memoryId
+	family
 	heldByUserId
 	heldAt
 	hasLiveSession
@@ -88669,6 +88772,7 @@ fragment WorkerRosterFields on Worker {
 	hasLiveSession
 	lastActiveAt
 	retiredAt
+	family
 	model
 	modelReportedAt
 	tier

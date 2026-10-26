@@ -2041,7 +2041,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				_, branchName, _ := strings.Cut(canonical, ":")
 				branchArg = &branchName
 			}
-			if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil); err != nil {
+			if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
 				return api.MapError(err)
 			}
 			recorded := "session"

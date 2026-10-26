@@ -418,7 +418,7 @@ reads as MORE idle than it was, never less.`,
 					return describeHolder(ctx, client, id)
 				})
 				now := time.Now()
-				t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST RECORDED ACTIVITY", "MODEL", "TIER", "RETIRED", "URN", "ID")
+				t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST RECORDED ACTIVITY", "FAMILY", "MODEL", "TIER", "RETIRED", "URN", "ID")
 				for _, wk := range workers {
 					retired := "—"
 					if wk.RetiredAt != nil {
@@ -427,7 +427,7 @@ reads as MORE idle than it was, never less.`,
 					t.Row(wk.Name, dash(wk.Role), reportsToLabel(wk.ReportsTo, wk.ReportsToRetired, wk.ReportsTo != nil || workingStateVisible(wk.HasLiveSession)),
 						renderHeldBy(wk.HeldByUserID, wk.HasLiveSession, selfID, label),
 						renderLastDriven(wk.HasLiveSession, wk.LastActiveAt, now),
-						dash(wk.Model), dash(wk.Tier),
+						dash(wk.Family), dash(wk.Model), dash(wk.Tier),
 						retired, dash(wk.URN), wk.ID)
 				}
 				return t.Flush()
@@ -512,6 +512,11 @@ check result stays unavailable. No local clock or task-count inference is made.`
 				}
 				if dto.MemoryID != nil {
 					fmt.Fprintf(out, "  memory: %s\n", *dto.MemoryID)
+				}
+				// As the server recorded it (cli#887): unknown prints nothing,
+				// and a host or tool name is never promoted to a family.
+				if dto.Family != nil && *dto.Family != "" {
+					fmt.Fprintf(out, "  family: %s\n", *dto.Family)
 				}
 				// The HOLD (cor:agt:020:09) — whose name this is, which is a
 				// different question from whether a session is live. Rendered

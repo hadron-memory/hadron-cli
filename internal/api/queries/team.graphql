@@ -76,6 +76,10 @@ fragment WorkerFields on Worker {
   # make an unconfigured team look misconfigured.
   repos
   memoryId
+  # hadron-cli#887: the bound session's model family, as the server records it
+  # (cor:agt:060:04). Null is unknown and stays null; a host such as
+  # `claude-code` is not a family and the CLI never fills one in.
+  family
   # The HOLD (hadron-server#1050, cor:agt:020:09): whose name this is, and
   # since when. A name is held by a PERSON and only an explicit release frees
   # one — no session end, idle window, expiry or reap does.
@@ -365,6 +369,11 @@ fragment WorkerRosterFields on Worker {
   retiredAt
   # hadron-cli#993: self-reported model and the server-derived advisory tier,
   # beside the other roster facts. Copied as the server sends them.
+  #
+  # hadron-cli#887: `family` is the same fold (the newest open session's), as the
+  # server records it. Null stays null: a host such as `claude-code` is never a
+  # family, and the CLI derives nothing.
+  family
   model
   modelReportedAt
   tier
@@ -629,12 +638,16 @@ mutation UpdateTeamSession(
   # @genqlient(omitempty: true)
   $branch: String
   # #995 B1: the holder-reported model. Omitted, never null — null would CLEAR
-  # the stored model. `family` is deliberately not a variable: the server
-  # derives family and tier from the model itself.
+  # the stored model.
   # @genqlient(omitempty: true)
   $llmModel: String
+  # hadron-cli#887: an explicit family (server#1931: it wins over the derivation
+  # from the model; omitted preserves). Only `session set-model --family` ever
+  # supplies it — never the sync-model hook, never inferred from a tool name.
+  # @genqlient(omitempty: true)
+  $family: String
 ) {
-  updateSession(id: $id, prNumber: $prNumber, branch: $branch, llmModel: $llmModel) {
+  updateSession(id: $id, prNumber: $prNumber, branch: $branch, llmModel: $llmModel, family: $family) {
     ...TeamSessionFields
   }
 }

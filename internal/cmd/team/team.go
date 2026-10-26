@@ -182,6 +182,9 @@ type workerDTO struct {
 	// rather than null.
 	Repos    []string `json:"repos"`
 	MemoryID *string  `json:"memoryId"`
+	// Family is the bound session's model family as the server sends it
+	// (hadron-cli#887); same semantics as workerRosterDTO.Family.
+	Family *string `json:"family"`
 	// HeldByUserID / HeldAt are the HOLD (cor:agt:020:09): whose name this is.
 	// The user ID rather than a rendered name, per
 	// review:entity-fields-not-display-labels — a label drops the actionable
@@ -230,7 +233,7 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 		Prompt: w.Prompt, PromptOverride: w.PromptOverride,
 		Signature: w.Signature, Trailer: w.Trailer,
 		BootPromptRef: w.BootPromptRef, BootPromptTargetDeleted: w.BootPromptTargetDeleted,
-		Repos: nonNilRepos(w.Repos), MemoryID: w.MemoryId,
+		Repos: nonNilRepos(w.Repos), MemoryID: w.MemoryId, Family: w.Family,
 		HeldByUserID: w.HeldByUserId, HeldAt: w.HeldAt,
 		HasLiveSession: w.HasLiveSession, LastActiveAt: w.LastActiveAt,
 		RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
@@ -274,6 +277,9 @@ type workerRosterDTO struct {
 	// Same field and same [] semantics as workerDTO.Repos.
 	Repos    []string `json:"repos"`
 	MemoryID *string  `json:"memoryId"`
+	// hadron-cli#887: the bound session's model family as the server sends it.
+	// Null is unknown and stays null; never inferred from a tool or host.
+	Family *string `json:"family"`
 	// hadron-cli#487 — the four the roster needs to answer "is anyone actually
 	// driving these names". Same keys, same spellings and same semantics as
 	// workerDTO above, including the omitempty split: an entity that answers
@@ -302,6 +308,7 @@ func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
 		Name: w.Name, Role: w.Role, PromptOverride: w.PromptOverride,
 		Repos:          nonNilRepos(w.Repos),
 		MemoryID:       w.MemoryId,
+		Family:         w.Family,
 		HeldByUserID:   w.HeldByUserId,
 		HeldAt:         w.HeldAt,
 		HasLiveSession: w.HasLiveSession,
