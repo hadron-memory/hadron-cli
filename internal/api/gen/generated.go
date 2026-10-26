@@ -22110,6 +22110,9 @@ func (v *EndTeamSessionEndSession) GetAgentId() *string { return v.TeamSessionFi
 // GetWorkerId returns EndTeamSessionEndSession.WorkerId, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionEndSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
+// GetRole returns EndTeamSessionEndSession.Role, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetRole() *string { return v.TeamSessionFields.Role }
+
 // GetWorker returns EndTeamSessionEndSession.Worker, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionEndSession) GetWorker() *TeamSessionFieldsWorker {
 	return v.TeamSessionFields.Worker
@@ -22187,6 +22190,8 @@ type __premarshalEndTeamSessionEndSession struct {
 
 	WorkerId *string `json:"workerId"`
 
+	Role *string `json:"role"`
+
 	Worker *TeamSessionFieldsWorker `json:"worker"`
 
 	UserId *string `json:"userId"`
@@ -22228,6 +22233,7 @@ func (v *EndTeamSessionEndSession) __premarshalJSON() (*__premarshalEndTeamSessi
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Role = v.TeamSessionFields.Role
 	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
@@ -22346,6 +22352,9 @@ func (v *EndTeamSessionWithResumeClaimEndSession) GetWorkerId() *string {
 	return v.TeamSessionFields.WorkerId
 }
 
+// GetRole returns EndTeamSessionWithResumeClaimEndSession.Role, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithResumeClaimEndSession) GetRole() *string { return v.TeamSessionFields.Role }
+
 // GetWorker returns EndTeamSessionWithResumeClaimEndSession.Worker, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionWithResumeClaimEndSession) GetWorker() *TeamSessionFieldsWorker {
 	return v.TeamSessionFields.Worker
@@ -22435,6 +22444,8 @@ type __premarshalEndTeamSessionWithResumeClaimEndSession struct {
 
 	WorkerId *string `json:"workerId"`
 
+	Role *string `json:"role"`
+
 	Worker *TeamSessionFieldsWorker `json:"worker"`
 
 	UserId *string `json:"userId"`
@@ -22476,6 +22487,7 @@ func (v *EndTeamSessionWithResumeClaimEndSession) __premarshalJSON() (*__premars
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Role = v.TeamSessionFields.Role
 	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
@@ -25227,6 +25239,9 @@ func (v *GetTeamSessionSession) GetAgentId() *string { return v.TeamSessionField
 // GetWorkerId returns GetTeamSessionSession.WorkerId, and is useful for accessing the field via an interface.
 func (v *GetTeamSessionSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
+// GetRole returns GetTeamSessionSession.Role, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetRole() *string { return v.TeamSessionFields.Role }
+
 // GetWorker returns GetTeamSessionSession.Worker, and is useful for accessing the field via an interface.
 func (v *GetTeamSessionSession) GetWorker() *TeamSessionFieldsWorker {
 	return v.TeamSessionFields.Worker
@@ -25302,6 +25317,8 @@ type __premarshalGetTeamSessionSession struct {
 
 	WorkerId *string `json:"workerId"`
 
+	Role *string `json:"role"`
+
 	Worker *TeamSessionFieldsWorker `json:"worker"`
 
 	UserId *string `json:"userId"`
@@ -25343,6 +25360,7 @@ func (v *GetTeamSessionSession) __premarshalJSON() (*__premarshalGetTeamSessionS
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Role = v.TeamSessionFields.Role
 	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
@@ -40311,6 +40329,11 @@ func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetWorkerId()
 	return v.TeamSessionFields.WorkerId
 }
 
+// GetRole returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Role, and is useful for accessing the field via an interface.
+func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetRole() *string {
+	return v.TeamSessionFields.Role
+}
+
 // GetWorker returns ResumeTeamSessionResumeSessionResumeSessionResultSession.Worker, and is useful for accessing the field via an interface.
 func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) GetWorker() *TeamSessionFieldsWorker {
 	return v.TeamSessionFields.Worker
@@ -40408,6 +40431,8 @@ type __premarshalResumeTeamSessionResumeSessionResumeSessionResultSession struct
 
 	WorkerId *string `json:"workerId"`
 
+	Role *string `json:"role"`
+
 	Worker *TeamSessionFieldsWorker `json:"worker"`
 
 	UserId *string `json:"userId"`
@@ -40449,6 +40474,7 @@ func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) __premarshalJ
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Role = v.TeamSessionFields.Role
 	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
@@ -46780,6 +46806,9 @@ func (v *StartTeamSessionStartSession) GetAgentId() *string { return v.TeamSessi
 // GetWorkerId returns StartTeamSessionStartSession.WorkerId, and is useful for accessing the field via an interface.
 func (v *StartTeamSessionStartSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
+// GetRole returns StartTeamSessionStartSession.Role, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetRole() *string { return v.TeamSessionFields.Role }
+
 // GetWorker returns StartTeamSessionStartSession.Worker, and is useful for accessing the field via an interface.
 func (v *StartTeamSessionStartSession) GetWorker() *TeamSessionFieldsWorker {
 	return v.TeamSessionFields.Worker
@@ -46859,6 +46888,8 @@ type __premarshalStartTeamSessionStartSession struct {
 
 	WorkerId *string `json:"workerId"`
 
+	Role *string `json:"role"`
+
 	Worker *TeamSessionFieldsWorker `json:"worker"`
 
 	UserId *string `json:"userId"`
@@ -46901,6 +46932,7 @@ func (v *StartTeamSessionStartSession) __premarshalJSON() (*__premarshalStartTea
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Role = v.TeamSessionFields.Role
 	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
@@ -50123,6 +50155,8 @@ type TeamSessionFields struct {
 	AgentId *string `json:"agentId"`
 	// #974 / cor:agt:020:03: the Worker (named casting) this session works as.
 	WorkerId *string `json:"workerId"`
+	// #2458 (hrn:node:hadronmemory.com:specs:cor:dmo:050:11): the worker's role when this session was bound; it does not follow a later change of the worker's agent. Null without a worker.
+	Role *string `json:"role"`
 	// #980 / cor:agt:020:02: the Worker behind workerId, nested — so a session
 	// list can render the app-qualified compound ('eng-team/Iris') without a
 	// per-row worker(ref:) + app(ref:) round trip (Worker carries name and app).
@@ -50157,6 +50191,9 @@ func (v *TeamSessionFields) GetAgentId() *string { return v.AgentId }
 
 // GetWorkerId returns TeamSessionFields.WorkerId, and is useful for accessing the field via an interface.
 func (v *TeamSessionFields) GetWorkerId() *string { return v.WorkerId }
+
+// GetRole returns TeamSessionFields.Role, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetRole() *string { return v.Role }
 
 // GetWorker returns TeamSessionFields.Worker, and is useful for accessing the field via an interface.
 func (v *TeamSessionFields) GetWorker() *TeamSessionFieldsWorker { return v.Worker }
@@ -50402,6 +50439,9 @@ func (v *TeamSessionsSessionsSession) GetAgentId() *string { return v.TeamSessio
 // GetWorkerId returns TeamSessionsSessionsSession.WorkerId, and is useful for accessing the field via an interface.
 func (v *TeamSessionsSessionsSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
+// GetRole returns TeamSessionsSessionsSession.Role, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetRole() *string { return v.TeamSessionFields.Role }
+
 // GetWorker returns TeamSessionsSessionsSession.Worker, and is useful for accessing the field via an interface.
 func (v *TeamSessionsSessionsSession) GetWorker() *TeamSessionFieldsWorker {
 	return v.TeamSessionFields.Worker
@@ -50479,6 +50519,8 @@ type __premarshalTeamSessionsSessionsSession struct {
 
 	WorkerId *string `json:"workerId"`
 
+	Role *string `json:"role"`
+
 	Worker *TeamSessionFieldsWorker `json:"worker"`
 
 	UserId *string `json:"userId"`
@@ -50520,6 +50562,7 @@ func (v *TeamSessionsSessionsSession) __premarshalJSON() (*__premarshalTeamSessi
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Role = v.TeamSessionFields.Role
 	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
@@ -58274,6 +58317,9 @@ func (v *UpdateTeamSessionUpdateSession) GetAgentId() *string { return v.TeamSes
 // GetWorkerId returns UpdateTeamSessionUpdateSession.WorkerId, and is useful for accessing the field via an interface.
 func (v *UpdateTeamSessionUpdateSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
+// GetRole returns UpdateTeamSessionUpdateSession.Role, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetRole() *string { return v.TeamSessionFields.Role }
+
 // GetWorker returns UpdateTeamSessionUpdateSession.Worker, and is useful for accessing the field via an interface.
 func (v *UpdateTeamSessionUpdateSession) GetWorker() *TeamSessionFieldsWorker {
 	return v.TeamSessionFields.Worker
@@ -58351,6 +58397,8 @@ type __premarshalUpdateTeamSessionUpdateSession struct {
 
 	WorkerId *string `json:"workerId"`
 
+	Role *string `json:"role"`
+
 	Worker *TeamSessionFieldsWorker `json:"worker"`
 
 	UserId *string `json:"userId"`
@@ -58392,6 +58440,7 @@ func (v *UpdateTeamSessionUpdateSession) __premarshalJSON() (*__premarshalUpdate
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Role = v.TeamSessionFields.Role
 	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
@@ -75209,6 +75258,7 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	role
 	worker {
 		id
 		name
@@ -75294,6 +75344,7 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	role
 	worker {
 		id
 		name
@@ -76690,6 +76741,7 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	role
 	worker {
 		id
 		name
@@ -81700,6 +81752,7 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	role
 	worker {
 		id
 		name
@@ -83854,6 +83907,7 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	role
 	worker {
 		id
 		name
@@ -84987,6 +85041,7 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	role
 	worker {
 		id
 		name
@@ -87955,6 +88010,7 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	role
 	worker {
 		id
 		name

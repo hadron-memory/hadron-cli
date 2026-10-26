@@ -975,6 +975,13 @@ func codeForExtension(code string) int {
 	// `session end --resume-claim`, before the end, instead.
 	case code == "SESSION_ENDED":
 		return exitcode.Conflict
+	// A role typed in beside an agent (cor:dmo:050:11, R222; hadron-cli#1087):
+	// the role follows the agent, and the message names the agent's role. The
+	// caller fixes it by dropping the flag, which is a usage error. `worker
+	// cast` refuses the pair locally, so this is for older callers and other
+	// paths that still send both.
+	case code == "WORKER_ROLE_OVERRIDE_REFUSED":
+		return exitcode.Usage
 	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
 		strings.HasSuffix(code, "_TOO_LARGE") || strings.HasSuffix(code, "_REQUIRED"):
 		return exitcode.Usage
