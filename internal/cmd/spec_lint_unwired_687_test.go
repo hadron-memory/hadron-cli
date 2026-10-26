@@ -20,7 +20,7 @@ func unwiredSpec(loc, title string, edges ...string) string {
 	var out []string
 	for i, e := range edges {
 		label, target, _ := strings.Cut(e, "|")
-		out = append(out, fmt.Sprintf(`{"label":%q,"priority":0,"condition":null,"target":{"id":"t%d-%s","loc":%q,"memoryId":"mem1"}}`,
+		out = append(out, fmt.Sprintf(`{"name":%q,"priority":0,"condition":null,"target":{"id":"t%d-%s","loc":%q,"memoryId":"mem1"}}`,
 			label, i, loc, target))
 	}
 	body, _ := json.Marshal(specBatchContent)

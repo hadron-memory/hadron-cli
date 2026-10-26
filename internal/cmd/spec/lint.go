@@ -59,7 +59,7 @@ const abstractTightHeadroom = 150
 
 func newCmdLint(f *cmdutil.Factory) *cobra.Command {
 	var memory, product, module, prefixFlag string
-	var all, strict bool
+	var all, strict, unwired bool
 	cmd := &cobra.Command{
 		Use:     "lint [<citation>]",
 		Aliases: []string{"check", "validate"},
@@ -107,6 +107,15 @@ A spec at any loc owes no parent, contract or index: the legacy tier checks
 the old content rubric (#708): a missing abstract, a missing "what invalidates"
 statement, a missing data.version, an unreplaced scaffold body and the
 placeholder-contract exemption are no longer findings, at any loc.
+
+--unwired is the repair report for specs whose edges were never written (a
+create that failed half way, #687). It looks only at legacy-grammar citations
+and reports, as info, each edge legacy "spec new" (--product/--module/
+--feature) plans that the spec lacks: the table-of-contents edge to its parent
+and the inheritance edge to its contract, each when that target exists. Every
+finding prints the exact "spec link" that adds the edge; lint itself writes
+nothing. Info never fails --strict: a spec created at a loc on purpose, with no
+edges, is not an error.
 
 In a DRAFT corpus (one with no minted node yet — hadron-server#1591), a reserved
 placeholder is reported once as "placeholder" instead of being linted, and a
@@ -277,6 +286,13 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 				}
 				findings = append(findings, unresolved...)
 			}
+			if unwired {
+				fs, err := unwiredFindings(nodes, memURN, specLocExists(cmd, client, memURN, inScope))
+				if err != nil {
+					return err
+				}
+				findings = append(findings, fs...)
+			}
 			if strict {
 				for i := range findings {
 					if findings[i].Severity == sevWarning {
@@ -318,6 +334,7 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 	cmd.Flags().StringVar(&module, "module", "", "lint every spec under this module (optionally within --product)")
 	cmd.Flags().BoolVar(&all, "all", false, "lint every spec in the memory")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
+	cmd.Flags().BoolVar(&unwired, "unwired", false, "also report (as info) each legacy-citation spec missing an edge legacy spec new plans, with the spec link command that adds it")
 	return cmd
 }
 

@@ -1680,7 +1680,13 @@ Conventions:
   abstract alone, such as a body-only edit or the one `spec supersede` writes,
   still succeeds. Distilling is the wrong remedy in all three — on a
   spec whose sentences are all on-subject, cutting one drops a contract, so the
-  fix is a supersede-level split. `spec lint` also
+  fix is a supersede-level split. `spec lint --unwired` (opt-in, #687) is
+  the repair report for specs whose edges were never written: for each
+  legacy-grammar citation it reports, as `unwired` info (never failing
+  `--strict`), each edge legacy `spec new` plans that the spec lacks (the
+  table-of-contents edge to its parent, the inheritance edge to its contract,
+  when that target exists), and the message carries the exact `spec link`
+  that adds it; lint writes nothing. `spec lint` also
   warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
   (`--strict` promotes warnings to errors, exit 5). Two more warnings check
