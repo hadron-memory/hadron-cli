@@ -170,6 +170,9 @@ func TestTeamWorkerCastServerRefusals(t *testing.T) {
 		{"agent not installed",
 			`{"errors":[{"message":"agent is not installed in this App","extensions":{"code":"WORKER_AGENT_NOT_INSTALLED"}}]}`,
 			exitcode.Usage, "not installed"},
+		{"role override refused",
+			`{"errors":[{"message":"agent backend casts as \"backend-engineer\", not \"qa\" - the role follows the agent","extensions":{"code":"WORKER_ROLE_OVERRIDE_REFUSED"}}]}`,
+			exitcode.Usage, "backend-engineer"},
 		{"agent not found",
 			`{"errors":[{"message":"no installed agent carries persona role \"backend\"","extensions":{"code":"WORKER_AGENT_NOT_FOUND"}}]}`,
 			exitcode.NotFound, "backend"},
@@ -208,6 +211,64 @@ func TestTeamWorkerCastRequiresRoleOrAgent(t *testing.T) {
 	}
 	if _, called := captured["CastWorker"]; called {
 		t.Error("an unanswerable cast must not reach the mutation")
+	}
+}
+
+// R222 (cor:dmo:050:11, hadron-cli#1087): the role follows the agent and is
+// never typed in beside it, so --role and --agent are mutually exclusive. The
+// refusal is local and names the remedy; no request is sent, dry-run included.
+func TestTeamWorkerCastRoleAndAgentAreExclusive(t *testing.T) {
+	for _, extra := range [][]string{nil, {"--dry-run"}} {
+		gql, captured := captureGraphQL(t, map[string]string{})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		args := append([]string{"team", "worker", "cast", "--app", "a:t", "--role", "backend",
+			"--agent", "hrn:agent:acme.com:backend", "--name", "Iris", "--server", gql.URL}, extra...)
+		root.SetArgs(args)
+		err := root.Execute()
+		if code := exitCodeFor(err); code != exitcode.Usage {
+			t.Errorf("%v: exit code = %d, want Usage; err: %v", extra, code, err)
+		}
+		if err == nil || !strings.Contains(err.Error(), "--role") || !strings.Contains(err.Error(), "--agent") {
+			t.Errorf("%v: the refusal must name both flags: %v", extra, err)
+		}
+		if len(captured) != 0 {
+			t.Errorf("%v: no request may be sent, got %v", extra, captured)
+		}
+	}
+}
+
+// --role alone and --agent alone keep working (acceptance, cli#1087).
+func TestTeamWorkerCastSingleSelectorsStillCast(t *testing.T) {
+	for _, sel := range [][]string{{"--role", "backend-engineer"}, {"--agent", "hrn:agent:acme.com:backend"}} {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"CastWorker": `{"data":{"castWorker":` + irisWorkerJSON + `}}`,
+			"TeamRoles":  teamRolesJSON,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"team", "worker", "cast", "--app", "acme.com:eng-team", "--name", "Iris", "--server", gql.URL}, sel...))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: execute: %v", sel, err)
+		}
+		if _, ok := captured["CastWorker"]; !ok {
+			t.Errorf("%v: the cast must reach the server", sel)
+		}
+	}
+}
+
+// The help no longer teaches --role as a label beside --agent.
+func TestTeamWorkerCastHelpDropsRoleLabel(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "cast", "--help"})
+	_ = root.Execute()
+	help := out.String()
+	if strings.Contains(help, "just the casting's label") || strings.Contains(help, "just a label") {
+		t.Errorf("--role is no longer a label beside --agent:\n%s", help)
+	}
+	if !strings.Contains(help, "cannot be combined") && !strings.Contains(help, "mutually exclusive") {
+		t.Errorf("the help must state that --role and --agent are exclusive:\n%s", help)
 	}
 }
 

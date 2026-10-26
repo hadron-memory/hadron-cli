@@ -89,13 +89,21 @@ type sessionDTO struct {
 	// name) on exactly those rows, so the two are not nil together (PR #521
 	// review, @copilot). Rendered as a dash rather than guessed at.
 	WorkerRole *string `json:"workerRole"`
-	UserID     *string `json:"userId"`
-	Type       string  `json:"type"`
-	Repo       *string `json:"repo"`
-	Branch     *string `json:"branch"`
-	PRNumber   *int    `json:"prNumber"`
-	StartedAt  string  `json:"startedAt"`
-	EndedAt    *string `json:"endedAt"`
+	// Role is the role the session was BOUND under (Session.role,
+	// cor:dmo:050:11): a worker's role follows its agent, so after the agent
+	// changes WorkerRole moves and an open or past session keeps the role it
+	// ran under. Null for a session without a worker, or one bound before the
+	// server stamped a role. The human ROLE column shows this, falling back to
+	// WorkerRole for such a row. A server without Session.role refuses the whole
+	// session document (GraphQL validation), so this is no old-server shim.
+	Role      *string `json:"role"`
+	UserID    *string `json:"userId"`
+	Type      string  `json:"type"`
+	Repo      *string `json:"repo"`
+	Branch    *string `json:"branch"`
+	PRNumber  *int    `json:"prNumber"`
+	StartedAt string  `json:"startedAt"`
+	EndedAt   *string `json:"endedAt"`
 	// AutoExpiredAt says HOW it ended, where EndedAt says whether (#484). The
 	// reaper stamps both to the same instant so "active" can stay the single
 	// predicate `endedAt IS NULL` — which is exactly why a session someone
@@ -116,6 +124,15 @@ type sessionDTO struct {
 	// driven inside the idle window. (Hard expiry still applies to the
 	// CHATBOT path, which stamps expiresAt.)
 	Active bool `json:"active"`
+}
+
+// boundRole is the role a session row shows: the one it was bound under, else
+// the worker's current role (a session without a stamped role).
+func (s sessionDTO) boundRole() *string {
+	if s.Role != nil {
+		return s.Role
+	}
+	return s.WorkerRole
 }
 
 type worklogMilestoneDTO struct {
@@ -142,7 +159,7 @@ func sessionDTOFromFields(s gen.TeamSessionFields, fallbackName *string) session
 		role = s.Worker.Role
 	}
 	dto := sessionDTO{
-		ID: s.Id, AgentID: s.AgentId, WorkerID: s.WorkerId, WorkerName: name, WorkerRole: role,
+		ID: s.Id, AgentID: s.AgentId, WorkerID: s.WorkerId, WorkerName: name, WorkerRole: role, Role: s.Role,
 		UserID: s.UserId,
 		Type:   s.Type, Repo: s.Repo, Branch: s.Branch, PRNumber: s.PrNumber,
 		StartedAt: s.StartedAt, EndedAt: s.EndedAt, AutoExpiredAt: s.AutoExpiredAt,
@@ -1601,7 +1618,7 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 		dto.ReportingKnown = s.ReportingKnown
 		dto.binding = &binding{
 			SessionID: s.ID, WorkerID: strOrEmpty(s.WorkerID), WorkerName: strOrEmpty(s.WorkerName),
-			WorkerRole: strOrEmpty(s.WorkerRole), StartedAt: s.StartedAt,
+			WorkerRole: strOrEmpty(s.boundRole()), StartedAt: s.StartedAt,
 			Tool: strOrEmpty(s.Tool), Repo: strOrEmpty(s.Repo), Model: strOrEmpty(s.LLMModel),
 			// [] and never null, matching what readBinding normalizes the
 			// worktree branch to. Both synthesized bindings need it, and this
@@ -1617,7 +1634,7 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 			// caller recovering a lost binding is expecting to see.
 			s := mine[0]
 			fmt.Fprintf(w, "%s%s\n  worker session: %s (started %s)\n  worker: %s\n",
-				strOrEmpty(s.WorkerName), roleSuffix(s.WorkerRole), s.ID, s.StartedAt, strOrEmpty(s.WorkerID))
+				strOrEmpty(s.WorkerName), roleSuffix(s.boundRole()), s.ID, s.StartedAt, strOrEmpty(s.WorkerID))
 			fmt.Fprintf(w, "  reports to: %s\n", reportsToLabel(s.ReportsTo, s.ReportsToRetired, s.ReportingKnown))
 			if r := strOrEmpty(s.Repo); r != "" {
 				fmt.Fprintf(w, "  repo: %s\n", r)
@@ -1630,7 +1647,7 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 			fmt.Fprintf(w, "%d open worker sessions are yours; none is bound here, so pick one by SESSION.\n\n", len(mine))
 			t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "REPO", "STARTED", "SESSION")
 			for _, s := range mine {
-				t.Row(dash(s.WorkerName), dash(s.WorkerRole), reportsToLabel(s.ReportsTo, s.ReportsToRetired, s.ReportingKnown), dash(s.Repo), s.StartedAt, s.ID)
+				t.Row(dash(s.WorkerName), dash(s.boundRole()), reportsToLabel(s.ReportsTo, s.ReportsToRetired, s.ReportingKnown), dash(s.Repo), s.StartedAt, s.ID)
 			}
 			if err := t.Flush(); err != nil {
 				return err
@@ -2708,7 +2725,7 @@ from a later milestone's REPORTED MODEL.`,
 					if worker == nil {
 						worker = s.AgentID
 					}
-					t.Row(dash(worker), dash(s.WorkerRole), userLabel(s.UserID), dash(s.Repo), pr, s.StartedAt, dash(s.EndedAt), dash(s.Tool), s.ID)
+					t.Row(dash(worker), dash(s.boundRole()), userLabel(s.UserID), dash(s.Repo), pr, s.StartedAt, dash(s.EndedAt), dash(s.Tool), s.ID)
 				}
 				return t.Flush()
 			})
@@ -2926,7 +2943,7 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 		// Same treatment as the listing table above (#486).
 		t := output.NewTable(w, "WORKER", "ROLE", "USER", "TOOL", "HOST", "SESSION MODEL", "STARTED", "TRANSCRIPT", "SESSION")
 		for _, s := range sessions {
-			t.Row(dash(s.WorkerName), dash(s.WorkerRole), userLabel(s.UserID), dash(s.Tool), dash(s.Host), dash(s.LLMModel), s.StartedAt, dash(s.TranscriptPath), s.ID)
+			t.Row(dash(s.WorkerName), dash(s.boundRole()), userLabel(s.UserID), dash(s.Tool), dash(s.Host), dash(s.LLMModel), s.StartedAt, dash(s.TranscriptPath), s.ID)
 		}
 		if err := t.Flush(); err != nil {
 			return err

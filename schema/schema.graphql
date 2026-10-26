@@ -1228,6 +1228,11 @@ type App {
   """
   appAgents: [AppAgent!]!
   appType: AppType!
+
+  """
+  #2171 (R211): the member roles this App offers: the union over its installed Agents, primary first.
+  """
+  availableMemberRoles: [String!]!
   createUserPermission: CreateUserPermission!
   createdAt: DateTime!
 
@@ -2333,7 +2338,9 @@ type CastWorkerPreview {
   """
   prompt: String
 
-  """The casting's role: explicit, else the agent's personaRole dressing."""
+  """
+  The casting's role: the agent's personaRole (it cannot be overridden, R222).
+  """
   role: String
 
   """
@@ -5844,6 +5851,18 @@ type Mutation {
   advanceChannelReadState(appRef: ID, attendeeRef: ID!, channelRef: ID!, seq: Int!): ChannelReadState!
 
   """
+  #1178 — allocate the next citation under parentLoc and reserve it as a
+  placeholder, in one transaction: mint-or-refuse, so a client never reads
+  sibling numbers and writes the next. Numbers follow hadron spec new:
+  features in tens (010..990), rules and flows by one (01..99), rule 00 never,
+  after lands strictly above it. A number ever minted is never handed out
+  again (R216) while a row or alias of it remains, and a loc held by a row of
+  any state is skipped. Refuses SPEC_PARENT_NOT_FOUND, SPEC_PARENT_NOT_NUMBERED
+  and SPEC_NUMBER_SPACE_EXHAUSTED; an unreadable memory is not found.
+  """
+  allocateSpecNode(after: Int, memoryRef: ID!, name: String, parentLoc: String!): Node!
+
+  """
   #1641 — amend a writable decision. Memory write access is always required; before any answer, any writer; after one, a decider only. Urgency is a
   decider's to change; lowering the tier is a decider's, before an answer, never when it authorizes.
   Refusals: NODE_WRITE_CONFLICT, DECISION_PART_RENUMBER, DECISION_ANSWER_IMMUTABLE, DECISION_NOT_DECIDER.
@@ -6010,7 +6029,15 @@ type Mutation {
   WORKER_AGENT_NOT_INSTALLED); otherwise role picks the single installed
   agent whose personaRole matches (zero / several candidates:
   WORKER_AGENT_NOT_FOUND / WORKER_AGENT_AMBIGUOUS, never a guess). The
-  casting's role defaults to the agent's personaRole when role is omitted.
+  casting's role is the agent's personaRole and cannot be overridden
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:11, R222): beside an agentRef,
+  a role that is not that agent's refuses WORKER_ROLE_OVERRIDE_REFUSED.
+  
+  The casting check (#2458) is shared with changeWorkerAgent: the App's
+  holder must be licensed for the agent (AGENT_ORG_GRANT_INACTIVE /
+  AGENT_ORG_GRANT_REQUIRED; a missing same-organization grant is no refusal
+  and a revoked one is) and for every Agent its served boot prompt
+  includes from (BOOT_PROMPT_GRANT_REQUIRED / BOOT_PROMPT_INCLUDE_UNAVAILABLE).
   
   The name (cor:agt:020:02) is REQUIRED since #1050 — one attempt, and
   WORKER_NAME_TAKEN is the answer. There is no register to fall back to: a
@@ -6067,6 +6094,34 @@ type Mutation {
     promptOverride: String
     role: String
   ): Worker!
+
+  """
+  #2458 (hrn:node:hadronmemory.com:specs:cor:dmo:050:11, R222): change the
+  agent a worker casts. The role follows the agent and is never typed in.
+  Name, slug, URN, signature, trailer, reporting line and every past record
+  stay; past sessions keep the agent and role they ran under
+  (Session.agentId, Session.role).
+  
+  Who: whoever manages the App, as themselves. A worker session (even one
+  its manager holds), an App key, an impersonation or a run is FORBIDDEN.
+  
+  To what: the same checks as castWorker (WORKER_AGENT_NOT_INSTALLED,
+  AGENT_ORG_GRANT_INACTIVE / _REQUIRED, BOOT_PROMPT_GRANT_REQUIRED /
+  BOOT_PROMPT_INCLUDE_UNAVAILABLE, APP_UNINSTALLED). Also WORKER_RETIRED,
+  WORKER_AGENT_UNCHANGED (it already casts that agent),
+  WORKER_AGENT_HAS_NO_ROLE (the agent has no personaRole to change to) and
+  WORKER_CASTING_STALE (a concurrent change; read again). A refused change
+  changes nothing.
+  
+  A complete change, in one transaction: the worker's own boot-prompt
+  pointer is cleared (it named the old agent's compiled prompt), the old
+  agent's generated tickers end and the new agent's are made, and one
+  `worker.casting` team event records who and the old and new agent and
+  role. It takes effect at the worker's next bind. Refused with
+  WORKER_HAS_OPEN_SESSION while the worker has an open session: end it
+  first. workerRef and agentRef are ids or URNs.
+  """
+  changeWorkerAgent(agentRef: ID!, workerRef: ID!): Worker!
 
   """
   #2162 — a context reset's protocol (hrn:node:hadronmemory.com:specs:cor:agt:050:27), for the host its
@@ -6229,7 +6284,24 @@ type Mutation {
   
   orgId accepts the org's ID or URN.
   """
-  createAgent(description: String, name: String!, orgId: ID, personaRole: String, resetContextAfterTask: Boolean, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, usesTasks: Boolean, visibility: AgentVisibility): Agent!
+  createAgent(
+    description: String
+
+    """
+    #2171 (R211): the member roles the Agent offers. Omitted: owner and member. Empty or malformed: BAD_USER_INPUT.
+    """
+    memberRoles: [String!]
+    name: String!
+    orgId: ID
+    personaRole: String
+    resetContextAfterTask: Boolean
+    surfaces: [String!]
+    systemMemoryId: String
+    systemPrompt: String
+    type: AgentType
+    usesTasks: Boolean
+    visibility: AgentVisibility
+  ): Agent!
 
   """
   Subscribe an organization to a PUBLIC Agent without creating an App.
@@ -8701,7 +8773,27 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateAgent(description: String, listedOnMarketplace: Boolean, name: String, personaRole: String, ref: ID!, registerDefaults: RegisterDefaultsInput, resetContextAfterTask: Boolean, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, usesTasks: Boolean, visibility: AgentVisibility): Agent!
+  updateAgent(
+    description: String
+    listedOnMarketplace: Boolean
+
+    """
+    #2171 (R211): replaces the member roles the Agent offers (and nothing else in its installation policy). Omitted or null: unchanged. Empty or malformed: BAD_USER_INPUT. Existing members keep their role.
+    """
+    memberRoles: [String!]
+    name: String
+    personaRole: String
+    ref: ID!
+    registerDefaults: RegisterDefaultsInput
+    resetContextAfterTask: Boolean
+    surfaces: [String!]
+    systemMemoryId: String
+    systemPrompt: String
+    type: AgentType
+    urn: String
+    usesTasks: Boolean
+    visibility: AgentVisibility
+  ): Agent!
 
   """
   Update an Agent's AI provider config. Key is encrypted at rest.
@@ -9218,8 +9310,8 @@ type Mutation {
   Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
   A mixed update is atomic. These values reach the next compose/bind via S4.
   
-  The other casting identity fields stay immutable: `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02)
-  and `role`/`agent` define the casting itself. OMITTING promptOverride
+  `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02). The agent
+  (and with it the role) is changed by changeWorkerAgent, not here. OMITTING promptOverride
   preserves it; explicit `null` or a blank string CLEARS it, matching the
   nullable column and castWorker's blank-is-absent normalization.
   
@@ -10734,15 +10826,17 @@ type Query {
 
   """
   #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
-  owner / assignee name a party of the App (a ref naming nobody matches
-  nothing). queued selects pending tasks with no assignee; rootsOnly selects roots. These
+  owner / assignee / creator name a party of the App (a ref naming nobody matches
+  nothing; a retired worker is no party to name, so it matches nothing). creator is
+  the task's creator as createdBy projects it: a worker, or a person for a task they created
+  themselves (not one their worker created, #2370). queued selects pending tasks with no assignee; rootsOnly selects roots. These
   take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
   Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
   without a session binding (#1755).
   An App you do not participate in answers APP_NOT_FOUND, exactly like an
   absent one.
   """
-  agentTasks(appRef: ID!, assignee: AgentTaskPartyInput, limit: Int, offset: Int, owner: AgentTaskPartyInput, parentTaskId: ID, queued: Boolean, rootsOnly: Boolean, status: [AgentTaskStatus!], tag: String): [AgentTask!]!
+  agentTasks(appRef: ID!, assignee: AgentTaskPartyInput, creator: AgentTaskPartyInput, limit: Int, offset: Int, owner: AgentTaskPartyInput, parentTaskId: ID, queued: Boolean, rootsOnly: Boolean, status: [AgentTaskStatus!], tag: String): [AgentTask!]!
 
   """
   #1705 — a team App's event stream (hrn:node:hadronmemory.com:specs:cor:agt:050:11), in (createdAt, id)
@@ -12322,6 +12416,12 @@ type Query {
   ): TeamChatMessagesPage!
 
   """
+  #2061 — direct-report lanes from the same roster projection and read gate as teamRoster.
+  One bounded RepeatableRead snapshot per call; no hierarchy rollups or role exclusions.
+  """
+  teamComposition(appRef: ID!): TeamComposition!
+
+  """
   An App's role definitions (#960): every roles:<role> node in the Team
   Agent's system memory. Ordered by role slug. Same read authorization as
   workers.
@@ -13663,6 +13763,11 @@ type Session {
   prNumber: Int
   prevSessionId: String
   repo: String
+
+  """
+  #2458 (hrn:node:hadronmemory.com:specs:cor:dmo:050:11): the worker's role when this session was bound; it does not follow a later change of the worker's agent. Null without a worker.
+  """
+  role: String
   startedAt: DateTime!
 
   """
@@ -15016,6 +15121,53 @@ type TeamCollectionsPayload {
   memoryId: ID!
 }
 
+"""#2061 — active roster workers grouped by their direct reportsTo claim."""
+type TeamComposition {
+  appId: ID!
+  asOf: DateTime!
+
+  """
+  Lanes ordered by coordinator name (case-insensitive), then URN; the unassigned lane is last. Empty teams have no lanes.
+  """
+  lanes: [TeamCompositionLane!]!
+}
+
+"""
+A direct-report group, not a hierarchy rollup. A coordinator's own row belongs only in its own reportsTo lane.
+"""
+type TeamCompositionLane {
+  """
+  Sanitized coordinator identity, including retired coordinators; null for the single unassigned lane.
+  """
+  coordinator: AgentTaskParty
+  coordinatorRetired: Boolean!
+
+  """
+  Plain headcounts, role ascending with null last; null is its own bucket.
+  """
+  countsByRole: [TeamRoleCount!]!
+
+  """
+  Plain headcounts by role then family, null last in each dimension; nulls are retained as their own buckets.
+  """
+  countsByRoleFamily: [TeamRoleFamilyCount!]!
+
+  """
+  Non-retired workers only, retaining roster name order. No role, including saas-pm, is excluded.
+  """
+  workers: [TeamCompositionWorker!]!
+}
+
+"""A closed roster projection; no task, holder or raw Worker fields."""
+type TeamCompositionWorker {
+  bound: Boolean!
+  family: String
+  liveSession: Boolean!
+  role: String
+  state: TeamRosterState!
+  worker: AgentTaskParty!
+}
+
 """
 #2138: the App's team pause. teamPausedAt is null when the team is not paused.
 """
@@ -15077,6 +15229,17 @@ type TeamRole {
   posture), like Worker.agent.
   """
   roleAgent: Agent
+}
+
+type TeamRoleCount {
+  count: Int!
+  role: String
+}
+
+type TeamRoleFamilyCount {
+  count: Int!
+  family: String
+  role: String
 }
 
 type TeamRolesPage {
@@ -15841,7 +16004,8 @@ type User {
 
   """
   Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
-  handle; null for a handle-less user (who has no URN).
+  handle; null for a handle-less user and for a user whose handle is
+  not-URN-legal (neither has a URN).
   """
   urn: String
 }
