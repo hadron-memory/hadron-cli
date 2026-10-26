@@ -1006,8 +1006,8 @@ func TestAutomationConsentWording(t *testing.T) {
 			r := runAuto(t, s, true, "n\n", verb, "--run", "run-1")
 			i := strings.LastIndex(r.errOut, "(y/N)")
 			prompt := r.errOut[strings.LastIndex(r.errOut[:i], "\n")+1 : i]
-			if strings.Contains(prompt, autoApp) || !strings.Contains(prompt, "run id") {
-				t.Errorf("%s: a MANUAL prompt must say it is found by run id only, not name the App: %q", verb, prompt)
+			if strings.Contains(prompt, autoApp) || strings.Contains(prompt, "not checked here") || !strings.Contains(r.errOut, "\nFound by run id only; which App it belongs to is not checked here.\n") {
+				t.Errorf("%s: a MANUAL prompt needs its separate run-id note and must not claim an App: %q", verb, prompt)
 			}
 		}
 	})

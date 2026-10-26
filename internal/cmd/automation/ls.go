@@ -67,7 +67,11 @@ needs it (--run).`,
 				} else {
 					t := output.NewTable(w, "AUTOMATION", "STATE", "WHAT")
 					for _, r := range dto.Rows {
-						t.Row(displayName(r), stateWord(r.State), safeText(r.Headline, maxLine))
+						state := stateWord(r.State)
+						if r.State == "ADOPTED" {
+							state += " (approval may be stale)"
+						}
+						t.Row(displayName(r), state, safeText(r.Headline, maxLine))
 					}
 					if err := t.Flush(); err != nil {
 						return err

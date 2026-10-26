@@ -21,12 +21,14 @@ type resultDTO struct {
 	Hash    string     `json:"hash,omitempty"`
 }
 
+const manualRunNote = "Found by run id only; which App it belongs to is not checked here."
+
 // inApp is the " in <app>" tail of a header or prompt. A MANUAL origin is found
 // by its run id alone — the server's projection and mutations take no App for it
 // — so the CLI must not claim the run belongs to the App it was run against.
 func inApp(sel *selection, app string) string {
 	if sel.Kind == gen.AutomationTriggerKindManual {
-		return " (found by run id only; which App it belongs to is not checked here)"
+		return "\n" + manualRunNote
 	}
 	return " in " + app
 }
@@ -147,9 +149,9 @@ Display and prompt go to stderr, so stdout carries only the result.`,
 					"unavailable: the summary is too large to show in full, so nothing was approved (approval needs the whole summary on screen). Read all of it with `hadron automation approval %s --json%s`",
 					approvalTarget(sel), approvalAppFlag(app))
 			}
-			where := inApp(sel, app)
+			where := ""
 			if sel.Kind != gen.AutomationTriggerKindManual {
-				where += " (" + source + ")"
+				where = inApp(sel, app) + " (" + source + ")"
 			}
 			prompt := fmt.Sprintf("Approve %s%s as shown above?", sel.Display, where)
 			switch dto.State {
@@ -157,6 +159,9 @@ Display and prompt go to stderr, so stdout carries only the result.`,
 				prompt = fmt.Sprintf("Approve %s%s again as shown above? (It is already approved; this records another approval.)", sel.Display, where)
 			case string(gen.AutomationAdoptionStateChanged):
 				prompt = fmt.Sprintf("Approve %s%s as it is now, shown above? (It changed since it was approved; its next run fails until you approve it again.)", sel.Display, where)
+			}
+			if sel.Kind == gen.AutomationTriggerKindManual {
+				prompt = manualRunNote + "\n" + prompt
 			}
 			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
@@ -187,7 +192,7 @@ func declineWarning(sel *selection) string {
 	case sel.State == string(gen.AutomationAdoptionStateAdopted):
 		return "Declining switches this automation off: its next run will fail until it is approved again. This revokes the current approval, including a newer approval another person may have just given. Runs already started keep what they were approved with."
 	default:
-		return "This automation is not approved. Declining records your decline and changes nothing else — unless someone approves it before this runs: decline carries no hash, so it would revoke that approval too."
+		return "This automation is not approved. Declining records your decline. If someone approves it before this runs, declining would revoke that newer approval too."
 	}
 }
 
@@ -199,9 +204,8 @@ func newCmdDecline(f *cmdutil.Factory) *cobra.Command {
 		Short: "Decline (or switch off) an automation",
 		Long: `Decline one automation (--app, else the active App). On an approved automation this
 REVOKES the approval — its next run fails until it is approved again — including
-a newer approval someone else has just given: decline carries no hash, because it
-only ever removes authority. On an automation that is not approved it only
-records the decline. The confirmation says which.
+a newer approval someone else gives before this command runs. On an automation
+that is not approved it records the decline. The confirmation says which.
 
 Decline never needs the summary, so an automation you cannot read can still be
 declined. --yes skips the prompt; without it a non-interactive caller is refused
@@ -229,13 +233,16 @@ before anything is sent, and "no" or end-of-input exits 6.`,
 			if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "Automation %s%s\n%s\n", sel.Display, inApp(sel, app), declineWarning(sel)); err != nil {
 				return exitcode.Newf(exitcode.Error, "could not show the warning (%v); nothing was declined", err)
 			}
-			where := inApp(sel, app)
+			where := ""
 			if sel.Kind != gen.AutomationTriggerKindManual {
-				where += " (" + source + ")"
+				where = inApp(sel, app) + " (" + source + ")"
 			}
 			question := fmt.Sprintf("Decline %s%s?", sel.Display, where)
 			if sel.State == string(gen.AutomationAdoptionStateAdopted) && sel.Kind != gen.AutomationTriggerKindManual {
 				question = fmt.Sprintf("Decline %s%s? This switches it off.", sel.Display, where)
+			}
+			if sel.Kind == gen.AutomationTriggerKindManual {
+				question = manualRunNote + "\n" + question
 			}
 			if err := cmdutil.Confirm(f.IOStreams, yes, question); err != nil {
 				return err
