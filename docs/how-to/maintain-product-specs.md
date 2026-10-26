@@ -354,7 +354,12 @@ hadron spec edit cli:cha:010:01 -m $M --content-file /tmp/rule.md --abstract-fil
 ```
 
 The interactive form opens both abstract and body in `$EDITOR`; non-interactive
-flags update only the fields you provide and preserve the rest. The abstract
+flags update only the fields you provide and preserve the rest. When a body
+edit would make the kept abstract stale, passing the same abstract again with
+`--abstract` or `--abstract-file` refuses before any mutation, including in a
+`--dry-run`. Re-read it against the new body: if it still describes the spec,
+drop the abstract flag and use `--abstract-still-accurate`; otherwise supply a
+changed abstract. An unchanged abstract alone remains a no-op. The abstract
 may have at most 2000 UTF-16 code units, including whitespace and newlines;
 `--dry-run` checks this before a save. To update the description shown by
 `spec list` and search, use `--description` or `--description-file` on the same

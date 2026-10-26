@@ -45,7 +45,15 @@ func TestSpecEditUnchangedAbstract804Matrix(t *testing.T) {
 			root := NewRootCmd(f)
 			args := []string{"spec", "edit", "msg:010:02", "-m", specMem, "--server", gql.URL, "--json"}
 			if tc.body {
-				args = append(args, "--content", body)
+				if tc.file {
+					path := filepath.Join(t.TempDir(), "body.md")
+					if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+						t.Fatal(err)
+					}
+					args = append(args, "--content-file", path)
+				} else {
+					args = append(args, "--content", body)
+				}
 			}
 			if tc.supplied {
 				if tc.file {
