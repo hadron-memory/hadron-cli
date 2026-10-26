@@ -390,7 +390,8 @@ right node.
 Use `link` for same-corpus spec-to-spec references. The command validates both
 endpoints are spec nodes and creates the edge from the more specific citation to
 the more general one; omit `--label` to let the CLI synthesize the conventional
-field-to-entity wording.
+field-to-entity wording. Rerunning it is safe: when the same edge (same target,
+same label) already exists it reports `already linked` and writes nothing.
 
 ```sh
 hadron spec link cli:cha:010:04 cli:cha:010:01 -m $M --dry-run
