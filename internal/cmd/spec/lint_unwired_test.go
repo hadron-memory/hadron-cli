@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 func wired(loc, name string, edges ...specEdge) specNode {
@@ -90,5 +92,57 @@ func TestUnwiredLookupErrorStopsTheReport(t *testing.T) {
 		func(string) (bool, error) { return false, boom })
 	if !errors.Is(err, boom) {
 		t.Errorf("a failed lookup must not read as a missing target: %v", err)
+	}
+}
+
+// An edge whose target sits in ANOTHER memory is a cross-reference to that
+// corpus, whatever its loc: it cannot stand in for the local edge spec new
+// plans, so a same-loc target elsewhere must not hide the missing wiring
+// (#1083 local review). Pinned through both read projections, beside a
+// same-memory control, since each projection carries the memory ids itself.
+func TestUnwiredForeignSameLocEdgeIsNotLocalWiring(t *testing.T) {
+	str := func(s string) *string { return &s }
+	third, inherit := "Third", inheritEdgeLabel
+	type edge struct {
+		name     *string
+		loc, mem string
+	}
+	edges := func(mem string) []edge {
+		return []edge{{str(third), "msg:010", mem}, {str(inherit), "msg:010:00", mem}}
+	}
+	single := func(es []edge) specNode {
+		n := &gen.GetNodeNode{Loc: "msg:010:03", Name: "msg:010:03 — Third", MemoryId: "local"}
+		for _, e := range es {
+			n.OutgoingEdges = append(n.OutgoingEdges, &gen.GetNodeNodeOutgoingEdgesEdge{
+				Name: e.name, Target: &gen.GetNodeNodeOutgoingEdgesEdgeTargetNode{Loc: e.loc, MemoryId: e.mem}})
+		}
+		return nodeFromGQL(n)
+	}
+	batch := func(es []edge) specNode {
+		n := &gen.NodeBatchNodeBatchNodeBatchResultNodesNode{Loc: "msg:010:03", Name: "msg:010:03 — Third", MemoryId: "local"}
+		for _, e := range es {
+			n.OutgoingEdges = append(n.OutgoingEdges, &gen.NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge{
+				Name: e.name, Target: &gen.NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode{Loc: e.loc, MemoryId: e.mem}})
+		}
+		return nodeFromBatch(n)
+	}
+	for pname, project := range map[string]func([]edge) specNode{"single": single, "batch": batch} {
+		for _, c := range []struct {
+			mem  string
+			want []string
+		}{
+			{"foreign", []string{"msg:010:03→msg:010", "msg:010:03→msg:010:00"}},
+			{"local", nil},
+		} {
+			t.Run(pname+"/"+c.mem, func(t *testing.T) {
+				fs, err := unwiredFindings([]specNode{project(edges(c.mem))}, lintMem, existsIn("msg:010", "msg:010:00"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if got := findingTargets(t, fs); strings.Join(got, ",") != strings.Join(c.want, ",") {
+					t.Errorf("got %v, want %v", got, c.want)
+				}
+			})
+		}
 	}
 }
