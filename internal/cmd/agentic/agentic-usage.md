@@ -500,6 +500,10 @@ Conventions:
   Nullable description/label/timestamps stay null, and text uses - without
   claiming the value was withheld. Both require an explicit App ID or URN
   (existing short/legacy forms accepted); neither falls back to --app.
+  `app key list` text cells (#1065) replace control and invisible characters
+  (C0/C1, DEL, ESC, newline, tab, bidi/zero-width/line-separator marks) with a
+  space and cut a cell at 256 characters ending in "…"; `--json` keeps the
+  original values. Other commands' tables are not changed by this.
 
 - `hadron asset` is the file surface (spec 006 / cor:dmo:060:10). An asset is
   bytes held by a memory, as opposed to a node's text; listing and download are
