@@ -2,8 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
-	"regexp"
-	"strconv"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -15,43 +14,61 @@ import (
 // writer, but only if it runs exactly as printed: a remedy whose bare locs
 // carry no -m is refused locally before it reaches the server.
 
-var printedEdgeCreate = regexp.MustCompile("`(hadron edge create [^`]*)`")
-
 // remedyArgs pulls the `hadron edge create …` command out of an error and
-// splits it the way a shell would split what the error printed: words on
-// spaces, and a %q-quoted label as one word.
+// splits it with a real POSIX shell, so "runs as printed" means what a pasted
+// command does: a label quoted for Go rather than the shell would come back
+// expanded here, not merely unquoted (#1083 review).
 func remedyArgs(t *testing.T, errText string) []string {
 	t.Helper()
-	m := printedEdgeCreate.FindStringSubmatch(errText)
-	if m == nil {
-		t.Fatalf("no `hadron edge create …` remedy in %q", errText)
-	}
-	var args []string
-	rest := m[1]
-	for rest = strings.TrimSpace(rest); rest != ""; rest = strings.TrimSpace(rest) {
-		if rest[0] == '"' {
-			end := 1
-			for ; end <= len(rest); end++ {
-				if q, err := strconv.Unquote(rest[:end]); err == nil {
-					args = append(args, q)
-					break
-				}
-			}
-			if end > len(rest) {
-				t.Fatalf("unterminated quote in remedy %q", m[1])
-			}
-			rest = rest[end:]
-			continue
-		}
-		word, after, _ := strings.Cut(rest, " ")
-		args = append(args, word)
-		rest = after
-	}
+	line := printedCommand(t, errText, "hadron edge create ")
+	args := shellWords(t, line)
 	if len(args) < 3 || args[0] != "hadron" {
-		t.Fatalf("remedy %q does not start with `hadron edge create`", m[1])
+		t.Fatalf("remedy %q does not start with `hadron edge create`", line)
 	}
 	return args[1:]
 }
+
+// printedCommand is the backtick-wrapped command starting with prefix. The
+// closing backtick is the first one outside single quotes, since a quoted
+// label may itself contain a backtick.
+func printedCommand(t *testing.T, text, prefix string) string {
+	t.Helper()
+	i := strings.Index(text, "`"+prefix)
+	if i < 0 {
+		t.Fatalf("no `%s…` command in %q", prefix, text)
+	}
+	rest, quoted := text[i+1:], false
+	for j, r := range rest {
+		switch {
+		case r == '\'':
+			quoted = !quoted
+		case r == '`' && !quoted:
+			return rest[:j]
+		}
+	}
+	t.Fatalf("unterminated command in %q", text)
+	return ""
+}
+
+// shellWords is the argv sh gives the command line, one NUL-ended word each.
+// HOME is set so an unquoted $HOME shows up as an expansion, never as itself.
+func shellWords(t *testing.T, line string) []string {
+	t.Helper()
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no POSIX sh to split the printed command")
+	}
+	cmd := exec.Command(sh, "-c", `printf '%s\0' `+line)
+	cmd.Env = []string{"HOME=/expanded-home", "PATH=/nonexistent"}
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("sh could not split %q: %v", line, err)
+	}
+	return strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")
+}
+
+// shellyLabel carries every shell metacharacter a quoted label must keep.
+const shellyLabel = `fix $HOME and ` + "`id`" + ` "quoted" isn't \ $(x)`
 
 // runRemedy executes the printed remedy against a server that resolves every
 // ref and accepts the edge, and returns the createEdge variables it sent.
@@ -99,7 +116,7 @@ func flagValue(args []string, flag string) string {
 }
 
 func TestCodingPreflightRouteBackEdgeRemedyRuns(t *testing.T) {
-	gql, _ := queueGraphQL(t, map[string][]string{
+	gql, captured := queueGraphQL(t, map[string][]string{
 		"GetNodeRaw": {codingRouterWithBody(flatRouterBody)},
 		"GetNode":    {codingNodeJSON("n_target", "findings:flaky-otp-timer", "", "")},
 		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem1"}}}`},
@@ -111,7 +128,7 @@ func TestCodingPreflightRouteBackEdgeRemedyRuns(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"coding", "preflight", "route", "findings:flaky-otp-timer",
-		"-m", codingMem, "--route", "fix a flaky OTP test", "--description", "d", "--json", "--server", gql.URL})
+		"-m", codingMem, "--route", shellyLabel, "--description", "d", "--json", "--server", gql.URL})
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("a missing back-edge is a partial write")
@@ -120,13 +137,25 @@ func TestCodingPreflightRouteBackEdgeRemedyRuns(t *testing.T) {
 	if flagValue(args, "--from") != "findings:flaky-otp-timer" || flagValue(args, "--to") != "preflight" {
 		t.Errorf("the back-edge runs from the routed node to the index, got %v", args)
 	}
-	if sent.Name == "" {
-		t.Error("the remedy must carry the route's label")
+	if want := sentEdgeName(t, captured["CreateEdge"][1]); sent.Name != want {
+		t.Errorf("the remedy must carry the route's label as written: sent %q, want %q", sent.Name, want)
 	}
 }
 
+// sentEdgeName is the name a captured createEdge call sent.
+func sentEdgeName(t *testing.T, vars json.RawMessage) string {
+	t.Helper()
+	var v struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(vars, &v); err != nil || v.Name == "" {
+		t.Fatalf("decoding createEdge name from %s: %v", vars, err)
+	}
+	return v.Name
+}
+
 func TestCodingPreflightCreateUnroutedRemedyRuns(t *testing.T) {
-	gql, _ := queueGraphQL(t, map[string][]string{
+	gql, captured := queueGraphQL(t, map[string][]string{
 		"GetNodeRaw": {codingRouterWithBody(flatRouterBody)},
 		"GetNode":    {newRouteNodeRead(backEdgeJSON)},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
@@ -134,14 +163,23 @@ func TestCodingPreflightCreateUnroutedRemedyRuns(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs(preflightCreateArgs(gql.URL))
+	args := preflightCreateArgs(gql.URL)
+	for i := range args {
+		if args[i] == "--route" {
+			args[i+1] = shellyLabel
+		}
+	}
+	root.SetArgs(args)
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("an unrouted node is a partial write")
 	}
-	args, _ := runRemedy(t, err.Error())
+	args, sent := runRemedy(t, err.Error())
 	if flagValue(args, "--to") == "" || flagValue(args, "-m") != codingMem {
 		t.Errorf("the remedy must name the new node and the memory, got %v", args)
+	}
+	if want := sentEdgeName(t, captured["CreateEdge"][0]); sent.Name != want {
+		t.Errorf("the remedy must carry the route's label as written: sent %q, want %q", sent.Name, want)
 	}
 }
 

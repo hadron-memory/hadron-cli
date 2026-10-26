@@ -102,10 +102,10 @@ func TestSpecLintUnwiredReportsEachMissingPlannedEdge(t *testing.T) {
 	}
 	got := unwired(fs)
 	want := map[string][]string{
-		"msg:010:02": {"hadron spec link msg:010:02 msg:010:00 -m " + specMem + ` --label "` + inheritLabel + `"`},
+		"msg:010:02": {"hadron spec link msg:010:02 msg:010:00 -m " + specMem + ` --label '` + inheritLabel + `'`},
 		"msg:010:03": {
-			"hadron spec link msg:010:03 msg:010 -m " + specMem + ` --label "Third"`,
-			"hadron spec link msg:010:03 msg:010:00 -m " + specMem + ` --label "` + inheritLabel + `"`,
+			"hadron spec link msg:010:03 msg:010 -m " + specMem + ` --label Third`,
+			"hadron spec link msg:010:03 msg:010:00 -m " + specMem + ` --label '` + inheritLabel + `'`,
 		},
 	}
 	count := 0
@@ -140,3 +140,33 @@ func TestSpecLintDefaultHasNoUnwiredFindings(t *testing.T) {
 		t.Errorf("default lint must not report unwired specs, got %+v", got)
 	}
 }
+
+// The printed spec link carries the spec's title as its label; pasted into a
+// shell it must arrive as written, metacharacters and all (#1083 review).
+func TestSpecLintUnwiredRemedyLabelSurvivesTheShell(t *testing.T) {
+	c := unwiredCorpus(t)
+	c["NodeBatch"] = strings.Replace(c["NodeBatch"], `"msg:010:03 — Third"`,
+		strconvQuote("msg:010:03 — "+shellyLabel), 1)
+	gql, _ := captureGraphQL(t, c)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--prefix", "msg:010", "-m", specMem, "--json", "--unwired", "--server", gql.URL})
+	_ = root.Execute()
+	var fs []lintFinding687
+	if err := json.Unmarshal([]byte(out.String()), &fs); err != nil {
+		t.Fatalf("lint output not JSON: %v\n%s", err, out.String())
+	}
+	for _, f := range unwired(fs) {
+		if f.Citation != "msg:010:03" || !strings.Contains(f.Message, " msg:010 -m ") {
+			continue
+		}
+		args := shellWords(t, printedCommand(t, f.Message, "hadron spec link "))
+		if got := args[len(args)-1]; args[len(args)-2] != "--label" || got != shellyLabel {
+			t.Fatalf("the pasted remedy labels the edge %q, want %q (argv %q)", got, shellyLabel, args)
+		}
+		return
+	}
+	t.Fatalf("no parent-edge finding for msg:010:03: %+v", fs)
+}
+
+func strconvQuote(s string) string { b, _ := json.Marshal(s); return string(b) }
