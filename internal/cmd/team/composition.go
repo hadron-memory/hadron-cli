@@ -150,6 +150,12 @@ func partyLabel(p taskPartyDTO) string {
 	return cellSafe(p.ID)
 }
 
+// partyURNLabel is the server's canonical URN, or a dash when it has none
+// (a name-less or URN-less party is shown as given, never guessed).
+func partyURNLabel(p taskPartyDTO) string {
+	return cellSafe(strOr(p.Urn))
+}
+
 func renderComposition(w io.Writer, app string, dto compositionDTO) error {
 	if _, err := fmt.Fprintf(w, "app: %s\n", app); err != nil {
 		return err
@@ -161,11 +167,12 @@ func renderComposition(w io.Writer, app string, dto compositionDTO) error {
 			if l.CoordinatorRetired {
 				head += " (retired)"
 			}
+			head += " [" + partyURNLabel(*l.Coordinator) + "]"
 		}
 		if _, err := fmt.Fprintf(w, "\n%s — %d worker(s)\n", head, len(l.Workers)); err != nil {
 			return err
 		}
-		t := output.NewTable(w, "WORKER", "STATE", "ROLE", "FAMILY", "LIVE")
+		t := output.NewTable(w, "WORKER", "URN", "STATE", "ROLE", "FAMILY", "LIVE")
 		for _, m := range l.Workers {
 			live := "quiet"
 			if m.LiveSession {
@@ -173,7 +180,7 @@ func renderComposition(w io.Writer, app string, dto compositionDTO) error {
 			} else if !m.Bound {
 				live = "unbound"
 			}
-			t.Row(partyLabel(m.Worker), m.State, cellSafe(strOr(m.Role)), cellSafe(strOr(m.Family)), live)
+			t.Row(partyLabel(m.Worker), partyURNLabel(m.Worker), m.State, cellSafe(strOr(m.Role)), cellSafe(strOr(m.Family)), live)
 		}
 		if err := t.Flush(); err != nil {
 			return err

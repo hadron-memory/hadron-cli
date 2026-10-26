@@ -120,7 +120,7 @@ func TestTeamCompositionRefusedReadIsAFailureNotAnEmptyTeam(t *testing.T) {
 				if out != "" {
 					t.Errorf("a failure must not render any team output:\n%s", out)
 				}
-				if got, want := exitcode.FromError(err), wantExit[name]; got != want {
+				if got, want := exitCodeFor(err), wantExit[name]; got != want {
 					t.Errorf("%s %v: exit code %d, want %d (%v)", name, args, got, want, err)
 				}
 			}
