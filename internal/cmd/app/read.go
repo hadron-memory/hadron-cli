@@ -93,7 +93,11 @@ Prints only id, keyPreview, label, createdAt, lastUsedAt and revokedAt.
 No raw key, nested App.keys, host usage or AI configuration is requested.
 This is active-key inventory, not a history of revoked keys. Nullable values
 stay null in JSON and display as - in text, without guessing why they are null.
-An empty JSON result is []. Access refusals come from the server.`,
+An empty JSON result is []. Access refusals come from the server.
+
+The text table replaces control and invisible characters (including newlines,
+escapes and bidi/zero-width marks) with a space and cuts a cell at 256
+characters, ending it with "…". --json keeps every original value.`,
 		Example: `  hadron app key list hrn:app:acme.com:support
   hadron app key list acme.com:support --json`,
 		Args: cobra.ExactArgs(1),
@@ -124,7 +128,8 @@ An empty JSON result is []. Access refusals come from the server.`,
 				}
 				table := output.NewTable(w, "ID", "PREVIEW", "LABEL", "CREATED", "LAST USED", "REVOKED")
 				for _, k := range dto {
-					table.Row(k.ID, k.KeyPreview, optionalReadText(k.Label), k.CreatedAt, optionalReadText(k.LastUsedAt), optionalReadText(k.RevokedAt))
+					table.Row(output.SafeCell(k.ID), output.SafeCell(k.KeyPreview), output.SafeCell(optionalReadText(k.Label)),
+						output.SafeCell(k.CreatedAt), output.SafeCell(optionalReadText(k.LastUsedAt)), output.SafeCell(optionalReadText(k.RevokedAt)))
 				}
 				return table.Flush()
 			})
