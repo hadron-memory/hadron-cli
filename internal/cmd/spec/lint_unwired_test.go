@@ -12,12 +12,18 @@ func wired(loc, name string, edges ...specEdge) specNode {
 	return specNode{Loc: loc, Name: name, NodeType: "info", Tags: []string{"spec"}, OutEdges: edges}
 }
 
-func existsIn(locs ...string) func(string) (bool, error) {
+// existsIn says each loc is a live spec; a loc prefixed "!" is a live node
+// that is not a spec.
+func existsIn(locs ...string) func(string) (bool, bool, error) {
 	set := map[string]bool{}
 	for _, l := range locs {
-		set[l] = true
+		if strings.HasPrefix(l, "!") {
+			set[l[1:]] = false
+		} else {
+			set[l] = true
+		}
 	}
-	return func(l string) (bool, error) { return set[l], nil }
+	return func(l string) (bool, bool, error) { spec, ok := set[l]; return ok, spec, nil }
 }
 
 // findingTargets lists "<citation>→<target>" for each unwired finding.
@@ -28,9 +34,14 @@ func findingTargets(t *testing.T, fs []lintFindingDTO) []string {
 		if f.Rule != "unwired" || f.Severity != sevInfo {
 			t.Errorf("unexpected finding %+v", f)
 		}
-		i := strings.Index(f.Message, "`hadron spec link ")
-		parts := strings.Fields(f.Message[i+len("`hadron spec link "):])
-		out = append(out, parts[0]+"→"+parts[1])
+		if i := strings.Index(f.Message, "`hadron spec link "); i >= 0 {
+			parts := strings.Fields(f.Message[i+len("`hadron spec link "):])
+			out = append(out, parts[0]+"→"+parts[1])
+			continue
+		}
+		i := strings.Index(f.Message, "`hadron edge create ")
+		parts := strings.Fields(f.Message[i+len("`hadron edge create "):])
+		out = append(out, parts[3]+"→"+parts[5]+" (edge create)")
 	}
 	return out
 }
@@ -64,6 +75,14 @@ func TestUnwiredPlansWhatSpecNewPlans(t *testing.T) {
 			[]string{"msg:010", "msg:010:00"}, []string{"msg:010:02→msg:010:00"}},
 		{"unavailable: nothing", specNode{Loc: "msg:010:02", Unavailable: true},
 			[]string{"msg:010", "msg:010:00"}, nil},
+		// spec new plans an edge to whatever node holds the loc, but spec link
+		// takes only specs: a non-spec target gets a remedy that can run.
+		{"non-spec target: edge create instead of spec link", wired("msg:010:02", "x — W"),
+			[]string{"!msg:010", "msg:010:00"}, []string{"msg:010:02→msg:010 (edge create)", "msg:010:02→msg:010:00"}},
+		// An untagged node at a citation loc is lint's missing-spec-tag case,
+		// not a spec that owes wiring.
+		{"non-spec source: nothing", specNode{Loc: "msg:010:02", Name: "x — W"},
+			[]string{"msg:010", "msg:010:00"}, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -89,7 +108,7 @@ func TestUnwiredParentLabelIsTheTitle(t *testing.T) {
 func TestUnwiredLookupErrorStopsTheReport(t *testing.T) {
 	boom := errors.New("server down")
 	_, err := unwiredFindings([]specNode{wired("msg:010:02", "x — W")}, lintMem,
-		func(string) (bool, error) { return false, boom })
+		func(string) (bool, bool, error) { return false, false, boom })
 	if !errors.Is(err, boom) {
 		t.Errorf("a failed lookup must not read as a missing target: %v", err)
 	}
@@ -111,7 +130,7 @@ func TestUnwiredForeignSameLocEdgeIsNotLocalWiring(t *testing.T) {
 		return []edge{{str(third), "msg:010", mem}, {str(inherit), "msg:010:00", mem}}
 	}
 	single := func(es []edge) specNode {
-		n := &gen.GetNodeNode{Loc: "msg:010:03", Name: "msg:010:03 — Third", MemoryId: "local"}
+		n := &gen.GetNodeNode{Loc: "msg:010:03", Name: "msg:010:03 — Third", MemoryId: "local", Tags: []string{"spec"}}
 		for _, e := range es {
 			n.OutgoingEdges = append(n.OutgoingEdges, &gen.GetNodeNodeOutgoingEdgesEdge{
 				Name: e.name, Target: &gen.GetNodeNodeOutgoingEdgesEdgeTargetNode{Loc: e.loc, MemoryId: e.mem}})
@@ -119,7 +138,7 @@ func TestUnwiredForeignSameLocEdgeIsNotLocalWiring(t *testing.T) {
 		return nodeFromGQL(n)
 	}
 	batch := func(es []edge) specNode {
-		n := &gen.NodeBatchNodeBatchNodeBatchResultNodesNode{Loc: "msg:010:03", Name: "msg:010:03 — Third", MemoryId: "local"}
+		n := &gen.NodeBatchNodeBatchNodeBatchResultNodesNode{Loc: "msg:010:03", Name: "msg:010:03 — Third", MemoryId: "local", Tags: []string{"spec"}}
 		for _, e := range es {
 			n.OutgoingEdges = append(n.OutgoingEdges, &gen.NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge{
 				Name: e.name, Target: &gen.NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode{Loc: e.loc, MemoryId: e.mem}})
@@ -144,5 +163,13 @@ func TestUnwiredForeignSameLocEdgeIsNotLocalWiring(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestUnwiredNonSpecTargetRemedyIsEdgeCreate(t *testing.T) {
+	fs, _ := unwiredFindings([]specNode{wired("msg:010:02", "msg:010:02 — Win back")}, lintMem, existsIn("!msg:010"))
+	want := "`hadron edge create -m " + lintMem + " --from msg:010:02 --to msg:010 --name 'Win back'`"
+	if len(fs) != 1 || !strings.Contains(fs[0].Message, want) {
+		t.Errorf("a non-spec target is wired with edge create, as spec link refuses it: want %s in %+v", want, fs)
 	}
 }

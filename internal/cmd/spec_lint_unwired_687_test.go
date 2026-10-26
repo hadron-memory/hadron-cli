@@ -170,3 +170,44 @@ func TestSpecLintUnwiredRemedyLabelSurvivesTheShell(t *testing.T) {
 }
 
 func strconvQuote(s string) string { b, _ := json.Marshal(s); return string(b) }
+
+// An out-of-scope planned target that exists but is not a spec — here the
+// module root msg — is still wiring spec new plans, but spec link refuses a
+// non-spec endpoint, so the printed remedy is the edge create that runs.
+func TestSpecLintUnwiredNonSpecTargetPrintsEdgeCreate(t *testing.T) {
+	c := unwiredCorpus(t)
+	q := map[string][]string{}
+	for op, r := range c {
+		q[op] = []string{r}
+	}
+	q["ResolveUrn"] = []string{`{"data":{"resolveUrn":{"id":"x1","kind":"node","memoryId":"mem1"}}}`, resolveNullJSON}
+	q["GetNode"] = []string{strings.Replace(linkNonSpecDetail, `"loc":"register"`, `"loc":"msg"`, 1)}
+	calls := map[string]int{}
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		r := q[op]
+		if len(r) == 0 {
+			return ""
+		}
+		i := min(calls[op], len(r)-1)
+		calls[op]++
+		return translateFindNodes(op, r[i])
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--prefix", "msg:010", "-m", specMem, "--json", "--unwired", "--server", gql.URL})
+	runErr := root.Execute()
+	var fs []lintFinding687
+	if err := json.Unmarshal([]byte(out.String()), &fs); err != nil {
+		t.Fatalf("lint output not JSON (run err %v): %v\n%s", runErr, err, out.String())
+	}
+	want := "`hadron edge create -m " + specMem + " --from msg:010 --to msg --name Win-back`"
+	for _, f := range unwired(fs) {
+		if f.Citation == "msg:010" {
+			if !strings.Contains(f.Message, want) {
+				t.Errorf("want %s, got %s", want, f.Message)
+			}
+			return
+		}
+	}
+	t.Fatalf("no finding for msg:010's planned edge to the non-spec module root: %+v", fs)
+}

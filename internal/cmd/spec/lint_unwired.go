@@ -25,7 +25,7 @@ import (
 // child's title and a renamed spec keeps its edge; the inheritance edge counts
 // only under inheritEdgeLabel, since any other edge to a contract is an
 // ordinary cross-reference. exists says whether a target loc is a live node.
-func unwiredFindings(nodes []specNode, memURN string, exists func(loc string) (bool, error)) ([]lintFindingDTO, error) {
+func unwiredFindings(nodes []specNode, memURN string, exists func(loc string) (found, spec bool, err error)) ([]lintFindingDTO, error) {
 	fs := []lintFindingDTO{}
 	for _, n := range nodes {
 		if n.Unavailable {
@@ -47,7 +47,7 @@ func unwiredFindings(nodes []specNode, memURN string, exists func(loc string) (b
 			if hasOutEdge(n, w.target, w.label) {
 				continue
 			}
-			ok, err := exists(w.target)
+			ok, _, err := exists(w.target)
 			if err != nil {
 				return nil, err
 			}
@@ -84,14 +84,14 @@ func hasOutEdge(n specNode, target, label string) bool {
 
 // specLocExists answers unwiredFindings' exists: a loc in scope is known
 // without a request; any other is resolved once and remembered.
-func specLocExists(cmd *cobra.Command, client graphql.Client, memURN string, inScope map[string]bool) func(string) (bool, error) {
+func specLocExists(cmd *cobra.Command, client graphql.Client, memURN string, inScope map[string]bool) func(string) (bool, bool, error) {
 	seen := map[string]bool{}
-	return func(loc string) (bool, error) {
+	return func(loc string) (bool, bool, error) {
 		if inScope[loc] {
-			return true, nil
+			return true, true, nil
 		}
 		if v, ok := seen[loc]; ok {
-			return v, nil
+			return v, true, nil
 		}
 		_, err := resolveSpecNode(cmd, client, memURN, loc)
 		switch {
@@ -100,8 +100,8 @@ func specLocExists(cmd *cobra.Command, client graphql.Client, memURN string, inS
 		case exitcode.FromError(err) == exitcode.NotFound:
 			seen[loc] = false
 		default:
-			return false, err
+			return false, false, err
 		}
-		return seen[loc], nil
+		return seen[loc], true, nil
 	}
 }
