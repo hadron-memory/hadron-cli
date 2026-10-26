@@ -178,8 +178,17 @@ mutation DeleteAgent($ref: ID!) {
 # returns. Each row's node carries its own address and, where it applies, the
 # base it was inherited from.
 
-query AgentTaskIndexList($ref: ID!) {
-  agentTaskList(ref: $ref) {
+# symptom/limit are the #2421 experiment: omitempty so a nil pointer is omitted
+# (no flag => the request is byte-identical to the plain list). The server owns
+# the limit rules (default 3, clamp, BAD_USER_INPUT); the CLI sends them as given.
+query AgentTaskIndexList(
+  $ref: ID!
+  # @genqlient(pointer: true, omitempty: true)
+  $symptom: String
+  # @genqlient(pointer: true, omitempty: true)
+  $limit: Int
+) {
+  agentTaskList(ref: $ref, symptom: $symptom, limit: $limit) {
     node {
       id
       urn
@@ -190,6 +199,7 @@ query AgentTaskIndexList($ref: ID!) {
       }
     }
     trigger
+    matchedBy
   }
 }
 

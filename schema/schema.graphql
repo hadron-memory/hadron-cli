@@ -338,6 +338,11 @@ type AgentListedProcess {
 """
 type AgentListedTask {
   """
+  #2421 experimental symptom search: which retriever ranked this task; null on the unfiltered list.
+  """
+  matchedBy: AgentTaskMatchedBy
+
+  """
   The task. A base's task, listed through the Agent, keeps its own URN and carries inheritedFrom.
   """
   node: Node!
@@ -556,6 +561,20 @@ The statuses a task may be CREATED in (#1754, hrn:node:hadronmemory.com:specs:co
 enum AgentTaskCreateStatus {
   BACKLOG
   PENDING
+}
+
+"""
+#2421 experimental symptom search: membership in the hybrid ranking inputs.
+"""
+enum AgentTaskMatchedBy {
+  """Ranked by both retrievers."""
+  BOTH
+
+  """Ranked by the keyword retriever."""
+  KEYWORD
+
+  """Ranked by the vector retriever."""
+  VECTOR
 }
 
 """
@@ -1554,7 +1573,7 @@ enum AppMemoryKind {
 """
 One headless run — the audit record AND (v1) the activation: policy
 snapshot, live budgets (zeroing halts the run), lifecycle, trigger
-provenance. Spec cor:agt:010:02.
+provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 """
 type AppRun {
   """
@@ -1599,6 +1618,13 @@ type AppRun {
   render as 'no budget' rather than 'unknown'.
   """
   budgetTokensInitial: Int
+
+  """
+  Priced LLM cost of this run in micro-cents (1e-8 USD), as a string (#2439):
+  the sum of its usage events' cost. Events with no known price add nothing.
+  NULL means UNKNOWN (a run minted before the counter existed), not zero.
+  """
+  costMicroCents: String
   createdAt: DateTime!
   createdBy: String
   curNodeUrn: String
@@ -1617,6 +1643,15 @@ type AppRun {
   entryNodeUrn: String!
   eventData: JSON
   failure: JSON
+
+  """
+  A failed run's cause in plain words (#2439): what happened, who can fix it
+  and where. Null when the run has no failure. Static text derived from the
+  failure and the run's budgets; it names no memory, id or tool, so it
+  discloses nothing the caller does not already read. The raw failure stays
+  available on the failure field.
+  """
+  failureReason: AppRunFailureReason
   finishedAt: DateTime
 
   """
@@ -1689,6 +1724,22 @@ type AppRun {
 
   """On-behalf-of user (cor:agt:010:01). Null = pure App service identity."""
   userId: ID
+}
+
+type AppRunFailureReason {
+  """
+  Stable category: NOT_ADOPTED, MEMORY_UNREADABLE, CHANGED, OVER_BUDGET, NO_AI_CONFIG, TIMED_OUT, CANCELLED or OTHER.
+  """
+  kind: String!
+
+  """What to do, and where."""
+  nextStep: String!
+
+  """What happened, in plain words."""
+  summary: String!
+
+  """Who can fix it."""
+  whoCanFix: String!
 }
 
 """
@@ -2337,11 +2388,13 @@ type CastWorkerPreview {
   template and no override was given.
   """
   prompt: String
+  reportsToWorkerId: ID
 
   """
   The casting's role: the agent's personaRole (it cannot be overridden, R222).
   """
   role: String
+  teamPlacement: WorkerTeamPlacement!
 
   """
   #2024 — the tickers this cast would create, each at its effective cadence (the larger of the template's and the App's floor). Non-reserving: nothing is written or held, so a later cast may differ if the App changes. Empty when the Agent declares none.
@@ -2397,7 +2450,14 @@ type Channel {
 
   """The reserved address of the chat root (e.g. chats:team)."""
   loc: String!
-  memory: Memory!
+
+  """
+  #2509: this memory's record, exactly as Query.memory answers it to the
+  caller, or null when the caller may not read that record (or it is
+  deleted). Seeing this channel does not grant its memory's record, so use
+  memoryId for the address.
+  """
+  memory: Memory
 
   """Host memory."""
   memoryId: ID!
@@ -5444,7 +5504,14 @@ on the Memory itself.
 type MemoryMember {
   createdAt: DateTime!
   createdBy: String
-  memory: Memory!
+
+  """
+  #2509: this memory's record, exactly as Query.memory answers it to the
+  caller, or null when the caller may not read that record (or it is
+  deleted). Seeing this membership does not grant its memory's record, so use
+  memoryId for the address.
+  """
+  memory: Memory
   role: MemoryMemberRole!
   updatedAt: DateTime
   updatedBy: String
@@ -5513,7 +5580,14 @@ type MemoryShare {
   createdBy instead.
   """
   grantor: User!
-  memory: Memory!
+
+  """
+  #2509: this memory's record, exactly as Query.memory answers it to the
+  caller, or null when the caller may not read that record (or it is
+  deleted). Seeing this share does not grant its memory's record, so use
+  memoryId for the address.
+  """
+  memory: Memory
   role: MemoryShareRole!
   updatedAt: DateTime
   updatedBy: String
@@ -6062,8 +6136,10 @@ type Mutation {
   user-owned App. Pure App-key principals are denied.
   
   Error codes (extensions.code): WORKER_NAME_TAKEN, WORKER_NAME_CONFUSABLE,
-  WORKER_NAME_REQUIRED, WORKER_NAME_RESERVED, WORKER_AGENT_NOT_INSTALLED,
-  WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS, APP_UNINSTALLED.
+  WORKER_NAME_REQUIRED, WORKER_NAME_RESERVED, WORKER_NAME_RESERVED_TEAM_PREFIX
+  (a mention token starting team., refused only while TEAM_TAGS_ENABLED),
+  WORKER_AGENT_NOT_INSTALLED, WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS,
+  APP_UNINSTALLED.
   
   #1050 also removed WORKER_ROLE_NOT_FOUND from this mutation: it fired only
   because a nameless cast had to find a roles:<role> node to read a register.
@@ -6091,7 +6167,17 @@ type Mutation {
     keep the typed refusal. One rule, one message, both paths.
     """
     name: String
+
+    """
+    S12 explicit no-team choice; omit reportsTo. Both keys conflict, single null/blank/false is invalid. Omission remains UNSET while enforcement is OFF.
+    """
+    noTeam: Boolean
     promptOverride: String
+
+    """
+    S12 head choice: requires staffing and App management; refuses WORKER_REPORTING_CAST_UNAVAILABLE if standby becomes available without cast coverage integration.
+    """
+    reportsTo: ID
     role: String
   ): Worker!
 
@@ -6117,9 +6203,8 @@ type Mutation {
   pointer is cleared (it named the old agent's compiled prompt), the old
   agent's generated tickers end and the new agent's are made, and one
   `worker.casting` team event records who and the old and new agent and
-  role. It takes effect at the worker's next bind. Refused with
-  WORKER_HAS_OPEN_SESSION while the worker has an open session: end it
-  first. workerRef and agentRef are ids or URNs.
+  role. It takes effect at the worker's next bind: an open session
+  finishes under the agent and role it was bound with. workerRef and agentRef are ids or URNs.
   """
   changeWorkerAgent(agentRef: ID!, workerRef: ID!): Worker!
 
@@ -6499,7 +6584,9 @@ type Mutation {
   Spec 049 Phase 8 — post into ANY Channel by ref (its id, or its address —
   `Channel.chatRootUrn`, #1171): the
   createTeamChatMessage contract (author derivation, mentions, replyToSeq,
-  the body cap, item J) addressed by Channel. createTeamChatMessage is the
+  the body cap, item J) addressed by Channel. While TEAM_TAGS_ENABLED (default
+  off) a post also carries the sender's team tags, and an invalid
+  `@team.<head>.all` target refuses the whole post TEAM_CHAT_TEAM_HEAD_INVALID. createTeamChatMessage is the
   appRef → App.defaultChannel convenience over this — one gate, two entry
   points. A Channel you may not read is CHANNEL_NOT_FOUND; one you may read
   but not post into is FORBIDDEN.
@@ -8597,7 +8684,7 @@ type Mutation {
   when one person holds both, or placed under any worker by its own holder
   (interim, pending a ruling). WORKER_REPORTS_TO_FORBIDDEN otherwise. A worker acts through its bound
   session, with a person behind the request. Each change is a
-  `worker.reports-to` team event; setting the current value changes nothing.
+  `worker.reports-to` team event. An explicit clear records NO_TEAM, including a previously UNSET line; repeating the recorded choice changes nothing.
   """
   setWorkerReportsTo(reportsTo: ID, workerRef: ID!): Worker!
 
@@ -10808,8 +10895,13 @@ type Query {
   listed task outside the chain's memories is returned only when its own
   memory is readable too. Refused as AGENT_NOT_FOUND otherwise. The MCP tool
   hadron_agent_tasks returns the same list. Accepts the Agent's ID or URN.
+  #2421 experiment: optional symptom ranks only runnable effective-chain tasks
+  with non-empty abstracts; summary vectors and abstract-only lexical matches
+  share hybrid ranking. At most 3 candidates (limit defaults to 3, larger
+  values clamp); empty symptom or non-positive limit is BAD_USER_INPUT.
+  Without symptom the list is unchanged. matchedBy identifies ranking inputs.
   """
-  agentTaskList(ref: ID!): [AgentListedTask!]!
+  agentTaskList(limit: Int, ref: ID!, symptom: String): [AgentListedTask!]!
 
   """
   #1706 — an App's effective stall windows (hrn:node:hadronmemory.com:specs:cor:agt:050:14–:17), and (#1763) its
@@ -11097,7 +11189,8 @@ type Query {
   Dry-run castWorker (#964): run the cast's exact resolution — same
   arguments, same typed refusals (WORKER_AGENT_NOT_FOUND / _AMBIGUOUS /
   _NOT_INSTALLED, WORKER_NAME_REQUIRED, WORKER_NAME_TAKEN,
-  WORKER_NAME_CONFUSABLE, WORKER_NAME_RESERVED, APP_UNINSTALLED),
+  WORKER_NAME_CONFUSABLE, WORKER_NAME_RESERVED, WORKER_NAME_RESERVED_TEAM_PREFIX
+  (only while TEAM_TAGS_ENABLED), APP_UNINSTALLED),
   same MINT gate — up to but not
   including the writes, and return what would be created. A Query, not a
   dryRun flag: casting a name is the one irreversible act in the team
@@ -11107,7 +11200,23 @@ type Query {
   be gone at cast time — by design; the cast's uniqueness constraint
   remains the only allocation primitive.
   """
-  castWorkerPreview(agentRef: ID, appRef: ID!, name: String, promptOverride: String, role: String): CastWorkerPreview!
+  castWorkerPreview(
+    agentRef: ID
+    appRef: ID!
+    name: String
+
+    """
+    S12 explicit no-team choice; omit reportsTo. Both keys conflict, single null/blank/false is invalid. Omission remains UNSET while enforcement is OFF.
+    """
+    noTeam: Boolean
+    promptOverride: String
+
+    """
+    S12 head choice: requires staffing and App management; refuses WORKER_REPORTING_CAST_UNAVAILABLE if standby becomes available without cast coverage integration.
+    """
+    reportsTo: ID
+    role: String
+  ): CastWorkerPreview!
 
   """
   Spec 049 Phase 4 — the uniform single-Channel read. 'ref' is the Channel's
@@ -11147,6 +11256,14 @@ type Query {
     mentionsRef: ID
     offset: Int
     sinceSeq: Int
+
+    """Stable authorized head ID; mutually exclusive with untagged."""
+    teamHeadRef: ID
+
+    """
+    Select no stored head identity (legacy absent or explicit empty). Requires metadata access.
+    """
+    untagged: Boolean
   ): TeamChatMessagesPage!
 
   """
@@ -12413,6 +12530,14 @@ type Query {
     mentionsRef: ID
     offset: Int
     sinceSeq: Int
+
+    """Stable authorized head ID; mutually exclusive with untagged."""
+    teamHeadRef: ID
+
+    """
+    Select no stored head identity (legacy absent or explicit empty). Requires metadata access.
+    """
+    untagged: Boolean
   ): TeamChatMessagesPage!
 
   """
@@ -15075,6 +15200,11 @@ type TeamChatMessage {
   sessionId: ID
 
   """
+  Immutable head identity/display pairs. Null means absent or withheld; [] means known empty.
+  """
+  teamTags: [TeamTagSnapshot!]
+
+  """
   The message node's canonical URN, hrn:node:<memory>:<loc> (#1209), so a
   client can cite a message in a CLI call, an MCP tool or a reply. Composed
   server-side: a message loc carries a random component, so the chat root and
@@ -15346,6 +15476,9 @@ type TeamRosterEntry {
   startedTasks: [ID!]!
   state: TeamRosterState!
 
+  """S12 recorded choice; null means withheld, never UNSET or NO_TEAM."""
+  teamPlacement: WorkerTeamPlacement
+
   """
   Coarse tier from the server model mapping: high, mid or low. Null when unbound, unreported or unmapped; advisory, never authorization.
   """
@@ -15424,6 +15557,11 @@ type TeamRosterTaskSummary {
 enum TeamSpecForm {
   CLIENT_INPUT
   SERVER
+}
+
+type TeamTagSnapshot {
+  headId: ID!
+  label: String!
 }
 
 """
@@ -16373,6 +16511,11 @@ type Worker {
   slug: String!
 
   """
+  S12 placement; null is withheld, UNSET is no recorded choice (including OFF-era casts).
+  """
+  teamPlacement: WorkerTeamPlacement
+
+  """
   #2252 (R189) — the coarse tier of model from the platform's one model-to-tier mapping: high (opus-class),
   mid (sonnet-class), low (haiku-class); null when the model is unmapped (no guessed equivalence for another
   family). Advisory: a coordinator's reading aid, never an authorization or routing input in this slice.
@@ -16570,6 +16713,12 @@ enum WorkerPendingReason {
 
   """A team pause is in force (App.teamPausedAt); the worker can't lift it."""
   TEAM_PAUSED
+}
+
+enum WorkerTeamPlacement {
+  NO_TEAM
+  REPORTS_TO
+  UNSET
 }
 
 """

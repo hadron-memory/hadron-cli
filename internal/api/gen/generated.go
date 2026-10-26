@@ -2787,6 +2787,8 @@ type AgentTaskIndexListAgentTaskListAgentListedTask struct {
 	Node *AgentTaskIndexListAgentTaskListAgentListedTaskNode `json:"node"`
 	// The name of the index edge that lists it; null for a task no index edge lists.
 	Trigger *string `json:"trigger"`
+	// #2421 experimental symptom search: which retriever ranked this task; null on the unfiltered list.
+	MatchedBy *AgentTaskMatchedBy `json:"matchedBy"`
 }
 
 // GetNode returns AgentTaskIndexListAgentTaskListAgentListedTask.Node, and is useful for accessing the field via an interface.
@@ -2796,6 +2798,11 @@ func (v *AgentTaskIndexListAgentTaskListAgentListedTask) GetNode() *AgentTaskInd
 
 // GetTrigger returns AgentTaskIndexListAgentTaskListAgentListedTask.Trigger, and is useful for accessing the field via an interface.
 func (v *AgentTaskIndexListAgentTaskListAgentListedTask) GetTrigger() *string { return v.Trigger }
+
+// GetMatchedBy returns AgentTaskIndexListAgentTaskListAgentListedTask.MatchedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskIndexListAgentTaskListAgentListedTask) GetMatchedBy() *AgentTaskMatchedBy {
+	return v.MatchedBy
+}
 
 // AgentTaskIndexListAgentTaskListAgentListedTaskNode includes the requested fields of the GraphQL type Node.
 type AgentTaskIndexListAgentTaskListAgentListedTaskNode struct {
@@ -2856,6 +2863,11 @@ type AgentTaskIndexListResponse struct {
 	// listed task outside the chain's memories is returned only when its own
 	// memory is readable too. Refused as AGENT_NOT_FOUND otherwise. The MCP tool
 	// hadron_agent_tasks returns the same list. Accepts the Agent's ID or URN.
+	// #2421 experiment: optional symptom ranks only runnable effective-chain tasks
+	// with non-empty abstracts; summary vectors and abstract-only lexical matches
+	// share hybrid ranking. At most 3 candidates (limit defaults to 3, larger
+	// values clamp); empty symptom or non-positive limit is BAD_USER_INPUT.
+	// Without symptom the list is unchanged. matchedBy identifies ranking inputs.
 	AgentTaskList []*AgentTaskIndexListAgentTaskListAgentListedTask `json:"agentTaskList"`
 }
 
@@ -3098,6 +3110,24 @@ type AgentTaskListResponse struct {
 // GetAgentTasks returns AgentTaskListResponse.AgentTasks, and is useful for accessing the field via an interface.
 func (v *AgentTaskListResponse) GetAgentTasks() []*AgentTaskListAgentTasksAgentTask {
 	return v.AgentTasks
+}
+
+// #2421 experimental symptom search: membership in the hybrid ranking inputs.
+type AgentTaskMatchedBy string
+
+const (
+	// Ranked by both retrievers.
+	AgentTaskMatchedByBoth AgentTaskMatchedBy = "BOTH"
+	// Ranked by the keyword retriever.
+	AgentTaskMatchedByKeyword AgentTaskMatchedBy = "KEYWORD"
+	// Ranked by the vector retriever.
+	AgentTaskMatchedByVector AgentTaskMatchedBy = "VECTOR"
+)
+
+var AllAgentTaskMatchedBy = []AgentTaskMatchedBy{
+	AgentTaskMatchedByBoth,
+	AgentTaskMatchedByKeyword,
+	AgentTaskMatchedByVector,
 }
 
 // AgentTaskParkParkAgentTask includes the requested fields of the GraphQL type AgentTask.
@@ -7181,7 +7211,7 @@ func (v *AppMembersResponse) GetApp() *AppMembersApp { return v.App }
 //
 // One headless run — the audit record AND (v1) the activation: policy
 // snapshot, live budgets (zeroing halts the run), lifecycle, trigger
-// provenance. Spec cor:agt:010:02.
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type AppRunAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -7370,7 +7400,7 @@ func (v *AppRunAppRun) __premarshalJSON() (*__premarshalAppRunAppRun, error) {
 //
 // One headless run — the audit record AND (v1) the activation: policy
 // snapshot, live budgets (zeroing halts the run), lifecycle, trigger
-// provenance. Spec cor:agt:010:02.
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type AppRunFields struct {
 	Id             string            `json:"id"`
 	OrganizationId string            `json:"organizationId"`
@@ -7541,7 +7571,7 @@ func (v *AppRunsAppRunsAppRunsPage) GetItems() []*AppRunsAppRunsAppRunsPageItems
 //
 // One headless run — the audit record AND (v1) the activation: policy
 // snapshot, live budgets (zeroing halts the run), lifecycle, trigger
-// provenance. Spec cor:agt:010:02.
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type AppRunsAppRunsAppRunsPageItemsAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -10204,7 +10234,7 @@ func (v *CalendarReadEventStartCalendarEventTime) GetTimeZone() *string { return
 //
 // One headless run — the audit record AND (v1) the activation: policy
 // snapshot, live budgets (zeroing halts the run), lifecycle, trigger
-// provenance. Spec cor:agt:010:02.
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type CancelAppRunCancelAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -10677,7 +10707,8 @@ type CastWorkerPreviewResponse struct {
 	// Dry-run castWorker (#964): run the cast's exact resolution — same
 	// arguments, same typed refusals (WORKER_AGENT_NOT_FOUND / _AMBIGUOUS /
 	// _NOT_INSTALLED, WORKER_NAME_REQUIRED, WORKER_NAME_TAKEN,
-	// WORKER_NAME_CONFUSABLE, WORKER_NAME_RESERVED, APP_UNINSTALLED),
+	// WORKER_NAME_CONFUSABLE, WORKER_NAME_RESERVED, WORKER_NAME_RESERVED_TEAM_PREFIX
+	// (only while TEAM_TAGS_ENABLED), APP_UNINSTALLED),
 	// same MINT gate — up to but not
 	// including the writes, and return what would be created. A Query, not a
 	// dryRun flag: casting a name is the one irreversible act in the team
@@ -10741,8 +10772,10 @@ type CastWorkerResponse struct {
 	// user-owned App. Pure App-key principals are denied.
 	//
 	// Error codes (extensions.code): WORKER_NAME_TAKEN, WORKER_NAME_CONFUSABLE,
-	// WORKER_NAME_REQUIRED, WORKER_NAME_RESERVED, WORKER_AGENT_NOT_INSTALLED,
-	// WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS, APP_UNINSTALLED.
+	// WORKER_NAME_REQUIRED, WORKER_NAME_RESERVED, WORKER_NAME_RESERVED_TEAM_PREFIX
+	// (a mention token starting team., refused only while TEAM_TAGS_ENABLED),
+	// WORKER_AGENT_NOT_INSTALLED, WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS,
+	// APP_UNINSTALLED.
 	//
 	// #1050 also removed WORKER_ROLE_NOT_FOUND from this mutation: it fired only
 	// because a nameless cast had to find a roles:<role> node to read a register.
@@ -10886,6 +10919,10 @@ var AllChannelKind = []ChannelKind{
 // lives without a second read — two Channels named `team` at loc `chats:team`
 // are distinguishable only by this.
 type ChannelMemory struct {
+	// #2509: this memory's record, exactly as Query.memory answers it to the
+	// caller, or null when the caller may not read that record (or it is
+	// deleted). Seeing this channel does not grant its memory's record, so use
+	// memoryId for the address.
 	Memory *ChannelMemoryMemory `json:"memory"`
 }
 
@@ -16238,7 +16275,9 @@ type CreateChannelMessageResponse struct {
 	// Spec 049 Phase 8 — post into ANY Channel by ref (its id, or its address —
 	// `Channel.chatRootUrn`, #1171): the
 	// createTeamChatMessage contract (author derivation, mentions, replyToSeq,
-	// the body cap, item J) addressed by Channel. createTeamChatMessage is the
+	// the body cap, item J) addressed by Channel. While TEAM_TAGS_ENABLED (default
+	// off) a post also carries the sender's team tags, and an invalid
+	// `@team.<head>.all` target refuses the whole post TEAM_CHAT_TEAM_HEAD_INVALID. createTeamChatMessage is the
 	// appRef → App.defaultChannel convenience over this — one gate, two entry
 	// points. A Channel you may not read is CHANNEL_NOT_FOUND; one you may read
 	// but not post into is FORBIDDEN.
@@ -44984,7 +45023,7 @@ type SetWorkerReportsToResponse struct {
 	// when one person holds both, or placed under any worker by its own holder
 	// (interim, pending a ruling). WORKER_REPORTS_TO_FORBIDDEN otherwise. A worker acts through its bound
 	// session, with a person behind the request. Each change is a
-	// `worker.reports-to` team event; setting the current value changes nothing.
+	// `worker.reports-to` team event. An explicit clear records NO_TEAM, including a previously UNSET line; repeating the recorded choice changes nothing.
 	SetWorkerReportsTo *SetWorkerReportsToSetWorkerReportsToWorker `json:"setWorkerReportsTo"`
 }
 
@@ -52791,7 +52830,7 @@ func (v *TriggerAppRunResponse) GetTriggerAppRun() *TriggerAppRunTriggerAppRun {
 //
 // One headless run — the audit record AND (v1) the activation: policy
 // snapshot, live budgets (zeroing halts the run), lifecycle, trigger
-// provenance. Spec cor:agt:010:02.
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type TriggerAppRunTriggerAppRun struct {
 	AppRunFields `json:"-"`
 }
@@ -61973,11 +62012,19 @@ func (v *__AgentTaskGetInput) GetId() string { return v.Id }
 
 // __AgentTaskIndexListInput is used internally by genqlient
 type __AgentTaskIndexListInput struct {
-	Ref string `json:"ref"`
+	Ref     string  `json:"ref"`
+	Symptom *string `json:"symptom,omitempty"`
+	Limit   *int    `json:"limit,omitempty"`
 }
 
 // GetRef returns __AgentTaskIndexListInput.Ref, and is useful for accessing the field via an interface.
 func (v *__AgentTaskIndexListInput) GetRef() string { return v.Ref }
+
+// GetSymptom returns __AgentTaskIndexListInput.Symptom, and is useful for accessing the field via an interface.
+func (v *__AgentTaskIndexListInput) GetSymptom() *string { return v.Symptom }
+
+// GetLimit returns __AgentTaskIndexListInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskIndexListInput) GetLimit() *int { return v.Limit }
 
 // __AgentTaskListInput is used internally by genqlient
 type __AgentTaskListInput struct {
@@ -68306,8 +68353,8 @@ func AgentTaskGet(
 
 // The query executed by AgentTaskIndexList.
 const AgentTaskIndexList_Operation = `
-query AgentTaskIndexList ($ref: ID!) {
-	agentTaskList(ref: $ref) {
+query AgentTaskIndexList ($ref: ID!, $symptom: String, $limit: Int) {
+	agentTaskList(ref: $ref, symptom: $symptom, limit: $limit) {
 		node {
 			id
 			urn
@@ -68318,20 +68365,28 @@ query AgentTaskIndexList ($ref: ID!) {
 			}
 		}
 		trigger
+		matchedBy
 	}
 }
 `
 
+// symptom/limit are the #2421 experiment: omitempty so a nil pointer is omitted
+// (no flag => the request is byte-identical to the plain list). The server owns
+// the limit rules (default 3, clamp, BAD_USER_INPUT); the CLI sends them as given.
 func AgentTaskIndexList(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ref string,
+	symptom *string,
+	limit *int,
 ) (data_ *AgentTaskIndexListResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AgentTaskIndexList",
 		Query:  AgentTaskIndexList_Operation,
 		Variables: &__AgentTaskIndexListInput{
-			Ref: ref,
+			Ref:     ref,
+			Symptom: symptom,
+			Limit:   limit,
 		},
 	}
 
