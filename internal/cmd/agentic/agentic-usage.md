@@ -1647,7 +1647,9 @@ Conventions:
   cross-references one spec from another by their bare citations — a
   convention-aware `edge add` that validates both endpoints are specs in the
   same corpus and synthesizes the field→entity label when `--label` is omitted
-  (`--dry-run` previews); `spec find` is semantic by default (`--match-exactly`
+  (`--dry-run` previews), and is safe to rerun: an edge already there under
+  the same label is reported as `already linked` (`alreadyLinked: true`,
+  its `edgeId`) and nothing is written; `spec find` is semantic by default (`--match-exactly`
   forces literal regex matching); `spec list`/`spec find` run unscoped when no
   memory is given (`-m`, `HADRON_SPEC_MEMORY`, `spec use`, then the active
   memory), and since citations and names collide across corpora, results
@@ -1691,7 +1693,14 @@ Conventions:
   abstract alone, such as a body-only edit or the one `spec supersede` writes,
   still succeeds. Distilling is the wrong remedy in all three — on a
   spec whose sentences are all on-subject, cutting one drops a contract, so the
-  fix is a supersede-level split. `spec lint` also
+  fix is a supersede-level split. `spec lint --unwired` (opt-in, #687) is
+  the repair report for specs whose edges were never written: for each
+  legacy-grammar citation it reports, as `unwired` info (never failing
+  `--strict`), each edge legacy `spec new` plans that the spec lacks (the
+  table-of-contents edge to its parent, the inheritance edge to its contract,
+  when that target exists), and the message carries the exact `spec link`
+  that adds it (`edge create` when the target is not a spec); lint writes
+  nothing. `spec lint` also
   warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
   (`--strict` promotes warnings to errors, exit 5). Two more warnings check

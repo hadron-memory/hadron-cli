@@ -252,6 +252,7 @@ hadron spec find "backpressure" -m $M          # semantic search, filtered to sp
 hadron spec grep h-read-node -m $M             # body+abstract search, citation:line: text (exhaustive)
 hadron spec lint --product cli -m $M           # lint one product
 hadron spec lint --all -m $M --strict          # lint the whole corpus, warnings = errors
+hadron spec lint --all -m $M --unwired         # also list missing planned edges, with the command that adds each
 hadron spec register -m $M                      # derived number ledger (next-free at each tier)
 ```
 
@@ -395,7 +396,8 @@ right node.
 Use `link` for same-corpus spec-to-spec references. The command validates both
 endpoints are spec nodes and creates the edge from the more specific citation to
 the more general one; omit `--label` to let the CLI synthesize the conventional
-field-to-entity wording.
+field-to-entity wording. Rerunning it is safe: when the same edge (same target,
+same label) already exists it reports `already linked` and writes nothing.
 
 ```sh
 hadron spec link cli:cha:010:04 cli:cha:010:01 -m $M --dry-run

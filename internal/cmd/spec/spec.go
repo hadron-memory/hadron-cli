@@ -1301,6 +1301,9 @@ func paginateNodes(fetch func(limit, offset int) ([]*api.ListNode, error)) ([]*a
 type specEdge struct {
 	Name string
 	Loc  string // the target's loc
+	// TargetMemoryID is the target's memory, so a same-loc target in another
+	// corpus is not mistaken for a local one (#687 unwired).
+	TargetMemoryID string
 }
 
 // specNode is a lint/render-friendly projection of a node, decoupled from
@@ -1331,6 +1334,7 @@ type specNode struct {
 	// means the list was rewritten and still left it out. Both node queries
 	// already select it, so this costs nothing on the wire.
 	UpdatedAt string
+	MemoryID  string // the node's own memory, which local targets share
 	OutEdges  []specEdge
 	// InDraft says the node's corpus is a DRAFT (hadron-server#1447), where a
 	// citation is not yet permanent — only lint's advice reads it.
@@ -1348,6 +1352,7 @@ func nodeFromGQL(n *gen.GetNodeNode) specNode {
 		AbstractOriginHash: n.AbstractOriginHash,
 		Content:            n.Content,
 		UpdatedAt:          n.UpdatedAt,
+		MemoryID:           n.MemoryId,
 	}
 	if n.Data != nil {
 		var d struct {
@@ -1361,7 +1366,7 @@ func nodeFromGQL(n *gen.GetNodeNode) specNode {
 		if e == nil || e.Target == nil {
 			continue
 		}
-		sn.OutEdges = append(sn.OutEdges, specEdge{Name: edgeNameStr(e.Name), Loc: e.Target.Loc})
+		sn.OutEdges = append(sn.OutEdges, specEdge{Name: edgeNameStr(e.Name), Loc: e.Target.Loc, TargetMemoryID: e.Target.MemoryId})
 	}
 	return sn
 }
@@ -1380,6 +1385,7 @@ func nodeFromBatch(n *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) specNode {
 		Content:            n.Content,
 		ContentIsRaw:       true, // the batch read does not compile templates
 		UpdatedAt:          n.UpdatedAt,
+		MemoryID:           n.MemoryId,
 	}
 	if n.Data != nil {
 		var d struct {
@@ -1393,7 +1399,7 @@ func nodeFromBatch(n *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) specNode {
 		if e == nil || e.Target == nil {
 			continue
 		}
-		sn.OutEdges = append(sn.OutEdges, specEdge{Name: edgeNameStr(e.Name), Loc: e.Target.Loc})
+		sn.OutEdges = append(sn.OutEdges, specEdge{Name: edgeNameStr(e.Name), Loc: e.Target.Loc, TargetMemoryID: e.Target.MemoryId})
 	}
 	return sn
 }
