@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 62 unbound
+[Query] 61 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -60,7 +60,6 @@ secret
 sessionsPage
 slackConnection
 slackConnections
-teamComposition  # server schema refresh for cli#1087; CLI parity is a separate issue outside the cast/session-role companion
 teamSpecSchema  # cli#811 team-from-JSON consumer, outside cli#807 comments/search
 tickersPage
 usageActivity
