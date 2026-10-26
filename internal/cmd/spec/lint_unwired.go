@@ -69,11 +69,12 @@ func unwiredFindings(nodes []specNode, memURN string, exists func(loc string) (b
 	return fs, nil
 }
 
-// hasOutEdge reports an outgoing edge from n to target, under label when one
-// is given.
+// hasOutEdge reports an outgoing edge from n to target in n's own memory,
+// under label when one is given. An edge to the same loc in another memory is
+// a cross-reference to that corpus, not the planned local edge.
 func hasOutEdge(n specNode, target, label string) bool {
 	for _, e := range n.OutEdges {
-		if e.Loc == target && (label == "" || e.Name == label) {
+		if e.Loc == target && e.TargetMemoryID == n.MemoryID && (label == "" || e.Name == label) {
 			return true
 		}
 	}
