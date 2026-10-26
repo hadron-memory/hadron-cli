@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 61 unbound
+[Query] 62 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -60,6 +60,7 @@ secret
 sessionsPage
 slackConnection
 slackConnections
+teamComposition  # server schema refresh for cli#1087; CLI parity is a separate issue outside the cast/session-role companion
 teamSpecSchema  # cli#811 team-from-JSON consumer, outside cli#807 comments/search
 tickersPage
 usageActivity
@@ -68,11 +69,12 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 114 unbound
+[Mutation] 116 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
+allocateSpecNode  # server schema refresh for cli#1087; spec-node allocation CLI parity is a separate issue
 amendDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 approveMergeUsersConsent  # server#1642 account-merge consent; parity follows the server surface settling
 askDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
@@ -83,6 +85,7 @@ calendarCreateEvent
 calendarDeleteEvent
 calendarRespondToEvent
 calendarUpdateEvent
+changeWorkerAgent  # cli#1087 out of scope: a `change agent` command is held until hadron-server#2493 (S2, open-session consistency) lands
 claimContextReset  # server#2162 context-reset host protocol; host runtime delivery is outside asset-link CLI#897
 clearAgentAIConfig
 clearWorkerIsolation  # S7a remains inert; isolation CLI commands are outside the #2138 experiment slice

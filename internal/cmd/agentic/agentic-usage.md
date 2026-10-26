@@ -2110,8 +2110,12 @@ Conventions:
   (casting reads no system memory now, so the flag had become
   accepted-and-ignored), and `--role` is NO LONGER VALIDATED against defined
   roles (`cor:agt:020:00` §1 — cast lists are ergonomics, never a gate). An
-  unrecognized role resolves no agent (`WORKER_AGENT_NOT_FOUND`); with an
-  explicit `--agent` it is simply the casting's label.
+  unrecognized role resolves no agent (`WORKER_AGENT_NOT_FOUND`).
+  **`--role` and `--agent` cannot be combined** (`cor:dmo:050:11`, R222, cli#1087):
+  the role follows the agent and is never typed in beside it. The pair is exit 2
+  before any call (`--dry-run` included); the server's own refusal,
+  `WORKER_ROLE_OVERRIDE_REFUSED`, is also exit 2 and its message names the
+  agent's role. `--role` alone and `--agent` alone are unchanged.
   `--prompt-override` layers per-worker individuality over the template.
   Because `--role` resolves an AGENT and consults no role DEFINITION, a
   successful `--role` cast whose role has no `team role` definition prints a
@@ -2704,7 +2708,13 @@ Conventions:
   never truncated — it is the handle `session end --session <id>` takes, so a
   shortened one would break copy-paste. `--json` carries `workerRole`
   alongside `workerName`/`workerId`, present as `null` on a session with no
-  readable worker rather than omitted, so the shape stays uniform across rows. **The worklog** is the provenance record, and it needs NO
+  readable worker rather than omitted, so the shape stays uniform across rows.
+  **`--json` also carries `role`** (cli#1087, `Session.role`): the role the
+  session was BOUND under, which does not follow a later change of the worker's
+  agent (`cor:dmo:050:11`), where `workerRole` is the worker's current role. The
+  `ROLE` column shows the bind-time role and falls back to the worker's role for a
+  session the server stamped none on; this needs a server with `Session.role`
+  (hadron-server#2481), which refuses the session reads otherwise; `role` is `null` for a session without a worker. **The worklog** is the provenance record, and it needs NO
   flag (#399): the binding records the bound worker's App — the worklog
   home — so `session log` just works, and the provenance query defaults to
   the binding's App (unbound checkouts pass `--app <ref>` or `-m

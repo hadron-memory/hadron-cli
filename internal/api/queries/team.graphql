@@ -535,6 +535,10 @@ fragment TeamSessionFields on Session {
   id
   agentId
   workerId
+  # The role the session was BOUND under (hadron-server#2458, cor:dmo:050:11):
+  # it does not follow a later change of the worker's agent, unlike worker.role
+  # below. Null without a worker.
+  role
   # The nested Worker (#980 / hadron-cli#432): the session-list name join
   # without a per-row worker(ref:) round trip — resolves for retired workers
   # too, and never widens what the session read admits. Deliberately NOT

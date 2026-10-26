@@ -134,8 +134,15 @@ taken names. That register is gone, so a bare --role no longer casts.
 
 --role is also no longer validated against defined roles (cor:agt:020:00
 §1 — cast lists are ergonomics, never a gate). An unrecognized role simply
-resolves no agent (WORKER_AGENT_NOT_FOUND); with an explicit --agent it is
-just the casting's label.
+resolves no agent (WORKER_AGENT_NOT_FOUND).
+
+--role and --agent cannot be combined (cor:dmo:050:11, R222): the role
+follows the agent and is never typed in beside it, so the casting's role is
+the agent's persona role and a cast cannot override it. Pass --agent to name
+the agent, or --role to let the server pick the one agent that carries it —
+never both. The CLI refuses the pair before any call (exit 2); a server that
+still sees both answers WORKER_ROLE_OVERRIDE_REFUSED (also exit 2), and its
+message names the agent's role.
 
 CASTING DOES NOT HOLD THE NAME (cor:agt:020:09). A name is held by whoever
 WORKS AS it — the person who binds it in ` + "`session start`" + ` — not by whoever
@@ -172,6 +179,12 @@ context).`,
 			}
 			if role == "" && agentRef == "" {
 				return exitcode.Newf(exitcode.Usage, "pass --role <role> or --agent <ref> — the server never guesses the agent to cast")
+			}
+			// R222 (cor:dmo:050:11): the role follows the agent. Refused here,
+			// before any call — the dry-run preview included — so the caller
+			// learns the rule from the flags, not from a server refusal.
+			if role != "" && agentRef != "" {
+				return exitcode.Newf(exitcode.Usage, "--role and --agent cannot be combined: the casting's role is the agent's persona role and a cast cannot override it — pass --agent <ref> to name the agent, or --role <role> to pick the installed agent that carries it")
 			}
 			// Refused HERE rather than relayed. The server's
 			// WORKER_NAME_REQUIRED carries the reason but not the remedy, and
@@ -255,8 +268,8 @@ context).`,
 			// definition succeeds silently, leaving a role nobody documented.
 			// Note it at the moment the divergence is created. Best-effort and
 			// on stderr: the cast already succeeded and must not fail here, and
-			// stderr keeps the --json receipt on stdout untouched (an --agent
-			// cast's --role is just a label, so this only fires for --role).
+			// stderr keeps the --json receipt on stdout untouched (--role and
+			// --agent are exclusive, so this fires exactly for a --role cast).
 			if role != "" && !roleDefinitionExists(cmd.Context(), client, appRef, role) {
 				fmt.Fprintf(f.IOStreams.ErrOut,
 					"note: no team role definition for %q — `hadron team role create %s` documents it (`team role list` shows the gap)\n", role, role)
@@ -275,8 +288,8 @@ context).`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "", "cast by role: the single installed agent whose persona role matches")
-	cmd.Flags().StringVar(&agentRef, "agent", "", "cast this agent (ID or URN; must be installed in the App)")
+	cmd.Flags().StringVar(&role, "role", "", "cast by role: the single installed agent whose persona role matches (not with --agent)")
+	cmd.Flags().StringVar(&agentRef, "agent", "", "cast this agent (ID or URN; must be installed in the App); its persona role is the worker's role (not with --role)")
 	cmd.Flags().StringVar(&name, "name", "", "the worker's name — REQUIRED, and permanent for this App")
 	cmd.Flags().StringVar(&promptOverride, "prompt-override", "", "per-worker individuality appended to the agent's prompt template")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview the cast (name, agent, composed prompt) without creating anything; reserves nothing")

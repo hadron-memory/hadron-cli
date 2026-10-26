@@ -246,3 +246,42 @@ func headerLine(t *testing.T, out string) []string {
 	t.Fatalf("no table header in output:\n%s", out)
 	return nil
 }
+
+// hadron-cli#1087 / cor:dmo:050:11: Session.role is the role the session was
+// BOUND under, and does not follow a later change of the worker's agent. --json
+// carries it as `role` (the session's own), apart from `workerRole` (the
+// worker's current role); the ROLE column shows the bind-time role when the
+// server sent one, and falls back to the worker's role otherwise.
+func TestSessionListSurfacesBindTimeRole(t *testing.T) {
+	teamGitDir(t)
+	bound := strings.Replace(activeSessionJSON, `"userId":"u-holger"`, `"role":"qa-engineer","userId":"u-holger"`, 1)
+	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
+		"TeamSessions": `{"data":{"sessions":[` + bound + `,` + workerlessSessionJSON + `]}}`,
+	}))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("json: %v (%s)", err, out.String())
+	}
+	if got[0]["role"] != "qa-engineer" || got[0]["workerRole"] != "backend-engineer" {
+		t.Errorf("role/workerRole = %v / %v", got[0]["role"], got[0]["workerRole"])
+	}
+	if role, present := got[1]["role"]; !present || role != nil {
+		t.Errorf("an absent bind-time role must be present as null, got %v (present=%v)", role, present)
+	}
+
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "session", "list", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out2.String(), "qa-engineer") || strings.Contains(out2.String(), "backend-engineer") {
+		t.Errorf("the ROLE column shows the bind-time role, not the worker's current one:\n%s", out2.String())
+	}
+}

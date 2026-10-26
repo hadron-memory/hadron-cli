@@ -245,6 +245,9 @@ func TestMapError(t *testing.T) {
 		// rules above match _TAKEN, and HELD is precisely the thing that is
 		// not taken.
 		{"held", gqlErr("WORKER_HELD"), exitcode.Conflict},
+		// hadron-cli#1087 (R222): a typed-in role beside an agent. The caller
+		// fixes it by dropping the role, so it is a usage error, not a conflict.
+		{"role override refused", gqlErr("WORKER_ROLE_OVERRIDE_REFUSED"), exitcode.Usage},
 		{"taken", gqlErr("WORKER_TAKEN"), exitcode.Conflict},
 		// The agent-task surface (hadron-cli#830): permission refusals are 8,
 		// state transitions the caller must wait out are 5, fixable inputs
