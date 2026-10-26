@@ -246,6 +246,7 @@ func newCmdEdit(f *cmdutil.Factory) *cobra.Command {
 		memory          string
 		content         string
 		contentFile     string
+		allowEmpty      bool
 		abstract        string
 		abstractFile    string
 		description     string
@@ -431,6 +432,26 @@ replacement over the cap is rejected.`,
 			// the user into the body editor.
 			nonInteractive := contentProvided || abstractProvided || descriptionProvided || titleProvided || stillAccurate
 
+			// The body is read HERE, before any request, so a zero-byte file or
+			// empty pipe is refused without a round trip (#1092); stdin is
+			// single-use, so the write below reuses this value.
+			var providedBody string
+			if nonInteractive && contentProvided {
+				b, rerr := cmdutil.ResolveTextInput("content", content, contentFile, f.IOStreams.In)
+				if rerr != nil {
+					return rerr
+				}
+				if contentFile != "" {
+					rerr = cmdutil.RefuseEmptyFileInput(b, "file "+contentFile, "--content-file", "--allow-empty", allowEmpty)
+				} else if content == "-" {
+					rerr = cmdutil.RefuseEmptyFileInput(b, "stdin", "--content -", "--allow-empty", allowEmpty)
+				}
+				if rerr != nil {
+					return rerr
+				}
+				providedBody = b
+			}
+
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -477,11 +498,7 @@ replacement over the cap is rejected.`,
 			newBody, newAbstract, newDescription := curBody, curAbstract, curDescription
 			if nonInteractive {
 				if contentProvided {
-					b, rerr := cmdutil.ResolveTextInput("content", content, contentFile, f.IOStreams.In)
-					if rerr != nil {
-						return rerr
-					}
-					newBody = strings.ReplaceAll(b, "\r\n", "\n")
+					newBody = strings.ReplaceAll(providedBody, "\r\n", "\n")
 				}
 				if abstractProvided {
 					a, rerr := cmdutil.ResolveTextInput("abstract", abstract, abstractFile, f.IOStreams.In)
@@ -693,6 +710,7 @@ replacement over the cap is rejected.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `replace the body with this value ("-" reads piped stdin, refused from a terminal) instead of opening $EDITOR`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "replace the body with a file's contents instead of opening $EDITOR")
+	cmd.Flags().BoolVar(&allowEmpty, "allow-empty", false, "accept a zero-byte --content-file (or empty piped --content -) as a deliberately empty body; without it that is refused, since a failed upstream command leaves exactly that file")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `replace the abstract (max 2000 UTF-16 code units incl whitespace/newlines); "-" reads piped stdin, refused from a terminal`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "replace the abstract with a file's contents (max 2000 UTF-16 code units incl whitespace/newlines)")
 	cmd.Flags().StringVar(&description, "description", "", `replace the description with this value ("-" reads piped stdin, refused from a terminal) through the guarded spec write`)

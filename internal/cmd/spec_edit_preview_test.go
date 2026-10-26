@@ -300,7 +300,7 @@ func TestSpecEditClaimsAbstractStaleOnlyWhenItCanArm(t *testing.T) {
 		args  []string
 	}{
 		"dry run, no abstract":    {noAbstract(), edited, []string{"--dry-run"}},
-		"dry run, body emptied":   {previewMocks(), "", []string{"--dry-run"}},
+		"dry run, body emptied":   {previewMocks(), "", []string{"--dry-run", "--allow-empty"}},
 		"saved edit, no abstract": {noAbstract(), edited, nil},
 		// #740 round 3 (Codex, Copilot): the fingerprint decides, not the text.
 		"never fingerprinted: stays unverified": {withNode(hash, `"abstractOriginHash":null`), edited, []string{"--dry-run"}},
