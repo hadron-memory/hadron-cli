@@ -331,6 +331,10 @@ same abstract writes nothing. --abstract-still-accurate is the way out: it
 asserts you re-read the abstract and it still describes the spec, and re-sends it
 unchanged so the server re-fingerprints it against the new body. Use it with a
 body edit, or on its own to settle a marker a previous edit left behind.
+An explicit unchanged --abstract/--abstract-file with a body edit that would
+arm abstract-stale is refused (exit 2, no mutation), even with --dry-run.
+Passing the same text is not that assertion: drop the abstract flag and use
+--abstract-still-accurate only after re-reading it against the new body.
 
 What is reported is what the server STORED, not what was asked for: the
 command compares the fingerprint the write returns with the body it stored.
@@ -522,6 +526,13 @@ replacement over the cap is rejected.`,
 				originHash:   node.AbstractOriginHash,
 				baseNodeID:   node.Id,
 				baseRevision: base,
+			}
+			// An explicitly re-sent unchanged abstract is not the deliberate
+			// attestation carried by --abstract-still-accurate (#804). Refuse
+			// exactly when preserving it would arm stale, including dry runs.
+			if abstractProvided && !proposal.abstractChanged() && proposal.armsAbstractStale() {
+				return exitcode.Newf(exitcode.Usage,
+					"the abstract you passed is identical to the stored one; this body edit would arm abstract-stale. Nothing was written. Re-read the abstract, then pass --abstract-still-accurate (and drop --abstract/--abstract-file) if it still describes the new body, or change the abstract")
 			}
 			// cli#873: a body that starts with the header a text-mode get
 			// prints is refused, a dry run included, unless --force.

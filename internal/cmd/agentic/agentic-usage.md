@@ -1600,6 +1600,11 @@ Conventions:
   ARMS `abstract-stale`** (the abstract was fingerprinted against the old
   content), and preserving an unchanged field by omission is also what makes the
   marker unclearable — re-running with the same abstract writes nothing.
+  An explicit unchanged `--abstract`/`--abstract-file` with a body edit that
+  would arm stale is refused (exit 2, ZERO mutations), including `--dry-run`.
+  Drop that abstract flag and deliberately attest with
+  `--abstract-still-accurate` after re-reading, or supply a changed abstract.
+  An unchanged abstract alone remains a no-op.
   `--abstract-still-accurate` (#612) is the way out: it asserts you re-read the
   abstract and it still describes the spec, and re-sends it UNCHANGED so the
   server re-fingerprints it against the new body. Pass it with a body edit, or
