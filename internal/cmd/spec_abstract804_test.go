@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"encoding/json"
-	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // An unchanged explicit abstract is not an attestation. Read requests are
@@ -38,7 +39,7 @@ func TestSpecEditUnchangedAbstract804Matrix(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mocks := editMocksStoring(specOriginHash(body))
 			if tc.blankStored {
-				mocks["GetSpecNodeForEdit"] = strings.Replace(mocks["GetSpecNodeForEdit"], `"abstract":"`+stored+`"`, `"abstract":null`, 1)
+				blankStoredAbstract804(t, mocks, stored)
 			}
 			gql, captured := captureGraphQL(t, mocks)
 			f, out := testFactory(t)
@@ -123,4 +124,22 @@ func TestSpecEditUnchangedAbstract804Matrix(t *testing.T) {
 		})
 	}
 }
+
+// blankStoredAbstract804 rewrites the stored node in mocks so its abstract is
+// null, and fails the test unless exactly that one replacement took place. A
+// source fixture that drifts would otherwise leave the original stored abstract
+// in place and the blankStored rows would exercise the wrong state.
+func blankStoredAbstract804(t *testing.T, mocks map[string]string, stored string) {
+	t.Helper()
+	const query = "GetSpecNodeForEdit"
+	from := `"abstract":"` + stored + `"`
+	if n := strings.Count(mocks[query], from); n != 1 {
+		t.Fatalf("blankStored fixture: want exactly one %s in the %s mock, found %d: %s", from, query, n, mocks[query])
+	}
+	mocks[query] = strings.Replace(mocks[query], from, `"abstract":null`, 1)
+	if !strings.Contains(mocks[query], `"abstract":null`) || strings.Contains(mocks[query], stored) {
+		t.Fatalf("blankStored fixture: stored abstract not blanked in the %s mock: %s", query, mocks[query])
+	}
+}
+
 func str804(s string) *string { return &s }
