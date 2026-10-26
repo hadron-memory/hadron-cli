@@ -89,7 +89,7 @@ func TestTeamCompositionTextRendersLanesAsReturned(t *testing.T) {
 			t.Errorf("text missing %q:\n%s", want, out)
 		}
 	}
-	if i, j, k := strings.Index(out, "Eden"), strings.Index(out, "Gone"), strings.Index(out, "unassigned"); !(i < j && j < k) {
+	if i, j, k := strings.Index(out, "Eden"), strings.Index(out, "Gone"), strings.Index(out, "unassigned"); i >= j || j >= k {
 		t.Errorf("lanes keep the server's order:\n%s", out)
 	}
 }
