@@ -1,0 +1,11 @@
+# Which help-audit child issue owns which top-level commands (#826 / #1050).
+# One line per child: <issue number>|<section title>|<top-level commands, space separated>.
+# "(root)" is the `hadron --help` page and the global flags. A top-level command
+# named by no line lands in the generated "unassigned" section at the end of
+# docs/help-inventory.md, so a command that no child audits is visible, not lost.
+1051|content commands|node edge memory search replace comment object asset
+1052|identity and access commands|auth profile user access grant secret org ticket
+1053|App and automation commands|app agent run schedule webhook ticker task connection mcp-server ai-config
+1054|team coordination commands|team chat channel
+1055|maintenance commands|coding skill spec scope
+1056|root help and utility commands|(root) api config server-info version completion agentic-usage help

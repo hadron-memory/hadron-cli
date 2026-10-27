@@ -30,7 +30,7 @@ SDL_SOURCES   ?= src/api/graphql/schema/typeDefs.ts scripts/export-graphql-sdl.m
 # review, Codex P2 + Copilot; the same gap for split MCP modules, #901).
 TOOLS_SOURCES ?= src/mcp src/lib/runner/tools
 
-.PHONY: build test lint fmt generate schema schema-check tools-manifest tools-manifest-check clean
+.PHONY: build test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/hadron
@@ -152,6 +152,32 @@ tools-manifest-check:
 	  exit 1; \
 	fi; \
 	echo "✓ tool manifest in sync with $(HADRON_SERVER_DIR)"
+
+# The help audit's command-tree inventory (#1050): one row per command page,
+# read by walking `hadron <path> --help` on the freshly built binary. The
+# generator keeps the human columns (evaluator, result, finding) by path, so a
+# refresh never erases an assessment. Written through write-if-produced.sh like
+# the other generated artifacts (#555): a failing walk leaves the file alone.
+help-inventory: export WRITE_IF_PRODUCED_CMD := HADRON_BIN=bin/hadron HELP_INVENTORY_EXISTING=docs/help-inventory.md bash scripts/gen-help-inventory.sh
+help-inventory: build
+	@bash scripts/write-if-produced.sh docs/help-inventory.md
+
+# Drift detector for the inventory: regenerate from the built binary and fail if
+# the committed tree rows differ (a command added, renamed or removed without a
+# refresh). The pinned commit and version lines are expected to differ from any
+# later build, so they are not compared. Not part of per-PR CI: a PR that adds a
+# command would otherwise fail on a file it has no reason to touch. Run it when
+# you pin or re-read the inventory.
+help-inventory-check: build
+	@set -e; \
+	tmp=$$(mktemp); trap 'rm -f $$tmp' EXIT; \
+	HADRON_BIN=bin/hadron HELP_INVENTORY_EXISTING=docs/help-inventory.md bash scripts/gen-help-inventory.sh > $$tmp; \
+	[ -s $$tmp ] || { echo "✗ help-inventory: the generator produced nothing"; exit 1; }; \
+	if ! diff -u -I '^Pinned commit: ' -I '^CLI version: ' docs/help-inventory.md $$tmp; then \
+	  echo "✗ help-inventory drift: the command tree changed — run 'make help-inventory' and commit."; \
+	  exit 1; \
+	fi; \
+	echo "✓ help inventory matches the command tree"
 
 # Report GraphQL operations hadron-server exposes that no CLI command wraps
 # (#397). The committed baseline turns that inventory into a DIFF: a schema
