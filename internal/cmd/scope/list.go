@@ -80,7 +80,7 @@ table — by count only, never by name.`,
 			return output.Write(f.IOStreams, f.JSON, scopes, func(w io.Writer) error {
 				t := output.NewTable(w, "NAME", "OWNER", "MEMORIES", "ID")
 				for _, s := range scopes {
-					t.Row(s.Name, s.OwnerType+" "+ownerLabel(s.OwnerURN, s.OwnerID), itoa(s.MemoryCount), s.ID)
+					t.Row(output.SafeCell(s.Name), output.SafeCell(s.OwnerType+" "+ownerLabel(s.OwnerURN, s.OwnerID)), itoa(s.MemoryCount), output.SafeCell(s.ID))
 				}
 				if err := t.Flush(); err != nil {
 					return err

@@ -69,7 +69,7 @@ func newCmdSubscriptionLs(f *cmdutil.Factory) *cobra.Command {
 			return output.Write(f.IOStreams, f.JSON, subs, func(w io.Writer) error {
 				t := output.NewTable(w, "ORG ID", "NAME", "URN", "ROLE", "ACTIVE")
 				for _, s := range subs {
-					t.Row(s.Organization.ID, s.Organization.Name, s.Organization.URN, s.Role, activeMark(s.Activated))
+					t.Row(output.SafeCell(s.Organization.ID), output.SafeCell(s.Organization.Name), output.SafeCell(s.Organization.URN), output.SafeCell(s.Role), activeMark(s.Activated))
 				}
 				return t.Flush()
 			})

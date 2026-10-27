@@ -140,21 +140,21 @@ func writeChannel(f *cmdutil.Factory, d channelDTO) error {
 // Optional URL is get-only; other callers retain the original table.
 func writeChannelText(w io.Writer, d channelDTO, portalURL *string) error {
 	t := output.NewTable(w, "FIELD", "VALUE")
-	t.Row("name", d.Name)
-	t.Row("id", d.ID)
+	t.Row("name", output.SafeCell(d.Name))
+	t.Row("id", output.SafeCell(d.ID))
 	if d.ChatRootURN != nil && *d.ChatRootURN != "" {
-		t.Row("address", *d.ChatRootURN)
+		t.Row("address", output.SafeCell(*d.ChatRootURN))
 	} else {
 		t.Row("address", "(none advertised — use the id)")
 	}
-	t.Row("memory", d.MemoryURN)
-	t.Row("loc", d.Loc)
+	t.Row("memory", output.SafeCell(d.MemoryURN))
+	t.Row("loc", output.SafeCell(d.Loc))
 	if d.Description != nil && *d.Description != "" {
-		t.Row("description", *d.Description)
+		t.Row("description", output.SafeCell(*d.Description))
 	}
 	t.Row("last seq", itoa(d.LastSeq))
 	if portalURL != nil {
-		t.Row("URL:", *portalURL)
+		t.Row("URL:", output.SafeCell(*portalURL))
 	}
 	return t.Flush()
 }

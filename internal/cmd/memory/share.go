@@ -58,7 +58,7 @@ func newCmdShareLs(f *cmdutil.Factory) *cobra.Command {
 			return output.Write(f.IOStreams, f.JSON, shares, func(w io.Writer) error {
 				t := output.NewTable(w, "GRANTEE ID", "NAME", "EMAIL", "ROLE")
 				for _, s := range shares {
-					t.Row(s.Grantee.ID, accessDash(s.Grantee.Name), accessDash(s.Grantee.Email), s.Role)
+					t.Row(output.SafeCell(s.Grantee.ID), output.SafeCell(accessDash(s.Grantee.Name)), output.SafeCell(accessDash(s.Grantee.Email)), output.SafeCell(s.Role))
 				}
 				return t.Flush()
 			})

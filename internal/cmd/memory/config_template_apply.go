@@ -211,7 +211,7 @@ func writeApplyResult(f *cmdutil.Factory, r applyResultDTO) error {
 		} else {
 			t := output.NewTable(w, "ROLE", "OUTCOME", "LOCKED")
 			for _, e := range r.Entries {
-				t.Row(e.Role, e.Outcome, lockedAfter(r, e))
+				t.Row(output.SafeCell(e.Role), output.SafeCell(e.Outcome), lockedAfter(r, e))
 			}
 			if err := t.Flush(); err != nil {
 				return err

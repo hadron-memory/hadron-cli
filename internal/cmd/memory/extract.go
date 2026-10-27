@@ -103,7 +103,7 @@ and node locs change, URN references among the moved nodes will break.`,
 			}
 			return output.Write(f.IOStreams, f.JSON, m, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ extracted ("+verb+")", parentRef, "→", m.URN)
+				t.Row("✓ extracted ("+verb+")", parentRef, "→", output.SafeCell(m.URN))
 				return t.Flush()
 			})
 		},

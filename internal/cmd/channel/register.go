@@ -239,8 +239,8 @@ left as an empty table.`,
 			return output.Write(f.IOStreams, f.JSON, entries, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "CHANNEL", "ATTENDEE", "ROLE", "MENTION-ONLY", "OWNER")
 				for _, e := range entries {
-					t.Row(e.ID, e.ChannelID, attendeeLabel(e.AttendeeURN), e.Role,
-						fmt.Sprintf("%t", e.MentionOnly), fmt.Sprintf("%s %s", e.OwnerType, e.OwnerID))
+					t.Row(output.SafeCell(e.ID), output.SafeCell(e.ChannelID), output.SafeCell(attendeeLabel(e.AttendeeURN)), output.SafeCell(e.Role),
+						fmt.Sprintf("%t", e.MentionOnly), output.SafeCell(fmt.Sprintf("%s %s", e.OwnerType, e.OwnerID)))
 				}
 				return t.Flush()
 			})

@@ -49,7 +49,7 @@ and Agent references accept IDs, bare URNs, or prefixed URNs.`,
 			m := dtoFromMemory(resp.AttachMemoryToApp)
 			return output.Write(f.IOStreams, f.JSON, m, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ attached", m.URN, "to", appRef, "via", agent)
+				t.Row("✓ attached", output.SafeCell(m.URN), "to", appRef, "via", agent)
 				return t.Flush()
 			})
 		},

@@ -212,17 +212,17 @@ func transferBlockerError(p transferDTO) error {
 
 func writeTransferTable(w io.Writer, p transferDTO) error {
 	t := output.NewTable(w)
-	t.Row("Memory", p.MemoryID)
-	t.Row("URN", p.OldURN, "→", p.NewURN)
-	t.Row("Owner", p.FromOwner, "→", p.ToOwner)
-	t.Row("Class", p.CurrentClass, "→", p.TargetClass)
+	t.Row("Memory", output.SafeCell(p.MemoryID))
+	t.Row("URN", output.SafeCell(p.OldURN), "→", output.SafeCell(p.NewURN))
+	t.Row("Owner", output.SafeCell(p.FromOwner), "→", output.SafeCell(p.ToOwner))
+	t.Row("Class", output.SafeCell(p.CurrentClass), "→", output.SafeCell(p.TargetClass))
 	if err := t.Flush(); err != nil {
 		return err
 	}
 	if len(p.Dependents) > 0 {
 		t = output.NewTable(w, "DEPENDENT", "COUNT", "HANDLING")
 		for _, dep := range p.Dependents {
-			t.Row(dep.Kind, fmt.Sprint(dep.Count), dep.Handling)
+			t.Row(output.SafeCell(dep.Kind), fmt.Sprint(dep.Count), output.SafeCell(dep.Handling))
 		}
 		if err := t.Flush(); err != nil {
 			return err
@@ -231,7 +231,7 @@ func writeTransferTable(w io.Writer, p transferDTO) error {
 	if len(p.Blockers) > 0 {
 		t = output.NewTable(w, "REFUSAL", "REASON")
 		for _, blocker := range p.Blockers {
-			t.Row(blocker.Code, blocker.Message)
+			t.Row(output.SafeCell(blocker.Code), output.SafeCell(blocker.Message))
 		}
 		return t.Flush()
 	}

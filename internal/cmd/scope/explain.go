@@ -140,11 +140,11 @@ server; answer it by passing the scope's id instead.`,
 
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 				t := output.NewTable(w, "FIELD", "VALUE")
-				t.Row("scope", d.Scope.Name)
-				t.Row("id", d.Scope.ID)
-				t.Row("resolved via", d.ResolvedVia)
+				t.Row("scope", output.SafeCell(d.Scope.Name))
+				t.Row("id", output.SafeCell(d.Scope.ID))
+				t.Row("resolved via", output.SafeCell(d.ResolvedVia))
 				if d.Winner != nil {
-					t.Row("winner for "+loc, d.Winner.URN)
+					t.Row("winner for "+output.SafeCell(loc), output.SafeCell(d.Winner.URN))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -152,7 +152,7 @@ server; answer it by passing the scope's id instead.`,
 				if len(d.Memories) > 0 {
 					mt := output.NewTable(w, "#", "URN", "NAME")
 					for i, m := range d.Memories {
-						mt.Row(itoa(i), m.URN, m.Name)
+						mt.Row(itoa(i), output.SafeCell(m.URN), output.SafeCell(m.Name))
 					}
 					if err := mt.Flush(); err != nil {
 						return err
@@ -172,7 +172,7 @@ server; answer it by passing the scope's id instead.`,
 					}
 					st := output.NewTable(w, "NAME", "OWNER", "ID")
 					for _, s := range d.Shadowed {
-						st.Row(s.Name, s.OwnerType+" "+ownerLabel(s.OwnerURN, s.OwnerID), s.ID)
+						st.Row(output.SafeCell(s.Name), output.SafeCell(s.OwnerType+" "+ownerLabel(s.OwnerURN, s.OwnerID)), output.SafeCell(s.ID))
 					}
 					if err := st.Flush(); err != nil {
 						return err

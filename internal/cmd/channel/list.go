@@ -84,7 +84,7 @@ so the MEMORY column is what tells them apart.`,
 					if c.ChatRootURN != nil && *c.ChatRootURN != "" {
 						address = *c.ChatRootURN
 					}
-					t.Row(c.Name, c.MemoryURN, address, c.ID)
+					t.Row(output.SafeCell(c.Name), output.SafeCell(c.MemoryURN), output.SafeCell(address), output.SafeCell(c.ID))
 				}
 				if err := t.Flush(); err != nil {
 					return err
