@@ -108,7 +108,7 @@ terminal and requires --yes non-interactively.`,
 			dto := mergeNodesDTO(resp.MergeNodes)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ merged", dto.Loc, dto.Name)
+				t.Row("✓ merged", output.SafeCell(dto.Loc), output.SafeCell(dto.Name))
 				return t.Flush()
 			})
 		},

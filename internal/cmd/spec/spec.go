@@ -763,13 +763,13 @@ func writeSpecTable(w io.Writer, specs []specDTO) error {
 	if !spansMemories(specs) {
 		t := output.NewTable(w, "CITATION", "NAME")
 		for _, s := range specs {
-			t.Row(s.Citation, placeholderLabel(s))
+			t.Row(output.SafeCell(s.Citation), output.SafeCell(placeholderLabel(s)))
 		}
 		return t.Flush()
 	}
 	t := output.NewTable(w, "CITATION", "MEMORY", "NAME")
 	for _, s := range specs {
-		t.Row(s.Citation, memoryLabel(s), placeholderLabel(s))
+		t.Row(output.SafeCell(s.Citation), output.SafeCell(memoryLabel(s)), output.SafeCell(placeholderLabel(s)))
 	}
 	return t.Flush()
 }

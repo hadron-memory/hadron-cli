@@ -419,7 +419,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ updated", dto.Loc, dto.Name)
+				t.Row("✓ updated", output.SafeCell(dto.Loc), output.SafeCell(dto.Name))
 				return t.Flush()
 			})
 		},

@@ -316,7 +316,7 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 				}
 				t := output.NewTable(w, "CITATION", "SEVERITY", "RULE", "MESSAGE")
 				for _, fnd := range findings {
-					t.Row(fnd.Citation, fnd.Severity, fnd.Rule, fnd.Message)
+					t.Row(output.SafeCell(fnd.Citation), fnd.Severity, fnd.Rule, output.SafeCell(fnd.Message))
 				}
 				return t.Flush()
 			}); err != nil {

@@ -189,13 +189,13 @@ func writeSpecListTable(w io.Writer, specs []specDTO) error {
 	}
 	t := output.NewTable(w, cols...)
 	for _, s := range specs {
-		row := []string{s.Citation}
+		row := []string{output.SafeCell(s.Citation)}
 		if multiple {
-			row = append(row, memoryLabel(s))
+			row = append(row, output.SafeCell(memoryLabel(s)))
 		}
-		row = append(row, placeholderLabel(s))
+		row = append(row, output.SafeCell(placeholderLabel(s)))
 		if withApproval {
-			row = append(row, specApprovalLabel(s.ApprovalStatus))
+			row = append(row, output.SafeCell(specApprovalLabel(s.ApprovalStatus)))
 		}
 		if withMint {
 			row = append(row, specMintLabel(s.MintStatus))

@@ -159,7 +159,7 @@ warnings too.`,
 				}
 				t := output.NewTable(w, "LOCATION", "CITATION", "SEVERITY", "RULE", "MESSAGE")
 				for _, fnd := range findings {
-					t.Row(fmt.Sprintf("%s:%d", fnd.File, fnd.Line), fnd.Citation, fnd.Severity, fnd.Rule, fnd.Message)
+					t.Row(fmt.Sprintf("%s:%d", fnd.File, fnd.Line), fnd.Citation, fnd.Severity, fnd.Rule, output.SafeCell(fnd.Message))
 				}
 				return t.Flush()
 			}); err != nil {

@@ -59,7 +59,7 @@ already occupies the destination loc.`,
 			dto := cloneDTO(resp.CloneNode)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ cloned", "to: "+dto.URN)
+				t.Row("✓ cloned", output.SafeCell("to: "+dto.URN))
 				return t.Flush()
 			})
 		},

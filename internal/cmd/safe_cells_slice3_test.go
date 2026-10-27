@@ -9,6 +9,12 @@ import (
 	"unicode/utf8"
 )
 
+type slice3TableCase struct {
+	name  string
+	args  []string
+	stubs map[string]string
+}
+
 // Each case executes a real command against synthetic GraphQL responses. Only
 // server response strings change: inputs, request decisions and JSON stay raw.
 func TestSlice3SafeTableCommands(t *testing.T) {
@@ -17,11 +23,7 @@ func TestSlice3SafeTableCommands(t *testing.T) {
 		v := q(value)
 		node := `{"id":"n1","memoryId":"mem1","loc":` + v + `,"urn":` + v + `,"name":` + v + `,"nodeType":"info","tags":[],"updatedAt":"2026-01-01T00:00:00Z"}`
 		edge := `{"id":"e1","name":` + v + `,"loc":` + v + `,"source":{"id":"n1","loc":` + v + `},"target":{"id":"n2","loc":` + v + `}}`
-		cases := []struct {
-			name  string
-			args  []string
-			stubs map[string]string
-		}{
+		cases := []slice3TableCase{
 			{"node add", []string{"node", "add", "-m", "acme.com::kb", "--loc", "x", "--name", "N"}, map[string]string{"CreateNode": `{"data":{"createNode":` + node + `}}`}},
 			{"node update", []string{"node", "update", "n1", "--name", "N"}, map[string]string{"GetNode": `{"data":{"node":{"id":"n1"}}}`, "UpdateNode": `{"data":{"updateNode":` + node + `}}`}},
 			{"node clone", []string{"node", "clone", "n1", "--to-memory", "acme.com::kb"}, map[string]string{"CloneNode": `{"data":{"cloneNode":` + node + `}}`}},
@@ -45,50 +47,30 @@ func TestSlice3SafeTableCommands(t *testing.T) {
 		listed := strings.Replace(specNodeList("msg:010:02", `["spec"]`), q("msg:010:02 — T"), v, 1)
 		listResp := `{"data":{"nodes":[` + listed + `]}}`
 		cases = append(cases,
-			struct {
-				name  string
-				args  []string
-				stubs map[string]string
-			}{"spec list", []string{"spec", "list", "-m", specMem}, map[string]string{"FindNodes": listResp}},
-			struct {
-				name  string
-				args  []string
-				stubs map[string]string
-			}{"spec find", []string{"spec", "find", "x", "-m", specMem}, map[string]string{"FindNodes": listResp}},
-			struct {
-				name  string
-				args  []string
-				stubs map[string]string
-			}{"spec replace", []string{"spec", "replace", "a", "b", "-m", specMem, "--dry-run"}, map[string]string{"FindNodes": listResp, "SearchReplaceInNodes": strings.Replace(searchReplaceDryJSON, q("findings:flaky-ci"), v, 1)}},
+			slice3TableCase{"spec list", []string{"spec", "list", "-m", specMem}, map[string]string{"FindNodes": listResp}},
+			slice3TableCase{"spec find", []string{"spec", "find", "x", "-m", specMem}, map[string]string{"FindNodes": listResp}},
+			slice3TableCase{"spec replace", []string{"spec", "replace", "a", "b", "-m", specMem, "--dry-run"}, map[string]string{"FindNodes": listResp, "SearchReplaceInNodes": strings.Replace(searchReplaceDryJSON, q("findings:flaky-ci"), v, 1)}},
 		)
-		batchNode := strings.Replace(specBatchNode("msg:010:02"), q("msg:010:02"), v, -1)
+		batchNode := strings.ReplaceAll(specBatchNode("msg:010:02"), q("msg:010:02"), v)
 		batchNode = strings.Replace(batchNode, q(specBatchContent), q("hadron_unregistered_tool"), 1)
-		remoteLocList := strings.Replace(listResp, q("msg:010:02"), v, -1)
+		remoteLocList := strings.ReplaceAll(listResp, q("msg:010:02"), v)
 		for _, command := range []string{"lint", "check-tools"} {
-			cases = append(cases, struct {
-				name  string
-				args  []string
-				stubs map[string]string
-			}{"spec " + command, []string{"spec", command, "-m", specMem}, map[string]string{"FindNodes": remoteLocList, "NodeBatch": `{"data":{"nodeBatch":{"nodes":[` + batchNode + `],"truncated":false,"omitted":[],"unavailable":[]}}}`}})
+			cases = append(cases, slice3TableCase{"spec " + command, []string{"spec", command, "-m", specMem}, map[string]string{"FindNodes": remoteLocList, "NodeBatch": `{"data":{"nodeBatch":{"nodes":[` + batchNode + `],"truncated":false,"omitted":[],"unavailable":[]}}}`}})
 		}
 
 		// A remote supersession target is rendered inside the citation message.
 		src := srcTree(t, map[string]string{"a.go": "// Spec: msg:010:02\n"})
-		cases = append(cases, struct {
-			name  string
-			args  []string
-			stubs map[string]string
-		}{"spec citations", []string{"spec", "citations", "-m", specMem, "--src", src}, map[string]string{"NodeBatch": citationBatch([]string{strings.Replace(citationBatchNode("msg:010:02", `["spec","superseded"]`, "", "replacement-marker"), q("replacement-marker"), v, 1)}, "")}})
+		cases = append(cases, slice3TableCase{"spec citations", []string{"spec", "citations", "-m", specMem, "--src", src}, map[string]string{"NodeBatch": citationBatch([]string{strings.Replace(citationBatchNode("msg:010:02", `["spec","superseded"]`, "", "replacement-marker"), q("replacement-marker"), v, 1)}, "")}})
 
 		for _, tc := range cases {
+			if tc.name == "spec lint" {
+				tc.args = append(tc.args, "--all")
+			}
 			if tc.name == "spec citations" && value == "" {
 				continue
 			}
-			t.Run(tc.name+"/"+q(value[:min(len(value), 8)]), func(t *testing.T) {
+			t.Run(tc.name+"/"+q(string([]rune(value)[:min(utf8.RuneCountInString(value), 8)])), func(t *testing.T) {
 				run := func(asJSON bool) string {
-					if tc.name == "spec lint" {
-						tc.args = append(tc.args, "--all")
-					}
 					tc.stubs["ResolveUrn"] = resolveNodeJSON
 					tc.stubs["GetMemory"] = `{"data":{"memory":{"id":"mem1","vectorIndexEnabled":true}}}`
 					if _, ok := tc.stubs["Memories"]; !ok {
@@ -113,6 +95,15 @@ func TestSlice3SafeTableCommands(t *testing.T) {
 					return out.String()
 				}
 				text := run(false)
+				if value != "" && strings.Count(text, "\n") != slice3ExpectedLines[tc.name] {
+					t.Errorf("logical row count drift: got %d lines, want %d: %q", strings.Count(text, "\n"), slice3ExpectedLines[tc.name], text)
+				}
+				if strings.Contains(value, "\n") && !strings.Contains(text, "a b [31mc") {
+					t.Errorf("controls must become spaces, not disappear: %q", text)
+				}
+				if strings.HasPrefix(value, "café") && !strings.Contains(text, value) {
+					t.Errorf("ordinary Unicode changed: %q", text)
+				}
 				raw := run(true)
 				var decoded any
 				if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
@@ -166,4 +157,34 @@ func slice3ContainsValue(x any, want string) bool {
 		}
 	}
 	return false
+}
+
+// Headers and any fixed summary lines included; each fixture has one record
+// per result table. Pinning the actual emitted line count catches row forgery.
+var slice3ExpectedLines = map[string]int{
+	"edge add":                  1,
+	"edge list":                 2,
+	"edge update":               1,
+	"node add":                  1,
+	"node clone":                1,
+	"node list":                 2,
+	"node merge":                1,
+	"node move":                 1,
+	"node recovery graph":       2,
+	"node recovery list":        2,
+	"node revision list":        2,
+	"node signing-request list": 2,
+	"node update":               1,
+	"replace text":              3,
+	"search":                    2,
+	"spec backlinks":            2,
+	"spec check-tools":          2,
+	"spec citations":            2,
+	"spec find":                 2,
+	"spec lint":                 2,
+	"spec list":                 2,
+	"spec mint":                 8,
+	"spec renumber":             7,
+	"spec replace":              3,
+	"spec unresolved":           2,
 }

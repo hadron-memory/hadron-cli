@@ -164,7 +164,7 @@ func newCmdRevisionList(f *cmdutil.Factory) *cobra.Command {
 			return output.Write(f.IOStreams, f.JSON, dtos, func(w io.Writer) error {
 				t := output.NewTable(w, "REVISION-ID", "CREATED", "NAME", "EDITED-BY", "LABEL", "VALIDATION")
 				for _, d := range dtos {
-					t.Row(d.ID, d.CreatedAt, d.Name, editorDisplay(d.revisionDTO), output.Dash(d.RevLabel), validationCell(d.ContentValidation))
+					t.Row(output.SafeCell(d.ID), output.SafeCell(d.CreatedAt), output.SafeCell(d.Name), output.SafeCell(editorDisplay(d.revisionDTO)), output.SafeCell(output.Dash(d.RevLabel)), output.SafeCell(validationCell(d.ContentValidation)))
 				}
 				return t.Flush()
 			})

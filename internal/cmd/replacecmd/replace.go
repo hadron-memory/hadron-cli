@@ -282,7 +282,7 @@ func renderReport(w io.Writer, dto replaceResultDTO) error {
 		for _, fres := range n.Fields {
 			parts = append(parts, fmt.Sprintf("%s×%d", fres.Field, fres.Matches))
 		}
-		t.Row(n.Loc, fmt.Sprint(n.Replacements), strings.Join(parts, ", "))
+		t.Row(output.SafeCell(n.Loc), fmt.Sprint(n.Replacements), output.SafeCell(strings.Join(parts, ", ")))
 	}
 	return t.Flush()
 }

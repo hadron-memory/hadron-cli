@@ -239,7 +239,7 @@ or deleted while --all runs can move between pages.`,
 				}
 				t := output.NewTable(w, "LOC", "NAME", "TYPE", "DELETED", "URN")
 				for _, n := range dto.Items {
-					t.Row(n.Loc, n.Name, n.NodeType, n.DeletedAt, n.URN)
+					t.Row(output.SafeCell(n.Loc), output.SafeCell(n.Name), output.SafeCell(n.NodeType), output.SafeCell(n.DeletedAt), output.SafeCell(n.URN))
 				}
 				return t.Flush()
 			})
@@ -305,7 +305,7 @@ the same as 'node recovery ls'.`,
 				}
 				t := output.NewTable(w, "SOURCE", "EDGE", "TARGET")
 				for _, e := range dto.Items {
-					t.Row(endpointCell(e.Source), output.Dash(e.Name), endpointCell(e.Target))
+					t.Row(output.SafeCell(endpointCell(e.Source)), output.SafeCell(output.Dash(e.Name)), output.SafeCell(endpointCell(e.Target)))
 				}
 				return t.Flush()
 			})

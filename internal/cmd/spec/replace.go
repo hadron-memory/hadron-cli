@@ -483,7 +483,7 @@ func renderSpecReplaceReport(w io.Writer, dto specReplaceResultDTO) error {
 			for _, fr := range n.Fields {
 				parts = append(parts, fmt.Sprintf("%s:%d", fr.Field, fr.Matches))
 			}
-			t.Row(n.Citation, fmt.Sprintf("%d", n.Replacements), strings.Join(parts, " "))
+			t.Row(output.SafeCell(n.Citation), fmt.Sprintf("%d", n.Replacements), output.SafeCell(strings.Join(parts, " ")))
 		}
 		if err := t.Flush(); err != nil {
 			return err
@@ -497,7 +497,7 @@ func renderSpecReplaceReport(w io.Writer, dto specReplaceResultDTO) error {
 			fmt.Fprintf(w, "\n⚠ re-lint found %d issue(s) in the rewritten spec(s):\n", len(dto.Lint))
 			lt := output.NewTable(w, "CITATION", "SEVERITY", "RULE", "MESSAGE")
 			for _, fnd := range dto.Lint {
-				lt.Row(fnd.Citation, fnd.Severity, fnd.Rule, fnd.Message)
+				lt.Row(output.SafeCell(fnd.Citation), fnd.Severity, fnd.Rule, output.SafeCell(fnd.Message))
 			}
 			if err := lt.Flush(); err != nil {
 				return err

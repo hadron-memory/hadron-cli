@@ -70,7 +70,7 @@ the move is in flight.`,
 			dto := moveDTO(resp.MoveNode)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ moved", "to: "+dto.URN)
+				t.Row("✓ moved", output.SafeCell("to: "+dto.URN))
 				return t.Flush()
 			})
 		},
