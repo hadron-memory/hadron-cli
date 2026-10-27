@@ -4,12 +4,14 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"unicode"
+
+	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 )
 
 // These snapshots are captured from main 5face16e before the rendering change.
@@ -24,6 +26,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		op, old   string
 	}
 	base := taskResponses()
+	base["TeamReportingLines"] = base["TeamRoster"]
 	base["TeamAttentionPage"] = attentionJSON
 	base["TeamAttentionPreviewPage"] = switchoverPreviewJSON
 	base["TeamComposition"] = composition1085
@@ -59,11 +62,12 @@ func TestTeamSafeCells1101(t *testing.T) {
 		{"session-provenance", []string{"session", "list", "--pr", "hadron-memory/hadron-cli#371", "-m", "hrn:mem:acme.com:eng-team"}, base, "GetTeamSession", "Iris"},
 		{"session-worklog", []string{"session", "list", "--pr", "hadron-memory/hadron-cli#371", "-m", "hrn:mem:acme.com:eng-team"}, base, "TeamWorkItems", "opened"},
 		{"session-list", []string{"session", "list"}, base, "TeamSessions", "Iris"},
+		{"task-list-team", []string{"task", "list", "--team=worker:wkr1"}, base, "AgentTaskList", "Fix the flaky CI build"},
 		{"task-list", []string{"task", "list"}, base, "AgentTaskList", "Fix the flaky CI build"},
 		{"task-mine", []string{"task", "mine"}, base, "AgentTaskList", "Fix the flaky CI build"},
-		{"stop-list", []string{"stop", "list"}, stopResponses(), "TeamStopSignals", "wkr1"},
-		{"stop-set", []string{"stop", "set", "--scope", "team", "--level", "pause-dispatch", "--worker", "Iris"}, stopResponses(), "TeamStopSignalSet", "wkr1"},
-		{"stop-lift", []string{"stop", "lift", "sig2"}, stopResponses(), "TeamStopSignalLift", "host1"},
+		{"stop-list", []string{"stop", "list"}, stopResponses(), "TeamStopSignals", "sig1"},
+		{"stop-set", []string{"stop", "set", "--scope", "team", "--level", "pause-dispatch", "--worker", "Iris"}, stopResponses(), "TeamStopSignalSet", "sig1"},
+		{"stop-lift", []string{"stop", "lift", "sig2"}, stopResponses(), "TeamStopSignalLift", "usr1"},
 	}
 	const prefix = "a\nb\x1b[31mc"
 	attack := prefix + strings.Repeat("界", 1000)
@@ -91,14 +95,24 @@ func TestTeamSafeCells1101(t *testing.T) {
 			if responses[tc.op] == tc.responses[tc.op] {
 				t.Fatal("attack was not installed")
 			}
-			_, rawJSON, err := runSafeCells1101(t, tc.name, responses, append(args, "--json")...)
+			jsonCalls, rawJSON, err := runSafeCells1101(t, tc.name, responses, append(args, "--json")...)
 			if err != nil {
 				t.Fatal(err)
 			}
+			findCall(t, jsonCalls, tc.op) // The attack-bearing operation must actually run once.
 			if !strings.Contains(rawJSON, string(encoded)) {
 				t.Fatalf("JSON lost the original server string: %s", rawJSON)
 			}
-			snapshot := fmt.Sprintf("clean-text %x\nattacked-json %x\n", sha256.Sum256([]byte(clean)), sha256.Sum256([]byte(rawJSON)))
+			// The team projection computes age at execution. Normalize only its
+			// clock-derived age (and the fixture server's ephemeral port),
+			// while preserving every other byte for comparison to main.
+			cleanSnapshot := regexp.MustCompile(`http://127\.0\.0\.1:[0-9]+`).ReplaceAllString(clean, "http://127.0.0.1:PORT")
+			jsonSnapshot := rawJSON
+			if tc.name == "task-list-team" {
+				cleanSnapshot = regexp.MustCompile(`(?m)^(task1 +PENDING +)\S+`).ReplaceAllString(cleanSnapshot, "${1}AGE")
+				jsonSnapshot = regexp.MustCompile(`"ageSeconds": -?[0-9]+`).ReplaceAllString(jsonSnapshot, `"ageSeconds": 0`)
+			}
+			snapshot := fmt.Sprintf("clean-text %x\nattacked-json %x\n", sha256.Sum256([]byte(cleanSnapshot)), sha256.Sum256([]byte(jsonSnapshot)))
 			path := filepath.Join("testdata", "safe-cells-1101", tc.name+".sha256")
 			if os.Getenv("UPDATE_SAFE_CELLS_1101") == "1" {
 				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
