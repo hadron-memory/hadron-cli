@@ -1543,8 +1543,11 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 				return err
 			}
 		}
+		// Client-composed only — paths under --out plus fixed words — so it
+		// prints raw: #1104 leaves non-server cells alone, and SafeCell's
+		// 256-rune cut would drop the reason under a long --out path.
 		if line := emptyArtifactLine(h, dto.DryRun); line != "" {
-			if err := p("%s\n", output.SafeCell(line)); err != nil {
+			if err := p("%s\n", line); err != nil {
 				return err
 			}
 		}
