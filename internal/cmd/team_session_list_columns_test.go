@@ -313,8 +313,27 @@ func TestSessionListFallsBackToTheWorkersRole(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(out.String(), "backend-engineer") {
-		t.Errorf("a session with no bind-time role shows the worker's role:\n%s", out.String())
+	// Inspect this session's ROLE cell, not a role string in another column
+	// or row (#1128). Header offsets retain empty cells: strings.Fields on
+	// the row would shift USER into ROLE if the renderer left ROLE blank.
+	var header, row string
+	rows := 0
+	for _, line := range strings.Split(out.String(), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "WORKER") {
+			header = line
+		}
+		fields := strings.Fields(line)
+		if len(fields) > 0 && fields[len(fields)-1] == "s-old" {
+			row = line
+			rows++
+		}
+	}
+	roleStart, roleEnd := strings.Index(header, "ROLE"), strings.Index(header, "USER")
+	if rows != 1 || roleStart < 0 || roleEnd <= roleStart || len(row) < roleEnd {
+		t.Fatalf("expected one s-old session row and ROLE/USER column boundaries:\n%s", out.String())
+	}
+	if role := strings.TrimSpace(row[roleStart:roleEnd]); role != "backend-engineer" {
+		t.Errorf("s-old ROLE cell = %q, want backend-engineer:\n%s", role, out.String())
 	}
 }
 
