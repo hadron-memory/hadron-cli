@@ -437,11 +437,11 @@ reads as MORE idle than it was, never less.`,
 					if wk.RetiredAt != nil {
 						retired = *wk.RetiredAt
 					}
-					t.Row(wk.Name, dash(wk.Role), reportsToLabel(wk.ReportsTo, wk.ReportsToRetired, wk.ReportsTo != nil || workingStateVisible(wk.HasLiveSession)),
-						renderHeldBy(wk.HeldByUserID, wk.HasLiveSession, selfID, label),
-						renderLastDriven(wk.HasLiveSession, wk.LastActiveAt, now),
-						dash(wk.Family), dash(wk.Model), dash(wk.Tier),
-						retired, dash(wk.URN), wk.ID)
+					t.Row(output.SafeCell(wk.Name), output.SafeCell(dash(wk.Role)), output.SafeCell(reportsToLabel(wk.ReportsTo, wk.ReportsToRetired, wk.ReportsTo != nil || workingStateVisible(wk.HasLiveSession))),
+						output.SafeCell(renderHeldBy(wk.HeldByUserID, wk.HasLiveSession, selfID, label)),
+						output.SafeCell(renderLastDriven(wk.HasLiveSession, wk.LastActiveAt, now)),
+						output.SafeCell(dash(wk.Family)), output.SafeCell(dash(wk.Model)), output.SafeCell(dash(wk.Tier)),
+						output.SafeCell(retired), output.SafeCell(dash(wk.URN)), output.SafeCell(wk.ID))
 				}
 				return t.Flush()
 			})

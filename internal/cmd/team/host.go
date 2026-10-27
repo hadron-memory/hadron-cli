@@ -196,7 +196,7 @@ their family and worktrees. Whoever reads the App's tasks and events may.`,
 					if h.Live {
 						live = "yes"
 					}
-					t.Row(h.HostID, h.Label, live, strconv.Itoa(h.PollIntervalSeconds)+"s", h.RefreshedAt, hostWorkersCell(h.Workers))
+					t.Row(output.SafeCell(h.HostID), output.SafeCell(h.Label), output.SafeCell(live), output.SafeCell(strconv.Itoa(h.PollIntervalSeconds)+"s"), output.SafeCell(h.RefreshedAt), output.SafeCell(hostWorkersCell(h.Workers)))
 				}
 				return t.Flush()
 			})
@@ -295,7 +295,7 @@ When more follow, the receipt names the --after that continues the list;
 				}
 				t := output.NewTable(w, "ID", "ISSUED", "TYPE", "HOST", "WORKER", "STATUS", "BY", "OUTCOME")
 				for _, o := range page.Items {
-					t.Row(o.ID, o.IssuedAt, o.Type, o.HostID, hostOpWorkerCell(o), o.Status, o.IssuedBy, hostOpOutcomeCell(o))
+					t.Row(output.SafeCell(o.ID), output.SafeCell(o.IssuedAt), output.SafeCell(o.Type), output.SafeCell(o.HostID), output.SafeCell(hostOpWorkerCell(o)), output.SafeCell(o.Status), output.SafeCell(o.IssuedBy), output.SafeCell(hostOpOutcomeCell(o)))
 				}
 				if err := t.Flush(); err != nil {
 					return err

@@ -9,8 +9,6 @@ package team
 import (
 	"fmt"
 	"io"
-	"strconv"
-	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -146,7 +144,7 @@ and a state is a fact about now, not a judgement.`,
 					}
 					tasks := fmt.Sprintf("P%d S%d", len(e.PendingTasks), len(e.StartedTasks))
 					alarms := fmt.Sprintf("%d", len(e.Alarms))
-					t.Row(name, e.State, channelCheckLabel(e.CheckStatus), strOr(e.Role), family, strOr(e.Model), strOr(e.Tier), live, tasks, alarms, rosterReportsToLabel(e), holderLabel(e.HeldBy), cellSafe(strOr(e.HeldAt)))
+					t.Row(output.SafeCell(name), output.SafeCell(e.State), output.SafeCell(channelCheckLabel(e.CheckStatus)), output.SafeCell(strOr(e.Role)), output.SafeCell(family), output.SafeCell(strOr(e.Model)), output.SafeCell(strOr(e.Tier)), output.SafeCell(live), output.SafeCell(tasks), output.SafeCell(alarms), output.SafeCell(rosterReportsToLabel(e)), output.SafeCell(holderLabel(e.HeldBy)), output.SafeCell(strOr(e.HeldAt)))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -209,24 +207,12 @@ func holderLabel(h *rosterHolderDTO) string {
 		return "—"
 	}
 	if h.Name != nil && *h.Name != "" {
-		return cellSafe(*h.Name)
+		return output.SafeCell(*h.Name)
 	}
 	if h.Handle != nil && *h.Handle != "" {
-		return cellSafe("@" + *h.Handle)
+		return output.SafeCell("@" + *h.Handle)
 	}
 	return "—"
-}
-
-// cellSafe quotes a server-supplied string that carries control characters
-// (newline, tab, ESC…) so it cannot split a table row or reach the terminal as
-// an escape sequence (#1047). Text only: --json keeps the source value.
-func cellSafe(s string) string {
-	for _, r := range s {
-		if unicode.IsControl(r) {
-			return strconv.Quote(s)
-		}
-	}
-	return s
 }
 
 func rosterHolder(h *gen.TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerHolder) *rosterHolderDTO {

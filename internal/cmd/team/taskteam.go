@@ -356,8 +356,8 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		}
 		t := output.NewTable(w, "ID", "STATUS", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")
 		for _, task := range dto.Tasks {
-			t.Row(task.ID, task.Status, idleCell(task.AgeSeconds), task.Title,
-				teamPartyCell(task.Owner, task.OwnerTeam), teamAssigneeCell(task), alarmCell(task.OpenAlarms))
+			t.Row(output.SafeCell(task.ID), output.SafeCell(task.Status), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
+				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms)))
 		}
 		return t.Flush()
 	})

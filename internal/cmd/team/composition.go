@@ -145,15 +145,15 @@ func compositionFromGen(c *gen.TeamCompositionTeamComposition) compositionDTO {
 
 func partyLabel(p taskPartyDTO) string {
 	if p.Name != nil && *p.Name != "" {
-		return cellSafe(*p.Name)
+		return output.SafeCell(*p.Name)
 	}
-	return cellSafe(p.ID)
+	return output.SafeCell(p.ID)
 }
 
 // partyURNLabel is the server's canonical URN, or a dash when it has none
 // (a name-less or URN-less party is shown as given, never guessed).
 func partyURNLabel(p taskPartyDTO) string {
-	return cellSafe(strOr(p.Urn))
+	return output.SafeCell(strOr(p.Urn))
 }
 
 func renderComposition(w io.Writer, app string, dto compositionDTO) error {
@@ -180,18 +180,18 @@ func renderComposition(w io.Writer, app string, dto compositionDTO) error {
 			} else if !m.Bound {
 				live = "unbound"
 			}
-			t.Row(partyLabel(m.Worker), partyURNLabel(m.Worker), m.State, cellSafe(strOr(m.Role)), cellSafe(strOr(m.Family)), live)
+			t.Row(output.SafeCell(partyLabel(m.Worker)), output.SafeCell(partyURNLabel(m.Worker)), output.SafeCell(m.State), output.SafeCell(strOr(m.Role)), output.SafeCell(strOr(m.Family)), output.SafeCell(live))
 		}
 		if err := t.Flush(); err != nil {
 			return err
 		}
 		for _, n := range l.CountsByRole {
-			if _, err := fmt.Fprintf(w, "  role %s: %d\n", cellSafe(strOr(n.Role)), n.Count); err != nil {
+			if _, err := fmt.Fprintf(w, "  role %s: %d\n", output.SafeCell(strOr(n.Role)), n.Count); err != nil {
 				return err
 			}
 		}
 		for _, n := range l.CountsByRoleFamily {
-			if _, err := fmt.Fprintf(w, "  role %s · family %s: %d\n", cellSafe(strOr(n.Role)), cellSafe(strOr(n.Family)), n.Count); err != nil {
+			if _, err := fmt.Fprintf(w, "  role %s · family %s: %d\n", output.SafeCell(strOr(n.Role)), output.SafeCell(strOr(n.Family)), n.Count); err != nil {
 				return err
 			}
 		}

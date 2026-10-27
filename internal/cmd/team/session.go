@@ -1647,7 +1647,7 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 			fmt.Fprintf(w, "%d open worker sessions are yours; none is bound here, so pick one by SESSION.\n\n", len(mine))
 			t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "REPO", "STARTED", "SESSION")
 			for _, s := range mine {
-				t.Row(dash(s.WorkerName), dash(s.boundRole()), reportsToLabel(s.ReportsTo, s.ReportsToRetired, s.ReportingKnown), dash(s.Repo), s.StartedAt, s.ID)
+				t.Row(output.SafeCell(dash(s.WorkerName)), output.SafeCell(dash(s.boundRole())), output.SafeCell(reportsToLabel(s.ReportsTo, s.ReportsToRetired, s.ReportingKnown)), output.SafeCell(dash(s.Repo)), output.SafeCell(s.StartedAt), output.SafeCell(s.ID))
 			}
 			if err := t.Flush(); err != nil {
 				return err
@@ -2725,7 +2725,7 @@ from a later milestone's REPORTED MODEL.`,
 					if worker == nil {
 						worker = s.AgentID
 					}
-					t.Row(dash(worker), dash(s.boundRole()), userLabel(s.UserID), dash(s.Repo), pr, s.StartedAt, dash(s.EndedAt), dash(s.Tool), s.ID)
+					t.Row(output.SafeCell(dash(worker)), output.SafeCell(dash(s.boundRole())), output.SafeCell(userLabel(s.UserID)), output.SafeCell(dash(s.Repo)), output.SafeCell(pr), output.SafeCell(s.StartedAt), output.SafeCell(dash(s.EndedAt)), output.SafeCell(dash(s.Tool)), output.SafeCell(s.ID))
 				}
 				return t.Flush()
 			})
@@ -2943,7 +2943,7 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 		// Same treatment as the listing table above (#486).
 		t := output.NewTable(w, "WORKER", "ROLE", "USER", "TOOL", "HOST", "SESSION MODEL", "STARTED", "TRANSCRIPT", "SESSION")
 		for _, s := range sessions {
-			t.Row(dash(s.WorkerName), dash(s.boundRole()), userLabel(s.UserID), dash(s.Tool), dash(s.Host), dash(s.LLMModel), s.StartedAt, dash(s.TranscriptPath), s.ID)
+			t.Row(output.SafeCell(dash(s.WorkerName)), output.SafeCell(dash(s.boundRole())), output.SafeCell(userLabel(s.UserID)), output.SafeCell(dash(s.Tool)), output.SafeCell(dash(s.Host)), output.SafeCell(dash(s.LLMModel)), output.SafeCell(s.StartedAt), output.SafeCell(dash(s.TranscriptPath)), output.SafeCell(s.ID))
 		}
 		if err := t.Flush(); err != nil {
 			return err
@@ -2954,7 +2954,7 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 		work := output.NewTable(w, "AT", "ACTION", "ARTIFACT TOOL", "REPORTED MODEL", "SESSION")
 		for _, s := range sessions {
 			for _, item := range s.Worklog {
-				work.Row(item.At, item.Action, item.Tool, worklogModelLabel(item.Model, "worklog"), s.ID)
+				work.Row(output.SafeCell(item.At), output.SafeCell(item.Action), output.SafeCell(item.Tool), output.SafeCell(worklogModelLabel(item.Model, "worklog")), output.SafeCell(s.ID))
 			}
 		}
 		return work.Flush()
