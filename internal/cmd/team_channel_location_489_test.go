@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -264,15 +265,11 @@ func teamChannel489Selection(operation string, doc *ast.QueryDocument) error {
 	}
 }
 
-// Check command wording, not legitimate App slugs such as chatops.
+// Match complete chat wording/field tokens, not legitimate slugs like chatops.
+var teamChannel489ChatToken = regexp.MustCompile(`(?i)\b(?:chat|chatRootNodeId)\b`)
+
 func teamChannel489ChatWording(text string) bool {
-	text = strings.ToLower(text)
-	for _, phrase := range []string{"team chat", "chat history", "chat:"} {
-		if strings.Contains(text, phrase) {
-			return true
-		}
-	}
-	return false
+	return teamChannel489ChatToken.MatchString(text)
 }
 
 func TestTeamChannel489MalformedSelections(t *testing.T) {
@@ -395,7 +392,7 @@ func TestTeamChannel489EmptyRoot(t *testing.T) {
 }
 
 func TestTeamChannel489ChatWording(t *testing.T) {
-	for _, text := range []string{"team chat", "Chat history", "chat:"} {
+	for _, text := range []string{"team chat", "Chat history", "chat:", "chatRootNodeId: x", "Chat root", "chat URL", "open the chat"} {
 		if !teamChannel489ChatWording(text) {
 			t.Errorf("missed obsolete phrase %q", text)
 		}
