@@ -503,10 +503,13 @@ Conventions:
   `app key list` text cells (#1065) replace control and invisible characters
   (C0/C1, DEL, ESC, newline, tab, bidi/zero-width/line-separator marks) with a
   space and cut a cell at 256 characters ending in "…"; `--json` keeps the
-  original values. The node, edge, spec, search (table view), and replace text
-  tables use the same cell rendering (#1103). Static counts and headers, JSON,
-  document/block output, and non-table diagnostics keep their existing behavior;
-  the remaining command groups are tracked in #1093.
+  original values. The inventoried node, edge, spec, search (table view), and
+  replace result tables apply this rendering to server-derived string cells
+  (#1103), including formatted and joined cells. This is not a guarantee for
+  every text mode: static counts and labels, local citation-scan fields, JSON,
+  document/block output, and non-table diagnostics (including renumber moves
+  and mint stale-abstract/open-question lines) keep their existing behavior.
+  The remaining command groups' table cells are tracked in #1093.
 
 - `hadron asset` is the file surface (spec 006 / cor:dmo:060:10). An asset is
   bytes held by a memory, as opposed to a node's text; listing and download are

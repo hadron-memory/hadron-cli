@@ -69,3 +69,46 @@ func TestSlice3AlternateSafeTables(t *testing.T) {
 		}
 	}
 }
+
+// Mint metadata strings never enter the MINTED column: it is a closed label
+// selected from the boolean, unlike approvalStatus.state's remote string.
+func TestSlice3MintLabelsAreClosed(t *testing.T) {
+	hostile := "remote\n\x1b[31m\u202e" + strings.Repeat("日", 1000)
+	for _, tc := range []struct {
+		status *specMintDTO
+		want   string
+	}{
+		{nil, "unknown"},
+		{&specMintDTO{Minted: true, MintedAt: &hostile, MintedByInfo: &hostile, Hash: &hostile}, "MINTED"},
+		{&specMintDTO{Minted: false, MintedAt: &hostile, MintedByInfo: &hostile, Hash: &hostile}, "UNMINTED"},
+	} {
+		if got := specMintLabel(tc.status); got != tc.want {
+			t.Fatalf("label = %q, want %q", got, tc.want)
+		}
+		var b bytes.Buffer
+		if err := writeSpecListTable(&b, []specDTO{{Citation: "msg:010:02", Name: "Title", MintStatus: tc.status}}); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(b.String(), hostile) {
+			t.Fatal("mint metadata leaked into list")
+		}
+	}
+}
+
+// The command supplies these field literals; neither column is copied from a
+// server status or loc. Remote text affects DETAIL and CITATION instead.
+func TestSlice3ToolFindingColumnsAreLocal(t *testing.T) {
+	for _, field := range []string{"content", "abstract"} {
+		findings := checkToolField("remote\nloc", field, "safe\nhadron_not_registered\n", map[string]bool{}, map[string]bool{})
+		if len(findings) != 1 {
+			t.Fatalf("findings: %+v", findings)
+		}
+		f := findings[0]
+		if f.Kind != "unregistered-tool" || f.Field != field || f.Line != 2 || f.Citation != "remote\nloc" {
+			t.Fatalf("local column derivation: %+v", f)
+		}
+	}
+	if kindUnavailable != "unavailable" {
+		t.Fatal("unavailable label changed")
+	}
+}
