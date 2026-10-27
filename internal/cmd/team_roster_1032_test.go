@@ -99,7 +99,7 @@ func TestTeamRosterJSONHolderIsAdditive(t *testing.T) {
 
 // #1047: a holder name/handle with control characters must not split the text
 // table or reach the terminal as an escape sequence; --json keeps the source.
-func TestTeamRosterHolderControlCharsAreEscapedInText(t *testing.T) {
+func TestTeamRosterHolderControlCharsBecomeSpacesInText(t *testing.T) {
 	for _, tc := range []struct{ label, holder string }{
 		{"name", `{"id":"u1","handle":"h","urn":null,"name":"Name\nline\t\u001b[31m"}`},
 		{"handle fallback", `{"id":"u1","handle":"h\nx\u001b[31m","urn":null,"name":null}`},
@@ -121,8 +121,12 @@ func TestTeamRosterHolderControlCharsAreEscapedInText(t *testing.T) {
 			if rows != 1 {
 				t.Errorf("want one logical Ann row, got %d:\n%s", rows, out)
 			}
-			if !strings.Contains(out, `\n`) || !strings.Contains(out, `\x1b`) {
-				t.Errorf("want quoted escapes visible:\n%s", out)
+			want := "Name line  [31m"
+			if tc.label == "handle fallback" {
+				want = "@h x [31m"
+			}
+			if !strings.Contains(out, want) || strings.Contains(out, `\x1b`) {
+				t.Errorf("want SafeCell spaces %q, got:\n%s", want, out)
 			}
 		})
 	}
