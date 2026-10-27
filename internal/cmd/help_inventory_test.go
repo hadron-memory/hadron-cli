@@ -60,7 +60,7 @@ func parseInventory(t *testing.T, doc string) []inventoryRow {
 		if open == "" {
 			t.Fatalf("row outside any group section: %s", line)
 		}
-		cells := strings.Split(strings.Trim(line, "| "), " | ")
+		cells := strings.Split(strings.TrimSuffix(strings.TrimPrefix(line, "| "), " |"), " | ")
 		if len(cells) != 8 {
 			t.Fatalf("row has %d cells, want 8: %s", len(cells), line)
 		}
