@@ -688,7 +688,7 @@ func toStatusDTO(root, host string, plan *gen.SkillPlanSkillPlan, unreadable, un
 // renderStatus writes the human view: one row per declared node, then the
 // files that paired with nothing, then the counts.
 func renderStatus(w io.Writer, dto statusDTO) error {
-	fmt.Fprintf(w, "%s (host %s)\n\n", dto.Root, dto.Host)
+	fmt.Fprintf(w, "%s (host %s)\n\n", output.SafeText(dto.Root), output.SafeText(dto.Host))
 	if len(dto.Entries) == 0 && len(dto.Orphans) == 0 && len(dto.Unreadable) == 0 &&
 		len(dto.Unparseable) == 0 && len(dto.Unchecked) == 0 {
 		// scanned distinguishes an empty corpus from one the caller cannot
@@ -744,7 +744,7 @@ func renderStatus(w io.Writer, dto statusDTO) error {
 			fmt.Fprintf(w, "\n%s %s: %s\n  %s", output.SafeCell(fnd.Severity), output.SafeCell(fnd.Rule), output.SafeCell(fnd.Node), output.SafeCell(fnd.Message))
 		}
 	}
-	fmt.Fprintf(w, "\n%d of %d declaring node(s) judged for host %s\n", dto.Judged, dto.Scanned, dto.Host)
+	fmt.Fprintf(w, "\n%d of %d declaring node(s) judged for host %s\n", dto.Judged, dto.Scanned, output.SafeText(dto.Host))
 	return nil
 }
 

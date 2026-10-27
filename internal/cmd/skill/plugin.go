@@ -1475,7 +1475,7 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 			return err
 		}
 	}
-	if err := p("Plugin %q → %s\n", dto.Name, dto.Out); err != nil {
+	if err := p("Plugin %q → %s\n", output.SafeText(dto.Name), dto.Out); err != nil {
 		return err
 	}
 	if dto.Scope == nil {
@@ -1483,7 +1483,7 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 			return err
 		}
 	} else if err := p("Scope %s (%s): %d memories (%d you cannot read were left out).\n",
-		cmp(dto.Scope.Name, dto.Scope.ID), dto.Scope.source, dto.Scope.MemoryCount, dto.Scope.DroppedCount); err != nil {
+		output.SafeText(cmp(dto.Scope.Name, dto.Scope.ID)), output.SafeText(dto.Scope.source), dto.Scope.MemoryCount, dto.Scope.DroppedCount); err != nil {
 		return err
 	}
 	for _, h := range dto.Hosts {
@@ -1491,7 +1491,7 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 		if h.Artifact != nil {
 			where = *h.Artifact
 		}
-		if err := p("\n%s → %s\n", h.Host, where); err != nil {
+		if err := p("\n%s → %s\n", output.SafeText(h.Host), output.SafeText(where)); err != nil {
 			return err
 		}
 		if h.Version != nil {
@@ -1505,7 +1505,7 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 			}
 		}
 		if h.Failure != nil {
-			if err := p("  ✗ %s\n", output.SafeCell(h.Failure.Message)); err != nil {
+			if err := p("  ✗ %s\n", output.SafeText(h.Failure.Message)); err != nil {
 				return err
 			}
 		}
@@ -1544,7 +1544,7 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 			}
 		}
 		if line := emptyArtifactLine(h, dto.DryRun); line != "" {
-			if err := p("%s\n", line); err != nil {
+			if err := p("%s\n", output.SafeText(line)); err != nil {
 				return err
 			}
 		}

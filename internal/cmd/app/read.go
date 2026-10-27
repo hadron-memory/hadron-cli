@@ -74,7 +74,7 @@ whether the value is unset or withheld. The server decides access.`,
 			}
 			dto := appGetDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), Description: a.Description}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "id: %s\nurn: %s\nname: %s\ntype: %s\ndescription: %s\n", dto.ID, dto.URN, dto.Name, dto.AppType, optionalReadText(dto.Description))
+				_, err := fmt.Fprintf(w, "id: %s\nurn: %s\nname: %s\ntype: %s\ndescription: %s\n", output.SafeText(dto.ID), output.SafeText(dto.URN), output.SafeText(dto.Name), output.SafeText(dto.AppType), output.SafeText(optionalReadText(dto.Description)))
 				return err
 			})
 		},

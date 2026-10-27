@@ -20,6 +20,26 @@ const cellMaxRunes = 256
 //
 // Text mode only: --json carries the original value. Other commands' tables are
 // unchanged (roster, automation and member keep their own guards).
+// SafeText makes a server-supplied string safe to print as one DETAIL line
+// (cli#1110, Joshua P2-1): the exact rune neutralization of SafeCell — every
+// control character (C0, C1, DEL, ESC, tab, CR, LF) and every Unicode format
+// or line/paragraph separator (Cf, Zl, Zp) becomes a single space, so a value
+// can neither forge a line nor recolor or reorder the terminal — with NO
+// length cut, because a detail view is the human way to read long server text
+// (a system prompt, an error message) and a 256-rune cap silently discards
+// it. Table cells stay on SafeCell, whose cut keeps a hostile row bounded.
+// Text mode only: --json carries the original value.
+func SafeText(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp) {
+			r = ' '
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
 func SafeCell(s string) string {
 	var b strings.Builder
 	n := 0

@@ -5,7 +5,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -178,7 +177,7 @@ returns [] when the App's member list is not readable by you.`,
 				}
 				t := output.NewTable(w, "USER ID", "HANDLE", "ROLE", "ADDED")
 				for _, m := range dto.Members {
-					t.Row(output.SafeCell(m.User.ID), memberCell(m.User.Handle), memberText(m.Role), output.SafeCell(m.CreatedAt))
+					t.Row(output.SafeCell(m.User.ID), memberCell(m.User.Handle), memberCell(&m.Role), output.SafeCell(m.CreatedAt))
 				}
 				return t.Flush()
 			})
@@ -311,21 +310,21 @@ without --yes is refused before anything is sent.`,
 	return cmd
 }
 
-// memberText quotes a string carrying control characters (newline, ESC…) so a
-// server- or user-supplied value cannot split a row or reach the terminal as an
-// escape sequence. Text only: --json keeps the source value.
+// memberText neutralizes a server- or user-supplied value inside a detail
+// line: output.SafeText's rune classes, no length cut (cli#1110). The old
+// strconv.Quote guard only caught C0/C1 controls — Cf bidi overrides and
+// Zl/Zp separators passed raw, and quoting never bounded length (Charles's
+// cli#1110 QA probe). Text only: --json keeps the source value.
 func memberText(s string) string {
-	for _, r := range s {
-		if unicode.IsControl(r) {
-			return strconv.Quote(s)
-		}
-	}
-	return s
+	return output.SafeText(s)
 }
 
+// memberCell renders a nullable table cell: an absent value as the dash, a
+// present one through output.SafeCell, whose rune classes and 256-rune cap
+// are what the cli#1104 gate pins for every value cell.
 func memberCell(s *string) string {
 	if s == nil || *s == "" {
 		return "—"
 	}
-	return memberText(*s)
+	return output.SafeCell(*s)
 }
