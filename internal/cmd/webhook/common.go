@@ -78,8 +78,9 @@ func writeCredentials(w io.Writer, verb string, c credentialsDTO) error {
 	}
 	fmt.Fprintf(w, "  id %s  app %s  entry %s\n", output.SafeCell(c.Webhook.ID), output.SafeCell(c.Webhook.AppID), output.SafeCell(c.Webhook.EntryNodeURN))
 	fmt.Fprintln(w, "\n  ⚠ Shown once — store these now; the secret is never queryable again.")
-	fmt.Fprintf(w, "  URL path:       %s\n", c.Path)
-	fmt.Fprintf(w, "  platform token: %s\n", c.Token)
-	fmt.Fprintf(w, "  Call it as:     POST %s?hpt=%s\n", c.Path, c.Token)
+	path, token := output.SafeCell(c.Path), output.SafeCell(c.Token)
+	fmt.Fprintf(w, "  URL path:       %s\n", path)
+	fmt.Fprintf(w, "  platform token: %s\n", token)
+	fmt.Fprintf(w, "  Call it as:     POST %s?hpt=%s\n", path, token)
 	return nil
 }

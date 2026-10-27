@@ -126,10 +126,10 @@ func writeRunDetail(w io.Writer, r appRunDTO) error {
 	}
 	fmt.Fprintln(w)
 	if r.Data != nil {
-		fmt.Fprintf(w, "  data %s\n", string(*r.Data))
+		fmt.Fprintf(w, "  data %s\n", output.SafeCell(string(*r.Data)))
 	}
 	if r.Failure != nil {
-		fmt.Fprintf(w, "  failure %s\n", string(*r.Failure))
+		fmt.Fprintf(w, "  failure %s\n", output.SafeCell(string(*r.Failure)))
 	}
 	return nil
 }
