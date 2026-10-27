@@ -28,8 +28,10 @@ var cutCellText = strings.Repeat("日", 255) + "…"
 // assertSafeTableText checks the gate's three invariants for one command's
 // text output: one logical line per table row (wantRows records plus the
 // header), no hidden rune anywhere, and the long value cut, never uncut.
-// wantRows < 0 skips the line-count check (key/value detail views, whose line
-// count the caller asserts separately).
+// wantRows < 0 skips the row-count check (key/value detail views); such
+// callers MUST pin their line count with assertDetailLineCount, which is
+// what catches a newline that stops being neutralized (cli#1110, Joshua
+// P2-2: a detail test without it cannot see row forgery).
 func assertSafeTableText(t *testing.T, text string, wantRows int, longCells int) {
 	t.Helper()
 	if wantRows >= 0 {
@@ -53,5 +55,31 @@ func assertSafeTableText(t *testing.T, text string, wantRows int, longCells int)
 	}
 	if !utf8.ValidString(text) {
 		t.Errorf("text output must stay valid UTF-8")
+	}
+}
+
+// assertDetailLineCount pins a key/value detail view's logical line count
+// (cli#1110, Joshua P2-2): detail callers pass wantRows < 0, so no row-count
+// discipline guards them, and a hostile newline that survived sanitization
+// would silently forge an extra line. The pinned count is taken from the
+// SANITIZED hostile output, so the pin fails exactly when a control rune
+// stops being neutralized, while cosmetic output changes also fail loudly
+// rather than silently reshaping the view.
+func assertDetailLineCount(t *testing.T, text string, want int) {
+	t.Helper()
+	if got := len(strings.Split(strings.TrimRight(text, "\n"), "\n")); got != want {
+		t.Fatalf("want exactly %d logical lines in the detail view (a surviving newline would forge more), got %d:\n%q", want, got, text)
+	}
+}
+
+// assertNoRawHostileLabel is assertNoRawHostile for views that mix
+// SafeCell table rows with SafeText detail lines (cli#1110):
+// neutralization stays absolute — the raw hostile label must never
+// survive — but a long value MAY render uncut, because SafeText
+// deliberately does not cap detail text.
+func assertNoRawHostileLabel(t *testing.T, text string) {
+	t.Helper()
+	if strings.Contains(text, hostileCellLabel) {
+		t.Fatalf("the raw hostile value survived sanitization:\n%q", text)
 	}
 }

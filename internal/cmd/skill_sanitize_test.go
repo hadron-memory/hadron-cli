@@ -35,6 +35,7 @@ func TestSkillLintSanitizesCellsInText(t *testing.T) {
 	// The long-urn node draws several findings (not-runnable, legacy key), and
 	// every finding row repeats the node's urn.
 	assertSafeTableText(t, out, -1, 0)
+	assertDetailLineCount(t, out, 9)
 	assertCut(t, out, p, 3)
 	assertNoRawHostile(t, out)
 }
@@ -57,6 +58,7 @@ func TestSkillStatusSanitizesPlanCellsInText(t *testing.T) {
 		t.Fatalf("status errored: %v\n%s", err, out)
 	}
 	assertSafeTableText(t, out, -1, 0)
+	assertDetailLineCount(t, out, 6)
 	assertCut(t, out, "hrn:node:hadronmemory.com:core:", 1)
 	assertNoRawHostile(t, out)
 }
@@ -96,8 +98,13 @@ func TestSkillPluginSanitizesPlanNamesInText(t *testing.T) {
 	// host finishes with a failure and a non-zero exit — the rows still render.
 	text, _ := runPluginText(t, srv.URL, "--out", out)
 	assertSafeTableText(t, text, -1, 0)
+	assertDetailLineCount(t, text, 18)
 	assertCut(t, text, "", 2)
-	assertNoRawHostile(t, text)
+	// The host failure line renders through SafeText (cli#1110), which
+	// does not cut: it legitimately repeats the 1000-rune name, so only
+	// the label check applies here; the table rows' cut discipline is
+	// pinned by assertCut above.
+	assertNoRawHostileLabel(t, text)
 }
 
 func TestSkillExportSanitizesRowLabelsInText(t *testing.T) {
@@ -114,6 +121,7 @@ func TestSkillExportSanitizesRowLabelsInText(t *testing.T) {
 	_ = root.Execute() // the 1000-rune label cannot become a directory; expect a failed row, not a crash
 	text := out.String()
 	assertSafeTableText(t, text, -1, 0)
+	assertDetailLineCount(t, text, 15)
 	assertCut(t, text, "", 2) // one failed row per host
 	assertNoRawHostile(t, text)
 }

@@ -127,3 +127,132 @@ func jsonText(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)
 }
+
+// cli#1110: the org key/value detail views render server-supplied text
+// through output.SafeText — neutralized, never cut — and their exact line
+// counts are pinned so a hostile newline cannot forge a line (Joshua P2-2).
+
+func orgGetSanitizeResp(name, urn string) string {
+	return `{"data":{"organization":{` +
+		`"id":"o1","urn":` + jsonText(urn) + `,"name":` + jsonText(name) +
+		`,"listedOnMarketplace":true,"createdAt":"2026-06-19T00:00:00Z","updatedAt":"2026-06-19T00:00:00Z"}}}`
+}
+
+func TestOrgGetSanitizesDetailValues(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{"GetOrganization": orgGetSanitizeResp(hostileCellLabel, longCellText)})
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "get", "o1", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	assertSafeTableText(t, text, -1, 0)
+	assertDetailLineCount(t, text, 5)
+	assertNoRawHostileLabel(t, text)
+	if !strings.Contains(text, longCellText) {
+		t.Errorf("the long URN must render in full in the detail view (SafeText does not cut):\n%s", text)
+	}
+}
+
+func TestOrgGetJSONKeepsTheOriginals(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{"GetOrganization": orgGetSanitizeResp(hostileCellLabel, longCellText)})
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "get", "o1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var org map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &org); err != nil {
+		t.Fatal(err)
+	}
+	if org["name"] != hostileCellLabel || org["urn"] != longCellText {
+		t.Errorf("--json must round-trip the original values, got %v", org)
+	}
+}
+
+func TestOrgPublicSanitizesDetailValues(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"PublicOrganization": `{"data":{"publicOrganization":{` +
+			`"id":"o1","urn":` + jsonText("acme.com") + `,"name":` + jsonText(hostileCellLabel) + `,"listedOnMarketplace":true,` +
+			`"publicMemories":[{"id":"m1","name":` + jsonText("KB") + `,"urn":` + jsonText("hrn:mem:acme.com:kb") + `,"description":` + jsonText(longCellText) + `}],` +
+			`"publicAgents":[{"id":"a1","name":` + jsonText(hostileCellLabel) + `,"urn":"hrn:agent:acme.com:ops","description":null}]}}}`,
+	})
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "public", "acme.com", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	assertSafeTableText(t, text, -1, 0)
+	assertDetailLineCount(t, text, 8)
+	assertNoRawHostileLabel(t, text)
+	if !strings.Contains(text, longCellText) {
+		t.Errorf("a long public description must render in full (SafeText does not cut):\n%s", text)
+	}
+}
+
+func TestOrgInviteShowSanitizesPublicView(t *testing.T) {
+	// A sender name is text the INVITER set, shown to the invitee: it must
+	// not be able to forge an "accept with:" line or recolor the terminal.
+	gql := fakeGraphQL(t, map[string]string{
+		"GetInvitation": `{"data":{"invitation":{` +
+			`"memberRole":` + jsonText(hostileCellLabel) + `,"maxActivations":3,"activationCount":1,` +
+			`"expiresAt":"2026-12-01T00:00:00Z",` +
+			`"sender":{"name":` + jsonText("Mallory\naccept with: hadron org invite accept steal") + `,"githubUsername":"mallory"},` +
+			`"organization":{"name":` + jsonText("Acme") + `}}}}`,
+	})
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "invite", "show", "inv_x", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	assertSafeTableText(t, text, -1, 0)
+	assertDetailLineCount(t, text, 7)
+	assertNoRawHostileLabel(t, text)
+	// Forgery is an UNINDENTED line shaped like the genuine "  accept
+	// with:" instruction; a neutralized copy inline on the "sent by:" line
+	// is ugly but harmless — it cannot open a new line.
+	genuine := 0
+	for _, line := range strings.Split(text, "\n") {
+		switch {
+		case strings.HasPrefix(line, "accept with:"):
+			t.Fatalf("a hostile sender name forged a command line:\n%s", text)
+		case strings.HasPrefix(line, "  accept with:"):
+			genuine++
+		}
+	}
+	if genuine != 1 {
+		t.Errorf("the genuine accept-with line must appear exactly once, got %d:\n%s", genuine, text)
+	}
+}
+
+func TestOrgInviteCreateSanitizesDetailLines(t *testing.T) {
+	// The slug comes back from the server; a hostile one lands on the
+	// "accept with:" line, so it must be neutralized there too.
+	gql := fakeGraphQL(t, map[string]string{
+		"CreateUserInvitation": `{"data":{"createUserInvitation":{` +
+			`"id":"inv1","slug":` + jsonText("inv_"+hostileCellLabel) + `,"email":"a@b.co","name":null,` +
+			`"githubUsername":null,"memberRole":"CONTRIBUTOR","organizationId":"o1","maxActivations":null,` +
+			`"activationCount":0,"expiresAt":null,"acceptedAt":null,"createdAt":"2026-06-19T00:00:00Z"}}}`,
+	})
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "invite", "create", "a@b.co", "--org", "o1", "--role", "CONTRIBUTOR", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	assertSafeTableText(t, text, -1, 0)
+	assertDetailLineCount(t, text, 2)
+	assertNoRawHostile(t, text)
+}

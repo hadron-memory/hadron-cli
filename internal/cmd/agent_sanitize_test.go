@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -30,6 +31,10 @@ func TestAgentLsSanitizesCellsInText(t *testing.T) {
 	assertSafeTableText(t, out.String(), 2, 1)
 }
 
+// Detail values render through output.SafeText (cli#1110): same rune
+// neutralization as SafeCell, but NO length cut — a detail view is the human
+// way to read long server text (a system prompt), so cutting it there loses
+// information (Joshua P2-1).
 func TestAgentGetSanitizesDetailValues(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
 		"GetAgent": `{"data":{"agent":` + agentSanitizeJSON(hostileCellLabel, longCellText) + `}}`,
@@ -42,12 +47,53 @@ func TestAgentGetSanitizesDetailValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	assertSafeTableText(t, text, -1, 1)
-	// the detail view keeps one line per field: none of them may be forged
-	for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
-		if strings.Contains(line, "\x1b") {
-			t.Fatalf("an escape survived on line %q", line)
+	assertSafeTableText(t, text, -1, 0)
+	assertDetailLineCount(t, text, 12)
+	if !strings.Contains(text, longCellText) {
+		t.Errorf("the long URN must render in full in the detail view (SafeText does not cut):\n%s", text)
+	}
+}
+
+// A hostile value carrying ONLY a newline is invisible to the control-rune
+// scan; only the pinned line count and the forged tail's absence catch it
+// (cli#1110, Joshua P2-2).
+func TestAgentGetDetailNeutralizesNewlineOnlyForgery(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"GetAgent": `{"data":{"agent":` + agentSanitizeJSON("Support\nForged: yes", "acme.com::support") + `}}`,
+	})
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "get", "acme.com::support-bot", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	assertDetailLineCount(t, text, 12)
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(line, "Forged:") {
+			t.Fatalf("a newline-only hostile value forged a detail line:\n%s", text)
 		}
+	}
+}
+
+func TestAgentGetJSONKeepsTheOriginals(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"GetAgent": `{"data":{"agent":` + agentSanitizeJSON(hostileCellLabel, longCellText) + `}}`,
+	})
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "get", "acme.com::support-bot", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var agent map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &agent); err != nil {
+		t.Fatal(err)
+	}
+	if agent["name"] != hostileCellLabel || agent["urn"] != longCellText {
+		t.Errorf("--json must round-trip the original values, got %v", agent)
 	}
 }
 

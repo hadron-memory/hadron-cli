@@ -130,11 +130,13 @@ func TestAppInstallSanitizesCellsInText(t *testing.T) {
 }
 
 func TestAppMemberLsSanitizesUnguardedCellsInText(t *testing.T) {
-	// member.go's guarded HANDLE and ROLE cells keep memberText/memberCell
-	// (verified-and-kept, #1093 rule); the ID and CREATED cells are SafeCell's.
+	// Every value cell is SafeCell now, HANDLE and ROLE included (cli#1110,
+	// Charles's QA probe): the old memberText/memberCell quoting guard only
+	// caught C0/C1 controls — Cf bidi overrides and Zl/Zp separators passed
+	// raw, and quoting never bounded length.
 	gql := fakeGraphQL(t, map[string]string{
 		"AppMembers": `{"data":{"app":{"id":"a1","urn":"hrn:app:acme.com:eng","members":[` +
-			`{"role":"member","createdAt":` + jsonText(hostileCellLabel) + `,"user":{"id":` + jsonText(longCellText) + `,"handle":"ada","urn":null}},` +
+			`{"role":` + jsonText(hostileCellLabel) + `,"createdAt":` + jsonText(hostileCellLabel) + `,"user":{"id":` + jsonText(longCellText) + `,"handle":` + jsonText(hostileCellLabel) + `,"urn":null}},` +
 			`{"role":"owner","createdAt":"2026-10-02T00:00:00Z","user":{"id":"usr2","handle":null,"urn":null}}]}}}`,
 	})
 	defer gql.Close()
@@ -149,6 +151,34 @@ func TestAppMemberLsSanitizesUnguardedCellsInText(t *testing.T) {
 	assertSafeTableText(t, text, 3, 1)
 	if !strings.Contains(text, cutCellText) {
 		t.Errorf("the long ID cell must render in the cut form:\n%s", text)
+	}
+	assertNoRawHostile(t, text)
+}
+
+// Charles's cli#1110 QA finding, pinned: a HANDLE or ROLE carrying bidi or
+// separator runes must not survive into the table — the quoting guard let
+// exactly those classes through, uncut.
+func TestAppMemberLsNeutralizesBidiAndSeparatorCells(t *testing.T) {
+	bidi := "a\u202eb"
+	sep := "c\u2028d"
+	gql := fakeGraphQL(t, map[string]string{
+		"AppMembers": `{"data":{"app":{"id":"a1","urn":"hrn:app:acme.com:eng","members":[` +
+			`{"role":` + jsonText(sep) + `,"createdAt":"2026-10-02T00:00:00Z",` +
+			`"user":{"id":"usr1","handle":` + jsonText(bidi) + `,"urn":null}}]}}}`,
+	})
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "member", "ls", "--app", "capp100000000000000000000", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	assertSafeTableText(t, text, 2, 0)
+	for _, raw := range []string{"\u202e", "\u2028"} {
+		if strings.Contains(text, raw) {
+			t.Errorf("the hostile cell must not survive into the table (got %q):\n%s", raw, text)
+		}
 	}
 }
 
@@ -171,6 +201,7 @@ func TestAppKeyGrantSanitizesScopeCellsInText(t *testing.T) {
 	// The ✓ line plus a two-line table (header + one scope row).
 	text := out.String()
 	assertSafeTableText(t, text, -1, 1)
+	assertDetailLineCount(t, text, 3)
 	if strings.Contains(text, strings.Repeat("日", 257)) {
 		t.Errorf("a long value was rendered uncut:\n%s", text)
 	}
@@ -229,6 +260,7 @@ func TestAuthTokenValidateSanitizesDetailTail(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertSafeTableText(t, out.String(), -1, 1)
+	assertDetailLineCount(t, out.String(), 2)
 	if !strings.Contains(out.String(), "Token is valid") {
 		t.Errorf("the validation verdict must survive:\n%s", out)
 	}

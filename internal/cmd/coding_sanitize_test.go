@@ -48,9 +48,8 @@ func cutCellPrefixed(prefix string) string {
 	return string(b[:255]) + "…"
 }
 
-// assertNoRawHostile fails when the raw hostile label or the uncut 1000-rune
-// value survives into rendered text (the sanitized forms replace the newline
-// and the ESC with spaces, and cut the long value).
+// assertCut fails unless exactly `want` cells render in SafeCell's documented
+// cut form for prefix+longCellText (256 rendered runes including the ellipsis).
 func assertCut(t *testing.T, text string, prefix string, want int) {
 	t.Helper()
 	if n := strings.Count(text, cutCellPrefixed(prefix)); n != want {
@@ -59,6 +58,9 @@ func assertCut(t *testing.T, text string, prefix string, want int) {
 	}
 }
 
+// assertNoRawHostile fails when the raw hostile label or the uncut 1000-rune
+// value survives into rendered text (the sanitized forms replace the newline
+// and the ESC with spaces, and cut the long value).
 func assertNoRawHostile(t *testing.T, text string) {
 	t.Helper()
 	if strings.Contains(text, hostileCellLabel) {
@@ -87,6 +89,7 @@ func TestCodingReviewLintSanitizesCellsInText(t *testing.T) {
 	}
 	text := out.String()
 	assertSafeTableText(t, text, -1, 0)
+	assertDetailLineCount(t, text, 3)
 	assertCut(t, text, "review:", 1)
 	assertNoRawHostile(t, text)
 }
@@ -106,6 +109,7 @@ func TestCodingPreflightLintSanitizesCellsInText(t *testing.T) {
 		t.Fatalf("a dead route should exit 5, got %d", got)
 	}
 	assertSafeTableText(t, out.String(), -1, 0)
+	assertDetailLineCount(t, out.String(), 3)
 	assertNoRawHostile(t, out.String())
 }
 
@@ -224,6 +228,7 @@ func TestCodingPreflightRouteSanitizesPlanCells(t *testing.T) {
 	}
 	text := out.String()
 	assertSafeTableText(t, text, -1, 0)
+	assertDetailLineCount(t, text, 4)
 	if !strings.Contains(text, cutCellPrefixed("findings:")) {
 		t.Errorf("the long target loc must render cut to the documented form")
 	}
@@ -258,6 +263,7 @@ func TestCodingReviewRunSanitizesCheckTableAndUnavailable(t *testing.T) {
 	}
 	text := out.String()
 	assertSafeTableText(t, text, -1, 0)
+	assertDetailLineCount(t, text, 5)
 	assertCut(t, text, "review:", 1)
 	assertNoRawHostile(t, text)
 }
