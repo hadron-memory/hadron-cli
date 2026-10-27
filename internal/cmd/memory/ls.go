@@ -77,13 +77,13 @@ also reports the role you were granted and who shared it.`,
 				if sharedWithMe {
 					t := output.NewTable(w, "URN", "NAME", "ROLE", "SHARED BY")
 					for _, m := range memories {
-						t.Row(m.URN, m.Name, accessDash(m.ShareRole), grantorLabel(m.SharedBy))
+						t.Row(output.SafeCell(m.URN), output.SafeCell(m.Name), output.SafeCell(accessDash(m.ShareRole)), output.SafeCell(grantorLabel(m.SharedBy)))
 					}
 					return t.Flush()
 				}
 				t := output.NewTable(w, "URN", "NAME", "CLASS")
 				for _, m := range memories {
-					t.Row(m.URN, m.Name, m.Class)
+					t.Row(output.SafeCell(m.URN), output.SafeCell(m.Name), output.SafeCell(m.Class))
 				}
 				return t.Flush()
 			})

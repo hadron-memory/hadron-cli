@@ -324,7 +324,7 @@ func writeValidateText(w io.Writer, dto validateResultDTO) error {
 		// worse, an empty summary above a full findings table) is how a new
 		// check goes unnoticed by the people who most need to see it.
 		for _, name := range sortedKeys(dto.Counts) {
-			t.Row(name, fmt.Sprint(dto.Counts[name]), blurbFor(name))
+			t.Row(output.SafeCell(name), fmt.Sprint(dto.Counts[name]), blurbFor(name))
 		}
 		if err := t.Flush(); err != nil {
 			return err
@@ -353,7 +353,7 @@ func writeValidateText(w io.Writer, dto validateResultDTO) error {
 		fmt.Fprintln(w)
 		t := output.NewTable(w, "KIND", "LOC", "DETAIL")
 		for _, fnd := range dto.Findings {
-			t.Row(fnd.Kind, fnd.NodeLoc, truncateDetail(fnd.Detail))
+			t.Row(output.SafeCell(fnd.Kind), output.SafeCell(fnd.NodeLoc), truncateDetail(output.SafeCell(fnd.Detail)))
 		}
 		if err := t.Flush(); err != nil {
 			return err

@@ -78,7 +78,7 @@ Encrypted memories and agent system / app memories cannot be cloned.`,
 			}
 			return output.Write(f.IOStreams, f.JSON, m, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ cloned", args[0], "→", m.URN)
+				t.Row("✓ cloned", args[0], "→", output.SafeCell(m.URN))
 				return t.Flush()
 			})
 		},

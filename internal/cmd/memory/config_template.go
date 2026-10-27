@@ -249,7 +249,7 @@ Narrow by owner with at most one of --owner-server, --owner-org, --owner-me or
 				}
 				t := output.NewTable(w, "ID", "NAME", "OWNER", "REQUIRED", "RULES", "REVISION")
 				for _, it := range dto.Items {
-					t.Row(it.ID, it.Name, ownerCell(it), yesNo(it.Required), fmt.Sprint(len(it.Rules)), fmt.Sprint(it.Revision))
+					t.Row(output.SafeCell(it.ID), output.SafeCell(it.Name), output.SafeCell(ownerCell(it)), yesNo(it.Required), fmt.Sprint(len(it.Rules)), fmt.Sprint(it.Revision))
 				}
 				return t.Flush()
 			})

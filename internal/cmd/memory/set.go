@@ -353,7 +353,7 @@ create-only and is refused with --app/--agent.`,
 
 			if err := output.Write(f.IOStreams, f.JSON, m, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ "+verb, m.URN, m.Name)
+				t.Row("✓ "+verb, output.SafeCell(m.URN), output.SafeCell(m.Name))
 				if err := t.Flush(); err != nil {
 					return err
 				}
