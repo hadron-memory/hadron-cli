@@ -59,7 +59,7 @@ by the API and never printed by the CLI.`,
 					if s.Metadata != nil {
 						meta = string(*s.Metadata)
 					}
-					t.Row(s.ID, s.Name, s.Kind, s.OwnerType+":"+s.OwnerID, meta, s.CreatedAt)
+					t.Row(output.SafeCell(s.ID), output.SafeCell(s.Name), output.SafeCell(s.Kind), output.SafeCell(s.OwnerType+":"+s.OwnerID), output.SafeCell(meta), output.SafeCell(s.CreatedAt))
 				}
 				return t.Flush()
 			})

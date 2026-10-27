@@ -114,7 +114,7 @@ the engine signature). Both exit 1.`,
 				SizeBytes: d.SizeBytes, Path: path, Written: written,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(wr io.Writer) error {
-				fmt.Fprintf(wr, "wrote %s (%s, %s)\n", dto.Path, humanSize(int(dto.Written)), dto.MimeType)
+				fmt.Fprintf(wr, "wrote %s (%s, %s)\n", output.SafeCell(dto.Path), humanSize(int(dto.Written)), output.SafeCell(dto.MimeType))
 				return nil
 			})
 		},

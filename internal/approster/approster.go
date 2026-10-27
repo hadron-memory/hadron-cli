@@ -95,12 +95,12 @@ func Fetch(ctx context.Context, client graphql.Client, appRef string) (*Result, 
 // no dressed agents: a blank column is the honest answer for a plain
 // single-agent App.
 func Render(w io.Writer, r *Result) error {
-	if _, err := fmt.Fprintf(w, "%s (%s) — %d installed\n", r.AppName, r.AppURN, len(r.Members)); err != nil {
+	if _, err := fmt.Fprintf(w, "%s (%s) — %d installed\n", output.SafeCell(r.AppName), output.SafeCell(r.AppURN), len(r.Members)); err != nil {
 		return err
 	}
 	t := output.NewTable(w, "AGENT", "ROLE", "AGENT URN", "ID", "BOOT PROMPT")
 	for _, m := range r.Members {
-		t.Row(m.AgentName, dash(m.PersonaRole), m.URN, m.ID, cmdutil.BootPromptLabel(m.BootPromptRef, m.BootPromptTargetDeleted))
+		t.Row(output.SafeCell(m.AgentName), output.SafeCell(dash(m.PersonaRole)), output.SafeCell(m.URN), output.SafeCell(m.ID), output.SafeCell(cmdutil.BootPromptLabel(m.BootPromptRef, m.BootPromptTargetDeleted)))
 	}
 	return t.Flush()
 }

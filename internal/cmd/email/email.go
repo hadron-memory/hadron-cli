@@ -88,7 +88,7 @@ reconnect instruction. No messages, drafts or mailbox mutations are exposed.`,
 				}
 				t := output.NewTable(w, "ID", "ORG ID", "USER ID", "MAILBOX", "PROVIDER", "DISPLAY NAME", "SYNC ENABLED", "SYNC STATUS", "LAST SYNC", "CREATED", "UPDATED")
 				for _, v := range rows {
-					t.Row(strconv.Quote(v.ID), strconv.Quote(v.OrganizationID), strconv.Quote(v.UserID), strconv.Quote(v.MailboxEmail), strconv.Quote(v.Provider), nullable(v.DisplayName), fmt.Sprint(v.SyncEnabled), strconv.Quote(v.SyncStatus), nullable(v.LastSyncAt), strconv.Quote(v.CreatedAt), strconv.Quote(v.UpdatedAt))
+					t.Row(output.SafeCell(strconv.Quote(v.ID)), output.SafeCell(strconv.Quote(v.OrganizationID)), output.SafeCell(strconv.Quote(v.UserID)), output.SafeCell(strconv.Quote(v.MailboxEmail)), output.SafeCell(strconv.Quote(v.Provider)), output.SafeCell(nullable(v.DisplayName)), fmt.Sprint(v.SyncEnabled), output.SafeCell(strconv.Quote(v.SyncStatus)), output.SafeCell(nullable(v.LastSyncAt)), output.SafeCell(strconv.Quote(v.CreatedAt)), output.SafeCell(strconv.Quote(v.UpdatedAt)))
 				}
 				return t.Flush()
 			})

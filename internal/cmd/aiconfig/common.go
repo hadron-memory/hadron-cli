@@ -9,6 +9,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // endpointConfigDTO is used only when the endpoint-aware server operation was
@@ -59,7 +60,7 @@ func endpointDisplay(value *string, fallback string) string {
 
 func writeEndpointLines(w io.Writer, dto endpointConfigDTO) error {
 	_, err := fmt.Fprintf(w, "  configured endpoint: %s\n  effective endpoint: %s\n",
-		endpointDisplay(dto.Endpoint, "provider default"), endpointDisplay(dto.EffectiveEndpoint, "server-derived"))
+		output.SafeCell(endpointDisplay(dto.Endpoint, "provider default")), output.SafeCell(endpointDisplay(dto.EffectiveEndpoint, "server-derived")))
 	return err
 }
 
@@ -149,9 +150,9 @@ func writeConfigLine(w io.Writer, verb string, dto aiConfigDTO) error {
 			key = "key " + *dto.APIKeyPreview
 		}
 	}
-	if _, err := fmt.Fprintf(w, "%s %s  %s/%s  %s  %s\n", verb, dto.Name, dto.Provider, dto.Model, state, key); err != nil {
+	if _, err := fmt.Fprintf(w, "%s %s  %s/%s  %s  %s\n", verb, output.SafeCell(dto.Name), output.SafeCell(dto.Provider), output.SafeCell(dto.Model), output.SafeCell(state), output.SafeCell(key)); err != nil {
 		return err
 	}
-	_, err := fmt.Fprintf(w, "  id %s  owner %s %s\n", dto.ID, dto.OwnerType, dto.OwnerID)
+	_, err := fmt.Fprintf(w, "  id %s  owner %s %s\n", output.SafeCell(dto.ID), output.SafeCell(dto.OwnerType), output.SafeCell(dto.OwnerID))
 	return err
 }

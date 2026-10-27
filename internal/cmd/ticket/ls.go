@@ -51,7 +51,7 @@ expiries (cor:acl:050:04). Pages to exhaustion.`,
 			return output.Write(f.IOStreams, f.JSON, tickets, func(w io.Writer) error {
 				table := output.NewTable(w, "ID", "ACTION", "STATUS", "RUN", "CREATED")
 				for _, t := range tickets {
-					table.Row(t.ID, t.Action, t.status(), output.Dash(t.ConsumedByRunID), t.CreatedAt)
+					table.Row(output.SafeCell(t.ID), output.SafeCell(t.Action), output.SafeCell(t.status()), output.SafeCell(output.Dash(t.ConsumedByRunID)), output.SafeCell(t.CreatedAt))
 				}
 				return table.Flush()
 			})

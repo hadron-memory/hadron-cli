@@ -114,7 +114,7 @@ record is written and no model/provider call is made.`,
 					if e.CostMicroCents != nil {
 						cost = *e.CostMicroCents
 					}
-					t.Row(e.CreatedAt, e.Type, output.Dash(e.MemoryID), output.Dash(e.NodeLoc), output.Dash(e.Provider), output.Dash(e.Model), tokenLabel(e.TokensIn), tokenLabel(e.TokensOut), cost)
+					t.Row(output.SafeCell(e.CreatedAt), output.SafeCell(e.Type), output.SafeCell(output.Dash(e.MemoryID)), output.SafeCell(output.Dash(e.NodeLoc)), output.SafeCell(output.Dash(e.Provider)), output.SafeCell(output.Dash(e.Model)), tokenLabel(e.TokensIn), tokenLabel(e.TokensOut), output.SafeCell(cost))
 				}
 				return t.Flush()
 			})
@@ -161,7 +161,7 @@ owns access and refusals. JSON is an array of {nodeLoc,type,count}; empty is [].
 		return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 			t := output.NewTable(w, "LOC", "TYPE", "COUNT")
 			for _, e := range rows {
-				t.Row(e.NodeLoc, e.Type, fmt.Sprint(e.Count))
+				t.Row(output.SafeCell(e.NodeLoc), output.SafeCell(e.Type), fmt.Sprint(e.Count))
 			}
 			return t.Flush()
 		})

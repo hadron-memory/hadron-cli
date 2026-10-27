@@ -145,7 +145,7 @@ every time.`,
 				MemoryID: a.MemoryId, PublicURL: a.PublicUrl,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "uploaded %s (%s, %s)\n%s\n", dto.Filename, humanSize(dto.SizeBytes), dto.MimeType, dto.URN)
+				fmt.Fprintf(w, "uploaded %s (%s, %s)\n%s\n", output.SafeCell(dto.Filename), humanSize(dto.SizeBytes), output.SafeCell(dto.MimeType), output.SafeCell(dto.URN))
 				if dto.ScanStatus == "PENDING" {
 					fmt.Fprintf(f.IOStreams.ErrOut,
 						"note: virus scan is still pending — the asset is not downloadable until it is CLEAN\n")

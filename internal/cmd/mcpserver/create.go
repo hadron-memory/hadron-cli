@@ -64,7 +64,7 @@ Registration grants nothing on its own — a run must still be allowed
 			}
 			dto := dtoFromFields(resp.CreateMcpServer.McpServerFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ registered MCP server %s (id %s, %s)\n", dto.Slug, dto.ID, dto.statusLabel())
+				_, err := fmt.Fprintf(w, "✓ registered MCP server %s (id %s, %s)\n", output.SafeCell(dto.Slug), output.SafeCell(dto.ID), output.SafeCell(dto.statusLabel()))
 				return err
 			})
 		},

@@ -38,11 +38,11 @@ server deliberately does not distinguish the two, so neither does this command.`
 			}
 			dto := dtoFromFields(resp.HomeAssistantInstance.HomeAssistantInstanceFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "%s\n  id: %s\n  slug: %s\n  url: %s\n", dto.Name, dto.ID, dto.Slug, dto.URL)
-				fmt.Fprintf(w, "  org: %s\n  status: %s\n", dto.OrganizationID, dto.statusLabel())
-				fmt.Fprintf(w, "  allowlist: %s\n", dto.allowlistLabel())
-				fmt.Fprintf(w, "  created: %s by %s\n", dto.CreatedAt, output.Dash(dto.CreatedBy))
-				fmt.Fprintf(w, "  updated: %s by %s\n", dto.UpdatedAt, output.Dash(dto.UpdatedBy))
+				fmt.Fprintf(w, "%s\n  id: %s\n  slug: %s\n  url: %s\n", output.SafeCell(dto.Name), output.SafeCell(dto.ID), output.SafeCell(dto.Slug), output.SafeCell(dto.URL))
+				fmt.Fprintf(w, "  org: %s\n  status: %s\n", output.SafeCell(dto.OrganizationID), output.SafeCell(dto.statusLabel()))
+				fmt.Fprintf(w, "  allowlist: %s\n", output.SafeCell(dto.allowlistLabel()))
+				fmt.Fprintf(w, "  created: %s by %s\n", output.SafeCell(dto.CreatedAt), output.SafeCell(output.Dash(dto.CreatedBy)))
+				fmt.Fprintf(w, "  updated: %s by %s\n", output.SafeCell(dto.UpdatedAt), output.SafeCell(output.Dash(dto.UpdatedBy)))
 				return nil
 			})
 		},

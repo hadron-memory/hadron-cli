@@ -46,7 +46,7 @@ reaches the Home Assistant host. A disabled instance is refused by the server
 			return output.Write(f.IOStreams, f.JSON, ops, func(w io.Writer) error {
 				table := output.NewTable(w, "OP", "RUN-TOOL-NAME", "DESCRIPTION")
 				for _, o := range ops {
-					table.Row(o.Op, o.RunToolName, o.Description)
+					table.Row(output.SafeCell(o.Op), output.SafeCell(o.RunToolName), output.SafeCell(o.Description))
 				}
 				return table.Flush()
 			})

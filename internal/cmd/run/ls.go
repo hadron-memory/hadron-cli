@@ -82,7 +82,7 @@ CANCELLED, TIMED_OUT). The list pages to exhaustion.`,
 			return output.Write(f.IOStreams, f.JSON, runs, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "STATUS", "TRIGGER", "ENTRY", "FINISHED")
 				for _, r := range runs {
-					t.Row(r.ID, r.Status, r.TriggerKind, r.EntryNodeURN, output.Dash(r.FinishedAt))
+					t.Row(output.SafeCell(r.ID), output.SafeCell(r.Status), output.SafeCell(r.TriggerKind), output.SafeCell(r.EntryNodeURN), output.SafeCell(output.Dash(r.FinishedAt)))
 				}
 				return t.Flush()
 			})

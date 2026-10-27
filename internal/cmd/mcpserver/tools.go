@@ -61,7 +61,7 @@ the external server.`,
 			return output.Write(f.IOStreams, f.JSON, tools, func(w io.Writer) error {
 				table := output.NewTable(w, "TOOL", "RUN-TOOL-NAME", "DESCRIPTION")
 				for _, t := range tools {
-					table.Row(t.Name, t.RunToolName, output.Dash(t.Description))
+					table.Row(output.SafeCell(t.Name), output.SafeCell(t.RunToolName), output.SafeCell(output.Dash(t.Description)))
 				}
 				return table.Flush()
 			})

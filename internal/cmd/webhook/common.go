@@ -10,6 +10,7 @@ import (
 	"io"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // webhookDTO is the stable --json shape for an AgentWebhook. The secret is never
@@ -72,10 +73,10 @@ func credsFromFields(f gen.AgentWebhookCredentialFields) credentialsDTO {
 // and token are the secret — shown once, never queryable again — so they are
 // framed with an explicit warning.
 func writeCredentials(w io.Writer, verb string, c credentialsDTO) error {
-	if _, err := fmt.Fprintf(w, "✓ %s webhook %s\n", verb, c.Webhook.Name); err != nil {
+	if _, err := fmt.Fprintf(w, "✓ %s webhook %s\n", verb, output.SafeCell(c.Webhook.Name)); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "  id %s  app %s  entry %s\n", c.Webhook.ID, c.Webhook.AppID, c.Webhook.EntryNodeURN)
+	fmt.Fprintf(w, "  id %s  app %s  entry %s\n", output.SafeCell(c.Webhook.ID), output.SafeCell(c.Webhook.AppID), output.SafeCell(c.Webhook.EntryNodeURN))
 	fmt.Fprintln(w, "\n  ⚠ Shown once — store these now; the secret is never queryable again.")
 	fmt.Fprintf(w, "  URL path:       %s\n", c.Path)
 	fmt.Fprintf(w, "  platform token: %s\n", c.Token)

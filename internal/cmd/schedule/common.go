@@ -10,6 +10,7 @@ import (
 	"io"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // scheduleDTO is the stable --json shape for an AgentSchedule.
@@ -67,9 +68,9 @@ func writeScheduleLine(w io.Writer, verb string, s scheduleDTO) error {
 	if !s.Enabled {
 		state = "disabled"
 	}
-	if _, err := fmt.Fprintf(w, "%s %s  %s (%s)  %s\n", verb, s.Name, s.Cron, s.Timezone, state); err != nil {
+	if _, err := fmt.Fprintf(w, "%s %s  %s (%s)  %s\n", verb, output.SafeCell(s.Name), output.SafeCell(s.Cron), output.SafeCell(s.Timezone), output.SafeCell(state)); err != nil {
 		return err
 	}
-	_, err := fmt.Fprintf(w, "  id %s  app %s  entry %s\n", s.ID, s.AppID, s.EntryNodeURN)
+	_, err := fmt.Fprintf(w, "  id %s  app %s  entry %s\n", output.SafeCell(s.ID), output.SafeCell(s.AppID), output.SafeCell(s.EntryNodeURN))
 	return err
 }
