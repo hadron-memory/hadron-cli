@@ -1,0 +1,22 @@
+{
+  "app": "capp100000000000000000000",
+  "proof": "prf-1",
+  "expiresAt": "a\nb\u001b[31mc‮\u2028\u2029​",
+  "workers": [
+    {
+      "worker": "wkr1",
+      "name": "Iris",
+      "urn": null,
+      "channels": [
+        {
+          "channel": "ch1",
+          "name": "team",
+          "firstUnreadSeq": 1,
+          "throughSeq": 1878,
+          "unread": 1878,
+          "unreadMentions": 12
+        }
+      ]
+    }
+  ]
+}

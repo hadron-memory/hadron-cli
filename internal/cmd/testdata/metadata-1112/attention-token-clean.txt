@@ -1,0 +1,5 @@
+app: capp100000000000000000000 (from the worktree binding)
+WORKER  CHANNEL  UNREAD  MENTIONS  FIRST  LAST
+Iris    team     3       1         #41    #43
+token: fixture
+Pass it as --since only after every nudge was accepted; on any failure keep the previous token.
