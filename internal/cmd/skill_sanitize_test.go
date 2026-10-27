@@ -100,11 +100,7 @@ func TestSkillPluginSanitizesPlanNamesInText(t *testing.T) {
 	assertSafeTableText(t, text, -1, 0)
 	assertDetailLineCount(t, text, 18)
 	assertCut(t, text, "", 2)
-	// The host failure line renders through SafeText (cli#1110), which
-	// does not cut: it legitimately repeats the 1000-rune name, so only
-	// the label check applies here; the table rows' cut discipline is
-	// pinned by assertCut above.
-	assertNoRawHostileLabel(t, text)
+	assertNoRawHostile(t, text)
 }
 
 func TestSkillExportSanitizesRowLabelsInText(t *testing.T) {

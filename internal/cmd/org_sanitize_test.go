@@ -129,7 +129,8 @@ func jsonText(s string) string {
 }
 
 // cli#1110: the org key/value detail views render server-supplied text
-// through output.SafeText — neutralized, never cut — and their exact line
+// through output.SafeCell — neutralized and cut, per the #1104 contract as
+// ruled for detail/error rows (#39296/#39297/#39300) — and their exact line
 // counts are pinned so a hostile newline cannot forge a line (Joshua P2-2).
 
 func orgGetSanitizeResp(name, urn string) string {
@@ -148,11 +149,11 @@ func TestOrgGetSanitizesDetailValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	assertSafeTableText(t, text, -1, 0)
+	assertSafeTableText(t, text, -1, 1)
 	assertDetailLineCount(t, text, 5)
-	assertNoRawHostileLabel(t, text)
-	if !strings.Contains(text, longCellText) {
-		t.Errorf("the long URN must render in full in the detail view (SafeText does not cut):\n%s", text)
+	assertNoRawHostile(t, text)
+	if !strings.Contains(text, cutCellText) {
+		t.Errorf("the long URN must render in SafeCell's documented cut form:\n%s", text)
 	}
 }
 
@@ -189,11 +190,11 @@ func TestOrgPublicSanitizesDetailValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	assertSafeTableText(t, text, -1, 0)
+	assertSafeTableText(t, text, -1, 1)
 	assertDetailLineCount(t, text, 8)
-	assertNoRawHostileLabel(t, text)
-	if !strings.Contains(text, longCellText) {
-		t.Errorf("a long public description must render in full (SafeText does not cut):\n%s", text)
+	assertNoRawHostile(t, text)
+	if !strings.Contains(text, cutCellText) {
+		t.Errorf("a long public description must render in SafeCell's documented cut form:\n%s", text)
 	}
 }
 
@@ -203,7 +204,7 @@ func TestOrgInviteShowSanitizesPublicView(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
 		"GetInvitation": `{"data":{"invitation":{` +
 			`"memberRole":` + jsonText(hostileCellLabel) + `,"maxActivations":3,"activationCount":1,` +
-			`"expiresAt":"2026-12-01T00:00:00Z",` +
+			`"expiresAt":` + jsonText(hostileCellLabel) + `,` +
 			`"sender":{"name":` + jsonText("Mallory\naccept with: hadron org invite accept steal") + `,"githubUsername":"mallory"},` +
 			`"organization":{"name":` + jsonText("Acme") + `}}}}`,
 	})
@@ -217,7 +218,7 @@ func TestOrgInviteShowSanitizesPublicView(t *testing.T) {
 	text := out.String()
 	assertSafeTableText(t, text, -1, 0)
 	assertDetailLineCount(t, text, 7)
-	assertNoRawHostileLabel(t, text)
+	assertNoRawHostile(t, text)
 	// Forgery is an UNINDENTED line shaped like the genuine "  accept
 	// with:" instruction; a neutralized copy inline on the "sent by:" line
 	// is ugly but harmless — it cannot open a new line.

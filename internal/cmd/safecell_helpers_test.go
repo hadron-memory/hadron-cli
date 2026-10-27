@@ -71,15 +71,3 @@ func assertDetailLineCount(t *testing.T, text string, want int) {
 		t.Fatalf("want exactly %d logical lines in the detail view (a surviving newline would forge more), got %d:\n%q", want, got, text)
 	}
 }
-
-// assertNoRawHostileLabel is assertNoRawHostile for views that mix
-// SafeCell table rows with SafeText detail lines (cli#1110):
-// neutralization stays absolute — the raw hostile label must never
-// survive — but a long value MAY render uncut, because SafeText
-// deliberately does not cap detail text.
-func assertNoRawHostileLabel(t *testing.T, text string) {
-	t.Helper()
-	if strings.Contains(text, hostileCellLabel) {
-		t.Fatalf("the raw hostile value survived sanitization:\n%q", text)
-	}
-}

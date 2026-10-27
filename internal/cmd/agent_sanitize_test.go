@@ -31,10 +31,9 @@ func TestAgentLsSanitizesCellsInText(t *testing.T) {
 	assertSafeTableText(t, out.String(), 2, 1)
 }
 
-// Detail values render through output.SafeText (cli#1110): same rune
-// neutralization as SafeCell, but NO length cut — a detail view is the human
-// way to read long server text (a system prompt), so cutting it there loses
-// information (Joshua P2-1).
+// Detail values render through SafeCell like every other value site — the
+// #1104 gate as ruled for detail/error text too (#39296/#39297/#39300):
+// neutralized AND cut at 256, never uncut.
 func TestAgentGetSanitizesDetailValues(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
 		"GetAgent": `{"data":{"agent":` + agentSanitizeJSON(hostileCellLabel, longCellText) + `}}`,
@@ -47,11 +46,8 @@ func TestAgentGetSanitizesDetailValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	assertSafeTableText(t, text, -1, 0)
+	assertSafeTableText(t, text, -1, 1)
 	assertDetailLineCount(t, text, 12)
-	if !strings.Contains(text, longCellText) {
-		t.Errorf("the long URN must render in full in the detail view (SafeText does not cut):\n%s", text)
-	}
 }
 
 // A hostile value carrying ONLY a newline is invisible to the control-rune

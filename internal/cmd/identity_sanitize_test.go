@@ -290,3 +290,25 @@ func TestAccessCheckSanitizesDetailAndGrants(t *testing.T) {
 	// (header + 2 rows) = 11 lines, none of them forgeable.
 	assertSafeTableText(t, out.String(), 10, 1)
 }
+
+// Chip's cli#1110 QA P3, pinned: an explicit-empty ROLE renders blank, not
+// an em-dash — memberText rendered it blank at 5face16 and the rendered
+// bytes are contract.
+func TestAppMemberLsEmptyRoleRendersBlank(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"AppMembers": `{"data":{"app":{"id":"a1","urn":"hrn:app:acme.com:eng","members":[` +
+			`{"role":"","createdAt":"2026-10-02T00:00:00Z","user":{"id":"usr1","handle":"ada","urn":null}}]}}}`,
+	})
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "member", "ls", "--app", "capp100000000000000000000", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	assertSafeTableText(t, text, 2, 0)
+	if strings.Contains(text, "—") {
+		t.Errorf("an explicit-empty ROLE must stay blank, not an em-dash:\n%s", text)
+	}
+}
