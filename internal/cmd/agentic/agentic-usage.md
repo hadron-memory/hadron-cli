@@ -115,6 +115,17 @@ and wins over its derivation; the server's refusal is surfaced and no receipt is
 `--json` receipt names only what was sent: `{sessionId, model (null when family-only), family
 (omitted unless sent), reported}`. `sync-model` (the hook) stays model-only and has no `--family`.
 
+`team session shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>]`
+(cli#952) **exits 0 on every failure after the flags parse** and never blocks a reset: one fixed
+sanitized line on stderr, and under `--json` `{status: written|skipped|failed|printed, node, claim:
+written|failed|none, reason}`. With `--auto`, flag-parse errors also exit 0 (nothing on stdout
+without `--json`); without it a bad flag exits 2 as usual. It writes `sheds:<stamp>` (or
+`sheds:auto-<stamp>`) into the worker's own memory, reads it back, and only then writes the resume
+claim: a failed node write never leaves a claim, a failed claim leaves the node (`claim: failed`).
+`--auto` inside `--cooldown` (default 10m, stamp in the git dir beside the binding) is `skipped`
+and retries only a failed claim. `--print-prompt` mutates nothing. No claim value is ever printed.
+`--transcript` is opt-in and NOT scrubbed: its lines land in a node the team can read.
+
 **A permission refusal exits 8, not 1 (#619).** This CHANGED: `FORBIDDEN` — the
 platform's general refusal, named at 23 sites in the SDL and already arriving —
 fell through to the generic 1, where it was indistinguishable from a bug or an
@@ -353,7 +364,7 @@ hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or t
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> [--signature <text>] [--trailer <text>] [--prompt-override <text> | --clear-prompt-override] | set-reports-to <worker> (<target> | --clear) | set-boot-prompt <worker> (<node-ref> [-m <memory>] | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team worker onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <label> --family <family> --worktrees-root <absolute-path> --config <router.json> [--base main] [--display-name <text>] [--coordinator] [--apply] [--as-person] [--timeout 2m]   # Orca-hosted workers only; dry-run by default, submits nothing; --family is compared and queued as the server's canonical family (anthropic=claude, openai=codex, case/space folded; custom tokens stay themselves); prerequisites and partial-outcome contract below
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
-hadron team session start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>] | sync-model [--hook] | set-model [<model>] [--family <token>]
+hadron team session start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>] | sync-model [--hook] | shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] | set-model [<model>] [--family <token>]
 # cli#960: a bind whose resulting binding records no tool prints `warning: this binding has no tool recorded…` on STDERR (exit unchanged, --json stdout unchanged): `session log` then refuses, so pass --tool when you start a session that will log work; a resume of a session that already has a tool stays quiet without --tool
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] [--orca-host-config PATH] (uses --app or the binding; with NO binding it REFUSES, exit 4, unless --as-me — cli#842) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
 hadron team attention [--since <token>] (uses --app or the binding)
