@@ -3626,3 +3626,21 @@ ellipsis. This also bounds long clean values. Clean cells up to 256 runes keep
 their original text. `--json` keeps the original server strings; use it for a
 complete long value. This table policy does not describe free-form prose,
 chat bodies or task trees.
+
+
+## Team metadata text (#1112)
+
+The same SafeCell/256-rune policy covers role warning names, host-status
+host/app labels, worker/family/launch/worktree cells, registration metadata
+and read errors, composition/roster as-of values, attention tokens and preview
+expiry/proof, host-operation cursors, and stop-lift receipt ids. JSON retains
+the original values. Free-form task details, task trees, kept-worktree
+diagnostics and router-local rows are outside this metadata policy.
+
+A displayed value that was replaced or shortened is never reused in a
+copyable command or flag suggestion. Read the original token/cursor/proof
+from --json; for an unmatched installed persona role, use
+`hadron app agent list <app> --json`. Unchanged POSIX command arguments are
+shell-quoted independently. Windows output gives argument guidance rather
+than a shell command. None of this changes DTOs or the arguments sent to
+the server.

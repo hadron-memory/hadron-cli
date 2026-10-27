@@ -13,6 +13,8 @@ import (
 
 // #1112: each case identifies a particular output site and interpolation.
 // JSON templates are captured with the baseline renderer before conversion.
+// The report identified raw render sites without an exact hostile payload;
+// controls and long values below are synthetic probes, not a replayed incident.
 func TestTeamMetadata1112(t *testing.T) {
 	type site struct {
 		name             string
@@ -252,5 +254,30 @@ func TestTeamMetadataCopyQuoting1112(t *testing.T) {
 			}
 			// Suggestions are asserted as bytes, never executed by the test.
 		})
+	}
+}
+
+// Follow the new warning's remedy on the CLI surface that owns installed metadata.
+func TestTeamMetadataPersonaRoleRemedy1112(t *testing.T) {
+	const role = "role\noriginal"
+	responses := map[string]string{"AppAgentRoster": replaceMetadataLeaf1112(t, engTeamRosterJSON, "data/app/agents/1/personaRole", role)}
+	_, raw, err := runTeamTask(t, responses, "app", "agent", "list", "hrn:app:acme.com:eng-team", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto []struct {
+		PersonaRole *string `json:"personaRole"`
+	}
+	if err := json.Unmarshal([]byte(raw), &dto); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, member := range dto {
+		if member.PersonaRole != nil && *member.PersonaRole == role {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("suggested command did not retain original persona role: %s", raw)
 	}
 }

@@ -70,7 +70,8 @@ worker it reports to.
 
 This is a read, not a capacity policy: it does not say whether the team is
 balanced. A refused read, or a server that does not serve teamComposition, is a
-failure — never an empty team.`,
+failure — never an empty team. The as-of value uses control-free display text
+capped at 256 runes; --json preserves the original.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -196,6 +197,6 @@ func renderComposition(w io.Writer, app string, dto compositionDTO) error {
 			}
 		}
 	}
-	_, err := fmt.Fprintf(w, "\nas of %s — lanes are direct-report groups as the server returned them; no balance is judged\n", dto.AsOf)
+	_, err := fmt.Fprintf(w, "\nas of %s — lanes are direct-report groups as the server returned them; no balance is judged\n", output.SafeCell(dto.AsOf))
 	return err
 }

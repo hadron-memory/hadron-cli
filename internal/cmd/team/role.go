@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -143,6 +144,10 @@ func newCmdRoleList(f *cmdutil.Factory) *cobra.Command {
 		Long: `List the App's role definitions. --team-agent disambiguates when more than
 one installed agent carries a roles: branch.
 
+Role warning names use bounded, control-free display text. A role-create
+suggestion is omitted if display changes its argument; use app agent list
+<app> --json for the original installed persona role.
+
 This used to answer "which names are still free", the question to ask
 immediately before casting. There is no register to answer it from
 (hadron-server#1050) — a cast now takes an explicit --name, and the roster
@@ -185,7 +190,7 @@ names) is what says whether one is already taken.`,
 				}
 				for _, r := range roles {
 					if r.HasNamePlaceholder != nil && !*r.HasNamePlaceholder {
-						fmt.Fprintf(w, "! role %s: the role-agent's prompt template never binds {{name}} — its workers would be nameless in their own briefing\n", r.Role)
+						fmt.Fprintf(w, "! role %s: the role-agent's prompt template never binds {{name}} — its workers would be nameless in their own briefing\n", output.SafeCell(r.Role))
 					}
 				}
 				// The silent-divergence warnings (#542). A role name is coupled
@@ -241,7 +246,7 @@ func emitRoleConsistencyWarnings(w io.Writer, roles []roleDTO, members []approst
 	}
 	for _, r := range roles {
 		if count[strings.ToLower(r.Role)] == 0 {
-			fmt.Fprintf(w, "! role %s: no installed agent carries this persona role — the definition documents a role nobody holds\n", r.Role)
+			fmt.Fprintf(w, "! role %s: no installed agent carries this persona role — the definition documents a role nobody holds\n", output.SafeCell(r.Role))
 		}
 	}
 	if !reverseOK {
@@ -256,8 +261,8 @@ func emitRoleConsistencyWarnings(w io.Writer, roles []roleDTO, members []approst
 			continue
 		}
 		if !defined[strings.ToLower(*m.PersonaRole)] {
-			fmt.Fprintf(w, "! agent %s (persona role %q): no matching role definition — create one with `hadron team role create %s`\n",
-				m.AgentName, *m.PersonaRole, *m.PersonaRole)
+			fmt.Fprintf(w, "! agent %s (persona role %q): no matching role definition — %s\n",
+				output.SafeCell(m.AgentName), output.SafeCell(*m.PersonaRole), roleDefinitionHint(*m.PersonaRole, runtime.GOOS))
 		}
 	}
 }

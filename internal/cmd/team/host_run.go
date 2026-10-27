@@ -544,7 +544,11 @@ register (each worker's family, launch and end argv, and worktrees, created
 ones included), the worktrees it keeps because a worker.end on them failed,
 and the host's registration as the server holds it, found by the host id
 saved at the poller's last registration (a label is not unique). It changes
-nothing.`,
+nothing.
+
+Displayed host/app labels, worker rows, registration metadata and read errors
+replace controls with spaces and cap each value at 256 runes. Use --json for
+original values. This does not describe kept-worktree diagnostics.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, _, srv, err := loadHostPoller(f, configPath)
@@ -600,10 +604,10 @@ nothing.`,
 			}
 			dto.Delivery = hostDeliveryStatus(cfg, time.Now())
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "host %s for %s, checking in every %ds\n", dto.Label, dto.App, dto.PollIntervalSeconds)
+				fmt.Fprintf(w, "host %s for %s, checking in every %ds\n", output.SafeCell(dto.Label), output.SafeCell(dto.App), dto.PollIntervalSeconds)
 				t := output.NewTable(w, "WORKER", "FAMILY", "LAUNCH", "WORKTREES")
 				for _, wk := range dto.Workers {
-					t.Row(wk.Worker, wk.Family, strings.Join(wk.Launch, " "), strings.Join(wk.Worktrees, ","))
+					t.Row(output.SafeCell(wk.Worker), output.SafeCell(wk.Family), output.SafeCell(strings.Join(wk.Launch, " ")), output.SafeCell(strings.Join(wk.Worktrees, ",")))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -613,7 +617,7 @@ nothing.`,
 				}
 				switch {
 				case dto.ReadError != nil:
-					fmt.Fprintf(w, "registration: not readable (%s)\n", *dto.ReadError)
+					fmt.Fprintf(w, "registration: not readable (%s)\n", output.SafeCell(*dto.ReadError))
 				case dto.Registration == nil:
 					fmt.Fprintln(w, "registration: none found for this poller's host id (it has not registered yet, or the registration is gone)")
 				default:
@@ -621,7 +625,7 @@ nothing.`,
 					if dto.Registration.Live {
 						live = "live"
 					}
-					fmt.Fprintf(w, "registration: host %s, %s, refreshed %s\n", dto.Registration.HostID, live, dto.Registration.RefreshedAt)
+					fmt.Fprintf(w, "registration: host %s, %s, refreshed %s\n", output.SafeCell(dto.Registration.HostID), live, output.SafeCell(dto.Registration.RefreshedAt))
 				}
 				writeHostDelivery(w, dto.Delivery)
 				return nil
