@@ -188,3 +188,18 @@ decision.
   least one test, and each mutation compiles.
 - `App.defaultChannel.id`, which mark-read's default rests on, was observed
   populated on production by a read-only query before building on it.
+
+
+## CLI #828: relevant frontier and token notice
+
+The paged poll already drains and validates every continuation before emitting
+output. #828 preserves that path and the grouped JSON report while selecting
+`lastRelevantSeq` into each channel DTO. It is nullable, comes directly from the
+server, and is distinct from `firstUnreadSeq` and the captured channel head
+`lastSeq`. A legacy fallback has no such field and reports null.
+
+Human output retains the worker table and adoption warning, but now reports
+only that a token was returned and directs the caller to `--json` for its value.
+This intentionally changes the previous `token: <value>` line. JSON retains the
+opaque token; the caller alone decides when to adopt it. No token is stored,
+no read cursor changes, and no router deployment or switchover is part of #828.

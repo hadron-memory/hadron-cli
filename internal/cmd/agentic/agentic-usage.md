@@ -2896,8 +2896,11 @@ Conventions:
   and exits with an error. On an older server without the paged field, it
   uses the legacy query. `--json`:
   `{app, token, workers:[{worker, name, urn, live, channels:[{channel, name,
-  unread, unreadMentions, firstUnreadSeq, lastSeq}]}]}` (`workers` is `[]` when
-  idle). Pass the returned `token` as the next `--since` **only after every
+  unread, unreadMentions, firstUnreadSeq, lastRelevantSeq, lastSeq}]}]}` (`workers` is `[]` when
+  idle). `lastRelevantSeq` is the nullable server-reported relevant frontier;
+  it is null on the legacy fallback, never inferred from the channel head.
+  Human output reports that a token was returned; use `--json` to retrieve its value.
+  Pass the returned `token` as the next `--since` **only after every
   listed nudge was accepted**; on any failure keep the previous token — a retry
   may duplicate a nudge but cannot lose one. The CLI never stores the token. An
   empty `--since` is refused (exit 2 — usually an unset variable); `--since now`

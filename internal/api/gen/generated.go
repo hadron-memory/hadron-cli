@@ -47493,14 +47493,15 @@ func (v *TeamAttentionPageTeamAttentionPage) GetItems() []*TeamAttentionPageTeam
 // for the captured (seen, head] range of the issuing scan only, and items are
 // emitted solely from Channels that scan has exhausted.
 type TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem struct {
-	Worker         string  `json:"worker"`
-	WorkerName     string  `json:"workerName"`
-	WorkerUrn      *string `json:"workerUrn"`
-	Channel        string  `json:"channel"`
-	ChannelName    string  `json:"channelName"`
-	Unread         int     `json:"unread"`
-	UnreadMentions int     `json:"unreadMentions"`
-	FirstUnreadSeq *int    `json:"firstUnreadSeq"`
+	Worker          string  `json:"worker"`
+	WorkerName      string  `json:"workerName"`
+	WorkerUrn       *string `json:"workerUrn"`
+	Channel         string  `json:"channel"`
+	ChannelName     string  `json:"channelName"`
+	Unread          int     `json:"unread"`
+	UnreadMentions  int     `json:"unreadMentions"`
+	FirstUnreadSeq  *int    `json:"firstUnreadSeq"`
+	LastRelevantSeq *int    `json:"lastRelevantSeq"`
 	// The frozen Channel head this item's counts are exact for.
 	LastSeq int `json:"lastSeq"`
 }
@@ -47543,6 +47544,11 @@ func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetUnread
 // GetFirstUnreadSeq returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.FirstUnreadSeq, and is useful for accessing the field via an interface.
 func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetFirstUnreadSeq() *int {
 	return v.FirstUnreadSeq
+}
+
+// GetLastRelevantSeq returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.LastRelevantSeq, and is useful for accessing the field via an interface.
+func (v *TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem) GetLastRelevantSeq() *int {
+	return v.LastRelevantSeq
 }
 
 // GetLastSeq returns TeamAttentionPageTeamAttentionPageItemsTeamAttentionPageItem.LastSeq, and is useful for accessing the field via an interface.
@@ -84615,6 +84621,7 @@ query TeamAttentionPage ($appRef: ID!, $since: String, $page: String) {
 			unread
 			unreadMentions
 			firstUnreadSeq
+			lastRelevantSeq
 			lastSeq
 		}
 	}
