@@ -174,7 +174,7 @@ func renderKeyScopes(w io.Writer, dto appKeyScopesDTO) error {
 		if s.HostID != nil {
 			host = *s.HostID
 		}
-		t.Row(s.Scope, host, s.GrantedAt)
+		t.Row(output.SafeCell(s.Scope), output.SafeCell(host), output.SafeCell(s.GrantedAt))
 	}
 	return t.Flush()
 }

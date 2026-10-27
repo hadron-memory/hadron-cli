@@ -155,7 +155,7 @@ listing by the server; lint it by naming it with -m.`,
 					if hosts == "" {
 						hosts = "-"
 					}
-					t.Row(fnd.Node, hosts, fnd.Severity, fnd.Rule, fnd.Message)
+					t.Row(output.SafeCell(fnd.Node), output.SafeCell(hosts), output.SafeCell(fnd.Severity), output.SafeCell(fnd.Rule), output.SafeCell(fnd.Message))
 				}
 				if err := t.Flush(); err != nil {
 					return err

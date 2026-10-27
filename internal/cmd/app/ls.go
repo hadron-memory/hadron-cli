@@ -112,7 +112,7 @@ this is a question about a user. (To CREATE an App in this slice, see
 			return output.Write(f.IOStreams, f.JSON, apps, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "NAME", "TYPE", "URN")
 				for _, a := range apps {
-					t.Row(a.ID, a.Name, a.AppType, a.URN)
+					t.Row(output.SafeCell(a.ID), output.SafeCell(a.Name), output.SafeCell(a.AppType), output.SafeCell(a.URN))
 				}
 				return t.Flush()
 			})

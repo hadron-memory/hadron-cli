@@ -66,7 +66,7 @@ both cases to null for anti-enumeration. <org-ref> is an org id or URN.`,
 				if dto.ListedOnMarketplace {
 					listing = "listed on marketplace"
 				}
-				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  %s\n", dto.Name, dto.URN, dto.ID, listing)
+				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  %s\n", output.SafeCell(dto.Name), output.SafeCell(dto.URN), output.SafeCell(dto.ID), listing)
 				printPublicResources(w, "public memories", dto.PublicMemories)
 				printPublicResources(w, "public agents", dto.PublicAgents)
 				return nil
@@ -112,9 +112,9 @@ func printPublicResources(w io.Writer, label string, rs []publicResourceDTO) {
 	fmt.Fprintf(w, "  %s:\n", label)
 	for _, r := range rs {
 		if r.Description != nil && *r.Description != "" {
-			fmt.Fprintf(w, "    - %s (%s) — %s\n", r.Name, r.URN, *r.Description)
+			fmt.Fprintf(w, "    - %s (%s) — %s\n", output.SafeCell(r.Name), output.SafeCell(r.URN), output.SafeCell(*r.Description))
 		} else {
-			fmt.Fprintf(w, "    - %s (%s)\n", r.Name, r.URN)
+			fmt.Fprintf(w, "    - %s (%s)\n", output.SafeCell(r.Name), output.SafeCell(r.URN))
 		}
 	}
 }

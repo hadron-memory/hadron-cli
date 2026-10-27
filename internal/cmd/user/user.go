@@ -248,7 +248,7 @@ Passing either flag selects a single explicit page instead.`,
 				// decide that are githubId/email and the --json-only ids.
 				t := output.NewTable(w, "ID", "NAME", "EMAIL", "HANDLE", "GITHUB", "PROVIDER")
 				for _, u := range users {
-					t.Row(u.ID, dash(u.Name), dash(u.Email), dash(u.Handle), dash(u.GithubUsername), dash(u.IdentityProvider))
+					t.Row(output.SafeCell(u.ID), output.SafeCell(dash(u.Name)), output.SafeCell(dash(u.Email)), output.SafeCell(dash(u.Handle)), output.SafeCell(dash(u.GithubUsername)), output.SafeCell(dash(u.IdentityProvider)))
 				}
 				if err := t.Flush(); err != nil {
 					return err

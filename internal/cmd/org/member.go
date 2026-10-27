@@ -60,7 +60,7 @@ func newCmdMemberLs(f *cmdutil.Factory) *cobra.Command {
 			return output.Write(f.IOStreams, f.JSON, members, func(w io.Writer) error {
 				t := output.NewTable(w, "USER ID", "NAME", "EMAIL", "ROLE")
 				for _, m := range members {
-					t.Row(m.User.ID, orDash(m.User.Name), orDash(m.User.Email), m.Role)
+					t.Row(output.SafeCell(m.User.ID), output.SafeCell(orDash(m.User.Name)), output.SafeCell(orDash(m.User.Email)), output.SafeCell(m.Role))
 				}
 				return t.Flush()
 			})

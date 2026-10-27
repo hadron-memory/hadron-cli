@@ -62,7 +62,7 @@ pinned to their own grants there. Pages to exhaustion.`,
 			return output.Write(f.IOStreams, f.JSON, grants, func(w io.Writer) error {
 				table := output.NewTable(w, "ID", "GRANTEE", "ORG", "ACTIONS", "EXPIRY", "CREATED")
 				for _, g := range grants {
-					table.Row(g.ID, g.grantee(), output.Dash(g.OrganizationURN), g.actionList(), g.expiry(), g.CreatedAt)
+					table.Row(output.SafeCell(g.ID), output.SafeCell(g.grantee()), output.SafeCell(output.Dash(g.OrganizationURN)), output.SafeCell(g.actionList()), output.SafeCell(g.expiry()), output.SafeCell(g.CreatedAt))
 				}
 				return table.Flush()
 			})

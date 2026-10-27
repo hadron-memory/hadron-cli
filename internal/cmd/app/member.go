@@ -5,7 +5,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -178,7 +177,7 @@ returns [] when the App's member list is not readable by you.`,
 				}
 				t := output.NewTable(w, "USER ID", "HANDLE", "ROLE", "ADDED")
 				for _, m := range dto.Members {
-					t.Row(m.User.ID, memberCell(m.User.Handle), memberText(m.Role), m.CreatedAt)
+					t.Row(output.SafeCell(m.User.ID), memberCell(m.User.Handle), memberText(m.Role), output.SafeCell(m.CreatedAt))
 				}
 				return t.Flush()
 			})
@@ -311,21 +310,24 @@ without --yes is refused before anything is sent.`,
 	return cmd
 }
 
-// memberText quotes a string carrying control characters (newline, ESC…) so a
-// server- or user-supplied value cannot split a row or reach the terminal as an
-// escape sequence. Text only: --json keeps the source value.
+// memberText neutralizes a server- or user-supplied value inside a detail
+// line with output.SafeCell's rune classes and 256-rune cut — the cli#1104
+// gate as ruled for detail/error text too (#1104 authors + gate holders,
+// team chat #39296/#39297/#39300). The old strconv.Quote guard only caught
+// C0/C1 controls — Cf bidi overrides and Zl/Zp separators passed raw, and
+// quoting never bounded length (Charles's cli#1110 QA probe). Text only:
+// --json keeps the source value.
 func memberText(s string) string {
-	for _, r := range s {
-		if unicode.IsControl(r) {
-			return strconv.Quote(s)
-		}
-	}
-	return s
+	return output.SafeCell(s)
 }
 
+// memberCell renders a nullable table cell: a nil handle as the dash, any
+// present value through output.SafeCell. An explicit empty string stays
+// blank, not a dash — memberText rendered it blank at 5face16 and the
+// rendered bytes are contract (Chip's cli#1110 QA P3).
 func memberCell(s *string) string {
-	if s == nil || *s == "" {
+	if s == nil {
 		return "—"
 	}
-	return memberText(*s)
+	return output.SafeCell(*s)
 }

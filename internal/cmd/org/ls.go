@@ -59,7 +59,7 @@ live orgs). Pass --mine to restrict to organizations you're a member of.`,
 			return output.Write(f.IOStreams, f.JSON, orgs, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "URN", "NAME")
 				for _, o := range orgs {
-					t.Row(o.ID, o.URN, o.Name)
+					t.Row(output.SafeCell(o.ID), output.SafeCell(o.URN), output.SafeCell(o.Name))
 				}
 				return t.Flush()
 			})

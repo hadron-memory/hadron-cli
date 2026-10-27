@@ -174,7 +174,7 @@ a rejected or revoked token exits 3.`,
 				}
 				// A non-user principal (App/Agent key) has no user subject or key.
 				if dto.UserID == "" {
-					_, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", nonUserLabel(dto.AppID, dto.AgentID, dto.PrincipalType))
+					_, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", output.SafeCell(nonUserLabel(dto.AppID, dto.AgentID, dto.PrincipalType)))
 					return err
 				}
 				label := dto.Name
@@ -185,14 +185,14 @@ a rejected or revoked token exits 3.`,
 					label = dto.UserID
 				}
 				if dto.Email != "" {
-					if _, err := fmt.Fprintf(w, "✓ Token is valid — %s (%s)\n", label, dto.Email); err != nil {
+					if _, err := fmt.Fprintf(w, "✓ Token is valid — %s (%s)\n", output.SafeCell(label), output.SafeCell(dto.Email)); err != nil {
 						return err
 					}
-				} else if _, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", label); err != nil {
+				} else if _, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", output.SafeCell(label)); err != nil {
 					return err
 				}
 				if dto.Key != nil {
-					_, err := fmt.Fprintf(w, "  key %s, last used %s\n", keyLabel(*dto.Key), orText(dto.Key.LastUsedAt, "never"))
+					_, err := fmt.Fprintf(w, "  key %s, last used %s\n", output.SafeCell(keyLabel(*dto.Key)), output.SafeCell(orText(dto.Key.LastUsedAt, "never")))
 					return err
 				}
 				return nil
@@ -282,7 +282,7 @@ func newCmdTokenLs(f *cmdutil.Factory) *cobra.Command {
 					if k.Revoked {
 						status = "revoked"
 					}
-					t.Row(k.ID, orDash(k.Label), k.KeyPreview, k.CreatedAt, orText(k.LastUsedAt, "never"), status)
+					t.Row(output.SafeCell(k.ID), output.SafeCell(orDash(k.Label)), output.SafeCell(k.KeyPreview), output.SafeCell(k.CreatedAt), output.SafeCell(orText(k.LastUsedAt, "never")), status)
 				}
 				return t.Flush()
 			})

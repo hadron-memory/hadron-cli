@@ -235,7 +235,7 @@ edit through the review door for you.`,
 			}
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ created", dto.Loc, "("+label+")")
+				t.Row("✓ created", output.SafeCell(dto.Loc), output.SafeCell("("+label+")"))
 				return t.Flush()
 			}); err != nil {
 				return err

@@ -688,7 +688,7 @@ func toStatusDTO(root, host string, plan *gen.SkillPlanSkillPlan, unreadable, un
 // renderStatus writes the human view: one row per declared node, then the
 // files that paired with nothing, then the counts.
 func renderStatus(w io.Writer, dto statusDTO) error {
-	fmt.Fprintf(w, "%s (host %s)\n\n", dto.Root, dto.Host)
+	fmt.Fprintf(w, "%s (host %s)\n\n", output.SafeCell(dto.Root), output.SafeCell(dto.Host))
 	if len(dto.Entries) == 0 && len(dto.Orphans) == 0 && len(dto.Unreadable) == 0 &&
 		len(dto.Unparseable) == 0 && len(dto.Unchecked) == 0 {
 		// scanned distinguishes an empty corpus from one the caller cannot
@@ -702,7 +702,7 @@ func renderStatus(w io.Writer, dto statusDTO) error {
 	}
 	t := output.NewTable(w, "NAME", "CLASS", "NODE", "DETAIL")
 	for _, e := range dto.Entries {
-		t.Row(e.Name, classCell(e), e.Node, detailCell(e))
+		t.Row(output.SafeCell(e.Name), output.SafeCell(classCell(e)), output.SafeCell(e.Node), output.SafeCell(detailCell(e)))
 	}
 	if err := t.Flush(); err != nil {
 		return err
@@ -714,13 +714,13 @@ func renderStatus(w io.Writer, dto statusDTO) error {
 			if ref == "" {
 				ref = "no source in header"
 			}
-			fmt.Fprintf(w, "  %s (%s)\n", o.Dir, ref)
+			fmt.Fprintf(w, "  %s (%s)\n", output.SafeCell(o.Dir), output.SafeCell(ref))
 		}
 	}
 	if len(dto.Unreadable) > 0 {
 		fmt.Fprintf(w, "\nUnreadable — the file is there and this client could not read it:\n")
 		for _, u := range dto.Unreadable {
-			fmt.Fprintf(w, "  %s: %s\n", u.Dir, u.Error)
+			fmt.Fprintf(w, "  %s: %s\n", output.SafeCell(u.Dir), output.SafeCell(u.Error))
 		}
 	}
 	if len(dto.Unchecked) > 0 {
@@ -730,21 +730,21 @@ func renderStatus(w io.Writer, dto statusDTO) error {
 			if ref == "" {
 				ref = "no source in header"
 			}
-			fmt.Fprintf(w, "  %s (%s)\n", u.Dir, ref)
+			fmt.Fprintf(w, "  %s (%s)\n", output.SafeCell(u.Dir), output.SafeCell(ref))
 		}
 	}
 	if len(dto.Unparseable) > 0 {
 		fmt.Fprintf(w, "\nUnparseable and unattributable — does not parse and carries no provenance header,\nso it is not reported to the server as anything (it may not be ours):\n")
 		for _, u := range dto.Unparseable {
-			fmt.Fprintf(w, "  %s: %s\n", u.Dir, u.Error)
+			fmt.Fprintf(w, "  %s: %s\n", output.SafeCell(u.Dir), output.SafeCell(u.Error))
 		}
 	}
 	for _, e := range dto.Entries {
 		for _, fnd := range e.Findings {
-			fmt.Fprintf(w, "\n%s %s: %s\n  %s", fnd.Severity, fnd.Rule, fnd.Node, fnd.Message)
+			fmt.Fprintf(w, "\n%s %s: %s\n  %s", output.SafeCell(fnd.Severity), output.SafeCell(fnd.Rule), output.SafeCell(fnd.Node), output.SafeCell(fnd.Message))
 		}
 	}
-	fmt.Fprintf(w, "\n%d of %d declaring node(s) judged for host %s\n", dto.Judged, dto.Scanned, dto.Host)
+	fmt.Fprintf(w, "\n%d of %d declaring node(s) judged for host %s\n", dto.Judged, dto.Scanned, output.SafeCell(dto.Host))
 	return nil
 }
 

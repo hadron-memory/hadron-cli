@@ -37,7 +37,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 				if dto.ListedOnMarketplace {
 					listing = "listed on marketplace"
 				}
-				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  %s\n  updated: %s\n", dto.Name, dto.URN, dto.ID, listing, dto.UpdatedAt)
+				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  %s\n  updated: %s\n", output.SafeCell(dto.Name), output.SafeCell(dto.URN), output.SafeCell(dto.ID), listing, output.SafeCell(dto.UpdatedAt))
 				return nil
 			})
 		},

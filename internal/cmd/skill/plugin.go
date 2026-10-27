@@ -1475,7 +1475,7 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 			return err
 		}
 	}
-	if err := p("Plugin %q → %s\n", dto.Name, dto.Out); err != nil {
+	if err := p("Plugin %q → %s\n", output.SafeCell(dto.Name), dto.Out); err != nil {
 		return err
 	}
 	if dto.Scope == nil {
@@ -1483,7 +1483,7 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 			return err
 		}
 	} else if err := p("Scope %s (%s): %d memories (%d you cannot read were left out).\n",
-		cmp(dto.Scope.Name, dto.Scope.ID), dto.Scope.source, dto.Scope.MemoryCount, dto.Scope.DroppedCount); err != nil {
+		output.SafeCell(cmp(dto.Scope.Name, dto.Scope.ID)), output.SafeCell(dto.Scope.source), dto.Scope.MemoryCount, dto.Scope.DroppedCount); err != nil {
 		return err
 	}
 	for _, h := range dto.Hosts {
@@ -1491,21 +1491,21 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 		if h.Artifact != nil {
 			where = *h.Artifact
 		}
-		if err := p("\n%s → %s\n", h.Host, where); err != nil {
+		if err := p("\n%s → %s\n", output.SafeCell(h.Host), output.SafeCell(where)); err != nil {
 			return err
 		}
 		if h.Version != nil {
-			if err := p("  version %s\n", *h.Version); err != nil {
+			if err := p("  version %s\n", output.SafeCell(*h.Version)); err != nil {
 				return err
 			}
 		}
 		if h.Zip != nil {
-			if err := p("  zip %s\n", *h.Zip); err != nil {
+			if err := p("  zip %s\n", output.SafeCell(*h.Zip)); err != nil {
 				return err
 			}
 		}
 		if h.Failure != nil {
-			if err := p("  ✗ %s\n", h.Failure.Message); err != nil {
+			if err := p("  ✗ %s\n", output.SafeCell(h.Failure.Message)); err != nil {
 				return err
 			}
 		}
@@ -1520,29 +1520,32 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 				// The server's reason on a WRITE describes the file on disk
 				// ("no installed skill exists"), which a bundle never has; --json
 				// keeps it verbatim, the human table leaves it out.
-				t.Row(included, cmp(it.Name, it.Node), "")
+				t.Row(included, output.SafeCell(cmp(it.Name, it.Node)), "")
 			}
 			for _, it := range h.Skipped {
-				t.Row("skipped", cmp(it.Name, it.Node), reasonText(it.Reasons))
+				t.Row("skipped", output.SafeCell(cmp(it.Name, it.Node)), output.SafeCell(reasonText(it.Reasons)))
 			}
 			for _, it := range h.Refused {
-				t.Row("refused", cmp(it.Name, it.Node), reasonText(it.Reasons))
+				t.Row("refused", output.SafeCell(cmp(it.Name, it.Node)), output.SafeCell(reasonText(it.Reasons)))
 			}
 			for _, it := range h.Failed {
-				t.Row("failed", cmp(it.Name, it.Node), reasonText(it.Reasons))
+				t.Row("failed", output.SafeCell(cmp(it.Name, it.Node)), output.SafeCell(reasonText(it.Reasons)))
 			}
 			for _, it := range h.NotForHost {
-				t.Row("other host", cmp(it.Name, it.Node), "declared only for the other host")
+				t.Row("other host", output.SafeCell(cmp(it.Name, it.Node)), "declared only for the other host")
 			}
 			if err := t.Flush(); err != nil {
 				return err
 			}
 		}
 		for _, fd := range h.Findings {
-			if err := p("  %s  %s: %s (%s)\n", fd.Severity, cmp(fd.Name, fd.Node), fd.Message, fd.Rule); err != nil {
+			if err := p("  %s  %s: %s (%s)\n", output.SafeCell(fd.Severity), output.SafeCell(cmp(fd.Name, fd.Node)), output.SafeCell(fd.Message), output.SafeCell(fd.Rule)); err != nil {
 				return err
 			}
 		}
+		// Client-composed only — paths under --out plus fixed words — so it
+		// prints raw: #1104 leaves non-server cells alone, and SafeCell's
+		// 256-rune cut would drop the reason under a long --out path.
 		if line := emptyArtifactLine(h, dto.DryRun); line != "" {
 			if err := p("%s\n", line); err != nil {
 				return err
@@ -1554,7 +1557,7 @@ func renderPlugin(w io.Writer, dto pluginDTO) error {
 			return err
 		}
 		for _, u := range dto.Unrecognized {
-			if err := p("  %s (%s): %s\n", cmp(u.Name, u.Node), u.Node, strings.Join(u.Keys, ", ")); err != nil {
+			if err := p("  %s (%s): %s\n", output.SafeCell(cmp(u.Name, u.Node)), output.SafeCell(u.Node), output.SafeCell(strings.Join(u.Keys, ", "))); err != nil {
 				return err
 			}
 		}

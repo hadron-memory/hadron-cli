@@ -189,8 +189,8 @@ func emitPublicInvitation(f *cmdutil.Factory, dto publicInvitationDTO) error {
 		}
 		_, err := fmt.Fprintf(w,
 			"invitation %s\n  organization: %s\n  sent by: %s\n  role: %s\n  activations: %d / %s\n  expires: %s\n  accept with: hadron org invite accept %s\n",
-			dto.Slug, orgName, publicInviteSenderLabel(dto.Sender), dto.MemberRole,
-			dto.ActivationCount, max, output.Dash(dto.ExpiresAt), dto.Slug)
+			output.SafeCell(dto.Slug), output.SafeCell(orgName), output.SafeCell(publicInviteSenderLabel(dto.Sender)), output.SafeCell(dto.MemberRole),
+			dto.ActivationCount, max, output.SafeCell(output.Dash(dto.ExpiresAt)), output.SafeCell(dto.Slug))
 		return err
 	})
 }
@@ -223,11 +223,11 @@ func emitInvitation(f *cmdutil.Factory, dto invitationDTO, verb string) error {
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		who := inviteeLabel(dto)
 		if verb != "" {
-			fmt.Fprintf(w, "%s %s as %s\n", verb, who, dto.MemberRole)
+			fmt.Fprintf(w, "%s %s as %s\n", output.SafeCell(verb), output.SafeCell(who), output.SafeCell(dto.MemberRole))
 		} else {
-			fmt.Fprintf(w, "invitation %s\n  invitee: %s\n  role: %s\n", dto.Slug, who, dto.MemberRole)
+			fmt.Fprintf(w, "invitation %s\n  invitee: %s\n  role: %s\n", output.SafeCell(dto.Slug), output.SafeCell(who), output.SafeCell(dto.MemberRole))
 		}
-		fmt.Fprintf(w, "  accept with: hadron org invite accept %s\n", dto.Slug)
+		fmt.Fprintf(w, "  accept with: hadron org invite accept %s\n", output.SafeCell(dto.Slug))
 		return nil
 	})
 }
