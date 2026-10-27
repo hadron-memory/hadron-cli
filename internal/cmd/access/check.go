@@ -126,9 +126,9 @@ owner memory) the memory's principal.`,
 }
 
 func renderCheck(w io.Writer, dto checkDTO) error {
-	fmt.Fprintf(w, "User:     %s (%s)\n", userLabel(dto.User), dto.User.ID)
-	fmt.Fprintf(w, "Resource: %s (%s)\n", dto.Resource.URN, dto.Resource.Kind)
-	fmt.Fprintf(w, "Role:     %s\n\n", strDash(dto.Role))
+	fmt.Fprintf(w, "User:     %s (%s)\n", output.SafeCell(userLabel(dto.User)), output.SafeCell(dto.User.ID))
+	fmt.Fprintf(w, "Resource: %s (%s)\n", output.SafeCell(dto.Resource.URN), output.SafeCell(dto.Resource.Kind))
+	fmt.Fprintf(w, "Role:     %s\n\n", output.SafeCell(strDash(dto.Role)))
 
 	caps := output.NewTable(w, "READ", "WRITE", "MANAGE", "DELETE")
 	caps.Row(checkMark(dto.CanRead), checkMark(dto.CanWrite), checkMark(dto.CanManage), checkMark(dto.CanDelete))
@@ -137,14 +137,14 @@ func renderCheck(w io.Writer, dto checkDTO) error {
 	}
 
 	if len(dto.Grants) == 0 {
-		_, err := fmt.Fprintf(w, "\nNo access — %s has no grants on this resource.\n", userLabel(dto.User))
+		_, err := fmt.Fprintf(w, "\nNo access — %s has no grants on this resource.\n", output.SafeCell(userLabel(dto.User)))
 		return err
 	}
 
 	fmt.Fprintln(w, "\nGrants:")
 	t := output.NewTable(w, "SOURCE", "ROLE", "VIA")
 	for _, g := range dto.Grants {
-		t.Row(g.Source, g.Role, strDash(g.Via))
+		t.Row(output.SafeCell(g.Source), output.SafeCell(g.Role), output.SafeCell(strDash(g.Via)))
 	}
 	return t.Flush()
 }

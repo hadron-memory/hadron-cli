@@ -89,7 +89,7 @@ command whose exit code reflects findings.`,
 				}
 				t := output.NewTable(w, "CHECK", "SEQ", "STATUS", "TRIGGER")
 				for _, r := range rows {
-					t.Row(r.Loc, seqCell(r.Seq), r.Status, dash(r.Trigger))
+					t.Row(output.SafeCell(r.Loc), output.SafeCell(seqCell(r.Seq)), output.SafeCell(r.Status), output.SafeCell(dash(r.Trigger)))
 				}
 				return t.Flush()
 			})

@@ -178,7 +178,7 @@ returns [] when the App's member list is not readable by you.`,
 				}
 				t := output.NewTable(w, "USER ID", "HANDLE", "ROLE", "ADDED")
 				for _, m := range dto.Members {
-					t.Row(m.User.ID, memberCell(m.User.Handle), memberText(m.Role), m.CreatedAt)
+					t.Row(output.SafeCell(m.User.ID), memberCell(m.User.Handle), memberText(m.Role), output.SafeCell(m.CreatedAt))
 				}
 				return t.Flush()
 			})

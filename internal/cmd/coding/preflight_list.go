@@ -72,7 +72,7 @@ command whose exit code reflects findings.`,
 				}
 				t := output.NewTable(w, "TARGET", "STATUS", "LABEL")
 				for _, r := range rows {
-					t.Row(dash(r.Target), r.Status, dash(r.Label))
+					t.Row(output.SafeCell(dash(r.Target)), output.SafeCell(r.Status), output.SafeCell(dash(r.Label)))
 				}
 				return t.Flush()
 			})

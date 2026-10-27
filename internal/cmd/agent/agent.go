@@ -268,7 +268,7 @@ the AppAgent join.`,
 			return output.Write(f.IOStreams, f.JSON, agents, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "URN", "NAME", "TYPE", "VISIBILITY")
 				for _, a := range agents {
-					t.Row(a.ID, a.URN, a.Name, a.Type, a.Visibility)
+					t.Row(output.SafeCell(a.ID), output.SafeCell(a.URN), output.SafeCell(a.Name), output.SafeCell(a.Type), output.SafeCell(a.Visibility))
 				}
 				return t.Flush()
 			})
@@ -314,22 +314,22 @@ JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
 			}
 			dto := agentGetDTO{agentDTO: agentDTOFromFields(resp.Agent.AgentFields), ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", dto.Name, dto.URN, dto.ID, dto.Type, dto.Visibility)
+				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", output.SafeCell(dto.Name), output.SafeCell(dto.URN), output.SafeCell(dto.ID), output.SafeCell(dto.Type), output.SafeCell(dto.Visibility))
 				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  extends: %s\n  ai: %s/%s (key: %v)\n",
-					dash(dto.Description), dash(dto.SystemMemoryID), dash(dto.TasksIndexRef), dash(dto.ProcessesIndex), dash(dto.ExtendsAgentID), dash(dto.AiProvider), dash(dto.AiModel), dto.HasAiApiKey)
-				fmt.Fprintf(w, "  boot prompt: %s\n", cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
+					output.SafeCell(dash(dto.Description)), output.SafeCell(dash(dto.SystemMemoryID)), output.SafeCell(dash(dto.TasksIndexRef)), output.SafeCell(dash(dto.ProcessesIndex)), output.SafeCell(dash(dto.ExtendsAgentID)), output.SafeCell(dash(dto.AiProvider)), output.SafeCell(dash(dto.AiModel)), dto.HasAiApiKey)
+				fmt.Fprintf(w, "  boot prompt: %s\n", output.SafeCell(cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted)))
 				if dto.ClonedFromAgentRef != nil {
-					fmt.Fprintf(w, "  Cloned from: %s\n", *dto.ClonedFromAgentRef)
+					fmt.Fprintf(w, "  Cloned from: %s\n", output.SafeCell(*dto.ClonedFromAgentRef))
 				}
 				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
 				if len(dto.Surfaces) > 0 {
-					fmt.Fprintf(w, "  surfaces: %s\n", strings.Join(dto.Surfaces, ", "))
+					fmt.Fprintf(w, "  surfaces: %s\n", output.SafeCell(strings.Join(dto.Surfaces, ", ")))
 				}
 				if dto.PersonaRole != nil {
-					fmt.Fprintf(w, "  persona role: %s\n", dash(dto.PersonaRole))
+					fmt.Fprintf(w, "  persona role: %s\n", output.SafeCell(dash(dto.PersonaRole)))
 				}
 				if dto.SystemPrompt != nil && *dto.SystemPrompt != "" {
-					fmt.Fprintf(w, "  system prompt: %s\n", *dto.SystemPrompt)
+					fmt.Fprintf(w, "  system prompt: %s\n", output.SafeCell(*dto.SystemPrompt))
 				}
 				return nil
 			})
@@ -984,13 +984,13 @@ refused) and the CLI sends the value as given.`,
 				if !searching {
 					t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM")
 					for _, row := range rows {
-						t.Row(triggerCell(row.Trigger), row.Node.Name, row.Node.URN, inheritedCell(row.Node))
+						t.Row(output.SafeCell(triggerCell(row.Trigger)), output.SafeCell(row.Node.Name), output.SafeCell(row.Node.URN), output.SafeCell(inheritedCell(row.Node)))
 					}
 					return t.Flush()
 				}
 				t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM", "MATCHED BY")
 				for _, row := range rows {
-					t.Row(triggerCell(row.Trigger), row.Node.Name, row.Node.URN, inheritedCell(row.Node), row.MatchedBy)
+					t.Row(output.SafeCell(triggerCell(row.Trigger)), output.SafeCell(row.Node.Name), output.SafeCell(row.Node.URN), output.SafeCell(inheritedCell(row.Node)), output.SafeCell(row.MatchedBy))
 				}
 				return t.Flush()
 			})
@@ -1051,7 +1051,7 @@ and blank for INVOLVED; INHERITED FROM names the base Agent where it applies.`,
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 				t := output.NewTable(w, "TRIGGER", "KIND", "NAME", "URN", "INHERITED FROM")
 				for _, row := range rows {
-					t.Row(triggerCell(row.Trigger), strings.ToLower(row.Kind), row.Node.Name, row.Node.URN, inheritedCell(row.Node))
+					t.Row(output.SafeCell(triggerCell(row.Trigger)), output.SafeCell(strings.ToLower(row.Kind)), output.SafeCell(row.Node.Name), output.SafeCell(row.Node.URN), output.SafeCell(inheritedCell(row.Node)))
 				}
 				return t.Flush()
 			})

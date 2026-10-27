@@ -84,7 +84,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 				}
 				t := output.NewTable(w, "ROUTE", "SEVERITY", "RULE", "MESSAGE")
 				for _, fd := range findings {
-					t.Row(fd.Node, fd.Severity, fd.Rule, fd.Message)
+					t.Row(output.SafeCell(fd.Node), output.SafeCell(fd.Severity), output.SafeCell(fd.Rule), output.SafeCell(fd.Message))
 				}
 				return t.Flush()
 			}); err != nil {

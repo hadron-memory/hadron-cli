@@ -1162,11 +1162,11 @@ func renderExport(w io.Writer, dto exportDTO) error {
 		}
 	}
 	for _, h := range dto.Hosts {
-		if _, err := fmt.Fprintf(w, "\n%s → %s\n", hostTitle(h.Host), cmp(h.Root, "(no directory)")); err != nil {
+		if _, err := fmt.Fprintf(w, "\n%s → %s\n", output.SafeCell(hostTitle(h.Host)), output.SafeCell(cmp(h.Root, "(no directory)"))); err != nil {
 			return err
 		}
 		if h.Failure != nil {
-			if _, err := fmt.Fprintf(w, "  ✗ nothing written for this host: %s\n", h.Failure.Message); err != nil {
+			if _, err := fmt.Fprintf(w, "  ✗ nothing written for this host: %s\n", output.SafeCell(h.Failure.Message)); err != nil {
 				return err
 			}
 		}
@@ -1204,34 +1204,34 @@ func renderExport(w io.Writer, dto exportDTO) error {
 		}
 		t := output.NewTable(w, "STATE", "SKILL", "DETAIL")
 		for _, it := range h.Written {
-			t.Row(verb("written", "would write"), label(it), reasonText(it.Reasons))
+			t.Row(verb("written", "would write"), output.SafeCell(label(it)), output.SafeCell(reasonText(it.Reasons)))
 		}
 		for _, it := range h.Moved {
-			t.Row(verb("moved", "would move"), label(it.exportItemDTO), "from "+it.From+joinDetail(reasonText(it.Reasons)))
+			t.Row(verb("moved", "would move"), output.SafeCell(label(it.exportItemDTO)), output.SafeCell("from "+it.From+joinDetail(reasonText(it.Reasons))))
 		}
 		for _, it := range h.Removed {
-			t.Row(verb("removed", "would remove"), label(it), reasonText(it.Reasons))
+			t.Row(verb("removed", "would remove"), output.SafeCell(label(it)), output.SafeCell(reasonText(it.Reasons)))
 		}
 		for _, it := range h.Skipped {
-			t.Row("skipped", label(it), reasonText(it.Reasons))
+			t.Row("skipped", output.SafeCell(label(it)), output.SafeCell(reasonText(it.Reasons)))
 		}
 		for _, it := range h.Refused {
-			t.Row("refused", label(it), reasonText(it.Reasons))
+			t.Row("refused", output.SafeCell(label(it)), output.SafeCell(reasonText(it.Reasons)))
 		}
 		for _, it := range h.Failed {
-			t.Row("failed", label(it), reasonText(it.Reasons))
+			t.Row("failed", output.SafeCell(label(it)), output.SafeCell(reasonText(it.Reasons)))
 		}
 		for _, o := range h.Pruned {
-			t.Row(verb("pruned", "would prune"), o.Dir, "orphaned")
+			t.Row(verb("pruned", "would prune"), output.SafeCell(o.Dir), "orphaned")
 		}
 		for _, o := range h.Orphaned {
-			t.Row("orphaned", o.Dir, "no enabled declaration claims it; --prune removes it")
+			t.Row("orphaned", output.SafeCell(o.Dir), "no enabled declaration claims it; --prune removes it")
 		}
 		for _, u := range h.Unreadable {
-			t.Row("unreadable", u.Dir, u.Error)
+			t.Row("unreadable", output.SafeCell(u.Dir), output.SafeCell(u.Error))
 		}
 		for _, u := range h.Unparseable {
-			t.Row("unparseable", u.Dir, u.Error)
+			t.Row("unparseable", output.SafeCell(u.Dir), output.SafeCell(u.Error))
 		}
 		if err := t.Flush(); err != nil {
 			return err
@@ -1247,7 +1247,7 @@ func renderExport(w io.Writer, dto exportDTO) error {
 			// "already up to date"; say so in the user's terms.
 			if s.Reason.Code == reasonHostNotDeclared && s.Host != "" {
 				app := hostName(s.Host)
-				if _, err := fmt.Fprintf(w, "  %s: not enabled for %s, so no %s skill was installed (its installed files, if any, are unchanged)\n", s.Ref, app, app); err != nil {
+				if _, err := fmt.Fprintf(w, "  %s: not enabled for %s, so no %s skill was installed (its installed files, if any, are unchanged)\n", output.SafeCell(s.Ref), app, app); err != nil {
 					return err
 				}
 				if notEnabled == "" {
@@ -1259,7 +1259,7 @@ func renderExport(w io.Writer, dto exportDTO) error {
 			if where == "" {
 				where = "all hosts"
 			}
-			if _, err := fmt.Fprintf(w, "  %s (%s): %s — %s\n", s.Ref, where, strings.ToLower(s.Action), reasonText([]exportReasonDTO{s.Reason})); err != nil {
+			if _, err := fmt.Fprintf(w, "  %s (%s): %s — %s\n", output.SafeCell(s.Ref), output.SafeCell(where), output.SafeCell(strings.ToLower(s.Action)), output.SafeCell(reasonText([]exportReasonDTO{s.Reason}))); err != nil {
 				return err
 			}
 		}
@@ -1275,7 +1275,7 @@ func renderExport(w io.Writer, dto exportDTO) error {
 			return err
 		}
 		for _, u := range dto.Unrecognized {
-			if _, err := fmt.Fprintf(w, "  %s (%s): %s\n", cmp(u.Name, u.Node), u.Node, strings.Join(u.Keys, ", ")); err != nil {
+			if _, err := fmt.Fprintf(w, "  %s (%s): %s\n", output.SafeCell(cmp(u.Name, u.Node)), output.SafeCell(u.Node), output.SafeCell(strings.Join(u.Keys, ", "))); err != nil {
 				return err
 			}
 		}
@@ -1289,7 +1289,7 @@ func renderExport(w io.Writer, dto exportDTO) error {
 		return err
 	}
 	for _, item := range dto.OutOfExport {
-		if _, err := fmt.Fprintf(w, "  %s (%s; %s): %s\n", cmp(item.Name, item.Node), item.Node, item.Host, item.Reason); err != nil {
+		if _, err := fmt.Fprintf(w, "  %s (%s; %s): %s\n", output.SafeCell(cmp(item.Name, item.Node)), output.SafeCell(item.Node), output.SafeCell(item.Host), output.SafeCell(item.Reason)); err != nil {
 			return err
 		}
 	}

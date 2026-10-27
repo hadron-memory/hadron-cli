@@ -374,17 +374,17 @@ func renderRoutePlan(w io.Writer, dto newRouteDTO, created bool) error {
 		{false, true}:  "would route",
 	}[[2]bool{created, dto.DryRun}]
 	t := output.NewTable(w)
-	t.Row(verb, dto.Loc, "("+dto.Route+")")
-	t.Row("  route", dto.Router+" → "+dto.Loc, dto.EdgeID)
+	t.Row(verb, output.SafeCell(dto.Loc), output.SafeCell("("+dto.Route+")"))
+	t.Row("  route", output.SafeCell(dto.Router+" → "+dto.Loc), output.SafeCell(dto.EdgeID))
 	if dto.BackEdge {
-		t.Row("  back-edge", dto.Loc+" → "+dto.Router, "")
+		t.Row("  back-edge", output.SafeCell(dto.Loc+" → "+dto.Router), "")
 	}
 	if dto.BodyLine != "" {
 		where := "in " + dto.Router
 		if dto.Section != "" {
 			where = "under " + strconv.Quote(dto.Section)
 		}
-		t.Row("  body line", where, strings.TrimPrefix(dto.BodyLine, "- "))
+		t.Row("  body line", output.SafeCell(where), output.SafeCell(strings.TrimPrefix(dto.BodyLine, "- ")))
 	}
 	return t.Flush()
 }
