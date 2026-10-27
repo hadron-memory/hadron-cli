@@ -327,7 +327,7 @@ attaches no worker session.
 				}
 				t := output.NewTable(w, "ID", "LEVEL", "SCOPE", "TARGET", "SET AT", "UNTIL", "STATE")
 				for _, s := range signals {
-					t.Row(s.ID, s.Level, s.Scope, stopTarget(s), s.SetAt, stopUntil(s), stopState(s))
+					t.Row(output.SafeCell(s.ID), output.SafeCell(s.Level), output.SafeCell(s.Scope), output.SafeCell(stopTarget(s)), output.SafeCell(s.SetAt), output.SafeCell(stopUntil(s)), output.SafeCell(stopState(s)))
 				}
 				return t.Flush()
 			})
@@ -340,25 +340,25 @@ attaches no worker session.
 
 func writeStopSignal(w io.Writer, s stopSignalDTO) error {
 	t := output.NewTable(w, "FIELD", "VALUE")
-	t.Row("id", s.ID)
-	t.Row("level", s.Level)
-	t.Row("scope", s.Scope)
-	t.Row("target", stopTarget(s))
-	t.Row("set at", s.SetAt)
+	t.Row("id", output.SafeCell(s.ID))
+	t.Row("level", output.SafeCell(s.Level))
+	t.Row("scope", output.SafeCell(s.Scope))
+	t.Row("target", output.SafeCell(stopTarget(s)))
+	t.Row("set at", output.SafeCell(s.SetAt))
 	setBy := stopValue(s.SetByUserID)
 	if s.SetByHostKey {
 		setBy = "host key"
 	}
-	t.Row("set by", setBy)
-	t.Row("until", stopUntil(s))
-	t.Row("state", stopState(s))
+	t.Row("set by", output.SafeCell(setBy))
+	t.Row("until", output.SafeCell(stopUntil(s)))
+	t.Row("state", output.SafeCell(stopState(s)))
 	if s.EndedAt != nil {
-		t.Row("ended at", *s.EndedAt)
+		t.Row("ended at", output.SafeCell(*s.EndedAt))
 		endedBy := stopValue(s.EndedByUserID)
 		if s.EndedByHostKey {
 			endedBy = "host key"
 		}
-		t.Row("ended by", endedBy)
+		t.Row("ended by", output.SafeCell(endedBy))
 	}
 	return t.Flush()
 }

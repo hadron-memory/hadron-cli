@@ -42,6 +42,11 @@ the same or a different human; a session binds the current git worktree to a
 worker and records provenance (host, tool, transcript path) so a merged PR
 traces back to the session that produced it.
 
+Server-supplied table cells and composition headcount labels replace terminal
+control, format and line/paragraph separator characters with spaces. Cells are
+limited to 256 runes including a final ellipsis when shortened; --json retains
+the original values. Use --json when a complete long value is needed.
+
 GETTING STARTED — standing up a team, in order
 
 Two of the steps are not in this group, so the sequence is not discoverable

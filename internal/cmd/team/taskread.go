@@ -385,7 +385,7 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			} else if task.Assignee != nil {
 				assignee = partyCell(task.Assignee)
 			}
-			t.Row(task.ID, task.Status, task.Title, partyCell(task.Owner), assignee)
+			t.Row(output.SafeCell(task.ID), output.SafeCell(task.Status), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))
 		}
 		return t.Flush()
 	})

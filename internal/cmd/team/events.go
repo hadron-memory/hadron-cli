@@ -104,7 +104,7 @@ the exact --after that continues it.
 					if e.TaskID != nil {
 						task = *e.TaskID
 					}
-					t.Row(e.ID, e.CreatedAt, e.Type, eventActorCell(e), task, ack)
+					t.Row(output.SafeCell(e.ID), output.SafeCell(e.CreatedAt), output.SafeCell(e.Type), output.SafeCell(eventActorCell(e)), output.SafeCell(task), output.SafeCell(ack))
 				}
 				if err := t.Flush(); err != nil {
 					return err

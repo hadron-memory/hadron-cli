@@ -178,7 +178,7 @@ names) is what says whether one is already taken.`,
 				}
 				t := output.NewTable(w, "ROLE", "DESCRIPTION", "AGENT")
 				for _, r := range roles {
-					t.Row(r.Role, dash(r.Description), dash(r.RoleAgentName))
+					t.Row(output.SafeCell(r.Role), output.SafeCell(dash(r.Description)), output.SafeCell(dash(r.RoleAgentName)))
 				}
 				if err := t.Flush(); err != nil {
 					return err

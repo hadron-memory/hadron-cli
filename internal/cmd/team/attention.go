@@ -136,7 +136,7 @@ no server provenance; pass --app explicitly in that case.`,
 							if c.FirstUnreadSeq != nil {
 								first = fmt.Sprintf("#%d", *c.FirstUnreadSeq)
 							}
-							t.Row(wk.Name, c.Name, fmt.Sprint(c.Unread), fmt.Sprint(c.UnreadMentions), first, fmt.Sprintf("#%d", c.LastSeq))
+							t.Row(output.SafeCell(wk.Name), output.SafeCell(c.Name), output.SafeCell(fmt.Sprint(c.Unread)), output.SafeCell(fmt.Sprint(c.UnreadMentions)), output.SafeCell(first), output.SafeCell(fmt.Sprintf("#%d", c.LastSeq)))
 						}
 					}
 					if err := t.Flush(); err != nil {
@@ -466,8 +466,8 @@ func newCmdSwitchoverPreview(f *cmdutil.Factory) *cobra.Command {
 							if c.FirstUnreadSeq != nil {
 								first = fmt.Sprintf("#%d", *c.FirstUnreadSeq)
 							}
-							t.Row(wk.Name, c.Name, cursor, first, fmt.Sprintf("#%d", c.ThroughSeq),
-								fmt.Sprint(c.Unread), fmt.Sprint(c.UnreadMentions))
+							t.Row(output.SafeCell(wk.Name), output.SafeCell(c.Name), output.SafeCell(cursor), output.SafeCell(first), output.SafeCell(fmt.Sprintf("#%d", c.ThroughSeq)),
+								output.SafeCell(fmt.Sprint(c.Unread)), output.SafeCell(fmt.Sprint(c.UnreadMentions)))
 						}
 					}
 					if err := t.Flush(); err != nil {

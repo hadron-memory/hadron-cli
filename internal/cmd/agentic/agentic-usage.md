@@ -3610,3 +3610,13 @@ JSON key) and explicitly says it is not validated by the server. A mismatch
 keeps NODE_WRITE_CONFLICT/exit5 and provider currentRevision metadata; re-read
 and retry deliberately. Drift can advance a revision without another user's
 edit. No automatic refresh/retry or selector-identity guarantee is added.
+
+## Team table text (#1101)
+
+Server-supplied team table cells and composition role/family headcount labels
+use `output.SafeCell`: C0/C1/DEL controls and Unicode Cf/Zl/Zp become single
+spaces, and cells longer than 256 runes are shortened to 255 runes plus an
+ellipsis. This also bounds long clean values. Clean cells up to 256 runes keep
+their original text. `--json` keeps the original server strings; use it for a
+complete long value. This table policy does not describe free-form prose,
+chat bodies or task trees.

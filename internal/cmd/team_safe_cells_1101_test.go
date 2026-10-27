@@ -99,7 +99,15 @@ func TestTeamSafeCells1101(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			findCall(t, jsonCalls, tc.op) // The attack-bearing operation must actually run once.
+			// Session scans can request another page. Presence is the claim
+			// here: rendering must have consumed the attack-bearing response.
+			seen := false
+			for _, call := range *jsonCalls {
+				seen = seen || call.Op == tc.op
+			}
+			if !seen {
+				t.Fatalf("attack-bearing operation %s did not run", tc.op)
+			}
 			if !strings.Contains(rawJSON, string(encoded)) {
 				t.Fatalf("JSON lost the original server string: %s", rawJSON)
 			}
