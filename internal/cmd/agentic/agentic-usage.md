@@ -1320,7 +1320,12 @@ Conventions:
     (best-effort: targets resolve by loc then id, an edge that can't be wired is
     reported in `unwiredEdges` with a `reason`, never fatal, and re-import is
     idempotent); `--create-only` refuses to update; `--dry-run` classifies
-    without mutating. The server recomputes `contentHash`/`abstractOriginHash`,
+    without mutating. Markdown removes exactly one framing LF at each end;
+    indentation and authored boundary newlines remain. Empty/ASCII-whitespace-only
+    bodies are omitted (preserving stored content on update); Unicode-only spaces
+    remain content. Whole-file CRLF→LF normalization stays, including the ambiguity
+    where a content-final CR joins the frame LF. Extra handwritten trailing blank
+    lines are content. JSON content is unchanged. The server recomputes `contentHash`/`abstractOriginHash`,
     so a clean export→import round-trips losslessly, except for the node's
     governed kind and `objectType` from a `node export` file (below). The file's `role:` and
     `runnable:` keys (`role`/`isRunnable` in JSON; emitted when non-null, so an
