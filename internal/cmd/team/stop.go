@@ -185,6 +185,8 @@ func newCmdTeamStopLift(f *cmdutil.Factory) *cobra.Command {
 		Long: `Lift exactly one stop signal. Other stop signals may still cover the same
 workers: lifting one never ends another, and nothing restarts by itself. A
 signal that had already ended is reported as unchanged, not as lifted.
+The receipt displays the signal id without controls, capped at 256 runes;
+--json preserves the original id.
 
 Whoever manages the App may lift any signal; a host key, a HALT on its own host.
 This is the person's write: a bound worktree's worker session is never attached.
@@ -219,9 +221,9 @@ This is the person's write: a bound worktree's worker session is never attached.
 			d := stopLiftDTO{Changed: resp.LiftTeamStopSignal.Changed, Signal: stopSignalDTOFrom(resp.LiftTeamStopSignal.Signal.StopSignalFields)}
 			label := lazyAppLabel(ctx, f, appScope)
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-				headline := "Lifted stop signal " + d.Signal.ID + "."
+				headline := "Lifted stop signal " + output.SafeCell(d.Signal.ID) + "."
 				if !d.Changed {
-					headline = "Stop signal " + d.Signal.ID + " had already ended; nothing changed."
+					headline = "Stop signal " + output.SafeCell(d.Signal.ID) + " had already ended; nothing changed."
 				}
 				if _, err := fmt.Fprintf(w, "app: %s\n%s Other stop signals may still cover the same workers.\n", label(), headline); err != nil {
 					return err

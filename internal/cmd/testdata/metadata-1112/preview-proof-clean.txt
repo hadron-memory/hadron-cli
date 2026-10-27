@@ -1,0 +1,5 @@
+app: capp100000000000000000000 (from the worktree binding)
+WORKER  CHANNEL  CURSOR  FIRST UNREAD  THROUGH  UNREAD  MENTIONS
+Iris    team     -       #1            #1878    1878    12
+Nothing has been written. To apply exactly this, before 2026-09-25T20:40:00Z:
+  hadron team attention switchover apply --app capp100000000000000000000 --server __SERVER_URL__ --proof fixture

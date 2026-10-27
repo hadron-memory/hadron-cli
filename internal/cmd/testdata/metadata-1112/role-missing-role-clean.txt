@@ -1,0 +1,7 @@
+app: hrn:app:acme.com:eng-team — Eng Team (from the worktree binding)
+ROLE              DESCRIPTION   AGENT
+backend-engineer  Backend role  backend-engineer
+fixture           —             —
+! role fixture: the role-agent's prompt template never binds {{name}} — its workers would be nameless in their own briefing
+! role fixture: no installed agent carries this persona role — the definition documents a role nobody holds
+! agent iOS App Engineer (persona role "ios-app-engineer"): no matching role definition — create one with `hadron team role create ios-app-engineer`

@@ -1,0 +1,22 @@
+{
+  "app": "capp100000000000000000000",
+  "token": "a\nb\u001b[31mc‮\u2028\u2029​",
+  "workers": [
+    {
+      "worker": "wkr1",
+      "name": "Iris",
+      "urn": "hrn:worker:acme.com:eng-team:iris",
+      "live": true,
+      "channels": [
+        {
+          "channel": "ch1",
+          "name": "team",
+          "unread": 3,
+          "unreadMentions": 1,
+          "firstUnreadSeq": 41,
+          "lastSeq": 43
+        }
+      ]
+    }
+  ]
+}

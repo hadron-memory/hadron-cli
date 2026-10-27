@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -239,7 +240,9 @@ failure reason. Whoever reads the App's tasks and events may.
 --host, --status (issued, collected, succeeded, failed) and --worker (id,
 URN or name) narrow it. --limit takes 1 to ` + strconv.Itoa(hostOpsPageCap) + `, the server's page cap.
 When more follow, the receipt names the --after that continues the list;
---json carries it as endCursor, with hasNextPage.`,
+--json carries it as endCursor, with hasNextPage. If display sanitizes or
+shortens the cursor, the text omits the reusable --after suggestion: obtain
+the original cursor from --json.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -301,7 +304,7 @@ When more follow, the receipt names the --after that continues the list;
 					return err
 				}
 				if page.HasNextPage && page.EndCursor != nil {
-					_, err := fmt.Fprintf(w, "more follow — continue with --after %s\n", *page.EndCursor)
+					err := writeHostCursorHint(w, *page.EndCursor, runtime.GOOS)
 					return err
 				}
 				return nil

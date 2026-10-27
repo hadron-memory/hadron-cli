@@ -1,0 +1,6 @@
+app: hrn:app:acme.com:eng-team — Eng Team (from the worktree binding)
+WORKER  STATE                 CHECK  ROLE              FAMILY  MODEL  TIER  LIVE  TASKS  ALARMS  REPORTS TO  HELD BY  SINCE
+Rufus   ASSIGNED_NOT_STARTED  —      backend-engineer  claude  —      —     live  P1 S0  0       Iris        —        —
+Iris    AVAILABLE             —      coordinator       claude  —      —     live  P0 S1  1       —           —        —
+free for work by tier: high 0 · mid 0 · low 0 · unknown 1 (model is self-reported and tier is advisory, never authorization)
+as of fixture — states are plan-derived (design:agent-tasks §7.4), not a spec

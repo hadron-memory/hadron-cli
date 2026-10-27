@@ -1,0 +1,19 @@
+{
+  "changed": false,
+  "signal": {
+    "id": "a\nb\u001b[31mc‮\u2028\u2029​",
+    "level": "HALT",
+    "scope": "HOST",
+    "targetWorkerId": null,
+    "targetHostId": "host1",
+    "setAt": "2026-10-22T10:00:00Z",
+    "until": null,
+    "setByUserId": null,
+    "setByHostKey": true,
+    "live": false,
+    "endedAt": "2026-10-22T11:00:00Z",
+    "endKind": "LIFTED",
+    "endedByUserId": "usr1",
+    "endedByHostKey": false
+  }
+}

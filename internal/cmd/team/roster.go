@@ -52,7 +52,8 @@ withheld name arrives as null, exactly like an unset one, and the CLI renders
 it the same way (the handle) without masking or filling anything itself.
 
 Read it with lastActiveAt: nothing clears a reportsTo claim automatically,
-and a state is a fact about now, not a judgement.`,
+and a state is a fact about now, not a judgement. The as-of value uses
+control-free display text capped at 256 runes; --json preserves the original.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			b, err := readBindingOrNilWithApp(ctx, f)
@@ -152,7 +153,7 @@ and a state is a fact about now, not a judgement.`,
 				if _, err := fmt.Fprintln(w, capacityLine(dto.Workers)); err != nil {
 					return err
 				}
-				_, err := fmt.Fprintf(w, "as of %s — states are plan-derived (design:agent-tasks §7.4), not a spec\n", dto.AsOf)
+				_, err := fmt.Fprintf(w, "as of %s — states are plan-derived (design:agent-tasks §7.4), not a spec\n", output.SafeCell(dto.AsOf))
 				return err
 			})
 		},

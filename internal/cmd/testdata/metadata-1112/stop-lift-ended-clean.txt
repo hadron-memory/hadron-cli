@@ -1,0 +1,13 @@
+app: hrn:app:acme.com:eng-team — Eng Team (from the worktree binding)
+Stop signal fixture had already ended; nothing changed. Other stop signals may still cover the same workers.
+FIELD     VALUE
+id        fixture
+level     HALT
+scope     HOST
+target    host host1
+set at    2026-10-22T10:00:00Z
+set by    host key
+until     until lifted
+state     ended (lifted)
+ended at  2026-10-22T11:00:00Z
+ended by  usr1

@@ -66,6 +66,9 @@ THE TOKEN. Every poll returns an opaque, server-signed token. Pass it back as
 NEWER than it, so one backlog produces one nudge, not one per poll. Omit
 --since to list every worker with any relevant unread.
 
+Text displays the token without controls, capped at 256 runes. If display
+changes it, obtain the original from --json; the text omits reuse guidance.
+
 Adopt the returned token only after EVERY listed nudge was accepted. On any
 failure, keep polling with the PREVIOUS token: a retry can duplicate a nudge,
 but it cannot lose one. The CLI never stores the token for you, for exactly
@@ -143,7 +146,11 @@ no server provenance; pass --app explicitly in that case.`,
 						return err
 					}
 				}
-				if _, err := fmt.Fprintf(w, "token: %s\n", dto.Token); err != nil {
+				if _, err := fmt.Fprintf(w, "token: %s\n", output.SafeCell(dto.Token)); err != nil {
+					return err
+				}
+				if !copyArgumentsUnchanged(dto.Token) {
+					_, err := fmt.Fprintln(w, "Token altered for display; use --json for the original token, and keep the previous token until every nudge was accepted.")
 					return err
 				}
 				_, err := fmt.Fprintln(w, "Pass it as --since only after every nudge was accepted; on any failure keep the previous token.")
@@ -413,7 +420,11 @@ func newCmdSwitchoverPreview(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "preview",
 		Short: "Show what a switchover would mark read, and the proof to apply it (read-only)",
-		Args:  cobra.NoArgs,
+		Long: `Show the proposed switchover and its short-lived proof without applying it.
+Expiry and proof display replace controls with spaces and cap values at 256
+runes. An apply suggestion is omitted if display would change any argument.
+Use --json for the original proof and keep the original app/server arguments.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			scope, err := attentionScope(ctx, f)
@@ -474,20 +485,14 @@ func newCmdSwitchoverPreview(f *cmdutil.Factory) *cobra.Command {
 						return err
 					}
 				}
-				if _, err := fmt.Fprintf(w, "Nothing has been written. To apply exactly this, before %s:\n", dto.ExpiresAt); err != nil {
+				if _, err := fmt.Fprintf(w, "Nothing has been written. To apply exactly this, before %s:\n", output.SafeCell(dto.ExpiresAt)); err != nil {
 					return err
 				}
 				server, err := f.Server()
 				if err != nil {
 					return err
 				}
-				if runtime.GOOS == "windows" {
-					_, err = fmt.Fprintf(w, "Apply with --app %q, --server %q, and --proof %q.\n", scope.Ref, server, dto.Proof)
-					return err
-				}
-				_, err = fmt.Fprintf(w, "  hadron team attention switchover apply --app %s --server %s --proof %s\n",
-					shellQuote(scope.Ref), shellQuote(server), shellQuote(dto.Proof))
-				return err
+				return writeSwitchoverApplyHint(w, scope.Ref, server, dto.Proof, runtime.GOOS)
 			})
 		},
 	}

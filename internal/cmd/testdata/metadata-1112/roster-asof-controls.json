@@ -1,0 +1,97 @@
+{
+  "appId": "capp100000000000000000000",
+  "asOf": "a\nb\u001b[31mc‮\u2028\u2029​",
+  "workers": [
+    {
+      "worker": {
+        "id": "wkr2",
+        "kind": "WORKER",
+        "name": "Rufus",
+        "urn": "hrn:worker:acme.com:eng:rufus"
+      },
+      "state": "ASSIGNED_NOT_STARTED",
+      "role": "backend-engineer",
+      "bound": true,
+      "liveSession": true,
+      "family": "claude",
+      "model": null,
+      "modelReportedAt": null,
+      "tier": null,
+      "freeForWork": false,
+      "freeFamilies": [
+        "claude"
+      ],
+      "launchableFamilies": [
+        "claude"
+      ],
+      "unavailableFamilies": [],
+      "unavailableReason": null,
+      "unavailableUntil": null,
+      "lastActiveAt": "2026-10-12T01:00:00Z",
+      "checkStatus": null,
+      "lastAssignedAt": "2026-10-11T09:00:00Z",
+      "pendingTasks": [
+        "task1"
+      ],
+      "startedTasks": [],
+      "waitingOn": [],
+      "waitingSince": null,
+      "unreactedChildTask": null,
+      "alarms": [],
+      "reportsTo": {
+        "id": "wkr1",
+        "kind": "WORKER",
+        "name": "Iris",
+        "urn": "hrn:worker:acme.com:eng:iris"
+      },
+      "reportsToRetired": false,
+      "heldBy": null,
+      "heldAt": null
+    },
+    {
+      "worker": {
+        "id": "wkr1",
+        "kind": "WORKER",
+        "name": "Iris",
+        "urn": "hrn:worker:acme.com:eng:iris"
+      },
+      "state": "AVAILABLE",
+      "role": "coordinator",
+      "bound": true,
+      "liveSession": true,
+      "family": "claude",
+      "model": null,
+      "modelReportedAt": null,
+      "tier": null,
+      "freeForWork": true,
+      "freeFamilies": [
+        "claude"
+      ],
+      "launchableFamilies": [],
+      "unavailableFamilies": [
+        "codex"
+      ],
+      "unavailableReason": null,
+      "unavailableUntil": null,
+      "lastActiveAt": "2026-10-12T03:30:00Z",
+      "checkStatus": null,
+      "lastAssignedAt": null,
+      "pendingTasks": [],
+      "startedTasks": [
+        "task7"
+      ],
+      "waitingOn": [
+        "task8"
+      ],
+      "waitingSince": "2026-10-12T02:10:00Z",
+      "unreactedChildTask": "task9",
+      "alarms": [
+        "evt2"
+      ],
+      "reportsTo": null,
+      "reportsToRetired": false,
+      "heldBy": null,
+      "heldAt": null
+    }
+  ]
+}

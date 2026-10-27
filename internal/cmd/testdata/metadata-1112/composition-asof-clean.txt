@@ -1,0 +1,23 @@
+app: hrn:app:acme.com:eng-team — Eng Team (from the worktree binding)
+
+reports to Eden [hrn:worker:acme.com:eng-team:eden] — 3 worker(s)
+WORKER  URN                                STATE      ROLE      FAMILY  LIVE
+Jack    hrn:worker:acme.com:eng-team:jack  WORKING    engineer  claude  live
+Ann     —                                  NO_FAMILY  engineer  —       unbound
+w-nil   —                                  AVAILABLE  —         —       unbound
+  role engineer: 2
+  role —: 1
+  role engineer · family claude: 1
+  role engineer · family —: 1
+  role — · family —: 1
+
+reports to Gone (retired) [hrn:worker:acme.com:eng-team:gone] — 0 worker(s)
+WORKER  URN  STATE  ROLE  FAMILY  LIVE
+
+unassigned (reports to nobody) — 1 worker(s)
+WORKER  URN                                  STATE      ROLE  FAMILY  LIVE
+Cedric  hrn:worker:acme.com:eng-team:cedric  AVAILABLE  qa    glm     quiet
+  role qa: 1
+  role qa · family glm: 1
+
+as of fixture — lanes are direct-report groups as the server returned them; no balance is judged

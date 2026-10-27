@@ -1,0 +1,5 @@
+host fixture-host for hrn:app:acme.com:eng-team, checking in every 30s
+WORKER  FAMILY  LAUNCH          WORKTREES
+iris    claude  fixture-worker  
+registration: host h1, live, refreshed fixture
+delivery: disabled
