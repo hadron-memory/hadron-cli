@@ -56,7 +56,7 @@ only shown at create and rotate.`,
 			return output.Write(f.IOStreams, f.JSON, webhooks, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "NAME", "ENABLED", "ENTRY", "LAST CALLED")
 				for _, wh := range webhooks {
-					t.Row(wh.ID, wh.Name, strconv.FormatBool(wh.Enabled), wh.EntryNodeURN, output.Dash(wh.LastCalledAt))
+					t.Row(output.SafeCell(wh.ID), output.SafeCell(wh.Name), strconv.FormatBool(wh.Enabled), output.SafeCell(wh.EntryNodeURN), output.SafeCell(output.Dash(wh.LastCalledAt)))
 				}
 				return t.Flush()
 			})

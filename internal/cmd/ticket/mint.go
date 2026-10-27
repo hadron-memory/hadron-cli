@@ -66,7 +66,7 @@ v1 supports the comm.outbound action only. --app scopes the tickets to one App
 			}
 			dto := mintResultDTO{Minted: resp.MintActionTickets, Action: action, OrgID: org}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ minted %d %s ticket(s) for org %s\n", dto.Minted, dto.Action, dto.OrgID)
+				_, err := fmt.Fprintf(w, "✓ minted %d %s ticket(s) for org %s\n", dto.Minted, output.SafeCell(dto.Action), output.SafeCell(dto.OrgID))
 				return err
 			})
 		},

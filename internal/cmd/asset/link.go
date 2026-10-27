@@ -83,7 +83,7 @@ what you want in an audit trail.`,
 				NodeType: n.NodeType, MemoryID: n.MemoryId, AssetID: ref.ID,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "linked asset %s as %s\n%s\n", dto.AssetID, dto.Name, dto.NodeURN)
+				fmt.Fprintf(w, "linked asset %s as %s\n%s\n", output.SafeCell(dto.AssetID), output.SafeCell(dto.Name), output.SafeCell(dto.NodeURN))
 				return nil
 			})
 		},

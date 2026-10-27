@@ -173,7 +173,7 @@ or --offset to fetch a single explicit page instead.`,
 					if a.DeletedAt != nil {
 						scan += " (deleted)"
 					}
-					t.Row(a.ID, a.Filename, a.MimeType, humanSize(a.SizeBytes), scan, a.UploadedAt, publicLinkState(a.PublicLinkEnabled, a.PublicLinkAvailable, a.PublicURL), fmt.Sprint(a.CanManagePublicLink), fmt.Sprint(a.PublicLinkAvailable))
+					t.Row(output.SafeCell(a.ID), output.SafeCell(a.Filename), output.SafeCell(a.MimeType), humanSize(a.SizeBytes), output.SafeCell(scan), output.SafeCell(a.UploadedAt), output.SafeCell(publicLinkState(a.PublicLinkEnabled, a.PublicLinkAvailable, a.PublicURL)), fmt.Sprint(a.CanManagePublicLink), fmt.Sprint(a.PublicLinkAvailable))
 				}
 				return t.Flush()
 			})

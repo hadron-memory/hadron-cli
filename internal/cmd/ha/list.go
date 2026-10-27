@@ -84,7 +84,7 @@ says how to fetch the next page; the --json output stays a bare array.`, maxLimi
 			return output.Write(f.IOStreams, f.JSON, instances, func(w io.Writer) error {
 				table := output.NewTable(w, "ID", "SLUG", "NAME", "URL", "OPS", "STATUS")
 				for _, s := range instances {
-					table.Row(s.ID, s.Slug, s.Name, s.URL, s.allowlistLabel(), s.statusLabel())
+					table.Row(output.SafeCell(s.ID), output.SafeCell(s.Slug), output.SafeCell(s.Name), output.SafeCell(s.URL), output.SafeCell(s.allowlistLabel()), output.SafeCell(s.statusLabel()))
 				}
 				return table.Flush()
 			})

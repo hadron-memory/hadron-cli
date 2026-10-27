@@ -10,6 +10,7 @@ import (
 	"io"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // appRunDTO is the stable --json shape for an AppRun. It carries every field the
@@ -104,31 +105,31 @@ func statusOr(r appRunDTO) string {
 // writeRunDetail renders the human view of a single run — the full record,
 // including the failure payload when present.
 func writeRunDetail(w io.Writer, r appRunDTO) error {
-	if _, err := fmt.Fprintf(w, "run %s  %s  (%s)\n", r.ID, r.Status, r.TriggerKind); err != nil {
+	if _, err := fmt.Fprintf(w, "run %s  %s  (%s)\n", output.SafeCell(r.ID), output.SafeCell(r.Status), output.SafeCell(r.TriggerKind)); err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "  app %s  org %s\n", r.AppID, r.OrganizationID)
-	fmt.Fprintf(w, "  entry %s\n", r.EntryNodeURN)
+	fmt.Fprintf(w, "  app %s  org %s\n", output.SafeCell(r.AppID), output.SafeCell(r.OrganizationID))
+	fmt.Fprintf(w, "  entry %s\n", output.SafeCell(r.EntryNodeURN))
 	if r.CurNodeURN != nil && *r.CurNodeURN != "" {
-		fmt.Fprintf(w, "  at %s\n", *r.CurNodeURN)
+		fmt.Fprintf(w, "  at %s\n", output.SafeCell(*r.CurNodeURN))
 	}
 	fmt.Fprintf(w, "  attempts %d\n", r.Attempts)
 	if r.BudgetActions != nil || r.BudgetTokens != nil {
 		fmt.Fprintf(w, "  budget %s actions / %s tokens\n", optInt(r.BudgetActions), optInt(r.BudgetTokens))
 	}
-	fmt.Fprintf(w, "  created %s", r.CreatedAt)
+	fmt.Fprintf(w, "  created %s", output.SafeCell(r.CreatedAt))
 	if r.StartedAt != nil {
-		fmt.Fprintf(w, "  started %s", *r.StartedAt)
+		fmt.Fprintf(w, "  started %s", output.SafeCell(*r.StartedAt))
 	}
 	if r.FinishedAt != nil {
-		fmt.Fprintf(w, "  finished %s", *r.FinishedAt)
+		fmt.Fprintf(w, "  finished %s", output.SafeCell(*r.FinishedAt))
 	}
 	fmt.Fprintln(w)
 	if r.Data != nil {
-		fmt.Fprintf(w, "  data %s\n", string(*r.Data))
+		fmt.Fprintf(w, "  data %s\n", output.SafeCell(string(*r.Data)))
 	}
 	if r.Failure != nil {
-		fmt.Fprintf(w, "  failure %s\n", string(*r.Failure))
+		fmt.Fprintf(w, "  failure %s\n", output.SafeCell(string(*r.Failure)))
 	}
 	return nil
 }

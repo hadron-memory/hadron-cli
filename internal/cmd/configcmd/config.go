@@ -95,7 +95,7 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 				sort.Strings(keys)
 				t := output.NewTable(w)
 				for _, k := range keys {
-					t.Row(k, all[k])
+					t.Row(output.SafeCell(k), output.SafeCell(all[k]))
 				}
 				return t.Flush()
 			})

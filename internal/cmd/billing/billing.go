@@ -185,7 +185,7 @@ row sets no markup of its own and the server's default applies.`,
 					if p.MarkupBasisPoints != nil {
 						markup = fmt.Sprint(*p.MarkupBasisPoints)
 					}
-					t.Row(p.Provider, p.Model, fmt.Sprint(p.Tier), p.InputMicroCentsPerMTok, p.OutputMicroCentsPerMTok, markup, p.EffectiveAt)
+					t.Row(output.SafeCell(p.Provider), output.SafeCell(p.Model), fmt.Sprint(p.Tier), output.SafeCell(p.InputMicroCentsPerMTok), output.SafeCell(p.OutputMicroCentsPerMTok), output.SafeCell(markup), output.SafeCell(p.EffectiveAt))
 				}
 				return t.Flush()
 			})
@@ -225,7 +225,7 @@ in micro-cents. Requires org ADMIN.
 				BalanceMicroCents: resp.CreditBalance.BalanceMicroCents,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "%s micro-cents (organization %s)\n", dto.BalanceMicroCents, dto.OrganizationID)
+				_, err := fmt.Fprintf(w, "%s micro-cents (organization %s)\n", output.SafeCell(dto.BalanceMicroCents), output.SafeCell(dto.OrganizationID))
 				return err
 			})
 		},
@@ -286,7 +286,7 @@ and debits negative, in micro-cents. Requires org ADMIN.
 			return output.Write(f.IOStreams, f.JSON, entries, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "KIND", "AMOUNT MICROCENTS", "CREATED", "EXPIRES", "NOTE")
 				for _, e := range entries {
-					t.Row(e.ID, e.Kind, e.AmountMicroCents, e.CreatedAt, output.Dash(e.ExpiresAt), output.Dash(e.Note))
+					t.Row(output.SafeCell(e.ID), output.SafeCell(e.Kind), output.SafeCell(e.AmountMicroCents), output.SafeCell(e.CreatedAt), output.SafeCell(output.Dash(e.ExpiresAt)), output.SafeCell(output.Dash(e.Note)))
 				}
 				return t.Flush()
 			})

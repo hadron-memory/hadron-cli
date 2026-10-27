@@ -88,12 +88,12 @@ there is genuinely nothing safe to hand out.`,
 
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if dto.PublicURL == nil {
-					fmt.Fprintf(f.IOStreams.ErrOut, "no public hotlink for %s — %s\n", dto.Filename, dto.Reason)
+					fmt.Fprintf(f.IOStreams.ErrOut, "no public hotlink for %s — %s\n", output.SafeCell(dto.Filename), dto.Reason)
 					return nil
 				}
 				fmt.Fprintln(w, *dto.PublicURL)
 				fmt.Fprintf(f.IOStreams.ErrOut,
-					"warning: this link is NOT access-controlled — anyone who has it can fetch %s\n", dto.Filename)
+					"warning: this link is NOT access-controlled — anyone who has it can fetch %s\n", output.SafeCell(dto.Filename))
 				return nil
 			}); err != nil {
 				return err

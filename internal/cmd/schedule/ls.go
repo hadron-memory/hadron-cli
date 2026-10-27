@@ -54,7 +54,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 			return output.Write(f.IOStreams, f.JSON, schedules, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "NAME", "CRON", "TZ", "ENABLED", "NEXT")
 				for _, s := range schedules {
-					t.Row(s.ID, s.Name, s.Cron, s.Timezone, strconv.FormatBool(s.Enabled), output.Dash(s.NextRunAt))
+					t.Row(output.SafeCell(s.ID), output.SafeCell(s.Name), output.SafeCell(s.Cron), output.SafeCell(s.Timezone), strconv.FormatBool(s.Enabled), output.SafeCell(output.Dash(s.NextRunAt)))
 				}
 				return t.Flush()
 			})

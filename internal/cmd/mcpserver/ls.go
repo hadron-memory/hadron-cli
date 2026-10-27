@@ -58,7 +58,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 					if s.HasHeaders {
 						headers = "✓"
 					}
-					table.Row(s.ID, s.Slug, s.Name, s.URL, s.allowlistLabel(), headers, s.statusLabel())
+					table.Row(output.SafeCell(s.ID), output.SafeCell(s.Slug), output.SafeCell(s.Name), output.SafeCell(s.URL), output.SafeCell(s.allowlistLabel()), output.SafeCell(headers), output.SafeCell(s.statusLabel()))
 				}
 				return table.Flush()
 			})

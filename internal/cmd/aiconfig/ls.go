@@ -79,8 +79,8 @@ The default list remains usable with older servers.`,
 						if c.Enabled {
 							enabled = "true"
 						}
-						t.Row(c.Name, c.OwnerType, c.Provider, c.Model, enabled, key,
-							endpointDisplay(c.Endpoint, "provider default"), endpointDisplay(c.EffectiveEndpoint, "server-derived"))
+						t.Row(output.SafeCell(c.Name), output.SafeCell(c.OwnerType), output.SafeCell(c.Provider), output.SafeCell(c.Model), output.SafeCell(enabled), output.SafeCell(key),
+							output.SafeCell(endpointDisplay(c.Endpoint, "provider default")), output.SafeCell(endpointDisplay(c.EffectiveEndpoint, "server-derived")))
 					}
 					return t.Flush()
 				})
@@ -119,7 +119,7 @@ The default list remains usable with older servers.`,
 					if c.Enabled {
 						enabled = "true"
 					}
-					t.Row(c.Name, c.OwnerType, c.Provider, c.Model, enabled, key)
+					t.Row(output.SafeCell(c.Name), output.SafeCell(c.OwnerType), output.SafeCell(c.Provider), output.SafeCell(c.Model), output.SafeCell(enabled), output.SafeCell(key))
 				}
 				return t.Flush()
 			})

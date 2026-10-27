@@ -177,6 +177,6 @@ func ensureJSONObject(raw *json.RawMessage, flag string) (*json.RawMessage, erro
 }
 
 func writeSecretLine(w io.Writer, verb string, dto secretDTO) error {
-	_, err := fmt.Fprintf(w, "%s secret %s  %s/%s  owner %s %s\n", verb, dto.Name, dto.Kind, dto.ID, dto.OwnerType, dto.OwnerID)
+	_, err := fmt.Fprintf(w, "%s secret %s  %s/%s  owner %s %s\n", verb, output.SafeCell(dto.Name), output.SafeCell(dto.Kind), output.SafeCell(dto.ID), output.SafeCell(dto.OwnerType), output.SafeCell(dto.OwnerID))
 	return err
 }

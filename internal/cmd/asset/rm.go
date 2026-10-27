@@ -67,7 +67,7 @@ Prompts on a terminal; pass --yes to confirm non-interactively.`,
 			}
 			dto := assetDeleteDTO{ID: a.Id, URN: a.Urn, Filename: a.Filename, DeletedAt: a.DeletedAt}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "deleted %s — restore with: hadron asset restore %s\n", dto.Filename, dto.ID)
+				fmt.Fprintf(w, "deleted %s — restore with: hadron asset restore %s\n", output.SafeCell(dto.Filename), output.SafeCell(dto.ID))
 				return nil
 			})
 		},
@@ -105,7 +105,7 @@ destructive, so it does not prompt.`,
 			}
 			dto := assetDeleteDTO{ID: a.Id, URN: a.Urn, Filename: a.Filename, DeletedAt: a.DeletedAt}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "restored %s\n", dto.Filename)
+				fmt.Fprintf(w, "restored %s\n", output.SafeCell(dto.Filename))
 				return nil
 			})
 		},

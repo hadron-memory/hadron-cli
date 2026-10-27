@@ -48,7 +48,7 @@ the server has no suggestions. This command never changes a config.`,
 					if e.IsDefault {
 						flag = "yes"
 					}
-					t.Row(e.URL, e.Label, flag, endpointDisplay(e.Note, ""))
+					t.Row(output.SafeCell(e.URL), output.SafeCell(e.Label), output.SafeCell(flag), output.SafeCell(endpointDisplay(e.Note, "")))
 				}
 				return t.Flush()
 			})
