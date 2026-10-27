@@ -1166,7 +1166,7 @@ func renderExport(w io.Writer, dto exportDTO) error {
 			return err
 		}
 		if h.Failure != nil {
-			if _, err := fmt.Fprintf(w, "  ✗ nothing written for this host: %s\n", output.SafeText(h.Failure.Message)); err != nil {
+			if _, err := fmt.Fprintf(w, "  ✗ nothing written for this host: %s\n", output.SafeCell(h.Failure.Message)); err != nil {
 				return err
 			}
 		}
@@ -1228,10 +1228,10 @@ func renderExport(w io.Writer, dto exportDTO) error {
 			t.Row("orphaned", output.SafeCell(o.Dir), "no enabled declaration claims it; --prune removes it")
 		}
 		for _, u := range h.Unreadable {
-			t.Row("unreadable", output.SafeCell(u.Dir), output.SafeText(u.Error))
+			t.Row("unreadable", output.SafeCell(u.Dir), output.SafeCell(u.Error))
 		}
 		for _, u := range h.Unparseable {
-			t.Row("unparseable", output.SafeCell(u.Dir), output.SafeText(u.Error))
+			t.Row("unparseable", output.SafeCell(u.Dir), output.SafeCell(u.Error))
 		}
 		if err := t.Flush(); err != nil {
 			return err
@@ -1246,10 +1246,9 @@ func renderExport(w io.Writer, dto exportDTO) error {
 			// cli#825: a task not configured for an application is not
 			// "already up to date"; say so in the user's terms.
 			if s.Reason.Code == reasonHostNotDeclared && s.Host != "" {
-				// SafeText, not SafeCell: hostName passes unknown host keys
-				// through verbatim, so this is server text, and a detail
-				// line must not be cut (cli#1110).
-				app := output.SafeText(hostName(s.Host))
+				// hostName passes unknown host keys through verbatim, so
+				// this is server text and goes through SafeCell (cli#1110).
+				app := output.SafeCell(hostName(s.Host))
 				if _, err := fmt.Fprintf(w, "  %s: not enabled for %s, so no %s skill was installed (its installed files, if any, are unchanged)\n", output.SafeCell(s.Ref), app, app); err != nil {
 					return err
 				}

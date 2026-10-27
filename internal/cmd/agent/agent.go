@@ -314,22 +314,22 @@ JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
 			}
 			dto := agentGetDTO{agentDTO: agentDTOFromFields(resp.Agent.AgentFields), ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", output.SafeText(dto.Name), output.SafeText(dto.URN), output.SafeText(dto.ID), output.SafeText(dto.Type), output.SafeText(dto.Visibility))
+				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  type: %s   visibility: %s\n", output.SafeCell(dto.Name), output.SafeCell(dto.URN), output.SafeCell(dto.ID), output.SafeCell(dto.Type), output.SafeCell(dto.Visibility))
 				fmt.Fprintf(w, "  description: %s\n  system memory: %s\n  tasks index: %s\n  processes index: %s\n  extends: %s\n  ai: %s/%s (key: %v)\n",
-					output.SafeText(dash(dto.Description)), output.SafeText(dash(dto.SystemMemoryID)), output.SafeText(dash(dto.TasksIndexRef)), output.SafeText(dash(dto.ProcessesIndex)), output.SafeText(dash(dto.ExtendsAgentID)), output.SafeText(dash(dto.AiProvider)), output.SafeText(dash(dto.AiModel)), dto.HasAiApiKey)
-				fmt.Fprintf(w, "  boot prompt: %s\n", output.SafeText(cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted)))
+					output.SafeCell(dash(dto.Description)), output.SafeCell(dash(dto.SystemMemoryID)), output.SafeCell(dash(dto.TasksIndexRef)), output.SafeCell(dash(dto.ProcessesIndex)), output.SafeCell(dash(dto.ExtendsAgentID)), output.SafeCell(dash(dto.AiProvider)), output.SafeCell(dash(dto.AiModel)), dto.HasAiApiKey)
+				fmt.Fprintf(w, "  boot prompt: %s\n", output.SafeCell(cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted)))
 				if dto.ClonedFromAgentRef != nil {
-					fmt.Fprintf(w, "  Cloned from: %s\n", output.SafeText(*dto.ClonedFromAgentRef))
+					fmt.Fprintf(w, "  Cloned from: %s\n", output.SafeCell(*dto.ClonedFromAgentRef))
 				}
 				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
 				if len(dto.Surfaces) > 0 {
-					fmt.Fprintf(w, "  surfaces: %s\n", output.SafeText(strings.Join(dto.Surfaces, ", ")))
+					fmt.Fprintf(w, "  surfaces: %s\n", output.SafeCell(strings.Join(dto.Surfaces, ", ")))
 				}
 				if dto.PersonaRole != nil {
-					fmt.Fprintf(w, "  persona role: %s\n", output.SafeText(dash(dto.PersonaRole)))
+					fmt.Fprintf(w, "  persona role: %s\n", output.SafeCell(dash(dto.PersonaRole)))
 				}
 				if dto.SystemPrompt != nil && *dto.SystemPrompt != "" {
-					fmt.Fprintf(w, "  system prompt: %s\n", output.SafeText(*dto.SystemPrompt))
+					fmt.Fprintf(w, "  system prompt: %s\n", output.SafeCell(*dto.SystemPrompt))
 				}
 				return nil
 			})
