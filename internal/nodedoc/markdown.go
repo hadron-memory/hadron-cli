@@ -59,7 +59,7 @@ type edgeEntry struct {
 // frontmatterRE splits a node file into its YAML header and body, mirroring
 // hadron-server's loadFrontmatterNode (`^---\n(...)\n---\n?(...)$`). The header
 // match is non-greedy so the first `\n---\n` closes it; the body is whatever
-// follows (trimmed by the caller).
+// follows (only the writer framing is removed by the caller).
 var frontmatterRE = regexp.MustCompile(`(?s)\A---\n(.*?)\n---\n?(.*)\z`)
 
 // RenderMarkdown produces the full node file: YAML frontmatter, then the node
@@ -81,8 +81,8 @@ func RenderMarkdown(doc *Document, standalone bool) (string, error) {
 
 // ParseMarkdown is the inverse of RenderMarkdown: it splits the frontmatter from
 // the body, parses the YAML header, applies the `description ?? summary` legacy
-// fallback, and trims the body. It accepts both a standalone single-node file
-// (with loc/memory keys) and a tree-export file (without). A file with no `---`
+// fallback, and removes exactly the body framing. It accepts both a standalone
+// single-node file (with loc/memory keys) and a tree-export file (without). A file with no `---`
 // frontmatter is rejected.
 func ParseMarkdown(data []byte) (*Document, error) {
 	// Normalize CRLF→LF so a file edited or checked out on Windows still splits
@@ -112,16 +112,32 @@ func ParseMarkdown(data []byte) (*Document, error) {
 		Description:        desc,
 		Abstract:           fm.Abstract,
 		AbstractOriginHash: fm.AbstractOriginHash,
-		ContentHash:        fm.ContentHash,
+		ContentHash:        "", // Untrusted input hash; exporters recompute it from Content.
 		Tags:               fm.Tags,
 		Seq:                fm.Seq,
 		Role:               fm.Role,
 		IsRunnable:         fm.Runnable,
 		Data:               fm.Data,
 		Properties:         fm.Properties,
-		Content:            strings.TrimSpace(string(m[2])),
+		Content:            markdownBodyContent(string(m[2])),
 		Edges:              edgesFromEntries(fm.Nodes),
 	}, nil
+}
+
+// markdownBodyContent mirrors hadron-server#2585 (shared fixture v1). The
+// closing fence's own newline was consumed by frontmatterRE. Strip only the
+// one blank line and final newline the writer adds, then collapse an empty or
+// ASCII-whitespace-only body to absent. Unicode whitespace is content; language
+// TrimSpace/trim definitions disagree and must not determine portable bytes.
+// Whole-file CRLF normalization happens before this helper, so a content-final
+// CR that joins the frame LF is intentionally lost, as on the server.
+func markdownBodyContent(body string) string {
+	body = strings.TrimPrefix(body, "\n")
+	body = strings.TrimSuffix(body, "\n")
+	if strings.Trim(body, " \t\n\r\v\f") == "" {
+		return ""
+	}
+	return body
 }
 
 // buildFrontmatter projects a Document into the YAML header. type omits the
