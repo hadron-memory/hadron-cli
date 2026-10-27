@@ -74,9 +74,9 @@ func renderReferences(w io.Writer, refs []referenceDTO, withReason bool) error {
 	t := output.NewTable(w, cols...)
 	for _, r := range refs {
 		if withReason {
-			t.Row(r.SourceLoc, r.Kind, r.Field, r.TargetLoc, r.Reason, r.Text)
+			t.Row(output.SafeCell(r.SourceLoc), output.SafeCell(r.Kind), output.SafeCell(r.Field), output.SafeCell(r.TargetLoc), output.SafeCell(r.Reason), output.SafeCell(r.Text))
 		} else {
-			t.Row(r.SourceLoc, r.Kind, r.Field, r.TargetLoc, r.Text)
+			t.Row(output.SafeCell(r.SourceLoc), output.SafeCell(r.Kind), output.SafeCell(r.Field), output.SafeCell(r.TargetLoc), output.SafeCell(r.Text))
 		}
 	}
 	return t.Flush()
@@ -435,7 +435,7 @@ func renderRenumber(w io.Writer, d renumberDTO) error {
 		fmt.Fprintln(w, "reference rewrites:")
 		t := output.NewTable(w, "NODE", "STATUS", "COUNT", "FIELDS", "ERROR")
 		for _, rw := range d.Rewrites {
-			t.Row(rw.Loc, rw.Status, fmt.Sprint(rw.Count), strings.Join(rw.Fields, ","), rw.Error)
+			t.Row(output.SafeCell(rw.Loc), output.SafeCell(rw.Status), fmt.Sprint(rw.Count), output.SafeCell(strings.Join(rw.Fields, ",")), output.SafeCell(rw.Error))
 		}
 		if err := t.Flush(); err != nil {
 			return err
@@ -445,7 +445,7 @@ func renderRenumber(w io.Writer, d renumberDTO) error {
 		fmt.Fprintln(w, "text citations (reported, NOT rewritten — review these):")
 		t := output.NewTable(w, "NODE", "FIELD", "CITATION", "EXCERPT")
 		for _, tc := range d.TextCitations {
-			t.Row(tc.SourceLoc, tc.Field, tc.Citation, tc.Excerpt)
+			t.Row(output.SafeCell(tc.SourceLoc), output.SafeCell(tc.Field), output.SafeCell(tc.Citation), output.SafeCell(tc.Excerpt))
 		}
 		return t.Flush()
 	}
@@ -730,7 +730,7 @@ func renderMint(w io.Writer, d mintDTO) error {
 		fmt.Fprintf(w, "  blockers: %d\n", len(d.Blockers))
 		t := output.NewTable(w, "LOC", "KIND", "RULE", "TARGET", "MESSAGE")
 		for _, b := range d.Blockers {
-			t.Row(b.Loc, b.Kind, b.Rule, b.TargetLoc, b.Message)
+			t.Row(output.SafeCell(b.Loc), output.SafeCell(b.Kind), output.SafeCell(b.Rule), output.SafeCell(b.TargetLoc), output.SafeCell(b.Message))
 		}
 		if err := t.Flush(); err != nil {
 			return err

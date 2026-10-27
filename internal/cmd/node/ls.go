@@ -375,7 +375,7 @@ output either flag switches the table for a per-node block.`,
 					if n.IsRunnable {
 						runStr = "✓"
 					}
-					t.Row(n.Loc, n.Name, n.NodeType, seqStr, runStr)
+					t.Row(output.SafeCell(n.Loc), output.SafeCell(n.Name), output.SafeCell(n.NodeType), seqStr, runStr)
 				}
 				return t.Flush()
 			})

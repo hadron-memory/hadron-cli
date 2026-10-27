@@ -173,7 +173,7 @@ exits 0.`,
 					} else {
 						detail = fnd.Text
 					}
-					t.Row(fnd.Citation, fnd.Kind, loc, detail)
+					t.Row(output.SafeCell(fnd.Citation), fnd.Kind, loc, output.SafeCell(detail))
 				}
 				return t.Flush()
 			}); err != nil {

@@ -359,7 +359,7 @@ same "field" key and the same default, and overrides relevance.
 				}
 				t := output.NewTable(w, "SCORE", "LOC", "NAME")
 				for _, h := range result.Hits {
-					t.Row(formatScore(h.Score), h.Loc, h.Name)
+					t.Row(formatScore(h.Score), output.SafeCell(h.Loc), output.SafeCell(h.Name))
 				}
 				return t.Flush()
 			})

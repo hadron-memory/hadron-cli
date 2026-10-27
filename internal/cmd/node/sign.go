@@ -441,7 +441,7 @@ reads EXPIRED. --limit is 1-100 (server default 20).`,
 					if r.NamedSigner != nil {
 						signer = signerLabel(r.NamedSigner)
 					}
-					t.Row(r.ID, r.State, fmt.Sprint(r.Revision), signer, r.CreatedAt, r.ExpiresAt)
+					t.Row(output.SafeCell(r.ID), output.SafeCell(r.State), fmt.Sprint(r.Revision), output.SafeCell(signer), output.SafeCell(r.CreatedAt), output.SafeCell(r.ExpiresAt))
 				}
 				return t.Flush()
 			})

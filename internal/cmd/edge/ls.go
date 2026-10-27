@@ -201,7 +201,7 @@ far endpoint's loc or its id.`,
 					if rel == "" {
 						rel = e.Loc
 					}
-					t.Row(arrow, rel, e.OtherLoc, e.ID)
+					t.Row(arrow, output.SafeCell(rel), output.SafeCell(e.OtherLoc), output.SafeCell(e.ID))
 				}
 				return t.Flush()
 			})

@@ -95,7 +95,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 			dto := edgeDTOFrom(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, tid, tloc)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ updated", dto.SourceLoc+" → "+dto.TargetLoc, "("+cmdutil.EdgeDisplay(e.Name, e.Loc)+")", dto.ID)
+				t.Row("✓ updated", output.SafeCell(dto.SourceLoc+" → "+dto.TargetLoc), output.SafeCell("("+cmdutil.EdgeDisplay(e.Name, e.Loc)+")"), output.SafeCell(dto.ID))
 				return t.Flush()
 			})
 		},

@@ -153,7 +153,7 @@ schema and rejects a violation.`,
 			dto := createDTO(resp)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ created", dto.Loc, dto.Name)
+				t.Row("✓ created", output.SafeCell(dto.Loc), output.SafeCell(dto.Name))
 				return t.Flush()
 			})
 		},
