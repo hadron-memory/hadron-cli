@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -28,6 +29,7 @@ func TestTeamChannel489(t *testing.T) {
 		for _, j := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%v", tc.name, j), func(t *testing.T) {
 				calls := []string{}
+				var callsMu sync.Mutex
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					var req struct {
 						OperationName, Query string
@@ -35,8 +37,11 @@ func TestTeamChannel489(t *testing.T) {
 					}
 					if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 						t.Error(err)
+						return
 					}
+					callsMu.Lock()
 					calls = append(calls, req.OperationName)
+					callsMu.Unlock()
 					w.Header().Set("Content-Type", "application/json")
 					doc, err := parser.ParseQuery(&ast.Source{Input: req.Query})
 					if err != nil {
@@ -45,34 +50,27 @@ func TestTeamChannel489(t *testing.T) {
 					}
 					if len(doc.Operations) != 1 || doc.Operations[0].Operation != ast.Query {
 						t.Error("not one read query")
+						return
 					}
 					switch req.OperationName {
 					case "TeamChannelLocation":
 						if len(req.Variables) != 1 || req.Variables["appRef"] != "hrn:app:acme.com:team" {
 							t.Error(req.Variables)
 						}
-						fields := doc.Operations[0].SelectionSet
-						app := fields[0].(*ast.Field)
-						if len(fields) != 1 || app.Name != "app" || len(app.SelectionSet) != 3 {
-							t.Fatal(req.Query)
+						if err := teamChannel489Selection(req.OperationName, doc); err != nil {
+							t.Error(err)
+							http.Error(w, err.Error(), http.StatusBadRequest)
+							return
 						}
-						channel := app.SelectionSet[2].(*ast.Field)
-						if app.SelectionSet[0].(*ast.Field).Name != "id" || app.SelectionSet[1].(*ast.Field).Name != "urn" || channel.Name != "defaultChannel" || len(channel.SelectionSet) != 2 || channel.SelectionSet[0].(*ast.Field).Name != "id" || channel.SelectionSet[1].(*ast.Field).Name != "chatRootNodeId" {
-							t.Error(req.Query)
-						}
-						fmt.Fprint(w, `{"data":{"app":{"id":"actual-app","urn":"hrn:app:acme.com:resolved","defaultChannel":{"id":"channel-id","chatRootNodeId":"root-id","chatRootUrn":null}}}}`)
+						fmt.Fprint(w, `{"data":{"app":{"id":"actual-app","urn":"hrn:app:acme.com:chatops","defaultChannel":{"id":"channel-id","chatRootNodeId":"root-id","chatRootUrn":null}}}}`)
 					case "NodePortal":
 						if len(req.Variables) != 1 || req.Variables["ref"] != "root-id" {
 							t.Error(req.Variables)
 						}
-						node := doc.Operations[0].SelectionSet[0].(*ast.Field)
-						if node.Name != "node" || len(node.SelectionSet) != 3 {
-							t.Fatal(req.Query)
-						}
-						for i, n := range []string{"id", "urn", "portalUrl"} {
-							if node.SelectionSet[i].(*ast.Field).Name != n {
-								t.Error(req.Query)
-							}
+						if err := teamChannel489Selection(req.OperationName, doc); err != nil {
+							t.Error(err)
+							http.Error(w, err.Error(), http.StatusBadRequest)
+							return
 						}
 						w.WriteHeader(tc.status)
 						fmt.Fprint(w, tc.body)
@@ -91,6 +89,8 @@ func TestTeamChannel489(t *testing.T) {
 				if err := root.Execute(); err != nil {
 					t.Fatal(err)
 				}
+				callsMu.Lock()
+				defer callsMu.Unlock()
 				if strings.Join(calls, ",") != "TeamChannelLocation,NodePortal" {
 					t.Fatal(calls)
 				}
@@ -102,7 +102,7 @@ func TestTeamChannel489(t *testing.T) {
 					if err := json.Unmarshal([]byte(out.String()), &d); err != nil {
 						t.Fatal(err)
 					}
-					if len(d) != 4 || d["app"] != "hrn:app:acme.com:resolved" || d["appSource"] != "from --app" || d["channelId"] != "channel-id" {
+					if len(d) != 4 || d["app"] != "hrn:app:acme.com:chatops" || d["appSource"] != "from --app" || d["channelId"] != "channel-id" {
 						t.Fatal(d)
 					}
 					v, ok := d["portalUrl"]
@@ -174,7 +174,7 @@ func TestTeamChannel489BindingAndContext(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0600); err != nil {
 				t.Fatal(err)
 			}
-			srv, calls := captureGraphQL(t, map[string]string{"TeamChannelLocation": `{"data":{"app":{"id":"returned-app","urn":"hrn:app:acme.com:resolved","defaultChannel":{"id":"default-id","chatRootNodeId":"root-id"}}}}`, "NodePortal": `{"data":{"node":{"portalUrl":null}}}`})
+			srv, calls := captureGraphQL(t, map[string]string{"TeamChannelLocation": `{"data":{"app":{"id":"returned-app","urn":"hrn:app:acme.com:chatops","defaultChannel":{"id":"default-id","chatRootNodeId":"root-id"}}}}`, "NodePortal": `{"data":{"node":{"portalUrl":null}}}`})
 			f, out := testFactory(t)
 			if configured {
 				cfg, err := f.Config()
@@ -208,5 +208,67 @@ func TestTeamChannel489BindingAndContext(t *testing.T) {
 				t.Fatal("binding changed", err)
 			}
 		})
+	}
+}
+
+// Pure query validation lets malformed fixtures fail with diagnostics outside
+// the HTTP goroutine. This version retains the old casts for the red pin.
+func teamChannel489Selection(operation string, doc *ast.QueryDocument) error {
+	fields := doc.Operations[0].SelectionSet
+	field := fields[0].(*ast.Field)
+	if operation == "TeamChannelLocation" {
+		if len(fields) != 1 || field.Name != "app" || len(field.SelectionSet) != 3 {
+			return fmt.Errorf("invalid app selection")
+		}
+		channel := field.SelectionSet[2].(*ast.Field)
+		if field.SelectionSet[0].(*ast.Field).Name != "id" || field.SelectionSet[1].(*ast.Field).Name != "urn" || channel.Name != "defaultChannel" || len(channel.SelectionSet) != 2 || channel.SelectionSet[0].(*ast.Field).Name != "id" || channel.SelectionSet[1].(*ast.Field).Name != "chatRootNodeId" {
+			return fmt.Errorf("invalid channel selection")
+		}
+	} else if operation == "NodePortal" {
+		if len(fields) != 1 || field.Name != "node" || len(field.SelectionSet) != 3 {
+			return fmt.Errorf("invalid node selection")
+		}
+		for i, name := range []string{"id", "urn", "portalUrl"} {
+			if field.SelectionSet[i].(*ast.Field).Name != name {
+				return fmt.Errorf("invalid node field")
+			}
+		}
+	}
+	return nil
+}
+
+func TestTeamChannel489MalformedSelections(t *testing.T) {
+	for _, query := range []string{
+		`query { ...Wrong }`,
+		`query { app { ...Wrong urn defaultChannel { id chatRootNodeId } } }`,
+		`query { app { id urn ...Wrong } }`,
+		`query { app { id urn defaultChannel { ...Wrong chatRootNodeId } } }`,
+	} {
+		t.Run(query, func(t *testing.T) {
+			defer func() {
+				if p := recover(); p != nil {
+					t.Errorf("validator panicked instead of returning a diagnostic: %v", p)
+				}
+			}()
+			doc, err := parser.ParseQuery(&ast.Source{Input: query})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := teamChannel489Selection("TeamChannelLocation", doc); err == nil {
+				t.Error("accepted malformed selection")
+			}
+		})
+	}
+}
+
+func TestTeamChannel489EmptySelections(t *testing.T) {
+	defer func() {
+		if p := recover(); p != nil {
+			t.Errorf("validator panicked on empty selection: %v", p)
+		}
+	}()
+	doc := &ast.QueryDocument{Operations: ast.OperationList{&ast.OperationDefinition{Operation: ast.Query}}}
+	if err := teamChannel489Selection("TeamChannelLocation", doc); err == nil {
+		t.Error("accepted empty selection")
 	}
 }
