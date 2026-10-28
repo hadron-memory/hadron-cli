@@ -10,7 +10,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
-	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // restoreReceiptDTO is the --json shape of `node restore`: the plain restored
@@ -18,14 +17,15 @@ import (
 // or "idempotent" flag — the wire does not carry one, and inventing it would
 // be a claim nothing backs.
 type restoreReceiptDTO struct {
-	ID        string  `json:"id"`
-	URN       string  `json:"urn"`
-	MemoryID  string  `json:"memoryId"`
-	Loc       string  `json:"loc"`
-	Name      string  `json:"name"`
-	NodeType  string  `json:"nodeType"`
-	UpdatedAt string  `json:"updatedAt"`
-	DeletedAt *string `json:"deletedAt"`
+	LintWarnings **lintWarningPageDTO `json:"lintWarnings,omitempty"`
+	ID           string               `json:"id"`
+	URN          string               `json:"urn"`
+	MemoryID     string               `json:"memoryId"`
+	Loc          string               `json:"loc"`
+	Name         string               `json:"name"`
+	NodeType     string               `json:"nodeType"`
+	UpdatedAt    string               `json:"updatedAt"`
+	DeletedAt    *string              `json:"deletedAt"`
 }
 
 func newCmdRestore(f *cmdutil.Factory) *cobra.Command {
@@ -75,7 +75,8 @@ ONE request. If the answer is lost, verify with 'hadron node recovery get' or
 			}
 			dto := restoreReceiptDTO{ID: n.Id, URN: n.Urn, MemoryID: n.MemoryId, Loc: n.Loc, Name: n.Name,
 				NodeType: n.NodeType, UpdatedAt: n.UpdatedAt, DeletedAt: n.DeletedAt}
-			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			dto.LintWarnings = loadLintWarnings(cmd, client, dto.ID)
+			if err := writeWithLint(f, dto, dto.LintWarnings, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "Node %s is live.\n", dto.URN)
 				return err
 			}); err != nil {
@@ -86,5 +87,6 @@ ONE request. If the answer is lost, verify with 'hadron node recovery get' or
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "Memory, to name a bare <loc> (hrn:mem:<root>:<slug>)")
+	enableLintWarnings(cmd)
 	return cmd
 }

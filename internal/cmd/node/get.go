@@ -83,6 +83,9 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
   hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --raw --json
   hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --body-only > body.md`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if bodyOnly && wantsLintWarnings(cmd) {
+				return exitcode.Newf(exitcode.Usage, "--lint-warnings cannot be combined with --body-only")
+			}
 			prefixMode := cmd.Flags().Changed("prefix")
 			// The two forms are mutually exclusive server-side, so reject the
 			// combination here with a message that names both rather than
@@ -139,6 +142,7 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 				// resolved here, and the raw spelling is ambiguous across
 				// memories (Andi's cycle-1 P2).
 				loadSignatureSummary(cmd.Context(), f, client, id, &dto)
+				dto.LintWarnings = loadLintWarnings(cmd, client, id)
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					return renderNodeDetail(w, dto)
 				})
@@ -176,6 +180,9 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 				ptrs[i] = &dto.Nodes[i]
 			}
 			loadCommentSummaries(cmd.Context(), f, client, ptrs)
+			for _, n := range ptrs {
+				n.LintWarnings = loadLintWarnings(cmd, client, n.ID)
+			}
 			return emitNodeBatch(f, dto)
 		},
 	}
@@ -185,6 +192,7 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the stored body of one node, byte for byte — the read to edit from (implies --raw; alias: --content-only)")
 	// The spelling `spec get` already accepts (#99 item 5).
 	cmdutil.WithFlagAliases(cmd, map[string]string{"content-only": "body-only"})
+	enableLintWarnings(cmd)
 	return cmd
 }
 
@@ -303,6 +311,9 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		for _, e := range dto.IncomingEdges {
 			fmt.Fprintf(w, "    ← %s (%s)\n", e.Loc, edgeRel(e))
 		}
+	}
+	if err := renderLintWarnings(w, dto.LintWarnings); err != nil {
+		return err
 	}
 	if dto.Content != nil && *dto.Content != "" {
 		if !dto.Rendered {

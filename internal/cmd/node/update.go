@@ -112,6 +112,9 @@ schema-governed memory the server validates the result and rejects a violation.)
   hadron node update hrn:node:acme.com:kb:findings:flaky-ci --data-merge '{"status":"closed"}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRun && wantsLintWarnings(cmd) {
+				return exitcode.Newf(exitcode.Usage, "--lint-warnings cannot be combined with --dry-run")
+			}
 			changed := cmd.Flags().Changed
 			clearRole := changed("role") && strings.TrimSpace(role) == ""
 			replaceData := changed("data") || changed("data-file")
@@ -417,7 +420,8 @@ schema-governed memory the server validates the result and rejects a violation.)
 				dto = mergeDTO(resp.UpdateNodeData)
 			}
 
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			dto.LintWarnings = loadLintWarnings(cmd, client, dto.ID)
+			return writeWithLint(f, dto, dto.LintWarnings, func(w io.Writer) error {
 				t := output.NewTable(w)
 				t.Row("✓ updated", output.SafeCell(dto.Loc), output.SafeCell(dto.Name))
 				return t.Flush()
@@ -452,6 +456,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 	cmd.Flags().IntVar(&expectedRevision, "expected-revision", 0, "require the supplied live revision (1-2147483647); omit for last-write-wins; unavailable with data merge")
 	cmd.Flags().StringVar(&reason, "reason", "", "why this change was made (recorded in version history)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
+	enableLintWarnings(cmd)
 	return cmd
 }
 
