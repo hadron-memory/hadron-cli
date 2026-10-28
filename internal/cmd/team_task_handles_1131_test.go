@@ -312,6 +312,10 @@ func TestTeamTaskQualifyRefusalIsSafeAtTheRealSink1131(t *testing.T) {
 	if !strings.Contains(err.Error(), "Qualify the handle") || !strings.Contains(err.Error(), "AT3.405") {
 		t.Fatalf("refusal meaning lost: %q", err.Error())
 	}
+	// Raw JSON semantics: the envelope message is the original, unbounded text.
+	if !strings.Contains(err.Error(), "\x1b") || len([]rune(err.Error())) < 1000 {
+		t.Fatalf("err.Error() must stay raw for --json: %d runes", len([]rune(err.Error())))
+	}
 	renderError(f, err)
 	got := f.IOStreams.ErrOut.(*strings.Builder).String()
 	for _, bad := range []string{"\x1b", "\u202e", "\nFORGED"} {
@@ -324,6 +328,35 @@ func TestTeamTaskQualifyRefusalIsSafeAtTheRealSink1131(t *testing.T) {
 	}
 	if strings.Count(got, "\n") != 1 {
 		t.Fatalf("refusal must be one line: %q", got)
+	}
+}
+
+// --json keeps the raw refusal text in the envelope (stdout), unsanitised.
+func TestTeamTaskQualifyRefusalJSONStaysRaw1131(t *testing.T) {
+	r := handleResponses1131("AT3.405")
+	msg, _ := json.Marshal("Qualify the handle \u001b[31m AT3.405" + strings.Repeat("x", 1500))
+	r["AgentTaskGet"] = `{"errors":[{"message":` + string(msg) + `,"extensions":{"code":"TASK_HANDLE_QUALIFY"}}]}`
+	writeTeamBinding(t)
+	srv, _ := attnServer(t, r)
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "--json", "team", "task", "get", "AT3.405"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a refusal must fail")
+	}
+	renderError(f, err)
+	var env struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if jerr := json.Unmarshal([]byte(out.String()), &env); jerr != nil {
+		t.Fatalf("envelope: %v: %q", jerr, out.String())
+	}
+	if !strings.Contains(env.Error.Message, "\x1b[31m") || len([]rune(env.Error.Message)) < 1500 {
+		t.Fatalf("json message was altered: %d runes", len([]rune(env.Error.Message)))
 	}
 }
 

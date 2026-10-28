@@ -294,6 +294,19 @@ func jsonRequested(args []string) bool {
 // produce the unparseable stdout this change exists to remove, arrived at from
 // the other end. Asked of the stream rather than assumed of the caller: see
 // output.Wrote for the two paths that legitimately print and then fail.
+// humanMessager is implemented by an error whose raw text is right for the
+// --json envelope but unsafe to print on a terminal (cli#1131); the human
+// branch asks it for the terminal-safe form.
+type humanMessager interface{ HumanMessage() string }
+
+func humanErrorText(err error) string {
+	var h humanMessager
+	if errors.As(err, &h) {
+		return h.HumanMessage()
+	}
+	return err.Error()
+}
+
 func renderError(f *cmdutil.Factory, err error) int {
 	code := exitCodeFor(err)
 
@@ -328,7 +341,7 @@ func renderError(f *cmdutil.Factory, err error) int {
 			// Payload already in flight; keep stdout a single valid document.
 			_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
 		default:
-			message := err.Error() + api.CloneAgentDetailText(err)
+			message := humanErrorText(err) + api.CloneAgentDetailText(err)
 			if reporting := api.WorkerReportingDetails(err); reporting != nil {
 				message += fmt.Sprintf(" (server code: %v)", reporting["code"])
 			}

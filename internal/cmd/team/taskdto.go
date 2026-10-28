@@ -337,14 +337,19 @@ type teamAvailabilityDTO struct {
 // text through SafeCell: a task refusal quotes server-supplied handles (the
 // bare-handle qualification refusal names the handle), and the root renderer
 // prints err.Error() raw, so ESC, bidi and newlines would otherwise reach the
-// terminal. Unwrap keeps errors.As/Is (details, codes) working; --json envelopes
-// are built from the chain and still carry the original text (cli#1131).
+// terminal. Unwrap keeps errors.As/Is (details, codes) working; the --json envelope
+// uses Error() and still carries the original text (cli#1131).
 // taskErrorMaxRunes bounds a rendered refusal; room for the schema-skew hint.
 const taskErrorMaxRunes = 1024
 
 type safeTaskError struct{ err error }
 
-func (e safeTaskError) Error() string { return output.SafeLine(e.err.Error(), taskErrorMaxRunes) }
+// Error stays raw (the --json envelope's message); HumanMessage is what the
+// terminal branch of the root renderer prints.
+func (e safeTaskError) Error() string { return e.err.Error() }
+func (e safeTaskError) HumanMessage() string {
+	return output.SafeLine(e.err.Error(), taskErrorMaxRunes)
+}
 func (e safeTaskError) Unwrap() error { return e.err }
 
 // mapTaskError is api.MapError for the task commands, with the human message
