@@ -3657,3 +3657,7 @@ from --json; for an unmatched installed persona role, use
 shell-quoted independently. Windows output gives argument guidance rather
 than a shell command. None of this changes DTOs or the arguments sent to
 the server.
+
+### Recorded served boot prompts (#916 C3b)
+
+`hadron team worker served-prompt <worker-id-or-qualified-URN>` and `hadron run served-prompt <run-ref>` read the recorded revision/hash/variables and scalar-only provenance. `--limit 0..200` (default 50), `--offset N`, or `--all` (all provenance pages, buffered before output). Explicit `--offset` excludes `--all`; `--all --limit 0` is refused. JSON is `{servedPrompt: record|null}`; null is unavailable (unrecorded, unreadable or serving off), never proof of which. No current prompt/source text is fetched. Pruned revisions remain recorded. Recorded variables may contain sensitive values. Ordinary worker/run get remains unchanged.
