@@ -3714,3 +3714,7 @@ hadron team worker compile <worker> [--no-set-pointer]
 ## Skill include lint (#916 C5)
 
 `skill lint` also asks the S11d provider for `skill-include-broken` warnings, using LINT plans for the explicit selected memories and filtering exact selected node IDs. Warnings preserve the provider message and remain exit0 (`--strict` promotes to5). Literal notice text alone is never interpreted as a broken include. A failed/unavailable provider plan returns an error, not a clean lint. Existing local rules and selectors remain, no rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
+
+## Retired role/preview name probe (#916 C6)
+
+Role reads and cast previews no longer request the retired `hasNamePlaceholder` probe or infer nameless briefings from it. Existing JSON keeps that key as null for compatibility. Other role fields, preview prompt and `reserved:false` remain unchanged. This does not remove legacy platform-variable handling or alter the prompt a bind/run is served.

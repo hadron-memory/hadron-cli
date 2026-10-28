@@ -22,8 +22,9 @@ func TestTeamMetadata1112(t *testing.T) {
 		op, path, marker string
 		suppress         bool
 	}
+	// C6 removes the retired template-probe warning site. Role interpolation
+	// remains covered by role-missing-role; its active warning is unchanged.
 	sites := []site{
-		{"role-template-role", []string{"role", "list"}, "TeamRoles", "data/teamRoles/items/1/role", "prompt template", false},
 		{"role-missing-role", []string{"role", "list"}, "TeamRoles", "data/teamRoles/items/1/role", "no installed agent", false},
 		{"role-reverse-name", []string{"role", "list"}, "AppAgentRoster", "data/app/agents/1/name", "no matching role definition", false},
 		{"role-reverse-role", []string{"role", "list"}, "AppAgentRoster", "data/app/agents/1/personaRole", "no matching role definition", true},
