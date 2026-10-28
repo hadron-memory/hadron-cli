@@ -79,13 +79,12 @@ type roleDTO struct {
 	RoleAgentID        *string `json:"roleAgentId"`
 	RoleAgentURN       *string `json:"roleAgentUrn"`
 	RoleAgentName      *string `json:"roleAgentName"`
-	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"`
+	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"` // Retired S12 probe; retained as null for JSON compatibility.
 }
 
 func roleDTOFromFields(r gen.TeamRoleFields) roleDTO {
 	dto := roleDTO{
 		Role: r.Role, Loc: r.Loc, NodeID: r.NodeId, Description: r.Description,
-		HasNamePlaceholder: r.HasNamePlaceholder,
 	}
 	if r.RoleAgent != nil {
 		dto.RoleAgentID, dto.RoleAgentURN, dto.RoleAgentName = &r.RoleAgent.Id, &r.RoleAgent.Urn, &r.RoleAgent.Name
@@ -187,11 +186,6 @@ names) is what says whether one is already taken.`,
 				}
 				if err := t.Flush(); err != nil {
 					return err
-				}
-				for _, r := range roles {
-					if r.HasNamePlaceholder != nil && !*r.HasNamePlaceholder {
-						fmt.Fprintf(w, "! role %s: the role-agent's prompt template never binds {{name}} — its workers would be nameless in their own briefing\n", output.SafeCell(r.Role))
-					}
 				}
 				// The silent-divergence warnings (#542). A role name is coupled
 				// to an agent's personaRole by string equality alone, and
@@ -306,9 +300,6 @@ func newCmdRoleGet(f *cmdutil.Factory) *cobra.Command {
 						fmt.Fprintf(w, "  role agent: %s (%s) — the prompt template lives there (`agent get`)\n", *dto.RoleAgentName, *dto.RoleAgentURN)
 					} else {
 						fmt.Fprintf(w, "  role agent: — (no single installed agent carries this persona role)\n")
-					}
-					if dto.HasNamePlaceholder != nil && !*dto.HasNamePlaceholder {
-						fmt.Fprintf(w, "  ! the role-agent's prompt template never binds {{name}} — its workers would be nameless in their own briefing\n")
 					}
 					return nil
 				})
