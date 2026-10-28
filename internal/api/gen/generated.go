@@ -1596,6 +1596,9 @@ type AgentTaskCancelResponse struct {
 	// to, directly or up the reportsTo chain, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:09; a backlog task directly,
 	// Holger team chat #8150). Refusals:
 	// TASK_NOT_FOUND, TASK_NOT_OWNER, TASK_ENDED, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #2607 (experiment): a cancel that leaves pending or started children
+	// succeeds with the warning task.cancel.open-children in
+	// `extensions.warnings` (see createAgentTask); it does not end them.
 	CancelAgentTask *AgentTaskCancelCancelAgentTask `json:"cancelAgentTask"`
 }
 
@@ -1836,7 +1839,8 @@ type AgentTaskCreateResponse struct {
 	// { path (the mutation's response key), code, text, register? }. Codes are a
 	// closed list per release (task.create.no-source, task.assign.assignee-unavailable,
 	// task.assign.assignee-busy, task.assign.assignee-paused,
-	// task.finish.open-children); a client must tolerate unknown codes. `text` is
+	// task.finish.open-children, and from #2607 task.cancel.open-children on
+	// cancelAgentTask and alarm.ack.outside-chain on acknowledgeAlarm); a client must tolerate unknown codes. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
 	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved }. A warning never
 	// blocks and never reveals another worker's state to a caller who could not
@@ -5419,6 +5423,7 @@ type AgentTeamEventsResponse struct {
 	// read; the cursor is the (createdAt, id) pair, so events sharing a
 	// timestamp are never skipped. since is a coarse time filter (strictly
 	// after), not a continuation. limit defaults to 20 (cap 200).
+	// task.warning is passive history (never wakes, suppresses a wake or counts as activity), payload {code} only.
 	AgentTeamEvents []*AgentTeamEventsAgentTeamEventsAgentTeamEvent `json:"agentTeamEvents"`
 }
 
@@ -6894,6 +6899,9 @@ type AlarmAcknowledgeResponse struct {
 	// Refusals: ALARM_NOT_FOUND (also for an App you cannot read),
 	// NOT_AN_ALARM, ALARM_NOT_IN_CHAIN, ALARM_ALREADY_ACKNOWLEDGED (the first
 	// stands), SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #2607 (experiment): an acknowledgement by a manager of the App who is no
+	// owner in the chain succeeds with the warning alarm.ack.outside-chain in
+	// `extensions.warnings` (see createAgentTask).
 	AcknowledgeAlarm *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent `json:"acknowledgeAlarm"`
 }
 
@@ -6914,10 +6922,12 @@ type AppAgentRosterApp struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
 	Name string `json:"name"`
-	// 023-app-shape: convenience that returns every installed Agent
-	// (equivalent to App.appAgents.map(aa => aa.agent)). Previously was
-	// a soft-deprecated single-element synthesis; now returns the FULL
-	// multi-Agent set per spec 023 US1.
+	// 023-app-shape: convenience list of the installed Agents this caller may
+	// read: the non-null Agent entries of `appAgents`. A withheld install is
+	// omitted here and appears in `appAgents` with `agent: null`. Only the
+	// installed Agents this caller may read: the list may be PARTIAL, an unreadable
+	// Agent is left out, and its length is not the install count (use `appAgents`,
+	// one entry per install).
 	Agents []*AppAgentRosterAppAgentsAgent `json:"agents"`
 	// 023-app-shape US1: Agents installed in this App, via the AppAgent
 	// N:M join. Multiple Agents can be installed; one App credential
@@ -8702,6 +8712,12 @@ type AppsAppsAppsPageItemsApp struct {
 	// which DROPPED the direct FK that 008-agent-installation had introduced) —
 	// see `appAgents` below for the real cardinality. Kept so single-Agent
 	// clients keep working; do not build new multi-Agent logic on it.
+	//
+	// `agentId` and `agent` name the PRIMARY install's Agent and answer as that
+	// Agent's own read does: both are null when the caller may not read it, even
+	// when a later install is readable. Null is not proof that nothing is
+	// installed; `appAgents` lists every install, an entry whose `agent` is null
+	// being an installed Agent withheld from this caller.
 	AgentId     *string `json:"agentId"`
 	MemberCount int     `json:"memberCount"`
 	CreatedAt   string  `json:"createdAt"`
@@ -14898,6 +14914,195 @@ func (v *CompileWorkerBootPromptResponse) GetCompileWorkerBootPrompt() *CompileW
 	return v.CompileWorkerBootPrompt
 }
 
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage includes the requested fields of the GraphQL type CompiledPromptProvenancePage.
+// The GraphQL type's documentation follows.
+//
+// A page of one compiled revision's immutable provenance (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage struct {
+	NodeId      string                                                                                                       `json:"nodeId"`
+	RevNo       int                                                                                                          `json:"revNo"`
+	ContentHash string                                                                                                       `json:"contentHash"`
+	Version     int                                                                                                          `json:"version"`
+	Pruned      bool                                                                                                         `json:"pruned"`
+	Total       int                                                                                                          `json:"total"`
+	HasMore     bool                                                                                                         `json:"hasMore"`
+	Items       []*CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence `json:"items"`
+}
+
+// GetNodeId returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.NodeId, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetRevNo returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.RevNo, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetRevNo() int {
+	return v.RevNo
+}
+
+// GetContentHash returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.ContentHash, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetContentHash() string {
+	return v.ContentHash
+}
+
+// GetVersion returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Version, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetVersion() int {
+	return v.Version
+}
+
+// GetPruned returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Pruned, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetPruned() bool {
+	return v.Pruned
+}
+
+// GetTotal returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Total, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.HasMore, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// GetItems returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Items, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetItems() []*CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence {
+	return v.Items
+}
+
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence includes the requested fields of the GraphQL type CompiledPromptOccurrence.
+// The GraphQL type's documentation follows.
+//
+// One recorded source/include occurrence; contains no source text (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence struct {
+	Order          int     `json:"order"`
+	Depth          int     `json:"depth"`
+	Parent         *int    `json:"parent"`
+	Kind           string  `json:"kind"`
+	NodeId         string  `json:"nodeId"`
+	RevNo          int     `json:"revNo"`
+	Hash           string  `json:"hash"`
+	ReplacesNodeId *string `json:"replacesNodeId"`
+	// Null when the source or its retained snapshot is unreadable; otherwise whether revision text is absent.
+	Pruned    *bool                                                                                                                                       `json:"pruned"`
+	Position  *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition `json:"position"`
+	Selection *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection  `json:"selection"`
+}
+
+// GetOrder returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Order, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetOrder() int {
+	return v.Order
+}
+
+// GetDepth returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Depth, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetDepth() int {
+	return v.Depth
+}
+
+// GetParent returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Parent, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetParent() *int {
+	return v.Parent
+}
+
+// GetKind returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Kind, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetKind() string {
+	return v.Kind
+}
+
+// GetNodeId returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.NodeId, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetRevNo returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.RevNo, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetRevNo() int {
+	return v.RevNo
+}
+
+// GetHash returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Hash, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetHash() string {
+	return v.Hash
+}
+
+// GetReplacesNodeId returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.ReplacesNodeId, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetReplacesNodeId() *string {
+	return v.ReplacesNodeId
+}
+
+// GetPruned returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Pruned, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetPruned() *bool {
+	return v.Pruned
+}
+
+// GetPosition returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Position, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetPosition() *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition {
+	return v.Position
+}
+
+// GetSelection returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Selection, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetSelection() *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection {
+	return v.Selection
+}
+
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition includes the requested fields of the GraphQL type CompiledPromptTagPosition.
+// The GraphQL type's documentation follows.
+//
+// One-based position of an include tag (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition struct {
+	Line   int `json:"line"`
+	Column int `json:"column"`
+}
+
+// GetLine returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition.Line, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition) GetLine() int {
+	return v.Line
+}
+
+// GetColumn returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition.Column, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition) GetColumn() int {
+	return v.Column
+}
+
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection includes the requested fields of the GraphQL type CompiledPromptSelection.
+// The GraphQL type's documentation follows.
+//
+// Effective include selection settings recorded by the compiler (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection struct {
+	Rev      *int `json:"rev"`
+	Approved bool `json:"approved"`
+	Signed   bool `json:"signed"`
+}
+
+// GetRev returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection.Rev, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection) GetRev() *int {
+	return v.Rev
+}
+
+// GetApproved returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection.Approved, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection) GetApproved() bool {
+	return v.Approved
+}
+
+// GetSigned returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection.Signed, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection) GetSigned() bool {
+	return v.Signed
+}
+
+// CompiledPromptProvenanceResponse is returned by CompiledPromptProvenance on success.
+type CompiledPromptProvenanceResponse struct {
+	// Recorded source revisions for exactly revNo of a compiled boot prompt (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+	// Uses the compiled node's read gate; denied, missing, deleted or noncompiled nodes return null.
+	// Provenance survives pruning; pruned marks absent revision text. Source status is null when unreadable.
+	// No source text is returned.
+	// Limit defaults to 20, clamps to 0..100; offset defaults to 0 and clamps negative values to 0.
+	// A missing or malformed provenance record is an integrity error, never an empty page.
+	CompiledPromptProvenance *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage `json:"compiledPromptProvenance"`
+}
+
+// GetCompiledPromptProvenance returns CompiledPromptProvenanceResponse.CompiledPromptProvenance, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceResponse) GetCompiledPromptProvenance() *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage {
+	return v.CompiledPromptProvenance
+}
+
 // CompleteAssetUploadCompleteAssetUploadAsset includes the requested fields of the GraphQL type Asset.
 type CompleteAssetUploadCompleteAssetUploadAsset struct {
 	Id string `json:"id"`
@@ -15706,8 +15911,10 @@ type CreateAgentTaskInput struct {
 	// participating worker or person as owner (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01);
 	// a ref outside the App's participants is TASK_OWNER_INVALID. Never for a
 	// child task, whose owner is its parent's assignee (TASK_CHILD_OWNER_MISMATCH).
-	Owner        *AgentTaskPartyInput        `json:"owner,omitempty"`
-	ParentTaskId *string                     `json:"parentTaskId"`
+	Owner        *AgentTaskPartyInput `json:"owner,omitempty"`
+	ParentTaskId *string              `json:"parentTaskId"`
+	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
+	Project      *bool                       `json:"project,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
 	Source       *string                     `json:"source"`
 	StartBy      *string                     `json:"startBy"`
@@ -15736,6 +15943,9 @@ func (v *CreateAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner 
 
 // GetParentTaskId returns CreateAgentTaskInput.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetParentTaskId() *string { return v.ParentTaskId }
+
+// GetProject returns CreateAgentTaskInput.Project, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetProject() *bool { return v.Project }
 
 // GetRequirements returns CreateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetRequirements() *AgentTaskRequirementsInput { return v.Requirements }
@@ -16287,6 +16497,12 @@ type CreateAppCreateApp struct {
 	// which DROPPED the direct FK that 008-agent-installation had introduced) —
 	// see `appAgents` below for the real cardinality. Kept so single-Agent
 	// clients keep working; do not build new multi-Agent logic on it.
+	//
+	// `agentId` and `agent` name the PRIMARY install's Agent and answer as that
+	// Agent's own read does: both are null when the caller may not read it, even
+	// when a later install is readable. Null is not proof that nothing is
+	// installed; `appAgents` lists every install, an entry whose `agent` is null
+	// being an installed Agent withheld from this caller.
 	AgentId     *string `json:"agentId"`
 	MemberCount int     `json:"memberCount"`
 	CreatedAt   string  `json:"createdAt"`
@@ -20790,9 +21006,8 @@ type DeleteAgentResponse struct {
 	// extends it as its base. AgentMemoryItem attachments do not block deletion.
 	//
 	// Also refused with DECISION_CONTAINED (#1641) while the Agent's system memory holds a decision or a
-	// decision log: removing the memory would remove them, so the Agent is kept. This guard is live
-	// whether or not minted-corpus permanence is enforced; the separate minted-corpus refusal applies only
-	// when that enforcement is on.
+	// decision log: removing the memory would remove them, so the Agent is kept. Decision protection always applies.
+	// If this server requires minted content to be retained, its separate deletion restrictions also apply.
 	//
 	// See hrn:node:hadronmemory.com:specs:cor:dmo:050:14.
 	//
@@ -30964,9 +31179,11 @@ const (
 	MemoryValidationCheckBrokenRef MemoryValidationCheck = "BROKEN_REF"
 	// embedding_failed_at is set - a retryable failure awaiting its backoff, or the permanent class (deterministic 4xx, dimension mismatch, #206 encrypted-no-plaintext) recoverable via retryFailedEmbeddings (spec 033 / #882). Such a node is absent from vector search, which from outside looks identical to no hits matching.
 	MemoryValidationCheckEmbedFailed MemoryValidationCheck = "EMBED_FAILED"
+	// A Git-mirror attempt for this node did not land (#430): a fixed failure class and an attempt count, never exception text. The repository may be stale until the next successful mirror, and a repo-wins sync can revert the lost write. Recorded for failures the process survives; a crash before the record, or a lost event, leaves no row.
+	MemoryValidationCheckGitMirrorFailed MemoryValidationCheck = "GIT_MIRROR_FAILED"
 	// objectType/properties violate the memory declared schema (#725).
 	MemoryValidationCheckSchema MemoryValidationCheck = "SCHEMA"
-	// A node with no description, content, or abstract.
+	// A non-object node with no description, content, or abstract. Object nodes (objectType set) are data-only by design and never sparse (#2516).
 	MemoryValidationCheckSparse MemoryValidationCheck = "SPARSE"
 	// The abstract no longer reflects current content (spec 032 FR-011).
 	MemoryValidationCheckStaleAbstract MemoryValidationCheck = "STALE_ABSTRACT"
@@ -30975,6 +31192,7 @@ const (
 var AllMemoryValidationCheck = []MemoryValidationCheck{
 	MemoryValidationCheckBrokenRef,
 	MemoryValidationCheckEmbedFailed,
+	MemoryValidationCheckGitMirrorFailed,
 	MemoryValidationCheckSchema,
 	MemoryValidationCheckSparse,
 	MemoryValidationCheckStaleAbstract,
@@ -41928,6 +42146,178 @@ func (v *RouterRegisterResponse) GetAttendeeRegister() []*RouterRegisterAttendee
 	return v.AttendeeRegister
 }
 
+// RunServedPromptAppRun includes the requested fields of the GraphQL type AppRun.
+// The GraphQL type's documentation follows.
+//
+// One headless run — the audit record AND (v1) the activation: policy
+// snapshot, live budgets (zeroing halts the run), lifecycle, trigger
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
+type RunServedPromptAppRun struct {
+	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this run was served. Readable by whoever may read the run; null for anyone
+	// else, and while boot-prompt serving is off.
+	ServedPrompt *RunServedPromptAppRunServedPrompt `json:"servedPrompt"`
+}
+
+// GetServedPrompt returns RunServedPromptAppRun.ServedPrompt, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRun) GetServedPrompt() *RunServedPromptAppRunServedPrompt {
+	return v.ServedPrompt
+}
+
+// RunServedPromptAppRunServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type RunServedPromptAppRunServedPrompt struct {
+	ServedPromptRecord `json:"-"`
+}
+
+// GetId returns RunServedPromptAppRunServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetId() string { return v.ServedPromptRecord.Id }
+
+// GetKind returns RunServedPromptAppRunServedPrompt.Kind, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetKind() ServedPromptKind {
+	return v.ServedPromptRecord.Kind
+}
+
+// GetOrdinal returns RunServedPromptAppRunServedPrompt.Ordinal, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetOrdinal() int { return v.ServedPromptRecord.Ordinal }
+
+// GetPointerLevel returns RunServedPromptAppRunServedPrompt.PointerLevel, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetPointerLevel() ServedPromptPointerLevel {
+	return v.ServedPromptRecord.PointerLevel
+}
+
+// GetCompiledNodeId returns RunServedPromptAppRunServedPrompt.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetCompiledNodeId() string {
+	return v.ServedPromptRecord.CompiledNodeId
+}
+
+// GetCompiledContentHash returns RunServedPromptAppRunServedPrompt.CompiledContentHash, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetCompiledContentHash() string {
+	return v.ServedPromptRecord.CompiledContentHash
+}
+
+// GetServedRevSeq returns RunServedPromptAppRunServedPrompt.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetServedRevSeq() int {
+	return v.ServedPromptRecord.ServedRevSeq
+}
+
+// GetProvenanceRevSeq returns RunServedPromptAppRunServedPrompt.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetProvenanceRevSeq() int {
+	return v.ServedPromptRecord.ProvenanceRevSeq
+}
+
+// GetServedAt returns RunServedPromptAppRunServedPrompt.ServedAt, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetServedAt() string {
+	return v.ServedPromptRecord.ServedAt
+}
+
+// GetVariables returns RunServedPromptAppRunServedPrompt.Variables, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetVariables() json.RawMessage {
+	return v.ServedPromptRecord.Variables
+}
+
+// GetPruned returns RunServedPromptAppRunServedPrompt.Pruned, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetPruned() bool { return v.ServedPromptRecord.Pruned }
+
+// GetProvenance returns RunServedPromptAppRunServedPrompt.Provenance, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetProvenance() *ServedPromptRecordProvenanceServedPromptProvenancePage {
+	return v.ServedPromptRecord.Provenance
+}
+
+func (v *RunServedPromptAppRunServedPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RunServedPromptAppRunServedPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RunServedPromptAppRunServedPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ServedPromptRecord)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRunServedPromptAppRunServedPrompt struct {
+	Id string `json:"id"`
+
+	Kind ServedPromptKind `json:"kind"`
+
+	Ordinal int `json:"ordinal"`
+
+	PointerLevel ServedPromptPointerLevel `json:"pointerLevel"`
+
+	CompiledNodeId string `json:"compiledNodeId"`
+
+	CompiledContentHash string `json:"compiledContentHash"`
+
+	ServedRevSeq int `json:"servedRevSeq"`
+
+	ProvenanceRevSeq int `json:"provenanceRevSeq"`
+
+	ServedAt string `json:"servedAt"`
+
+	Variables json.RawMessage `json:"variables"`
+
+	Pruned bool `json:"pruned"`
+
+	Provenance *ServedPromptRecordProvenanceServedPromptProvenancePage `json:"provenance"`
+}
+
+func (v *RunServedPromptAppRunServedPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RunServedPromptAppRunServedPrompt) __premarshalJSON() (*__premarshalRunServedPromptAppRunServedPrompt, error) {
+	var retval __premarshalRunServedPromptAppRunServedPrompt
+
+	retval.Id = v.ServedPromptRecord.Id
+	retval.Kind = v.ServedPromptRecord.Kind
+	retval.Ordinal = v.ServedPromptRecord.Ordinal
+	retval.PointerLevel = v.ServedPromptRecord.PointerLevel
+	retval.CompiledNodeId = v.ServedPromptRecord.CompiledNodeId
+	retval.CompiledContentHash = v.ServedPromptRecord.CompiledContentHash
+	retval.ServedRevSeq = v.ServedPromptRecord.ServedRevSeq
+	retval.ProvenanceRevSeq = v.ServedPromptRecord.ProvenanceRevSeq
+	retval.ServedAt = v.ServedPromptRecord.ServedAt
+	retval.Variables = v.ServedPromptRecord.Variables
+	retval.Pruned = v.ServedPromptRecord.Pruned
+	retval.Provenance = v.ServedPromptRecord.Provenance
+	return &retval, nil
+}
+
+// RunServedPromptResponse is returned by RunServedPrompt on success.
+type RunServedPromptResponse struct {
+	// One run (cor:agt:010:02). ref is an AppRun ID or an
+	// hrn:apprun:<root>:<app>:<run-id> URN (#696). Readable by a platform admin,
+	// a READER of the run's organization, the run's own App key, or a user with a
+	// live App relationship for a run on their behalf or a MANUAL run they
+	// started. A run the caller may not read returns null, exactly like a
+	// missing one (#1577: no existence oracle).
+	AppRun *RunServedPromptAppRun `json:"appRun"`
+}
+
+// GetAppRun returns RunServedPromptResponse.AppRun, and is useful for accessing the field via an interface.
+func (v *RunServedPromptResponse) GetAppRun() *RunServedPromptAppRun { return v.AppRun }
+
 // RunTaskResponse is returned by RunTask on success.
 type RunTaskResponse struct {
 	// Render or execute a node identified by a single nodeRef (a node PK or a
@@ -43864,6 +44254,142 @@ func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkil
 // GetMessage returns SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResultReasonSkillExportReason.Message, and is useful for accessing the field via an interface.
 func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResultReasonSkillExportReason) GetMessage() string {
 	return v.Message
+}
+
+// The kind of served prompt: bind, chat, or run.
+type ServedPromptKind string
+
+const (
+	ServedPromptKindBind ServedPromptKind = "BIND"
+	ServedPromptKindChat ServedPromptKind = "CHAT"
+	ServedPromptKindRun  ServedPromptKind = "RUN"
+)
+
+var AllServedPromptKind = []ServedPromptKind{
+	ServedPromptKindBind,
+	ServedPromptKindChat,
+	ServedPromptKindRun,
+}
+
+type ServedPromptPointerLevel string
+
+const (
+	ServedPromptPointerLevelAgent    ServedPromptPointerLevel = "AGENT"
+	ServedPromptPointerLevelAppAgent ServedPromptPointerLevel = "APP_AGENT"
+	ServedPromptPointerLevelWorker   ServedPromptPointerLevel = "WORKER"
+)
+
+var AllServedPromptPointerLevel = []ServedPromptPointerLevel{
+	ServedPromptPointerLevelAgent,
+	ServedPromptPointerLevelAppAgent,
+	ServedPromptPointerLevelWorker,
+}
+
+// The served record is scalar-only. Never read live source nodes/edges or text
+// to reconstruct it: its revision/hash/provenance/variables are the audit fact.
+type ServedPromptRecord struct {
+	Id   string           `json:"id"`
+	Kind ServedPromptKind `json:"kind"`
+	// 1 for a bind or a run; a chat counts up each time its served revision changes.
+	Ordinal             int                      `json:"ordinal"`
+	PointerLevel        ServedPromptPointerLevel `json:"pointerLevel"`
+	CompiledNodeId      string                   `json:"compiledNodeId"`
+	CompiledContentHash string                   `json:"compiledContentHash"`
+	// Node.revSeq of the revision served (never contentRevSeq).
+	ServedRevSeq int `json:"servedRevSeq"`
+	// The compile revision that owns the provenance.
+	ProvenanceRevSeq int             `json:"provenanceRevSeq"`
+	ServedAt         string          `json:"servedAt"`
+	Variables        json.RawMessage `json:"variables"`
+	// True when the served revision is no longer retained (neither current nor in history).
+	Pruned bool `json:"pruned"`
+	// Provenance of the served revision, one page at a time (default 50, cap 200).
+	Provenance *ServedPromptRecordProvenanceServedPromptProvenancePage `json:"provenance"`
+}
+
+// GetId returns ServedPromptRecord.Id, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetId() string { return v.Id }
+
+// GetKind returns ServedPromptRecord.Kind, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetKind() ServedPromptKind { return v.Kind }
+
+// GetOrdinal returns ServedPromptRecord.Ordinal, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetOrdinal() int { return v.Ordinal }
+
+// GetPointerLevel returns ServedPromptRecord.PointerLevel, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetPointerLevel() ServedPromptPointerLevel { return v.PointerLevel }
+
+// GetCompiledNodeId returns ServedPromptRecord.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetCompiledNodeId() string { return v.CompiledNodeId }
+
+// GetCompiledContentHash returns ServedPromptRecord.CompiledContentHash, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetCompiledContentHash() string { return v.CompiledContentHash }
+
+// GetServedRevSeq returns ServedPromptRecord.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetServedRevSeq() int { return v.ServedRevSeq }
+
+// GetProvenanceRevSeq returns ServedPromptRecord.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetProvenanceRevSeq() int { return v.ProvenanceRevSeq }
+
+// GetServedAt returns ServedPromptRecord.ServedAt, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetServedAt() string { return v.ServedAt }
+
+// GetVariables returns ServedPromptRecord.Variables, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetVariables() json.RawMessage { return v.Variables }
+
+// GetPruned returns ServedPromptRecord.Pruned, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetPruned() bool { return v.Pruned }
+
+// GetProvenance returns ServedPromptRecord.Provenance, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetProvenance() *ServedPromptRecordProvenanceServedPromptProvenancePage {
+	return v.Provenance
+}
+
+// ServedPromptRecordProvenanceServedPromptProvenancePage includes the requested fields of the GraphQL type ServedPromptProvenancePage.
+type ServedPromptRecordProvenanceServedPromptProvenancePage struct {
+	Total int                                                                                       `json:"total"`
+	Items []*ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry `json:"items"`
+}
+
+// GetTotal returns ServedPromptRecordProvenanceServedPromptProvenancePage.Total, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePage) GetTotal() int { return v.Total }
+
+// GetItems returns ServedPromptRecordProvenanceServedPromptProvenancePage.Items, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePage) GetItems() []*ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry {
+	return v.Items
+}
+
+// ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry includes the requested fields of the GraphQL type ServedPromptProvenanceEntry.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: one entry of a served revision's provenance. Ids, revisions and hashes only: never a loc, a
+// title, a node or text, so reading provenance hands the caller no included part. pruned is true when that revision is
+// no longer retained.
+type ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry struct {
+	NodeId string `json:"nodeId"`
+	RevSeq int    `json:"revSeq"`
+	Hash   string `json:"hash"`
+	Pruned bool   `json:"pruned"`
+}
+
+// GetNodeId returns ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry.NodeId, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetRevSeq returns ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry.RevSeq, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry) GetRevSeq() int {
+	return v.RevSeq
+}
+
+// GetHash returns ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry.Hash, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry) GetHash() string {
+	return v.Hash
+}
+
+// GetPruned returns ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry.Pruned, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry) GetPruned() bool {
+	return v.Pruned
 }
 
 // ServerInfoResponse is returned by ServerInfo on success.
@@ -61735,6 +62261,192 @@ func (v *WorkerRosterFieldsReportsToWorker) __premarshalJSON() (*__premarshalWor
 	return &retval, nil
 }
 
+// WorkerServedPromptResponse is returned by WorkerServedPrompt on success.
+type WorkerServedPromptResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization: an AppMember of the worker's App (any role), an org member
+	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
+	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
+	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *WorkerServedPromptWorker `json:"worker"`
+}
+
+// GetWorker returns WorkerServedPromptResponse.Worker, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptResponse) GetWorker() *WorkerServedPromptWorker { return v.Worker }
+
+// WorkerServedPromptWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkerServedPromptWorker struct {
+	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt served to this worker's open session. Readable by whoever may read the worker's
+	// internals; null for anyone else, when no session is open, and while boot-prompt serving is off.
+	ServedPrompt *WorkerServedPromptWorkerServedPrompt `json:"servedPrompt"`
+}
+
+// GetServedPrompt returns WorkerServedPromptWorker.ServedPrompt, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorker) GetServedPrompt() *WorkerServedPromptWorkerServedPrompt {
+	return v.ServedPrompt
+}
+
+// WorkerServedPromptWorkerServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type WorkerServedPromptWorkerServedPrompt struct {
+	ServedPromptRecord `json:"-"`
+}
+
+// GetId returns WorkerServedPromptWorkerServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetId() string { return v.ServedPromptRecord.Id }
+
+// GetKind returns WorkerServedPromptWorkerServedPrompt.Kind, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetKind() ServedPromptKind {
+	return v.ServedPromptRecord.Kind
+}
+
+// GetOrdinal returns WorkerServedPromptWorkerServedPrompt.Ordinal, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetOrdinal() int { return v.ServedPromptRecord.Ordinal }
+
+// GetPointerLevel returns WorkerServedPromptWorkerServedPrompt.PointerLevel, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetPointerLevel() ServedPromptPointerLevel {
+	return v.ServedPromptRecord.PointerLevel
+}
+
+// GetCompiledNodeId returns WorkerServedPromptWorkerServedPrompt.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetCompiledNodeId() string {
+	return v.ServedPromptRecord.CompiledNodeId
+}
+
+// GetCompiledContentHash returns WorkerServedPromptWorkerServedPrompt.CompiledContentHash, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetCompiledContentHash() string {
+	return v.ServedPromptRecord.CompiledContentHash
+}
+
+// GetServedRevSeq returns WorkerServedPromptWorkerServedPrompt.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetServedRevSeq() int {
+	return v.ServedPromptRecord.ServedRevSeq
+}
+
+// GetProvenanceRevSeq returns WorkerServedPromptWorkerServedPrompt.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetProvenanceRevSeq() int {
+	return v.ServedPromptRecord.ProvenanceRevSeq
+}
+
+// GetServedAt returns WorkerServedPromptWorkerServedPrompt.ServedAt, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetServedAt() string {
+	return v.ServedPromptRecord.ServedAt
+}
+
+// GetVariables returns WorkerServedPromptWorkerServedPrompt.Variables, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetVariables() json.RawMessage {
+	return v.ServedPromptRecord.Variables
+}
+
+// GetPruned returns WorkerServedPromptWorkerServedPrompt.Pruned, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetPruned() bool { return v.ServedPromptRecord.Pruned }
+
+// GetProvenance returns WorkerServedPromptWorkerServedPrompt.Provenance, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetProvenance() *ServedPromptRecordProvenanceServedPromptProvenancePage {
+	return v.ServedPromptRecord.Provenance
+}
+
+func (v *WorkerServedPromptWorkerServedPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkerServedPromptWorkerServedPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkerServedPromptWorkerServedPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ServedPromptRecord)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkerServedPromptWorkerServedPrompt struct {
+	Id string `json:"id"`
+
+	Kind ServedPromptKind `json:"kind"`
+
+	Ordinal int `json:"ordinal"`
+
+	PointerLevel ServedPromptPointerLevel `json:"pointerLevel"`
+
+	CompiledNodeId string `json:"compiledNodeId"`
+
+	CompiledContentHash string `json:"compiledContentHash"`
+
+	ServedRevSeq int `json:"servedRevSeq"`
+
+	ProvenanceRevSeq int `json:"provenanceRevSeq"`
+
+	ServedAt string `json:"servedAt"`
+
+	Variables json.RawMessage `json:"variables"`
+
+	Pruned bool `json:"pruned"`
+
+	Provenance *ServedPromptRecordProvenanceServedPromptProvenancePage `json:"provenance"`
+}
+
+func (v *WorkerServedPromptWorkerServedPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkerServedPromptWorkerServedPrompt) __premarshalJSON() (*__premarshalWorkerServedPromptWorkerServedPrompt, error) {
+	var retval __premarshalWorkerServedPromptWorkerServedPrompt
+
+	retval.Id = v.ServedPromptRecord.Id
+	retval.Kind = v.ServedPromptRecord.Kind
+	retval.Ordinal = v.ServedPromptRecord.Ordinal
+	retval.PointerLevel = v.ServedPromptRecord.PointerLevel
+	retval.CompiledNodeId = v.ServedPromptRecord.CompiledNodeId
+	retval.CompiledContentHash = v.ServedPromptRecord.CompiledContentHash
+	retval.ServedRevSeq = v.ServedPromptRecord.ServedRevSeq
+	retval.ProvenanceRevSeq = v.ServedPromptRecord.ProvenanceRevSeq
+	retval.ServedAt = v.ServedPromptRecord.ServedAt
+	retval.Variables = v.ServedPromptRecord.Variables
+	retval.Pruned = v.ServedPromptRecord.Pruned
+	retval.Provenance = v.ServedPromptRecord.Provenance
+	return &retval, nil
+}
+
 // WorkersResponse is returned by Workers on success.
 type WorkersResponse struct {
 	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
@@ -63370,6 +64082,26 @@ func (v *__CompileWorkerBootPromptInput) GetWorkerRef() string { return v.Worker
 
 // GetSetPointer returns __CompileWorkerBootPromptInput.SetPointer, and is useful for accessing the field via an interface.
 func (v *__CompileWorkerBootPromptInput) GetSetPointer() *bool { return v.SetPointer }
+
+// __CompiledPromptProvenanceInput is used internally by genqlient
+type __CompiledPromptProvenanceInput struct {
+	NodeRef string `json:"nodeRef"`
+	RevNo   int    `json:"revNo"`
+	Limit   int    `json:"limit"`
+	Offset  int    `json:"offset"`
+}
+
+// GetNodeRef returns __CompiledPromptProvenanceInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetNodeRef() string { return v.NodeRef }
+
+// GetRevNo returns __CompiledPromptProvenanceInput.RevNo, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetRevNo() int { return v.RevNo }
+
+// GetLimit returns __CompiledPromptProvenanceInput.Limit, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __CompiledPromptProvenanceInput.Offset, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetOffset() int { return v.Offset }
 
 // __CompleteAssetUploadInput is used internally by genqlient
 type __CompleteAssetUploadInput struct {
@@ -66013,6 +66745,22 @@ func (v *__RouterRegisterInput) GetWorkerRef() string { return v.WorkerRef }
 // GetAppRef returns __RouterRegisterInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__RouterRegisterInput) GetAppRef() string { return v.AppRef }
 
+// __RunServedPromptInput is used internally by genqlient
+type __RunServedPromptInput struct {
+	Ref    string `json:"ref"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}
+
+// GetRef returns __RunServedPromptInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RunServedPromptInput) GetRef() string { return v.Ref }
+
+// GetLimit returns __RunServedPromptInput.Limit, and is useful for accessing the field via an interface.
+func (v *__RunServedPromptInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __RunServedPromptInput.Offset, and is useful for accessing the field via an interface.
+func (v *__RunServedPromptInput) GetOffset() int { return v.Offset }
+
 // __RunTaskInput is used internally by genqlient
 type __RunTaskInput struct {
 	NodeRef   string           `json:"nodeRef"`
@@ -68011,6 +68759,22 @@ type __WorkerReportingInput struct {
 // GetRef returns __WorkerReportingInput.Ref, and is useful for accessing the field via an interface.
 func (v *__WorkerReportingInput) GetRef() string { return v.Ref }
 
+// __WorkerServedPromptInput is used internally by genqlient
+type __WorkerServedPromptInput struct {
+	Ref    string `json:"ref"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}
+
+// GetRef returns __WorkerServedPromptInput.Ref, and is useful for accessing the field via an interface.
+func (v *__WorkerServedPromptInput) GetRef() string { return v.Ref }
+
+// GetLimit returns __WorkerServedPromptInput.Limit, and is useful for accessing the field via an interface.
+func (v *__WorkerServedPromptInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __WorkerServedPromptInput.Offset, and is useful for accessing the field via an interface.
+func (v *__WorkerServedPromptInput) GetOffset() int { return v.Offset }
+
 // __WorkersInput is used internally by genqlient
 type __WorkersInput struct {
 	AppRef         string `json:"appRef"`
@@ -68663,6 +69427,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // and inherited from the parent for a child. Optional party/requirements
 // inputs are omitempty so a nil pointer is OMITTED (preserve/default), never
 // sent as null — the wire-semantics rule from CLAUDE.md.
+// Schema-only optional fields must stay absent for older providers.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -72493,6 +73258,72 @@ func CompileWorkerBootPrompt(
 	}
 
 	data_ = &CompileWorkerBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CompiledPromptProvenance.
+const CompiledPromptProvenance_Operation = `
+query CompiledPromptProvenance ($nodeRef: ID!, $revNo: Int!, $limit: Int!, $offset: Int!) {
+	compiledPromptProvenance(nodeRef: $nodeRef, revNo: $revNo, limit: $limit, offset: $offset) {
+		nodeId
+		revNo
+		contentHash
+		version
+		pruned
+		total
+		hasMore
+		items {
+			order
+			depth
+			parent
+			kind
+			nodeId
+			revNo
+			hash
+			replacesNodeId
+			pruned
+			position {
+				line
+				column
+			}
+			selection {
+				rev
+				approved
+				signed
+			}
+		}
+	}
+}
+`
+
+func CompiledPromptProvenance(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	revNo int,
+	limit int,
+	offset int,
+) (data_ *CompiledPromptProvenanceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompiledPromptProvenance",
+		Query:  CompiledPromptProvenance_Operation,
+		Variables: &__CompiledPromptProvenanceInput{
+			NodeRef: nodeRef,
+			RevNo:   revNo,
+			Limit:   limit,
+			Offset:  offset,
+		},
+	}
+
+	data_ = &CompiledPromptProvenanceResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -83330,6 +84161,68 @@ func RouterRegister(
 	return data_, err_
 }
 
+// The query executed by RunServedPrompt.
+const RunServedPrompt_Operation = `
+query RunServedPrompt ($ref: ID!, $limit: Int!, $offset: Int!) {
+	appRun(ref: $ref) {
+		servedPrompt {
+			... ServedPromptRecord
+		}
+	}
+}
+fragment ServedPromptRecord on ServedPrompt {
+	id
+	kind
+	ordinal
+	pointerLevel
+	compiledNodeId
+	compiledContentHash
+	servedRevSeq
+	provenanceRevSeq
+	servedAt
+	variables
+	pruned
+	provenance(limit: $limit, offset: $offset) {
+		total
+		items {
+			nodeId
+			revSeq
+			hash
+			pruned
+		}
+	}
+}
+`
+
+func RunServedPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	limit int,
+	offset int,
+) (data_ *RunServedPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RunServedPrompt",
+		Query:  RunServedPrompt_Operation,
+		Variables: &__RunServedPromptInput{
+			Ref:    ref,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &RunServedPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RunTask.
 const RunTask_Operation = `
 mutation RunTask ($nodeRef: String!, $args: JSON, $appRef: ID, $runAsSelf: Boolean) {
@@ -89784,6 +90677,68 @@ func WorkerReporting(
 	}
 
 	data_ = &WorkerReportingResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by WorkerServedPrompt.
+const WorkerServedPrompt_Operation = `
+query WorkerServedPrompt ($ref: ID!, $limit: Int!, $offset: Int!) {
+	worker(ref: $ref) {
+		servedPrompt {
+			... ServedPromptRecord
+		}
+	}
+}
+fragment ServedPromptRecord on ServedPrompt {
+	id
+	kind
+	ordinal
+	pointerLevel
+	compiledNodeId
+	compiledContentHash
+	servedRevSeq
+	provenanceRevSeq
+	servedAt
+	variables
+	pruned
+	provenance(limit: $limit, offset: $offset) {
+		total
+		items {
+			nodeId
+			revSeq
+			hash
+			pruned
+		}
+	}
+}
+`
+
+func WorkerServedPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	limit int,
+	offset int,
+) (data_ *WorkerServedPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WorkerServedPrompt",
+		Query:  WorkerServedPrompt_Operation,
+		Variables: &__WorkerServedPromptInput{
+			Ref:    ref,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &WorkerServedPromptResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

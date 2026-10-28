@@ -1,0 +1,10 @@
+query CompiledPromptProvenance($nodeRef: ID!, $revNo: Int!, $limit: Int!, $offset: Int!) {
+  compiledPromptProvenance(nodeRef: $nodeRef, revNo: $revNo, limit: $limit, offset: $offset) {
+    nodeId revNo contentHash version pruned total hasMore
+    items {
+      order depth parent kind nodeId revNo hash replacesNodeId pruned
+      position { line column }
+      selection { rev approved signed }
+    }
+  }
+}
