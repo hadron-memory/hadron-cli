@@ -162,3 +162,97 @@ func TestC7NativeWriteRefusalsArePreserved(t *testing.T) {
 		})
 	}
 }
+
+// Install selectors must survive every existing kind door; no id-addressed
+// fallback is permitted after the memory metadata read.
+func TestC7EveryKindDoorPreservesInstall(t *testing.T) {
+	for _, kind := range []string{"Node", "SpecNode", "ReviewNode", "TaskNode"} {
+		t.Run(kind, func(t *testing.T) {
+			flags := []string{}
+			switch kind {
+			case "SpecNode":
+				flags = []string{"--role", "spec.rule"}
+			case "ReviewNode":
+				flags = []string{"--role", "review.check"}
+			case "TaskNode":
+				flags = []string{"--runnable"}
+			}
+			for _, verb := range []string{"Create", "Update"} {
+				t.Run(verb, func(t *testing.T) {
+					op := verb + kind
+					field := strings.ToLower(verb[:1]) + verb[1:] + kind
+					responses := bodyOnlyStubs("stored")
+					responses["InstallMemory"] = c7MemoryResponse
+					responses[op] = `{"data":{"` + field + `":` + nodeJSON + `}}`
+					args := []string{"node", "add", "--loc", "custom", "--name", "Custom"}
+					if verb == "Update" {
+						args = []string{"node", "update", "custom", "--name", "Changed"}
+					}
+					args = append(args, flags...)
+					args = append(args, "--install", c7Install)
+					calls, _, err := runTeamTask(t, responses, args...)
+					if err != nil {
+						t.Fatal(err)
+					}
+					c := c2Mutation(t, calls, op)
+					input := c.Vars["input"].(map[string]any)
+					if input["install"] == nil || input["loc"] != "custom" {
+						t.Fatalf("lost install target: %s", c.RawVars)
+					}
+					if _, ok := input["memoryId"]; ok {
+						t.Fatalf("memory fallback: %s", c.RawVars)
+					}
+					if _, ok := input["id"]; ok {
+						t.Fatalf("id fallback: %s", c.RawVars)
+					}
+					for _, call := range *calls {
+						if call.Op == "UpdateNodeData" {
+							t.Fatal("unexpected id-addressed merge")
+						}
+					}
+					if verb == "Create" && len(*calls) != 1 {
+						t.Fatalf("create must not pre-resolve: %v", *calls)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestC7InstallMergeRefusesBeforeAnyRequests(t *testing.T) {
+	for _, extra := range [][]string{nil, {"--name", "Changed"}} {
+		args := []string{"node", "update", "custom", "--install", c7Install, "--data-merge", `{"k":1}`}
+		responses := bodyOnlyStubs("stored")
+		responses["InstallMemory"] = c7MemoryResponse
+		responses["UpdateNodeData"] = `{"data":{"updateNodeData":` + nodeJSON + `}}`
+		calls, _, err := runTeamTask(t, responses, append(args, extra...)...)
+		if exitCodeFor(err) != 2 || len(*calls) != 0 || !strings.Contains(err.Error(), "--data") {
+			t.Fatalf("must refuse before partial write: %v %v", err, *calls)
+		}
+	}
+}
+
+func TestC7OrdinaryMemoryCreateStillSendsMemoryID(t *testing.T) {
+	responses := map[string]string{"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`}
+	calls, _, err := runTeamTask(t, responses, "node", "add", "-m", c7MemoryURN, "--loc", "custom", "--name", "Custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := c2Mutation(t, calls, "CreateNode")
+	input := c.Vars["input"].(map[string]any)
+	if input["memoryId"] != c7MemoryURN {
+		t.Fatalf("legacy selector lost: %s", c.RawVars)
+	}
+	if _, ok := input["install"]; ok {
+		t.Fatalf("unexpected install: %s", c.RawVars)
+	}
+	for _, args := range [][]string{
+		{"node", "add", "--loc", "x", "--name", "X"},
+		{"node", "add", "-m", "", "--loc", "x", "--name", "X"},
+	} {
+		calls, _, err := runTeamTask(t, nil, args...)
+		if exitCodeFor(err) != 2 || len(*calls) != 0 {
+			t.Fatalf("missing memory made requests: %v %v", err, *calls)
+		}
+	}
+}
