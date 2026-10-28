@@ -114,7 +114,7 @@ func TestWarningSinkToleratesMalformedCarriers(t *testing.T) {
 }
 
 func TestWarningSinkForFieldsUsesSelectedMutationResponseKeys(t *testing.T) {
-	for _, query := range []string{`mutation M { saved: createNode { id } }`, `query M { createNode { id } }`, `mutation M { updateNode { id } }`} {
+	for _, query := range []string{`mutation M { saved: createNode { id } }`, `query M { createNode { id } }`, `mutation M { updateNode { id } }`, `mutation M { ...Root } fragment Root on Mutation { saved: createNode { id } }`, `mutation M { ... on Mutation { saved: createNode { id } } }`, `not graphql`} {
 		client := c962Server(t, `{"data":{"saved":{"id":"n"}},"extensions":{"warnings":[{"path":"saved","code":"include.pin.unkept","text":"advice"},{"path":"createNode","code":"wrong","text":"wrong"},{"path":"updateNode","code":"other","text":"other"}]}}`)
 		ctx, sink := WithWarningSinkForFields(context.Background(), "createNode")
 		var data map[string]any
