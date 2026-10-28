@@ -112,7 +112,7 @@ pages. No content is exported, approval changed, compile retried or prompt serve
 					return exitcode.Newf(exitcode.NotFound, "compiled revision provenance is not available (missing, deleted, noncompiled or not readable by you)")
 				}
 				p := r.CompiledPromptProvenance
-				if p.Items == nil || p.Total < 0 || p.RevNo != revision || len(p.Items) > limit || p.NodeId == "" || p.ContentHash == "" {
+				if p.Items == nil || p.Total < 0 || p.RevNo != revision || len(p.Items) > limit || p.NodeId == "" || p.ContentHash == "" || (limit > 0 && p.HasMore && len(p.Items) == 0) {
 					return exitcode.Newf(exitcode.Error, "server returned an invalid provenance page")
 				}
 				if next == offset {
