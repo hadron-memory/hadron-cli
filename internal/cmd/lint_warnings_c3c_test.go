@@ -67,3 +67,74 @@ func TestC3cNullItemsAreUnavailableNotClean(t *testing.T) {
 		t.Fatalf("malformed null items forged clean: %v %s", *calls, out)
 	}
 }
+
+const c3Warning1 = `{"kind":"BROKEN_INCLUDE","position":3,"text":"first server wording","targetUrn":null,"pinnedRevision":null,"newerRevision":null,"overriddenNodeLoc":null,"workerField":null}`
+const c3Warning2 = `{"kind":"PINNED_NEWER_APPROVED","position":8,"text":"second server wording","targetUrn":"hrn:node:acme.com:kb:part","pinnedRevision":2,"newerRevision":4,"overriddenNodeLoc":null,"workerField":null}`
+
+func c3WarningEnvelope(page string) string { return `{"data":{"node":{"lintWarnings":` + page + `}}}` }
+
+func TestC3cPagesAreCompleteOrUnavailableWithoutRetryingWrite(t *testing.T) {
+	first := `{"items":[` + c3Warning1 + `],"total":2,"nextCursor":"next"}`
+	for _, tc := range []struct {
+		name, second string
+		complete     bool
+	}{
+		{"complete", c3WarningEnvelope(`{"items":[` + c3Warning2 + `],"total":2,"nextCursor":null}`), true},
+		{"failed", gqlErrorJSON("FORBIDDEN"), false},
+		{"null", c3WarningEnvelope("null"), false},
+		{"changed total", c3WarningEnvelope(`{"items":[],"total":3,"nextCursor":null}`), false},
+		{"repeated cursor", c3WarningEnvelope(`{"items":[` + c3Warning2 + `],"total":2,"nextCursor":"next"}`), false},
+		{"empty advancing page", c3WarningEnvelope(`{"items":[],"total":2,"nextCursor":"again"}`), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			writeTeamBinding(t)
+			responses := c3Responses(first)
+			reads := 0
+			writes := 0
+			srv, calls := attnServerHook(t, responses, func(op string) {
+				if op == "CreateNode" {
+					writes++
+				}
+				if op == "GetNodeLintWarnings" {
+					reads++
+					if reads > 1 {
+						responses[op] = tc.second
+					}
+				}
+			})
+			setTeamBindingServer(t, srv.URL)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"--server", srv.URL, "node", "add", "-m", "mem1", "--loc", "x", "--name", "X", "--lint-warnings", "--json"})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("advisory read changed successful write: %v", err)
+			}
+			if writes != 1 || reads != 2 || len(*calls) != 3 {
+				t.Fatalf("retry or truncated page: %v", *calls)
+			}
+			if (*calls)[1].Vars["ref"] != "n1" || (*calls)[2].Vars["ref"] != "n1" || (*calls)[2].Vars["after"] != "next" {
+				t.Fatalf("wrong returned-node/cursor selection: %v", *calls)
+			}
+			if tc.complete {
+				for _, want := range []string{"first server wording", "second server wording", `"total": 2`, `"nextCursor": null`, `"pinnedRevision": 2`, `"newerRevision": 4`} {
+					if !strings.Contains(out.String(), want) {
+						t.Fatalf("incomplete warning page: %s", out.String())
+					}
+				}
+			} else if !strings.Contains(out.String(), `"lintWarnings": null`) || strings.Contains(out.String(), "first server wording") {
+				t.Fatalf("partial/advisory failure forged clean: %s", out.String())
+			}
+		})
+	}
+}
+
+func TestC3cUnsuccessfulWriteDoesNotReadLintAndFalseFlagIsOff(t *testing.T) {
+	calls, _, err := runTeamTask(t, map[string]string{"CreateNode": gqlErrorJSON("FORBIDDEN")}, "node", "add", "-m", "mem1", "--loc", "x", "--name", "X", "--lint-warnings", "--json")
+	if exitCodeFor(err) != 8 || len(*calls) != 1 {
+		t.Fatalf("failed write read lint or changed refusal: %v %v", err, *calls)
+	}
+	calls, out, err := runTeamTask(t, c3Responses("null"), "node", "add", "-m", "mem1", "--loc", "x", "--name", "X", "--lint-warnings=false", "--json")
+	if err != nil || len(*calls) != 1 || strings.Contains(out, `"lintWarnings"`) {
+		t.Fatalf("explicit false is not opt-in: %v %v %s", err, *calls, out)
+	}
+}

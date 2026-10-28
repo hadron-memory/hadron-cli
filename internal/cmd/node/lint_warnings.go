@@ -56,7 +56,7 @@ func loadLintWarnings(cmd *cobra.Command, client graphql.Client, ref string) **l
 			return slot
 		}
 		p := r.Node.LintWarnings
-		if p.Total < 0 || (after != nil && p.Total != result.Total) {
+		if p.Items == nil || p.Total < 0 || (after != nil && p.Total != result.Total) {
 			return slot
 		}
 		result.Total = p.Total
