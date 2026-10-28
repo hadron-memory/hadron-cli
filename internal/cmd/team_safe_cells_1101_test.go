@@ -532,9 +532,11 @@ func TestTeamSafeCells1101(t *testing.T) {
 				if tc.name == "task-list-team" || tc.name == "task-list-team-assignee" {
 					// Status-agnostic: the two cases carry different fixture
 					// statuses (PENDING, STARTED), and keying the normalizer on
-					// one literal made it a no-op for the other — the golden
-					// then hashed the raw IDLE cell (day-granular at ≥48h) and
-					// detonated at the next 01:00 UTC boundary.
+					// literals — the pre-#1151 PENDING, or #1151's
+					// (?:PENDING|STARTED) pair — leaves it one status rename
+					// from silently no-oping again, and the golden then hashes
+					// the raw IDLE cell (day-granular at ≥48h) and detonates
+					// at the next 01:00 UTC boundary.
 					cleanSnapshot = regexp.MustCompile(`(?m)^(task1 +\S+ +)\S+`).ReplaceAllString(cleanSnapshot, "${1}AGE")
 					jsonSnapshot = regexp.MustCompile(`"ageSeconds": -?[0-9]+`).ReplaceAllString(jsonSnapshot, `"ageSeconds": 0`)
 					// The pin: prove the substitution FIRED, so the golden

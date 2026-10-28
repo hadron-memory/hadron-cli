@@ -62,6 +62,13 @@ Writes to stdout by default (so it composes in a pipe with node import);
   hadron node export hrn:node:acme.com:kb:x | hadron node import -m hrn:mem:acme.com:kb2 -`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Export-only: resolveDocFormat is shared with `node import`, where
+			// "HTML export is reserved" would be the wrong message.
+			if strings.EqualFold(format, "html") {
+				// Reserved, not rejected (cor:int:020:02): the server has no HTML
+				// member yet and the CLI must not render one client-side.
+				return exitcode.Newf(exitcode.Usage, "HTML export is reserved (cor:int:020:02) and not yet available; --format takes md, json, or pdf")
+			}
 			fmtName, err := resolveDocFormat(format, outFile, cmd.Flags().Changed("format"))
 			if err != nil {
 				return err

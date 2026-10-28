@@ -285,3 +285,128 @@ func TestSessionListSurfacesBindTimeRole(t *testing.T) {
 		t.Errorf("the ROLE column shows the bind-time role, not the worker's current one:\n%s", out2.String())
 	}
 }
+
+// hadron-cli#1089 (BLIND P3 on #1088): boundRole() is a fallback — the role the
+// session was bound under, else the worker's current one. The list test above
+// only pins precedence on the list path, so these pin BOTH directions on every
+// reader: the list table, the server-backed `session whoami` binding, and the
+// provenance table.
+const (
+	boundRoleKey   = `"role":"qa-engineer","userId":`
+	boundRoleSplit = `"userId":`
+)
+
+// withBindTimeRole stamps a bind-time role on a fixture that has none.
+func withBindTimeRole(session string) string {
+	return strings.Replace(session, boundRoleSplit, boundRoleKey, 1)
+}
+
+func TestSessionListFallsBackToTheWorkersRole(t *testing.T) {
+	teamGitDir(t)
+	// activeSessionJSON carries worker.role=backend-engineer and no `role`.
+	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
+		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+	}))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// Inspect this session's ROLE cell, not a role string in another column
+	// or row (#1128). Header offsets retain empty cells: strings.Fields on
+	// the row would shift USER into ROLE if the renderer left ROLE blank.
+	var header, row string
+	rows := 0
+	for _, line := range strings.Split(out.String(), "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "WORKER") {
+			header = line
+		}
+		fields := strings.Fields(line)
+		if len(fields) > 0 && fields[len(fields)-1] == "s-old" {
+			row = line
+			rows++
+		}
+	}
+	roleStart, roleEnd := strings.Index(header, "ROLE"), strings.Index(header, "USER")
+	if rows != 1 || roleStart < 0 || roleEnd <= roleStart || len(row) < roleEnd {
+		t.Fatalf("expected one s-old session row and ROLE/USER column boundaries:\n%s", out.String())
+	}
+	if role := strings.TrimSpace(row[roleStart:roleEnd]); role != "backend-engineer" {
+		t.Errorf("s-old ROLE cell = %q, want backend-engineer:\n%s", role, out.String())
+	}
+}
+
+func TestSessionWhoamiServerBindingRoleFallbackAndPrecedence(t *testing.T) {
+	for _, tc := range []struct {
+		name, session, want, notWant string
+	}{
+		{"fallback to the worker's role", whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false), "cli-engineer", ""},
+		{"bind-time role wins over the worker's", withBindTimeRole(whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false)), "qa-engineer", "cli-engineer"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			teamGitDir(t)
+			gql, _ := captureGraphQL(t, map[string]string{
+				"AuthContext":  whoamiAuthJSON,
+				"TeamSessions": `{"data":{"sessions":[` + tc.session + `]}}`,
+			})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "session", "whoami", "--json", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var dto struct {
+				Source     string `json:"source"`
+				WorkerRole string `json:"workerRole"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+				t.Fatalf("decode: %v — %s", err, out.String())
+			}
+			if dto.Source != "server" {
+				t.Fatalf("source = %q, want the server-backed path", dto.Source)
+			}
+			if dto.WorkerRole != tc.want {
+				t.Errorf("binding workerRole = %q, want %q", dto.WorkerRole, tc.want)
+			}
+
+			f2, out2 := testFactory(t)
+			root2 := NewRootCmd(f2)
+			root2.SetArgs([]string{"team", "session", "whoami", "--server", gql.URL})
+			if err := root2.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if !strings.Contains(out2.String(), tc.want) || (tc.notWant != "" && strings.Contains(out2.String(), tc.notWant)) {
+				t.Errorf("whoami text must show %q and not %q:\n%s", tc.want, tc.notWant, out2.String())
+			}
+		})
+	}
+}
+
+func TestProvenanceRoleFallbackAndPrecedence(t *testing.T) {
+	for _, tc := range []struct {
+		name, session, want, notWant string
+	}{
+		{"fallback to the worker's role", activeSessionJSON, "backend-engineer", "qa-engineer"},
+		{"bind-time role wins over the worker's", withBindTimeRole(activeSessionJSON), "qa-engineer", "backend-engineer"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			teamGitDir(t)
+			gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
+				"TeamMemoryApp":  `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
+				"TeamWorkItems":  provenanceWorklog,
+				"GetTeamSession": `{"data":{"session":` + tc.session + `}}`,
+			}))
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "session", "list", "--pr", "hadron-memory/hadron-cli#371",
+				"-m", "acme.com::eng-team", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if !strings.Contains(out.String(), tc.want) || strings.Contains(out.String(), tc.notWant) {
+				t.Errorf("provenance ROLE must show %q and not %q:\n%s", tc.want, tc.notWant, out.String())
+			}
+		})
+	}
+}
