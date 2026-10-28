@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 63 unbound
+[Query] 62 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -18,7 +18,6 @@ appNodes
 appTickerSettings  # server ticker settings (named-heartbeats epic, in flight — #1750/#1791 cycle); CLI parity follows the surface settling
 assets
 chatHistory
-compiledPromptProvenance  # cli#1158 C1b independent companion, not part of served-record read
 connectionGrant
 dashboardWidgetData
 dashboardWidgetPresets

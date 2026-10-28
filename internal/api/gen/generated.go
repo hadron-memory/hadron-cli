@@ -14914,6 +14914,195 @@ func (v *CompileWorkerBootPromptResponse) GetCompileWorkerBootPrompt() *CompileW
 	return v.CompileWorkerBootPrompt
 }
 
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage includes the requested fields of the GraphQL type CompiledPromptProvenancePage.
+// The GraphQL type's documentation follows.
+//
+// A page of one compiled revision's immutable provenance (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage struct {
+	NodeId      string                                                                                                       `json:"nodeId"`
+	RevNo       int                                                                                                          `json:"revNo"`
+	ContentHash string                                                                                                       `json:"contentHash"`
+	Version     int                                                                                                          `json:"version"`
+	Pruned      bool                                                                                                         `json:"pruned"`
+	Total       int                                                                                                          `json:"total"`
+	HasMore     bool                                                                                                         `json:"hasMore"`
+	Items       []*CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence `json:"items"`
+}
+
+// GetNodeId returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.NodeId, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetRevNo returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.RevNo, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetRevNo() int {
+	return v.RevNo
+}
+
+// GetContentHash returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.ContentHash, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetContentHash() string {
+	return v.ContentHash
+}
+
+// GetVersion returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Version, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetVersion() int {
+	return v.Version
+}
+
+// GetPruned returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Pruned, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetPruned() bool {
+	return v.Pruned
+}
+
+// GetTotal returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Total, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.HasMore, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// GetItems returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Items, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetItems() []*CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence {
+	return v.Items
+}
+
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence includes the requested fields of the GraphQL type CompiledPromptOccurrence.
+// The GraphQL type's documentation follows.
+//
+// One recorded source/include occurrence; contains no source text (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence struct {
+	Order          int     `json:"order"`
+	Depth          int     `json:"depth"`
+	Parent         *int    `json:"parent"`
+	Kind           string  `json:"kind"`
+	NodeId         string  `json:"nodeId"`
+	RevNo          int     `json:"revNo"`
+	Hash           string  `json:"hash"`
+	ReplacesNodeId *string `json:"replacesNodeId"`
+	// Null when the source or its retained snapshot is unreadable; otherwise whether revision text is absent.
+	Pruned    *bool                                                                                                                                       `json:"pruned"`
+	Position  *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition `json:"position"`
+	Selection *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection  `json:"selection"`
+}
+
+// GetOrder returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Order, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetOrder() int {
+	return v.Order
+}
+
+// GetDepth returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Depth, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetDepth() int {
+	return v.Depth
+}
+
+// GetParent returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Parent, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetParent() *int {
+	return v.Parent
+}
+
+// GetKind returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Kind, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetKind() string {
+	return v.Kind
+}
+
+// GetNodeId returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.NodeId, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetRevNo returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.RevNo, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetRevNo() int {
+	return v.RevNo
+}
+
+// GetHash returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Hash, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetHash() string {
+	return v.Hash
+}
+
+// GetReplacesNodeId returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.ReplacesNodeId, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetReplacesNodeId() *string {
+	return v.ReplacesNodeId
+}
+
+// GetPruned returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Pruned, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetPruned() *bool {
+	return v.Pruned
+}
+
+// GetPosition returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Position, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetPosition() *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition {
+	return v.Position
+}
+
+// GetSelection returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Selection, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetSelection() *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection {
+	return v.Selection
+}
+
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition includes the requested fields of the GraphQL type CompiledPromptTagPosition.
+// The GraphQL type's documentation follows.
+//
+// One-based position of an include tag (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition struct {
+	Line   int `json:"line"`
+	Column int `json:"column"`
+}
+
+// GetLine returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition.Line, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition) GetLine() int {
+	return v.Line
+}
+
+// GetColumn returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition.Column, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition) GetColumn() int {
+	return v.Column
+}
+
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection includes the requested fields of the GraphQL type CompiledPromptSelection.
+// The GraphQL type's documentation follows.
+//
+// Effective include selection settings recorded by the compiler (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection struct {
+	Rev      *int `json:"rev"`
+	Approved bool `json:"approved"`
+	Signed   bool `json:"signed"`
+}
+
+// GetRev returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection.Rev, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection) GetRev() *int {
+	return v.Rev
+}
+
+// GetApproved returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection.Approved, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection) GetApproved() bool {
+	return v.Approved
+}
+
+// GetSigned returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection.Signed, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection) GetSigned() bool {
+	return v.Signed
+}
+
+// CompiledPromptProvenanceResponse is returned by CompiledPromptProvenance on success.
+type CompiledPromptProvenanceResponse struct {
+	// Recorded source revisions for exactly revNo of a compiled boot prompt (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+	// Uses the compiled node's read gate; denied, missing, deleted or noncompiled nodes return null.
+	// Provenance survives pruning; pruned marks absent revision text. Source status is null when unreadable.
+	// No source text is returned.
+	// Limit defaults to 20, clamps to 0..100; offset defaults to 0 and clamps negative values to 0.
+	// A missing or malformed provenance record is an integrity error, never an empty page.
+	CompiledPromptProvenance *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage `json:"compiledPromptProvenance"`
+}
+
+// GetCompiledPromptProvenance returns CompiledPromptProvenanceResponse.CompiledPromptProvenance, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceResponse) GetCompiledPromptProvenance() *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage {
+	return v.CompiledPromptProvenance
+}
+
 // CompleteAssetUploadCompleteAssetUploadAsset includes the requested fields of the GraphQL type Asset.
 type CompleteAssetUploadCompleteAssetUploadAsset struct {
 	Id string `json:"id"`
@@ -63894,6 +64083,26 @@ func (v *__CompileWorkerBootPromptInput) GetWorkerRef() string { return v.Worker
 // GetSetPointer returns __CompileWorkerBootPromptInput.SetPointer, and is useful for accessing the field via an interface.
 func (v *__CompileWorkerBootPromptInput) GetSetPointer() *bool { return v.SetPointer }
 
+// __CompiledPromptProvenanceInput is used internally by genqlient
+type __CompiledPromptProvenanceInput struct {
+	NodeRef string `json:"nodeRef"`
+	RevNo   int    `json:"revNo"`
+	Limit   int    `json:"limit"`
+	Offset  int    `json:"offset"`
+}
+
+// GetNodeRef returns __CompiledPromptProvenanceInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetNodeRef() string { return v.NodeRef }
+
+// GetRevNo returns __CompiledPromptProvenanceInput.RevNo, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetRevNo() int { return v.RevNo }
+
+// GetLimit returns __CompiledPromptProvenanceInput.Limit, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __CompiledPromptProvenanceInput.Offset, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetOffset() int { return v.Offset }
+
 // __CompleteAssetUploadInput is used internally by genqlient
 type __CompleteAssetUploadInput struct {
 	UploadId string `json:"uploadId"`
@@ -73049,6 +73258,72 @@ func CompileWorkerBootPrompt(
 	}
 
 	data_ = &CompileWorkerBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CompiledPromptProvenance.
+const CompiledPromptProvenance_Operation = `
+query CompiledPromptProvenance ($nodeRef: ID!, $revNo: Int!, $limit: Int!, $offset: Int!) {
+	compiledPromptProvenance(nodeRef: $nodeRef, revNo: $revNo, limit: $limit, offset: $offset) {
+		nodeId
+		revNo
+		contentHash
+		version
+		pruned
+		total
+		hasMore
+		items {
+			order
+			depth
+			parent
+			kind
+			nodeId
+			revNo
+			hash
+			replacesNodeId
+			pruned
+			position {
+				line
+				column
+			}
+			selection {
+				rev
+				approved
+				signed
+			}
+		}
+	}
+}
+`
+
+func CompiledPromptProvenance(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	revNo int,
+	limit int,
+	offset int,
+) (data_ *CompiledPromptProvenanceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompiledPromptProvenance",
+		Query:  CompiledPromptProvenance_Operation,
+		Variables: &__CompiledPromptProvenanceInput{
+			NodeRef: nodeRef,
+			RevNo:   revNo,
+			Limit:   limit,
+			Offset:  offset,
+		},
+	}
+
+	data_ = &CompiledPromptProvenanceResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
