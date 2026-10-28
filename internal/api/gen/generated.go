@@ -24788,6 +24788,132 @@ type GetMemoryResponse struct {
 // GetMemory returns GetMemoryResponse.Memory, and is useful for accessing the field via an interface.
 func (v *GetMemoryResponse) GetMemory() *GetMemoryMemory { return v.Memory }
 
+// GetNodeLintWarningsNode includes the requested fields of the GraphQL type Node.
+type GetNodeLintWarningsNode struct {
+	// #2048 (hrn:node:hadronmemory.com:specs:cor:agt:040:13) — link lint for a boot-prompt source: the warnings that hold for this node as it is now, read as the caller (a target the caller cannot read is a position-only BROKEN_INCLUDE). An empty page is a real answer; null means the warnings are unavailable (a fault, or a compiled boot prompt, whose warnings read its recorded provenance). Lint never blocks a write, and nothing is stored or pushed. Pages default to 50 and clamp at 100.
+	LintWarnings *GetNodeLintWarningsNodeLintWarningsLintWarningPage `json:"lintWarnings"`
+}
+
+// GetLintWarnings returns GetNodeLintWarningsNode.LintWarnings, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNode) GetLintWarnings() *GetNodeLintWarningsNodeLintWarningsLintWarningPage {
+	return v.LintWarnings
+}
+
+// GetNodeLintWarningsNodeLintWarningsLintWarningPage includes the requested fields of the GraphQL type LintWarningPage.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one page of warnings, ordered by position.
+type GetNodeLintWarningsNodeLintWarningsLintWarningPage struct {
+	Items []*GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning `json:"items"`
+	// All warnings that hold, not just this page.
+	Total int `json:"total"`
+	// Pass as after for the next page; null on the last.
+	NextCursor *string `json:"nextCursor"`
+}
+
+// GetItems returns GetNodeLintWarningsNodeLintWarningsLintWarningPage.Items, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPage) GetItems() []*GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning {
+	return v.Items
+}
+
+// GetTotal returns GetNodeLintWarningsNodeLintWarningsLintWarningPage.Total, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPage) GetTotal() int { return v.Total }
+
+// GetNextCursor returns GetNodeLintWarningsNodeLintWarningsLintWarningPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPage) GetNextCursor() *string {
+	return v.NextCursor
+}
+
+// GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning includes the requested fields of the GraphQL type LintWarning.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one link-lint warning. A fixed set of fields: there is no free-form detail.
+type GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning struct {
+	Kind LintKind `json:"kind"`
+	// 0-based offset of the include tag in the node's source text.
+	Position int    `json:"position"`
+	Text     string `json:"text"`
+	// The target's URN, only for a target the caller can read; null for BROKEN_INCLUDE.
+	TargetUrn *string `json:"targetUrn"`
+	// The revision the include pins, when it pins one.
+	PinnedRevision *int `json:"pinnedRevision"`
+	// The newest approved revision, for PINNED_NEWER_APPROVED.
+	NewerRevision *int `json:"newerRevision"`
+	// Reserved for the policy-agent override notice; null for source lint.
+	OverriddenNodeLoc *string `json:"overriddenNodeLoc"`
+	// For WORKER_LINK_MISSING, which stored field lacks the worker link: signature or trailer. Null otherwise.
+	WorkerField *string `json:"workerField"`
+}
+
+// GetKind returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.Kind, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetKind() LintKind {
+	return v.Kind
+}
+
+// GetPosition returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.Position, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetPosition() int {
+	return v.Position
+}
+
+// GetText returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.Text, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetText() string {
+	return v.Text
+}
+
+// GetTargetUrn returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.TargetUrn, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetTargetUrn() *string {
+	return v.TargetUrn
+}
+
+// GetPinnedRevision returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.PinnedRevision, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetPinnedRevision() *int {
+	return v.PinnedRevision
+}
+
+// GetNewerRevision returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.NewerRevision, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetNewerRevision() *int {
+	return v.NewerRevision
+}
+
+// GetOverriddenNodeLoc returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.OverriddenNodeLoc, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetOverriddenNodeLoc() *string {
+	return v.OverriddenNodeLoc
+}
+
+// GetWorkerField returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.WorkerField, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetWorkerField() *string {
+	return v.WorkerField
+}
+
+// GetNodeLintWarningsResponse is returned by GetNodeLintWarnings on success.
+type GetNodeLintWarningsResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Node *GetNodeLintWarningsNode `json:"node"`
+}
+
+// GetNode returns GetNodeLintWarningsResponse.Node, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsResponse) GetNode() *GetNodeLintWarningsNode { return v.Node }
+
 // GetNodeNode includes the requested fields of the GraphQL type Node.
 type GetNodeNode struct {
 	Id string `json:"id"`
@@ -28601,6 +28727,33 @@ type LinkMemoryToUserResponse struct {
 // GetLinkMemoryToUser returns LinkMemoryToUserResponse.LinkMemoryToUser, and is useful for accessing the field via an interface.
 func (v *LinkMemoryToUserResponse) GetLinkMemoryToUser() *LinkMemoryToUserLinkMemoryToUserMemory {
 	return v.LinkMemoryToUser
+}
+
+// #2048 (hrn:node:hadronmemory.com:specs:cor:agt:040:13) — what link lint warns about.
+type LintKind string
+
+const (
+	// The target is missing or the caller cannot read it. Position only: it never says which, or anything about the target.
+	LintKindBrokenInclude LintKind = "BROKEN_INCLUDE"
+	// The target is readable but has no revision that meets the include's settings (approved and/or rev=N).
+	LintKindNoQualifyingRevision LintKind = "NO_QUALIFYING_REVISION"
+	// The include pins a revision and a newer revision is approved.
+	LintKindPinnedNewerApproved LintKind = "PINNED_NEWER_APPROVED"
+	// The include's target is soft-deleted (hrn:node:hadronmemory.com:specs:cor:agt:040:13, R20 A).
+	LintKindRetiredTarget LintKind = "RETIRED_TARGET"
+	// The include says signed; signing is not checked yet.
+	LintKindSigningNotChecked LintKind = "SIGNING_NOT_CHECKED"
+	// A worker's signature or trailer does not carry the worker link (hrn:node:hadronmemory.com:specs:cor:agt:040:04 S3). workerField names which.
+	LintKindWorkerLinkMissing LintKind = "WORKER_LINK_MISSING"
+)
+
+var AllLintKind = []LintKind{
+	LintKindBrokenInclude,
+	LintKindNoQualifyingRevision,
+	LintKindPinnedNewerApproved,
+	LintKindRetiredTarget,
+	LintKindSigningNotChecked,
+	LintKindWorkerLinkMissing,
 }
 
 // ListTickersResponse is returned by ListTickers on success.
@@ -65495,6 +65648,18 @@ type __GetNodeInput struct {
 // GetRef returns __GetNodeInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetNodeInput) GetRef() string { return v.Ref }
 
+// __GetNodeLintWarningsInput is used internally by genqlient
+type __GetNodeLintWarningsInput struct {
+	Ref   string  `json:"ref"`
+	After *string `json:"after"`
+}
+
+// GetRef returns __GetNodeLintWarningsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetNodeLintWarningsInput) GetRef() string { return v.Ref }
+
+// GetAfter returns __GetNodeLintWarningsInput.After, and is useful for accessing the field via an interface.
+func (v *__GetNodeLintWarningsInput) GetAfter() *string { return v.After }
+
 // __GetNodeRawInput is used internally by genqlient
 type __GetNodeRawInput struct {
 	Ref string `json:"ref"`
@@ -78054,6 +78219,56 @@ func GetNode(
 	}
 
 	data_ = &GetNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetNodeLintWarnings.
+const GetNodeLintWarnings_Operation = `
+query GetNodeLintWarnings ($ref: ID!, $after: String) {
+	node(ref: $ref) {
+		lintWarnings(first: 100, after: $after) {
+			items {
+				kind
+				position
+				text
+				targetUrn
+				pinnedRevision
+				newerRevision
+				overriddenNodeLoc
+				workerField
+			}
+			total
+			nextCursor
+		}
+	}
+}
+`
+
+// Explicit opt-in only: keep server-new lint fields out of ordinary documents.
+func GetNodeLintWarnings(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	after *string,
+) (data_ *GetNodeLintWarningsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetNodeLintWarnings",
+		Query:  GetNodeLintWarnings_Operation,
+		Variables: &__GetNodeLintWarningsInput{
+			Ref:   ref,
+			After: after,
+		},
+	}
+
+	data_ = &GetNodeLintWarningsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

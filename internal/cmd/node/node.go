@@ -17,8 +17,9 @@ import (
 // because only the surfaces that select `urn` populate it (move/clone, and
 // since #515 `node get`); others leave the key out rather than emit "".
 type nodeDTO struct {
-	ID  string `json:"id"`
-	URN string `json:"urn,omitempty"`
+	LintWarnings **lintWarningPageDTO `json:"lintWarnings,omitempty"`
+	ID           string               `json:"id"`
+	URN          string               `json:"urn,omitempty"`
 	// PortalURL is the server-built link that opens this node
 	// (hadron-server#881, cor:api:230:01) — the one to COPY when citing a node
 	// to a human, rather than assembling <origin>/app/u/<urn> yourself, which

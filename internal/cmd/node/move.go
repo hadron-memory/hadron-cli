@@ -68,7 +68,8 @@ the move is in flight.`,
 				return api.MapError(err)
 			}
 			dto := moveDTO(resp.MoveNode)
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			dto.LintWarnings = loadLintWarnings(cmd, client, dto.ID)
+			return writeWithLint(f, dto, dto.LintWarnings, func(w io.Writer) error {
 				t := output.NewTable(w)
 				t.Row("✓ moved", output.SafeCell("to: "+dto.URN))
 				return t.Flush()
@@ -78,6 +79,7 @@ the move is in flight.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> source against")
 	cmd.Flags().StringVar(&toURN, "to-urn", "", "destination node URN hrn:node:<root>:<slug>:<loc> (new memory and/or loc)")
 	cmd.Flags().StringVar(&toMemory, "to-memory", "", "destination memory (hrn:mem:<root>:<slug>); keeps the current loc")
+	enableLintWarnings(cmd)
 	return cmd
 }
 

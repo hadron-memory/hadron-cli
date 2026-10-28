@@ -57,7 +57,8 @@ already occupies the destination loc.`,
 				return api.MapError(err)
 			}
 			dto := cloneDTO(resp.CloneNode)
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			dto.LintWarnings = loadLintWarnings(cmd, client, dto.ID)
+			return writeWithLint(f, dto, dto.LintWarnings, func(w io.Writer) error {
 				t := output.NewTable(w)
 				t.Row("✓ cloned", output.SafeCell("to: "+dto.URN))
 				return t.Flush()
@@ -67,6 +68,7 @@ already occupies the destination loc.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> source against")
 	cmd.Flags().StringVar(&toURN, "to-urn", "", "destination node URN hrn:node:<root>:<slug>:<loc> (new memory and/or loc)")
 	cmd.Flags().StringVar(&toMemory, "to-memory", "", "destination memory (hrn:mem:<root>:<slug>); keeps the source's loc")
+	enableLintWarnings(cmd)
 	return cmd
 }
 

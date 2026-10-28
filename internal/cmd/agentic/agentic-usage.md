@@ -3736,6 +3736,10 @@ retry is made, including after a conflict.
 
 hadron team worker compile <worker> [--no-set-pointer]
 
+## Opt-in node source-lint warnings (#916 C3c)
+
+`node get|add|update|approve|move|clone|merge|restore --lint-warnings` adds a separate current advisory read, paged completely. JSON omits `lintWarnings` by default, returns null when the requested warning read is unavailable (including older/denied providers), or `{items,total,nextCursor:null}` when complete. Human warning text is terminal-safe; JSON preserves server text/nullable fields. A failed warning read never retries or changes a successful mutation; it reports no conclusion, not zero warnings. This is not a snapshot of the authored revision. Excludes actual --body-only/--dry-run. Advisory reads share a five-second budget across the command, including every batch-get node; timeout leaves the main receipt successful with warning state unavailable. Main response-extension warnings are unchanged; this flag controls only the extra source-lint read.
+
 ## Skill include lint (#916 C5)
 
 `skill lint` also asks the S11d provider for `skill-include-broken` warnings, using LINT plans for the explicit selected memories and filtering exact selected node IDs. Warnings preserve the provider message and remain exit0 (`--strict` promotes to5). Literal notice text alone is never interpreted as a broken include. A failed/unavailable provider plan returns an error, not a clean lint. Existing local rules and selectors remain, no rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
