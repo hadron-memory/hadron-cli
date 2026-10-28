@@ -40,6 +40,7 @@ func newCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdAgentAdd(f))
 	cmd.AddCommand(newCmdAgentRemove(f))
 	cmd.AddCommand(newCmdAgentSetBootPrompt(f))
+	cmd.AddCommand(newCmdAgentCustomize(f))
 	cmd.AddCommand(bootcompile.NewAppAgent(f))
 	return cmd
 }

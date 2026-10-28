@@ -38,3 +38,8 @@ plans, exact LINT/memory/host inputs, no body field, stable-ID grouping and
 preserved corpus rules. Existing export tests characterize unchanged renderer
 I/O; independent server/CLI warning and resolved-export QA remains owed. Author
 uses fake transport only, no stack or production claim. Separate PR/Refs916.
+
+Main C7 7d5a0e7 merged without rebase, help tree regenerated. Provider include
+bridge code/tests are unchanged by integration. Help now distinguishes literal
+ordinary variables from resolved include tags; the old pure finding-message
+copy/parity cleanup is deferred to #1166, no policy/message change here.
