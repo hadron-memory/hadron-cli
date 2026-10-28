@@ -57,3 +57,13 @@ func TestC3cBodyOnlyAndDryRunRefuseBeforeRequests(t *testing.T) {
 		}
 	}
 }
+
+func TestC3cNullItemsAreUnavailableNotClean(t *testing.T) {
+	calls, out, err := runTeamTask(t, c3Responses(`{"items":null,"total":0,"nextCursor":null}`), "node", "add", "-m", "mem1", "--loc", "x", "--name", "X", "--lint-warnings", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 2 || !strings.Contains(out, `"lintWarnings": null`) {
+		t.Fatalf("malformed null items forged clean: %v %s", *calls, out)
+	}
+}
