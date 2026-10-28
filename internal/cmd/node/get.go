@@ -211,7 +211,7 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the stored body of one node, byte for byte — the read to edit from (implies --raw; alias: --content-only)")
 	// The spelling `spec get` already accepts (#99 item 5).
 	cmdutil.WithFlagAliases(cmd, map[string]string{"content-only": "body-only"})
-	enableLintWarnings(cmd)
+	enableLintWarnings(cmd, "--body-only")
 	return cmd
 }
 

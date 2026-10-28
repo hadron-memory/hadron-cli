@@ -488,7 +488,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 	cmd.Flags().IntVar(&expectedRevision, "expected-revision", 0, "require the supplied live revision (1-2147483647); omit for last-write-wins; unavailable with data merge")
 	cmd.Flags().StringVar(&reason, "reason", "", "why this change was made (recorded in version history)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
-	enableLintWarnings(cmd)
+	enableLintWarnings(cmd, "--dry-run")
 	return cmd
 }
 

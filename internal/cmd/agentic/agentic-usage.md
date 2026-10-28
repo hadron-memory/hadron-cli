@@ -3710,3 +3710,7 @@ check the compiled node with `node get` before compiling again. No automatic
 retry is made, including after a conflict.
 
 hadron team worker compile <worker> [--no-set-pointer]
+
+## Opt-in node source-lint warnings (#916 C3c)
+
+`node get|add|update|approve|move|clone|merge|restore --lint-warnings` adds a separate current advisory read, paged completely. JSON omits `lintWarnings` by default, returns null when the requested warning read is unavailable (including older/denied providers), or `{items,total,nextCursor:null}` when complete. Human warning text is terminal-safe; JSON preserves server text/nullable fields. A failed warning read never retries or changes a successful mutation; it reports no conclusion, not zero warnings. This is not a snapshot of the authored revision. Excludes actual --body-only/--dry-run. Main response-extension warnings are unchanged; this flag controls only the extra source-lint read.

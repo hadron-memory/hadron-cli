@@ -138,3 +138,54 @@ func TestC3cUnsuccessfulWriteDoesNotReadLintAndFalseFlagIsOff(t *testing.T) {
 		t.Fatalf("explicit false is not opt-in: %v %v %s", err, *calls, out)
 	}
 }
+
+func TestC3cNativeInstallCreateKeepsSelectorAndAddsOnlyRead(t *testing.T) {
+	calls, _, err := runTeamTask(t, c3Responses(`{"items":[],"total":0,"nextCursor":null}`), "node", "add", "--install", c7Install, "--loc", "x", "--name", "X", "--lint-warnings", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := c2Mutation(t, calls, "CreateNode")
+	input := c.Vars["input"].(map[string]any)
+	if input["install"] == nil || input["memoryId"] != nil || len(*calls) != 2 || (*calls)[1].Op != "GetNodeLintWarnings" {
+		t.Fatalf("native selector dropped or extra write: %v", *calls)
+	}
+}
+
+func TestC3cApprovalReceiptCurrentReadIsAdvisory(t *testing.T) {
+	responses := c3Responses("null")
+	responses["ResolveUrn"] = `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`
+	responses["ApproveNode"] = `{"data":{"approveNode":{"nodeId":"n1","urn":"hrn:node:acme.com:kb:x","loc":"x","approval":{"revision":4,"approvedAt":"2026-10-01T23:00:00Z","approvedBy":{"handle":"ada","urn":"hrn:user:ada"},"approvedByInfo":null,"hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}}`
+	calls, out, err := runTeamTask(t, responses, "node", "approve", "hrn:node:acme.com:kb:x", "--revision", "4", "--lint-warnings", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 3 || (*calls)[1].Op != "ApproveNode" || (*calls)[2].Op != "GetNodeLintWarnings" || (*calls)[2].Vars["ref"] != "n1" || !strings.Contains(out, `"revision": 4`) || !strings.Contains(out, `"lintWarnings": null`) {
+		t.Fatalf("approval changed or not advisory: %v %s", *calls, out)
+	}
+}
+
+func TestC3cGetIsOptInAndHumanTextIsSafe(t *testing.T) {
+	responses := bodyOnlyStubs("stored source")
+	responses["GetNodeLintWarnings"] = c3WarningEnvelope(`{"items":[{"kind":"BROKEN_INCLUDE","position":3,"text":"line1\nline2\u001b[31m","targetUrn":null,"pinnedRevision":null,"newerRevision":null,"overriddenNodeLoc":null,"workerField":null}],"total":1,"nextCursor":null}`)
+	out, _, captured, err := runNode(t, responses, "", "node", "get", testNodeURN, "--raw", "--lint-warnings", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := captured["GetNodeLintWarnings"]; !ok || !strings.Contains(out, `line1\nline2\u001b[31m`) {
+		t.Fatalf("get warning missing or JSON changed: %s %v", out, captured)
+	}
+	out, _, captured, err = runNode(t, responses, "", "node", "get", testNodeURN, "--raw", "--lint-warnings=false", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := captured["GetNodeLintWarnings"]; ok || strings.Contains(out, `"lintWarnings"`) {
+		t.Fatalf("get default changed: %s %v", out, captured)
+	}
+	_, human, err := runTeamTask(t, c3Responses(`{"items":[{"kind":"BROKEN_INCLUDE","position":3,"text":"line1\nline2\u001b[31m","targetUrn":null,"pinnedRevision":null,"newerRevision":null,"overriddenNodeLoc":null,"workerField":null}],"total":1,"nextCursor":null}`), "node", "add", "-m", "mem1", "--loc", "x", "--name", "X", "--lint-warnings")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(human, "\x1b") || strings.Contains(human, "line1\nline2") || !strings.Contains(human, "line1 line2") {
+		t.Fatalf("unsafe human warning: %q", human)
+	}
+}

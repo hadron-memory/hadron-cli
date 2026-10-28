@@ -3,6 +3,7 @@ package node
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -27,9 +28,16 @@ type lintWarningPageDTO struct {
 	NextCursor *string          `json:"nextCursor"`
 }
 
-func enableLintWarnings(cmd *cobra.Command) {
-	cmd.Flags().Bool("lint-warnings", false, "read all current source-lint warnings after success (advisory; unavailable stays null; excludes --body-only and --dry-run)")
-	cmd.Long += "\n\n--lint-warnings opts into a separate, paginated source-lint read after success.\nIt reports warnings as they hold now, not a snapshot of the authored/read revision.\nThe JSON lintWarnings page is null when unavailable (including an older server),\notherwise {items,total,nextCursor:null}. Without the flag the field and extra\nread are absent. Lint never blocks a successful write or retries it. Empty items\nis a real no-warning answer. Human warning text is terminal-safe; JSON retains\nthe server's exact text. This option excludes --body-only and --dry-run."
+func enableLintWarnings(cmd *cobra.Command, incompatible ...string) {
+	usage := "read all current source-lint warnings after success (advisory; unavailable stays null)"
+	if len(incompatible) > 0 {
+		usage += "; excludes " + strings.Join(incompatible, " and ")
+	}
+	cmd.Flags().Bool("lint-warnings", false, usage)
+	cmd.Long += "\n\n--lint-warnings opts into a separate, paginated source-lint read after success.\nIt reports warnings as they hold now, not a snapshot of the authored/read revision.\nThe JSON lintWarnings page is null when unavailable (including an older server),\notherwise {items,total,nextCursor:null}. Without the flag the field and extra\nread are absent. Lint never blocks a successful write or retries it. Empty items\nis a real no-warning answer. Human warning text is terminal-safe; JSON retains\nthe server's exact text."
+	if len(incompatible) > 0 {
+		cmd.Long += " This option excludes " + strings.Join(incompatible, " and ") + "."
+	}
 }
 
 func wantsLintWarnings(cmd *cobra.Command) bool {
