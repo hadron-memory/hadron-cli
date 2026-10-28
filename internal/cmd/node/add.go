@@ -18,6 +18,7 @@ import (
 func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 	var (
 		memory         string
+		install        string
 		loc            string
 		name           string
 		content        string
@@ -42,6 +43,15 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		Long: `Create a node in a memory. Fails if a node already exists at the
 loc (use ` + "`hadron node update`" + ` to modify an existing node).
 
+--install <app>/<agent> selects an App's customisation memory instead of
+--memory. Both refs must be ids or fully-qualified URNs, separated by /.
+This excludes --memory (even an empty value). Reads create nothing; an
+unavailable memory is exit 4, not an unscoped read. Only an App manager may
+write while the App is live and the Agent installed. Metadata visibility
+does not confer permission to read content or write. The first add lets
+the server create the memory atomically with the node; a refused write leaves
+nothing behind.
+
 --content takes the content inline, or "-" to read it from standard
 input; --content-file reads it from a file ("-" reads piped stdin too).
 
@@ -60,6 +70,13 @@ schema and rejects a violation.`,
   cat finding.md | hadron node add -m hrn:mem:acme.com:kb --loc findings:flaky-ci --name "Flaky CI" --content -`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			target, err := installTarget(cmd, install, []string{loc})
+			if err != nil {
+				return err
+			}
+			if target == nil && strings.TrimSpace(memory) == "" {
+				return exitcode.Newf(exitcode.Usage, "pass --memory or --install to name the target memory")
+			}
 			if err := cmdutil.ValidateURNPath("--loc", loc); err != nil {
 				return err
 			}
@@ -75,6 +92,7 @@ schema and rejects a violation.`,
 
 			input := gen.CreateNodeInput{
 				MemoryId: memory,
+				Install:  target,
 				Loc:      loc,
 				Name:     name,
 				Tags:     tags,
@@ -158,7 +176,8 @@ schema and rejects a violation.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (or --install)")
+	cmd.Flags().StringVar(&install, "install", "", installFlagHelp)
 	cmd.Flags().StringVar(&loc, "loc", "", "node location within the memory (required)")
 	cmd.Flags().StringVar(&name, "name", "", "node name (required)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `node content ("-" reads stdin)`)
@@ -177,7 +196,8 @@ schema and rejects a violation.`,
 		`what this node is FOR (#1201) — "spec"/"spec.*" and "review"/"review.*" route through their governed doors; blank or whitespace means no role. NOT --type (the platform kind) and NOT a membership role`)
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run'")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable)")
-	_ = cmd.MarkFlagRequired("memory")
+	cmd.MarkFlagsOneRequired("memory", "install")
+	cmd.MarkFlagsMutuallyExclusive("memory", "install")
 	_ = cmd.MarkFlagRequired("loc")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
