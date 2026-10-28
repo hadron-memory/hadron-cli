@@ -15921,7 +15921,7 @@ type CreateAgentTaskInput struct {
 	Owner        *AgentTaskPartyInput `json:"owner,omitempty"`
 	ParentTaskId *string              `json:"parentTaskId"`
 	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
-	Project      *bool                       `json:"project"`
+	Project      *bool                       `json:"project,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
 	Source       *string                     `json:"source"`
 	StartBy      *string                     `json:"startBy"`
@@ -68937,6 +68937,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // and inherited from the parent for a child. Optional party/requirements
 // inputs are omitempty so a nil pointer is OMITTED (preserve/default), never
 // sent as null — the wire-semantics rule from CLAUDE.md.
+// Schema-only optional fields must stay absent for older providers.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,
