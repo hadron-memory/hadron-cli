@@ -251,8 +251,25 @@ func TestTeamWorkerCastSingleSelectorsStillCast(t *testing.T) {
 		if err := root.Execute(); err != nil {
 			t.Fatalf("%v: execute: %v", sel, err)
 		}
-		if _, ok := captured["CastWorker"]; !ok {
-			t.Errorf("%v: the cast must reach the server", sel)
+		raw, ok := captured["CastWorker"]
+		if !ok {
+			t.Fatalf("%v: the cast must reach the server", sel)
+		}
+		// The supplied selector is what was sent, and the other is OMITTED
+		// (omitempty), not sent as null — null would mean "clear" on the wire.
+		var vars map[string]any
+		if err := json.Unmarshal(raw, &vars); err != nil {
+			t.Fatalf("%v: decode request: %v", sel, err)
+		}
+		sent, other := "role", "agentRef"
+		if sel[0] == "--agent" {
+			sent, other = other, sent
+		}
+		if vars[sent] != sel[1] {
+			t.Errorf("%v: %s = %v, want %q", sel, sent, vars[sent], sel[1])
+		}
+		if v, present := vars[other]; present {
+			t.Errorf("%v: %s must be omitted, got %v", sel, other, v)
 		}
 	}
 }

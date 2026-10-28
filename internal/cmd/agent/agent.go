@@ -12,6 +12,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/bootcompile"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -124,6 +125,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdAgentProcesses(f))
 	cmd.AddCommand(newCmdAgentSetBase(f))
 	cmd.AddCommand(newCmdAgentSetBootPrompt(f))
+	cmd.AddCommand(bootcompile.NewAgent(f))
 	return cmd
 }
 
