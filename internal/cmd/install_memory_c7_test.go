@@ -89,3 +89,76 @@ func TestC7InvalidInstallSelectorsMakeNoRequests(t *testing.T) {
 		})
 	}
 }
+
+func TestC7ExistingMemoryReadAndUpdateSelectors(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		op   string
+	}{
+		{"get", []string{"node", "get", "custom", "--body-only"}, "GetNodeRaw"},
+		{"list", []string{"node", "list", "--json"}, "FindNodes"},
+		{"update", []string{"node", "update", "custom", "--name", "Changed"}, "UpdateNode"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			responses := bodyOnlyStubs("stored text")
+			responses["InstallMemory"] = c7MemoryResponse
+			responses["FindNodes"] = `{"data":{"nodes":[]}}`
+			calls, _, err := runTeamTask(t, responses, append(tc.args, "--install", c7Install)...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c2Mutation(t, calls, "InstallMemory")
+			c := c2Mutation(t, calls, tc.op)
+			if tc.name == "list" {
+				filter, ok := c.Vars["filter"].(map[string]any)
+				if !ok || !strings.Contains(stringMustJSON(t, filter["memoryIds"]), c7MemoryURN) {
+					t.Fatalf("unscoped list %s", c.RawVars)
+				}
+			} else {
+				resolve := c2Mutation(t, calls, "ResolveUrn")
+				if resolve.Vars["urn"] != "hrn:node:acme.com:eng-team-support-bot:custom" {
+					t.Fatalf("wrong node resolved %s", resolve.RawVars)
+				}
+			}
+			if tc.name == "update" {
+				input := c.Vars["input"].(map[string]any)
+				if _, has := input["id"]; has {
+					t.Fatalf("install selector must not send id %s", c.RawVars)
+				}
+				if _, has := input["memoryId"]; has {
+					t.Fatalf("install selector must not send memoryId %s", c.RawVars)
+				}
+				if input["loc"] != "custom" || input["install"] == nil {
+					t.Fatalf("missing native install/loc selector %s", c.RawVars)
+				}
+			}
+		})
+	}
+}
+
+func stringMustJSON(t *testing.T, value any) string {
+	t.Helper()
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
+}
+
+func TestC7NativeWriteRefusalsArePreserved(t *testing.T) {
+	for code, want := range map[string]int{"FORBIDDEN": 8, "AGENT_NOT_INSTALLED": 2, "INSTALL_MEMORY_NOT_FOUND": 4, "INSTALL_TARGET_CHANGED": 5, "BAD_USER_INPUT": 2} {
+		t.Run(code, func(t *testing.T) {
+			responses := map[string]string{"CreateNode": `{"errors":[{"message":"concealed install refusal","extensions":{"code":"` + code + `"}}]}`}
+			calls, _, err := runTeamTask(t, responses, "node", "add", "--install", c7Install, "--loc", "x", "--name", "X")
+			if exitCodeFor(err) != want || err.Error() != "concealed install refusal" {
+				t.Fatalf("wrong refusal: %v", err)
+			}
+			c2Mutation(t, calls, "CreateNode")
+			if len(*calls) != 1 {
+				t.Fatalf("refusal must not retry/create elsewhere: %v", *calls)
+			}
+		})
+	}
+}

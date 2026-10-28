@@ -21,6 +21,7 @@ import (
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var (
 		memory           string
+		install          string
 		name             string
 		content          string
 		contentFile      string
@@ -45,12 +46,19 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		tags             []string
 	)
 	cmd := &cobra.Command{
-		Use:   "update <node-urn> | <loc> -m <memory>",
+		Use:   "update <node-urn> | <loc> (-m <memory> | --install <app>/<agent>)",
 		Short: "Update a node",
 		Long: `Update an existing node by its fully-qualified URN
 (hrn:node:<root>:<slug>:<loc>), or by a bare <loc> with -m/--memory. Only the
 fields you pass change; everything else is preserved (pass an explicit
 empty string, e.g. --description "", to clear a field).
+
+--install <app>/<agent> selects an App's customisation memory instead of
+--memory. Both refs must be ids or fully-qualified URNs, separated by /.
+This excludes --memory (even an empty value). Reads create nothing; an
+unavailable memory is exit 4, not an unscoped read. Only an App manager may
+write while the App is live and the Agent installed. Metadata visibility
+does not confer permission to read content or write. Get/update take bare locs inside that memory, not separate node ids or URNs.
 
 The data bag can be written two ways:
 
@@ -112,6 +120,10 @@ schema-governed memory the server validates the result and rejects a violation.)
   hadron node update hrn:node:acme.com:kb:findings:flaky-ci --data-merge '{"status":"closed"}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			target, err := installTarget(cmd, install, args)
+			if err != nil {
+				return err
+			}
 			changed := cmd.Flags().Changed
 			clearRole := changed("role") && strings.TrimSpace(role) == ""
 			replaceData := changed("data") || changed("data-file")
@@ -234,6 +246,12 @@ schema-governed memory the server validates the result and rejects a violation.)
 			// updateNode targets `id` XOR (memoryId, loc) and preserves every
 			// omitted field — name included — so no full-node pre-fetch is
 			// needed anymore.
+			if target != nil {
+				memory, err = cmdutil.InstallMemoryRef(cmd.Context(), client, target)
+				if err != nil {
+					return err
+				}
+			}
 			nodeID, err := cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
 			if err != nil {
 				return err
@@ -289,6 +307,11 @@ schema-governed memory the server validates the result and rejects a violation.)
 
 				input := gen.UpdateNodeInput{
 					Id: &nodeID,
+				}
+				if target != nil {
+					input.Id = nil
+					input.Install = target
+					input.Loc = &args[0]
 				}
 				if changed("expected-revision") {
 					input.ExpectedRevision = &expectedRevision
@@ -424,6 +447,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 			})
 		},
 	}
+	cmd.Flags().StringVar(&install, "install", "", installFlagHelp)
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&name, "name", "", "new node name")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `new content ("-" reads stdin)`)

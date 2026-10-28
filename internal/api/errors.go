@@ -746,6 +746,11 @@ func DescendantCount(err error) int {
 
 func codeForExtension(code string) int {
 	switch {
+	// Install-memory target ownership changed while the native write acquired
+	// its locks: a state conflict, never a request to retry automatically.
+	case code == "INSTALL_TARGET_CHANGED":
+		return exitcode.Conflict
+
 	// S1/R57 self delivery: stale session/proof requires a fresh binding/read.
 	case code == "WAKE_PROOF_STALE":
 		return exitcode.Conflict

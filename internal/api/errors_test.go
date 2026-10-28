@@ -54,6 +54,7 @@ func TestMapError(t *testing.T) {
 		want int
 	}{
 		{"nil", nil, exitcode.OK},
+		{"install target changed", gqlErr("INSTALL_TARGET_CHANGED"), exitcode.Conflict},
 		{"delivery range", gqlErr("DELIVERY_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
 		{"delivery relation", gqlErr("DELIVERY_SETTINGS_CONFLICT"), exitcode.Usage},
 		{"ticker settings range", gqlErr("TICKER_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
