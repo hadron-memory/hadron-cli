@@ -70,7 +70,7 @@ type castPreviewDTO struct {
 	AgentID            string  `json:"agentId"`
 	AgentName          string  `json:"agentName"`
 	Prompt             *string `json:"prompt"`
-	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"`
+	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"` // Retired S12 probe; retained as null for JSON compatibility.
 	Reserved           bool    `json:"reserved"`
 }
 
@@ -237,13 +237,10 @@ context).`,
 				p := preview.CastWorkerPreview
 				dto := castPreviewDTO{
 					Name: p.Name, Role: p.Role, AgentID: p.AgentId, AgentName: p.AgentName,
-					Prompt: p.Prompt, HasNamePlaceholder: p.HasNamePlaceholder,
+					Prompt: p.Prompt,
 				}
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					fmt.Fprintf(w, "would cast %s%s — agent %s (%s)\n", dto.Name, roleSuffix(dto.Role), dto.AgentName, dto.AgentID)
-					if dto.HasNamePlaceholder != nil && !*dto.HasNamePlaceholder {
-						fmt.Fprintf(w, "  ! the agent's prompt template never binds {{name}} — this worker would be nameless in its own briefing\n")
-					}
 					if dto.Prompt != nil && *dto.Prompt != "" {
 						fmt.Fprintf(w, "\n%s\n", *dto.Prompt)
 					}

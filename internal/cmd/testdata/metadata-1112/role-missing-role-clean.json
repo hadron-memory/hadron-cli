@@ -7,7 +7,7 @@
     "roleAgentId": "agt1",
     "roleAgentUrn": "hrn:agent:acme.com:backend",
     "roleAgentName": "backend-engineer",
-    "hasNamePlaceholder": true
+    "hasNamePlaceholder": null
   },
   {
     "role": "fixture",
@@ -17,6 +17,6 @@
     "roleAgentId": null,
     "roleAgentUrn": null,
     "roleAgentName": null,
-    "hasNamePlaceholder": false
+    "hasNamePlaceholder": null
   }
 ]
