@@ -291,17 +291,68 @@ func TestTeamTaskCreateProjectHelp1131(t *testing.T) {
 }
 
 // The server's refusal for a bare handle held by several Apps keeps its code
-// and meaning. Server error text is not sanitised CLI-wide today (a global
-// property of the error path, unchanged here), so this pins preservation only.
-func TestTeamTaskQualifyRefusalIsPreserved1131(t *testing.T) {
+// and meaning, and its text reaches the REAL error sink terminal-safe: the
+// refusal quotes a server-supplied handle, so ESC, bidi and newlines are
+// neutralised and the length bounded (the --json envelope keeps the original).
+func TestTeamTaskQualifyRefusalIsSafeAtTheRealSink1131(t *testing.T) {
 	r := handleResponses1131("AT3.405")
-	r["AgentTaskGet"] = `{"errors":[{"message":"Qualify the handle \u001b[31mas hrn:agenttask:<app-urn>:AT3.405","extensions":{"code":"TASK_HANDLE_QUALIFY"}}]}`
-	_, out, err := runTeamTask(t, r, "team", "task", "get", "AT3.405")
+	hostile := "Qualify the handle \u001b[31m\u202e\nFORGED as hrn:agenttask:<app-urn>:AT3.405" + strings.Repeat("x", 1000)
+	msg, _ := json.Marshal(hostile)
+	r["AgentTaskGet"] = `{"errors":[{"message":` + string(msg) + `,"extensions":{"code":"TASK_HANDLE_QUALIFY"}}]}`
+	writeTeamBinding(t)
+	srv, _ := attnServer(t, r)
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "task", "get", "AT3.405"})
+	err := root.Execute()
 	if err == nil {
-		t.Fatalf("a refusal must fail: %q", out)
+		t.Fatal("a refusal must fail")
 	}
 	if !strings.Contains(err.Error(), "Qualify the handle") || !strings.Contains(err.Error(), "AT3.405") {
 		t.Fatalf("refusal meaning lost: %q", err.Error())
+	}
+	renderError(f, err)
+	got := f.IOStreams.ErrOut.(*strings.Builder).String()
+	for _, bad := range []string{"\x1b", "\u202e", "\nFORGED"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("control %q reached the terminal: %q", bad, got)
+		}
+	}
+	if n := len([]rune(got)); n > 1100 {
+		t.Fatalf("refusal not length-bounded: %d runes", n)
+	}
+	if strings.Count(got, "\n") != 1 {
+		t.Fatalf("refusal must be one line: %q", got)
+	}
+}
+
+// A server that lacks the handle fields rejects the whole operation, so no
+// fallback is possible: the command refuses with the schema-skew line naming
+// the server as the side to update (a real unknown-field response).
+func TestTeamTaskUnknownHandleFieldIsASkewRefusal1131(t *testing.T) {
+	r := taskResponses()
+	r["AgentTaskGet"] = `{"errors":[{"message":"Cannot query field \"handle\" on type \"AgentTask\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	_, out, err := runTeamTask(t, r, "team", "task", "get", "task1")
+	if err == nil {
+		t.Fatalf("an unknown-field response must fail: %q", out)
+	}
+	if !strings.Contains(err.Error(), "out of sync") || !strings.Contains(err.Error(), "handle") {
+		t.Fatalf("skew refusal not actionable: %q", err.Error())
+	}
+}
+
+// With no handle anywhere the tables keep the columns they had; with one, the
+// HANDLE column leads.
+func TestTeamTaskTablesOmitHandleColumnWhenNoHandles1131(t *testing.T) {
+	for _, argv := range [][]string{{"team", "task", "list"}, {"team", "task", "mine"}, {"team", "task", "team"}} {
+		_, out, err := runTeamTask(t, taskResponses(), argv...)
+		if err != nil {
+			t.Fatalf("%v: %v", argv, err)
+		}
+		if strings.Contains(out, "HANDLE") {
+			t.Errorf("%v: HANDLE column shown with no handles:\n%s", argv, out)
+		}
 	}
 }
 

@@ -19,7 +19,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -162,7 +161,7 @@ func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string) ([]tas
 		offset := page * limit
 		resp, err := gen.AgentTaskList(ctx, client, appRef, nil, &limit, &offset, nil, nil, nil, nil, nil, nil)
 		if err != nil {
-			return nil, api.MapError(err)
+			return nil, mapTaskError(err)
 		}
 		added := 0
 		for _, t := range resp.AgentTasks {
@@ -215,7 +214,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 	}
 	roster, err := gen.TeamReportingLines(ctx, client, scope.Ref)
 	if err != nil {
-		return api.MapError(err)
+		return mapTaskError(err)
 	}
 	workers := []rosterWorker{}
 	for _, w := range roster.TeamRoster.Workers {
@@ -354,10 +353,14 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		if q.tree {
 			return renderTeamTree(w, dto.Tasks)
 		}
-		t := output.NewTable(w, "HANDLE", "ID", "STATUS", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")
+		withHandle := false
 		for _, task := range dto.Tasks {
-			t.Row(taskHandleCell(task.Handle), output.SafeCell(task.ID), output.SafeCell(task.Status), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
-				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms)))
+			withHandle = withHandle || task.Handle != ""
+		}
+		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")...)
+		for _, task := range dto.Tasks {
+			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
+				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms)))...)
 		}
 		return t.Flush()
 	})

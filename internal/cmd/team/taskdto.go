@@ -7,8 +7,11 @@ package team
 
 import (
 	"encoding/json"
+	"errors"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -328,4 +331,48 @@ type familyAvailabilityDTO struct {
 type teamAvailabilityDTO struct {
 	Workers  []workerAvailabilityDTO `json:"workers"`
 	Families []familyAvailabilityDTO `json:"families"`
+}
+
+// safeTaskError keeps the mapped error's chain and exit code but renders its
+// text through SafeCell: a task refusal quotes server-supplied handles (the
+// bare-handle qualification refusal names the handle), and the root renderer
+// prints err.Error() raw, so ESC, bidi and newlines would otherwise reach the
+// terminal. Unwrap keeps errors.As/Is (details, codes) working; --json envelopes
+// are built from the chain and still carry the original text (cli#1131).
+// taskErrorMaxRunes bounds a rendered refusal; room for the schema-skew hint.
+const taskErrorMaxRunes = 1024
+
+type safeTaskError struct{ err error }
+
+func (e safeTaskError) Error() string { return output.SafeLine(e.err.Error(), taskErrorMaxRunes) }
+func (e safeTaskError) Unwrap() error { return e.err }
+
+// mapTaskError is api.MapError for the task commands, with the human message
+// made terminal-safe.
+func mapTaskError(err error) error {
+	mapped := api.MapError(err)
+	if mapped == nil {
+		return nil
+	}
+	var coded *exitcode.CodedError
+	if errors.As(mapped, &coded) {
+		return &exitcode.CodedError{Code: coded.Code, Err: safeTaskError{coded.Err}}
+	}
+	return safeTaskError{mapped}
+}
+
+// handleHeaders and handleCells add the HANDLE column only when at least one
+// task carries a handle, so a server that returns none keeps the table it had.
+func handleHeaders(any bool, headers ...string) []string {
+	if any {
+		return append([]string{"HANDLE"}, headers...)
+	}
+	return headers
+}
+
+func handleCells(any bool, handle string, cells ...string) []string {
+	if any {
+		return append([]string{taskHandleCell(handle)}, cells...)
+	}
+	return cells
 }
