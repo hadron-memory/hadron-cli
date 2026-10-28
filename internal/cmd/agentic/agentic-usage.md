@@ -3732,3 +3732,7 @@ check the compiled node with `node get` before compiling again. No automatic
 retry is made, including after a conflict.
 
 hadron team worker compile <worker> [--no-set-pointer]
+
+## Retired role/preview name probe (#916 C6)
+
+Role reads and cast previews no longer request the retired `hasNamePlaceholder` probe or infer nameless briefings from it. Existing JSON keeps that key as null for compatibility. Other role fields, preview prompt and `reserved:false` remain unchanged. This does not remove legacy platform-variable handling or alter the prompt a bind/run is served.

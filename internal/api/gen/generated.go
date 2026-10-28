@@ -10825,8 +10825,6 @@ type CastWorkerPreviewCastWorkerPreview struct {
 	// reviewable BEFORE the name is permanent. Null when the agent carries no
 	// template and no override was given.
 	Prompt *string `json:"prompt"`
-	// Always null. The name-placeholder check was retired with the old variable logic (#2049).
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
 }
 
 // GetName returns CastWorkerPreviewCastWorkerPreview.Name, and is useful for accessing the field via an interface.
@@ -10843,11 +10841,6 @@ func (v *CastWorkerPreviewCastWorkerPreview) GetAgentName() string { return v.Ag
 
 // GetPrompt returns CastWorkerPreviewCastWorkerPreview.Prompt, and is useful for accessing the field via an interface.
 func (v *CastWorkerPreviewCastWorkerPreview) GetPrompt() *string { return v.Prompt }
-
-// GetHasNamePlaceholder returns CastWorkerPreviewCastWorkerPreview.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *CastWorkerPreviewCastWorkerPreview) GetHasNamePlaceholder() *bool {
-	return v.HasNamePlaceholder
-}
 
 // CastWorkerPreviewResponse is returned by CastWorkerPreview on success.
 type CastWorkerPreviewResponse struct {
@@ -20218,11 +20211,6 @@ func (v *CreateTeamRoleCreateTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAgent {
 	return v.TeamRoleFields.RoleAgent
 }
 
-// GetHasNamePlaceholder returns CreateTeamRoleCreateTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *CreateTeamRoleCreateTeamRole) GetHasNamePlaceholder() *bool {
-	return v.TeamRoleFields.HasNamePlaceholder
-}
-
 func (v *CreateTeamRoleCreateTeamRole) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -20258,8 +20246,6 @@ type __premarshalCreateTeamRoleCreateTeamRole struct {
 	Description *string `json:"description"`
 
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
-
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
 }
 
 func (v *CreateTeamRoleCreateTeamRole) MarshalJSON() ([]byte, error) {
@@ -20278,7 +20264,6 @@ func (v *CreateTeamRoleCreateTeamRole) __premarshalJSON() (*__premarshalCreateTe
 	retval.NodeId = v.TeamRoleFields.NodeId
 	retval.Description = v.TeamRoleFields.Description
 	retval.RoleAgent = v.TeamRoleFields.RoleAgent
-	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
 	return &retval, nil
 }
 
@@ -50396,8 +50381,6 @@ type TeamRoleFields struct {
 	// Runs Query.agent's own read gate and masks to null on deny (the #552
 	// posture), like Worker.agent.
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
-	// Always null. The name-placeholder check was retired with the old variable logic (#2049).
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
 }
 
 // GetRole returns TeamRoleFields.Role, and is useful for accessing the field via an interface.
@@ -50414,9 +50397,6 @@ func (v *TeamRoleFields) GetDescription() *string { return v.Description }
 
 // GetRoleAgent returns TeamRoleFields.RoleAgent, and is useful for accessing the field via an interface.
 func (v *TeamRoleFields) GetRoleAgent() *TeamRoleFieldsRoleAgent { return v.RoleAgent }
-
-// GetHasNamePlaceholder returns TeamRoleFields.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *TeamRoleFields) GetHasNamePlaceholder() *bool { return v.HasNamePlaceholder }
 
 // TeamRoleFieldsRoleAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
@@ -50511,11 +50491,6 @@ func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetRoleAgent() *TeamRoleF
 	return v.TeamRoleFields.RoleAgent
 }
 
-// GetHasNamePlaceholder returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetHasNamePlaceholder() *bool {
-	return v.TeamRoleFields.HasNamePlaceholder
-}
-
 func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -50551,8 +50526,6 @@ type __premarshalTeamRolesTeamRolesTeamRolesPageItemsTeamRole struct {
 	Description *string `json:"description"`
 
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
-
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
 }
 
 func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) MarshalJSON() ([]byte, error) {
@@ -50571,7 +50544,6 @@ func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) __premarshalJSON() (*__pr
 	retval.NodeId = v.TeamRoleFields.NodeId
 	retval.Description = v.TeamRoleFields.Description
 	retval.RoleAgent = v.TeamRoleFields.RoleAgent
-	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
 	return &retval, nil
 }
 
@@ -59161,11 +59133,6 @@ func (v *UpdateTeamRoleMetaUpdateTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAge
 	return v.TeamRoleFields.RoleAgent
 }
 
-// GetHasNamePlaceholder returns UpdateTeamRoleMetaUpdateTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleMetaUpdateTeamRole) GetHasNamePlaceholder() *bool {
-	return v.TeamRoleFields.HasNamePlaceholder
-}
-
 func (v *UpdateTeamRoleMetaUpdateTeamRole) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -59201,8 +59168,6 @@ type __premarshalUpdateTeamRoleMetaUpdateTeamRole struct {
 	Description *string `json:"description"`
 
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
-
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
 }
 
 func (v *UpdateTeamRoleMetaUpdateTeamRole) MarshalJSON() ([]byte, error) {
@@ -59221,7 +59186,6 @@ func (v *UpdateTeamRoleMetaUpdateTeamRole) __premarshalJSON() (*__premarshalUpda
 	retval.NodeId = v.TeamRoleFields.NodeId
 	retval.Description = v.TeamRoleFields.Description
 	retval.RoleAgent = v.TeamRoleFields.RoleAgent
-	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
 	return &retval, nil
 }
 
@@ -71619,7 +71583,6 @@ query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: Stri
 		agentId
 		agentName
 		prompt
-		hasNamePlaceholder
 	}
 }
 `
@@ -74870,7 +74833,6 @@ fragment TeamRoleFields on TeamRole {
 		name
 		personaRole
 	}
-	hasNamePlaceholder
 }
 `
 
@@ -86325,7 +86287,6 @@ fragment TeamRoleFields on TeamRole {
 		name
 		personaRole
 	}
-	hasNamePlaceholder
 }
 `
 
@@ -89381,7 +89342,6 @@ fragment TeamRoleFields on TeamRole {
 		name
 		personaRole
 	}
-	hasNamePlaceholder
 }
 `
 
