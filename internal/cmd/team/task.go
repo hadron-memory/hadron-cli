@@ -93,7 +93,7 @@ var taskOutcomeRe = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`)
 // writeTaskReceipt prints the one-line mutation receipt plus the assignee,
 // when there is one.
 func writeTaskReceipt(w io.Writer, verb string, task taskDTO) error {
-	if _, err := fmt.Fprintf(w, "✓ %s task %s (%s)\n", verb, task.ID, task.Status); err != nil {
+	if _, err := fmt.Fprintf(w, "✓ %s task %s (%s)\n", verb, taskRef(task.Handle, task.ID), task.Status); err != nil {
 		return err
 	}
 	if task.Assignee != nil && task.Assignee.Name != nil {
@@ -125,7 +125,7 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var tags []string
 	var requireRole, familyIn, familyNotIn string
 	var excludeWorkers []string
-	var closeSession, noCloseSession bool
+	var closeSession, noCloseSession, project bool
 	cmd := &cobra.Command{
 		Use:   "create <title>",
 		Short: "Create a task",
@@ -198,6 +198,12 @@ the assign that first names the assignee of a queued task.`,
 				Status:       createStatus,
 				Tags:         tags,
 			}
+			// Omitted unless the flag is given: the server reads an absent
+			// project as "no project" (AT0) and an explicit false the same, so
+			// presence, not value, is what is sent (cor:agt:050:01).
+			if cmd.Flags().Changed("project") {
+				input.Project = &project
+			}
 			if closeSession && noCloseSession {
 				return exitcode.Newf(exitcode.Usage, "--close-session and --no-close-session contradict each other")
 			}
@@ -255,7 +261,7 @@ the assign that first names the assignee of a queued task.`,
 			}
 			task := taskDTOFrom(resp.CreateAgentTask.AgentTaskFields)
 			return writeTaskMutation(f, task, taskWarningsFor(sink, "createAgentTask"), func(w io.Writer) error {
-				if _, err := fmt.Fprintf(w, "✓ created task %s (%s)\n", task.ID, task.Status); err != nil {
+				if _, err := fmt.Fprintf(w, "✓ created task %s (%s)\n", taskRef(task.Handle, task.ID), task.Status); err != nil {
 					return err
 				}
 				if task.Queued {
@@ -288,6 +294,7 @@ the assign that first names the assignee of a queued task.`,
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families to exclude")
 	cmd.Flags().StringSliceVar(&excludeWorkers, "exclude-worker", nil, "worker the matcher must not pick (repeatable)")
+	cmd.Flags().BoolVar(&project, "project", false, "make a top-level project (AT1, AT2, …) instead of a task under the reserved project AT0 (\"no project\"); not with --parent")
 	cmd.Flags().StringVar(&status, "status", "", "create-time status: backlog (parked) or pending (the default)")
 	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing or cancelling asks the assignee to end its worker session")
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session (the default)")
@@ -438,7 +445,7 @@ task.progress to the event stream.`,
 			return taskDTOFrom(resp.RecordAgentTaskProgress.AgentTaskFields), nil
 		},
 		func(w io.Writer, task taskDTO) error {
-			_, err := fmt.Fprintf(w, "✓ recorded progress on task %s (%s)\n", task.ID, task.Status)
+			_, err := fmt.Fprintf(w, "✓ recorded progress on task %s (%s)\n", taskRef(task.Handle, task.ID), task.Status)
 			return err
 		})
 }
@@ -493,7 +500,7 @@ whoever manages the App (cor:agt:050:09).`,
 			return taskDTOFrom(resp.MakeAgentTaskReady.AgentTaskFields), nil
 		},
 		func(w io.Writer, task taskDTO) error {
-			_, err := fmt.Fprintf(w, "✓ made task %s ready (%s)\n", task.ID, task.Status)
+			_, err := fmt.Fprintf(w, "✓ made task %s ready (%s)\n", taskRef(task.Handle, task.ID), task.Status)
 			if err == nil && task.Queued {
 				_, err = fmt.Fprintln(w, "  queued: no assignee — the platform's matcher picks one")
 			}
@@ -549,7 +556,7 @@ state.`,
 				if task.Result != nil {
 					out = task.Result.Outcome
 				}
-				if _, err := fmt.Fprintf(w, "✓ finished task %s (%s)\n", task.ID, out); err != nil {
+				if _, err := fmt.Fprintf(w, "✓ finished task %s (%s)\n", taskRef(task.Handle, task.ID), out); err != nil {
 					return err
 				}
 				if task.Result != nil && task.Result.Summary != nil {

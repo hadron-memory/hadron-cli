@@ -90,7 +90,11 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		_, err := fmt.Fprintf(w, format+"\n", a...)
 		return err
 	}
-	if err := line("%s  %s  (%s)", task.ID, task.Title, task.Status); err != nil {
+	head := task.ID
+	if task.Handle != "" {
+		head = output.SafeCell(task.Handle) + "  " + task.ID
+	}
+	if err := line("%s  %s  (%s)", head, task.Title, task.Status); err != nil {
 		return err
 	}
 	if task.Description != nil {
@@ -377,7 +381,7 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 			return err
 		}
-		t := output.NewTable(w, "ID", "STATUS", "TITLE", "OWNER", "ASSIGNEE")
+		t := output.NewTable(w, "HANDLE", "ID", "STATUS", "TITLE", "OWNER", "ASSIGNEE")
 		for _, task := range tasks {
 			assignee := "—"
 			if task.Queued {
@@ -385,7 +389,7 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			} else if task.Assignee != nil {
 				assignee = partyCell(task.Assignee)
 			}
-			t.Row(output.SafeCell(task.ID), output.SafeCell(task.Status), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))
+			t.Row(taskHandleCell(task.Handle), output.SafeCell(task.ID), output.SafeCell(task.Status), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))
 		}
 		return t.Flush()
 	})
@@ -650,7 +654,7 @@ func renderTreeNode(w io.Writer, task *taskDTO, depth int) error {
 	if task.WaitingOnChildren {
 		flags += "  waiting-on-children"
 	}
-	if _, err := fmt.Fprintf(w, "%s• %s [%s] %s → %s%s%s\n", indent, task.ID, task.Status, partyCell(task.Owner), assignee, flags, alarm); err != nil {
+	if _, err := fmt.Fprintf(w, "%s• %s [%s] %s → %s%s%s\n", indent, taskRef(task.Handle, task.ID), task.Status, partyCell(task.Owner), assignee, flags, alarm); err != nil {
 		return err
 	}
 	return nil

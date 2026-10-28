@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // taskPartyDTO is the sanitized party projection: a worker's name and URN, or
@@ -38,6 +39,8 @@ type taskResultDTO struct {
 // commands' shapes identical to the plain task read.
 type taskDTO struct {
 	ID                   string               `json:"id"`
+	Handle               string               `json:"handle"`
+	TaskNumber           string               `json:"taskNumber"`
 	AppID                string               `json:"appId"`
 	Title                string               `json:"title"`
 	Description          *string              `json:"description"`
@@ -61,6 +64,22 @@ type taskDTO struct {
 	Requirements         *taskRequirementsDTO `json:"requirements"`
 	Result               *taskResultDTO       `json:"result"`
 	OpenAlarms           *int                 `json:"openAlarms,omitempty"`
+}
+
+// taskRef is how a human-readable line names a task: the server's short handle
+// (AT3.405) first, then the canonical id, which stays the identity. A server
+// that returns no handle keeps the id alone. The handle is server text and
+// goes through the same sanitiser as every other rendered value.
+func taskRef(handle, id string) string {
+	if handle == "" {
+		return id
+	}
+	return output.SafeCell(handle) + " " + id
+}
+
+// taskHandleCell is the HANDLE column of a task table.
+func taskHandleCell(handle string) string {
+	return output.SafeCell(handle)
 }
 
 // taskPartyGetter is the one shape every generated party projection shares;
@@ -118,6 +137,8 @@ func taskResultDTOFrom(r *gen.AgentTaskFieldsResultAgentTaskResult) *taskResultD
 func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 	dto := taskDTO{
 		ID:                   fields.Id,
+		Handle:               fields.Handle,
+		TaskNumber:           fields.TaskNumber,
 		AppID:                fields.AppId,
 		Title:                fields.Title,
 		Description:          fields.Description,
