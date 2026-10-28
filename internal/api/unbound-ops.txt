@@ -67,7 +67,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 116 unbound
+[Mutation] 113 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
 addAgentToApp
@@ -87,9 +87,6 @@ changeWorkerAgent  # cli#1087 out of scope: a `change agent` command is held unt
 claimContextReset  # server#2162 context-reset host protocol; host runtime delivery is outside asset-link CLI#897
 clearAgentAIConfig
 clearWorkerIsolation  # S7a remains inert; isolation CLI commands are outside the #2138 experiment slice
-compileAgentBootPrompt
-compileAppAgentBootPrompt
-compileWorkerBootPrompt
 createAgentOrgGrant
 createAgentTickerTemplate
 createAppKey
