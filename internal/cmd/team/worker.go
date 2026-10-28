@@ -13,6 +13,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/bootcompile"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -47,6 +48,32 @@ worker in scripts.`,
 	cmd.AddCommand(newCmdWorkerUpdate(f))
 	cmd.AddCommand(newCmdWorkerSetReportsTo(f))
 	cmd.AddCommand(newCmdWorkerSetBootPrompt(f))
+	cmd.AddCommand(bootcompile.NewWorker(f, func(cmd *cobra.Command, ref string) (string, error) {
+		b, _ := readBindingOrNilWithApp(cmd.Context(), f)
+		scope, scopeErr := resolveTeamAppScope(cmd.Context(), f, b)
+		client, err := f.GraphQLClient()
+		if err != nil {
+			return "", err
+		}
+		worker, err := resolveWorker(cmd.Context(), client, scope.Ref, ref)
+		if err != nil {
+			return "", err
+		}
+		if !f.JSON {
+			source := "explicit worker reference"
+			if scopeErr == nil && !strings.HasPrefix(strings.ToLower(ref), "hrn:worker:") {
+				source = scope.Source
+			}
+			label := worker.Id
+			if worker.Urn != nil && *worker.Urn != "" {
+				label = *worker.Urn
+			}
+			if _, err := fmt.Fprintf(f.IOStreams.Out, "worker: %s (%s)\n", output.SafeCell(label), source); err != nil {
+				return "", err
+			}
+		}
+		return worker.Id, nil
+	}))
 	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))
