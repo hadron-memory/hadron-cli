@@ -18198,7 +18198,7 @@ type CreateNodeInput struct {
 	// URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
 	// qualified (hrn:mem:<root>:<memory>) per spec 022 — relative-form URNs are
 	// rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
-	MemoryId string  `json:"memoryId"`
+	MemoryId string  `json:"memoryId,omitempty"`
 	Name     string  `json:"name"`
 	NodeType *string `json:"nodeType,omitempty"`
 	// #725 — collection discriminator (e.g. "competitor" / "insight"). NULL for an ordinary node.
@@ -28099,6 +28099,49 @@ type InstallAgentIntoAppResponse struct {
 // GetInstallAgentIntoApp returns InstallAgentIntoAppResponse.InstallAgentIntoApp, and is useful for accessing the field via an interface.
 func (v *InstallAgentIntoAppResponse) GetInstallAgentIntoApp() *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayload {
 	return v.InstallAgentIntoApp
+}
+
+// InstallMemoryInstallMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type InstallMemoryInstallMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns InstallMemoryInstallMemory.Id, and is useful for accessing the field via an interface.
+func (v *InstallMemoryInstallMemory) GetId() string { return v.Id }
+
+// GetUrn returns InstallMemoryInstallMemory.Urn, and is useful for accessing the field via an interface.
+func (v *InstallMemoryInstallMemory) GetUrn() string { return v.Urn }
+
+// GetName returns InstallMemoryInstallMemory.Name, and is useful for accessing the field via an interface.
+func (v *InstallMemoryInstallMemory) GetName() string { return v.Name }
+
+// InstallMemoryResponse is returned by InstallMemory on success.
+type InstallMemoryResponse struct {
+	// #2044 (hrn:node:hadronmemory.com:specs:cor:agt:040:06) — the App's install memory for an Agent: where the App
+	// keeps its customisation of that Agent. Null when the App has not customised it
+	// yet (this read creates nothing), and null for anyone the memory's record is not
+	// open to: the App's participants, and whoever manages the App.
+	InstallMemory *InstallMemoryInstallMemory `json:"installMemory"`
+}
+
+// GetInstallMemory returns InstallMemoryResponse.InstallMemory, and is useful for accessing the field via an interface.
+func (v *InstallMemoryResponse) GetInstallMemory() *InstallMemoryInstallMemory {
+	return v.InstallMemory
 }
 
 // #2044 (hrn:node:hadronmemory.com:specs:cor:agt:040:06) — names an App's INSTALL MEMORY by the pair that
@@ -65134,6 +65177,18 @@ func (v *__InstallAgentIntoAppInput) GetAgentRef() string { return v.AgentRef }
 // GetTrainingMode returns __InstallAgentIntoAppInput.TrainingMode, and is useful for accessing the field via an interface.
 func (v *__InstallAgentIntoAppInput) GetTrainingMode() *bool { return v.TrainingMode }
 
+// __InstallMemoryInput is used internally by genqlient
+type __InstallMemoryInput struct {
+	AppRef   string `json:"appRef"`
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAppRef returns __InstallMemoryInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__InstallMemoryInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __InstallMemoryInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__InstallMemoryInput) GetAgentRef() string { return v.AgentRef }
+
 // __IssueHostOperationInput is used internally by genqlient
 type __IssueHostOperationInput struct {
 	Input *IssueHostOperationInput `json:"input,omitempty"`
@@ -73978,8 +74033,8 @@ mutation CreateNode ($input: CreateNodeInput!) {
 // Optional fields the caller leaves unset must be omitted from the wire, not
 // serialized as null — hence the per-field omitempty annotations.
 // #994 schema refresh picks up the provider's optional install target (#2044).
-// Existing CLI node writers still always supply memoryId: retain their string
-// binding and omit the unused install alternative, with no caller/wire change.
+// C7 install writes omit memoryId and supply install; retain the string binding
+// so ordinary memory-target callers keep their nonempty selector unchanged.
 func CreateNode(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -78624,6 +78679,44 @@ func InstallAgentIntoApp(
 	}
 
 	data_ = &InstallAgentIntoAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by InstallMemory.
+const InstallMemory_Operation = `
+query InstallMemory ($appRef: String!, $agentRef: String!) {
+	installMemory(appRef: $appRef, agentRef: $agentRef) {
+		id
+		urn
+		name
+	}
+}
+`
+
+func InstallMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef string,
+) (data_ *InstallMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "InstallMemory",
+		Query:  InstallMemory_Operation,
+		Variables: &__InstallMemoryInput{
+			AppRef:   appRef,
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &InstallMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
