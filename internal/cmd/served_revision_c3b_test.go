@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -79,6 +80,8 @@ func TestC3bAllProvenanceBuffersAndChecksRecord(t *testing.T) {
 	}{
 		{"complete", c3bWorkerRecord(second), 0},
 		{"unavailable", c3bWorkerRecord("null"), 1},
+		{"changed total", c3bWorkerRecord(strings.Replace(second, `"total":2`, `"total":3`, 1)), 1},
+		{"null items", c3bWorkerRecord(strings.Replace(second, `[{"nodeId":"source2","revSeq":3,"hash":"source-hash","pruned":false}]`, `null`, 1)), 1},
 		{"changed revision", c3bWorkerRecord(strings.Replace(second, `"servedRevSeq":7`, `"servedRevSeq":8`, 1)), 1},
 		{"changed record", c3bWorkerRecord(strings.Replace(second, `"id":"rec1"`, `"id":"rec2"`, 1)), 1},
 		{"empty page", c3bWorkerRecord(strings.Replace(second, `[{"nodeId":"source2","revSeq":3,"hash":"source-hash","pruned":false}]`, `[]`, 1)), 1},
@@ -95,6 +98,10 @@ func TestC3bAllProvenanceBuffersAndChecksRecord(t *testing.T) {
 					return
 				}
 				count++
+				if count > 2 {
+					responses[op] = gqlErrorJSON("FORBIDDEN")
+					return
+				}
 				if count == 1 {
 					responses[op] = c3bWorkerRecord(c3bRecord)
 				} else {
@@ -133,5 +140,79 @@ func TestC3bInvalidArgsBeforeAnyRequest(t *testing.T) {
 	calls, _, err := runTeamTask(t, nil, "team", "worker", "served-prompt", "Iris")
 	if exitCodeFor(err) != 2 || len(*calls) != 0 {
 		t.Fatalf("name must not use ambient binding: %v %v", err, *calls)
+	}
+}
+
+func TestC3bPageBoundsAndHumanRendering(t *testing.T) {
+	item := `{"nodeId":"source1","revSeq":3,"hash":"source-hash","pruned":false}`
+	for _, tc := range []struct {
+		name, record string
+		flags        []string
+	}{
+		{"over limit", strings.Replace(c3bRecord, `[`+item+`]`, `[`+item+`,`+item+`]`, 1), []string{"--limit", "1"}},
+		{"beyond remaining total", strings.Replace(c3bRecord, `[`+item+`]`, `[`+item+`,`+item+`]`, 1), []string{"--offset", "1", "--limit", "2"}},
+		{"at total", c3bRecord, []string{"--offset", "2"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{"team", "worker", "served-prompt", "hrn:worker:acme.com:iris", "--json"}, tc.flags...)
+			_, out, err := runTeamTask(t, map[string]string{"WorkerServedPrompt": c3bWorkerRecord(tc.record)}, args...)
+			if exitCodeFor(err) != 1 || out != "" {
+				t.Fatalf("invalid page accepted: %v %s", err, out)
+			}
+		})
+	}
+	for _, record := range []string{"null", c3bRecord} {
+		_, out, err := runTeamTask(t, map[string]string{"WorkerServedPrompt": c3bWorkerRecord(record)}, "team", "worker", "served-prompt", "hrn:worker:acme.com:iris")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if record == "null" {
+			if !strings.Contains(out, "unavailable") {
+				t.Fatalf("missing null wording: %s", out)
+			}
+		} else {
+			for _, want := range []string{"record: rec1", "ordinal: 1; pointer: WORKER", "served revision: 7; provenance revision: 5", "recorded signature", "source1", "source-hash", "false"} {
+				if !strings.Contains(out, want) {
+					t.Fatalf("human value %q missing: %s", want, out)
+				}
+			}
+		}
+	}
+	// Record text stays safe even when recorded variables contain terminal controls.
+	var record map[string]any
+	if err := json.Unmarshal([]byte(c3bRecord), &record); err != nil {
+		t.Fatal(err)
+	}
+	record["variables"] = map[string]any{"value": "control\x1b[31m"}
+	raw, _ := json.Marshal(record)
+	_, out, err := runTeamTask(t, map[string]string{"WorkerServedPrompt": c3bWorkerRecord(string(raw))}, "team", "worker", "served-prompt", "hrn:worker:acme.com:iris")
+	if err != nil || strings.ContainsAny(out, "\x1b\r") {
+		t.Fatalf("unsafe output: %v %q", err, out)
+	}
+}
+
+func TestC3bAllHumanPrintsCompletedProvenance(t *testing.T) {
+	writeTeamBinding(t)
+	responses := map[string]string{}
+	requests := 0
+	srv, calls := attnServerHook(t, responses, func(op string) {
+		requests++
+		if requests > 2 {
+			responses[op] = gqlErrorJSON("FORBIDDEN")
+			return
+		}
+		record := c3bRecord
+		if requests == 2 {
+			record = strings.Replace(record, "source1", "source2", 1)
+		}
+		responses[op] = c3bWorkerRecord(record)
+	})
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "worker", "served-prompt", "hrn:worker:acme.com:iris", "--all", "--limit", "1"})
+	err := root.Execute()
+	if err != nil || len(*calls) != 2 || !strings.Contains(out.String(), "source1") || !strings.Contains(out.String(), "source2") || !strings.Contains(out.String(), "provenance: 2 of 2") {
+		t.Fatalf("wrong human all output: %v %s %v", err, out, *calls)
 	}
 }
