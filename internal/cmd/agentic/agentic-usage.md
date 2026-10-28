@@ -3689,3 +3689,6 @@ check the compiled node with `node get` before compiling again. No automatic
 retry is made, including after a conflict.
 
 hadron team worker compile <worker> [--no-set-pointer]
+
+hadron run served-prompt <run-ref> [--limit N] [--offset N | --all]
+hadron team worker served-prompt <worker-id-or-qualified-URN> [--limit N] [--offset N | --all]
