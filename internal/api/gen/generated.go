@@ -32550,6 +32550,64 @@ func (v *NodeEdgeInput) GetName() *string { return v.Name }
 // GetTargetId returns NodeEdgeInput.TargetId, and is useful for accessing the field via an interface.
 func (v *NodeEdgeInput) GetTargetId() string { return v.TargetId }
 
+// NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval includes the requested fields of the GraphQL type NodeEdgeRemoval.
+// The GraphQL type's documentation follows.
+//
+// #2517 — one edge a hard delete removed from this node (hrn:node:hadronmemory.com:specs:cor:dmo:010:04). The deleted target's address (targetLoc) and the removed edge's loc, which is derived from it, are shown only when you can read the memory the target lived in. Entries are gated per entry by the memory the source was in when the edge was removed. A derived include edge is not recorded.
+type NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval struct {
+	Id        string `json:"id"`
+	CreatedAt string `json:"createdAt"`
+	// The removed edge's loc; null when the deleted target's memory is not one you can read (the loc is derived from the target's address).
+	EdgeLoc  *string `json:"edgeLoc"`
+	EdgeName *string `json:"edgeName"`
+	// TARGET_HARD_DELETED: the edge's target was hard-deleted.
+	Reason string `json:"reason"`
+	// Who deleted: the same user, app or client id a soft delete stamps as deletedBy; null when unattributed.
+	RemovedBy *string `json:"removedBy"`
+	// Stable id of the deleted target; the row itself is gone.
+	TargetId string `json:"targetId"`
+	// The deleted target's loc; null when its memory is not one you can read (a cross-memory edge).
+	TargetLoc *string `json:"targetLoc"`
+}
+
+// GetId returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.Id, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetId() string { return v.Id }
+
+// GetCreatedAt returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetCreatedAt() string { return v.CreatedAt }
+
+// GetEdgeLoc returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.EdgeLoc, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetEdgeLoc() *string { return v.EdgeLoc }
+
+// GetEdgeName returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.EdgeName, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetEdgeName() *string { return v.EdgeName }
+
+// GetReason returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.Reason, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetReason() string { return v.Reason }
+
+// GetRemovedBy returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.RemovedBy, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetRemovedBy() *string { return v.RemovedBy }
+
+// GetTargetId returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.TargetId, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetTargetId() string { return v.TargetId }
+
+// GetTargetLoc returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.TargetLoc, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetTargetLoc() *string { return v.TargetLoc }
+
+// NodeEdgeRemovalsResponse is returned by NodeEdgeRemovals on success.
+type NodeEdgeRemovalsResponse struct {
+	// #2517 — the audit entries a HARD delete left on this node when it removed edges the node held to the deleted
+	// target, newest first (default 20). A separate record, never a NodeRevision: revisions stay snapshots of the node's
+	// own fields. A soft delete keeps its edges and records nothing. Same read gate as nodeRevisions; a node you cannot
+	// read returns an empty list. hrn:node:hadronmemory.com:specs:cor:dmo:010:04
+	NodeEdgeRemovals []*NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval `json:"nodeEdgeRemovals"`
+}
+
+// GetNodeEdgeRemovals returns NodeEdgeRemovalsResponse.NodeEdgeRemovals, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsResponse) GetNodeEdgeRemovals() []*NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval {
+	return v.NodeEdgeRemovals
+}
+
 // Single-node export (#386). MD/JSON are the canonical, round-trippable files;
 // PDF is a presentation render (content only) produced by the internal
 // hadrontool-pdf service and delivered BASE64. HTML remains reserved.
@@ -64930,6 +64988,18 @@ type __NodeCommentSummariesInput struct {
 // GetRefs returns __NodeCommentSummariesInput.Refs, and is useful for accessing the field via an interface.
 func (v *__NodeCommentSummariesInput) GetRefs() []string { return v.Refs }
 
+// __NodeEdgeRemovalsInput is used internally by genqlient
+type __NodeEdgeRemovalsInput struct {
+	NodeRef string `json:"nodeRef"`
+	Limit   *int   `json:"limit"`
+}
+
+// GetNodeRef returns __NodeEdgeRemovalsInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__NodeEdgeRemovalsInput) GetNodeRef() string { return v.NodeRef }
+
+// GetLimit returns __NodeEdgeRemovalsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodeEdgeRemovalsInput) GetLimit() *int { return v.Limit }
+
 // __NodeExportInput is used internally by genqlient
 type __NodeExportInput struct {
 	Id     string           `json:"id"`
@@ -79535,6 +79605,54 @@ func NodeCommentSummaries(
 	}
 
 	data_ = &NodeCommentSummariesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeEdgeRemovals.
+const NodeEdgeRemovals_Operation = `
+query NodeEdgeRemovals ($nodeRef: ID!, $limit: Int) {
+	nodeEdgeRemovals(nodeRef: $nodeRef, limit: $limit) {
+		id
+		createdAt
+		edgeLoc
+		edgeName
+		reason
+		removedBy
+		targetId
+		targetLoc
+	}
+}
+`
+
+// #1160 — the hard-delete edge audit trail (hadron-server#2562,
+// cor:dmo:010:04): one entry per edge a hard delete removed from this node,
+// newest first. targetLoc and edgeLoc are null when the caller cannot read the
+// memory the deleted target lived in (the edge loc is derived from the target's
+// address); removedBy is null when the delete is unattributed.
+func NodeEdgeRemovals(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	limit *int,
+) (data_ *NodeEdgeRemovalsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeEdgeRemovals",
+		Query:  NodeEdgeRemovals_Operation,
+		Variables: &__NodeEdgeRemovalsInput{
+			NodeRef: nodeRef,
+			Limit:   limit,
+		},
+	}
+
+	data_ = &NodeEdgeRemovalsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
