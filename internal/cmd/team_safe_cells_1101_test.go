@@ -530,7 +530,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 				cleanSnapshot := regexp.MustCompile(`http://127\.0\.0\.1:[0-9]+`).ReplaceAllString(clean, "http://127.0.0.1:PORT")
 				jsonSnapshot := rawJSON
 				if tc.name == "task-list-team" || tc.name == "task-list-team-assignee" {
-					cleanSnapshot = regexp.MustCompile(`(?m)^(task1 +PENDING +)\S+`).ReplaceAllString(cleanSnapshot, "${1}AGE")
+					cleanSnapshot = regexp.MustCompile(`(?m)^(task1 +(?:PENDING|STARTED) +)\S+`).ReplaceAllString(cleanSnapshot, "${1}AGE")
 					jsonSnapshot = regexp.MustCompile(`"ageSeconds": -?[0-9]+`).ReplaceAllString(jsonSnapshot, `"ageSeconds": 0`)
 				}
 				snapshot := fmt.Sprintf("clean-text %x\nattacked-json %x\n", sha256.Sum256([]byte(cleanSnapshot)), sha256.Sum256([]byte(jsonSnapshot)))
