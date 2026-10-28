@@ -767,6 +767,14 @@ Conventions:
   free-standing personal/private memory to that App/installed Agent. The
   memory must be caller-owned and keeps its URN, class, and owner; server typed
   errors report already-scoped, cross-org, membership, and install failures.
+- Successful node writes can carry server advice (including `include.pin.unkept`
+  for a readable plain revision pin with no recorded approval or signature).
+  Generic/kind writes, import, replacement and restore display it as
+  `warning: [<code>] <text>` on stderr in BOTH text and `--json` modes;
+  stdout/JSON and the successful exit code stay unchanged. Unknown codes are
+  displayed too; malformed entries and warnings for other response keys are
+  ignored. Failed commands print no response advice. This is advisory, never a
+  reason to retry a successful write or a promise that an include is retained.
 - `node add` fails if the loc already exists; `node update` modifies
   an existing node and preserves unset fields. Content comes from
   `--content "<text>"`, `--content -` (stdin), or `--content-file` (`-`
