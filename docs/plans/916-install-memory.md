@@ -19,9 +19,15 @@ CreateNodeInput.memoryId becomes omitempty while retaining its string Go type:
 all nonempty legacy memory selectors retain their exact bytes; install writes
 omit it. No extra read is needed for the lazy first creation. Update resolves
 installMemory first for existing node guards/door selection, then sends the
-native install+loc selector (not an id) for a field update. --data-merge retains
-its separate existing updateNodeData path with the resolved id; server node
-write authority is unchanged. No retry or client create is added.
+native install+loc selector (not an id) for a field update, including each
+kind-specific door. --data-merge/--data-merge-file with --install is refused
+with usage2 before any request, including mixed field+merge commands: the
+provider updateNodeData accepts nodeRef only and cannot preserve the install
+fence. Use --data/--data-file replacement through the native selector. Ordinary
+non-install merges keep their existing path. Role clearing with --install
+remains an explicit unsupported-selector refusal, never an id fallback.
+No retry or client create is added. Provider merge authority is tracked in
+hadron-server#2701; this client does not work around it.
 
 Get/list resolve the memory's returned URN and reuse the existing read paths.
 Null lookup exits4 before any node read/write, because an empty filter would
@@ -39,6 +45,9 @@ AGENT_NOT_INSTALLED remains usage2, INSTALL_MEMORY_NOT_FOUND maps to4 and
 FORBIDDEN to8; command pins preserve their complete server messages. Source
 names and hidden state are never enriched through a compensating lookup.
 
-Full-suite limit: pre-existing date-dependent snapshot failure cli#1140,
-independently confirmed by Celine. All other tests pass with that one subtest
-skipped; no snapshot change is bundled here. Focused C7 race tests pass.
+The earlier full-suite baseline defect cli#1140 was fixed by #1151 and is
+included through the main merge. The full suite now runs without a skip.
+The fix cycle pins all four create/update kind doors on the captured wire,
+ordinary memoryId retention after omitempty, missing/empty selectors and the
+pure InstallRef/ParseInstallTarget grammar. There is no node-add --link flag
+in this tree; data/properties are carried in the same native create input.

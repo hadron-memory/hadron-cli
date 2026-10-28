@@ -44,3 +44,12 @@ Author self-check; independent seats still required.
 | classify-security-input-by-structure | Skipped: no encoded-body security scanning |
 | old-server-graphql-document-compatibility | Pass: ordinary create/update documents unchanged; new query only explicit install path; nonempty memory selector preserved |
 | classify-by-provenance-before-wrapping | Skipped: no existing render SafeCell sweep |
+
+## BLIND fix cycle
+
+All create/update doors accept the same typed input and retain install+loc;
+captured-wire tests now cover all eight dispatches. The data-merge exception
+is refused before any request to avoid an id fallback or a partial mixed write.
+Ordinary memory selectors, absent/empty selectors and pure target parsers have
+regression pins. No node-add link flag exists in this tree. Full Go checks
+include the merged #1140 baseline fix without a skip.

@@ -232,6 +232,13 @@ func TestC7InstallMergeRefusesBeforeAnyRequests(t *testing.T) {
 	}
 }
 
+func TestC7InstallMergeFileRefusesBeforeReadingFileOrMakingRequests(t *testing.T) {
+	calls, _, err := runTeamTask(t, nil, "node", "update", "custom", "--install", c7Install, "--data-merge-file", "/nonexistent-c7-merge.json", "--name", "Changed")
+	if exitCodeFor(err) != 2 || len(*calls) != 0 || !strings.Contains(err.Error(), "--install cannot be combined") {
+		t.Fatalf("expected early selector refusal: %v %v", err, *calls)
+	}
+}
+
 func TestC7OrdinaryMemoryCreateStillSendsMemoryID(t *testing.T) {
 	responses := map[string]string{"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`}
 	calls, _, err := runTeamTask(t, responses, "node", "add", "-m", c7MemoryURN, "--loc", "custom", "--name", "Custom")

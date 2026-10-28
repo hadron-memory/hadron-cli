@@ -57,7 +57,9 @@ empty string, e.g. --description "", to clear a field).
 --memory. Both refs must be ids or fully-qualified URNs, separated by /.
 This excludes --memory (even an empty value). Reads create nothing; an
 unavailable memory is exit 4, not an unscoped read. Only an App manager may
-write while the App is live and the Agent installed. Metadata visibility
+write while the App is live and the Agent installed. --data-merge and
+--data-merge-file are refused with --install: use --data/--data-file replacement
+to keep the install selector on the write. Metadata visibility
 does not confer permission to read content or write. Get/update take bare locs inside that memory, not separate node ids or URNs.
 
 The data bag can be written two ways:
@@ -128,6 +130,12 @@ schema-governed memory the server validates the result and rejects a violation.)
 			clearRole := changed("role") && strings.TrimSpace(role) == ""
 			replaceData := changed("data") || changed("data-file")
 			mergeData := changed("data-merge") || changed("data-merge-file")
+			// updateNodeData accepts only a node ref, so it cannot fence a write
+			// against a changed install pointer. Never resolve an id and silently
+			// lose that selector, nor perform a field write before refusing merge.
+			if target != nil && mergeData {
+				return exitcode.Newf(exitcode.Usage, "--install cannot be combined with --data-merge or --data-merge-file; use --data or --data-file to replace the bag through the install selector")
+			}
 			replaceProps := changed("properties") || changed("properties-file")
 			anyField := changed("name") || changed("content") || changed("content-file") ||
 				changed("type") || changed("object-type") || changed("description") ||
