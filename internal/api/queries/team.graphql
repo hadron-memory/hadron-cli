@@ -977,7 +977,6 @@ fragment TeamRoleFields on TeamRole {
     name
     personaRole
   }
-  hasNamePlaceholder
 }
 
 query TeamRoles(
@@ -1027,7 +1026,6 @@ query CastWorkerPreview(
     agentId
     agentName
     prompt
-    hasNamePlaceholder
   }
 }
 

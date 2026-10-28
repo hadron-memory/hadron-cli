@@ -939,14 +939,14 @@ func TestTeamRoleList(t *testing.T) {
 		}
 	}
 
-	// Human table, and the nameless-template warning that survived.
+	// Human table, without the retired S12 name-placeholder advice.
 	f2, out2 := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	for _, want := range []string{"ROLE", "backend-engineer", "never binds {{name}}"} {
+	for _, want := range []string{"ROLE", "backend-engineer"} {
 		if !strings.Contains(out2.String(), want) {
 			t.Errorf("table must carry %q: %s", want, out2.String())
 		}
@@ -1316,7 +1316,7 @@ func TestTeamWorkerCastDryRun(t *testing.T) {
 	if dto.Name != "Joe" || dto.AgentID != "agt1" ||
 		dto.Role == nil || *dto.Role != "backend-engineer" ||
 		dto.Prompt == nil || *dto.Prompt != "You are Joe." ||
-		dto.HasNamePlaceholder == nil || !*dto.HasNamePlaceholder {
+		dto.HasNamePlaceholder != nil {
 		t.Errorf("preview --json contract: %s", out2.String())
 	}
 	if dto.Reserved {
