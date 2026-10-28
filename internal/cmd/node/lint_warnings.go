@@ -1,9 +1,11 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -11,6 +13,14 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	"github.com/spf13/cobra"
 )
+
+// One budget for the entire opt-in command, including all nodes in batch get.
+// It starts after the successful main operation, never constrains a mutation,
+// and is not reset by paging or by loading the next node.
+const lintWarningReadTimeout = 5 * time.Second
+const lintWarningMaxRequests = 1000
+
+type lintWarningDeadlineKey struct{}
 
 type lintWarningDTO struct {
 	Kind              string  `json:"kind"`
@@ -34,7 +44,7 @@ func enableLintWarnings(cmd *cobra.Command, incompatible ...string) {
 		usage += "; excludes " + strings.Join(incompatible, " and ")
 	}
 	cmd.Flags().Bool("lint-warnings", false, usage)
-	cmd.Long += "\n\n--lint-warnings opts into a separate, paginated source-lint read after success.\nIt reports warnings as they hold now, not a snapshot of the authored/read revision.\nThe JSON lintWarnings page is null when unavailable (including an older server),\notherwise {items,total,nextCursor:null}. Without the flag the field and extra\nread are absent. Lint never blocks a successful write or retries it. Empty items\nis a real no-warning answer. Human warning text is terminal-safe; JSON retains\nthe server's exact text."
+	cmd.Long += "\n\n--lint-warnings opts into a separate, paginated source-lint read after success.\nIt reports warnings as they hold now, not a snapshot of the authored/read revision.\nThe JSON lintWarnings page is null when unavailable (including an older server),\notherwise {items,total,nextCursor:null}. Without the flag the field and extra\nread are absent. Lint never blocks a successful write or retries it. Empty items\nis a real no-warning answer. Advisory reads share a five-second command budget,\nincluding all nodes in batch get; timeout returns unavailable without retrying\nthe main operation. Human warning text is terminal-safe; JSON retains\nthe server's exact text."
 	if len(incompatible) > 0 {
 		cmd.Long += " This option excludes " + strings.Join(incompatible, " and ") + "."
 	}
@@ -53,13 +63,25 @@ func loadLintWarnings(cmd *cobra.Command, client graphql.Client, ref string) **l
 	}
 	var page *lintWarningPageDTO
 	slot := &page
+	parent := cmd.Context()
+	deadline, ok := parent.Value(lintWarningDeadlineKey{}).(time.Time)
+	if !ok {
+		deadline = time.Now().Add(lintWarningReadTimeout)
+		parent = context.WithValue(parent, lintWarningDeadlineKey{}, deadline)
+		cmd.SetContext(parent)
+	}
+	ctx, cancel := context.WithDeadline(parent, deadline)
+	defer cancel()
+	if ctx.Err() != nil {
+		return slot
+	}
 	result := &lintWarningPageDTO{Items: []lintWarningDTO{}}
 	var after *string
 	seen := map[string]bool{}
 	// Fail the advisory read closed on pathological pagination; never return a
 	// partial page as a complete no-warning result or change mutation success.
-	for requests := 0; requests < 1000; requests++ {
-		r, err := gen.GetNodeLintWarnings(cmd.Context(), client, ref, after)
+	for requests := 0; requests < lintWarningMaxRequests; requests++ {
+		r, err := gen.GetNodeLintWarnings(ctx, client, ref, after)
 		if err != nil || r.Node == nil || r.Node.LintWarnings == nil {
 			return slot
 		}

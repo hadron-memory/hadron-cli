@@ -43,3 +43,24 @@ exactly one successful mutation, no read after refusal, get/approval receipts,
 terminal-safe text/verbatim JSON and native install selector composition.
 Independent compiled-CLI/authority QA remains owed. No author production or
 stack claim. Refs916, leaves umbrella open; no release/install/activation.
+
+## Review closure
+
+The advisory read has one five-second budget for the whole command, shared by
+all pages and all nodes in batch get. It starts only after the successful main
+operation, never constrains or retries a mutation, and yields requested-null on
+timeout. A canceled/expired budget makes no further provider request. Red-first
+unit pins require the independent deadline, shared batch budget and canceled
+request refusal; the request cap remains a second pathological-page bound.
+
+Every one of get/add/update/approve/move/clone/merge/restore now has on/off/default
+command pins. Writes assert exactly one native mutation; the warning query ref
+is the returned/resolved ID, including different clone/move/merge result IDs.
+Batch get is tested in JSON and human mode for each node. Its existing renderer
+calls renderNodeDetail, which already calls renderLintWarnings, so no additional
+renderer path was missing.
+
+Only get has body-only and only update has dry-run. Tests assert the other six
+commands have no dry-run/preview/body-only mode to invent a policy for. Merge
+confirmation precedes the mutation and lint read: both noninteractive refusal
+and explicit interactive decline are pinned to no mutation/no lint read.

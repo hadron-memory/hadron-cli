@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 	"strings"
 	"testing"
 )
@@ -187,5 +188,186 @@ func TestC3cGetIsOptInAndHumanTextIsSafe(t *testing.T) {
 	}
 	if strings.Contains(human, "\x1b") || strings.Contains(human, "line1\nline2") || !strings.Contains(human, "line1 line2") {
 		t.Fatalf("unsafe human warning: %q", human)
+	}
+}
+
+func TestC3cEveryCommandUsesReturnedIDAndPreservesOptOut(t *testing.T) {
+	approve := `{"data":{"approveNode":{"nodeId":"approved-id","urn":"hrn:node:acme.com:kb:x","loc":"x","approval":{"revision":4,"approvedAt":"2026-10-01T23:00:00Z","approvedBy":{"handle":"ada","urn":"hrn:user:ada"},"hash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}}`
+	for _, tc := range []struct {
+		name, op, id, response string
+		args                   []string
+	}{
+		{"get", "", "n1", "", []string{"node", "get", testNodeURN, "--raw"}},
+		{"add", "CreateNode", "n1", `{"data":{"createNode":` + nodeJSON + `}}`, []string{"node", "add", "-m", "mem1", "--loc", "x", "--name", "X"}},
+		{"update", "UpdateNode", "updated-id", `{"data":{"updateNode":` + strings.Replace(nodeJSON, `"id":"n1"`, `"id":"updated-id"`, 1) + `}}`, []string{"node", "update", testNodeURN, "--name", "Changed"}},
+		{"approve", "ApproveNode", "approved-id", approve, []string{"node", "approve", testNodeURN, "--revision", "4"}},
+		{"move", "MoveNode", "moved-id", strings.Replace(movedNodeJSON, `"id":"n1"`, `"id":"moved-id"`, 1), []string{"node", "move", testNodeURN, "--to-urn", "hrn:node:acme.com:kb:moved"}},
+		{"clone", "CloneNode", "n9", clonedNodeJSON, []string{"node", "clone", testNodeURN, "--to-urn", "hrn:node:acme.com:kb:cloned"}},
+		{"merge", "MergeNodes", "merged-id", strings.Replace(mergedNodeJSON, `"id":"n1"`, `"id":"merged-id"`, 1), []string{"node", "merge", testNodeURN, "--into", "hrn:node:acme.com:kb:target", "--yes"}},
+		{"restore", "RestoreNode", "restored-id", `{"data":{"restoreNode":` + strings.Replace(recRestoredJSON, `"id":"n1"`, `"id":"restored-id"`, 1) + `}}`, []string{"node", "restore", testNodeURN}},
+	} {
+		for _, mode := range []string{"on", "off", "default"} {
+			t.Run(tc.name+"/"+mode, func(t *testing.T) {
+				responses := bodyOnlyStubs("Stored body")
+				c3StubReadMetadata(responses)
+				if tc.op != "" {
+					responses[tc.op] = tc.response
+				}
+				responses["GetNodeLintWarnings"] = c3WarningEnvelope(`{"items":[],"total":0,"nextCursor":null}`)
+				args := append(append([]string{}, tc.args...), "--json")
+				if mode == "on" {
+					args = append(args, "--lint-warnings")
+				} else if mode == "off" {
+					args = append(args, "--lint-warnings=false")
+				}
+				var calls *[]attnCall
+				var out string
+				var err error
+				if tc.name == "get" {
+					var captured map[string]json.RawMessage
+					out, _, captured, err = runNode(t, responses, "", args...)
+					recorded := []attnCall{}
+					for op, raw := range captured {
+						var vars map[string]any
+						if e := json.Unmarshal(raw, &vars); e != nil {
+							t.Fatal(e)
+						}
+						recorded = append(recorded, attnCall{Op: op, Vars: vars})
+					}
+					calls = &recorded
+				} else {
+					calls, out, err = runTeamTask(t, responses, args...)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				writes, reads := 0, 0
+				for _, call := range *calls {
+					if call.Op == tc.op && tc.op != "" {
+						writes++
+					}
+					if call.Op == "GetNodeLintWarnings" {
+						reads++
+						if call.Vars["ref"] != tc.id {
+							t.Fatalf("warning ref is not returned ID %s: %v", tc.id, call.Vars)
+						}
+					}
+				}
+				wantWrites := 1
+				if tc.op == "" {
+					wantWrites = 0
+				}
+				wantReads := 0
+				if mode == "on" {
+					wantReads = 1
+				}
+				var dto map[string]json.RawMessage
+				if err := json.Unmarshal([]byte(out), &dto); err != nil {
+					t.Fatal(err)
+				}
+				_, present := dto["lintWarnings"]
+				if writes != wantWrites || reads != wantReads || present != (mode == "on") {
+					t.Fatalf("wrong request/field counts: writes%d reads%d present%t output%s", writes, reads, present, out)
+				}
+			})
+		}
+	}
+}
+
+func TestC3cBatchGetRendersEachNodesWarningsInBothModes(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		responses := map[string]string{"NodeBatch": batchOf(nodeJSON, strings.Replace(nodeJSON, `"id":"n1"`, `"id":"n2"`, 1)), "GetNodeLintWarnings": c3WarningEnvelope(`{"items":[` + c3Warning1 + `],"total":1,"nextCursor":null}`)}
+		c3StubReadMetadata(responses)
+		args := []string{"node", "get", "hrn:node:acme.com:kb:a", "hrn:node:acme.com:kb:b", "--raw", "--lint-warnings"}
+		if jsonMode {
+			args = append(args, "--json")
+		}
+		calls, out, err := runTeamTask(t, responses, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		refs := []string{}
+		for _, call := range *calls {
+			if call.Op == "GetNodeLintWarnings" {
+				refs = append(refs, call.Vars["ref"].(string))
+			}
+		}
+		if len(refs) != 2 || refs[0] != "n1" || refs[1] != "n2" {
+			t.Fatalf("batch warning reads wrong: %v", refs)
+		}
+		if jsonMode {
+			var dto struct{ Nodes []map[string]json.RawMessage }
+			if err := json.Unmarshal([]byte(out), &dto); err != nil {
+				t.Fatal(err)
+			}
+			if len(dto.Nodes) != 2 {
+				t.Fatal(out)
+			}
+			for _, node := range dto.Nodes {
+				if len(node["lintWarnings"]) == 0 {
+					t.Fatal(out)
+				}
+			}
+		} else if strings.Count(out, "lint warnings: 1") != 2 || strings.Count(out, "first server wording") != 2 {
+			t.Fatalf("batch human warnings dropped: %s", out)
+		}
+	}
+}
+
+func TestC3cMergeUnconfirmedDoesNotReadLintOrWrite(t *testing.T) {
+	calls, _, err := runTeamTask(t, bodyOnlyStubs("Stored body"), "node", "merge", testNodeURN, "--into", "hrn:node:acme.com:kb:target", "--lint-warnings")
+	if err == nil {
+		t.Fatal("merge confirmation gate did not refuse")
+	}
+	for _, call := range *calls {
+		if call.Op == "MergeNodes" || call.Op == "GetNodeLintWarnings" {
+			t.Fatalf("unconfirmed merge wrote or read lint: %v", *calls)
+		}
+	}
+}
+
+// These cases isolate lint rendering from optional pre-existing read metadata.
+func c3StubReadMetadata(responses map[string]string) {
+	for _, op := range []string{"NodeLiveRevisionsMinted", "NodeLiveRevisionsApproved", "NodeLiveRevisionsStamped", "NodeLiveRevisions", "NodeCommentSummaries"} {
+		value, ok := unstubbedDefault(op)
+		if !ok {
+			panic("missing read-metadata fixture")
+		}
+		responses[op] = value
+	}
+}
+
+func TestC3cOnlyActualDryRunAndBodyModesAreIncompatible(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	for _, name := range []string{"add", "move", "clone", "merge", "restore", "approve"} {
+		command, _, err := root.Find([]string{"node", name})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, flag := range []string{"dry-run", "preview", "body-only"} {
+			if command.Flags().Lookup(flag) != nil {
+				t.Fatalf("new incompatible mode needs an explicit policy: %s --%s", name, flag)
+			}
+		}
+	}
+}
+
+func TestC3cDeclinedInteractiveMergeDoesNotReadLint(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, bodyOnlyStubs("Stored body"))
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	streams, _, _ := output.TestTTY("n\n")
+	f.IOStreams = streams
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "node", "merge", testNodeURN, "--into", "hrn:node:acme.com:kb:target", "--lint-warnings"})
+	if err := root.Execute(); exitCodeFor(err) != 6 {
+		t.Fatalf("decline not canceled: %v", err)
+	}
+	for _, call := range *calls {
+		if call.Op == "MergeNodes" || call.Op == "GetNodeLintWarnings" {
+			t.Fatalf("declined merge wrote or read lint: %v", *calls)
+		}
 	}
 }
