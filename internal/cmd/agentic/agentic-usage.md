@@ -3658,6 +3658,9 @@ shell-quoted independently. Windows output gives argument guidance rather
 than a shell command. None of this changes DTOs or the arguments sent to
 the server.
 
+## Recorded served boot prompts (#916 C3b)
+
+`hadron team worker served-prompt <worker-id-or-qualified-URN>` and `hadron run served-prompt <run-ref>` read the recorded revision/hash/variables and scalar-only provenance. `--limit 0..200` (default 50), `--offset N`, or `--all` (all provenance pages, buffered before output). Explicit `--offset` excludes `--all`; `--all --limit 0` is refused. JSON is `{servedPrompt: record|null}`; null is unavailable (unrecorded, unreadable or serving off), never proof of which. No current prompt/source text is fetched. Pruned revisions remain recorded. Recorded variables may contain sensitive values. Ordinary worker/run get remains unchanged.
 
 hadron node provenance <compiled-node-ref> --revision <n> [--limit 0..100] [--offset N | --all] [-m <memory>]
 
@@ -3732,6 +3735,9 @@ check the compiled node with `node get` before compiling again. No automatic
 retry is made, including after a conflict.
 
 hadron team worker compile <worker> [--no-set-pointer]
+
+hadron run served-prompt <run-ref> [--limit N] [--offset N | --all]
+hadron team worker served-prompt <worker-id-or-qualified-URN> [--limit N] [--offset N | --all]
 
 ## Retired role/preview name probe (#916 C6)
 

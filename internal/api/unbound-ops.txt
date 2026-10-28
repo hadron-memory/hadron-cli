@@ -13,7 +13,7 @@ agentTickerTemplates
 aiModelPrice
 aiServiceConfigs
 appAIConfig
-appMemoryWriteGrants  # provider2484; separate App write-grant CLI parity, outside916 C1b
+appMemoryWriteGrants  # server#2484; separate App-memory grant CLI parity outside C3b
 appNodes
 appTickerSettings  # server ticker settings (named-heartbeats epic, in flight — #1750/#1791 cycle); CLI parity follows the surface settling
 assets
@@ -47,7 +47,7 @@ myAgentSubscriptions
 myApp
 myChats
 myPasskeys  # S1 schema refresh for cli#994; separate CLI parity, not part of the clone cut
-nodeEdgeRemovals  # provider2517 hard-delete edge audit; separate node-history parity, outside916 C1b
+nodeEdgeRemovals  # server#2517; separate edge-removal CLI parity outside C3b
 nodeRevisionsPage
 nodeUsage  # deprecated by server #986 — never wrap it; usageEvents(loc:) is the migration target
 previewAutomation  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
@@ -151,13 +151,13 @@ revokeAgentOrgGrant
 revokeAgentSubscription
 revokeAppGrant  # server#1747 worker App grants; CLI parity slice to follow
 revokeAppKey
-revokeAppMemoryWriteGrant  # provider2484; separate App write-grant CLI parity, outside916 C1b
+revokeAppMemoryWriteGrant  # server#2484; separate App-memory grant CLI parity outside C3b
 saveChatSummary
 sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled
 setAiModelPrice
-setAppMemoryWriteGrant  # provider2484; separate App write-grant CLI parity, outside916 C1b
+setAppMemoryWriteGrant  # server#2484; separate App-memory grant CLI parity outside C3b
 setAppTickerSettings  # server ticker settings (named-heartbeats epic, in flight); CLI parity follows the surface settling
 setDashboardWidgets
 setDecisionLogDeciders  # server main schema refresh for cli#836; separate CLI parity outside comment API migration

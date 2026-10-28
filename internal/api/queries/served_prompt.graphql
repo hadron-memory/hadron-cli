@@ -1,0 +1,15 @@
+# The served record is scalar-only. Never read live source nodes/edges or text
+# to reconstruct it: its revision/hash/provenance/variables are the audit fact.
+fragment ServedPromptRecord on ServedPrompt {
+ id kind ordinal pointerLevel compiledNodeId compiledContentHash
+ servedRevSeq provenanceRevSeq servedAt variables pruned
+ provenance(limit: $limit, offset: $offset) {
+  total items { nodeId revSeq hash pruned }
+ }
+}
+query WorkerServedPrompt($ref: ID!, $limit: Int!, $offset: Int!) {
+ worker(ref: $ref) { servedPrompt { ...ServedPromptRecord } }
+}
+query RunServedPrompt($ref: ID!, $limit: Int!, $offset: Int!) {
+ appRun(ref: $ref) { servedPrompt { ...ServedPromptRecord } }
+}
