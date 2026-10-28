@@ -19,7 +19,7 @@ Select only the released page and occurrence scalar fields plus recorded
 position/selection values. No source bodies, memory objects, users or source
 nodes are expanded. Recorded node ids/revisions/hashes/settings remain visible
 under the compiled gate. Source pruned is copied as nullable Boolean; null
-is not shown, never inferred as retained or pruned. Compiled pruned describes
+is not visible, never inferred as retained or pruned. Compiled pruned describes
 that compiled revision's text and is a different, nonnullable field.
 
 ## Output and pagination
@@ -29,7 +29,7 @@ hasMore, limit, offset. Occurrences keep order, depth, parent, kind, nodeId,
 revNo, hash, replacesNodeId, nullable position, selection and nullable pruned.
 An empty items collection emits[] rather than null. Human cells are terminal
 safe; JSON preserves the provider's scalar values. Source status is shown as
-retained/pruned/not shown without a hidden-target lookup.
+retained/pruned/not visible without a hidden-target lookup.
 
 CLI defaults one page20, cap100. Zero means counts only and is actually sent
 as zero. Positive 32-bit revision is required; negative/out-of-range offsets

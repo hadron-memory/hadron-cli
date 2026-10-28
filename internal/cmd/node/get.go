@@ -16,18 +16,25 @@ import (
 )
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
-	var memory, locPrefix string
+	var memory, locPrefix, install string
 	var raw, bodyOnly bool
 	cmd := &cobra.Command{
-		Use:   "get <node-urn>... | <loc>... -m <memory> | --prefix <loc> -m <memory>",
+		Use:   "get <node-urn>... | <loc>... (-m <memory> | --install <app>/<agent>) | --prefix <loc>",
 		Short: "Show one or more nodes, including content and edges",
 		Long: `Show a node by its fully-qualified URN: hrn:node:<root>:<slug>:<loc>
 (e.g. hrn:node:hadronmemory.com:dev:start-here). The prefix is REQUIRED for
 this flat form — scheme-less <org>:<memory>:<loc> is ambiguous, since a loc
 carries its own single colons. The legacy scheme-less <org>::<memory>::<loc>
 (and urn:node:) remain accepted. Pass -m/--memory to name a
-node by a bare <loc> within that memory instead; without -m a bare loc
+node by a bare <loc> within that memory instead; without -m or --install a bare loc
 is rejected, since the same loc can exist in several memories.
+
+--install <app>/<agent> selects an App's customisation memory instead of
+--memory. Both refs must be ids or fully-qualified URNs, separated by /.
+This excludes --memory (even an empty value). Reads create nothing; an
+unavailable memory is exit 4, not an unscoped read. Only an App manager may
+write while the App is live and the Agent installed. Metadata visibility
+does not confer permission to read content or write. Get/update take bare locs inside that memory, not separate node ids or URNs.
 
 Pass SEVERAL refs to read them together. They are sent as one batched read —
 the server takes a URN as happily as an id, so nothing is resolved first — and a
@@ -83,6 +90,10 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
   hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --raw --json
   hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --body-only > body.md`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			target, err := installTarget(cmd, install, args)
+			if err != nil {
+				return err
+			}
 			prefixMode := cmd.Flags().Changed("prefix")
 			// The two forms are mutually exclusive server-side, so reject the
 			// combination here with a message that names both rather than
@@ -91,7 +102,7 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 				return exitcode.Newf(exitcode.Usage,
 					"--prefix reads a subtree and cannot be combined with explicit node refs — drop one")
 			}
-			if prefixMode && strings.TrimSpace(memory) == "" {
+			if prefixMode && strings.TrimSpace(memory) == "" && target == nil {
 				return exitcode.Newf(exitcode.Usage, "--prefix needs -m/--memory hrn:mem:<root>:<slug> to scope the subtree")
 			}
 			if !prefixMode && len(args) == 0 {
@@ -106,6 +117,13 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+
+			if target != nil {
+				memory, err = cmdutil.InstallMemoryRef(cmd.Context(), client, target)
+				if err != nil {
+					return err
+				}
 			}
 
 			// One ref keeps the single-node shape: that output is a stable
@@ -179,6 +197,7 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 			return emitNodeBatch(f, dto)
 		},
 	}
+	cmd.Flags().StringVar(&install, "install", "", installFlagHelp)
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&locPrefix, "prefix", "", "read every node under this loc prefix in one call (needs -m; empty means the whole memory)")
 	cmd.Flags().BoolVar(&raw, "raw", false, "return the stored body with {{…}} placeholders intact, not the rendered one (to edit content, use --body-only)")

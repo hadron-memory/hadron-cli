@@ -68,7 +68,7 @@ corrupt provenance is a server integrity error, never zero occurrences.
 
 Compiled pruned describes whether that compiled revision's text is absent.
 Each source pruned is true/false only when its current source and any retained
-historical snapshot are readable; null is not shown, not proof of retention or
+historical snapshot are readable; null is not visible, not proof of retention or
 pruning. Recorded ids/hashes/settings remain under the compiled node gate.
 
 One offset page is returned by default (--limit 20, cap 100). --limit 0 reads
@@ -157,7 +157,7 @@ pages. No content is exported, approval changed, compile retried or prompt serve
 				t := output.NewTable(w)
 				t.Row("ORDER", "DEPTH", "KIND", "SOURCE NODE", "REVISION", "SOURCE TEXT")
 				for _, item := range dto.Items {
-					status := "not shown"
+					status := "not visible"
 					if item.Pruned != nil {
 						status = "retained"
 						if *item.Pruned {
