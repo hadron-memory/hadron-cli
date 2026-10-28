@@ -153,6 +153,7 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.AddCommand(serverinfo.NewCmdServerInfo(f))
 	root.AddCommand(agentic.NewCmdAgenticUsage(f))
 
+	installNodeWriteWarnings(root, f)
 	return root
 }
 
