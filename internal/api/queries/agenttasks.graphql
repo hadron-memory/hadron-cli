@@ -65,6 +65,8 @@ fragment AgentTaskFields on AgentTask {
 # and inherited from the parent for a child. Optional party/requirements
 # inputs are omitempty so a nil pointer is OMITTED (preserve/default), never
 # sent as null — the wire-semantics rule from CLAUDE.md.
+# Schema-only optional fields must stay absent for older providers.
+# @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
 ) {
