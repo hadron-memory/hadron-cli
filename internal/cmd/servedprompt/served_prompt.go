@@ -179,7 +179,7 @@ func identity(r *recordDTO) string {
 
 func recordFrom(r *gen.ServedPromptRecord, limit, offset int) (*recordDTO, error) {
 	p := r.Provenance
-	if r.Id == "" || r.CompiledNodeId == "" || r.ServedRevSeq <= 0 || r.ProvenanceRevSeq <= 0 || !json.Valid(r.Variables) || p == nil || p.Items == nil || p.Total < 0 || len(p.Items) > limit || (offset < p.Total && len(p.Items) > p.Total-offset) {
+	if r.Id == "" || r.CompiledNodeId == "" || r.ServedRevSeq <= 0 || r.ProvenanceRevSeq <= 0 || !json.Valid(r.Variables) || p == nil || p.Items == nil || p.Total < 0 || len(p.Items) > limit || len(p.Items) > max(0, p.Total-offset) {
 		return nil, exitcode.Newf(exitcode.Error, "server returned an invalid served record/provenance page")
 	}
 	dto := &recordDTO{ID: r.Id, Kind: string(r.Kind), Ordinal: r.Ordinal, PointerLevel: string(r.PointerLevel), CompiledNodeID: r.CompiledNodeId, CompiledContentHash: r.CompiledContentHash, ServedRevSeq: r.ServedRevSeq, ProvenanceRevSeq: r.ProvenanceRevSeq, ServedAt: r.ServedAt, Variables: r.Variables, Pruned: r.Pruned, Provenance: provenanceDTO{Items: []entryDTO{}, Total: p.Total, Limit: limit, Offset: offset}}

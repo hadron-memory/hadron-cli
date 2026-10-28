@@ -36,3 +36,17 @@ nullable record, recorded revisions/variables/hash/pruning, explicit count0,
 two-page all, later error/null/change/stall/no partial result, and bad arguments
 with no requests. Independent CLI/authority QA remains required; author runs
 are fake transport, never production or private-stack evidence.
+
+
+## Review closure
+
+The shared task Project omission defect from the schema refresh is fixed at
+AgentTaskCreate's generator annotation source, with the same actual task-create
+wire and explicit false/true controls as C1b. No manual generated edits.
+
+Tests now assert populated/null and complete --all human output, control safety,
+changed totals, over-limit and beyond-remaining pages, and null items. A bounded
+fake-provider request budget makes a no-advance regression fail instead of hang.
+An offset at/past total must have an empty page; the old code accepted a nonempty
+one (red pin), now refused by the same remaining-count guard. JSON page limit
+continues to mean requested per-page size under --all, not aggregate item count.
