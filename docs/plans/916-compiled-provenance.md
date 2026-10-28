@@ -65,3 +65,22 @@ invalid zero-call inputs, every offset, late errors, changing metadata and
 nonprogress with no partial output. Full Go/lint/build, generation, inventories
 and independent compiled-CLI QA/review are required before readiness. Author
 synthetic transport is not new live authorization/history-gate evidence.
+
+## Review closure
+
+The schema refresh's optional task `project` input is now omit-when-nil at
+its query annotation source, with an actual task-create payload regression pin
+and explicit false/true marshal controls. This preserves older task providers.
+
+The retired `hasNamePlaceholder` consumers are intentionally a separate C6
+cut (#1165), not a missing C1b migration: C1b does not change those queries or
+warnings. Its schema comments disclose server behavior without deriving a new
+value in this command. C6 removes the obsolete selections/advice and keeps its
+stable JSON key null.
+
+Human output summarizes identity and source status. Use `--json` for the full
+recorded parent/hash/replacement/position/selection fields; help now says so.
+Invalid over-total pages are refused before output. Tests added after review
+cover overflow/explicit-offset validation, malformed selections/over-limit and
+incomplete pages, bare-loc scope, all three human status classes, counts with
+hasMore, and the next-offset hint. The null-source independence pin remains.

@@ -60,7 +60,10 @@ revision, not the latest live include edges. --revision is required. The ref
 is a node id or fully-qualified node URN; a bare loc needs -m/--memory.
 
 The page reports occurrence order/depth, recorded source ids/revisions/hashes,
-include position, replacement and effective selection settings. It contains
+include position, replacement and effective selection settings.
+--json includes the full recorded occurrence, including parent, hash, replacement,
+position and selection; the human table summarizes identity and source status.
+It contains
 no source bodies or related entity objects. Access is decided by the compiled
 node's existing read/history gate. A missing, deleted, noncompiled or unreadable
 target has one unavailable answer (exit 4), not an empty record. Missing or
@@ -112,7 +115,7 @@ pages. No content is exported, approval changed, compile retried or prompt serve
 					return exitcode.Newf(exitcode.NotFound, "compiled revision provenance is not available (missing, deleted, noncompiled or not readable by you)")
 				}
 				p := r.CompiledPromptProvenance
-				if p.Items == nil || p.Total < 0 || p.RevNo != revision || len(p.Items) > limit || p.NodeId == "" || p.ContentHash == "" || (limit > 0 && p.HasMore && len(p.Items) == 0) {
+				if p.Items == nil || p.Total < 0 || len(p.Items) > p.Total || p.RevNo != revision || len(p.Items) > limit || p.NodeId == "" || p.ContentHash == "" || (limit > 0 && p.HasMore && len(p.Items) == 0) {
 					return exitcode.Newf(exitcode.Error, "server returned an invalid provenance page")
 				}
 				if next == offset {

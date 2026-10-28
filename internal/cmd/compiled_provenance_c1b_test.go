@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"regexp"
 	"strings"
@@ -203,4 +204,114 @@ func TestC1bHumanMaskedSourceDoesNotInferFromCompiledPruning(t *testing.T) {
 			t.Fatalf("masked status inferred or enriched: %s %v", out, *calls)
 		}
 	}
+}
+
+func TestC1bRejectsInvalidPageShapes(t *testing.T) {
+	for name, page := range map[string]string{
+		"items exceed total": strings.Replace(c1bPage, `"total":1`, `"total":0`, 1),
+		"missing selection":  strings.Replace(c1bPage, `"selection":{"rev":null,"approved":true,"signed":false}`, `"selection":null`, 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, out, err := runTeamTask(t, map[string]string{"CompiledPromptProvenance": `{"data":{"compiledPromptProvenance":` + page + `}}`}, "node", "provenance", c1bRef, "--revision", "7", "--json")
+			if exitCodeFor(err) != 1 || out != "" {
+				t.Fatalf("invalid page accepted: %v %s", err, out)
+			}
+		})
+	}
+}
+
+func TestC1bAdditionalInputBoundaries(t *testing.T) {
+	for _, flags := range [][]string{
+		{"--revision", "7", "--all", "--offset", "0"},
+		{"--revision", "2147483648"},
+		{"--revision", "7", "--offset", "2147483648"},
+	} {
+		calls, _, err := runTeamTask(t, nil, append([]string{"node", "provenance", c1bRef}, flags...)...)
+		if exitCodeFor(err) != 2 || len(*calls) != 0 {
+			t.Fatalf("bad boundary reached provider: %v %v", err, *calls)
+		}
+	}
+}
+
+func TestC1bHumanSourceStatusesAndJSONOnlyDetailHelp(t *testing.T) {
+	for value, word := range map[string]string{"false": "retained", "true": "pruned"} {
+		page := strings.Replace(c1bPage, `"pruned":null`, `"pruned":`+value, 1)
+		_, out, err := runTeamTask(t, map[string]string{"CompiledPromptProvenance": `{"data":{"compiledPromptProvenance":` + page + `}}`}, "node", "provenance", c1bRef, "--revision", "7")
+		if err != nil || !regexp.MustCompile(`(?m)^.*source1.*`+word).MatchString(out) {
+			t.Fatalf("wrong human source status: %v %s", err, out)
+		}
+	}
+	_, out, err := runTeamTask(t, nil, "node", "provenance", "--help")
+	if err != nil || !strings.Contains(out, "--json includes the full recorded occurrence") {
+		t.Fatalf("JSON-only detail not disclosed: %v %s", err, out)
+	}
+}
+
+func TestC1bBareLocRequiresMemoryAndNormalizesWithoutLookup(t *testing.T) {
+	calls, _, err := runTeamTask(t, nil, "node", "provenance", "boot:compiled", "--revision", "7")
+	if exitCodeFor(err) != 2 || len(*calls) != 0 {
+		t.Fatalf("bare loc escaped scope validation: %v %v", err, *calls)
+	}
+	calls, _, err = runTeamTask(t, map[string]string{"CompiledPromptProvenance": `{"data":{"compiledPromptProvenance":` + c1bPage + `}}`}, "node", "provenance", "boot:compiled", "-m", "acme.com:iris-system", "--revision", "7", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 1 || c2Mutation(t, calls, "CompiledPromptProvenance").Vars["nodeRef"] != c1bRef {
+		t.Fatalf("wrong normalization or live lookup: %v", *calls)
+	}
+}
+
+func TestC1bCountAndPagingEdges(t *testing.T) {
+	t.Run("items exceed limit", func(t *testing.T) {
+		_, out, err := runTeamTask(t, map[string]string{"CompiledPromptProvenance": `{"data":{"compiledPromptProvenance":` + c1bPage + `}}`}, "node", "provenance", c1bRef, "--revision", "7", "--limit", "0", "--json")
+		if exitCodeFor(err) != 1 || out != "" {
+			t.Fatalf("over-limit items accepted: %v %s", err, out)
+		}
+	})
+	t.Run("short final total", func(t *testing.T) {
+		_, out, err := c1bReadPages(t, []string{c1bPageAt(t, 0, false)})
+		if exitCodeFor(err) != 1 || out != "" {
+			t.Fatalf("incomplete final page accepted: %v %s", err, out)
+		}
+	})
+	t.Run("counts with more", func(t *testing.T) {
+		page := strings.Replace(c1bPage, `"items":[`, `"items":[`, 1)
+		var record map[string]any
+		if err := json.Unmarshal([]byte(page), &record); err != nil {
+			t.Fatal(err)
+		}
+		record["items"] = []any{}
+		record["hasMore"] = true
+		raw, _ := json.Marshal(record)
+		calls, out, err := runTeamTask(t, map[string]string{"CompiledPromptProvenance": `{"data":{"compiledPromptProvenance":` + string(raw) + `}}`}, "node", "provenance", c1bRef, "--revision", "7", "--limit", "0", "--json")
+		var dto struct {
+			Items   []any
+			HasMore bool
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal([]byte(out), &dto); err != nil {
+			t.Fatal(err)
+		}
+		if len(*calls) != 1 || dto.Items == nil || len(dto.Items) != 0 || !dto.HasMore {
+			t.Fatalf("counts altered: %s", out)
+		}
+	})
+	t.Run("next offset hint", func(t *testing.T) {
+		writeTeamBinding(t)
+		srv, _ := attnServer(t, map[string]string{"CompiledPromptProvenance": `{"data":{"compiledPromptProvenance":` + c1bPageAt(t, 0, true) + `}}`})
+		setTeamBindingServer(t, srv.URL)
+		f, _ := testFactory(t)
+		var stderr bytes.Buffer
+		f.IOStreams.ErrOut = &stderr
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"--server", srv.URL, "node", "provenance", c1bRef, "--revision", "7", "--limit", "1"})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(stderr.String(), "next: --offset 1") {
+			t.Fatalf("missing recovery hint: %s", stderr.String())
+		}
+	})
 }
