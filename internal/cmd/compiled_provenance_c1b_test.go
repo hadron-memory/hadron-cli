@@ -65,3 +65,86 @@ func TestC1bInvalidInputsMakeNoRequests(t *testing.T) {
 		}
 	}
 }
+
+func c1bPageAt(t *testing.T, order int, more bool) string {
+	t.Helper()
+	var p map[string]any
+	if err := json.Unmarshal([]byte(c1bPage), &p); err != nil {
+		t.Fatal(err)
+	}
+	p["total"] = 2
+	p["hasMore"] = more
+	item := p["items"].([]any)[0].(map[string]any)
+	item["order"] = order
+	raw, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
+}
+
+func c1bReadPages(t *testing.T, pages []string) (*[]attnCall, string, error) {
+	t.Helper()
+	writeTeamBinding(t)
+	responses := map[string]string{}
+	n := 0
+	srv, calls := attnServerHook(t, responses, func(op string) {
+		if op != "CompiledPromptProvenance" {
+			return
+		}
+		if n >= len(pages) {
+			t.Errorf("unexpected extra page request %d", n)
+			responses[op] = `{"data":{"compiledPromptProvenance":null}}`
+			return
+		}
+		responses[op] = `{"data":{"compiledPromptProvenance":` + pages[n] + `}}`
+		n++
+	})
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "node", "provenance", c1bRef, "--revision", "7", "--all", "--limit", "1", "--json"})
+	err := root.Execute()
+	return calls, out.String(), err
+}
+
+func TestC1bAllReadsEveryOffsetBeforePrinting(t *testing.T) {
+	calls, out, err := c1bReadPages(t, []string{c1bPageAt(t, 0, true), c1bPageAt(t, 1, false)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 2 || (*calls)[0].Vars["offset"] != float64(0) || (*calls)[1].Vars["offset"] != float64(1) {
+		t.Fatalf("wrong paging: %v", *calls)
+	}
+	var dto struct {
+		Items   []any
+		HasMore bool
+		Total   int
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if len(dto.Items) != 2 || dto.Total != 2 || dto.HasMore {
+		t.Fatalf("partial output: %s", out)
+	}
+}
+
+func TestC1bAllFailureOrChangedPageNeverPrintsPartialRecord(t *testing.T) {
+	for name, tc := range map[string]struct {
+		page string
+		code int
+	}{
+		"unavailable":            {"null", 4},
+		"changed hash":           {strings.Replace(c1bPageAt(t, 1, false), "recordedhash", "newhash", 1), 5},
+		"changed compiled prune": {strings.Replace(c1bPageAt(t, 1, false), `"pruned":false`, `"pruned":true`, 1), 5},
+		"duplicate occurrence":   {c1bPageAt(t, 0, false), 1},
+		"empty stalled page":     {`{"nodeId":"compiled1","revNo":7,"contentHash":"recordedhash","version":1,"pruned":false,"items":[],"total":2,"hasMore":true}`, 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			calls, out, err := c1bReadPages(t, []string{c1bPageAt(t, 0, true), tc.page})
+			if exitCodeFor(err) != tc.code || out != "" || len(*calls) != 2 {
+				t.Fatalf("partial/misclassified: err=%v output=%s calls=%v", err, out, *calls)
+			}
+		})
+	}
+}
