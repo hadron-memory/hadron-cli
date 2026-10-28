@@ -3686,3 +3686,7 @@ check the compiled node with `node get` before compiling again. No automatic
 retry is made, including after a conflict.
 
 hadron team worker compile <worker> [--no-set-pointer]
+
+## Skill include lint (#916 C5)
+
+`skill lint` also asks the S11d provider for `skill-include-broken` warnings, using LINT plans for the explicit selected memories and filtering exact selected node IDs. Warnings preserve the provider message and remain exit0 (`--strict` promotes to5). Literal notice text alone is never interpreted as a broken include. A failed/unavailable provider plan returns an error, not a clean lint. Existing local rules and selectors remain, no rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
