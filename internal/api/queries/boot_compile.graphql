@@ -1,0 +1,27 @@
+fragment BootCompileResult on CompiledBootPrompt {
+  node { urn }
+  revNo
+  contentHash
+  pointerSet
+  approvalIssued
+}
+
+mutation CompileAgentBootPrompt(
+  $agentRef: String!
+  # @genqlient(omitempty: true)
+  $setPointer: Boolean
+) {
+  compileAgentBootPrompt(agentRef: $agentRef, setPointer: $setPointer) { ...BootCompileResult }
+}
+
+mutation CompileAppAgentBootPrompt($appRef: String!, $agentRef: String!) {
+  compileAppAgentBootPrompt(appRef: $appRef, agentRef: $agentRef) { ...BootCompileResult }
+}
+
+mutation CompileWorkerBootPrompt(
+  $workerRef: ID!
+  # @genqlient(omitempty: true)
+  $setPointer: Boolean
+) {
+  compileWorkerBootPrompt(workerRef: $workerRef, setPointer: $setPointer) { ...BootCompileResult }
+}
