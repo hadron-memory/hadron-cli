@@ -3658,7 +3658,32 @@ shell-quoted independently. Windows output gives argument guidance rather
 than a shell command. None of this changes DTOs or the arguments sent to
 the server.
 
+## Recorded served boot prompts (#916 C3b)
 
+`hadron team worker served-prompt <worker-id-or-qualified-URN>` and `hadron run served-prompt <run-ref>` read the recorded revision/hash/variables and scalar-only provenance. `--limit 0..200` (default 50), `--offset N`, or `--all` (all provenance pages, buffered before output). Explicit `--offset` excludes `--all`; `--all --limit 0` is refused. JSON is `{servedPrompt: record|null}`; null is unavailable (unrecorded, unreadable or serving off), never proof of which. No current prompt/source text is fetched. Pruned revisions remain recorded. Recorded variables may contain sensitive values. Ordinary worker/run get remains unchanged.
+
+hadron node provenance <compiled-node-ref> --revision <n> [--limit 0..100] [--offset N | --all] [-m <memory>]
+
+## Compiled prompt provenance (916 C1b)
+
+`node provenance` reads recorded sources for exactly the required positive
+compiled revision. It never substitutes the latest include edges or fetches
+source bodies. JSON is `{nodeId,revNo,contentHash,version,pruned,items,total,
+hasMore,limit,offset}`; occurrences preserve recorded order/depth/parent,
+kind, source nodeId/revNo/hash, replacesNodeId, nullable position, effective
+selection `{rev,approved,signed}` and nullable `pruned`. Source pruned:null is
+not visible, never a guessed retained/pruned state. Recorded ids/hashes/settings
+are admitted by the compiled node's existing read/history gate.
+
+Default one offset page, limit20/cap100; limit0 counts only. --all buffers every
+page and excludes --offset and counts-only. Errors, inconsistent counts/identity
+or compiled pruning state, nonprogress or duplicate occurrence order fail the
+whole all-page read with no partial payload. Independent pages are not a shared
+snapshot; source availability may change between them. Null provider result is
+exit4 (missing/deleted/noncompiled/unreadable concealed together); server
+integrity failures retain normal API errors, never become an empty result.
+No write, export, approval, activation or automatic compile is added. Requires
+a provider with merged server#2685; older servers refuse the new read.
 ## App install memory (916 C7)
 
 `hadron app agent customize <app> <agent>` only reads the install-memory
@@ -3714,6 +3739,13 @@ hadron team worker compile <worker> [--no-set-pointer]
 ## Opt-in node source-lint warnings (#916 C3c)
 
 `node get|add|update|approve|move|clone|merge|restore --lint-warnings` adds a separate current advisory read, paged completely. JSON omits `lintWarnings` by default, returns null when the requested warning read is unavailable (including older/denied providers), or `{items,total,nextCursor:null}` when complete. Human warning text is terminal-safe; JSON preserves server text/nullable fields. A failed warning read never retries or changes a successful mutation; it reports no conclusion, not zero warnings. This is not a snapshot of the authored revision. Excludes actual --body-only/--dry-run. Advisory reads share a five-second budget across the command, including every batch-get node; timeout leaves the main receipt successful with warning state unavailable. Main response-extension warnings are unchanged; this flag controls only the extra source-lint read.
+
+## Skill include lint (#916 C5)
+
+`skill lint` also asks the S11d provider for `skill-include-broken` warnings, using LINT plans for the explicit selected memories and filtering exact selected node IDs. Warnings preserve the provider message and remain exit0 (`--strict` promotes to5). Literal notice text alone is never interpreted as a broken include. A failed/unavailable provider plan returns an error, not a clean lint. Existing local rules and selectors remain, no rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
+
+hadron run served-prompt <run-ref> [--limit N] [--offset N | --all]
+hadron team worker served-prompt <worker-id-or-qualified-URN> [--limit N] [--offset N | --all]
 
 ## Retired role/preview name probe (#916 C6)
 

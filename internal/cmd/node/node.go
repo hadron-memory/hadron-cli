@@ -180,6 +180,7 @@ func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdExport(f))
 	cmd.AddCommand(newCmdImport(f))
 	cmd.AddCommand(newCmdRevision(f))
+	cmd.AddCommand(newCmdProvenance(f))
 	cmd.AddCommand(newCmdRecovery(f))
 	cmd.AddCommand(newCmdRestore(f))
 	cmd.AddCommand(newCmdApprove(f))
