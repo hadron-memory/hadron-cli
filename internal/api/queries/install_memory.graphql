@@ -1,0 +1,3 @@
+query InstallMemory($appRef: String!, $agentRef: String!) {
+  installMemory(appRef: $appRef, agentRef: $agentRef) { id urn name }
+}

@@ -746,6 +746,10 @@ func DescendantCount(err error) int {
 
 func codeForExtension(code string) int {
 	switch {
+	// Install-memory target ownership changed while the native write acquired
+	// its locks: a state conflict, never a request to retry automatically.
+	case code == "INSTALL_TARGET_CHANGED":
+		return exitcode.Conflict
 	// Boot compile: explicit classifications precede generic suffix handling
 	// (GRANT_REQUIRED is an authority refusal, not a missing argument).
 	case code == "BOOT_PROMPT_COMPILE_NOT_PERMITTED" || code == "BOOT_PROMPT_GRANT_REQUIRED":
