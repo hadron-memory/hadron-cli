@@ -189,3 +189,18 @@ func TestC1bSourcePrunedKeepsAllThreeStates(t *testing.T) {
 		})
 	}
 }
+
+// Source concealment is independent of compiled pruning: never fill a null
+// source status from the readable compiled record's definite pruning state.
+func TestC1bHumanMaskedSourceDoesNotInferFromCompiledPruning(t *testing.T) {
+	for _, compiled := range []string{"false", "true"} {
+		page := strings.Replace(c1bPage, `"pruned":false`, `"pruned":`+compiled, 1)
+		calls, out, err := runTeamTask(t, map[string]string{"CompiledPromptProvenance": `{"data":{"compiledPromptProvenance":` + page + `}}`}, "node", "provenance", c1bRef, "--revision", "7")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(*calls) != 1 || !regexp.MustCompile(`(?m)^.*source1.*not visible`).MatchString(out) {
+			t.Fatalf("masked status inferred or enriched: %s %v", out, *calls)
+		}
+	}
+}
