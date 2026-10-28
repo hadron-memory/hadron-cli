@@ -215,9 +215,10 @@ func TestC3cEveryCommandUsesReturnedIDAndPreservesOptOut(t *testing.T) {
 				}
 				responses["GetNodeLintWarnings"] = c3WarningEnvelope(`{"items":[],"total":0,"nextCursor":null}`)
 				args := append(append([]string{}, tc.args...), "--json")
-				if mode == "on" {
+				switch mode {
+				case "on":
 					args = append(args, "--lint-warnings")
-				} else if mode == "off" {
+				case "off":
 					args = append(args, "--lint-warnings=false")
 				}
 				var calls *[]attnCall
