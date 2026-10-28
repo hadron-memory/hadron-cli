@@ -112,3 +112,22 @@ func TestWarningSinkToleratesMalformedCarriers(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 }
+
+func TestWarningSinkForFieldsUsesSelectedMutationResponseKeys(t *testing.T) {
+	for _, query := range []string{`mutation M { saved: createNode { id } }`, `query M { createNode { id } }`, `mutation M { updateNode { id } }`} {
+		client := c962Server(t, `{"data":{"saved":{"id":"n"}},"extensions":{"warnings":[{"path":"saved","code":"include.pin.unkept","text":"advice"},{"path":"createNode","code":"wrong","text":"wrong"},{"path":"updateNode","code":"other","text":"other"}]}}`)
+		ctx, sink := WithWarningSinkForFields(context.Background(), "createNode")
+		var data map[string]any
+		if err := client.MakeRequest(ctx, &graphql.Request{Query: query, OpName: "M"}, &graphql.Response{Data: &data}); err != nil {
+			t.Fatal(err)
+		}
+		got := sink.All()
+		if query == `mutation M { saved: createNode { id } }` {
+			if len(got) != 1 || got[0].Path != "saved" {
+				t.Fatalf("alias not isolated: %+v", got)
+			}
+		} else if len(got) != 0 {
+			t.Fatalf("unselected field/query warning: %+v", got)
+		}
+	}
+}

@@ -487,7 +487,7 @@ func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Re
 	if err == nil {
 		// Only a successful response's warnings are kept (cli#962): a failed
 		// invocation reports its error, never a success warning.
-		collectWarnings(ctx, resp.Extensions)
+		collectWarnings(ctx, req, resp.Extensions)
 	}
 	switch e := err.(type) {
 	case gqlerror.List: // HTTP 200
