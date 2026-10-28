@@ -58,7 +58,10 @@ func providerIncludeFindings(ctx context.Context, client graphql.Client, nodes [
 				return nil, exitcode.Newf(exitcode.Error, "server returned no skill include-lint findings")
 			}
 			for _, finding := range entry.Findings {
-				if finding == nil || finding.Rule != "skill-include-broken" {
+				if finding == nil {
+					return nil, exitcode.Newf(exitcode.Error, "server returned a null skill include-lint finding")
+				}
+				if finding.Rule != "skill-include-broken" {
 					continue
 				}
 				k := key{entry.NodeId, finding.Rule, finding.Severity, finding.Message}

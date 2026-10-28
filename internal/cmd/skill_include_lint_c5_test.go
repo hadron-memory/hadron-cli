@@ -44,3 +44,18 @@ func TestC5ProviderLintErrorsNeverReportClean(t *testing.T) {
 		}
 	}
 }
+
+func TestC5HumanOutputAndProviderFailureNeverClaimPartialLint(t *testing.T) {
+	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:x", "tasks:x", false, `{"exports":{"claudeSkill":{"name":"hadron-x","description":"Use when testing."}}}`, `"Body."`)
+	warning := `{"data":{"skillPlan":{"scanned":2,"judged":1,"entries":[{"nodeId":"` + nodeID + `","findings":[{"rule":"skill-include-broken","severity":"warning","message":"include check warning","urn":"source1","memory":"mem1"}]}]}}}`
+	out, err := runSkillLint(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good), "SkillPlan": warning}, "--node", nodeID)
+	if exitCodeFor(err) != 5 || !strings.Contains(out, "skill-not-runnable") || !strings.Contains(out, "include check warning") || !strings.Contains(out, "finding(s)") {
+		t.Fatalf("local/provider human findings lost: %v %s", err, out)
+	}
+	for _, plan := range []string{gqlErrorJSON("FORBIDDEN"), `{"errors":[{"message":"Cannot query field skillPlan","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, `{"data":{"skillPlan":{"entries":[null]}}}`, `{"data":{"skillPlan":{"entries":[{"nodeId":"` + nodeID + `","findings":null}]}}}`} {
+		out, err := runSkillLint(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good), "SkillPlan": plan}, "--node", nodeID, "--json")
+		if err == nil || out != "" {
+			t.Fatalf("incomplete lint printed usable partial result: %v %s", err, out)
+		}
+	}
+}

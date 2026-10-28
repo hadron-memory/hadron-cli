@@ -43,3 +43,30 @@ Main C7 7d5a0e7 merged without rebase, help tree regenerated. Provider include
 bridge code/tests are unchanged by integration. Help now distinguishes literal
 ordinary variables from resolved include tags; the old pure finding-message
 copy/parity cleanup is deferred to #1166, no policy/message change here.
+
+
+## Review contract readback
+
+Provider source: selected server main 27455a482, typeDefs.ts SkillPlan and
+SkillPlanEntry; resolvers.query.skill.ts candidate cap, host classification and
+returned counts. entries/findings are non-null lists of non-null objects. Null
+checks defend malformed or incompatible wire replies; null is never clean.
+scanned counts ANY host declaration, judged counts THIS host, so a gap and a
+selected node omitted on another host are expected. Plans have no paging: node
+and byte ceilings throw BAD_USER_INPUT, explicitly never silently truncate.
+The client must not turn these counts into invented missing findings.
+
+The whole combined lint remains fail-closed when include judgment is unavailable.
+It preserves the provider error mapping and emits no valid-looking partial JSON
+list or human OK line. Local findings are printed together with include findings
+only after both checks complete. No degraded/offline mode was dispatched; an
+older provider without skillPlan fails explicitly, never an include-free clean
+lint. Old-server query compatibility in the checklist means the operation is
+unchanged; it does not claim offline lint success on a pre-skillPlan provider.
+
+New review tests cover null entry/findings/finding, empty selection with zero
+requests, missing memory, sorted deduplicated multi-memory input, expected host
+coverage gaps, non-include rule exclusion, severity retention, distinct messages,
+human local+provider rendering, and failure output with existing local findings.
+The null-finding negative was red before the guard fix. C5's schema has no task
+Project input field; the shared omission defect on C1b/C3b does not occur here.
