@@ -49,6 +49,7 @@ worker in scripts.`,
 	cmd.AddCommand(newCmdWorkerUpdate(f))
 	cmd.AddCommand(newCmdWorkerSetReportsTo(f))
 	cmd.AddCommand(newCmdWorkerSetBootPrompt(f))
+	cmd.AddCommand(newCmdWorkerCompile(f))
 	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))

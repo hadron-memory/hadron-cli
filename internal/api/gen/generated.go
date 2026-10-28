@@ -9697,6 +9697,46 @@ func (v *BeginAssetUploadResponse) GetBeginAssetUploadV2() *BeginAssetUploadBegi
 	return v.BeginAssetUploadV2
 }
 
+// BootCompileResult includes the GraphQL fields of CompiledBootPrompt requested by the fragment BootCompileResult.
+// The GraphQL type's documentation follows.
+//
+// #2046 — the result of a compile: the new unapproved revision of the compiled node.
+type BootCompileResult struct {
+	Node *BootCompileResultNode `json:"node"`
+	// The revision this compile wrote.
+	RevNo int `json:"revNo"`
+	// SHA-256 hex of the compiled text.
+	ContentHash string `json:"contentHash"`
+	// Whether this compile wrote the pointer.
+	PointerSet bool `json:"pointerSet"`
+	// Always false: a compile never approves or signs.
+	ApprovalIssued bool `json:"approvalIssued"`
+}
+
+// GetNode returns BootCompileResult.Node, and is useful for accessing the field via an interface.
+func (v *BootCompileResult) GetNode() *BootCompileResultNode { return v.Node }
+
+// GetRevNo returns BootCompileResult.RevNo, and is useful for accessing the field via an interface.
+func (v *BootCompileResult) GetRevNo() int { return v.RevNo }
+
+// GetContentHash returns BootCompileResult.ContentHash, and is useful for accessing the field via an interface.
+func (v *BootCompileResult) GetContentHash() string { return v.ContentHash }
+
+// GetPointerSet returns BootCompileResult.PointerSet, and is useful for accessing the field via an interface.
+func (v *BootCompileResult) GetPointerSet() bool { return v.PointerSet }
+
+// GetApprovalIssued returns BootCompileResult.ApprovalIssued, and is useful for accessing the field via an interface.
+func (v *BootCompileResult) GetApprovalIssued() bool { return v.ApprovalIssued }
+
+// BootCompileResultNode includes the requested fields of the GraphQL type Node.
+type BootCompileResultNode struct {
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+}
+
+// GetUrn returns BootCompileResultNode.Urn, and is useful for accessing the field via an interface.
+func (v *BootCompileResultNode) GetUrn() string { return v.Urn }
+
 // Provider-neutral attendee response. NONE = invited, not yet answered.
 type CalendarEventResponse string
 
@@ -14566,6 +14606,319 @@ type CommentThreadsResponse struct {
 // GetCommentThreads returns CommentThreadsResponse.CommentThreads, and is useful for accessing the field via an interface.
 func (v *CommentThreadsResponse) GetCommentThreads() *CommentThreadsCommentThreadsCommentThreadPage {
 	return v.CommentThreads
+}
+
+// CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt includes the requested fields of the GraphQL type CompiledBootPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2046 — the result of a compile: the new unapproved revision of the compiled node.
+type CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt struct {
+	BootCompileResult `json:"-"`
+}
+
+// GetNode returns CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt.Node, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) GetNode() *BootCompileResultNode {
+	return v.BootCompileResult.Node
+}
+
+// GetRevNo returns CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt.RevNo, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) GetRevNo() int {
+	return v.BootCompileResult.RevNo
+}
+
+// GetContentHash returns CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt.ContentHash, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) GetContentHash() string {
+	return v.BootCompileResult.ContentHash
+}
+
+// GetPointerSet returns CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt.PointerSet, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) GetPointerSet() bool {
+	return v.BootCompileResult.PointerSet
+}
+
+// GetApprovalIssued returns CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt.ApprovalIssued, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) GetApprovalIssued() bool {
+	return v.BootCompileResult.ApprovalIssued
+}
+
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.BootCompileResult)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt struct {
+	Node *BootCompileResultNode `json:"node"`
+
+	RevNo int `json:"revNo"`
+
+	ContentHash string `json:"contentHash"`
+
+	PointerSet bool `json:"pointerSet"`
+
+	ApprovalIssued bool `json:"approvalIssued"`
+}
+
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) __premarshalJSON() (*__premarshalCompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt, error) {
+	var retval __premarshalCompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt
+
+	retval.Node = v.BootCompileResult.Node
+	retval.RevNo = v.BootCompileResult.RevNo
+	retval.ContentHash = v.BootCompileResult.ContentHash
+	retval.PointerSet = v.BootCompileResult.PointerSet
+	retval.ApprovalIssued = v.BootCompileResult.ApprovalIssued
+	return &retval, nil
+}
+
+// CompileAgentBootPromptResponse is returned by CompileAgentBootPrompt on success.
+type CompileAgentBootPromptResponse struct {
+	// #2046 (S9-4, hrn:node:hadronmemory.com:specs:cor:agt:040:12) — compile an Agent's boot prompt from its source ('boot:source') in the Agent's
+	// system memory into the compiled node 'boot:compiled' there, as a NEW unapproved revision (every compile writes
+	// one, even when the text is unchanged), with its provenance and a derived 'compiled-from' edge to the source.
+	// Sets 'Agent.bootPromptRef' unless 'setPointer: false'. Never approves or signs ('approvalIssued' is always false).
+	//
+	// Whoever manages the Agent, as themselves: a request bound to a worker session, a non-manager, an App key, an
+	// impersonation, a run, and a target that does not exist are alike refused BOOT_PROMPT_COMPILE_NOT_PERMITTED. Only then: BOOT_PROMPT_TARGET_RETIRED, BOOT_PROMPT_NO_SOURCE, BOOT_PROMPT_SOURCE_INVALID, the
+	// include refusals (BOOT_PROMPT_INCLUDE_*, _GRANT_REQUIRED, _COMPILE_LIMIT_EXCEEDED, with the tag's 'position'),
+	// and CONFLICT when the compile could not settle inside its 30-second budget (retry).
+	// A refusal changes nothing. No MCP twin.
+	CompileAgentBootPrompt *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt `json:"compileAgentBootPrompt"`
+}
+
+// GetCompileAgentBootPrompt returns CompileAgentBootPromptResponse.CompileAgentBootPrompt, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptResponse) GetCompileAgentBootPrompt() *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt {
+	return v.CompileAgentBootPrompt
+}
+
+// CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt includes the requested fields of the GraphQL type CompiledBootPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2046 — the result of a compile: the new unapproved revision of the compiled node.
+type CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt struct {
+	BootCompileResult `json:"-"`
+}
+
+// GetNode returns CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt.Node, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) GetNode() *BootCompileResultNode {
+	return v.BootCompileResult.Node
+}
+
+// GetRevNo returns CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt.RevNo, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) GetRevNo() int {
+	return v.BootCompileResult.RevNo
+}
+
+// GetContentHash returns CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt.ContentHash, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) GetContentHash() string {
+	return v.BootCompileResult.ContentHash
+}
+
+// GetPointerSet returns CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt.PointerSet, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) GetPointerSet() bool {
+	return v.BootCompileResult.PointerSet
+}
+
+// GetApprovalIssued returns CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt.ApprovalIssued, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) GetApprovalIssued() bool {
+	return v.BootCompileResult.ApprovalIssued
+}
+
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.BootCompileResult)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt struct {
+	Node *BootCompileResultNode `json:"node"`
+
+	RevNo int `json:"revNo"`
+
+	ContentHash string `json:"contentHash"`
+
+	PointerSet bool `json:"pointerSet"`
+
+	ApprovalIssued bool `json:"approvalIssued"`
+}
+
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) __premarshalJSON() (*__premarshalCompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt, error) {
+	var retval __premarshalCompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt
+
+	retval.Node = v.BootCompileResult.Node
+	retval.RevNo = v.BootCompileResult.RevNo
+	retval.ContentHash = v.BootCompileResult.ContentHash
+	retval.PointerSet = v.BootCompileResult.PointerSet
+	retval.ApprovalIssued = v.BootCompileResult.ApprovalIssued
+	return &retval, nil
+}
+
+// CompileAppAgentBootPromptResponse is returned by CompileAppAgentBootPrompt on success.
+type CompileAppAgentBootPromptResponse struct {
+	// #2046 — compile an installed Agent's boot prompt for one App into 'boot:compiled' in the App's install memory
+	// (the App's own 'boot:source' if it has a live one, else the Agent's, with the App's replacing nodes). Always sets
+	// 'AppAgent.bootPromptRef'. Whoever manages the App; otherwise as compileAgentBootPrompt.
+	CompileAppAgentBootPrompt *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt `json:"compileAppAgentBootPrompt"`
+}
+
+// GetCompileAppAgentBootPrompt returns CompileAppAgentBootPromptResponse.CompileAppAgentBootPrompt, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptResponse) GetCompileAppAgentBootPrompt() *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt {
+	return v.CompileAppAgentBootPrompt
+}
+
+// CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt includes the requested fields of the GraphQL type CompiledBootPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2046 — the result of a compile: the new unapproved revision of the compiled node.
+type CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt struct {
+	BootCompileResult `json:"-"`
+}
+
+// GetNode returns CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt.Node, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) GetNode() *BootCompileResultNode {
+	return v.BootCompileResult.Node
+}
+
+// GetRevNo returns CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt.RevNo, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) GetRevNo() int {
+	return v.BootCompileResult.RevNo
+}
+
+// GetContentHash returns CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt.ContentHash, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) GetContentHash() string {
+	return v.BootCompileResult.ContentHash
+}
+
+// GetPointerSet returns CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt.PointerSet, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) GetPointerSet() bool {
+	return v.BootCompileResult.PointerSet
+}
+
+// GetApprovalIssued returns CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt.ApprovalIssued, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) GetApprovalIssued() bool {
+	return v.BootCompileResult.ApprovalIssued
+}
+
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.BootCompileResult)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt struct {
+	Node *BootCompileResultNode `json:"node"`
+
+	RevNo int `json:"revNo"`
+
+	ContentHash string `json:"contentHash"`
+
+	PointerSet bool `json:"pointerSet"`
+
+	ApprovalIssued bool `json:"approvalIssued"`
+}
+
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) __premarshalJSON() (*__premarshalCompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt, error) {
+	var retval __premarshalCompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt
+
+	retval.Node = v.BootCompileResult.Node
+	retval.RevNo = v.BootCompileResult.RevNo
+	retval.ContentHash = v.BootCompileResult.ContentHash
+	retval.PointerSet = v.BootCompileResult.PointerSet
+	retval.ApprovalIssued = v.BootCompileResult.ApprovalIssued
+	return &retval, nil
+}
+
+// CompileWorkerBootPromptResponse is returned by CompileWorkerBootPrompt on success.
+type CompileWorkerBootPromptResponse struct {
+	// #2046 — compile a customised worker's boot prompt from 'boot:workers:<workerId>:source' into
+	// 'boot:workers:<workerId>:compiled' in the App's install memory. Sets the worker's pointer unless 'setPointer: false'.
+	// Whoever manages the worker's App; otherwise as compileAgentBootPrompt. workerRef is the worker's id or URN.
+	CompileWorkerBootPrompt *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt `json:"compileWorkerBootPrompt"`
+}
+
+// GetCompileWorkerBootPrompt returns CompileWorkerBootPromptResponse.CompileWorkerBootPrompt, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptResponse) GetCompileWorkerBootPrompt() *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt {
+	return v.CompileWorkerBootPrompt
 }
 
 // CompleteAssetUploadCompleteAssetUploadAsset includes the requested fields of the GraphQL type Asset.
@@ -63498,6 +63851,42 @@ func (v *__CommentThreadsInput) GetLimit() int { return v.Limit }
 // GetOffset returns __CommentThreadsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__CommentThreadsInput) GetOffset() int { return v.Offset }
 
+// __CompileAgentBootPromptInput is used internally by genqlient
+type __CompileAgentBootPromptInput struct {
+	AgentRef   string `json:"agentRef"`
+	SetPointer *bool  `json:"setPointer,omitempty"`
+}
+
+// GetAgentRef returns __CompileAgentBootPromptInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CompileAgentBootPromptInput) GetAgentRef() string { return v.AgentRef }
+
+// GetSetPointer returns __CompileAgentBootPromptInput.SetPointer, and is useful for accessing the field via an interface.
+func (v *__CompileAgentBootPromptInput) GetSetPointer() *bool { return v.SetPointer }
+
+// __CompileAppAgentBootPromptInput is used internally by genqlient
+type __CompileAppAgentBootPromptInput struct {
+	AppRef   string `json:"appRef"`
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAppRef returns __CompileAppAgentBootPromptInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CompileAppAgentBootPromptInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __CompileAppAgentBootPromptInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CompileAppAgentBootPromptInput) GetAgentRef() string { return v.AgentRef }
+
+// __CompileWorkerBootPromptInput is used internally by genqlient
+type __CompileWorkerBootPromptInput struct {
+	WorkerRef  string `json:"workerRef"`
+	SetPointer *bool  `json:"setPointer,omitempty"`
+}
+
+// GetWorkerRef returns __CompileWorkerBootPromptInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__CompileWorkerBootPromptInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetSetPointer returns __CompileWorkerBootPromptInput.SetPointer, and is useful for accessing the field via an interface.
+func (v *__CompileWorkerBootPromptInput) GetSetPointer() *bool { return v.SetPointer }
+
 // __CompleteAssetUploadInput is used internally by genqlient
 type __CompleteAssetUploadInput struct {
 	UploadId string `json:"uploadId"`
@@ -72506,6 +72895,141 @@ func CommentThreads(
 	}
 
 	data_ = &CommentThreadsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CompileAgentBootPrompt.
+const CompileAgentBootPrompt_Operation = `
+mutation CompileAgentBootPrompt ($agentRef: String!, $setPointer: Boolean) {
+	compileAgentBootPrompt(agentRef: $agentRef, setPointer: $setPointer) {
+		... BootCompileResult
+	}
+}
+fragment BootCompileResult on CompiledBootPrompt {
+	node {
+		urn
+	}
+	revNo
+	contentHash
+	pointerSet
+	approvalIssued
+}
+`
+
+func CompileAgentBootPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	setPointer *bool,
+) (data_ *CompileAgentBootPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompileAgentBootPrompt",
+		Query:  CompileAgentBootPrompt_Operation,
+		Variables: &__CompileAgentBootPromptInput{
+			AgentRef:   agentRef,
+			SetPointer: setPointer,
+		},
+	}
+
+	data_ = &CompileAgentBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CompileAppAgentBootPrompt.
+const CompileAppAgentBootPrompt_Operation = `
+mutation CompileAppAgentBootPrompt ($appRef: String!, $agentRef: String!) {
+	compileAppAgentBootPrompt(appRef: $appRef, agentRef: $agentRef) {
+		... BootCompileResult
+	}
+}
+fragment BootCompileResult on CompiledBootPrompt {
+	node {
+		urn
+	}
+	revNo
+	contentHash
+	pointerSet
+	approvalIssued
+}
+`
+
+func CompileAppAgentBootPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef string,
+) (data_ *CompileAppAgentBootPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompileAppAgentBootPrompt",
+		Query:  CompileAppAgentBootPrompt_Operation,
+		Variables: &__CompileAppAgentBootPromptInput{
+			AppRef:   appRef,
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &CompileAppAgentBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CompileWorkerBootPrompt.
+const CompileWorkerBootPrompt_Operation = `
+mutation CompileWorkerBootPrompt ($workerRef: ID!, $setPointer: Boolean) {
+	compileWorkerBootPrompt(workerRef: $workerRef, setPointer: $setPointer) {
+		... BootCompileResult
+	}
+}
+fragment BootCompileResult on CompiledBootPrompt {
+	node {
+		urn
+	}
+	revNo
+	contentHash
+	pointerSet
+	approvalIssued
+}
+`
+
+func CompileWorkerBootPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	setPointer *bool,
+) (data_ *CompileWorkerBootPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompileWorkerBootPrompt",
+		Query:  CompileWorkerBootPrompt_Operation,
+		Variables: &__CompileWorkerBootPromptInput{
+			WorkerRef:  workerRef,
+			SetPointer: setPointer,
+		},
+	}
+
+	data_ = &CompileWorkerBootPromptResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
