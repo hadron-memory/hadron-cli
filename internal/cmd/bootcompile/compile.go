@@ -61,7 +61,10 @@ Each successful compile writes a revision, even if the text is unchanged.
 Sign in as a manager of the target Agent or App. This command acts as you and
 never sends this worktree's worker-session header. Agent and App references
 are ids or fully-qualified URNs. A worker may also be a name in the selected
-App (--app, the configured App context or the worktree binding).
+App (--app, the configured App context or a binding for this server).
+A worker id or fully-qualified worker URN ignores the ambient App and binding.
+A missing, corrupt or unknown/different-server binding cannot select an App
+for a name; pass --app explicitly or use a fully-qualified worker URN.
 
 Compile does not approve or serve a prompt. The result reports the compiled
 node, revision, content hash, whether the pointer was set and approvalIssued

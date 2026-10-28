@@ -38,3 +38,20 @@ Pre-mutation failures (argument validation, credentials, App normalization,
 worker lookup or output failure) send no compile mutation. A mutation failure
 or missing result never triggers a second submission. Output failure after a
 successful mutation cannot roll it back; callers must verify before retrying.
+
+
+## Finder fix: worker scope resolution
+
+Liam's P2-1/2/3 at fea09a3e are addressed in the compile-specific resolver,
+without changing global worker get/set behavior. Worker ids and qualified URNs
+go directly to GetWorker, independent of ambient App or corrupt/foreign binding.
+Names require an explicit/configured App, or a readable binding with a known
+matching API endpoint. Binding and scope errors return before any lookup or
+compile, never become a best-effort worker-id fallback. The human label names
+the actual name-scope source; explicit refs have their own label. Endpoint
+comparison uses api.Endpoint; no local authority rule is inferred.
+
+Red-first6ad8ded pins --app, binding, no-context/corrupt/foreign error paths,
+resolved worker id, no header, and URI/id bypass of unrelated context. appScope
+is a value, not a pointer: the blind run's conditional panic premise does not
+apply. No P1 is inferred. C1b/C3c branches remain separate.

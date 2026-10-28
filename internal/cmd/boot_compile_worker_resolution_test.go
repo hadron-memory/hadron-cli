@@ -63,11 +63,11 @@ func TestC1WorkerNameRequiresUsableScopeBeforeRequests(t *testing.T) {
 
 func TestC1WorkerNameScopeSourceAndResolvedIdentity(t *testing.T) {
 	for _, tc := range []struct {
-		mode, source string
-		flags        []string
+		mode, source, app string
+		flags             []string
 	}{
-		{"bound", "from the worktree binding", nil},
-		{"corrupt", "from --app", []string{"--app", "hrn:app:acme.com:eng-team"}},
+		{"bound", "from the worktree binding", "capp100000000000000000000", nil},
+		{"corrupt", "from --app", "hrn:app:acme.com:eng-team", []string{"--app", "hrn:app:acme.com:eng-team"}},
 	} {
 		t.Run(tc.source, func(t *testing.T) {
 			calls, out, err := c1ResolveRun(t, tc.mode, "Iris", tc.flags...)
@@ -75,7 +75,7 @@ func TestC1WorkerNameScopeSourceAndResolvedIdentity(t *testing.T) {
 				t.Fatal(err)
 			}
 			list := c2Mutation(t, calls, "Workers")
-			if list.Vars["appRef"] == nil {
+			if list.Vars["appRef"] != tc.app || len(*calls) != 2 {
 				t.Fatalf("name scan was unscoped: %s", list.RawVars)
 			}
 			mutation := c2Mutation(t, calls, "CompileWorkerBootPrompt")
