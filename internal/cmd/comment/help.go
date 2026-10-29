@@ -152,6 +152,7 @@ var verbExample = map[string]string{
 	"delete": `  hadron comment delete hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6 --expected-revision 3
   hadron comment delete 01a18996fd187b77859b2190c6c51cc6 --expected-revision 3 --yes --json`,
 	"resolve": `  hadron comment resolve hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6 --expected-revision 3
+  # resolving does not change the write counter, so reopening takes the same value
   hadron comment resolve hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6 --reopen --expected-revision 3`,
 	"get": `  hadron comment get hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6
   hadron comment get 01a18996fd187b77859b2190c6c51cc6 --json`,

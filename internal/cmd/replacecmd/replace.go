@@ -57,7 +57,8 @@ func NewCmdReplace(f *cmdutil.Factory) *cobra.Command {
 		Long: `Search and replace text in nodes. Its one command, replace text, finds a
 piece of text across many nodes (a whole memory, a branch of it, or a list of
 nodes) and replaces it in one step, after showing how many matches each node
-has. Every change is saved to the node's version history and can be undone.`,
+has. Every change is saved to the node's version history and can be undone.
+Comments, governed nodes and protected nodes are skipped; see replace text.`,
 		Example: `  hadron replace text "Acme Corp" "Acme Inc" -m hrn:mem:acme.com:kb --field content --dry-run`,
 	}
 	cmd.AddCommand(newCmdReplaceText(f))
@@ -86,6 +87,12 @@ a wrong term everywhere it appears.
 
 Choose the nodes with --node (a node URN or id, repeatable), with -m/--memory
 (every node in that memory, repeatable), or both; at least one is required.
+
+Some nodes are never changed, and are skipped without a warning: comments
+(change them with comment edit), governed nodes such as specs and reviews
+(they have their own commands), compiled boot prompts, and nodes at protected
+addresses. Skipped nodes are not counted in "scanned", and this command does
+not report how many were skipped.
 --prefix narrows a --memory to one branch: the node at that loc and
 everything below it (it matches on ':' boundaries, so 'auth' matches 'auth'
 and 'auth:tokens' but not 'authoring').
@@ -110,9 +117,9 @@ nodesChanged, totalReplacements, dryRun and results.
 
 Before it changes a node, it saves the node's previous text as a revision
 in its version history, labelled with --reason if you give one. To undo the
-replacement on a node, find that revision (the newest in
-hadron node revision list <node>) and restore it with
-hadron node revision restore <revision-id>.`,
+replacement on a node, find that revision in hadron node revision list <node>
+(its LABEL is your --reason; it is the newest only until the node is edited
+again) and restore it with hadron node revision restore <revision-id>.`,
 		Example: `  # Preview only: count the matches, write nothing
   hadron replace text "Acme Corp" "Acme Inc" -m hrn:mem:acme.com:kb --field content --dry-run
 

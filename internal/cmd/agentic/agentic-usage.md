@@ -3209,6 +3209,8 @@ hadron node merge hrn:node:acme.com:kb:findings:dup --into hrn:node:acme.com:kb:
 # against a whole-memory rewrite from a wrong -m URN or a forgotten --prefix).
 # Each changed node first gets a revision holding its previous text (labelled
 # with --reason): undo with `node revision restore <that revision-id>`.
+# Comments, governed nodes (specs, reviews), compiled boot prompts and protected
+# addresses are skipped silently: not scanned, not counted, no skip count shown.
 hadron replace text "old-url.com" "new-url.com" \
   -m hrn:mem:acme.com:kb --field content --field description --dry-run
 
